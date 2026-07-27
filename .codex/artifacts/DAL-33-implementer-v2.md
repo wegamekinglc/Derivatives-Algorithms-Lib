@@ -1,250 +1,233 @@
 # DAL-33 implementer v2 handoff
 
-## Scope and provenance
+Date: 2026-07-28
+Branch: `fix/dal-33-bcg-scale-stability`
+
+## Exact revisions
 
 - Approved baseline: `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`
-- Target ref: `refs/heads/fix/dal-33-bcg-scale-stability`
-- Controlling documents: `DAL-33-spec-v2.md`, `DAL-33-api-v2.md`, and
-  `DAL-33-critic-v2.md`
-- Tester-blocked head repaired:
-  `48aaf5b9af388cd0842a2918567c6570957cb61f`
-- Tested repair GREEN:
-  `869c08733e4621061351af14d3b746c9c02c192b`
-- Fresh performance-evidence commit:
-  `526e0af8422a52bb6cf6ff1f396a4234a9b2ead3`
-- The delivery head is the tip containing this handoff; resolve it from the
-  target ref. No PR was created and nothing was merged.
+- Reviewer-blocked head reproduced: `235167a1ed2e44b46b155ab3360f839a9df272bc`
+- RED: `8cb313e6eafc743f59a3e3022237ff4737ecbb45`
+- GREEN: `9307ccfc2cca46fe56bb668c36a86c8c403b367e`
+- Green performance refactor: `f195dda78f6d24ad3961b76683fc2f6685a625d9`
 
-The production change remains private to `dal-cpp/dal/math/matrix/bcg.cpp`.
-Tests changed only in `dal-cpp/tests/math/matrix/test_bcg.cpp`. No public
-header, binding, generated API, release documentation, or benchmark source was
-changed.
+The final delivery commit adds only this handoff and the replacement paired
+benchmark evidence on top of the code head. Its exact remote SHA is reported in
+the issue handoff because a committed file cannot contain its own commit hash.
 
-## Commit layering
+## Reviewer blocker reproduction and RED
 
-### Original RED
+The reviewer-supplied public-API probe was rebuilt against exact head
+`235167a1ed2e44b46b155ab3360f839a9df272bc`:
 
-- `9e6ad215c3150d406691530f6222eee271fc9a05`
-  (`Add DAL-33 failing Krylov contract tests`)
-- Added the approved v2 stability, convergence, callback, state-preservation,
-  and signature coverage.
-- Focused command:
+```text
+g++ -std=c++17 -O2 -I dal-cpp \
+  ../.multica-control/dal-33-reviewer2/dal33_reviewer_wide_residual_probe.cpp \
+  build/Release-reviewer/dal-cpp/libdal_cpp.a -pthread \
+  -o /tmp/dal33_reviewer_wide_residual_probe
+/tmp/dal33_reviewer_wide_residual_probe
+```
 
-  ```text
-  ./build/Release-linux/dal-cpp/dal_cpp_tests \
-    --gtest_filter='MatrixTest.*CGSolve*' --gtest_brief=1
-  ```
+Result before the repair:
 
-- Result before production changes: exit 1; 26 tests ran, 14 passed, 12
-  failed.
+```text
+x=[0x0p+0,-0x0.0000000000001p-1022]
+exit 1
+```
 
-### Original GREEN
+Commit `8cb313e6eafc743f59a3e3022237ff4737ecbb45` adds:
 
-- `f3ea5695353d30ad5ae7675a133c70ab045a6508`
-  (`Stabilize DAL-33 Krylov solver state`)
-- Added the private stable-scaled arithmetic, candidate-state commit,
-  confirmation, callback validation, and finite-check mechanisms.
-- Focused result: exit 0; 26/26 passed.
+- a public `Sparse::BCGSolve` regression with `A=I₂`, `b=[1,0]`,
+  `x0=[0,-denorm_min]`, `tolRel=1`, and `tolAbs=0`;
+- exact successful callback counts (`MultiplyLeft=3`, `MultiplyRight=1`,
+  both preconditioners zero);
+- an independent-oracle assertion that the initial residual is not converged;
+- a zero-threshold test that exercises an empty right-hand bit map.
 
-### Tester repair RED
+Focused RED:
 
-- `e1044baf2bd3ec69af65ceec19b4cfbc46fbf73b`
-  (`Add DAL-33 callback-order regression assertions`)
-- Added literal exact callback-count tables for every CG/BCG fault site,
-  exact BCG nonzero-tolerance initial-return counts, and an OR-03 wide-exponent
-  fixture with `{1.0, denorm_min}`.
-- Focused result: exit 1; 26 tests ran, 24 passed, with exactly the two
-  tester-reported defects reproduced:
-  - a non-finite BCG `MultiplyLeft` update incorrectly reached
-    `MultiplyRight`;
-  - the prior oracle discarded the nonzero low exponent bin and reported
-    convergence.
+```text
+./build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='MatrixTest.TestBCGSolvePreservesWideExponentResidualContribution:MatrixTest.TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold'
+```
 
-### Tester repair GREEN
+Result: the public solver regression failed as required: `x[0]` was `0`,
+expected `1`. The zero-threshold path exposed the separately reviewed empty-map
+precondition; the production fix was not started before the solver RED was
+recorded and committed.
 
-- `869c08733e4621061351af14d3b746c9c02c192b`
-  (`Validate DAL-33 callbacks before dependent work`)
-- Every external callback result now immediately passes shape validation and
-  then finite validation before any dependent reduction or later callback.
-  The failed callback is counted, while all later callbacks remain at zero.
-- Removed the deferred update-dot validation path; denominator reduction now
-  consumes only an already validated callback result.
-- Replaced the test oracle with an independent exact binary-bin oracle. It
-  decomposes finite doubles into significand bits and exponents, performs
-  exact integer-bin square/sum/shift/compare operations, and therefore retains
-  nonzero bins across the full binary64 exponent range. It does not call the
-  production scaled helpers, use an original-scale dot/norm, or reduce through
-  a floating-point maximum-exponent accumulator.
-- Focused result: exit 0; 26/26 passed.
+## Minimal GREEN and scope
 
-### Evidence replacement
+Changed code files relative to the blocked head:
 
-- `526e0af8422a52bb6cf6ff1f396a4234a9b2ead3`
-  (`Replace contaminated DAL-33 performance evidence`)
-- Replaced all 40 raw outputs, `results.json`, and `summary.md` under
-  `.codex/artifacts/DAL-33-performance-v2/paired/` with the fresh exact-source
-  run described below. The old instrumented evidence is not retained on the
-  target ref.
+- `dal-cpp/dal/math/matrix/bcg.cpp`
+- `dal-cpp/tests/math/matrix/test_bcg.cpp`
 
-## Behavioral audit
+Commit `9307ccfc2cca46fe56bb668c36a86c8c403b367e`:
 
-- Shape is checked before finiteness for every callback result.
-- A shape or finite-value failure prevents every subsequent callback.
-- Callback exceptions still propagate unchanged.
-- The literal fault tables cover initial residual, left/right operator,
-  left/right preconditioner, and direct-confirmation failures for both
-  solvers, including unused callback sites as exact zeros.
-- BCG's nonzero-tolerance initial return is exactly:
-  `MultiplyLeft=1`, `MultiplyRight=0`, `PreconditionLeft=0`,
-  `PreconditionRight=0`, with `x` unchanged.
-- Candidate vectors remain separate from committed state; `x` changes only
-  after candidate validation and required direct-residual confirmation.
-- Common-exponent stable arithmetic, grouped FMA checks, and the symmetric BCG
-  callback-count-preserving fast path remain as approved.
+- retains the fast scaled-norm comparison away from the convergence boundary;
+- uses a private fixed-width exact nonnegative accumulator only in the
+  conservative uncertainty interval;
+- compares the inclusive contract without dropping any nonzero binary64
+  squared contribution, including contributions separated by the full binary64
+  exponent range;
+- fixes the test oracle's zero-threshold empty right-hand bit map before any
+  iterator dereference;
+- removes the added `mutable`; `StableBatch_::Finish` is non-const;
+- leaves public headers, bindings, callback ordering/counting, atomic commit,
+  and all O(n) solver workspaces unchanged. The exact fallback uses fixed-size
+  automatic storage and performs no heap or O(n) allocation in the loop.
 
-## Verification
+Commit `f195dda78f6d24ad3961b76683fc2f6685a625d9` is a behavior-preserving GREEN
+refactor. It algebraically precomputes the same conservative inner and outer
+thresholds before the iteration loop. The common not-yet-converged path again
+needs one scaled comparison, while the uncertainty interval still routes to
+the exact comparator.
 
-- Focused native suite:
+The repaired public probe now reports:
 
-  ```text
-  ./build/Release-linux/dal-cpp/dal_cpp_tests \
-    --gtest_filter='MatrixTest.*CGSolve*' --gtest_brief=1
-  ```
+```text
+x=[0x1p+0,0x0p+0]
+exit 0
+```
 
-  Result: 26/26 passed.
+## Functional verification
 
-- Full native Release/AADET/AVX2 build and suite:
+Focused native (`DAL_ENABLE_NATIVE_ARCH=ON`, AADET/AVX2):
 
-  ```text
-  bash ./build_linux.sh
-  ```
+```text
+./build/Release-native-v3/dal-cpp/dal_cpp_tests \
+  --gtest_filter='MatrixTest.TestCGSolve*:MatrixTest.TestBCGSolve*' \
+  --gtest_brief=1
+```
 
-  Result: exit 0; 1165/1165 passed in 23.80 s.
+Result: 28/28 passed.
 
-- Explicit full suite:
+The new public solver regression was also repeated ten times without failure.
 
-  ```text
-  ctest --test-dir build/Release-linux --output-on-failure --quiet
-  ```
+Explicit scalar fallback:
 
-  Result: exit 0.
+```text
+cmake --preset=Release-linux -S . -B build/Release-scalar-fallback-v3 \
+  -DDAL_ENABLE_NATIVE_ARCH=OFF \
+  -DCMAKE_CXX_FLAGS='-U__AVX2__ -U__FMA__ -U__SSE2__' \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build/Release-scalar-fallback-v3 --target dal_cpp_tests -j8
+./build/Release-scalar-fallback-v3/dal-cpp/dal_cpp_tests \
+  --gtest_filter='MatrixTest.TestCGSolve*:MatrixTest.TestBCGSolve*' \
+  --gtest_brief=1
+```
 
-- Scalar fallback:
+Result: the compile database contains all three explicit macro undefinitions;
+28/28 passed.
 
-  ```text
-  cmake --preset=Release-linux -S . -B build/Release-scalar-fallback \
-    -DDAL_ENABLE_NATIVE_ARCH=OFF \
-    -DCMAKE_CXX_FLAGS='-U__AVX2__ -U__FMA__ -U__SSE2__' \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-  cmake --build build/Release-scalar-fallback --target dal_cpp_tests -j32
-  ./build/Release-scalar-fallback/dal-cpp/dal_cpp_tests \
-    --gtest_filter='MatrixTest.*CGSolve*' --gtest_brief=1
-  ```
+Full native Release build, install, and CTest:
 
-  Result: the compile database contains all three explicit `-U` flags and the
-  focused suite passed 26/26.
+```text
+DAL_BUILD_DIR=build/Release-full-native-v3 \
+DAL_INSTALL_DIR=build/stage/Release-full-native-v3 \
+NUM_CORES=8 \
+ADDITIONAL_CMAKE_FLAGS='-DDAL_ENABLE_NATIVE_ARCH=ON' \
+bash ./build_linux.sh
+```
 
-- Large finite RHS repeated three times:
+Result: 1167/1167 passed.
 
-  ```text
-  ./build/Release-linux/dal-cpp/dal_cpp_tests \
-    --gtest_filter=MatrixTest.TestCGSolveAndBCGSolveLargeFiniteRhs \
-    --gtest_repeat=3 --gtest_brief=1
-  ```
+Large finite RHS repeated three times:
 
-  Result: 3/3 passed.
+```text
+./build/Release-full-native-v3/dal-cpp/dal_cpp_tests \
+  --gtest_filter=MatrixTest.TestCGSolveAndBCGSolveLargeFiniteRhs \
+  --gtest_repeat=3 --gtest_brief=1
+```
 
-- Documentation:
+Result: 3/3 passed.
 
-  ```text
-  python3 .github/scripts/check_docs.py
-  ```
+Documentation and benchmark-script checks:
 
-  Result: documentation checks passed for 39 Markdown files.
+```text
+python3 .github/scripts/check_docs.py
+python3 -m unittest discover -s .github/scripts/tests \
+  -p 'test_check_benchmark_regressions.py' -q
+```
 
-- Benchmark-script unit tests:
+Results: 39 Markdown files passed; 19/19 script tests passed.
 
-  ```text
-  python3 -m unittest discover -s .github/scripts/tests \
-    -p 'test_check_benchmark_regressions.py' -q
-  ```
+Patch and public-surface gates:
 
-  Result: 19/19 passed.
+```text
+git diff --check \
+  98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8 HEAD
+git diff --exit-code --name-only \
+  98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8 HEAD -- \
+  dal-cpp/dal/math/matrix/bcg.hpp dal-public dal-python dal-excel
+```
 
-- Patch and public-surface gates:
+Results: both exit 0; the public-surface diff is empty.
 
-  ```text
-  git diff --check \
-    98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8 HEAD
-  git diff --exit-code --name-only \
-    98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8 HEAD -- \
-    dal-cpp/dal/math/matrix/bcg.hpp dal-public dal-python dal-excel
-  ```
+## Fresh exact 10x2 paired performance gate
 
-  Result: both exit 0; the public-surface diff is empty.
+The prior paired directory was removed from the deliverable and replaced. The
+final run used newly initialized detached sources and new out-of-tree builds:
 
-## Fresh native paired performance gate
-
-Configuration:
-
-- machine: 13th Gen Intel Core i9-13900HX
-- compiler: GNU `gcc-14`/`g++-14`; Unix Makefiles; Release static build
-- AADET native backend with `DAL_ENABLE_NATIVE_ARCH=ON`
-- public, tests, examples, Python, and alternate AAD backends disabled;
-  benchmarks enabled
-- `DAL_NUM_THREADS=4`
-- separate detached, clean sources and out-of-tree builds:
-  - baseline `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`
-  - repair GREEN `869c08733e4621061351af14d3b746c9c02c192b`
-- both sources used the same locked recursive submodules
-- the baseline and head `krylov_perf.cpp` blob is identical
-  (`4ba845ea1615728b04c1d2bf14b03ceb66e3ec84`) and contains no
-  `calls/solve` instrumentation
+- baseline source: exact
+  `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`;
+- head source: exact
+  `f195dda78f6d24ad3961b76683fc2f6685a625d9`;
+- both worktrees were clean before and after the run;
+- recursive submodule SHAs were identical;
+- `krylov_perf.cpp` blob was identical:
+  `4ba845ea1615728b04c1d2bf14b03ceb66e3ec84`;
+- GNU `gcc-14`/`g++-14`, Release static AADET native build;
+- tests, examples, public library, Python, XAD, CoDiPack, and Adept disabled;
+  benchmarks enabled;
+- no benchmark source instrumentation and no raw `calls/solve` marker.
 
 Command:
 
 ```text
-env DAL_NUM_THREADS=4 \
-  python3 .github/scripts/check_benchmark_regressions.py \
-    --base-root <fresh-root>/baseline-build \
-    --head-root <fresh-root>/head-build \
-    --output-dir .codex/artifacts/DAL-33-performance-v2/paired \
-    --benchmarks krylov_perf \
-    --samples 10 \
-    --confirmation-rounds 2 \
-    --threshold-percent 4
+DAL_NUM_THREADS=4 \
+python3 .github/scripts/check_benchmark_regressions.py \
+  --base-root <fresh-root>/baseline-build \
+  --head-root <fresh-root>/head2-build \
+  --output-dir .codex/artifacts/DAL-33-performance-v2/paired \
+  --benchmarks krylov_perf \
+  --samples 10 \
+  --confirmation-rounds 2 \
+  --threshold-percent 4
 ```
 
 Result: exit 0.
 
 | Case | Base min | Head min | Combined | Round 1 | Round 2 | Gate |
 |---|---:|---:|---:|---:|---:|---|
-| `BCGSolve (500x500 tridiag)` | 19,813 ns | 19,060 ns | -3.80% | -4.02% | -3.78% | pass |
-| `CGSolve (500x500 tridiag)` | 15,291 ns | 15,617 ns | +2.13% | +6.29% | +2.13% | pass |
-
-The approved gate fails only when every independent confirmation round exceeds
-+4%; neither case did. The machine-readable `failures` array is empty.
+| `BCGSolve (500x500 tridiag)` | 19,277 ns | 18,633 ns | -3.34% | -3.38% | -3.21% | pass |
+| `CGSolve (500x500 tridiag)` | 14,918 ns | 15,321 ns | +2.70% | +2.23% | +2.70% | pass |
 
 Evidence audit:
 
-- 40 raw process outputs: 20 base and 20 head;
-- each raw file has exactly four lines and both benchmark cases;
-- no raw file contains `calls/solve`;
-- source worktrees remained clean and at their exact SHAs after the run;
-- distributions:
-  - base CG: n=20, min=15,291 ns, median=16,015 ns, max=18,297 ns;
-  - head CG: n=20, min=15,617 ns, median=16,128.5 ns, max=19,540 ns;
-  - base BCG: n=20, min=19,813 ns, median=20,650 ns, max=25,347 ns;
-  - head BCG: n=20, min=19,060 ns, median=19,871 ns, max=21,134 ns.
+- 40 raw outputs: 20 baseline and 20 head;
+- both cases are present in every raw output;
+- `failures` is empty in `results.json`;
+- the tracked evidence directory contains only this passing exact-baseline /
+  exact-head run.
 
-## Remaining risk
+For transparency, the first fresh run against GREEN
+`9307ccfc2cca46fe56bb668c36a86c8c403b367e` failed the CG gate in both rounds
+(+4.56%, +4.51%). It was not retained as evidence. The equivalent threshold
+precomputation in `f195dda78f6d24ad3961b76683fc2f6685a625d9` removed the repeated
+loop overhead, after which the entire paired gate was rebuilt and rerun from
+exact revisions.
 
-- CG's first confirmation round measured +6.29% while its second measured
-  +2.13%; this passes the approved two-round rule but records noisy-host timing
-  variance for tester/CI comparison.
-- The explicit macro-undefined scalar fallback ran on this x86 host. CI remains
-  authoritative for native non-x86 ABIs and toolchains.
-- The symmetric BCG fast path relies on the existing
-  `Sparse::Square_::IsSymmetric()` contract. Non-symmetric and preconditioned
-  BCG continue through the independent shadow-direction path.
-- No design deviation from the approved v2 spec/API/critique was taken.
+## Remaining risk and next gate
+
+- The exact fallback is private and fixed-width for the complete finite
+  binary64 square/product range. Focused tests cover the reported widest
+  exponent separation and the existing boundary/scale-metamorphic cases, but
+  independent tester fuzzing remains valuable.
+- The explicit scalar fallback ran on this x86 host; CI remains authoritative
+  for non-x86 ABIs and other toolchains.
+- No PR was created and nothing was merged.
+- Required next step: tester independently checks the new remote head and
+  evidence. Reviewer re-review follows only after tester passes. Doc-writer
+  remains paused.
