@@ -6,6 +6,7 @@ import {
   type CalibrationKind,
 } from "../api/client";
 import CurveLabQuoteAuthoring from "../components/CurveLabQuoteAuthoring";
+import CurveLabWorkspace from "../components/CurveLabWorkspace";
 import { calibrationExamples } from "../curves/examples";
 import { locateCalibrationField, type LocatedField } from "../curves/visualization";
 import { css } from "../format";
@@ -90,6 +91,8 @@ export default function Curves() {
           <span>request lines</span>
         </div>
       </div>
+
+      <CurveLabWorkspace />
 
       <CurveLabQuoteAuthoring />
 

@@ -139,6 +139,104 @@ export interface CurveLabCanonicalQuote {
   normalized_risk_bump: string;
 }
 
+export interface CurveLabDraft {
+  id: string;
+  schema_version: 2;
+  revision: number;
+  fingerprint: string;
+  state: "READY_TO_BUILD" | "MODIFIED";
+  document: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CurveLabAxisEntry {
+  global_quote_index?: number;
+  global_parameter_index?: number;
+  quote_id?: string;
+  parameter_id?: string;
+  instrument_id?: string;
+  component_key: string;
+  display_label: string;
+  raw_quote?: string;
+  normalized_quote?: string;
+  coordinate_kind?: string;
+  node_date?: string;
+}
+
+export interface CurveLabBuildRun {
+  id: string;
+  draft_id: string;
+  draft_revision: number;
+  draft_fingerprint: string;
+  state: string;
+  stale: boolean;
+  request: Record<string, unknown>;
+  quote_axis: CurveLabAxisEntry[];
+  parameter_axis: CurveLabAxisEntry[];
+  native_payload_hash: string | null;
+  error: { code: string; message: string; field: string } | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface CurveLabVersion {
+  id: string;
+  source_kind: "BUILD" | "IMPORT";
+  build_run_id: string | null;
+  import_job_id: string | null;
+  name: string;
+  version_note: string | null;
+  tags: string[];
+  native_payload_length: number;
+  native_payload_hash: string;
+  root_kind: "DISCOUNT_CURVE" | "CURVE_SET";
+  build_validation_state: "VERIFIED" | "IMPORT_RECONSTRUCTED";
+  visibility_state: "VISIBLE" | "ARCHIVED";
+  created_at: string;
+}
+
+export interface CurveLabRiskRun {
+  id: string;
+  curve_version_id: string;
+  source_kind: "BUILD_VERSION" | "IMPORT_VERSION";
+  state: string;
+  quote_axis: CurveLabAxisEntry[] | null;
+  parameter_axis: CurveLabAxisEntry[];
+  estimated_work: Record<string, number | boolean>;
+  result: {
+    pricing?: Array<Record<string, unknown>>;
+    dv01?: Array<Record<string, unknown>>;
+    key_rate_sum?: Array<Record<string, unknown>>;
+    nonlinear_reconciliation?: Array<Record<string, unknown>>;
+    sensitivity_matrices?: Array<{
+      matrix_id: string;
+      availability: string;
+      method: string;
+    }>;
+  } | null;
+  error: { code: string; message: string; field: string } | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface CurveLabMatrix {
+  matrix_id: string;
+  mathematical_name: string;
+  orientation: string;
+  row_axis_ref: string;
+  column_axis_ref: string;
+  rows: number;
+  columns: number;
+  availability: string;
+  availability_reason_code: string | null;
+  availability_reason: string | null;
+  method: string;
+  input_unit: string;
+  output_unit: string;
+  values: string[][] | null;
+}
+
 export interface InstrumentDiagnostic {
   instrument_id: string;
   group: string;
@@ -286,6 +384,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await resp.json()) as T;
 }
 
+async function requestBytes(path: string): Promise<Blob> {
+  const url = new URL(apiPath(path), window.location.origin);
+  const resp = await fetch(url, { headers: {} });
+  if (!resp.ok) {
+    throw new ApiClientError(
+      `${resp.status}: ${resp.statusText}`,
+      resp.status,
+      resp.statusText,
+    );
+  }
+  return resp.blob();
+}
+
 export const api = {
   health: () => request<Health>("/health"),
 
@@ -351,6 +462,69 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  createCurveLabDraft: (body: unknown) =>
+    request<CurveLabDraft>("/curve-lab/drafts", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getCurveLabDraft: (id: string) =>
+    request<CurveLabDraft>(`/curve-lab/drafts/${id}`),
+  createCurveLabBuildRun: (draftId: string) =>
+    request<CurveLabBuildRun>(`/curve-lab/drafts/${draftId}/build-runs`, {
+      method: "POST",
+    }),
+  getCurveLabBuildRun: (id: string) =>
+    request<CurveLabBuildRun>(`/curve-lab/build-runs/${id}`),
+  createCurveLabVersion: (body: {
+    draft_id: string;
+    draft_revision: number;
+    draft_fingerprint: string;
+    build_run_id: string;
+    name: string;
+    version_note?: string | null;
+    tags?: string[];
+    idempotency_key: string;
+  }) =>
+    request<CurveLabVersion>("/curve-lab/versions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listCurveLabVersions: (includeArchived = false) =>
+    request<CurveLabVersion[]>(
+      `/curve-lab/versions?include_archived=${String(includeArchived)}`,
+    ),
+  archiveCurveLabVersion: (id: string) =>
+    request<CurveLabVersion>(`/curve-lab/versions/${id}/archive`, {
+      method: "POST",
+    }),
+  cloneCurveLabVersion: (id: string) =>
+    request<CurveLabDraft>(`/curve-lab/versions/${id}/clone`, {
+      method: "POST",
+    }),
+  downloadCurveLabVersion: (id: string) =>
+    requestBytes(`/curve-lab/versions/${id}/native-json`),
+  importCurveLabVersion: (payload: Blob) =>
+    request<{
+      id: string;
+      state: string;
+      resulting_version_id: string | null;
+      error: { code: string; message: string } | null;
+    }>("/curve-lab/import-jobs", {
+      method: "POST",
+      body: payload,
+      headers: { "Content-Type": "application/json" },
+    }),
+  createCurveLabRiskRun: (body: unknown) =>
+    request<CurveLabRiskRun>("/curve-lab/risk-runs", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getCurveLabRiskRun: (id: string) =>
+    request<CurveLabRiskRun>(`/curve-lab/risk-runs/${id}`),
+  getCurveLabMatrix: (runId: string, matrixId: string) =>
+    request<CurveLabMatrix>(
+      `/curve-lab/risk-runs/${runId}/matrices/${matrixId}`,
+    ),
 
   submitCalibration: (kind: CalibrationKind, body: unknown) => {
     return request<CalibrationRun>(calibrationPath(kind), {
