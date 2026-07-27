@@ -114,18 +114,6 @@ namespace Dal {
             return NormalizeScaled(lhs.mantissa_ + std::ldexp(rhs.mantissa_, rhs.exponent_ - lhs.exponent_), lhs.exponent_);
         }
 
-        Scaled_ SlowScaledDot(const Vector_<>& lhs, const Vector_<>& rhs) {
-            Scaled_ result = {0.0, 0, false};
-            for (int i = 0; i < static_cast<int>(lhs.size()); ++i)
-                result = AddScaled(result, ScaledProduct(lhs[i], rhs[i]));
-            return result;
-        }
-
-        Scaled_ ScaledDot(const Vector_<>& lhs, const Vector_<>& rhs) {
-            const double result = InnerProduct(lhs, rhs);
-            return std::isfinite(result) && result != 0.0 ? ScaledFromDouble(result) : SlowScaledDot(lhs, rhs);
-        }
-
         Scaled_ SlowScaledNorm(const Vector_<>& values) {
             double scale = 0.0;
             double sumSquares = 1.0;
@@ -277,6 +265,65 @@ namespace Dal {
             result.last_ = EXACT_LIMB_COUNT - 1;
             ExactTrim(&result);
             return result;
+        }
+
+        bool ExactBit(const ExactPositive_& value, int bit) {
+            return (value.limbs_[bit / EXACT_LIMB_BITS] & (1U << (bit % EXACT_LIMB_BITS))) != 0;
+        }
+
+        bool ExactHasBitBelow(const ExactPositive_& value, int bit) {
+            const int lastFullLimb = bit / EXACT_LIMB_BITS;
+            for (int index = value.first_; index < lastFullLimb; ++index)
+                if (value.limbs_[index] != 0)
+                    return true;
+            const int partialBits = bit % EXACT_LIMB_BITS;
+            if (lastFullLimb < value.first_ || partialBits == 0)
+                return false;
+            const std::uint32_t mask = (1U << partialBits) - 1U;
+            return (value.limbs_[lastFullLimb] & mask) != 0;
+        }
+
+        Scaled_ ScaledFromExact(const ExactPositive_& value, bool negative) {
+            if (value.last_ < value.first_)
+                return {0.0, 0, false};
+            int highestLimbBit = 0;
+            for (std::uint32_t top = value.limbs_[value.last_]; top > 1; top >>= 1)
+                ++highestLimbBit;
+            const int highestBit = EXACT_LIMB_BITS * value.last_ + highestLimbBit;
+            std::uint64_t significand = 0;
+            for (int bit = highestBit; bit > highestBit - 53; --bit)
+                significand = (significand << 1U) | static_cast<std::uint64_t>(ExactBit(value, bit));
+
+            const int guardBit = highestBit - 53;
+            if (ExactBit(value, guardBit) && (ExactHasBitBelow(value, guardBit) || (significand & 1U) != 0))
+                ++significand;
+
+            int exponent = EXACT_MIN_EXPONENT + highestBit + 1;
+            if (significand == (1ULL << 53)) {
+                significand >>= 1U;
+                ++exponent;
+            }
+            const double mantissa = std::ldexp(static_cast<double>(significand), -53);
+            return {negative ? -mantissa : mantissa, exponent, true};
+        }
+
+        Scaled_ SlowScaledDot(const Vector_<>& lhs, const Vector_<>& rhs) {
+            ExactPositive_ positive;
+            ExactPositive_ negative;
+            for (int i = 0; i < static_cast<int>(lhs.size()); ++i) {
+                ExactPositive_* destination = std::signbit(lhs[i]) == std::signbit(rhs[i]) ? &positive : &negative;
+                ExactAddDoubleProduct(lhs[i], rhs[i], destination);
+            }
+            const int comparison = ExactCompare(positive, negative);
+            if (comparison == 0)
+                return {0.0, 0, false};
+            return comparison > 0 ? ScaledFromExact(ExactSubtract(positive, negative), false)
+                                  : ScaledFromExact(ExactSubtract(negative, positive), true);
+        }
+
+        Scaled_ ScaledDot(const Vector_<>& lhs, const Vector_<>& rhs) {
+            const double result = InnerProduct(lhs, rhs);
+            return std::isfinite(result) && result != 0.0 ? ScaledFromDouble(result) : SlowScaledDot(lhs, rhs);
         }
 
         ExactPositive_ ExactMultiply(const ExactPositive_& lhs, const ExactPositive_& rhs) {
