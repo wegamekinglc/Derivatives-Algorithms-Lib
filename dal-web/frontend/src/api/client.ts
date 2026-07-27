@@ -469,6 +469,12 @@ export const api = {
     }),
   getCurveLabDraft: (id: string) =>
     request<CurveLabDraft>(`/curve-lab/drafts/${id}`),
+  updateCurveLabDraft: (id: string, revision: number, body: unknown) =>
+    request<CurveLabDraft>(`/curve-lab/drafts/${id}`, {
+      method: "PUT",
+      headers: { "If-Match": `"${revision}"` },
+      body: JSON.stringify(body),
+    }),
   createCurveLabBuildRun: (draftId: string) =>
     request<CurveLabBuildRun>(`/curve-lab/drafts/${draftId}/build-runs`, {
       method: "POST",

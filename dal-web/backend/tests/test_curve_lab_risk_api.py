@@ -418,3 +418,85 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         assert matrix["availability"] == "AVAILABLE"
         assert matrix["orientation"] == orientation
         assert matrix["values"] == values
+
+
+def test_forbidden_node_fallback_rejects_before_native_dispatch(
+    client, monkeypatch
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    _, version = _publish_version(client)
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("native work started before fallback admission")
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", forbidden)
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    request["sensitivity_layers"] = ["TRADE_TO_NODE"]
+    request["options"] = {"aad_fallback": "FORBID"}
+
+    rejected = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"]["code"] == "AAD_METHOD_UNAVAILABLE"
+    assert called is False
+
+
+def test_forbidden_jacobian_replay_rejects_before_native_dispatch(
+    client, monkeypatch
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    _, version = _publish_version(client)
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("native work started before fallback admission")
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", forbidden)
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    request["sensitivity_layers"] = ["CALIBRATION_JACOBIAN"]
+    request["options"] = {"jacobian_replay_fallback": "FORBID"}
+
+    rejected = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"]["code"] == "JACOBIAN_METHOD_UNAVAILABLE"
+    assert called is False
+
+
+def test_openapi_closes_pricing_result_success_and_failure_variants(client) -> None:
+    schemas = client.app.openapi()["components"]["schemas"]
+
+    success = schemas["PricingTradeSuccessV1"]
+    failure = schemas["PricingTradeFailureV1"]
+    assert success["additionalProperties"] is False
+    assert failure["additionalProperties"] is False
+    assert set(success["properties"]) == {
+        "trade_id",
+        "instrument_type",
+        "status",
+        "pv",
+        "currency",
+        "normalized_plan_hash",
+        "required_historical_fixing_keys",
+        "dependency_component_keys",
+    }
+    assert set(failure["properties"]) == {
+        "trade_id",
+        "instrument_type",
+        "status",
+        "error",
+        "required_historical_fixing_keys",
+        "missing_historical_fixing_keys",
+        "dependency_component_keys",
+    }

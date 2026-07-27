@@ -494,6 +494,32 @@ def create_risk_run(
     quote_axis = list(build["quote_axis"]) if build is not None else []
     parameter_axis = list(build["parameter_axis"]) if build is not None else []
     trades = list(request.target.model_dump(mode="json")["trades"])
+    requested_layers = set(request.sensitivity_layers)
+    if (
+        {"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers
+        and request.options.aad_fallback == "FORBID"
+    ):
+        raise CurveLabLifecycleError(
+            422,
+            "AAD_METHOD_UNAVAILABLE",
+            "No admitted trade has a complete native AAD pricing plan.",
+            "options.aad_fallback",
+            request.options.aad_fallback,
+            constraint="statically ineligible trades require aad_fallback=ALLOW",
+        )
+    if (
+        {"CALIBRATION_JACOBIAN", "COMPOSED_QUOTE_DIAGNOSTIC"}
+        & requested_layers
+        and request.options.jacobian_replay_fallback == "FORBID"
+    ):
+        raise CurveLabLifecycleError(
+            422,
+            "JACOBIAN_METHOD_UNAVAILABLE",
+            "The selected build requires central quote replay for J.",
+            "options.jacobian_replay_fallback",
+            request.options.jacobian_replay_fallback,
+            constraint="this build requires jacobian_replay_fallback=ALLOW",
+        )
     estimate = estimate_work(
         trades=len(trades),
         aad_eligible_trades=0,
@@ -515,7 +541,6 @@ def create_risk_run(
     pricing = [_pricing_result(trade, base[trade["trade_id"]]) for trade in trades]
     result: dict[str, object] = {"pricing": pricing}
     matrices: list[dict] = []
-    requested_layers = set(request.sensitivity_layers)
     needs_trade_to_node = bool({"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers)
     needs_jacobian = bool(
         {

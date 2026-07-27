@@ -84,6 +84,25 @@ function parseJson(source: string): unknown {
   return JSON.parse(source) as unknown;
 }
 
+function editableDocument(document: Record<string, unknown>): Record<string, unknown> {
+  const instruments = Array.isArray(document.instruments)
+    ? document.instruments.map((value) => {
+        const instrument = { ...(value as Record<string, unknown>) };
+        for (const field of [
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "normalized_quote",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump",
+        ]) {
+          delete instrument[field];
+        }
+        return instrument;
+      })
+    : document.instruments;
+  return { ...document, instruments };
+}
+
 function AxisTable({
   title,
   rows,
@@ -219,6 +238,18 @@ export default function CurveLabWorkspace() {
     setTab("runs");
   });
 
+  const saveDraft = () => execute(async () => {
+    if (!draft) throw new Error("Create a draft before saving changes.");
+    const updated = await api.updateCurveLabDraft(
+      draft.id,
+      draft.revision,
+      parseJson(draftSource),
+    );
+    setDraft(updated);
+    setBuild(null);
+    setStatus(`Saved draft ${updated.id.slice(0, 8)} revision ${updated.revision}; rebuild required.`);
+  });
+
   const publishVersion = () => execute(async () => {
     if (!draft || !build) throw new Error("A successful build is required.");
     const published = await api.createCurveLabVersion({
@@ -283,7 +314,7 @@ export default function CurveLabWorkspace() {
   const clone = (version: CurveLabVersion) => execute(async () => {
     const cloned = await api.cloneCurveLabVersion(version.id);
     setDraft(cloned);
-    setDraftSource(JSON.stringify(cloned.document, null, 2));
+    setDraftSource(JSON.stringify(editableDocument(cloned.document), null, 2));
     setBuild(null);
     setTab("build");
     setStatus(`Cloned ${version.name} into draft ${cloned.id.slice(0, 8)}.`);
@@ -367,6 +398,9 @@ export default function CurveLabWorkspace() {
             </dl>
             <button type="button" disabled={busy || !draft} onClick={() => void buildCurve()}>
               Build curve
+            </button>
+            <button type="button" disabled={busy || !draft} onClick={() => void saveDraft()}>
+              Save draft changes
             </button>
             <label>
               <span>Version name</span>

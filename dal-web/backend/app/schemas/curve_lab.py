@@ -469,6 +469,75 @@ class RiskWorkEstimateV2(CurveLabWireModel):
     overflow: bool = False
 
 
+class FixingKeyV1(CurveLabWireModel):
+    index_name: str
+    fixing_time: datetime
+
+
+class PricingTradeSuccessV1(CurveLabWireModel):
+    trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    instrument_type: CurveLabV1SuccessFamily
+    status: Literal["SUCCEEDED"]
+    pv: CanonicalQuoteDecimalV1
+    currency: Annotated[str, Field(min_length=3, max_length=16)]
+    normalized_plan_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    required_historical_fixing_keys: tuple[FixingKeyV1, ...]
+    dependency_component_keys: tuple[str, ...]
+
+
+class PricingTradeFailureV1(CurveLabWireModel):
+    trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    instrument_type: CurveLabV1SuccessFamily
+    status: Literal["FAILED"]
+    error: CurveLabErrorDetail
+    required_historical_fixing_keys: tuple[FixingKeyV1, ...]
+    missing_historical_fixing_keys: tuple[FixingKeyV1, ...]
+    dependency_component_keys: tuple[str, ...]
+
+
+PricingTradeResultV1 = Annotated[
+    PricingTradeSuccessV1 | PricingTradeFailureV1,
+    Field(discriminator="status"),
+]
+
+
+class RiskValueV2(CurveLabWireModel):
+    trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    value: CanonicalQuoteDecimalV1
+
+
+class QuoteBumpResultV2(CurveLabWireModel):
+    bump_id: str
+    kind: Literal["PARALLEL", "KEY_RATE"]
+    quote_id: str | None
+    status: Literal["SUCCEEDED", "FAILED"]
+    raw_bump: CanonicalQuoteDecimalV1 | None
+    normalized_bump: CanonicalQuoteDecimalV1 | None
+    calibration_status: Literal["SUCCEEDED", "FAILED"]
+    pricing_status: Literal["SUCCEEDED", "FAILED"]
+    error: CurveLabErrorDetail | None
+
+
+class SensitivityMatrixReferenceV2(CurveLabWireModel):
+    matrix_id: str
+    availability: Literal[
+        "AVAILABLE",
+        "NOT_REQUESTED",
+        "NOT_AVAILABLE_FOR_MODE",
+        "FAILED",
+    ]
+    method: str
+
+
+class RiskRunResultV2(CurveLabWireModel):
+    pricing: tuple[PricingTradeResultV1, ...]
+    dv01: tuple[RiskValueV2, ...] | None = None
+    quote_bumps: tuple[QuoteBumpResultV2, ...] | None = None
+    key_rate_sum: tuple[RiskValueV2, ...] | None = None
+    nonlinear_reconciliation: tuple[RiskValueV2, ...] | None = None
+    sensitivity_matrices: tuple[SensitivityMatrixReferenceV2, ...] | None = None
+
+
 class RiskRunResponseV2(CurveLabWireModel):
     id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
     curve_version_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
@@ -481,7 +550,7 @@ class RiskRunResponseV2(CurveLabWireModel):
     parameter_axis: tuple[ParameterAxisEntryV2, ...]
     estimated_work: RiskWorkEstimateV2
     state: Literal["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT"]
-    result: dict[str, object] | None
+    result: RiskRunResultV2 | None
     error: CurveLabErrorDetail | None
     created_at: datetime
     finished_at: datetime | None

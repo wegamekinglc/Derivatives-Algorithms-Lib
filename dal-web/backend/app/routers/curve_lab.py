@@ -266,6 +266,7 @@ def get_curve_import_job(job_id: str, store=Depends(store_dependency)) -> dict:
 @router.post(
     "/risk-runs",
     response_model=RiskRunResponseV2,
+    response_model_exclude_unset=True,
     status_code=202,
 )
 def create_curve_risk_run(
@@ -282,6 +283,7 @@ def create_curve_risk_run(
 @router.get(
     "/risk-runs/{run_id}",
     response_model=RiskRunResponseV2,
+    response_model_exclude_unset=True,
 )
 def get_curve_risk_run(run_id: str, store=Depends(store_dependency)) -> dict:
     try:

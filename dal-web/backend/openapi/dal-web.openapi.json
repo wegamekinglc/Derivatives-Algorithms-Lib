@@ -2122,6 +2122,26 @@
         "title": "FixingIdentityDTO",
         "type": "object"
       },
+      "FixingKeyV1": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_time": {
+            "format": "date-time",
+            "title": "Fixing Time",
+            "type": "string"
+          },
+          "index_name": {
+            "title": "Index Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index_name",
+          "fixing_time"
+        ],
+        "title": "FixingKeyV1",
+        "type": "object"
+      },
       "FixingObservationDTO": {
         "additionalProperties": false,
         "properties": {
@@ -3942,6 +3962,141 @@
         "title": "PortfolioCreate",
         "type": "object"
       },
+      "PricingTradeFailureV1": {
+        "additionalProperties": false,
+        "properties": {
+          "dependency_component_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Component Keys",
+            "type": "array"
+          },
+          "error": {
+            "$ref": "#/components/schemas/CurveLabErrorDetail"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "missing_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Missing Historical Fixing Keys",
+            "type": "array"
+          },
+          "required_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Required Historical Fixing Keys",
+            "type": "array"
+          },
+          "status": {
+            "const": "FAILED",
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "instrument_type",
+          "status",
+          "error",
+          "required_historical_fixing_keys",
+          "missing_historical_fixing_keys",
+          "dependency_component_keys"
+        ],
+        "title": "PricingTradeFailureV1",
+        "type": "object"
+      },
+      "PricingTradeSuccessV1": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 16,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "dependency_component_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Component Keys",
+            "type": "array"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "normalized_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Normalized Plan Hash",
+            "type": "string"
+          },
+          "pv": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Pv",
+            "type": "string"
+          },
+          "required_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Required Historical Fixing Keys",
+            "type": "array"
+          },
+          "status": {
+            "const": "SUCCEEDED",
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "instrument_type",
+          "status",
+          "pv",
+          "currency",
+          "normalized_plan_hash",
+          "required_historical_fixing_keys",
+          "dependency_component_keys"
+        ],
+        "title": "PricingTradeSuccessV1",
+        "type": "object"
+      },
       "ProductCreate": {
         "properties": {
           "description": {
@@ -4586,6 +4741,109 @@
         "title": "QuoteBumpPreviewDTO",
         "type": "object"
       },
+      "QuoteBumpResultV2": {
+        "additionalProperties": false,
+        "properties": {
+          "bump_id": {
+            "title": "Bump Id",
+            "type": "string"
+          },
+          "calibration_status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "PARALLEL",
+              "KEY_RATE"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_bump": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Bump"
+          },
+          "pricing_status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Pricing Status",
+            "type": "string"
+          },
+          "quote_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Id"
+          },
+          "raw_bump": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Bump"
+          },
+          "status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bump_id",
+          "kind",
+          "quote_id",
+          "status",
+          "raw_bump",
+          "normalized_bump",
+          "calibration_status",
+          "pricing_status",
+          "error"
+        ],
+        "title": "QuoteBumpResultV2",
+        "type": "object"
+      },
       "RateIndexConventionDTO": {
         "additionalProperties": false,
         "properties": {
@@ -5139,14 +5397,12 @@
           "result": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RiskRunResultV2"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Result"
+            ]
           },
           "source_kind": {
             "enum": [
@@ -5193,6 +5449,107 @@
         "title": "RiskRunResponseV2",
         "type": "object"
       },
+      "RiskRunResultV2": {
+        "additionalProperties": false,
+        "properties": {
+          "dv01": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dv01"
+          },
+          "key_rate_sum": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Rate Sum"
+          },
+          "nonlinear_reconciliation": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonlinear Reconciliation"
+          },
+          "pricing": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "FAILED": "#/components/schemas/PricingTradeFailureV1",
+                  "SUCCEEDED": "#/components/schemas/PricingTradeSuccessV1"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PricingTradeSuccessV1"
+                },
+                {
+                  "$ref": "#/components/schemas/PricingTradeFailureV1"
+                }
+              ]
+            },
+            "title": "Pricing",
+            "type": "array"
+          },
+          "quote_bumps": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuoteBumpResultV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Bumps"
+          },
+          "sensitivity_matrices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SensitivityMatrixReferenceV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensitivity Matrices"
+          }
+        },
+        "required": [
+          "pricing"
+        ],
+        "title": "RiskRunResultV2",
+        "type": "object"
+      },
       "RiskTargetV2": {
         "additionalProperties": false,
         "properties": {
@@ -5208,6 +5565,29 @@
           "trades"
         ],
         "title": "RiskTargetV2",
+        "type": "object"
+      },
+      "RiskValueV2": {
+        "additionalProperties": false,
+        "properties": {
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          },
+          "value": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "value"
+        ],
+        "title": "RiskValueV2",
         "type": "object"
       },
       "RiskWorkEstimateV2": {
@@ -5597,6 +5977,36 @@
           "error"
         ],
         "title": "RunningCalibrationRunResponse",
+        "type": "object"
+      },
+      "SensitivityMatrixReferenceV2": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "AVAILABLE",
+              "NOT_REQUESTED",
+              "NOT_AVAILABLE_FOR_MODE",
+              "FAILED"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "matrix_id": {
+            "title": "Matrix Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "matrix_id",
+          "availability",
+          "method"
+        ],
+        "title": "SensitivityMatrixReferenceV2",
         "type": "object"
       },
       "SingleCalibrationRequest": {
