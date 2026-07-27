@@ -661,6 +661,39 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveStableSecondDirectionCancellation) {
     }
 }
 
+TEST(MatrixTest, TestBCGSolvePreservesSignedDotCancellation) {
+    const double large = std::ldexp(1.0, 60);
+    double sequentialDot = 0.0;
+    for (const double term : {large, 1.0, -large})
+        sequentialDot += term;
+    ASSERT_DOUBLE_EQ(0.0, sequentialDot);
+
+    CallbackCounts_ counts;
+    const Vector_<> diagonal = {std::ldexp(1.0, -60), 1.0, -std::ldexp(1.0, -60)};
+    HookedPreconditionedDiagonal_ matrix(diagonal, &counts);
+    const auto exactPreconditioner = [large](int, const Vector_<>& input, Vector_<>* output) {
+        (*output)[0] = large * input[0];
+        (*output)[1] = input[1];
+        (*output)[2] = -large * input[2];
+        return true;
+    };
+    matrix.SetPreconditionerLeftHook(exactPreconditioner);
+    matrix.SetPreconditionerRightHook(exactPreconditioner);
+    const Vector_<> b = {1.0, 1.0, 1.0};
+    Vector_<> x = {0.0, 0.0, 0.0};
+
+    Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(large, x[0]);
+    ASSERT_DOUBLE_EQ(1.0, x[1]);
+    ASSERT_DOUBLE_EQ(-large, x[2]);
+    ASSERT_TRUE(CommonExponentConverged(DiagonalResidual(diagonal, x, b), b, EPSILON, 0.0));
+    ASSERT_EQ(3, counts.left_);
+    ASSERT_EQ(1, counts.right_);
+    ASSERT_EQ(1, counts.preconditionerLeft_);
+    ASSERT_EQ(1, counts.preconditionerRight_);
+}
+
 TEST(MatrixTest, TestCGSolveAndBCGSolveDirectConfirmationCounts) {
     for (const bool biConjugate : {false, true}) {
         SCOPED_TRACE(SolverName(biConjugate));
