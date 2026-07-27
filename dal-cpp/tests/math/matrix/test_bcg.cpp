@@ -694,6 +694,51 @@ TEST(MatrixTest, TestBCGSolvePreservesSignedDotCancellation) {
     ASSERT_EQ(1, counts.preconditionerRight_);
 }
 
+TEST(MatrixTest, TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations) {
+    const double large = std::ldexp(1.0, 60);
+    std::array<double, 4> terms = {large, 100.0, -large, 2.0};
+    std::sort(terms.begin(), terms.end());
+    int permutation = 0;
+    int finiteNonzeroCases = 0;
+    do {
+        SCOPED_TRACE("permutation=" + std::to_string(permutation++));
+        const Vector_<> b(terms.begin(), terms.end());
+        Vector_<> diagonal(b.size());
+        double sequentialBeta = 0.0;
+        double sequentialDenominator = 0.0;
+        for (int i = 0; i < static_cast<int>(b.size()); ++i) {
+            diagonal[i] = 3.0 * b[i];
+            sequentialBeta += b[i];
+            sequentialDenominator += diagonal[i];
+        }
+        if (std::isfinite(sequentialBeta) && sequentialBeta != 0.0 && std::isfinite(sequentialDenominator) &&
+            sequentialDenominator != 0.0)
+            ++finiteNonzeroCases;
+
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix(diagonal, &counts);
+        const auto preconditioner = [b](int, const Vector_<>& input, Vector_<>* output) {
+            for (int i = 0; i < static_cast<int>(input.size()); ++i)
+                (*output)[i] = input[i] / b[i];
+            return true;
+        };
+        matrix.SetPreconditionerLeftHook(preconditioner);
+        matrix.SetPreconditionerRightHook(preconditioner);
+        Vector_<> x(b.size(), 0.0);
+
+        Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 1, &x);
+
+        for (const double value : x)
+            ASSERT_DOUBLE_EQ(1.0 / 3.0, value);
+        ASSERT_EQ(3, counts.left_);
+        ASSERT_EQ(1, counts.right_);
+        ASSERT_EQ(1, counts.preconditionerLeft_);
+        ASSERT_EQ(1, counts.preconditionerRight_);
+    } while (std::next_permutation(terms.begin(), terms.end()));
+    ASSERT_EQ(24, permutation);
+    ASSERT_EQ(18, finiteNonzeroCases);
+}
+
 TEST(MatrixTest, TestCGSolveAndBCGSolveDirectConfirmationCounts) {
     for (const bool biConjugate : {false, true}) {
         SCOPED_TRACE(SolverName(biConjugate));
