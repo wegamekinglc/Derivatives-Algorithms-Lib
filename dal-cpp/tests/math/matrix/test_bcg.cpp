@@ -8,6 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -264,131 +265,146 @@ namespace {
         CallbackSentinel_() : std::runtime_error("callback sentinel") {}
     };
 
-    struct OracleScaled_ {
-        double mantissa_;
-        int exponent_;
+    struct OracleBinary_ {
+        std::map<int, unsigned long long> bits_;
     };
 
-    OracleScaled_ OracleNormalize(double mantissa, int exponent) {
-        if (mantissa == 0.0)
-            return {0.0, 0};
-        int adjustment = 0;
-        const double normalized = std::frexp(std::fabs(mantissa), &adjustment);
-        return {normalized, exponent + adjustment};
-    }
-
-    OracleScaled_ OracleFromDouble(double value) {
-        if (value == 0.0)
-            return {0.0, 0};
-        int exponent = 0;
-        return {std::frexp(std::fabs(value), &exponent), exponent};
-    }
-
-    OracleScaled_ OracleProduct(double lhs, double rhs) {
-        if (lhs == 0.0 || rhs == 0.0)
-            return {0.0, 0};
-        int lhsExponent = 0;
-        int rhsExponent = 0;
-        const double lhsMantissa = std::frexp(std::fabs(lhs), &lhsExponent);
-        const double rhsMantissa = std::frexp(std::fabs(rhs), &rhsExponent);
-        return OracleNormalize(lhsMantissa * rhsMantissa, lhsExponent + rhsExponent);
-    }
-
-    OracleScaled_ OracleAdd(OracleScaled_ lhs, OracleScaled_ rhs) {
-        if (lhs.mantissa_ == 0.0)
-            return rhs;
-        if (rhs.mantissa_ == 0.0)
-            return lhs;
-        if (lhs.exponent_ < rhs.exponent_)
-            std::swap(lhs, rhs);
-        return OracleNormalize(lhs.mantissa_ + std::ldexp(rhs.mantissa_, rhs.exponent_ - lhs.exponent_), lhs.exponent_);
-    }
-
-    OracleScaled_ OracleSumSquares(const std::vector<OracleScaled_>& values) {
-        std::vector<OracleScaled_> squares;
-        squares.reserve(values.size());
-        int maximumExponent = std::numeric_limits<int>::min();
-        for (const OracleScaled_& value : values) {
-            if (value.mantissa_ == 0.0)
-                continue;
-            const OracleScaled_ square = OracleNormalize(value.mantissa_ * value.mantissa_, 2 * value.exponent_);
-            squares.push_back(square);
-            maximumExponent = std::max(maximumExponent, square.exponent_);
+    void OracleNormalizeBits(OracleBinary_* value) {
+        for (auto it = value->bits_.begin(); it != value->bits_.end(); ++it) {
+            const unsigned long long count = it->second;
+            it->second = count & 1ULL;
+            if (count > 1)
+                value->bits_[it->first + 1] += count >> 1U;
         }
-        if (squares.empty())
-            return {0.0, 0};
-
-        double sum = 0.0;
-        double compensation = 0.0;
-        for (const OracleScaled_& square : squares) {
-            const double term = std::ldexp(square.mantissa_, square.exponent_ - maximumExponent);
-            const double updated = sum + term;
-            if (std::fabs(sum) >= std::fabs(term))
-                compensation += (sum - updated) + term;
+        for (auto it = value->bits_.begin(); it != value->bits_.end();) {
+            if (it->second == 0)
+                it = value->bits_.erase(it);
             else
-                compensation += (term - updated) + sum;
-            sum = updated;
+                ++it;
         }
-
-        return OracleNormalize(sum + compensation, maximumExponent);
     }
 
-    OracleScaled_ OracleSquaredNorm(const std::vector<OracleScaled_>& values) {
-        OracleScaled_ sumSquares = OracleSumSquares(values);
-        if (sumSquares.mantissa_ == 0.0)
-            return sumSquares;
-        if (sumSquares.exponent_ % 2 != 0) {
-            sumSquares.mantissa_ *= 2.0;
-            --sumSquares.exponent_;
-        }
-        return OracleNormalize(std::sqrt(sumSquares.mantissa_), sumSquares.exponent_ / 2);
+    OracleBinary_ OracleFromDouble(double value) {
+        OracleBinary_ result;
+        if (value == 0.0)
+            return result;
+        int exponent = 0;
+        const double mantissa = std::frexp(std::fabs(value), &exponent);
+        const unsigned long long significand = static_cast<unsigned long long>(std::ldexp(mantissa, 53));
+        const int leastBitExponent = exponent - 53;
+        for (int bit = 0; bit < 53; ++bit)
+            if ((significand & (1ULL << bit)) != 0)
+                result.bits_[leastBitExponent + bit] = 1;
+        return result;
     }
 
-    bool OracleLessOrEqual(OracleScaled_ lhs, OracleScaled_ rhs) {
-        if (lhs.mantissa_ == 0.0)
-            return true;
-        if (rhs.mantissa_ == 0.0)
-            return false;
-        if (lhs.exponent_ != rhs.exponent_)
-            return lhs.exponent_ < rhs.exponent_;
-        return lhs.mantissa_ <= rhs.mantissa_;
+    OracleBinary_ OracleAdd(OracleBinary_ lhs, const OracleBinary_& rhs) {
+        for (const auto& bit : rhs.bits_)
+            lhs.bits_[bit.first] += bit.second;
+        OracleNormalizeBits(&lhs);
+        return lhs;
+    }
+
+    OracleBinary_ OracleMultiply(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        OracleBinary_ result;
+        for (const auto& lhsBit : lhs.bits_)
+            for (const auto& rhsBit : rhs.bits_)
+                result.bits_[lhsBit.first + rhsBit.first] += lhsBit.second * rhsBit.second;
+        OracleNormalizeBits(&result);
+        return result;
+    }
+
+    OracleBinary_ OracleShift(const OracleBinary_& value, int shift) {
+        OracleBinary_ result;
+        for (const auto& bit : value.bits_)
+            result.bits_[bit.first + shift] = bit.second;
+        return result;
+    }
+
+    int OracleCompare(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        auto lhsBit = lhs.bits_.rbegin();
+        auto rhsBit = rhs.bits_.rbegin();
+        while (lhsBit != lhs.bits_.rend() || rhsBit != rhs.bits_.rend()) {
+            if (rhsBit == rhs.bits_.rend() || (lhsBit != lhs.bits_.rend() && lhsBit->first > rhsBit->first))
+                return 1;
+            if (lhsBit == lhs.bits_.rend() || rhsBit->first > lhsBit->first)
+                return -1;
+            ++lhsBit;
+            ++rhsBit;
+        }
+        return 0;
+    }
+
+    OracleBinary_ OracleSubtract(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        OracleBinary_ result;
+        const int leastExponent = std::min(lhs.bits_.begin()->first, rhs.bits_.begin()->first);
+        const int greatestExponent = lhs.bits_.rbegin()->first;
+        int borrow = 0;
+        for (int exponent = leastExponent; exponent <= greatestExponent; ++exponent) {
+            const int lhsBit = lhs.bits_.count(exponent) != 0 ? 1 : 0;
+            const int rhsBit = rhs.bits_.count(exponent) != 0 ? 1 : 0;
+            int difference = lhsBit - rhsBit - borrow;
+            if (difference < 0) {
+                difference += 2;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            if (difference != 0)
+                result.bits_[exponent] = 1;
+        }
+        return result;
+    }
+
+    OracleBinary_ OracleSumSquares(const std::vector<OracleBinary_>& values) {
+        OracleBinary_ result;
+        for (const OracleBinary_& value : values)
+            result = OracleAdd(std::move(result), OracleMultiply(value, value));
+        return result;
     }
 
     bool CommonExponentConverged(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
-        std::vector<OracleScaled_> residualTerms;
-        std::vector<OracleScaled_> relativeTerms;
+        std::vector<OracleBinary_> residualTerms;
+        std::vector<OracleBinary_> relativeTerms;
         residualTerms.reserve(residual.size());
         relativeTerms.reserve(b.size());
 
         int commonExponent = std::numeric_limits<int>::min();
-        if (tolAbs != 0.0)
-            commonExponent = OracleFromDouble(tolAbs).exponent_;
         for (int i = 0; i < static_cast<int>(residual.size()); ++i) {
-            const OracleScaled_ residualTerm = OracleFromDouble(residual[i]);
-            const OracleScaled_ relativeTerm = OracleProduct(tolRel, b[i]);
-            residualTerms.push_back(residualTerm);
-            relativeTerms.push_back(relativeTerm);
-            if (residualTerm.mantissa_ != 0.0)
-                commonExponent = std::max(commonExponent, residualTerm.exponent_);
-            if (relativeTerm.mantissa_ != 0.0)
-                commonExponent = std::max(commonExponent, relativeTerm.exponent_);
+            OracleBinary_ residualTerm = OracleFromDouble(residual[i]);
+            OracleBinary_ relativeTerm = OracleMultiply(OracleFromDouble(tolRel), OracleFromDouble(b[i]));
+            if (!residualTerm.bits_.empty())
+                commonExponent = std::max(commonExponent, residualTerm.bits_.rbegin()->first + 1);
+            if (!relativeTerm.bits_.empty())
+                commonExponent = std::max(commonExponent, relativeTerm.bits_.rbegin()->first + 1);
+            residualTerms.push_back(std::move(residualTerm));
+            relativeTerms.push_back(std::move(relativeTerm));
         }
+        OracleBinary_ absoluteTerm = OracleFromDouble(tolAbs);
+        if (!absoluteTerm.bits_.empty())
+            commonExponent = std::max(commonExponent, absoluteTerm.bits_.rbegin()->first + 1);
         if (commonExponent == std::numeric_limits<int>::min())
             commonExponent = 0;
 
-        for (OracleScaled_& value : residualTerms)
-            value.exponent_ -= commonExponent;
-        for (OracleScaled_& value : relativeTerms)
-            value.exponent_ -= commonExponent;
-        OracleScaled_ absoluteTerm = OracleFromDouble(tolAbs);
-        absoluteTerm.exponent_ -= commonExponent;
+        for (OracleBinary_& value : residualTerms)
+            value = OracleShift(value, -commonExponent);
+        for (OracleBinary_& value : relativeTerms)
+            value = OracleShift(value, -commonExponent);
+        absoluteTerm = OracleShift(absoluteTerm, -commonExponent);
 
-        if (tolAbs == 0.0)
-            return OracleLessOrEqual(OracleSumSquares(residualTerms), OracleSumSquares(relativeTerms));
+        const OracleBinary_ residualSquares = OracleSumSquares(residualTerms);
+        const OracleBinary_ relativeSquares = OracleSumSquares(relativeTerms);
+        if (OracleCompare(residualSquares, relativeSquares) <= 0)
+            return true;
 
-        const OracleScaled_ residualNorm = OracleSquaredNorm(residualTerms);
-        const OracleScaled_ tolerance = OracleAdd(OracleSquaredNorm(relativeTerms), absoluteTerm);
-        return OracleLessOrEqual(residualNorm, tolerance);
+        const OracleBinary_ absoluteSquare = OracleMultiply(absoluteTerm, absoluteTerm);
+        const OracleBinary_ baseToleranceSquare = OracleAdd(relativeSquares, absoluteSquare);
+        if (OracleCompare(residualSquares, baseToleranceSquare) <= 0)
+            return true;
+
+        const OracleBinary_ difference = OracleSubtract(residualSquares, baseToleranceSquare);
+        const OracleBinary_ crossTermSquare = OracleShift(OracleMultiply(absoluteSquare, relativeSquares), 2);
+        return OracleCompare(OracleMultiply(difference, difference), crossTermSquare) <= 0;
     }
 
     Vector_<> DiagonalResidual(const Vector_<>& diagonal, const Vector_<>& x, const Vector_<>& b) {

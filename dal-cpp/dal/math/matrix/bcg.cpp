@@ -242,23 +242,6 @@ namespace Dal {
             ThrowInvalidCallbackSize(static_cast<int>(values.size()), expectedSize, solver, callback, preconditioner);
         }
 
-        Scaled_ ValidatedCallbackDot(
-            const Vector_<>& callbackValues, const Vector_<>& other, const char* solver, const char* callback, bool preconditioner) {
-            unsigned allFinite = 1;
-            double result = 0.0;
-            for (int i = 0; i < static_cast<int>(callbackValues.size()); ++i) {
-                allFinite &= static_cast<unsigned>(std::isfinite(callbackValues[i]));
-                result += callbackValues[i] * other[i];
-            }
-            if (allFinite == 0) {
-                const char* category = preconditioner ? "non-finite preconditioner result" : "non-finite operator result";
-                for (int i = 0; i < static_cast<int>(callbackValues.size()); ++i)
-                    if (!std::isfinite(callbackValues[i]))
-                        ThrowFailureAtIndex(solver, category, callback, i);
-            }
-            return std::isfinite(result) && result != 0.0 ? ScaledFromDouble(result) : SlowScaledDot(callbackValues, other);
-        }
-
         double ScaledRatio(
             const Scaled_& numerator, const Scaled_& denominator, const char* solver, const char* denominatorSubject, const char* ratioSubject) {
             if (denominator.mantissa_ == 0.0)
@@ -440,7 +423,7 @@ namespace Dal {
 
         void PrepareCandidate(KrylovState_& s, const Scaled_& beta, const Vector_<>& x, const char* solver) {
             s.A_.MultiplyLeft(s.pCandidate_, &s.rCandidate_);
-            ValidateCallbackShape(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
+            ValidateCallbackResult(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
             const Vector_<>& rightDirection = s.symmetricBiConjugate_ ? s.pCandidate_ : s.ppCandidate_;
             if (s.biConjugate_)
                 s.A_.MultiplyRight(rightDirection, &s.rrCandidate_);
@@ -448,7 +431,7 @@ namespace Dal {
                 ValidateCallbackResult(s.rrCandidate_, s.A_.Size(), solver, "MultiplyRight", false);
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
-            const Scaled_ alphaDenominator = ValidatedCallbackDot(s.rCandidate_, shadowDirection, solver, "MultiplyLeft", false);
+            const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
             const double alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
             StableBatch_ stableBatch;
             StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
