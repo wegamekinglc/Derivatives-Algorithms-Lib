@@ -4,11 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include <limits>
-#include <dal/platform/platform.hpp>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/globals.hpp>
+#include <limits>
 
 using namespace Dal;
 
@@ -56,8 +56,12 @@ TEST(FixingSnapshotTest, TestInconsistentTwoWayFxFixingsAreRejected) {
 }
 
 TEST(FixingSnapshotTest, TestInvalidFixingValuesAreRejected) {
-    ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("USD-SOFR", 0.0))), Dal::Exception_);
-    ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("USD-SOFR", -0.01))), Dal::Exception_);
+    const MarketFixingSnapshot_ zeroRate(SingleValue("USD-SOFR", 0.0));
+    const MarketFixingSnapshot_ negativeRate(SingleValue("USD-SOFR", -0.01));
+    ASSERT_DOUBLE_EQ(*zeroRate.Find("USD-SOFR", kFixing), 0.0);
+    ASSERT_DOUBLE_EQ(*negativeRate.Find("USD-SOFR", kFixing), -0.01);
+    ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("FX[EUR/USD]", 0.0))), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("FX[EUR/USD]", -0.01))), Dal::Exception_);
     ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("USD-SOFR", std::numeric_limits<double>::infinity()))), Dal::Exception_);
     ASSERT_THROW(static_cast<void>(MarketFixingSnapshot_(SingleValue("USD-SOFR", std::numeric_limits<double>::quiet_NaN()))), Dal::Exception_);
 }

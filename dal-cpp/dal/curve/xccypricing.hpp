@@ -53,9 +53,28 @@ namespace Dal {
         Vector_<T_> mtmDeltas_;
     };
 
+    template <class T_> struct XccyContractValues_ {
+        T_ domesticPv_;
+        T_ foreignPv_;
+        T_ domesticSpreadAnnuity_;
+        T_ foreignSpreadAnnuity_;
+    };
+
     template <class T_>
     XccyResolvedNotionals_<T_>
     ResolveXccyNotionals(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings);
+
+    template <class T_>
+    XccyContractValues_<T_>
+    XccyContractValues(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings);
+
+    template <class T_>
+    T_ PriceXccyContract(const XccyCashflowPlan_& plan,
+                         const XccyMarketView_<T_>& market,
+                         const MarketFixingSnapshot_& fixings,
+                         double contractSpread,
+                         bool spreadOnForeignLeg,
+                         bool receiveNonSpreadPaySpread);
 
     template <class T_> T_ PriceXccyParSpread(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings);
 
