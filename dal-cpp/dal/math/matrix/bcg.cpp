@@ -544,7 +544,8 @@ namespace Dal {
                         ThrowFailureAtIndex(solver, "non-finite operator result", callback, j);
             if (residualFinite == 0)
                 ThrowFailure(solver, "numerical breakdown", "direct residual");
-            return std::isfinite(squareSum) && squareSum != 0.0 ? ScaledFromDouble(std::sqrt(squareSum)) : SlowScaledNorm(*callbackValues);
+            return std::isfinite(squareSum) && squareSum >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(squareSum))
+                                                                                               : SlowScaledNorm(*callbackValues);
 #else
             ValidateCallbackResult(*callbackValues, expectedSize, solver, callback, false);
             StableBatch_ stableBatch;
