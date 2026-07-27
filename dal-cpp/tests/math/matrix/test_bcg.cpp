@@ -744,6 +744,26 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentBoundary) {
     }
 }
 
+TEST(MatrixTest, TestBCGSolvePreservesWideExponentResidualContribution) {
+    CallbackCounts_ counts;
+    HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+    const Vector_<> b = {1.0, 0.0};
+    Vector_<> x = {0.0, -std::numeric_limits<double>::denorm_min()};
+    const Vector_<> initialResidual = {1.0, std::numeric_limits<double>::denorm_min()};
+    ASSERT_FALSE(CommonExponentConverged(initialResidual, b, 1.0, 0.0));
+
+    Sparse::BCGSolve(matrix, b, 1.0, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(1.0, x[0]);
+    ASSERT_DOUBLE_EQ(0.0, x[1]);
+    ASSERT_EQ(3, counts.left_);
+    ASSERT_EQ(1, counts.right_);
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) {
+    ASSERT_FALSE(CommonExponentConverged({1.0}, {0.0}, 1.0, 0.0));
+}
+
 TEST(MatrixTest, TestCGSolveAndBCGSolveRetainLargeInitialToleranceBehavior) {
     Sparse::TriDiagonal_ matrix(1);
     matrix.Set(0, 0, 1.0);
