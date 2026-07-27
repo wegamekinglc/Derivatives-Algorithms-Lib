@@ -110,10 +110,14 @@ def build_fake_dal() -> types.ModuleType:
             "base": base,
         }
 
-    def _BagNew(name: str, contents: dict[str, object]) -> dict[str, object]:
+    def _BagNew(  # noqa: N802 - mirrors the native private bridge
+        name: str, contents: dict[str, object]
+    ) -> dict[str, object]:
         return {"~type": "Bag", "name": name, "contents": contents}
 
-    def _StorableToJson(value: dict[str, object]) -> bytes:
+    def _StorableToJson(  # noqa: N802 - mirrors the native private bridge
+        value: dict[str, object],
+    ) -> bytes:
         return json.dumps(
             {"$tag": "1", **value},
             allow_nan=False,
@@ -121,7 +125,9 @@ def build_fake_dal() -> types.ModuleType:
             sort_keys=True,
         ).encode("ascii")
 
-    def _StorableFromJson(payload: bytes) -> dict[str, object]:
+    def _StorableFromJson(  # noqa: N802 - mirrors the native private bridge
+        payload: bytes,
+    ) -> dict[str, object]:
         value = json.loads(payload)
         value.pop("$tag", None)
         value["type"] = (
