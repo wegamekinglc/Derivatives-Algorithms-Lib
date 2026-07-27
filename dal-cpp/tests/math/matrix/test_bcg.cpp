@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <map>
@@ -416,6 +418,45 @@ namespace {
         return residual;
     }
 
+    std::uint64_t SplitMix64(std::uint64_t* state) {
+        std::uint64_t value = (*state += 0x9e3779b97f4a7c15ULL);
+        value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+        return value ^ (value >> 31);
+    }
+
+    double DoubleFromBits(std::uint64_t bits) {
+        double result = 0.0;
+        std::memcpy(&result, &bits, sizeof(result));
+        return result;
+    }
+
+    void AssertBCGIdentityInitialClassification(const Vector_<>& b,
+                                                const Vector_<>& requestedResidual,
+                                                double tolRel,
+                                                double tolAbs) {
+        Vector_<> x = {b[0] - requestedResidual[0], b[1] - requestedResidual[1]};
+        const Vector_<> entry = x;
+        const Vector_<> residual = DiagonalResidual({1.0, 1.0}, x, b);
+        const bool initiallyConverged = CommonExponentConverged(residual, b, tolRel, tolAbs);
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+
+        Sparse::BCGSolve(matrix, b, tolRel, tolAbs, 4, &x);
+
+        if (initiallyConverged) {
+            ASSERT_DOUBLE_EQ(entry[0], x[0]);
+            ASSERT_DOUBLE_EQ(entry[1], x[1]);
+            ASSERT_EQ(1, counts.left_);
+            ASSERT_EQ(0, counts.right_);
+        } else {
+            ASSERT_DOUBLE_EQ(b[0], x[0]);
+            ASSERT_DOUBLE_EQ(b[1], x[1]);
+            ASSERT_EQ(3, counts.left_);
+            ASSERT_EQ(1, counts.right_);
+        }
+    }
+
     void FillDiagonalProduct(const Vector_<>& diagonal, const Vector_<>& x, Vector_<>* product) {
         for (int i = 0; i < static_cast<int>(diagonal.size()); ++i)
             (*product)[i] = diagonal[i] * x[i];
@@ -787,6 +828,39 @@ TEST(MatrixTest, TestBCGSolveDoesNotRoundSubnormalThresholdIntoConvergence) {
     const double boundary = std::scalbn(1.0, -1029);
     assertContinues({0.0, 0.0}, {-boundary, -denorm}, 1.0, boundary);
     assertContinues({boundary, 0.0}, {0.0, -denorm}, 0.5, 0.5 * boundary);
+}
+
+#if defined(__AVX2__) && defined(__FMA__)
+TEST(MatrixTest, TestBCGSolveNativeDirectResidualPreservesNonPowerSubnormalNorm) {
+    constexpr double primary = 0x1.02cc22b489eadp-537;
+    constexpr double secondary = 0x1.02cc22b489eadp-557;
+    AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 1.0, 0.0);
+}
+#endif
+
+TEST(MatrixTest, TestBCGSolveFixedSeedNonPowerSubnormalClassification) {
+    constexpr std::uint64_t fractionMask = (1ULL << 52) - 1;
+    constexpr std::uint64_t exponentBits = 486ULL << 52;
+    std::uint64_t state = 0x6d5a56da3c9ef187ULL;
+
+    for (int candidate = 0; candidate < 128; ++candidate) {
+        SCOPED_TRACE(candidate);
+        const double primary = DoubleFromBits(exponentBits | ((SplitMix64(&state) & fractionMask) | 1ULL));
+        const double secondary = std::scalbn(primary, -20);
+        const double below = std::nextafter(primary, 0.0);
+        const double half = 0.5 * primary;
+        const double mixedAbsolute = 0.625 * primary;
+
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {below, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {half, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, 0.0}, 1.0, primary);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, secondary}, 1.0, primary);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {below, 0.0}, 0.375, mixedAbsolute);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 0.375, mixedAbsolute);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, 0.0}, 1.0, 0.0);
+    }
 }
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) {
