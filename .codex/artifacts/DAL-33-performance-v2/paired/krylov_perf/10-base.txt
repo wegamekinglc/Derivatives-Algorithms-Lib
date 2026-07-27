@@ -1,0 +1,6 @@
+Benchmark                                                                              Median               Min               Max      Reps
+-------------------------------------------------------------------------------------------------------------------------------------------
+CGSolve (500x500 tridiag)                                                           17.421 us         17.349 us         29.161 us        20
+BCGSolve (500x500 tridiag)                                                          23.066 us         22.511 us         27.019 us        20
+CG calls/solve: left=18, right=0
+BCG calls/solve: left=18, right=17
