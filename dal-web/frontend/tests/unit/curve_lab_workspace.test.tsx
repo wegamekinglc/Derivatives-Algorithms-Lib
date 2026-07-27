@@ -59,6 +59,7 @@ describe("Curve Lab V2 workspace", () => {
     await waitFor(() => expect(api.createCurveLabDraft).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Build curve" }));
     await waitFor(() => expect(api.createCurveLabBuildRun).toHaveBeenCalledWith(draft.id));
+    fireEvent.click(screen.getByRole("tab", { name: "Build" }));
     fireEvent.change(screen.getByLabelText("Version name"), {
       target: { value: "USD OIS" },
     });

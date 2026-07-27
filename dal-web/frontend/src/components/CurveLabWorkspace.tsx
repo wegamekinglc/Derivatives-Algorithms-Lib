@@ -353,6 +353,7 @@ export default function CurveLabWorkspace() {
             key={item.id}
             type="button"
             role="tab"
+            aria-label={item.label}
             aria-selected={tab === item.id}
             {...css("curve-lab-flow-tab", tab === item.id && "active")}
             onClick={() => setTab(item.id)}
