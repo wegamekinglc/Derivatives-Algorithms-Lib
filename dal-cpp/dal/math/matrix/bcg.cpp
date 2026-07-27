@@ -321,9 +321,60 @@ namespace Dal {
                                   : ScaledFromExact(ExactSubtract(negative, positive), true);
         }
 
+        bool FastScaledDot(const Vector_<>& lhs, const Vector_<>& rhs, Scaled_* result) {
+            double sum = 0.0;
+            double absoluteSum = 0.0;
+            bool allProductsNormal = true;
+            int i = 0;
+#if defined(__AVX2__)
+            const __m256d zero = _mm256_setzero_pd();
+            const __m256d signMask = _mm256_set1_pd(-0.0);
+            const __m256d minNormal = _mm256_set1_pd(std::numeric_limits<double>::min());
+            const __m256d maxFinite = _mm256_set1_pd(std::numeric_limits<double>::max());
+            __m256d sums = zero;
+            __m256d absoluteSums = zero;
+            int invalidProductMask = 0;
+            for (; i + 3 < static_cast<int>(lhs.size()); i += 4) {
+                const __m256d left = _mm256_loadu_pd(&lhs[i]);
+                const __m256d right = _mm256_loadu_pd(&rhs[i]);
+                const __m256d products = _mm256_mul_pd(left, right);
+                const __m256d magnitudes = _mm256_andnot_pd(signMask, products);
+                const __m256d bothNonzero = _mm256_and_pd(_mm256_cmp_pd(left, zero, _CMP_NEQ_OQ), _mm256_cmp_pd(right, zero, _CMP_NEQ_OQ));
+                const __m256d normal =
+                    _mm256_and_pd(_mm256_cmp_pd(magnitudes, minNormal, _CMP_GE_OQ), _mm256_cmp_pd(magnitudes, maxFinite, _CMP_LE_OQ));
+                invalidProductMask |= _mm256_movemask_pd(_mm256_andnot_pd(normal, bothNonzero));
+                sums = _mm256_add_pd(sums, products);
+                absoluteSums = _mm256_add_pd(absoluteSums, magnitudes);
+            }
+            alignas(32) double sumLanes[4];
+            alignas(32) double absoluteLanes[4];
+            _mm256_store_pd(sumLanes, sums);
+            _mm256_store_pd(absoluteLanes, absoluteSums);
+            for (int lane = 0; lane < 4; ++lane) {
+                sum += sumLanes[lane];
+                absoluteSum += absoluteLanes[lane];
+            }
+            allProductsNormal = invalidProductMask == 0;
+#endif
+            for (; i < static_cast<int>(lhs.size()); ++i) {
+                const double product = lhs[i] * rhs[i];
+                const double magnitude = std::fabs(product);
+                if (lhs[i] != 0.0 && rhs[i] != 0.0 && (!std::isfinite(product) || magnitude < std::numeric_limits<double>::min()))
+                    allProductsNormal = false;
+                sum += product;
+                absoluteSum += magnitude;
+            }
+            const double uncertainty = 4.0 * static_cast<double>(lhs.size() + 4) * std::numeric_limits<double>::epsilon();
+            if (!allProductsNormal || !std::isfinite(sum) || sum == 0.0 || !std::isfinite(absoluteSum) || uncertainty >= 0.5 ||
+                std::fabs(sum) <= uncertainty * absoluteSum)
+                return false;
+            *result = ScaledFromDouble(sum);
+            return true;
+        }
+
         Scaled_ ScaledDot(const Vector_<>& lhs, const Vector_<>& rhs) {
-            const double result = InnerProduct(lhs, rhs);
-            return std::isfinite(result) && result != 0.0 ? ScaledFromDouble(result) : SlowScaledDot(lhs, rhs);
+            Scaled_ result = {0.0, 0, false};
+            return FastScaledDot(lhs, rhs, &result) ? result : SlowScaledDot(lhs, rhs);
         }
 
         ExactPositive_ ExactMultiply(const ExactPositive_& lhs, const ExactPositive_& rhs) {
