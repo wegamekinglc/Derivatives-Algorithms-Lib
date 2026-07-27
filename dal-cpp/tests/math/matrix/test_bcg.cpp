@@ -509,6 +509,26 @@ namespace {
             ASSERT_DOUBLE_EQ(0.0, x[0]);
             ASSERT_DOUBLE_EQ(0.0, x[1]);
         }
+
+        const std::array<CallbackCounts_, 6> cgExpected = {
+            CallbackCounts_{1, 0, 0, 0},
+            CallbackCounts_{2, 0, 0, 0},
+            CallbackCounts_{0, 0, 0, 0},
+            CallbackCounts_{1, 0, 1, 0},
+            CallbackCounts_{0, 0, 0, 0},
+            CallbackCounts_{4, 0, 0, 0}};
+        const std::array<CallbackCounts_, 6> bcgExpected = {
+            CallbackCounts_{1, 0, 0, 0},
+            CallbackCounts_{2, 0, 0, 0},
+            CallbackCounts_{2, 1, 0, 0},
+            CallbackCounts_{1, 0, 1, 0},
+            CallbackCounts_{1, 0, 1, 1},
+            CallbackCounts_{4, 2, 0, 0}};
+        const CallbackCounts_& expected = biConjugate ? bcgExpected[site] : cgExpected[site];
+        ASSERT_EQ(expected.left_, counts.left_);
+        ASSERT_EQ(expected.right_, counts.right_);
+        ASSERT_EQ(expected.preconditionerLeft_, counts.preconditionerLeft_);
+        ASSERT_EQ(expected.preconditionerRight_, counts.preconditionerRight_);
     }
 } // namespace
 
@@ -639,6 +659,18 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveInitialAndExhaustionCounts) {
             ASSERT_DOUBLE_EQ(2.0 / 3.0, x[1]);
         }
     }
+
+    CallbackCounts_ counts;
+    HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
+    const Vector_<> b = {1e-12, 0.0};
+    Vector_<> x = {0.0, 0.0};
+    RunSolver(true, matrix, b, 0.0, 1e-10, 10, &x);
+    ASSERT_EQ(1, counts.left_);
+    ASSERT_EQ(0, counts.right_);
+    ASSERT_EQ(0, counts.preconditionerLeft_);
+    ASSERT_EQ(0, counts.preconditionerRight_);
+    ASSERT_DOUBLE_EQ(0.0, x[0]);
+    ASSERT_DOUBLE_EQ(0.0, x[1]);
 }
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveRejectDirectResidualMismatchWithoutCommit) {
@@ -676,6 +708,9 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveProtectCommitOnConfirmationFailure) {
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentBoundary) {
     const Vector_<> large = {1.3e308, 1.3e308};
+    const Vector_<> wideResidual = {1.0, std::numeric_limits<double>::denorm_min()};
+    const Vector_<> wideRhs = {1.0, 0.0};
+    ASSERT_FALSE(CommonExponentConverged(wideResidual, wideRhs, 1.0, 0.0));
     ASSERT_TRUE(std::isinf(std::hypot(large[0], large[1])));
     ASSERT_FALSE(CommonExponentConverged(large, large, std::nextafter(1.0, 0.0), 0.0));
     ASSERT_TRUE(CommonExponentConverged(large, large, 1.0, 0.0));
