@@ -2,7 +2,9 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <utility>
@@ -145,7 +147,8 @@ namespace Dal {
 
         Scaled_ ScaledNorm(const Vector_<>& values) {
             const double sumSquares = InnerProduct(values, values);
-            return std::isfinite(sumSquares) && sumSquares != 0.0 ? ScaledFromDouble(std::sqrt(sumSquares)) : SlowScaledNorm(values);
+            return std::isfinite(sumSquares) && sumSquares >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(sumSquares))
+                                                                                                 : SlowScaledNorm(values);
         }
 
         bool ScaledLessOrEqual(Scaled_ lhs, Scaled_ rhs) {
@@ -166,9 +169,186 @@ namespace Dal {
             return lhs.mantissa_ <= rhs.mantissa_;
         }
 
-        bool IsConverged(const Vector_<>& residual, const Scaled_& threshold) {
-            return ScaledLessOrEqual(ScaledNorm(residual), threshold);
+        constexpr int EXACT_MIN_EXPONENT = -8608;
+        constexpr int EXACT_MAX_EXPONENT = 8352;
+        constexpr int EXACT_LIMB_BITS = 32;
+        constexpr int EXACT_LIMB_COUNT = (EXACT_MAX_EXPONENT - EXACT_MIN_EXPONENT) / EXACT_LIMB_BITS;
+
+        struct ExactPositive_ {
+            std::array<std::uint32_t, EXACT_LIMB_COUNT> limbs_{};
+            int first_ = EXACT_LIMB_COUNT;
+            int last_ = -1;
+        };
+
+        void ExactAddAt(int index, std::uint32_t value, ExactPositive_* result) {
+            std::uint64_t carry = value;
+            while (carry != 0) {
+                const std::uint64_t sum = static_cast<std::uint64_t>(result->limbs_[index]) + carry;
+                result->limbs_[index] = static_cast<std::uint32_t>(sum);
+                result->first_ = std::min(result->first_, index);
+                result->last_ = std::max(result->last_, index);
+                carry = sum >> EXACT_LIMB_BITS;
+                ++index;
+            }
         }
+
+        void ExactAddShiftedLimb(std::uint32_t value, int exponent, ExactPositive_* result) {
+            if (value == 0)
+                return;
+            const int offset = exponent - EXACT_MIN_EXPONENT;
+            const int index = offset / EXACT_LIMB_BITS;
+            const int shift = offset % EXACT_LIMB_BITS;
+            const std::uint64_t shifted = static_cast<std::uint64_t>(value) << shift;
+            ExactAddAt(index, static_cast<std::uint32_t>(shifted), result);
+            ExactAddAt(index + 1, static_cast<std::uint32_t>(shifted >> EXACT_LIMB_BITS), result);
+        }
+
+        void ExactAddShiftedWord(std::uint64_t value, int exponent, ExactPositive_* result) {
+            ExactAddShiftedLimb(static_cast<std::uint32_t>(value), exponent, result);
+            ExactAddShiftedLimb(static_cast<std::uint32_t>(value >> EXACT_LIMB_BITS), exponent + EXACT_LIMB_BITS, result);
+        }
+
+        void ExactAddDoubleProduct(double lhs, double rhs, ExactPositive_* result) {
+            if (lhs == 0.0 || rhs == 0.0)
+                return;
+            int lhsExponent = 0;
+            int rhsExponent = 0;
+            const std::uint64_t lhsSignificand = static_cast<std::uint64_t>(std::ldexp(std::frexp(std::fabs(lhs), &lhsExponent), 53));
+            const std::uint64_t rhsSignificand = static_cast<std::uint64_t>(std::ldexp(std::frexp(std::fabs(rhs), &rhsExponent), 53));
+            const std::uint64_t lhsLow = static_cast<std::uint32_t>(lhsSignificand);
+            const std::uint64_t lhsHigh = lhsSignificand >> EXACT_LIMB_BITS;
+            const std::uint64_t rhsLow = static_cast<std::uint32_t>(rhsSignificand);
+            const std::uint64_t rhsHigh = rhsSignificand >> EXACT_LIMB_BITS;
+            const int exponent = lhsExponent + rhsExponent - 106;
+            ExactAddShiftedWord(lhsLow * rhsLow, exponent, result);
+            ExactAddShiftedWord(lhsLow * rhsHigh + lhsHigh * rhsLow, exponent + EXACT_LIMB_BITS, result);
+            ExactAddShiftedWord(lhsHigh * rhsHigh, exponent + 2 * EXACT_LIMB_BITS, result);
+        }
+
+        ExactPositive_ ExactNormSquare(const Vector_<>& values) {
+            ExactPositive_ result;
+            for (const double value : values)
+                ExactAddDoubleProduct(value, value, &result);
+            return result;
+        }
+
+        void ExactTrim(ExactPositive_* value) {
+            while (value->first_ <= value->last_ && value->limbs_[value->first_] == 0)
+                ++value->first_;
+            while (value->last_ >= value->first_ && value->limbs_[value->last_] == 0)
+                --value->last_;
+            if (value->last_ < value->first_) {
+                value->first_ = EXACT_LIMB_COUNT;
+                value->last_ = -1;
+            }
+        }
+
+        int ExactCompare(const ExactPositive_& lhs, const ExactPositive_& rhs) {
+            if (lhs.last_ != rhs.last_)
+                return lhs.last_ < rhs.last_ ? -1 : 1;
+            for (int index = lhs.last_; index >= std::min(lhs.first_, rhs.first_); --index) {
+                if (lhs.limbs_[index] != rhs.limbs_[index])
+                    return lhs.limbs_[index] < rhs.limbs_[index] ? -1 : 1;
+            }
+            return 0;
+        }
+
+        ExactPositive_ ExactAdd(ExactPositive_ lhs, const ExactPositive_& rhs) {
+            for (int index = rhs.first_; index <= rhs.last_; ++index)
+                ExactAddAt(index, rhs.limbs_[index], &lhs);
+            return lhs;
+        }
+
+        ExactPositive_ ExactSubtract(const ExactPositive_& lhs, const ExactPositive_& rhs) {
+            ExactPositive_ result;
+            std::uint64_t borrow = 0;
+            for (int index = 0; index < EXACT_LIMB_COUNT; ++index) {
+                const std::uint64_t subtrahend = static_cast<std::uint64_t>(rhs.limbs_[index]) + borrow;
+                const std::uint64_t minuend = lhs.limbs_[index];
+                if (minuend < subtrahend) {
+                    result.limbs_[index] = static_cast<std::uint32_t>((1ULL << EXACT_LIMB_BITS) + minuend - subtrahend);
+                    borrow = 1;
+                } else {
+                    result.limbs_[index] = static_cast<std::uint32_t>(minuend - subtrahend);
+                    borrow = 0;
+                }
+            }
+            result.first_ = 0;
+            result.last_ = EXACT_LIMB_COUNT - 1;
+            ExactTrim(&result);
+            return result;
+        }
+
+        ExactPositive_ ExactMultiply(const ExactPositive_& lhs, const ExactPositive_& rhs) {
+            ExactPositive_ result;
+            for (int lhsIndex = lhs.first_; lhsIndex <= lhs.last_; ++lhsIndex) {
+                if (lhs.limbs_[lhsIndex] == 0)
+                    continue;
+                for (int rhsIndex = rhs.first_; rhsIndex <= rhs.last_; ++rhsIndex) {
+                    if (rhs.limbs_[rhsIndex] == 0)
+                        continue;
+                    const std::uint64_t product = static_cast<std::uint64_t>(lhs.limbs_[lhsIndex]) * static_cast<std::uint64_t>(rhs.limbs_[rhsIndex]);
+                    const int exponent = 2 * EXACT_MIN_EXPONENT + EXACT_LIMB_BITS * (lhsIndex + rhsIndex);
+                    ExactAddShiftedWord(product, exponent, &result);
+                }
+            }
+            return result;
+        }
+
+        ExactPositive_ ExactShift(const ExactPositive_& value, int shift) {
+            ExactPositive_ result;
+            for (int index = value.first_; index <= value.last_; ++index)
+                ExactAddShiftedLimb(value.limbs_[index], EXACT_MIN_EXPONENT + EXACT_LIMB_BITS * index + shift, &result);
+            return result;
+        }
+
+        struct Convergence_ {
+            const Vector_<>& b_;
+            double tolRel_;
+            double tolAbs_;
+            Scaled_ threshold_;
+            double uncertainty_;
+
+            Convergence_(const Vector_<>& b, double tolRel, double tolAbs, const Scaled_& rhsNorm)
+                : b_(b), tolRel_(tolRel), tolAbs_(tolAbs), threshold_(AddScaled(MultiplyScaled(rhsNorm, tolRel), ScaledFromDouble(tolAbs))),
+                  uncertainty_(std::min(0.25, 8.0 * static_cast<double>(b.size() + 2) * std::numeric_limits<double>::epsilon())) {}
+
+            bool ExactConverged(const Vector_<>& residual) const {
+                const ExactPositive_ residualSquare = ExactNormSquare(residual);
+                const ExactPositive_ rhsSquare = ExactNormSquare(b_);
+                ExactPositive_ relativeMultiplierSquare;
+                ExactAddDoubleProduct(tolRel_, tolRel_, &relativeMultiplierSquare);
+                const ExactPositive_ relativeSquare = ExactMultiply(rhsSquare, relativeMultiplierSquare);
+                if (ExactCompare(residualSquare, relativeSquare) <= 0)
+                    return true;
+
+                ExactPositive_ absoluteSquare;
+                ExactAddDoubleProduct(tolAbs_, tolAbs_, &absoluteSquare);
+                const ExactPositive_ baseToleranceSquare = ExactAdd(relativeSquare, absoluteSquare);
+                if (ExactCompare(residualSquare, baseToleranceSquare) <= 0)
+                    return true;
+
+                const ExactPositive_ difference = ExactSubtract(residualSquare, baseToleranceSquare);
+                const ExactPositive_ crossTermSquare = ExactShift(ExactMultiply(absoluteSquare, relativeSquare), 2);
+                return ExactCompare(ExactMultiply(difference, difference), crossTermSquare) <= 0;
+            }
+
+            bool IsConverged(const Vector_<>& residual, const Scaled_& residualNorm) const {
+                if (residualNorm.mantissa_ == 0.0)
+                    return true;
+                const Scaled_ residualLower = MultiplyScaled(residualNorm, 1.0 - uncertainty_);
+                const Scaled_ residualUpper = MultiplyScaled(residualNorm, 1.0 + uncertainty_);
+                const Scaled_ thresholdLower = MultiplyScaled(threshold_, 1.0 - uncertainty_);
+                const Scaled_ thresholdUpper = MultiplyScaled(threshold_, 1.0 + uncertainty_);
+                if (ScaledLessOrEqual(residualUpper, thresholdLower))
+                    return true;
+                if (!ScaledLessOrEqual(residualLower, thresholdUpper))
+                    return false;
+                return ExactConverged(residual);
+            }
+
+            bool IsConverged(const Vector_<>& residual) const { return IsConverged(residual, ScaledNorm(residual)); }
+        };
 
         [[noreturn]] void ThrowFailure(const char* solver, const char* category, const char* subject) {
             THROW(std::string(solver) + ": " + category + ": " + subject);
@@ -271,7 +451,7 @@ namespace Dal {
 #if defined(__SSE2__) || defined(_M_X64)
         struct StableBatch_ {
             unsigned priorStatus_;
-            mutable bool finished_ = false;
+            bool finished_ = false;
 
             StableBatch_() : priorStatus_(_mm_getcsr()) {
                 _mm_setcsr(priorStatus_ & ~(_MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW));
@@ -290,7 +470,7 @@ namespace Dal {
                         const Vector_<>* second = nullptr,
                         const char* secondSubject = nullptr,
                         const Vector_<>* third = nullptr,
-                        const char* thirdSubject = nullptr) const {
+                        const char* thirdSubject = nullptr) {
                 const unsigned raised = _mm_getcsr() & (_MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW);
                 _mm_setcsr(priorStatus_ | raised);
                 finished_ = true;
@@ -313,7 +493,7 @@ namespace Dal {
                         const Vector_<>* second = nullptr,
                         const char* secondSubject = nullptr,
                         const Vector_<>* third = nullptr,
-                        const char* thirdSubject = nullptr) const {
+                        const char* thirdSubject = nullptr) {
                 if (!HasOnlyFiniteValues(first))
                     ThrowFailure(solver, "numerical breakdown", firstSubject);
                 if (second && !HasOnlyFiniteValues(*second))
@@ -459,16 +639,12 @@ namespace Dal {
             state->betaPrev_ = beta;
         }
 
-        void ConfirmAndCommit(KrylovState_* state,
-                              const Scaled_& beta,
-                              const Vector_<>& b,
-                              const Scaled_& convergenceThreshold,
-                              const char* solver,
-                              Vector_<>* x) {
+        void ConfirmAndCommit(
+            KrylovState_* state, const Scaled_& beta, const Vector_<>& b, const Convergence_& convergence, const char* solver, Vector_<>* x) {
             state->A_.MultiplyLeft(state->xCandidate_, &state->directResidual_);
             const Scaled_ directResidualNorm =
                 ValidatedDirectResidual(&state->directResidual_, b, state->A_.Size(), solver, "MultiplyLeft");
-            if (!ScaledLessOrEqual(directResidualNorm, convergenceThreshold))
+            if (!convergence.IsConverged(state->directResidual_, directResidualNorm))
                 ThrowFailure(solver, "numerical breakdown", "direct residual confirmation");
             CommitCandidate(state, beta, x);
         }
@@ -496,7 +672,8 @@ namespace Dal {
                 ValidateFiniteInput(b, solver, "b");
                 ValidateFiniteInput(x, solver, "x");
             }
-            return std::isfinite(sumSquares) && sumSquares != 0.0 ? ScaledFromDouble(std::sqrt(sumSquares)) : SlowScaledNorm(b);
+            return std::isfinite(sumSquares) && sumSquares >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(sumSquares))
+                                                                                                 : SlowScaledNorm(b);
         }
 
         void
@@ -510,7 +687,7 @@ namespace Dal {
                 ThrowFailure(solver, "non-finite input", "tolAbs");
 
             const Scaled_ rhsNorm = ValidateInputsAndGetRhsNorm(b, *x, solver);
-            const Scaled_ convergenceThreshold = AddScaled(MultiplyScaled(rhsNorm, tolRel), ScaledFromDouble(tolAbs));
+            const Convergence_ convergence(b, tolRel, tolAbs, rhsNorm);
             XPrecondition_ precondition(A);
             KrylovState_ s(A, precondition, biConjugate, n);
 
@@ -521,14 +698,14 @@ namespace Dal {
                     s.rr_[i] = s.r_[i];
             if (initialResidualNorm.mantissa_ == 0.0)
                 return;
-            if (biConjugate && ScaledLessOrEqual(initialResidualNorm, convergenceThreshold))
+            if (biConjugate && convergence.IsConverged(s.r_, initialResidualNorm))
                 return;
 
             for (int iteration = 0; iteration < maxIterations; ++iteration) {
                 const Scaled_ beta = PrepareDirection(s, iteration, solver);
                 PrepareCandidate(s, beta, *x, solver);
-                if (IsConverged(s.rCandidate_, convergenceThreshold)) {
-                    ConfirmAndCommit(&s, beta, b, convergenceThreshold, solver, x);
+                if (convergence.IsConverged(s.rCandidate_)) {
+                    ConfirmAndCommit(&s, beta, b, convergence, solver, x);
                     return;
                 }
                 CommitCandidate(&s, beta, x);

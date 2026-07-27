@@ -336,6 +336,8 @@ namespace {
     }
 
     OracleBinary_ OracleSubtract(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        if (rhs.bits_.empty())
+            return lhs;
         OracleBinary_ result;
         const int leastExponent = std::min(lhs.bits_.begin()->first, rhs.bits_.begin()->first);
         const int greatestExponent = lhs.bits_.rbegin()->first;
