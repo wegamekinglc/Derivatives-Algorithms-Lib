@@ -762,6 +762,33 @@ TEST(MatrixTest, TestBCGSolvePreservesWideExponentResidualContribution) {
     ASSERT_EQ(1, counts.right_);
 }
 
+TEST(MatrixTest, TestBCGSolveDoesNotRoundSubnormalThresholdIntoConvergence) {
+    const double denorm = std::numeric_limits<double>::denorm_min();
+    const auto assertContinues = [denorm](const Vector_<>& b, Vector_<> x, double tolRel, double tolAbs) {
+        const Vector_<> initialResidual = {b[0] - x[0], b[1] - x[1]};
+        ASSERT_FALSE(CommonExponentConverged(initialResidual, b, tolRel, tolAbs));
+
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+        Sparse::BCGSolve(matrix, b, tolRel, tolAbs, 10, &x);
+
+        ASSERT_DOUBLE_EQ(b[0], x[0]);
+        ASSERT_DOUBLE_EQ(b[1], x[1]);
+        ASSERT_EQ(3, counts.left_);
+        ASSERT_EQ(1, counts.right_);
+    };
+
+    for (const int exponent : {-1074, -1030, -1029, -1028}) {
+        SCOPED_TRACE(exponent);
+        const double primary = std::scalbn(1.0, exponent);
+        assertContinues({primary, 0.0}, {0.0, -denorm}, 1.0, 0.0);
+    }
+
+    const double boundary = std::scalbn(1.0, -1029);
+    assertContinues({0.0, 0.0}, {-boundary, -denorm}, 1.0, boundary);
+    assertContinues({boundary, 0.0}, {0.0, -denorm}, 0.5, 0.5 * boundary);
+}
+
 TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) {
     ASSERT_FALSE(CommonExponentConverged({1.0}, {0.0}, 1.0, 0.0));
 }
