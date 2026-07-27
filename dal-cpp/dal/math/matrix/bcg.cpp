@@ -308,6 +308,7 @@ namespace Dal {
             double tolAbs_;
             double uncertainty_;
             Scaled_ certainThreshold_;
+            bool certainThresholdIsStrict_;
             Scaled_ uncertainThreshold_;
 
             Convergence_(const Vector_<>& b, double tolRel, double tolAbs, const Scaled_& rhsNorm)
@@ -315,6 +316,7 @@ namespace Dal {
                   uncertainty_(std::min(0.25, 8.0 * static_cast<double>(b.size() + 2) * std::numeric_limits<double>::epsilon())) {
                 const Scaled_ threshold = AddScaled(MultiplyScaled(rhsNorm, tolRel), ScaledFromDouble(tolAbs));
                 certainThreshold_ = MultiplyScaled(threshold, (1.0 - uncertainty_) / (1.0 + uncertainty_));
+                certainThresholdIsStrict_ = !ScaledLessOrEqual(threshold, certainThreshold_);
                 uncertainThreshold_ = MultiplyScaled(threshold, (1.0 + uncertainty_) / (1.0 - uncertainty_));
             }
 
@@ -343,7 +345,7 @@ namespace Dal {
                     return true;
                 if (!ScaledLessOrEqual(residualNorm, uncertainThreshold_))
                     return false;
-                if (ScaledLessOrEqual(residualNorm, certainThreshold_))
+                if (certainThresholdIsStrict_ && ScaledLessOrEqual(residualNorm, certainThreshold_))
                     return true;
                 return ExactConverged(residual);
             }
