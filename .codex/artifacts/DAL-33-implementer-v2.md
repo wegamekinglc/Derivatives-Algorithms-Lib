@@ -3,151 +3,218 @@
 Date: 2026-07-28
 Branch: `fix/dal-33-bcg-scale-stability`
 
-## Exact revisions and scope
+## Exact revisions and current scope
 
-- Approved baseline: `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`
-- Tester-v3 blocked head reproduced: `0b279713ee383075834ca991f80cad7d35ccc7ec`
-- Subnormal-boundary RED:
-  `6f725abdda41a18366b04a0293d08d80f2e208ae`
-- Minimal subnormal-guard GREEN:
-  `1872301400d7dcc847850309bec0f22ad454d140`
+- Approved baseline:
+  `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`
+- Tester-v4 blocked head reproduced:
+  `bae095a1d8111560fcd13c8f254025951000e340`
+- Native subnormal-classification RED:
+  `b88aa21089fecae6cb83d9f1fdd7e8eaa0074930`
+- Minimal native direct-residual GREEN:
+  `322aecad0d844bbe28f244329b98d63db69895b8`
 
-The final evidence commit replaces the performance samples and this handoff on
-top of the GREEN commit. Its exact remote SHA is reported in the issue comment
-because a committed file cannot contain its own commit hash.
+The final evidence commit replaces this handoff and every paired benchmark
+sample on top of the GREEN commit. Its exact remote SHA is reported in the
+issue comment because a committed file cannot contain its own commit hash.
 
-Code changes relative to the blocked head are limited to:
+The v4 repair relative to the blocked head changes only:
 
-- `dal-cpp/dal/math/matrix/bcg.cpp`
 - `dal-cpp/tests/math/matrix/test_bcg.cpp`
+- `dal-cpp/dal/math/matrix/bcg.cpp`
 
-The production delta is three inserted lines and one guarded condition. Public
-headers, `dal-public`, `dal-python`, `dal-excel`, bindings, and AAD surface have
-an empty diff.
+The evidence commit additionally changes only:
 
-## Tester-v3 reproduction and RED
+- `.codex/artifacts/DAL-33-implementer-v2.md`
+- `.codex/artifacts/DAL-33-performance-v2/paired/**`
 
-The tester-v3 public diagnostic was rebuilt against exact blocked head
-`0b279713ee383075834ca991f80cad7d35ccc7ec`. It scans all 2,098 finite
-binary64 power-of-two exponents from `-1074` through `1023` through the public
-CG/BCG API.
+Public headers, `dal-public`, `dal-python`, `dal-excel`, bindings, and the AAD
+surface remain unchanged. No PR was created and nothing was merged.
 
+## Tester-v4 reproduction and root cause
+
+The tester-v4 sources were rebuilt against exact blocked head
+`bae095a1d8111560fcd13c8f254025951000e340`, once against the native AVX2/FMA
+library and once against the forced scalar library.
+
+The minimal public `Sparse::BCGSolve` probe uses:
+
+```text
+A=I2
+b=[0x1.02cc22b489eadp-537,0]
+x0=[0,-0x1.02cc22b489eadp-557]
+tolRel=1
+tolAbs=0
+```
+
+Blocked native result:
+
+```text
+x=[0,-0x1.02cc22b489eadp-557] counts=1/0 correct=0
+```
+
+Scalar result:
+
+```text
+x=[0x1.02cc22b489eadp-537,0] counts=3/1 correct=1
+```
+
+The fixed-seed independent corpus uses seed `0x6d5a56da3c9ef187`,
+18,388 unique non-power-of-two mantissa anchors, and nine relative, absolute,
+mixed, equality, near-boundary, and zero-threshold scenarios per anchor.
 Before the repair:
 
 ```text
-bcg_boundary exponent=-1030 x=[0,-denorm_min] counts=1/0
-bcg_boundary exponent=-1029 x=[0,-denorm_min] counts=1/0
-bcg_boundary exponent=-1028 x=[2^-1028,0] counts=3/1
-binary64_power_exponents_tested=2098
-comparison_failures=274
-above_threshold_failures=92
-absolute_comparison_failures=92
-mixed_threshold_failures=90
-failures=274
+cases=165492 oracle_converged=91997 oracle_rejected=73495
+solver_initial_returns=91860 solver_continued=73632
+false_successes=207 false_rejections=344
+false_success_scenarios=absolute-above:69,mixed-above:69,relative-above:69
+false_reject_scenarios=absolute-equality:86,mixed-near-below:86,relative-equality:86,relative-near-below:86
+failures=758
 ```
 
-Commit `6f725abdda41a18366b04a0293d08d80f2e208ae` adds a public
-`Sparse::BCGSolve` regression for:
+The same corpus on scalar reported zero false successes, zero false
+rejections, and zero failures.
 
-- the minimum subnormal, a representative failing-band exponent `-1030`, the
-  last failing exponent `-1029`, and the first passing exponent `-1028`;
-- relative, absolute, and mixed tolerance forms at the boundary;
-- an independent exact-oracle assertion that every initial residual is above
-  the inclusive threshold;
-- exact successful callback counts (`MultiplyLeft=3`,
-  `MultiplyRight=1`) and exact final solution.
+`ValidatedDirectResidual` accumulated native residual squares with AVX/FMA
+but trusted every finite nonzero sum. Near exponent `-537`, individual
+squares and their sum are subnormal; binary64 rounding can therefore move
+the direct norm across the conservative inner or outer convergence boundary.
+The generic/scalar `ScaledNorm` path already rejects such a direct sum unless
+it is at least `std::numeric_limits<double>::min()`.
 
-Focused RED:
+## RED commit
+
+Commit `b88aa21089fecae6cb83d9f1fdd7e8eaa0074930` adds:
+
+- the exact native-only public minimal probe;
+- a repository fixed-seed scan of 128 non-power mantissas at the vulnerable
+  normal exponent, with all nine tester-v4 threshold scenarios;
+- the existing independent common-exponent oracle as the expected
+  classifier; and
+- exact public success/rejection state plus `MultiplyLeft` /
+  `MultiplyRight` callback-count assertions.
+
+The repository sweep covers 1,152 deterministic solver classifications.
+The production mutation it catches is accepting a finite subnormal direct
+square sum without conservative or exact validation.
+
+RED commands:
 
 ```text
-cmake --build build/Release-native-v3 --target dal_cpp_tests -j8
+cmake --build build/Release-native-v3 --target dal_cpp_tests --parallel 4
+cmake --build build/Release-scalar-fallback-v3 \
+  --target dal_cpp_tests --parallel 4
+
 build/Release-native-v3/dal-cpp/dal_cpp_tests \
-  --gtest_filter=MatrixTest.TestBCGSolveDoesNotRoundSubnormalThresholdIntoConvergence
+  --gtest_filter='MatrixTest.TestBCGSolveNativeDirectResidualPreservesNonPowerSubnormalNorm:MatrixTest.TestBCGSolveFixedSeedNonPowerSubnormalClassification'
+
+build/Release-scalar-fallback-v3/dal-cpp/dal_cpp_tests \
+  --gtest_filter='MatrixTest.TestBCGSolveNativeDirectResidualPreservesNonPowerSubnormalNorm:MatrixTest.TestBCGSolveFixedSeedNonPowerSubnormalClassification'
 ```
 
-Result: exit 1 as required. The failing cases retained the initial solution
-and reported only `MultiplyLeft=1`, `MultiplyRight=0`; production was unchanged
-until this failure was recorded and committed.
+Results:
+
+```text
+native: exit 1; 0/2 passed; both tests failed on the wrong initial-return classification
+scalar: exit 0; 1/1 passed; the native-only minimal test was not compiled
+```
+
+Production remained at the blocked head until the failing tests were
+recorded and committed.
 
 ## Minimal GREEN
 
-For subnormal thresholds,
+Commit `322aecad0d844bbe28f244329b98d63db69895b8` changes one private
+acceptance predicate:
 
 ```text
-certainThreshold = threshold * (1 - uncertainty) / (1 + uncertainty)
+finite && squareSum != 0
 ```
 
-can round back to `threshold`. Such a value is not a strict conservative inner
-bound and therefore cannot prove convergence.
-
-Commit `1872301400d7dcc847850309bec0f22ad454d140` precomputes one private
-boolean while constructing the existing convergence object:
-
-- if `certainThreshold < threshold` is representably true, the existing
-  early-success fast path remains available;
-- otherwise early success is disabled and the existing fixed-width exact
-  comparison decides the inclusive contract;
-- the conservative outer rejection, exact-zero behavior, callback order,
-  direct confirmation, and atomic commit are unchanged.
-
-The boolean is computed before the iteration loop. No public state, heap
-allocation, O(n) workspace, callback, or loop allocation was added.
-
-Focused GREEN:
+becomes:
 
 ```text
-build/Release-native-v3/dal-cpp/dal_cpp_tests \
-  --gtest_filter='MatrixTest.TestBCGSolveDoesNotRoundSubnormalThresholdIntoConvergence:MatrixTest.TestBCGSolvePreservesWideExponentResidualContribution:MatrixTest.TestCGSolveAndBCGSolveCommonExponentBoundary:MatrixTest.TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold'
+finite && squareSum >= min_normal
 ```
 
-Result: 4/4 passed.
+Normal direct sums keep the existing AVX/FMA square-root fast path. Zero,
+subnormal, overflowed, or otherwise non-trustworthy sums reuse the existing
+allocation-free `SlowScaledNorm` path and then the unchanged conservative /
+exact convergence gates. No callback, commit, public API, workspace,
+allocation, AAD, or loop structure changed.
 
-## Full exponent and build verification
-
-The tester-v3 public scan was rebuilt separately against the native and forced
-scalar libraries. Both runs report:
+Focused GREEN results:
 
 ```text
-reviewer_probe_x=[1,0] counts=3/1
-bcg_boundary exponent=-1030 x=[2^-1030,0] counts=3/1
-bcg_boundary exponent=-1029 x=[2^-1029,0] counts=3/1
-bcg_boundary exponent=-1028 x=[2^-1028,0] counts=3/1
-bcg_boundary exponent=-1027 x=[2^-1027,0] counts=3/1
-binary64_power_exponents_tested=2098 range=[-1074,1023]
-analytical_comparison_scenarios=20978 comparison_failures=0
-reviewer_probe_failures=0 construction_failures=0
-above_threshold_failures=0 relative_equality_failures=0
-zero_threshold_failures=0 absolute_comparison_failures=0
-mixed_threshold_failures=0 atomic_failures=0
+native: 2/2 passed
+scalar: 1/1 passed
+```
+
+The rebuilt tester-v4 minimal probe reports the same successful result on
+both paths:
+
+```text
+x=[0x1.02cc22b489eadp-537,0] counts=3/1 correct=1
+```
+
+The rebuilt full tester-v4 corpus reports identically on native and scalar:
+
+```text
+seed=0x6d5a56da3c9ef187
+non_power_mantissa_anchors=18388
+cases=165492 oracle_converged=91997 oracle_rejected=73495
+solver_initial_returns=91997 solver_continued=73495
+false_successes=0 false_rejections=0
+strict_inner_available=145736 collapsed_inner=19756
+conservative_fast_candidates=18217
+conservative_fast_candidate_oracle_failures=0
 failures=0
 ```
 
-Native focused:
+The Python oracle uses exact `Fraction.from_float` dyadic arithmetic and does
+not call production or repository-test helpers.
+
+## Native, scalar, exponent, and full verification
+
+Native focused command:
 
 ```text
-cmake --build build/Release-native-v3 --target dal_cpp_tests -j8
 build/Release-native-v3/dal-cpp/dal_cpp_tests \
   --gtest_filter='MatrixTest.TestCGSolve*:MatrixTest.TestBCGSolve*' \
   --gtest_brief=1
 ```
 
-Result: 29/29 passed.
+Result: 31/31 passed.
 
-Forced scalar fallback:
+Forced scalar command:
 
 ```text
-cmake --preset=Release-linux -S . -B build/Release-scalar-fallback-v3 \
-  -DDAL_ENABLE_NATIVE_ARCH=OFF \
-  -DCMAKE_CXX_FLAGS='-U__AVX2__ -U__FMA__ -U__SSE2__' \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build/Release-scalar-fallback-v3 \
-  --target dal_cpp_tests -j8
 build/Release-scalar-fallback-v3/dal-cpp/dal_cpp_tests \
   --gtest_filter='MatrixTest.TestCGSolve*:MatrixTest.TestBCGSolve*' \
   --gtest_brief=1
 ```
 
-Result: the cache contains all three macro undefinitions; 29/29 passed.
+Result: 30/30 passed. Its cache contains:
+
+```text
+CMAKE_CXX_FLAGS:STRING=-U__AVX2__ -U__FMA__ -U__SSE2__
+```
+
+The tester-v3 full public binary64 power-exponent scan was rebuilt and linked
+separately to both libraries. Both report:
+
+```text
+reviewer_probe_x=[0x1p+0,0x0p+0] counts=3/1
+binary64_power_exponents_tested=2098 range=[-1074,1023]
+analytical_comparison_scenarios=20978 comparison_failures=0
+reviewer_probe_failures=0 construction_failures=0
+above_threshold_failures=0 relative_equality_failures=0
+zero_threshold_failures=0 absolute_comparison_failures=0
+mixed_threshold_failures=0
+atomic_scenarios=2 atomic_failures=0
+failures=0
+```
 
 Full native Release build, install, and CTest:
 
@@ -159,9 +226,14 @@ ADDITIONAL_CMAKE_FLAGS='-DDAL_ENABLE_NATIVE_ARCH=ON' \
 bash ./build_linux.sh
 ```
 
-Result: 1168/1168 passed.
+Result:
 
-Documentation, benchmark-script, hygiene, and surface gates:
+```text
+100% tests passed, 0 tests failed out of 1170
+Total Test time (real) = 20.56 sec
+```
+
+Documentation, benchmark-script, diff, and surface commands:
 
 ```text
 python3 .github/scripts/check_docs.py
@@ -174,28 +246,39 @@ git diff --exit-code --name-only \
   dal-cpp/dal/math/matrix/bcg.hpp dal-public dal-python dal-excel
 ```
 
-Results: 39 Markdown files passed; 19/19 script tests passed; diff check
-passed; public/binding/AAD surface diff is empty.
+Results:
+
+```text
+documentation: 39 Markdown files passed
+benchmark-script tests: 19/19 passed
+diff --check: passed
+public/binding/AAD surface diff: empty
+```
 
 ## Fresh exact 10x2 paired performance gate
 
-The previous head's samples were replaced only after a new gate passed. The
-run used newly created detached sources and new out-of-tree builds:
+All prior samples were replaced only after a new gate passed. The new run
+used freshly created detached sources and new out-of-tree build roots:
 
 - baseline source: exact
   `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`;
 - head source: exact
-  `1872301400d7dcc847850309bec0f22ad454d140`;
+  `322aecad0d844bbe28f244329b98d63db69895b8`;
 - both source worktrees were clean before and after the run;
 - recursive submodule SHAs were identical;
 - `krylov_perf.cpp` blob was identical:
   `4ba845ea1615728b04c1d2bf14b03ceb66e3ec84`;
-- GNU `gcc-14`/`g++-14` 14.3.0, Release static AADET native build;
-- benchmarks enabled; tests, examples, public library, and Python disabled;
-- base binary SHA-256:
-  `e2d4c1694cd78c8c6de35d630f2e3dc64c5c06939fb4eba057c4d59cfab9d6cb`;
+- GNU `gcc-14`/`g++-14` 14.3.0;
+- Release shared-library AADET native builds with benchmarks enabled and
+  tests, examples, public library, Python, and Excel disabled;
+- baseline binary SHA-256:
+  `73851a7f7c7567b6ce2a2dc14706077830c365e0b3e7c7ba09d5b57433dddb49`;
 - head binary SHA-256:
-  `50aa64b31228dfa36c02ca5783c1e1fc890ee229bb9c656b1baf09863771182f`.
+  `b18858ad4b051787b1d2ef0fb1242f2772d47e21dec6e737ebaea2b99e6e68fa`.
+
+The shared-library description above corrects the previous handoff's
+inaccurate `static` label; the configuration is the repository/CI Unix
+default and matches both fresh roots.
 
 Gate command:
 
@@ -213,30 +296,32 @@ python3 .github/scripts/check_benchmark_regressions.py \
 
 Result: exit 0.
 
-| Case | Base min | Head min | Combined | Round 1 | Round 2 | Gate |
-|---|---:|---:|---:|---:|---:|:---:|
-| `BCGSolve (500x500 tridiag)` | 19,317 ns | 18,709 ns | -3.15% | -2.94% | -3.15% | pass |
-| `CGSolve (500x500 tridiag)` | 14,979 ns | 15,353 ns | +2.50% | +2.50% | +3.51% | pass |
+| Case                              | Base min  | Head min  | Combined | Round 1 | Round 2 | Gate |
+|-----------------------------------|-----------|-----------|----------|---------|---------|------|
+| `BCGSolve (500x500 tridiag)`      | 19,025 ns | 18,890 ns | -0.71%   | -0.71%  | -0.13%  | pass |
+| `CGSolve (500x500 tridiag)`       | 14,978 ns | 15,231 ns | +1.69%   | +1.69%  | +1.88%  | pass |
 
 Evidence audit:
 
 - 40 raw outputs: 20 baseline and 20 head;
-- both cases are present in every raw output, 160 lines total;
-- `failures` is empty in `results.json`;
-- no raw output contains the forbidden `calls/solve` marker;
+- both cases are present in every raw output, 160 timing lines total;
+- every case has 20 base and 20 head samples in `results.json`;
+- `failures` is empty;
+- every comparison is both `passed` and `gated`;
+- no raw output contains the forbidden `calls/solve` marker; and
 - the tracked directory contains only the replacement exact-baseline /
-  exact-GREEN run.
+  exact-GREEN samples.
 
-## Remaining risk and next gate
+## Remaining risk and required next gate
 
-- Subnormal threshold cases now intentionally use the exact fallback when a
-  strict inner bound is not representable. The full exponent scan covers all
-  power-of-two anchors and the repository regression covers boundary and
-  tolerance-mode representatives; independent tester fuzzing of non-power
-  mantissas remains useful.
-- Native and forced scalar paths passed on this x86 host. CI remains
-  authoritative for other ABIs and toolchains.
+- The independent tester-v4 corpus now agrees exactly between native and
+  scalar across 165,492 cases, including success/rejection and callback
+  classification. Tester must still independently reproduce this against the
+  final remote evidence head.
+- The new branch is exercised on x86 AVX2/FMA with GNU 14.3. CI remains
+  authoritative for other processors, compilers, and ABIs.
+- The normal direct-square-sum control path and operations are unchanged
+  above `min_normal`, and the exact paired performance gate passes, but later
+  broad performance CI remains authoritative.
+- Tester retest must precede reviewer re-review. Doc-writer remains paused.
 - No PR was created and nothing was merged.
-- Required next step: tester independently retests the exact remote head and
-  replacement evidence. Reviewer re-review follows only after tester passes.
-  Doc-writer remains paused.
