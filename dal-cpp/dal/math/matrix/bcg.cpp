@@ -306,12 +306,17 @@ namespace Dal {
             const Vector_<>& b_;
             double tolRel_;
             double tolAbs_;
-            Scaled_ threshold_;
             double uncertainty_;
+            Scaled_ certainThreshold_;
+            Scaled_ uncertainThreshold_;
 
             Convergence_(const Vector_<>& b, double tolRel, double tolAbs, const Scaled_& rhsNorm)
-                : b_(b), tolRel_(tolRel), tolAbs_(tolAbs), threshold_(AddScaled(MultiplyScaled(rhsNorm, tolRel), ScaledFromDouble(tolAbs))),
-                  uncertainty_(std::min(0.25, 8.0 * static_cast<double>(b.size() + 2) * std::numeric_limits<double>::epsilon())) {}
+                : b_(b), tolRel_(tolRel), tolAbs_(tolAbs),
+                  uncertainty_(std::min(0.25, 8.0 * static_cast<double>(b.size() + 2) * std::numeric_limits<double>::epsilon())) {
+                const Scaled_ threshold = AddScaled(MultiplyScaled(rhsNorm, tolRel), ScaledFromDouble(tolAbs));
+                certainThreshold_ = MultiplyScaled(threshold, (1.0 - uncertainty_) / (1.0 + uncertainty_));
+                uncertainThreshold_ = MultiplyScaled(threshold, (1.0 + uncertainty_) / (1.0 - uncertainty_));
+            }
 
             bool ExactConverged(const Vector_<>& residual) const {
                 const ExactPositive_ residualSquare = ExactNormSquare(residual);
@@ -336,14 +341,10 @@ namespace Dal {
             bool IsConverged(const Vector_<>& residual, const Scaled_& residualNorm) const {
                 if (residualNorm.mantissa_ == 0.0)
                     return true;
-                const Scaled_ residualLower = MultiplyScaled(residualNorm, 1.0 - uncertainty_);
-                const Scaled_ residualUpper = MultiplyScaled(residualNorm, 1.0 + uncertainty_);
-                const Scaled_ thresholdLower = MultiplyScaled(threshold_, 1.0 - uncertainty_);
-                const Scaled_ thresholdUpper = MultiplyScaled(threshold_, 1.0 + uncertainty_);
-                if (ScaledLessOrEqual(residualUpper, thresholdLower))
-                    return true;
-                if (!ScaledLessOrEqual(residualLower, thresholdUpper))
+                if (!ScaledLessOrEqual(residualNorm, uncertainThreshold_))
                     return false;
+                if (ScaledLessOrEqual(residualNorm, certainThreshold_))
+                    return true;
                 return ExactConverged(residual);
             }
 
