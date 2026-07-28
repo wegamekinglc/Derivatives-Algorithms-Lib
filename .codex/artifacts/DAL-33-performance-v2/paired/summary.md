@@ -4,7 +4,7 @@
 
 | Benchmark | Case | Base min | Head min | Change | Round changes | Result |
 |---|---|---:|---:|---:|---:|:---:|
-| krylov_perf | BCGSolve (500x500 tridiag) | 0.018967 ms | 0.015800 ms | -16.70% | -17.04%, -16.39% | pass |
-| krylov_perf | CGSolve (500x500 tridiag) | 0.014924 ms | 0.012419 ms | -16.79% | -16.76%, -16.87% | pass |
+| krylov_perf | BCGSolve (500x500 tridiag) | 0.018975 ms | 0.015874 ms | -16.34% | -14.93%, -17.29% | pass |
+| krylov_perf | CGSolve (500x500 tridiag) | 0.014870 ms | 0.012630 ms | -15.06% | -15.02%, -16.49% | pass |
 
 All performance acceptance checks passed.

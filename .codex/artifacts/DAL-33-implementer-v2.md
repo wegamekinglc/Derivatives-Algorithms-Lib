@@ -3,6 +3,129 @@
 Date: 2026-07-28
 Branch: `fix/dal-33-bcg-scale-stability`
 
+## Current authoritative addendum: PR #262 Codacy complexity repair
+
+This section supersedes the revision, verification, performance, and
+remaining-risk status in every historical addendum retained below.
+
+### Revisions and permitted scope
+
+- reviewed pre-refactor head:
+  `b0de03b6817c68d461b385e0aeea677c9be20ce8`;
+- behavior-preserving complexity refactor:
+  `74e6468ee80aa98c26cd89785cf96250062a3638`.
+
+The final evidence commit is on top of the refactor and changes only this
+handoff plus `.codex/artifacts/DAL-33-performance-v2/paired/**`. Its exact SHA
+is reported in the issue comment because a committed file cannot contain its
+own commit hash.
+
+The refactor is limited to private helper decomposition in
+`dal-cpp/dal/math/matrix/bcg.cpp`, equivalent helper decomposition in
+`dal-cpp/tests/math/matrix/test_bcg.cpp`, and the exact pre-fix Codacy evidence
+in `.codex/artifacts/DAL-33-codacy-complexity-before.json`. It does not change
+public headers, bindings, AAD, callback order/counts, atomic publication,
+numeric predicates, arithmetic order, or loop allocation contracts.
+
+### Codacy reproduction and minimal repair
+
+Codacy check run `90156634450` on the reviewed head concluded
+`action_required` with exactly ten new complexity annotations. The attachment
+records their exact paths, lines, messages, check title, details URL, and
+reviewed head before any refactor.
+
+The production annotations were `AddScaled` (10), `ScaledFromExact` (9),
+`FastScaledDot` (15), `HasOnlyFiniteValues` (9), `ScaledRatio` (9),
+`ValidatedDirectResidual` (10), and `PrepareDirection` (12). The test
+annotations were `CommonExponentConverged` (10), `AssertCallbackFault` (31),
+and the finite-nonzero permutation `TEST` (9), all against a limit of 8.
+
+The repair extracts single-purpose private helpers while retaining the
+original branch predicates and operation order. No rule suppression,
+complexity-threshold change, file exclusion, or test weakening is present.
+The same Lizard 1.23.0 metric now reports the ten annotated methods at,
+respectively:
+
+```text
+production: 5, 3, 2, 3, 7, 2, 1
+tests:      1, 1, 2
+```
+
+The only local complexity warnings remaining are the unchanged baseline
+methods `ValidateKrylovParams` and `KrylovSolve`; they are outside the ten new
+PR annotations and were not modified.
+
+### Current correctness and compatibility evidence
+
+```text
+native focused MatrixTest.*CGSolve*: 33/33 passed
+forced-scalar MatrixTest.*CGSolve*:   32/32 passed
+complete native CTest:                1172/1172 passed
+documentation:                        39 Markdown files passed
+benchmark-script unit tests:          19/19 passed
+git diff --check:                     passed
+public/header/binding/AAD diff:        empty
+```
+
+### Fresh exact 10x2 paired 4% performance gate
+
+The baseline executable was retained from the independently built exact
+baseline source `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`. The head
+executable was rebuilt from a detached clone of exact production
+refactor `74e6468ee80aa98c26cd89785cf96250062a3638`. Both use GNU
+`gcc-14`/`g++-14` 14.3.0, Release shared-library AADET native builds,
+benchmarks enabled, and tests/examples/public/Python/Excel disabled.
+
+Runtime provenance:
+
+```text
+DAL_NUM_THREADS=4
+host: 13th Gen Intel(R) Core(TM) i9-13900HX, 32 logical CPUs
+kernel: Linux 5.15.167.4-microsoft-standard-WSL2 x86_64
+baseline krylov_perf sha256:
+  81d46f1b204a00cd0d44c9a9a5a8a520afc5a07a5d0a2e7dfa344fbfac657e74
+head krylov_perf sha256:
+  72241957bbf0b0a75fbceb2eac0b239367d9b93c0da4c800383d27bf2b25e284
+head libdal_cpp.so.1.0.0 sha256:
+  c8a556bca20038e5bcd6103f3c17e506450ec38d62782b434d0894e0396a1cc2
+runtime binding:
+  libdal_cpp.so.1.0.0 => exact detached head-build library
+```
+
+Gate:
+
+```text
+DAL_NUM_THREADS=4 \
+python3 .github/scripts/check_benchmark_regressions.py \
+  --base-root <exact-baseline-build> \
+  --head-root <fresh-refactor-build> \
+  --output-dir .codex/artifacts/DAL-33-performance-v2/paired \
+  --benchmarks krylov_perf \
+  --samples 10 \
+  --confirmation-rounds 2 \
+  --threshold-percent 4
+```
+
+Result: exit zero.
+
+| Case | Base min | Head min | Combined | Round 1 | Round 2 | Gate |
+|---|---:|---:|---:|---:|---:|:---:|
+| `BCGSolve (500x500 tridiag)` | 18,975 ns | 15,874 ns | -16.34% | -14.93% | -17.29% | pass |
+| `CGSolve (500x500 tridiag)` | 14,870 ns | 12,630 ns | -15.06% | -15.02% | -16.49% | pass |
+
+Evidence audit: 40 raw outputs, 20 baseline and 20 head samples per case,
+empty `failures`, and every comparison both `passed` and `gated`.
+
+### Remaining risk and required next gate
+
+- Local complexity output confirms the requested decomposition, but the
+  authoritative Codacy rerun is asynchronous and must be read from PR #262.
+- Helper extraction is intended to preserve branch predicates and arithmetic
+  order and passed native/scalar/full/performance gates; tester must still
+  independently rerun its exact numerical and callback corpora before reviewer
+  and doc-writer re-entry.
+- PR #262 remains unmerged. No merge is authorized in this round.
+
 ## Current authoritative addendum: tester-v6 finite-nonzero signed-dot repair
 
 This section supersedes the revision, verification, performance, and
