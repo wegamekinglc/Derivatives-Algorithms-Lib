@@ -242,6 +242,21 @@ namespace Dal {
                 return plan;
             }
 
+#if defined(DAL35_ENABLE_TEST_SEAM)
+            template <class LegacyConversion_, class ScaledEvaluation_>
+            inline AlphaPlan_ ObserveAlphaDispatchForTest_(const StoredScaledBits_& numerator,
+                                                          const StoredScaledBits_& denominator,
+                                                          LegacyConversion_&& legacyConversion,
+                                                          ScaledEvaluation_&& scaledEvaluation) {
+                const AlphaPlan_ plan = ClassifyAlpha_(numerator, denominator);
+                if (plan.path_ == AlphaPath_::LEGACY_ZERO || plan.path_ == AlphaPath_::ORDINARY_NORMAL)
+                    legacyConversion();
+                if (plan.path_ == AlphaPath_::SCALED_EXACT)
+                    scaledEvaluation(plan.exact_);
+                return plan;
+            }
+#endif
+
             constexpr int EXACT_CANDIDATE_LIMB_COUNT_ = REVIEWED_CANDIDATE_BOUNDS_.candidateLimbCount_;
 
             struct ExactMagnitude_ {
