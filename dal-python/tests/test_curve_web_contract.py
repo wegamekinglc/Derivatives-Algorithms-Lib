@@ -274,6 +274,49 @@ def test_private_web_fixing_preflight_uses_native_cashflow_schedules():
     assert all(item[0] == 0 for item in required)  # nosec B101
 
 
+def test_private_rate_trade_fixing_preflight_uses_native_cashflow_schedules():
+    start = dal.Date_(2026, 1, 15)
+    maturity = dal.Date_(2026, 4, 15)
+    valuation_time = dal.DateTime_(start.AddDays(1), 10, 30)
+    index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("3M"),
+        dal.DayBasis_New("ACT_365F"),
+        dal.CollateralType_OIS(),
+    )
+    fixing = dal.FixingIdentity_()
+    fixing.index_name = "USD-SOFR"
+    fixing.fixing_hour = 11
+    fixing.fixing_minute = 0
+    terms = dal.FraTradeTerms_(
+        notional=1_000_000.0,
+        contract_rate=0.03,
+        receive_floating=True,
+        settle_at_start=False,
+        index=index,
+        fixing_identity=fixing,
+        forecast_component_key="forecast",
+        discount_component_key="discount",
+    )
+    trade = dal.RateTradeDefinition_(
+        instrument_id="fra-1",
+        instrument_type=dal.RateInstrumentType.FRA,
+        trade_date=start,
+        start_date=start,
+        maturity_date=maturity,
+        currency="USD",
+        terms=terms,
+    )
+
+    required = dal._dal._RequiredHistoricalRateTradeFixings(
+        [trade], valuation_time
+    )
+
+    assert len(required) == 1  # nosec B101
+    assert required[0][0] == 0  # nosec B101
+    assert required[0][1] == "USD-SOFR"  # nosec B101
+    assert repr(required[0][2]) == "2026-01-15 11:00:00"  # nosec B101
+
+
 def test_solver_budget_exhaustion_has_a_private_typed_exception():
     today = _today()
     maturity = today.AddDays(365)

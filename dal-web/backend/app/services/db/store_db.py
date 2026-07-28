@@ -30,6 +30,7 @@ from app.services.calibration_store import (
     RawSingleWorkerAdmissionEvidence,
 )
 from app.services.calibrations import canonical_json_bytes
+from app.services.curve_lab_jobs import deadline_expired, soft_deadline_error
 from app.services.db.models import (
     Base,
     CalibrationInstrumentDefinitionRow,
@@ -116,6 +117,7 @@ class DbStore:
             "diagnostics": row.diagnostics_json,
             "error": row.error_json,
             "created_at": row.created_at,
+            "deadline_at": row.deadline_at,
             "finished_at": row.finished_at,
         }
 
@@ -178,6 +180,7 @@ class DbStore:
             error_json=record.get("error"),
             resulting_version_id=record.get("resulting_version_id"),
             created_at=record["created_at"],
+            deadline_at=record["deadline_at"],
             finished_at=record.get("finished_at"),
         )
 
@@ -193,6 +196,7 @@ class DbStore:
             "error": row.error_json,
             "resulting_version_id": row.resulting_version_id,
             "created_at": row.created_at,
+            "deadline_at": row.deadline_at,
             "finished_at": row.finished_at,
         }
 
@@ -214,6 +218,7 @@ class DbStore:
             "result": row.result_json,
             "error": row.error_json,
             "created_at": row.created_at,
+            "deadline_at": row.deadline_at,
             "finished_at": row.finished_at,
         }
 
@@ -752,6 +757,7 @@ class DbStore:
                     diagnostics_json=record.get("diagnostics"),
                     error_json=record.get("error"),
                     created_at=record["created_at"],
+                    deadline_at=record["deadline_at"],
                     finished_at=record.get("finished_at"),
                 )
             )
@@ -949,6 +955,7 @@ class DbStore:
             row.phase = record["phase"]
             row.error_json = record.get("error")
             row.resulting_version_id = record.get("resulting_version_id")
+            row.deadline_at = record["deadline_at"]
             row.finished_at = record.get("finished_at")
             session.commit()
             return self._curve_lab_import_job_dict(row)
@@ -987,6 +994,7 @@ class DbStore:
                 job.phase = stored_job["phase"]
                 job.error_json = stored_job.get("error")
                 job.resulting_version_id = stored_job["resulting_version_id"]
+                job.deadline_at = stored_job["deadline_at"]
                 job.finished_at = stored_job.get("finished_at")
             session.commit()
             return self._curve_lab_version_dict(version), self._curve_lab_import_job_dict(job)
@@ -1021,6 +1029,9 @@ class DbStore:
     def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
         with self._session() as session:
             reconciled = 0
+            restart_time = datetime.fromisoformat(
+                finished_at.replace("Z", "+00:00")
+            )
             for model, states in (
                 (
                     CurveLabBuildRunRow,
@@ -1032,15 +1043,32 @@ class DbStore:
                 rows = session.scalars(select(model).where(model.state.in_(states))).all()
                 for row in rows:
                     previous = row.state
-                    row.state = "FAILED"
-                    row.error_json = {
-                        "code": "SERVER_RESTARTED",
-                        "message": "Server restarted while Curve Lab work was running.",
-                        "field": "state",
-                        "value": previous,
-                        "resource_id": row.id,
-                        "details": {},
+                    record = {
+                        "id": row.id,
+                        "deadline_at": row.deadline_at,
                     }
+                    timed_out = deadline_expired(
+                        row.deadline_at,
+                        now=restart_time,
+                    )
+                    row.state = "TIMED_OUT" if timed_out else "FAILED"
+                    row.error_json = (
+                        soft_deadline_error(record)
+                        if timed_out
+                        else {
+                            "code": "SERVER_RESTARTED",
+                            "message": "Server restarted while Curve Lab work was running.",
+                            "field": "state",
+                            "value": previous,
+                            "resource_id": row.id,
+                            "details": {},
+                        }
+                    )
+                    if timed_out and isinstance(row, CurveLabBuildRunRow):
+                        row.diagnostics_json = {
+                            **(row.diagnostics_json or {}),
+                            "fit_state": "TIMED_OUT",
+                        }
                     row.finished_at = finished_at
                     reconciled += 1
             session.commit()
@@ -1066,6 +1094,7 @@ class DbStore:
             row.result_json = record.get("result")
             row.error_json = record.get("error")
             row.created_at = record["created_at"]
+            row.deadline_at = record["deadline_at"]
             row.finished_at = record.get("finished_at")
             session.flush()
             session.execute(

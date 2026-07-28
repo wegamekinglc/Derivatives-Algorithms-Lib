@@ -2550,7 +2550,17 @@ def _run_response(
 def _require_completed_for_quote_bump(
     run: CalibrationRunRecord, quote_bump: QuoteBumpQueryDTO
 ) -> None:
-    if quote_bump.quote_bump_index is None or run.status == "completed":
+    if quote_bump.quote_bump_index is None:
+        return
+    if not bool(run.options_payload["include_effective_inverse"]):
+        _raise(
+            "MATRIX_NOT_AVAILABLE",
+            "effective inverse matrix was not requested for this calibration",
+            ["query", "quote_bump_index"],
+            {"availability": "not_requested"},
+            status_code=409,
+        )
+    if run.status == "completed":
         return
     _raise(
         "RUN_NOT_COMPLETED",

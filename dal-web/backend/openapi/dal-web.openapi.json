@@ -1,6 +1,98 @@
 {
   "components": {
     "schemas": {
+      "AadParityEvidenceV1": {
+        "additionalProperties": false,
+        "properties": {
+          "aad_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Canonical plain base-10 financial value; never a JSON number.",
+                  "maxLength": 512,
+                  "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aad Values"
+          },
+          "absolute_tolerance": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Absolute Tolerance",
+            "type": "string"
+          },
+          "central_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Canonical plain base-10 financial value; never a JSON number.",
+                  "maxLength": 512,
+                  "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Central Values"
+          },
+          "max_abs_discrepancy": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Abs Discrepancy"
+          },
+          "relative_tolerance": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Relative Tolerance",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASSED",
+              "FAILED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "status",
+          "absolute_tolerance",
+          "relative_tolerance",
+          "aad_values",
+          "central_values",
+          "max_abs_discrepancy"
+        ],
+        "title": "AadParityEvidenceV1",
+        "type": "object"
+      },
       "ApiErrorDTO": {
         "additionalProperties": false,
         "properties": {
@@ -567,6 +659,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
           "dependency_manifest": {
             "items": {
               "$ref": "#/components/schemas/CurveLabDependencyManifestEntryV2"
@@ -696,7 +793,8 @@
           "parameter_axis",
           "dependency_manifest",
           "diagnostics",
-          "created_at"
+          "created_at",
+          "deadline_at"
         ],
         "title": "CurveBuildRunResponse",
         "type": "object"
@@ -959,6 +1057,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
           "error": {
             "anyOf": [
               {
@@ -1029,7 +1132,8 @@
           "expanded_payload_length",
           "state",
           "phase",
-          "created_at"
+          "created_at",
+          "deadline_at"
         ],
         "title": "CurveImportJobResponse",
         "type": "object"
@@ -3047,6 +3151,14 @@
             "title": "Kind",
             "type": "string"
           },
+          "units": {
+            "enum": [
+              "DECIMAL_RATE",
+              "DOMESTIC_PER_FOREIGN"
+            ],
+            "title": "Units",
+            "type": "string"
+          },
           "value": {
             "description": "Canonical plain base-10 financial value; never a JSON number.",
             "maxLength": 512,
@@ -3059,6 +3171,7 @@
           "index_name",
           "fixing_time",
           "kind",
+          "units",
           "value"
         ],
         "title": "FixingObservationInputV1",
@@ -4292,6 +4405,20 @@
       "MatrixResultV2": {
         "additionalProperties": false,
         "properties": {
+          "aad_parity": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AadParityEvidenceV1"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aad Parity"
+          },
           "availability": {
             "enum": [
               "AVAILABLE",
@@ -7241,6 +7368,11 @@
             "title": "Curve Version Id",
             "type": "string"
           },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
           "error": {
             "anyOf": [
               {
@@ -7362,6 +7494,7 @@
           "result",
           "error",
           "created_at",
+          "deadline_at",
           "finished_at"
         ],
         "title": "RiskRunResponseV2",

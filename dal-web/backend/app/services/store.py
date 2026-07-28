@@ -30,6 +30,7 @@ from app.services.calibration_store import (
     RawSingleWorkerAdmissionEvidence,
 )
 from app.services.calibrations import canonical_json_bytes
+from app.services.curve_lab_jobs import deadline_expired, soft_deadline_error
 
 
 class NotFoundError(KeyError):
@@ -788,6 +789,9 @@ class Store:
     def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
         with self._lock:
             reconciled = 0
+            restart_time = datetime.fromisoformat(
+                finished_at.replace("Z", "+00:00")
+            )
             for records, terminal in (
                 (self._curve_lab_build_runs, {"QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"}),
                 (self._curve_lab_import_jobs, {"QUEUED", "RUNNING"}),
@@ -796,10 +800,22 @@ class Store:
                 for key, current in list(records.items()):
                     if current["state"] not in terminal:
                         continue
+                    timed_out = deadline_expired(
+                        current["deadline_at"],
+                        now=restart_time,
+                    )
+                    diagnostics = current.get("diagnostics")
                     records[key] = {
                         **current,
-                        "state": "FAILED",
-                        "error": {
+                        "state": "TIMED_OUT" if timed_out else "FAILED",
+                        "diagnostics": (
+                            {**diagnostics, "fit_state": "TIMED_OUT"}
+                            if timed_out and diagnostics is not None
+                            else diagnostics
+                        ),
+                        "error": soft_deadline_error(current)
+                        if timed_out
+                        else {
                             "code": "SERVER_RESTARTED",
                             "message": "Server restarted while Curve Lab work was running.",
                             "field": "state",

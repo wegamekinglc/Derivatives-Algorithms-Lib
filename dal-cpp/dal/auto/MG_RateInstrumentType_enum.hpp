@@ -15,7 +15,7 @@ public:
      XCCY,
      _N_VALUES
     } val_;
-      
+
     RateInstrumentType_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }

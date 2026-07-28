@@ -86,7 +86,11 @@ async def _read_bounded_request_body(
 
 
 def _raise_lifecycle(exc: CurveLabLifecycleError) -> None:
-    raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    raise HTTPException(
+        status_code=exc.status_code,
+        detail=exc.detail,
+        headers=exc.headers,
+    ) from exc
 
 
 @router.get("/capabilities", response_model=CurveLabCapabilitiesResponse)

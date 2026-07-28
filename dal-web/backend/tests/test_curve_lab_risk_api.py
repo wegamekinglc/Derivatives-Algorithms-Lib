@@ -173,6 +173,72 @@ def test_risk_admission_requires_resolved_immutable_fixing_snapshot(client) -> N
     assert response.json()["detail"]["code"] == "FIXING_SNAPSHOT_NOT_FOUND"
 
 
+def test_risk_admission_rejects_fixing_kind_and_unit_before_queueing(client) -> None:
+    _, version = _publish_version(client)
+    snapshot = client.post(
+        "/api/curve-lab/fixing-snapshots",
+        json={
+            "id": "incompatible-fixings",
+            "observations": [
+                {
+                    "index_name": "USD-SOFR",
+                    "fixing_time": "2026-01-14T11:00:00Z",
+                    "kind": "FX",
+                    "units": "DOMESTIC_PER_FOREIGN",
+                    "value": "1.1",
+                }
+            ],
+        },
+    )
+    assert snapshot.status_code == 201, snapshot.text
+    request = _request(version["id"])
+    request["fixing_snapshot_id"] = "incompatible-fixings"
+    request["measures"] = ["PV"]
+    request["target"]["trades"] = [
+        {
+            **_trade(),
+            "instrument_type": "FRA",
+            "trade_date": "2026-01-13",
+            "start_date": "2026-01-14",
+            "maturity_date": "2026-04-14",
+            "terms": {
+                "notional": "100",
+                "contract_rate": "0.05",
+                "side": "RECEIVE_FLOATING",
+                "settlement_style": "AT_END",
+                "forecast_tenor": "3M",
+                "day_basis": "ACT_365F",
+                "collateral": "OIS",
+                "index_name": "USD-SOFR",
+                "fixing_hour": 11,
+                "fixing_minute": 0,
+                "discount_component_key": "clab/v1/local/discount/USD/OIS",
+                "forecast_component_key": "clab/v1/local/discount/USD/OIS",
+            },
+        }
+    ]
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "FIXING_SNAPSHOT_INCOMPATIBLE",
+        "message": "A supplied historical fixing has incompatible semantics.",
+        "field": "fixing_snapshot.observations[0]",
+        "value": {
+            "index_name": "USD-SOFR",
+            "fixing_time": "2026-01-14T11:00:00Z",
+            "kind": "FX",
+            "units": "DOMESTIC_PER_FOREIGN",
+        },
+        "resource_id": "incompatible-fixings",
+        "details": {
+            "expected_kind": "RATE",
+            "expected_units": "DECIMAL_RATE",
+        },
+    }
+
+
 def test_risk_trade_contract_rejects_open_terms_before_side_effects(client) -> None:
     request = _request("f" * 32)
     request["target"]["trades"][0]["terms"]["mystery_knob"] = True
@@ -326,12 +392,17 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
     def price(document, trades, _evaluation_time, base_currency, **kwargs):
         assert document["declarations"][0]["component_key"] == ("clab/v1/local/discount/USD/OIS")
         assert kwargs["curve_version"]["source_kind"] == "IMPORT"
+        parameter_bumps = kwargs.get("parameter_bumps") or []
+        pv = Decimal("12") + sum(
+            (Decimal(str(bump)) * 4 for _, bump in parameter_bumps),
+            Decimal(0),
+        )
         return [
             {
                 "trade_id": trades[0]["trade_id"],
                 "instrument_type": "DEPOSIT",
                 "succeeded": True,
-                "pv": "12",
+                "pv": str(pv),
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
@@ -353,7 +424,7 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
     matrix = client.get(
         f"/api/curve-lab/risk-runs/{completed_risk['id']}/matrices/trade-to-node"
     ).json()
-    assert matrix["method"] == "NATIVE_AAD"
+    assert matrix["method"] == "NATIVE_AAD_PARITY_VERIFIED"
     assert matrix["values"] == [["4"]]
 
 
@@ -411,6 +482,74 @@ def test_risk_create_acknowledges_queued_before_native_pricing(
             break
         time.sleep(0.01)
     assert completed["state"] == "SUCCEEDED"
+
+
+def test_risk_queue_rejects_after_two_running_and_one_hundred_queued(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.dal_gateway import get_gateway
+
+    _, version = _publish_version(client)
+    entered = threading.Barrier(3)
+    release = threading.Event()
+
+    def blocked_price(
+        _document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        **_kwargs,
+    ):
+        if not release.is_set():
+            entered.wait(timeout=5)
+            assert release.wait(timeout=10)
+        return [
+            {
+                "trade_id": trade["trade_id"],
+                "instrument_type": trade["instrument_type"],
+                "succeeded": True,
+                "pv": "1",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [],
+                "error": "",
+            }
+            for trade in trades
+        ]
+
+    monkeypatch.setattr(get_gateway(), "price_curve_lab_trades", blocked_price)
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    accepted: list[str] = []
+    try:
+        for _ in range(2):
+            response = client.post("/api/curve-lab/risk-runs", json=request)
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+        entered.wait(timeout=5)
+
+        for _ in range(100):
+            response = client.post("/api/curve-lab/risk-runs", json=request)
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+
+        rejected = client.post("/api/curve-lab/risk-runs", json=request)
+        assert rejected.status_code == 429
+        assert rejected.headers["retry-after"] == "1"
+        assert rejected.json()["detail"]["code"] == "CURVE_LAB_QUEUE_FULL"
+    finally:
+        release.set()
+
+    for run_id in accepted:
+        completed = _wait_for_job(
+            client,
+            "risk-runs",
+            run_id,
+            {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+        )
+        assert completed["state"] == "SUCCEEDED", completed
 
 
 def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archive(
@@ -710,6 +849,7 @@ def test_work_estimator_charges_full_two_parameter_bumps_per_trade() -> None:
         quotes=0,
         measures=("PV",),
         sensitivity_layers=("TRADE_TO_NODE",),
+        allow_aad_fallback=False,
     )
 
     assert estimate["parameter_bump_price_evaluations"] == 1_000_000
@@ -817,12 +957,15 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         assert matrix["values"] == values
 
 
-def test_forbid_fallback_uses_native_aad_without_parameter_bumps(client, monkeypatch) -> None:
+def test_forbid_fallback_publishes_native_aad_only_after_central_parity(
+    client,
+    monkeypatch,
+) -> None:
     import app.services.dal_gateway as gateway_module
 
     _, version = _publish_version(client)
     gateway = gateway_module.get_gateway()
-    bump_called = False
+    bumps: list[float] = []
 
     def price(_document, trades, _evaluation_time, base_currency, **_kwargs):
         return [
@@ -840,13 +983,32 @@ def test_forbid_fallback_uses_native_aad_without_parameter_bumps(client, monkeyp
             }
         ]
 
-    def forbidden_bump(*_args, **_kwargs):
-        nonlocal bump_called
-        bump_called = True
-        raise AssertionError("central fallback ran despite successful native AAD")
+    def parameter_bump(
+        _document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        _axis,
+        bump,
+        **_kwargs,
+    ):
+        bumps.append(bump)
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": str(Decimal("10") + Decimal(str(bump)) * 3),
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [],
+                "error": "",
+            }
+        ]
 
     monkeypatch.setattr(gateway, "price_curve_lab_trades", price)
-    monkeypatch.setattr(gateway, "price_curve_lab_parameter_bump", forbidden_bump)
+    monkeypatch.setattr(gateway, "price_curve_lab_parameter_bump", parameter_bump)
     request = _request(version["id"])
     request["measures"] = ["PV"]
     request["sensitivity_layers"] = ["TRADE_TO_NODE"]
@@ -856,10 +1018,86 @@ def test_forbid_fallback_uses_native_aad_without_parameter_bumps(client, monkeyp
 
     run = _completed_risk(client, response)
     matrix = client.get(f"/api/curve-lab/risk-runs/{run['id']}/matrices/trade-to-node").json()
-    assert matrix["method"] == "NATIVE_AAD"
+    assert run["estimated_work"]["N_param"] == 2
+    assert run["estimated_work"]["parameter_bump_price_evaluations"] == 2
+    assert matrix["method"] == "NATIVE_AAD_PARITY_VERIFIED"
     assert matrix["trade_methods"] == ["NATIVE_AAD"]
     assert matrix["values"] == [["3"]]
-    assert bump_called is False
+    assert matrix["aad_parity"][0]["status"] == "PASSED"
+    assert matrix["aad_parity"][0]["central_values"] == ["3"]
+    assert matrix["aad_parity"][0]["aad_values"] == ["3"]
+    assert bumps == [1e-06, -1e-06]
+
+
+def test_aad_parity_failure_reuses_central_row_when_fallback_is_allowed(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.dal_gateway import get_gateway
+
+    _, version = _publish_version(client)
+    gateway = get_gateway()
+    bumps: list[float] = []
+
+    def price(_document, trades, _evaluation_time, base_currency, **_kwargs):
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": "10",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [],
+                "error": "",
+                "aad_node_gradient": ["3"],
+            }
+        ]
+
+    def parameter_bump(
+        _document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        _axis,
+        bump,
+        **_kwargs,
+    ):
+        bumps.append(bump)
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": str(Decimal("10") + Decimal(str(bump)) * 2),
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [],
+                "error": "",
+            }
+        ]
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", price)
+    monkeypatch.setattr(gateway, "price_curve_lab_parameter_bump", parameter_bump)
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    request["sensitivity_layers"] = ["TRADE_TO_NODE"]
+    request["options"] = {"aad_fallback": "ALLOW"}
+
+    run = _completed_risk(client, client.post("/api/curve-lab/risk-runs", json=request))
+
+    matrix = client.get(
+        f"/api/curve-lab/risk-runs/{run['id']}/matrices/trade-to-node"
+    ).json()
+    assert matrix["method"] == "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+    assert matrix["trade_methods"] == [
+        "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+    ]
+    assert matrix["values"] == [["2"]]
+    assert matrix["aad_parity"][0]["status"] == "FAILED"
+    assert bumps == [1e-06, -1e-06]
 
 
 def test_forbidden_jacobian_replay_rejects_before_native_dispatch(client, monkeypatch) -> None:

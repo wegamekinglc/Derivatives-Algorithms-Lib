@@ -11,6 +11,7 @@ import {
 import { css } from "../format";
 
 type WorkspaceTab = "build" | "runs" | "risk" | "versions";
+type CurveLabBuildMode = "SINGLE" | "MULTI_CURVE" | "STAGED_XCCY" | "JOINT_XCCY";
 
 const TABS: Array<{ id: WorkspaceTab; label: string; note: string }> = [
   { id: "build", label: "Build", note: "Draft → solve → publish" },
@@ -76,6 +77,103 @@ const DEFAULT_TRADES = [{
     discount_component_key: COMPONENT_KEY,
   },
 }];
+
+function calibrationInstrument(
+  componentKey: string,
+  currencyOrPair: string,
+  instrumentType: "DEPOSIT" | "XCCY" = "DEPOSIT",
+): Record<string, unknown> {
+  const xccy = instrumentType === "XCCY";
+  return {
+    instrument_type: instrumentType,
+    trade_date: "2026-01-15",
+    start_date: "2026-01-15",
+    maturity_date: "2027-01-15",
+    currency_or_pair: currencyOrPair,
+    raw_quote: xccy ? "0.001" : "0.04",
+    source: "CURVE_LAB_UI",
+    observed_at: "2026-01-15T00:00:00Z",
+    included: true,
+    terms: xccy
+      ? {
+          component_key: componentKey,
+          domestic_notional: "1000000",
+          foreign_notional: "900000",
+          fx_spot: 1.1,
+          domestic_forecast_tenor: "3M",
+          domestic_day_basis: "ACT_365F",
+          domestic_collateral: "OIS",
+          foreign_forecast_tenor: "3M",
+          foreign_day_basis: "ACT_365F",
+          foreign_collateral: "OIS",
+          fx_forward_collateral: "OIS",
+        }
+      : {
+          component_key: componentKey,
+          forecast_tenor: "3M",
+          day_basis: "ACT_365F",
+          collateral: "OIS",
+          index_name: `${currencyOrPair}-OIS`,
+        },
+  };
+}
+
+function topologyForMode(mode: CurveLabBuildMode) {
+  const usdDiscount = {
+    component_key: COMPONENT_KEY,
+    role: "DISCOUNT",
+    currency: "USD",
+    parameterization: "PIECEWISE_CONSTANT_FWD",
+  };
+  if (mode === "SINGLE") {
+    return {
+      declarations: [usdDiscount],
+      instruments: [calibrationInstrument(COMPONENT_KEY, "USD")],
+    };
+  }
+  if (mode === "MULTI_CURVE") {
+    const projectionKey = "clab/v1/local/projection/USD/3M";
+    return {
+      declarations: [
+        usdDiscount,
+        {
+          component_key: projectionKey,
+          role: "PROJECTION",
+          currency: "USD",
+          parameterization: "PIECEWISE_CONSTANT_FWD",
+        },
+      ],
+      instruments: [
+        calibrationInstrument(COMPONENT_KEY, "USD"),
+        calibrationInstrument(projectionKey, "USD"),
+      ],
+    };
+  }
+  const eurDiscountKey = "clab/v1/local/discount/EUR/OIS";
+  const basisKey = "clab/v1/local/basis/USD-EUR";
+  return {
+    declarations: [
+      usdDiscount,
+      {
+        component_key: eurDiscountKey,
+        role: "DISCOUNT",
+        currency: "EUR",
+        parameterization: "PIECEWISE_CONSTANT_FWD",
+      },
+      {
+        component_key: basisKey,
+        role: "BASIS",
+        currency: "USD",
+        parameterization: "PIECEWISE_CONSTANT_FWD",
+      },
+    ],
+    instruments: [
+      calibrationInstrument(COMPONENT_KEY, "USD"),
+      calibrationInstrument(eurDiscountKey, "EUR"),
+      calibrationInstrument(basisKey, "USD-EUR", "XCCY"),
+    ],
+  };
+}
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
@@ -238,6 +336,12 @@ export default function CurveLabWorkspace() {
   const visualInstruments = Array.isArray(visualDraft.instruments)
     ? visualDraft.instruments as Array<Record<string, unknown>>
     : [];
+  const visualDeclarations = Array.isArray(visualDraft.declarations)
+    ? visualDraft.declarations as Array<Record<string, unknown>>
+    : [];
+  const dependencyVersionIds = Array.isArray(visualDraft.dependency_version_ids)
+    ? visualDraft.dependency_version_ids as string[]
+    : [];
   const visualTrades = useMemo(() => {
     try {
       const parsed = parseJson(tradeSource);
@@ -254,6 +358,74 @@ export default function CurveLabWorkspace() {
   };
   const setDraftField = (field: string, value: unknown) => {
     updateVisualDraft((current) => ({ ...current, [field]: value }));
+  };
+  const setBuildMode = (mode: CurveLabBuildMode) => {
+    const topology = topologyForMode(mode);
+    updateVisualDraft((current) => ({
+      ...current,
+      mode,
+      ...topology,
+    }));
+  };
+  const setDeclarationField = (index: number, field: string, value: unknown) => {
+    updateVisualDraft((current) => {
+      const previousKey = String(visualDeclarations[index]?.component_key ?? "");
+      const declarations = visualDeclarations.map((declaration, position) => (
+        position === index ? { ...declaration, [field]: value } : declaration
+      ));
+      if (field !== "component_key") return { ...current, declarations };
+      return {
+        ...current,
+        declarations,
+        instruments: visualInstruments.map((instrument) => {
+          const terms = instrument.terms as Record<string, unknown>;
+          return terms?.component_key === previousKey
+            ? { ...instrument, terms: { ...terms, component_key: value } }
+            : instrument;
+        }),
+      };
+    });
+  };
+  const addDeclaration = () => {
+    const index = visualDeclarations.length + 1;
+    const currency = String(visualDeclarations[0]?.currency ?? "USD");
+    const componentKey = `clab/v1/local/projection/${currency}/${index}M`;
+    updateVisualDraft((current) => ({
+      ...current,
+      declarations: [
+        ...visualDeclarations,
+        {
+          component_key: componentKey,
+          role: "PROJECTION",
+          currency,
+          parameterization: "PIECEWISE_CONSTANT_FWD",
+        },
+      ],
+      instruments: [
+        ...visualInstruments,
+        calibrationInstrument(componentKey, currency),
+      ],
+    }));
+  };
+  const removeDeclaration = (index: number) => {
+    const componentKey = visualDeclarations[index]?.component_key;
+    updateVisualDraft((current) => ({
+      ...current,
+      declarations: visualDeclarations.filter((_, position) => position !== index),
+      instruments: visualInstruments.filter(
+        (instrument) => (
+          (instrument.terms as Record<string, unknown>)?.component_key !== componentKey
+        ),
+      ),
+    }));
+  };
+  const toggleDependency = (versionId: string, enabled: boolean) => {
+    setDraftField(
+      "dependency_version_ids",
+      enabled
+        ? [...new Set([...dependencyVersionIds, versionId])]
+        : dependencyVersionIds.filter((id) => id !== versionId),
+    );
   };
   const setInstrumentField = (index: number, field: string, value: unknown) => {
     updateVisualDraft((current) => ({
@@ -525,7 +697,7 @@ export default function CurveLabWorkspace() {
                   <span>Build mode</span>
                   <select
                     value={String(visualDraft.mode ?? "SINGLE")}
-                    onChange={(event) => setDraftField("mode", event.target.value)}
+                    onChange={(event) => setBuildMode(event.target.value as CurveLabBuildMode)}
                   >
                     <option value="SINGLE">Single curve</option>
                     <option value="MULTI_CURVE">Joint multi-curve</option>
@@ -549,23 +721,140 @@ export default function CurveLabWorkspace() {
                   />
                 </label>
               </div>
+              <div {...css("curve-lab-section-heading")}>
+                <div>
+                  <h3>Curve declarations</h3>
+                  <p {...css("muted")}>
+                    Each component owns an included calibration instrument.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={visualDraft.mode === "SINGLE"}
+                  onClick={addDeclaration}
+                >
+                  Add declaration
+                </button>
+              </div>
               <div {...css("table-container")}>
-                <table>
-                  <thead><tr><th>Role</th><th>Currency</th><th>Component key</th><th>Parameterization</th></tr></thead>
+                <table aria-label="Curve declarations">
+                  <thead>
+                    <tr>
+                      <th>Role</th>
+                      <th>Currency</th>
+                      <th>Component key</th>
+                      <th>Parameterization</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {(Array.isArray(visualDraft.declarations)
-                      ? visualDraft.declarations as Array<Record<string, unknown>>
-                      : []).map((declaration, index) => (
+                    {visualDeclarations.map((declaration, index) => (
                       <tr key={String(declaration.component_key ?? index)}>
-                        <td>{String(declaration.role ?? "")}</td>
-                        <td>{String(declaration.currency ?? "")}</td>
-                        <td {...css("mono")}>{String(declaration.component_key ?? "")}</td>
-                        <td>{String(declaration.parameterization ?? "")}</td>
+                        <td>
+                          <select
+                            aria-label={`Declaration role ${index + 1}`}
+                            value={String(declaration.role ?? "DISCOUNT")}
+                            onChange={(event) => setDeclarationField(index, "role", event.target.value)}
+                          >
+                            <option value="DISCOUNT">Discount</option>
+                            <option value="PROJECTION">Projection</option>
+                            <option value="BASIS">Basis</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Declaration currency ${index + 1}`}
+                            value={String(declaration.currency ?? "")}
+                            maxLength={3}
+                            onChange={(event) => setDeclarationField(
+                              index,
+                              "currency",
+                              event.target.value.toUpperCase(),
+                            )}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Declaration component key ${index + 1}`}
+                            {...css("mono")}
+                            value={String(declaration.component_key ?? "")}
+                            onChange={(event) => setDeclarationField(
+                              index,
+                              "component_key",
+                              event.target.value,
+                            )}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`Declaration parameterization ${index + 1}`}
+                            value={String(
+                              declaration.parameterization ?? "PIECEWISE_CONSTANT_FWD"
+                            )}
+                            onChange={(event) => setDeclarationField(
+                              index,
+                              "parameterization",
+                              event.target.value,
+                            )}
+                          >
+                            <option value="PIECEWISE_CONSTANT_FWD">PWC forward</option>
+                            <option value="PIECEWISE_LINEAR_FWD">Linear forward</option>
+                            <option value="ZERO_RATE">Zero rate</option>
+                            <option value="LOG_DISCOUNT">Log discount</option>
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            {...css("danger")}
+                            aria-label={`Remove declaration ${index + 1}`}
+                            disabled={visualDeclarations.length === 1}
+                            onClick={() => removeDeclaration(index)}
+                          >
+                            Remove
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            </section>
+            <section {...css("panel")}>
+              <div {...css("curve-lab-section-heading")}>
+                <div>
+                  <h3>Curve dependencies</h3>
+                  <p {...css("muted")}>
+                    Bind visible immutable versions needed by this build.
+                  </p>
+                </div>
+                <span {...css("tag")}>{dependencyVersionIds.length} selected</span>
+              </div>
+              {versions.length === 0 ? (
+                <p {...css("muted")}>No visible curve versions are available.</p>
+              ) : (
+                <div {...css("curve-lab-dependency-list")}>
+                  {versions.map((version) => (
+                    <label key={version.id}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Use ${version.name} as dependency`}
+                        checked={dependencyVersionIds.includes(version.id)}
+                        onChange={(event) => toggleDependency(
+                          version.id,
+                          event.target.checked,
+                        )}
+                      />
+                      <span>
+                        <strong>{version.name}</strong>
+                        <small {...css("mono")}>
+                          {version.id.slice(0, 8)} · {version.root_kind}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </section>
             <section {...css("panel")}>
               <div {...css("curve-lab-section-heading")}>

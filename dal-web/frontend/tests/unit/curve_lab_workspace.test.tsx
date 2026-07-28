@@ -12,10 +12,55 @@ describe("Curve Lab V2 workspace", () => {
     expect(screen.getByRole("heading", { name: "Curve topology" })).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Calibration instruments" })).not.toBeNull();
     expect(screen.getByLabelText("As-of date")).not.toBeNull();
+    expect(screen.getByLabelText("Declaration role 1")).not.toBeNull();
+    expect(screen.getByLabelText("Declaration component key 1")).not.toBeNull();
     expect(screen.getByLabelText("Quote 1")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Add declaration" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Add instrument" })).not.toBeNull();
     const advanced = screen.getByText("Advanced JSON").closest("details");
     expect(advanced?.open).toBe(false);
+  });
+
+  it("materializes a legal visual topology when the build mode changes", () => {
+    vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
+
+    render(<CurveLabWorkspace />);
+    fireEvent.change(screen.getByLabelText("Build mode"), {
+      target: { value: "STAGED_XCCY" },
+    });
+
+    expect(screen.getAllByLabelText(/Declaration role/)).toHaveLength(3);
+    expect((screen.getByLabelText("Declaration role 3") as HTMLSelectElement).value).toBe("BASIS");
+    expect((screen.getByLabelText("Declaration currency 1") as HTMLInputElement).value).toBe("USD");
+    expect((screen.getByLabelText("Declaration currency 2") as HTMLInputElement).value).toBe("EUR");
+    expect((screen.getByLabelText("Declaration currency 3") as HTMLInputElement).value).toBe("USD");
+    expect(screen.getAllByLabelText(/Family/)).toHaveLength(3);
+  });
+
+  it("authors dependency version ids with visible controls", async () => {
+    vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([
+      {
+        id: "e".repeat(32),
+        source_kind: "BUILD",
+        build_run_id: "c".repeat(32),
+        import_job_id: null,
+        name: "EUR OIS",
+        version_note: null,
+        tags: [],
+        native_payload_length: 10,
+        native_payload_hash: "f".repeat(64),
+        root_kind: "DISCOUNT_CURVE",
+        build_validation_state: "VERIFIED",
+        visibility_state: "VISIBLE",
+        created_at: "2026-01-15T00:00:02Z",
+      },
+    ]);
+
+    render(<CurveLabWorkspace />);
+    const dependency = await screen.findByLabelText("Use EUR OIS as dependency");
+    fireEvent.click(dependency);
+
+    expect((dependency as HTMLInputElement).checked).toBe(true);
   });
 
   it("builds, publishes, and exposes all four durable workflow tabs", async () => {

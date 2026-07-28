@@ -615,6 +615,7 @@ class CurveBuildRunResponse(CurveLabWireModel):
     native_payload_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     error: CurveLabErrorDetail | None = None
     created_at: datetime
+    deadline_at: datetime
     finished_at: datetime | None = None
 
 
@@ -656,6 +657,7 @@ class CurveImportJobResponse(CurveLabWireModel):
     resulting_version_id: str | None = None
     error: CurveLabErrorDetail | None = None
     created_at: datetime
+    deadline_at: datetime
     finished_at: datetime | None = None
 
 
@@ -982,11 +984,18 @@ class FixingObservationInputV1(CurveLabWireModel):
     index_name: Annotated[str, Field(min_length=1, max_length=256)]
     fixing_time: datetime
     kind: Literal["RATE", "FX"]
+    units: Literal["DECIMAL_RATE", "DOMESTIC_PER_FOREIGN"]
     value: CanonicalQuoteDecimalV1
 
     @model_validator(mode="after")
     def _validate_value(self) -> FixingObservationInputV1:
         numeric = float(self.value)
+        expected_units = {
+            "RATE": "DECIMAL_RATE",
+            "FX": "DOMESTIC_PER_FOREIGN",
+        }[self.kind]
+        if self.units != expected_units:
+            raise ValueError(f"{self.kind} fixing values require {expected_units} units")
         if self.kind == "FX" and numeric <= 0.0:
             raise ValueError("FX fixing values must be positive")
         return self
@@ -1136,7 +1145,18 @@ class RiskRunResponseV2(CurveLabWireModel):
     result: RiskRunResultV2 | None
     error: CurveLabErrorDetail | None
     created_at: datetime
+    deadline_at: datetime
     finished_at: datetime | None
+
+
+class AadParityEvidenceV1(CurveLabWireModel):
+    trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    status: Literal["PASSED", "FAILED", "UNAVAILABLE"]
+    absolute_tolerance: CanonicalQuoteDecimalV1
+    relative_tolerance: CanonicalQuoteDecimalV1
+    aad_values: tuple[CanonicalQuoteDecimalV1, ...] | None
+    central_values: tuple[CanonicalQuoteDecimalV1, ...] | None
+    max_abs_discrepancy: CanonicalQuoteDecimalV1 | None
 
 
 class MatrixResultV2(CurveLabWireModel):
@@ -1157,6 +1177,7 @@ class MatrixResultV2(CurveLabWireModel):
     availability_reason: str | None = None
     method: str
     trade_methods: tuple[str, ...] | None = None
+    aad_parity: tuple[AadParityEvidenceV1, ...] | None = None
     curve_version_id: str | None = None
     curve_version_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     fixing_snapshot_id: str | None = None

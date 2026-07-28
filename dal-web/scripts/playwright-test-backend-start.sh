@@ -9,8 +9,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BACKEND_DIR="${REPO_ROOT}/dal-web/backend"
 FRONTEND_DIR="${REPO_ROOT}/dal-web/frontend"
-BACKEND_URL="http://127.0.0.1:8001/api/health"
-FRONTEND_URL="http://localhost:5173"
+BACKEND_PORT="${DAL_PLAYWRIGHT_BACKEND_PORT:-8001}"
+FRONTEND_PORT="${DAL_PLAYWRIGHT_FRONTEND_PORT:-5173}"
+BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}/api/health"
+FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
 
 if [ "${DAL_PLAYWRIGHT_TEST_BACKEND:-}" != "1" ]; then
   echo "error: set DAL_PLAYWRIGHT_TEST_BACKEND=1 to use the canned Playwright backend" >&2
@@ -108,14 +110,17 @@ wait_for_service() {
 (
   cd "${BACKEND_DIR}"
   exec env DAL_PLAYWRIGHT_TEST_BACKEND=1 "${BACKEND_PYTHON}" -m uvicorn \
-    tests.playwright_backend:app --host 127.0.0.1 --port 8001
+    tests.playwright_backend:app --host 127.0.0.1 --port "${BACKEND_PORT}"
 ) >"${BACKEND_LOG}" 2>&1 &
 BACKEND_PID=$!
 wait_for_service "Playwright test backend" "${BACKEND_PID}" "${BACKEND_URL}" "${BACKEND_LOG}"
 
 (
   cd "${FRONTEND_DIR}"
-  exec "${VITE}" --host 127.0.0.1 --port 5173 --strictPort
+  exec env \
+    DAL_PLAYWRIGHT_BACKEND_PORT="${BACKEND_PORT}" \
+    DAL_PLAYWRIGHT_FRONTEND_PORT="${FRONTEND_PORT}" \
+    "${VITE}" --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
 ) >"${FRONTEND_LOG}" 2>&1 &
 FRONTEND_PID=$!
 wait_for_service "Vite frontend" "${FRONTEND_PID}" "${FRONTEND_URL}" "${FRONTEND_LOG}"

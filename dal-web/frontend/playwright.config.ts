@@ -3,7 +3,8 @@ import { accessSync, constants as fsConstants, existsSync, readdirSync, statSync
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BASE_URL = "http://localhost:5173";
+const frontendPort = process.env.DAL_PLAYWRIGHT_FRONTEND_PORT ?? "5173";
+const BASE_URL = `http://localhost:${frontendPort}`;
 const testBackendFlag = process.env.DAL_PLAYWRIGHT_TEST_BACKEND;
 
 if (testBackendFlag !== undefined && testBackendFlag !== "0" && testBackendFlag !== "1") {

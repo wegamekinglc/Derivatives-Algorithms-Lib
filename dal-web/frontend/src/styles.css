@@ -313,6 +313,35 @@ button.curve-lab-flow-tab.active > span {
   margin: 0;
 }
 
+.curve-lab-dependency-list {
+  display: grid;
+  gap: 8px;
+}
+
+.curve-lab-dependency-list label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 20, 25, 0.35);
+}
+
+.curve-lab-dependency-list label > span,
+.curve-lab-dependency-list small {
+  display: block;
+}
+
+.curve-lab-flow-editor table input,
+.curve-lab-flow-editor table select {
+  min-width: 112px;
+}
+
+.curve-lab-flow-editor table input.mono {
+  min-width: 280px;
+}
+
 .curve-lab-actions label {
   display: grid;
   gap: 6px;

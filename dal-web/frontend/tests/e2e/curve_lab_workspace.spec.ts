@@ -9,8 +9,6 @@ test("persists stale rebuild and version file actions through the real API", asy
   );
 
   await page.goto("/curves");
-  await page.getByText("Advanced JSON").click();
-  const source = page.getByLabel("Build document JSON");
   const publish = page.getByRole("button", { name: "Publish version" });
 
   await page.getByRole("button", { name: "Create draft" }).click();
@@ -21,8 +19,7 @@ test("persists stale rebuild and version file actions through the real API", asy
   await publish.click();
   await expect(page.getByText("Published USD OIS")).toBeVisible();
 
-  await page.getByText("Advanced JSON").click();
-  await source.fill((await source.inputValue()).replace('"raw_quote": "0.04"', '"raw_quote": "0.041"'));
+  await page.getByLabel("Quote 1").fill("0.041");
   await page.getByRole("button", { name: "Save draft changes" }).click();
   await expect(page.getByText(/revision 2; rebuild required/)).toBeVisible();
   await expect(publish).toBeDisabled();

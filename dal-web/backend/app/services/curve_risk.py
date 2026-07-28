@@ -4,19 +4,27 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from copy import deepcopy
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.schemas.curve_lab import FixingSnapshotCreateV1, RiskRunRequestV2
+from app.services.curve_lab_jobs import (
+    deadline_expired,
+    new_deadline,
+    soft_deadline_error,
+)
 from app.services.curve_lab_lifecycle import (
-    _CURVE_LAB_EXECUTOR,
     CurveLabLifecycleError,
     _audit,
     _now,
+    _reserve_job,
     get_version,
 )
+from app.services.curve_lab_plan import resolved_declaration_order
 from app.services.quote_canonicalization import canonicalize_quote
 from app.services.store import ConflictError, NotFoundError
 
@@ -40,6 +48,22 @@ _COSTS = {
     "calibration_solve_millis": 10,
     "aad_recording_overhead_millis": 1,
 }
+
+
+class _CurveLabDeadlineExceededError(RuntimeError):
+    pass
+
+
+def _timeout_risk_run(store: StoreProtocol, record: dict) -> dict:
+    timed_out = {
+        **record,
+        "state": "TIMED_OUT",
+        "result": None,
+        "error": soft_deadline_error(record),
+        "finished_at": _now(),
+    }
+    store.publish_curve_lab_risk_run(timed_out, [])
+    return timed_out
 
 
 def create_fixing_snapshot(
@@ -142,9 +166,8 @@ def estimate_work(
             & set(sensitivity_layers)
         )
     )
-    fallback_trades = trades if allow_aad_fallback else max(0, trades - aad_eligible_trades)
     n_param, overflow = _checked_multiply(
-        2 * node if fallback_trades else 0,
+        2 * node,
         parameters,
     )
     n_aad, term_overflow = _checked_multiply(node, aad_eligible_trades)
@@ -169,7 +192,7 @@ def estimate_work(
 
     parameter_prices, term_overflow = _checked_multiply(
         n_param,
-        fallback_trades,
+        trades,
     )
     overflow |= term_overflow
     aad_prices = n_aad
@@ -367,10 +390,12 @@ def _central_price_matrix(
     curve_version: dict,
     dependencies: list[dict],
     fixing_observations: list[dict],
-) -> list[list[str]] | None:
+    check_deadline: Callable[[], None],
+) -> list[list[str] | None]:
     epsilon = Decimal("0.000001")
     columns: list[list[str]] = []
     for axis in parameter_axis:
+        check_deadline()
         plus = _native_by_trade(
             trades,
             gateway.price_curve_lab_parameter_bump(
@@ -383,8 +408,10 @@ def _central_price_matrix(
                 curve_version=curve_version,
                 dependencies=dependencies,
                 fixing_observations=fixing_observations,
+                check_deadline=check_deadline,
             ),
         )
+        check_deadline()
         minus = _native_by_trade(
             trades,
             gateway.price_curve_lab_parameter_bump(
@@ -397,19 +424,75 @@ def _central_price_matrix(
                 curve_version=curve_version,
                 dependencies=dependencies,
                 fixing_observations=fixing_observations,
+                check_deadline=check_deadline,
             ),
         )
-        column: list[str] = []
+        check_deadline()
+        column: list[str | None] = []
         for trade in trades:
             trade_id = trade["trade_id"]
             if not plus[trade_id].get("succeeded") or not minus[trade_id].get("succeeded"):
-                return None
+                column.append(None)
+                continue
             derivative = (
                 Decimal(str(plus[trade_id]["pv"])) - Decimal(str(minus[trade_id]["pv"]))
             ) / (2 * epsilon)
             column.append(_decimal_text(derivative))
         columns.append(column)
-    return [[columns[column][row] for column in range(len(columns))] for row in range(len(trades))]
+    return [
+        (
+            [str(columns[column][row]) for column in range(len(columns))]
+            if all(columns[column][row] is not None for column in range(len(columns)))
+            else None
+        )
+        for row in range(len(trades))
+    ]
+
+
+_AAD_PARITY_ABSOLUTE_TOLERANCE = Decimal("0.00000001")
+_AAD_PARITY_RELATIVE_TOLERANCE = Decimal("0.000001")
+
+
+def _aad_parity(
+    trade_id: str,
+    aad_values: list[str] | None,
+    central_values: list[str] | None,
+) -> dict[str, object]:
+    if aad_values is None or central_values is None or len(aad_values) != len(central_values):
+        return {
+            "trade_id": trade_id,
+            "status": "UNAVAILABLE",
+            "absolute_tolerance": _decimal_text(_AAD_PARITY_ABSOLUTE_TOLERANCE),
+            "relative_tolerance": _decimal_text(_AAD_PARITY_RELATIVE_TOLERANCE),
+            "aad_values": aad_values,
+            "central_values": central_values,
+            "max_abs_discrepancy": None,
+        }
+    discrepancies = [
+        abs(Decimal(aad) - Decimal(central))
+        for aad, central in zip(aad_values, central_values, strict=True)
+    ]
+    passed = all(
+        discrepancy
+        <= _AAD_PARITY_ABSOLUTE_TOLERANCE
+        + _AAD_PARITY_RELATIVE_TOLERANCE
+        * max(abs(Decimal(aad)), abs(Decimal(central)))
+        for aad, central, discrepancy in zip(
+            aad_values,
+            central_values,
+            discrepancies,
+            strict=True,
+        )
+    )
+    return {
+        "trade_id": trade_id,
+        "status": "PASSED" if passed else "FAILED",
+        "absolute_tolerance": _decimal_text(_AAD_PARITY_ABSOLUTE_TOLERANCE),
+        "relative_tolerance": _decimal_text(_AAD_PARITY_RELATIVE_TOLERANCE),
+        "aad_values": aad_values,
+        "central_values": central_values,
+        "max_abs_discrepancy": _decimal_text(max(discrepancies, default=Decimal(0))),
+    }
 
 
 def _central_calibration_jacobian(
@@ -418,19 +501,23 @@ def _central_calibration_jacobian(
     quote_axis: list[dict],
     parameter_axis: list[dict],
     dependencies: list[dict],
+    check_deadline: Callable[[], None],
 ) -> list[list[str]]:
     columns: list[list[str]] = []
     for quote_index, quote in enumerate(quote_axis):
+        check_deadline()
         plus = gateway.curve_lab_parameter_values(
             _bumped_document(document, quote_axis, quote_index, 1),
             parameter_axis,
             dependencies=dependencies,
         )
+        check_deadline()
         minus = gateway.curve_lab_parameter_values(
             _bumped_document(document, quote_axis, quote_index, -1),
             parameter_axis,
             dependencies=dependencies,
         )
+        check_deadline()
         denominator = Decimal(quote["normalized_risk_bump"]) * 2
         columns.append(
             [
@@ -581,6 +668,7 @@ def _runtime_dependencies(
 
 def _admit_risk_run(
     store: StoreProtocol,
+    gateway: DalGateway,
     request: RiskRunRequestV2,
 ) -> dict[str, object]:
     fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
@@ -637,6 +725,75 @@ def _admit_risk_run(
         else list(version["verification"].get("parameter_axis", []))
     )
     trades = list(request.target.model_dump(mode="json")["trades"])
+    default_component_key = str(
+        resolved_declaration_order(document)[0]["component_key"]
+    )
+    required_fixings = gateway.curve_lab_required_historical_fixings(
+        trades,
+        request.evaluation_time.isoformat(),
+        default_component_key,
+    )
+    expected_by_key = {
+        (
+            str(item["index_name"]),
+            datetime.fromisoformat(
+                str(item["fixing_time"]).replace("Z", "+00:00")
+            ),
+        ): item
+        for item in required_fixings
+    }
+    supplied_by_key: dict[tuple[str, datetime], dict] = {}
+    for index, observation in enumerate(fixing_snapshot["observations"]):
+        key = (
+            str(observation["index_name"]),
+            datetime.fromisoformat(
+                str(observation["fixing_time"]).replace("Z", "+00:00")
+            ),
+        )
+        supplied_by_key[key] = observation
+        expected = expected_by_key.get(key)
+        if expected is None:
+            continue
+        if (
+            observation["kind"] != expected["kind"]
+            or observation["units"] != expected["units"]
+        ):
+            raise CurveLabLifecycleError(
+                422,
+                "FIXING_SNAPSHOT_INCOMPATIBLE",
+                "A supplied historical fixing has incompatible semantics.",
+                f"fixing_snapshot.observations[{index}]",
+                {
+                    "index_name": observation["index_name"],
+                    "fixing_time": observation["fixing_time"],
+                    "kind": observation["kind"],
+                    "units": observation["units"],
+                },
+                resource_id=fixing_snapshot["id"],
+                expected_kind=expected["kind"],
+                expected_units=expected["units"],
+            )
+    missing = next(
+        (
+            item
+            for key, item in expected_by_key.items()
+            if key not in supplied_by_key
+        ),
+        None,
+    )
+    if missing is not None:
+        raise CurveLabLifecycleError(
+            422,
+            "MISSING_HISTORICAL_FIXING",
+            "A required historical fixing is absent from the immutable snapshot.",
+            f"target.trades[{missing['trade_index']}]",
+            {
+                "index_name": missing["index_name"],
+                "fixing_time": missing["fixing_time"],
+            },
+            resource_id=fixing_snapshot["id"],
+            constraint="fixing_time before evaluation_time requires an exact snapshot value",
+        )
     requested_layers = set(request.sensitivity_layers)
     parameter_components = {axis["component_key"] for axis in parameter_axis}
     aad_eligible = [
@@ -695,11 +852,12 @@ def create_risk_run(
     gateway: DalGateway,
     request: RiskRunRequestV2,
 ) -> dict:
-    admitted = _admit_risk_run(store, request)
+    admitted = _admit_risk_run(store, gateway, request)
     version = admitted["version"]
     build = admitted["build"]
     request_json = request.model_dump(mode="json", exclude_none=True)
     now = _now()
+    reservation = _reserve_job()
     run_id = uuid4().hex
     queued = {
         "id": run_id,
@@ -717,17 +875,25 @@ def create_risk_run(
         "result": None,
         "error": None,
         "created_at": now,
+        "deadline_at": new_deadline(
+            datetime.fromisoformat(now.replace("Z", "+00:00"))
+        ),
         "finished_at": None,
     }
-    store.publish_curve_lab_risk_run(queued, [])
-    _CURVE_LAB_EXECUTOR.submit(
-        _execute_risk_run_guarded,
-        store,
-        gateway,
-        request,
-        run_id,
-        now,
-    )
+    try:
+        store.publish_curve_lab_risk_run(queued, [])
+        reservation.submit(
+            _execute_risk_run_guarded,
+            store,
+            gateway,
+            request,
+            run_id,
+            now,
+            deepcopy(admitted["fixing_snapshot"]),
+        )
+    except Exception:
+        reservation.cancel()
+        raise
     return queued
 
 
@@ -737,6 +903,7 @@ def _execute_risk_run_guarded(
     request: RiskRunRequestV2,
     run_id: str,
     created_at: str,
+    fixing_snapshot: dict,
 ) -> None:
     try:
         _execute_risk_run(
@@ -745,7 +912,10 @@ def _execute_risk_run_guarded(
             request,
             run_id=run_id,
             created_at=created_at,
+            fixing_snapshot=fixing_snapshot,
         )
+    except _CurveLabDeadlineExceededError:
+        _timeout_risk_run(store, store.get_curve_lab_risk_run(run_id))
     except Exception:  # noqa: BLE001 - worker failure is persisted and sanitized
         queued = store.get_curve_lab_risk_run(run_id)
         store.publish_curve_lab_risk_run(
@@ -774,9 +944,9 @@ def _execute_risk_run(
     *,
     run_id: str,
     created_at: str,
+    fixing_snapshot: dict,
 ) -> dict:
     version = get_version(store, request.curve_version_id)
-    fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
     fixing_observations = list(fixing_snapshot["observations"])
     quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
     build = (
@@ -827,6 +997,15 @@ def _execute_risk_run(
     )
     request_json = request.model_dump(mode="json", exclude_none=True)
     queued = store.get_curve_lab_risk_run(run_id)
+
+    def check_deadline() -> None:
+        if deadline_expired(queued["deadline_at"]):
+            raise _CurveLabDeadlineExceededError
+
+    try:
+        check_deadline()
+    except _CurveLabDeadlineExceededError:
+        return _timeout_risk_run(store, queued)
     store.publish_curve_lab_risk_run(
         {
             **queued,
@@ -846,7 +1025,9 @@ def _execute_risk_run(
         fixing_observations=fixing_observations,
         parameter_axis=parameter_axis,
         include_node_sensitivities=needs_trade_to_node,
+        check_deadline=check_deadline,
     )
+    check_deadline()
     base = _native_by_trade(trades, base_rows)
     pricing = [_pricing_result(trade, base[trade["trade_id"]]) for trade in trades]
     result: dict[str, object] = {"pricing": pricing}
@@ -862,53 +1043,64 @@ def _execute_risk_run(
     jacobian: list[list[str]] | None = None
 
     if needs_trade_to_node:
-        aad_gradients = [row.get("aad_node_gradient") for row in base_rows]
-        fallback_indices = [index for index, value in enumerate(aad_gradients) if value is None]
-        fallback_required = bool(fallback_indices)
-        central: list[list[str]] | None = None
-        if fallback_required and request.options.aad_fallback == "ALLOW":
-            try:
-                central = _central_price_matrix(
-                    gateway,
-                    document,
-                    [trades[index] for index in fallback_indices],
-                    parameter_axis,
-                    request_json["evaluation_time"],
-                    request.base_currency,
-                    version,
-                    dependencies,
-                    fixing_observations,
-                )
-            except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
-                central = None
-        if not fallback_required:
-            trade_to_node = [list(value) for value in aad_gradients if value is not None]
-        elif central is not None:
-            central_by_position = {
-                position: central[index] for index, position in enumerate(fallback_indices)
-            }
-            trade_to_node = [
-                list(aad_gradients[index])
-                if aad_gradients[index] is not None
-                else central_by_position[index]
-                for index in range(len(trades))
-            ]
-        elif request.options.aad_fallback == "FORBID":
-            raise CurveLabLifecycleError(
-                422,
-                "AAD_EXECUTION_FAILED",
-                "An admitted native AAD pricing plan failed during execution.",
-                "target.trades",
-                None,
-            )
-        trade_methods = [
-            "NATIVE_AAD" if value is not None else "CENTRAL_NATIVE_PARAMETER_BUMP"
-            for value in aad_gradients
+        aad_gradients = [
+            list(value) if value is not None else None
+            for value in (row.get("aad_node_gradient") for row in base_rows)
         ]
-        if trade_to_node is not None:
-            matrix_method = (
-                "NATIVE_AAD" if not fallback_required else "NATIVE_AAD_WITH_CENTRAL_FALLBACK"
+        try:
+            central = _central_price_matrix(
+                gateway,
+                document,
+                trades,
+                parameter_axis,
+                request_json["evaluation_time"],
+                request.base_currency,
+                version,
+                dependencies,
+                fixing_observations,
+                check_deadline,
             )
+        except _CurveLabDeadlineExceededError:
+            raise
+        except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
+            central = [None] * len(trades)
+        parity = [
+            _aad_parity(trade["trade_id"], aad_gradients[index], central[index])
+            for index, trade in enumerate(trades)
+        ]
+        selected_rows: list[list[str]] = []
+        trade_methods: list[str] = []
+        forbidden_failure = False
+        for index, evidence in enumerate(parity):
+            aad = aad_gradients[index]
+            central_row = central[index]
+            if aad is not None and evidence["status"] == "PASSED":
+                selected_rows.append(aad)
+                trade_methods.append("NATIVE_AAD")
+            elif central_row is not None and request.options.aad_fallback == "ALLOW":
+                selected_rows.append(central_row)
+                trade_methods.append(
+                    "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+                    if aad is not None
+                    else "CENTRAL_NATIVE_PARAMETER_BUMP"
+                )
+            else:
+                forbidden_failure = True
+                trade_methods.append(
+                    "FAILED_AAD_PARITY"
+                    if aad is not None
+                    else "FAILED_AAD_EXECUTION"
+                )
+        if not forbidden_failure:
+            trade_to_node = selected_rows
+        if trade_to_node is not None:
+            selected = set(trade_methods)
+            if selected == {"NATIVE_AAD"}:
+                matrix_method = "NATIVE_AAD_PARITY_VERIFIED"
+            elif selected == {"CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"}:
+                matrix_method = "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+            else:
+                matrix_method = "NATIVE_AAD_WITH_CENTRAL_FALLBACK"
             matrices.append(
                 {
                     "matrix_id": "trade-to-node",
@@ -923,6 +1115,7 @@ def _execute_risk_run(
                     "availability_reason": None,
                     "method": matrix_method,
                     "trade_methods": trade_methods,
+                    "aad_parity": parity,
                     "bump_target": "NATIVE_PARAMETER",
                     "bump_size": "0.000001",
                     "input_unit": "NATIVE_PARAMETER_UNIT",
@@ -932,8 +1125,7 @@ def _execute_risk_run(
                 }
             )
         else:
-            matrices.append(
-                _failed_matrix(
+            failed = _failed_matrix(
                     matrix_id="trade-to-node",
                     mathematical_name="trade_to_node_pv_gradient",
                     orientation="TRADE_X_PARAMETER",
@@ -947,7 +1139,9 @@ def _execute_risk_run(
                     input_unit="NATIVE_PARAMETER_UNIT",
                     output_unit=(f"{request.base_currency}_PV_PER_PARAMETER_UNIT"),
                 )
-            )
+            failed["trade_methods"] = trade_methods
+            failed["aad_parity"] = parity
+            matrices.append(failed)
 
     if needs_jacobian:
         try:
@@ -957,7 +1151,10 @@ def _execute_risk_run(
                 quote_axis,
                 parameter_axis,
                 dependencies,
+                check_deadline,
             )
+        except _CurveLabDeadlineExceededError:
+            raise
         except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
             jacobian = None
         if jacobian is not None:
@@ -1056,6 +1253,7 @@ def _execute_risk_run(
     parallel: list[dict] | None = None
     if quote_risk:
         parallel_document = _bumped_document(document, quote_axis, None)
+        check_deadline()
         parallel_rows = gateway.price_curve_lab_trades(
             parallel_document,
             trades,
@@ -1063,7 +1261,9 @@ def _execute_risk_run(
             request.base_currency,
             dependencies=dependencies,
             fixing_observations=fixing_observations,
+            check_deadline=check_deadline,
         )
+        check_deadline()
         parallel = _differences(
             trades,
             base,
@@ -1077,6 +1277,7 @@ def _execute_risk_run(
         bump_rows: list[dict] = []
         failed = False
         for quote_index, axis in enumerate(quote_axis):
+            check_deadline()
             bumped_rows = gateway.price_curve_lab_trades(
                 _bumped_document(document, quote_axis, quote_index),
                 trades,
@@ -1084,7 +1285,9 @@ def _execute_risk_run(
                 request.base_currency,
                 dependencies=dependencies,
                 fixing_observations=fixing_observations,
+                check_deadline=check_deadline,
             )
+            check_deadline()
             differences = _differences(
                 trades,
                 base,
@@ -1237,6 +1440,7 @@ def _execute_risk_run(
         "result": result,
         "error": None,
         "created_at": created_at,
+        "deadline_at": queued["deadline_at"],
         "finished_at": now,
     }
     stored = store.publish_curve_lab_risk_run(record, matrices)

@@ -1,8 +1,8 @@
 # Curve Lab in DAL-WEB — Product and Interaction Specification v0.5
 
-Status: active design specification; supersedes v0.4 under owner decisions P-02 and P-03  
-Initiator: Cheng Li  
-Scope-correction role: `dal-api-designer`  
+Status: active design specification; supersedes v0.4 under owner decisions P-02 and P-03
+Initiator: Cheng Li
+Scope-correction role: `dal-api-designer`
 Next required role: independent DAL-17 re-review
 
 ## Sources

@@ -738,6 +738,7 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
             "error": None,
             "resulting_version_id": None,
             "created_at": "2026-01-15T00:00:00+00:00",
+            "deadline_at": "2026-01-15T00:00:30+00:00",
             "finished_at": None,
         }
     )
@@ -758,6 +759,7 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
             "result": None,
             "error": None,
             "created_at": "2026-01-15T00:00:00+00:00",
+            "deadline_at": "2026-01-15T00:15:00+00:00",
             "finished_at": None,
         },
         [],
@@ -773,10 +775,20 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
             restarted.get_curve_lab_import_job("import-restart"),
             restarted.get_curve_lab_risk_run("risk-restart"),
         )
-        for record in records:
+        for record in (records[0], records[2]):
             assert record["state"] == "FAILED"
             assert record["error"]["code"] == "SERVER_RESTARTED"
             assert record["finished_at"] == finished_at
+        assert records[1]["state"] == "TIMED_OUT"
+        assert records[1]["error"] == {
+            "code": "SOFT_DEADLINE_EXCEEDED",
+            "message": "Curve Lab work exceeded its persisted soft deadline.",
+            "field": "deadline_at",
+            "value": "2026-01-15T00:00:30+00:00",
+            "resource_id": "import-restart",
+            "details": {},
+        }
+        assert records[1]["finished_at"] == finished_at
     finally:
         restarted.close()
 

@@ -175,6 +175,20 @@ namespace {
         return result;
     }
 
+    std::vector<std::tuple<int, std::string, DateTime_>>
+    RequiredHistoricalRateTradeFixingsForPython(const std::vector<RateTradeDefinition_>& trades, const DateTime_& valuationTime) {
+        std::vector<std::tuple<int, std::string, DateTime_>> result;
+        {
+            py::gil_scoped_release release;
+            for (int index = 0; index < static_cast<int>(trades.size()); ++index) {
+                const RateCashflowPlan_ plan = BuildRateCashflowPlan(trades[index], valuationTime);
+                for (const auto& item : plan.requiredHistoricalFixings_)
+                    result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
+            }
+        }
+        return result;
+    }
+
     MarketFixingSnapshot_::values_t SnapshotValues(const py::dict& values) {
         MarketFixingSnapshot_::values_t result;
         for (const auto outerItem : py::reinterpret_borrow<py::iterable>(values.attr("items")())) {
@@ -956,6 +970,8 @@ namespace {
                 return result;
             },
             py::kw_only(), py::arg("trades"), py::arg("market"));
+
+        m.def("_RequiredHistoricalRateTradeFixings", &RequiredHistoricalRateTradeFixingsForPython, py::arg("trades"), py::arg("valuation_time"));
 
         m.def(
             "RateTradeNodeSensitivities",

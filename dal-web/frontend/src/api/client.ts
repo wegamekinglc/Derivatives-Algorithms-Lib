@@ -550,6 +550,7 @@ export const api = {
       index_name: string;
       fixing_time: string;
       kind: "RATE" | "FX";
+      units: "DECIMAL_RATE" | "DOMESTIC_PER_FOREIGN";
       value: string;
     }>;
   }) =>

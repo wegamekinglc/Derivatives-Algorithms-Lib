@@ -9,22 +9,32 @@ set(DAL_CALIBRATION_GENERATED_ENUMS
     MG_AnalyticIneligibilityReason_enum
     MG_CurveFreeParameterComponent_enum
     MG_CurveKnotCandidateDisposition_enum
-    MG_CurveKnotOriginKind_enum)
+    MG_CurveKnotOriginKind_enum
+    MG_RateInstrumentType_enum)
 
+set(DAL_CALIBRATION_GENERATED_PATHS)
 foreach(DAL_ENUM_NAME IN LISTS DAL_CALIBRATION_GENERATED_ENUMS)
-    foreach(DAL_ENUM_SUFFIX hpp inc)
-        set(DAL_ENUM_PATH
-            "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/${DAL_ENUM_NAME}.${DAL_ENUM_SUFFIX}")
-        if(NOT EXISTS "${DAL_ENUM_PATH}")
-            message(FATAL_ERROR "Expected generated enum is missing: ${DAL_ENUM_PATH}")
-        endif()
-        file(READ "${DAL_ENUM_PATH}" DAL_ENUM_CONTENT)
-        string(REGEX REPLACE "[ \t]+\r?\n" "\n"
-            DAL_ENUM_NORMALIZED "${DAL_ENUM_CONTENT}")
-        string(REGEX REPLACE "\n+$" "\n"
-            DAL_ENUM_NORMALIZED "${DAL_ENUM_NORMALIZED}")
-        if(NOT DAL_ENUM_NORMALIZED STREQUAL DAL_ENUM_CONTENT)
-            file(WRITE "${DAL_ENUM_PATH}" "${DAL_ENUM_NORMALIZED}")
-        endif()
-    endforeach()
+    list(APPEND DAL_CALIBRATION_GENERATED_PATHS
+        "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/${DAL_ENUM_NAME}.hpp"
+        "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/${DAL_ENUM_NAME}.inc")
+endforeach()
+list(APPEND DAL_CALIBRATION_GENERATED_PATHS
+    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_object.hpp"
+    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_v1_Read.inc"
+    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_v1_Write.inc")
+
+foreach(DAL_GENERATED_PATH IN LISTS DAL_CALIBRATION_GENERATED_PATHS)
+    if(NOT EXISTS "${DAL_GENERATED_PATH}")
+        message(FATAL_ERROR "Expected generated source is missing: ${DAL_GENERATED_PATH}")
+    endif()
+    file(READ "${DAL_GENERATED_PATH}" DAL_GENERATED_CONTENT)
+    string(REGEX REPLACE "[ \t]+\r?\n" "\n"
+        DAL_GENERATED_NORMALIZED "${DAL_GENERATED_CONTENT}")
+    string(REGEX REPLACE "[ \t]+$" ""
+        DAL_GENERATED_NORMALIZED "${DAL_GENERATED_NORMALIZED}")
+    string(REGEX REPLACE "\n+$" "\n"
+        DAL_GENERATED_NORMALIZED "${DAL_GENERATED_NORMALIZED}")
+    if(NOT DAL_GENERATED_NORMALIZED STREQUAL DAL_GENERATED_CONTENT)
+        file(WRITE "${DAL_GENERATED_PATH}" "${DAL_GENERATED_NORMALIZED}")
+    endif()
 endforeach()

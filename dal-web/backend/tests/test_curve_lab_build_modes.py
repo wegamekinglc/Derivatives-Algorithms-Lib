@@ -302,6 +302,91 @@ def _xccy_document(mode: str) -> dict[str, object]:
     }
 
 
+def _reversed_staged_document() -> dict[str, object]:
+    document = _xccy_document("STAGED_XCCY")
+    usd, eur, basis = document["declarations"]
+    usd["component_key"] = "curve-z"
+    eur["component_key"] = "curve-a"
+    basis["component_key"] = "basis-q"
+    document["declarations"] = [basis, eur, usd]
+    document["instruments"] = [
+        {
+            **_instrument(
+                "basis-q",
+                instrument_id="3" * 32,
+                maturity="2029-01-15",
+                quote="0.001",
+            ),
+            "instrument_type": "XCCY",
+            "currency_or_pair": "USD-EUR",
+            "terms": {
+                "component_key": "basis-q",
+                "fx_spot": 1.1,
+            },
+        },
+        _instrument(
+            "curve-a",
+            instrument_id="2" * 32,
+            maturity="2028-01-15",
+            quote="0.02",
+        ),
+        _instrument(
+            "curve-z",
+            instrument_id="1" * 32,
+            maturity="2027-01-15",
+            quote="0.01",
+        ),
+    ]
+    for item in document["instruments"]:
+        item.update(
+            {
+                "quote_coordinate_kind": (
+                    "SPREAD" if item["instrument_type"] == "XCCY" else "RATE"
+                ),
+                "canonical_raw_unit": "DECIMAL",
+                "raw_quote": item["normalized_quote"],
+                "exact_risk_raw_bump": "0.0001",
+                "normalized_risk_bump": "0.0001",
+            }
+        )
+    return document
+
+
+def test_reversed_staged_axes_follow_pair_and_native_layout_not_keys() -> None:
+    from app.services.curve_lab_lifecycle import quote_axis
+    from app.services.dal_gateway import DalGateway
+
+    document = _reversed_staged_document()
+    quotes = quote_axis(document)
+    gateway = DalGateway()
+    parameters = gateway._curve_lab_parameter_axis_from_curves(
+        document,
+        {
+            "curve-z": {"knot_dates": ["2027-01-15"]},
+            "curve-a": {"knot_dates": ["2028-01-15"]},
+            "basis-q": {"knot_dates": ["2029-01-15"]},
+        },
+    )
+
+    assert [(item["component_key"], item["stage_id"]) for item in quotes] == [
+        ("curve-z", "stage-0"),
+        ("curve-a", "stage-1"),
+        ("basis-q", "stage-2"),
+    ]
+    assert [
+        (
+            item["component_key"],
+            item["stage_id"],
+            item["component_local_parameter_index"],
+        )
+        for item in parameters
+    ] == [
+        ("curve-z", "stage-0", 0),
+        ("curve-a", "stage-1", 0),
+        ("basis-q", "stage-2", 0),
+    ]
+
+
 def test_multi_curve_calls_native_bundle_with_declaration_local_stages() -> None:
     """Replacing native multi calibration with passive PWCs breaks this test."""
     from app.services.dal_gateway import DalGateway

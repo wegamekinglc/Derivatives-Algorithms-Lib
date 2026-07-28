@@ -511,6 +511,7 @@ class CurveLabBuildRunRow(Base):
     diagnostics_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    deadline_at: Mapped[str] = mapped_column(String(40), nullable=False)
     finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
@@ -549,6 +550,7 @@ class CurveLabImportJobRow(Base):
     error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     resulting_version_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    deadline_at: Mapped[str] = mapped_column(String(40), nullable=False)
     finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
@@ -581,6 +583,7 @@ class CurveLabRiskRunRow(Base):
     result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    deadline_at: Mapped[str] = mapped_column(String(40), nullable=False)
     finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 

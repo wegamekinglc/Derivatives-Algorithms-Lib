@@ -40,7 +40,7 @@ const char* RateInstrumentType_::String() const {
         return "BASIS_SWAP";
     case Value_::XCCY:
         return "XCCY";
-        
+
     }}
 
 struct ReadStringRateInstrumentType_
@@ -53,7 +53,7 @@ struct ReadStringRateInstrumentType_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-        
+
 	else if (String::Equivalent(src, "DEPOSIT"))
         *val = RateInstrumentType_::Value_::DEPOSIT;
 
@@ -86,6 +86,3 @@ RateInstrumentType_::RateInstrumentType_(const String_& src) {
         return;
     THROW("'" + src + "' is not a recognizable RateInstrumentType");
 }
-
-
-

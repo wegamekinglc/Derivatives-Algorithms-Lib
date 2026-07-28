@@ -1,9 +1,9 @@
 # Curve Lab DAL-WEB — Corrected Design Package v0.5 / Revision 8
 
 Status: product scope approved; Revision 8 ready for independent DAL-17
-technical-design re-review  
-Approved product decisions: P-01=A; P-02; P-03  
-Correction date: 2026-07-27  
+technical-design re-review
+Approved product decisions: P-01=A; P-02; P-03
+Correction date: 2026-07-27
 Supersedes Revision 7 manifest SHA-256:
 `1090a569f3697b4e19e0835fa418d78d57351b9985a388775599048bbe5626ee`
 

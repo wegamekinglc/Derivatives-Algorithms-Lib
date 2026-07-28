@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -17,6 +16,14 @@ from app.schemas.curve_lab import (
     CurveVersionCreateRequest,
 )
 from app.services.archive_preflight import ArchivePreflightError, preflight_archive
+from app.services.curve_lab_jobs import (
+    CURVE_LAB_JOBS,
+    CurveLabQueueFullError,
+    deadline_expired,
+    new_deadline,
+    soft_deadline_error,
+)
+from app.services.curve_lab_plan import resolved_declaration_order, stage_id
 from app.services.quote_canonicalization import (
     QuoteCanonicalizationError,
     canonicalize_quote,
@@ -32,10 +39,6 @@ if TYPE_CHECKING:
     from app.services.store import StoreProtocol
 
 
-_CURVE_LAB_EXECUTOR = ThreadPoolExecutor(
-    max_workers=2,
-    thread_name_prefix="curve-lab",
-)
 _BUILD_FUTURES: dict[str, object] = {}
 _BUILD_FUTURES_LOCK = Lock()
 
@@ -53,10 +56,12 @@ class CurveLabLifecycleError(ValueError):
         *,
         resource_id: str | None = None,
         constraint: str | None = None,
+        headers: dict[str, str] | None = None,
         **details: object,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
+        self.headers = headers
         self.detail = {
             "code": code,
             "message": message,
@@ -72,6 +77,21 @@ class CurveLabLifecycleError(ValueError):
 
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _reserve_job():
+    try:
+        return CURVE_LAB_JOBS.reserve()
+    except CurveLabQueueFullError as exc:
+        raise CurveLabLifecycleError(
+            429,
+            "CURVE_LAB_QUEUE_FULL",
+            "The Curve Lab worker queue is full.",
+            "queue",
+            None,
+            constraint="at most 2 running and 100 queued jobs",
+            headers={"Retry-After": "1"},
+        ) from exc
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -281,17 +301,35 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
     document = draft["document"]
     quote_coordinates = quote_axis(document)
     parameter_coordinates: list[dict] = []
+    ordered_declarations = resolved_declaration_order(document)
     resolved_plan = {
         "schema_version": 1,
         "mode": document["mode"],
         "component_order": [
-            declaration["component_key"] for declaration in document["declarations"]
+            declaration["component_key"] for declaration in ordered_declarations
+        ],
+        "stages": [
+            {
+                "stage_id": stage_id(document, index),
+                "component_keys": [declaration["component_key"]],
+            }
+            for index, declaration in enumerate(ordered_declarations)
+        ]
+        if document["mode"] == "STAGED_XCCY"
+        else [
+            {
+                "stage_id": "stage-0",
+                "component_keys": [
+                    declaration["component_key"] for declaration in ordered_declarations
+                ],
+            }
         ],
         "quote_count": len(quote_coordinates),
         "parameter_count": 0,
         "parameter_axis_source": "PENDING_NATIVE_CALIBRATION",
     }
     now = _now()
+    reservation = _reserve_job()
     run_id = uuid4().hex
     queued = {
         "id": run_id,
@@ -313,15 +351,22 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
         },
         "error": None,
         "created_at": now,
+        "deadline_at": new_deadline(
+            datetime.fromisoformat(now.replace("Z", "+00:00"))
+        ),
         "finished_at": None,
     }
-    store.add_curve_lab_build_run(queued)
-    future = _CURVE_LAB_EXECUTOR.submit(
-        _execute_build_run,
-        store,
-        gateway,
-        run_id,
-    )
+    try:
+        store.add_curve_lab_build_run(queued)
+        future = reservation.submit(
+            _execute_build_run,
+            store,
+            gateway,
+            run_id,
+        )
+    except Exception:
+        reservation.cancel()
+        raise
     with _BUILD_FUTURES_LOCK:
         _BUILD_FUTURES[run_id] = future
     future.add_done_callback(lambda _future: _forget_build_future(run_id))
@@ -346,6 +391,12 @@ def _execute_build_run(
     parameter_coordinates: list[dict] = []
     resolved_plan = queued["resolved_plan"]
     now = queued["created_at"]
+    if deadline_expired(queued["deadline_at"]):
+        store.update_curve_lab_build_run(
+            run_id,
+            _timed_out_build_record(queued),
+        )
+        return
     store.update_curve_lab_build_run(
         run_id,
         {
@@ -362,6 +413,17 @@ def _execute_build_run(
         list(document["dependency_version_ids"]),
         run_id,
     )
+    if deadline_expired(queued["deadline_at"]):
+        store.update_curve_lab_build_run(
+            run_id,
+            _timed_out_build_record(
+                {
+                    **queued,
+                    "dependency_manifest": dependency_manifest,
+                }
+            ),
+        )
+        return
     if dependency_error is not None:
         record = _failed_build_record(
             run_id,
@@ -372,6 +434,7 @@ def _execute_build_run(
             dependency_manifest,
             dependency_error,
             now,
+            queued["deadline_at"],
         )
         store.update_curve_lab_build_run(run_id, record)
         _audit(
@@ -399,6 +462,17 @@ def _execute_build_run(
             document,
             dependency_records,
         )
+        if deadline_expired(queued["deadline_at"]):
+            store.update_curve_lab_build_run(
+                run_id,
+                _timed_out_build_record(
+                    {
+                        **queued,
+                        "dependency_manifest": dependency_manifest,
+                    }
+                ),
+            )
+            return
         parameter_coordinates = gateway.curve_lab_archive_parameter_axis(
             document,
             native_payload,
@@ -421,6 +495,7 @@ def _execute_build_run(
             dependency_manifest,
             error,
             now,
+            queued["deadline_at"],
         )
         store.update_curve_lab_build_run(run_id, record)
         _audit(
@@ -454,7 +529,7 @@ def _execute_build_run(
                         if item["component_key"] == declaration["component_key"]
                     ],
                 }
-                for declaration in document["declarations"]
+                for declaration in resolved_declaration_order(document)
             ],
         },
     }
@@ -479,6 +554,7 @@ def _execute_build_run(
         },
         "error": None,
         "created_at": now,
+        "deadline_at": queued["deadline_at"],
         "finished_at": now,
     }
     store.update_curve_lab_build_run(run_id, record)
@@ -559,6 +635,7 @@ def _failed_build_record(
     dependency_manifest: list[dict],
     error: dict,
     created_at: str,
+    deadline_at: str,
 ) -> dict:
     return {
         "id": run_id,
@@ -580,57 +657,77 @@ def _failed_build_record(
         },
         "error": error,
         "created_at": created_at,
+        "deadline_at": deadline_at,
+        "finished_at": _now(),
+    }
+
+
+def _timed_out_build_record(record: dict) -> dict:
+    return {
+        **record,
+        "state": "TIMED_OUT",
+        "native_payload": None,
+        "native_payload_hash": None,
+        "diagnostics": {
+            **(record.get("diagnostics") or {}),
+            "fit_state": "TIMED_OUT",
+        },
+        "error": soft_deadline_error(record),
         "finished_at": _now(),
     }
 
 
 def quote_axis(document: dict) -> list[dict]:
-    declarations = document["declarations"]
+    declarations = resolved_declaration_order(document)
     default_component = declarations[0]["component_key"]
     declaration_index = {
         declaration["component_key"]: index for index, declaration in enumerate(declarations)
     }
-    local_indices: dict[str, int] = {}
-    result: list[dict] = []
+    instruments_by_component: dict[str, list[dict]] = {
+        str(declaration["component_key"]): [] for declaration in declarations
+    }
     for item in document["instruments"]:
         if not item["included"]:
             continue
         component_key = str(item["terms"].get("component_key", default_component))
-        stage_id = (
-            f"stage-{declaration_index[component_key]}"
-            if document["mode"] == "STAGED_XCCY"
-            else "stage-0"
-        )
-        local_index = local_indices.get(component_key, 0)
-        local_indices[component_key] = local_index + 1
-        result.append(
-            {
-                "global_quote_index": len(result),
-                "quote_id": item["instrument_id"],
-                "instrument_id": item["instrument_id"],
-                "component_key": component_key,
-                "stage_id": stage_id,
-                "group_id": component_key,
-                "stage_local_quote_index": local_index,
-                "quote_coordinate_kind": item["quote_coordinate_kind"],
-                "canonical_raw_unit": item["canonical_raw_unit"],
-                "raw_quote": item["raw_quote"],
-                "normalized_quote": item["normalized_quote"],
-                "normalized_unit": "DECIMAL_RATE",
-                "exact_risk_raw_bump": item["exact_risk_raw_bump"],
-                "normalized_risk_bump": item["normalized_risk_bump"],
-                "display_label": (f"{item['instrument_type']} {item['maturity_date']}"),
-            }
-        )
+        instruments_by_component[component_key].append(item)
+    stage_offsets: dict[str, int] = {}
+    result: list[dict] = []
+    for declaration in declarations:
+        component_key = str(declaration["component_key"])
+        stage = stage_id(document, declaration_index[component_key])
+        for item in instruments_by_component[component_key]:
+            local_index = stage_offsets.get(stage, 0)
+            stage_offsets[stage] = local_index + 1
+            result.append(
+                {
+                    "global_quote_index": len(result),
+                    "quote_id": item["instrument_id"],
+                    "instrument_id": item["instrument_id"],
+                    "component_key": component_key,
+                    "stage_id": stage,
+                    "group_id": component_key,
+                    "stage_local_quote_index": local_index,
+                    "quote_coordinate_kind": item["quote_coordinate_kind"],
+                    "canonical_raw_unit": item["canonical_raw_unit"],
+                    "raw_quote": item["raw_quote"],
+                    "normalized_quote": item["normalized_quote"],
+                    "normalized_unit": "DECIMAL_RATE",
+                    "exact_risk_raw_bump": item["exact_risk_raw_bump"],
+                    "normalized_risk_bump": item["normalized_risk_bump"],
+                    "display_label": (f"{item['instrument_type']} {item['maturity_date']}"),
+                }
+            )
     return result
 
 
 def parameter_axis(document: dict) -> list[dict]:
     included = [item for item in document["instruments"] if item["included"]]
-    default_component = document["declarations"][0]["component_key"]
+    declarations = resolved_declaration_order(document)
+    default_component = declarations[0]["component_key"]
     result: list[dict] = []
     stage_local_index = 0
-    for declaration in document["declarations"]:
+    for declaration in declarations:
         component_key = declaration["component_key"]
         dates = sorted(
             {
@@ -994,6 +1091,9 @@ def import_native_json(
             "error": error,
             "resulting_version_id": None,
             "created_at": now,
+            "deadline_at": new_deadline(
+                datetime.fromisoformat(now.replace("Z", "+00:00"))
+            ),
             "finished_at": now,
         }
         store.add_curve_lab_import_job(failed)
@@ -1016,18 +1116,26 @@ def import_native_json(
         "error": None,
         "resulting_version_id": None,
         "created_at": now,
+        "deadline_at": new_deadline(
+            datetime.fromisoformat(now.replace("Z", "+00:00"))
+        ),
         "finished_at": None,
     }
-    store.add_curve_lab_import_job(queued)
-    _CURVE_LAB_EXECUTOR.submit(
-        _execute_import_job,
-        store,
-        gateway,
-        queued,
-        payload,
-        content_encoding,
-        runtime_manifest,
-    )
+    reservation = _reserve_job()
+    try:
+        store.add_curve_lab_import_job(queued)
+        reservation.submit(
+            _execute_import_job,
+            store,
+            gateway,
+            queued,
+            payload,
+            content_encoding,
+            runtime_manifest,
+        )
+    except Exception:
+        reservation.cancel()
+        raise
     return queued
 
 
@@ -1042,6 +1150,12 @@ def _execute_import_job(
     job_id = queued["id"]
     request_hash = queued["request_hash"]
     now = queued["created_at"]
+    if deadline_expired(queued["deadline_at"]):
+        store.update_curve_lab_import_job(
+            job_id,
+            _timed_out_import_record(queued),
+        )
+        return
     running = {
         **queued,
         "state": "RUNNING",
@@ -1090,6 +1204,12 @@ def _execute_import_job(
         "phase": "NATIVE_RECONSTRUCTION",
     }
     store.update_curve_lab_import_job(job_id, native_running)
+    if deadline_expired(queued["deadline_at"]):
+        store.update_curve_lab_import_job(
+            job_id,
+            _timed_out_import_record(native_running),
+        )
+        return
     try:
         canonical, root_kind = gateway.import_curve_lab_archive(preflight.payload)
     except Exception:
@@ -1116,6 +1236,12 @@ def _execute_import_job(
                 "created_at": now,
                 "finished_at": _now(),
             },
+        )
+        return
+    if deadline_expired(queued["deadline_at"]):
+        store.update_curve_lab_import_job(
+            job_id,
+            _timed_out_import_record(native_running),
         )
         return
     verification: dict[str, object] = {
@@ -1194,6 +1320,12 @@ def _execute_import_job(
                 },
             )
             return
+        if deadline_expired(queued["deadline_at"]):
+            store.update_curve_lab_import_job(
+                job_id,
+                _timed_out_import_record(native_running),
+            )
+            return
         expected_parameter_ids = [
             parameter_id
             for component in manifest["components"]
@@ -1261,6 +1393,7 @@ def _execute_import_job(
         "error": None,
         "resulting_version_id": version_record["id"],
         "created_at": now,
+        "deadline_at": queued["deadline_at"],
         "finished_at": _now(),
     }
     try:
@@ -1287,3 +1420,14 @@ def _execute_import_job(
         )
         return
     _audit(store, "IMPORT_SUCCEEDED", "curve_import_job", job_id, stored_job)
+
+
+def _timed_out_import_record(record: dict) -> dict:
+    return {
+        **record,
+        "state": "TIMED_OUT",
+        "phase": "TIMED_OUT",
+        "error": soft_deadline_error(record),
+        "resulting_version_id": None,
+        "finished_at": _now(),
+    }
