@@ -704,6 +704,9 @@ namespace {
     struct ScaledAlphaObservation_ {
         std::uint64_t resultBits_;
         std::uint64_t directResidualBits_;
+        BcgScaledAlphaPrivate_::CandidateSubject_ evidenceSubject_;
+        int evidenceIndex_;
+        int commitCount_;
         CallbackCounts_ counts_;
         std::vector<std::uint64_t> callbackBits_;
     };
@@ -715,21 +718,36 @@ namespace {
         callbackBits->push_back(DoubleBits(output));
     }
 
-    ScaledAlphaObservation_ ObserveScaledAlphaSolve(bool biConjugate, double diagonal, double preconditionerScale, double rhs, double initial) {
+    ScaledAlphaObservation_ ObserveScaledAlphaSolve(bool biConjugate,
+                                                    double diagonal,
+                                                    double preconditionerScale,
+                                                    double rhs,
+                                                    double initial,
+                                                    const BcgScaledAlphaPrivate_::ExactAlpha_* exactAlpha = nullptr) {
         ScaledAlphaObservation_ result;
+        double direction = 0.0;
+        double residualBase = 0.0;
+        double operatorDirection = 0.0;
+        double shadowOperatorDirection = 0.0;
         HookedPreconditionedDiagonal_ matrix({diagonal}, &result.counts_);
-        matrix.SetLeftHook([diagonal, &result](int call, const Vector_<>& input, Vector_<>* output) {
+        matrix.SetLeftHook([diagonal, &result, &operatorDirection](int call, const Vector_<>& input, Vector_<>* output) {
             (*output)[0] = diagonal * input[0];
+            if (call == 2)
+                operatorDirection = (*output)[0];
             RecordCallback(1, call, input[0], (*output)[0], &result.callbackBits_);
             return true;
         });
-        matrix.SetRightHook([diagonal, &result](int call, const Vector_<>& input, Vector_<>* output) {
+        matrix.SetRightHook([diagonal, &result, &shadowOperatorDirection](int call, const Vector_<>& input, Vector_<>* output) {
             (*output)[0] = diagonal * input[0];
+            if (call == 1)
+                shadowOperatorDirection = (*output)[0];
             RecordCallback(2, call, input[0], (*output)[0], &result.callbackBits_);
             return true;
         });
-        const auto preconditioner = [preconditionerScale, &result](int call, const Vector_<>& input, Vector_<>* output) {
+        const auto preconditioner = [preconditionerScale, &result, &direction, &residualBase](int call, const Vector_<>& input, Vector_<>* output) {
             (*output)[0] = preconditionerScale * input[0];
+            direction = (*output)[0];
+            residualBase = input[0];
             RecordCallback(3, call, input[0], (*output)[0], &result.callbackBits_);
             return true;
         };
@@ -742,11 +760,35 @@ namespace {
         matrix.SetPreconditionerRightHook(shadowPreconditioner);
         const Vector_<> b = {rhs};
         Vector_<> x = {initial};
+        const double* const entryStorage = &x[0];
 
         RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x);
 
         result.resultBits_ = DoubleBits(x[0]);
         result.directResidualBits_ = DoubleBits(DiagonalResidual({diagonal}, x, b)[0]);
+        BcgScaledAlphaPrivate_::CandidateEvidence_ evidence{BcgScaledAlphaPrivate_::CandidateSubject_::NONE, -1};
+        if (exactAlpha != nullptr) {
+            const Vector_<> directionVector = {direction};
+            const Vector_<> xBase = {initial};
+            const Vector_<> residualBaseVector = {residualBase};
+            const Vector_<> shadowBase = {residualBase};
+            Vector_<> xOutput(1);
+            Vector_<> residual = {operatorDirection};
+            Vector_<> shadow = {shadowOperatorDirection};
+            BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+            const BcgScaledAlphaPrivate_::CandidateGroup_ group{&directionVector,
+                                                                &xBase,
+                                                                &residualBaseVector,
+                                                                biConjugate ? &shadowBase : nullptr,
+                                                                &xOutput,
+                                                                &residual,
+                                                                biConjugate ? &shadow : nullptr};
+            evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(*exactAlpha, group, &workspace);
+            AssertCanonicalWorkspace(workspace);
+        }
+        result.evidenceSubject_ = evidence.subject_;
+        result.evidenceIndex_ = evidence.firstNonFiniteIndex_;
+        result.commitCount_ = &x[0] == entryStorage ? 0 : 1;
         return result;
     }
 
@@ -1530,7 +1572,9 @@ TEST(MatrixTest, TestScaledAlphaBoundsAndClassifierMatrix) {
             MxcsrRestore_ restore;
             const unsigned before = _mm_getcsr();
 #endif
-            const BcgScaledAlphaPrivate_::AlphaPlan_ plan = BcgScaledAlphaPrivate_::ClassifyAlpha_(numerator, denominator);
+            int legacyConversionCalls = 0;
+            const BcgScaledAlphaPrivate_::AlphaPlan_ plan = BcgScaledAlphaPrivate_::ClassifyAlphaAndInvokeLegacy_(
+                numerator, denominator, [&legacyConversionCalls]() { ++legacyConversionCalls; });
 #if defined(__SSE2__) || defined(_M_X64)
             const unsigned after = _mm_getcsr();
             ASSERT_EQ(before, after);
@@ -1540,7 +1584,6 @@ TEST(MatrixTest, TestScaledAlphaBoundsAndClassifierMatrix) {
             ASSERT_EQ(row.expectedExponent_, plan.exact_.binaryExponent_);
             ASSERT_EQ(signCase != 0, plan.exact_.negative_);
             ASSERT_EQ(row.expectedPath_, plan.path_);
-            const int legacyConversionCalls = plan.path_ == AlphaPath_::ORDINARY_NORMAL || plan.path_ == AlphaPath_::LEGACY_ZERO ? 1 : 0;
             ASSERT_EQ(row.expectedPath_ == AlphaPath_::ORDINARY_NORMAL ? 1 : 0, legacyConversionCalls);
         }
     }
@@ -1675,6 +1718,86 @@ TEST(MatrixTest, TestScaledAlphaReviewedExponentAndTopCarryBounds) {
     }
 }
 
+TEST(MatrixTest, TestScaledAlphaCandidateEvidencePriorityAndAscendingIndex) {
+    using BcgScaledAlphaPrivate_::CandidateEvidence_;
+    using BcgScaledAlphaPrivate_::CandidateGroup_;
+    using BcgScaledAlphaPrivate_::CandidateSubject_;
+    const BcgScaledAlphaPrivate_::ExactAlpha_ alpha{1, 1, 1100, false};
+    const Vector_<> zeroBase = {0.0, 0.0, 0.0};
+    {
+        const Vector_<> direction = {0.0, 1.0, 1.0};
+        Vector_<> residual = {3.0, 5.0, 7.0};
+        const Vector_<> residualBase = {11.0, 13.0, 17.0};
+        Vector_<> shadow = {19.0, 23.0, 29.0};
+        const Vector_<> shadowBase = {31.0, 37.0, 41.0};
+        Vector_<> xOutput = {43.0, 47.0, 53.0};
+        BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+        const CandidateGroup_ group{
+            &direction, &zeroBase, &residualBase, &shadowBase, &xOutput, &residual, &shadow,
+        };
+
+        const CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+
+        ASSERT_EQ(CandidateSubject_::X, evidence.subject_);
+        ASSERT_EQ(1, evidence.firstNonFiniteIndex_);
+        ASSERT_EQ(0x0000000000000000ULL, DoubleBits(xOutput[0]));
+        ASSERT_EQ(0x4047800000000000ULL, DoubleBits(xOutput[1]));
+        ASSERT_EQ(0x404a800000000000ULL, DoubleBits(xOutput[2]));
+        ASSERT_EQ(0x4008000000000000ULL, DoubleBits(residual[0]));
+        ASSERT_EQ(0x4014000000000000ULL, DoubleBits(residual[1]));
+        ASSERT_EQ(0x401c000000000000ULL, DoubleBits(residual[2]));
+        ASSERT_EQ(0x4033000000000000ULL, DoubleBits(shadow[0]));
+        ASSERT_EQ(0x4037000000000000ULL, DoubleBits(shadow[1]));
+        ASSERT_EQ(0x403d000000000000ULL, DoubleBits(shadow[2]));
+        AssertCanonicalWorkspace(workspace);
+    }
+    {
+        const Vector_<> direction = {0.0, 0.0, 0.0};
+        Vector_<> residual = {0.0, 1.0, 1.0};
+        const Vector_<> residualBase = {0.0, 0.0, 0.0};
+        Vector_<> shadow = {19.0, 23.0, 29.0};
+        const Vector_<> shadowBase = {31.0, 37.0, 41.0};
+        Vector_<> xOutput = {43.0, 47.0, 53.0};
+        BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+        const CandidateGroup_ group{
+            &direction, &zeroBase, &residualBase, &shadowBase, &xOutput, &residual, &shadow,
+        };
+
+        const CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+
+        ASSERT_EQ(CandidateSubject_::RESIDUAL, evidence.subject_);
+        ASSERT_EQ(1, evidence.firstNonFiniteIndex_);
+        ASSERT_EQ(0x0000000000000000ULL, DoubleBits(residual[0]));
+        ASSERT_EQ(0x3ff0000000000000ULL, DoubleBits(residual[1]));
+        ASSERT_EQ(0x3ff0000000000000ULL, DoubleBits(residual[2]));
+        ASSERT_EQ(0x4033000000000000ULL, DoubleBits(shadow[0]));
+        ASSERT_EQ(0x4037000000000000ULL, DoubleBits(shadow[1]));
+        ASSERT_EQ(0x403d000000000000ULL, DoubleBits(shadow[2]));
+        AssertCanonicalWorkspace(workspace);
+    }
+    {
+        const Vector_<> direction = {0.0, 0.0, 0.0};
+        Vector_<> residual = {0.0, 0.0, 0.0};
+        const Vector_<> residualBase = {0.0, 0.0, 0.0};
+        Vector_<> shadow = {0.0, 1.0, 1.0};
+        const Vector_<> shadowBase = {0.0, 0.0, 0.0};
+        Vector_<> xOutput = {43.0, 47.0, 53.0};
+        BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+        const CandidateGroup_ group{
+            &direction, &zeroBase, &residualBase, &shadowBase, &xOutput, &residual, &shadow,
+        };
+
+        const CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+
+        ASSERT_EQ(CandidateSubject_::SHADOW_RESIDUAL, evidence.subject_);
+        ASSERT_EQ(1, evidence.firstNonFiniteIndex_);
+        ASSERT_EQ(0x0000000000000000ULL, DoubleBits(shadow[0]));
+        ASSERT_EQ(0x3ff0000000000000ULL, DoubleBits(shadow[1]));
+        ASSERT_EQ(0x3ff0000000000000ULL, DoubleBits(shadow[2]));
+        AssertCanonicalWorkspace(workspace);
+    }
+}
+
 TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaOverflowCancellation) {
     const double diagonal = std::ldexp(1.0, -500);
     const double preconditioner = std::ldexp(1.0, -600);
@@ -1722,15 +1845,70 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaRejectCandidateOverflow) {
         matrix.SetPreconditionerLeftHook(preconditioner);
         matrix.SetPreconditionerRightHook(preconditioner);
         Vector_<> x = {0.0};
+        const double* const entryStorage = &x[0];
 
         AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x); },
                                    {SolverName(biConjugate), "numerical breakdown", "candidate x"});
 
+        const int commitCount = &x[0] == entryStorage ? 0 : 1;
+        ASSERT_EQ(0, commitCount);
         ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[0]));
         ASSERT_EQ(2, counts.left_);
         ASSERT_EQ(biConjugate ? 1 : 0, counts.right_);
         ASSERT_EQ(1, counts.preconditionerLeft_);
         ASSERT_EQ(biConjugate ? 1 : 0, counts.preconditionerRight_);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaRejectResidualAndShadowOverflow) {
+    const double minimumSubnormal = DoubleFromBits(0x0000000000000001ULL);
+    const double maximumFinite = DoubleFromBits(0x7fefffffffffffffULL);
+    const Vector_<> b = {1.0, maximumFinite};
+    for (const bool shadowFailure : {false, true}) {
+        for (const bool biConjugate : {false, true}) {
+            if (shadowFailure && !biConjugate)
+                continue;
+            SCOPED_TRACE(std::string(SolverName(biConjugate)) + (shadowFailure ? " shadow" : " residual"));
+            CallbackCounts_ counts;
+            HookedPreconditionedDiagonal_ matrix({1.0, 1.0}, &counts);
+            matrix.SetLeftHook([minimumSubnormal, shadowFailure](int call, const Vector_<>&, Vector_<>* output) {
+                if (call == 1) {
+                    (*output)[0] = 0.0;
+                    (*output)[1] = 0.0;
+                } else {
+                    (*output)[0] = shadowFailure ? 0.0 : 1.0;
+                    (*output)[1] = minimumSubnormal;
+                }
+                return true;
+            });
+            matrix.SetRightHook([minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
+                (*output)[0] = 1.0;
+                (*output)[1] = minimumSubnormal;
+                return true;
+            });
+            const auto preconditioner = [minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
+                (*output)[0] = 0.0;
+                (*output)[1] = minimumSubnormal;
+                return true;
+            };
+            matrix.SetPreconditionerLeftHook(preconditioner);
+            matrix.SetPreconditionerRightHook(preconditioner);
+            Vector_<> x = {0.0, 0.0};
+            const double* const entryStorage = &x[0];
+
+            AssertDalExceptionContains(
+                [&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x); },
+                {SolverName(biConjugate), "numerical breakdown", shadowFailure ? "candidate shadow residual" : "candidate residual"});
+
+            const int commitCount = &x[0] == entryStorage ? 0 : 1;
+            ASSERT_EQ(0, commitCount);
+            ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[0]));
+            ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[1]));
+            ASSERT_EQ(2, counts.left_);
+            ASSERT_EQ(biConjugate ? 1 : 0, counts.right_);
+            ASSERT_EQ(1, counts.preconditionerLeft_);
+            ASSERT_EQ(biConjugate ? 1 : 0, counts.preconditionerRight_);
+        }
     }
 }
 
@@ -1743,11 +1921,24 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaNamedFtzFixtures) {
         double rhs_;
         double initial_;
         std::uint64_t expectedBits_;
+        BcgScaledAlphaPrivate_::ExactAlpha_ exactAlpha_;
     };
     const std::array<SolverFtzRow_, 3> rows = {{
-        {"S3", std::ldexp(1.0, 500), std::ldexp(1.0, 1023), std::ldexp(1.0, -574), 0.0, 0x0000000000000001ULL},
-        {"S5+", std::ldexp(1.0, 500), std::ldexp(1.0, 600), std::ldexp(1.0, -574), std::ldexp(1.0, -1022), 0x0000000000000001ULL},
-        {"S5-", std::ldexp(1.0, 500), std::ldexp(1.0, 600), -std::ldexp(1.0, -574), -std::ldexp(1.0, -1022), 0x8000000000000001ULL},
+        {"S3", std::ldexp(1.0, 500), std::ldexp(1.0, 1023), std::ldexp(1.0, -574), 0.0, 0x0000000000000001ULL, {1, 1, -1523, false}},
+        {"S5+",
+         std::ldexp(1.0, 500),
+         std::ldexp(1.0, 600),
+         std::ldexp(1.0, -574),
+         std::ldexp(1.0, -1022),
+         0x0000000000000001ULL,
+         {1, 1, -1100, false}},
+        {"S5-",
+         std::ldexp(1.0, 500),
+         std::ldexp(1.0, 600),
+         -std::ldexp(1.0, -574),
+         -std::ldexp(1.0, -1022),
+         0x8000000000000001ULL,
+         {1, 1, -1100, false}},
     }};
     for (const bool biConjugate : {false, true}) {
         for (const SolverFtzRow_& row : rows) {
@@ -1759,12 +1950,21 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaNamedFtzFixtures) {
                     (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
                 _mm_setcsr(configured);
                 const unsigned before = _mm_getcsr();
-                observations[flushToZero ? 1 : 0] = ObserveScaledAlphaSolve(biConjugate, row.diagonal_, row.preconditioner_, row.rhs_, row.initial_);
+                observations[flushToZero ? 1 : 0] =
+                    ObserveScaledAlphaSolve(biConjugate, row.diagonal_, row.preconditioner_, row.rhs_, row.initial_, &row.exactAlpha_);
                 const unsigned after = _mm_getcsr();
                 ASSERT_EQ(before & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK), after & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
             }
             ASSERT_EQ(row.expectedBits_, observations[0].resultBits_);
+            ASSERT_EQ(0x0000000000000000ULL, observations[0].directResidualBits_);
+            ASSERT_EQ(BcgScaledAlphaPrivate_::CandidateSubject_::NONE, observations[0].evidenceSubject_);
+            ASSERT_EQ(-1, observations[0].evidenceIndex_);
+            ASSERT_EQ(1, observations[0].commitCount_);
             ASSERT_EQ(observations[0].resultBits_, observations[1].resultBits_);
+            ASSERT_EQ(observations[0].directResidualBits_, observations[1].directResidualBits_);
+            ASSERT_EQ(observations[0].evidenceSubject_, observations[1].evidenceSubject_);
+            ASSERT_EQ(observations[0].evidenceIndex_, observations[1].evidenceIndex_);
+            ASSERT_EQ(observations[0].commitCount_, observations[1].commitCount_);
             ASSERT_EQ(observations[0].callbackBits_, observations[1].callbackBits_);
             AssertCallbackCounts(observations[0].counts_, observations[1].counts_);
         }

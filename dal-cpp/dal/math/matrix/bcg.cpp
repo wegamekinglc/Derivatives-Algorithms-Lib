@@ -853,37 +853,21 @@ namespace Dal {
             return {bits, value.exponent_, value.normalized_};
         }
 
-        std::uint64_t CaptureDoubleBits(double value) {
-            std::uint64_t bits = 0;
-            std::memcpy(&bits, &value, sizeof(bits));
-            return bits;
-        }
-
-        int EvaluateScaledCombination(const BcgScaledAlphaPrivate_::ExactAlpha_& alpha,
-                                      const Vector_<>& values,
-                                      const Vector_<>& base,
-                                      BcgScaledAlphaPrivate_::ExactWorkspace_* workspace,
-                                      Vector_<>* result) {
-            for (int i = 0; i < static_cast<int>(values.size()); ++i) {
-                const BcgScaledAlphaPrivate_::RoundedBinary64_ rounded =
-                    BcgScaledAlphaPrivate_::EvaluateElement_(alpha, CaptureDoubleBits(values[i]), CaptureDoubleBits(base[i]), workspace);
-                if (rounded.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::NON_FINITE)
-                    return i;
-                std::memcpy(&(*result)[i], &rounded.bits_, sizeof(rounded.bits_));
-            }
-            return -1;
-        }
-
         void PrepareScaledCandidates(KrylovState_& s, const BcgScaledAlphaPrivate_::ExactAlpha_& alpha, const Vector_<>& x, const char* solver) {
             BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
-            if (EvaluateScaledCombination(alpha, s.pCandidate_, x, &workspace, &s.xCandidate_) >= 0)
+            const BcgScaledAlphaPrivate_::CandidateGroup_ group{&s.pCandidate_,
+                                                                &x,
+                                                                &s.r_,
+                                                                s.biConjugate_ ? &s.rr_ : nullptr,
+                                                                &s.xCandidate_,
+                                                                &s.rCandidate_,
+                                                                s.biConjugate_ ? &s.rrCandidate_ : nullptr};
+            const BcgScaledAlphaPrivate_::CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::X)
                 ThrowFailure(solver, "numerical breakdown", "candidate x");
-
-            BcgScaledAlphaPrivate_::ExactAlpha_ negativeAlpha = alpha;
-            negativeAlpha.negative_ = !negativeAlpha.negative_;
-            if (EvaluateScaledCombination(negativeAlpha, s.rCandidate_, s.r_, &workspace, &s.rCandidate_) >= 0)
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::RESIDUAL)
                 ThrowFailure(solver, "numerical breakdown", "candidate residual");
-            if (s.biConjugate_ && EvaluateScaledCombination(negativeAlpha, s.rrCandidate_, s.rr_, &workspace, &s.rrCandidate_) >= 0)
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::SHADOW_RESIDUAL)
                 ThrowFailure(solver, "numerical breakdown", "candidate shadow residual");
         }
 
@@ -898,15 +882,17 @@ namespace Dal {
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
             const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
+            double alpha = 0.0;
             const BcgScaledAlphaPrivate_::AlphaPlan_ alphaPlan =
-                BcgScaledAlphaPrivate_::ClassifyAlpha_(CaptureStoredBits(beta), CaptureStoredBits(alphaDenominator));
+                BcgScaledAlphaPrivate_::ClassifyAlphaAndInvokeLegacy_(CaptureStoredBits(beta), CaptureStoredBits(alphaDenominator), [&]() {
+                    alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
+                });
             if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
                 ThrowFailure(solver, "numerical breakdown", "alpha denominator");
             if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT) {
                 PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
                 return;
             }
-            const double alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
             StableBatch_ stableBatch;
             StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
             StableCombination(-alpha, s.rCandidate_, s.r_, solver, "candidate residual", &s.rCandidate_);

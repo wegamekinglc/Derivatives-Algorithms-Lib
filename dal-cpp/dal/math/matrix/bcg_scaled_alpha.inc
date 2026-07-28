@@ -232,6 +232,16 @@ namespace Dal {
                 return {exact, ProveLegacyRatio_(numerator, denominator, exact) ? AlphaPath_::ORDINARY_NORMAL : AlphaPath_::SCALED_EXACT};
             }
 
+            template <class LegacyConversion_>
+            inline AlphaPlan_ ClassifyAlphaAndInvokeLegacy_(const StoredScaledBits_& numerator,
+                                                            const StoredScaledBits_& denominator,
+                                                            LegacyConversion_&& legacyConversion) {
+                const AlphaPlan_ plan = ClassifyAlpha_(numerator, denominator);
+                if (plan.path_ == AlphaPath_::LEGACY_ZERO || plan.path_ == AlphaPath_::ORDINARY_NORMAL)
+                    legacyConversion();
+                return plan;
+            }
+
             constexpr int EXACT_CANDIDATE_LIMB_COUNT_ = REVIEWED_CANDIDATE_BOUNDS_.candidateLimbCount_;
 
             struct ExactMagnitude_ {
@@ -552,6 +562,62 @@ namespace Dal {
                 if (subtrahend.last_ >= subtrahend.first_)
                     Subtract_(subtrahend, magnitude);
                 return Round_(*magnitude, alpha.denominator_, commonExponent, comparison < 0);
+            }
+
+            enum class CandidateSubject_ : std::uint8_t { NONE, X, RESIDUAL, SHADOW_RESIDUAL };
+
+            struct CandidateEvidence_ {
+                CandidateSubject_ subject_;
+                int firstNonFiniteIndex_;
+            };
+
+            struct CandidateGroup_ {
+                const Vector_<>* direction_;
+                const Vector_<>* xBase_;
+                const Vector_<>* residualBase_;
+                const Vector_<>* shadowBase_;
+                Vector_<>* xOutput_;
+                Vector_<>* residualInOut_;
+                Vector_<>* shadowInOut_;
+            };
+
+            inline std::uint64_t CandidateBits_(double value) {
+                std::uint64_t bits = 0;
+                std::memcpy(&bits, &value, sizeof(bits));
+                return bits;
+            }
+
+            inline CandidateEvidence_ EvaluateCandidateSubject_(const ExactAlpha_& alpha,
+                                                                const Vector_<>& values,
+                                                                const Vector_<>& base,
+                                                                CandidateSubject_ subject,
+                                                                ExactWorkspace_* workspace,
+                                                                Vector_<>* output) {
+                for (int i = 0; i < static_cast<int>(values.size()); ++i) {
+                    const RoundedBinary64_ rounded = EvaluateElement_(alpha, CandidateBits_(values[i]), CandidateBits_(base[i]), workspace);
+                    if (rounded.classification_ == RoundedClass_::NON_FINITE)
+                        return {subject, i};
+                    std::memcpy(&(*output)[i], &rounded.bits_, sizeof(rounded.bits_));
+                }
+                return {CandidateSubject_::NONE, -1};
+            }
+
+            inline CandidateEvidence_ EvaluateCandidateGroup_(const ExactAlpha_& alpha, const CandidateGroup_& group, ExactWorkspace_* workspace) {
+                CandidateEvidence_ evidence =
+                    EvaluateCandidateSubject_(alpha, *group.direction_, *group.xBase_, CandidateSubject_::X, workspace, group.xOutput_);
+                if (evidence.subject_ != CandidateSubject_::NONE)
+                    return evidence;
+
+                ExactAlpha_ negativeAlpha = alpha;
+                negativeAlpha.negative_ = !negativeAlpha.negative_;
+                evidence = EvaluateCandidateSubject_(negativeAlpha, *group.residualInOut_, *group.residualBase_, CandidateSubject_::RESIDUAL,
+                                                     workspace, group.residualInOut_);
+                if (evidence.subject_ != CandidateSubject_::NONE)
+                    return evidence;
+                if (group.shadowInOut_ == nullptr)
+                    return evidence;
+                return EvaluateCandidateSubject_(negativeAlpha, *group.shadowInOut_, *group.shadowBase_, CandidateSubject_::SHADOW_RESIDUAL,
+                                                 workspace, group.shadowInOut_);
             }
 
             static_assert(std::is_standard_layout<ExactMagnitude_>::value, "DAL35_EXACT_MAGNITUDE_MUST_BE_STANDARD_LAYOUT");
