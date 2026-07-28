@@ -194,29 +194,7 @@ def test_risk_admission_rejects_fixing_kind_and_unit_before_queueing(client) -> 
     request = _request(version["id"])
     request["fixing_snapshot_id"] = "incompatible-fixings"
     request["measures"] = ["PV"]
-    request["target"]["trades"] = [
-        {
-            **_trade(),
-            "instrument_type": "FRA",
-            "trade_date": "2026-01-13",
-            "start_date": "2026-01-14",
-            "maturity_date": "2026-04-14",
-            "terms": {
-                "notional": "100",
-                "contract_rate": "0.05",
-                "side": "RECEIVE_FLOATING",
-                "settlement_style": "AT_END",
-                "forecast_tenor": "3M",
-                "day_basis": "ACT_365F",
-                "collateral": "OIS",
-                "index_name": "USD-SOFR",
-                "fixing_hour": 11,
-                "fixing_minute": 0,
-                "discount_component_key": "clab/v1/local/discount/USD/OIS",
-                "forecast_component_key": "clab/v1/local/discount/USD/OIS",
-            },
-        }
-    ]
+    request["target"]["trades"] = [_historical_fra_trade()]
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
@@ -235,6 +213,145 @@ def test_risk_admission_rejects_fixing_kind_and_unit_before_queueing(client) -> 
         "details": {
             "expected_kind": "RATE",
             "expected_units": "DECIMAL_RATE",
+        },
+    }
+
+
+def _historical_fra_trade() -> dict[str, object]:
+    return {
+        **_trade(),
+        "instrument_type": "FRA",
+        "trade_date": "2026-01-13",
+        "start_date": "2026-01-14",
+        "maturity_date": "2026-04-14",
+        "terms": {
+            "notional": "100",
+            "contract_rate": "0.05",
+            "side": "RECEIVE_FLOATING",
+            "settlement_style": "AT_END",
+            "forecast_tenor": "3M",
+            "day_basis": "ACT_365F",
+            "collateral": "OIS",
+            "index_name": "USD-SOFR",
+            "fixing_hour": 11,
+            "fixing_minute": 0,
+            "discount_component_key": "clab/v1/local/discount/USD/OIS",
+            "forecast_component_key": "clab/v1/local/discount/USD/OIS",
+        },
+    }
+
+
+def _compiled_required_fixing(*_args) -> list[dict[str, object]]:
+    return [
+        {
+            "trade_index": 0,
+            "index_name": "USD-SOFR",
+            "fixing_time": "2026-01-14T11:00:00",
+            "kind": "RATE",
+            "units": "DECIMAL_RATE",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "fixing_time",
+    [
+        "2026-01-14T11:00:00Z",
+        "2026-01-14T12:00:00+01:00",
+        "2026-01-14T11:00:00",
+    ],
+)
+def test_risk_admission_matches_compiled_fixing_times_by_canonical_utc(
+    client,
+    monkeypatch,
+    fixing_time,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    _, version = _publish_version(client)
+    gateway = gateway_module.get_gateway()
+    monkeypatch.setattr(
+        gateway,
+        "curve_lab_required_historical_fixings",
+        _compiled_required_fixing,
+    )
+    snapshot = client.post(
+        "/api/curve-lab/fixing-snapshots",
+        json={
+            "id": "canonical-utc-fixings",
+            "observations": [
+                {
+                    "index_name": "USD-SOFR",
+                    "fixing_time": fixing_time,
+                    "kind": "RATE",
+                    "units": "DECIMAL_RATE",
+                    "value": "0.04",
+                }
+            ],
+        },
+    )
+    assert snapshot.status_code == 201, snapshot.text
+    request = _request(version["id"])
+    request["fixing_snapshot_id"] = "canonical-utc-fixings"
+    request["measures"] = ["PV"]
+    request["target"]["trades"] = [_historical_fra_trade()]
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 202, response.text
+    assert response.json()["state"] == "QUEUED"
+
+
+def test_risk_admission_preserves_missing_fixing_error_after_utc_normalization(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    _, version = _publish_version(client)
+    gateway = gateway_module.get_gateway()
+    monkeypatch.setattr(
+        gateway,
+        "curve_lab_required_historical_fixings",
+        _compiled_required_fixing,
+    )
+    snapshot = client.post(
+        "/api/curve-lab/fixing-snapshots",
+        json={
+            "id": "wrong-time-fixings",
+            "observations": [
+                {
+                    "index_name": "USD-SOFR",
+                    "fixing_time": "2026-01-14T11:01:00Z",
+                    "kind": "RATE",
+                    "units": "DECIMAL_RATE",
+                    "value": "0.04",
+                }
+            ],
+        },
+    )
+    assert snapshot.status_code == 201, snapshot.text
+    request = _request(version["id"])
+    request["fixing_snapshot_id"] = "wrong-time-fixings"
+    request["measures"] = ["PV"]
+    request["target"]["trades"] = [_historical_fra_trade()]
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "MISSING_HISTORICAL_FIXING",
+        "message": "A required historical fixing is absent from the immutable snapshot.",
+        "field": "target.trades[0]",
+        "value": {
+            "index_name": "USD-SOFR",
+            "fixing_time": "2026-01-14T11:00:00",
+        },
+        "resource_id": "wrong-time-fixings",
+        "details": {
+            "constraint": (
+                "fixing_time before evaluation_time requires an exact snapshot value"
+            )
         },
     }
 

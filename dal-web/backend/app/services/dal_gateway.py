@@ -40,6 +40,7 @@ from app.services.calibrations import (
     VerifiedSingleGatewayRequest,
     VerifiedSingleWorkerAdmissionEvidence,
 )
+from app.services.curve_lab_fixings import canonical_utc_datetime
 from app.services.curve_lab_plan import resolved_declaration_order
 
 dal = load_native_dal()
@@ -1829,7 +1830,7 @@ class DalGateway:
 
         extension = getattr(self._dal, "_dal", self._dal)
         preflight = getattr(extension, "_RequiredHistoricalRateTradeFixings", None)
-        valuation = datetime.fromisoformat(evaluation_time.replace("Z", "+00:00"))
+        valuation = canonical_utc_datetime(evaluation_time)
         if preflight is None:
             return self._curve_lab_required_historical_fixings_fallback(
                 trades,
@@ -2011,13 +2012,8 @@ class DalGateway:
                         parameter_bumps,
                     )
             default_key = next(iter(curves))
-            valuation = datetime.fromisoformat(evaluation_time.replace("Z", "+00:00"))
-            native_time = self._dal.DateTime_(
-                self._native_date(valuation.date()),
-                valuation.hour,
-                valuation.minute,
-                valuation.second,
-            )
+            valuation = canonical_utc_datetime(evaluation_time)
+            native_time = self._native_datetime(valuation)
             fixing_snapshot = self._dal.MarketFixingSnapshot_New(
                 self._curve_lab_fixing_values(fixing_observations or ())
             )
@@ -2310,9 +2306,7 @@ class DalGateway:
     ) -> dict[str, dict[Any, float]]:
         values: dict[str, dict[Any, float]] = {}
         for observation in observations:
-            timestamp = datetime.fromisoformat(
-                str(observation["fixing_time"]).replace("Z", "+00:00")
-            )
+            timestamp = canonical_utc_datetime(str(observation["fixing_time"]))
             values.setdefault(str(observation["index_name"]), {})[
                 self._native_datetime(timestamp)
             ] = float(observation["value"])

@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.schemas.curve_lab import FixingSnapshotCreateV1, RiskRunRequestV2
+from app.services.curve_lab_fixings import (
+    canonical_utc_datetime,
+    canonical_utc_timestamp,
+)
 from app.services.curve_lab_jobs import (
     deadline_expired,
     new_deadline,
@@ -70,7 +74,17 @@ def create_fixing_snapshot(
     store: StoreProtocol,
     request: FixingSnapshotCreateV1,
 ) -> dict:
-    document = request.model_dump(mode="json")
+    submitted = request.model_dump(mode="json")
+    document = {
+        **submitted,
+        "observations": [
+            {
+                **observation,
+                "fixing_time": canonical_utc_timestamp(observation["fixing_time"]),
+            }
+            for observation in submitted["observations"]
+        ],
+    }
     record = {
         **document,
         "content_hash": hashlib.sha256(_canonical_bytes(document)).hexdigest(),
@@ -736,9 +750,7 @@ def _admit_risk_run(
     expected_by_key = {
         (
             str(item["index_name"]),
-            datetime.fromisoformat(
-                str(item["fixing_time"]).replace("Z", "+00:00")
-            ),
+            canonical_utc_datetime(str(item["fixing_time"])),
         ): item
         for item in required_fixings
     }
@@ -746,9 +758,7 @@ def _admit_risk_run(
     for index, observation in enumerate(fixing_snapshot["observations"]):
         key = (
             str(observation["index_name"]),
-            datetime.fromisoformat(
-                str(observation["fixing_time"]).replace("Z", "+00:00")
-            ),
+            canonical_utc_datetime(str(observation["fixing_time"])),
         )
         supplied_by_key[key] = observation
         expected = expected_by_key.get(key)
