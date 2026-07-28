@@ -19,6 +19,20 @@
 #include <dal/utilities/numerics.hpp>
 #include <dal/math/matrix/bcg_scaled_alpha.inc>
 
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION) && !defined(DAL35_ENABLE_TEST_SEAM)
+#error "DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION requires DAL35_ENABLE_TEST_SEAM"
+#endif
+
+#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(__GNUC__) || defined(__clang__)
+#define DAL35_TEST_HIDDEN_ __attribute__((visibility("hidden")))
+#else
+#define DAL35_TEST_HIDDEN_
+#endif
+extern "C" DAL35_TEST_HIDDEN_ void Dal35ObserveExactWorkspaceConstructionForTest_() noexcept;
+#undef DAL35_TEST_HIDDEN_
+#endif
+
 namespace Dal {
     namespace {
         struct XPrecondition_ {
@@ -855,6 +869,9 @@ namespace Dal {
 
         void PrepareScaledCandidates(KrylovState_& s, const BcgScaledAlphaPrivate_::ExactAlpha_& alpha, const Vector_<>& x, const char* solver) {
             BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+#if defined(DAL35_ENABLE_TEST_SEAM)
+            Dal35ObserveExactWorkspaceConstructionForTest_();
+#endif
             const BcgScaledAlphaPrivate_::CandidateGroup_ group{&s.pCandidate_,
                                                                 &x,
                                                                 &s.r_,
@@ -889,6 +906,10 @@ namespace Dal {
                 });
             if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
                 ThrowFailure(solver, "numerical breakdown", "alpha denominator");
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION)
+            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL)
+                PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
+#endif
             if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT) {
                 PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
                 return;

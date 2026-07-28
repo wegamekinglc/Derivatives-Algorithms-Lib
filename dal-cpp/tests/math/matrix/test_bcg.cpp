@@ -24,14 +24,15 @@
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/bcg.hpp>
-#define DAL35_ENABLE_TEST_SEAM
 #include <dal/math/matrix/bcg_scaled_alpha.inc>
-#undef DAL35_ENABLE_TEST_SEAM
 #include "dal35_one_bit_oracle.hpp"
 
 namespace {
     std::atomic<bool> dal35TrackAllocations_{false};
     std::atomic<std::size_t> dal35AllocationCount_{0};
+#if defined(DAL35_ENABLE_TEST_SEAM)
+    int dal35ExactWorkspaceConstructionCount_ = 0;
+#endif
 
     void* Dal35Allocate_(std::size_t size) {
         if (dal35TrackAllocations_.load(std::memory_order_relaxed))
@@ -41,6 +42,16 @@ namespace {
         throw std::bad_alloc();
     }
 } // namespace
+
+#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(__GNUC__) || defined(__clang__)
+#define DAL35_TEST_HIDDEN_ __attribute__((visibility("hidden")))
+#else
+#define DAL35_TEST_HIDDEN_
+#endif
+extern "C" DAL35_TEST_HIDDEN_ void Dal35ObserveExactWorkspaceConstructionForTest_() noexcept { ++dal35ExactWorkspaceConstructionCount_; }
+#undef DAL35_TEST_HIDDEN_
+#endif
 
 void* operator new(std::size_t size) { return Dal35Allocate_(size); }
 
@@ -2171,27 +2182,29 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaNamedFtzFixtures) {
 }
 #endif
 
-TEST(MatrixTest, TestCGSolveAndBCGSolveOrdinaryAlphaBitwiseCorpus) {
-    int legacyPathEntries = 0;
-    int exactPathEntries = 0;
-    int exactWorkspaceConstructions = 0;
-    const BcgScaledAlphaPrivate_::AlphaPlan_ plan = BcgScaledAlphaPrivate_::ObserveAlphaDispatchForTest_(
-        {0x4042000000000000ULL, 0, false}, {0x4052000000000000ULL, 0, false}, [&legacyPathEntries]() { ++legacyPathEntries; },
-        [&exactPathEntries, &exactWorkspaceConstructions](const BcgScaledAlphaPrivate_::ExactAlpha_&) {
-            ++exactPathEntries;
-            BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
-            ++exactWorkspaceConstructions;
-            AssertCanonicalWorkspace(workspace);
-        });
-    ASSERT_EQ(BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL, plan.path_);
-    ASSERT_EQ(1U, plan.exact_.numerator_);
-    ASSERT_EQ(1U, plan.exact_.denominator_);
-    ASSERT_EQ(-1, plan.exact_.binaryExponent_);
-    ASSERT_FALSE(plan.exact_.negative_);
-    ASSERT_EQ(1, legacyPathEntries);
-    ASSERT_EQ(0, exactPathEntries);
-    ASSERT_EQ(0, exactWorkspaceConstructions);
+#if defined(DAL35_ENABLE_TEST_SEAM)
+TEST(MatrixTest, TestCGSolveAndBCGSolveProductionExactWorkspaceConstructionBoundary) {
+    const double diagonal = std::ldexp(1.0, -500);
+    const double preconditioner = std::ldexp(1.0, -600);
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        dal35ExactWorkspaceConstructionCount_ = 0;
+        const OrdinaryCandidateObservation_ ordinary = ObserveOrdinaryCandidateCommit(biConjugate);
+        ASSERT_TRUE(ordinary.callbackException_);
+        ASSERT_EQ(1, ordinary.commitCount_);
+        ASSERT_EQ(0, dal35ExactWorkspaceConstructionCount_);
 
+        dal35ExactWorkspaceConstructionCount_ = 0;
+        const ScaledAlphaObservation_ scaled =
+            ObserveScaledAlphaSolve(biConjugate, diagonal, preconditioner, std::ldexp(1.0, 523), -std::ldexp(1.0, 1023));
+        ASSERT_EQ(0x7fe0000000000000ULL, scaled.resultBits_);
+        ASSERT_EQ(1, scaled.commitCount_);
+        ASSERT_EQ(1, dal35ExactWorkspaceConstructionCount_);
+    }
+}
+#endif
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveOrdinaryAlphaBitwiseCorpus) {
     const std::vector<std::uint64_t> cgCallbacks = {
         1, 1, 0x0000000000000000ULL, 0x0000000000000000ULL, 3, 1, 0x4018000000000000ULL, 0x4018000000000000ULL,
         1, 2, 0x4018000000000000ULL, 0x4028000000000000ULL, 1, 3, 0x4008000000000000ULL, 0x4018000000000000ULL};
