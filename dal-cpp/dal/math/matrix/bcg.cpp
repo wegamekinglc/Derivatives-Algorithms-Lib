@@ -17,6 +17,7 @@
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/math/matrix/bcg_scaled_alpha.inc>
 
 namespace Dal {
     namespace {
@@ -167,6 +168,25 @@ namespace Dal {
         constexpr int EXACT_MAX_EXPONENT = 8352;
         constexpr int EXACT_LIMB_BITS = 32;
         constexpr int EXACT_LIMB_COUNT = (EXACT_MAX_EXPONENT - EXACT_MIN_EXPONENT) / EXACT_LIMB_BITS;
+
+#if defined(DAL35_PROBE_PRODUCTION_MAX_EXPONENT_DELTA)
+        constexpr int DAL35_PRODUCTION_MAX_EXPONENT_DELTA_ = DAL35_PROBE_PRODUCTION_MAX_EXPONENT_DELTA;
+#else
+        constexpr int DAL35_PRODUCTION_MAX_EXPONENT_DELTA_ = 0;
+#endif
+
+        constexpr BcgScaledAlphaPrivate_::AccumulatorBounds_ ACTUAL_ACCUMULATOR_BOUNDS_{
+            EXACT_MIN_EXPONENT, EXACT_MAX_EXPONENT + DAL35_PRODUCTION_MAX_EXPONENT_DELTA_, EXACT_LIMB_BITS, EXACT_LIMB_COUNT, 53, 1};
+
+        static_assert(BcgScaledAlphaPrivate_::REVIEWED_BOUNDS_FINGERPRINT_MATCHES_, "DAL35_PRODUCTION_REVIEWED_BOUNDS_FINGERPRINT_MISMATCH");
+        static_assert(BcgScaledAlphaPrivate_::SameAccumulatorBounds_(ACTUAL_ACCUMULATOR_BOUNDS_,
+                                                                     BcgScaledAlphaPrivate_::REVIEWED_ACCUMULATOR_BOUNDS_),
+                      "DAL35_PRODUCTION_ACCUMULATOR_INPUT_FINGERPRINT_MISMATCH");
+        static_assert(BcgScaledAlphaPrivate_::SameBoundsFingerprint_(
+                          BcgScaledAlphaPrivate_::MakeBoundsFingerprint_(ACTUAL_ACCUMULATOR_BOUNDS_,
+                                                                         BcgScaledAlphaPrivate_::DeriveCandidateBounds_(ACTUAL_ACCUMULATOR_BOUNDS_)),
+                          BcgScaledAlphaPrivate_::REVIEWED_BOUNDS_FINGERPRINT_),
+                      "DAL35_PRODUCTION_DERIVED_BOUNDS_FINGERPRINT_MISMATCH");
 
         struct ExactPositive_ {
             std::array<std::uint32_t, EXACT_LIMB_COUNT> limbs_{};
@@ -827,6 +847,46 @@ namespace Dal {
             return beta;
         }
 
+        BcgScaledAlphaPrivate_::StoredScaledBits_ CaptureStoredBits(const Scaled_& value) {
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &value.mantissa_, sizeof(bits));
+            return {bits, value.exponent_, value.normalized_};
+        }
+
+        std::uint64_t CaptureDoubleBits(double value) {
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &value, sizeof(bits));
+            return bits;
+        }
+
+        int EvaluateScaledCombination(const BcgScaledAlphaPrivate_::ExactAlpha_& alpha,
+                                      const Vector_<>& values,
+                                      const Vector_<>& base,
+                                      BcgScaledAlphaPrivate_::ExactWorkspace_* workspace,
+                                      Vector_<>* result) {
+            for (int i = 0; i < static_cast<int>(values.size()); ++i) {
+                const BcgScaledAlphaPrivate_::RoundedBinary64_ rounded =
+                    BcgScaledAlphaPrivate_::EvaluateElement_(alpha, CaptureDoubleBits(values[i]), CaptureDoubleBits(base[i]), workspace);
+                if (rounded.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::NON_FINITE)
+                    return i;
+                std::memcpy(&(*result)[i], &rounded.bits_, sizeof(rounded.bits_));
+            }
+            return -1;
+        }
+
+        void PrepareScaledCandidates(KrylovState_& s, const BcgScaledAlphaPrivate_::ExactAlpha_& alpha, const Vector_<>& x, const char* solver) {
+            BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+            if (EvaluateScaledCombination(alpha, s.pCandidate_, x, &workspace, &s.xCandidate_) >= 0)
+                ThrowFailure(solver, "numerical breakdown", "candidate x");
+
+            BcgScaledAlphaPrivate_::ExactAlpha_ negativeAlpha = alpha;
+            negativeAlpha.negative_ = !negativeAlpha.negative_;
+            if (EvaluateScaledCombination(negativeAlpha, s.rCandidate_, s.r_, &workspace, &s.rCandidate_) >= 0)
+                ThrowFailure(solver, "numerical breakdown", "candidate residual");
+            if (s.biConjugate_ && EvaluateScaledCombination(negativeAlpha, s.rrCandidate_, s.rr_, &workspace, &s.rrCandidate_) >= 0)
+                ThrowFailure(solver, "numerical breakdown", "candidate shadow residual");
+        }
+
         void PrepareCandidate(KrylovState_& s, const Scaled_& beta, const Vector_<>& x, const char* solver) {
             s.A_.MultiplyLeft(s.pCandidate_, &s.rCandidate_);
             ValidateCallbackResult(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
@@ -838,6 +898,14 @@ namespace Dal {
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
             const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
+            const BcgScaledAlphaPrivate_::AlphaPlan_ alphaPlan =
+                BcgScaledAlphaPrivate_::ClassifyAlpha_(CaptureStoredBits(beta), CaptureStoredBits(alphaDenominator));
+            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
+                ThrowFailure(solver, "numerical breakdown", "alpha denominator");
+            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT) {
+                PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
+                return;
+            }
             const double alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
             StableBatch_ stableBatch;
             StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
