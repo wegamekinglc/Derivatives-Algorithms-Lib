@@ -184,6 +184,7 @@ class StoreProtocol(Protocol):
         self, draft_id: str, expected_revision: int, record: dict
     ) -> dict: ...
     def add_curve_lab_build_run(self, record: dict) -> dict: ...
+    def update_curve_lab_build_run(self, run_id: str, record: dict) -> dict: ...
     def get_curve_lab_build_run(self, run_id: str) -> dict: ...
     def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]: ...
     def publish_curve_lab_version(
@@ -199,14 +200,18 @@ class StoreProtocol(Protocol):
     def list_curve_lab_versions(self, include_archived: bool) -> list[dict]: ...
     def archive_curve_lab_version(self, version_id: str) -> dict: ...
     def add_curve_lab_import_job(self, record: dict) -> dict: ...
+    def update_curve_lab_import_job(self, job_id: str, record: dict) -> dict: ...
     def get_curve_lab_import_job(self, job_id: str) -> dict: ...
     def publish_curve_lab_import(
         self, version_record: dict, job_record: dict
     ) -> tuple[dict, dict]: ...
+    def add_curve_lab_fixing_snapshot(self, record: dict) -> dict: ...
+    def get_curve_lab_fixing_snapshot(self, snapshot_id: str) -> dict: ...
     def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict: ...
     def get_curve_lab_risk_run(self, run_id: str) -> dict: ...
     def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict: ...
     def add_curve_lab_audit_event(self, record: dict) -> None: ...
+    def reconcile_curve_lab_inflight(self, finished_at: str) -> int: ...
 
 
 class Store:
@@ -225,6 +230,7 @@ class Store:
         self._curve_lab_versions: dict[str, dict] = {}
         self._curve_lab_version_idempotency: dict[str, str] = {}
         self._curve_lab_import_jobs: dict[str, dict] = {}
+        self._curve_lab_fixing_snapshots: dict[str, dict] = {}
         self._curve_lab_risk_runs: dict[str, dict] = {}
         self._curve_lab_matrices: dict[tuple[str, str], dict] = {}
         self._curve_lab_audit_events: list[dict] = []
@@ -643,6 +649,14 @@ class Store:
             self._curve_lab_build_runs[stored["id"]] = stored
             return deepcopy(stored)
 
+    def update_curve_lab_build_run(self, run_id: str, record: dict) -> dict:
+        with self._lock:
+            if run_id not in self._curve_lab_build_runs:
+                raise NotFoundError(f"curve build run {run_id}")
+            stored = deepcopy(record)
+            self._curve_lab_build_runs[run_id] = stored
+            return deepcopy(stored)
+
     def get_curve_lab_build_run(self, run_id: str) -> dict:
         with self._lock:
             try:
@@ -728,6 +742,14 @@ class Store:
             self._curve_lab_import_jobs[stored["id"]] = stored
             return deepcopy(stored)
 
+    def update_curve_lab_import_job(self, job_id: str, record: dict) -> dict:
+        with self._lock:
+            if job_id not in self._curve_lab_import_jobs:
+                raise NotFoundError(f"curve import job {job_id}")
+            stored = deepcopy(record)
+            self._curve_lab_import_jobs[job_id] = stored
+            return deepcopy(stored)
+
     def get_curve_lab_import_job(self, job_id: str) -> dict:
         with self._lock:
             try:
@@ -748,6 +770,47 @@ class Store:
                     self._curve_lab_version_idempotency.pop(version["idempotency_key"], None)
                 raise
             return deepcopy(version), deepcopy(stored_job)
+
+    def add_curve_lab_fixing_snapshot(self, record: dict) -> dict:
+        with self._lock:
+            if record["id"] in self._curve_lab_fixing_snapshots:
+                raise ConflictError(f"curve fixing snapshot {record['id']}")
+            self._curve_lab_fixing_snapshots[record["id"]] = deepcopy(record)
+            return deepcopy(record)
+
+    def get_curve_lab_fixing_snapshot(self, snapshot_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_fixing_snapshots[snapshot_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve fixing snapshot {snapshot_id}") from exc
+
+    def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
+        with self._lock:
+            reconciled = 0
+            for records, terminal in (
+                (self._curve_lab_build_runs, {"QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"}),
+                (self._curve_lab_import_jobs, {"QUEUED", "RUNNING"}),
+                (self._curve_lab_risk_runs, {"QUEUED", "RUNNING"}),
+            ):
+                for key, current in list(records.items()):
+                    if current["state"] not in terminal:
+                        continue
+                    records[key] = {
+                        **current,
+                        "state": "FAILED",
+                        "error": {
+                            "code": "SERVER_RESTARTED",
+                            "message": "Server restarted while Curve Lab work was running.",
+                            "field": "state",
+                            "value": current["state"],
+                            "resource_id": key,
+                            "details": {},
+                        },
+                        "finished_at": finished_at,
+                    }
+                    reconciled += 1
+            return reconciled
 
     def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict:
         with self._lock:

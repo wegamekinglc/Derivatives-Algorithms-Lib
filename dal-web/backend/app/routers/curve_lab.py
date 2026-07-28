@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from app.dependencies import gateway_dependency, store_dependency
 from app.schemas.curve_lab import (
@@ -22,8 +23,11 @@ from app.schemas.curve_lab import (
     CurveLabQuoteCanonicalizationRequest,
     CurveLabQuoteCanonicalizationResponse,
     CurveLabRegistryEntryDTO,
+    CurveRuntimeManifestV1,
     CurveVersionCreateRequest,
     CurveVersionResponse,
+    FixingSnapshotCreateV1,
+    FixingSnapshotResponseV1,
     MatrixResultV2,
     RiskRunRequestV2,
     RiskRunResponseV2,
@@ -43,8 +47,15 @@ from app.services.curve_lab_lifecycle import (
     list_versions,
     native_payload,
     update_draft,
+    version_runtime_manifest,
 )
-from app.services.curve_risk import create_risk_run, get_matrix, get_risk_run
+from app.services.curve_risk import (
+    create_fixing_snapshot,
+    create_risk_run,
+    get_fixing_snapshot,
+    get_matrix,
+    get_risk_run,
+)
 from app.services.quote_canonicalization import (
     QuoteCanonicalizationError,
     canonicalize_quote,
@@ -253,6 +264,20 @@ def get_curve_version_native_json(version_id: str, store=Depends(store_dependenc
     return Response(content=payload, media_type="application/json")
 
 
+@router.get(
+    "/versions/{version_id}/runtime-manifest",
+    response_model=CurveRuntimeManifestV1,
+)
+def get_curve_version_runtime_manifest(
+    version_id: str,
+    store=Depends(store_dependency),
+) -> dict:
+    try:
+        return version_runtime_manifest(store, version_id)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
 @router.post(
     "/import-jobs",
     response_model=CurveImportJobResponse,
@@ -261,16 +286,39 @@ def get_curve_version_native_json(version_id: str, store=Depends(store_dependenc
 async def create_curve_import_job(
     request: Request,
     content_encoding: Annotated[str | None, Header(alias="Content-Encoding")] = None,
+    runtime_manifest_json: Annotated[
+        str | None,
+        Header(alias="X-Curve-Lab-Runtime-Manifest"),
+    ] = None,
     store=Depends(store_dependency),
     gateway=Depends(gateway_dependency),
 ) -> dict:
     payload = await _read_bounded_request_body(request)
+    try:
+        runtime_manifest = (
+            CurveRuntimeManifestV1.model_validate_json(runtime_manifest_json)
+            if runtime_manifest_json is not None
+            else None
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "IMPORT_RUNTIME_MANIFEST_INVALID",
+                "message": "Runtime manifest is not a closed CurveRuntimeManifestV1.",
+                "field": "X-Curve-Lab-Runtime-Manifest",
+                "value": None,
+                "resource_id": None,
+                "details": {"errors": exc.error_count()},
+            },
+        ) from exc
     try:
         return import_native_json(
             store,
             gateway,
             payload,
             content_encoding,
+            runtime_manifest,
         )
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
@@ -283,6 +331,35 @@ async def create_curve_import_job(
 def get_curve_import_job(job_id: str, store=Depends(store_dependency)) -> dict:
     try:
         return get_import_job(store, job_id)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.post(
+    "/fixing-snapshots",
+    response_model=FixingSnapshotResponseV1,
+    status_code=201,
+)
+def post_fixing_snapshot(
+    request: FixingSnapshotCreateV1,
+    store=Depends(store_dependency),
+) -> dict:
+    try:
+        return create_fixing_snapshot(store, request)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.get(
+    "/fixing-snapshots/{snapshot_id}",
+    response_model=FixingSnapshotResponseV1,
+)
+def read_fixing_snapshot(
+    snapshot_id: str,
+    store=Depends(store_dependency),
+) -> dict:
+    try:
+        return get_fixing_snapshot(store, snapshot_id)
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
 
@@ -354,4 +431,33 @@ async def curve_lab_validation_exception_handler(
                         }
                     },
                 )
+            if error["type"] == "draft_topology_invalid":
+                field = str(error.get("ctx", {}).get("field", "document"))
+                return JSONResponse(
+                    status_code=422,
+                    content={
+                        "detail": {
+                            "code": "DRAFT_TOPOLOGY_INVALID",
+                            "message": error["msg"],
+                            "field": field,
+                            "value": None,
+                            "resource_id": None,
+                            "details": {"constraint": "closed_curve_topology"},
+                        }
+                    },
+                )
+        first = exc.errors()[0]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "code": "REQUEST_VALIDATION_FAILED",
+                    "message": first["msg"],
+                    "field": ".".join(str(item) for item in first["loc"][1:]),
+                    "value": None,
+                    "resource_id": None,
+                    "details": {"type": first["type"]},
+                }
+            },
+        )
     return await request_validation_exception_handler(request, exc)

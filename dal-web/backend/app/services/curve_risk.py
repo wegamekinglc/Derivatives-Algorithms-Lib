@@ -9,15 +9,16 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from app.schemas.curve_lab import RiskRunRequestV2
+from app.schemas.curve_lab import FixingSnapshotCreateV1, RiskRunRequestV2
 from app.services.curve_lab_lifecycle import (
+    _CURVE_LAB_EXECUTOR,
     CurveLabLifecycleError,
     _audit,
     _now,
     get_version,
 )
 from app.services.quote_canonicalization import canonicalize_quote
-from app.services.store import NotFoundError
+from app.services.store import ConflictError, NotFoundError
 
 if TYPE_CHECKING:
     from app.services.dal_gateway import DalGateway
@@ -39,6 +40,51 @@ _COSTS = {
     "calibration_solve_millis": 10,
     "aad_recording_overhead_millis": 1,
 }
+
+
+def create_fixing_snapshot(
+    store: StoreProtocol,
+    request: FixingSnapshotCreateV1,
+) -> dict:
+    document = request.model_dump(mode="json")
+    record = {
+        **document,
+        "content_hash": hashlib.sha256(_canonical_bytes(document)).hexdigest(),
+        "created_at": _now(),
+    }
+    try:
+        stored = store.add_curve_lab_fixing_snapshot(record)
+    except ConflictError as exc:
+        raise CurveLabLifecycleError(
+            409,
+            "FIXING_SNAPSHOT_IMMUTABLE",
+            "A fixing snapshot with this identifier already exists.",
+            "id",
+            request.id,
+            resource_id=request.id,
+        ) from exc
+    _audit(
+        store,
+        "FIXING_SNAPSHOT_CREATED",
+        "curve_fixing_snapshot",
+        request.id,
+        document,
+    )
+    return stored
+
+
+def get_fixing_snapshot(store: StoreProtocol, snapshot_id: str) -> dict:
+    try:
+        return store.get_curve_lab_fixing_snapshot(snapshot_id)
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "FIXING_SNAPSHOT_NOT_FOUND",
+            "The immutable fixing snapshot was not found.",
+            "fixing_snapshot_id",
+            snapshot_id,
+            resource_id=snapshot_id,
+        ) from exc
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -85,6 +131,7 @@ def estimate_work(
     quotes: int,
     measures: tuple[str, ...],
     sensitivity_layers: tuple[str, ...],
+    allow_aad_fallback: bool = True,
 ) -> dict[str, int | bool]:
     node = int(
         bool(
@@ -95,7 +142,11 @@ def estimate_work(
             & set(sensitivity_layers)
         )
     )
-    n_param, overflow = _checked_multiply(2 * node, parameters)
+    fallback_trades = trades if allow_aad_fallback else max(0, trades - aad_eligible_trades)
+    n_param, overflow = _checked_multiply(
+        2 * node if fallback_trades else 0,
+        parameters,
+    )
     n_aad, term_overflow = _checked_multiply(node, aad_eligible_trades)
     overflow |= term_overflow
     if "KEY_RATE_DV01" in measures:
@@ -116,7 +167,10 @@ def estimate_work(
     n_jac = n_jac if needs_jacobian else 0
     overflow |= term_overflow and needs_jacobian
 
-    parameter_prices, term_overflow = _checked_multiply(n_param, trades)
+    parameter_prices, term_overflow = _checked_multiply(
+        n_param,
+        fallback_trades,
+    )
     overflow |= term_overflow
     aad_prices = n_aad
     quote_prices, term_overflow = _checked_multiply(n_quote, trades)
@@ -310,7 +364,9 @@ def _central_price_matrix(
     parameter_axis: list[dict],
     evaluation_time: str,
     base_currency: str,
+    curve_version: dict,
     dependencies: list[dict],
+    fixing_observations: list[dict],
 ) -> list[list[str]] | None:
     epsilon = Decimal("0.000001")
     columns: list[list[str]] = []
@@ -324,7 +380,9 @@ def _central_price_matrix(
                 base_currency,
                 axis,
                 float(epsilon),
+                curve_version=curve_version,
                 dependencies=dependencies,
+                fixing_observations=fixing_observations,
             ),
         )
         minus = _native_by_trade(
@@ -336,7 +394,9 @@ def _central_price_matrix(
                 base_currency,
                 axis,
                 -float(epsilon),
+                curve_version=curve_version,
                 dependencies=dependencies,
+                fixing_observations=fixing_observations,
             ),
         )
         column: list[str] = []
@@ -470,9 +530,7 @@ def _runtime_dependencies(
         )
     verification = version.get("verification")
     published_manifest = (
-        verification.get("dependency_manifest")
-        if isinstance(verification, dict)
-        else None
+        verification.get("dependency_manifest") if isinstance(verification, dict) else None
     )
     if published_manifest is not None and published_manifest != manifest:
         raise CurveLabLifecycleError(
@@ -483,11 +541,7 @@ def _runtime_dependencies(
             version["id"],
             resource_id=version["id"],
         )
-    version_ids = [
-        entry.get("version_id")
-        for entry in manifest
-        if isinstance(entry, dict)
-    ]
+    version_ids = [entry.get("version_id") for entry in manifest if isinstance(entry, dict)]
     if len(version_ids) != len(manifest) or any(
         not isinstance(version_id, str) for version_id in version_ids
     ):
@@ -525,11 +579,11 @@ def _runtime_dependencies(
     return dependencies
 
 
-def create_risk_run(
+def _admit_risk_run(
     store: StoreProtocol,
-    gateway: DalGateway,
     request: RiskRunRequestV2,
-) -> dict:
+) -> dict[str, object]:
+    fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
     version = get_version(store, request.curve_version_id)
     quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
     if version["source_kind"] == "IMPORT" and (
@@ -571,28 +625,43 @@ def create_risk_run(
             "curve_version_id",
             request.curve_version_id,
         )
-    dependencies = _runtime_dependencies(store, build, version)
-    quote_axis = list(build["quote_axis"]) if build is not None else []
-    parameter_axis = list(build["parameter_axis"]) if build is not None else []
+    _runtime_dependencies(store, build, version)
+    quote_axis = (
+        list(build["quote_axis"])
+        if build is not None
+        else list(version["verification"].get("quote_axis", []))
+    )
+    parameter_axis = (
+        list(build["parameter_axis"])
+        if build is not None
+        else list(version["verification"].get("parameter_axis", []))
+    )
     trades = list(request.target.model_dump(mode="json")["trades"])
     requested_layers = set(request.sensitivity_layers)
+    parameter_components = {axis["component_key"] for axis in parameter_axis}
+    aad_eligible = [
+        trade
+        for trade in trades
+        if trade["instrument_type"] == "DEPOSIT"
+        and trade["terms"].get("discount_component_key") in parameter_components
+    ]
     if (
         {"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers
         and request.options.aad_fallback == "FORBID"
+        and len(aad_eligible) != len(trades)
     ):
         raise CurveLabLifecycleError(
             422,
             "AAD_METHOD_UNAVAILABLE",
-            "No admitted trade has a complete native AAD pricing plan.",
+            "At least one admitted trade has no complete native AAD pricing plan.",
             "options.aad_fallback",
             request.options.aad_fallback,
             constraint="statically ineligible trades require aad_fallback=ALLOW",
         )
-    if (
-        {"CALIBRATION_JACOBIAN", "COMPOSED_QUOTE_DIAGNOSTIC"}
-        & requested_layers
-        and request.options.jacobian_replay_fallback == "FORBID"
-    ):
+    if {
+        "CALIBRATION_JACOBIAN",
+        "COMPOSED_QUOTE_DIAGNOSTIC",
+    } & requested_layers and request.options.jacobian_replay_fallback == "FORBID":
         raise CurveLabLifecycleError(
             422,
             "JACOBIAN_METHOD_UNAVAILABLE",
@@ -603,27 +672,185 @@ def create_risk_run(
         )
     estimate = estimate_work(
         trades=len(trades),
-        aad_eligible_trades=0,
+        aad_eligible_trades=len(aad_eligible),
         parameters=len(parameter_axis),
         quotes=len(quote_axis),
         measures=request.measures,
         sensitivity_layers=request.sensitivity_layers,
+        allow_aad_fallback=request.options.aad_fallback == "ALLOW",
     )
     _admit_work(estimate)
+    return {
+        "version": version,
+        "build": build,
+        "quote_axis": quote_axis,
+        "parameter_axis": parameter_axis,
+        "estimate": estimate,
+        "fixing_snapshot": fixing_snapshot,
+    }
 
-    request_json = request.model_dump(mode="json")
+
+def create_risk_run(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    request: RiskRunRequestV2,
+) -> dict:
+    admitted = _admit_risk_run(store, request)
+    version = admitted["version"]
+    build = admitted["build"]
+    request_json = request.model_dump(mode="json", exclude_none=True)
+    now = _now()
+    run_id = uuid4().hex
+    queued = {
+        "id": run_id,
+        "curve_version_id": request.curve_version_id,
+        "calibration_run_id": version.get("build_run_id"),
+        "import_job_id": version.get("import_job_id"),
+        "source_kind": ("BUILD_VERSION" if version["source_kind"] == "BUILD" else "IMPORT_VERSION"),
+        "request": request_json,
+        "fixing_snapshot_hash": admitted["fixing_snapshot"]["content_hash"],
+        "target_fingerprint": _hash(request_json["target"]),
+        "quote_axis": admitted["quote_axis"] if build is not None else None,
+        "parameter_axis": admitted["parameter_axis"],
+        "estimated_work": admitted["estimate"],
+        "state": "QUEUED",
+        "result": None,
+        "error": None,
+        "created_at": now,
+        "finished_at": None,
+    }
+    store.publish_curve_lab_risk_run(queued, [])
+    _CURVE_LAB_EXECUTOR.submit(
+        _execute_risk_run_guarded,
+        store,
+        gateway,
+        request,
+        run_id,
+        now,
+    )
+    return queued
+
+
+def _execute_risk_run_guarded(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    request: RiskRunRequestV2,
+    run_id: str,
+    created_at: str,
+) -> None:
+    try:
+        _execute_risk_run(
+            store,
+            gateway,
+            request,
+            run_id=run_id,
+            created_at=created_at,
+        )
+    except Exception:  # noqa: BLE001 - worker failure is persisted and sanitized
+        queued = store.get_curve_lab_risk_run(run_id)
+        store.publish_curve_lab_risk_run(
+            {
+                **queued,
+                "state": "FAILED",
+                "result": None,
+                "error": {
+                    "code": "RISK_EXECUTION_FAILED",
+                    "message": "Curve risk execution failed.",
+                    "field": "risk_run_id",
+                    "value": run_id,
+                    "resource_id": run_id,
+                    "details": {},
+                },
+                "finished_at": _now(),
+            },
+            [],
+        )
+
+
+def _execute_risk_run(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    request: RiskRunRequestV2,
+    *,
+    run_id: str,
+    created_at: str,
+) -> dict:
+    version = get_version(store, request.curve_version_id)
+    fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
+    fixing_observations = list(fixing_snapshot["observations"])
+    quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
+    build = (
+        store.get_curve_lab_build_run(version["build_run_id"])
+        if version["source_kind"] == "BUILD"
+        else None
+    )
+    document = (
+        deepcopy(build["request"])
+        if build is not None
+        else deepcopy(version["verification"].get("document"))
+    )
+    if not isinstance(document, dict):
+        raise CurveLabLifecycleError(
+            409,
+            "RISK_RUNTIME_CONTEXT_REQUIRED",
+            "Curve version does not carry reconstructable runtime context.",
+            "curve_version_id",
+            request.curve_version_id,
+        )
+    dependencies = _runtime_dependencies(store, build, version)
+    quote_axis = (
+        list(build["quote_axis"])
+        if build is not None
+        else list(version["verification"].get("quote_axis", []))
+    )
+    parameter_axis = (
+        list(build["parameter_axis"])
+        if build is not None
+        else list(version["verification"].get("parameter_axis", []))
+    )
+    trades = list(request.target.model_dump(mode="json")["trades"])
+    requested_layers = set(request.sensitivity_layers)
+    parameter_components = {axis["component_key"] for axis in parameter_axis}
+    aad_eligible_trades = sum(
+        trade["instrument_type"] == "DEPOSIT"
+        and trade["terms"].get("discount_component_key") in parameter_components
+        for trade in trades
+    )
+    estimate = estimate_work(
+        trades=len(trades),
+        aad_eligible_trades=aad_eligible_trades,
+        parameters=len(parameter_axis),
+        quotes=len(quote_axis),
+        measures=request.measures,
+        sensitivity_layers=request.sensitivity_layers,
+        allow_aad_fallback=request.options.aad_fallback == "ALLOW",
+    )
+    request_json = request.model_dump(mode="json", exclude_none=True)
+    queued = store.get_curve_lab_risk_run(run_id)
+    store.publish_curve_lab_risk_run(
+        {
+            **queued,
+            "state": "RUNNING",
+        },
+        [],
+    )
+
+    needs_trade_to_node = bool({"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers)
     base_rows = gateway.price_curve_lab_trades(
         document,
         trades,
         request_json["evaluation_time"],
         request.base_currency,
+        curve_version=version,
         dependencies=dependencies,
+        fixing_observations=fixing_observations,
+        parameter_axis=parameter_axis,
+        include_node_sensitivities=needs_trade_to_node,
     )
     base = _native_by_trade(trades, base_rows)
     pricing = [_pricing_result(trade, base[trade["trade_id"]]) for trade in trades]
     result: dict[str, object] = {"pricing": pricing}
     matrices: list[dict] = []
-    needs_trade_to_node = bool({"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers)
     needs_jacobian = bool(
         {
             "CALIBRATION_JACOBIAN",
@@ -635,19 +862,53 @@ def create_risk_run(
     jacobian: list[list[str]] | None = None
 
     if needs_trade_to_node:
-        try:
-            trade_to_node = _central_price_matrix(
-                gateway,
-                document,
-                trades,
-                parameter_axis,
-                request_json["evaluation_time"],
-                request.base_currency,
-                dependencies,
+        aad_gradients = [row.get("aad_node_gradient") for row in base_rows]
+        fallback_indices = [index for index, value in enumerate(aad_gradients) if value is None]
+        fallback_required = bool(fallback_indices)
+        central: list[list[str]] | None = None
+        if fallback_required and request.options.aad_fallback == "ALLOW":
+            try:
+                central = _central_price_matrix(
+                    gateway,
+                    document,
+                    [trades[index] for index in fallback_indices],
+                    parameter_axis,
+                    request_json["evaluation_time"],
+                    request.base_currency,
+                    version,
+                    dependencies,
+                    fixing_observations,
+                )
+            except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
+                central = None
+        if not fallback_required:
+            trade_to_node = [list(value) for value in aad_gradients if value is not None]
+        elif central is not None:
+            central_by_position = {
+                position: central[index] for index, position in enumerate(fallback_indices)
+            }
+            trade_to_node = [
+                list(aad_gradients[index])
+                if aad_gradients[index] is not None
+                else central_by_position[index]
+                for index in range(len(trades))
+            ]
+        elif request.options.aad_fallback == "FORBID":
+            raise CurveLabLifecycleError(
+                422,
+                "AAD_EXECUTION_FAILED",
+                "An admitted native AAD pricing plan failed during execution.",
+                "target.trades",
+                None,
             )
-        except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
-            trade_to_node = None
+        trade_methods = [
+            "NATIVE_AAD" if value is not None else "CENTRAL_NATIVE_PARAMETER_BUMP"
+            for value in aad_gradients
+        ]
         if trade_to_node is not None:
+            matrix_method = (
+                "NATIVE_AAD" if not fallback_required else "NATIVE_AAD_WITH_CENTRAL_FALLBACK"
+            )
             matrices.append(
                 {
                     "matrix_id": "trade-to-node",
@@ -660,7 +921,8 @@ def create_risk_run(
                     "availability": "AVAILABLE",
                     "availability_reason_code": None,
                     "availability_reason": None,
-                    "method": "CENTRAL_NATIVE_PARAMETER_BUMP",
+                    "method": matrix_method,
+                    "trade_methods": trade_methods,
                     "bump_target": "NATIVE_PARAMETER",
                     "bump_size": "0.000001",
                     "input_unit": "NATIVE_PARAMETER_UNIT",
@@ -800,6 +1062,7 @@ def create_risk_run(
             request_json["evaluation_time"],
             request.base_currency,
             dependencies=dependencies,
+            fixing_observations=fixing_observations,
         )
         parallel = _differences(
             trades,
@@ -820,6 +1083,7 @@ def create_risk_run(
                 request_json["evaluation_time"],
                 request.base_currency,
                 dependencies=dependencies,
+                fixing_observations=fixing_observations,
             )
             differences = _differences(
                 trades,
@@ -930,14 +1194,41 @@ def create_risk_run(
                 }
             )
 
+    trade_axis = [
+        {
+            "trade_id": trade["trade_id"],
+            "instrument_type": trade["instrument_type"],
+        }
+        for trade in trades
+    ]
+    axis_values = {
+        "request.target.trades": trade_axis,
+        "parameter_axis": parameter_axis,
+        "quote_axis": quote_axis,
+    }
+    for matrix in matrices:
+        matrix.update(
+            {
+                "curve_version_id": version["id"],
+                "curve_version_hash": version["native_payload_hash"],
+                "fixing_snapshot_id": request.fixing_snapshot_id,
+                "fixing_snapshot_hash": fixing_snapshot["content_hash"],
+                "row_axis_hash": _hash(axis_values[matrix["row_axis_ref"]]),
+                "column_axis_hash": _hash(axis_values[matrix["column_axis_ref"]]),
+                "evaluation_time": request_json["evaluation_time"],
+                "base_currency": request.base_currency,
+            }
+        )
+
     now = _now()
     record = {
-        "id": uuid4().hex,
+        "id": run_id,
         "curve_version_id": request.curve_version_id,
         "calibration_run_id": version.get("build_run_id"),
         "import_job_id": version.get("import_job_id"),
         "source_kind": ("BUILD_VERSION" if version["source_kind"] == "BUILD" else "IMPORT_VERSION"),
         "request": request_json,
+        "fixing_snapshot_hash": fixing_snapshot["content_hash"],
         "target_fingerprint": _hash(request_json["target"]),
         "quote_axis": quote_axis if build is not None else None,
         "parameter_axis": parameter_axis,
@@ -945,7 +1236,7 @@ def create_risk_run(
         "state": "SUCCEEDED",
         "result": result,
         "error": None,
-        "created_at": now,
+        "created_at": created_at,
         "finished_at": now,
     }
     stored = store.publish_curve_lab_risk_run(record, matrices)

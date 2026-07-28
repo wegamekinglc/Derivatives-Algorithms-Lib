@@ -118,8 +118,9 @@ def build_fake_dal() -> types.ModuleType:
     def _StorableToJson(  # noqa: N802 - mirrors the native private bridge
         value: dict[str, object],
     ) -> bytes:
+        archive = {key: item for key, item in value.items() if key != "type"}
         return json.dumps(
-            {"$tag": "1", **value},
+            {"$tag": "1", **archive},
             allow_nan=False,
             separators=(",", ":"),
             sort_keys=True,
@@ -130,9 +131,7 @@ def build_fake_dal() -> types.ModuleType:
     ) -> dict[str, object]:
         value = json.loads(payload)
         value.pop("$tag", None)
-        value["type"] = (
-            "Bag" if value.get("~type") == "Bag" else "DiscountCurve"
-        )
+        value["type"] = "Bag" if value.get("~type") == "Bag" else "DiscountCurve"
         return value
 
     fake.Date_ = Date_

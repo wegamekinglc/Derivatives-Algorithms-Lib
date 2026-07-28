@@ -98,6 +98,14 @@ def _reconcile_orphaned_calibrations() -> None:
         logger.info("Reconciled orphaned calibration %s to failed", calibration.id)
 
 
+def _reconcile_orphaned_curve_lab_work() -> None:
+    """Terminalize Curve Lab executor work that cannot survive a restart."""
+    store = get_store()
+    reconciled = store.reconcile_curve_lab_inflight(datetime.now(UTC).isoformat())
+    if reconciled:
+        logger.info("Reconciled %s orphaned Curve Lab jobs to failed", reconciled)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="DAL Derivatives Portfolio Management",
@@ -150,6 +158,7 @@ def create_app() -> FastAPI:
     _init_database()
     _reconcile_orphaned_valuations()
     _reconcile_orphaned_calibrations()
+    _reconcile_orphaned_curve_lab_work()
 
     if os.environ.get("WEBUI_SEED_DEMO", "1").strip().lower() not in {"0", "false", "no"}:
         seed_demo_data(get_store())

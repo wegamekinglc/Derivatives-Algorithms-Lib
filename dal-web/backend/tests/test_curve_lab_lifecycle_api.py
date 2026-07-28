@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
@@ -54,6 +55,61 @@ def _create_draft(client, raw_quote: str = "0.04") -> dict[str, object]:
     return response.json()
 
 
+def _wait_for_job(
+    client,
+    collection: str,
+    job_id: str,
+    terminal_states: set[str],
+) -> dict[str, object]:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        record = client.get(f"/api/curve-lab/{collection}/{job_id}").json()
+        if record["state"] in terminal_states:
+            return record
+        time.sleep(0.01)
+    pytest.fail(f"{collection}/{job_id} did not reach a terminal state")
+
+
+def _completed_build(client, draft_id: str) -> dict[str, object]:
+    response = client.post(f"/api/curve-lab/drafts/{draft_id}/build-runs")
+    assert response.status_code == 202, response.text
+    admitted = response.json()
+    assert admitted["state"] == "QUEUED"
+    completed = _wait_for_job(
+        client,
+        "build-runs",
+        admitted["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert completed["state"] == "SUCCEEDED", completed
+    return completed
+
+
+def _completed_import(client, response) -> dict[str, object]:
+    assert response.status_code == 202, response.text
+    admitted = response.json()
+    assert admitted["state"] == "QUEUED"
+    completed = _wait_for_job(
+        client,
+        "import-jobs",
+        admitted["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert completed["state"] == "SUCCEEDED", completed
+    return completed
+
+
+def _completed_store_build(store, admitted: dict[str, object]) -> dict[str, object]:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        completed = store.get_curve_lab_build_run(admitted["id"])
+        if completed["state"] in {"SUCCEEDED", "FAILED", "TIMED_OUT"}:
+            assert completed["state"] == "SUCCEEDED", completed
+            return completed
+        time.sleep(0.01)
+    pytest.fail(f"build-runs/{admitted['id']} did not reach a terminal state")
+
+
 def test_draft_create_get_and_restart_preserve_canonical_financial_document(
     client,
 ) -> None:
@@ -93,12 +149,40 @@ def test_draft_rejects_percent_or_axis_override_before_any_row_or_audit(
     assert second.json()["detail"]["code"] == "QUOTE_AXIS_OVERRIDE_FORBIDDEN"
 
 
+def test_draft_contract_rejects_empty_topology_and_open_solver_or_terms(client) -> None:
+    empty = _document()
+    empty["instruments"] = []
+    open_solver = _document()
+    open_solver["solver"]["surprise"] = True
+    open_terms = _document()
+    open_terms["instruments"][0]["terms"]["surprise"] = True
+
+    empty_response = client.post("/api/curve-lab/drafts", json=empty)
+    solver_response = client.post("/api/curve-lab/drafts", json=open_solver)
+    terms_response = client.post("/api/curve-lab/drafts", json=open_terms)
+
+    assert empty_response.status_code == 422
+    assert solver_response.status_code == 422
+    assert terms_response.status_code == 422
+    assert empty_response.json()["detail"]["code"] == "DRAFT_TOPOLOGY_INVALID"
+    assert solver_response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
+    assert terms_response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
+
+
 def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> None:
     draft = _create_draft(client)
     build = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
     assert build.status_code == 202, build.text
-    old_run = build.json()
-    assert old_run["state"] == "SUCCEEDED"
+    admitted = build.json()
+    assert admitted["state"] == "QUEUED"
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        old_run = client.get(f"/api/curve-lab/build-runs/{admitted['id']}").json()
+        if old_run["state"] == "SUCCEEDED":
+            break
+        time.sleep(0.01)
+    else:
+        pytest.fail("build run did not reach SUCCEEDED")
 
     changed = _document("0.041")
     changed["instruments"][0]["instrument_id"] = draft["document"]["instruments"][0][
@@ -179,7 +263,7 @@ def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
 
 def test_version_publication_is_cas_idempotent_immutable_and_archivable(client) -> None:
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     request = {
         "draft_id": draft["id"],
         "draft_revision": draft["revision"],
@@ -222,7 +306,7 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
     from app.services.store import get_store
 
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     request = CurveVersionCreateRequest.model_validate(
         {
             "draft_id": draft["id"],
@@ -267,7 +351,7 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
 
 def test_clone_rekeys_instruments_and_keeps_source_identity(client) -> None:
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -290,7 +374,7 @@ def test_clone_rekeys_instruments_and_keeps_source_identity(client) -> None:
 
 def test_failed_version_cas_and_failed_import_publish_nothing(client) -> None:
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     bad = {
         "draft_id": draft["id"],
         "draft_revision": 999,
@@ -325,7 +409,7 @@ def test_unknown_eighth_family_has_zero_durable_side_effects(client) -> None:
 
 def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> None:
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     built = client.post(
         "/api/curve-lab/versions",
         json={
@@ -345,13 +429,54 @@ def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> 
         headers={"Content-Type": "application/json"},
     )
 
-    assert imported.status_code == 202, imported.text
-    assert imported.json()["state"] == "SUCCEEDED"
-    imported_version = imported.json()["resulting_version_id"]
+    completed_import = _completed_import(client, imported)
+    imported_version = completed_import["resulting_version_id"]
     assert imported_version != built["id"]
     imported_payload = client.get(f"/api/curve-lab/versions/{imported_version}/native-json")
     assert imported_payload.status_code == 200
     assert imported_payload.content
+
+
+def test_import_create_acknowledges_queued_before_native_reconstruction(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    gateway = gateway_module.get_gateway()
+    entered = threading.Event()
+    release = threading.Event()
+    payload = b'{"~type":"Bag","name":"curves","keys":[]}'
+
+    def blocked_import(archive: bytes) -> tuple[bytes, str]:
+        entered.set()
+        assert release.wait(timeout=5.0)
+        return archive, "CURVE_SET"
+
+    monkeypatch.setattr(gateway, "import_curve_lab_archive", blocked_import)
+
+    started_at = time.monotonic()
+    response = client.post(
+        "/api/curve-lab/import-jobs",
+        content=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    elapsed = time.monotonic() - started_at
+
+    assert response.status_code == 202
+    assert elapsed < 0.3
+    assert response.json()["state"] == "QUEUED"
+    assert entered.wait(timeout=1.0)
+
+    release.set()
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        terminal = client.get(f"/api/curve-lab/import-jobs/{response.json()['id']}").json()
+        if terminal["state"] == "SUCCEEDED":
+            break
+        time.sleep(0.01)
+    else:
+        pytest.fail("import job did not reach SUCCEEDED")
 
 
 def test_import_allowlist_failure_never_calls_native_reader(client, monkeypatch) -> None:
@@ -475,7 +600,7 @@ def test_import_publication_rolls_back_version_when_job_write_fails(
     from app.services.db.models import CurveLabImportJobRow
 
     draft = _create_draft(client)
-    run = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs").json()
+    run = _completed_build(client, draft["id"])
     version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -493,16 +618,24 @@ def test_import_publication_rolls_back_version_when_job_write_fails(
         if target.state == "SUCCEEDED":
             raise RuntimeError("injected import job write failure")
 
-    event.listen(CurveLabImportJobRow, "before_insert", fail_successful_job)
+    event.listen(CurveLabImportJobRow, "before_update", fail_successful_job)
     try:
-        with pytest.raises(RuntimeError, match="injected import job write failure"):
-            client.post(
-                "/api/curve-lab/import-jobs",
-                content=payload,
-                headers={"Content-Type": "application/json"},
-            )
+        response = client.post(
+            "/api/curve-lab/import-jobs",
+            content=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code == 202
+        failed = _wait_for_job(
+            client,
+            "import-jobs",
+            response.json()["id"],
+            {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+        )
+        assert failed["state"] == "FAILED"
+        assert failed["error"]["code"] == "IMPORT_PUBLICATION_FAILED"
     finally:
-        event.remove(CurveLabImportJobRow, "before_insert", fail_successful_job)
+        event.remove(CurveLabImportJobRow, "before_update", fail_successful_job)
 
     visible = client.get("/api/curve-lab/versions").json()
     assert [item["id"] for item in visible] == [version["id"]]
@@ -526,7 +659,10 @@ def test_database_restart_preserves_version_and_native_payload(tmp_path) -> None
     first = DbStore(database_url)
     first.create_all()
     draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(_document()))
-    run = create_build_run(first, DalGateway(), draft["id"])
+    run = _completed_store_build(
+        first,
+        create_build_run(first, DalGateway(), draft["id"]),
+    )
     version, created = create_version(
         first,
         CurveVersionCreateRequest(
@@ -546,6 +682,101 @@ def test_database_restart_preserves_version_and_native_payload(tmp_path) -> None
         assert created is True
         assert restarted.get_curve_lab_draft(draft["id"]) == draft
         assert native_payload(restarted, version["id"]) == before_restart
+    finally:
+        restarted.close()
+
+
+def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> None:
+    from app.schemas.curve_lab import (
+        CurveDraftDocumentInputV2,
+        CurveVersionCreateRequest,
+    )
+    from app.services.curve_lab_lifecycle import (
+        create_build_run,
+        create_draft,
+        create_version,
+    )
+    from app.services.dal_gateway import DalGateway
+    from app.services.db.store_db import DbStore
+
+    database_url = f"sqlite:///{tmp_path / 'inflight-restart.db'}"
+    first = DbStore(database_url)
+    first.create_all()
+    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(_document()))
+    run = _completed_store_build(
+        first,
+        create_build_run(first, DalGateway(), draft["id"]),
+    )
+    version, _ = create_version(
+        first,
+        CurveVersionCreateRequest(
+            draft_id=draft["id"],
+            draft_revision=draft["revision"],
+            draft_fingerprint=draft["fingerprint"],
+            build_run_id=run["id"],
+            name="restart-source",
+            idempotency_key="restart-source",
+        ),
+    )
+    first.update_curve_lab_build_run(
+        run["id"],
+        {
+            **run,
+            "state": "SOLVING",
+            "error": None,
+            "finished_at": None,
+        },
+    )
+    first.add_curve_lab_import_job(
+        {
+            "id": "import-restart",
+            "request_hash": "a" * 64,
+            "compressed_payload_length": 1,
+            "expanded_payload_length": 1,
+            "state": "RUNNING",
+            "phase": "DESERIALIZING",
+            "error": None,
+            "resulting_version_id": None,
+            "created_at": "2026-01-15T00:00:00+00:00",
+            "finished_at": None,
+        }
+    )
+    first.publish_curve_lab_risk_run(
+        {
+            "id": "risk-restart",
+            "curve_version_id": version["id"],
+            "calibration_run_id": None,
+            "import_job_id": None,
+            "source_kind": "VERSION",
+            "request": {},
+            "fixing_snapshot_hash": "b" * 64,
+            "target_fingerprint": "c" * 64,
+            "quote_axis": None,
+            "parameter_axis": [],
+            "estimated_work": {},
+            "state": "QUEUED",
+            "result": None,
+            "error": None,
+            "created_at": "2026-01-15T00:00:00+00:00",
+            "finished_at": None,
+        },
+        [],
+    )
+    first.close()
+
+    restarted = DbStore(database_url)
+    try:
+        finished_at = "2026-01-15T00:01:00+00:00"
+        assert restarted.reconcile_curve_lab_inflight(finished_at) == 3
+        records = (
+            restarted.get_curve_lab_build_run(run["id"]),
+            restarted.get_curve_lab_import_job("import-restart"),
+            restarted.get_curve_lab_risk_run("risk-restart"),
+        )
+        for record in records:
+            assert record["state"] == "FAILED"
+            assert record["error"]["code"] == "SERVER_RESTARTED"
+            assert record["finished_at"] == finished_at
     finally:
         restarted.close()
 
@@ -593,7 +824,13 @@ def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypa
     response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
 
     assert response.status_code == 202
-    run = response.json()
+    assert response.json()["state"] == "QUEUED"
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
     assert run["state"] == "FAILED"
     assert run["native_payload_hash"] is None
     assert run["error"]["code"] == "NATIVE_BUILD_FAILED"
@@ -602,6 +839,43 @@ def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypa
     assert run["diagnostics"]["fit_state"] == "FAILED"
     assert client.get(f"/api/curve-lab/build-runs/{run['id']}").json() == run
     assert client.get("/api/curve-lab/versions").json() == []
+
+
+def test_build_create_acknowledges_queued_before_blocking_native_work(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    gateway = gateway_module.get_gateway()
+    original = gateway.build_curve_lab_archive
+    entered = threading.Event()
+    release = threading.Event()
+
+    def slow_build(document, dependencies=()) -> bytes:
+        entered.set()
+        assert release.wait(timeout=5)
+        return original(document, dependencies)
+
+    monkeypatch.setattr(gateway, "build_curve_lab_archive", slow_build)
+
+    started = time.monotonic()
+    response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+    elapsed = time.monotonic() - started
+
+    assert response.status_code == 202
+    assert response.json()["state"] == "QUEUED"
+    assert elapsed < 0.3
+    assert entered.wait(timeout=1)
+    release.set()
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        completed = client.get(f"/api/curve-lab/build-runs/{response.json()['id']}").json()
+        if completed["state"] in {"SUCCEEDED", "FAILED", "TIMED_OUT"}:
+            break
+        time.sleep(0.01)
+    assert completed["state"] == "SUCCEEDED"
 
 
 def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch) -> None:
@@ -629,7 +903,13 @@ def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch
     response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
 
     assert response.status_code == 202
-    run = response.json()
+    assert response.json()["state"] == "QUEUED"
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
     assert run["state"] == "FAILED"
     assert run["error"]["code"] == "DEPENDENCY_VERSION_NOT_FOUND"
     assert run["error"]["value"] == missing_id
@@ -640,9 +920,7 @@ def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch
 
 def test_build_pins_resolved_dependency_identity_hash_and_root_kind(client) -> None:
     source_draft = _create_draft(client)
-    source_run = client.post(
-        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
-    ).json()
+    source_run = _completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -658,13 +936,7 @@ def test_build_pins_resolved_dependency_identity_hash_and_root_kind(client) -> N
     document["dependency_version_ids"] = [source_version["id"]]
     dependent_draft = client.post("/api/curve-lab/drafts", json=document).json()
 
-    response = client.post(
-        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
-    )
-
-    assert response.status_code == 202, response.text
-    run = response.json()
-    assert run["state"] == "SUCCEEDED"
+    run = _completed_build(client, dependent_draft["id"])
     assert run["dependency_manifest"] == [
         {
             "version_id": source_version["id"],
@@ -681,9 +953,7 @@ def test_build_rejects_archived_dependency_before_native_work(
     import app.services.dal_gateway as gateway_module
 
     source_draft = _create_draft(client)
-    source_run = client.post(
-        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
-    ).json()
+    source_run = _completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -713,12 +983,16 @@ def test_build_rejects_archived_dependency_before_native_work(
         forbidden_native_build,
     )
 
-    response = client.post(
-        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
-    )
+    response = client.post(f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs")
 
     assert response.status_code == 202
-    run = response.json()
+    assert response.json()["state"] == "QUEUED"
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
     assert run["state"] == "FAILED"
     assert run["error"]["code"] == "DEPENDENCY_VERSION_ARCHIVED"
     assert run["dependency_manifest"] == []
@@ -729,9 +1003,7 @@ def test_publication_rejects_dependency_archived_after_successful_build(
     client,
 ) -> None:
     source_draft = _create_draft(client)
-    source_run = client.post(
-        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
-    ).json()
+    source_run = _completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -749,14 +1021,9 @@ def test_publication_rejects_dependency_archived_after_successful_build(
         "/api/curve-lab/drafts",
         json=dependent_document,
     ).json()
-    dependent_run = client.post(
-        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
-    ).json()
-    assert dependent_run["state"] == "SUCCEEDED"
+    dependent_run = _completed_build(client, dependent_draft["id"])
 
-    archived = client.post(
-        f"/api/curve-lab/versions/{source_version['id']}/archive"
-    )
+    archived = client.post(f"/api/curve-lab/versions/{source_version['id']}/archive")
     published = client.post(
         "/api/curve-lab/versions",
         json={

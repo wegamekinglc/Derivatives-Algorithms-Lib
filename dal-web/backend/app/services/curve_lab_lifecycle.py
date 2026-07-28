@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from threading import Lock
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.schemas.curve_lab import (
     CURVE_LAB_V1_SUCCESS_REGISTRY,
     CurveDraftDocumentInputV2,
+    CurveRuntimeManifestV1,
     CurveVersionCreateRequest,
 )
 from app.services.archive_preflight import ArchivePreflightError, preflight_archive
@@ -27,6 +30,14 @@ from app.services.store import (
 if TYPE_CHECKING:
     from app.services.dal_gateway import DalGateway
     from app.services.store import StoreProtocol
+
+
+_CURVE_LAB_EXECUTOR = ThreadPoolExecutor(
+    max_workers=2,
+    thread_name_prefix="curve-lab",
+)
+_BUILD_FUTURES: dict[str, object] = {}
+_BUILD_FUTURES_LOCK = Lock()
 
 _REGISTRY = {row.instrument_type: row for row in CURVE_LAB_V1_SUCCESS_REGISTRY}
 
@@ -110,6 +121,7 @@ def _canonical_document(
     instruments: list[dict] = []
     for index, authored in enumerate(request.instruments):
         source = authored.model_dump(mode="json")
+        source["terms"] = authored.terms.model_dump(mode="json", exclude_none=True)
         supplied_id = source.pop("instrument_id")
         source_id = source.pop("source_instrument_id")
         if rekey:
@@ -268,7 +280,7 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
     draft = get_draft(store, draft_id)
     document = draft["document"]
     quote_coordinates = quote_axis(document)
-    parameter_coordinates = parameter_axis(document)
+    parameter_coordinates: list[dict] = []
     resolved_plan = {
         "schema_version": 1,
         "mode": document["mode"],
@@ -276,10 +288,75 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
             declaration["component_key"] for declaration in document["declarations"]
         ],
         "quote_count": len(quote_coordinates),
-        "parameter_count": len(parameter_coordinates),
+        "parameter_count": 0,
+        "parameter_axis_source": "PENDING_NATIVE_CALIBRATION",
     }
     now = _now()
     run_id = uuid4().hex
+    queued = {
+        "id": run_id,
+        "draft_id": draft_id,
+        "draft_revision": draft["revision"],
+        "draft_fingerprint": draft["fingerprint"],
+        "state": "QUEUED",
+        "request": document,
+        "resolved_plan": resolved_plan,
+        "quote_axis": quote_coordinates,
+        "parameter_axis": parameter_coordinates,
+        "dependency_manifest": [],
+        "native_payload": None,
+        "native_payload_hash": None,
+        "diagnostics": {
+            "fit_state": "QUEUED",
+            "quote_count": len(quote_coordinates),
+            "parameter_count": 0,
+        },
+        "error": None,
+        "created_at": now,
+        "finished_at": None,
+    }
+    store.add_curve_lab_build_run(queued)
+    future = _CURVE_LAB_EXECUTOR.submit(
+        _execute_build_run,
+        store,
+        gateway,
+        run_id,
+    )
+    with _BUILD_FUTURES_LOCK:
+        _BUILD_FUTURES[run_id] = future
+    future.add_done_callback(lambda _future: _forget_build_future(run_id))
+    return _build_public(store, queued)
+
+
+def _forget_build_future(run_id: str) -> None:
+    with _BUILD_FUTURES_LOCK:
+        _BUILD_FUTURES.pop(run_id, None)
+
+
+def _execute_build_run(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    run_id: str,
+) -> None:
+    queued = store.get_curve_lab_build_run(run_id)
+    draft_id = queued["draft_id"]
+    draft = get_draft(store, draft_id)
+    document = queued["request"]
+    quote_coordinates = list(queued["quote_axis"])
+    parameter_coordinates: list[dict] = []
+    resolved_plan = queued["resolved_plan"]
+    now = queued["created_at"]
+    store.update_curve_lab_build_run(
+        run_id,
+        {
+            **queued,
+            "state": "RESOLVING_DEPENDENCIES",
+            "diagnostics": {
+                **queued["diagnostics"],
+                "fit_state": "RESOLVING_DEPENDENCIES",
+            },
+        },
+    )
     dependency_records, dependency_manifest, dependency_error = _resolve_build_dependencies(
         store,
         list(document["dependency_version_ids"]),
@@ -296,7 +373,7 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
             dependency_error,
             now,
         )
-        stored = store.add_curve_lab_build_run(record)
+        store.update_curve_lab_build_run(run_id, record)
         _audit(
             store,
             "BUILD_FAILED",
@@ -306,11 +383,25 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
             outcome="FAILED",
             error_code=dependency_error["code"],
         )
-        return _build_public(store, stored)
+        return
+    running = {
+        **queued,
+        "state": "SOLVING",
+        "dependency_manifest": dependency_manifest,
+        "diagnostics": {
+            **queued["diagnostics"],
+            "fit_state": "SOLVING",
+        },
+    }
+    store.update_curve_lab_build_run(run_id, running)
     try:
         native_payload = gateway.build_curve_lab_archive(
             document,
             dependency_records,
+        )
+        parameter_coordinates = gateway.curve_lab_archive_parameter_axis(
+            document,
+            native_payload,
         )
     except Exception:  # noqa: BLE001 - native failure becomes immutable evidence
         error = {
@@ -331,7 +422,7 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
             error,
             now,
         )
-        stored = store.add_curve_lab_build_run(record)
+        store.update_curve_lab_build_run(run_id, record)
         _audit(
             store,
             "BUILD_FAILED",
@@ -341,7 +432,32 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
             outcome="FAILED",
             error_code=error["code"],
         )
-        return _build_public(store, stored)
+        return
+    resolved_plan = {
+        **resolved_plan,
+        "parameter_count": len(parameter_coordinates),
+        "parameter_axis_source": "NATIVE_ARCHIVE_LAYOUT",
+        "runtime_manifest": {
+            "schema_version": 1,
+            "mode": document["mode"],
+            "as_of_date": document["as_of_date"],
+            "market_snapshot_id": document["market_snapshot_id"],
+            "components": [
+                {
+                    "component_key": declaration["component_key"],
+                    "role": declaration["role"],
+                    "currency": declaration["currency"],
+                    "parameterization": declaration["parameterization"],
+                    "parameter_ids": [
+                        item["parameter_id"]
+                        for item in parameter_coordinates
+                        if item["component_key"] == declaration["component_key"]
+                    ],
+                }
+                for declaration in document["declarations"]
+            ],
+        },
+    }
     record = {
         "id": run_id,
         "draft_id": draft_id,
@@ -365,9 +481,8 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
         "created_at": now,
         "finished_at": now,
     }
-    stored = store.add_curve_lab_build_run(record)
+    store.update_curve_lab_build_run(run_id, record)
     _audit(store, "BUILD_SUCCEEDED", "curve_build_run", record["id"], record["request"])
-    return _build_public(store, stored)
 
 
 def _resolve_build_dependencies(
@@ -472,12 +587,20 @@ def _failed_build_record(
 def quote_axis(document: dict) -> list[dict]:
     declarations = document["declarations"]
     default_component = declarations[0]["component_key"]
+    declaration_index = {
+        declaration["component_key"]: index for index, declaration in enumerate(declarations)
+    }
     local_indices: dict[str, int] = {}
     result: list[dict] = []
     for item in document["instruments"]:
         if not item["included"]:
             continue
         component_key = str(item["terms"].get("component_key", default_component))
+        stage_id = (
+            f"stage-{declaration_index[component_key]}"
+            if document["mode"] == "STAGED_XCCY"
+            else "stage-0"
+        )
         local_index = local_indices.get(component_key, 0)
         local_indices[component_key] = local_index + 1
         result.append(
@@ -486,7 +609,7 @@ def quote_axis(document: dict) -> list[dict]:
                 "quote_id": item["instrument_id"],
                 "instrument_id": item["instrument_id"],
                 "component_key": component_key,
-                "stage_id": "stage-0",
+                "stage_id": stage_id,
                 "group_id": component_key,
                 "stage_local_quote_index": local_index,
                 "quote_coordinate_kind": item["quote_coordinate_kind"],
@@ -662,6 +785,9 @@ def create_version(
             "draft_fingerprint": request.draft_fingerprint,
             "document": draft["document"],
             "dependency_manifest": run["dependency_manifest"],
+            "resolved_plan": run["resolved_plan"],
+            "quote_axis": run["quote_axis"],
+            "parameter_axis": run["parameter_axis"],
         },
         "created_at": _now(),
     }
@@ -762,6 +888,27 @@ def native_payload(store: StoreProtocol, version_id: str) -> bytes:
     return get_version(store, version_id)["native_payload"]
 
 
+def version_runtime_manifest(store: StoreProtocol, version_id: str) -> dict:
+    version = get_version(store, version_id)
+    verification = version.get("verification", {})
+    manifest = verification.get("runtime_manifest")
+    if not isinstance(manifest, dict):
+        resolved_plan = verification.get("resolved_plan", {})
+        manifest = (
+            resolved_plan.get("runtime_manifest") if isinstance(resolved_plan, dict) else None
+        )
+    if not isinstance(manifest, dict):
+        raise CurveLabLifecycleError(
+            409,
+            "RUNTIME_MANIFEST_UNAVAILABLE",
+            "Curve version has no replayable runtime manifest.",
+            "curve_version_id",
+            version_id,
+            resource_id=version_id,
+        )
+    return manifest
+
+
 def clone_version(store: StoreProtocol, version_id: str) -> dict:
     version = get_version(store, version_id)
     document = version["verification"].get("document")
@@ -814,10 +961,93 @@ def import_native_json(
     gateway: DalGateway,
     payload: bytes,
     content_encoding: str | None = None,
+    runtime_manifest: CurveRuntimeManifestV1 | None = None,
 ) -> dict:
     now = _now()
     job_id = uuid4().hex
     request_hash = hashlib.sha256(payload).hexdigest()
+    try:
+        admitted = preflight_archive(
+            payload,
+            content_encoding=content_encoding,
+        )
+    except ArchivePreflightError as exc:
+        error = {
+            "code": exc.code,
+            "message": exc.message,
+            "field": exc.field,
+            "value": exc.value,
+            "resource_id": job_id,
+            "details": exc.details,
+        }
+        failed = {
+            "id": job_id,
+            "request_hash": request_hash,
+            "compressed_payload_length": (
+                exc.wire_length if exc.wire_length is not None else len(payload)
+            ),
+            "expanded_payload_length": (
+                exc.expanded_length if exc.expanded_length is not None else 0
+            ),
+            "state": "FAILED",
+            "phase": "PREFLIGHT",
+            "error": error,
+            "resulting_version_id": None,
+            "created_at": now,
+            "finished_at": now,
+        }
+        store.add_curve_lab_import_job(failed)
+        raise CurveLabLifecycleError(
+            422,
+            exc.code,
+            exc.message,
+            exc.field,
+            exc.value,
+            resource_id=job_id,
+            **exc.details,
+        ) from exc
+    queued = {
+        "id": job_id,
+        "request_hash": request_hash,
+        "compressed_payload_length": len(payload),
+        "expanded_payload_length": admitted.expanded_length,
+        "state": "QUEUED",
+        "phase": "QUEUED",
+        "error": None,
+        "resulting_version_id": None,
+        "created_at": now,
+        "finished_at": None,
+    }
+    store.add_curve_lab_import_job(queued)
+    _CURVE_LAB_EXECUTOR.submit(
+        _execute_import_job,
+        store,
+        gateway,
+        queued,
+        payload,
+        content_encoding,
+        runtime_manifest,
+    )
+    return queued
+
+
+def _execute_import_job(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    queued: dict,
+    payload: bytes,
+    content_encoding: str | None,
+    runtime_manifest: CurveRuntimeManifestV1 | None,
+) -> None:
+    job_id = queued["id"]
+    request_hash = queued["request_hash"]
+    now = queued["created_at"]
+    running = {
+        **queued,
+        "state": "RUNNING",
+        "phase": "PREFLIGHT",
+    }
+    store.update_curve_lab_import_job(job_id, running)
     try:
         preflight = preflight_archive(
             payload,
@@ -832,19 +1062,17 @@ def import_native_json(
             "resource_id": job_id,
             "details": exc.details,
         }
-        store.add_curve_lab_import_job(
+        store.update_curve_lab_import_job(
+            job_id,
             {
+                **running,
                 "id": job_id,
                 "request_hash": request_hash,
                 "compressed_payload_length": (
-                    exc.wire_length
-                    if exc.wire_length is not None
-                    else len(payload)
+                    exc.wire_length if exc.wire_length is not None else len(payload)
                 ),
                 "expanded_payload_length": (
-                    exc.expanded_length
-                    if exc.expanded_length is not None
-                    else 0
+                    exc.expanded_length if exc.expanded_length is not None else 0
                 ),
                 "state": "FAILED",
                 "phase": "PREFLIGHT",
@@ -852,20 +1080,19 @@ def import_native_json(
                 "resulting_version_id": None,
                 "created_at": now,
                 "finished_at": now,
-            }
+            },
         )
-        raise CurveLabLifecycleError(
-            422,
-            error["code"],
-            error["message"],
-            error["field"],
-            error["value"],
-            resource_id=job_id,
-            **error["details"],
-        ) from exc
+        return
+    native_running = {
+        **running,
+        "compressed_payload_length": len(payload),
+        "expanded_payload_length": preflight.expanded_length,
+        "phase": "NATIVE_RECONSTRUCTION",
+    }
+    store.update_curve_lab_import_job(job_id, native_running)
     try:
         canonical, root_kind = gateway.import_curve_lab_archive(preflight.payload)
-    except Exception as exc:
+    except Exception:
         error = {
             "code": "IMPORT_NATIVE_RECONSTRUCTION_FAILED",
             "message": "Native archive reconstruction failed.",
@@ -874,8 +1101,10 @@ def import_native_json(
             "resource_id": job_id,
             "details": {},
         }
-        store.add_curve_lab_import_job(
+        store.update_curve_lab_import_job(
+            job_id,
             {
+                **native_running,
                 "id": job_id,
                 "request_hash": request_hash,
                 "compressed_payload_length": len(payload),
@@ -886,15 +1115,123 @@ def import_native_json(
                 "resulting_version_id": None,
                 "created_at": now,
                 "finished_at": _now(),
+            },
+        )
+        return
+    verification: dict[str, object] = {
+        "request_hash": request_hash,
+        "source_payload_hash": request_hash,
+    }
+    if runtime_manifest is not None:
+        manifest = runtime_manifest.model_dump(mode="json")
+        expected_root_kind = "DISCOUNT_CURVE" if manifest["mode"] == "SINGLE" else "CURVE_SET"
+        if root_kind != expected_root_kind:
+            error = {
+                "code": "IMPORT_RUNTIME_MANIFEST_MISMATCH",
+                "message": "Runtime manifest mode does not match the native archive root.",
+                "field": "runtime_manifest.mode",
+                "value": manifest["mode"],
+                "resource_id": job_id,
+                "details": {
+                    "expected_root_kind": expected_root_kind,
+                    "actual_root_kind": root_kind,
+                },
+            }
+            store.update_curve_lab_import_job(
+                job_id,
+                {
+                    **native_running,
+                    "state": "FAILED",
+                    "phase": "POST_VALIDATE",
+                    "error": error,
+                    "finished_at": _now(),
+                },
+            )
+            return
+        document = {
+            "schema_version": 2,
+            "mode": manifest["mode"],
+            "as_of_date": manifest["as_of_date"],
+            "market_snapshot_id": manifest["market_snapshot_id"],
+            "declarations": [
+                {
+                    "component_key": component["component_key"],
+                    "role": component["role"],
+                    "currency": component["currency"],
+                    "parameterization": component["parameterization"],
+                }
+                for component in manifest["components"]
+            ],
+            "instruments": [],
+            "dependency_version_ids": [],
+            "solver": {
+                "solve_mode": "EXACT",
+                "parameterization": manifest["components"][0]["parameterization"],
+            },
+        }
+        try:
+            parameter_coordinates = gateway.curve_lab_archive_parameter_axis(
+                document,
+                canonical,
+            )
+        except Exception:
+            error = {
+                "code": "IMPORT_RUNTIME_MANIFEST_MISMATCH",
+                "message": "Runtime manifest components cannot reconstruct the native archive.",
+                "field": "runtime_manifest.components",
+                "value": None,
+                "resource_id": job_id,
+                "details": {},
+            }
+            store.update_curve_lab_import_job(
+                job_id,
+                {
+                    **native_running,
+                    "state": "FAILED",
+                    "phase": "POST_VALIDATE",
+                    "error": error,
+                    "finished_at": _now(),
+                },
+            )
+            return
+        expected_parameter_ids = [
+            parameter_id
+            for component in manifest["components"]
+            for parameter_id in component["parameter_ids"]
+        ]
+        actual_parameter_ids = [coordinate["parameter_id"] for coordinate in parameter_coordinates]
+        if expected_parameter_ids != actual_parameter_ids:
+            error = {
+                "code": "IMPORT_RUNTIME_MANIFEST_MISMATCH",
+                "message": "Runtime manifest parameter layout does not match the native archive.",
+                "field": "runtime_manifest.components",
+                "value": None,
+                "resource_id": job_id,
+                "details": {
+                    "expected_parameter_ids": expected_parameter_ids,
+                    "actual_parameter_ids": actual_parameter_ids,
+                },
+            }
+            store.update_curve_lab_import_job(
+                job_id,
+                {
+                    **native_running,
+                    "state": "FAILED",
+                    "phase": "POST_VALIDATE",
+                    "error": error,
+                    "finished_at": _now(),
+                },
+            )
+            return
+        verification.update(
+            {
+                "document": document,
+                "runtime_manifest": manifest,
+                "dependency_manifest": [],
+                "quote_axis": [],
+                "parameter_axis": parameter_coordinates,
             }
         )
-        raise CurveLabLifecycleError(
-            422,
-            error["code"],
-            error["message"],
-            error["field"],
-            resource_id=job_id,
-        ) from exc
     version_record = {
         "id": uuid4().hex,
         "idempotency_key": f"import:{request_hash}",
@@ -911,10 +1248,7 @@ def import_native_json(
         "name": f"Imported {preflight.root_type}",
         "version_note": None,
         "tags": [],
-        "verification": {
-            "request_hash": request_hash,
-            "source_payload_hash": request_hash,
-        },
+        "verification": verification,
         "created_at": now,
     }
     job = {
@@ -929,6 +1263,27 @@ def import_native_json(
         "created_at": now,
         "finished_at": _now(),
     }
-    _, stored_job = store.publish_curve_lab_import(version_record, job)
+    try:
+        _, stored_job = store.publish_curve_lab_import(version_record, job)
+    except Exception:
+        error = {
+            "code": "IMPORT_PUBLICATION_FAILED",
+            "message": "Imported curve version could not be published atomically.",
+            "field": "state",
+            "value": "SUCCEEDED",
+            "resource_id": job_id,
+            "details": {},
+        }
+        store.update_curve_lab_import_job(
+            job_id,
+            {
+                **native_running,
+                "state": "FAILED",
+                "phase": "PUBLISH",
+                "error": error,
+                "resulting_version_id": None,
+                "finished_at": _now(),
+            },
+        )
+        return
     _audit(store, "IMPORT_SUCCEEDED", "curve_import_job", job_id, stored_job)
-    return stored_job

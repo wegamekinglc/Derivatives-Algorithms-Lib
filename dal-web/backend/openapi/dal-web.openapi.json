@@ -711,14 +711,27 @@
             "type": "string"
           },
           "currency": {
-            "maxLength": 16,
-            "minLength": 3,
+            "pattern": "^[A-Z]{3}$",
             "title": "Currency",
             "type": "string"
           },
+          "log_df_scheme": {
+            "default": "LOG_LINEAR",
+            "enum": [
+              "LOG_LINEAR",
+              "NATURAL_CUBIC",
+              "LINEAR_CUBIC"
+            ],
+            "title": "Log Df Scheme",
+            "type": "string"
+          },
           "parameterization": {
-            "maxLength": 64,
-            "minLength": 1,
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
             "title": "Parameterization",
             "type": "string"
           },
@@ -795,9 +808,7 @@
             "type": "integer"
           },
           "solver": {
-            "additionalProperties": true,
-            "title": "Solver",
-            "type": "object"
+            "$ref": "#/components/schemas/CurveLabSolverInputV2"
           }
         },
         "required": [
@@ -1001,8 +1012,11 @@
           },
           "state": {
             "enum": [
+              "QUEUED",
+              "RUNNING",
               "SUCCEEDED",
-              "FAILED"
+              "FAILED",
+              "TIMED_OUT"
             ],
             "title": "State",
             "type": "string"
@@ -1018,6 +1032,610 @@
           "created_at"
         ],
         "title": "CurveImportJobResponse",
+        "type": "object"
+      },
+      "CurveInstrumentTermsV2": {
+        "additionalProperties": false,
+        "description": "Closed superset projected through a family-specific allowlist below.",
+        "properties": {
+          "collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collateral"
+          },
+          "component_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Key"
+          },
+          "convexity_adjustment": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convexity Adjustment"
+          },
+          "day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Basis"
+          },
+          "domestic_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Collateral"
+          },
+          "domestic_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Day Basis"
+          },
+          "domestic_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Forecast Tenor"
+          },
+          "domestic_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Notional"
+          },
+          "domestic_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Payment Frequency"
+          },
+          "domestic_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Use Projection Curve"
+          },
+          "fixed_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Day Basis"
+          },
+          "fixed_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Payment Frequency"
+          },
+          "float_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Collateral"
+          },
+          "float_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Day Basis"
+          },
+          "float_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Forecast Tenor"
+          },
+          "float_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Payment Frequency"
+          },
+          "float_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Use Projection Curve"
+          },
+          "forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Tenor"
+          },
+          "foreign_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Collateral"
+          },
+          "foreign_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Day Basis"
+          },
+          "foreign_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Forecast Tenor"
+          },
+          "foreign_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Notional"
+          },
+          "foreign_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Payment Frequency"
+          },
+          "foreign_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Use Projection Curve"
+          },
+          "fx_forward_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Forward Collateral"
+          },
+          "fx_spot": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Spot"
+          },
+          "index": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "index_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Name"
+          },
+          "reference_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Collateral"
+          },
+          "reference_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Day Basis"
+          },
+          "reference_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Tenor"
+          },
+          "reference_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Payment Frequency"
+          },
+          "reference_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Use Projection Curve"
+          },
+          "spread_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Collateral"
+          },
+          "spread_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Day Basis"
+          },
+          "spread_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Tenor"
+          },
+          "spread_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Payment Frequency"
+          },
+          "spread_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Use Projection Curve"
+          },
+          "use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Projection Curve"
+          }
+        },
+        "title": "CurveInstrumentTermsV2",
         "type": "object"
       },
       "CurveLabCapabilitiesResponse": {
@@ -1385,6 +2003,184 @@
           "normalized_risk_bump"
         ],
         "title": "CurveLabRegistryEntryDTO",
+        "type": "object"
+      },
+      "CurveLabSolverInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "default": 1e-06,
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "default": 0.05,
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "libor_basis": {
+            "default": "ACT_365F",
+            "enum": [
+              "ACT_365F",
+              "ACT_360",
+              "30_360"
+            ],
+            "title": "Libor Basis",
+            "type": "string"
+          },
+          "max_evaluations": {
+            "default": 200,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "default": 20,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "parameterization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PIECEWISE_CONSTANT_FWD",
+                  "PIECEWISE_LINEAR_FWD",
+                  "ZERO_RATE",
+                  "LOG_DISCOUNT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameterization"
+          },
+          "smoothing_weight": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "default": "EXACT",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 1e-08,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "title": "CurveLabSolverInputV2",
+        "type": "object"
+      },
+      "CurveRuntimeComponentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Component Key",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "parameter_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parameter Ids",
+            "type": "array"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "DISCOUNT",
+              "PROJECTION",
+              "BASIS"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_key",
+          "role",
+          "currency",
+          "parameterization",
+          "parameter_ids"
+        ],
+        "title": "CurveRuntimeComponentV1",
+        "type": "object"
+      },
+      "CurveRuntimeManifestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/CurveRuntimeComponentV1"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "STAGED_XCCY",
+              "JOINT_XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "components"
+        ],
+        "title": "CurveRuntimeManifestV1",
         "type": "object"
       },
       "CurveTargetDTO": {
@@ -2229,6 +3025,105 @@
         "title": "FixingObservationDTO",
         "type": "object"
       },
+      "FixingObservationInputV1": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_time": {
+            "format": "date-time",
+            "title": "Fixing Time",
+            "type": "string"
+          },
+          "index_name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Index Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "RATE",
+              "FX"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index_name",
+          "fixing_time",
+          "kind",
+          "value"
+        ],
+        "title": "FixingObservationInputV1",
+        "type": "object"
+      },
+      "FixingSnapshotCreateV1": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationInputV1"
+            },
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "observations"
+        ],
+        "title": "FixingSnapshotCreateV1",
+        "type": "object"
+      },
+      "FixingSnapshotResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationInputV1"
+            },
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "observations",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "FixingSnapshotResponseV1",
+        "type": "object"
+      },
       "FraInstrumentDTO": {
         "additionalProperties": false,
         "properties": {
@@ -2564,9 +3459,7 @@
             "type": "string"
           },
           "terms": {
-            "additionalProperties": true,
-            "title": "Terms",
-            "type": "object"
+            "$ref": "#/components/schemas/CurveInstrumentTermsV2"
           },
           "trade_date": {
             "format": "date",
@@ -3431,6 +4324,17 @@
             ],
             "title": "Availability Reason Code"
           },
+          "base_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency"
+          },
           "bump_size": {
             "anyOf": [
               {
@@ -3453,6 +4357,18 @@
             ],
             "title": "Bump Target"
           },
+          "column_axis_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Axis Hash"
+          },
           "column_axis_ref": {
             "title": "Column Axis Ref",
             "type": "string"
@@ -3461,6 +4377,41 @@
             "minimum": 0.0,
             "title": "Columns",
             "type": "integer"
+          },
+          "curve_version_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Version Hash"
+          },
+          "curve_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Version Id"
+          },
+          "evaluation_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Time"
           },
           "failure": {
             "anyOf": [
@@ -3471,6 +4422,29 @@
                 "type": "null"
               }
             ]
+          },
+          "fixing_snapshot_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Snapshot Hash"
+          },
+          "fixing_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Snapshot Id"
           },
           "input_unit": {
             "title": "Input Unit",
@@ -3496,6 +4470,18 @@
             "title": "Output Unit",
             "type": "string"
           },
+          "row_axis_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Axis Hash"
+          },
           "row_axis_ref": {
             "title": "Row Axis Ref",
             "type": "string"
@@ -3504,6 +4490,20 @@
             "minimum": 0.0,
             "title": "Rows",
             "type": "integer"
+          },
+          "trade_methods": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Methods"
           },
           "values": {
             "anyOf": [
@@ -5064,9 +6064,7 @@
             "type": "string"
           },
           "terms": {
-            "additionalProperties": true,
-            "title": "Terms",
-            "type": "object"
+            "$ref": "#/components/schemas/RateTradeTermsInputV2"
           },
           "trade_date": {
             "format": "date",
@@ -5089,6 +6087,861 @@
           "terms"
         ],
         "title": "RateTradeDefinitionInputV2",
+        "type": "object"
+      },
+      "RateTradeTermsInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "collateral": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collateral"
+          },
+          "contract_count": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Count"
+          },
+          "contract_rate": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Rate"
+          },
+          "contract_spread": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Spread"
+          },
+          "contract_value_per_price_point": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Value Per Price Point"
+          },
+          "convexity_adjustment": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convexity Adjustment"
+          },
+          "day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Basis"
+          },
+          "discount_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Component Key"
+          },
+          "domestic_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Collateral"
+          },
+          "domestic_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Day Basis"
+          },
+          "domestic_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Fixing Hour"
+          },
+          "domestic_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Fixing Minute"
+          },
+          "domestic_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Forecast Tenor"
+          },
+          "domestic_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Index Name"
+          },
+          "domestic_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Notional"
+          },
+          "domestic_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Payment Frequency"
+          },
+          "domestic_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Use Projection Curve"
+          },
+          "final_notional_exchange": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Notional Exchange"
+          },
+          "fixed_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Day Basis"
+          },
+          "fixed_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Payment Frequency"
+          },
+          "fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Hour"
+          },
+          "fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Minute"
+          },
+          "float_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Collateral"
+          },
+          "float_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Day Basis"
+          },
+          "float_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Fixing Hour"
+          },
+          "float_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Fixing Minute"
+          },
+          "float_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Forecast Tenor"
+          },
+          "float_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Index Name"
+          },
+          "float_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Payment Frequency"
+          },
+          "float_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Use Projection Curve"
+          },
+          "forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Component Key"
+          },
+          "forecast_tenor": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]*[DWMY]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Tenor"
+          },
+          "foreign_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Collateral"
+          },
+          "foreign_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Day Basis"
+          },
+          "foreign_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Fixing Hour"
+          },
+          "foreign_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Fixing Minute"
+          },
+          "foreign_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Forecast Tenor"
+          },
+          "foreign_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Index Name"
+          },
+          "foreign_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Notional"
+          },
+          "foreign_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Payment Frequency"
+          },
+          "foreign_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Use Projection Curve"
+          },
+          "fx_spot": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Spot"
+          },
+          "index_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Name"
+          },
+          "initial_notional_exchange": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Notional Exchange"
+          },
+          "notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notional"
+          },
+          "position_count": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Count"
+          },
+          "reference_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Collateral"
+          },
+          "reference_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Day Basis"
+          },
+          "reference_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Fixing Hour"
+          },
+          "reference_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Fixing Minute"
+          },
+          "reference_forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Component Key"
+          },
+          "reference_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Tenor"
+          },
+          "reference_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Index Name"
+          },
+          "reference_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Payment Frequency"
+          },
+          "reference_price": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price"
+          },
+          "reference_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Use Projection Curve"
+          },
+          "settlement_style": {
+            "anyOf": [
+              {
+                "enum": [
+                  "AT_START_DISCOUNTED",
+                  "AT_END"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Style"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LEND",
+                  "BORROW",
+                  "RECEIVE_FLOATING",
+                  "PAY_FLOATING",
+                  "LONG",
+                  "SHORT",
+                  "PAY_FIXED",
+                  "RECEIVE_FIXED",
+                  "RECEIVE_REFERENCE_PAY_SPREAD",
+                  "PAY_REFERENCE_RECEIVE_SPREAD",
+                  "RECEIVE_NON_SPREAD_PAY_SPREAD",
+                  "PAY_NON_SPREAD_RECEIVE_SPREAD"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "spread_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Collateral"
+          },
+          "spread_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Day Basis"
+          },
+          "spread_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Fixing Hour"
+          },
+          "spread_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Fixing Minute"
+          },
+          "spread_forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Component Key"
+          },
+          "spread_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Tenor"
+          },
+          "spread_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Index Name"
+          },
+          "spread_leg": {
+            "anyOf": [
+              {
+                "enum": [
+                  "DOMESTIC",
+                  "FOREIGN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Leg"
+          },
+          "spread_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Payment Frequency"
+          },
+          "spread_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Use Projection Curve"
+          },
+          "use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Projection Curve"
+          }
+        },
+        "title": "RateTradeTermsInputV2",
         "type": "object"
       },
       "ResolvedKnotCountsDTO": {
@@ -5413,6 +7266,11 @@
             ],
             "title": "Finished At"
           },
+          "fixing_snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fixing Snapshot Hash",
+            "type": "string"
+          },
           "id": {
             "pattern": "^[0-9a-f]{32}$",
             "title": "Id",
@@ -5495,6 +7353,7 @@
           "import_job_id",
           "source_kind",
           "request",
+          "fixing_snapshot_hash",
           "target_fingerprint",
           "quote_axis",
           "parameter_axis",
@@ -8249,6 +10108,89 @@
         ]
       }
     },
+    "/api/curve-lab/fixing-snapshots": {
+      "post": {
+        "operationId": "post_fixing_snapshot_api_curve_lab_fixing_snapshots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixingSnapshotCreateV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixingSnapshotResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Fixing Snapshot",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/fixing-snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "read_fixing_snapshot_api_curve_lab_fixing_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixingSnapshotResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Fixing Snapshot",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
     "/api/curve-lab/import-jobs": {
       "post": {
         "operationId": "create_curve_import_job_api_curve_lab_import_jobs_post",
@@ -8267,6 +10209,22 @@
                 }
               ],
               "title": "Content-Encoding"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Curve-Lab-Runtime-Manifest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Curve-Lab-Runtime-Manifest"
             }
           }
         ],
@@ -8772,6 +10730,48 @@
           }
         },
         "summary": "Get Curve Version Native Json",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/runtime-manifest": {
+      "get": {
+        "operationId": "get_curve_version_runtime_manifest_api_curve_lab_versions__version_id__runtime_manifest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveRuntimeManifestV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version Runtime Manifest",
         "tags": [
           "curve-lab"
         ]

@@ -927,6 +927,20 @@ namespace {
                                    })
             .def_property_readonly("error", [](const RatePricingTradeResult_& value) { return StdString(value.error_); });
 
+        py::class_<RateTradeNodeSensitivityResult_>(m, "RateTradeNodeSensitivityResult_")
+            .def_readonly("eligible", &RateTradeNodeSensitivityResult_::eligible_)
+            .def_readonly("pv", &RateTradeNodeSensitivityResult_::pv_)
+            .def_property_readonly(
+                "gradient",
+                [](const RateTradeNodeSensitivityResult_& value) {
+                    return std::vector<double>(value.gradient_.begin(), value.gradient_.end());
+                })
+            .def_property_readonly(
+                "reason",
+                [](const RateTradeNodeSensitivityResult_& value) {
+                    return StdString(value.reason_);
+                });
+
         m.def(
             "PriceRateTrades",
             [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market) {
@@ -942,6 +956,18 @@ namespace {
                 return result;
             },
             py::kw_only(), py::arg("trades"), py::arg("market"));
+
+        m.def(
+            "RateTradeNodeSensitivities",
+            [](const RateTradeDefinition_& trade, const RatePricingMarket_& market, const std::string& componentKey) {
+                RateTradeNodeSensitivityResult_ result;
+                {
+                    py::gil_scoped_release release;
+                    result = RateTradeNodeSensitivities(trade, market, String_(componentKey));
+                }
+                return result;
+            },
+            py::kw_only(), py::arg("trade"), py::arg("market"), py::arg("component_key"));
     }
 
     void init_bindings_curve_planning(py::module_& m) {

@@ -4,6 +4,20 @@ import { api } from "../../src/api/client";
 import CurveLabWorkspace from "../../src/components/CurveLabWorkspace";
 
 describe("Curve Lab V2 workspace", () => {
+  it("uses visual curve and instrument controls as the primary authoring surface", () => {
+    vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
+
+    render(<CurveLabWorkspace />);
+
+    expect(screen.getByRole("heading", { name: "Curve topology" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Calibration instruments" })).not.toBeNull();
+    expect(screen.getByLabelText("As-of date")).not.toBeNull();
+    expect(screen.getByLabelText("Quote 1")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Add instrument" })).not.toBeNull();
+    const advanced = screen.getByText("Advanced JSON").closest("details");
+    expect(advanced?.open).toBe(false);
+  });
+
   it("builds, publishes, and exposes all four durable workflow tabs", async () => {
     const draft = {
       id: "a".repeat(32),

@@ -450,9 +450,9 @@ def _validate_structure(root: object, limits: ArchiveLimits) -> None:
     values = 0
     objects = 0
     references = 0
-    stack: list[tuple[object, int]] = [(root, 1)]
+    stack: list[tuple[object, int, str]] = [(root, 1, "")]
     while stack:
-        value, depth = stack.pop()
+        value, depth, path = stack.pop()
         values += 1
         if values > limits.max_values:
             raise ArchivePreflightError(
@@ -469,7 +469,7 @@ def _validate_structure(root: object, limits: ArchiveLimits) -> None:
                 limit=limits.max_depth,
             )
         if isinstance(value, str):
-            size = len(value.encode("utf-8"))
+            size = _validated_string_size(value, path or "/")
             if size > limits.max_string_bytes:
                 raise ArchivePreflightError(
                     "ARCHIVE_STRING_TOO_LARGE",
@@ -497,7 +497,8 @@ def _validate_structure(root: object, limits: ArchiveLimits) -> None:
                         limit=limits.max_objects,
                     )
             for key in value:
-                size = len(key.encode("utf-8"))
+                key_path = f"{path}/{_json_pointer_token(key)}"
+                size = _validated_string_size(key, key_path)
                 if size > limits.max_string_bytes:
                     raise ArchivePreflightError(
                         "ARCHIVE_STRING_TOO_LARGE",
@@ -505,7 +506,14 @@ def _validate_structure(root: object, limits: ArchiveLimits) -> None:
                         value=size,
                         limit=limits.max_string_bytes,
                     )
-            stack.extend((item, depth + 1) for item in value.values())
+            stack.extend(
+                (
+                    item,
+                    depth + 1,
+                    f"{path}/{_json_pointer_token(key)}",
+                )
+                for key, item in value.items()
+            )
         elif isinstance(value, list):
             if len(value) > limits.max_numeric_array and all(
                 isinstance(item, (int, float)) and not isinstance(item, bool) for item in value
@@ -516,7 +524,33 @@ def _validate_structure(root: object, limits: ArchiveLimits) -> None:
                     value=len(value),
                     limit=limits.max_numeric_array,
                 )
-            stack.extend((item, depth + 1) for item in value)
+            stack.extend((item, depth + 1, f"{path}/{index}") for index, item in enumerate(value))
+
+
+def _validated_string_size(value: str, path: str) -> int:
+    if "\x00" in value:
+        raise ArchivePreflightError(
+            "ARCHIVE_STRING_NUL",
+            "Decoded archive strings must not contain U+0000.",
+            field=path,
+            value="\\u0000",
+        )
+    surrogate = next(
+        (ord(character) for character in value if 0xD800 <= ord(character) <= 0xDFFF),
+        None,
+    )
+    if surrogate is not None:
+        raise ArchivePreflightError(
+            "ARCHIVE_STRING_INVALID_UNICODE",
+            "Decoded archive strings must contain only Unicode scalar values.",
+            field=path,
+            value=f"U+{surrogate:04X}",
+        )
+    return len(value.encode("utf-8"))
+
+
+def _json_pointer_token(value: str) -> str:
+    return value.replace("~", "~0").replace("/", "~1")
 
 
 def _validate_grammar(root: object) -> str:
@@ -580,9 +614,7 @@ def _validate_native_definition(
     handle_references: list[tuple[str, frozenset[str], str]],
 ) -> None:
     if isinstance(value, dict) and set(value) == {"$tag"}:
-        handle_references.append(
-            (_tag_token(value["$tag"]), allowed_types, position)
-        )
+        handle_references.append((_tag_token(value["$tag"]), allowed_types, position))
         return
     if not isinstance(value, dict):
         _field_type_error(position, "native definition or tag reference", value)
@@ -658,11 +690,7 @@ def _validate_bag(
             value=empty_key,
         )
     if len(set(keys)) != len(keys):
-        duplicate = next(
-            key
-            for index, key in enumerate(keys)
-            if key in keys[:index]
-        )
+        duplicate = next(key for index, key in enumerate(keys) if key in keys[:index])
         raise ArchivePreflightError(
             "ARCHIVE_BAG_KEY_DUPLICATE",
             "Archive Bag keys must be unique.",
@@ -728,11 +756,7 @@ def _validate_discount_curve(
     lengths: list[int] = []
     for field, item_type in array_pairs:
         items = _require_array(value, field)
-        predicate = (
-            (lambda item: isinstance(item, str))
-            if item_type == "string"
-            else _is_number
-        )
+        predicate = (lambda item: isinstance(item, str)) if item_type == "string" else _is_number
         if any(not predicate(item) for item in items):
             _field_type_error(field, f"array of {item_type}s", items)
         lengths.append(len(items))

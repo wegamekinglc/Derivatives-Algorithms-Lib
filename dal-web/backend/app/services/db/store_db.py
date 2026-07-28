@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -38,6 +38,7 @@ from app.services.db.models import (
     CurveLabAuditEventRow,
     CurveLabBuildRunRow,
     CurveLabDraftRow,
+    CurveLabFixingSnapshotRow,
     CurveLabImportJobRow,
     CurveLabMatrixBlobRow,
     CurveLabRiskRunRow,
@@ -204,6 +205,7 @@ class DbStore:
             "import_job_id": row.import_job_id,
             "source_kind": row.source_kind,
             "request": row.request_json,
+            "fixing_snapshot_hash": row.fixing_snapshot_hash,
             "target_fingerprint": row.target_fingerprint,
             "quote_axis": row.quote_axis_json,
             "parameter_axis": row.parameter_axis_json,
@@ -756,6 +758,33 @@ class DbStore:
             session.commit()
             return record
 
+    def update_curve_lab_build_run(self, run_id: str, record: dict) -> dict:
+        with self._session() as session:
+            result = session.execute(
+                update(CurveLabBuildRunRow)
+                .where(CurveLabBuildRunRow.id == run_id)
+                .values(
+                    state=record["state"],
+                    resolved_plan_json=record.get("resolved_plan"),
+                    quote_axis_json=record.get("quote_axis"),
+                    parameter_axis_json=record.get("parameter_axis"),
+                    dependency_manifest_json=record.get(
+                        "dependency_manifest",
+                        [],
+                    ),
+                    native_payload=record.get("native_payload"),
+                    native_payload_hash=record.get("native_payload_hash"),
+                    diagnostics_json=record.get("diagnostics"),
+                    error_json=record.get("error"),
+                    finished_at=record.get("finished_at"),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                raise NotFoundError(f"curve build run {run_id}")
+            session.commit()
+            return record
+
     def get_curve_lab_build_run(self, run_id: str) -> dict:
         with self._session() as session:
             row = session.get(CurveLabBuildRunRow, run_id)
@@ -827,8 +856,7 @@ class DbStore:
                 [
                     entry.get("version_id")
                     for entry in manifest
-                    if isinstance(entry, dict)
-                    and isinstance(entry.get("version_id"), str)
+                    if isinstance(entry, dict) and isinstance(entry.get("version_id"), str)
                 ]
                 if isinstance(manifest, list)
                 else []
@@ -844,10 +872,7 @@ class DbStore:
             )
             validate_curve_lab_dependency_manifest(
                 manifest,
-                {
-                    row.id: self._curve_lab_version_dict(row)
-                    for row in dependency_rows
-                },
+                {row.id: self._curve_lab_version_dict(row) for row in dependency_rows},
             )
             session.add(self._curve_lab_version_row(record))
             try:
@@ -913,6 +938,21 @@ class DbStore:
             session.commit()
             return record
 
+    def update_curve_lab_import_job(self, job_id: str, record: dict) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabImportJobRow, job_id)
+            if row is None:
+                raise NotFoundError(f"curve import job {job_id}")
+            row.compressed_payload_length = record["compressed_payload_length"]
+            row.expanded_payload_length = record["expanded_payload_length"]
+            row.state = record["state"]
+            row.phase = record["phase"]
+            row.error_json = record.get("error")
+            row.resulting_version_id = record.get("resulting_version_id")
+            row.finished_at = record.get("finished_at")
+            session.commit()
+            return self._curve_lab_import_job_dict(row)
+
     def get_curve_lab_import_job(self, job_id: str) -> dict:
         with self._session() as session:
             row = session.get(CurveLabImportJobRow, job_id)
@@ -936,31 +976,103 @@ class DbStore:
                 **job_record,
                 "resulting_version_id": version.id,
             }
-            session.add(self._curve_lab_import_job_row(stored_job))
+            job = session.get(CurveLabImportJobRow, stored_job["id"])
+            if job is None:
+                job = self._curve_lab_import_job_row(stored_job)
+                session.add(job)
+            else:
+                job.compressed_payload_length = stored_job["compressed_payload_length"]
+                job.expanded_payload_length = stored_job["expanded_payload_length"]
+                job.state = stored_job["state"]
+                job.phase = stored_job["phase"]
+                job.error_json = stored_job.get("error")
+                job.resulting_version_id = stored_job["resulting_version_id"]
+                job.finished_at = stored_job.get("finished_at")
             session.commit()
-            return self._curve_lab_version_dict(version), stored_job
+            return self._curve_lab_version_dict(version), self._curve_lab_import_job_dict(job)
+
+    def add_curve_lab_fixing_snapshot(self, record: dict) -> dict:
+        with self._session() as session:
+            if session.get(CurveLabFixingSnapshotRow, record["id"]) is not None:
+                raise ConflictError(f"curve fixing snapshot {record['id']}")
+            session.add(
+                CurveLabFixingSnapshotRow(
+                    id=record["id"],
+                    observations_json=record["observations"],
+                    content_hash=record["content_hash"],
+                    created_at=record["created_at"],
+                )
+            )
+            session.commit()
+            return record
+
+    def get_curve_lab_fixing_snapshot(self, snapshot_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabFixingSnapshotRow, snapshot_id)
+            if row is None:
+                raise NotFoundError(f"curve fixing snapshot {snapshot_id}")
+            return {
+                "id": row.id,
+                "observations": row.observations_json,
+                "content_hash": row.content_hash,
+                "created_at": row.created_at,
+            }
+
+    def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
+        with self._session() as session:
+            reconciled = 0
+            for model, states in (
+                (
+                    CurveLabBuildRunRow,
+                    ("QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"),
+                ),
+                (CurveLabImportJobRow, ("QUEUED", "RUNNING")),
+                (CurveLabRiskRunRow, ("QUEUED", "RUNNING")),
+            ):
+                rows = session.scalars(select(model).where(model.state.in_(states))).all()
+                for row in rows:
+                    previous = row.state
+                    row.state = "FAILED"
+                    row.error_json = {
+                        "code": "SERVER_RESTARTED",
+                        "message": "Server restarted while Curve Lab work was running.",
+                        "field": "state",
+                        "value": previous,
+                        "resource_id": row.id,
+                        "details": {},
+                    }
+                    row.finished_at = finished_at
+                    reconciled += 1
+            session.commit()
+            return reconciled
 
     def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict:
         with self._session() as session:
-            row = CurveLabRiskRunRow(
-                id=record["id"],
-                curve_version_id=record["curve_version_id"],
-                calibration_run_id=record.get("calibration_run_id"),
-                import_job_id=record.get("import_job_id"),
-                source_kind=record["source_kind"],
-                request_json=record["request"],
-                target_fingerprint=record["target_fingerprint"],
-                quote_axis_json=record.get("quote_axis"),
-                parameter_axis_json=record["parameter_axis"],
-                estimated_work_json=record["estimated_work"],
-                state=record["state"],
-                result_json=record.get("result"),
-                error_json=record.get("error"),
-                created_at=record["created_at"],
-                finished_at=record.get("finished_at"),
-            )
-            session.add(row)
+            row = session.get(CurveLabRiskRunRow, record["id"])
+            if row is None:
+                row = CurveLabRiskRunRow(id=record["id"])
+                session.add(row)
+            row.curve_version_id = record["curve_version_id"]
+            row.calibration_run_id = record.get("calibration_run_id")
+            row.import_job_id = record.get("import_job_id")
+            row.source_kind = record["source_kind"]
+            row.request_json = record["request"]
+            row.fixing_snapshot_hash = record["fixing_snapshot_hash"]
+            row.target_fingerprint = record["target_fingerprint"]
+            row.quote_axis_json = record.get("quote_axis")
+            row.parameter_axis_json = record["parameter_axis"]
+            row.estimated_work_json = record["estimated_work"]
+            row.state = record["state"]
+            row.result_json = record.get("result")
+            row.error_json = record.get("error")
+            row.created_at = record["created_at"]
+            row.finished_at = record.get("finished_at")
             session.flush()
+            session.execute(
+                delete(CurveLabMatrixBlobRow).where(
+                    CurveLabMatrixBlobRow.risk_run_id == record["id"]
+                )
+            )
             for matrix in matrices:
                 envelope = {key: value for key, value in matrix.items() if key != "values"}
                 values = matrix.get("values")

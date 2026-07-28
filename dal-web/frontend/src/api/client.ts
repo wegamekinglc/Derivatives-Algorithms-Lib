@@ -516,7 +516,12 @@ export const api = {
     }),
   downloadCurveLabVersion: (id: string) =>
     requestBytes(`/curve-lab/versions/${id}/native-json`),
-  importCurveLabVersion: (payload: Blob) =>
+  getCurveLabRuntimeManifest: (id: string) =>
+    request<Record<string, unknown>>(`/curve-lab/versions/${id}/runtime-manifest`),
+  importCurveLabVersion: (
+    payload: Blob,
+    runtimeManifest?: Record<string, unknown>,
+  ) =>
     request<{
       id: string;
       state: string;
@@ -525,7 +530,32 @@ export const api = {
     }>("/curve-lab/import-jobs", {
       method: "POST",
       body: payload,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(runtimeManifest
+          ? { "X-Curve-Lab-Runtime-Manifest": JSON.stringify(runtimeManifest) }
+          : {}),
+      },
+    }),
+  getCurveLabImportJob: (id: string) =>
+    request<{
+      id: string;
+      state: string;
+      resulting_version_id: string | null;
+      error: { code: string; message: string } | null;
+    }>(`/curve-lab/import-jobs/${id}`),
+  createCurveLabFixingSnapshot: (body: {
+    id: string;
+    observations: Array<{
+      index_name: string;
+      fixing_time: string;
+      kind: "RATE" | "FX";
+      value: string;
+    }>;
+  }) =>
+    request<{ id: string; content_hash: string }>("/curve-lab/fixing-snapshots", {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
   createCurveLabRiskRun: (body: unknown) =>
     request<CurveLabRiskRun>("/curve-lab/risk-runs", {

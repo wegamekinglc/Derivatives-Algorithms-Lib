@@ -185,13 +185,176 @@ CurveLabModeV2 = Literal[
     "JOINT_XCCY",
 ]
 CurveRoleV2 = Literal["DISCOUNT", "PROJECTION", "BASIS"]
+CurveParameterizationV2 = Literal[
+    "PIECEWISE_CONSTANT_FWD",
+    "PIECEWISE_LINEAR_FWD",
+    "ZERO_RATE",
+    "LOG_DISCOUNT",
+]
+TenorV2 = Literal["1M", "3M", "6M", "12M"]
+CollateralV2 = Literal["OIS", "GC", "NONE"]
 
 
 class CurveDeclarationInputV2(CurveLabWireModel):
     component_key: Annotated[str, Field(min_length=1, max_length=256)]
     role: CurveRoleV2
-    currency: Annotated[str, Field(min_length=3, max_length=16)]
-    parameterization: Annotated[str, Field(min_length=1, max_length=64)]
+    currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+    parameterization: CurveParameterizationV2
+    log_df_scheme: Literal["LOG_LINEAR", "NATURAL_CUBIC", "LINEAR_CUBIC"] = "LOG_LINEAR"
+
+
+class CurveLabSolverInputV2(CurveLabWireModel):
+    solve_mode: Literal["EXACT", "APPROXIMATE"] = "EXACT"
+    smoothing_weight: Annotated[float, Field(gt=0)] = 1.0
+    tolerance: Annotated[float, Field(gt=0)] = 1.0e-8
+    fit_tolerance: Annotated[float, Field(gt=0)] = 1.0e-6
+    max_evaluations: Annotated[int, Field(gt=0, le=1_000_000)] = 200
+    max_restarts: Annotated[int, Field(ge=0, le=10_000)] = 20
+    initial_guess: float = 0.05
+    libor_basis: Literal["ACT_365F", "ACT_360", "30_360"] = "ACT_365F"
+    parameterization: CurveParameterizationV2 | None = None
+
+
+class CurveInstrumentTermsV2(CurveLabWireModel):
+    """Closed superset projected through a family-specific allowlist below."""
+
+    component_key: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    index: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    index_name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    forecast_tenor: TenorV2 | None = None
+    day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    collateral: CollateralV2 | None = None
+    use_projection_curve: bool | None = None
+    convexity_adjustment: CanonicalQuoteDecimalV1 | float | None = None
+    fixed_payment_frequency: TenorV2 | None = None
+    fixed_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    float_payment_frequency: TenorV2 | None = None
+    float_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    float_forecast_tenor: TenorV2 | None = None
+    float_collateral: CollateralV2 | None = None
+    float_use_projection_curve: bool | None = None
+    spread_payment_frequency: TenorV2 | None = None
+    spread_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    spread_forecast_tenor: TenorV2 | None = None
+    spread_collateral: CollateralV2 | None = None
+    spread_use_projection_curve: bool | None = None
+    reference_payment_frequency: TenorV2 | None = None
+    reference_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    reference_forecast_tenor: TenorV2 | None = None
+    reference_collateral: CollateralV2 | None = None
+    reference_use_projection_curve: bool | None = None
+    domestic_notional: CanonicalQuoteDecimalV1 | float | None = None
+    foreign_notional: CanonicalQuoteDecimalV1 | float | None = None
+    domestic_payment_frequency: TenorV2 | None = None
+    domestic_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    domestic_forecast_tenor: TenorV2 | None = None
+    domestic_collateral: CollateralV2 | None = None
+    domestic_use_projection_curve: bool | None = None
+    foreign_payment_frequency: TenorV2 | None = None
+    foreign_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
+    foreign_forecast_tenor: TenorV2 | None = None
+    foreign_collateral: CollateralV2 | None = None
+    foreign_use_projection_curve: bool | None = None
+    fx_spot: Annotated[float, Field(gt=0)] | None = None
+    fx_forward_collateral: CollateralV2 | None = None
+
+
+_CALIBRATION_TERM_KEYS: dict[str, frozenset[str]] = {
+    "DEPOSIT": frozenset(
+        {
+            "component_key",
+            "index",
+            "index_name",
+            "forecast_tenor",
+            "day_basis",
+            "collateral",
+            "use_projection_curve",
+        }
+    ),
+    "FRA": frozenset(
+        {
+            "component_key",
+            "index",
+            "index_name",
+            "forecast_tenor",
+            "day_basis",
+            "collateral",
+            "use_projection_curve",
+        }
+    ),
+    "FUTURE": frozenset(
+        {
+            "component_key",
+            "index",
+            "index_name",
+            "forecast_tenor",
+            "day_basis",
+            "collateral",
+            "use_projection_curve",
+            "convexity_adjustment",
+        }
+    ),
+    "OIS": frozenset(
+        {
+            "component_key",
+            "fixed_payment_frequency",
+            "fixed_day_basis",
+            "float_payment_frequency",
+            "float_day_basis",
+            "float_forecast_tenor",
+            "float_collateral",
+            "float_use_projection_curve",
+            "index_name",
+        }
+    ),
+    "IRS": frozenset(
+        {
+            "component_key",
+            "fixed_payment_frequency",
+            "fixed_day_basis",
+            "float_payment_frequency",
+            "float_day_basis",
+            "float_forecast_tenor",
+            "float_collateral",
+            "float_use_projection_curve",
+            "index_name",
+        }
+    ),
+    "BASIS_SWAP": frozenset(
+        {
+            "component_key",
+            "spread_payment_frequency",
+            "spread_day_basis",
+            "spread_forecast_tenor",
+            "spread_collateral",
+            "spread_use_projection_curve",
+            "reference_payment_frequency",
+            "reference_day_basis",
+            "reference_forecast_tenor",
+            "reference_collateral",
+            "reference_use_projection_curve",
+        }
+    ),
+    "XCCY": frozenset(
+        {
+            "component_key",
+            "domestic_notional",
+            "foreign_notional",
+            "domestic_payment_frequency",
+            "domestic_day_basis",
+            "domestic_forecast_tenor",
+            "domestic_collateral",
+            "domestic_use_projection_curve",
+            "foreign_payment_frequency",
+            "foreign_day_basis",
+            "foreign_forecast_tenor",
+            "foreign_collateral",
+            "foreign_use_projection_curve",
+            "fx_spot",
+            "fx_forward_collateral",
+        }
+    ),
+}
 
 
 _DERIVED_INSTRUMENT_FIELDS = (
@@ -215,7 +378,7 @@ class InstrumentDefinitionInputV2(CurveLabWireModel):
     source: Annotated[str, Field(min_length=1, max_length=128)]
     observed_at: datetime
     included: bool = True
-    terms: dict[str, object]
+    terms: CurveInstrumentTermsV2
 
     @model_validator(mode="before")
     @classmethod
@@ -235,6 +398,30 @@ class InstrumentDefinitionInputV2(CurveLabWireModel):
                         {"field": field},
                     )
         return value
+
+    @model_validator(mode="after")
+    def _validate_family_terms_and_dates(self) -> InstrumentDefinitionInputV2:
+        allowed = _CALIBRATION_TERM_KEYS.get(self.instrument_type)
+        supplied = self.terms.model_fields_set
+        if allowed is not None and not supplied <= allowed:
+            field = sorted(supplied - allowed)[0]
+            raise ValueError(f"{self.instrument_type} calibration terms do not permit {field}")
+        if not (self.trade_date <= self.start_date < self.maturity_date):
+            raise ValueError(
+                "instrument dates must satisfy trade_date <= start_date < maturity_date"
+            )
+        if self.instrument_type == "XCCY":
+            required = {
+                "component_key",
+                "domestic_notional",
+                "foreign_notional",
+                "fx_spot",
+            }
+            if not required <= supplied:
+                raise ValueError(
+                    "XCCY calibration terms require component_key, notionals, and fx_spot"
+                )
+        return self
 
 
 class StoredInstrumentDefinitionV2(CurveLabWireModel):
@@ -266,10 +453,68 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
     market_snapshot_id: Annotated[str, Field(min_length=1, max_length=256)]
     declarations: tuple[CurveDeclarationInputV2, ...]
     instruments: tuple[InstrumentDefinitionInputV2, ...]
-    dependency_version_ids: tuple[
-        Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")], ...
-    ] = ()
-    solver: dict[str, object]
+    dependency_version_ids: tuple[Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")], ...] = ()
+    solver: CurveLabSolverInputV2
+
+    @model_validator(mode="after")
+    def _validate_topology(self) -> CurveDraftDocumentInputV2:
+        declarations = self.declarations
+        included = tuple(item for item in self.instruments if item.included)
+        if not declarations or not included:
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "Curve draft requires declarations and included instruments.",
+                {"field": "document"},
+            )
+        keys = tuple(item.component_key for item in declarations)
+        if len(set(keys)) != len(keys):
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "Curve declaration component keys must be unique.",
+                {"field": "declarations"},
+            )
+        roles = tuple(item.role for item in declarations)
+        if self.mode == "SINGLE" and (len(declarations) != 1 or roles != ("DISCOUNT",)):
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "SINGLE mode requires exactly one discount declaration.",
+                {"field": "mode"},
+            )
+        if self.mode == "MULTI_CURVE" and (
+            len(declarations) < 2
+            or "DISCOUNT" not in roles
+            or "BASIS" in roles
+            or len({item.currency for item in declarations}) != 1
+        ):
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "MULTI_CURVE requires one-currency discount/projection declarations.",
+                {"field": "declarations"},
+            )
+        if self.mode in {"STAGED_XCCY", "JOINT_XCCY"} and roles.count("BASIS") != 1:
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "XCCY modes require exactly one basis declaration.",
+                {"field": "declarations"},
+            )
+        assigned = {
+            (item.terms.component_key or declarations[0].component_key) for item in included
+        }
+        unknown = assigned - set(keys)
+        if unknown:
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "Every included instrument must name a declared component.",
+                {"field": "instruments"},
+            )
+        missing = set(keys) - assigned
+        if missing:
+            raise PydanticCustomError(
+                "draft_topology_invalid",
+                "Every declaration must own at least one included instrument.",
+                {"field": "declarations"},
+            )
+        return self
 
 
 class CurveDraftDocumentV2(CurveLabWireModel):
@@ -406,12 +651,39 @@ class CurveImportJobResponse(CurveLabWireModel):
     request_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     compressed_payload_length: int
     expanded_payload_length: int
-    state: Literal["SUCCEEDED", "FAILED"]
+    state: Literal["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT"]
     phase: str
     resulting_version_id: str | None = None
     error: CurveLabErrorDetail | None = None
     created_at: datetime
     finished_at: datetime | None = None
+
+
+class CurveRuntimeComponentV1(CurveLabWireModel):
+    component_key: Annotated[str, Field(min_length=1, max_length=512)]
+    role: Literal["DISCOUNT", "PROJECTION", "BASIS"]
+    currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+    parameterization: CurveParameterizationV2
+    parameter_ids: tuple[str, ...]
+
+
+class CurveRuntimeManifestV1(CurveLabWireModel):
+    schema_version: Literal[1]
+    mode: CurveLabModeV2
+    as_of_date: date
+    market_snapshot_id: Annotated[str, Field(min_length=1, max_length=256)]
+    components: tuple[CurveRuntimeComponentV1, ...]
+
+    @model_validator(mode="after")
+    def _validate_components(self) -> CurveRuntimeManifestV1:
+        if not self.components:
+            raise ValueError("runtime manifest components must be non-empty")
+        keys = [item.component_key for item in self.components]
+        if len(set(keys)) != len(keys):
+            raise ValueError("runtime manifest component keys must be unique")
+        if self.mode == "SINGLE" and len(keys) != 1:
+            raise ValueError("SINGLE runtime manifests require exactly one component")
+        return self
 
 
 RiskMeasureV2 = Literal["PV", "DV01", "KEY_RATE_DV01"]
@@ -422,6 +694,94 @@ SensitivityLayerV2 = Literal[
 ]
 
 
+class RateTradeTermsInputV2(CurveLabWireModel):
+    notional: CanonicalQuoteDecimalV1 | None = None
+    contract_rate: CanonicalQuoteDecimalV1 | None = None
+    contract_spread: CanonicalQuoteDecimalV1 | None = None
+    contract_count: CanonicalQuoteDecimalV1 | None = None
+    position_count: CanonicalQuoteDecimalV1 | None = None
+    reference_price: CanonicalQuoteDecimalV1 | None = None
+    contract_value_per_price_point: CanonicalQuoteDecimalV1 | None = None
+    convexity_adjustment: CanonicalQuoteDecimalV1 | None = None
+    domestic_notional: CanonicalQuoteDecimalV1 | None = None
+    foreign_notional: CanonicalQuoteDecimalV1 | None = None
+    fx_spot: CanonicalQuoteDecimalV1 | None = None
+    side: (
+        Literal[
+            "LEND",
+            "BORROW",
+            "RECEIVE_FLOATING",
+            "PAY_FLOATING",
+            "LONG",
+            "SHORT",
+            "PAY_FIXED",
+            "RECEIVE_FIXED",
+            "RECEIVE_REFERENCE_PAY_SPREAD",
+            "PAY_REFERENCE_RECEIVE_SPREAD",
+            "RECEIVE_NON_SPREAD_PAY_SPREAD",
+            "PAY_NON_SPREAD_RECEIVE_SPREAD",
+        ]
+        | None
+    ) = None
+    settlement_style: Literal["AT_START_DISCOUNTED", "AT_END"] | None = None
+    spread_leg: Literal["DOMESTIC", "FOREIGN"] | None = None
+    initial_notional_exchange: bool | None = None
+    final_notional_exchange: bool | None = None
+    discount_component_key: str | None = None
+    forecast_component_key: str | None = None
+    spread_forecast_component_key: str | None = None
+    reference_forecast_component_key: str | None = None
+    forecast_tenor: Annotated[str, Field(pattern=r"^[1-9][0-9]*[DWMY]$")] | None = None
+    day_basis: Literal["ACT_360", "ACT_365F", "30_360"] | None = None
+    collateral: Annotated[str, Field(min_length=1, max_length=32)] | None = None
+    use_projection_curve: bool | None = None
+    index_name: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+    fixed_payment_frequency: str | None = None
+    fixed_day_basis: str | None = None
+    float_payment_frequency: str | None = None
+    float_day_basis: str | None = None
+    spread_payment_frequency: str | None = None
+    spread_day_basis: str | None = None
+    reference_payment_frequency: str | None = None
+    reference_day_basis: str | None = None
+    domestic_payment_frequency: str | None = None
+    domestic_day_basis: str | None = None
+    foreign_payment_frequency: str | None = None
+    foreign_day_basis: str | None = None
+    float_forecast_tenor: str | None = None
+    float_collateral: str | None = None
+    float_use_projection_curve: bool | None = None
+    float_index_name: str | None = None
+    float_fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    float_fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+    spread_forecast_tenor: str | None = None
+    spread_collateral: str | None = None
+    spread_use_projection_curve: bool | None = None
+    spread_index_name: str | None = None
+    spread_fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    spread_fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+    reference_forecast_tenor: str | None = None
+    reference_collateral: str | None = None
+    reference_use_projection_curve: bool | None = None
+    reference_index_name: str | None = None
+    reference_fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    reference_fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+    domestic_forecast_tenor: str | None = None
+    domestic_collateral: str | None = None
+    domestic_use_projection_curve: bool | None = None
+    domestic_index_name: str | None = None
+    domestic_fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    domestic_fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+    foreign_forecast_tenor: str | None = None
+    foreign_collateral: str | None = None
+    foreign_use_projection_curve: bool | None = None
+    foreign_index_name: str | None = None
+    foreign_fixing_hour: Annotated[int, Field(ge=0, le=23)] | None = None
+    foreign_fixing_minute: Annotated[int, Field(ge=0, le=59)] | None = None
+
+
 class RateTradeDefinitionInputV2(CurveLabWireModel):
     trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
     instrument_type: CurveLabV1SuccessFamily
@@ -429,7 +789,184 @@ class RateTradeDefinitionInputV2(CurveLabWireModel):
     start_date: date
     maturity_date: date
     currency_or_pair: Annotated[str, Field(min_length=3, max_length=32)]
-    terms: dict[str, object]
+    terms: RateTradeTermsInputV2
+
+    @model_validator(mode="after")
+    def _validate_trade(self) -> RateTradeDefinitionInputV2:
+        if not (self.trade_date <= self.start_date < self.maturity_date):
+            raise ValueError("trade dates must satisfy trade_date <= start_date < maturity_date")
+        required = {
+            "DEPOSIT": {"notional", "contract_rate", "side"},
+            "FRA": {"notional", "contract_rate", "side"},
+            "FUTURE": {
+                "contract_count",
+                "side",
+                "reference_price",
+                "contract_value_per_price_point",
+            },
+            "OIS": {"notional", "contract_rate", "side"},
+            "IRS": {"notional", "contract_rate", "side"},
+            "BASIS_SWAP": {"notional", "contract_spread", "side"},
+            "XCCY": {
+                "position_count",
+                "contract_spread",
+                "side",
+                "domestic_notional",
+                "foreign_notional",
+                "fx_spot",
+            },
+        }[self.instrument_type]
+        missing = sorted(required - self.terms.model_fields_set)
+        if missing:
+            raise ValueError(f"{self.instrument_type} trade terms require {', '.join(missing)}")
+        valid_sides = {
+            "DEPOSIT": {"LEND", "BORROW"},
+            "FRA": {"RECEIVE_FLOATING", "PAY_FLOATING"},
+            "FUTURE": {"LONG", "SHORT"},
+            "OIS": {"PAY_FIXED", "RECEIVE_FIXED"},
+            "IRS": {"PAY_FIXED", "RECEIVE_FIXED"},
+            "BASIS_SWAP": {
+                "RECEIVE_REFERENCE_PAY_SPREAD",
+                "PAY_REFERENCE_RECEIVE_SPREAD",
+            },
+            "XCCY": {
+                "RECEIVE_NON_SPREAD_PAY_SPREAD",
+                "PAY_NON_SPREAD_RECEIVE_SPREAD",
+            },
+        }[self.instrument_type]
+        if self.terms.side not in valid_sides:
+            raise ValueError(
+                f"{self.instrument_type} trade side must be one of {', '.join(sorted(valid_sides))}"
+            )
+        index_fields = {
+            "forecast_tenor",
+            "day_basis",
+            "collateral",
+            "use_projection_curve",
+            "index_name",
+            "fixing_hour",
+            "fixing_minute",
+            "discount_component_key",
+            "forecast_component_key",
+        }
+        fixed_float_fields = {
+            f"{prefix}_{suffix}"
+            for prefix in ("fixed", "float")
+            for suffix in (
+                "payment_frequency",
+                "day_basis",
+                "forecast_tenor",
+                "collateral",
+                "use_projection_curve",
+                "index_name",
+                "fixing_hour",
+                "fixing_minute",
+            )
+        }
+        basis_fields = {
+            f"{prefix}_{suffix}"
+            for prefix in ("spread", "reference")
+            for suffix in (
+                "payment_frequency",
+                "day_basis",
+                "forecast_tenor",
+                "collateral",
+                "use_projection_curve",
+                "index_name",
+                "fixing_hour",
+                "fixing_minute",
+                "forecast_component_key",
+            )
+        }
+        xccy_fields = {
+            f"{prefix}_{suffix}"
+            for prefix in ("domestic", "foreign")
+            for suffix in (
+                "payment_frequency",
+                "day_basis",
+                "forecast_tenor",
+                "collateral",
+                "use_projection_curve",
+                "index_name",
+                "fixing_hour",
+                "fixing_minute",
+            )
+        }
+        allowed = {
+            "DEPOSIT": {"notional", "contract_rate", "side"} | index_fields,
+            "FRA": {
+                "notional",
+                "contract_rate",
+                "side",
+                "settlement_style",
+            }
+            | index_fields,
+            "FUTURE": {
+                "contract_count",
+                "side",
+                "reference_price",
+                "contract_value_per_price_point",
+                "convexity_adjustment",
+            }
+            | index_fields,
+            "OIS": {
+                "notional",
+                "contract_rate",
+                "side",
+                "discount_component_key",
+                "forecast_component_key",
+            }
+            | fixed_float_fields,
+            "IRS": {
+                "notional",
+                "contract_rate",
+                "side",
+                "discount_component_key",
+                "forecast_component_key",
+            }
+            | fixed_float_fields,
+            "BASIS_SWAP": {
+                "notional",
+                "contract_spread",
+                "side",
+                "discount_component_key",
+                "forecast_component_key",
+                "spread_forecast_component_key",
+                "reference_forecast_component_key",
+            }
+            | basis_fields,
+            "XCCY": {
+                "position_count",
+                "contract_spread",
+                "side",
+                "spread_leg",
+                "domestic_notional",
+                "foreign_notional",
+                "fx_spot",
+                "initial_notional_exchange",
+                "final_notional_exchange",
+            }
+            | xccy_fields,
+        }[self.instrument_type]
+        irrelevant = sorted(self.terms.model_fields_set - allowed)
+        if irrelevant:
+            raise ValueError(
+                f"{self.instrument_type} trade terms do not allow {', '.join(irrelevant)}"
+            )
+        positive = {
+            "notional",
+            "contract_count",
+            "position_count",
+            "contract_value_per_price_point",
+            "domestic_notional",
+            "foreign_notional",
+            "fx_spot",
+        }
+        for field in positive & self.terms.model_fields_set:
+            value = getattr(self.terms, field)
+            if value is not None and float(value) <= 0:
+                raise ValueError(f"{field} must be positive")
+        return self
 
 
 class RiskTargetV2(CurveLabWireModel):
@@ -439,6 +976,37 @@ class RiskTargetV2(CurveLabWireModel):
 class RiskRunOptionsV2(CurveLabWireModel):
     aad_fallback: Literal["ALLOW", "FORBID"] = "ALLOW"
     jacobian_replay_fallback: Literal["ALLOW", "FORBID"] = "ALLOW"
+
+
+class FixingObservationInputV1(CurveLabWireModel):
+    index_name: Annotated[str, Field(min_length=1, max_length=256)]
+    fixing_time: datetime
+    kind: Literal["RATE", "FX"]
+    value: CanonicalQuoteDecimalV1
+
+    @model_validator(mode="after")
+    def _validate_value(self) -> FixingObservationInputV1:
+        numeric = float(self.value)
+        if self.kind == "FX" and numeric <= 0.0:
+            raise ValueError("FX fixing values must be positive")
+        return self
+
+
+class FixingSnapshotCreateV1(CurveLabWireModel):
+    id: Annotated[str, Field(min_length=1, max_length=256)]
+    observations: tuple[FixingObservationInputV1, ...]
+
+    @model_validator(mode="after")
+    def _validate_unique_keys(self) -> FixingSnapshotCreateV1:
+        keys = [(item.index_name, item.fixing_time) for item in self.observations]
+        if len(set(keys)) != len(keys):
+            raise ValueError("fixing observations must have unique keys")
+        return self
+
+
+class FixingSnapshotResponseV1(FixingSnapshotCreateV1):
+    content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    created_at: datetime
 
 
 class RiskRunRequestV2(CurveLabWireModel):
@@ -559,6 +1127,7 @@ class RiskRunResponseV2(CurveLabWireModel):
     import_job_id: str | None
     source_kind: Literal["BUILD_VERSION", "IMPORT_VERSION"]
     request: RiskRunRequestV2
+    fixing_snapshot_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     target_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     quote_axis: tuple[QuoteAxisEntryV2, ...] | None
     parameter_axis: tuple[ParameterAxisEntryV2, ...]
@@ -587,6 +1156,15 @@ class MatrixResultV2(CurveLabWireModel):
     availability_reason_code: str | None = None
     availability_reason: str | None = None
     method: str
+    trade_methods: tuple[str, ...] | None = None
+    curve_version_id: str | None = None
+    curve_version_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    fixing_snapshot_id: str | None = None
+    fixing_snapshot_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    row_axis_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    column_axis_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    evaluation_time: datetime | None = None
+    base_currency: str | None = None
     bump_target: str | None = None
     bump_size: str | None = None
     input_unit: str

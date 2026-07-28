@@ -10,8 +10,14 @@
 #include <type_traits>
 
 #include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/xccypricing.hpp>
+#include <dal/curve/ycconst.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/time/dateincrement.hpp>
 
 namespace Dal {
@@ -395,6 +401,116 @@ namespace Dal {
         result.reserve(trades.size());
         for (const auto& trade : trades)
             result.push_back(PriceRateTrade(trade, market));
+        return result;
+    }
+
+    RateTradeNodeSensitivityResult_
+    RateTradeNodeSensitivities(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const String_& componentKey) {
+        RateTradeNodeSensitivityResult_ result;
+        try {
+            const auto* terms = std::get_if<DepositTradeTerms_>(&trade.terms_);
+            if (!terms || trade.instrumentType_ != RateInstrumentType_::Value_::DEPOSIT) {
+                result.reason_ = "TRADE_FAMILY_NOT_AAD_ENABLED";
+                return result;
+            }
+            if (terms->discountComponentKey_ != componentKey) {
+                result.reason_ = "TRADE_DOES_NOT_DEPEND_ON_COMPONENT";
+                return result;
+            }
+            const auto found = market.curveComponents_.find(componentKey);
+            if (found == market.curveComponents_.end() || !found->second) {
+                result.reason_ = "CURVE_COMPONENT_UNAVAILABLE";
+                return result;
+            }
+            const auto& curve = *found->second;
+            CurveDefinition_ definition;
+            Vector_<> passiveParameters;
+            Handle_<DiscountCurve_> passiveBase;
+            if (const auto* pwc = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve)) {
+                definition = MakeCurveDefinition(
+                    pwc->Name(),
+                    pwc->ccy_.String(),
+                    CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
+                    LogDfScheme_::Value_::LOG_LINEAR,
+                    pwc->KnotDates(),
+                    market.valuationTime_.Date(),
+                    DayBasis_("ACT_365F"));
+                passiveParameters = pwc->FRight();
+                passiveBase = pwc->Base();
+            } else if (const auto* pwlf = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve)) {
+                definition = MakeCurveDefinition(
+                    pwlf->Name(),
+                    pwlf->ccy_.String(),
+                    CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
+                    LogDfScheme_::Value_::LOG_LINEAR,
+                    pwlf->KnotDates(),
+                    market.valuationTime_.Date(),
+                    DayBasis_("ACT_365F"));
+                const Vector_<> left = pwlf->FLeft();
+                const Vector_<> right = pwlf->FRight();
+                passiveParameters = Vector_<>(2 * left.size());
+                for (int i = 0; i < static_cast<int>(left.size()); ++i) {
+                    passiveParameters[2 * i] = left[i];
+                    passiveParameters[2 * i + 1] = right[i];
+                }
+                passiveBase = pwlf->Base();
+            } else if (const auto* logDf = dynamic_cast<const Tape::DiscountLogDF_<double>*>(&curve)) {
+                definition = MakeCurveDefinition(
+                    logDf->Name(),
+                    logDf->ccy_.String(),
+                    CurveParameterization_::Value_::LOG_DISCOUNT,
+                    logDf->Scheme(),
+                    logDf->NodeDates(),
+                    logDf->NodeDates().front(),
+                    logDf->DayCount());
+                const Vector_<> stored = logDf->NodeLogDF();
+                passiveParameters = Vector_<>(stored.begin() + 1, stored.end());
+                passiveBase = logDf->Base();
+            } else if (const auto* zero = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve)) {
+                definition = MakeCurveDefinition(
+                    zero->Name(),
+                    zero->ccy_.String(),
+                    CurveParameterization_::Value_::ZERO_RATE,
+                    zero->Scheme(),
+                    zero->NodeDates(),
+                    zero->AnchorDate(),
+                    zero->DayCount());
+                passiveParameters = zero->NodeZeroRates();
+                passiveBase = zero->Base();
+            } else {
+                result.reason_ = "CURVE_REPRESENTATION_NOT_AAD_ENABLED";
+                return result;
+            }
+
+            auto* tape = AAD::Tape();
+            TapeGuard_ guard(tape);
+            Vector_<AAD::Number_> parameters = RegisterCurveParameters(passiveParameters);
+            AAD::NewRecording(*tape);
+            const auto activeCurve =
+                BuildDiscountCurveUniqueT<AAD::Number_>(definition, parameters, passiveBase);
+            const double accrual = terms->index_.dayBasis_(trade.startDate_, trade.maturityDate_, nullptr);
+            const AAD::Number_ start =
+                trade.startDate_ < market.valuationTime_.Date()
+                    ? AAD::Number_(0.0)
+                    : -terms->notional_ * (*activeCurve)(market.valuationTime_.Date(), trade.startDate_);
+            const AAD::Number_ maturity =
+                trade.maturityDate_ < market.valuationTime_.Date()
+                    ? AAD::Number_(0.0)
+                    : terms->notional_ * (1.0 + terms->contractRate_ * accrual) *
+                          (*activeCurve)(market.valuationTime_.Date(), trade.maturityDate_);
+            AAD::Number_ pv = start + maturity;
+            if (!terms->lend_)
+                pv = -pv;
+            result.pv_ = AAD::Value(pv);
+            AAD::Adjoint(pv) = 1.0;
+            AAD::PropagateToStart(*tape);
+            result.gradient_ = Vector_<>(parameters.size());
+            for (int i = 0; i < static_cast<int>(parameters.size()); ++i)
+                result.gradient_[i] = AAD::AdjointValue(parameters[i]);
+            result.eligible_ = true;
+        } catch (const std::exception&) {
+            result.reason_ = "AAD_EVALUATION_FAILED";
+        }
         return result;
     }
 } // namespace Dal

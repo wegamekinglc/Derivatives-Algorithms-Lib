@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <future>
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -86,6 +87,62 @@ TEST(RateCashflowPricingTest, TestRegistryAndDepositCashflows) {
     terms.lend_ = false;
     const auto borrow = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, terms);
     ASSERT_NEAR(Dal::PriceRateTrade(borrow, market).pv_, -expected, 1.0e-10);
+}
+
+TEST(RateCashflowPricingTest, TestDepositNodeAADMatchesCentralNativeParameterBump) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2027, 1, 15);
+    const double rate = 0.04;
+    const auto market = Market(today, FlatCurve(maturity, rate));
+    Dal::DepositTradeTerms_ terms;
+    terms.notional_ = 100.0;
+    terms.contractRate_ = 0.05;
+    terms.lend_ = true;
+    terms.index_ = QuarterlyIndex();
+    terms.discountComponentKey_ = "discount";
+    const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, terms);
+
+    const auto aad = Dal::RateTradeNodeSensitivities(trade, market, "discount");
+    const double epsilon = 1.0e-6;
+    const double plus = Dal::PriceRateTrade(trade, Market(today, FlatCurve(maturity, rate + epsilon))).pv_;
+    const double minus = Dal::PriceRateTrade(trade, Market(today, FlatCurve(maturity, rate - epsilon))).pv_;
+
+    ASSERT_TRUE(aad.eligible_);
+    ASSERT_EQ(aad.gradient_.size(), 1);
+    ASSERT_NEAR(aad.pv_, Dal::PriceRateTrade(trade, market).pv_, 1.0e-12);
+    ASSERT_NEAR(aad.gradient_[0], (plus - minus) / (2.0 * epsilon), 1.0e-6);
+}
+
+TEST(RateCashflowPricingTest, TestDepositNodeAADRewindsPerTradeAndIsThreadLocal) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2027, 1, 15);
+    Dal::DepositTradeTerms_ terms;
+    terms.notional_ = 100.0;
+    terms.contractRate_ = 0.05;
+    terms.lend_ = true;
+    terms.index_ = QuarterlyIndex();
+    terms.discountComponentKey_ = "discount";
+    const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, terms);
+    const auto evaluate = [=](double rate) {
+        return Dal::RateTradeNodeSensitivities(
+            trade,
+            Market(today, FlatCurve(maturity, rate)),
+            "discount");
+    };
+
+    const auto first = evaluate(0.04);
+    const auto repeated = evaluate(0.04);
+    auto left = std::async(std::launch::async, evaluate, 0.03);
+    auto right = std::async(std::launch::async, evaluate, 0.06);
+    const auto leftResult = left.get();
+    const auto rightResult = right.get();
+
+    ASSERT_TRUE(first.eligible_);
+    ASSERT_TRUE(repeated.eligible_);
+    ASSERT_TRUE(leftResult.eligible_);
+    ASSERT_TRUE(rightResult.eligible_);
+    ASSERT_EQ(first.gradient_, repeated.gradient_);
+    ASSERT_NE(leftResult.gradient_[0], rightResult.gradient_[0]);
 }
 
 TEST(RateCashflowPricingTest, TestFraAndFutureFormulas) {

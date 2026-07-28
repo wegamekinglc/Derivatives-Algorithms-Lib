@@ -143,7 +143,16 @@ namespace Dal {
         String_ error_;
     };
 
+    struct RateTradeNodeSensitivityResult_ {
+        bool eligible_ = false;
+        double pv_ = 0.0;
+        Vector_<> gradient_;
+        String_ reason_;
+    };
+
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime);
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market);
     Vector_<RatePricingTradeResult_> PriceRateTrades(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market);
+    RateTradeNodeSensitivityResult_
+    RateTradeNodeSensitivities(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const String_& componentKey);
 } // namespace Dal

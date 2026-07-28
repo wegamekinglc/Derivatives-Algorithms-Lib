@@ -43,8 +43,7 @@ def _curve(**overrides: object) -> dict[str, object]:
             "ARCHIVE_FIELD_REQUIRED",
         ),
         (
-            b'{"~type":"Bag","name":"bag","keys":["bad"],'
-            b'"contents0":{"not":"native"}}',
+            b'{"~type":"Bag","name":"bag","keys":["bad"],"contents0":{"not":"native"}}',
             "ARCHIVE_OBJECT_GRAMMAR_FORBIDDEN",
         ),
         (
@@ -52,11 +51,7 @@ def _curve(**overrides: object) -> dict[str, object]:
             "ARCHIVE_JSON_NONFINITE_NUMBER",
         ),
         (
-            (
-                b'{"~type":"Bag","keys":['
-                + b"1" * 1025
-                + b"]}"
-            ),
+            (b'{"~type":"Bag","keys":[' + b"1" * 1025 + b"]}"),
             "ARCHIVE_NUMBER_TOO_LARGE",
         ),
         (
@@ -122,6 +117,20 @@ def _curve(**overrides: object) -> dict[str, object]:
             ).encode(),
             "ARCHIVE_BAG_KEY_DUPLICATE",
         ),
+        (
+            json.dumps(_curve(name="\x00")).encode(),
+            "ARCHIVE_STRING_NUL",
+        ),
+        (
+            b'{"$tag":"1","~type":"DiscountPWC_v1","name":"\\ud800",'
+            b'"ccy":"USD","knotDates":["2027-01-15"],"rightVals":[0.04]}',
+            "ARCHIVE_STRING_INVALID_UNICODE",
+        ),
+        (
+            b'{"$tag":"1","~type":"DiscountPWC_v1","name":"\\udc00",'
+            b'"ccy":"USD","knotDates":["2027-01-15"],"rightVals":[0.04]}',
+            "ARCHIVE_STRING_INVALID_UNICODE",
+        ),
     ],
 )
 def test_preflight_classifies_lexical_and_grammar_failures(
@@ -134,6 +143,20 @@ def test_preflight_classifies_lexical_and_grammar_failures(
         preflight_archive(payload)
 
     assert captured.value.code == code
+
+
+def test_preflight_accepts_valid_supplementary_unicode_scalar() -> None:
+    from app.services.archive_preflight import preflight_archive
+
+    payload = (
+        b'{"$tag":"1","~type":"DiscountPWC_v1","name":"curve-\\ud83d\\ude00",'
+        b'"ccy":"USD","knotDates":["2027-01-15"],"rightVals":[0.04]}'
+    )
+
+    accepted = preflight_archive(payload)
+
+    assert accepted.payload == payload
+    assert accepted.root_type == "DiscountPWC_v1"
 
 
 def test_preflight_enforces_wire_and_expanded_caps() -> None:

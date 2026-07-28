@@ -379,9 +379,7 @@ def test_xccy_modes_call_native_entry_points_with_mode_specific_specs(
     assert staged_spec.domestic_curve_block == {"block": "USD"}
     assert staged_spec.foreign_curve_block == {"block": "EUR"}
     assert staged_spec.instruments == [{"instrument_id": "3" * 32}]
-    assert staged["clab/v1/xccy/basis/USD-EUR/3M"] == {
-        "native": "staged-basis"
-    }
+    assert staged["clab/v1/xccy/basis/USD-EUR/3M"] == {"native": "staged-basis"}
 
     assert len(recording.joint_specs) == 1
     joint_spec = recording.joint_specs[0]
@@ -391,9 +389,7 @@ def test_xccy_modes_call_native_entry_points_with_mode_specific_specs(
     assert joint_spec.foreign == {"currency": "EUR"}
     assert joint_spec.basis.curve_name == "clab/v1/xccy/basis/USD-EUR/3M"
     assert joint_spec.basis.instruments == [{"instrument_id": "3" * 32}]
-    assert joint["clab/v1/xccy/basis/USD-EUR/3M"] == {
-        "native": "joint-basis"
-    }
+    assert joint["clab/v1/xccy/basis/USD-EUR/3M"] == {"native": "joint-basis"}
 
 
 def test_staged_and_joint_xccy_modes_use_dedicated_calibration_paths(
@@ -407,13 +403,13 @@ def test_staged_and_joint_xccy_modes_use_dedicated_calibration_paths(
     monkeypatch.setattr(
         gateway,
         "_curve_lab_staged_xccy_curves",
-        lambda _document, _dependencies: calls.append("staged") or {"staged": object()},
+        lambda _document, _dependencies, _fixings: calls.append("staged") or {"staged": object()},
         raising=False,
     )
     monkeypatch.setattr(
         gateway,
         "_curve_lab_joint_xccy_curves",
-        lambda _document, _dependencies: calls.append("joint") or {"joint": object()},
+        lambda _document, _dependencies, _fixings: calls.append("joint") or {"joint": object()},
         raising=False,
     )
     document = _multi_document()

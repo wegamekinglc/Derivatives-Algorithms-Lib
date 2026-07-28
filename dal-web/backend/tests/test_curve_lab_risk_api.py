@@ -2,7 +2,55 @@
 
 from __future__ import annotations
 
+import json
+import threading
+import time
 from decimal import Decimal
+
+import pytest
+
+
+def _wait_for_job(
+    client,
+    collection: str,
+    job_id: str,
+    terminal_states: set[str],
+) -> dict[str, object]:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        record = client.get(f"/api/curve-lab/{collection}/{job_id}").json()
+        if record["state"] in terminal_states:
+            return record
+        time.sleep(0.01)
+    pytest.fail(f"{collection}/{job_id} did not reach a terminal state")
+
+
+def _completed_risk(client, response) -> dict[str, object]:
+    assert response.status_code == 202, response.text
+    admitted = response.json()
+    assert admitted["state"] == "QUEUED"
+    completed = _wait_for_job(
+        client,
+        "risk-runs",
+        admitted["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert completed["state"] == "SUCCEEDED", completed
+    return completed
+
+
+def _completed_import(client, response) -> dict[str, object]:
+    assert response.status_code == 202, response.text
+    admitted = response.json()
+    assert admitted["state"] == "QUEUED"
+    completed = _wait_for_job(
+        client,
+        "import-jobs",
+        admitted["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert completed["state"] == "SUCCEEDED", completed
+    return completed
 
 
 def _document() -> dict[str, object]:
@@ -45,12 +93,27 @@ def _document() -> dict[str, object]:
 
 
 def _publish_version(client) -> tuple[dict, dict]:
+    snapshot = client.post(
+        "/api/curve-lab/fixing-snapshots",
+        json={
+            "id": "fixings-2026-01-15",
+            "observations": [],
+        },
+    )
+    assert snapshot.status_code in {201, 409}, snapshot.text
     draft_response = client.post("/api/curve-lab/drafts", json=_document())
     assert draft_response.status_code == 201, draft_response.text
     draft = draft_response.json()
     run_response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
     assert run_response.status_code == 202, run_response.text
-    run = run_response.json()
+    assert run_response.json()["state"] == "QUEUED"
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        run_response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert run["state"] == "SUCCEEDED", run
     version_response = client.post(
         "/api/curve-lab/versions",
         json={
@@ -99,6 +162,27 @@ def _request(version_id: str) -> dict[str, object]:
     }
 
 
+def test_risk_admission_requires_resolved_immutable_fixing_snapshot(client) -> None:
+    _, version = _publish_version(client)
+    request = _request(version["id"])
+    request["fixing_snapshot_id"] = "missing-snapshot"
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "FIXING_SNAPSHOT_NOT_FOUND"
+
+
+def test_risk_trade_contract_rejects_open_terms_before_side_effects(client) -> None:
+    request = _request("f" * 32)
+    request["target"]["trades"][0]["terms"]["mystery_knob"] = True
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
+
+
 def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
     run, _ = _publish_version(client)
 
@@ -140,6 +224,195 @@ def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
     ]
 
 
+def test_log_discount_parameter_axis_comes_from_native_free_layout(client) -> None:
+    document = _document()
+    document["declarations"][0]["parameterization"] = "LOG_DISCOUNT"
+    document["solver"]["parameterization"] = "LOG_DISCOUNT"
+    draft_response = client.post("/api/curve-lab/drafts", json=document)
+    assert draft_response.status_code == 201, draft_response.text
+
+    run_response = client.post(f"/api/curve-lab/drafts/{draft_response.json()['id']}/build-runs")
+
+    assert run_response.status_code == 202, run_response.text
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        run_response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert run["state"] == "SUCCEEDED", run
+    assert len(run["parameter_axis"]) == 1
+    assert run["parameter_axis"][0]["coordinate_kind"] == "LOG_DISCOUNT"
+
+
+def test_base_pricing_reconstructs_selected_version_without_recalibration(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.dal_gateway import get_gateway
+    from app.services.store import get_store
+
+    _, version = _publish_version(client)
+    stored = get_store().get_curve_lab_version(version["id"])
+    gateway = get_gateway()
+    curves = gateway._curve_lab_archive_curves(
+        stored["native_payload"],
+        stored["root_kind"],
+        stored["verification"]["document"],
+        stored["native_payload_hash"],
+    )
+    assert set(curves) == {"clab/v1/local/discount/USD/OIS"}
+
+    seen: list[str] = []
+
+    def record_version(
+        _document,
+        trades,
+        _evaluation_time,
+        _base_currency,
+        *,
+        curve_version,
+        **_kwargs,
+    ):
+        seen.append(curve_version["native_payload_hash"])
+        return [
+            {
+                "trade_id": trade["trade_id"],
+                "instrument_type": trade["instrument_type"],
+                "succeeded": True,
+                "pv": "1",
+                "currency": "USD",
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "error": "",
+            }
+            for trade in trades
+        ]
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", record_version)
+
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    completed = _completed_risk(client, response)
+    assert completed["curve_version_id"] == version["id"]
+    assert seen == [version["native_payload_hash"]]
+
+
+def test_imported_runtime_manifest_enables_pv_and_node_risk(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.dal_gateway import get_gateway
+
+    _, source = _publish_version(client)
+    payload = client.get(f"/api/curve-lab/versions/{source['id']}/native-json").content
+    manifest = client.get(f"/api/curve-lab/versions/{source['id']}/runtime-manifest").json()
+    imported = client.post(
+        "/api/curve-lab/import-jobs",
+        content=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-Curve-Lab-Runtime-Manifest": json.dumps(manifest),
+        },
+    )
+    completed_import = _completed_import(client, imported)
+    imported_version_id = completed_import["resulting_version_id"]
+
+    gateway = get_gateway()
+
+    def price(document, trades, _evaluation_time, base_currency, **kwargs):
+        assert document["declarations"][0]["component_key"] == ("clab/v1/local/discount/USD/OIS")
+        assert kwargs["curve_version"]["source_kind"] == "IMPORT"
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": "12",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "error": "",
+                "aad_node_gradient": ["4"],
+            }
+        ]
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", price)
+    request = _request(imported_version_id)
+    request["measures"] = ["PV"]
+    request["sensitivity_layers"] = ["TRADE_TO_NODE"]
+    request["options"] = {"aad_fallback": "FORBID"}
+
+    risk = client.post("/api/curve-lab/risk-runs", json=request)
+
+    completed_risk = _completed_risk(client, risk)
+    matrix = client.get(
+        f"/api/curve-lab/risk-runs/{completed_risk['id']}/matrices/trade-to-node"
+    ).json()
+    assert matrix["method"] == "NATIVE_AAD"
+    assert matrix["values"] == [["4"]]
+
+
+def test_risk_create_acknowledges_queued_before_native_pricing(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.dal_gateway import get_gateway
+
+    _, version = _publish_version(client)
+    entered = threading.Event()
+    release = threading.Event()
+
+    def slow_price(
+        _document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        **_kwargs,
+    ):
+        entered.set()
+        assert release.wait(timeout=5)
+        return [
+            {
+                "trade_id": trade["trade_id"],
+                "instrument_type": trade["instrument_type"],
+                "succeeded": True,
+                "pv": "1",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [],
+                "error": "",
+            }
+            for trade in trades
+        ]
+
+    monkeypatch.setattr(get_gateway(), "price_curve_lab_trades", slow_price)
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+
+    started = time.monotonic()
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+    elapsed = time.monotonic() - started
+
+    assert response.status_code == 202
+    assert response.json()["state"] == "QUEUED"
+    assert elapsed < 0.3
+    assert entered.wait(timeout=1)
+    release.set()
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        completed = client.get(f"/api/curve-lab/risk-runs/{response.json()['id']}").json()
+        if completed["state"] in {"SUCCEEDED", "FAILED", "TIMED_OUT"}:
+            break
+        time.sleep(0.01)
+    assert completed["state"] == "SUCCEEDED"
+
+
 def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archive(
     client,
     monkeypatch,
@@ -159,7 +432,12 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
         f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
     )
     assert dependent_run_response.status_code == 202, dependent_run_response.text
-    dependent_run = dependent_run_response.json()
+    dependent_run = _wait_for_job(
+        client,
+        "build-runs",
+        dependent_run_response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
     assert dependent_run["state"] == "SUCCEEDED", dependent_run
     dependent_version_response = client.post(
         "/api/curve-lab/versions",
@@ -184,13 +462,14 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
         _evaluation_time,
         base_currency,
         *,
+        curve_version=None,
         dependencies=(),
         parameter_bumps=None,
+        **_kwargs,
     ):
         assert parameter_bumps is None
         observed.extend(
-            (record["native_payload_hash"], record["native_payload"])
-            for record in dependencies
+            (record["native_payload_hash"], record["native_payload"]) for record in dependencies
         )
         return [
             {
@@ -201,9 +480,7 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": [
-                    "clab/v1/local/discount/USD/OIS"
-                ],
+                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
                 "error": "",
             }
         ]
@@ -215,12 +492,9 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
 
     created = client.post("/api/curve-lab/risk-runs", json=request)
 
-    assert created.status_code == 202, created.text
-    assert created.json()["state"] == "SUCCEEDED"
+    _completed_risk(client, created)
     assert observed
-    assert {content_hash for content_hash, _ in observed} == {
-        source["native_payload_hash"]
-    }
+    assert {content_hash for content_hash, _ in observed} == {source["native_payload_hash"]}
     assert all(payload for _, payload in observed)
 
 
@@ -239,7 +513,9 @@ def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
         evaluation_time,
         base_currency,
         *,
+        curve_version=None,
         dependencies=(),
+        **_kwargs,
     ):
         assert dependencies == []
         quote = str(document["instruments"][0]["raw_quote"])
@@ -263,10 +539,8 @@ def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
 
     created = client.post("/api/curve-lab/risk-runs", json=_request(version["id"]))
 
-    assert created.status_code == 202, created.text
-    run = created.json()
+    run = _completed_risk(client, created)
     assert calls == ["0.04", "0.0401", "0.0401"]
-    assert run["state"] == "SUCCEEDED"
     assert run["estimated_work"]["T"] == 1
     assert run["estimated_work"]["P"] == 1
     assert run["estimated_work"]["Q"] == 1
@@ -309,8 +583,7 @@ def test_import_job_is_readable_and_import_quote_risk_requires_lineage(client) -
         content=payload,
         headers={"Content-Type": "application/json"},
     )
-    assert imported.status_code == 202, imported.text
-    job = imported.json()
+    job = _completed_import(client, imported)
     assert client.get(f"/api/curve-lab/import-jobs/{job['id']}").json() == job
 
     request = _request(job["resulting_version_id"])
@@ -359,7 +632,9 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
         _evaluation_time,
         base_currency,
         *,
+        curve_version=None,
         dependencies=(),
+        **_kwargs,
     ):
         assert dependencies == []
         return [
@@ -397,8 +672,8 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    assert response.status_code == 202, response.text
-    rows = response.json()["result"]["pricing"]
+    run = _completed_risk(client, response)
+    rows = run["result"]["pricing"]
     assert set(rows[0]) == {
         "trade_id",
         "instrument_type",
@@ -420,9 +695,9 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
     }
     assert rows[1]["error"]["code"] == "MISSING_HISTORICAL_FIXING"
     assert rows[1]["error"]["message"] == "Native trade pricing failed."
-    assert "/home/builder" not in response.text
-    assert "curve.cpp" not in response.text
-    assert "CalibrateCurve" not in response.text
+    assert "/home/builder" not in json.dumps(run)
+    assert "curve.cpp" not in json.dumps(run)
+    assert "CalibrateCurve" not in json.dumps(run)
 
 
 def test_work_estimator_charges_full_two_parameter_bumps_per_trade() -> None:
@@ -457,7 +732,9 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         _evaluation_time,
         base_currency,
         *,
+        curve_version=None,
         dependencies=(),
+        **_kwargs,
     ):
         assert dependencies == []
         quote = Decimal(str(document["instruments"][0]["raw_quote"]))
@@ -487,7 +764,9 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         _axis,
         bump,
         *,
+        curve_version=None,
         dependencies=(),
+        **_kwargs,
     ):
         assert dependencies == []
         return [
@@ -521,8 +800,7 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    assert response.status_code == 202, response.text
-    run = response.json()
+    run = _completed_risk(client, response)
     assert run["estimated_work"]["N_param"] == 2
     assert run["estimated_work"]["N_jac"] == 2
     expected = {
@@ -539,36 +817,52 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         assert matrix["values"] == values
 
 
-def test_forbidden_node_fallback_rejects_before_native_dispatch(
-    client, monkeypatch
-) -> None:
+def test_forbid_fallback_uses_native_aad_without_parameter_bumps(client, monkeypatch) -> None:
     import app.services.dal_gateway as gateway_module
 
     _, version = _publish_version(client)
     gateway = gateway_module.get_gateway()
-    called = False
+    bump_called = False
 
-    def forbidden(*_args, **_kwargs):
-        nonlocal called
-        called = True
-        raise AssertionError("native work started before fallback admission")
+    def price(_document, trades, _evaluation_time, base_currency, **_kwargs):
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": "10",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "error": "",
+                "aad_node_gradient": ["3"],
+            }
+        ]
 
-    monkeypatch.setattr(gateway, "price_curve_lab_trades", forbidden)
+    def forbidden_bump(*_args, **_kwargs):
+        nonlocal bump_called
+        bump_called = True
+        raise AssertionError("central fallback ran despite successful native AAD")
+
+    monkeypatch.setattr(gateway, "price_curve_lab_trades", price)
+    monkeypatch.setattr(gateway, "price_curve_lab_parameter_bump", forbidden_bump)
     request = _request(version["id"])
     request["measures"] = ["PV"]
     request["sensitivity_layers"] = ["TRADE_TO_NODE"]
     request["options"] = {"aad_fallback": "FORBID"}
 
-    rejected = client.post("/api/curve-lab/risk-runs", json=request)
+    response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    assert rejected.status_code == 422
-    assert rejected.json()["detail"]["code"] == "AAD_METHOD_UNAVAILABLE"
-    assert called is False
+    run = _completed_risk(client, response)
+    matrix = client.get(f"/api/curve-lab/risk-runs/{run['id']}/matrices/trade-to-node").json()
+    assert matrix["method"] == "NATIVE_AAD"
+    assert matrix["trade_methods"] == ["NATIVE_AAD"]
+    assert matrix["values"] == [["3"]]
+    assert bump_called is False
 
 
-def test_forbidden_jacobian_replay_rejects_before_native_dispatch(
-    client, monkeypatch
-) -> None:
+def test_forbidden_jacobian_replay_rejects_before_native_dispatch(client, monkeypatch) -> None:
     import app.services.dal_gateway as gateway_module
 
     _, version = _publish_version(client)

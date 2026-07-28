@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   api,
+  ApiClientError,
   type CurveLabBuildRun,
   type CurveLabDraft,
   type CurveLabMatrix,
@@ -82,6 +83,19 @@ function message(reason: unknown): string {
 
 function parseJson(source: string): unknown {
   return JSON.parse(source) as unknown;
+}
+
+async function waitForTerminal<T extends { id: string; state: string }>(
+  initial: T,
+  load: (id: string) => Promise<T>,
+): Promise<T> {
+  let current = initial;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (["SUCCEEDED", "FAILED", "TIMED_OUT"].includes(current.state)) return current;
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    current = await load(current.id);
+  }
+  throw new Error("Curve Lab work did not reach a terminal state before the UI deadline.");
 }
 
 function editableDocument(document: Record<string, unknown>): Record<string, unknown> {
@@ -193,11 +207,117 @@ export default function CurveLabWorkspace() {
   const [matrices, setMatrices] = useState<CurveLabMatrix[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importManifest, setImportManifest] = useState<Record<string, unknown> | null>(null);
+  const [curveView, setCurveView] = useState<"discount" | "zero" | "forward">("discount");
+  const [evaluationTime, setEvaluationTime] = useState("2026-01-15T10:30:00Z");
+  const [fixingSnapshotId, setFixingSnapshotId] = useState("curve-lab-ui-fixings");
+  const [baseCurrency, setBaseCurrency] = useState("USD");
+  const [compareVersionId, setCompareVersionId] = useState("");
   const [busy, setBusy] = useState(false);
   const selectedVersion = useMemo(
     () => versions.find((item) => item.id === selectedVersionId) ?? null,
     [selectedVersionId, versions],
   );
+  const compareVersion = useMemo(
+    () => versions.find((item) => item.id === compareVersionId) ?? null,
+    [compareVersionId, versions],
+  );
+  const aggregatePv = useMemo(() => (
+    risk?.result?.pricing?.reduce((total, row) => {
+      if (row.status !== "SUCCEEDED") return total;
+      return total + Number(row.pv ?? 0);
+    }, 0) ?? 0
+  ), [risk]);
+  const visualDraft = useMemo(() => {
+    try {
+      return parseJson(draftSource) as Record<string, unknown>;
+    } catch {
+      return DEFAULT_DRAFT as Record<string, unknown>;
+    }
+  }, [draftSource]);
+  const visualInstruments = Array.isArray(visualDraft.instruments)
+    ? visualDraft.instruments as Array<Record<string, unknown>>
+    : [];
+  const visualTrades = useMemo(() => {
+    try {
+      const parsed = parseJson(tradeSource);
+      return Array.isArray(parsed) ? parsed as Array<Record<string, unknown>> : [];
+    } catch {
+      return DEFAULT_TRADES as Array<Record<string, unknown>>;
+    }
+  }, [tradeSource]);
+
+  const updateVisualDraft = (
+    transform: (current: Record<string, unknown>) => Record<string, unknown>,
+  ) => {
+    setDraftSource(JSON.stringify(transform(visualDraft), null, 2));
+  };
+  const setDraftField = (field: string, value: unknown) => {
+    updateVisualDraft((current) => ({ ...current, [field]: value }));
+  };
+  const setInstrumentField = (index: number, field: string, value: unknown) => {
+    updateVisualDraft((current) => ({
+      ...current,
+      instruments: visualInstruments.map((instrument, position) => (
+        position === index ? { ...instrument, [field]: value } : instrument
+      )),
+    }));
+  };
+  const addInstrument = () => {
+    const template = visualInstruments[visualInstruments.length - 1]
+      ?? DEFAULT_DRAFT.instruments[0];
+    const next = {
+      ...template,
+      instrument_id: undefined,
+      raw_quote: "0.04",
+    };
+    delete next.instrument_id;
+    updateVisualDraft((current) => ({
+      ...current,
+      instruments: [...visualInstruments, next],
+    }));
+  };
+  const removeInstrument = (index: number) => {
+    updateVisualDraft((current) => ({
+      ...current,
+      instruments: visualInstruments.filter((_, position) => position !== index),
+    }));
+  };
+  const setTradeField = (index: number, field: string, value: unknown) => {
+    setTradeSource(JSON.stringify(
+      visualTrades.map((trade, position) => (
+        position === index ? { ...trade, [field]: value } : trade
+      )),
+      null,
+      2,
+    ));
+  };
+  const setTradeTerm = (index: number, field: string, value: unknown) => {
+    setTradeSource(JSON.stringify(
+      visualTrades.map((trade, position) => {
+        if (position !== index) return trade;
+        return {
+          ...trade,
+          terms: {
+            ...(trade.terms as Record<string, unknown>),
+            [field]: value,
+          },
+        };
+      }),
+      null,
+      2,
+    ));
+  };
+  const addTrade = () => {
+    const index = visualTrades.length + 1;
+    setTradeSource(JSON.stringify([
+      ...visualTrades,
+      {
+        ...DEFAULT_TRADES[0],
+        trade_id: index.toString(16).padStart(32, "0"),
+      },
+    ], null, 2));
+  };
 
   const refreshVersions = async () => {
     const next = await api.listCurveLabVersions();
@@ -233,8 +353,9 @@ export default function CurveLabWorkspace() {
   const buildCurve = () => execute(async () => {
     if (!draft) throw new Error("Create a draft before building.");
     const created = await api.createCurveLabBuildRun(draft.id);
-    setBuild(created);
-    setStatus(`Build ${created.id.slice(0, 8)} finished ${created.state}.`);
+    const terminal = await waitForTerminal(created, api.getCurveLabBuildRun);
+    setBuild(terminal);
+    setStatus(`Build ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
     setTab("runs");
   });
 
@@ -268,6 +389,14 @@ export default function CurveLabWorkspace() {
 
   const runRisk = () => execute(async () => {
     if (!selectedVersionId) throw new Error("Select a visible curve version.");
+    try {
+      await api.createCurveLabFixingSnapshot({
+        id: fixingSnapshotId,
+        observations: [],
+      });
+    } catch (reason) {
+      if (!(reason instanceof ApiClientError && reason.status === 409)) throw reason;
+    }
     const created = await api.createCurveLabRiskRun({
       curve_version_id: selectedVersionId,
       target: { trades: parseJson(tradeSource) },
@@ -277,15 +406,16 @@ export default function CurveLabWorkspace() {
         "CALIBRATION_JACOBIAN",
         "COMPOSED_QUOTE_DIAGNOSTIC",
       ],
-      fixing_snapshot_id: "curve-lab-ui-fixings",
-      evaluation_time: "2026-01-15T10:30:00Z",
-      base_currency: "USD",
+      fixing_snapshot_id: fixingSnapshotId,
+      evaluation_time: evaluationTime,
+      base_currency: baseCurrency,
       options: {
         aad_fallback: "ALLOW",
         jacobian_replay_fallback: "ALLOW",
       },
     });
-    setRisk(created);
+    const terminal = await waitForTerminal(created, api.getCurveLabRiskRun);
+    setRisk(terminal);
     const matrixIds = [
       "trade-to-node",
       "calibration-jacobian",
@@ -295,14 +425,14 @@ export default function CurveLabWorkspace() {
     const fetched = await Promise.all(
       matrixIds.map(async (matrixId) => {
         try {
-          return await api.getCurveLabMatrix(created.id, matrixId);
+          return await api.getCurveLabMatrix(terminal.id, matrixId);
         } catch {
           return null;
         }
       }),
     );
     setMatrices(fetched.filter((item): item is CurveLabMatrix => item !== null));
-    setStatus(`Risk run ${created.id.slice(0, 8)} finished ${created.state}.`);
+    setStatus(`Risk run ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
   });
 
   const archive = (version: CurveLabVersion) => execute(async () => {
@@ -321,7 +451,19 @@ export default function CurveLabWorkspace() {
   });
 
   const download = (version: CurveLabVersion) => execute(async () => {
-    const payload = await api.downloadCurveLabVersion(version.id);
+    const [payload, manifest] = await Promise.all([
+      api.downloadCurveLabVersion(version.id),
+      api.getCurveLabRuntimeManifest(version.id),
+    ]);
+    const manifestUrl = URL.createObjectURL(new Blob(
+      [JSON.stringify(manifest, null, 2)],
+      { type: "application/json" },
+    ));
+    const manifestAnchor = document.createElement("a");
+    manifestAnchor.href = manifestUrl;
+    manifestAnchor.download = `${version.name.replace(/ /g, "-")}-${version.id.slice(0, 8)}.manifest.json`;
+    manifestAnchor.click();
+    URL.revokeObjectURL(manifestUrl);
     const url = URL.createObjectURL(payload);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -332,9 +474,10 @@ export default function CurveLabWorkspace() {
   });
 
   const importFile = (file: File) => execute(async () => {
-    const job = await api.importCurveLabVersion(file);
+    const job = await api.importCurveLabVersion(file, importManifest ?? undefined);
+    const terminal = await waitForTerminal(job, api.getCurveLabImportJob);
     await refreshVersions();
-    setStatus(`Import ${job.id.slice(0, 8)} finished ${job.state}.`);
+    setStatus(`Import ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
   });
 
   return (
@@ -372,18 +515,143 @@ export default function CurveLabWorkspace() {
         <div {...css("curve-lab-flow-layout")}>
           <section {...css("request-editor", "curve-lab-flow-editor")}>
             <div {...css("editor-heading")}>
-              <strong>CurveDraftDocumentV2</strong>
-              <span {...css("tag")}>canonical decimals only</span>
+              <strong>Visual curve builder</strong>
+              <span {...css("tag")}>closed V2 controls</span>
             </div>
-            <label>
-              <span>Build document JSON</span>
-              <textarea
-                value={draftSource}
-                rows={24}
-                spellCheck={false}
-                onChange={(event) => setDraftSource(event.target.value)}
-              />
-            </label>
+            <section {...css("panel")}>
+              <h3>Curve topology</h3>
+              <div {...css("form-grid")}>
+                <label>
+                  <span>Build mode</span>
+                  <select
+                    value={String(visualDraft.mode ?? "SINGLE")}
+                    onChange={(event) => setDraftField("mode", event.target.value)}
+                  >
+                    <option value="SINGLE">Single curve</option>
+                    <option value="MULTI_CURVE">Joint multi-curve</option>
+                    <option value="STAGED_XCCY">XCCY staged</option>
+                    <option value="JOINT_XCCY">XCCY joint</option>
+                  </select>
+                </label>
+                <label>
+                  <span>As-of date</span>
+                  <input
+                    type="date"
+                    value={String(visualDraft.as_of_date ?? "")}
+                    onChange={(event) => setDraftField("as_of_date", event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Market snapshot</span>
+                  <input
+                    value={String(visualDraft.market_snapshot_id ?? "")}
+                    onChange={(event) => setDraftField("market_snapshot_id", event.target.value)}
+                  />
+                </label>
+              </div>
+              <div {...css("table-container")}>
+                <table>
+                  <thead><tr><th>Role</th><th>Currency</th><th>Component key</th><th>Parameterization</th></tr></thead>
+                  <tbody>
+                    {(Array.isArray(visualDraft.declarations)
+                      ? visualDraft.declarations as Array<Record<string, unknown>>
+                      : []).map((declaration, index) => (
+                      <tr key={String(declaration.component_key ?? index)}>
+                        <td>{String(declaration.role ?? "")}</td>
+                        <td>{String(declaration.currency ?? "")}</td>
+                        <td {...css("mono")}>{String(declaration.component_key ?? "")}</td>
+                        <td>{String(declaration.parameterization ?? "")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section {...css("panel")}>
+              <div {...css("curve-lab-section-heading")}>
+                <div>
+                  <h3>Calibration instruments</h3>
+                  <p {...css("muted")}>Edit registry family, dates, inclusion and canonical quote.</p>
+                </div>
+                <button type="button" onClick={addInstrument}>Add instrument</button>
+              </div>
+              <div {...css("table-container")}>
+                <table>
+                  <thead><tr><th>Family</th><th>Maturity</th><th>Quote</th><th>Included</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {visualInstruments.map((instrument, index) => (
+                      <tr key={String(instrument.instrument_id ?? index)}>
+                        <td>
+                          <select
+                            aria-label={`Family ${index + 1}`}
+                            value={String(instrument.instrument_type ?? "DEPOSIT")}
+                            onChange={(event) => setInstrumentField(index, "instrument_type", event.target.value)}
+                          >
+                            {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
+                              (family) => <option key={family} value={family}>{family}</option>,
+                            )}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Maturity ${index + 1}`}
+                            type="date"
+                            value={String(instrument.maturity_date ?? "")}
+                            onChange={(event) => setInstrumentField(index, "maturity_date", event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Quote ${index + 1}`}
+                            inputMode="decimal"
+                            value={String(instrument.raw_quote ?? "")}
+                            onChange={(event) => setInstrumentField(index, "raw_quote", event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Included ${index + 1}`}
+                            type="checkbox"
+                            checked={Boolean(instrument.included)}
+                            onChange={(event) => setInstrumentField(index, "included", event.target.checked)}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            {...css("danger")}
+                            disabled={visualInstruments.length === 1}
+                            onClick={() => removeInstrument(index)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section {...css("panel")}>
+              <h3>Solver controls</h3>
+              <p {...css("muted")}>
+                {String((visualDraft.solver as Record<string, unknown> | undefined)?.solve_mode ?? "EXACT")}
+                {" · "}
+                {String((visualDraft.solver as Record<string, unknown> | undefined)?.parameterization ?? "PIECEWISE_CONSTANT_FWD")}
+              </p>
+            </section>
+            <details>
+              <summary>Advanced JSON</summary>
+              <label>
+                <span>Build document JSON</span>
+                <textarea
+                  value={draftSource}
+                  rows={24}
+                  spellCheck={false}
+                  onChange={(event) => setDraftSource(event.target.value)}
+                />
+              </label>
+            </details>
             <div {...css("submit-row")}>
               <p>Server-derived quote and parameter axes are frozen at build time.</p>
               <button type="button" disabled={busy} onClick={() => void createDraft()}>
@@ -438,6 +706,51 @@ export default function CurveLabWorkspace() {
                 <AxisTable title="Quote axis" rows={build.quote_axis} />
                 <AxisTable title="Parameter axis" rows={build.parameter_axis} />
               </div>
+              {build.stale && (
+                <div {...css("error")}>
+                  Stale build evidence: this run no longer matches the current draft revision.
+                </div>
+              )}
+              <section {...css("panel")}>
+                <div {...css("curve-lab-section-heading")}>
+                  <h3>Curve views</h3>
+                  <div {...css("curve-lab-row-actions")}>
+                    {([
+                      ["discount", "Discount factors"],
+                      ["zero", "Zero rates"],
+                      ["forward", "Forwards"],
+                    ] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        {...css(curveView === id ? "active" : "ghost")}
+                        onClick={() => setCurveView(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p {...css("muted")}>
+                  {curveView === "discount" && "Native discount-factor view on the persisted node axis."}
+                  {curveView === "zero" && "Continuously compounded zero-rate view on the persisted node axis."}
+                  {curveView === "forward" && "Instantaneous forward coordinates in native parameter order."}
+                </p>
+                <div {...css("table-container")}>
+                  <table>
+                    <thead><tr><th>Node</th><th>Component</th><th>Native coordinate</th></tr></thead>
+                    <tbody>
+                      {build.parameter_axis.map((axis) => (
+                        <tr key={String(axis.parameter_id)}>
+                          <td>{String(axis.node_date)}</td>
+                          <td {...css("mono")}>{String(axis.component_key)}</td>
+                          <td>{String(axis.coordinate_kind)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </>
           )}
           {risk && (
@@ -453,7 +766,7 @@ export default function CurveLabWorkspace() {
         <div {...css("curve-lab-risk-layout")}>
           <section {...css("request-editor", "curve-lab-flow-editor")}>
             <div {...css("editor-heading")}>
-              <strong>RateTradeDefinitionV2[]</strong>
+              <strong>Target trades</strong>
               <span {...css("tag")}>PV · DV01 · KRD</span>
             </div>
             <label>
@@ -465,10 +778,63 @@ export default function CurveLabWorkspace() {
                 ))}
               </select>
             </label>
-            <label>
-              <span>Trade target JSON</span>
-              <textarea value={tradeSource} rows={20} spellCheck={false} onChange={(event) => setTradeSource(event.target.value)} />
-            </label>
+            <div {...css("curve-lab-section-heading")}>
+              <h3>Trade targeting</h3>
+              <button type="button" onClick={addTrade}>Add trade</button>
+            </div>
+            <div {...css("table-container")}>
+              <table>
+                <thead><tr><th>Family</th><th>Maturity</th><th>Notional</th><th>Contract rate</th></tr></thead>
+                <tbody>
+                  {visualTrades.map((trade, index) => {
+                    const terms = trade.terms as Record<string, unknown>;
+                    return (
+                      <tr key={String(trade.trade_id)}>
+                        <td>
+                          <select
+                            aria-label={`Trade family ${index + 1}`}
+                            value={String(trade.instrument_type)}
+                            onChange={(event) => setTradeField(index, "instrument_type", event.target.value)}
+                          >
+                            {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
+                              (family) => <option key={family}>{family}</option>,
+                            )}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            type="date"
+                            value={String(trade.maturity_date)}
+                            onChange={(event) => setTradeField(index, "maturity_date", event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            inputMode="decimal"
+                            value={String(terms.notional ?? terms.position_count ?? "")}
+                            onChange={(event) => setTradeTerm(index, "notional", event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            inputMode="decimal"
+                            value={String(terms.contract_rate ?? terms.contract_spread ?? "")}
+                            onChange={(event) => setTradeTerm(index, "contract_rate", event.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <details>
+              <summary>Advanced trade JSON</summary>
+              <label>
+                <span>Trade target JSON</span>
+                <textarea value={tradeSource} rows={20} spellCheck={false} onChange={(event) => setTradeSource(event.target.value)} />
+              </label>
+            </details>
             <div {...css("submit-row")}>
               <p>Full replay computes native PV, parallel DV01, KRD, G, J and GJ.</p>
               <button type="button" disabled={busy || !selectedVersionId} onClick={() => void runRisk()}>
@@ -481,10 +847,22 @@ export default function CurveLabWorkspace() {
             <p {...css("muted")}>Selected</p>
             <strong>{selectedVersion?.name ?? "No curve version"}</strong>
             <ul>
-              <li>Exact registry-owned quote bumps</li>
-              <li>Central native-parameter fallback</li>
+              <li>Native AAD with per-trade eligibility</li>
+              <li>Exact registry-owned quote replay</li>
               <li>Persisted matrix envelopes</li>
             </ul>
+            <label>
+              <span>Evaluation time</span>
+              <input value={evaluationTime} onChange={(event) => setEvaluationTime(event.target.value)} />
+            </label>
+            <label>
+              <span>Fixing snapshot</span>
+              <input value={fixingSnapshotId} onChange={(event) => setFixingSnapshotId(event.target.value)} />
+            </label>
+            <label>
+              <span>Base currency</span>
+              <input value={baseCurrency} onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())} />
+            </label>
             {risk && (
               <dl>
                 <dt>State</dt><dd>{risk.state}</dd>
@@ -495,10 +873,13 @@ export default function CurveLabWorkspace() {
           </aside>
           {risk?.result?.pricing && (
             <section {...css("panel", "curve-lab-risk-results")}>
-              <h3>Trade results</h3>
+              <div {...css("curve-lab-section-heading")}>
+                <h3>Trade results</h3>
+                <span {...css("tag")}>Aggregate PV {aggregatePv.toLocaleString()}</span>
+              </div>
               <div {...css("table-container")}>
                 <table>
-                  <thead><tr><th>Trade</th><th>Status</th><th>PV</th><th>DV01</th><th>KRD sum</th></tr></thead>
+                  <thead><tr><th>Trade</th><th>Status</th><th>PV</th><th>DV01</th><th>KRD sum</th><th>Failure</th></tr></thead>
                   <tbody>
                     {risk.result.pricing.map((row, index) => (
                       <tr key={String(row.trade_id)}>
@@ -507,6 +888,9 @@ export default function CurveLabWorkspace() {
                         <td {...css("mono", "num")}>{String(row.pv ?? "—")}</td>
                         <td {...css("mono", "num")}>{String(risk.result?.dv01?.[index]?.value ?? "—")}</td>
                         <td {...css("mono", "num")}>{String(risk.result?.key_rate_sum?.[index]?.value ?? "—")}</td>
+                        <td {...css("error")}>
+                          {String((row.error as { code?: string } | undefined)?.code ?? "—")}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -537,7 +921,53 @@ export default function CurveLabWorkspace() {
                 }}
               />
             </label>
+            <label {...css("file-button")}>
+              Select runtime manifest
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void file.text().then((source) => {
+                      setImportManifest(JSON.parse(source) as Record<string, unknown>);
+                    }).catch((reason: unknown) => setError(message(reason)));
+                  }
+                }}
+              />
+            </label>
           </div>
+          <section {...css("panel")}>
+            <div {...css("curve-lab-section-heading")}>
+              <div>
+                <h3>Version diff</h3>
+                <p {...css("muted")}>Compare immutable archive identity and lineage.</p>
+              </div>
+              <select
+                aria-label="Compare version"
+                value={compareVersionId}
+                onChange={(event) => setCompareVersionId(event.target.value)}
+              >
+                <option value="">Choose comparison</option>
+                {versions.map((version) => (
+                  <option key={version.id} value={version.id}>{version.name}</option>
+                ))}
+              </select>
+            </div>
+            {selectedVersion && compareVersion ? (
+              <table>
+                <thead><tr><th>Field</th><th>Selected</th><th>Comparison</th></tr></thead>
+                <tbody>
+                  <tr><td>Payload hash</td><td {...css("mono")}>{selectedVersion.native_payload_hash}</td><td {...css("mono")}>{compareVersion.native_payload_hash}</td></tr>
+                  <tr><td>Source</td><td>{selectedVersion.source_kind}</td><td>{compareVersion.source_kind}</td></tr>
+                  <tr><td>Root</td><td>{selectedVersion.root_kind}</td><td>{compareVersion.root_kind}</td></tr>
+                  <tr><td>Validation</td><td>{selectedVersion.build_validation_state}</td><td>{compareVersion.build_validation_state}</td></tr>
+                </tbody>
+              </table>
+            ) : (
+              <p {...css("muted")}>Select the working version and a comparison version.</p>
+            )}
+          </section>
           <div {...css("table-container")}>
             <table>
               <thead><tr><th>Name</th><th>Source</th><th>Root</th><th>Payload</th><th>Created</th><th>Actions</th></tr></thead>

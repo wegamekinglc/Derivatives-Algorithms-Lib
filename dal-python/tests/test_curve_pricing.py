@@ -36,6 +36,11 @@ def test_keyword_only_deposit_pricing_calls_native_cashflow_kernel():
     )
 
     result = dal.PriceRateTrades(trades=[trade], market=market)
+    aad = dal.RateTradeNodeSensitivities(
+        trade=trade,
+        market=market,
+        component_key="discount",
+    )
 
     assert len(result) == 1  # nosec B101
     assert result[0].instrument_id == "deposit-1"  # nosec B101
@@ -43,3 +48,6 @@ def test_keyword_only_deposit_pricing_calls_native_cashflow_kernel():
     assert result[0].succeeded is True  # nosec B101
     assert result[0].currency == "USD"  # nosec B101
     assert result[0].dependency_component_keys == ("discount",)  # nosec B101
+    assert aad.eligible is True  # nosec B101
+    assert len(aad.gradient) == 1  # nosec B101
+    assert aad.reason == ""  # nosec B101

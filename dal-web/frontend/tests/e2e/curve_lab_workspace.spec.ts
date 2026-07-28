@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Download } from "@playwright/test";
 
 test("persists stale rebuild and version file actions through the real API", async ({
   page,
@@ -9,6 +9,7 @@ test("persists stale rebuild and version file actions through the real API", asy
   );
 
   await page.goto("/curves");
+  await page.getByText("Advanced JSON").click();
   const source = page.getByLabel("Build document JSON");
   const publish = page.getByRole("button", { name: "Publish version" });
 
@@ -20,6 +21,7 @@ test("persists stale rebuild and version file actions through the real API", asy
   await publish.click();
   await expect(page.getByText("Published USD OIS")).toBeVisible();
 
+  await page.getByText("Advanced JSON").click();
   await source.fill((await source.inputValue()).replace('"raw_quote": "0.04"', '"raw_quote": "0.041"'));
   await page.getByRole("button", { name: "Save draft changes" }).click();
   await expect(page.getByText(/revision 2; rebuild required/)).toBeVisible();
@@ -35,11 +37,20 @@ test("persists stale rebuild and version file actions through the real API", asy
   let rows = page.getByRole("row").filter({ hasText: "USD OIS" });
   await expect(rows).toHaveCount(2);
 
-  const downloadPromise = page.waitForEvent("download");
+  const downloads: Download[] = [];
+  page.on("download", (download) => downloads.push(download));
   await rows.first().getByRole("button", { name: "Export" }).click();
-  const download = await downloadPromise;
-  const exportedPath = await download.path();
+  await expect.poll(() => downloads.length).toBe(2);
+  const nativeDownload = downloads.find(
+    (download) => !download.suggestedFilename().endsWith(".manifest.json"),
+  );
+  const manifestDownload = downloads.find(
+    (download) => download.suggestedFilename().endsWith(".manifest.json"),
+  );
+  const exportedPath = await nativeDownload?.path() ?? null;
+  const manifestPath = await manifestDownload?.path() ?? null;
   expect(exportedPath).not.toBeNull();
+  expect(manifestPath).not.toBeNull();
   await expect(page.getByText("Exported native JSON for USD OIS.")).toBeVisible();
 
   await rows.first().getByRole("button", { name: "Clone" }).click();
@@ -55,7 +66,9 @@ test("persists stale rebuild and version file actions through the real API", asy
   await expect(page.getByRole("row").filter({ hasText: "USD OIS" })).toHaveCount(1);
 
   if (exportedPath === null) throw new Error("Playwright did not retain the export");
-  const importInput = page.locator('input[type="file"][accept*="application/json"]');
+  if (manifestPath === null) throw new Error("Playwright did not retain the manifest");
+  await page.getByLabel("Select runtime manifest").setInputFiles(manifestPath);
+  const importInput = page.getByLabel("Import native JSON");
   await importInput.setInputFiles(exportedPath);
   await expect(page.getByText(/Import [0-9a-f]{8} finished SUCCEEDED/)).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Imported DiscountPWC" })).toHaveCount(1);
