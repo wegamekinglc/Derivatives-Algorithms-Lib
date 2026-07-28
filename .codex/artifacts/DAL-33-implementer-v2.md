@@ -3,6 +3,249 @@
 Date: 2026-07-28
 Branch: `fix/dal-33-bcg-scale-stability`
 
+## Current authoritative addendum: tester-v6 finite-nonzero signed-dot repair
+
+This section supersedes the revision, verification, performance, and
+remaining-risk status in every historical addendum retained below.
+
+### Revisions and permitted scope
+
+- approved baseline:
+  `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`;
+- tester-v6 blocked head:
+  `72b4af7177de5f2134a1ce2addf1aa1dd1600d89`;
+- finite-nonzero permutation RED:
+  `6c3cf6c1630c5d8021af969e4843c756057ac0e0`;
+- minimal signed-dot GREEN:
+  `0d03402a404d21e2c3fd758480f59bc96b023f1c`.
+
+The final evidence commit is on top of the GREEN commit and changes only this
+handoff plus `.codex/artifacts/DAL-33-performance-v2/paired/**`. Its exact SHA
+is reported in the issue comment because a committed file cannot contain its
+own commit hash.
+
+The RED commit changes only
+`dal-cpp/tests/math/matrix/test_bcg.cpp`. The GREEN commit changes only the
+private implementation in `dal-cpp/dal/math/matrix/bcg.cpp`. Public headers,
+bindings, AAD, callback order/counts, atomic publication, and loop allocation
+contracts are unchanged. No PR was created and nothing was merged.
+
+### Tester-v6 reproduction and root cause
+
+The new public BCG regression exhausts all 24 permutations of:
+
+```text
+L = 2^60
+b = permutation({L, 100, -L, 2})
+A = diag(3*b[i])
+M_left(input)[i] = M_right(input)[i] = input[i] / b[i]
+x0 = [0, 0, 0, 0]
+tolRel = EPSILON
+tolAbs = 0
+maxIterations = 1
+```
+
+The independent exact result is:
+
+```text
+beta = L + 100 - L + 2 = 102
+alpha denominator = 3L + 300 - 3L + 6 = 306
+alpha = 1/3
+x = [1/3, 1/3, 1/3, 1/3]
+callbacks left/right/pre-left/pre-right = 3/1/1/1
+```
+
+Eighteen permutations produce ordinary sequential beta and denominator
+results that are both finite and nonzero. The blocked implementation trusted
+all such values and therefore never entered its exact signed accumulator.
+Tester-v6 observed 10 failures among those 18 fast-path permutations and 16
+failures among all 24 permutations.
+
+### RED
+
+Commit `6c3cf6c1630c5d8021af969e4843c756057ac0e0` fixes the exact solution,
+callback counts, 24-permutation coverage, and 18 finite-nonzero fast cases in
+one public solver test:
+
+```text
+MatrixTest.TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations
+```
+
+Focused command:
+
+```text
+build/Release-{native,scalar-fallback}-v3/dal-cpp/dal_cpp_tests \
+  --gtest_filter=MatrixTest.TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations \
+  --gtest_brief=1
+```
+
+At RED, native and forced scalar each reported `0/1`; the expected failure was
+`Exhausted iterations in BCGSolve`. Production remained at the blocked head
+until this test was committed.
+
+### Minimal GREEN
+
+Commit `0d03402a404d21e2c3fd758480f59bc96b023f1c` replaces the previous
+“finite and nonzero means safe” decision with a private conservative filter:
+
+- native AVX2 and scalar paths accumulate the signed product sum and the
+  absolute-product sum;
+- a nonzero input product that underflows, is subnormal, or is non-finite
+  rejects the fast path;
+- a non-finite/zero sum, non-finite absolute sum, or length-derived roundoff
+  interval that reaches the signed result rejects the fast path;
+- every rejected or ambiguous dot uses the existing positive/negative exact
+  limb accumulator, whose finite binary64 products have unbounded intermediate
+  range, order-independent cancellation, and one final ties-to-even binary64
+  rounding.
+
+Thus zero or non-finite is no longer the sole fallback condition. Ordinary
+normal, low-cancellation recurrence dots retain the vector fast path; all
+wide-exponent, underflowed-product, overflowed-product, zero, and
+cancellation-ambiguous cases fail safe to exact accumulation.
+
+### Current correctness and compatibility evidence
+
+Focused repository suites:
+
+```text
+native AVX2/FMA: 33/33 passed
+forced scalar:   32/32 passed
+joint calibration: 17/17 passed
+```
+
+The scalar cache still contains:
+
+```text
+CMAKE_CXX_FLAGS:STRING=-U__AVX2__ -U__FMA__ -U__SSE2__
+DAL_ENABLE_NATIVE_ARCH:BOOL=OFF
+```
+
+Tester-v3 full public exponent scan, rebuilt separately against both final
+libraries:
+
+```text
+binary64_power_exponents_tested=2098 range=[-1074,1023]
+analytical_comparison_scenarios=20978 comparison_failures=0
+atomic_scenarios=2 atomic_failures=0
+failures=0
+```
+
+Tester-v4 fixed-seed non-power corpus, rebuilt separately against both final
+libraries and checked by the unchanged independent Python oracle:
+
+```text
+seed=0x6d5a56da3c9ef187
+non_power_mantissa_anchors=18388
+deterministic_boundary_anchors=16
+random_candidates=10000
+cases=165492
+false_successes=0
+false_rejections=0
+conservative_fast_candidate_oracle_failures=0
+failures=0
+```
+
+The native and scalar v4 raw TSVs are byte-identical:
+
+```text
+b7588a7b6a2f5c9a7fe46d9d70d0a469be58c11a912ce714802a37166f5fab62
+```
+
+The unchanged tester-v6 external public probe and `Fraction.from_float`
+oracle now report identically on native and scalar:
+
+```text
+reviewer_permutations=6
+finite_nonzero_permutations=24
+finite_nonzero_fast_cases=18
+finite_nonzero_fast_failures=0
+failures=0
+```
+
+The two v6 raw TSVs are byte-identical:
+
+```text
+01dfe8f0dfb6b192f7da247887faffd04b8c7b57cdf9a8b7231877a376ef5e8a
+```
+
+Fresh native Release build/install/CTest:
+
+```text
+DAL_BUILD_DIR=build/Release-tester-v6-green-full \
+DAL_INSTALL_DIR=build/stage/Release-tester-v6-green-full \
+NUM_CORES=8 \
+ADDITIONAL_CMAKE_FLAGS='-DDAL_ENABLE_NATIVE_ARCH=ON' \
+bash ./build_linux.sh
+
+100% tests passed, 0 tests failed out of 1172
+Total Test time (real) = 21.04 sec
+```
+
+Additional gates:
+
+```text
+documentation: 39 Markdown files passed
+benchmark-script unit tests: 19/19 passed
+git diff --check: passed
+public/header/binding/AAD diff: empty
+```
+
+### Fresh exact 10x2 paired 4% performance gate
+
+All tracked samples were replaced after a fresh run from detached exact
+sources and separate out-of-tree build roots:
+
+- baseline source:
+  `98f7b65975a9a5294f5af3693a6fc4a4f1dee7a8`;
+- GREEN source:
+  `0d03402a404d21e2c3fd758480f59bc96b023f1c`;
+- both sources clean before and after the run;
+- GNU `gcc-14`/`g++-14` 14.3.0;
+- Release shared-library AADET native builds, benchmarks enabled, tests,
+  examples, public library, Python, and Excel disabled;
+- baseline `krylov_perf` SHA-256:
+  `81d46f1b204a00cd0d44c9a9a5a8a520afc5a07a5d0a2e7dfa344fbfac657e74`;
+- GREEN `krylov_perf` SHA-256:
+  `bbf2cd9dde3985d5229df5dc8f75b8a43177c04df7898b93a9414862c03ede1c`.
+
+Gate:
+
+```text
+DAL_NUM_THREADS=4 \
+python3 .github/scripts/check_benchmark_regressions.py \
+  --base-root <fresh-root>/base-build \
+  --head-root <fresh-root>/head-build \
+  --output-dir .codex/artifacts/DAL-33-performance-v2/paired \
+  --benchmarks krylov_perf \
+  --samples 10 \
+  --confirmation-rounds 2 \
+  --threshold-percent 4
+```
+
+Result: exit zero.
+
+| Case | Base min | GREEN min | Combined | Round 1 | Round 2 | Gate |
+|---|---:|---:|---:|---:|---:|:---:|
+| `BCGSolve (500x500 tridiag)` | 18,967 ns | 15,800 ns | -16.70% | -17.04% | -16.39% | pass |
+| `CGSolve (500x500 tridiag)` | 14,924 ns | 12,419 ns | -16.79% | -16.76% | -16.87% | pass |
+
+Evidence audit: 40 raw outputs, 160 raw lines, 20 baseline and 20 GREEN
+samples per case, no `calls/solve` marker, empty `failures`, and every
+comparison both `passed` and `gated`.
+
+### Remaining risk and required next gate
+
+- The fast-path proof deliberately detects cancellation ambiguity rather than
+  attempting to recover ambiguous low bits; exact accumulation is the
+  authority whenever its conservative interval reaches the signed result.
+  Tester should independently review this filter and rerun its unchanged v6
+  permutation oracle.
+- The exact fallback is intentionally private and fixed-range for finite
+  binary64 products. Native/scalar wide-exponent and non-power scans passed,
+  but the tester remains the next gate before reviewer re-entry.
+- Reviewer and doc-writer remain paused. No PR or merge is authorized.
+
 ## Current authoritative addendum: reviewer-v2 signed-dot repair
 
 This section supersedes the revision, verification, performance, and
