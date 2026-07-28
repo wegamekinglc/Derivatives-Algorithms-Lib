@@ -46,6 +46,15 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `matrix`: Made `Sparse::CGSolve` and `Sparse::BCGSolve` scale-safe across the
+  finite binary64 range. Norm and convergence classification no longer relies
+  on overflowed or underflowed intermediates, and ambiguous signed dot products
+  use exact accumulation. Candidate updates are committed only after callback
+  validation; candidates that appear converged additionally require direct
+  residual confirmation. Public signatures and bindings are unchanged; extreme
+  finite systems that previously reported false convergence or avoidable
+  breakdown now solve or fail closed. See `docs/methodology/matrix.md`.
+
 - `curve`: Added staged XCCY sensitivity diagnostics across public C++, Python,
   and Excel. The additive options overload selects analytic or bumped
   Jacobians and independently controls the forward and effective-inverse
