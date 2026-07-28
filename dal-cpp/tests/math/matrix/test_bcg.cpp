@@ -4,7 +4,17 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <limits>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/bcg.hpp>
@@ -28,7 +38,7 @@ TEST(MatrixTest, TestCGSolve) {
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 3.0);
 
-    for(int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         mat->Set(i, i, 10.0);
 
     Vector_<> result(n);
@@ -45,7 +55,7 @@ TEST(MatrixTest, TestBCGSolve) {
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 2.0);
 
-    for(int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         mat->Set(i, i, 10.0);
 
     Vector_<> result(n);
@@ -182,4 +192,963 @@ TEST(MatrixTest, TestBCGSolveAsymmetricLowResidual) {
 
     Sparse::BCGSolve(*mat, b, 1e-12, 1e-14, 500, &x);
     ASSERT_LT(ResidualInfNorm(*mat, x, b), 1e-8);
+}
+
+namespace {
+    using SolveFunction_ = void (*)(const Sparse::Square_&, const Vector_<>&, double, double, int, Vector_<>*);
+
+    struct CallbackCounts_ {
+        int left_ = 0;
+        int right_ = 0;
+        int preconditionerLeft_ = 0;
+        int preconditionerRight_ = 0;
+    };
+
+    using CallbackHook_ = std::function<bool(int, const Vector_<>&, Vector_<>*)>;
+
+    class HookedDiagonal_ : public Sparse::TriDiagonal_ {
+        CallbackCounts_* counts_;
+        CallbackHook_ leftHook_;
+        CallbackHook_ rightHook_;
+
+    public:
+        HookedDiagonal_(const Vector_<>& diagonal, CallbackCounts_* counts) : Sparse::TriDiagonal_(diagonal.size()), counts_(counts) {
+            for (int i = 0; i < static_cast<int>(diagonal.size()); ++i)
+                Set(i, i, diagonal[i]);
+        }
+
+        void SetLeftHook(CallbackHook_ hook) { leftHook_ = std::move(hook); }
+        void SetRightHook(CallbackHook_ hook) { rightHook_ = std::move(hook); }
+
+        void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override {
+            const int call = ++counts_->left_;
+            if (!leftHook_ || !leftHook_(call, x, b))
+                Sparse::TriDiagonal_::MultiplyLeft(x, b);
+        }
+
+        void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override {
+            const int call = ++counts_->right_;
+            if (!rightHook_ || !rightHook_(call, x, b))
+                Sparse::TriDiagonal_::MultiplyRight(x, b);
+        }
+    };
+
+    class HookedPreconditionedDiagonal_ : public HookedDiagonal_, public HasPreConditioner_ {
+        CallbackCounts_* counts_;
+        CallbackHook_ leftHook_;
+        CallbackHook_ rightHook_;
+
+        static void CopyVector(const Vector_<>& source, Vector_<>* destination) {
+            for (int i = 0; i < static_cast<int>(source.size()); ++i)
+                (*destination)[i] = source[i];
+        }
+
+    public:
+        HookedPreconditionedDiagonal_(const Vector_<>& diagonal, CallbackCounts_* counts) : HookedDiagonal_(diagonal, counts), counts_(counts) {}
+
+        void SetPreconditionerLeftHook(CallbackHook_ hook) { leftHook_ = std::move(hook); }
+        void SetPreconditionerRightHook(CallbackHook_ hook) { rightHook_ = std::move(hook); }
+
+        void PreConditionerSolveLeft(const Vector_<>& b, Vector_<>* x) const override {
+            const int call = ++counts_->preconditionerLeft_;
+            if (!leftHook_ || !leftHook_(call, b, x))
+                CopyVector(b, x);
+        }
+
+        void PreConditionerSolveRight(const Vector_<>& b, Vector_<>* x) const override {
+            const int call = ++counts_->preconditionerRight_;
+            if (!rightHook_ || !rightHook_(call, b, x))
+                CopyVector(b, x);
+        }
+    };
+
+    class CallbackSentinel_ : public std::runtime_error {
+    public:
+        CallbackSentinel_() : std::runtime_error("callback sentinel") {}
+    };
+
+    struct OracleBinary_ {
+        std::map<int, unsigned long long> bits_;
+    };
+
+    void OracleNormalizeBits(OracleBinary_* value) {
+        for (auto it = value->bits_.begin(); it != value->bits_.end(); ++it) {
+            const unsigned long long count = it->second;
+            it->second = count & 1ULL;
+            if (count > 1)
+                value->bits_[it->first + 1] += count >> 1U;
+        }
+        for (auto it = value->bits_.begin(); it != value->bits_.end();) {
+            if (it->second == 0)
+                it = value->bits_.erase(it);
+            else
+                ++it;
+        }
+    }
+
+    OracleBinary_ OracleFromDouble(double value) {
+        OracleBinary_ result;
+        if (value == 0.0)
+            return result;
+        int exponent = 0;
+        const double mantissa = std::frexp(std::fabs(value), &exponent);
+        const unsigned long long significand = static_cast<unsigned long long>(std::ldexp(mantissa, 53));
+        const int leastBitExponent = exponent - 53;
+        for (int bit = 0; bit < 53; ++bit)
+            if ((significand & (1ULL << bit)) != 0)
+                result.bits_[leastBitExponent + bit] = 1;
+        return result;
+    }
+
+    OracleBinary_ OracleAdd(OracleBinary_ lhs, const OracleBinary_& rhs) {
+        for (const auto& bit : rhs.bits_)
+            lhs.bits_[bit.first] += bit.second;
+        OracleNormalizeBits(&lhs);
+        return lhs;
+    }
+
+    OracleBinary_ OracleMultiply(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        OracleBinary_ result;
+        for (const auto& lhsBit : lhs.bits_)
+            for (const auto& rhsBit : rhs.bits_)
+                result.bits_[lhsBit.first + rhsBit.first] += lhsBit.second * rhsBit.second;
+        OracleNormalizeBits(&result);
+        return result;
+    }
+
+    OracleBinary_ OracleShift(const OracleBinary_& value, int shift) {
+        OracleBinary_ result;
+        for (const auto& bit : value.bits_)
+            result.bits_[bit.first + shift] = bit.second;
+        return result;
+    }
+
+    int OracleCompare(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        auto lhsBit = lhs.bits_.rbegin();
+        auto rhsBit = rhs.bits_.rbegin();
+        while (lhsBit != lhs.bits_.rend() || rhsBit != rhs.bits_.rend()) {
+            if (rhsBit == rhs.bits_.rend() || (lhsBit != lhs.bits_.rend() && lhsBit->first > rhsBit->first))
+                return 1;
+            if (lhsBit == lhs.bits_.rend() || rhsBit->first > lhsBit->first)
+                return -1;
+            ++lhsBit;
+            ++rhsBit;
+        }
+        return 0;
+    }
+
+    OracleBinary_ OracleSubtract(const OracleBinary_& lhs, const OracleBinary_& rhs) {
+        if (rhs.bits_.empty())
+            return lhs;
+        OracleBinary_ result;
+        const int leastExponent = std::min(lhs.bits_.begin()->first, rhs.bits_.begin()->first);
+        const int greatestExponent = lhs.bits_.rbegin()->first;
+        int borrow = 0;
+        for (int exponent = leastExponent; exponent <= greatestExponent; ++exponent) {
+            const int lhsBit = lhs.bits_.count(exponent) != 0 ? 1 : 0;
+            const int rhsBit = rhs.bits_.count(exponent) != 0 ? 1 : 0;
+            int difference = lhsBit - rhsBit - borrow;
+            if (difference < 0) {
+                difference += 2;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            if (difference != 0)
+                result.bits_[exponent] = 1;
+        }
+        return result;
+    }
+
+    OracleBinary_ OracleSumSquares(const std::vector<OracleBinary_>& values) {
+        OracleBinary_ result;
+        for (const OracleBinary_& value : values)
+            result = OracleAdd(std::move(result), OracleMultiply(value, value));
+        return result;
+    }
+
+    struct OracleConvergenceTerms_ {
+        std::vector<OracleBinary_> residual_;
+        std::vector<OracleBinary_> relative_;
+        OracleBinary_ absolute_;
+        int commonExponent_ = std::numeric_limits<int>::min();
+    };
+
+    void IncludeOracleExponent(const OracleBinary_& value, int* commonExponent) {
+        if (value.bits_.empty())
+            return;
+        *commonExponent = std::max(*commonExponent, value.bits_.rbegin()->first + 1);
+    }
+
+    OracleConvergenceTerms_ BuildOracleConvergenceTerms(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
+        OracleConvergenceTerms_ result;
+        result.residual_.reserve(residual.size());
+        result.relative_.reserve(b.size());
+        for (int i = 0; i < static_cast<int>(residual.size()); ++i) {
+            OracleBinary_ residualTerm = OracleFromDouble(residual[i]);
+            OracleBinary_ relativeTerm = OracleMultiply(OracleFromDouble(tolRel), OracleFromDouble(b[i]));
+            IncludeOracleExponent(residualTerm, &result.commonExponent_);
+            IncludeOracleExponent(relativeTerm, &result.commonExponent_);
+            result.residual_.push_back(std::move(residualTerm));
+            result.relative_.push_back(std::move(relativeTerm));
+        }
+        result.absolute_ = OracleFromDouble(tolAbs);
+        IncludeOracleExponent(result.absolute_, &result.commonExponent_);
+        if (result.commonExponent_ == std::numeric_limits<int>::min())
+            result.commonExponent_ = 0;
+        return result;
+    }
+
+    void ShiftOracleConvergenceTerms(OracleConvergenceTerms_* terms) {
+        for (OracleBinary_& value : terms->residual_)
+            value = OracleShift(value, -terms->commonExponent_);
+        for (OracleBinary_& value : terms->relative_)
+            value = OracleShift(value, -terms->commonExponent_);
+        terms->absolute_ = OracleShift(terms->absolute_, -terms->commonExponent_);
+    }
+
+    bool OracleSquaresConverged(const OracleConvergenceTerms_& terms) {
+        const OracleBinary_ residualSquares = OracleSumSquares(terms.residual_);
+        const OracleBinary_ relativeSquares = OracleSumSquares(terms.relative_);
+        if (OracleCompare(residualSquares, relativeSquares) <= 0)
+            return true;
+
+        const OracleBinary_ absoluteSquare = OracleMultiply(terms.absolute_, terms.absolute_);
+        const OracleBinary_ baseToleranceSquare = OracleAdd(relativeSquares, absoluteSquare);
+        if (OracleCompare(residualSquares, baseToleranceSquare) <= 0)
+            return true;
+
+        const OracleBinary_ difference = OracleSubtract(residualSquares, baseToleranceSquare);
+        const OracleBinary_ crossTermSquare = OracleShift(OracleMultiply(absoluteSquare, relativeSquares), 2);
+        return OracleCompare(OracleMultiply(difference, difference), crossTermSquare) <= 0;
+    }
+
+    bool CommonExponentConverged(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
+        OracleConvergenceTerms_ terms = BuildOracleConvergenceTerms(residual, b, tolRel, tolAbs);
+        ShiftOracleConvergenceTerms(&terms);
+        return OracleSquaresConverged(terms);
+    }
+
+    Vector_<> DiagonalResidual(const Vector_<>& diagonal, const Vector_<>& x, const Vector_<>& b) {
+        Vector_<> residual(b.size());
+        for (int i = 0; i < static_cast<int>(b.size()); ++i)
+            residual[i] = std::fma(-diagonal[i], x[i], b[i]);
+        return residual;
+    }
+
+    std::uint64_t SplitMix64(std::uint64_t* state) {
+        std::uint64_t value = (*state += 0x9e3779b97f4a7c15ULL);
+        value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+        return value ^ (value >> 31);
+    }
+
+    double DoubleFromBits(std::uint64_t bits) {
+        double result = 0.0;
+        std::memcpy(&result, &bits, sizeof(result));
+        return result;
+    }
+
+    void AssertBCGIdentityInitialClassification(const Vector_<>& b, const Vector_<>& requestedResidual, double tolRel, double tolAbs) {
+        Vector_<> x = {b[0] - requestedResidual[0], b[1] - requestedResidual[1]};
+        const Vector_<> entry = x;
+        const Vector_<> residual = DiagonalResidual({1.0, 1.0}, x, b);
+        const bool initiallyConverged = CommonExponentConverged(residual, b, tolRel, tolAbs);
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+
+        Sparse::BCGSolve(matrix, b, tolRel, tolAbs, 4, &x);
+
+        if (initiallyConverged) {
+            ASSERT_DOUBLE_EQ(entry[0], x[0]);
+            ASSERT_DOUBLE_EQ(entry[1], x[1]);
+            ASSERT_EQ(1, counts.left_);
+            ASSERT_EQ(0, counts.right_);
+        } else {
+            ASSERT_DOUBLE_EQ(b[0], x[0]);
+            ASSERT_DOUBLE_EQ(b[1], x[1]);
+            ASSERT_EQ(3, counts.left_);
+            ASSERT_EQ(1, counts.right_);
+        }
+    }
+
+    void FillDiagonalProduct(const Vector_<>& diagonal, const Vector_<>& x, Vector_<>* product) {
+        for (int i = 0; i < static_cast<int>(diagonal.size()); ++i)
+            (*product)[i] = diagonal[i] * x[i];
+    }
+
+    void
+    RunSolver(bool biConjugate, const Sparse::Square_& matrix, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
+        const SolveFunction_ solve = biConjugate ? &Sparse::BCGSolve : &Sparse::CGSolve;
+        solve(matrix, b, tolRel, tolAbs, maxIterations, x);
+    }
+
+    const char* SolverName(bool biConjugate) { return biConjugate ? "BCGSolve" : "CGSolve"; }
+
+    void AssertDalExceptionContains(const std::function<void()>& call, std::initializer_list<const char*> tokens) {
+        bool caught = false;
+        try {
+            call();
+        } catch (const Exception_& exception) {
+            caught = true;
+            const std::string message = exception.what();
+            for (const char* token : tokens)
+                ASSERT_NE(std::string::npos, message.find(token)) << message;
+        }
+        ASSERT_TRUE(caught);
+    }
+
+    bool IsPreconditionerFaultSite(int site) { return site == 3 || site == 4; }
+
+    std::unique_ptr<HookedDiagonal_> NewFaultMatrix(int site, CallbackCounts_* counts) {
+        if (IsPreconditionerFaultSite(site))
+            return std::make_unique<HookedPreconditionedDiagonal_>(Vector_<>{1.0, 2.0}, counts);
+        return std::make_unique<HookedDiagonal_>(Vector_<>{1.0, 2.0}, counts);
+    }
+
+    bool ApplyOperatorFault(int fault, int badSize, const Vector_<>& diagonal, const Vector_<>& input, Vector_<>* output) {
+        if (fault == 0) {
+            output->Resize(badSize);
+            return true;
+        }
+        if (fault == 1) {
+            FillDiagonalProduct(diagonal, input, output);
+            (*output)[1] = std::numeric_limits<double>::quiet_NaN();
+            return true;
+        }
+        throw CallbackSentinel_();
+    }
+
+    bool ApplyPreconditionerFault(int fault, int badSize, const Vector_<>& input, Vector_<>* output) {
+        if (fault == 0) {
+            output->Resize(badSize);
+            return true;
+        }
+        if (fault == 1) {
+            for (int i = 0; i < static_cast<int>(input.size()); ++i)
+                (*output)[i] = input[i];
+            (*output)[1] = std::numeric_limits<double>::infinity();
+            return true;
+        }
+        throw CallbackSentinel_();
+    }
+
+    bool ApplyFaultOnCall(const CallbackHook_& fault, int targetCall, int call, const Vector_<>& input, Vector_<>* output) {
+        if (call != targetCall)
+            return false;
+        return fault(call, input, output);
+    }
+
+    void ConfigureCallbackFault(HookedDiagonal_* matrix, int site, const CallbackHook_& operatorFault, const CallbackHook_& preconditionerFault) {
+        if (site == 0)
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 1, call, input, output);
+            });
+        else if (site == 1)
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 2, call, input, output);
+            });
+        else if (site == 2)
+            matrix->SetRightHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 1, call, input, output);
+            });
+        else if (site == 3)
+            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix)->SetPreconditionerLeftHook(
+                [preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
+                    return ApplyFaultOnCall(preconditionerFault, 1, call, input, output);
+                });
+        else if (site == 4)
+            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix)->SetPreconditionerRightHook(
+                [preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
+                    return ApplyFaultOnCall(preconditionerFault, 1, call, input, output);
+                });
+        else
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 4, call, input, output);
+            });
+    }
+
+    const char* CallbackFaultCategory(int site, int fault) {
+        if (fault == 0)
+            return IsPreconditionerFaultSite(site) ? "invalid preconditioner result" : "invalid operator result";
+        return IsPreconditionerFaultSite(site) ? "non-finite preconditioner result" : "non-finite operator result";
+    }
+
+    const char* CallbackFaultName(int site) {
+        if (site == 2)
+            return "MultiplyRight";
+        if (site == 3)
+            return "PreConditionerSolveLeft";
+        if (site == 4)
+            return "PreConditionerSolveRight";
+        return "MultiplyLeft";
+    }
+
+    void AssertCallbackFaultResult(bool biConjugate, int site, int fault, const std::function<void()>& solve, const Vector_<>& x) {
+        if (fault == 2) {
+            ASSERT_THROW(solve(), CallbackSentinel_);
+        } else {
+            const char* category = CallbackFaultCategory(site, fault);
+            const char* callback = CallbackFaultName(site);
+            if (fault == 0)
+                AssertDalExceptionContains(solve, {SolverName(biConjugate), category, callback});
+            else
+                AssertDalExceptionContains(solve, {SolverName(biConjugate), category, callback, "1"});
+        }
+
+        if (site == 5) {
+            ASSERT_DOUBLE_EQ(2.0 / 3.0, x[0]);
+            ASSERT_DOUBLE_EQ(2.0 / 3.0, x[1]);
+        } else {
+            ASSERT_DOUBLE_EQ(0.0, x[0]);
+            ASSERT_DOUBLE_EQ(0.0, x[1]);
+        }
+    }
+
+    CallbackCounts_ ExpectedCallbackFaultCounts(bool biConjugate, int site) {
+        const std::array<CallbackCounts_, 6> cgExpected = {CallbackCounts_{1, 0, 0, 0}, CallbackCounts_{2, 0, 0, 0}, CallbackCounts_{0, 0, 0, 0},
+                                                           CallbackCounts_{1, 0, 1, 0}, CallbackCounts_{0, 0, 0, 0}, CallbackCounts_{4, 0, 0, 0}};
+        const std::array<CallbackCounts_, 6> bcgExpected = {CallbackCounts_{1, 0, 0, 0}, CallbackCounts_{2, 0, 0, 0}, CallbackCounts_{2, 1, 0, 0},
+                                                            CallbackCounts_{1, 0, 1, 0}, CallbackCounts_{1, 0, 1, 1}, CallbackCounts_{4, 2, 0, 0}};
+        return biConjugate ? bcgExpected[site] : cgExpected[site];
+    }
+
+    void AssertCallbackCounts(const CallbackCounts_& expected, const CallbackCounts_& actual) {
+        ASSERT_EQ(expected.left_, actual.left_);
+        ASSERT_EQ(expected.right_, actual.right_);
+        ASSERT_EQ(expected.preconditionerLeft_, actual.preconditionerLeft_);
+        ASSERT_EQ(expected.preconditionerRight_, actual.preconditionerRight_);
+    }
+
+    void AssertCallbackFault(bool biConjugate, int site, int fault, int badSize = 0) {
+        SCOPED_TRACE(std::string(SolverName(biConjugate)) + " site=" + std::to_string(site) + " fault=" + std::to_string(fault));
+        CallbackCounts_ counts;
+        std::unique_ptr<HookedDiagonal_> matrix = NewFaultMatrix(site, &counts);
+        const Vector_<> diagonal = {1.0, 2.0};
+        const CallbackHook_ operatorFault = [fault, badSize, &diagonal](int, const Vector_<>& input, Vector_<>* output) {
+            return ApplyOperatorFault(fault, badSize, diagonal, input, output);
+        };
+        const CallbackHook_ preconditionerFault = [fault, badSize](int, const Vector_<>& input, Vector_<>* output) {
+            return ApplyPreconditionerFault(fault, badSize, input, output);
+        };
+        ConfigureCallbackFault(matrix.get(), site, operatorFault, preconditionerFault);
+
+        const Vector_<> b = {1.0, 1.0};
+        Vector_<> x = {0.0, 0.0};
+        const auto solve = [&]() { RunSolver(biConjugate, *matrix, b, 1e-12, 0.0, 10, &x); };
+        AssertCallbackFaultResult(biConjugate, site, fault, solve, x);
+        AssertCallbackCounts(ExpectedCallbackFaultCounts(biConjugate, site), counts);
+    }
+} // namespace
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveLargeFiniteRhs) {
+    Sparse::TriDiagonal_ matrix(1);
+    matrix.Set(0, 0, 1.0);
+    const Vector_<> b = {1e308};
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        Vector_<> x = {0.0};
+        RunSolver(biConjugate, matrix, b, EPSILON, 0.0, 10, &x);
+        const Vector_<> residual = DiagonalResidual({1.0}, x, b);
+        ASSERT_TRUE(std::isfinite(x[0]));
+        ASSERT_DOUBLE_EQ(1e308, x[0]);
+        ASSERT_TRUE(CommonExponentConverged(residual, b, EPSILON, 0.0));
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveStableFirstUpdateCancellation) {
+    ASSERT_TRUE(std::isinf(2.0 * 1e308));
+    ASSERT_DOUBLE_EQ(1e308, std::fma(2.0, 1e308, -1e308));
+
+    Sparse::TriDiagonal_ matrix(1);
+    matrix.Set(0, 0, 0.5);
+    const Vector_<> b = {5e307};
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        Vector_<> x = {-1e308};
+        RunSolver(biConjugate, matrix, b, EPSILON, 0.0, 10, &x);
+        const Vector_<> residual = DiagonalResidual({0.5}, x, b);
+        ASSERT_TRUE(std::isfinite(x[0]));
+        ASSERT_DOUBLE_EQ(1e308, x[0]);
+        ASSERT_TRUE(CommonExponentConverged(residual, b, EPSILON, 0.0));
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveStableSecondDirectionCancellation) {
+    const double scale = 3e306;
+    ASSERT_TRUE(std::isinf(2.4 * 27.0 * scale));
+
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix({1.0, 1.0}, &counts);
+        auto scaleSafePreconditioner = [](int, const Vector_<>& input, Vector_<>* output) {
+            const double commonScale = std::max(std::fabs(input[0]), std::fabs(input[1]));
+            if (commonScale == 0.0) {
+                (*output)[0] = 0.0;
+                (*output)[1] = 0.0;
+            } else {
+                const double first = input[0] / commonScale;
+                const double second = input[1] / commonScale;
+                (*output)[0] = commonScale * (8.0 * first - 9.0 * second);
+                (*output)[1] = commonScale * (-9.0 * first + 12.0 * second);
+            }
+            return true;
+        };
+        matrix.SetPreconditionerLeftHook(scaleSafePreconditioner);
+        matrix.SetPreconditionerRightHook(scaleSafePreconditioner);
+
+        const Vector_<> b = {9.0 * scale, 9.0 * scale};
+        Vector_<> x = {0.0, 0.0};
+        RunSolver(biConjugate, matrix, b, EPSILON, 0.0, 10, &x);
+
+        const Vector_<> residual = DiagonalResidual({1.0, 1.0}, x, b);
+        ASSERT_NEAR(9.0 * scale, x[0], 9.0 * scale * 1e-14);
+        ASSERT_NEAR(9.0 * scale, x[1], 9.0 * scale * 1e-14);
+        ASSERT_TRUE(CommonExponentConverged(residual, b, EPSILON, 0.0));
+        ASSERT_EQ(2, counts.preconditionerLeft_);
+        ASSERT_EQ(biConjugate ? 2 : 0, counts.preconditionerRight_);
+    }
+}
+
+TEST(MatrixTest, TestBCGSolvePreservesSignedDotCancellation) {
+    const double large = std::ldexp(1.0, 60);
+    double sequentialDot = 0.0;
+    for (const double term : {large, 1.0, -large})
+        sequentialDot += term;
+    ASSERT_DOUBLE_EQ(0.0, sequentialDot);
+
+    CallbackCounts_ counts;
+    const Vector_<> diagonal = {std::ldexp(1.0, -60), 1.0, -std::ldexp(1.0, -60)};
+    HookedPreconditionedDiagonal_ matrix(diagonal, &counts);
+    const auto exactPreconditioner = [large](int, const Vector_<>& input, Vector_<>* output) {
+        (*output)[0] = large * input[0];
+        (*output)[1] = input[1];
+        (*output)[2] = -large * input[2];
+        return true;
+    };
+    matrix.SetPreconditionerLeftHook(exactPreconditioner);
+    matrix.SetPreconditionerRightHook(exactPreconditioner);
+    const Vector_<> b = {1.0, 1.0, 1.0};
+    Vector_<> x = {0.0, 0.0, 0.0};
+
+    Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(large, x[0]);
+    ASSERT_DOUBLE_EQ(1.0, x[1]);
+    ASSERT_DOUBLE_EQ(-large, x[2]);
+    ASSERT_TRUE(CommonExponentConverged(DiagonalResidual(diagonal, x, b), b, EPSILON, 0.0));
+    ASSERT_EQ(3, counts.left_);
+    ASSERT_EQ(1, counts.right_);
+    ASSERT_EQ(1, counts.preconditionerLeft_);
+    ASSERT_EQ(1, counts.preconditionerRight_);
+}
+
+namespace {
+    bool BuildFiniteNonzeroPermutationDiagonal(const std::array<double, 4>& terms, Vector_<>* diagonal) {
+        double sequentialBeta = 0.0;
+        double sequentialDenominator = 0.0;
+        for (int i = 0; i < static_cast<int>(terms.size()); ++i) {
+            (*diagonal)[i] = 3.0 * terms[i];
+            sequentialBeta += terms[i];
+            sequentialDenominator += (*diagonal)[i];
+        }
+        return std::isfinite(sequentialBeta) && sequentialBeta != 0.0 && std::isfinite(sequentialDenominator) && sequentialDenominator != 0.0;
+    }
+
+    void AssertAllEqual(const Vector_<>& values, double expected) {
+        for (const double value : values)
+            ASSERT_DOUBLE_EQ(expected, value);
+    }
+
+    void AssertFiniteNonzeroSignedDotPermutation(const std::array<double, 4>& terms, int permutation, int* finiteNonzeroCases) {
+        SCOPED_TRACE("permutation=" + std::to_string(permutation));
+        const Vector_<> b(terms.begin(), terms.end());
+        Vector_<> diagonal(b.size());
+        if (BuildFiniteNonzeroPermutationDiagonal(terms, &diagonal))
+            ++*finiteNonzeroCases;
+
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix(diagonal, &counts);
+        const auto preconditioner = [b](int, const Vector_<>& input, Vector_<>* output) {
+            for (int i = 0; i < static_cast<int>(input.size()); ++i)
+                (*output)[i] = input[i] / b[i];
+            return true;
+        };
+        matrix.SetPreconditionerLeftHook(preconditioner);
+        matrix.SetPreconditionerRightHook(preconditioner);
+        Vector_<> x(b.size(), 0.0);
+
+        Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 1, &x);
+
+        AssertAllEqual(x, 1.0 / 3.0);
+        ASSERT_EQ(3, counts.left_);
+        ASSERT_EQ(1, counts.right_);
+        ASSERT_EQ(1, counts.preconditionerLeft_);
+        ASSERT_EQ(1, counts.preconditionerRight_);
+    }
+} // namespace
+
+TEST(MatrixTest, TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations) {
+    const double large = std::ldexp(1.0, 60);
+    std::array<double, 4> terms = {large, 100.0, -large, 2.0};
+    std::sort(terms.begin(), terms.end());
+    int permutation = 0;
+    int finiteNonzeroCases = 0;
+    do {
+        AssertFiniteNonzeroSignedDotPermutation(terms, permutation++, &finiteNonzeroCases);
+    } while (std::next_permutation(terms.begin(), terms.end()));
+    ASSERT_EQ(24, permutation);
+    ASSERT_EQ(18, finiteNonzeroCases);
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveDirectConfirmationCounts) {
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 2.0}, &counts);
+        Vector_<> terminalInput(2);
+        matrix.SetLeftHook([&terminalInput](int call, const Vector_<>& input, Vector_<>*) {
+            if (call != 4)
+                return false;
+            terminalInput[0] = input[0];
+            terminalInput[1] = input[1];
+            return false;
+        });
+        const Vector_<> b = {1.0, 1.0};
+        Vector_<> x = {0.0, 0.0};
+
+        RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x);
+
+        ASSERT_EQ(4, counts.left_);
+        ASSERT_EQ(biConjugate ? 2 : 0, counts.right_);
+        ASSERT_DOUBLE_EQ(1.0, terminalInput[0]);
+        ASSERT_DOUBLE_EQ(0.5, terminalInput[1]);
+        ASSERT_DOUBLE_EQ(1.0, x[0]);
+        ASSERT_DOUBLE_EQ(0.5, x[1]);
+        ASSERT_TRUE(CommonExponentConverged(DiagonalResidual({1.0, 2.0}, x, b), b, 1e-12, 0.0));
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveInitialAndExhaustionCounts) {
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        {
+            CallbackCounts_ counts;
+            HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
+            const Vector_<> b = {1.0, 1.0};
+            Vector_<> x = {1.0, 0.5};
+            RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x);
+            ASSERT_EQ(1, counts.left_);
+            ASSERT_EQ(0, counts.right_);
+            ASSERT_EQ(0, counts.preconditionerLeft_);
+            ASSERT_EQ(0, counts.preconditionerRight_);
+        }
+        {
+            CallbackCounts_ counts;
+            HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
+            const Vector_<> b = {1.0, 1.0};
+            Vector_<> x = {0.0, 0.0};
+            AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 1, &x); },
+                                       {biConjugate ? "Exhausted iterations in BCGSolve" : "Exhausted iterations in CGSolve"});
+            ASSERT_EQ(2, counts.left_);
+            ASSERT_EQ(biConjugate ? 1 : 0, counts.right_);
+            ASSERT_EQ(1, counts.preconditionerLeft_);
+            ASSERT_EQ(biConjugate ? 1 : 0, counts.preconditionerRight_);
+            ASSERT_DOUBLE_EQ(2.0 / 3.0, x[0]);
+            ASSERT_DOUBLE_EQ(2.0 / 3.0, x[1]);
+        }
+    }
+
+    CallbackCounts_ counts;
+    HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
+    const Vector_<> b = {1e-12, 0.0};
+    Vector_<> x = {0.0, 0.0};
+    RunSolver(true, matrix, b, 0.0, 1e-10, 10, &x);
+    ASSERT_EQ(1, counts.left_);
+    ASSERT_EQ(0, counts.right_);
+    ASSERT_EQ(0, counts.preconditionerLeft_);
+    ASSERT_EQ(0, counts.preconditionerRight_);
+    ASSERT_DOUBLE_EQ(0.0, x[0]);
+    ASSERT_DOUBLE_EQ(0.0, x[1]);
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveRejectDirectResidualMismatchWithoutCommit) {
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 2.0}, &counts);
+        matrix.SetLeftHook([](int call, const Vector_<>&, Vector_<>* output) {
+            if (call != 4)
+                return false;
+            (*output)[0] = 0.0;
+            (*output)[1] = 0.0;
+            return true;
+        });
+        const Vector_<> b = {1.0, 1.0};
+        Vector_<> x = {0.0, 0.0};
+
+        AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x); },
+                                   {SolverName(biConjugate), "numerical breakdown", "direct residual confirmation"});
+
+        ASSERT_EQ(4, counts.left_);
+        ASSERT_EQ(biConjugate ? 2 : 0, counts.right_);
+        ASSERT_DOUBLE_EQ(2.0 / 3.0, x[0]);
+        ASSERT_DOUBLE_EQ(2.0 / 3.0, x[1]);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveProtectCommitOnConfirmationFailure) {
+    for (const bool biConjugate : {false, true}) {
+        AssertCallbackFault(biConjugate, 5, 0, 1);
+        AssertCallbackFault(biConjugate, 5, 1);
+        AssertCallbackFault(biConjugate, 5, 2);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentBoundary) {
+    const Vector_<> large = {1.3e308, 1.3e308};
+    const Vector_<> wideResidual = {1.0, std::numeric_limits<double>::denorm_min()};
+    const Vector_<> wideRhs = {1.0, 0.0};
+    ASSERT_FALSE(CommonExponentConverged(wideResidual, wideRhs, 1.0, 0.0));
+    ASSERT_TRUE(std::isinf(std::hypot(large[0], large[1])));
+    ASSERT_FALSE(CommonExponentConverged(large, large, std::nextafter(1.0, 0.0), 0.0));
+    ASSERT_TRUE(CommonExponentConverged(large, large, 1.0, 0.0));
+    ASSERT_TRUE(CommonExponentConverged(large, large, std::nextafter(1.0, 2.0), 0.0));
+
+    Sparse::TriDiagonal_ zero(2);
+    for (const double tolRel : {std::nextafter(1.0, 0.0), 1.0, std::nextafter(1.0, 2.0)}) {
+        Vector_<> x = {0.0, 0.0};
+        if (tolRel < 1.0)
+            AssertDalExceptionContains([&]() { Sparse::BCGSolve(zero, large, tolRel, 0.0, 10, &x); }, {"BCGSolve", "numerical breakdown"});
+        else
+            Sparse::BCGSolve(zero, large, tolRel, 0.0, 10, &x);
+        ASSERT_DOUBLE_EQ(0.0, x[0]);
+        ASSERT_DOUBLE_EQ(0.0, x[1]);
+    }
+}
+
+TEST(MatrixTest, TestBCGSolvePreservesWideExponentResidualContribution) {
+    CallbackCounts_ counts;
+    HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+    const Vector_<> b = {1.0, 0.0};
+    Vector_<> x = {0.0, -std::numeric_limits<double>::denorm_min()};
+    const Vector_<> initialResidual = {1.0, std::numeric_limits<double>::denorm_min()};
+    ASSERT_FALSE(CommonExponentConverged(initialResidual, b, 1.0, 0.0));
+
+    Sparse::BCGSolve(matrix, b, 1.0, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(1.0, x[0]);
+    ASSERT_DOUBLE_EQ(0.0, x[1]);
+    ASSERT_EQ(3, counts.left_);
+    ASSERT_EQ(1, counts.right_);
+}
+
+TEST(MatrixTest, TestBCGSolveDoesNotRoundSubnormalThresholdIntoConvergence) {
+    const double denorm = std::numeric_limits<double>::denorm_min();
+    const auto assertContinues = [denorm](const Vector_<>& b, Vector_<> x, double tolRel, double tolAbs) {
+        const Vector_<> initialResidual = {b[0] - x[0], b[1] - x[1]};
+        ASSERT_FALSE(CommonExponentConverged(initialResidual, b, tolRel, tolAbs));
+
+        CallbackCounts_ counts;
+        HookedDiagonal_ matrix({1.0, 1.0}, &counts);
+        Sparse::BCGSolve(matrix, b, tolRel, tolAbs, 10, &x);
+
+        ASSERT_DOUBLE_EQ(b[0], x[0]);
+        ASSERT_DOUBLE_EQ(b[1], x[1]);
+        ASSERT_EQ(3, counts.left_);
+        ASSERT_EQ(1, counts.right_);
+    };
+
+    for (const int exponent : {-1074, -1030, -1029, -1028}) {
+        SCOPED_TRACE(exponent);
+        const double primary = std::scalbn(1.0, exponent);
+        assertContinues({primary, 0.0}, {0.0, -denorm}, 1.0, 0.0);
+    }
+
+    const double boundary = std::scalbn(1.0, -1029);
+    assertContinues({0.0, 0.0}, {-boundary, -denorm}, 1.0, boundary);
+    assertContinues({boundary, 0.0}, {0.0, -denorm}, 0.5, 0.5 * boundary);
+}
+
+#if defined(__AVX2__) && defined(__FMA__)
+TEST(MatrixTest, TestBCGSolveNativeDirectResidualPreservesNonPowerSubnormalNorm) {
+    constexpr double primary = 0x1.02cc22b489eadp-537;
+    constexpr double secondary = 0x1.02cc22b489eadp-557;
+    AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 1.0, 0.0);
+}
+#endif
+
+TEST(MatrixTest, TestBCGSolveFixedSeedNonPowerSubnormalClassification) {
+    constexpr std::uint64_t fractionMask = (1ULL << 52) - 1;
+    constexpr std::uint64_t exponentBits = 486ULL << 52;
+    std::uint64_t state = 0x6d5a56da3c9ef187ULL;
+
+    for (int candidate = 0; candidate < 128; ++candidate) {
+        SCOPED_TRACE(candidate);
+        const double primary = DoubleFromBits(exponentBits | ((SplitMix64(&state) & fractionMask) | 1ULL));
+        const double secondary = std::scalbn(primary, -20);
+        const double below = std::nextafter(primary, 0.0);
+        const double half = 0.5 * primary;
+        const double mixedAbsolute = 0.625 * primary;
+
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {below, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {half, 0.0}, 1.0, 0.0);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, 0.0}, 1.0, primary);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, secondary}, 1.0, primary);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {below, 0.0}, 0.375, mixedAbsolute);
+        AssertBCGIdentityInitialClassification({primary, 0.0}, {primary, secondary}, 0.375, mixedAbsolute);
+        AssertBCGIdentityInitialClassification({0.0, 0.0}, {primary, 0.0}, 1.0, 0.0);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) { ASSERT_FALSE(CommonExponentConverged({1.0}, {0.0}, 1.0, 0.0)); }
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveRetainLargeInitialToleranceBehavior) {
+    Sparse::TriDiagonal_ matrix(1);
+    matrix.Set(0, 0, 1.0);
+    const Vector_<> b = {1e308};
+    Vector_<> x = {std::nextafter(1e308, 0.0)};
+    const double initial = x[0];
+
+    Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(initial, x[0]);
+    ASSERT_TRUE(CommonExponentConverged(DiagonalResidual({1.0}, x, b), b, EPSILON, 0.0));
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveValidateCallbackShapes) {
+    for (const int badSize : {1, 3}) {
+        for (const bool biConjugate : {false, true}) {
+            AssertCallbackFault(biConjugate, 0, 0, badSize);
+            AssertCallbackFault(biConjugate, 1, 0, badSize);
+            AssertCallbackFault(biConjugate, 3, 0, badSize);
+            AssertCallbackFault(biConjugate, 5, 0, badSize);
+        }
+        AssertCallbackFault(true, 2, 0, badSize);
+        AssertCallbackFault(true, 4, 0, badSize);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveValidateCallbackFiniteness) {
+    for (const bool biConjugate : {false, true}) {
+        AssertCallbackFault(biConjugate, 0, 1);
+        AssertCallbackFault(biConjugate, 1, 1);
+        AssertCallbackFault(biConjugate, 3, 1);
+        AssertCallbackFault(biConjugate, 5, 1);
+    }
+    AssertCallbackFault(true, 2, 1);
+    AssertCallbackFault(true, 4, 1);
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolvePropagateCallbackExceptions) {
+    for (const bool biConjugate : {false, true}) {
+        AssertCallbackFault(biConjugate, 0, 2);
+        AssertCallbackFault(biConjugate, 1, 2);
+        AssertCallbackFault(biConjugate, 3, 2);
+        AssertCallbackFault(biConjugate, 5, 2);
+    }
+    AssertCallbackFault(true, 2, 2);
+    AssertCallbackFault(true, 4, 2);
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveRejectNonFiniteInputsBeforeCallbacks) {
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        const std::array<Vector_<>, 2> invalidB = {Vector_<>{1.0, std::numeric_limits<double>::quiet_NaN()},
+                                                   Vector_<>{1.0, std::numeric_limits<double>::infinity()}};
+        for (const Vector_<>& b : invalidB) {
+            CallbackCounts_ counts;
+            HookedDiagonal_ matrix({1.0, 2.0}, &counts);
+            Vector_<> x = {0.0, 0.0};
+            AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x); },
+                                       {SolverName(biConjugate), "non-finite input", "b", "1"});
+            ASSERT_EQ(0, counts.left_);
+            ASSERT_DOUBLE_EQ(0.0, x[0]);
+            ASSERT_DOUBLE_EQ(0.0, x[1]);
+        }
+        {
+            CallbackCounts_ counts;
+            HookedDiagonal_ matrix({1.0, 2.0}, &counts);
+            const Vector_<> b = {1.0, 1.0};
+            Vector_<> x = {std::numeric_limits<double>::infinity(), 0.0};
+            AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x); },
+                                       {SolverName(biConjugate), "non-finite input", "x", "0"});
+            ASSERT_EQ(0, counts.left_);
+            ASSERT_TRUE(std::isinf(x[0]));
+            ASSERT_DOUBLE_EQ(0.0, x[1]);
+        }
+        for (const std::pair<double, const char*> tolerance : {std::pair<double, const char*>{std::numeric_limits<double>::quiet_NaN(), "tolRel"},
+                                                               std::pair<double, const char*>{std::numeric_limits<double>::infinity(), "tolAbs"}}) {
+            CallbackCounts_ counts;
+            HookedDiagonal_ matrix({1.0, 2.0}, &counts);
+            const Vector_<> b = {1.0, 1.0};
+            Vector_<> x = {0.0, 0.0};
+            const double tolRel = std::string(tolerance.second) == "tolRel" ? tolerance.first : 1e-12;
+            const double tolAbs = std::string(tolerance.second) == "tolAbs" ? tolerance.first : 0.0;
+            AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, tolRel, tolAbs, 10, &x); },
+                                       {SolverName(biConjugate), "non-finite input", tolerance.second});
+            ASSERT_EQ(0, counts.left_);
+        }
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolvePreserveGenericValidationMessages) {
+    Sparse::TriDiagonal_ matrix(2);
+    const Vector_<> b = {1.0, 1.0};
+    for (const bool biConjugate : {false, true}) {
+        {
+            Vector_<> x = {0.0};
+            AssertDalExceptionContains([&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 10, &x); }, {"matrix dimensions are incompatible"});
+        }
+        for (const std::array<double, 3> parameters :
+             {std::array<double, 3>{-1.0, 0.0, 10.0}, std::array<double, 3>{0.0, -1.0, 10.0}, std::array<double, 3>{1e-12, 0.0, 0.0}}) {
+            Vector_<> x = {0.0, 0.0};
+            AssertDalExceptionContains(
+                [&]() { RunSolver(biConjugate, matrix, b, parameters[0], parameters[1], static_cast<int>(parameters[2]), &x); },
+                {"parameters are invalid"});
+        }
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveClassifyZeroDenominatorBreakdown) {
+    Sparse::TriDiagonal_ zero(1);
+    const Vector_<> b = {1.0};
+    for (const bool biConjugate : {false, true}) {
+        Vector_<> x = {0.0};
+        AssertDalExceptionContains([&]() { RunSolver(biConjugate, zero, b, EPSILON, 0.0, 10, &x); },
+                                   {SolverName(biConjugate), "numerical breakdown", "alpha denominator"});
+        ASSERT_DOUBLE_EQ(0.0, x[0]);
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveRemainScaleMetamorphic) {
+    const double scale = std::ldexp(1.0, 500);
+    const Vector_<> diagonal = {2.0, 3.0};
+    Sparse::TriDiagonal_ matrix(2);
+    matrix.Set(0, 0, diagonal[0]);
+    matrix.Set(1, 1, diagonal[1]);
+
+    for (const bool biConjugate : {false, true}) {
+        Vector_<> unitX = {0.0, 0.0};
+        const Vector_<> unitB = {2.0, 6.0};
+        RunSolver(biConjugate, matrix, unitB, 1e-12, 0.0, 10, &unitX);
+
+        Vector_<> scaledX = {0.0, 0.0};
+        const Vector_<> scaledB = {2.0 * scale, 6.0 * scale};
+        RunSolver(biConjugate, matrix, scaledB, 1e-12, 0.0, 10, &scaledX);
+
+        ASSERT_NEAR(scale * unitX[0], scaledX[0], scale * 1e-12);
+        ASSERT_NEAR(scale * unitX[1], scaledX[1], scale * 1e-12);
+        ASSERT_TRUE(CommonExponentConverged(DiagonalResidual(diagonal, scaledX, scaledB), scaledB, 1e-12, 0.0));
+    }
+}
+
+TEST(MatrixTest, TestCGSolveAndBCGSolvePublicSignaturesRemainExact) {
+    SolveFunction_ cg = &Sparse::CGSolve;
+    SolveFunction_ bcg = &Sparse::BCGSolve;
+    ASSERT_NE(nullptr, cg);
+    ASSERT_NE(nullptr, bcg);
 }
