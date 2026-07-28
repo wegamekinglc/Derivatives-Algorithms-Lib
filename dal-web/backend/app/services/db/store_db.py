@@ -50,7 +50,11 @@ from app.services.db.models import (
     ValuationRow,
 )
 from app.services.db.session import engine_from_url
-from app.services.store import ConflictError, NotFoundError
+from app.services.store import (
+    ConflictError,
+    NotFoundError,
+    validate_curve_lab_dependency_manifest,
+)
 
 
 class DbStore:
@@ -561,9 +565,7 @@ class DbStore:
             ).all()
             return [row.to_record() for row in rows]
 
-    def mark_calibration_solving(
-        self, calibration_id: str, started_at: datetime
-    ) -> None:
+    def mark_calibration_solving(self, calibration_id: str, started_at: datetime) -> None:
         with self._session() as session:
             row = self._require_calibration_row(session, calibration_id)
             row.phase = "solving"
@@ -701,9 +703,7 @@ class DbStore:
                 raise NotFoundError(f"curve draft {draft_id}")
             return self._curve_lab_draft_dict(row)
 
-    def update_curve_lab_draft(
-        self, draft_id: str, expected_revision: int, record: dict
-    ) -> dict:
+    def update_curve_lab_draft(self, draft_id: str, expected_revision: int, record: dict) -> dict:
         with self._session() as session:
             result = session.execute(
                 update(CurveLabDraftRow)
@@ -723,15 +723,11 @@ class DbStore:
             if result.rowcount != 1:
                 session.rollback()
                 exists = session.scalar(
-                    select(CurveLabDraftRow.id).where(
-                        CurveLabDraftRow.id == draft_id
-                    )
+                    select(CurveLabDraftRow.id).where(CurveLabDraftRow.id == draft_id)
                 )
                 if exists is None:
                     raise NotFoundError(f"curve draft {draft_id}")
-                raise ConflictError(
-                    f"draft revision no longer equals {expected_revision}"
-                )
+                raise ConflictError(f"draft revision no longer equals {expected_revision}")
             session.commit()
             return record
 
@@ -783,8 +779,7 @@ class DbStore:
                 session.rollback()
                 existing = session.scalar(
                     select(CurveLabVersionRow).where(
-                        CurveLabVersionRow.idempotency_key
-                        == record["idempotency_key"]
+                        CurveLabVersionRow.idempotency_key == record["idempotency_key"]
                     )
                 )
                 if existing is None:
@@ -802,9 +797,7 @@ class DbStore:
     ) -> tuple[dict, bool]:
         with self._session() as session:
             draft = session.scalar(
-                select(CurveLabDraftRow)
-                .where(CurveLabDraftRow.id == draft_id)
-                .with_for_update()
+                select(CurveLabDraftRow).where(CurveLabDraftRow.id == draft_id).with_for_update()
             )
             run = session.scalar(
                 select(CurveLabBuildRunRow)
@@ -829,6 +822,33 @@ class DbStore:
             )
             if existing is not None:
                 return self._curve_lab_version_dict(existing), False
+            manifest = run.dependency_manifest_json
+            version_ids = (
+                [
+                    entry.get("version_id")
+                    for entry in manifest
+                    if isinstance(entry, dict)
+                    and isinstance(entry.get("version_id"), str)
+                ]
+                if isinstance(manifest, list)
+                else []
+            )
+            dependency_rows = (
+                session.scalars(
+                    select(CurveLabVersionRow)
+                    .where(CurveLabVersionRow.id.in_(version_ids))
+                    .with_for_update()
+                ).all()
+                if version_ids
+                else []
+            )
+            validate_curve_lab_dependency_manifest(
+                manifest,
+                {
+                    row.id: self._curve_lab_version_dict(row)
+                    for row in dependency_rows
+                },
+            )
             session.add(self._curve_lab_version_row(record))
             try:
                 session.commit()
@@ -836,8 +856,7 @@ class DbStore:
                 session.rollback()
                 existing = session.scalar(
                     select(CurveLabVersionRow).where(
-                        CurveLabVersionRow.idempotency_key
-                        == record["idempotency_key"]
+                        CurveLabVersionRow.idempotency_key == record["idempotency_key"]
                     )
                 )
                 if existing is None:
@@ -852,23 +871,36 @@ class DbStore:
                 raise NotFoundError(f"curve version {version_id}")
             return self._curve_lab_version_dict(row)
 
+    def resolve_curve_lab_versions(self, version_ids: list[str]) -> list[dict]:
+        if not version_ids:
+            return []
+        with self._session() as session:
+            rows = session.scalars(
+                select(CurveLabVersionRow)
+                .where(CurveLabVersionRow.id.in_(version_ids))
+                .with_for_update()
+            ).all()
+            by_id = {row.id: row for row in rows}
+            return [
+                self._curve_lab_version_dict(by_id[version_id])
+                for version_id in version_ids
+                if version_id in by_id
+            ]
+
     def list_curve_lab_versions(self, include_archived: bool) -> list[dict]:
         with self._session() as session:
-            statement = select(CurveLabVersionRow).order_by(
-                CurveLabVersionRow.created_at
-            )
+            statement = select(CurveLabVersionRow).order_by(CurveLabVersionRow.created_at)
             if not include_archived:
-                statement = statement.where(
-                    CurveLabVersionRow.visibility_state == "VISIBLE"
-                )
-            return [
-                self._curve_lab_version_dict(row)
-                for row in session.scalars(statement).all()
-            ]
+                statement = statement.where(CurveLabVersionRow.visibility_state == "VISIBLE")
+            return [self._curve_lab_version_dict(row) for row in session.scalars(statement).all()]
 
     def archive_curve_lab_version(self, version_id: str) -> dict:
         with self._session() as session:
-            row = session.get(CurveLabVersionRow, version_id)
+            row = session.scalar(
+                select(CurveLabVersionRow)
+                .where(CurveLabVersionRow.id == version_id)
+                .with_for_update()
+            )
             if row is None:
                 raise NotFoundError(f"curve version {version_id}")
             row.visibility_state = "ARCHIVED"
@@ -888,14 +920,11 @@ class DbStore:
                 raise NotFoundError(f"curve import job {job_id}")
             return self._curve_lab_import_job_dict(row)
 
-    def publish_curve_lab_import(
-        self, version_record: dict, job_record: dict
-    ) -> tuple[dict, dict]:
+    def publish_curve_lab_import(self, version_record: dict, job_record: dict) -> tuple[dict, dict]:
         with self._session() as session:
             existing = session.scalar(
                 select(CurveLabVersionRow).where(
-                    CurveLabVersionRow.idempotency_key
-                    == version_record["idempotency_key"]
+                    CurveLabVersionRow.idempotency_key == version_record["idempotency_key"]
                 )
             )
             if existing is None:
@@ -911,9 +940,7 @@ class DbStore:
             session.commit()
             return self._curve_lab_version_dict(version), stored_job
 
-    def publish_curve_lab_risk_run(
-        self, record: dict, matrices: list[dict]
-    ) -> dict:
+    def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict:
         with self._session() as session:
             row = CurveLabRiskRunRow(
                 id=record["id"],
@@ -935,9 +962,7 @@ class DbStore:
             session.add(row)
             session.flush()
             for matrix in matrices:
-                envelope = {
-                    key: value for key, value in matrix.items() if key != "values"
-                }
+                envelope = {key: value for key, value in matrix.items() if key != "values"}
                 values = matrix.get("values")
                 session.add(
                     CurveLabMatrixBlobRow(
@@ -972,11 +997,7 @@ class DbStore:
                 raise NotFoundError(f"curve matrix {run_id}/{matrix_id}")
             return {
                 **row.envelope_json,
-                **(
-                    {"values": json.loads(row.values_blob)}
-                    if row.values_blob is not None
-                    else {}
-                ),
+                **({"values": json.loads(row.values_blob)} if row.values_blob is not None else {}),
             }
 
     def add_curve_lab_audit_event(self, record: dict) -> None:
@@ -997,9 +1018,7 @@ class DbStore:
             session.commit()
 
     @staticmethod
-    def _require_calibration_row(
-        session: Session, calibration_id: str
-    ) -> CalibrationRunRow:
+    def _require_calibration_row(session: Session, calibration_id: str) -> CalibrationRunRow:
         row = session.get(CalibrationRunRow, calibration_id)
         if row is None:
             raise NotFoundError(f"calibration {calibration_id}")

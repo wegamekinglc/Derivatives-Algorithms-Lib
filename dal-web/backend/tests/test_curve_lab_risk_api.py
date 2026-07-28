@@ -140,6 +140,90 @@ def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
     ]
 
 
+def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archive(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    _, source = _publish_version(client)
+    dependent_document = _document()
+    dependent_document["dependency_version_ids"] = [source["id"]]
+    dependent_draft_response = client.post(
+        "/api/curve-lab/drafts",
+        json=dependent_document,
+    )
+    assert dependent_draft_response.status_code == 201, dependent_draft_response.text
+    dependent_draft = dependent_draft_response.json()
+    dependent_run_response = client.post(
+        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
+    )
+    assert dependent_run_response.status_code == 202, dependent_run_response.text
+    dependent_run = dependent_run_response.json()
+    assert dependent_run["state"] == "SUCCEEDED", dependent_run
+    dependent_version_response = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": dependent_draft["id"],
+            "draft_revision": dependent_draft["revision"],
+            "draft_fingerprint": dependent_draft["fingerprint"],
+            "build_run_id": dependent_run["id"],
+            "name": "dependent",
+            "idempotency_key": "dependent-risk-version",
+        },
+    )
+    assert dependent_version_response.status_code == 201, dependent_version_response.text
+    dependent = dependent_version_response.json()
+    assert client.post(f"/api/curve-lab/versions/{source['id']}/archive").status_code == 200
+
+    observed: list[tuple[str, bytes]] = []
+
+    def price(
+        _document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        *,
+        dependencies=(),
+        parameter_bumps=None,
+    ):
+        assert parameter_bumps is None
+        observed.extend(
+            (record["native_payload_hash"], record["native_payload"])
+            for record in dependencies
+        )
+        return [
+            {
+                "trade_id": trades[0]["trade_id"],
+                "instrument_type": "DEPOSIT",
+                "succeeded": True,
+                "pv": "100",
+                "currency": base_currency,
+                "required_historical_fixings": [],
+                "missing_historical_fixings": [],
+                "dependency_component_keys": [
+                    "clab/v1/local/discount/USD/OIS"
+                ],
+                "error": "",
+            }
+        ]
+
+    monkeypatch.setattr(gateway_module.get_gateway(), "price_curve_lab_trades", price)
+    request = _request(dependent["id"])
+    request["measures"] = ["PV", "DV01"]
+    request["sensitivity_layers"] = []
+
+    created = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert created.status_code == 202, created.text
+    assert created.json()["state"] == "SUCCEEDED"
+    assert observed
+    assert {content_hash for content_hash, _ in observed} == {
+        source["native_payload_hash"]
+    }
+    assert all(payload for _, payload in observed)
+
+
 def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
     client, monkeypatch
 ) -> None:
@@ -149,7 +233,15 @@ def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
     gateway = gateway_module.get_gateway()
     calls: list[str] = []
 
-    def price(document, trades, evaluation_time, base_currency):
+    def price(
+        document,
+        trades,
+        evaluation_time,
+        base_currency,
+        *,
+        dependencies=(),
+    ):
+        assert dependencies == []
         quote = str(document["instruments"][0]["raw_quote"])
         calls.append(quote)
         pv = Decimal("100") + Decimal(quote)
@@ -261,7 +353,15 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
     gateway = gateway_module.get_gateway()
     trades = [_trade(0), _trade(1)]
 
-    def price(_document, native_trades, _evaluation_time, base_currency):
+    def price(
+        _document,
+        native_trades,
+        _evaluation_time,
+        base_currency,
+        *,
+        dependencies=(),
+    ):
+        assert dependencies == []
         return [
             {
                 "trade_id": native_trades[0]["trade_id"],
@@ -283,7 +383,10 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
                 "required_historical_fixings": [("USD-SOFR", "2026-01-14T11:00:00")],
                 "missing_historical_fixings": [("USD-SOFR", "2026-01-14T11:00:00")],
                 "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
-                "error": "Missing historical fixing USD-SOFR",
+                "error": (
+                    "/home/builder/Derivatives-Algorithms-Lib/dal-cpp/"
+                    "curve.cpp:412 CalibrateCurve(): Missing historical fixing USD-SOFR"
+                ),
             },
         ]
 
@@ -316,6 +419,10 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
         "dependency_component_keys",
     }
     assert rows[1]["error"]["code"] == "MISSING_HISTORICAL_FIXING"
+    assert rows[1]["error"]["message"] == "Native trade pricing failed."
+    assert "/home/builder" not in response.text
+    assert "curve.cpp" not in response.text
+    assert "CalibrateCurve" not in response.text
 
 
 def test_work_estimator_charges_full_two_parameter_bumps_per_trade() -> None:
@@ -344,7 +451,15 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
     _, version = _publish_version(client)
     gateway = gateway_module.get_gateway()
 
-    def price(document, trades, _evaluation_time, base_currency):
+    def price(
+        document,
+        trades,
+        _evaluation_time,
+        base_currency,
+        *,
+        dependencies=(),
+    ):
+        assert dependencies == []
         quote = Decimal(str(document["instruments"][0]["raw_quote"]))
         return [
             {
@@ -360,7 +475,8 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
             }
         ]
 
-    def parameters(document, _axis):
+    def parameters(document, _axis, *, dependencies=()):
+        assert dependencies == []
         return [str(document["instruments"][0]["raw_quote"])]
 
     def parameter_bump(
@@ -370,7 +486,10 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
         base_currency,
         _axis,
         bump,
+        *,
+        dependencies=(),
     ):
+        assert dependencies == []
         return [
             {
                 "trade_id": trades[0]["trade_id"],

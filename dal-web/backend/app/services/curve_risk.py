@@ -270,7 +270,7 @@ def _pricing_result(trade: dict, native: dict) -> dict:
                 if native.get("missing_historical_fixings")
                 else "PRICING_FAILED"
             ),
-            "message": str(native.get("error") or "Native trade pricing failed."),
+            "message": "Native trade pricing failed.",
             "field": f"trades[{trade['trade_id']}]",
             "value": None,
             "resource_id": trade["trade_id"],
@@ -310,6 +310,7 @@ def _central_price_matrix(
     parameter_axis: list[dict],
     evaluation_time: str,
     base_currency: str,
+    dependencies: list[dict],
 ) -> list[list[str]] | None:
     epsilon = Decimal("0.000001")
     columns: list[list[str]] = []
@@ -323,6 +324,7 @@ def _central_price_matrix(
                 base_currency,
                 axis,
                 float(epsilon),
+                dependencies=dependencies,
             ),
         )
         minus = _native_by_trade(
@@ -334,6 +336,7 @@ def _central_price_matrix(
                 base_currency,
                 axis,
                 -float(epsilon),
+                dependencies=dependencies,
             ),
         )
         column: list[str] = []
@@ -354,16 +357,19 @@ def _central_calibration_jacobian(
     document: dict,
     quote_axis: list[dict],
     parameter_axis: list[dict],
+    dependencies: list[dict],
 ) -> list[list[str]]:
     columns: list[list[str]] = []
     for quote_index, quote in enumerate(quote_axis):
         plus = gateway.curve_lab_parameter_values(
             _bumped_document(document, quote_axis, quote_index, 1),
             parameter_axis,
+            dependencies=dependencies,
         )
         minus = gateway.curve_lab_parameter_values(
             _bumped_document(document, quote_axis, quote_index, -1),
             parameter_axis,
+            dependencies=dependencies,
         )
         denominator = Decimal(quote["normalized_risk_bump"]) * 2
         columns.append(
@@ -445,6 +451,80 @@ def _failed_matrix(
     }
 
 
+def _runtime_dependencies(
+    store: StoreProtocol,
+    build: dict | None,
+    version: dict,
+) -> list[dict]:
+    if build is None:
+        return []
+    manifest = build.get("dependency_manifest")
+    if not isinstance(manifest, list):
+        raise CurveLabLifecycleError(
+            409,
+            "RISK_DEPENDENCY_CONTEXT_INVALID",
+            "Curve version dependency evidence is invalid.",
+            "curve_version_id",
+            version["id"],
+            resource_id=version["id"],
+        )
+    verification = version.get("verification")
+    published_manifest = (
+        verification.get("dependency_manifest")
+        if isinstance(verification, dict)
+        else None
+    )
+    if published_manifest is not None and published_manifest != manifest:
+        raise CurveLabLifecycleError(
+            409,
+            "RISK_DEPENDENCY_CONTEXT_INVALID",
+            "Published dependency evidence does not match the build.",
+            "curve_version_id",
+            version["id"],
+            resource_id=version["id"],
+        )
+    version_ids = [
+        entry.get("version_id")
+        for entry in manifest
+        if isinstance(entry, dict)
+    ]
+    if len(version_ids) != len(manifest) or any(
+        not isinstance(version_id, str) for version_id in version_ids
+    ):
+        raise CurveLabLifecycleError(
+            409,
+            "RISK_DEPENDENCY_CONTEXT_INVALID",
+            "Curve version dependency evidence is invalid.",
+            "curve_version_id",
+            version["id"],
+            resource_id=version["id"],
+        )
+    resolved = store.resolve_curve_lab_versions(version_ids)
+    by_id = {record["id"]: record for record in resolved}
+    dependencies: list[dict] = []
+    for entry in manifest:
+        dependency_id = entry["version_id"]
+        dependency = by_id.get(dependency_id)
+        payload = dependency.get("native_payload") if dependency is not None else None
+        if (
+            dependency is None
+            or not isinstance(payload, bytes)
+            or dependency.get("native_payload_hash") != entry.get("content_hash")
+            or dependency.get("root_kind") != entry.get("root_kind")
+            or hashlib.sha256(payload).hexdigest() != entry.get("content_hash")
+        ):
+            raise CurveLabLifecycleError(
+                409,
+                "RISK_DEPENDENCY_CONTEXT_UNAVAILABLE",
+                "A pinned curve dependency cannot be reconstructed exactly.",
+                "curve_version_id",
+                version["id"],
+                resource_id=dependency_id,
+            )
+        dependencies.append(dependency)
+    return dependencies
+
+
 def create_risk_run(
     store: StoreProtocol,
     gateway: DalGateway,
@@ -491,6 +571,7 @@ def create_risk_run(
             "curve_version_id",
             request.curve_version_id,
         )
+    dependencies = _runtime_dependencies(store, build, version)
     quote_axis = list(build["quote_axis"]) if build is not None else []
     parameter_axis = list(build["parameter_axis"]) if build is not None else []
     trades = list(request.target.model_dump(mode="json")["trades"])
@@ -536,6 +617,7 @@ def create_risk_run(
         trades,
         request_json["evaluation_time"],
         request.base_currency,
+        dependencies=dependencies,
     )
     base = _native_by_trade(trades, base_rows)
     pricing = [_pricing_result(trade, base[trade["trade_id"]]) for trade in trades]
@@ -561,6 +643,7 @@ def create_risk_run(
                 parameter_axis,
                 request_json["evaluation_time"],
                 request.base_currency,
+                dependencies,
             )
         except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
             trade_to_node = None
@@ -611,6 +694,7 @@ def create_risk_run(
                 document,
                 quote_axis,
                 parameter_axis,
+                dependencies,
             )
         except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
             jacobian = None
@@ -715,6 +799,7 @@ def create_risk_run(
             trades,
             request_json["evaluation_time"],
             request.base_currency,
+            dependencies=dependencies,
         )
         parallel = _differences(
             trades,
@@ -734,6 +819,7 @@ def create_risk_run(
                 trades,
                 request_json["evaluation_time"],
                 request.base_currency,
+                dependencies=dependencies,
             )
             differences = _differences(
                 trades,

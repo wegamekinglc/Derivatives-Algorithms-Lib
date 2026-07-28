@@ -28,6 +28,7 @@ from app.schemas.curve_lab import (
     RiskRunRequestV2,
     RiskRunResponseV2,
 )
+from app.services.archive_preflight import ArchiveLimits
 from app.services.curve_lab_lifecycle import (
     CurveLabLifecycleError,
     archive_version,
@@ -50,6 +51,27 @@ from app.services.quote_canonicalization import (
 )
 
 router = APIRouter(prefix="/api/curve-lab", tags=["curve-lab"])
+
+
+async def _read_bounded_request_body(
+    request: Request,
+    *,
+    wire_bytes: int = ArchiveLimits().wire_bytes,
+) -> bytes:
+    """Buffer no more than the preflight cap plus one sentinel byte."""
+
+    chunks: list[bytes] = []
+    length = 0
+    async for chunk in request.stream():
+        remaining = wire_bytes + 1 - length
+        if remaining <= 0:
+            break
+        bounded = chunk[:remaining]
+        chunks.append(bounded)
+        length += len(bounded)
+        if length > wire_bytes:
+            break
+    return b"".join(chunks)
 
 
 def _raise_lifecycle(exc: CurveLabLifecycleError) -> None:
@@ -203,9 +225,7 @@ def get_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
 
 
 @router.post("/versions/{version_id}/archive", response_model=CurveVersionResponse)
-def archive_curve_version(
-    version_id: str, store=Depends(store_dependency)
-) -> dict:
+def archive_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
     try:
         return archive_version(store, version_id)
     except CurveLabLifecycleError as exc:
@@ -225,9 +245,7 @@ def clone_curve_version(version_id: str, store=Depends(store_dependency)) -> dic
 
 
 @router.get("/versions/{version_id}/native-json")
-def get_curve_version_native_json(
-    version_id: str, store=Depends(store_dependency)
-) -> Response:
+def get_curve_version_native_json(version_id: str, store=Depends(store_dependency)) -> Response:
     try:
         payload = native_payload(store, version_id)
     except CurveLabLifecycleError as exc:
@@ -242,12 +260,18 @@ def get_curve_version_native_json(
 )
 async def create_curve_import_job(
     request: Request,
+    content_encoding: Annotated[str | None, Header(alias="Content-Encoding")] = None,
     store=Depends(store_dependency),
     gateway=Depends(gateway_dependency),
 ) -> dict:
-    payload = await request.body()
+    payload = await _read_bounded_request_body(request)
     try:
-        return import_native_json(store, gateway, payload)
+        return import_native_json(
+            store,
+            gateway,
+            payload,
+            content_encoding,
+        )
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
 

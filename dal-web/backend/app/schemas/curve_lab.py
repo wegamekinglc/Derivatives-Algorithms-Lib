@@ -178,7 +178,12 @@ class CurveLabErrorResponse(CurveLabWireModel):
     detail: CurveLabErrorDetail
 
 
-CurveLabModeV2 = Literal["SINGLE", "MULTI_CURVE", "XCCY"]
+CurveLabModeV2 = Literal[
+    "SINGLE",
+    "MULTI_CURVE",
+    "STAGED_XCCY",
+    "JOINT_XCCY",
+]
 CurveRoleV2 = Literal["DISCOUNT", "PROJECTION", "BASIS"]
 
 
@@ -332,6 +337,12 @@ class ParameterAxisEntryV2(CurveLabWireModel):
     display_label: str
 
 
+class CurveLabDependencyManifestEntryV2(CurveLabWireModel):
+    version_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    root_kind: Literal["DISCOUNT_CURVE", "CURVE_SET"]
+
+
 class CurveBuildRunResponse(CurveLabWireModel):
     id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
     draft_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
@@ -354,7 +365,7 @@ class CurveBuildRunResponse(CurveLabWireModel):
     resolved_plan: dict[str, object]
     quote_axis: tuple[QuoteAxisEntryV2, ...]
     parameter_axis: tuple[ParameterAxisEntryV2, ...]
-    dependency_manifest: tuple[str, ...]
+    dependency_manifest: tuple[CurveLabDependencyManifestEntryV2, ...]
     diagnostics: dict[str, object] | None
     native_payload_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     error: CurveLabErrorDetail | None = None

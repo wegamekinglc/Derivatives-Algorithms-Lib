@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -71,9 +72,7 @@ def test_draft_create_get_and_restart_preserve_canonical_financial_document(
 
     restarted = client.get(f"/api/curve-lab/drafts/{created['id']}")
     assert restarted.status_code == 200
-    assert restarted.content == client.get(
-        f"/api/curve-lab/drafts/{created['id']}"
-    ).content
+    assert restarted.content == client.get(f"/api/curve-lab/drafts/{created['id']}").content
     assert restarted.json() == created
 
 
@@ -102,9 +101,9 @@ def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> Non
     assert old_run["state"] == "SUCCEEDED"
 
     changed = _document("0.041")
-    changed["instruments"][0]["instrument_id"] = draft["document"]["instruments"][
-        0
-    ]["instrument_id"]
+    changed["instruments"][0]["instrument_id"] = draft["document"]["instruments"][0][
+        "instrument_id"
+    ]
     conflict = client.put(
         f"/api/curve-lab/drafts/{draft['id']}",
         headers={"If-Match": '"0"'},
@@ -124,8 +123,9 @@ def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> Non
     assert updated.status_code == 200
     assert updated.json()["revision"] == 2
     assert updated.json()["fingerprint"] != draft["fingerprint"]
-    assert updated.json()["document"]["instruments"][0]["instrument_id"] == (
-        draft["document"]["instruments"][0]["instrument_id"]
+    assert (
+        updated.json()["document"]["instruments"][0]["instrument_id"]
+        == (draft["document"]["instruments"][0]["instrument_id"])
     )
 
     stale = client.get(f"/api/curve-lab/build-runs/{old_run['id']}")
@@ -151,10 +151,7 @@ def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
 
     def synchronize_draft_update(execute_state) -> None:
         statement = str(execute_state.statement)
-        if (
-            execute_state.is_update
-            and statement.startswith("UPDATE curve_drafts")
-        ):
+        if execute_state.is_update and statement.startswith("UPDATE curve_drafts"):
             barrier.wait(timeout=5)
 
     def update(args) -> str:
@@ -212,9 +209,10 @@ def test_version_publication_is_cas_idempotent_immutable_and_archivable(client) 
     assert archived.status_code == 200
     assert archived.json()["visibility_state"] == "ARCHIVED"
     assert client.get("/api/curve-lab/versions").json() == []
-    assert client.get(
-        "/api/curve-lab/versions", params={"include_archived": True}
-    ).json()[0]["id"] == version["id"]
+    assert (
+        client.get("/api/curve-lab/versions", params={"include_archived": True}).json()[0]["id"]
+        == version["id"]
+    )
 
 
 def test_concurrent_version_publication_returns_one_immutable_version(client) -> None:
@@ -243,9 +241,8 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
 
     def synchronize_idempotency_read(execute_state) -> None:
         nonlocal synchronized_reads
-        if (
-            execute_state.is_select
-            and "curve_versions.idempotency_key" in str(execute_state.statement)
+        if execute_state.is_select and "curve_versions.idempotency_key" in str(
+            execute_state.statement
         ):
             with counter_lock:
                 participate = synchronized_reads < 2
@@ -256,9 +253,7 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
     event.listen(Session, "do_orm_execute", synchronize_idempotency_read)
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(
-                pool.map(lambda store: create_version(store, request), stores)
-            )
+            results = list(pool.map(lambda store: create_version(store, request), stores))
     finally:
         event.remove(Session, "do_orm_execute", synchronize_idempotency_read)
         for store in stores:
@@ -342,9 +337,7 @@ def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> 
             "idempotency_key": "export-source",
         },
     ).json()
-    payload = client.get(
-        f"/api/curve-lab/versions/{built['id']}/native-json"
-    ).content
+    payload = client.get(f"/api/curve-lab/versions/{built['id']}/native-json").content
 
     imported = client.post(
         "/api/curve-lab/import-jobs",
@@ -356,9 +349,7 @@ def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> 
     assert imported.json()["state"] == "SUCCEEDED"
     imported_version = imported.json()["resulting_version_id"]
     assert imported_version != built["id"]
-    imported_payload = client.get(
-        f"/api/curve-lab/versions/{imported_version}/native-json"
-    )
+    imported_payload = client.get(f"/api/curve-lab/versions/{imported_version}/native-json")
     assert imported_payload.status_code == 200
     assert imported_payload.content
 
@@ -387,6 +378,97 @@ def test_import_allowlist_failure_never_calls_native_reader(client, monkeypatch)
     assert called is False
 
 
+@pytest.mark.parametrize(
+    ("payload", "code"),
+    [
+        (b'{"~type":"Bag"} trailing', "ARCHIVE_JSON_TRAILING_BYTES"),
+        (b'{"~type":"Bag","~type":"Bag"}', "ARCHIVE_JSON_DUPLICATE_KEY"),
+        (b'{"~type":"Bag"}\x00', "ARCHIVE_PAYLOAD_NUL"),
+        (b"\xff", "ARCHIVE_PAYLOAD_INVALID_UTF8"),
+        (
+            b'{"~type":"DiscountPWC_v1","name":"curve","ccy":{"$tag":"1"},'
+            b'"knotDates":["2027-01-15"],"rightVals":[0.04]}',
+            "ARCHIVE_FIELD_TYPE_INVALID",
+        ),
+        (
+            b'{"~type":"Bag","name":"outer","keys":["nested"],'
+            b'"contents0":{"~type":"Bag","name":"inner","keys":[]}}',
+            "ARCHIVE_TYPE_POSITION_FORBIDDEN",
+        ),
+    ],
+)
+def test_classified_import_failure_is_persisted_without_calling_native(
+    client,
+    monkeypatch,
+    payload: bytes,
+    code: str,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden(_payload: bytes):
+        nonlocal called
+        called = True
+        raise AssertionError("native reader called before archive preflight")
+
+    monkeypatch.setattr(gateway, "import_curve_lab_archive", forbidden)
+
+    response = client.post(
+        "/api/curve-lab/import-jobs",
+        content=payload,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == code
+    assert called is False
+    persisted = client.get(f"/api/curve-lab/import-jobs/{detail['resource_id']}")
+    assert persisted.status_code == 200
+    assert persisted.json()["state"] == "FAILED"
+    assert persisted.json()["phase"] == "PREFLIGHT"
+    assert persisted.json()["error"]["code"] == code
+    assert persisted.json()["resulting_version_id"] is None
+
+
+def test_gzip_preflight_failure_persists_exact_wire_and_expanded_lengths(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    expanded = b'{"~type":"Bag"} trailing'
+    payload = gzip.compress(expanded)
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden(_payload: bytes):
+        nonlocal called
+        called = True
+        raise AssertionError("native reader called before archive preflight")
+
+    monkeypatch.setattr(gateway, "import_curve_lab_archive", forbidden)
+
+    response = client.post(
+        "/api/curve-lab/import-jobs",
+        content=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+        },
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == "ARCHIVE_JSON_TRAILING_BYTES"
+    assert called is False
+    persisted = client.get(f"/api/curve-lab/import-jobs/{detail['resource_id']}").json()
+    assert persisted["compressed_payload_length"] == len(payload)
+    assert persisted["expanded_payload_length"] == len(expanded)
+
+
 def test_import_publication_rolls_back_version_when_job_write_fails(
     client,
 ) -> None:
@@ -405,9 +487,8 @@ def test_import_publication_rolls_back_version_when_job_write_fails(
             "idempotency_key": "import-transaction-source",
         },
     ).json()
-    payload = client.get(
-        f"/api/curve-lab/versions/{version['id']}/native-json"
-    ).content
+    payload = client.get(f"/api/curve-lab/versions/{version['id']}/native-json").content
+
     def fail_successful_job(_mapper, _connection, target) -> None:
         if target.state == "SUCCEEDED":
             raise RuntimeError("injected import job write failure")
@@ -444,9 +525,7 @@ def test_database_restart_preserves_version_and_native_payload(tmp_path) -> None
     database_url = f"sqlite:///{tmp_path / 'restart.db'}"
     first = DbStore(database_url)
     first.create_all()
-    draft = create_draft(
-        first, CurveDraftDocumentInputV2.model_validate(_document())
-    )
+    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(_document()))
     run = create_build_run(first, DalGateway(), draft["id"])
     version, created = create_version(
         first,
@@ -471,9 +550,7 @@ def test_database_restart_preserves_version_and_native_payload(tmp_path) -> None
         restarted.close()
 
 
-def test_curve_lab_migration_upgrade_downgrade_upgrade(
-    tmp_path, monkeypatch
-) -> None:
+def test_curve_lab_migration_upgrade_downgrade_upgrade(tmp_path, monkeypatch) -> None:
     from alembic import command
     from alembic.config import Config
 
@@ -502,9 +579,7 @@ def test_curve_lab_migration_upgrade_downgrade_upgrade(
     assert "curve_versions" in names
 
 
-def test_native_build_failure_is_persisted_and_restart_readable(
-    client, monkeypatch
-) -> None:
+def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypatch) -> None:
     import app.services.dal_gateway as gateway_module
 
     draft = client.post("/api/curve-lab/drafts", json=_document()).json()
@@ -527,3 +602,178 @@ def test_native_build_failure_is_persisted_and_restart_readable(
     assert run["diagnostics"]["fit_state"] == "FAILED"
     assert client.get(f"/api/curve-lab/build-runs/{run['id']}").json() == run
     assert client.get("/api/curve-lab/versions").json() == []
+
+
+def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch) -> None:
+    """Skipping dependency resolution recreates DAL-23's false success."""
+    import app.services.dal_gateway as gateway_module
+
+    missing_id = "f" * 32
+    document = _document()
+    document["dependency_version_ids"] = [missing_id]
+    draft = client.post("/api/curve-lab/drafts", json=document).json()
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden_native_build(_document, _dependencies=()) -> bytes:
+        nonlocal called
+        called = True
+        raise AssertionError("native build started before dependency admission")
+
+    monkeypatch.setattr(
+        gateway,
+        "build_curve_lab_archive",
+        forbidden_native_build,
+    )
+
+    response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+
+    assert response.status_code == 202
+    run = response.json()
+    assert run["state"] == "FAILED"
+    assert run["error"]["code"] == "DEPENDENCY_VERSION_NOT_FOUND"
+    assert run["error"]["value"] == missing_id
+    assert run["dependency_manifest"] == []
+    assert called is False
+    assert client.get(f"/api/curve-lab/build-runs/{run['id']}").json() == run
+
+
+def test_build_pins_resolved_dependency_identity_hash_and_root_kind(client) -> None:
+    source_draft = _create_draft(client)
+    source_run = client.post(
+        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
+    ).json()
+    source_version = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": source_draft["id"],
+            "draft_revision": source_draft["revision"],
+            "draft_fingerprint": source_draft["fingerprint"],
+            "build_run_id": source_run["id"],
+            "name": "dependency",
+            "idempotency_key": "dependency",
+        },
+    ).json()
+    document = _document("0.041")
+    document["dependency_version_ids"] = [source_version["id"]]
+    dependent_draft = client.post("/api/curve-lab/drafts", json=document).json()
+
+    response = client.post(
+        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
+    )
+
+    assert response.status_code == 202, response.text
+    run = response.json()
+    assert run["state"] == "SUCCEEDED"
+    assert run["dependency_manifest"] == [
+        {
+            "version_id": source_version["id"],
+            "content_hash": source_version["native_payload_hash"],
+            "root_kind": source_version["root_kind"],
+        }
+    ]
+
+
+def test_build_rejects_archived_dependency_before_native_work(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    source_draft = _create_draft(client)
+    source_run = client.post(
+        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
+    ).json()
+    source_version = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": source_draft["id"],
+            "draft_revision": source_draft["revision"],
+            "draft_fingerprint": source_draft["fingerprint"],
+            "build_run_id": source_run["id"],
+            "name": "archived dependency",
+            "idempotency_key": "archived-dependency",
+        },
+    ).json()
+    client.post(f"/api/curve-lab/versions/{source_version['id']}/archive")
+    document = _document("0.041")
+    document["dependency_version_ids"] = [source_version["id"]]
+    dependent_draft = client.post("/api/curve-lab/drafts", json=document).json()
+    gateway = gateway_module.get_gateway()
+    called = False
+
+    def forbidden_native_build(_document, _dependencies=()) -> bytes:
+        nonlocal called
+        called = True
+        raise AssertionError("native build started with an archived dependency")
+
+    monkeypatch.setattr(
+        gateway,
+        "build_curve_lab_archive",
+        forbidden_native_build,
+    )
+
+    response = client.post(
+        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
+    )
+
+    assert response.status_code == 202
+    run = response.json()
+    assert run["state"] == "FAILED"
+    assert run["error"]["code"] == "DEPENDENCY_VERSION_ARCHIVED"
+    assert run["dependency_manifest"] == []
+    assert called is False
+
+
+def test_publication_rejects_dependency_archived_after_successful_build(
+    client,
+) -> None:
+    source_draft = _create_draft(client)
+    source_run = client.post(
+        f"/api/curve-lab/drafts/{source_draft['id']}/build-runs"
+    ).json()
+    source_version = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": source_draft["id"],
+            "draft_revision": source_draft["revision"],
+            "draft_fingerprint": source_draft["fingerprint"],
+            "build_run_id": source_run["id"],
+            "name": "publication dependency",
+            "idempotency_key": "publication-dependency",
+        },
+    ).json()
+    dependent_document = _document("0.041")
+    dependent_document["dependency_version_ids"] = [source_version["id"]]
+    dependent_draft = client.post(
+        "/api/curve-lab/drafts",
+        json=dependent_document,
+    ).json()
+    dependent_run = client.post(
+        f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
+    ).json()
+    assert dependent_run["state"] == "SUCCEEDED"
+
+    archived = client.post(
+        f"/api/curve-lab/versions/{source_version['id']}/archive"
+    )
+    published = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": dependent_draft["id"],
+            "draft_revision": dependent_draft["revision"],
+            "draft_fingerprint": dependent_draft["fingerprint"],
+            "build_run_id": dependent_run["id"],
+            "name": "must not publish",
+            "idempotency_key": "dependency-archived-before-publication",
+        },
+    )
+
+    assert archived.status_code == 200
+    assert published.status_code == 409
+    assert published.json()["detail"]["code"] == "DEPENDENCY_VERSION_ARCHIVED"
+    versions = client.get(
+        "/api/curve-lab/versions",
+        params={"include_archived": True},
+    ).json()
+    assert [version["id"] for version in versions] == [source_version["id"]]

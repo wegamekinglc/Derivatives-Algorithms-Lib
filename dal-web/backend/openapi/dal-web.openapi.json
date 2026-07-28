@@ -569,7 +569,7 @@
           },
           "dependency_manifest": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/CurveLabDependencyManifestEntryV2"
             },
             "title": "Dependency Manifest",
             "type": "array"
@@ -782,7 +782,8 @@
             "enum": [
               "SINGLE",
               "MULTI_CURVE",
-              "XCCY"
+              "STAGED_XCCY",
+              "JOINT_XCCY"
             ],
             "title": "Mode",
             "type": "string"
@@ -847,7 +848,8 @@
             "enum": [
               "SINGLE",
               "MULTI_CURVE",
-              "XCCY"
+              "STAGED_XCCY",
+              "JOINT_XCCY"
             ],
             "title": "Mode",
             "type": "string"
@@ -1110,6 +1112,36 @@
           "registry"
         ],
         "title": "CurveLabCapabilitiesResponse",
+        "type": "object"
+      },
+      "CurveLabDependencyManifestEntryV2": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "root_kind": {
+            "enum": [
+              "DISCOUNT_CURVE",
+              "CURVE_SET"
+            ],
+            "title": "Root Kind",
+            "type": "string"
+          },
+          "version_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "root_kind"
+        ],
+        "title": "CurveLabDependencyManifestEntryV2",
         "type": "object"
       },
       "CurveLabErrorDetail": {
@@ -8220,6 +8252,24 @@
     "/api/curve-lab/import-jobs": {
       "post": {
         "operationId": "create_curve_import_job_api_curve_lab_import_jobs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Content-Encoding",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content-Encoding"
+            }
+          }
+        ],
         "responses": {
           "202": {
             "content": {
@@ -8230,6 +8280,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Create Curve Import Job",

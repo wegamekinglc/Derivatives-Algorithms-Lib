@@ -175,7 +175,11 @@ export interface CurveLabBuildRun {
   resolved_plan: Record<string, unknown>;
   quote_axis: CurveLabAxisEntry[];
   parameter_axis: CurveLabAxisEntry[];
-  dependency_manifest: string[];
+  dependency_manifest: Array<{
+    version_id: string;
+    content_hash: string;
+    root_kind: "DISCOUNT_CURVE" | "CURVE_SET";
+  }>;
   diagnostics: Record<string, unknown> | null;
   native_payload_hash: string | null;
   error: { code: string; message: string; field: string } | null;

@@ -13,18 +13,22 @@ from app.schemas.curve_lab import (
     CurveDraftDocumentInputV2,
     CurveVersionCreateRequest,
 )
+from app.services.archive_preflight import ArchivePreflightError, preflight_archive
 from app.services.quote_canonicalization import (
     QuoteCanonicalizationError,
     canonicalize_quote,
 )
-from app.services.store import ConflictError, NotFoundError
+from app.services.store import (
+    ConflictError,
+    CurveLabDependencyConflictError,
+    NotFoundError,
+)
 
 if TYPE_CHECKING:
     from app.services.dal_gateway import DalGateway
     from app.services.store import StoreProtocol
 
 _REGISTRY = {row.instrument_type: row for row in CURVE_LAB_V1_SUCCESS_REGISTRY}
-_ALLOWED_IMPORT_ROOTS = frozenset(("Bag", "DiscountPWC"))
 
 
 class CurveLabLifecycleError(ValueError):
@@ -260,9 +264,7 @@ def _revision_conflict(
     )
 
 
-def create_build_run(
-    store: StoreProtocol, gateway: DalGateway, draft_id: str
-) -> dict:
+def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -> dict:
     draft = get_draft(store, draft_id)
     document = draft["document"]
     quote_coordinates = quote_axis(document)
@@ -271,16 +273,45 @@ def create_build_run(
         "schema_version": 1,
         "mode": document["mode"],
         "component_order": [
-            declaration["component_key"]
-            for declaration in document["declarations"]
+            declaration["component_key"] for declaration in document["declarations"]
         ],
         "quote_count": len(quote_coordinates),
         "parameter_count": len(parameter_coordinates),
     }
     now = _now()
     run_id = uuid4().hex
+    dependency_records, dependency_manifest, dependency_error = _resolve_build_dependencies(
+        store,
+        list(document["dependency_version_ids"]),
+        run_id,
+    )
+    if dependency_error is not None:
+        record = _failed_build_record(
+            run_id,
+            draft,
+            resolved_plan,
+            quote_coordinates,
+            parameter_coordinates,
+            dependency_manifest,
+            dependency_error,
+            now,
+        )
+        stored = store.add_curve_lab_build_run(record)
+        _audit(
+            store,
+            "BUILD_FAILED",
+            "curve_build_run",
+            run_id,
+            document,
+            outcome="FAILED",
+            error_code=dependency_error["code"],
+        )
+        return _build_public(store, stored)
     try:
-        native_payload = gateway.build_curve_lab_archive(document)
+        native_payload = gateway.build_curve_lab_archive(
+            document,
+            dependency_records,
+        )
     except Exception:  # noqa: BLE001 - native failure becomes immutable evidence
         error = {
             "code": "NATIVE_BUILD_FAILED",
@@ -290,28 +321,16 @@ def create_build_run(
             "resource_id": run_id,
             "details": {},
         }
-        record = {
-            "id": run_id,
-            "draft_id": draft_id,
-            "draft_revision": draft["revision"],
-            "draft_fingerprint": draft["fingerprint"],
-            "state": "FAILED",
-            "request": document,
-            "resolved_plan": resolved_plan,
-            "quote_axis": quote_coordinates,
-            "parameter_axis": parameter_coordinates,
-            "dependency_manifest": list(document["dependency_version_ids"]),
-            "native_payload": None,
-            "native_payload_hash": None,
-            "diagnostics": {
-                "fit_state": "FAILED",
-                "quote_count": len(quote_coordinates),
-                "parameter_count": len(parameter_coordinates),
-            },
-            "error": error,
-            "created_at": now,
-            "finished_at": _now(),
-        }
+        record = _failed_build_record(
+            run_id,
+            draft,
+            resolved_plan,
+            quote_coordinates,
+            parameter_coordinates,
+            dependency_manifest,
+            error,
+            now,
+        )
         stored = store.add_curve_lab_build_run(record)
         _audit(
             store,
@@ -333,7 +352,7 @@ def create_build_run(
         "resolved_plan": resolved_plan,
         "quote_axis": quote_coordinates,
         "parameter_axis": parameter_coordinates,
-        "dependency_manifest": list(document["dependency_version_ids"]),
+        "dependency_manifest": dependency_manifest,
         "native_payload": native_payload,
         "native_payload_hash": hashlib.sha256(native_payload).hexdigest(),
         "diagnostics": {
@@ -349,6 +368,105 @@ def create_build_run(
     stored = store.add_curve_lab_build_run(record)
     _audit(store, "BUILD_SUCCEEDED", "curve_build_run", record["id"], record["request"])
     return _build_public(store, stored)
+
+
+def _resolve_build_dependencies(
+    store: StoreProtocol,
+    requested_ids: list[str],
+    run_id: str,
+) -> tuple[list[dict], list[dict], dict | None]:
+    resolved = store.resolve_curve_lab_versions(requested_ids)
+    by_id = {record["id"]: record for record in resolved}
+    accepted: list[dict] = []
+    manifest: list[dict] = []
+    for version_id in requested_ids:
+        version = by_id.get(version_id)
+        if version is None:
+            return (
+                accepted,
+                manifest,
+                {
+                    "code": "DEPENDENCY_VERSION_NOT_FOUND",
+                    "message": "Curve dependency version was not found.",
+                    "field": "dependency_version_ids",
+                    "value": version_id,
+                    "resource_id": run_id,
+                    "details": {},
+                },
+            )
+        if version["visibility_state"] == "ARCHIVED":
+            return (
+                accepted,
+                manifest,
+                {
+                    "code": "DEPENDENCY_VERSION_ARCHIVED",
+                    "message": "Archived curve dependency versions cannot enter a new build.",
+                    "field": "dependency_version_ids",
+                    "value": version_id,
+                    "resource_id": run_id,
+                    "details": {},
+                },
+            )
+        verification = version.get("verification")
+        if not isinstance(verification, dict) or not isinstance(
+            verification.get("document"),
+            dict,
+        ):
+            return (
+                accepted,
+                manifest,
+                {
+                    "code": "DEPENDENCY_CONTEXT_UNAVAILABLE",
+                    "message": "Curve dependency lacks reconstructible component context.",
+                    "field": "dependency_version_ids",
+                    "value": version_id,
+                    "resource_id": run_id,
+                    "details": {},
+                },
+            )
+        accepted.append(version)
+        manifest.append(
+            {
+                "version_id": version_id,
+                "content_hash": version["native_payload_hash"],
+                "root_kind": version["root_kind"],
+            }
+        )
+    return accepted, manifest, None
+
+
+def _failed_build_record(
+    run_id: str,
+    draft: dict,
+    resolved_plan: dict,
+    quote_coordinates: list[dict],
+    parameter_coordinates: list[dict],
+    dependency_manifest: list[dict],
+    error: dict,
+    created_at: str,
+) -> dict:
+    return {
+        "id": run_id,
+        "draft_id": draft["id"],
+        "draft_revision": draft["revision"],
+        "draft_fingerprint": draft["fingerprint"],
+        "state": "FAILED",
+        "request": draft["document"],
+        "resolved_plan": resolved_plan,
+        "quote_axis": quote_coordinates,
+        "parameter_axis": parameter_coordinates,
+        "dependency_manifest": dependency_manifest,
+        "native_payload": None,
+        "native_payload_hash": None,
+        "diagnostics": {
+            "fit_state": "FAILED",
+            "quote_count": len(quote_coordinates),
+            "parameter_count": len(parameter_coordinates),
+        },
+        "error": error,
+        "created_at": created_at,
+        "finished_at": _now(),
+    }
 
 
 def quote_axis(document: dict) -> list[dict]:
@@ -378,9 +496,7 @@ def quote_axis(document: dict) -> list[dict]:
                 "normalized_unit": "DECIMAL_RATE",
                 "exact_risk_raw_bump": item["exact_risk_raw_bump"],
                 "normalized_risk_bump": item["normalized_risk_bump"],
-                "display_label": (
-                    f"{item['instrument_type']} {item['maturity_date']}"
-                ),
+                "display_label": (f"{item['instrument_type']} {item['maturity_date']}"),
             }
         )
     return result
@@ -397,8 +513,7 @@ def parameter_axis(document: dict) -> list[dict]:
             {
                 item["maturity_date"]
                 for item in included
-                if item["terms"].get("component_key", default_component)
-                == component_key
+                if item["terms"].get("component_key", default_component) == component_key
             }
         )
         representation = declaration["parameterization"]
@@ -417,9 +532,7 @@ def parameter_axis(document: dict) -> list[dict]:
             result.append(
                 {
                     "global_parameter_index": len(result),
-                    "parameter_id": (
-                        f"{component_key}:{representation}:{node_date}:{side_token}"
-                    ),
+                    "parameter_id": (f"{component_key}:{representation}:{node_date}:{side_token}"),
                     "component_key": component_key,
                     "stage_id": "stage-0",
                     "stage_local_parameter_index": stage_local_index,
@@ -433,8 +546,7 @@ def parameter_axis(document: dict) -> list[dict]:
                         else "DECIMAL_RATE"
                     ),
                     "display_label": (
-                        f"{declaration['currency']} {display_suffix} "
-                        f"{node_date} {side_token}"
+                        f"{declaration['currency']} {display_suffix} {node_date} {side_token}"
                     ),
                 }
             )
@@ -492,9 +604,7 @@ def create_version(
 ) -> tuple[dict, bool]:
     draft = get_draft(store, request.draft_id)
     if draft["revision"] != request.draft_revision:
-        raise _revision_conflict(
-            request.draft_id, request.draft_revision, draft["revision"]
-        )
+        raise _revision_conflict(request.draft_id, request.draft_revision, draft["revision"])
     if draft["fingerprint"] != request.draft_fingerprint:
         raise CurveLabLifecycleError(
             409,
@@ -540,11 +650,7 @@ def create_version(
         "native_payload_length": len(payload),
         "native_payload_hash": hashlib.sha256(payload).hexdigest(),
         "archive_numeric_format": "JSON_MAX_DIGITS10_V1",
-        "root_kind": (
-            "DISCOUNT_CURVE"
-            if draft["document"]["mode"] == "SINGLE"
-            else "CURVE_SET"
-        ),
+        "root_kind": ("DISCOUNT_CURVE" if draft["document"]["mode"] == "SINGLE" else "CURVE_SET"),
         "build_validation_state": "VERIFIED",
         "visibility_state": "VISIBLE",
         "name": request.name,
@@ -555,6 +661,7 @@ def create_version(
             "draft_revision": request.draft_revision,
             "draft_fingerprint": request.draft_fingerprint,
             "document": draft["document"],
+            "dependency_manifest": run["dependency_manifest"],
         },
         "created_at": _now(),
     }
@@ -566,6 +673,29 @@ def create_version(
             request.draft_fingerprint,
             request.build_run_id,
         )
+    except CurveLabDependencyConflictError as exc:
+        code, message = {
+            "NOT_FOUND": (
+                "DEPENDENCY_VERSION_NOT_FOUND",
+                "Curve dependency version was not found.",
+            ),
+            "ARCHIVED": (
+                "DEPENDENCY_VERSION_ARCHIVED",
+                "Archived curve dependency versions cannot enter publication.",
+            ),
+            "CONTEXT_CHANGED": (
+                "DEPENDENCY_CONTEXT_CHANGED",
+                "Curve dependency evidence changed before publication.",
+            ),
+        }[exc.reason]
+        raise CurveLabLifecycleError(
+            409,
+            code,
+            message,
+            "dependency_version_ids",
+            exc.version_id or None,
+            resource_id=exc.version_id or request.build_run_id,
+        ) from exc
     except ConflictError as exc:
         current = get_draft(store, request.draft_id)
         if current["revision"] != request.draft_revision:
@@ -618,10 +748,7 @@ def get_version(store: StoreProtocol, version_id: str) -> dict:
 
 
 def list_versions(store: StoreProtocol, include_archived: bool) -> list[dict]:
-    return [
-        _version_public(item)
-        for item in store.list_curve_lab_versions(include_archived)
-    ]
+    return [_version_public(item) for item in store.list_curve_lab_versions(include_archived)]
 
 
 def archive_version(store: StoreProtocol, version_id: str) -> dict:
@@ -649,11 +776,7 @@ def clone_version(store: StoreProtocol, version_id: str) -> dict:
     authored = {
         **document,
         "instruments": [
-            {
-                key: value
-                for key, value in item.items()
-                if key not in _DERIVED_FOR_CLONE
-            }
+            {key: value for key, value in item.items() if key not in _DERIVED_FOR_CLONE}
             for item in document["instruments"]
         ],
     }
@@ -687,35 +810,42 @@ _DERIVED_FOR_CLONE = frozenset(
 
 
 def import_native_json(
-    store: StoreProtocol, gateway: DalGateway, payload: bytes
+    store: StoreProtocol,
+    gateway: DalGateway,
+    payload: bytes,
+    content_encoding: str | None = None,
 ) -> dict:
     now = _now()
     job_id = uuid4().hex
     request_hash = hashlib.sha256(payload).hexdigest()
-    error: dict | None = None
-    root_type: object = None
     try:
-        parsed = json.loads(payload)
-        if not isinstance(parsed, dict):
-            raise ValueError("root must be object")
-        root_type = parsed.get("~type")
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
-        root_type = None
-    if root_type not in _ALLOWED_IMPORT_ROOTS:
+        preflight = preflight_archive(
+            payload,
+            content_encoding=content_encoding,
+        )
+    except ArchivePreflightError as exc:
         error = {
-            "code": "IMPORT_ROOT_TYPE_FORBIDDEN",
-            "message": "Native archive root type is outside the Curve Lab allowlist.",
-            "field": "~type",
-            "value": root_type,
+            "code": exc.code,
+            "message": exc.message,
+            "field": exc.field,
+            "value": exc.value,
             "resource_id": job_id,
-            "details": {"allowed": sorted(_ALLOWED_IMPORT_ROOTS)},
+            "details": exc.details,
         }
         store.add_curve_lab_import_job(
             {
                 "id": job_id,
                 "request_hash": request_hash,
-                "compressed_payload_length": len(payload),
-                "expanded_payload_length": len(payload),
+                "compressed_payload_length": (
+                    exc.wire_length
+                    if exc.wire_length is not None
+                    else len(payload)
+                ),
+                "expanded_payload_length": (
+                    exc.expanded_length
+                    if exc.expanded_length is not None
+                    else 0
+                ),
                 "state": "FAILED",
                 "phase": "PREFLIGHT",
                 "error": error,
@@ -731,10 +861,10 @@ def import_native_json(
             error["field"],
             error["value"],
             resource_id=job_id,
-            allowed=error["details"]["allowed"],
-        )
+            **error["details"],
+        ) from exc
     try:
-        canonical, root_kind = gateway.import_curve_lab_archive(payload)
+        canonical, root_kind = gateway.import_curve_lab_archive(preflight.payload)
     except Exception as exc:
         error = {
             "code": "IMPORT_NATIVE_RECONSTRUCTION_FAILED",
@@ -749,7 +879,7 @@ def import_native_json(
                 "id": job_id,
                 "request_hash": request_hash,
                 "compressed_payload_length": len(payload),
-                "expanded_payload_length": len(payload),
+                "expanded_payload_length": preflight.expanded_length,
                 "state": "FAILED",
                 "phase": "NATIVE_RECONSTRUCTION",
                 "error": error,
@@ -778,7 +908,7 @@ def import_native_json(
         "root_kind": root_kind,
         "build_validation_state": "IMPORT_RECONSTRUCTED",
         "visibility_state": "VISIBLE",
-        "name": f"Imported {root_type}",
+        "name": f"Imported {preflight.root_type}",
         "version_note": None,
         "tags": [],
         "verification": {
@@ -791,7 +921,7 @@ def import_native_json(
         "id": job_id,
         "request_hash": request_hash,
         "compressed_payload_length": len(payload),
-        "expanded_payload_length": len(payload),
+        "expanded_payload_length": preflight.expanded_length,
         "state": "SUCCEEDED",
         "phase": "PUBLISHED",
         "error": None,
