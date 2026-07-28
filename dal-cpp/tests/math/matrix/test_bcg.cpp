@@ -38,7 +38,7 @@ TEST(MatrixTest, TestCGSolve) {
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 3.0);
 
-    for(int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         mat->Set(i, i, 10.0);
 
     Vector_<> result(n);
@@ -55,7 +55,7 @@ TEST(MatrixTest, TestBCGSolve) {
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 2.0);
 
-    for(int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         mat->Set(i, i, 10.0);
 
     Vector_<> result(n);
@@ -367,41 +367,53 @@ namespace {
         return result;
     }
 
-    bool CommonExponentConverged(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
-        std::vector<OracleBinary_> residualTerms;
-        std::vector<OracleBinary_> relativeTerms;
-        residualTerms.reserve(residual.size());
-        relativeTerms.reserve(b.size());
+    struct OracleConvergenceTerms_ {
+        std::vector<OracleBinary_> residual_;
+        std::vector<OracleBinary_> relative_;
+        OracleBinary_ absolute_;
+        int commonExponent_ = std::numeric_limits<int>::min();
+    };
 
-        int commonExponent = std::numeric_limits<int>::min();
+    void IncludeOracleExponent(const OracleBinary_& value, int* commonExponent) {
+        if (value.bits_.empty())
+            return;
+        *commonExponent = std::max(*commonExponent, value.bits_.rbegin()->first + 1);
+    }
+
+    OracleConvergenceTerms_ BuildOracleConvergenceTerms(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
+        OracleConvergenceTerms_ result;
+        result.residual_.reserve(residual.size());
+        result.relative_.reserve(b.size());
         for (int i = 0; i < static_cast<int>(residual.size()); ++i) {
             OracleBinary_ residualTerm = OracleFromDouble(residual[i]);
             OracleBinary_ relativeTerm = OracleMultiply(OracleFromDouble(tolRel), OracleFromDouble(b[i]));
-            if (!residualTerm.bits_.empty())
-                commonExponent = std::max(commonExponent, residualTerm.bits_.rbegin()->first + 1);
-            if (!relativeTerm.bits_.empty())
-                commonExponent = std::max(commonExponent, relativeTerm.bits_.rbegin()->first + 1);
-            residualTerms.push_back(std::move(residualTerm));
-            relativeTerms.push_back(std::move(relativeTerm));
+            IncludeOracleExponent(residualTerm, &result.commonExponent_);
+            IncludeOracleExponent(relativeTerm, &result.commonExponent_);
+            result.residual_.push_back(std::move(residualTerm));
+            result.relative_.push_back(std::move(relativeTerm));
         }
-        OracleBinary_ absoluteTerm = OracleFromDouble(tolAbs);
-        if (!absoluteTerm.bits_.empty())
-            commonExponent = std::max(commonExponent, absoluteTerm.bits_.rbegin()->first + 1);
-        if (commonExponent == std::numeric_limits<int>::min())
-            commonExponent = 0;
+        result.absolute_ = OracleFromDouble(tolAbs);
+        IncludeOracleExponent(result.absolute_, &result.commonExponent_);
+        if (result.commonExponent_ == std::numeric_limits<int>::min())
+            result.commonExponent_ = 0;
+        return result;
+    }
 
-        for (OracleBinary_& value : residualTerms)
-            value = OracleShift(value, -commonExponent);
-        for (OracleBinary_& value : relativeTerms)
-            value = OracleShift(value, -commonExponent);
-        absoluteTerm = OracleShift(absoluteTerm, -commonExponent);
+    void ShiftOracleConvergenceTerms(OracleConvergenceTerms_* terms) {
+        for (OracleBinary_& value : terms->residual_)
+            value = OracleShift(value, -terms->commonExponent_);
+        for (OracleBinary_& value : terms->relative_)
+            value = OracleShift(value, -terms->commonExponent_);
+        terms->absolute_ = OracleShift(terms->absolute_, -terms->commonExponent_);
+    }
 
-        const OracleBinary_ residualSquares = OracleSumSquares(residualTerms);
-        const OracleBinary_ relativeSquares = OracleSumSquares(relativeTerms);
+    bool OracleSquaresConverged(const OracleConvergenceTerms_& terms) {
+        const OracleBinary_ residualSquares = OracleSumSquares(terms.residual_);
+        const OracleBinary_ relativeSquares = OracleSumSquares(terms.relative_);
         if (OracleCompare(residualSquares, relativeSquares) <= 0)
             return true;
 
-        const OracleBinary_ absoluteSquare = OracleMultiply(absoluteTerm, absoluteTerm);
+        const OracleBinary_ absoluteSquare = OracleMultiply(terms.absolute_, terms.absolute_);
         const OracleBinary_ baseToleranceSquare = OracleAdd(relativeSquares, absoluteSquare);
         if (OracleCompare(residualSquares, baseToleranceSquare) <= 0)
             return true;
@@ -409,6 +421,12 @@ namespace {
         const OracleBinary_ difference = OracleSubtract(residualSquares, baseToleranceSquare);
         const OracleBinary_ crossTermSquare = OracleShift(OracleMultiply(absoluteSquare, relativeSquares), 2);
         return OracleCompare(OracleMultiply(difference, difference), crossTermSquare) <= 0;
+    }
+
+    bool CommonExponentConverged(const Vector_<>& residual, const Vector_<>& b, double tolRel, double tolAbs) {
+        OracleConvergenceTerms_ terms = BuildOracleConvergenceTerms(residual, b, tolRel, tolAbs);
+        ShiftOracleConvergenceTerms(&terms);
+        return OracleSquaresConverged(terms);
     }
 
     Vector_<> DiagonalResidual(const Vector_<>& diagonal, const Vector_<>& x, const Vector_<>& b) {
@@ -431,10 +449,7 @@ namespace {
         return result;
     }
 
-    void AssertBCGIdentityInitialClassification(const Vector_<>& b,
-                                                const Vector_<>& requestedResidual,
-                                                double tolRel,
-                                                double tolAbs) {
+    void AssertBCGIdentityInitialClassification(const Vector_<>& b, const Vector_<>& requestedResidual, double tolRel, double tolAbs) {
         Vector_<> x = {b[0] - requestedResidual[0], b[1] - requestedResidual[1]};
         const Vector_<> entry = x;
         const Vector_<> residual = DiagonalResidual({1.0, 1.0}, x, b);
@@ -483,78 +498,98 @@ namespace {
         ASSERT_TRUE(caught);
     }
 
-    void AssertCallbackFault(bool biConjugate, int site, int fault, int badSize = 0) {
-        SCOPED_TRACE(std::string(SolverName(biConjugate)) + " site=" + std::to_string(site) + " fault=" + std::to_string(fault));
-        CallbackCounts_ counts;
-        std::unique_ptr<HookedDiagonal_> matrix;
-        if (site == 3 || site == 4)
-            matrix = std::make_unique<HookedPreconditionedDiagonal_>(Vector_<>{1.0, 2.0}, &counts);
-        else
-            matrix = std::make_unique<HookedDiagonal_>(Vector_<>{1.0, 2.0}, &counts);
+    bool IsPreconditionerFaultSite(int site) { return site == 3 || site == 4; }
 
-        const Vector_<> diagonal = {1.0, 2.0};
-        auto operatorFault = [fault, badSize, &diagonal](int, const Vector_<>& input, Vector_<>* output) {
-            if (fault == 0) {
-                output->Resize(badSize);
-                return true;
-            }
-            if (fault == 1) {
-                FillDiagonalProduct(diagonal, input, output);
-                (*output)[1] = std::numeric_limits<double>::quiet_NaN();
-                return true;
-            }
-            throw CallbackSentinel_();
-        };
-        auto preconditionerFault = [fault, badSize](int, const Vector_<>& input, Vector_<>* output) {
-            if (fault == 0) {
-                output->Resize(badSize);
-                return true;
-            }
-            if (fault == 1) {
-                for (int i = 0; i < static_cast<int>(input.size()); ++i)
-                    (*output)[i] = input[i];
-                (*output)[1] = std::numeric_limits<double>::infinity();
-                return true;
-            }
-            throw CallbackSentinel_();
-        };
+    std::unique_ptr<HookedDiagonal_> NewFaultMatrix(int site, CallbackCounts_* counts) {
+        if (IsPreconditionerFaultSite(site))
+            return std::make_unique<HookedPreconditionedDiagonal_>(Vector_<>{1.0, 2.0}, counts);
+        return std::make_unique<HookedDiagonal_>(Vector_<>{1.0, 2.0}, counts);
+    }
 
+    bool ApplyOperatorFault(int fault, int badSize, const Vector_<>& diagonal, const Vector_<>& input, Vector_<>* output) {
+        if (fault == 0) {
+            output->Resize(badSize);
+            return true;
+        }
+        if (fault == 1) {
+            FillDiagonalProduct(diagonal, input, output);
+            (*output)[1] = std::numeric_limits<double>::quiet_NaN();
+            return true;
+        }
+        throw CallbackSentinel_();
+    }
+
+    bool ApplyPreconditionerFault(int fault, int badSize, const Vector_<>& input, Vector_<>* output) {
+        if (fault == 0) {
+            output->Resize(badSize);
+            return true;
+        }
+        if (fault == 1) {
+            for (int i = 0; i < static_cast<int>(input.size()); ++i)
+                (*output)[i] = input[i];
+            (*output)[1] = std::numeric_limits<double>::infinity();
+            return true;
+        }
+        throw CallbackSentinel_();
+    }
+
+    bool ApplyFaultOnCall(const CallbackHook_& fault, int targetCall, int call, const Vector_<>& input, Vector_<>* output) {
+        if (call != targetCall)
+            return false;
+        return fault(call, input, output);
+    }
+
+    void ConfigureCallbackFault(HookedDiagonal_* matrix, int site, const CallbackHook_& operatorFault, const CallbackHook_& preconditionerFault) {
         if (site == 0)
-            matrix->SetLeftHook(
-                [operatorFault](int call, const Vector_<>& input, Vector_<>* output) { return call == 1 && operatorFault(call, input, output); });
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 1, call, input, output);
+            });
         else if (site == 1)
-            matrix->SetLeftHook(
-                [operatorFault](int call, const Vector_<>& input, Vector_<>* output) { return call == 2 && operatorFault(call, input, output); });
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 2, call, input, output);
+            });
         else if (site == 2)
-            matrix->SetRightHook(
-                [operatorFault](int call, const Vector_<>& input, Vector_<>* output) { return call == 1 && operatorFault(call, input, output); });
+            matrix->SetRightHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 1, call, input, output);
+            });
         else if (site == 3)
-            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix.get())
-                ->SetPreconditionerLeftHook([preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
-                    return call == 1 && preconditionerFault(call, input, output);
+            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix)->SetPreconditionerLeftHook(
+                [preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
+                    return ApplyFaultOnCall(preconditionerFault, 1, call, input, output);
                 });
         else if (site == 4)
-            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix.get())
-                ->SetPreconditionerRightHook([preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
-                    return call == 1 && preconditionerFault(call, input, output);
+            dynamic_cast<HookedPreconditionedDiagonal_*>(matrix)->SetPreconditionerRightHook(
+                [preconditionerFault](int call, const Vector_<>& input, Vector_<>* output) {
+                    return ApplyFaultOnCall(preconditionerFault, 1, call, input, output);
                 });
         else
-            matrix->SetLeftHook(
-                [operatorFault](int call, const Vector_<>& input, Vector_<>* output) { return call == 4 && operatorFault(call, input, output); });
+            matrix->SetLeftHook([operatorFault](int call, const Vector_<>& input, Vector_<>* output) {
+                return ApplyFaultOnCall(operatorFault, 4, call, input, output);
+            });
+    }
 
-        const Vector_<> b = {1.0, 1.0};
-        Vector_<> x = {0.0, 0.0};
-        const auto solve = [&]() { RunSolver(biConjugate, *matrix, b, 1e-12, 0.0, 10, &x); };
+    const char* CallbackFaultCategory(int site, int fault) {
+        if (fault == 0)
+            return IsPreconditionerFaultSite(site) ? "invalid preconditioner result" : "invalid operator result";
+        return IsPreconditionerFaultSite(site) ? "non-finite preconditioner result" : "non-finite operator result";
+    }
 
+    const char* CallbackFaultName(int site) {
+        if (site == 2)
+            return "MultiplyRight";
+        if (site == 3)
+            return "PreConditionerSolveLeft";
+        if (site == 4)
+            return "PreConditionerSolveRight";
+        return "MultiplyLeft";
+    }
+
+    void AssertCallbackFaultResult(bool biConjugate, int site, int fault, const std::function<void()>& solve, const Vector_<>& x) {
         if (fault == 2) {
             ASSERT_THROW(solve(), CallbackSentinel_);
         } else {
-            const char* category = fault == 0 ? (site == 3 || site == 4 ? "invalid preconditioner result" : "invalid operator result")
-                                              : (site == 3 || site == 4 ? "non-finite preconditioner result" : "non-finite operator result");
-            const char* callback = site == 2   ? "MultiplyRight"
-                                   : site == 3 ? "PreConditionerSolveLeft"
-                                   : site == 4 ? "PreConditionerSolveRight"
-                                               : "MultiplyLeft";
+            const char* category = CallbackFaultCategory(site, fault);
+            const char* callback = CallbackFaultName(site);
             if (fault == 0)
                 AssertDalExceptionContains(solve, {SolverName(biConjugate), category, callback});
             else
@@ -568,26 +603,41 @@ namespace {
             ASSERT_DOUBLE_EQ(0.0, x[0]);
             ASSERT_DOUBLE_EQ(0.0, x[1]);
         }
+    }
 
-        const std::array<CallbackCounts_, 6> cgExpected = {
-            CallbackCounts_{1, 0, 0, 0},
-            CallbackCounts_{2, 0, 0, 0},
-            CallbackCounts_{0, 0, 0, 0},
-            CallbackCounts_{1, 0, 1, 0},
-            CallbackCounts_{0, 0, 0, 0},
-            CallbackCounts_{4, 0, 0, 0}};
-        const std::array<CallbackCounts_, 6> bcgExpected = {
-            CallbackCounts_{1, 0, 0, 0},
-            CallbackCounts_{2, 0, 0, 0},
-            CallbackCounts_{2, 1, 0, 0},
-            CallbackCounts_{1, 0, 1, 0},
-            CallbackCounts_{1, 0, 1, 1},
-            CallbackCounts_{4, 2, 0, 0}};
-        const CallbackCounts_& expected = biConjugate ? bcgExpected[site] : cgExpected[site];
-        ASSERT_EQ(expected.left_, counts.left_);
-        ASSERT_EQ(expected.right_, counts.right_);
-        ASSERT_EQ(expected.preconditionerLeft_, counts.preconditionerLeft_);
-        ASSERT_EQ(expected.preconditionerRight_, counts.preconditionerRight_);
+    CallbackCounts_ ExpectedCallbackFaultCounts(bool biConjugate, int site) {
+        const std::array<CallbackCounts_, 6> cgExpected = {CallbackCounts_{1, 0, 0, 0}, CallbackCounts_{2, 0, 0, 0}, CallbackCounts_{0, 0, 0, 0},
+                                                           CallbackCounts_{1, 0, 1, 0}, CallbackCounts_{0, 0, 0, 0}, CallbackCounts_{4, 0, 0, 0}};
+        const std::array<CallbackCounts_, 6> bcgExpected = {CallbackCounts_{1, 0, 0, 0}, CallbackCounts_{2, 0, 0, 0}, CallbackCounts_{2, 1, 0, 0},
+                                                            CallbackCounts_{1, 0, 1, 0}, CallbackCounts_{1, 0, 1, 1}, CallbackCounts_{4, 2, 0, 0}};
+        return biConjugate ? bcgExpected[site] : cgExpected[site];
+    }
+
+    void AssertCallbackCounts(const CallbackCounts_& expected, const CallbackCounts_& actual) {
+        ASSERT_EQ(expected.left_, actual.left_);
+        ASSERT_EQ(expected.right_, actual.right_);
+        ASSERT_EQ(expected.preconditionerLeft_, actual.preconditionerLeft_);
+        ASSERT_EQ(expected.preconditionerRight_, actual.preconditionerRight_);
+    }
+
+    void AssertCallbackFault(bool biConjugate, int site, int fault, int badSize = 0) {
+        SCOPED_TRACE(std::string(SolverName(biConjugate)) + " site=" + std::to_string(site) + " fault=" + std::to_string(fault));
+        CallbackCounts_ counts;
+        std::unique_ptr<HookedDiagonal_> matrix = NewFaultMatrix(site, &counts);
+        const Vector_<> diagonal = {1.0, 2.0};
+        const CallbackHook_ operatorFault = [fault, badSize, &diagonal](int, const Vector_<>& input, Vector_<>* output) {
+            return ApplyOperatorFault(fault, badSize, diagonal, input, output);
+        };
+        const CallbackHook_ preconditionerFault = [fault, badSize](int, const Vector_<>& input, Vector_<>* output) {
+            return ApplyPreconditionerFault(fault, badSize, input, output);
+        };
+        ConfigureCallbackFault(matrix.get(), site, operatorFault, preconditionerFault);
+
+        const Vector_<> b = {1.0, 1.0};
+        Vector_<> x = {0.0, 0.0};
+        const auto solve = [&]() { RunSolver(biConjugate, *matrix, b, 1e-12, 0.0, 10, &x); };
+        AssertCallbackFaultResult(biConjugate, site, fault, solve, x);
+        AssertCallbackCounts(ExpectedCallbackFaultCounts(biConjugate, site), counts);
     }
 } // namespace
 
@@ -694,26 +744,29 @@ TEST(MatrixTest, TestBCGSolvePreservesSignedDotCancellation) {
     ASSERT_EQ(1, counts.preconditionerRight_);
 }
 
-TEST(MatrixTest, TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations) {
-    const double large = std::ldexp(1.0, 60);
-    std::array<double, 4> terms = {large, 100.0, -large, 2.0};
-    std::sort(terms.begin(), terms.end());
-    int permutation = 0;
-    int finiteNonzeroCases = 0;
-    do {
-        SCOPED_TRACE("permutation=" + std::to_string(permutation++));
-        const Vector_<> b(terms.begin(), terms.end());
-        Vector_<> diagonal(b.size());
+namespace {
+    bool BuildFiniteNonzeroPermutationDiagonal(const std::array<double, 4>& terms, Vector_<>* diagonal) {
         double sequentialBeta = 0.0;
         double sequentialDenominator = 0.0;
-        for (int i = 0; i < static_cast<int>(b.size()); ++i) {
-            diagonal[i] = 3.0 * b[i];
-            sequentialBeta += b[i];
-            sequentialDenominator += diagonal[i];
+        for (int i = 0; i < static_cast<int>(terms.size()); ++i) {
+            (*diagonal)[i] = 3.0 * terms[i];
+            sequentialBeta += terms[i];
+            sequentialDenominator += (*diagonal)[i];
         }
-        if (std::isfinite(sequentialBeta) && sequentialBeta != 0.0 && std::isfinite(sequentialDenominator) &&
-            sequentialDenominator != 0.0)
-            ++finiteNonzeroCases;
+        return std::isfinite(sequentialBeta) && sequentialBeta != 0.0 && std::isfinite(sequentialDenominator) && sequentialDenominator != 0.0;
+    }
+
+    void AssertAllEqual(const Vector_<>& values, double expected) {
+        for (const double value : values)
+            ASSERT_DOUBLE_EQ(expected, value);
+    }
+
+    void AssertFiniteNonzeroSignedDotPermutation(const std::array<double, 4>& terms, int permutation, int* finiteNonzeroCases) {
+        SCOPED_TRACE("permutation=" + std::to_string(permutation));
+        const Vector_<> b(terms.begin(), terms.end());
+        Vector_<> diagonal(b.size());
+        if (BuildFiniteNonzeroPermutationDiagonal(terms, &diagonal))
+            ++*finiteNonzeroCases;
 
         CallbackCounts_ counts;
         HookedPreconditionedDiagonal_ matrix(diagonal, &counts);
@@ -728,12 +781,22 @@ TEST(MatrixTest, TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutat
 
         Sparse::BCGSolve(matrix, b, EPSILON, 0.0, 1, &x);
 
-        for (const double value : x)
-            ASSERT_DOUBLE_EQ(1.0 / 3.0, value);
+        AssertAllEqual(x, 1.0 / 3.0);
         ASSERT_EQ(3, counts.left_);
         ASSERT_EQ(1, counts.right_);
         ASSERT_EQ(1, counts.preconditionerLeft_);
         ASSERT_EQ(1, counts.preconditionerRight_);
+    }
+} // namespace
+
+TEST(MatrixTest, TestBCGSolvePreservesFiniteNonzeroSignedDotCancellationPermutations) {
+    const double large = std::ldexp(1.0, 60);
+    std::array<double, 4> terms = {large, 100.0, -large, 2.0};
+    std::sort(terms.begin(), terms.end());
+    int permutation = 0;
+    int finiteNonzeroCases = 0;
+    do {
+        AssertFiniteNonzeroSignedDotPermutation(terms, permutation++, &finiteNonzeroCases);
     } while (std::next_permutation(terms.begin(), terms.end()));
     ASSERT_EQ(24, permutation);
     ASSERT_EQ(18, finiteNonzeroCases);
@@ -941,9 +1004,7 @@ TEST(MatrixTest, TestBCGSolveFixedSeedNonPowerSubnormalClassification) {
     }
 }
 
-TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) {
-    ASSERT_FALSE(CommonExponentConverged({1.0}, {0.0}, 1.0, 0.0));
-}
+TEST(MatrixTest, TestCGSolveAndBCGSolveCommonExponentOracleHandlesZeroThreshold) { ASSERT_FALSE(CommonExponentConverged({1.0}, {0.0}, 1.0, 0.0)); }
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveRetainLargeInitialToleranceBehavior) {
     Sparse::TriDiagonal_ matrix(1);

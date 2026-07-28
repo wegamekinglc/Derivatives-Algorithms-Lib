@@ -67,9 +67,7 @@ namespace Dal {
             return {normalized, exponent + adjustment, true};
         }
 
-        Scaled_ ScaledFromDouble(double value) {
-            return {value, 0, false};
-        }
+        Scaled_ ScaledFromDouble(double value) { return {value, 0, false}; }
 
         Scaled_ ScaledProduct(double lhs, double rhs) {
             if (lhs == 0.0 || rhs == 0.0)
@@ -95,20 +93,28 @@ namespace Dal {
             return NormalizeScaled(normalizedValue.mantissa_ * multiplierMantissa, normalizedValue.exponent_ + multiplierExponent);
         }
 
+        Scaled_ NormalizeScaledIfNeeded(const Scaled_& value) { return value.normalized_ ? value : NormalizeScaled(value.mantissa_, 0); }
+
+        bool TryAddUnscaled(const Scaled_& lhs, const Scaled_& rhs, Scaled_* result) {
+            if (lhs.normalized_ || rhs.normalized_)
+                return false;
+            const double sum = lhs.mantissa_ + rhs.mantissa_;
+            if (!std::isfinite(sum) || sum == 0.0)
+                return false;
+            *result = ScaledFromDouble(sum);
+            return true;
+        }
+
         Scaled_ AddScaled(Scaled_ lhs, Scaled_ rhs) {
             if (lhs.mantissa_ == 0.0)
                 return rhs;
             if (rhs.mantissa_ == 0.0)
                 return lhs;
-            if (!lhs.normalized_ && !rhs.normalized_) {
-                const double sum = lhs.mantissa_ + rhs.mantissa_;
-                if (std::isfinite(sum) && sum != 0.0)
-                    return ScaledFromDouble(sum);
-            }
-            if (!lhs.normalized_)
-                lhs = NormalizeScaled(lhs.mantissa_, 0);
-            if (!rhs.normalized_)
-                rhs = NormalizeScaled(rhs.mantissa_, 0);
+            Scaled_ unscaledSum = {0.0, 0, false};
+            if (TryAddUnscaled(lhs, rhs, &unscaledSum))
+                return unscaledSum;
+            lhs = NormalizeScaledIfNeeded(lhs);
+            rhs = NormalizeScaledIfNeeded(rhs);
             if (lhs.exponent_ < rhs.exponent_)
                 std::swap(lhs, rhs);
             return NormalizeScaled(lhs.mantissa_ + std::ldexp(rhs.mantissa_, rhs.exponent_ - lhs.exponent_), lhs.exponent_);
@@ -267,9 +273,7 @@ namespace Dal {
             return result;
         }
 
-        bool ExactBit(const ExactPositive_& value, int bit) {
-            return (value.limbs_[bit / EXACT_LIMB_BITS] & (1U << (bit % EXACT_LIMB_BITS))) != 0;
-        }
+        bool ExactBit(const ExactPositive_& value, int bit) { return (value.limbs_[bit / EXACT_LIMB_BITS] & (1U << (bit % EXACT_LIMB_BITS))) != 0; }
 
         bool ExactHasBitBelow(const ExactPositive_& value, int bit) {
             const int lastFullLimb = bit / EXACT_LIMB_BITS;
@@ -283,26 +287,37 @@ namespace Dal {
             return (value.limbs_[lastFullLimb] & mask) != 0;
         }
 
-        Scaled_ ScaledFromExact(const ExactPositive_& value, bool negative) {
-            if (value.last_ < value.first_)
-                return {0.0, 0, false};
+        int ExactHighestBit(const ExactPositive_& value) {
             int highestLimbBit = 0;
             for (std::uint32_t top = value.limbs_[value.last_]; top > 1; top >>= 1)
                 ++highestLimbBit;
-            const int highestBit = EXACT_LIMB_BITS * value.last_ + highestLimbBit;
+            return EXACT_LIMB_BITS * value.last_ + highestLimbBit;
+        }
+
+        std::uint64_t ExactLeadingSignificand(const ExactPositive_& value, int highestBit) {
             std::uint64_t significand = 0;
             for (int bit = highestBit; bit > highestBit - 53; --bit)
                 significand = (significand << 1U) | static_cast<std::uint64_t>(ExactBit(value, bit));
+            return significand;
+        }
 
+        void RoundExactSignificand(const ExactPositive_& value, int highestBit, std::uint64_t* significand, int* exponent) {
             const int guardBit = highestBit - 53;
-            if (ExactBit(value, guardBit) && (ExactHasBitBelow(value, guardBit) || (significand & 1U) != 0))
-                ++significand;
-
-            int exponent = EXACT_MIN_EXPONENT + highestBit + 1;
-            if (significand == (1ULL << 53)) {
-                significand >>= 1U;
-                ++exponent;
+            if (ExactBit(value, guardBit) && (ExactHasBitBelow(value, guardBit) || (*significand & 1U) != 0))
+                ++*significand;
+            if (*significand == (1ULL << 53)) {
+                *significand >>= 1U;
+                ++*exponent;
             }
+        }
+
+        Scaled_ ScaledFromExact(const ExactPositive_& value, bool negative) {
+            if (value.last_ < value.first_)
+                return {0.0, 0, false};
+            const int highestBit = ExactHighestBit(value);
+            std::uint64_t significand = ExactLeadingSignificand(value, highestBit);
+            int exponent = EXACT_MIN_EXPONENT + highestBit + 1;
+            RoundExactSignificand(value, highestBit, &significand, &exponent);
             const double mantissa = std::ldexp(static_cast<double>(significand), -53);
             return {negative ? -mantissa : mantissa, exponent, true};
         }
@@ -321,11 +336,15 @@ namespace Dal {
                                   : ScaledFromExact(ExactSubtract(negative, positive), true);
         }
 
-        bool FastScaledDot(const Vector_<>& lhs, const Vector_<>& rhs, Scaled_* result) {
-            double sum = 0.0;
-            double absoluteSum = 0.0;
-            bool allProductsNormal = true;
-            int i = 0;
+        struct FastDotAccumulation_ {
+            double sum_ = 0.0;
+            double absoluteSum_ = 0.0;
+            bool allProductsNormal_ = true;
+            int firstScalar_ = 0;
+        };
+
+        FastDotAccumulation_ AccumulateFastDotPrefix(const Vector_<>& lhs, const Vector_<>& rhs) {
+            FastDotAccumulation_ result;
 #if defined(__AVX2__)
             const __m256d zero = _mm256_setzero_pd();
             const __m256d signMask = _mm256_set1_pd(-0.0);
@@ -334,9 +353,9 @@ namespace Dal {
             __m256d sums = zero;
             __m256d absoluteSums = zero;
             int invalidProductMask = 0;
-            for (; i + 3 < static_cast<int>(lhs.size()); i += 4) {
-                const __m256d left = _mm256_loadu_pd(&lhs[i]);
-                const __m256d right = _mm256_loadu_pd(&rhs[i]);
+            for (; result.firstScalar_ + 3 < static_cast<int>(lhs.size()); result.firstScalar_ += 4) {
+                const __m256d left = _mm256_loadu_pd(&lhs[result.firstScalar_]);
+                const __m256d right = _mm256_loadu_pd(&rhs[result.firstScalar_]);
                 const __m256d products = _mm256_mul_pd(left, right);
                 const __m256d magnitudes = _mm256_andnot_pd(signMask, products);
                 const __m256d bothNonzero = _mm256_and_pd(_mm256_cmp_pd(left, zero, _CMP_NEQ_OQ), _mm256_cmp_pd(right, zero, _CMP_NEQ_OQ));
@@ -351,24 +370,48 @@ namespace Dal {
             _mm256_store_pd(sumLanes, sums);
             _mm256_store_pd(absoluteLanes, absoluteSums);
             for (int lane = 0; lane < 4; ++lane) {
-                sum += sumLanes[lane];
-                absoluteSum += absoluteLanes[lane];
+                result.sum_ += sumLanes[lane];
+                result.absoluteSum_ += absoluteLanes[lane];
             }
-            allProductsNormal = invalidProductMask == 0;
+            result.allProductsNormal_ = invalidProductMask == 0;
 #endif
-            for (; i < static_cast<int>(lhs.size()); ++i) {
+            return result;
+        }
+
+        void AccumulateFastDotTail(const Vector_<>& lhs, const Vector_<>& rhs, FastDotAccumulation_* result) {
+            for (int i = result->firstScalar_; i < static_cast<int>(lhs.size()); ++i) {
                 const double product = lhs[i] * rhs[i];
                 const double magnitude = std::fabs(product);
-                if (lhs[i] != 0.0 && rhs[i] != 0.0 && (!std::isfinite(product) || magnitude < std::numeric_limits<double>::min()))
-                    allProductsNormal = false;
-                sum += product;
-                absoluteSum += magnitude;
+                if (lhs[i] != 0.0 && rhs[i] != 0.0) {
+                    if (!std::isfinite(product) || magnitude < std::numeric_limits<double>::min())
+                        result->allProductsNormal_ = false;
+                }
+                result->sum_ += product;
+                result->absoluteSum_ += magnitude;
             }
-            const double uncertainty = 4.0 * static_cast<double>(lhs.size() + 4) * std::numeric_limits<double>::epsilon();
-            if (!allProductsNormal || !std::isfinite(sum) || sum == 0.0 || !std::isfinite(absoluteSum) || uncertainty >= 0.5 ||
-                std::fabs(sum) <= uncertainty * absoluteSum)
+        }
+
+        bool FastDotIsReliable(const FastDotAccumulation_& value, int size) {
+            const double uncertainty = 4.0 * static_cast<double>(size + 4) * std::numeric_limits<double>::epsilon();
+            if (!value.allProductsNormal_)
                 return false;
-            *result = ScaledFromDouble(sum);
+            if (!std::isfinite(value.sum_))
+                return false;
+            if (value.sum_ == 0.0)
+                return false;
+            if (!std::isfinite(value.absoluteSum_))
+                return false;
+            if (uncertainty >= 0.5)
+                return false;
+            return std::fabs(value.sum_) > uncertainty * value.absoluteSum_;
+        }
+
+        bool FastScaledDot(const Vector_<>& lhs, const Vector_<>& rhs, Scaled_* result) {
+            FastDotAccumulation_ accumulation = AccumulateFastDotPrefix(lhs, rhs);
+            AccumulateFastDotTail(lhs, rhs, &accumulation);
+            if (!FastDotIsReliable(accumulation, static_cast<int>(lhs.size())))
+                return false;
+            *result = ScaledFromDouble(accumulation.sum_);
             return true;
         }
 
@@ -465,7 +508,7 @@ namespace Dal {
                     ThrowFailureAtIndex(solver, "non-finite input", subject, i);
         }
 
-        bool HasOnlyFiniteValues(const Vector_<>& values) {
+        bool HasOnlyFiniteValuesAvx2(const Vector_<>& values) {
 #if defined(__AVX2__)
             const __m256d signMask = _mm256_set1_pd(-0.0);
             const __m256d maxFinite = _mm256_set1_pd(std::numeric_limits<double>::max());
@@ -479,7 +522,14 @@ namespace Dal {
             for (; i < static_cast<int>(values.size()); ++i)
                 nonFiniteMask |= static_cast<int>(!std::isfinite(values[i]));
             return nonFiniteMask == 0;
-#elif defined(__SSE2__) || defined(_M_X64)
+#else
+            (void)values;
+            return true;
+#endif
+        }
+
+        bool HasOnlyFiniteValuesSse2(const Vector_<>& values) {
+#if defined(__SSE2__) || defined(_M_X64)
             const __m128d signMask = _mm_set1_pd(-0.0);
             const __m128d maxFinite = _mm_set1_pd(std::numeric_limits<double>::max());
             int i = 0;
@@ -491,22 +541,36 @@ namespace Dal {
             }
             return i == static_cast<int>(values.size()) || std::isfinite(values[i]);
 #else
+            (void)values;
+            return true;
+#endif
+        }
+
+        bool HasOnlyFiniteValuesScalar(const Vector_<>& values) {
             unsigned allFinite = 1;
             for (const double value : values)
                 allFinite &= static_cast<unsigned>(std::isfinite(value));
             return allFinite != 0;
+        }
+
+        bool HasOnlyFiniteValues(const Vector_<>& values) {
+#if defined(__AVX2__)
+            return HasOnlyFiniteValuesAvx2(values);
+#elif defined(__SSE2__) || defined(_M_X64)
+            return HasOnlyFiniteValuesSse2(values);
+#else
+            return HasOnlyFiniteValuesScalar(values);
 #endif
         }
 
-        [[noreturn]] void
-        ThrowInvalidCallbackSize(int actualSize, int expectedSize, const char* solver, const char* callback, bool preconditioner) {
+        [[noreturn]] void ThrowInvalidCallbackSize(int actualSize, int expectedSize, const char* solver, const char* callback, bool preconditioner) {
             const char* invalidCategory = preconditioner ? "invalid preconditioner result" : "invalid operator result";
             THROW(std::string(solver) + ": " + invalidCategory + ": " + callback + " expected size " + std::to_string(expectedSize) +
                   ", actual size " + std::to_string(actualSize));
         }
 
-        FORCE_INLINE void ValidateCallbackResult(
-            const Vector_<>& values, int expectedSize, const char* solver, const char* callback, bool preconditioner) {
+        FORCE_INLINE void
+        ValidateCallbackResult(const Vector_<>& values, int expectedSize, const char* solver, const char* callback, bool preconditioner) {
             const char* nonFiniteCategory = preconditioner ? "non-finite preconditioner result" : "non-finite operator result";
             if (static_cast<int>(values.size()) != expectedSize)
                 ThrowInvalidCallbackSize(static_cast<int>(values.size()), expectedSize, solver, callback, preconditioner);
@@ -523,6 +587,12 @@ namespace Dal {
             ThrowInvalidCallbackSize(static_cast<int>(values.size()), expectedSize, solver, callback, preconditioner);
         }
 
+        double NormalizedScaledRatio(const Scaled_& numerator, const Scaled_& denominator) {
+            const Scaled_ scaledNumerator = NormalizeScaledIfNeeded(numerator);
+            const Scaled_ scaledDenominator = NormalizeScaledIfNeeded(denominator);
+            return std::ldexp(scaledNumerator.mantissa_ / scaledDenominator.mantissa_, scaledNumerator.exponent_ - scaledDenominator.exponent_);
+        }
+
         double ScaledRatio(
             const Scaled_& numerator, const Scaled_& denominator, const char* solver, const char* denominatorSubject, const char* ratioSubject) {
             if (denominator.mantissa_ == 0.0)
@@ -530,12 +600,8 @@ namespace Dal {
             if (numerator.mantissa_ == 0.0)
                 return 0.0;
             double ratio = numerator.mantissa_ / denominator.mantissa_;
-            if (numerator.normalized_ || denominator.normalized_) {
-                const Scaled_ scaledNumerator = numerator.normalized_ ? numerator : NormalizeScaled(numerator.mantissa_, 0);
-                const Scaled_ scaledDenominator = denominator.normalized_ ? denominator : NormalizeScaled(denominator.mantissa_, 0);
-                ratio = std::ldexp(scaledNumerator.mantissa_ / scaledDenominator.mantissa_,
-                                   scaledNumerator.exponent_ - scaledDenominator.exponent_);
-            }
+            if (numerator.normalized_ || denominator.normalized_)
+                ratio = NormalizedScaledRatio(numerator, denominator);
             if (!std::isfinite(ratio) || ratio == 0.0)
                 ThrowFailure(solver, "numerical breakdown", ratioSubject);
             return ratio;
@@ -554,9 +620,7 @@ namespace Dal {
             unsigned priorStatus_;
             bool finished_ = false;
 
-            StableBatch_() : priorStatus_(_mm_getcsr()) {
-                _mm_setcsr(priorStatus_ & ~(_MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW));
-            }
+            StableBatch_() : priorStatus_(_mm_getcsr()) { _mm_setcsr(priorStatus_ & ~(_MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW)); }
 
             ~StableBatch_() {
                 if (!finished_) {
@@ -605,10 +669,15 @@ namespace Dal {
         };
 #endif
 
-        Scaled_ ValidatedDirectResidual(
-            Vector_<>* callbackValues, const Vector_<>& b, int expectedSize, const char* solver, const char* callback) {
-            ValidateCallbackShape(*callbackValues, expectedSize, solver, callback, false);
 #if defined(__AVX2__) && defined(__FMA__)
+        struct DirectResidualEvidence_ {
+            unsigned callbackFinite_;
+            unsigned residualFinite_;
+            double squareSum_;
+            int firstScalar_;
+        };
+
+        DirectResidualEvidence_ AccumulateDirectResidualPrefix(Vector_<>* callbackValues, const Vector_<>& b, int expectedSize) {
             const __m256d minusOne = _mm256_set1_pd(-1.0);
             const __m256d zero = _mm256_setzero_pd();
             __m256d callbackEvidence = zero;
@@ -624,26 +693,48 @@ namespace Dal {
                 sumSquares = _mm256_fmadd_pd(residualItems, residualItems, sumSquares);
                 _mm256_storeu_pd(&(*callbackValues)[i], residualItems);
             }
-            unsigned callbackFinite = _mm256_movemask_pd(_mm256_cmp_pd(callbackEvidence, zero, _CMP_EQ_OQ)) == 15;
-            unsigned residualFinite = _mm256_movemask_pd(_mm256_cmp_pd(residualEvidence, zero, _CMP_EQ_OQ)) == 15;
             alignas(32) double squareLanes[4];
             _mm256_store_pd(squareLanes, sumSquares);
-            double squareSum = squareLanes[0] + squareLanes[1] + squareLanes[2] + squareLanes[3];
-            for (; i < expectedSize; ++i) {
+            return {_mm256_movemask_pd(_mm256_cmp_pd(callbackEvidence, zero, _CMP_EQ_OQ)) == 15,
+                    _mm256_movemask_pd(_mm256_cmp_pd(residualEvidence, zero, _CMP_EQ_OQ)) == 15,
+                    squareLanes[0] + squareLanes[1] + squareLanes[2] + squareLanes[3], i};
+        }
+
+        void AccumulateDirectResidualTail(Vector_<>* callbackValues, const Vector_<>& b, int expectedSize, DirectResidualEvidence_* evidence) {
+            for (int i = evidence->firstScalar_; i < expectedSize; ++i) {
                 const double callbackValue = (*callbackValues)[i];
-                callbackFinite &= static_cast<unsigned>(std::isfinite(callbackValue));
+                evidence->callbackFinite_ &= static_cast<unsigned>(std::isfinite(callbackValue));
                 (*callbackValues)[i] = std::fma(-1.0, callbackValue, b[i]);
-                residualFinite &= static_cast<unsigned>(std::isfinite((*callbackValues)[i]));
-                squareSum += (*callbackValues)[i] * (*callbackValues)[i];
+                evidence->residualFinite_ &= static_cast<unsigned>(std::isfinite((*callbackValues)[i]));
+                evidence->squareSum_ += (*callbackValues)[i] * (*callbackValues)[i];
             }
-            if (callbackFinite == 0)
-                for (int j = 0; j < expectedSize; ++j)
-                    if (!std::isfinite((*callbackValues)[j]))
-                        ThrowFailureAtIndex(solver, "non-finite operator result", callback, j);
-            if (residualFinite == 0)
+        }
+
+        void ValidateDirectResidualEvidence(
+            const Vector_<>& callbackValues, int expectedSize, const DirectResidualEvidence_& evidence, const char* solver, const char* callback) {
+            if (evidence.callbackFinite_ == 0) {
+                for (int i = 0; i < expectedSize; ++i)
+                    if (!std::isfinite(callbackValues[i]))
+                        ThrowFailureAtIndex(solver, "non-finite operator result", callback, i);
+            }
+            if (evidence.residualFinite_ == 0)
                 ThrowFailure(solver, "numerical breakdown", "direct residual");
-            return std::isfinite(squareSum) && squareSum >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(squareSum))
-                                                                                               : SlowScaledNorm(*callbackValues);
+        }
+
+        Scaled_ DirectResidualNorm(const Vector_<>& residual, double squareSum) {
+            if (std::isfinite(squareSum) && squareSum >= std::numeric_limits<double>::min())
+                return ScaledFromDouble(std::sqrt(squareSum));
+            return SlowScaledNorm(residual);
+        }
+#endif
+
+        Scaled_ ValidatedDirectResidual(Vector_<>* callbackValues, const Vector_<>& b, int expectedSize, const char* solver, const char* callback) {
+            ValidateCallbackShape(*callbackValues, expectedSize, solver, callback, false);
+#if defined(__AVX2__) && defined(__FMA__)
+            DirectResidualEvidence_ evidence = AccumulateDirectResidualPrefix(callbackValues, b, expectedSize);
+            AccumulateDirectResidualTail(callbackValues, b, expectedSize, &evidence);
+            ValidateDirectResidualEvidence(*callbackValues, expectedSize, evidence, solver, callback);
+            return DirectResidualNorm(*callbackValues, evidence.squareSum_);
 #else
             ValidateCallbackResult(*callbackValues, expectedSize, solver, callback, false);
             StableBatch_ stableBatch;
@@ -671,35 +762,68 @@ namespace Dal {
             Scaled_ betaPrev_;
 
             KrylovState_(const Sparse::Square_& a, const XPrecondition_& prec, bool biConjugate, int n)
-                : A_(a), precondition_(prec), biConjugate_(biConjugate),
-                  symmetricBiConjugate_(biConjugate && prec.IsIdentity() && a.IsSymmetric()), r_(n), rr_(biConjugate ? n : 0), p_(n, 0.0),
-                  pp_(biConjugate ? n : 0, 0.0), pCandidate_(n), ppCandidate_(biConjugate ? n : 0), xCandidate_(n), rCandidate_(n),
-                  rrCandidate_(biConjugate ? n : 0), directResidual_(n), betaPrev_({0.0, 0, false}) {}
+                : A_(a), precondition_(prec), biConjugate_(biConjugate), symmetricBiConjugate_(biConjugate && prec.IsIdentity() && a.IsSymmetric()),
+                  r_(n), rr_(biConjugate ? n : 0), p_(n, 0.0), pp_(biConjugate ? n : 0, 0.0), pCandidate_(n), ppCandidate_(biConjugate ? n : 0),
+                  xCandidate_(n), rCandidate_(n), rrCandidate_(biConjugate ? n : 0), directResidual_(n), betaPrev_({0.0, 0, false}) {}
         };
 
-        Scaled_ PrepareDirection(KrylovState_& s, int iteration, const char* solver) {
-            const bool hasLeftPreconditioner = s.precondition_.Left(s.r_, &s.pCandidate_);
-            if (hasLeftPreconditioner)
-                ValidateCallbackResult(s.pCandidate_, s.A_.Size(), solver, "PreConditionerSolveLeft", true);
-            const bool hasRightPreconditioner = s.biConjugate_ && s.precondition_.Right(s.rr_, &s.ppCandidate_);
-            if (hasRightPreconditioner)
-                ValidateCallbackResult(s.ppCandidate_, s.A_.Size(), solver, "PreConditionerSolveRight", true);
+        bool PrepareLeftPreconditioner(KrylovState_* state, const char* solver) {
+            const bool hasPreconditioner = state->precondition_.Left(state->r_, &state->pCandidate_);
+            if (hasPreconditioner)
+                ValidateCallbackResult(state->pCandidate_, state->A_.Size(), solver, "PreConditionerSolveLeft", true);
+            return hasPreconditioner;
+        }
 
-            const Vector_<>& leftPreconditioned = hasLeftPreconditioner ? s.pCandidate_ : s.r_;
-            const Vector_<>& rightPreconditioned = hasRightPreconditioner ? s.ppCandidate_ : s.rr_;
-            const Vector_<>& shadowPreconditioned = s.biConjugate_ ? rightPreconditioned : leftPreconditioned;
-            const Scaled_ beta = ScaledDot(shadowPreconditioned, s.r_);
-            const double betaRatio = iteration > 0 ? ScaledRatio(beta, s.betaPrev_, solver, "beta", "beta ratio") : 0.0;
+        bool PrepareRightPreconditioner(KrylovState_* state, const char* solver) {
+            if (!state->biConjugate_)
+                return false;
+            const bool hasPreconditioner = state->precondition_.Right(state->rr_, &state->ppCandidate_);
+            if (hasPreconditioner)
+                ValidateCallbackResult(state->ppCandidate_, state->A_.Size(), solver, "PreConditionerSolveRight", true);
+            return hasPreconditioner;
+        }
+
+        const Vector_<>& LeftPreconditioned(const KrylovState_& state, bool hasPreconditioner) {
+            return hasPreconditioner ? state.pCandidate_ : state.r_;
+        }
+
+        const Vector_<>& RightPreconditioned(const KrylovState_& state, bool hasPreconditioner) {
+            return hasPreconditioner ? state.ppCandidate_ : state.rr_;
+        }
+
+        const Vector_<>& ShadowPreconditioned(const KrylovState_& state, const Vector_<>& left, const Vector_<>& right) {
+            return state.biConjugate_ ? right : left;
+        }
+
+        double DirectionBetaRatio(const KrylovState_& state, const Scaled_& beta, int iteration, const char* solver) {
+            if (iteration == 0)
+                return 0.0;
+            return ScaledRatio(beta, state.betaPrev_, solver, "beta", "beta ratio");
+        }
+
+        bool NeedsShadowDirection(const KrylovState_& state) { return state.biConjugate_ && !state.symmetricBiConjugate_; }
+
+        void PrepareDirectionCandidates(
+            KrylovState_* state, double betaRatio, const Vector_<>& leftPreconditioned, const Vector_<>& rightPreconditioned, const char* solver) {
             StableBatch_ stableBatch;
-            StableCombination(betaRatio, s.p_, leftPreconditioned, solver, "candidate direction", &s.pCandidate_);
-            if (s.biConjugate_ && !s.symmetricBiConjugate_)
-                StableCombination(betaRatio, s.pp_, rightPreconditioned, solver, "candidate shadow direction", &s.ppCandidate_);
-            stableBatch.Finish(
-                solver,
-                s.pCandidate_,
-                "candidate direction",
-                s.biConjugate_ && !s.symmetricBiConjugate_ ? &s.ppCandidate_ : nullptr,
-                "candidate shadow direction");
+            StableCombination(betaRatio, state->p_, leftPreconditioned, solver, "candidate direction", &state->pCandidate_);
+            const Vector_<>* shadowCandidate = nullptr;
+            if (NeedsShadowDirection(*state)) {
+                StableCombination(betaRatio, state->pp_, rightPreconditioned, solver, "candidate shadow direction", &state->ppCandidate_);
+                shadowCandidate = &state->ppCandidate_;
+            }
+            stableBatch.Finish(solver, state->pCandidate_, "candidate direction", shadowCandidate, "candidate shadow direction");
+        }
+
+        Scaled_ PrepareDirection(KrylovState_& s, int iteration, const char* solver) {
+            const bool hasLeftPreconditioner = PrepareLeftPreconditioner(&s, solver);
+            const bool hasRightPreconditioner = PrepareRightPreconditioner(&s, solver);
+            const Vector_<>& leftPreconditioned = LeftPreconditioned(s, hasLeftPreconditioner);
+            const Vector_<>& rightPreconditioned = RightPreconditioned(s, hasRightPreconditioner);
+            const Vector_<>& shadowPreconditioned = ShadowPreconditioned(s, leftPreconditioned, rightPreconditioned);
+            const Scaled_ beta = ScaledDot(shadowPreconditioned, s.r_);
+            const double betaRatio = DirectionBetaRatio(s, beta, iteration, solver);
+            PrepareDirectionCandidates(&s, betaRatio, leftPreconditioned, rightPreconditioned, solver);
             return beta;
         }
 
@@ -720,12 +844,7 @@ namespace Dal {
             StableCombination(-alpha, s.rCandidate_, s.r_, solver, "candidate residual", &s.rCandidate_);
             if (s.biConjugate_)
                 StableCombination(-alpha, s.rrCandidate_, s.rr_, solver, "candidate shadow residual", &s.rrCandidate_);
-            stableBatch.Finish(solver,
-                               s.xCandidate_,
-                               "candidate x",
-                               &s.rCandidate_,
-                               "candidate residual",
-                               s.biConjugate_ ? &s.rrCandidate_ : nullptr,
+            stableBatch.Finish(solver, s.xCandidate_, "candidate x", &s.rCandidate_, "candidate residual", s.biConjugate_ ? &s.rrCandidate_ : nullptr,
                                "candidate shadow residual");
         }
 
@@ -744,8 +863,7 @@ namespace Dal {
         void ConfirmAndCommit(
             KrylovState_* state, const Scaled_& beta, const Vector_<>& b, const Convergence_& convergence, const char* solver, Vector_<>* x) {
             state->A_.MultiplyLeft(state->xCandidate_, &state->directResidual_);
-            const Scaled_ directResidualNorm =
-                ValidatedDirectResidual(&state->directResidual_, b, state->A_.Size(), solver, "MultiplyLeft");
+            const Scaled_ directResidualNorm = ValidatedDirectResidual(&state->directResidual_, b, state->A_.Size(), solver, "MultiplyLeft");
             if (!convergence.IsConverged(state->directResidual_, directResidualNorm))
                 ThrowFailure(solver, "numerical breakdown", "direct residual confirmation");
             CommitCandidate(state, beta, x);
