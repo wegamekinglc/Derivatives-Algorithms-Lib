@@ -425,7 +425,9 @@ namespace Dal {
         const auto values = XccyContractValues(plan, market, fixings);
         const T_ receivePv = spreadOnForeignLeg ? values.domesticPv_ - values.foreignPv_ - T_(contractSpread) * values.foreignSpreadAnnuity_
                                                 : values.foreignPv_ - values.domesticPv_ - T_(contractSpread) * values.domesticSpreadAnnuity_;
-        return receiveNonSpreadPaySpread ? receivePv : -receivePv;
+        if (receiveNonSpreadPaySpread)
+            return receivePv;
+        return -receivePv;
     }
 
     template <class T_>
