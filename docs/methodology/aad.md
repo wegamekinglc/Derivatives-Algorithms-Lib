@@ -340,6 +340,12 @@ The library compiles with one of four AAD backends selected at build time:
 - **XAD** (`DAL_USE_XAD_AAD`) — `xad::adj<double>` tape.
 - **CoDiPack** (`DAL_USE_CODIPACK_AAD`) — `codi::RealReverseUnchecked` tape.
 
+CoDiPack gives each operating system thread its own underlying tape and DAL
+wrapper through native thread-local storage. Recording and reverse propagation
+therefore run independently of the Python GIL, and the tape is destroyed when
+its owning thread exits. Active values and tape positions are thread-affine and
+must not be transferred between threads.
+
 All four expose the same `Number_` / `Tape_` surface through facade functions in
 `dal-cpp/dal/math/aad/aad.hpp`, so caller code is backend-neutral. The
 differences that matter at the call site are the recording contract and the

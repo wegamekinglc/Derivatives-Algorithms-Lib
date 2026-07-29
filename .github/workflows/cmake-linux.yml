@@ -133,6 +133,46 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  codipack-thread-isolation:
+    name: CoDiPack thread isolation
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc-14
+      CXX: g++-14
+      CXXFLAGS: -O2
+      DAL_NUM_THREADS: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake
+
+      - name: Configure CoDiPack
+        run: |
+          cmake --preset=Release-linux -S . -B build/Release-codipack \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=ON \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=OFF
+
+      - name: Build CoDiPack
+        run: |
+          cmake --build build/Release-codipack --parallel 2
+
+      - name: Test CoDiPack thread isolation
+        run: |
+          ./build/Release-codipack/dal-cpp/dal_cpp_tests \
+            --gtest_filter='AADTest.TestCoDiPackTapeIsPerThreadAcrossThreadLifetimes:AADTest.TestWithCheckpointWithMultiThreading:AADTest.TestAADMutiThread'
+
+      - name: Test CoDiPack suite
+        run: |
+          ctest --test-dir build/Release-codipack --output-on-failure -LE benchmark
+
   # Extended build: dal-cpp + dal-public + dal-python.
   # Lives in a separate job so the main 16-job compiler×backend matrix
   # stays lean — the Python bindings are backend-agnostic, so testing
