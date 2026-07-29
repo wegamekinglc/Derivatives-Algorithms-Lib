@@ -17,6 +17,21 @@
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/math/matrix/bcg_scaled_alpha.inc>
+
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION) && !defined(DAL35_ENABLE_TEST_SEAM)
+#error "DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION requires DAL35_ENABLE_TEST_SEAM"
+#endif
+
+#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(__GNUC__) || defined(__clang__)
+#define DAL35_TEST_HIDDEN_ __attribute__((visibility("hidden")))
+#else
+#define DAL35_TEST_HIDDEN_
+#endif
+extern "C" DAL35_TEST_HIDDEN_ void Dal35ObserveExactWorkspaceConstructionForTest_() noexcept;
+#undef DAL35_TEST_HIDDEN_
+#endif
 
 namespace Dal {
     namespace {
@@ -167,6 +182,25 @@ namespace Dal {
         constexpr int EXACT_MAX_EXPONENT = 8352;
         constexpr int EXACT_LIMB_BITS = 32;
         constexpr int EXACT_LIMB_COUNT = (EXACT_MAX_EXPONENT - EXACT_MIN_EXPONENT) / EXACT_LIMB_BITS;
+
+#if defined(DAL35_PROBE_PRODUCTION_MAX_EXPONENT_DELTA)
+        constexpr int DAL35_PRODUCTION_MAX_EXPONENT_DELTA_ = DAL35_PROBE_PRODUCTION_MAX_EXPONENT_DELTA;
+#else
+        constexpr int DAL35_PRODUCTION_MAX_EXPONENT_DELTA_ = 0;
+#endif
+
+        constexpr BcgScaledAlphaPrivate_::AccumulatorBounds_ ACTUAL_ACCUMULATOR_BOUNDS_{
+            EXACT_MIN_EXPONENT, EXACT_MAX_EXPONENT + DAL35_PRODUCTION_MAX_EXPONENT_DELTA_, EXACT_LIMB_BITS, EXACT_LIMB_COUNT, 53, 1};
+
+        static_assert(BcgScaledAlphaPrivate_::REVIEWED_BOUNDS_FINGERPRINT_MATCHES_, "DAL35_PRODUCTION_REVIEWED_BOUNDS_FINGERPRINT_MISMATCH");
+        static_assert(BcgScaledAlphaPrivate_::SameAccumulatorBounds_(ACTUAL_ACCUMULATOR_BOUNDS_,
+                                                                     BcgScaledAlphaPrivate_::REVIEWED_ACCUMULATOR_BOUNDS_),
+                      "DAL35_PRODUCTION_ACCUMULATOR_INPUT_FINGERPRINT_MISMATCH");
+        static_assert(BcgScaledAlphaPrivate_::SameBoundsFingerprint_(
+                          BcgScaledAlphaPrivate_::MakeBoundsFingerprint_(ACTUAL_ACCUMULATOR_BOUNDS_,
+                                                                         BcgScaledAlphaPrivate_::DeriveCandidateBounds_(ACTUAL_ACCUMULATOR_BOUNDS_)),
+                          BcgScaledAlphaPrivate_::REVIEWED_BOUNDS_FINGERPRINT_),
+                      "DAL35_PRODUCTION_DERIVED_BOUNDS_FINGERPRINT_MISMATCH");
 
         struct ExactPositive_ {
             std::array<std::uint32_t, EXACT_LIMB_COUNT> limbs_{};
@@ -827,6 +861,63 @@ namespace Dal {
             return beta;
         }
 
+        BcgScaledAlphaPrivate_::StoredScaledBits_ CaptureStoredBits(const Scaled_& value) {
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &value.mantissa_, sizeof(bits));
+            return {bits, value.exponent_, value.normalized_};
+        }
+
+        void PrepareScaledCandidates(KrylovState_& s, const BcgScaledAlphaPrivate_::ExactAlpha_& alpha, const Vector_<>& x, const char* solver) {
+            BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+#if defined(DAL35_ENABLE_TEST_SEAM)
+            Dal35ObserveExactWorkspaceConstructionForTest_();
+#endif
+            const BcgScaledAlphaPrivate_::CandidateGroup_ group{&s.pCandidate_,
+                                                                &x,
+                                                                &s.r_,
+                                                                s.biConjugate_ ? &s.rr_ : nullptr,
+                                                                &s.xCandidate_,
+                                                                &s.rCandidate_,
+                                                                s.biConjugate_ ? &s.rrCandidate_ : nullptr};
+            const BcgScaledAlphaPrivate_::CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::X)
+                ThrowFailure(solver, "numerical breakdown", "candidate x");
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::RESIDUAL)
+                ThrowFailure(solver, "numerical breakdown", "candidate residual");
+            if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::SHADOW_RESIDUAL)
+                ThrowFailure(solver, "numerical breakdown", "candidate shadow residual");
+        }
+
+#if defined(__GNUC__) || defined(__clang__)
+#define DAL35_COLD_NOINLINE_ __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+#define DAL35_COLD_NOINLINE_ __declspec(noinline)
+#else
+#define DAL35_COLD_NOINLINE_
+#endif
+        DAL35_COLD_NOINLINE_ bool PrepareExceptionalAlpha(KrylovState_& s,
+                                                          const Scaled_& beta,
+                                                          const Scaled_& denominator,
+                                                          const BcgScaledAlphaPrivate_::StoredScaledBits_& numeratorBits,
+                                                          const BcgScaledAlphaPrivate_::StoredScaledBits_& denominatorBits,
+                                                          const Vector_<>& x,
+                                                          const char* solver,
+                                                          double* alpha) {
+            const BcgScaledAlphaPrivate_::AlphaPlan_ plan = BcgScaledAlphaPrivate_::ClassifyAlphaAndInvokeLegacy_(
+                numeratorBits, denominatorBits, [&]() { *alpha = ScaledRatio(beta, denominator, solver, "alpha denominator", "alpha ratio"); });
+            if (plan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
+                ThrowFailure(solver, "numerical breakdown", "alpha denominator");
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION)
+            if (plan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL)
+                PrepareScaledCandidates(s, plan.exact_, x, solver);
+#endif
+            if (plan.path_ != BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT)
+                return false;
+            PrepareScaledCandidates(s, plan.exact_, x, solver);
+            return true;
+        }
+#undef DAL35_COLD_NOINLINE_
+
         void PrepareCandidate(KrylovState_& s, const Scaled_& beta, const Vector_<>& x, const char* solver) {
             s.A_.MultiplyLeft(s.pCandidate_, &s.rCandidate_);
             ValidateCallbackResult(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
@@ -838,7 +929,18 @@ namespace Dal {
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
             const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
-            const double alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
+            const BcgScaledAlphaPrivate_::StoredScaledBits_ numeratorBits = CaptureStoredBits(beta);
+            const BcgScaledAlphaPrivate_::StoredScaledBits_ denominatorBits = CaptureStoredBits(alphaDenominator);
+            double alpha = 0.0;
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION)
+            if (PrepareExceptionalAlpha(s, beta, alphaDenominator, numeratorBits, denominatorBits, x, solver, &alpha))
+                return;
+#else
+            if (BcgScaledAlphaPrivate_::CanUseLegacyRatioFast_(numeratorBits, denominatorBits))
+                alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
+            else if (PrepareExceptionalAlpha(s, beta, alphaDenominator, numeratorBits, denominatorBits, x, solver, &alpha))
+                return;
+#endif
             StableBatch_ stableBatch;
             StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
             StableCombination(-alpha, s.rCandidate_, s.r_, solver, "candidate residual", &s.rCandidate_);

@@ -46,6 +46,15 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `matrix`: Added exact scaled-`alpha` candidate combination for `Sparse::CGSolve`
+  and `Sparse::BCGSolve`. When the standalone binary64 coefficient is unsafe, the
+  stored quotient remains exact until each complete solution, residual, or BCG
+  shadow-residual expression is rounded once; finite cancellation and subnormal
+  candidates are accepted, while genuinely non-finite candidates still fail before
+  the atomic commit. The existing `beta/betaPrev` direction-ratio path is unchanged,
+  and solver-level FTZ validation is limited to the S3/S5 first-iteration cases.
+  Public signatures and bindings are unchanged. See `docs/methodology/matrix.md`.
+
 - `matrix`: Made `Sparse::CGSolve` and `Sparse::BCGSolve` scale-safe across the
   finite binary64 range. Norm and convergence classification no longer relies
   on overflowed or underflowed intermediates, and ambiguous signed dot products
