@@ -130,6 +130,29 @@ with an unknown CPU baseline.
 | `DAL_USE_ADEPT_AAD`        | `OFF`        | Use Adept                                                                             |
 | `MSVC_RUNTIME`             | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
+### Selecting an AAD backend
+
+The native AADET backend is selected when all three external-backend options
+are `OFF`. XAD, CoDiPack, and Adept are mutually exclusive; configuration
+fails if more than one is enabled. For example, configure, build, and test a
+separate CoDiPack tree with:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-codipack \
+  -DDAL_USE_XAD_AAD=OFF \
+  -DDAL_USE_CODIPACK_AAD=ON \
+  -DDAL_USE_ADEPT_AAD=OFF
+cmake --build build/Release-codipack --parallel
+ctest --test-dir build/Release-codipack --output-on-failure
+```
+
+CoDiPack recording is isolated by native thread-local storage: each operating
+system thread owns its underlying CoDiPack tape and DAL wrapper, and that
+storage is destroyed when the thread exits. This lifecycle does not depend on
+the Python GIL. A `Number_`, `Tape_`, or tape position remains thread-affine;
+create, record, propagate, and clear it on the same thread instead of moving it
+to another thread.
+
 ## Windows C++ and Excel
 
 From a Visual Studio 2022 developer shell with Ninja available:
