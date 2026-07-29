@@ -1,5 +1,38 @@
 import { expect, test, type Download } from "@playwright/test";
 
+test("creates a legal draft for every family through the visual control", async ({
+  page,
+}) => {
+  test.skip(
+    process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
+    "requires the guarded canned DAL FastAPI backend",
+  );
+
+  await page.goto("/curves");
+  for (const family of [
+    "DEPOSIT",
+    "FRA",
+    "FUTURE",
+    "OIS",
+    "IRS",
+    "BASIS_SWAP",
+    "XCCY",
+  ]) {
+    await page.getByLabel("Family 1").selectOption(family);
+    const responsePromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/curve-lab/drafts")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Create draft" }).click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(201);
+    const created = await response.json() as {
+      document: { instruments: { instrument_type: string }[] };
+    };
+    expect(created.document.instruments[0].instrument_type).toBe(family);
+  }
+});
+
 test("persists stale rebuild and version file actions through the real API", async ({
   page,
 }) => {

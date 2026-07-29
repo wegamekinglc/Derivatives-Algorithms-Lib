@@ -227,6 +227,13 @@ export interface CurveLabRiskRun {
   finished_at: string | null;
 }
 
+export interface CurveLabImportJob {
+  id: string;
+  state: string;
+  resulting_version_id: string | null;
+  error: { code: string; message: string } | null;
+}
+
 export interface CurveLabMatrix {
   matrix_id: string;
   mathematical_name: string;
@@ -522,12 +529,7 @@ export const api = {
     payload: Blob,
     runtimeManifest?: Record<string, unknown>,
   ) =>
-    request<{
-      id: string;
-      state: string;
-      resulting_version_id: string | null;
-      error: { code: string; message: string } | null;
-    }>("/curve-lab/import-jobs", {
+    request<CurveLabImportJob>("/curve-lab/import-jobs", {
       method: "POST",
       body: payload,
       headers: {
@@ -538,12 +540,7 @@ export const api = {
       },
     }),
   getCurveLabImportJob: (id: string) =>
-    request<{
-      id: string;
-      state: string;
-      resulting_version_id: string | null;
-      error: { code: string; message: string } | null;
-    }>(`/curve-lab/import-jobs/${id}`),
+    request<CurveLabImportJob>(`/curve-lab/import-jobs/${id}`),
   createCurveLabFixingSnapshot: (body: {
     id: string;
     observations: {

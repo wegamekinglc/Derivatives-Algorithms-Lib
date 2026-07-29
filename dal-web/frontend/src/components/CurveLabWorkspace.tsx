@@ -4,8 +4,10 @@ import {
   ApiClientError,
   type CurveLabBuildRun,
   type CurveLabDraft,
+  type CurveLabImportJob,
   type CurveLabMatrix,
   type CurveLabRiskRun,
+  type CurveLabSuccessFamily,
   type CurveLabVersion,
 } from "../api/client";
 import { css } from "../format";
@@ -21,6 +23,15 @@ const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
 ];
 
 const COMPONENT_KEY = "clab/v1/local/discount/USD/OIS";
+const CURVE_LAB_FAMILIES: readonly CurveLabSuccessFamily[] = [
+  "DEPOSIT",
+  "FRA",
+  "FUTURE",
+  "OIS",
+  "IRS",
+  "BASIS_SWAP",
+  "XCCY",
+];
 
 const DEFAULT_DRAFT = {
   schema_version: 2,
@@ -78,44 +89,125 @@ const DEFAULT_TRADES = [{
   },
 }];
 
+function calibrationTerms(
+  componentKey: string,
+  currencyOrPair: string,
+  instrumentType: CurveLabSuccessFamily,
+): Record<string, unknown> {
+  const domesticCurrency = currencyOrPair.replace("/", "-").split("-")[0] || "USD";
+  const indexTerms = {
+    component_key: componentKey,
+    index_name: `${domesticCurrency}-SOFR`,
+    forecast_tenor: "3M",
+    day_basis: "ACT_365F",
+    collateral: "OIS",
+    use_projection_curve: false,
+  };
+  if (instrumentType === "DEPOSIT" || instrumentType === "FRA") return indexTerms;
+  if (instrumentType === "FUTURE") {
+    return { ...indexTerms, convexity_adjustment: "0" };
+  }
+  if (instrumentType === "OIS" || instrumentType === "IRS") {
+    return {
+      component_key: componentKey,
+      fixed_payment_frequency: "12M",
+      fixed_day_basis: "ACT_365F",
+      float_payment_frequency: instrumentType === "OIS" ? "12M" : "3M",
+      float_day_basis: "ACT_365F",
+      float_forecast_tenor: "3M",
+      float_collateral: "OIS",
+      float_use_projection_curve: false,
+      index_name: instrumentType === "OIS"
+        ? `${domesticCurrency}-SOFR`
+        : `${domesticCurrency}-IBOR-3M`,
+    };
+  }
+  if (instrumentType === "BASIS_SWAP") {
+    return {
+      component_key: componentKey,
+      spread_payment_frequency: "3M",
+      spread_day_basis: "ACT_365F",
+      spread_forecast_tenor: "3M",
+      spread_collateral: "OIS",
+      spread_use_projection_curve: false,
+      reference_payment_frequency: "6M",
+      reference_day_basis: "ACT_365F",
+      reference_forecast_tenor: "6M",
+      reference_collateral: "OIS",
+      reference_use_projection_curve: false,
+    };
+  }
+  return {
+    component_key: componentKey,
+    domestic_notional: "1000000",
+    foreign_notional: "900000",
+    domestic_payment_frequency: "3M",
+    domestic_day_basis: "ACT_365F",
+    domestic_forecast_tenor: "3M",
+    domestic_collateral: "OIS",
+    domestic_use_projection_curve: false,
+    foreign_payment_frequency: "3M",
+    foreign_day_basis: "ACT_365F",
+    foreign_forecast_tenor: "3M",
+    foreign_collateral: "OIS",
+    foreign_use_projection_curve: false,
+    fx_spot: 1.1,
+    fx_forward_collateral: "OIS",
+  };
+}
+
+function familyCurrencyOrPair(
+  current: string,
+  instrumentType: CurveLabSuccessFamily,
+): string {
+  const [domestic = "USD", currentForeign] = current.replace("/", "-").split("-");
+  if (instrumentType !== "XCCY") return domestic;
+  const foreign = currentForeign || (domestic === "EUR" ? "USD" : "EUR");
+  return `${domestic}-${foreign}`;
+}
+
+function familyRawQuote(instrumentType: CurveLabSuccessFamily): string {
+  if (instrumentType === "FUTURE") return "95.8225";
+  if (instrumentType === "BASIS_SWAP" || instrumentType === "XCCY") return "0.001";
+  return "0.04";
+}
+
+function migrateCalibrationInstrument(
+  instrument: Record<string, unknown>,
+  instrumentType: CurveLabSuccessFamily,
+): Record<string, unknown> {
+  const previousTerms = instrument.terms;
+  const componentKey = previousTerms && typeof previousTerms === "object"
+    ? String((previousTerms as Record<string, unknown>).component_key ?? COMPONENT_KEY)
+    : COMPONENT_KEY;
+  const currencyOrPair = familyCurrencyOrPair(
+    String(instrument.currency_or_pair ?? "USD"),
+    instrumentType,
+  );
+  return {
+    ...instrument,
+    instrument_type: instrumentType,
+    currency_or_pair: currencyOrPair,
+    raw_quote: familyRawQuote(instrumentType),
+    terms: calibrationTerms(componentKey, currencyOrPair, instrumentType),
+  };
+}
+
 function calibrationInstrument(
   componentKey: string,
   currencyOrPair: string,
-  instrumentType: "DEPOSIT" | "XCCY" = "DEPOSIT",
+  instrumentType: CurveLabSuccessFamily = "DEPOSIT",
 ): Record<string, unknown> {
-  const xccy = instrumentType === "XCCY";
-  return {
-    instrument_type: instrumentType,
+  return migrateCalibrationInstrument({
     trade_date: "2026-01-15",
     start_date: "2026-01-15",
     maturity_date: "2027-01-15",
     currency_or_pair: currencyOrPair,
-    raw_quote: xccy ? "0.001" : "0.04",
     source: "CURVE_LAB_UI",
     observed_at: "2026-01-15T00:00:00Z",
     included: true,
-    terms: xccy
-      ? {
-          component_key: componentKey,
-          domestic_notional: "1000000",
-          foreign_notional: "900000",
-          fx_spot: 1.1,
-          domestic_forecast_tenor: "3M",
-          domestic_day_basis: "ACT_365F",
-          domestic_collateral: "OIS",
-          foreign_forecast_tenor: "3M",
-          foreign_day_basis: "ACT_365F",
-          foreign_collateral: "OIS",
-          fx_forward_collateral: "OIS",
-        }
-      : {
-          component_key: componentKey,
-          forecast_tenor: "3M",
-          day_basis: "ACT_365F",
-          collateral: "OIS",
-          index_name: `${currencyOrPair}-OIS`,
-        },
-  };
+    terms: { component_key: componentKey },
+  }, instrumentType);
 }
 
 function topologyForMode(mode: CurveLabBuildMode) {
@@ -191,18 +283,21 @@ async function waitForTerminal<T extends { id: string; state: string }>(
   initial: T,
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
   load: (...args: [string]) => Promise<T>,
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  onUpdate: (...args: [T]) => void,
 ): Promise<T> {
   let current = initial;
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    if (["SUCCEEDED", "FAILED", "TIMED_OUT"].includes(current.state)) return current;
+  onUpdate(current);
+  while (!isTerminal(current)) {
     await new Promise((resolve) => window.setTimeout(resolve, 50));
     current = await load(current.id);
+    onUpdate(current);
   }
-  return terminalTimeout();
+  return current;
 }
 
-function terminalTimeout(): never {
-  throw new Error("Curve Lab work did not reach a terminal state before the UI deadline.");
+function isTerminal(run: { state: string }): boolean {
+  return ["SUCCEEDED", "FAILED", "TIMED_OUT"].includes(run.state);
 }
 
 function editableDocument(document: Record<string, unknown>): Record<string, unknown> {
@@ -317,6 +412,7 @@ export default function CurveLabWorkspace() {
   const [selectedVersionId, setSelectedVersionId] = useState("");
   const [versionName, setVersionName] = useState("USD OIS");
   const [risk, setRisk] = useState<CurveLabRiskRun | null>(null);
+  const [importJob, setImportJob] = useState<CurveLabImportJob | null>(null);
   const [matrices, setMatrices] = useState<CurveLabMatrix[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -456,6 +552,14 @@ export default function CurveLabWorkspace() {
       )),
     }));
   };
+  const setInstrumentFamily = (index: number, family: CurveLabSuccessFamily) => {
+    updateVisualDraft((current) => ({
+      ...current,
+      instruments: visualInstruments.map((instrument, position) => (
+        position === index ? migrateCalibrationInstrument(instrument, family) : instrument
+      )),
+    }));
+  };
   const addInstrument = () => {
     const template = visualInstruments.slice(-1).pop()
       ?? DEFAULT_DRAFT.instruments[0];
@@ -543,13 +647,27 @@ export default function CurveLabWorkspace() {
     setStatus(`Draft ${created.id.slice(0, 8)} revision ${created.revision} is ready.`);
   });
 
+  const pollBuild = async (initial: CurveLabBuildRun) => {
+    const terminal = await waitForTerminal(
+      initial,
+      api.getCurveLabBuildRun,
+      setBuild,
+    );
+    setStatus(`Build ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
+    setTab("runs");
+  };
+
   const buildCurve = () => execute(async () => {
     if (!draft) throw new Error("Create a draft before building.");
     const created = await api.createCurveLabBuildRun(draft.id);
-    const terminal = await waitForTerminal(created, api.getCurveLabBuildRun);
-    setBuild(terminal);
-    setStatus(`Build ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
-    setTab("runs");
+    setBuild(created);
+    setStatus(`Build ${created.id.slice(0, 8)} admitted ${created.state}.`);
+    await pollBuild(created);
+  });
+
+  const resumeBuild = () => execute(async () => {
+    if (!build || isTerminal(build)) throw new Error("No admitted build is awaiting polling.");
+    await pollBuild(build);
   });
 
   const saveDraft = () => execute(async () => {
@@ -580,6 +698,31 @@ export default function CurveLabWorkspace() {
     setStatus(`Published ${published.name}`);
   });
 
+  const pollRisk = async (initial: CurveLabRiskRun) => {
+    const terminal = await waitForTerminal(
+      initial,
+      api.getCurveLabRiskRun,
+      setRisk,
+    );
+    const matrixIds = [
+      "trade-to-node",
+      "calibration-jacobian",
+      "composed-quote-diagnostic",
+      "key-rate-dv01",
+    ];
+    const fetched = await Promise.all(
+      matrixIds.map(async (matrixId) => {
+        try {
+          return await api.getCurveLabMatrix(terminal.id, matrixId);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    setMatrices(fetched.filter((item): item is CurveLabMatrix => item !== null));
+    setStatus(`Risk run ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
+  };
+
   const runRisk = () => execute(async () => {
     if (!selectedVersionId) throw new Error("Select a visible curve version.");
     try {
@@ -607,25 +750,14 @@ export default function CurveLabWorkspace() {
         jacobian_replay_fallback: "ALLOW",
       },
     });
-    const terminal = await waitForTerminal(created, api.getCurveLabRiskRun);
-    setRisk(terminal);
-    const matrixIds = [
-      "trade-to-node",
-      "calibration-jacobian",
-      "composed-quote-diagnostic",
-      "key-rate-dv01",
-    ];
-    const fetched = await Promise.all(
-      matrixIds.map(async (matrixId) => {
-        try {
-          return await api.getCurveLabMatrix(terminal.id, matrixId);
-        } catch {
-          return null;
-        }
-      }),
-    );
-    setMatrices(fetched.filter((item): item is CurveLabMatrix => item !== null));
-    setStatus(`Risk run ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
+    setRisk(created);
+    setStatus(`Risk run ${created.id.slice(0, 8)} admitted ${created.state}.`);
+    await pollRisk(created);
+  });
+
+  const resumeRisk = () => execute(async () => {
+    if (!risk || isTerminal(risk)) throw new Error("No admitted risk run is awaiting polling.");
+    await pollRisk(risk);
   });
 
   const archive = (version: CurveLabVersion) => execute(async () => {
@@ -666,11 +798,28 @@ export default function CurveLabWorkspace() {
     setStatus(`Exported native JSON for ${version.name}.`);
   });
 
-  const importFile = (file: File) => execute(async () => {
-    const job = await api.importCurveLabVersion(file, importManifest ?? undefined);
-    const terminal = await waitForTerminal(job, api.getCurveLabImportJob);
+  const pollImport = async (initial: CurveLabImportJob) => {
+    const terminal = await waitForTerminal(
+      initial,
+      api.getCurveLabImportJob,
+      setImportJob,
+    );
     await refreshVersions();
     setStatus(`Import ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
+  };
+
+  const importFile = (file: File) => execute(async () => {
+    const job = await api.importCurveLabVersion(file, importManifest ?? undefined);
+    setImportJob(job);
+    setStatus(`Import ${job.id.slice(0, 8)} admitted ${job.state}.`);
+    await pollImport(job);
+  });
+
+  const resumeImport = () => execute(async () => {
+    if (!importJob || isTerminal(importJob)) {
+      throw new Error("No admitted import is awaiting polling.");
+    }
+    await pollImport(importJob);
   });
 
   return (
@@ -916,10 +1065,13 @@ export default function CurveLabWorkspace() {
                             aria-label={`Family ${index + 1}`}
                             value={String(instrument.instrument_type ?? "DEPOSIT")}
                             onChange={(event) => {
-                              setInstrumentField(index, "instrument_type", event.target.value);
+                              setInstrumentFamily(
+                                index,
+                                event.target.value as CurveLabSuccessFamily,
+                              );
                             }}
                           >
-                            {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
+                            {CURVE_LAB_FAMILIES.map(
                               (family) => <option key={family} value={family}>{family}</option>,
                             )}
                           </select>
@@ -1010,6 +1162,16 @@ export default function CurveLabWorkspace() {
             <button type="button" disabled={busy || !draft} onClick={() => void buildCurve()}>
               Build curve
             </button>
+            {build && !isTerminal(build) && (
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={`Resume build polling ${build.id.slice(0, 8)}`}
+                onClick={() => void resumeBuild()}
+              >
+                Resume build polling
+              </button>
+            )}
             <button type="button" disabled={busy || !draft} onClick={() => void saveDraft()}>
               Save draft changes
             </button>
@@ -1146,7 +1308,7 @@ export default function CurveLabWorkspace() {
                               setTradeField(index, "instrument_type", event.target.value);
                             }}
                           >
-                            {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
+                            {CURVE_LAB_FAMILIES.map(
                               (family) => <option key={family}>{family}</option>,
                             )}
                           </select>
@@ -1234,6 +1396,16 @@ export default function CurveLabWorkspace() {
                 <dt>Evaluations</dt><dd>{String(risk.estimated_work.price_evaluations)}</dd>
               </dl>
             )}
+            {risk && !isTerminal(risk) && (
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={`Resume risk polling ${risk.id.slice(0, 8)}`}
+                onClick={() => void resumeRisk()}
+              >
+                Resume risk polling
+              </button>
+            )}
           </aside>
           {risk?.result?.pricing && (
             <section {...css("panel", "curve-lab-risk-results")}>
@@ -1303,6 +1475,22 @@ export default function CurveLabWorkspace() {
               />
             </label>
           </div>
+          {importJob && (
+            <section {...css("panel")}>
+              <h3>Latest import</h3>
+              <p {...css("mono")}>{importJob.id} · {importJob.state}</p>
+              {!isTerminal(importJob) && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Resume import polling ${importJob.id.slice(0, 8)}`}
+                  onClick={() => void resumeImport()}
+                >
+                  Resume import polling
+                </button>
+              )}
+            </section>
+          )}
           <section {...css("panel")}>
             <div {...css("curve-lab-section-heading")}>
               <div>

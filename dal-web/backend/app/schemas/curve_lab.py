@@ -31,6 +31,8 @@ CanonicalQuoteDecimalV1 = Annotated[
         description="Canonical plain base-10 financial value; never a JSON number.",
     ),
 ]
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+PositiveFiniteFloat = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +59,11 @@ CURVE_LAB_V1_SUCCESS_FAMILIES: tuple[CurveLabV1SuccessFamily, ...] = tuple(
 
 
 class CurveLabWireModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_default=True,
+        allow_inf_nan=False,
+    )
 
 
 class CurveLabQuoteCanonicalizationRequest(CurveLabWireModel):
@@ -205,12 +211,12 @@ class CurveDeclarationInputV2(CurveLabWireModel):
 
 class CurveLabSolverInputV2(CurveLabWireModel):
     solve_mode: Literal["EXACT", "APPROXIMATE"] = "EXACT"
-    smoothing_weight: Annotated[float, Field(gt=0)] = 1.0
-    tolerance: Annotated[float, Field(gt=0)] = 1.0e-8
-    fit_tolerance: Annotated[float, Field(gt=0)] = 1.0e-6
+    smoothing_weight: PositiveFiniteFloat = 1.0
+    tolerance: PositiveFiniteFloat = 1.0e-8
+    fit_tolerance: PositiveFiniteFloat = 1.0e-6
     max_evaluations: Annotated[int, Field(gt=0, le=1_000_000)] = 200
     max_restarts: Annotated[int, Field(ge=0, le=10_000)] = 20
-    initial_guess: float = 0.05
+    initial_guess: FiniteFloat = 0.05
     libor_basis: Literal["ACT_365F", "ACT_360", "30_360"] = "ACT_365F"
     parameterization: CurveParameterizationV2 | None = None
 
@@ -225,7 +231,7 @@ class CurveInstrumentTermsV2(CurveLabWireModel):
     day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
     collateral: CollateralV2 | None = None
     use_projection_curve: bool | None = None
-    convexity_adjustment: CanonicalQuoteDecimalV1 | float | None = None
+    convexity_adjustment: CanonicalQuoteDecimalV1 | FiniteFloat | None = None
     fixed_payment_frequency: TenorV2 | None = None
     fixed_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
     float_payment_frequency: TenorV2 | None = None
@@ -243,8 +249,8 @@ class CurveInstrumentTermsV2(CurveLabWireModel):
     reference_forecast_tenor: TenorV2 | None = None
     reference_collateral: CollateralV2 | None = None
     reference_use_projection_curve: bool | None = None
-    domestic_notional: CanonicalQuoteDecimalV1 | float | None = None
-    foreign_notional: CanonicalQuoteDecimalV1 | float | None = None
+    domestic_notional: CanonicalQuoteDecimalV1 | FiniteFloat | None = None
+    foreign_notional: CanonicalQuoteDecimalV1 | FiniteFloat | None = None
     domestic_payment_frequency: TenorV2 | None = None
     domestic_day_basis: Literal["ACT_365F", "ACT_360", "30_360"] | None = None
     domestic_forecast_tenor: TenorV2 | None = None
@@ -255,7 +261,7 @@ class CurveInstrumentTermsV2(CurveLabWireModel):
     foreign_forecast_tenor: TenorV2 | None = None
     foreign_collateral: CollateralV2 | None = None
     foreign_use_projection_curve: bool | None = None
-    fx_spot: Annotated[float, Field(gt=0)] | None = None
+    fx_spot: PositiveFiniteFloat | None = None
     fx_forward_collateral: CollateralV2 | None = None
 
 

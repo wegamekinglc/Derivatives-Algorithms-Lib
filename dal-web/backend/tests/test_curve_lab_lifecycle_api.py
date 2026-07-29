@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import json
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +11,7 @@ from copy import deepcopy
 from datetime import datetime
 
 import pytest
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session
 
 
@@ -168,6 +169,75 @@ def test_draft_contract_rejects_empty_topology_and_open_solver_or_terms(client) 
     assert empty_response.json()["detail"]["code"] == "DRAFT_TOPOLOGY_INVALID"
     assert solver_response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
     assert terms_response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
+
+
+@pytest.mark.parametrize("wire_number", ["NaN", "Infinity", "1e999"])
+@pytest.mark.parametrize(
+    "field_path",
+    [
+        "solver.smoothing_weight",
+        "solver.tolerance",
+        "solver.fit_tolerance",
+        "solver.initial_guess",
+        "instruments.0.terms.convexity_adjustment",
+        "instruments.0.terms.domestic_notional",
+        "instruments.0.terms.foreign_notional",
+        "instruments.0.terms.fx_spot",
+    ],
+)
+def test_draft_rejects_non_finite_wire_numbers_without_persistence(
+    client,
+    field_path: str,
+    wire_number: str,
+) -> None:
+    from app.services.store import get_store
+
+    document = _document()
+    instrument = document["instruments"][0]
+    if field_path.endswith("convexity_adjustment"):
+        instrument.update(
+            {
+                "instrument_type": "FUTURE",
+                "raw_quote": "95.8225",
+                "terms": {
+                    "index": "USD-SOFR",
+                    "convexity_adjustment": "NON_FINITE_NUMBER",
+                },
+            }
+        )
+    elif ".terms." in field_path:
+        instrument.update(
+            {
+                "instrument_type": "XCCY",
+                "currency_or_pair": "USD-EUR",
+                "raw_quote": "0.001",
+                "terms": {
+                    "component_key": "clab/v1/local/discount/USD/OIS",
+                    "domestic_notional": "1000000",
+                    "foreign_notional": "900000",
+                    "fx_spot": 1.1,
+                },
+            }
+        )
+        instrument["terms"][field_path.rsplit(".", 1)[1]] = "NON_FINITE_NUMBER"
+    else:
+        document["solver"][field_path.rsplit(".", 1)[1]] = "NON_FINITE_NUMBER"
+    source = json.dumps(document).replace('"NON_FINITE_NUMBER"', wire_number)
+
+    response = client.post(
+        "/api/curve-lab/drafts",
+        content=source,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
+    with get_store()._engine.connect() as connection:
+        assert connection.execute(text("SELECT COUNT(*) FROM curve_drafts")).scalar_one() == 0
+        assert (
+            connection.execute(text("SELECT COUNT(*) FROM curve_audit_events")).scalar_one()
+            == 0
+        )
 
 
 def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> None:
