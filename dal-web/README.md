@@ -3,6 +3,9 @@
 A web application for managing and pricing derivatives portfolios on top of the
 Derivatives Algorithms Library (DAL).
 
+The visual Curve Lab build/version/pricing/risk contract is documented in the
+[Curve Lab guide](../docs/curve-lab.md).
+
 * **Backend** -- FastAPI (Python `>= 3.13`).
 * **Frontend** -- React + TypeScript (Vite).
 * **DAL access** -- the backend talks to DAL **only** through its Python public
@@ -21,12 +24,13 @@ dal-web/
 │   ├── app/
 │   │   ├── main.py          app factory + router wiring
 │   │   ├── schemas/         Pydantic request/response models
-│   │   ├── routers/         products, models, trades, portfolios, calibrations, system
+│   │   ├── routers/         products, models, trades, portfolios, calibrations, Curve Lab, system
 │   │   └── services/
 │   │       ├── dal_gateway.py   ← the ONLY place that imports the dal public API
 │   │       ├── store.py         Store seam: StoreProtocol + in-memory Store + get_store()
 │   │       ├── db/              SQLAlchemy 2.x DbStore (session / models / store_db) + migrations
 │   │       ├── calibrations.py  asynchronous calibration orchestration + DTO persistence
+│   │       ├── curve_lab_*.py   V2 planning, lifecycle, jobs, fixings, and risk
 │   │       ├── valuation.py     trade/portfolio pricing orchestration
 │   │       └── templates.py     product-builder presets + demo seed
 │   └── tests/               pytest suite (fake dal module, no C++ build needed)
@@ -52,6 +56,8 @@ Monte-Carlo public API:
 | Curve planning  | `PlanCurveCalibrationKnots`, eligibility and execution-identity inspectors |
 | Calibration     | `CalibrateSingleCurve`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`    |
 | Curve rebuild   | `DiscountPWC_New`, `DiscountPWLF_New`, `DiscountZeroRate_New`, `DiscountLogDF_New` |
+| Curve archive   | Private `Storable_` JSON and `Bag_` integration bridge                       |
+| Rate pricing    | `PriceRateTrades`, fixing planning, and `RateTradeNodeSensitivities`          |
 
 No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
@@ -124,6 +130,25 @@ calibration still `"running"` in any of the `queued`, `solving`,
 code `SERVER_RESTARTED`; completed and already-failed runs remain unchanged.
 This mirrors valuation recovery, where an orphaned `"running"` valuation
 becomes `"failed"` because its in-process task cannot resume.
+
+### Curve Lab persistence and restart behavior
+
+Curve Lab adds durable drafts, build/import/risk runs, immutable versions,
+audit events, fixing snapshots, and matrix blobs. A successful build stores the
+exact canonical native archive and its hash; a single component has REST root
+kind `DISCOUNT_CURVE`, while a multi-root native `Bag_` has REST root kind
+`CURVE_SET`. Archiving changes only a version's visibility.
+
+Build, import, and risk work share two workers and a bounded queue of 100
+waiting jobs. Submission fails with `429` before persistence when that capacity
+is full. Every job has a 15-minute soft deadline checked between native calls.
+On database-backed startup, orphaned in-flight rows are reconciled to
+`FAILED` with `SERVER_RESTARTED`, or to `TIMED_OUT` when the persisted deadline
+has elapsed. Terminal rows and versions remain readable. In-memory mode loses
+all Curve Lab state on restart.
+
+See [Curve Lab persistence, restart, and rollback](../docs/curve-lab.md#persistence-restart-and-rollback)
+for migration and destructive downgrade guidance.
 
 ## Running
 
@@ -291,6 +316,26 @@ The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
 | `GET /api/calibrations/{id}`                     | Read the persisted run and optionally request a quote-bump preview.                          |
 | `GET /api/curves/{id}`                           | Read a versioned, recursively reconstructible persisted curve DTO.                           |
 
+### Curve Lab V2 API
+
+The `/api/curve-lab` surface is additive to the calibration endpoints above:
+
+| Resource            | Operations                                                                                   |
+|---------------------|----------------------------------------------------------------------------------------------|
+| Capabilities/quotes | Read the closed V2 contract and canonicalize family-specific quote lexemes                    |
+| Drafts/build runs   | Create or compare-and-swap a draft, snapshot a build, and poll its immutable lifecycle       |
+| Versions/imports    | Publish, clone, archive, export native JSON/manifest, and preflight/reconstruct imports       |
+| Fixings/risk        | Persist immutable snapshots; run typed PV/DV01/KRD; fetch provenance-rich sensitivity matrices |
+
+Build, import, and risk submissions return `202 Accepted` with a persisted
+record ID; poll the corresponding run/job endpoint constructed from that ID.
+Publishing a successful non-stale build returns an immutable version. Draft
+updates require `If-Match`; a stale revision or conflicting publication
+returns `409`. Queue exhaustion returns `429` with `Retry-After`. The full
+endpoint inventory, JSON example, native/Python entry points, archive limits,
+matrix units, and compatibility contract are in the
+[Curve Lab guide](../docs/curve-lab.md).
+
 ### Async curve calibration
 
 All three calibration POST endpoints return a persisted run with
@@ -369,9 +414,9 @@ npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 ```
 
 The vitest unit suite under `frontend/tests/unit/` covers the API client, the
-valuation panel, model-form parsing, and the formatting helpers. It runs in
-jsdom against mocked API responses, needs neither a browser nor a backend,
-and also runs in the web-quality CI job.
+valuation panel, model-form parsing, formatting helpers, and Curve Lab visual
+and API state. It runs in jsdom against mocked API responses, needs neither a
+browser nor a backend, and also runs in the web-quality CI job.
 
 The default Playwright command uses the native-only application startup path.
 CI uses an explicit canned DAL test double while retaining the real FastAPI
@@ -403,8 +448,10 @@ that require the canned backend skip themselves when the flag is absent.
   as a whitespace-separated matrix).
 * **Valuation Runs** -- reproducible history of every Monte Carlo run with PV,
   Greeks, and per-run status.
-* **Curve Lab** -- edit versioned JSON contracts for single, staged XCCY, or
-  joint XCCY calibration; submit an asynchronous run; and poll persisted
-  lifecycle state. Completed-run pages survive refresh and show reconstructed
-  curves, fit/residual diagnostics, Jacobian and effective-inverse heatmaps, FX
-  forwards, and backend-computed quote-bump previews.
+* **Curve Lab** -- use visual editors for single, multi-curve, staged XCCY, or
+  joint XCCY builds across all seven supported rate families. Build and import
+  runs are asynchronous; successful runs publish immutable native versions.
+  The same workspace clones, archives, imports, and exports versions, captures
+  immutable fixing snapshots, and runs typed PV/DV01/KRD with explicit axes,
+  units, provenance, partial pricing failures, and sensitivity matrices.
+  Advanced JSON edits the same validated V2 document as the visual controls.

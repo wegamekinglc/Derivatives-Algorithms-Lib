@@ -49,6 +49,7 @@ on other toolchains.
 | `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                       |
 | `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                 |
 | `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                        |
+| `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                  |
 | `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                        |
 | `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                          |
 
@@ -198,6 +199,30 @@ zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuo
 compounded rates for this representation. Single, staged, generic joint, and
 joint XCCY calibration support ZERO_RATE.
 
+### C++ rate cashflow pricing
+
+Include `<dal-public/src/curvepricing.hpp>` for the typed pricing surface. It
+exposes the core `RateTradeDefinition_`, family-specific terms,
+`RatePricingMarket_`, pricing result, and node-sensitivity types together with:
+
+```cpp
+Dal::BuildRateCashflowPlan(trade, market.valuationTime_);
+Dal::PriceRateTrade(trade, market);
+Dal::PriceRateTrades(trades, market);
+Dal::RateTradeNodeSensitivities(trade, market, componentKey);
+Dal::CurvePricingFamilyRegistry();
+```
+
+The supported family enum is closed to `DEPOSIT`, `FRA`, `FUTURE`, `OIS`,
+`IRS`, `BASIS_SWAP`, and `XCCY`. Planning determines curve dependencies and
+required historical rate/FX fixing keys before valuation. Batch pricing retains
+a success/failure result per trade.
+
+Native node AAD currently admits deposit trades only. Other families return
+`TRADE_FAMILY_NOT_AAD_ENABLED`; consumers that apply a central-parameter
+fallback must label it separately. See the [Curve Lab guide](curve-lab.md) for
+the complete pricing, fixing, matrix, and provenance contract.
+
 ## Python
 
 Import the installed package with:
@@ -218,6 +243,7 @@ import dal
 | Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
 | Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
 | XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
+| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`                                                                                      |
 | Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
 
 The basic valuation shape is:
@@ -319,6 +345,21 @@ bumped Jacobians and optional matrix construction. The effective inverse has
 shape `totalParameters x totalResiduals`; applying it to a raw decimal quote
 bump requires division by the spec's `tolerance_`, as described in the
 [Jacobian methodology](methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
+
+### Python rate cashflow pricing
+
+Python exports the seven-family enum, all family-specific terms classes,
+`RateTradeDefinition_`, `RatePricingMarket_`, `PriceRateTrades`, and
+`RateTradeNodeSensitivities`. The pricing and sensitivity functions use
+keyword-only arguments and release the GIL around native work. A complete
+deposit example is in the [Curve Lab native API section](curve-lab.md#native-c-and-python).
+
+`Storable_` exposes read-only `name` and `type` properties, and the native
+`YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for DAL-WEB archive
+compatibility. `_StorableToJson`, `_StorableFromJson`, `_BagNew`, and
+`_BagContents` are private integration helpers rather than supported general
+serialization functions. Use Curve Lab version export/import when the web
+compatibility contract is required.
 
 See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
 
