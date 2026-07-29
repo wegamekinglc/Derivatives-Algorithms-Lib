@@ -61,6 +61,24 @@ here as the baseline rather than dated releases:
   provenance, exact quote axes, PV/DV01/KRD results, and replayable
   sensitivity matrices. See `docs/curve-lab.md` and `dal-web/README.md`.
 
+- `matrix`: Added exact scaled-`alpha` candidate combination for `Sparse::CGSolve`
+  and `Sparse::BCGSolve`. When the standalone binary64 coefficient is unsafe, the
+  stored quotient remains exact until each complete solution, residual, or BCG
+  shadow-residual expression is rounded once; finite cancellation and subnormal
+  candidates are accepted, while genuinely non-finite candidates still fail before
+  the atomic commit. The existing `beta/betaPrev` direction-ratio path is unchanged,
+  and solver-level FTZ validation is limited to the S3/S5 first-iteration cases.
+  Public signatures and bindings are unchanged. See `docs/methodology/matrix.md`.
+
+- `matrix`: Made `Sparse::CGSolve` and `Sparse::BCGSolve` scale-safe across the
+  finite binary64 range. Norm and convergence classification no longer relies
+  on overflowed or underflowed intermediates, and ambiguous signed dot products
+  use exact accumulation. Candidate updates are committed only after callback
+  validation; candidates that appear converged additionally require direct
+  residual confirmation. Public signatures and bindings are unchanged; extreme
+  finite systems that previously reported false convergence or avoidable
+  breakdown now solve or fail closed. See `docs/methodology/matrix.md`.
+
 - `curve`: Added staged XCCY sensitivity diagnostics across public C++, Python,
   and Excel. The additive options overload selects analytic or bumped
   Jacobians and independently controls the forward and effective-inverse

@@ -167,7 +167,7 @@ Gauss-Newton calibration.
 `Sparse::BCGSolve` handles **non-symmetric** $A$. It maintains two residual sequences — a
 forward one $r_k$ in the original space and a shadow one $\tilde{r}_k$ in the transposed
 space — and constructs search directions $p_k$, $\tilde{p}_k$ that are bi-conjugate:
-$(\tilde{p}_k, A\,p_k) = (A^{\top}\tilde{p}_k, p_k) = 0$ for $k \ne l$. The update is
+$(\tilde{p}_l, A\,p_k) = (A^{\top}\tilde{p}_l, p_k) = 0$ for $k \ne l$. The update is
 
 $$
 \alpha_k = \frac{(\tilde{r}_{k-1}, z_{k-1})}{(\tilde{p}_k, A\,p_k)}, \quad
@@ -191,13 +191,49 @@ predictable convergence.
 
 Both solvers accept the same parameter tuple: relative tolerance `tolRel`, absolute
 tolerance `tolAbs`, and an iteration cap `maxIterations`. Convergence is declared when the
-residual 2-norm drops below
+residual 2-norm is at or below
 
 $$
 \|r_k\|_2 \;\le\; \texttt{tolRel}\cdot\|b\|_2 \;+\; \texttt{tolAbs},
 $$
 
-and exceeding `maxIterations` without meeting the threshold throws.
+and exceeding `maxIterations` without meeting the threshold throws. An exact-zero initial
+residual returns immediately for either method. BCG also accepts a non-zero initial residual
+that already meets the tolerance; CG enters the iteration loop in that case.
+
+The implementation evaluates norms, tolerance bounds, and potentially canceling dot
+products without relying on an overflowing or underflowing intermediate `double`. Ordinary
+dot-product reduction remains the fast path when a conservative error bound proves its sign
+and non-zero classification reliable. Ambiguous cases use an order-independent exact
+accumulation of the binary64 products followed by one round-to-nearest, ties-to-even
+conversion. Borderline convergence comparisons likewise use the exact squared binary64
+quantities, so the inclusive boundary above is preserved across the full finite input range.
+
+Scale-aware recurrence handling is deliberately limited to the `alpha` candidate
+combinations. Before materializing `alpha` as binary64, an integer classifier proves that
+the existing division and exponent placement are safe. Otherwise the stored numerator and
+denominator remain an exact rational while each complete `alpha * value + base` expression
+for the solution, residual, and BCG shadow residual is combined and rounded once to
+binary64. This admits finite cancellation and subnormal results even when standalone
+`alpha` would overflow or underflow. A complete expression that rounds to a non-finite
+candidate still fails closed.
+
+The later `beta/betaPrev` direction ratio remains on the existing binary64 `ScaledRatio`
+and fused-combination path; the exact `alpha` evaluator does not change or cover it. For
+fixed input bits, that evaluator is independent of flush-to-zero (FTZ) and preserves the
+caller's FP mode. Solver-level FTZ validation is limited to the S3/S5 first-iteration
+acceptance cases (minimum-subnormal formation and cancellation to $\pm 2^{-1074}$);
+it does not extend to other iterations, arbitrary callbacks, convergence or
+direct-residual arithmetic, or the `beta/betaPrev` path.
+
+Inputs and every matrix or preconditioner result must have the expected size and contain
+only finite values. Each update is assembled in private candidate buffers; a genuine
+non-finite candidate fails before publication. If the recursive residual appears converged,
+the solver recomputes $b-Ax$ from the candidate and publishes the candidate atomically only
+when that direct residual independently meets the same tolerance. Malformed callback
+results, non-finite arithmetic, recurrence breakdown, or failed direct confirmation throw
+without exposing a partial candidate, leaving `x` at the entry state or the last fully
+committed finite iterate.
 
 ## Examples
 
