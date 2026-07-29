@@ -86,6 +86,24 @@ Validation rejects extra fields, invalid topology, missing component ownership,
 duplicate identities, and unsupported instrument terms before native work is
 admitted.
 
+Changing an instrument's **Family** in the visual editor reconstructs that
+instrument as a legal template for the selected family. The editor replaces
+the currency or currency pair, raw quote, and complete terms object rather than
+carrying terms from the previous family. Rate-family templates start from
+`0.04`, futures from `95.8225`, and basis/XCCY templates from `0.001`; XCCY
+also selects a currency pair and supplies its required notionals and FX terms.
+These values are authoring defaults only. The server remains the authority for
+quote canonicalization and draft validation.
+
+For build, import, and risk work, the browser retains and displays the admitted
+record and ID before polling begins. Polling has no fixed client-side total
+timeout: each returned state is displayed until the server reports
+`SUCCEEDED`, `FAILED`, or `TIMED_OUT`. If a transport error interrupts polling,
+the current workspace session keeps the admitted ID and offers an explicit
+resume action that polls that same build run, import job, or risk run. This
+client recovery does not create a replacement job or imply recovery of
+in-memory UI state after a page reload.
+
 ## REST and OpenAPI
 
 All Curve Lab endpoints are under `/api/curve-lab`:
@@ -118,12 +136,16 @@ revision, draft fingerprint, build run, dependency hashes, and idempotency key
 in one transaction. An identical idempotent replay returns the existing
 version with `200 OK`.
 
-Validation failures use structured `422` details. Resource conflicts use
-`409`; shared queue exhaustion uses `429` with `Retry-After` and does not
-persist a job. A job that exceeds its deadline ends as `TIMED_OUT`. Errors
-retain a stable code, message, field, optional value and resource ID, and
-structured details; clients should branch on the code rather than parsing the
-message.
+Validation failures use structured `422` details. Every numeric JSON value in
+a Curve Lab request must be finite: non-finite tokens such as `NaN`,
+`Infinity`, or an overflowing number such as `1e999` return
+`REQUEST_VALIDATION_FAILED` before draft or audit persistence. Canonical
+financial values remain strings and use their family-specific exact grammar.
+Resource conflicts use `409`; shared queue exhaustion uses `429` with
+`Retry-After` and does not persist a job. A job that exceeds its deadline ends
+as `TIMED_OUT`. Errors retain a stable code, message, field, optional value and
+resource ID, and structured details; clients should branch on the code rather
+than parsing the message.
 
 ### Minimal single-curve draft
 

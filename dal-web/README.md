@@ -331,7 +331,9 @@ Build, import, and risk submissions return `202 Accepted` with a persisted
 record ID; poll the corresponding run/job endpoint constructed from that ID.
 Publishing a successful non-stale build returns an immutable version. Draft
 updates require `If-Match`; a stale revision or conflicting publication
-returns `409`. Queue exhaustion returns `429` with `Retry-After`. The full
+returns `409`. Non-finite floating-point input returns a structured `422`
+response with code `REQUEST_VALIDATION_FAILED` before draft or audit
+persistence. Queue exhaustion returns `429` with `Retry-After`. The full
 endpoint inventory, JSON example, native/Python entry points, archive limits,
 matrix units, and compatibility contract are in the
 [Curve Lab guide](../docs/curve-lab.md).
@@ -451,6 +453,11 @@ that require the canned backend skip themselves when the flag is absent.
 * **Curve Lab** -- use visual editors for single, multi-curve, staged XCCY, or
   joint XCCY builds across all seven supported rate families. Build and import
   runs are asynchronous; successful runs publish immutable native versions.
+  Selecting another instrument family reconstructs a legal family-specific
+  draft template instead of retaining stale terms. The workspace displays each
+  admitted build, import, or risk ID immediately, polls without a fixed client
+  deadline, and can resume the same ID after a transport error during the
+  current workspace session.
   The same workspace clones, archives, imports, and exports versions, captures
   immutable fixing snapshots, and runs typed PV/DV01/KRD with explicit axes,
   units, provenance, partial pricing failures, and sensitivity matrices.
