@@ -694,6 +694,15 @@ SensitivityLayerV2 = Literal[
     "CALIBRATION_JACOBIAN",
     "COMPOSED_QUOTE_DIAGNOSTIC",
 ]
+RateTradeDayBasisV2 = Annotated[
+    Literal["ACT_365F", "ACT_360", "30_360"],
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": ["ACT_365F", "ACT_360", "30_360"],
+        }
+    ),
+]
 
 
 class RateTradeTermsInputV2(CurveLabWireModel):
@@ -734,7 +743,7 @@ class RateTradeTermsInputV2(CurveLabWireModel):
     spread_forecast_component_key: str | None = None
     reference_forecast_component_key: str | None = None
     forecast_tenor: Annotated[str, Field(pattern=r"^[1-9][0-9]*[DWMY]$")] | None = None
-    day_basis: Literal["ACT_360", "ACT_365F", "30_360"] | None = None
+    day_basis: RateTradeDayBasisV2 | None = None
     collateral: Annotated[str, Field(min_length=1, max_length=32)] | None = None
     use_projection_curve: bool | None = None
     index_name: Annotated[str, Field(min_length=1, max_length=256)] | None = None
