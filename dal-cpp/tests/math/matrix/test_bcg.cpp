@@ -1139,6 +1139,271 @@ namespace {
         AssertCallbackFaultResult(biConjugate, site, fault, solve, x);
         AssertCallbackCounts(ExpectedCallbackFaultCounts(biConjugate, site), counts);
     }
+
+    struct ClassifierRow_ {
+        const char* id_;
+        BcgScaledAlphaPrivate_::StoredScaledBits_ numerator_;
+        BcgScaledAlphaPrivate_::StoredScaledBits_ denominator_;
+        std::uint64_t expectedNumerator_;
+        std::uint64_t expectedDenominator_;
+        int expectedExponent_;
+        BcgScaledAlphaPrivate_::AlphaPath_ expectedPath_;
+    };
+
+    const std::array<ClassifierRow_, 12>& ClassifierRows() {
+        using BcgScaledAlphaPrivate_::AlphaPath_;
+        using BcgScaledAlphaPrivate_::StoredScaledBits_;
+        const StoredScaledBits_ unit{0x3fe0000000000000ULL, 1, true};
+        static const std::array<ClassifierRow_, 12> rows = {{
+            {"C1", {0x3fe0000000000000ULL, -1074, true}, unit, 1, 1, -1075, AlphaPath_::SCALED_EXACT},
+            {"C2", {0x3fe0000000000000ULL, -1073, true}, unit, 1, 1, -1074, AlphaPath_::SCALED_EXACT},
+            {"C3", {0x3feffffffffffffeULL, -1022, true}, unit, 4503599627370495ULL, 2251799813685248ULL, -1023, AlphaPath_::SCALED_EXACT},
+            {"C4", {0x3fe0000000000000ULL, -1021, true}, unit, 1, 1, -1022, AlphaPath_::ORDINARY_NORMAL},
+            {"C5", {0x3fe0000000000000ULL, 1024, true}, unit, 1, 1, 1023, AlphaPath_::ORDINARY_NORMAL},
+            {"C6", {0x3fefffffffffffffULL, 1024, true}, unit, 9007199254740991ULL, 4503599627370496ULL, 1023, AlphaPath_::ORDINARY_NORMAL},
+            {"C7",
+             {0x3fefffffffffffffULL, 1025, true},
+             {0x3feffffffffffffeULL, 1, true},
+             9007199254740991ULL,
+             9007199254740990ULL,
+             1024,
+             AlphaPath_::SCALED_EXACT},
+            {"C8", {0x0000000000000001ULL, 0, false}, {0x0000000000000001ULL, 0, false}, 1, 1, 0, AlphaPath_::SCALED_EXACT},
+            {"C9a", {0x3fe0000000000000ULL, 1025, true}, unit, 1, 1, 1024, AlphaPath_::SCALED_EXACT},
+            {"C9b", {0x3fe0000000000000ULL, 1026, true}, unit, 1, 1, 1025, AlphaPath_::SCALED_EXACT},
+            {"C10", {0x3fe0000000000000ULL, 1101, true}, unit, 1, 1, 1100, AlphaPath_::SCALED_EXACT},
+            {"C11", {0x3fe0000000000000ULL, -1099, true}, unit, 1, 1, -1100, AlphaPath_::SCALED_EXACT},
+        }};
+        return rows;
+    }
+
+    void AssertClassifierObservation(const ClassifierRow_& row,
+                                     int signCase,
+                                     const BcgScaledAlphaPrivate_::StoredScaledBits_& numerator,
+                                     const BcgScaledAlphaPrivate_::StoredScaledBits_& denominator,
+                                     bool flushToZero,
+                                     AlphaClassifierObservation_* observation) {
+        using BcgScaledAlphaPrivate_::AlphaPath_;
+        *observation = ObserveAlphaClassification(numerator, denominator, flushToZero);
+#if defined(__SSE2__) || defined(_M_X64)
+        const unsigned expectedMode = flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF;
+        ASSERT_EQ(expectedMode, observation->entryMxcsr_ & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
+        ASSERT_EQ(observation->entryMxcsr_, observation->exitMxcsr_);
+#endif
+        ASSERT_EQ(row.expectedNumerator_, observation->plan_.exact_.numerator_);
+        ASSERT_EQ(row.expectedDenominator_, observation->plan_.exact_.denominator_);
+        ASSERT_EQ(row.expectedExponent_, observation->plan_.exact_.binaryExponent_);
+        ASSERT_EQ(signCase != 0, observation->plan_.exact_.negative_);
+        ASSERT_EQ(row.expectedPath_, observation->plan_.path_);
+        ASSERT_EQ(row.expectedPath_ == AlphaPath_::ORDINARY_NORMAL ? 1 : 0, observation->legacyConversionCalls_);
+    }
+
+    void AssertClassifierRowSign(const ClassifierRow_& row, int signCase) {
+        BcgScaledAlphaPrivate_::StoredScaledBits_ numerator = row.numerator_;
+        BcgScaledAlphaPrivate_::StoredScaledBits_ denominator = row.denominator_;
+        if (signCase == 1)
+            numerator.mantissaBits_ ^= 0x8000000000000000ULL;
+        if (signCase == 2)
+            denominator.mantissaBits_ ^= 0x8000000000000000ULL;
+        AlphaClassifierObservation_ withoutFtz{};
+        AssertClassifierObservation(row, signCase, numerator, denominator, false, &withoutFtz);
+#if defined(__SSE2__) || defined(_M_X64)
+        AlphaClassifierObservation_ withFtz{};
+        AssertClassifierObservation(row, signCase, numerator, denominator, true, &withFtz);
+        ASSERT_EQ(withoutFtz.comparableBits_, withFtz.comparableBits_);
+#endif
+    }
+
+    void AssertClassifierMatrix() {
+        for (const ClassifierRow_& row : ClassifierRows())
+            for (const int signCase : {0, 1, 2}) {
+                SCOPED_TRACE(std::string(row.id_) + " sign=" + std::to_string(signCase));
+                AssertClassifierRowSign(row, signCase);
+            }
+    }
+
+    void AssertEvaluatorOracle(const EvaluatorRow_& row) {
+        const Dal35OneBitOracle_::OracleResult_ oracle = Dal35OneBitOracle_::Evaluate_(OracleInput(row.alpha_, row.valueBits_, row.baseBits_));
+        const Dal35OneBitOracle_::OracleClass_ expectedOracleClass = row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE
+                                                                         ? Dal35OneBitOracle_::OracleClass_::FINITE
+                                                                         : Dal35OneBitOracle_::OracleClass_::NON_FINITE;
+        ASSERT_EQ(expectedOracleClass, oracle.classification_);
+        if (oracle.classification_ == Dal35OneBitOracle_::OracleClass_::FINITE)
+            ASSERT_EQ(row.expectedBits_, oracle.bits_);
+    }
+
+    void ObserveEvaluatorMode(const EvaluatorRow_& row, bool flushToZero, BcgScaledAlphaPrivate_::RoundedBinary64_* result) {
+        BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+#if defined(__SSE2__) || defined(_M_X64)
+        MxcsrRestore_ restore;
+        const unsigned configured =
+            (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
+        _mm_setcsr(configured);
+        const unsigned before = _mm_getcsr();
+#else
+        (void)flushToZero;
+#endif
+        *result = BcgScaledAlphaPrivate_::EvaluateElement_(row.alpha_, row.valueBits_, row.baseBits_, &workspace);
+#if defined(__SSE2__) || defined(_M_X64)
+        ASSERT_EQ(before, _mm_getcsr());
+#endif
+        ASSERT_EQ(row.expectedClass_, result->classification_);
+        std::uint64_t destination = 0x3fd5555555555555ULL;
+        if (result->classification_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE)
+            destination = result->bits_;
+        ASSERT_EQ(row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE ? row.expectedBits_ : 0x3fd5555555555555ULL, destination);
+        AssertCanonicalWorkspace(workspace);
+    }
+
+    void AssertEvaluatorRow(const EvaluatorRow_& row) {
+        AssertEvaluatorOracle(row);
+        BcgScaledAlphaPrivate_::RoundedBinary64_ withoutFtz{};
+        ObserveEvaluatorMode(row, false, &withoutFtz);
+#if defined(__SSE2__) || defined(_M_X64)
+        BcgScaledAlphaPrivate_::RoundedBinary64_ withFtz{};
+        ObserveEvaluatorMode(row, true, &withFtz);
+        ASSERT_EQ(withoutFtz.classification_, withFtz.classification_);
+        if (withFtz.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE)
+            ASSERT_EQ(withoutFtz.bits_, withFtz.bits_);
+#endif
+    }
+
+    void ConfigureResidualOverflowMatrix(bool shadowFailure, HookedPreconditionedDiagonal_* matrix) {
+        const double minimumSubnormal = DoubleFromBits(0x0000000000000001ULL);
+        matrix->SetLeftHook([minimumSubnormal, shadowFailure](int call, const Vector_<>&, Vector_<>* output) {
+            if (call == 1) {
+                (*output)[0] = 0.0;
+                (*output)[1] = 0.0;
+            } else {
+                (*output)[0] = shadowFailure ? 0.0 : 1.0;
+                (*output)[1] = minimumSubnormal;
+            }
+            return true;
+        });
+        matrix->SetRightHook([minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
+            (*output)[0] = 1.0;
+            (*output)[1] = minimumSubnormal;
+            return true;
+        });
+        const auto preconditioner = [minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
+            (*output)[0] = 0.0;
+            (*output)[1] = minimumSubnormal;
+            return true;
+        };
+        matrix->SetPreconditionerLeftHook(preconditioner);
+        matrix->SetPreconditionerRightHook(preconditioner);
+    }
+
+    void AssertResidualOrShadowOverflow(bool biConjugate, bool shadowFailure) {
+        SCOPED_TRACE(std::string(SolverName(biConjugate)) + (shadowFailure ? " shadow" : " residual"));
+        const double maximumFinite = DoubleFromBits(0x7fefffffffffffffULL);
+        const Vector_<> b = {1.0, maximumFinite};
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix({1.0, 1.0}, &counts);
+        ConfigureResidualOverflowMatrix(shadowFailure, &matrix);
+        Vector_<> x = {0.0, 0.0};
+        const double* const entryStorage = &x[0];
+
+        AssertDalExceptionContains(
+            [&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x); },
+            {SolverName(biConjugate), "numerical breakdown", shadowFailure ? "candidate shadow residual" : "candidate residual"});
+
+        ASSERT_EQ(0, &x[0] == entryStorage ? 0 : 1);
+        ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[0]));
+        ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[1]));
+        AssertCallbackCounts(biConjugate ? CallbackCounts_{2, 1, 1, 1} : CallbackCounts_{2, 0, 1, 0}, counts);
+    }
+
+#if defined(__SSE2__) || defined(_M_X64)
+    template <class Row_> void AssertSolverFtzMode(bool biConjugate, const Row_& row, bool flushToZero, ScaledAlphaObservation_* observation) {
+        MxcsrRestore_ restore;
+        const unsigned configured =
+            (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
+        _mm_setcsr(configured);
+        const unsigned before = _mm_getcsr();
+        *observation = ObserveScaledAlphaSolve(biConjugate, row.diagonal_, row.preconditioner_, row.rhs_, row.initial_, &row.exactAlpha_);
+        const unsigned after = _mm_getcsr();
+        ASSERT_EQ(flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF, before & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
+        ASSERT_EQ(before & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK), after & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
+        const CallbackCounts_ expectedCounts = biConjugate ? CallbackCounts_{3, 1, 1, 1} : CallbackCounts_{3, 0, 1, 0};
+        const std::vector<std::uint64_t> expectedCallbacks = biConjugate
+                                                                 ? std::vector<std::uint64_t>(row.bcgCallbacks_.begin(), row.bcgCallbacks_.end())
+                                                                 : std::vector<std::uint64_t>(row.cgCallbacks_.begin(), row.cgCallbacks_.end());
+        ASSERT_EQ(row.expectedBits_, observation->resultBits_);
+        ASSERT_EQ(0x0000000000000000ULL, observation->directResidualBits_);
+        ASSERT_EQ(BcgScaledAlphaPrivate_::CandidateSubject_::NONE, observation->evidenceSubject_);
+        ASSERT_EQ(-1, observation->evidenceIndex_);
+        ASSERT_EQ(1, observation->commitCount_);
+        ASSERT_EQ(1, observation->confirmationCount_);
+        ASSERT_EQ(row.expectedBits_, observation->confirmationInputBits_);
+        ASSERT_EQ(row.expectedRhsBits_, observation->confirmationOutputBits_);
+        ASSERT_EQ(expectedCallbacks, observation->callbackBits_);
+        AssertCallbackCounts(expectedCounts, observation->counts_);
+    }
+
+    template <class Row_> void AssertSolverFtzRow(bool biConjugate, const Row_& row) {
+        SCOPED_TRACE(std::string(SolverName(biConjugate)) + " " + row.id_);
+        ScaledAlphaObservation_ observations[2];
+        for (const bool flushToZero : {false, true})
+            AssertSolverFtzMode(biConjugate, row, flushToZero, &observations[flushToZero ? 1 : 0]);
+        ASSERT_EQ(row.expectedBits_, observations[0].resultBits_);
+        ASSERT_EQ(0x0000000000000000ULL, observations[0].directResidualBits_);
+        ASSERT_EQ(BcgScaledAlphaPrivate_::CandidateSubject_::NONE, observations[0].evidenceSubject_);
+        ASSERT_EQ(-1, observations[0].evidenceIndex_);
+        ASSERT_EQ(1, observations[0].commitCount_);
+        ASSERT_EQ(observations[0].resultBits_, observations[1].resultBits_);
+        ASSERT_EQ(observations[0].directResidualBits_, observations[1].directResidualBits_);
+        ASSERT_EQ(observations[0].evidenceSubject_, observations[1].evidenceSubject_);
+        ASSERT_EQ(observations[0].evidenceIndex_, observations[1].evidenceIndex_);
+        ASSERT_EQ(observations[0].commitCount_, observations[1].commitCount_);
+        ASSERT_EQ(observations[0].callbackBits_, observations[1].callbackBits_);
+        AssertCallbackCounts(observations[0].counts_, observations[1].counts_);
+    }
+
+    template <class Rows_> void AssertSolverFtzRows(const Rows_& rows) {
+        for (const bool biConjugate : {false, true})
+            for (const auto& row : rows)
+                AssertSolverFtzRow(biConjugate, row);
+    }
+#endif
+
+    void AssertOrdinaryCandidateCorpus(bool biConjugate) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        const OrdinaryCandidateObservation_ observation = ObserveOrdinaryCandidateCommit(biConjugate);
+        ASSERT_TRUE(observation.callbackException_);
+        ASSERT_EQ(1, observation.commitCount_);
+        ASSERT_EQ(0x3fe0000000000000ULL, observation.coefficientBits_);
+        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3ff0000000000000ULL, 0x4000000000000000ULL}), observation.directionBits_);
+        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3ff0000000000000ULL, 0x4012000000000000ULL}), observation.operatorDirectionBits_);
+        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0x3ff0000000000000ULL}), observation.xCandidateBits_);
+        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0xbfd0000000000000ULL}), observation.residualCandidateBits_);
+        if (biConjugate)
+            ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0xbfd0000000000000ULL}), observation.shadowCandidateBits_);
+        ASSERT_EQ(observation.xCandidateBits_, observation.finalBits_);
+        AssertCallbackCounts(biConjugate ? CallbackCounts_{2, 1, 2, 2} : CallbackCounts_{2, 0, 2, 0}, observation.counts_);
+    }
+
+    void AssertOrdinarySolveCorpus(bool biConjugate, const std::vector<std::uint64_t>& cgCallbacks, const std::vector<std::uint64_t>& bcgCallbacks) {
+#if defined(__SSE2__) || defined(_M_X64)
+        MxcsrRestore_ restore;
+        const unsigned statusMask = _MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW;
+        const unsigned configured = _mm_getcsr() | statusMask;
+        _mm_setcsr(configured);
+#endif
+        const ScaledAlphaObservation_ observation = ObserveScaledAlphaSolve(biConjugate, 2.0, 1.0, 6.0, 0.0);
+#if defined(__SSE2__) || defined(_M_X64)
+        ASSERT_EQ(configured & statusMask, _mm_getcsr() & statusMask);
+#endif
+        ASSERT_EQ(0x4008000000000000ULL, observation.resultBits_);
+        ASSERT_EQ(0x0000000000000000ULL, observation.directResidualBits_);
+        ASSERT_EQ(biConjugate ? bcgCallbacks : cgCallbacks, observation.callbackBits_);
+        AssertCallbackCounts(biConjugate ? CallbackCounts_{3, 1, 1, 1} : CallbackCounts_{3, 0, 1, 0}, observation.counts_);
+    }
+
+    void AssertOrdinaryAlphaCorpus(bool biConjugate, const std::vector<std::uint64_t>& cgCallbacks, const std::vector<std::uint64_t>& bcgCallbacks) {
+        AssertOrdinaryCandidateCorpus(biConjugate);
+        AssertOrdinarySolveCorpus(biConjugate, cgCallbacks, bcgCallbacks);
+    }
 } // namespace
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveLargeFiniteRhs) {
@@ -1679,37 +1944,6 @@ TEST(MatrixTest, TestBCGSolveScaledAlphaMinimumSubnormal) {
 
 TEST(MatrixTest, TestScaledAlphaBoundsAndClassifierMatrix) {
     using BcgScaledAlphaPrivate_::AlphaPath_;
-    using BcgScaledAlphaPrivate_::StoredScaledBits_;
-    const StoredScaledBits_ unit{0x3fe0000000000000ULL, 1, true};
-    struct ClassifierRow_ {
-        const char* id_;
-        StoredScaledBits_ numerator_;
-        StoredScaledBits_ denominator_;
-        std::uint64_t expectedNumerator_;
-        std::uint64_t expectedDenominator_;
-        int expectedExponent_;
-        AlphaPath_ expectedPath_;
-    };
-    const std::array<ClassifierRow_, 12> rows = {{
-        {"C1", {0x3fe0000000000000ULL, -1074, true}, unit, 1, 1, -1075, AlphaPath_::SCALED_EXACT},
-        {"C2", {0x3fe0000000000000ULL, -1073, true}, unit, 1, 1, -1074, AlphaPath_::SCALED_EXACT},
-        {"C3", {0x3feffffffffffffeULL, -1022, true}, unit, 4503599627370495ULL, 2251799813685248ULL, -1023, AlphaPath_::SCALED_EXACT},
-        {"C4", {0x3fe0000000000000ULL, -1021, true}, unit, 1, 1, -1022, AlphaPath_::ORDINARY_NORMAL},
-        {"C5", {0x3fe0000000000000ULL, 1024, true}, unit, 1, 1, 1023, AlphaPath_::ORDINARY_NORMAL},
-        {"C6", {0x3fefffffffffffffULL, 1024, true}, unit, 9007199254740991ULL, 4503599627370496ULL, 1023, AlphaPath_::ORDINARY_NORMAL},
-        {"C7",
-         {0x3fefffffffffffffULL, 1025, true},
-         {0x3feffffffffffffeULL, 1, true},
-         9007199254740991ULL,
-         9007199254740990ULL,
-         1024,
-         AlphaPath_::SCALED_EXACT},
-        {"C8", {0x0000000000000001ULL, 0, false}, {0x0000000000000001ULL, 0, false}, 1, 1, 0, AlphaPath_::SCALED_EXACT},
-        {"C9a", {0x3fe0000000000000ULL, 1025, true}, unit, 1, 1, 1024, AlphaPath_::SCALED_EXACT},
-        {"C9b", {0x3fe0000000000000ULL, 1026, true}, unit, 1, 1, 1025, AlphaPath_::SCALED_EXACT},
-        {"C10", {0x3fe0000000000000ULL, 1101, true}, unit, 1, 1, 1100, AlphaPath_::SCALED_EXACT},
-        {"C11", {0x3fe0000000000000ULL, -1099, true}, unit, 1, 1, -1100, AlphaPath_::SCALED_EXACT},
-    }};
 
     ASSERT_EQ(-8660, BcgScaledAlphaPrivate_::REVIEWED_CANDIDATE_BOUNDS_.storedMinExponent_);
     ASSERT_EQ(8300, BcgScaledAlphaPrivate_::REVIEWED_CANDIDATE_BOUNDS_.storedMaxExponent_);
@@ -1719,46 +1953,34 @@ TEST(MatrixTest, TestScaledAlphaBoundsAndClassifierMatrix) {
     ASSERT_EQ(598, BcgScaledAlphaPrivate_::REVIEWED_CANDIDATE_BOUNDS_.candidateLimbCount_);
     ASSERT_EQ(19111, BcgScaledAlphaPrivate_::REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_);
 
-    for (const ClassifierRow_& row : rows) {
-        for (const int signCase : {0, 1, 2}) {
-            SCOPED_TRACE(std::string(row.id_) + " sign=" + std::to_string(signCase));
-            StoredScaledBits_ numerator = row.numerator_;
-            StoredScaledBits_ denominator = row.denominator_;
-            if (signCase == 1)
-                numerator.mantissaBits_ ^= 0x8000000000000000ULL;
-            if (signCase == 2)
-                denominator.mantissaBits_ ^= 0x8000000000000000ULL;
-            AlphaClassifierObservation_ observations[2];
-#if defined(__SSE2__) || defined(_M_X64)
-            const int modeCount = 2;
-#else
-            const int modeCount = 1;
-#endif
-            for (int mode = 0; mode < modeCount; ++mode) {
-                const bool flushToZero = mode != 0;
-                observations[mode] = ObserveAlphaClassification(numerator, denominator, flushToZero);
-#if defined(__SSE2__) || defined(_M_X64)
-                const unsigned expectedMode = flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF;
-                ASSERT_EQ(expectedMode, observations[mode].entryMxcsr_ & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
-                ASSERT_EQ(observations[mode].entryMxcsr_, observations[mode].exitMxcsr_);
-#endif
-                ASSERT_EQ(row.expectedNumerator_, observations[mode].plan_.exact_.numerator_);
-                ASSERT_EQ(row.expectedDenominator_, observations[mode].plan_.exact_.denominator_);
-                ASSERT_EQ(row.expectedExponent_, observations[mode].plan_.exact_.binaryExponent_);
-                ASSERT_EQ(signCase != 0, observations[mode].plan_.exact_.negative_);
-                ASSERT_EQ(row.expectedPath_, observations[mode].plan_.path_);
-                ASSERT_EQ(row.expectedPath_ == AlphaPath_::ORDINARY_NORMAL ? 1 : 0, observations[mode].legacyConversionCalls_);
-            }
-#if defined(__SSE2__) || defined(_M_X64)
-            ASSERT_EQ(observations[0].comparableBits_, observations[1].comparableBits_);
-#endif
-        }
-    }
-
+    AssertClassifierMatrix();
     ASSERT_EQ(AlphaPath_::DENOMINATOR_ZERO,
               BcgScaledAlphaPrivate_::ClassifyAlpha_({0x0000000000000000ULL, 0, false}, {0x8000000000000000ULL, 0, false}).path_);
     ASSERT_EQ(AlphaPath_::LEGACY_ZERO,
               BcgScaledAlphaPrivate_::ClassifyAlpha_({0x8000000000000000ULL, 0, false}, {0x3ff0000000000000ULL, 0, false}).path_);
+}
+
+TEST(MatrixTest, TestScaledAlphaFastProofIsConservative) {
+    using BcgScaledAlphaPrivate_::StoredScaledBits_;
+    struct FastProofRow_ {
+        const char* id_;
+        StoredScaledBits_ numerator_;
+        StoredScaledBits_ denominator_;
+        bool expected_;
+    };
+    const std::array<FastProofRow_, 7> rows = {{
+        {"ordinary raw", {0x4018000000000000ULL, 0, false}, {0x4028000000000000ULL, 0, false}, true},
+        {"ordinary normalized", {0x3fe0000000000000ULL, 100, true}, {0x3fe0000000000000ULL, 100, true}, true},
+        {"raw subnormal", {0x0000000000000001ULL, 0, false}, {0x3ff0000000000000ULL, 0, false}, false},
+        {"zero denominator", {0x3ff0000000000000ULL, 0, false}, {0x0000000000000000ULL, 0, false}, false},
+        {"lower exact boundary", {0x3fe0000000000000ULL, -1021, true}, {0x3fe0000000000000ULL, 1, true}, false},
+        {"upper exact boundary", {0x3fe0000000000000ULL, 1024, true}, {0x3fe0000000000000ULL, 1, true}, false},
+        {"unsafe raw stage", {0x7fe0000000000000ULL, -2044, true}, {0x0010000000000000ULL, 1, true}, false},
+    }};
+    for (const FastProofRow_& row : rows) {
+        SCOPED_TRACE(row.id_);
+        ASSERT_EQ(row.expected_, BcgScaledAlphaPrivate_::CanUseLegacyRatioFast_(row.numerator_, row.denominator_));
+    }
 }
 
 TEST(MatrixTest, TestScaledAlphaOracleBootstrap) { AssertOracleBootstrap(); }
@@ -1767,48 +1989,7 @@ TEST(MatrixTest, TestScaledAlphaEvaluatorMatrixAndFtz) {
     AssertOracleBootstrap();
     for (const EvaluatorRow_& row : EvaluatorRows()) {
         SCOPED_TRACE(row.id_);
-        const Dal35OneBitOracle_::OracleResult_ oracle = Dal35OneBitOracle_::Evaluate_(OracleInput(row.alpha_, row.valueBits_, row.baseBits_));
-        const Dal35OneBitOracle_::OracleClass_ expectedOracleClass = row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE
-                                                                         ? Dal35OneBitOracle_::OracleClass_::FINITE
-                                                                         : Dal35OneBitOracle_::OracleClass_::NON_FINITE;
-        ASSERT_EQ(expectedOracleClass, oracle.classification_);
-        if (oracle.classification_ == Dal35OneBitOracle_::OracleClass_::FINITE)
-            ASSERT_EQ(row.expectedBits_, oracle.bits_);
-
-        BcgScaledAlphaPrivate_::RoundedBinary64_ priorResult{};
-        bool havePrior = false;
-        for (const bool flushToZero : {false, true}) {
-            BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
-#if defined(__SSE2__) || defined(_M_X64)
-            MxcsrRestore_ restore;
-            const unsigned configured =
-                (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
-            _mm_setcsr(configured);
-            const unsigned before = _mm_getcsr();
-#else
-            if (flushToZero)
-                continue;
-#endif
-            const BcgScaledAlphaPrivate_::RoundedBinary64_ result =
-                BcgScaledAlphaPrivate_::EvaluateElement_(row.alpha_, row.valueBits_, row.baseBits_, &workspace);
-#if defined(__SSE2__) || defined(_M_X64)
-            const unsigned after = _mm_getcsr();
-            ASSERT_EQ(before, after);
-#endif
-            ASSERT_EQ(row.expectedClass_, result.classification_);
-            std::uint64_t destination = 0x3fd5555555555555ULL;
-            if (result.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE)
-                destination = result.bits_;
-            ASSERT_EQ(row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE ? row.expectedBits_ : 0x3fd5555555555555ULL, destination);
-            AssertCanonicalWorkspace(workspace);
-            if (havePrior) {
-                ASSERT_EQ(priorResult.classification_, result.classification_);
-                if (result.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE)
-                    ASSERT_EQ(priorResult.bits_, result.bits_);
-            }
-            priorResult = result;
-            havePrior = true;
-        }
+        AssertEvaluatorRow(row);
     }
 }
 
@@ -2028,53 +2209,11 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaRejectCandidateOverflow) {
 }
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaRejectResidualAndShadowOverflow) {
-    const double minimumSubnormal = DoubleFromBits(0x0000000000000001ULL);
-    const double maximumFinite = DoubleFromBits(0x7fefffffffffffffULL);
-    const Vector_<> b = {1.0, maximumFinite};
     for (const bool shadowFailure : {false, true}) {
         for (const bool biConjugate : {false, true}) {
             if (shadowFailure && !biConjugate)
                 continue;
-            SCOPED_TRACE(std::string(SolverName(biConjugate)) + (shadowFailure ? " shadow" : " residual"));
-            CallbackCounts_ counts;
-            HookedPreconditionedDiagonal_ matrix({1.0, 1.0}, &counts);
-            matrix.SetLeftHook([minimumSubnormal, shadowFailure](int call, const Vector_<>&, Vector_<>* output) {
-                if (call == 1) {
-                    (*output)[0] = 0.0;
-                    (*output)[1] = 0.0;
-                } else {
-                    (*output)[0] = shadowFailure ? 0.0 : 1.0;
-                    (*output)[1] = minimumSubnormal;
-                }
-                return true;
-            });
-            matrix.SetRightHook([minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
-                (*output)[0] = 1.0;
-                (*output)[1] = minimumSubnormal;
-                return true;
-            });
-            const auto preconditioner = [minimumSubnormal](int, const Vector_<>&, Vector_<>* output) {
-                (*output)[0] = 0.0;
-                (*output)[1] = minimumSubnormal;
-                return true;
-            };
-            matrix.SetPreconditionerLeftHook(preconditioner);
-            matrix.SetPreconditionerRightHook(preconditioner);
-            Vector_<> x = {0.0, 0.0};
-            const double* const entryStorage = &x[0];
-
-            AssertDalExceptionContains(
-                [&]() { RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x); },
-                {SolverName(biConjugate), "numerical breakdown", shadowFailure ? "candidate shadow residual" : "candidate residual"});
-
-            const int commitCount = &x[0] == entryStorage ? 0 : 1;
-            ASSERT_EQ(0, commitCount);
-            ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[0]));
-            ASSERT_EQ(0x0000000000000000ULL, DoubleBits(x[1]));
-            ASSERT_EQ(2, counts.left_);
-            ASSERT_EQ(biConjugate ? 1 : 0, counts.right_);
-            ASSERT_EQ(1, counts.preconditionerLeft_);
-            ASSERT_EQ(biConjugate ? 1 : 0, counts.preconditionerRight_);
+            AssertResidualOrShadowOverflow(biConjugate, shadowFailure);
         }
     }
 }
@@ -2134,51 +2273,7 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaNamedFtzFixtures) {
           4, 1, 0x1f4ffffffffffffeULL, 0x44cffffffffffffeULL, 1, 2, 0x44cffffffffffffeULL, 0x640ffffffffffffeULL,
           2, 1, 0x44cffffffffffffeULL, 0x640ffffffffffffeULL, 1, 3, 0x8000000000000001ULL, 0x9c10000000000000ULL}},
     }};
-    for (const bool biConjugate : {false, true}) {
-        for (const SolverFtzRow_& row : rows) {
-            SCOPED_TRACE(std::string(SolverName(biConjugate)) + " " + row.id_);
-            ScaledAlphaObservation_ observations[2];
-            for (const bool flushToZero : {false, true}) {
-                MxcsrRestore_ restore;
-                const unsigned configured =
-                    (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
-                _mm_setcsr(configured);
-                const unsigned before = _mm_getcsr();
-                observations[flushToZero ? 1 : 0] =
-                    ObserveScaledAlphaSolve(biConjugate, row.diagonal_, row.preconditioner_, row.rhs_, row.initial_, &row.exactAlpha_);
-                const unsigned after = _mm_getcsr();
-                ASSERT_EQ(flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF, before & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
-                ASSERT_EQ(before & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK), after & static_cast<unsigned>(_MM_FLUSH_ZERO_MASK));
-                const ScaledAlphaObservation_& observation = observations[flushToZero ? 1 : 0];
-                const CallbackCounts_ expectedCounts = biConjugate ? CallbackCounts_{3, 1, 1, 1} : CallbackCounts_{3, 0, 1, 0};
-                const std::vector<std::uint64_t> expectedCallbacks =
-                    biConjugate ? std::vector<std::uint64_t>(row.bcgCallbacks_.begin(), row.bcgCallbacks_.end())
-                                : std::vector<std::uint64_t>(row.cgCallbacks_.begin(), row.cgCallbacks_.end());
-                ASSERT_EQ(row.expectedBits_, observation.resultBits_);
-                ASSERT_EQ(0x0000000000000000ULL, observation.directResidualBits_);
-                ASSERT_EQ(BcgScaledAlphaPrivate_::CandidateSubject_::NONE, observation.evidenceSubject_);
-                ASSERT_EQ(-1, observation.evidenceIndex_);
-                ASSERT_EQ(1, observation.commitCount_);
-                ASSERT_EQ(1, observation.confirmationCount_);
-                ASSERT_EQ(row.expectedBits_, observation.confirmationInputBits_);
-                ASSERT_EQ(row.expectedRhsBits_, observation.confirmationOutputBits_);
-                ASSERT_EQ(expectedCallbacks, observation.callbackBits_);
-                AssertCallbackCounts(expectedCounts, observation.counts_);
-            }
-            ASSERT_EQ(row.expectedBits_, observations[0].resultBits_);
-            ASSERT_EQ(0x0000000000000000ULL, observations[0].directResidualBits_);
-            ASSERT_EQ(BcgScaledAlphaPrivate_::CandidateSubject_::NONE, observations[0].evidenceSubject_);
-            ASSERT_EQ(-1, observations[0].evidenceIndex_);
-            ASSERT_EQ(1, observations[0].commitCount_);
-            ASSERT_EQ(observations[0].resultBits_, observations[1].resultBits_);
-            ASSERT_EQ(observations[0].directResidualBits_, observations[1].directResidualBits_);
-            ASSERT_EQ(observations[0].evidenceSubject_, observations[1].evidenceSubject_);
-            ASSERT_EQ(observations[0].evidenceIndex_, observations[1].evidenceIndex_);
-            ASSERT_EQ(observations[0].commitCount_, observations[1].commitCount_);
-            ASSERT_EQ(observations[0].callbackBits_, observations[1].callbackBits_);
-            AssertCallbackCounts(observations[0].counts_, observations[1].counts_);
-        }
-    }
+    AssertSolverFtzRows(rows);
 }
 #endif
 
@@ -2212,38 +2307,8 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveOrdinaryAlphaBitwiseCorpus) {
         1, 1, 0x0000000000000000ULL, 0x0000000000000000ULL, 3, 1, 0x4018000000000000ULL, 0x4018000000000000ULL,
         4, 1, 0x4018000000000000ULL, 0x4018000000000000ULL, 1, 2, 0x4018000000000000ULL, 0x4028000000000000ULL,
         2, 1, 0x4018000000000000ULL, 0x4028000000000000ULL, 1, 3, 0x4008000000000000ULL, 0x4018000000000000ULL};
-    for (const bool biConjugate : {false, true}) {
-        SCOPED_TRACE(SolverName(biConjugate));
-        const OrdinaryCandidateObservation_ candidateObservation = ObserveOrdinaryCandidateCommit(biConjugate);
-        ASSERT_TRUE(candidateObservation.callbackException_);
-        ASSERT_EQ(1, candidateObservation.commitCount_);
-        ASSERT_EQ(0x3fe0000000000000ULL, candidateObservation.coefficientBits_);
-        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3ff0000000000000ULL, 0x4000000000000000ULL}), candidateObservation.directionBits_);
-        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3ff0000000000000ULL, 0x4012000000000000ULL}), candidateObservation.operatorDirectionBits_);
-        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0x3ff0000000000000ULL}), candidateObservation.xCandidateBits_);
-        ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0xbfd0000000000000ULL}), candidateObservation.residualCandidateBits_);
-        if (biConjugate)
-            ASSERT_EQ((std::array<std::uint64_t, 2>{0x3fe0000000000000ULL, 0xbfd0000000000000ULL}), candidateObservation.shadowCandidateBits_);
-        ASSERT_EQ(candidateObservation.xCandidateBits_, candidateObservation.finalBits_);
-        AssertCallbackCounts(biConjugate ? CallbackCounts_{2, 1, 2, 2} : CallbackCounts_{2, 0, 2, 0}, candidateObservation.counts_);
-#if defined(__SSE2__) || defined(_M_X64)
-        MxcsrRestore_ restore;
-        const unsigned statusMask = _MM_EXCEPT_INVALID | _MM_EXCEPT_OVERFLOW;
-        const unsigned configured = _mm_getcsr() | statusMask;
-        _mm_setcsr(configured);
-#endif
-        const ScaledAlphaObservation_ observation = ObserveScaledAlphaSolve(biConjugate, 2.0, 1.0, 6.0, 0.0);
-#if defined(__SSE2__) || defined(_M_X64)
-        ASSERT_EQ(configured & statusMask, _mm_getcsr() & statusMask);
-#endif
-        ASSERT_EQ(0x4008000000000000ULL, observation.resultBits_);
-        ASSERT_EQ(0x0000000000000000ULL, observation.directResidualBits_);
-        ASSERT_EQ(biConjugate ? bcgCallbacks : cgCallbacks, observation.callbackBits_);
-        ASSERT_EQ(3, observation.counts_.left_);
-        ASSERT_EQ(biConjugate ? 1 : 0, observation.counts_.right_);
-        ASSERT_EQ(1, observation.counts_.preconditionerLeft_);
-        ASSERT_EQ(biConjugate ? 1 : 0, observation.counts_.preconditionerRight_);
-    }
+    AssertOrdinaryAlphaCorpus(false, cgCallbacks, bcgCallbacks);
+    AssertOrdinaryAlphaCorpus(true, cgCallbacks, bcgCallbacks);
 }
 
 #if defined(__SSE2__) || defined(_M_X64)

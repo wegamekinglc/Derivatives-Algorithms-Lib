@@ -888,6 +888,36 @@ namespace Dal {
                 ThrowFailure(solver, "numerical breakdown", "candidate shadow residual");
         }
 
+#if defined(__GNUC__) || defined(__clang__)
+#define DAL35_COLD_NOINLINE_ __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+#define DAL35_COLD_NOINLINE_ __declspec(noinline)
+#else
+#define DAL35_COLD_NOINLINE_
+#endif
+        DAL35_COLD_NOINLINE_ bool PrepareExceptionalAlpha(KrylovState_& s,
+                                                          const Scaled_& beta,
+                                                          const Scaled_& denominator,
+                                                          const BcgScaledAlphaPrivate_::StoredScaledBits_& numeratorBits,
+                                                          const BcgScaledAlphaPrivate_::StoredScaledBits_& denominatorBits,
+                                                          const Vector_<>& x,
+                                                          const char* solver,
+                                                          double* alpha) {
+            const BcgScaledAlphaPrivate_::AlphaPlan_ plan = BcgScaledAlphaPrivate_::ClassifyAlphaAndInvokeLegacy_(
+                numeratorBits, denominatorBits, [&]() { *alpha = ScaledRatio(beta, denominator, solver, "alpha denominator", "alpha ratio"); });
+            if (plan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
+                ThrowFailure(solver, "numerical breakdown", "alpha denominator");
+#if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION)
+            if (plan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL)
+                PrepareScaledCandidates(s, plan.exact_, x, solver);
+#endif
+            if (plan.path_ != BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT)
+                return false;
+            PrepareScaledCandidates(s, plan.exact_, x, solver);
+            return true;
+        }
+#undef DAL35_COLD_NOINLINE_
+
         void PrepareCandidate(KrylovState_& s, const Scaled_& beta, const Vector_<>& x, const char* solver) {
             s.A_.MultiplyLeft(s.pCandidate_, &s.rCandidate_);
             ValidateCallbackResult(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
@@ -899,21 +929,18 @@ namespace Dal {
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
             const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
+            const BcgScaledAlphaPrivate_::StoredScaledBits_ numeratorBits = CaptureStoredBits(beta);
+            const BcgScaledAlphaPrivate_::StoredScaledBits_ denominatorBits = CaptureStoredBits(alphaDenominator);
             double alpha = 0.0;
-            const BcgScaledAlphaPrivate_::AlphaPlan_ alphaPlan =
-                BcgScaledAlphaPrivate_::ClassifyAlphaAndInvokeLegacy_(CaptureStoredBits(beta), CaptureStoredBits(alphaDenominator), [&]() {
-                    alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
-                });
-            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO)
-                ThrowFailure(solver, "numerical breakdown", "alpha denominator");
 #if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION)
-            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL)
-                PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
-#endif
-            if (alphaPlan.path_ == BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT) {
-                PrepareScaledCandidates(s, alphaPlan.exact_, x, solver);
+            if (PrepareExceptionalAlpha(s, beta, alphaDenominator, numeratorBits, denominatorBits, x, solver, &alpha))
                 return;
-            }
+#else
+            if (BcgScaledAlphaPrivate_::CanUseLegacyRatioFast_(numeratorBits, denominatorBits))
+                alpha = ScaledRatio(beta, alphaDenominator, solver, "alpha denominator", "alpha ratio");
+            else if (PrepareExceptionalAlpha(s, beta, alphaDenominator, numeratorBits, denominatorBits, x, solver, &alpha))
+                return;
+#endif
             StableBatch_ stableBatch;
             StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
             StableCombination(-alpha, s.rCandidate_, s.r_, solver, "candidate residual", &s.rCandidate_);

@@ -154,12 +154,7 @@ namespace Dal35OneBitOracle_ {
         return Compare_(Shift_(numerator, -initial), denominator) < 0 ? initial - 1 : initial;
     }
 
-    inline OracleResult_ Round_(const OracleNat_& numerator, const OracleNat_& denominator, int binaryExponent, bool negative) {
-        int highestExponent = FloorLog2Ratio_(numerator, denominator) + binaryExponent;
-        if (highestExponent >= 1024)
-            return {0, OracleClass_::NON_FINITE};
-        const int unitExponent = highestExponent <= -1023 ? -1074 : highestExponent - 52;
-        const int shift = binaryExponent - unitExponent;
+    inline std::uint64_t RoundedSignificand_(const OracleNat_& numerator, const OracleNat_& denominator, int shift) {
         const OracleNat_ scaledNumerator = shift >= 0 ? Shift_(numerator, shift) : numerator;
         const OracleNat_ scaledDenominator = shift >= 0 ? denominator : Shift_(denominator, -shift);
         Division_ division = Divide_(scaledNumerator, scaledDenominator);
@@ -167,7 +162,10 @@ namespace Dal35OneBitOracle_ {
         std::uint64_t significand = ToU64_(division.quotient_);
         if (halfComparison > 0 || (halfComparison == 0 && (significand & 1U) != 0))
             ++significand;
+        return significand;
+    }
 
+    inline OracleResult_ PackRounded_(std::uint64_t significand, int highestExponent, bool negative) {
         const std::uint64_t sign = negative ? (1ULL << 63U) : 0;
         if (significand == 0)
             return {sign, OracleClass_::FINITE};
@@ -186,6 +184,53 @@ namespace Dal35OneBitOracle_ {
         return {sign | exponent | (significand - (1ULL << 52U)), OracleClass_::FINITE};
     }
 
+    inline OracleResult_ Round_(const OracleNat_& numerator, const OracleNat_& denominator, int binaryExponent, bool negative) {
+        const int highestExponent = FloorLog2Ratio_(numerator, denominator) + binaryExponent;
+        if (highestExponent >= 1024)
+            return {0, OracleClass_::NON_FINITE};
+        const int unitExponent = highestExponent <= -1023 ? -1074 : highestExponent - 52;
+        return PackRounded_(RoundedSignificand_(numerator, denominator, binaryExponent - unitExponent), highestExponent, negative);
+    }
+
+    inline int CommonExponent_(const RawFinite_& value, const RawFinite_& base, int productExponent) {
+        if (value.significand_.empty())
+            return base.binaryExponent_;
+        if (!base.significand_.empty())
+            return std::min(productExponent, base.binaryExponent_);
+        return productExponent;
+    }
+
+    inline void AccumulateProduct_(const OracleInput_& input,
+                                   const RawFinite_& value,
+                                   int productExponent,
+                                   int commonExponent,
+                                   bool productNegative,
+                                   OracleNat_* positive,
+                                   OracleNat_* negative) {
+        if (value.significand_.empty())
+            return;
+        OracleNat_ product = Shift_(Multiply_(input.alpha_.numerator_, value.significand_), productExponent - commonExponent);
+        (productNegative ? *negative : *positive) = std::move(product);
+    }
+
+    inline void AccumulateBase_(const OracleInput_& input, const RawFinite_& base, int commonExponent, OracleNat_* positive, OracleNat_* negative) {
+        if (base.significand_.empty())
+            return;
+        const OracleNat_ baseTerm = Shift_(Multiply_(input.alpha_.denominator_, base.significand_), base.binaryExponent_ - commonExponent);
+        if (base.negative_)
+            *negative = Add_(*negative, baseTerm);
+        else
+            *positive = Add_(*positive, baseTerm);
+    }
+
+    inline OracleResult_ RoundDifference_(const OracleNat_& positive, const OracleNat_& negative, const OracleInput_& input, int commonExponent) {
+        const int comparison = Compare_(positive, negative);
+        if (comparison == 0)
+            return {0, OracleClass_::FINITE};
+        const OracleNat_ magnitude = comparison > 0 ? Subtract_(positive, negative) : Subtract_(negative, positive);
+        return Round_(magnitude, input.alpha_.denominator_, commonExponent, comparison < 0);
+    }
+
     inline OracleResult_ Evaluate_(const OracleInput_& input) {
         const RawFinite_ value = Decode_(input.valueBits_);
         const RawFinite_ base = Decode_(input.baseBits_);
@@ -196,30 +241,11 @@ namespace Dal35OneBitOracle_ {
         }
 
         const int productExponent = input.alpha_.binaryExponent_ + value.binaryExponent_;
-        int commonExponent = productExponent;
-        if (value.significand_.empty())
-            commonExponent = base.binaryExponent_;
-        else if (!base.significand_.empty())
-            commonExponent = std::min(productExponent, base.binaryExponent_);
-
+        const int commonExponent = CommonExponent_(value, base, productExponent);
         OracleNat_ positive;
         OracleNat_ negative;
-        if (!value.significand_.empty()) {
-            OracleNat_ product = Shift_(Multiply_(input.alpha_.numerator_, value.significand_), productExponent - commonExponent);
-            (productNegative ? negative : positive) = std::move(product);
-        }
-        if (!base.significand_.empty()) {
-            const OracleNat_ baseTerm = Shift_(Multiply_(input.alpha_.denominator_, base.significand_), base.binaryExponent_ - commonExponent);
-            if (base.negative_)
-                negative = Add_(negative, baseTerm);
-            else
-                positive = Add_(positive, baseTerm);
-        }
-
-        const int comparison = Compare_(positive, negative);
-        if (comparison == 0)
-            return {0, OracleClass_::FINITE};
-        const OracleNat_ magnitude = comparison > 0 ? Subtract_(positive, negative) : Subtract_(negative, positive);
-        return Round_(magnitude, input.alpha_.denominator_, commonExponent, comparison < 0);
+        AccumulateProduct_(input, value, productExponent, commonExponent, productNegative, &positive, &negative);
+        AccumulateBase_(input, base, commonExponent, &positive, &negative);
+        return RoundDifference_(positive, negative, input, commonExponent);
     }
 } // namespace Dal35OneBitOracle_

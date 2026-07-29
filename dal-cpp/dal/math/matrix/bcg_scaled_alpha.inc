@@ -153,6 +153,21 @@ namespace Dal {
 
             inline bool IsRawSubnormal_(std::uint64_t bits) { return (bits & BINARY64_EXPONENT_MASK_) == 0 && (bits & BINARY64_FRACTION_MASK_) != 0; }
 
+            inline bool IsLegacyInteriorExponentDifference_(int difference) { return difference >= -1020 && difference <= 1022; }
+
+            inline bool CanUseLegacyRatioFast_(const StoredScaledBits_& numerator, const StoredScaledBits_& denominator) {
+                const int numeratorExponent = static_cast<int>((numerator.mantissaBits_ & BINARY64_EXPONENT_MASK_) >> 52U);
+                const int denominatorExponent = static_cast<int>((denominator.mantissaBits_ & BINARY64_EXPONENT_MASK_) >> 52U);
+                if (numeratorExponent == 0 || numeratorExponent == 0x7ff || denominatorExponent == 0 || denominatorExponent == 0x7ff)
+                    return false;
+                const int rawDifference = numeratorExponent - denominatorExponent;
+                if (!IsLegacyInteriorExponentDifference_(rawDifference))
+                    return false;
+                const int storedDifference =
+                    rawDifference + (numerator.normalized_ ? numerator.exponent_ : 0) - (denominator.normalized_ ? denominator.exponent_ : 0);
+                return IsLegacyInteriorExponentDifference_(storedDifference);
+            }
+
             inline ExactAlpha_ ReduceRatio_(Dyadic_ numerator, Dyadic_ denominator) {
                 const std::uint64_t divisor = std::gcd(numerator.significand_, denominator.significand_);
                 return {numerator.significand_ / divisor, denominator.significand_ / divisor, numerator.binaryExponent_ - denominator.binaryExponent_,
