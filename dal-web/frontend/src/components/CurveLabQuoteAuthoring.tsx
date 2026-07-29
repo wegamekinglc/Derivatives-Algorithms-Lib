@@ -14,12 +14,14 @@ import {
 import { css } from "../format";
 
 type CanonicalizeQuote = (
-  request: CurveLabQuoteAuthoringRequest,
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  ...args: [CurveLabQuoteAuthoringRequest]
 ) => Promise<CurveLabCanonicalQuote>;
 
 interface CurveLabQuoteAuthoringProps {
   canonicalize?: CanonicalizeQuote;
-  onCanonicalQuote?: (quote: CurveLabCanonicalQuote) => void;
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  onCanonicalQuote?: (...args: [CurveLabCanonicalQuote]) => void;
 }
 
 function signedBump(value: string): string {

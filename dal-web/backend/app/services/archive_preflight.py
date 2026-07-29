@@ -296,7 +296,11 @@ def preflight_archive(
         if exc.expanded_length is None:
             exc.expanded_length = len(payload) if payload is not None else 0
         raise
-    assert payload is not None
+    if payload is None:
+        raise ArchivePreflightError(
+            "ARCHIVE_PAYLOAD_EMPTY",
+            "Archive payload must not be empty.",
+        )
     return ArchivePreflightResult(
         payload=payload,
         root_type=root_type,

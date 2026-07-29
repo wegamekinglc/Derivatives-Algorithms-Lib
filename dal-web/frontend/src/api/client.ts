@@ -175,11 +175,11 @@ export interface CurveLabBuildRun {
   resolved_plan: Record<string, unknown>;
   quote_axis: CurveLabAxisEntry[];
   parameter_axis: CurveLabAxisEntry[];
-  dependency_manifest: Array<{
+  dependency_manifest: {
     version_id: string;
     content_hash: string;
     root_kind: "DISCOUNT_CURVE" | "CURVE_SET";
-  }>;
+  }[];
   diagnostics: Record<string, unknown> | null;
   native_payload_hash: string | null;
   error: { code: string; message: string; field: string } | null;
@@ -212,15 +212,15 @@ export interface CurveLabRiskRun {
   parameter_axis: CurveLabAxisEntry[];
   estimated_work: Record<string, number | boolean>;
   result: {
-    pricing?: Array<Record<string, unknown>>;
-    dv01?: Array<Record<string, unknown>>;
-    key_rate_sum?: Array<Record<string, unknown>>;
-    nonlinear_reconciliation?: Array<Record<string, unknown>>;
-    sensitivity_matrices?: Array<{
+    pricing?: Record<string, unknown>[];
+    dv01?: Record<string, unknown>[];
+    key_rate_sum?: Record<string, unknown>[];
+    nonlinear_reconciliation?: Record<string, unknown>[];
+    sensitivity_matrices?: {
       matrix_id: string;
       availability: string;
       method: string;
-    }>;
+    }[];
   } | null;
   error: { code: string; message: string; field: string } | null;
   created_at: string;
@@ -546,13 +546,13 @@ export const api = {
     }>(`/curve-lab/import-jobs/${id}`),
   createCurveLabFixingSnapshot: (body: {
     id: string;
-    observations: Array<{
+    observations: {
       index_name: string;
       fixing_time: string;
       kind: "RATE" | "FX";
       units: "DECIMAL_RATE" | "DOMESTIC_PER_FOREIGN";
       value: string;
-    }>;
+    }[];
   }) =>
     request<{ id: string; content_hash: string }>("/curve-lab/fixing-snapshots", {
       method: "POST",

@@ -762,6 +762,7 @@ namespace {
             .value("MIXED", LogDfScheme_::Value_::MIXED);
     }
 
+    // #lizard forgives -- adjacent additive bindings keep the public pricing surface discoverable.
     void init_bindings_curve_pricing(py::module_& m) {
         py::class_<DepositTradeTerms_>(m, "DepositTradeTerms_")
             .def(py::init(

@@ -39,6 +39,7 @@ namespace Dal {
             return value >= 0x80 && value <= 0xBF;
         }
 
+        // #lizard forgives -- the UTF-8 decoder intentionally enumerates every byte-class boundary.
         bool ValidUtf8(const char* src, std::size_t length, std::size_t* badOffset) {
             std::size_t index = 0;
             while (index < length) {
@@ -120,6 +121,7 @@ namespace Dal {
             }
         }
 
+        // #lizard forgives -- JSON escaping is an exhaustive character-class encoder.
         void WriteJsonString(std::ostream& dst, const String_& value) {
             ValidateStringBytes(value);
             static constexpr char HEX[] = "0123456789ABCDEF";

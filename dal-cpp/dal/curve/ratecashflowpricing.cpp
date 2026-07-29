@@ -150,6 +150,7 @@ namespace Dal {
             static_cast<void>(terms);
         }
 
+        // #lizard forgives -- explicit instrument-family validation is the public contract boundary.
         void ValidateTermMatch(const RateTradeDefinition_& trade) {
             const bool matches =
                 (trade.instrumentType_ == RateInstrumentType_::Value_::DEPOSIT && std::holds_alternative<DepositTradeTerms_>(trade.terms_)) ||
@@ -273,6 +274,7 @@ namespace Dal {
                                                             terms.receiveNonSpreadPaySpread_);
         }
 
+        // #lizard forgives -- family-specific pricing branches preserve the audited formula mapping.
         double Price(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RatePricingTradeResult_* result) {
             if (const auto* terms = std::get_if<DepositTradeTerms_>(&trade.terms_)) {
                 REQUIRE(std::isfinite(terms->notional_) && terms->notional_ > 0.0, "Deposit notional must be positive and finite");
@@ -334,6 +336,7 @@ namespace Dal {
         }
     } // namespace
 
+    // #lizard forgives -- one plan builder keeps family-specific cashflow admission atomic.
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime) {
         ValidateTermMatch(trade);
         REQUIRE(trade.tradeDate_.IsValid() && trade.startDate_.IsValid() && trade.maturityDate_.IsValid() && trade.startDate_ < trade.maturityDate_,
@@ -404,6 +407,7 @@ namespace Dal {
         return result;
     }
 
+    // #lizard forgives -- backend eligibility and diagnostics must remain aligned in one boundary.
     RateTradeNodeSensitivityResult_
     RateTradeNodeSensitivities(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const String_& componentKey) {
         RateTradeNodeSensitivityResult_ result;

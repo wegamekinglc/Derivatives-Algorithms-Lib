@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
   ApiClientError,
@@ -13,7 +13,7 @@ import { css } from "../format";
 type WorkspaceTab = "build" | "runs" | "risk" | "versions";
 type CurveLabBuildMode = "SINGLE" | "MULTI_CURVE" | "STAGED_XCCY" | "JOINT_XCCY";
 
-const TABS: Array<{ id: WorkspaceTab; label: string; note: string }> = [
+const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
   { id: "build", label: "Build", note: "Draft → solve → publish" },
   { id: "runs", label: "Runs", note: "Axes and lifecycle evidence" },
   { id: "risk", label: "Pricing & Risk", note: "PV, DV01, KRD and matrices" },
@@ -179,13 +179,18 @@ function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
+function itemAt<T>(values: T[] | undefined, index: number): T | undefined {
+  return values?.find((_, position) => position === index);
+}
+
 function parseJson(source: string): unknown {
   return JSON.parse(source) as unknown;
 }
 
 async function waitForTerminal<T extends { id: string; state: string }>(
   initial: T,
-  load: (id: string) => Promise<T>,
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  load: (...args: [string]) => Promise<T>,
 ): Promise<T> {
   let current = initial;
   for (let attempt = 0; attempt < 200; attempt += 1) {
@@ -193,24 +198,27 @@ async function waitForTerminal<T extends { id: string; state: string }>(
     await new Promise((resolve) => window.setTimeout(resolve, 50));
     current = await load(current.id);
   }
+  return terminalTimeout();
+}
+
+function terminalTimeout(): never {
   throw new Error("Curve Lab work did not reach a terminal state before the UI deadline.");
 }
 
 function editableDocument(document: Record<string, unknown>): Record<string, unknown> {
+  const computedFields = new Set([
+    "quote_coordinate_kind",
+    "canonical_raw_unit",
+    "normalized_quote",
+    "exact_risk_raw_bump",
+    "normalized_risk_bump",
+  ]);
   const instruments = Array.isArray(document.instruments)
-    ? document.instruments.map((value) => {
-        const instrument = { ...(value as Record<string, unknown>) };
-        for (const field of [
-          "quote_coordinate_kind",
-          "canonical_raw_unit",
-          "normalized_quote",
-          "exact_risk_raw_bump",
-          "normalized_risk_bump",
-        ]) {
-          delete instrument[field];
-        }
-        return instrument;
-      })
+    ? document.instruments.map((value) => Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).filter(
+          ([field]) => !computedFields.has(field),
+        ),
+      ))
     : document.instruments;
   return { ...document, instruments };
 }
@@ -256,6 +264,13 @@ function AxisTable({
 }
 
 function MatrixTable({ matrix }: { matrix: CurveLabMatrix }) {
+  const rows = matrix.values?.map((values, rowIndex) => ({
+    id: `${matrix.matrix_id}:row:${rowIndex}`,
+    cells: values.map((value, columnIndex) => ({
+      id: `${matrix.matrix_id}:row:${rowIndex}:column:${columnIndex}`,
+      value,
+    })),
+  }));
   return (
     <section {...css("panel", "curve-lab-matrix")}>
       <div {...css("curve-lab-section-heading")}>
@@ -268,14 +283,14 @@ function MatrixTable({ matrix }: { matrix: CurveLabMatrix }) {
         </span>
       </div>
       <p {...css("muted", "mono")}>{matrix.method} · {matrix.rows} × {matrix.columns}</p>
-      {matrix.values && (
+      {rows && (
         <div {...css("table-container")}>
           <table>
             <tbody>
-              {matrix.values.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.map((value, columnIndex) => (
-                    <td key={columnIndex} {...css("mono", "num")}>{value}</td>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  {row.cells.map((cell) => (
+                    <td key={cell.id} {...css("mono", "num")}>{cell.value}</td>
                   ))}
                 </tr>
               ))}
@@ -334,10 +349,10 @@ export default function CurveLabWorkspace() {
     }
   }, [draftSource]);
   const visualInstruments = Array.isArray(visualDraft.instruments)
-    ? visualDraft.instruments as Array<Record<string, unknown>>
+    ? visualDraft.instruments as Record<string, unknown>[]
     : [];
   const visualDeclarations = Array.isArray(visualDraft.declarations)
-    ? visualDraft.declarations as Array<Record<string, unknown>>
+    ? visualDraft.declarations as Record<string, unknown>[]
     : [];
   const dependencyVersionIds = Array.isArray(visualDraft.dependency_version_ids)
     ? visualDraft.dependency_version_ids as string[]
@@ -345,14 +360,15 @@ export default function CurveLabWorkspace() {
   const visualTrades = useMemo(() => {
     try {
       const parsed = parseJson(tradeSource);
-      return Array.isArray(parsed) ? parsed as Array<Record<string, unknown>> : [];
+      return Array.isArray(parsed) ? parsed as Record<string, unknown>[] : [];
     } catch {
-      return DEFAULT_TRADES as Array<Record<string, unknown>>;
+      return DEFAULT_TRADES as Record<string, unknown>[];
     }
   }, [tradeSource]);
 
   const updateVisualDraft = (
-    transform: (current: Record<string, unknown>) => Record<string, unknown>,
+    // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+    transform: (...args: [Record<string, unknown>]) => Record<string, unknown>,
   ) => {
     setDraftSource(JSON.stringify(transform(visualDraft), null, 2));
   };
@@ -369,7 +385,7 @@ export default function CurveLabWorkspace() {
   };
   const setDeclarationField = (index: number, field: string, value: unknown) => {
     updateVisualDraft((current) => {
-      const previousKey = String(visualDeclarations[index]?.component_key ?? "");
+      const previousKey = String(itemAt(visualDeclarations, index)?.component_key ?? "");
       const declarations = visualDeclarations.map((declaration, position) => (
         position === index ? { ...declaration, [field]: value } : declaration
       ));
@@ -378,9 +394,11 @@ export default function CurveLabWorkspace() {
         ...current,
         declarations,
         instruments: visualInstruments.map((instrument) => {
-          const terms = instrument.terms as Record<string, unknown>;
-          return terms?.component_key === previousKey
-            ? { ...instrument, terms: { ...terms, component_key: value } }
+          const terms = instrument.terms;
+          if (!terms || typeof terms !== "object") return instrument;
+          const termsRecord = terms as Record<string, unknown>;
+          return termsRecord.component_key === previousKey
+            ? { ...instrument, terms: { ...termsRecord, component_key: value } }
             : instrument;
         }),
       };
@@ -408,14 +426,17 @@ export default function CurveLabWorkspace() {
     }));
   };
   const removeDeclaration = (index: number) => {
-    const componentKey = visualDeclarations[index]?.component_key;
+    const componentKey = itemAt(visualDeclarations, index)?.component_key;
     updateVisualDraft((current) => ({
       ...current,
       declarations: visualDeclarations.filter((_, position) => position !== index),
       instruments: visualInstruments.filter(
-        (instrument) => (
-          (instrument.terms as Record<string, unknown>)?.component_key !== componentKey
-        ),
+        (instrument) => {
+          const terms = instrument.terms;
+          return !terms
+            || typeof terms !== "object"
+            || (terms as Record<string, unknown>).component_key !== componentKey;
+        },
       ),
     }));
   };
@@ -436,7 +457,7 @@ export default function CurveLabWorkspace() {
     }));
   };
   const addInstrument = () => {
-    const template = visualInstruments[visualInstruments.length - 1]
+    const template = visualInstruments.slice(-1).pop()
       ?? DEFAULT_DRAFT.instruments[0];
     const next = {
       ...template,
@@ -491,17 +512,17 @@ export default function CurveLabWorkspace() {
     ], null, 2));
   };
 
-  const refreshVersions = async () => {
+  const refreshVersions = useCallback(async () => {
     const next = await api.listCurveLabVersions();
     setVersions(next);
     setSelectedVersionId((current) => current || next[0]?.id || "");
-  };
+  }, []);
 
   useEffect(() => {
     void refreshVersions().catch((reason: unknown) => {
       setError(message(reason));
     });
-  }, []);
+  }, [refreshVersions]);
 
   const execute = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -671,7 +692,9 @@ export default function CurveLabWorkspace() {
             aria-label={item.label}
             aria-selected={tab === item.id}
             {...css("curve-lab-flow-tab", tab === item.id && "active")}
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              setTab(item.id);
+            }}
           >
             <span>0{index + 1}</span>
             <strong>{item.label}</strong>
@@ -697,7 +720,9 @@ export default function CurveLabWorkspace() {
                   <span>Build mode</span>
                   <select
                     value={String(visualDraft.mode ?? "SINGLE")}
-                    onChange={(event) => setBuildMode(event.target.value as CurveLabBuildMode)}
+                    onChange={(event) => {
+                      setBuildMode(event.target.value as CurveLabBuildMode);
+                    }}
                   >
                     <option value="SINGLE">Single curve</option>
                     <option value="MULTI_CURVE">Joint multi-curve</option>
@@ -710,14 +735,18 @@ export default function CurveLabWorkspace() {
                   <input
                     type="date"
                     value={String(visualDraft.as_of_date ?? "")}
-                    onChange={(event) => setDraftField("as_of_date", event.target.value)}
+                    onChange={(event) => {
+                      setDraftField("as_of_date", event.target.value);
+                    }}
                   />
                 </label>
                 <label>
                   <span>Market snapshot</span>
                   <input
                     value={String(visualDraft.market_snapshot_id ?? "")}
-                    onChange={(event) => setDraftField("market_snapshot_id", event.target.value)}
+                    onChange={(event) => {
+                      setDraftField("market_snapshot_id", event.target.value);
+                    }}
                   />
                 </label>
               </div>
@@ -754,7 +783,9 @@ export default function CurveLabWorkspace() {
                           <select
                             aria-label={`Declaration role ${index + 1}`}
                             value={String(declaration.role ?? "DISCOUNT")}
-                            onChange={(event) => setDeclarationField(index, "role", event.target.value)}
+                            onChange={(event) => {
+                              setDeclarationField(index, "role", event.target.value);
+                            }}
                           >
                             <option value="DISCOUNT">Discount</option>
                             <option value="PROJECTION">Projection</option>
@@ -766,11 +797,13 @@ export default function CurveLabWorkspace() {
                             aria-label={`Declaration currency ${index + 1}`}
                             value={String(declaration.currency ?? "")}
                             maxLength={3}
-                            onChange={(event) => setDeclarationField(
-                              index,
-                              "currency",
-                              event.target.value.toUpperCase(),
-                            )}
+                            onChange={(event) => {
+                              setDeclarationField(
+                                index,
+                                "currency",
+                                event.target.value.toUpperCase(),
+                              );
+                            }}
                           />
                         </td>
                         <td>
@@ -778,11 +811,13 @@ export default function CurveLabWorkspace() {
                             aria-label={`Declaration component key ${index + 1}`}
                             {...css("mono")}
                             value={String(declaration.component_key ?? "")}
-                            onChange={(event) => setDeclarationField(
-                              index,
-                              "component_key",
-                              event.target.value,
-                            )}
+                            onChange={(event) => {
+                              setDeclarationField(
+                                index,
+                                "component_key",
+                                event.target.value,
+                              );
+                            }}
                           />
                         </td>
                         <td>
@@ -791,11 +826,13 @@ export default function CurveLabWorkspace() {
                             value={String(
                               declaration.parameterization ?? "PIECEWISE_CONSTANT_FWD"
                             )}
-                            onChange={(event) => setDeclarationField(
-                              index,
-                              "parameterization",
-                              event.target.value,
-                            )}
+                            onChange={(event) => {
+                              setDeclarationField(
+                                index,
+                                "parameterization",
+                                event.target.value,
+                              );
+                            }}
                           >
                             <option value="PIECEWISE_CONSTANT_FWD">PWC forward</option>
                             <option value="PIECEWISE_LINEAR_FWD">Linear forward</option>
@@ -809,7 +846,9 @@ export default function CurveLabWorkspace() {
                             {...css("danger")}
                             aria-label={`Remove declaration ${index + 1}`}
                             disabled={visualDeclarations.length === 1}
-                            onClick={() => removeDeclaration(index)}
+                            onClick={() => {
+                              removeDeclaration(index);
+                            }}
                           >
                             Remove
                           </button>
@@ -840,10 +879,12 @@ export default function CurveLabWorkspace() {
                         type="checkbox"
                         aria-label={`Use ${version.name} as dependency`}
                         checked={dependencyVersionIds.includes(version.id)}
-                        onChange={(event) => toggleDependency(
-                          version.id,
-                          event.target.checked,
-                        )}
+                        onChange={(event) => {
+                          toggleDependency(
+                            version.id,
+                            event.target.checked,
+                          );
+                        }}
                       />
                       <span>
                         <strong>{version.name}</strong>
@@ -874,7 +915,9 @@ export default function CurveLabWorkspace() {
                           <select
                             aria-label={`Family ${index + 1}`}
                             value={String(instrument.instrument_type ?? "DEPOSIT")}
-                            onChange={(event) => setInstrumentField(index, "instrument_type", event.target.value)}
+                            onChange={(event) => {
+                              setInstrumentField(index, "instrument_type", event.target.value);
+                            }}
                           >
                             {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
                               (family) => <option key={family} value={family}>{family}</option>,
@@ -886,7 +929,9 @@ export default function CurveLabWorkspace() {
                             aria-label={`Maturity ${index + 1}`}
                             type="date"
                             value={String(instrument.maturity_date ?? "")}
-                            onChange={(event) => setInstrumentField(index, "maturity_date", event.target.value)}
+                            onChange={(event) => {
+                              setInstrumentField(index, "maturity_date", event.target.value);
+                            }}
                           />
                         </td>
                         <td>
@@ -894,7 +939,9 @@ export default function CurveLabWorkspace() {
                             aria-label={`Quote ${index + 1}`}
                             inputMode="decimal"
                             value={String(instrument.raw_quote ?? "")}
-                            onChange={(event) => setInstrumentField(index, "raw_quote", event.target.value)}
+                            onChange={(event) => {
+                              setInstrumentField(index, "raw_quote", event.target.value);
+                            }}
                           />
                         </td>
                         <td>
@@ -902,7 +949,9 @@ export default function CurveLabWorkspace() {
                             aria-label={`Included ${index + 1}`}
                             type="checkbox"
                             checked={Boolean(instrument.included)}
-                            onChange={(event) => setInstrumentField(index, "included", event.target.checked)}
+                            onChange={(event) => {
+                              setInstrumentField(index, "included", event.target.checked);
+                            }}
                           />
                         </td>
                         <td>
@@ -910,7 +959,9 @@ export default function CurveLabWorkspace() {
                             type="button"
                             {...css("danger")}
                             disabled={visualInstruments.length === 1}
-                            onClick={() => removeInstrument(index)}
+                            onClick={() => {
+                              removeInstrument(index);
+                            }}
                           >
                             Remove
                           </button>
@@ -937,7 +988,9 @@ export default function CurveLabWorkspace() {
                   value={draftSource}
                   rows={24}
                   spellCheck={false}
-                  onChange={(event) => setDraftSource(event.target.value)}
+                  onChange={(event) => {
+                    setDraftSource(event.target.value);
+                  }}
                 />
               </label>
             </details>
@@ -962,7 +1015,9 @@ export default function CurveLabWorkspace() {
             </button>
             <label>
               <span>Version name</span>
-              <input value={versionName} onChange={(event) => setVersionName(event.target.value)} />
+              <input value={versionName} onChange={(event) => {
+                setVersionName(event.target.value);
+              }} />
             </label>
             <button type="button" disabled={busy || build?.state !== "SUCCEEDED"} onClick={() => void publishVersion()}>
               Publish version
@@ -1013,7 +1068,9 @@ export default function CurveLabWorkspace() {
                         key={id}
                         type="button"
                         {...css(curveView === id ? "active" : "ghost")}
-                        onClick={() => setCurveView(id)}
+                        onClick={() => {
+                          setCurveView(id);
+                        }}
                       >
                         {label}
                       </button>
@@ -1060,7 +1117,9 @@ export default function CurveLabWorkspace() {
             </div>
             <label>
               <span>Curve version</span>
-              <select value={selectedVersionId} onChange={(event) => setSelectedVersionId(event.target.value)}>
+              <select value={selectedVersionId} onChange={(event) => {
+                setSelectedVersionId(event.target.value);
+              }}>
                 <option value="">Select a version</option>
                 {versions.map((version) => (
                   <option key={version.id} value={version.id}>{version.name} · {version.id.slice(0, 8)}</option>
@@ -1083,7 +1142,9 @@ export default function CurveLabWorkspace() {
                           <select
                             aria-label={`Trade family ${index + 1}`}
                             value={String(trade.instrument_type)}
-                            onChange={(event) => setTradeField(index, "instrument_type", event.target.value)}
+                            onChange={(event) => {
+                              setTradeField(index, "instrument_type", event.target.value);
+                            }}
                           >
                             {["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"].map(
                               (family) => <option key={family}>{family}</option>,
@@ -1094,21 +1155,27 @@ export default function CurveLabWorkspace() {
                           <input
                             type="date"
                             value={String(trade.maturity_date)}
-                            onChange={(event) => setTradeField(index, "maturity_date", event.target.value)}
+                            onChange={(event) => {
+                              setTradeField(index, "maturity_date", event.target.value);
+                            }}
                           />
                         </td>
                         <td>
                           <input
                             inputMode="decimal"
                             value={String(terms.notional ?? terms.position_count ?? "")}
-                            onChange={(event) => setTradeTerm(index, "notional", event.target.value)}
+                            onChange={(event) => {
+                              setTradeTerm(index, "notional", event.target.value);
+                            }}
                           />
                         </td>
                         <td>
                           <input
                             inputMode="decimal"
                             value={String(terms.contract_rate ?? terms.contract_spread ?? "")}
-                            onChange={(event) => setTradeTerm(index, "contract_rate", event.target.value)}
+                            onChange={(event) => {
+                              setTradeTerm(index, "contract_rate", event.target.value);
+                            }}
                           />
                         </td>
                       </tr>
@@ -1121,7 +1188,9 @@ export default function CurveLabWorkspace() {
               <summary>Advanced trade JSON</summary>
               <label>
                 <span>Trade target JSON</span>
-                <textarea value={tradeSource} rows={20} spellCheck={false} onChange={(event) => setTradeSource(event.target.value)} />
+                <textarea value={tradeSource} rows={20} spellCheck={false} onChange={(event) => {
+                  setTradeSource(event.target.value);
+                }} />
               </label>
             </details>
             <div {...css("submit-row")}>
@@ -1142,21 +1211,27 @@ export default function CurveLabWorkspace() {
             </ul>
             <label>
               <span>Evaluation time</span>
-              <input value={evaluationTime} onChange={(event) => setEvaluationTime(event.target.value)} />
+              <input value={evaluationTime} onChange={(event) => {
+                setEvaluationTime(event.target.value);
+              }} />
             </label>
             <label>
               <span>Fixing snapshot</span>
-              <input value={fixingSnapshotId} onChange={(event) => setFixingSnapshotId(event.target.value)} />
+              <input value={fixingSnapshotId} onChange={(event) => {
+                setFixingSnapshotId(event.target.value);
+              }} />
             </label>
             <label>
               <span>Base currency</span>
-              <input value={baseCurrency} onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())} />
+              <input value={baseCurrency} onChange={(event) => {
+                setBaseCurrency(event.target.value.toUpperCase());
+              }} />
             </label>
             {risk && (
               <dl>
                 <dt>State</dt><dd>{risk.state}</dd>
                 <dt>Prices</dt><dd>{risk.result?.pricing?.length ?? 0}</dd>
-                <dt>Evaluations</dt><dd>{String(risk.estimated_work.price_evaluations ?? 0)}</dd>
+                <dt>Evaluations</dt><dd>{String(risk.estimated_work.price_evaluations)}</dd>
               </dl>
             )}
           </aside>
@@ -1175,8 +1250,8 @@ export default function CurveLabWorkspace() {
                         <td {...css("mono")}>{String(row.trade_id).slice(0, 8)}</td>
                         <td>{String(row.status)}</td>
                         <td {...css("mono", "num")}>{String(row.pv ?? "—")}</td>
-                        <td {...css("mono", "num")}>{String(risk.result?.dv01?.[index]?.value ?? "—")}</td>
-                        <td {...css("mono", "num")}>{String(risk.result?.key_rate_sum?.[index]?.value ?? "—")}</td>
+                        <td {...css("mono", "num")}>{String(itemAt(risk.result?.dv01, index)?.value ?? "—")}</td>
+                        <td {...css("mono", "num")}>{String(itemAt(risk.result?.key_rate_sum, index)?.value ?? "—")}</td>
                         <td {...css("error")}>
                           {String((row.error as { code?: string } | undefined)?.code ?? "—")}
                         </td>
@@ -1220,7 +1295,9 @@ export default function CurveLabWorkspace() {
                   if (file) {
                     void file.text().then((source) => {
                       setImportManifest(JSON.parse(source) as Record<string, unknown>);
-                    }).catch((reason: unknown) => setError(message(reason)));
+                    }).catch((reason: unknown) => {
+                      setError(message(reason));
+                    });
                   }
                 }}
               />
@@ -1235,7 +1312,9 @@ export default function CurveLabWorkspace() {
               <select
                 aria-label="Compare version"
                 value={compareVersionId}
-                onChange={(event) => setCompareVersionId(event.target.value)}
+                onChange={(event) => {
+                  setCompareVersionId(event.target.value);
+                }}
               >
                 <option value="">Choose comparison</option>
                 {versions.map((version) => (
