@@ -7,6 +7,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from datetime import datetime
 
 import pytest
 from sqlalchemy import create_engine, event, inspect
@@ -320,26 +321,15 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
     database_url = get_store().url
     stores = (DbStore(database_url), DbStore(database_url))
     barrier = threading.Barrier(2)
-    counter_lock = threading.Lock()
-    synchronized_reads = 0
 
-    def synchronize_idempotency_read(execute_state) -> None:
-        nonlocal synchronized_reads
-        if execute_state.is_select and "curve_versions.idempotency_key" in str(
-            execute_state.statement
-        ):
-            with counter_lock:
-                participate = synchronized_reads < 2
-                synchronized_reads += 1
-            if participate:
-                barrier.wait(timeout=5)
+    def publish(store):
+        barrier.wait(timeout=5)
+        return create_version(store, request)
 
-    event.listen(Session, "do_orm_execute", synchronize_idempotency_read)
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(pool.map(lambda store: create_version(store, request), stores))
+            results = list(pool.map(publish, stores))
     finally:
-        event.remove(Session, "do_orm_execute", synchronize_idempotency_read)
         for store in stores:
             store.close()
 
@@ -347,6 +337,98 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
         client.get("/api/curve-lab/versions").json()[0]["id"]
     }
     assert sorted(created for _, created in results) == [False, True]
+
+
+def test_sqlite_publication_waits_for_a_prior_draft_update_and_rejects_old_revision(
+    client,
+) -> None:
+    from app.services.db.store_db import DbStore
+    from app.services.store import ConflictError, get_store
+
+    draft = _create_draft(client)
+    run = _completed_build(client, draft["id"])
+    store = get_store()
+    publisher = DbStore(store.url)
+    writer_engine = create_engine(store.url)
+    writer = writer_engine.connect()
+    selected_draft = threading.Event()
+    payload = store.get_curve_lab_build_run(run["id"])["native_payload"]
+    record = {
+        "id": "e" * 32,
+        "idempotency_key": "sqlite-publication-old-revision",
+        "source_kind": "BUILD",
+        "build_run_id": run["id"],
+        "import_job_id": None,
+        "native_payload": payload,
+        "native_payload_length": len(payload),
+        "native_payload_hash": run["native_payload_hash"],
+        "archive_numeric_format": "JSON_MAX_DIGITS10_V1",
+        "root_kind": "DISCOUNT_CURVE",
+        "build_validation_state": "VERIFIED",
+        "visibility_state": "VISIBLE",
+        "name": "must not publish",
+        "version_note": None,
+        "tags": [],
+        "verification": {},
+        "created_at": "2026-01-15T00:00:00Z",
+    }
+
+    def observe_draft_select(
+        _connection,
+        _cursor,
+        statement,
+        _parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        if statement.lstrip().upper().startswith("SELECT CURVE_DRAFTS"):
+            selected_draft.set()
+
+    def publish() -> str:
+        try:
+            publisher.publish_curve_lab_version(
+                record,
+                draft["id"],
+                draft["revision"],
+                draft["fingerprint"],
+                run["id"],
+            )
+        except ConflictError:
+            return "conflict"
+        except Exception as exc:  # noqa: BLE001 - RED captures the leaked SQLite failure
+            return type(exc).__name__
+        return "created"
+
+    event.listen(publisher._engine, "after_cursor_execute", observe_draft_select)
+    writer.exec_driver_sql("BEGIN IMMEDIATE")
+    writer_transaction_open = True
+    writer.exec_driver_sql(
+        """
+        UPDATE curve_drafts
+        SET revision = 2, fingerprint = ?, state = 'MODIFIED'
+        WHERE id = ?
+        """,
+        ("2" * 64, draft["id"]),
+    )
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            published = pool.submit(publish)
+            selected_before_update_commit = selected_draft.wait(timeout=0.5)
+            writer.exec_driver_sql("COMMIT")
+            writer_transaction_open = False
+            outcome = published.result(timeout=5)
+    finally:
+        event.remove(publisher._engine, "after_cursor_execute", observe_draft_select)
+        if writer_transaction_open:
+            writer.exec_driver_sql("ROLLBACK")
+        writer.close()
+        writer_engine.dispose()
+        publisher.close()
+
+    assert selected_before_update_commit is False
+    assert outcome == "conflict"
+    assert client.get(f"/api/curve-lab/drafts/{draft['id']}").json()["revision"] == 2
+    assert client.get("/api/curve-lab/versions").json() == []
 
 
 def test_clone_rekeys_instruments_and_keeps_source_identity(client) -> None:
@@ -888,6 +970,103 @@ def test_build_create_acknowledges_queued_before_blocking_native_work(
             break
         time.sleep(0.01)
     assert completed["state"] == "SUCCEEDED"
+
+
+def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
+    client,
+    monkeypatch,
+) -> None:
+    from app.services.store import get_store
+
+    draft = _create_draft(client)
+    store = get_store()
+    original_get_build_run = store.get_curve_lab_build_run
+    queued_snapshot_read = threading.Event()
+    release_worker = threading.Event()
+
+    def block_after_queued_snapshot_read(run_id: str) -> dict:
+        record = original_get_build_run(run_id)
+        if (
+            threading.current_thread().name.startswith("curve-lab")
+            and not queued_snapshot_read.is_set()
+        ):
+            queued_snapshot_read.set()
+            assert release_worker.wait(timeout=5)
+        return record
+
+    monkeypatch.setattr(
+        store,
+        "get_curve_lab_build_run",
+        block_after_queued_snapshot_read,
+    )
+    try:
+        admitted_response = client.post(
+            f"/api/curve-lab/drafts/{draft['id']}/build-runs"
+        )
+        assert admitted_response.status_code == 202, admitted_response.text
+        admitted = admitted_response.json()
+        assert admitted["state"] == "QUEUED"
+        assert queued_snapshot_read.wait(timeout=5)
+
+        changed_document = _document("0.041")
+        changed_document["market_snapshot_id"] = "market-2026-01-16"
+        changed_document["instruments"][0]["instrument_id"] = draft["document"][
+            "instruments"
+        ][0]["instrument_id"]
+        updated_response = client.put(
+            f"/api/curve-lab/drafts/{draft['id']}",
+            headers={"If-Match": '"1"'},
+            json=changed_document,
+        )
+        assert updated_response.status_code == 200, updated_response.text
+        updated = updated_response.json()
+    finally:
+        release_worker.set()
+
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        admitted["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+
+    assert run["state"] == "SUCCEEDED", run
+    assert run["draft_revision"] == draft["revision"]
+    assert run["draft_fingerprint"] == draft["fingerprint"]
+    assert run["request"] == draft["document"]
+    assert run["finished_at"] != run["created_at"]
+    assert datetime.fromisoformat(run["finished_at"].replace("Z", "+00:00")) > (
+        datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+    )
+
+    mismatched_publication = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": updated["id"],
+            "draft_revision": updated["revision"],
+            "draft_fingerprint": updated["fingerprint"],
+            "build_run_id": run["id"],
+            "name": "must not publish",
+            "idempotency_key": "queued-build-new-draft-identity",
+        },
+    )
+    stale_publication = client.post(
+        "/api/curve-lab/versions",
+        json={
+            "draft_id": draft["id"],
+            "draft_revision": draft["revision"],
+            "draft_fingerprint": draft["fingerprint"],
+            "build_run_id": run["id"],
+            "name": "must remain stale",
+            "idempotency_key": "queued-build-old-draft-identity",
+        },
+    )
+
+    assert mismatched_publication.status_code == 409
+    assert mismatched_publication.json()["detail"]["code"] == "BUILD_RUN_STALE"
+    assert stale_publication.status_code == 409
+    assert stale_publication.json()["detail"]["code"] == "DRAFT_REVISION_CONFLICT"
+    assert client.get("/api/curve-lab/versions").json() == []
 
 
 def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch) -> None:

@@ -831,6 +831,8 @@ class DbStore:
         build_run_id: str,
     ) -> tuple[dict, bool]:
         with self._session() as session:
+            if self._engine.dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             draft = session.scalar(
                 select(CurveLabDraftRow).where(CurveLabDraftRow.id == draft_id).with_for_update()
             )

@@ -87,6 +87,42 @@ TEST(StorageTest, TestJSONReadStringRejectsTrailingBytesAndInvalidUtf8) {
     ASSERT_THROW(JSON::ReadString(invalidUtf8.data(), invalidUtf8.size(), options), Dal::Exception_);
 }
 
+TEST(StorageTest, TestJSONReadStringRejectsDecodedNulAndInvalidUnicode) {
+    const String_ escapedNul(
+        R"({"~type":"DiscountPWC_v1","name":"bad\u0000name","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]})");
+    const String_ escapedNulKey(
+        R"({"~type":"DiscountPWC_v1","bad\u0000key":"value","name":"curve","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]})");
+    const String_ loneHighSurrogate(
+        R"({"~type":"DiscountPWC_v1","name":"bad\uD800name","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]})");
+    const String_ loneLowSurrogate(
+        R"({"~type":"DiscountPWC_v1","name":"bad\uDC00name","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]})");
+
+    for (const auto& [payload, expectedError] :
+         std::vector<std::pair<String_, String_>>{{escapedNul, "ARCHIVE_STRING_NUL"},
+                                                  {escapedNulKey, "ARCHIVE_STRING_NUL"},
+                                                  {loneHighSurrogate, "ARCHIVE_STRING_INVALID_UNICODE"},
+                                                  {loneLowSurrogate, "ARCHIVE_STRING_INVALID_UNICODE"}}) {
+        try {
+            JSON::ReadString(payload, true);
+            FAIL() << "unsafe decoded JSON string was accepted";
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(String_(error.what()).find(expectedError), String_::npos);
+        }
+    }
+}
+
+TEST(StorageTest, TestJSONReadStringPreservesSupplementaryUnicodeAcrossReserialization) {
+    const String_ escaped(
+        R"({"~type":"DiscountPWC_v1","name":"curve-\uD83D\uDE80","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]})");
+    const Handle_<Storable_> restored = JSON::ReadString(escaped, true);
+    const String_ serialized = JSON::WriteString(*restored);
+    const Handle_<Storable_> roundTrip = JSON::ReadString(serialized, true);
+
+    ASSERT_EQ(restored->Name(), String_(std::string("curve-\xF0\x9F\x9A\x80")));
+    ASSERT_EQ(roundTrip->Name(), restored->Name());
+    ASSERT_EQ(JSON::WriteString(*roundTrip), serialized);
+}
+
 TEST(StorageTest, TestJSONWriterEscapesStringsAndUsesRoundTripDoubles) {
     Vector_<> x = {1.0, 2.0};
     Vector_<> f = {std::nextafter(1.0, 2.0), -0.0};

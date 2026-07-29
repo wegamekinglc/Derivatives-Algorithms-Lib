@@ -12,6 +12,7 @@
 #include <sstream>
 #include <regex>
 #include <rapidjson/document.h>
+#include <rapidjson/error/error.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/filereadstream.h>
 #include <dal/platform/platform.hpp>
@@ -89,6 +90,34 @@ namespace Dal {
             std::size_t badOffset = 0;
             REQUIRE(ValidUtf8(value.data(), value.size(), &badOffset),
                     "ARCHIVE_STRING_INVALID_UTF8 at byte " + ToString(static_cast<int>(badOffset)));
+        }
+
+        void ValidateDecodedString(const element_t& value) {
+            const auto* begin = value.GetString();
+            const auto length = static_cast<std::size_t>(value.GetStringLength());
+            REQUIRE(std::find(begin, begin + length, '\0') == begin + length, "ARCHIVE_STRING_NUL");
+            std::size_t badOffset = 0;
+            REQUIRE(
+                ValidUtf8(begin, length, &badOffset),
+                "ARCHIVE_STRING_INVALID_UNICODE at byte " + ToString(static_cast<int>(badOffset)));
+        }
+
+        void ValidateDecodedStrings(const element_t& value) {
+            if (value.IsString()) {
+                ValidateDecodedString(value);
+                return;
+            }
+            if (value.IsArray()) {
+                for (const auto& child : value.GetArray())
+                    ValidateDecodedStrings(child);
+                return;
+            }
+            if (value.IsObject()) {
+                for (auto member = value.MemberBegin(); member != value.MemberEnd(); ++member) {
+                    ValidateDecodedString(member->name);
+                    ValidateDecodedStrings(member->value);
+                }
+            }
         }
 
         void WriteJsonString(std::ostream& dst, const String_& value) {
@@ -431,7 +460,12 @@ namespace Dal {
                 "ARCHIVE_PAYLOAD_INVALID_UTF8 at byte " + ToString(static_cast<int>(badOffset)));
         rapidjson::Document doc;
         doc.Parse<rapidjson::kParseValidateEncodingFlag | rapidjson::kParseFullPrecisionFlag>(src, length);
+        REQUIRE(
+            !doc.HasParseError() ||
+                doc.GetParseError() != rapidjson::kParseErrorStringUnicodeSurrogateInvalid,
+            "ARCHIVE_STRING_INVALID_UNICODE");
         REQUIRE(!doc.HasParseError(), "JSON parse error in input string");
+        ValidateDecodedStrings(doc);
         const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);

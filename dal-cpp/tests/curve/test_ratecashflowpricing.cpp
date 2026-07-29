@@ -347,6 +347,6 @@ TEST(RateCashflowPricingTest, TestOisPlanRecordsEachDailyHistoricalObservation) 
     const auto plan = Dal::BuildRateCashflowPlan(trade, Dal::DateTime_(start.AddDays(2), 10, 30));
 
     ASSERT_EQ(plan.requiredHistoricalFixings_.size(), 2);
-    EXPECT_EQ(plan.requiredHistoricalFixings_[0].fixingTime_, Dal::DateTime_(start, 11, 0));
-    EXPECT_EQ(plan.requiredHistoricalFixings_[1].fixingTime_, Dal::DateTime_(start.AddDays(1), 11, 0));
+    ASSERT_EQ(plan.requiredHistoricalFixings_[0].fixingTime_, Dal::DateTime_(start, 11, 0));
+    ASSERT_EQ(plan.requiredHistoricalFixings_[1].fixingTime_, Dal::DateTime_(start.AddDays(1), 11, 0));
 }

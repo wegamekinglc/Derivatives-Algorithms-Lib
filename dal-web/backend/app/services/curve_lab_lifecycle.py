@@ -385,12 +385,10 @@ def _execute_build_run(
 ) -> None:
     queued = store.get_curve_lab_build_run(run_id)
     draft_id = queued["draft_id"]
-    draft = get_draft(store, draft_id)
     document = queued["request"]
     quote_coordinates = list(queued["quote_axis"])
     parameter_coordinates: list[dict] = []
     resolved_plan = queued["resolved_plan"]
-    now = queued["created_at"]
     if deadline_expired(queued["deadline_at"]):
         store.update_curve_lab_build_run(
             run_id,
@@ -426,15 +424,12 @@ def _execute_build_run(
         return
     if dependency_error is not None:
         record = _failed_build_record(
-            run_id,
-            draft,
+            queued,
             resolved_plan,
             quote_coordinates,
             parameter_coordinates,
             dependency_manifest,
             dependency_error,
-            now,
-            queued["deadline_at"],
         )
         store.update_curve_lab_build_run(run_id, record)
         _audit(
@@ -487,15 +482,12 @@ def _execute_build_run(
             "details": {},
         }
         record = _failed_build_record(
-            run_id,
-            draft,
+            queued,
             resolved_plan,
             quote_coordinates,
             parameter_coordinates,
             dependency_manifest,
             error,
-            now,
-            queued["deadline_at"],
         )
         store.update_curve_lab_build_run(run_id, record)
         _audit(
@@ -536,8 +528,8 @@ def _execute_build_run(
     record = {
         "id": run_id,
         "draft_id": draft_id,
-        "draft_revision": draft["revision"],
-        "draft_fingerprint": draft["fingerprint"],
+        "draft_revision": queued["draft_revision"],
+        "draft_fingerprint": queued["draft_fingerprint"],
         "state": "SUCCEEDED",
         "request": document,
         "resolved_plan": resolved_plan,
@@ -553,9 +545,9 @@ def _execute_build_run(
             "payload_bytes": len(native_payload),
         },
         "error": None,
-        "created_at": now,
+        "created_at": queued["created_at"],
         "deadline_at": queued["deadline_at"],
-        "finished_at": now,
+        "finished_at": _now(),
     }
     store.update_curve_lab_build_run(run_id, record)
     _audit(store, "BUILD_SUCCEEDED", "curve_build_run", record["id"], record["request"])
@@ -627,23 +619,20 @@ def _resolve_build_dependencies(
 
 
 def _failed_build_record(
-    run_id: str,
-    draft: dict,
+    queued: dict,
     resolved_plan: dict,
     quote_coordinates: list[dict],
     parameter_coordinates: list[dict],
     dependency_manifest: list[dict],
     error: dict,
-    created_at: str,
-    deadline_at: str,
 ) -> dict:
     return {
-        "id": run_id,
-        "draft_id": draft["id"],
-        "draft_revision": draft["revision"],
-        "draft_fingerprint": draft["fingerprint"],
+        "id": queued["id"],
+        "draft_id": queued["draft_id"],
+        "draft_revision": queued["draft_revision"],
+        "draft_fingerprint": queued["draft_fingerprint"],
         "state": "FAILED",
-        "request": draft["document"],
+        "request": queued["request"],
         "resolved_plan": resolved_plan,
         "quote_axis": quote_coordinates,
         "parameter_axis": parameter_coordinates,
@@ -656,8 +645,8 @@ def _failed_build_record(
             "parameter_count": len(parameter_coordinates),
         },
         "error": error,
-        "created_at": created_at,
-        "deadline_at": deadline_at,
+        "created_at": queued["created_at"],
+        "deadline_at": queued["deadline_at"],
         "finished_at": _now(),
     }
 

@@ -46,6 +46,20 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Added immutable native rate-cashflow planning and pricing for
+  `DEPOSIT`, `FRA`, `FUTURE`, `OIS`, `IRS`, `BASIS_SWAP`, and `XCCY`,
+  including explicit historical rate/FX fixing demand, snapshot admission,
+  passive and AAD valuation, and first-order node sensitivities. The same
+  typed batch surface is additive in public C++ and Python. See
+  `docs/methodology/yield_curve.md`,
+  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+
+- `web`: Added the Curve Lab DAL-WEB workflow for visual seven-family
+  authoring, immutable asynchronous build/import/risk runs, native
+  `Storable_` JSON and `Bag_` version persistence, dependency/fixing
+  provenance, exact quote axes, PV/DV01/KRD results, and replayable
+  sensitivity matrices. See `dal-web/README.md`.
+
 - `curve`: Added staged XCCY sensitivity diagnostics across public C++, Python,
   and Excel. The additive options overload selects analytic or bumped
   Jacobians and independently controls the forward and effective-inverse

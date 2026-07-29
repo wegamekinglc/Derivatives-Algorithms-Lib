@@ -2,9 +2,31 @@
 
 from __future__ import annotations
 
+import inspect
 import json
+from pathlib import Path
 
 import pytest
+
+
+def test_curve_lab_endpoints_are_async() -> None:
+    from app.routers.curve_lab import router
+
+    assert router.routes
+    assert all(inspect.iscoroutinefunction(route.endpoint) for route in router.routes)
+
+
+def test_curve_lab_styles_follow_the_industrial_terminal_contract() -> None:
+    stylesheet = (
+        Path(__file__).parents[2] / "frontend" / "src" / "styles.css"
+    ).read_text(encoding="utf-8")
+    shell_rule = stylesheet.split(".curve-lab-v2 {", 1)[1].split("}", 1)[0]
+    active_tab_rule = stylesheet.split(
+        "button.curve-lab-flow-tab.active {", 1
+    )[1].split("}", 1)[0]
+
+    assert "gradient" not in shell_rule
+    assert "shadow" not in active_tab_rule
 
 
 def test_capabilities_publish_the_exact_registry(client) -> None:

@@ -112,6 +112,40 @@ def test_archive_bridge_requires_exact_bytes_and_rejects_embedded_nul():
         dal._dal._StorableFromJson(payload + b"\0{}")
 
 
+def test_archive_bridge_rejects_decoded_nul_and_lone_surrogates():
+    prefix = b'{"~type":"DiscountPWC_v1","name":"'
+    suffix = (
+        b'","ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]}'
+    )
+
+    with pytest.raises(RuntimeError, match="ARCHIVE_STRING_NUL"):
+        dal._dal._StorableFromJson(prefix + b"bad\\u0000name" + suffix)
+    with pytest.raises(RuntimeError, match="ARCHIVE_STRING_NUL"):
+        dal._dal._StorableFromJson(
+            b'{"~type":"DiscountPWC_v1","bad\\u0000key":"value","name":"curve",'
+            b'"ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]}'
+        )
+    with pytest.raises(RuntimeError, match="ARCHIVE_STRING_INVALID_UNICODE"):
+        dal._dal._StorableFromJson(prefix + b"bad\\uD800name" + suffix)
+    with pytest.raises(RuntimeError, match="ARCHIVE_STRING_INVALID_UNICODE"):
+        dal._dal._StorableFromJson(prefix + b"bad\\uDC00name" + suffix)
+
+
+def test_archive_bridge_preserves_supplementary_unicode_across_reserialization():
+    payload = (
+        b'{"~type":"DiscountPWC_v1","name":"curve-\\uD83D\\uDE80",'
+        b'"ccy":"USD","knotDates":["2026-02-14"],"rightVals":[0.01]}'
+    )
+
+    restored = dal._dal._StorableFromJson(payload)
+    serialized = dal._dal._StorableToJson(restored)
+    round_trip = dal._dal._StorableFromJson(serialized)
+
+    assert restored.name == "curve-\U0001f680"  # nosec B101
+    assert round_trip.name == restored.name  # nosec B101
+    assert dal._dal._StorableToJson(round_trip) == serialized  # nosec B101
+
+
 def test_private_bag_bridge_preserves_storable_roots_and_keys():
     today = _today()
     discount = dal.DiscountPWC_New(
