@@ -30,8 +30,8 @@ namespace Dal {
             T_ vol_;
 
             Vector_<> timeLine_;
-            bool todayOnTimeLine_;
-            const Vector_<SampleDef_>* defLine_;
+            bool todayOnTimeLine_ = false;
+            const Vector_<SampleDef_>* defLine_ = nullptr;
 
             Vector_<T_> stds_;
             Vector_<T_> drifts_;
