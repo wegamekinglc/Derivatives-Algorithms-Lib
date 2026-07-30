@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   api,
   ApiClientError,
   type CurveLabCanonicalQuote,
   type CurveLabQuoteAuthoringRequest,
   type CurveLabSuccessFamily,
+  type QuoteDisplayConvention,
   type QuoteInputConvention,
 } from "../api/client";
 import {
@@ -21,7 +22,9 @@ type CanonicalizeQuote = (
 interface CurveLabQuoteAuthoringProps {
   canonicalize?: CanonicalizeQuote;
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
-  onCanonicalQuote?: (...args: [CurveLabCanonicalQuote]) => void;
+  onCanonicalQuote?: (...args: [CurveLabCanonicalQuote, number?]) => boolean | void;
+  targetInstrumentFamily?: CurveLabSuccessFamily | null;
+  targetToken?: number;
 }
 
 function signedBump(value: string): string {
@@ -41,26 +44,60 @@ function errorMessage(reason: unknown): string {
 export default function CurveLabQuoteAuthoring({
   canonicalize = api.canonicalizeCurveLabQuote,
   onCanonicalQuote,
+  targetInstrumentFamily,
+  targetToken,
 }: CurveLabQuoteAuthoringProps) {
   const [family, setFamily] = useState<CurveLabSuccessFamily>("DEPOSIT");
   const [convention, setConvention] = useState<QuoteInputConvention>("DECIMAL");
+  const [displayConvention, setDisplayConvention] =
+    useState<QuoteDisplayConvention>("DECIMAL");
+  const [displayScale, setDisplayScale] = useState("4");
   const [lexeme, setLexeme] = useState("0.04");
   const [canonical, setCanonical] = useState<CurveLabCanonicalQuote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const projection = curveLabFamily(family);
+  const activeFamily = targetInstrumentFamily ?? family;
+  const projection = curveLabFamily(activeFamily);
+  const activeInputConvention = projection.inputConventions.some(
+    (item) => item === convention,
+  )
+    ? convention
+    : projection.inputConventions[0];
+  const activeDisplayConvention = projection.inputConventions.some(
+    (item) => item === displayConvention,
+  )
+    ? displayConvention
+    : projection.inputConventions[0];
+
+  useEffect(() => {
+    if (targetInstrumentFamily === undefined) return;
+    setCanonical(null);
+    setError(null);
+    if (targetInstrumentFamily === null || targetInstrumentFamily === family) return;
+    const targetProjection = curveLabFamily(targetInstrumentFamily);
+    setFamily(targetInstrumentFamily);
+    setConvention(targetProjection.inputConventions[0]);
+    setDisplayConvention(targetProjection.inputConventions[0]);
+  }, [family, targetInstrumentFamily, targetToken]);
 
   const submit = async () => {
     setSubmitting(true);
     setError(null);
     try {
       const result = await canonicalize({
-        instrument_type: family,
+        instrument_type: activeFamily,
         input_lexeme: lexeme,
-        input_convention: convention,
+        input_convention: activeInputConvention,
       });
+      const applied = targetToken === undefined
+        ? onCanonicalQuote?.(result)
+        : onCanonicalQuote?.(result, targetToken);
+      if (applied === false) {
+        throw new Error(
+          "Canonical quote target changed; select the matching workspace instrument and retry.",
+        );
+      }
       setCanonical(result);
-      onCanonicalQuote?.(result);
     } catch (reason) {
       setCanonical(null);
       setError(errorMessage(reason));
@@ -83,12 +120,14 @@ export default function CurveLabQuoteAuthoring({
         <label>
           <span>Instrument family</span>
           <select
-            value={family}
+            value={activeFamily}
+            disabled={targetInstrumentFamily !== undefined}
             onChange={(event) => {
               const next = event.target.value as CurveLabSuccessFamily;
               const nextProjection = curveLabFamily(next);
               setFamily(next);
               setConvention(nextProjection.inputConventions[0]);
+              setDisplayConvention(nextProjection.inputConventions[0]);
               setCanonical(null);
               setError(null);
             }}
@@ -104,7 +143,7 @@ export default function CurveLabQuoteAuthoring({
         <label>
           <span>Input convention</span>
           <select
-            value={convention}
+            value={activeInputConvention}
             onChange={(event) => {
               setConvention(event.target.value as QuoteInputConvention);
               setCanonical(null);
@@ -136,13 +175,48 @@ export default function CurveLabQuoteAuthoring({
           />
         </label>
 
-        <button type="button" disabled={submitting} onClick={() => void submit()}>
+        <label>
+          <span>Display convention</span>
+          <select
+            value={activeDisplayConvention}
+            onChange={(event) => {
+              setDisplayConvention(event.target.value as QuoteDisplayConvention);
+            }}
+          >
+            {projection.inputConventions.map((item) => (
+              <option key={item} value={item}>{item.replace("_", " ")}</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Display scale</span>
+          <input
+            type="number"
+            min={0}
+            max={12}
+            value={displayScale}
+            onChange={(event) => {
+              if (/^(?:[0-9]|1[0-2])$/.test(event.target.value)) {
+                setDisplayScale(event.target.value);
+              }
+            }}
+          />
+        </label>
+
+        <button
+          type="button"
+          disabled={submitting || targetInstrumentFamily === null}
+          onClick={() => void submit()}
+        >
           {submitting ? "Canonicalizing…" : "Canonicalize quote"}
         </button>
       </div>
 
       <p {...css("curve-lab-boundary-note")}>
-        Percent is accepted only here. Durable requests receive canonical decimal strings and fixed registry-owned risk bumps.
+        {targetInstrumentFamily === null
+          ? "Select one workspace instrument before applying a canonical quote."
+          : "Percent is accepted only here. Durable requests receive canonical decimal strings and fixed registry-owned risk bumps."}
       </p>
 
       {error && <div {...css("error")}>{error}</div>}
@@ -165,6 +239,11 @@ export default function CurveLabQuoteAuthoring({
               {signedBump(canonical.normalized_risk_bump)} normalized
             </strong>
             <small>{canonical.quote_coordinate_kind}</small>
+          </div>
+          <div>
+            <span>Presentation preference</span>
+            <strong>{activeDisplayConvention}</strong>
+            <small>scale {displayScale} · local only</small>
           </div>
         </output>
       )}

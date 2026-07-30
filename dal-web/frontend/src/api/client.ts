@@ -121,6 +121,7 @@ export type CurveLabSuccessFamily =
   | "XCCY";
 export type QuoteCoordinateKind = "RATE" | "PRICE" | "SPREAD";
 export type QuoteInputConvention = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
+export type QuoteDisplayConvention = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
 
 export interface CurveLabQuoteAuthoringRequest {
   instrument_type: CurveLabSuccessFamily;

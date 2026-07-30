@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   api,
   ApiClientError,
   type CurveLabBuildRun,
+  type CurveLabCanonicalQuote,
   type CurveLabDraft,
   type CurveLabImportJob,
   type CurveLabMatrix,
@@ -14,6 +23,21 @@ import { css } from "../format";
 
 type WorkspaceTab = "build" | "runs" | "risk" | "versions";
 type CurveLabBuildMode = "SINGLE" | "MULTI_CURVE" | "STAGED_XCCY" | "JOINT_XCCY";
+
+export interface CurveLabWorkspaceHandle {
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  applyCanonicalQuote: (...args: [CurveLabCanonicalQuote, number]) => boolean;
+}
+
+export interface CurveLabCanonicalTarget {
+  family: CurveLabSuccessFamily;
+  token: number;
+}
+
+interface CurveLabWorkspaceProps {
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  onCanonicalTargetChange?: (...args: [CurveLabCanonicalTarget | null]) => void;
+}
 
 const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
   { id: "build", label: "Build", note: "Draft → solve → publish" },
@@ -398,7 +422,10 @@ function MatrixTable({ matrix }: { matrix: CurveLabMatrix }) {
   );
 }
 
-export default function CurveLabWorkspace() {
+const CurveLabWorkspace = forwardRef<
+  CurveLabWorkspaceHandle,
+  CurveLabWorkspaceProps
+>(function CurveLabWorkspace({ onCanonicalTargetChange }, ref) {
   const [tab, setTab] = useState<WorkspaceTab>("build");
   const [draftSource, setDraftSource] = useState(
     JSON.stringify(DEFAULT_DRAFT, null, 2),
@@ -418,6 +445,9 @@ export default function CurveLabWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [importManifest, setImportManifest] = useState<Record<string, unknown> | null>(null);
   const [curveView, setCurveView] = useState<"discount" | "zero" | "forward">("discount");
+  const [selectedInstrumentIndex, setSelectedInstrumentIndex] = useState<number | null>(null);
+  const canonicalTargetTokenRef = useRef(0);
+  const [canonicalTargetToken, setCanonicalTargetToken] = useState(0);
   const [evaluationTime, setEvaluationTime] = useState("2026-01-15T10:30:00Z");
   const [fixingSnapshotId, setFixingSnapshotId] = useState("curve-lab-ui-fixings");
   const [baseCurrency, setBaseCurrency] = useState("USD");
@@ -462,17 +492,26 @@ export default function CurveLabWorkspace() {
     }
   }, [tradeSource]);
 
+  const invalidateCanonicalTarget = () => {
+    canonicalTargetTokenRef.current += 1;
+    setCanonicalTargetToken(canonicalTargetTokenRef.current);
+  };
+  const replaceDraftSource = (next: string) => {
+    invalidateCanonicalTarget();
+    setDraftSource(next);
+  };
   const updateVisualDraft = (
     // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
     transform: (...args: [Record<string, unknown>]) => Record<string, unknown>,
   ) => {
-    setDraftSource(JSON.stringify(transform(visualDraft), null, 2));
+    replaceDraftSource(JSON.stringify(transform(visualDraft), null, 2));
   };
   const setDraftField = (field: string, value: unknown) => {
     updateVisualDraft((current) => ({ ...current, [field]: value }));
   };
   const setBuildMode = (mode: CurveLabBuildMode) => {
     const topology = topologyForMode(mode);
+    setSelectedInstrumentIndex(null);
     updateVisualDraft((current) => ({
       ...current,
       mode,
@@ -523,6 +562,7 @@ export default function CurveLabWorkspace() {
   };
   const removeDeclaration = (index: number) => {
     const componentKey = itemAt(visualDeclarations, index)?.component_key;
+    setSelectedInstrumentIndex(null);
     updateVisualDraft((current) => ({
       ...current,
       declarations: visualDeclarations.filter((_, position) => position !== index),
@@ -575,11 +615,67 @@ export default function CurveLabWorkspace() {
     }));
   };
   const removeInstrument = (index: number) => {
+    setSelectedInstrumentIndex((current) => {
+      if (current === null || current < index) return current;
+      if (current === index) return null;
+      return current - 1;
+    });
     updateVisualDraft((current) => ({
       ...current,
       instruments: visualInstruments.filter((_, position) => position !== index),
     }));
   };
+  const selectedInstrumentFamily = useMemo(() => {
+    if (selectedInstrumentIndex === null) return null;
+    const value = visualInstruments[selectedInstrumentIndex]?.instrument_type;
+    return CURVE_LAB_FAMILIES.includes(value as CurveLabSuccessFamily)
+      ? value as CurveLabSuccessFamily
+      : null;
+  }, [selectedInstrumentIndex, visualInstruments]);
+  useEffect(() => {
+    onCanonicalTargetChange?.(
+      selectedInstrumentFamily === null
+        ? null
+        : {
+            family: selectedInstrumentFamily,
+            token: canonicalTargetToken,
+          },
+    );
+  }, [
+    canonicalTargetToken,
+    onCanonicalTargetChange,
+    selectedInstrumentFamily,
+  ]);
+  const applyCanonicalQuote = useCallback((
+    quote: CurveLabCanonicalQuote,
+    expectedTargetToken: number,
+  ): boolean => {
+    if (
+      expectedTargetToken !== canonicalTargetTokenRef.current
+      || selectedInstrumentIndex === null
+      || selectedInstrumentFamily === null
+      || quote.instrument_type !== selectedInstrumentFamily
+    ) {
+      return false;
+    }
+    const selected = visualInstruments[selectedInstrumentIndex];
+    if (!selected) return false;
+    setDraftSource(JSON.stringify({
+      ...visualDraft,
+      instruments: visualInstruments.map((instrument, position) => (
+        position === selectedInstrumentIndex
+          ? { ...instrument, raw_quote: quote.raw_quote }
+          : instrument
+      )),
+    }, null, 2));
+    return true;
+  }, [
+    selectedInstrumentFamily,
+    selectedInstrumentIndex,
+    visualDraft,
+    visualInstruments,
+  ]);
+  useImperativeHandle(ref, () => ({ applyCanonicalQuote }), [applyCanonicalQuote]);
   const setTradeField = (index: number, field: string, value: unknown) => {
     setTradeSource(JSON.stringify(
       visualTrades.map((trade, position) => (
@@ -643,6 +739,7 @@ export default function CurveLabWorkspace() {
   const createDraft = () => execute(async () => {
     const created = await api.createCurveLabDraft(parseJson(draftSource));
     setDraft(created);
+    replaceDraftSource(JSON.stringify(editableDocument(created.document), null, 2));
     setBuild(null);
     setStatus(`Draft ${created.id.slice(0, 8)} revision ${created.revision} is ready.`);
   });
@@ -678,6 +775,7 @@ export default function CurveLabWorkspace() {
       parseJson(draftSource),
     );
     setDraft(updated);
+    replaceDraftSource(JSON.stringify(editableDocument(updated.document), null, 2));
     setBuild(null);
     setStatus(`Saved draft ${updated.id.slice(0, 8)} revision ${updated.revision}; rebuild required.`);
   });
@@ -769,7 +867,8 @@ export default function CurveLabWorkspace() {
   const clone = (version: CurveLabVersion) => execute(async () => {
     const cloned = await api.cloneCurveLabVersion(version.id);
     setDraft(cloned);
-    setDraftSource(JSON.stringify(editableDocument(cloned.document), null, 2));
+    replaceDraftSource(JSON.stringify(editableDocument(cloned.document), null, 2));
+    setSelectedInstrumentIndex(null);
     setBuild(null);
     setTab("build");
     setStatus(`Cloned ${version.name} into draft ${cloned.id.slice(0, 8)}.`);
@@ -1052,14 +1151,39 @@ export default function CurveLabWorkspace() {
                   <h3>Calibration instruments</h3>
                   <p {...css("muted")}>Edit registry family, dates, inclusion and canonical quote.</p>
                 </div>
-                <button type="button" onClick={addInstrument}>Add instrument</button>
+                <div {...css("curve-lab-row-actions")}>
+                  <button
+                    type="button"
+                    {...css("ghost")}
+                    disabled={selectedInstrumentIndex === null}
+                    onClick={() => {
+                      invalidateCanonicalTarget();
+                      setSelectedInstrumentIndex(null);
+                    }}
+                  >
+                    Clear quote target
+                  </button>
+                  <button type="button" onClick={addInstrument}>Add instrument</button>
+                </div>
               </div>
               <div {...css("table-container")}>
                 <table>
-                  <thead><tr><th>Family</th><th>Maturity</th><th>Quote</th><th>Included</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>Canonical target</th><th>Family</th><th>Maturity</th><th>Quote</th><th>Included</th><th>Actions</th></tr></thead>
                   <tbody>
                     {visualInstruments.map((instrument, index) => (
                       <tr key={String(instrument.instrument_id ?? index)}>
+                        <td>
+                          <input
+                            type="radio"
+                            name="curve-lab-canonical-target"
+                            aria-label={`Canonical quote target ${index + 1}`}
+                            checked={selectedInstrumentIndex === index}
+                            onChange={() => {
+                              invalidateCanonicalTarget();
+                              setSelectedInstrumentIndex(index);
+                            }}
+                          />
+                        </td>
                         <td>
                           <select
                             aria-label={`Family ${index + 1}`}
@@ -1141,7 +1265,7 @@ export default function CurveLabWorkspace() {
                   rows={24}
                   spellCheck={false}
                   onChange={(event) => {
-                    setDraftSource(event.target.value);
+                    replaceDraftSource(event.target.value);
                   }}
                 />
               </label>
@@ -1552,4 +1676,6 @@ export default function CurveLabWorkspace() {
       )}
     </section>
   );
-}
+});
+
+export default CurveLabWorkspace;

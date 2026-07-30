@@ -1,5 +1,169 @@
 import { expect, test, type Download } from "@playwright/test";
 
+test("canonical authoring drives identical persisted and replayed financial identity", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  test.skip(
+    process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
+    "requires the guarded canned DAL FastAPI backend",
+  );
+
+  await page.goto("/curves");
+  await page.getByLabel("Version name").fill("Canonical equivalence");
+  await page.getByLabel("Canonical quote target 1").check();
+
+  const canonicalize = async (convention: "PERCENT" | "DECIMAL", lexeme: string) => {
+    await page.getByLabel("Input convention").selectOption(convention);
+    await page.getByLabel("Quote lexeme").fill(lexeme);
+    const responsePromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/curve-lab/quote-canonicalizations")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Canonicalize quote" }).click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+    const canonical = await response.json() as {
+      instrument_type: string;
+      raw_quote: string;
+      normalized_quote: string;
+    };
+    expect(canonical).toMatchObject({
+      instrument_type: "DEPOSIT",
+      raw_quote: "0.04",
+      normalized_quote: "0.04",
+    });
+    await expect(page.getByLabel("Quote 1")).toHaveValue("0.04");
+  };
+
+  const createDraft = async () => {
+    const responsePromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/curve-lab/drafts")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Create draft" }).click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(201);
+    return await response.json() as {
+      id: string;
+      revision: number;
+      fingerprint: string;
+      document: Record<string, unknown> & {
+        instruments: Record<string, unknown>[];
+      };
+    };
+  };
+
+  const buildPublishAndRisk = async () => {
+    const buildResponsePromise = page.waitForResponse(
+      (response) => response.url().includes("/api/curve-lab/drafts/")
+        && response.url().endsWith("/build-runs")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Build curve" }).click();
+    const admittedBuild = await (await buildResponsePromise).json() as { id: string };
+    await expect(
+      page.getByText(`Build ${admittedBuild.id.slice(0, 8)} finished SUCCEEDED.`),
+    ).toBeVisible({ timeout: 30_000 });
+    const buildResponse = await page.request.get(
+      `/api/curve-lab/build-runs/${admittedBuild.id}`,
+    );
+    expect(buildResponse.status()).toBe(200);
+    const build = await buildResponse.json() as {
+      id: string;
+      state: string;
+      stale: boolean;
+      quote_axis: Record<string, unknown>[];
+    };
+
+    await page.getByRole("tab", { name: "Build" }).click();
+    const versionResponsePromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/curve-lab/versions")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Publish version" }).click();
+    const versionResponse = await versionResponsePromise;
+    expect(versionResponse.status()).toBe(201);
+    const version = await versionResponse.json() as {
+      id: string;
+      native_payload_hash: string;
+    };
+
+    await page.getByRole("tab", { name: "Pricing & Risk" }).click();
+    const riskResponsePromise = page.waitForResponse(
+      (response) => response.url().endsWith("/api/curve-lab/risk-runs")
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Run pricing & risk" }).click();
+    const admittedRisk = await (await riskResponsePromise).json() as { id: string };
+    await expect(
+      page.getByText(new RegExp(`Risk run ${admittedRisk.id.slice(0, 8)} finished`)),
+    ).toBeVisible({ timeout: 30_000 });
+    const riskResponse = await page.request.get(
+      `/api/curve-lab/risk-runs/${admittedRisk.id}`,
+    );
+    expect(riskResponse.status()).toBe(200);
+    const risk = await riskResponse.json() as {
+      id: string;
+      state: string;
+      quote_axis: Record<string, unknown>[];
+      result: Record<string, unknown>;
+      error: Record<string, unknown> | null;
+    };
+    expect(risk.state, JSON.stringify(risk.error)).toBe("SUCCEEDED");
+    const replayResponse = await page.request.get(
+      `/api/curve-lab/risk-runs/${admittedRisk.id}`,
+    );
+    expect(await replayResponse.json()).toEqual(risk);
+    const matrixResponse = await page.request.get(
+      `/api/curve-lab/risk-runs/${admittedRisk.id}/matrices/key-rate-dv01`,
+    );
+    expect(matrixResponse.status()).toBe(200);
+
+    return {
+      build,
+      version,
+      risk,
+      keyRateMatrix: await matrixResponse.json() as Record<string, unknown>,
+    };
+  };
+
+  await canonicalize("PERCENT", "4");
+  const percentDraft = await createDraft();
+  const percentEvidence = await buildPublishAndRisk();
+
+  await page.getByRole("tab", { name: "Build" }).click();
+  await page.getByLabel("Display convention").selectOption("PERCENT");
+  await page.getByLabel("Display scale").fill("6");
+  const unchangedBuildResponse = await page.request.get(
+    `/api/curve-lab/build-runs/${percentEvidence.build.id}`,
+  );
+  const unchangedBuild = await unchangedBuildResponse.json() as {
+    stale: boolean;
+    draft_fingerprint: string;
+  };
+  expect(unchangedBuild.stale).toBe(false);
+  expect(unchangedBuild.draft_fingerprint).toBe(percentDraft.fingerprint);
+
+  await canonicalize("DECIMAL", "0.04");
+  const decimalDraft = await createDraft();
+  const decimalEvidence = await buildPublishAndRisk();
+
+  expect(decimalDraft.document).toEqual(percentDraft.document);
+  expect(decimalDraft.fingerprint).toBe(percentDraft.fingerprint);
+  expect(decimalEvidence.build.quote_axis).toEqual(percentEvidence.build.quote_axis);
+  expect(decimalEvidence.version.native_payload_hash).toBe(
+    percentEvidence.version.native_payload_hash,
+  );
+  expect(decimalEvidence.risk.quote_axis).toEqual(percentEvidence.risk.quote_axis);
+  expect(decimalEvidence.risk.result).toEqual(percentEvidence.risk.result);
+  expect(decimalEvidence.keyRateMatrix).toMatchObject({
+    availability: percentEvidence.keyRateMatrix.availability,
+    orientation: percentEvidence.keyRateMatrix.orientation,
+    values: percentEvidence.keyRateMatrix.values,
+  });
+});
+
 test("creates a legal draft for every family through the visual control", async ({
   page,
 }) => {

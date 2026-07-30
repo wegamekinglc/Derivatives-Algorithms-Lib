@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+from decimal import Decimal
 
 from fastapi import FastAPI
 
@@ -46,6 +47,64 @@ def _build_app() -> FastAPI:
                 is_native=self.is_native,
                 evaluation_date=snapshot.evaluation_date,
             )
+
+        def price_curve_lab_trades(
+            self,
+            document,
+            trades,
+            _evaluation_time,
+            base_currency,
+            **kwargs,
+        ):
+            check_deadline = kwargs.get("check_deadline")
+            if callable(check_deadline):
+                check_deadline()
+            quote_total = sum(
+                (
+                    Decimal(str(instrument["raw_quote"]))
+                    for instrument in document["instruments"]
+                    if instrument.get("included", True)
+                ),
+                Decimal(0),
+            )
+            parameter_shift = sum(
+                (
+                    Decimal(str(bump))
+                    for _, bump in (kwargs.get("parameter_bumps") or ())
+                ),
+                Decimal(0),
+            )
+            parameter_axis = kwargs.get("parameter_axis") or ()
+            include_node_sensitivities = bool(
+                kwargs.get("include_node_sensitivities")
+            )
+            component_keys = [
+                str(declaration["component_key"])
+                for declaration in document["declarations"]
+            ]
+            return [
+                {
+                    "trade_id": trade["trade_id"],
+                    "instrument_type": trade["instrument_type"],
+                    "succeeded": True,
+                    "pv": format(
+                        Decimal("100") + quote_total + parameter_shift,
+                        "f",
+                    ),
+                    "currency": base_currency,
+                    "required_historical_fixings": [],
+                    "missing_historical_fixings": [],
+                    "dependency_component_keys": component_keys,
+                    "error": "",
+                    "aad_node_gradient": (
+                        ["1" for _ in parameter_axis]
+                        if include_node_sensitivities
+                        else None
+                    ),
+                    "aad_ineligibility_reason": None,
+                }
+                for trade in trades
+            ]
 
     gateway = CannedDalGateway()
 

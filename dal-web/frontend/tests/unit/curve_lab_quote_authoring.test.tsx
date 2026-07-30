@@ -94,4 +94,39 @@ describe("Curve Lab quote authoring", () => {
     expect(screen.getByText("95.8225")).not.toBeNull();
     expect(screen.getByText("0.041775 normalized")).not.toBeNull();
   });
+
+  it("keeps display convention and scale outside canonical financial state", async () => {
+    const canonical = {
+      instrument_type: "DEPOSIT" as const,
+      quote_coordinate_kind: "RATE" as const,
+      canonical_raw_unit: "DECIMAL" as const,
+      raw_quote: "0.04",
+      normalized_quote: "0.04",
+      normalized_unit: "DECIMAL_RATE" as const,
+      exact_risk_raw_bump: "0.0001",
+      normalized_risk_bump: "0.0001",
+    };
+    const normalize = vi.fn().mockResolvedValue(canonical);
+    const onCanonicalQuote = vi.fn();
+    render(
+      <CurveLabQuoteAuthoring
+        canonicalize={normalize}
+        onCanonicalQuote={onCanonicalQuote}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Canonicalize quote" }));
+    await waitFor(() => expect(onCanonicalQuote).toHaveBeenCalledWith(canonical));
+
+    fireEvent.change(screen.getByLabelText("Display convention"), {
+      target: { value: "PERCENT" },
+    });
+    fireEvent.change(screen.getByLabelText("Display scale"), {
+      target: { value: "6" },
+    });
+
+    expect(normalize).toHaveBeenCalledTimes(1);
+    expect(onCanonicalQuote).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("0.04")).not.toBeNull();
+  });
 });
