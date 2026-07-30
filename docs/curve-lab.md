@@ -27,9 +27,10 @@ Curve Lab accepts exactly seven rate-instrument families:
 | `XCCY`       | `SPREAD`         | `DECIMAL`          | `0.0001`            | `0.0001`        |
 
 Rate and spread input may use decimal or percent conventions. Futures use
-price points. The backend canonicalizes every accepted quote to a durable
-decimal string before draft persistence; clients should not reproduce that
-logic. For example:
+price points. The quote-canonicalization endpoint receives the exact input
+lexeme as a string and returns the family-specific canonical `raw_quote`; it
+does not persist a draft. Clients copy that returned value into the selected
+instrument instead of reproducing the conversion logic. For example:
 
 ```http
 POST /api/curve-lab/quote-canonicalizations
@@ -41,6 +42,11 @@ Content-Type: application/json
   "input_convention": "PRICE_POINTS"
 }
 ```
+
+For the same selected instrument, authoring `4` as `PERCENT` and `0.04` as
+`DECIMAL` therefore persists the same `raw_quote`. The two forms have the same
+financial document and fingerprint, build and risk quote axes, and replay
+result.
 
 The four supported build topologies are closed contracts:
 
@@ -94,6 +100,15 @@ carrying terms from the previous family. Rate-family templates start from
 also selects a currency pair and supplies its required notionals and FX terms.
 These values are authoring defaults only. The server remains the authority for
 quote canonicalization and draft validation.
+
+Quote authoring targets one explicitly selected workspace instrument. A
+successful response atomically replaces only that instrument's `raw_quote`.
+The input lexeme and convention, along with the display convention and scale,
+are presentation state: they are not stored in the draft or included in its
+fingerprint, and changing display preferences does not make a build stale. If
+the target, its family, or its draft data changes while canonicalization is in
+flight, the browser rejects the delayed response instead of applying it to the
+new workspace state.
 
 For build, import, and risk work, the browser retains and displays the admitted
 record and ID before polling begins. Polling has no fixed client-side total

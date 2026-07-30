@@ -327,6 +327,15 @@ The `/api/curve-lab` surface is additive to the calibration endpoints above:
 | Versions/imports    | Publish, clone, archive, export native JSON/manifest, and preflight/reconstruct imports       |
 | Fixings/risk        | Persist immutable snapshots; run typed PV/DV01/KRD; fetch provenance-rich sensitivity matrices |
 
+Quote canonicalization is stateless: the endpoint accepts the exact input
+lexeme as a string and returns a canonical `raw_quote`. The production
+workspace applies that value only to the explicitly selected instrument. Input
+and display conventions and display scale remain presentation state, outside
+the persisted draft and its fingerprint, so `4/PERCENT` and `0.04/DECIMAL` for
+the same instrument produce the same financial identity, quote/risk axes, and
+replay. A target, family, or draft edit made while the request is in flight
+invalidates the delayed response.
+
 Build, import, and risk submissions return `202 Accepted` with a persisted
 record ID; poll the corresponding run/job endpoint constructed from that ID.
 Publishing a successful non-stale build returns an immutable version. Draft
@@ -454,10 +463,12 @@ that require the canned backend skip themselves when the flag is absent.
   joint XCCY builds across all seven supported rate families. Build and import
   runs are asynchronous; successful runs publish immutable native versions.
   Selecting another instrument family reconstructs a legal family-specific
-  draft template instead of retaining stale terms. The workspace displays each
-  admitted build, import, or risk ID immediately, polls without a fixed client
-  deadline, and can resume the same ID after a transport error during the
-  current workspace session.
+  draft template instead of retaining stale terms. Each instrument is an
+  explicit canonical-quote target; canonicalization changes only that target's
+  stored `raw_quote`, while display preferences remain local. The workspace
+  displays each admitted build, import, or risk ID immediately, polls without a
+  fixed client deadline, and can resume the same ID after a transport error
+  during the current workspace session.
   The same workspace clones, archives, imports, and exports versions, captures
   immutable fixing snapshots, and runs typed PV/DV01/KRD with explicit axes,
   units, provenance, partial pricing failures, and sensitivity matrices.
