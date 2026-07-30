@@ -59,7 +59,7 @@ export default function CurveLabQuoteAuthoring({
   const [convention, setConvention] = useState<QuoteInputConvention>("DECIMAL");
   const [displayConvention, setDisplayConvention] =
     useState<QuoteDisplayConvention>("DECIMAL");
-  const [displayScale, setDisplayScale] = useState("4");
+  const [displayScale, setDisplayScale] = useState(4);
   const [lexeme, setLexeme] = useState("0.04");
   const [canonical, setCanonical] = useState<CurveLabCanonicalQuote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function CurveLabQuoteAuthoring({
       instrument_type: canonical.instrument_type,
       canonical_raw_quote: canonical.raw_quote,
       display_convention: activeDisplayConvention,
-      display_scale: Number(displayScale),
+      display_scale: displayScale,
     }).then((result) => {
       if (generation === renderRequestGenerationRef.current) {
         setRenderedQuote(result.rendered_quote);
@@ -266,7 +266,7 @@ export default function CurveLabQuoteAuthoring({
             value={displayScale}
             onChange={(event) => {
               if (/^(?:[0-9]|1[0-2])$/.test(event.target.value)) {
-                setDisplayScale(event.target.value);
+                setDisplayScale(event.target.valueAsNumber);
               }
             }}
           />
