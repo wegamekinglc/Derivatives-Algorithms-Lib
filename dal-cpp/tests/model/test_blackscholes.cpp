@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstring>
+#include <new>
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/aad/sample.hpp>
@@ -95,6 +97,23 @@ TEST(ModelTest, TestBlackScholesModelCloneIsIndependent) {
     ASSERT_NEAR(bs_clone->Vol(), 0.20, 1e-10);
     ASSERT_NEAR(bs_clone->Rate(), 0.05, 1e-10);
     ASSERT_NEAR(bs_clone->Div(), 0.01, 1e-10);
+}
+
+TEST(ModelTest, TestBlackScholesModelCloneHasDefinedPreAllocationState) {
+    using model_t = AAD::BlackScholes_<>;
+    alignas(model_t) unsigned char storage[sizeof(model_t)];
+    std::memset(storage, 0xc0, sizeof(storage));
+    auto* model = new (storage) model_t(100.0, 0.20, 0.05, 0.01);
+
+    std::unique_ptr<AAD::Model_<>> cloned(model->Clone());
+    model->~model_t();
+
+    auto* blackScholesClone = dynamic_cast<const model_t*>(cloned.get());
+    ASSERT_TRUE(blackScholesClone != nullptr);
+    ASSERT_NEAR(blackScholesClone->Spot(), 100.0, 1e-10);
+    ASSERT_NEAR(blackScholesClone->Vol(), 0.20, 1e-10);
+    ASSERT_NEAR(blackScholesClone->Rate(), 0.05, 1e-10);
+    ASSERT_NEAR(blackScholesClone->Div(), 0.01, 1e-10);
 }
 
 TEST(ModelTest, TestBlackScholesAllocateRejectsEmptyTimeline) {
