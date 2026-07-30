@@ -13,6 +13,8 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
 - **[Architecture](architecture.md)** — component boundaries, runtime ownership,
   generated code, valuation, and calibration flows
 - **[Public API guide](public-api.md)** — supported C++, Python, and Excel entry points
+- **[Curve Lab](curve-lab.md)** — visual curve construction, immutable versions,
+  native archive portability, typed pricing, first-order risk, and operations
 - **[Contributing](../CONTRIBUTING.md)** — build, test, generation, formatting, docs,
   and review expectations
 
@@ -24,6 +26,8 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
 - **[Python bindings](../dal-python/README.md)** — package usage and Python API
 - **[Excel add-in](../dal-excel/README.md)** — Windows XLL and worksheet functions
 - **[Web application](../dal-web/README.md)** — FastAPI/React application workflow
+- **[Curve Lab](curve-lab.md)** — the DAL-WEB curve build, version, import, pricing,
+  and sensitivity contract
 
 ## Installation
 

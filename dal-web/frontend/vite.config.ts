@@ -1,14 +1,17 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-// Vite dev server proxies /api to the FastAPI backend on :8001.
+const frontendPort = Number(process.env.DAL_PLAYWRIGHT_FRONTEND_PORT ?? "5173");
+const backendPort = Number(process.env.DAL_PLAYWRIGHT_BACKEND_PORT ?? "8001");
+
+// Vite dev server proxies /api to the FastAPI backend.
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: frontendPort,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8001",
+        target: `http://127.0.0.1:${backendPort}`,
         changeOrigin: true,
       },
     },

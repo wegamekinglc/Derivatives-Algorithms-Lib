@@ -1,10 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   api,
   ApiClientError,
   type CalibrationKind,
+  type CurveLabCanonicalQuote,
 } from "../api/client";
+import CurveLabQuoteAuthoring from "../components/CurveLabQuoteAuthoring";
+import CurveLabWorkspace, {
+  type CurveLabCanonicalTarget,
+  type CurveLabWorkspaceHandle,
+} from "../components/CurveLabWorkspace";
 import { calibrationExamples } from "../curves/examples";
 import { locateCalibrationField, type LocatedField } from "../curves/visualization";
 import { css } from "../format";
@@ -74,7 +80,18 @@ export default function Curves() {
   const [error, setError] = useState<string | null>(null);
   const [located, setLocated] = useState<LocatedField | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [canonicalTarget, setCanonicalTarget] =
+    useState<CurveLabCanonicalTarget | null>(null);
+  const workspaceRef = useRef<CurveLabWorkspaceHandle>(null);
   const lines = useMemo(() => source.split("\n").length, [source]);
+  const applyCanonicalQuote = (
+    quote: CurveLabCanonicalQuote,
+    targetToken?: number,
+  ): boolean => (
+    targetToken === undefined
+      ? false
+      : workspaceRef.current?.applyCanonicalQuote(quote, targetToken) ?? false
+  );
 
   return (
     <div {...css("curve-workbench")}>
@@ -89,6 +106,17 @@ export default function Curves() {
           <span>request lines</span>
         </div>
       </div>
+
+      <CurveLabWorkspace
+        ref={workspaceRef}
+        onCanonicalTargetChange={setCanonicalTarget}
+      />
+
+      <CurveLabQuoteAuthoring
+        targetInstrumentFamily={canonicalTarget?.family ?? null}
+        targetToken={canonicalTarget?.token}
+        onCanonicalQuote={applyCanonicalQuote}
+      />
 
       <div {...css("mode-tabs")} role="tablist" aria-label="Calibration mode">
         {MODES.map((item, index) => (

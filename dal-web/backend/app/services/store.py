@@ -9,6 +9,7 @@ selected at startup via environment variables without touching router code.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import threading
 from copy import deepcopy
@@ -29,6 +30,7 @@ from app.services.calibration_store import (
     RawSingleWorkerAdmissionEvidence,
 )
 from app.services.calibrations import canonical_json_bytes
+from app.services.curve_lab_jobs import deadline_expired, soft_deadline_error
 
 
 class NotFoundError(KeyError):
@@ -37,6 +39,47 @@ class NotFoundError(KeyError):
 
 class ConflictError(Exception):
     """Raised when an operation conflicts with existing state (e.g., references)."""
+
+
+class CurveLabDependencyConflictError(ConflictError):
+    """Raised when a build's dependency snapshot cannot enter publication."""
+
+    def __init__(self, reason: str, version_id: str) -> None:
+        super().__init__(f"curve dependency {version_id}: {reason}")
+        self.reason = reason
+        self.version_id = version_id
+
+
+def validate_curve_lab_dependency_manifest(
+    manifest: object,
+    records_by_id: dict[str, dict],
+) -> None:
+    """Validate a build manifest against one publication-time locked snapshot."""
+
+    if not isinstance(manifest, list):
+        raise CurveLabDependencyConflictError("CONTEXT_CHANGED", "")
+    for entry in manifest:
+        if not isinstance(entry, dict) or not isinstance(
+            entry.get("version_id"),
+            str,
+        ):
+            raise CurveLabDependencyConflictError("CONTEXT_CHANGED", "")
+        version_id = entry["version_id"]
+        dependency = records_by_id.get(version_id)
+        if dependency is None:
+            raise CurveLabDependencyConflictError("NOT_FOUND", version_id)
+        if dependency.get("visibility_state") != "VISIBLE":
+            raise CurveLabDependencyConflictError("ARCHIVED", version_id)
+        payload = dependency.get("native_payload")
+        expected_hash = entry.get("content_hash")
+        if (
+            not isinstance(payload, bytes)
+            or not isinstance(expected_hash, str)
+            or dependency.get("native_payload_hash") != expected_hash
+            or hashlib.sha256(payload).hexdigest() != expected_hash
+            or dependency.get("root_kind") != entry.get("root_kind")
+        ):
+            raise CurveLabDependencyConflictError("CONTEXT_CHANGED", version_id)
 
 
 @runtime_checkable
@@ -90,9 +133,7 @@ class StoreProtocol(Protocol):
     def list_calibration_instruments(
         self, calibration_id: str
     ) -> list[CalibrationInstrumentRecord]: ...
-    def mark_calibration_solving(
-        self, calibration_id: str, started_at: datetime
-    ) -> None: ...
+    def mark_calibration_solving(self, calibration_id: str, started_at: datetime) -> None: ...
     def update_calibration_phase(self, calibration_id: str, phase: str) -> None: ...
     def complete_calibration(
         self,
@@ -136,6 +177,43 @@ class StoreProtocol(Protocol):
     ) -> None: ...
     def get_curve_definition(self, curve_id: str) -> CurveDefinitionRecord: ...
 
+    # Curve Lab V2 lifecycle records are canonical JSON dictionaries. Native
+    # payloads stay bytes and never pass through JSON columns.
+    def add_curve_lab_draft(self, record: dict) -> dict: ...
+    def get_curve_lab_draft(self, draft_id: str) -> dict: ...
+    def update_curve_lab_draft(
+        self, draft_id: str, expected_revision: int, record: dict
+    ) -> dict: ...
+    def add_curve_lab_build_run(self, record: dict) -> dict: ...
+    def update_curve_lab_build_run(self, run_id: str, record: dict) -> dict: ...
+    def get_curve_lab_build_run(self, run_id: str) -> dict: ...
+    def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]: ...
+    def publish_curve_lab_version(
+        self,
+        record: dict,
+        draft_id: str,
+        draft_revision: int,
+        draft_fingerprint: str,
+        build_run_id: str,
+    ) -> tuple[dict, bool]: ...
+    def get_curve_lab_version(self, version_id: str) -> dict: ...
+    def resolve_curve_lab_versions(self, version_ids: list[str]) -> list[dict]: ...
+    def list_curve_lab_versions(self, include_archived: bool) -> list[dict]: ...
+    def archive_curve_lab_version(self, version_id: str) -> dict: ...
+    def add_curve_lab_import_job(self, record: dict) -> dict: ...
+    def update_curve_lab_import_job(self, job_id: str, record: dict) -> dict: ...
+    def get_curve_lab_import_job(self, job_id: str) -> dict: ...
+    def publish_curve_lab_import(
+        self, version_record: dict, job_record: dict
+    ) -> tuple[dict, dict]: ...
+    def add_curve_lab_fixing_snapshot(self, record: dict) -> dict: ...
+    def get_curve_lab_fixing_snapshot(self, snapshot_id: str) -> dict: ...
+    def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict: ...
+    def get_curve_lab_risk_run(self, run_id: str) -> dict: ...
+    def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict: ...
+    def add_curve_lab_audit_event(self, record: dict) -> None: ...
+    def reconcile_curve_lab_inflight(self, finished_at: str) -> int: ...
+
 
 class Store:
     def __init__(self) -> None:
@@ -148,6 +226,15 @@ class Store:
         self._calibration_runs: dict[str, CalibrationRunRecord] = {}
         self._calibration_instruments: dict[str, list[CalibrationInstrumentRecord]] = {}
         self._curve_definitions: dict[str, CurveDefinitionRecord] = {}
+        self._curve_lab_drafts: dict[str, dict] = {}
+        self._curve_lab_build_runs: dict[str, dict] = {}
+        self._curve_lab_versions: dict[str, dict] = {}
+        self._curve_lab_version_idempotency: dict[str, str] = {}
+        self._curve_lab_import_jobs: dict[str, dict] = {}
+        self._curve_lab_fixing_snapshots: dict[str, dict] = {}
+        self._curve_lab_risk_runs: dict[str, dict] = {}
+        self._curve_lab_matrices: dict[tuple[str, str], dict] = {}
+        self._curve_lab_audit_events: list[dict] = []
 
     # -- products --------------------------------------------------------
 
@@ -373,11 +460,7 @@ class Store:
         with self._lock:
             return deepcopy(
                 sorted(
-                    (
-                        run
-                        for run in self._calibration_runs.values()
-                        if run.status == "running"
-                    ),
+                    (run for run in self._calibration_runs.values() if run.status == "running"),
                     key=lambda run: run.created_at,
                 )
             )
@@ -395,12 +478,8 @@ class Store:
                 )
             )
 
-    def mark_calibration_solving(
-        self, calibration_id: str, started_at: datetime
-    ) -> None:
-        self._update_calibration(
-            calibration_id, phase="solving", started_at=started_at
-        )
+    def mark_calibration_solving(self, calibration_id: str, started_at: datetime) -> None:
+        self._update_calibration(calibration_id, phase="solving", started_at=started_at)
 
     def update_calibration_phase(self, calibration_id: str, phase: str) -> None:
         self._update_calibration(calibration_id, phase=phase)
@@ -540,6 +619,240 @@ class Store:
             result_payload=None,
             error_payload=parsed,
         )
+
+    # -- Curve Lab V2 ---------------------------------------------------
+
+    def add_curve_lab_draft(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_drafts[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def get_curve_lab_draft(self, draft_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_drafts[draft_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve draft {draft_id}") from exc
+
+    def update_curve_lab_draft(self, draft_id: str, expected_revision: int, record: dict) -> dict:
+        with self._lock:
+            current = self.get_curve_lab_draft(draft_id)
+            if current["revision"] != expected_revision:
+                raise ConflictError(f"draft revision {expected_revision} != {current['revision']}")
+            stored = deepcopy(record)
+            self._curve_lab_drafts[draft_id] = stored
+            return deepcopy(stored)
+
+    def add_curve_lab_build_run(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_build_runs[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def update_curve_lab_build_run(self, run_id: str, record: dict) -> dict:
+        with self._lock:
+            if run_id not in self._curve_lab_build_runs:
+                raise NotFoundError(f"curve build run {run_id}")
+            stored = deepcopy(record)
+            self._curve_lab_build_runs[run_id] = stored
+            return deepcopy(stored)
+
+    def get_curve_lab_build_run(self, run_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_build_runs[run_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve build run {run_id}") from exc
+
+    def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]:
+        with self._lock:
+            key = record["idempotency_key"]
+            if key in self._curve_lab_version_idempotency:
+                version_id = self._curve_lab_version_idempotency[key]
+                return deepcopy(self._curve_lab_versions[version_id]), False
+            stored = deepcopy(record)
+            self._curve_lab_versions[stored["id"]] = stored
+            self._curve_lab_version_idempotency[key] = stored["id"]
+            return deepcopy(stored), True
+
+    def publish_curve_lab_version(
+        self,
+        record: dict,
+        draft_id: str,
+        draft_revision: int,
+        draft_fingerprint: str,
+        build_run_id: str,
+    ) -> tuple[dict, bool]:
+        with self._lock:
+            draft = self.get_curve_lab_draft(draft_id)
+            run = self.get_curve_lab_build_run(build_run_id)
+            if draft["revision"] != draft_revision or draft["fingerprint"] != draft_fingerprint:
+                raise ConflictError("curve draft changed before publication")
+            if (
+                run["state"] != "SUCCEEDED"
+                or run["draft_id"] != draft_id
+                or run["draft_revision"] != draft_revision
+                or run["draft_fingerprint"] != draft_fingerprint
+            ):
+                raise ConflictError("curve build run is stale")
+            key = record["idempotency_key"]
+            if key in self._curve_lab_version_idempotency:
+                version_id = self._curve_lab_version_idempotency[key]
+                return deepcopy(self._curve_lab_versions[version_id]), False
+            validate_curve_lab_dependency_manifest(
+                run.get("dependency_manifest"),
+                self._curve_lab_versions,
+            )
+            return self.add_curve_lab_version(record)
+
+    def get_curve_lab_version(self, version_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_versions[version_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve version {version_id}") from exc
+
+    def resolve_curve_lab_versions(self, version_ids: list[str]) -> list[dict]:
+        with self._lock:
+            return [
+                deepcopy(self._curve_lab_versions[version_id])
+                for version_id in version_ids
+                if version_id in self._curve_lab_versions
+            ]
+
+    def list_curve_lab_versions(self, include_archived: bool) -> list[dict]:
+        with self._lock:
+            values = self._curve_lab_versions.values()
+            return [
+                deepcopy(item)
+                for item in values
+                if include_archived or item["visibility_state"] == "VISIBLE"
+            ]
+
+    def archive_curve_lab_version(self, version_id: str) -> dict:
+        with self._lock:
+            record = self.get_curve_lab_version(version_id)
+            record["visibility_state"] = "ARCHIVED"
+            self._curve_lab_versions[version_id] = record
+            return deepcopy(record)
+
+    def add_curve_lab_import_job(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_import_jobs[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def update_curve_lab_import_job(self, job_id: str, record: dict) -> dict:
+        with self._lock:
+            if job_id not in self._curve_lab_import_jobs:
+                raise NotFoundError(f"curve import job {job_id}")
+            stored = deepcopy(record)
+            self._curve_lab_import_jobs[job_id] = stored
+            return deepcopy(stored)
+
+    def get_curve_lab_import_job(self, job_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_import_jobs[job_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve import job {job_id}") from exc
+
+    def publish_curve_lab_import(self, version_record: dict, job_record: dict) -> tuple[dict, dict]:
+        with self._lock:
+            version, created = self.add_curve_lab_version(version_record)
+            stored_job = deepcopy(job_record)
+            stored_job["resulting_version_id"] = version["id"]
+            try:
+                self._curve_lab_import_jobs[stored_job["id"]] = stored_job
+            except Exception:
+                if created:
+                    self._curve_lab_versions.pop(version["id"], None)
+                    self._curve_lab_version_idempotency.pop(version["idempotency_key"], None)
+                raise
+            return deepcopy(version), deepcopy(stored_job)
+
+    def add_curve_lab_fixing_snapshot(self, record: dict) -> dict:
+        with self._lock:
+            if record["id"] in self._curve_lab_fixing_snapshots:
+                raise ConflictError(f"curve fixing snapshot {record['id']}")
+            self._curve_lab_fixing_snapshots[record["id"]] = deepcopy(record)
+            return deepcopy(record)
+
+    def get_curve_lab_fixing_snapshot(self, snapshot_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_fixing_snapshots[snapshot_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve fixing snapshot {snapshot_id}") from exc
+
+    def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
+        with self._lock:
+            reconciled = 0
+            restart_time = datetime.fromisoformat(
+                finished_at.replace("Z", "+00:00")
+            )
+            for records, terminal in (
+                (self._curve_lab_build_runs, {"QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"}),
+                (self._curve_lab_import_jobs, {"QUEUED", "RUNNING"}),
+                (self._curve_lab_risk_runs, {"QUEUED", "RUNNING"}),
+            ):
+                for key, current in list(records.items()):
+                    if current["state"] not in terminal:
+                        continue
+                    timed_out = deadline_expired(
+                        current["deadline_at"],
+                        now=restart_time,
+                    )
+                    diagnostics = current.get("diagnostics")
+                    records[key] = {
+                        **current,
+                        "state": "TIMED_OUT" if timed_out else "FAILED",
+                        "diagnostics": (
+                            {**diagnostics, "fit_state": "TIMED_OUT"}
+                            if timed_out and diagnostics is not None
+                            else diagnostics
+                        ),
+                        "error": soft_deadline_error(current)
+                        if timed_out
+                        else {
+                            "code": "SERVER_RESTARTED",
+                            "message": "Server restarted while Curve Lab work was running.",
+                            "field": "state",
+                            "value": current["state"],
+                            "resource_id": key,
+                            "details": {},
+                        },
+                        "finished_at": finished_at,
+                    }
+                    reconciled += 1
+            return reconciled
+
+    def publish_curve_lab_risk_run(self, record: dict, matrices: list[dict]) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            staged = {(stored["id"], matrix["matrix_id"]): deepcopy(matrix) for matrix in matrices}
+            self._curve_lab_risk_runs[stored["id"]] = stored
+            self._curve_lab_matrices.update(staged)
+            return deepcopy(stored)
+
+    def get_curve_lab_risk_run(self, run_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_risk_runs[run_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve risk run {run_id}") from exc
+
+    def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_matrices[(run_id, matrix_id)])
+            except KeyError as exc:
+                raise NotFoundError(f"curve matrix {run_id}/{matrix_id}") from exc
+
+    def add_curve_lab_audit_event(self, record: dict) -> None:
+        with self._lock:
+            self._curve_lab_audit_events.append(deepcopy(record))
 
 
 # Process-wide singleton stored in a mutable container so get_store()

@@ -46,6 +46,23 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Added immutable native rate-cashflow planning and pricing for
+  `DEPOSIT`, `FRA`, `FUTURE`, `OIS`, `IRS`, `BASIS_SWAP`, and `XCCY`,
+  including explicit historical rate/FX fixing demand, snapshot admission,
+  passive and AAD valuation, and first-order node sensitivities. The same
+  typed batch surface is additive in public C++ and Python. See
+  `docs/methodology/yield_curve.md`,
+  `docs/methodology/yield_curve_jacobian.md`, `docs/public-api.md`, and
+  `docs/curve-lab.md`.
+
+- `web`: Added the Curve Lab DAL-WEB workflow for visual seven-family
+  authoring with latest-request-wins canonical quote application and
+  server-authoritative Decimal/round-half-even display rendering, immutable
+  asynchronous build/import/risk runs, native `Storable_` JSON and `Bag_`
+  version persistence, dependency/fixing provenance, exact quote axes,
+  PV/DV01/KRD results, and replayable sensitivity matrices. See
+  `docs/curve-lab.md` and `dal-web/README.md`.
+
 - `matrix`: Added exact scaled-`alpha` candidate combination for `Sparse::CGSolve`
   and `Sparse::BCGSolve`. When the standalone binary64 coefficient is unsafe, the
   stored quotient remains exact until each complete solution, residual, or BCG

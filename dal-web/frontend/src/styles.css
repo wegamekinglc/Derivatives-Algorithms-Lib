@@ -196,6 +196,314 @@ a {
 }
 
 /* Curve calibration risk workbench */
+.curve-lab-v2 {
+  margin-bottom: 28px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.curve-lab-v2-heading,
+.curve-lab-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.curve-lab-v2-heading {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.curve-lab-v2-heading h2,
+.curve-lab-section-heading h3 {
+  margin: 0;
+}
+
+.curve-lab-flow-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+button.curve-lab-flow-tab {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 2px 8px;
+  padding: 14px 16px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: rgba(15, 20, 25, 0.55);
+  color: var(--text-dim);
+  text-align: left;
+}
+
+button.curve-lab-flow-tab:last-child {
+  border-right: 0;
+}
+
+button.curve-lab-flow-tab > span {
+  grid-row: 1 / 3;
+  color: var(--text-muted);
+  font: 500 10px "JetBrains Mono", monospace;
+}
+
+button.curve-lab-flow-tab strong {
+  color: var(--text);
+}
+
+button.curve-lab-flow-tab small {
+  color: var(--text-muted);
+}
+
+button.curve-lab-flow-tab.active {
+  background: var(--accent-glow);
+}
+
+button.curve-lab-flow-tab.active strong,
+button.curve-lab-flow-tab.active > span {
+  color: var(--accent);
+}
+
+.curve-lab-workspace-message {
+  margin: 14px 18px 0;
+}
+
+.curve-lab-success {
+  padding: 10px 12px;
+  border: 1px solid var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+  font: 500 11px "JetBrains Mono", monospace;
+}
+
+.curve-lab-flow-layout,
+.curve-lab-risk-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  padding: 18px;
+  align-items: start;
+}
+
+.curve-lab-flow-editor textarea {
+  min-height: 360px;
+}
+
+.curve-lab-flow-editor > label > select {
+  display: block;
+  width: calc(100% - 36px);
+  margin: 10px 18px 0;
+}
+
+.curve-lab-actions {
+  position: sticky;
+  top: 76px;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.curve-lab-actions h3,
+.curve-lab-actions p,
+.curve-lab-actions ul,
+.curve-lab-actions dl {
+  margin: 0;
+}
+
+.curve-lab-dependency-list {
+  display: grid;
+  gap: 8px;
+}
+
+.curve-lab-dependency-list label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 20, 25, 0.35);
+}
+
+.curve-lab-dependency-list label > span,
+.curve-lab-dependency-list small {
+  display: block;
+}
+
+.curve-lab-flow-editor table input,
+.curve-lab-flow-editor table select {
+  min-width: 112px;
+}
+
+.curve-lab-flow-editor table input.mono {
+  min-width: 280px;
+}
+
+.curve-lab-actions label {
+  display: grid;
+  gap: 6px;
+}
+
+.curve-lab-actions label > span,
+.curve-lab-actions dt {
+  color: var(--text-muted);
+  font: 500 10px "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.curve-lab-actions dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+}
+
+.curve-lab-actions dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: 500 11px "JetBrains Mono", monospace;
+  text-overflow: ellipsis;
+}
+
+.curve-lab-actions ul {
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.curve-lab-run-evidence,
+.curve-lab-versions {
+  margin: 0;
+  padding: 18px;
+}
+
+.curve-lab-axis,
+.curve-lab-matrix,
+.curve-lab-risk-results {
+  margin: 0;
+}
+
+.curve-lab-axis .curve-lab-section-heading,
+.curve-lab-matrix .curve-lab-section-heading,
+.curve-lab-versions > .curve-lab-section-heading {
+  margin-bottom: 14px;
+}
+
+.curve-lab-risk-results,
+.curve-lab-matrices {
+  grid-column: 1 / -1;
+}
+
+.curve-lab-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--accent);
+  cursor: pointer;
+  font: 600 11px "JetBrains Mono", monospace;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.curve-lab-authoring {
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.curve-lab-authoring-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.curve-lab-authoring-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.curve-lab-authoring-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+}
+
+.curve-lab-authoring-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.curve-lab-authoring-grid label > span,
+.curve-lab-canonical-output span {
+  color: var(--text-dim);
+  font: 500 10px "JetBrains Mono", monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.curve-lab-authoring-grid input,
+.curve-lab-authoring-grid select {
+  min-width: 0;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: 500 12px "JetBrains Mono", monospace;
+}
+
+.curve-lab-boundary-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.curve-lab-canonical-output {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+.curve-lab-canonical-output > div {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.curve-lab-canonical-output > div:last-child {
+  border-right: 0;
+}
+
+.curve-lab-canonical-output strong {
+  color: var(--green);
+  font: 600 13px "JetBrains Mono", monospace;
+}
+
+.curve-lab-canonical-output small {
+  color: var(--text-muted);
+  font: 500 10px "JetBrains Mono", monospace;
+}
+
 .eyebrow {
   display: block;
   margin-bottom: 8px;
@@ -209,6 +517,28 @@ a {
   min-width: 120px;
   padding-left: 18px;
   border-left: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .curve-lab-flow-tabs,
+  .curve-lab-authoring-grid,
+  .curve-lab-canonical-output {
+    grid-template-columns: 1fr;
+  }
+
+  .curve-lab-flow-layout,
+  .curve-lab-risk-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .curve-lab-actions {
+    position: static;
+  }
+
+  .curve-lab-canonical-output > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
 }
 
 .workbench-stat strong,

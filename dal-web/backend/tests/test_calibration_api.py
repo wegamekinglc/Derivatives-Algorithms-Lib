@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 
 def _index() -> dict:
     return {
@@ -83,7 +85,7 @@ def test_calibration_routes_and_202_location(client) -> None:
         params={"quote_bump_index": 0, "quote_bump_size": 0.0001},
     )
     assert bump_while_running.status_code == 409
-    assert bump_while_running.json()["error"]["code"] == "RUN_NOT_COMPLETED"
+    assert bump_while_running.json()["error"]["code"] == "MATRIX_NOT_AVAILABLE"
 
     paths = client.app.openapi()["paths"]
     assert {
@@ -93,6 +95,50 @@ def test_calibration_routes_and_202_location(client) -> None:
         "/api/calibrations/{calibration_id}",
         "/api/curves/{curve_id}",
     } <= paths.keys()
+
+
+def test_unrequested_quote_bump_error_is_stable_across_completion_and_reopen(
+    client,
+) -> None:
+    from app.schemas.calibrations import QuoteBumpQueryDTO
+    from app.services.calibrations import CalibrationHttpError, get_calibration_response
+    from app.services.db.store_db import DbStore
+    from app.services.store import get_store
+
+    submitted = client.post("/api/calibrations/single", json=single_request())
+    assert submitted.status_code == 202
+    run_id = submitted.json()["id"]
+    expected = {
+        "code": "MATRIX_NOT_AVAILABLE",
+        "message": "effective inverse matrix was not requested for this calibration",
+        "location": ["query", "quote_bump_index"],
+        "context": {"availability": "not_requested"},
+    }
+
+    for _ in range(100):
+        response = client.get(
+            f"/api/calibrations/{run_id}",
+            params={"quote_bump_index": 0, "quote_bump_size": 0.0001},
+        )
+        assert response.status_code == 409
+        assert response.json()["error"] == expected
+
+    store = get_store()
+    reopened = DbStore(store.url)
+    try:
+        with pytest.raises(CalibrationHttpError) as captured:
+            get_calibration_response(
+                reopened,
+                run_id,
+                QuoteBumpQueryDTO(
+                    quote_bump_index=0,
+                    quote_bump_size=0.0001,
+                ),
+            )
+        assert captured.value.status_code == 409
+        assert captured.value.error.model_dump(mode="json") == expected
+    finally:
+        reopened.close()
 
 
 def test_single_admission_rejects_knots_that_do_not_cover_final_maturity(

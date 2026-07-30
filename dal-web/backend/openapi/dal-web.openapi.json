@@ -1,6 +1,98 @@
 {
   "components": {
     "schemas": {
+      "AadParityEvidenceV1": {
+        "additionalProperties": false,
+        "properties": {
+          "aad_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Canonical plain base-10 financial value; never a JSON number.",
+                  "maxLength": 512,
+                  "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aad Values"
+          },
+          "absolute_tolerance": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Absolute Tolerance",
+            "type": "string"
+          },
+          "central_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "Canonical plain base-10 financial value; never a JSON number.",
+                  "maxLength": 512,
+                  "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Central Values"
+          },
+          "max_abs_discrepancy": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Abs Discrepancy"
+          },
+          "relative_tolerance": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Relative Tolerance",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASSED",
+              "FAILED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "status",
+          "absolute_tolerance",
+          "relative_tolerance",
+          "aad_values",
+          "central_values",
+          "max_abs_discrepancy"
+        ],
+        "title": "AadParityEvidenceV1",
+        "type": "object"
+      },
       "ApiErrorDTO": {
         "additionalProperties": false,
         "properties": {
@@ -559,6 +651,1702 @@
         "title": "CurrencyPairDTO",
         "type": "object"
       },
+      "CurveBuildRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
+          "dependency_manifest": {
+            "items": {
+              "$ref": "#/components/schemas/CurveLabDependencyManifestEntryV2"
+            },
+            "title": "Dependency Manifest",
+            "type": "array"
+          },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostics"
+          },
+          "draft_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Draft Fingerprint",
+            "type": "string"
+          },
+          "draft_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "draft_revision": {
+            "minimum": 1.0,
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "native_payload_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Payload Hash"
+          },
+          "parameter_axis": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterAxisEntryV2"
+            },
+            "title": "Parameter Axis",
+            "type": "array"
+          },
+          "quote_axis": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteAxisEntryV2"
+            },
+            "title": "Quote Axis",
+            "type": "array"
+          },
+          "request": {
+            "$ref": "#/components/schemas/CurveDraftDocumentV2"
+          },
+          "resolved_plan": {
+            "additionalProperties": true,
+            "title": "Resolved Plan",
+            "type": "object"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "QUEUED",
+              "DECLARING",
+              "RESOLVING_DEPENDENCIES",
+              "NORMALIZING",
+              "SOLVING",
+              "DIAGNOSTICS",
+              "SERIALIZING",
+              "SUCCEEDED",
+              "FAILED",
+              "TIMED_OUT"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "draft_id",
+          "draft_revision",
+          "draft_fingerprint",
+          "state",
+          "stale",
+          "request",
+          "resolved_plan",
+          "quote_axis",
+          "parameter_axis",
+          "dependency_manifest",
+          "diagnostics",
+          "created_at",
+          "deadline_at"
+        ],
+        "title": "CurveBuildRunResponse",
+        "type": "object"
+      },
+      "CurveDeclarationInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Component Key",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "default": "LOG_LINEAR",
+            "enum": [
+              "LOG_LINEAR",
+              "NATURAL_CUBIC",
+              "LINEAR_CUBIC"
+            ],
+            "title": "Log Df Scheme",
+            "type": "string"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "DISCOUNT",
+              "PROJECTION",
+              "BASIS"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_key",
+          "role",
+          "currency",
+          "parameterization"
+        ],
+        "title": "CurveDeclarationInputV2",
+        "type": "object"
+      },
+      "CurveDraftDocumentInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "declarations": {
+            "items": {
+              "$ref": "#/components/schemas/CurveDeclarationInputV2"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "dependency_version_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "title": "Dependency Version Ids",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentDefinitionInputV2"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "STAGED_XCCY",
+              "JOINT_XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/CurveLabSolverInputV2"
+          }
+        },
+        "required": [
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "declarations",
+          "instruments",
+          "solver"
+        ],
+        "title": "CurveDraftDocumentInputV2",
+        "type": "object"
+      },
+      "CurveDraftDocumentV2": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "declarations": {
+            "items": {
+              "$ref": "#/components/schemas/CurveDeclarationInputV2"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "dependency_version_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Version Ids",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/StoredInstrumentDefinitionV2"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "STAGED_XCCY",
+              "JOINT_XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "additionalProperties": true,
+            "title": "Solver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "declarations",
+          "instruments",
+          "dependency_version_ids",
+          "solver"
+        ],
+        "title": "CurveDraftDocumentV2",
+        "type": "object"
+      },
+      "CurveDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/CurveDraftDocumentV2"
+          },
+          "fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "READY_TO_BUILD",
+              "MODIFIED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "fingerprint",
+          "state",
+          "document",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CurveDraftResponse",
+        "type": "object"
+      },
+      "CurveImportJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "compressed_payload_length": {
+            "title": "Compressed Payload Length",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expanded_payload_length": {
+            "title": "Expanded Payload Length",
+            "type": "integer"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "request_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "resulting_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resulting Version Id"
+          },
+          "state": {
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "TIMED_OUT"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "request_hash",
+          "compressed_payload_length",
+          "expanded_payload_length",
+          "state",
+          "phase",
+          "created_at",
+          "deadline_at"
+        ],
+        "title": "CurveImportJobResponse",
+        "type": "object"
+      },
+      "CurveInstrumentTermsV2": {
+        "additionalProperties": false,
+        "description": "Closed superset projected through a family-specific allowlist below.",
+        "properties": {
+          "collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collateral"
+          },
+          "component_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Key"
+          },
+          "convexity_adjustment": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convexity Adjustment"
+          },
+          "day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Basis"
+          },
+          "domestic_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Collateral"
+          },
+          "domestic_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Day Basis"
+          },
+          "domestic_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Forecast Tenor"
+          },
+          "domestic_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Notional"
+          },
+          "domestic_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Payment Frequency"
+          },
+          "domestic_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Use Projection Curve"
+          },
+          "fixed_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Day Basis"
+          },
+          "fixed_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Payment Frequency"
+          },
+          "float_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Collateral"
+          },
+          "float_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Day Basis"
+          },
+          "float_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Forecast Tenor"
+          },
+          "float_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Payment Frequency"
+          },
+          "float_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Use Projection Curve"
+          },
+          "forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Tenor"
+          },
+          "foreign_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Collateral"
+          },
+          "foreign_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Day Basis"
+          },
+          "foreign_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Forecast Tenor"
+          },
+          "foreign_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Notional"
+          },
+          "foreign_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Payment Frequency"
+          },
+          "foreign_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Use Projection Curve"
+          },
+          "fx_forward_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Forward Collateral"
+          },
+          "fx_spot": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Spot"
+          },
+          "index": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "index_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Name"
+          },
+          "reference_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Collateral"
+          },
+          "reference_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Day Basis"
+          },
+          "reference_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Tenor"
+          },
+          "reference_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Payment Frequency"
+          },
+          "reference_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Use Projection Curve"
+          },
+          "spread_collateral": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OIS",
+                  "GC",
+                  "NONE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Collateral"
+          },
+          "spread_day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Day Basis"
+          },
+          "spread_forecast_tenor": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Tenor"
+          },
+          "spread_payment_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1M",
+                  "3M",
+                  "6M",
+                  "12M"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Payment Frequency"
+          },
+          "spread_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Use Projection Curve"
+          },
+          "use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Projection Curve"
+          }
+        },
+        "title": "CurveInstrumentTermsV2",
+        "type": "object"
+      },
+      "CurveLabCapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "input_conventions": {
+            "default": [
+              "DECIMAL",
+              "PERCENT",
+              "PRICE_POINTS"
+            ],
+            "items": {
+              "enum": [
+                "DECIMAL",
+                "PERCENT",
+                "PRICE_POINTS"
+              ],
+              "type": "string"
+            },
+            "title": "Input Conventions",
+            "type": "array"
+          },
+          "max_quote_bytes": {
+            "const": 512,
+            "default": 512,
+            "title": "Max Quote Bytes",
+            "type": "integer"
+          },
+          "quote_coordinates": {
+            "default": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "items": {
+              "enum": [
+                "RATE",
+                "PRICE",
+                "SPREAD"
+              ],
+              "type": "string"
+            },
+            "title": "Quote Coordinates",
+            "type": "array"
+          },
+          "registry": {
+            "items": {
+              "$ref": "#/components/schemas/CurveLabRegistryEntryDTO"
+            },
+            "title": "Registry",
+            "type": "array"
+          },
+          "risk_cost_coefficients": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Risk Cost Coefficients",
+            "type": "object"
+          },
+          "risk_limits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Risk Limits",
+            "type": "object"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "success_families": {
+            "items": {
+              "enum": [
+                "DEPOSIT",
+                "FRA",
+                "FUTURE",
+                "OIS",
+                "IRS",
+                "BASIS_SWAP",
+                "XCCY"
+              ],
+              "type": "string"
+            },
+            "title": "Success Families",
+            "type": "array"
+          }
+        },
+        "required": [
+          "success_families",
+          "registry"
+        ],
+        "title": "CurveLabCapabilitiesResponse",
+        "type": "object"
+      },
+      "CurveLabDependencyManifestEntryV2": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "root_kind": {
+            "enum": [
+              "DISCOUNT_CURVE",
+              "CURVE_SET"
+            ],
+            "title": "Root Kind",
+            "type": "string"
+          },
+          "version_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "root_kind"
+        ],
+        "title": "CurveLabDependencyManifestEntryV2",
+        "type": "object"
+      },
+      "CurveLabErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "field"
+        ],
+        "title": "CurveLabErrorDetail",
+        "type": "object"
+      },
+      "CurveLabErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/CurveLabErrorDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "CurveLabErrorResponse",
+        "type": "object"
+      },
+      "CurveLabQuoteCanonicalizationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "input_convention": {
+            "enum": [
+              "DECIMAL",
+              "PERCENT",
+              "PRICE_POINTS"
+            ],
+            "title": "QuoteInputConventionV1",
+            "type": "string"
+          },
+          "input_lexeme": {
+            "title": "Input Lexeme",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "CurveLabV1SuccessFamily",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "input_lexeme",
+          "input_convention"
+        ],
+        "title": "CurveLabQuoteCanonicalizationRequest",
+        "type": "object"
+      },
+      "CurveLabQuoteCanonicalizationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_unit": {
+            "enum": [
+              "DECIMAL",
+              "PRICE_POINTS"
+            ],
+            "title": "Canonical Raw Unit",
+            "type": "string"
+          },
+          "exact_risk_raw_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Exact Risk Raw Bump",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "normalized_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Quote",
+            "type": "string"
+          },
+          "normalized_risk_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Risk Bump",
+            "type": "string"
+          },
+          "normalized_unit": {
+            "const": "DECIMAL_RATE",
+            "default": "DECIMAL_RATE",
+            "title": "Normalized Unit",
+            "type": "string"
+          },
+          "quote_coordinate_kind": {
+            "enum": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "title": "Quote Coordinate Kind",
+            "type": "string"
+          },
+          "raw_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Raw Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "raw_quote",
+          "normalized_quote",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump"
+        ],
+        "title": "CurveLabQuoteCanonicalizationResponse",
+        "type": "object"
+      },
+      "CurveLabQuoteRenderingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Canonical Raw Quote",
+            "type": "string"
+          },
+          "display_convention": {
+            "enum": [
+              "DECIMAL",
+              "PERCENT",
+              "PRICE_POINTS"
+            ],
+            "title": "QuoteDisplayConventionV1",
+            "type": "string"
+          },
+          "display_scale": {
+            "title": "Display Scale",
+            "type": "integer"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "CurveLabV1SuccessFamily",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "canonical_raw_quote",
+          "display_convention",
+          "display_scale"
+        ],
+        "title": "CurveLabQuoteRenderingRequest",
+        "type": "object"
+      },
+      "CurveLabQuoteRenderingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "rendered_quote": {
+            "title": "Rendered Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rendered_quote"
+        ],
+        "title": "CurveLabQuoteRenderingResponse",
+        "type": "object"
+      },
+      "CurveLabRegistryEntryDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_unit": {
+            "enum": [
+              "DECIMAL",
+              "PRICE_POINTS"
+            ],
+            "title": "Canonical Raw Unit",
+            "type": "string"
+          },
+          "exact_risk_raw_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Exact Risk Raw Bump",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "normalized_risk_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Risk Bump",
+            "type": "string"
+          },
+          "quote_coordinate_kind": {
+            "enum": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "title": "Quote Coordinate Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump"
+        ],
+        "title": "CurveLabRegistryEntryDTO",
+        "type": "object"
+      },
+      "CurveLabSolverInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "default": 1e-06,
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "default": 0.05,
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "libor_basis": {
+            "default": "ACT_365F",
+            "enum": [
+              "ACT_365F",
+              "ACT_360",
+              "30_360"
+            ],
+            "title": "Libor Basis",
+            "type": "string"
+          },
+          "max_evaluations": {
+            "default": 200,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "default": 20,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "parameterization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PIECEWISE_CONSTANT_FWD",
+                  "PIECEWISE_LINEAR_FWD",
+                  "ZERO_RATE",
+                  "LOG_DISCOUNT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameterization"
+          },
+          "smoothing_weight": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "default": "EXACT",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 1e-08,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "title": "CurveLabSolverInputV2",
+        "type": "object"
+      },
+      "CurveRuntimeComponentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Component Key",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "parameter_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parameter Ids",
+            "type": "array"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "DISCOUNT",
+              "PROJECTION",
+              "BASIS"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_key",
+          "role",
+          "currency",
+          "parameterization",
+          "parameter_ids"
+        ],
+        "title": "CurveRuntimeComponentV1",
+        "type": "object"
+      },
+      "CurveRuntimeManifestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/CurveRuntimeComponentV1"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "STAGED_XCCY",
+              "JOINT_XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "components"
+        ],
+        "title": "CurveRuntimeManifestV1",
+        "type": "object"
+      },
       "CurveTargetDTO": {
         "additionalProperties": false,
         "properties": {
@@ -587,6 +2375,199 @@
           "tenor"
         ],
         "title": "CurveTargetDTO",
+        "type": "object"
+      },
+      "CurveVersionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "build_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Build Run Id",
+            "type": "string"
+          },
+          "draft_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Draft Fingerprint",
+            "type": "string"
+          },
+          "draft_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "draft_revision": {
+            "minimum": 1.0,
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "version_note": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Note"
+          }
+        },
+        "required": [
+          "draft_id",
+          "draft_revision",
+          "draft_fingerprint",
+          "build_run_id",
+          "name",
+          "idempotency_key"
+        ],
+        "title": "CurveVersionCreateRequest",
+        "type": "object"
+      },
+      "CurveVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_numeric_format": {
+            "const": "JSON_MAX_DIGITS10_V1",
+            "title": "Archive Numeric Format",
+            "type": "string"
+          },
+          "build_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Run Id"
+          },
+          "build_validation_state": {
+            "enum": [
+              "VERIFIED",
+              "IMPORT_RECONSTRUCTED"
+            ],
+            "title": "Build Validation State",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "import_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Job Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "native_payload_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Native Payload Hash",
+            "type": "string"
+          },
+          "native_payload_length": {
+            "minimum": 1.0,
+            "title": "Native Payload Length",
+            "type": "integer"
+          },
+          "root_kind": {
+            "enum": [
+              "DISCOUNT_CURVE",
+              "CURVE_SET"
+            ],
+            "title": "Root Kind",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "BUILD",
+              "IMPORT"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "version_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Note"
+          },
+          "visibility_state": {
+            "enum": [
+              "VISIBLE",
+              "ARCHIVED"
+            ],
+            "title": "Visibility State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_kind",
+          "build_run_id",
+          "import_job_id",
+          "name",
+          "version_note",
+          "tags",
+          "native_payload_length",
+          "native_payload_hash",
+          "archive_numeric_format",
+          "root_kind",
+          "build_validation_state",
+          "visibility_state",
+          "created_at"
+        ],
+        "title": "CurveVersionResponse",
         "type": "object"
       },
       "DepositInstrumentDTO": {
@@ -1160,6 +3141,26 @@
         "title": "FixingIdentityDTO",
         "type": "object"
       },
+      "FixingKeyV1": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_time": {
+            "format": "date-time",
+            "title": "Fixing Time",
+            "type": "string"
+          },
+          "index_name": {
+            "title": "Index Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index_name",
+          "fixing_time"
+        ],
+        "title": "FixingKeyV1",
+        "type": "object"
+      },
       "FixingObservationDTO": {
         "additionalProperties": false,
         "properties": {
@@ -1186,6 +3187,114 @@
           "value"
         ],
         "title": "FixingObservationDTO",
+        "type": "object"
+      },
+      "FixingObservationInputV1": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_time": {
+            "format": "date-time",
+            "title": "Fixing Time",
+            "type": "string"
+          },
+          "index_name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Index Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "RATE",
+              "FX"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "units": {
+            "enum": [
+              "DECIMAL_RATE",
+              "DOMESTIC_PER_FOREIGN"
+            ],
+            "title": "Units",
+            "type": "string"
+          },
+          "value": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index_name",
+          "fixing_time",
+          "kind",
+          "units",
+          "value"
+        ],
+        "title": "FixingObservationInputV1",
+        "type": "object"
+      },
+      "FixingSnapshotCreateV1": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationInputV1"
+            },
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "observations"
+        ],
+        "title": "FixingSnapshotCreateV1",
+        "type": "object"
+      },
+      "FixingSnapshotResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationInputV1"
+            },
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "observations",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "FixingSnapshotResponseV1",
         "type": "object"
       },
       "FraInstrumentDTO": {
@@ -1453,6 +3562,96 @@
           "input_knot_index"
         ],
         "title": "InputKnotOriginDTO",
+        "type": "object"
+      },
+      "InstrumentDefinitionInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "currency_or_pair": {
+            "maxLength": 32,
+            "minLength": 3,
+            "title": "Currency Or Pair",
+            "type": "string"
+          },
+          "included": {
+            "default": true,
+            "title": "Included",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "instrument_type": {
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "maturity_date": {
+            "format": "date",
+            "title": "Maturity Date",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "raw_quote": {
+            "title": "Raw Quote",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Instrument Id"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/CurveInstrumentTermsV2"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "trade_date",
+          "start_date",
+          "maturity_date",
+          "currency_or_pair",
+          "raw_quote",
+          "source",
+          "observed_at",
+          "terms"
+        ],
+        "title": "InstrumentDefinitionInputV2",
         "type": "object"
       },
       "InstrumentDiagnosticDTO": {
@@ -2263,6 +4462,270 @@
         "title": "MatrixDTO",
         "type": "object"
       },
+      "MatrixResultV2": {
+        "additionalProperties": false,
+        "properties": {
+          "aad_parity": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AadParityEvidenceV1"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aad Parity"
+          },
+          "availability": {
+            "enum": [
+              "AVAILABLE",
+              "NOT_REQUESTED",
+              "NOT_AVAILABLE_FOR_MODE",
+              "FAILED"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "availability_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Reason"
+          },
+          "availability_reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Reason Code"
+          },
+          "base_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency"
+          },
+          "bump_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bump Size"
+          },
+          "bump_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bump Target"
+          },
+          "column_axis_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Axis Hash"
+          },
+          "column_axis_ref": {
+            "title": "Column Axis Ref",
+            "type": "string"
+          },
+          "columns": {
+            "minimum": 0.0,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "curve_version_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Version Hash"
+          },
+          "curve_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Version Id"
+          },
+          "evaluation_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Time"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixing_snapshot_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Snapshot Hash"
+          },
+          "fixing_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Snapshot Id"
+          },
+          "input_unit": {
+            "title": "Input Unit",
+            "type": "string"
+          },
+          "mathematical_name": {
+            "title": "Mathematical Name",
+            "type": "string"
+          },
+          "matrix_id": {
+            "title": "Matrix Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "orientation": {
+            "title": "Orientation",
+            "type": "string"
+          },
+          "output_unit": {
+            "title": "Output Unit",
+            "type": "string"
+          },
+          "row_axis_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Axis Hash"
+          },
+          "row_axis_ref": {
+            "title": "Row Axis Ref",
+            "type": "string"
+          },
+          "rows": {
+            "minimum": 0.0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "trade_methods": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Methods"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values"
+          }
+        },
+        "required": [
+          "matrix_id",
+          "mathematical_name",
+          "orientation",
+          "row_axis_ref",
+          "column_axis_ref",
+          "rows",
+          "columns",
+          "availability",
+          "method",
+          "input_unit",
+          "output_unit"
+        ],
+        "title": "MatrixResultV2",
+        "type": "object"
+      },
       "ModelCreate": {
         "properties": {
           "bs": {
@@ -2594,6 +5057,91 @@
         "title": "OisSwapInstrumentDTO",
         "type": "object"
       },
+      "ParameterAxisEntryV2": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "title": "Component Key",
+            "type": "string"
+          },
+          "component_local_parameter_index": {
+            "minimum": 0.0,
+            "title": "Component Local Parameter Index",
+            "type": "integer"
+          },
+          "coordinate_kind": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Coordinate Kind",
+            "type": "string"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "global_parameter_index": {
+            "minimum": 0.0,
+            "title": "Global Parameter Index",
+            "type": "integer"
+          },
+          "native_parameter_unit": {
+            "title": "Native Parameter Unit",
+            "type": "string"
+          },
+          "node_date": {
+            "format": "date",
+            "title": "Node Date",
+            "type": "string"
+          },
+          "parameter_id": {
+            "title": "Parameter Id",
+            "type": "string"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LEFT",
+                  "RIGHT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "stage_id": {
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_local_parameter_index": {
+            "minimum": 0.0,
+            "title": "Stage Local Parameter Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "global_parameter_index",
+          "parameter_id",
+          "component_key",
+          "stage_id",
+          "stage_local_parameter_index",
+          "component_local_parameter_index",
+          "coordinate_kind",
+          "node_date",
+          "side",
+          "native_parameter_unit",
+          "display_label"
+        ],
+        "title": "ParameterAxisEntryV2",
+        "type": "object"
+      },
       "ParameterDeltaDTO": {
         "additionalProperties": false,
         "properties": {
@@ -2658,6 +5206,141 @@
           "name"
         ],
         "title": "PortfolioCreate",
+        "type": "object"
+      },
+      "PricingTradeFailureV1": {
+        "additionalProperties": false,
+        "properties": {
+          "dependency_component_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Component Keys",
+            "type": "array"
+          },
+          "error": {
+            "$ref": "#/components/schemas/CurveLabErrorDetail"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "missing_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Missing Historical Fixing Keys",
+            "type": "array"
+          },
+          "required_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Required Historical Fixing Keys",
+            "type": "array"
+          },
+          "status": {
+            "const": "FAILED",
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "instrument_type",
+          "status",
+          "error",
+          "required_historical_fixing_keys",
+          "missing_historical_fixing_keys",
+          "dependency_component_keys"
+        ],
+        "title": "PricingTradeFailureV1",
+        "type": "object"
+      },
+      "PricingTradeSuccessV1": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 16,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "dependency_component_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Component Keys",
+            "type": "array"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "normalized_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Normalized Plan Hash",
+            "type": "string"
+          },
+          "pv": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Pv",
+            "type": "string"
+          },
+          "required_historical_fixing_keys": {
+            "items": {
+              "$ref": "#/components/schemas/FixingKeyV1"
+            },
+            "title": "Required Historical Fixing Keys",
+            "type": "array"
+          },
+          "status": {
+            "const": "SUCCEEDED",
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "instrument_type",
+          "status",
+          "pv",
+          "currency",
+          "normalized_plan_hash",
+          "required_historical_fixing_keys",
+          "dependency_component_keys"
+        ],
+        "title": "PricingTradeSuccessV1",
         "type": "object"
       },
       "ProductCreate": {
@@ -3150,6 +5833,114 @@
         "title": "PwlfParametersDTO",
         "type": "object"
       },
+      "QuoteAxisEntryV2": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_unit": {
+            "enum": [
+              "DECIMAL",
+              "PRICE_POINTS"
+            ],
+            "title": "Canonical Raw Unit",
+            "type": "string"
+          },
+          "component_key": {
+            "title": "Component Key",
+            "type": "string"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "exact_risk_raw_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Exact Risk Raw Bump",
+            "type": "string"
+          },
+          "global_quote_index": {
+            "minimum": 0.0,
+            "title": "Global Quote Index",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          },
+          "instrument_id": {
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "normalized_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Quote",
+            "type": "string"
+          },
+          "normalized_risk_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Risk Bump",
+            "type": "string"
+          },
+          "normalized_unit": {
+            "const": "DECIMAL_RATE",
+            "default": "DECIMAL_RATE",
+            "title": "Normalized Unit",
+            "type": "string"
+          },
+          "quote_coordinate_kind": {
+            "enum": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "title": "Quote Coordinate Kind",
+            "type": "string"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "raw_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Raw Quote",
+            "type": "string"
+          },
+          "stage_id": {
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_local_quote_index": {
+            "minimum": 0.0,
+            "title": "Stage Local Quote Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "global_quote_index",
+          "quote_id",
+          "instrument_id",
+          "component_key",
+          "stage_id",
+          "group_id",
+          "stage_local_quote_index",
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "raw_quote",
+          "normalized_quote",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump",
+          "display_label"
+        ],
+        "title": "QuoteAxisEntryV2",
+        "type": "object"
+      },
       "QuoteBumpPreviewDTO": {
         "additionalProperties": false,
         "properties": {
@@ -3194,6 +5985,109 @@
           "formula"
         ],
         "title": "QuoteBumpPreviewDTO",
+        "type": "object"
+      },
+      "QuoteBumpResultV2": {
+        "additionalProperties": false,
+        "properties": {
+          "bump_id": {
+            "title": "Bump Id",
+            "type": "string"
+          },
+          "calibration_status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "PARALLEL",
+              "KEY_RATE"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_bump": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Bump"
+          },
+          "pricing_status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Pricing Status",
+            "type": "string"
+          },
+          "quote_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Id"
+          },
+          "raw_bump": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Bump"
+          },
+          "status": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bump_id",
+          "kind",
+          "quote_id",
+          "status",
+          "raw_bump",
+          "normalized_bump",
+          "calibration_status",
+          "pricing_status",
+          "error"
+        ],
+        "title": "QuoteBumpResultV2",
         "type": "object"
       },
       "RateIndexConventionDTO": {
@@ -3322,6 +6216,919 @@
           "end_of_month"
         ],
         "title": "RateLegConventionDTO",
+        "type": "object"
+      },
+      "RateTradeDefinitionInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "currency_or_pair": {
+            "maxLength": 32,
+            "minLength": 3,
+            "title": "Currency Or Pair",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "maturity_date": {
+            "format": "date",
+            "title": "Maturity Date",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/RateTradeTermsInputV2"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          },
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "instrument_type",
+          "trade_date",
+          "start_date",
+          "maturity_date",
+          "currency_or_pair",
+          "terms"
+        ],
+        "title": "RateTradeDefinitionInputV2",
+        "type": "object"
+      },
+      "RateTradeTermsInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "collateral": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collateral"
+          },
+          "contract_count": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Count"
+          },
+          "contract_rate": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Rate"
+          },
+          "contract_spread": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Spread"
+          },
+          "contract_value_per_price_point": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Value Per Price Point"
+          },
+          "convexity_adjustment": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convexity Adjustment"
+          },
+          "day_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACT_365F",
+                  "ACT_360",
+                  "30_360"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Basis"
+          },
+          "discount_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Component Key"
+          },
+          "domestic_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Collateral"
+          },
+          "domestic_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Day Basis"
+          },
+          "domestic_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Fixing Hour"
+          },
+          "domestic_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Fixing Minute"
+          },
+          "domestic_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Forecast Tenor"
+          },
+          "domestic_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Index Name"
+          },
+          "domestic_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Notional"
+          },
+          "domestic_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Payment Frequency"
+          },
+          "domestic_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Use Projection Curve"
+          },
+          "final_notional_exchange": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Notional Exchange"
+          },
+          "fixed_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Day Basis"
+          },
+          "fixed_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Payment Frequency"
+          },
+          "fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Hour"
+          },
+          "fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixing Minute"
+          },
+          "float_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Collateral"
+          },
+          "float_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Day Basis"
+          },
+          "float_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Fixing Hour"
+          },
+          "float_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Fixing Minute"
+          },
+          "float_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Forecast Tenor"
+          },
+          "float_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Index Name"
+          },
+          "float_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Payment Frequency"
+          },
+          "float_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Float Use Projection Curve"
+          },
+          "forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Component Key"
+          },
+          "forecast_tenor": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]*[DWMY]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Tenor"
+          },
+          "foreign_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Collateral"
+          },
+          "foreign_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Day Basis"
+          },
+          "foreign_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Fixing Hour"
+          },
+          "foreign_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Fixing Minute"
+          },
+          "foreign_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Forecast Tenor"
+          },
+          "foreign_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Index Name"
+          },
+          "foreign_notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Notional"
+          },
+          "foreign_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Payment Frequency"
+          },
+          "foreign_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foreign Use Projection Curve"
+          },
+          "fx_spot": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Spot"
+          },
+          "index_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Name"
+          },
+          "initial_notional_exchange": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Notional Exchange"
+          },
+          "notional": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notional"
+          },
+          "position_count": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Count"
+          },
+          "reference_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Collateral"
+          },
+          "reference_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Day Basis"
+          },
+          "reference_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Fixing Hour"
+          },
+          "reference_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Fixing Minute"
+          },
+          "reference_forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Component Key"
+          },
+          "reference_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Forecast Tenor"
+          },
+          "reference_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Index Name"
+          },
+          "reference_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Payment Frequency"
+          },
+          "reference_price": {
+            "anyOf": [
+              {
+                "description": "Canonical plain base-10 financial value; never a JSON number.",
+                "maxLength": 512,
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price"
+          },
+          "reference_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Use Projection Curve"
+          },
+          "settlement_style": {
+            "anyOf": [
+              {
+                "enum": [
+                  "AT_START_DISCOUNTED",
+                  "AT_END"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Style"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LEND",
+                  "BORROW",
+                  "RECEIVE_FLOATING",
+                  "PAY_FLOATING",
+                  "LONG",
+                  "SHORT",
+                  "PAY_FIXED",
+                  "RECEIVE_FIXED",
+                  "RECEIVE_REFERENCE_PAY_SPREAD",
+                  "PAY_REFERENCE_RECEIVE_SPREAD",
+                  "RECEIVE_NON_SPREAD_PAY_SPREAD",
+                  "PAY_NON_SPREAD_RECEIVE_SPREAD"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "spread_collateral": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Collateral"
+          },
+          "spread_day_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Day Basis"
+          },
+          "spread_fixing_hour": {
+            "anyOf": [
+              {
+                "maximum": 23.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Fixing Hour"
+          },
+          "spread_fixing_minute": {
+            "anyOf": [
+              {
+                "maximum": 59.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Fixing Minute"
+          },
+          "spread_forecast_component_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Component Key"
+          },
+          "spread_forecast_tenor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Forecast Tenor"
+          },
+          "spread_index_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Index Name"
+          },
+          "spread_leg": {
+            "anyOf": [
+              {
+                "enum": [
+                  "DOMESTIC",
+                  "FOREIGN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Leg"
+          },
+          "spread_payment_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Payment Frequency"
+          },
+          "spread_use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Use Projection Curve"
+          },
+          "use_projection_curve": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Projection Curve"
+          }
+        },
+        "title": "RateTradeTermsInputV2",
         "type": "object"
       },
       "ResolvedKnotCountsDTO": {
@@ -3502,6 +7309,515 @@
           "counts"
         ],
         "title": "ResolvedSingleKnotPlanDTO",
+        "type": "object"
+      },
+      "RiskRunOptionsV2": {
+        "additionalProperties": false,
+        "properties": {
+          "aad_fallback": {
+            "default": "ALLOW",
+            "enum": [
+              "ALLOW",
+              "FORBID"
+            ],
+            "title": "Aad Fallback",
+            "type": "string"
+          },
+          "jacobian_replay_fallback": {
+            "default": "ALLOW",
+            "enum": [
+              "ALLOW",
+              "FORBID"
+            ],
+            "title": "Jacobian Replay Fallback",
+            "type": "string"
+          }
+        },
+        "title": "RiskRunOptionsV2",
+        "type": "object"
+      },
+      "RiskRunRequestV2": {
+        "additionalProperties": false,
+        "properties": {
+          "base_currency": {
+            "maxLength": 16,
+            "minLength": 3,
+            "title": "Base Currency",
+            "type": "string"
+          },
+          "curve_version_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Curve Version Id",
+            "type": "string"
+          },
+          "evaluation_time": {
+            "format": "date-time",
+            "title": "Evaluation Time",
+            "type": "string"
+          },
+          "fixing_snapshot_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Fixing Snapshot Id",
+            "type": "string"
+          },
+          "measures": {
+            "items": {
+              "enum": [
+                "PV",
+                "DV01",
+                "KEY_RATE_DV01"
+              ],
+              "type": "string"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "options": {
+            "$ref": "#/components/schemas/RiskRunOptionsV2"
+          },
+          "sensitivity_layers": {
+            "default": [],
+            "items": {
+              "enum": [
+                "TRADE_TO_NODE",
+                "CALIBRATION_JACOBIAN",
+                "COMPOSED_QUOTE_DIAGNOSTIC"
+              ],
+              "type": "string"
+            },
+            "title": "Sensitivity Layers",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/RiskTargetV2"
+          }
+        },
+        "required": [
+          "curve_version_id",
+          "target",
+          "measures",
+          "fixing_snapshot_id",
+          "evaluation_time",
+          "base_currency"
+        ],
+        "title": "RiskRunRequestV2",
+        "type": "object"
+      },
+      "RiskRunResponseV2": {
+        "additionalProperties": false,
+        "properties": {
+          "calibration_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Run Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curve_version_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Curve Version Id",
+            "type": "string"
+          },
+          "deadline_at": {
+            "format": "date-time",
+            "title": "Deadline At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimated_work": {
+            "$ref": "#/components/schemas/RiskWorkEstimateV2"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "fixing_snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fixing Snapshot Hash",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "import_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Job Id"
+          },
+          "parameter_axis": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterAxisEntryV2"
+            },
+            "title": "Parameter Axis",
+            "type": "array"
+          },
+          "quote_axis": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuoteAxisEntryV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Axis"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RiskRunRequestV2"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskRunResultV2"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_kind": {
+            "enum": [
+              "BUILD_VERSION",
+              "IMPORT_VERSION"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "TIMED_OUT"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Target Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "curve_version_id",
+          "calibration_run_id",
+          "import_job_id",
+          "source_kind",
+          "request",
+          "fixing_snapshot_hash",
+          "target_fingerprint",
+          "quote_axis",
+          "parameter_axis",
+          "estimated_work",
+          "state",
+          "result",
+          "error",
+          "created_at",
+          "deadline_at",
+          "finished_at"
+        ],
+        "title": "RiskRunResponseV2",
+        "type": "object"
+      },
+      "RiskRunResultV2": {
+        "additionalProperties": false,
+        "properties": {
+          "dv01": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dv01"
+          },
+          "key_rate_sum": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Rate Sum"
+          },
+          "nonlinear_reconciliation": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RiskValueV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonlinear Reconciliation"
+          },
+          "pricing": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "FAILED": "#/components/schemas/PricingTradeFailureV1",
+                  "SUCCEEDED": "#/components/schemas/PricingTradeSuccessV1"
+                },
+                "propertyName": "status"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PricingTradeSuccessV1"
+                },
+                {
+                  "$ref": "#/components/schemas/PricingTradeFailureV1"
+                }
+              ]
+            },
+            "title": "Pricing",
+            "type": "array"
+          },
+          "quote_bumps": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuoteBumpResultV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Bumps"
+          },
+          "sensitivity_matrices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SensitivityMatrixReferenceV2"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensitivity Matrices"
+          }
+        },
+        "required": [
+          "pricing"
+        ],
+        "title": "RiskRunResultV2",
+        "type": "object"
+      },
+      "RiskTargetV2": {
+        "additionalProperties": false,
+        "properties": {
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/RateTradeDefinitionInputV2"
+            },
+            "title": "Trades",
+            "type": "array"
+          }
+        },
+        "required": [
+          "trades"
+        ],
+        "title": "RiskTargetV2",
+        "type": "object"
+      },
+      "RiskValueV2": {
+        "additionalProperties": false,
+        "properties": {
+          "trade_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Trade Id",
+            "type": "string"
+          },
+          "value": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "value"
+        ],
+        "title": "RiskValueV2",
+        "type": "object"
+      },
+      "RiskWorkEstimateV2": {
+        "additionalProperties": false,
+        "properties": {
+          "I_node": {
+            "enum": [
+              0,
+              1
+            ],
+            "title": "I Node",
+            "type": "integer"
+          },
+          "N_aad": {
+            "minimum": 0.0,
+            "title": "N Aad",
+            "type": "integer"
+          },
+          "N_jac": {
+            "minimum": 0.0,
+            "title": "N Jac",
+            "type": "integer"
+          },
+          "N_param": {
+            "minimum": 0.0,
+            "title": "N Param",
+            "type": "integer"
+          },
+          "N_quote": {
+            "minimum": 0.0,
+            "title": "N Quote",
+            "type": "integer"
+          },
+          "P": {
+            "minimum": 0.0,
+            "title": "P",
+            "type": "integer"
+          },
+          "Q": {
+            "minimum": 0.0,
+            "title": "Q",
+            "type": "integer"
+          },
+          "T": {
+            "minimum": 0.0,
+            "title": "T",
+            "type": "integer"
+          },
+          "T_aad": {
+            "minimum": 0.0,
+            "title": "T Aad",
+            "type": "integer"
+          },
+          "aad_price_evaluations": {
+            "minimum": 0.0,
+            "title": "Aad Price Evaluations",
+            "type": "integer"
+          },
+          "aad_recordings": {
+            "minimum": 0.0,
+            "title": "Aad Recordings",
+            "type": "integer"
+          },
+          "calibration_solves": {
+            "minimum": 0.0,
+            "title": "Calibration Solves",
+            "type": "integer"
+          },
+          "contexts": {
+            "minimum": 0.0,
+            "title": "Contexts",
+            "type": "integer"
+          },
+          "estimated_wall_millis": {
+            "minimum": 0.0,
+            "title": "Estimated Wall Millis",
+            "type": "integer"
+          },
+          "overflow": {
+            "default": false,
+            "title": "Overflow",
+            "type": "boolean"
+          },
+          "parameter_bump_price_evaluations": {
+            "minimum": 0.0,
+            "title": "Parameter Bump Price Evaluations",
+            "type": "integer"
+          },
+          "price_evaluations": {
+            "minimum": 0.0,
+            "title": "Price Evaluations",
+            "type": "integer"
+          },
+          "quote_bump_price_evaluations": {
+            "minimum": 0.0,
+            "title": "Quote Bump Price Evaluations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "T",
+          "T_aad",
+          "P",
+          "Q",
+          "I_node",
+          "N_param",
+          "N_aad",
+          "N_quote",
+          "N_jac",
+          "parameter_bump_price_evaluations",
+          "aad_price_evaluations",
+          "quote_bump_price_evaluations",
+          "contexts",
+          "price_evaluations",
+          "calibration_solves",
+          "aad_recordings",
+          "estimated_wall_millis"
+        ],
+        "title": "RiskWorkEstimateV2",
         "type": "object"
       },
       "RunningCalibrationRunResponse": {
@@ -3772,6 +8088,36 @@
           "error"
         ],
         "title": "RunningCalibrationRunResponse",
+        "type": "object"
+      },
+      "SensitivityMatrixReferenceV2": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "AVAILABLE",
+              "NOT_REQUESTED",
+              "NOT_AVAILABLE_FOR_MODE",
+              "FAILED"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "matrix_id": {
+            "title": "Matrix Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "matrix_id",
+          "availability",
+          "method"
+        ],
+        "title": "SensitivityMatrixReferenceV2",
         "type": "object"
       },
       "SingleCalibrationRequest": {
@@ -4353,6 +8699,143 @@
           }
         },
         "title": "StagedXccyCalibrationSolverDTO",
+        "type": "object"
+      },
+      "StoredInstrumentDefinitionV2": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_unit": {
+            "enum": [
+              "DECIMAL",
+              "PRICE_POINTS"
+            ],
+            "title": "Canonical Raw Unit",
+            "type": "string"
+          },
+          "currency_or_pair": {
+            "title": "Currency Or Pair",
+            "type": "string"
+          },
+          "exact_risk_raw_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Exact Risk Raw Bump",
+            "type": "string"
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "maturity_date": {
+            "format": "date",
+            "title": "Maturity Date",
+            "type": "string"
+          },
+          "normalized_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Quote",
+            "type": "string"
+          },
+          "normalized_risk_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Risk Bump",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "quote_coordinate_kind": {
+            "enum": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "title": "Quote Coordinate Kind",
+            "type": "string"
+          },
+          "raw_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Raw Quote",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Instrument Id"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "terms": {
+            "additionalProperties": true,
+            "title": "Terms",
+            "type": "object"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "instrument_type",
+          "trade_date",
+          "start_date",
+          "maturity_date",
+          "currency_or_pair",
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "raw_quote",
+          "normalized_quote",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump",
+          "source",
+          "observed_at",
+          "included",
+          "terms"
+        ],
+        "title": "StoredInstrumentDefinitionV2",
         "type": "object"
       },
       "SwapInstrumentDTO": {
@@ -5568,6 +10051,963 @@
         "summary": "Get Calibration",
         "tags": [
           "calibrations"
+        ]
+      }
+    },
+    "/api/curve-lab/build-runs/{run_id}": {
+      "get": {
+        "operationId": "get_curve_build_run_api_curve_lab_build_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveBuildRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Build Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/capabilities": {
+      "get": {
+        "operationId": "get_curve_lab_capabilities_api_curve_lab_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveLabCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Curve Lab Capabilities",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts": {
+      "post": {
+        "operationId": "create_curve_draft_api_curve_lab_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveDraftDocumentInputV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts/{draft_id}": {
+      "get": {
+        "operationId": "get_curve_draft_api_curve_lab_drafts__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      },
+      "put": {
+        "operationId": "update_curve_draft_api_curve_lab_drafts__draft_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "title": "If-Match",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveDraftDocumentInputV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts/{draft_id}/build-runs": {
+      "post": {
+        "operationId": "create_curve_build_run_api_curve_lab_drafts__draft_id__build_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveBuildRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Build Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/fixing-snapshots": {
+      "post": {
+        "operationId": "post_fixing_snapshot_api_curve_lab_fixing_snapshots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixingSnapshotCreateV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixingSnapshotResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Fixing Snapshot",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/fixing-snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "read_fixing_snapshot_api_curve_lab_fixing_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixingSnapshotResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Fixing Snapshot",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/import-jobs": {
+      "post": {
+        "operationId": "create_curve_import_job_api_curve_lab_import_jobs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Content-Encoding",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content-Encoding"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Curve-Lab-Runtime-Manifest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Curve-Lab-Runtime-Manifest"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveImportJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Import Job",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/import-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_curve_import_job_api_curve_lab_import_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveImportJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Import Job",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/quote-canonicalizations": {
+      "post": {
+        "operationId": "canonicalize_authoring_quote_api_curve_lab_quote_canonicalizations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveLabQuoteCanonicalizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveLabQuoteCanonicalizationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveLabErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Canonicalize Authoring Quote",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/quote-renderings": {
+      "post": {
+        "operationId": "render_authoring_quote_api_curve_lab_quote_renderings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveLabQuoteRenderingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveLabQuoteRenderingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveLabErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Render Authoring Quote",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/risk-runs": {
+      "post": {
+        "operationId": "create_curve_risk_run_api_curve_lab_risk_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskRunRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskRunResponseV2"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Risk Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/risk-runs/{run_id}": {
+      "get": {
+        "operationId": "get_curve_risk_run_api_curve_lab_risk_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskRunResponseV2"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Risk Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/risk-runs/{run_id}/matrices/{matrix_id}": {
+      "get": {
+        "operationId": "get_curve_risk_matrix_api_curve_lab_risk_runs__run_id__matrices__matrix_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "matrix_id",
+            "required": true,
+            "schema": {
+              "title": "Matrix Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatrixResultV2"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Risk Matrix",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions": {
+      "get": {
+        "operationId": "list_curve_versions_api_curve_lab_versions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CurveVersionResponse"
+                  },
+                  "title": "Response List Curve Versions Api Curve Lab Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Curve Versions",
+        "tags": [
+          "curve-lab"
+        ]
+      },
+      "post": {
+        "operationId": "create_curve_version_api_curve_lab_versions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveVersionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}": {
+      "get": {
+        "operationId": "get_curve_version_api_curve_lab_versions__version_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/archive": {
+      "post": {
+        "operationId": "archive_curve_version_api_curve_lab_versions__version_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/clone": {
+      "post": {
+        "operationId": "clone_curve_version_api_curve_lab_versions__version_id__clone_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clone Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/native-json": {
+      "get": {
+        "operationId": "get_curve_version_native_json_api_curve_lab_versions__version_id__native_json_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version Native Json",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/runtime-manifest": {
+      "get": {
+        "operationId": "get_curve_version_runtime_manifest_api_curve_lab_versions__version_id__runtime_manifest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveRuntimeManifestV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version Runtime Manifest",
+        "tags": [
+          "curve-lab"
         ]
       }
     },

@@ -8,23 +8,30 @@
 
 #include <atomic>
 #include <chrono>
+#include <limits>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccynotionalmode.hpp>
 #include <dal/curve/xccypricing.hpp>
+#include <dal/curve/yc.hpp>
+#include <dal/curve/yccomponent.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/storage/bag.hpp>
+#include <dal/storage/json.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/periodlength.hpp>
 
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
+#include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
 #include <dal-public/src/xccycalibration.hpp>
@@ -99,6 +106,8 @@ namespace {
 
     std::shared_ptr<DiscountCurve_> MutableCurve(const Handle_<DiscountCurve_>& curve) { return std::const_pointer_cast<DiscountCurve_>(curve); }
 
+    std::string StdString(const String_& value) { return std::string(value.data(), value.size()); }
+
     void SetDates(Vector_<Date_>* destination, const py::iterable& dates) {
         destination->clear();
         for (const auto item : dates)
@@ -166,6 +175,20 @@ namespace {
         return result;
     }
 
+    std::vector<std::tuple<int, std::string, DateTime_>>
+    RequiredHistoricalRateTradeFixingsForPython(const std::vector<RateTradeDefinition_>& trades, const DateTime_& valuationTime) {
+        std::vector<std::tuple<int, std::string, DateTime_>> result;
+        {
+            py::gil_scoped_release release;
+            for (int index = 0; index < static_cast<int>(trades.size()); ++index) {
+                const RateCashflowPlan_ plan = BuildRateCashflowPlan(trades[index], valuationTime);
+                for (const auto& item : plan.requiredHistoricalFixings_)
+                    result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
+            }
+        }
+        return result;
+    }
+
     MarketFixingSnapshot_::values_t SnapshotValues(const py::dict& values) {
         MarketFixingSnapshot_::values_t result;
         for (const auto outerItem : py::reinterpret_borrow<py::iterable>(values.attr("items")())) {
@@ -187,14 +210,23 @@ namespace {
     }
 
     void init_bindings_curve_handles(py::module_& m) {
+        static_assert(std::is_base_of_v<Storable_, YCComponent_>);
+        static_assert(std::is_base_of_v<YCComponent_, DiscountCurve_>);
+        static_assert(std::is_base_of_v<Storable_, YieldCurve_>);
+        static_assert(std::is_base_of_v<YieldCurve_, CurveBlock_>);
+        static_assert(!std::is_base_of_v<YieldCurve_, DiscountCurve_>);
+        static_assert(std::is_base_of_v<Storable_, Bag_>);
+
         py::class_<YCInstrument_, std::shared_ptr<YCInstrument_>>(m, "YCInstrument_");
-        py::class_<DiscountCurve_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_")
+        py::class_<YCComponent_, Storable_, std::shared_ptr<YCComponent_>>(m, "YCComponent_");
+        py::class_<DiscountCurve_, YCComponent_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_")
             .def(
                 "__call__", [](const DiscountCurve_& curve, const Date_& from, const Date_& to) { return curve(from, to); }, py::arg("from_date"),
                 py::arg("to_date"))
             .def_property_readonly("name", [](const DiscountCurve_& curve) { return std::string(curve.name_.c_str()); })
             .def_property_readonly("currency", [](const DiscountCurve_& curve) { return std::string(curve.ccy_.String()); });
-        py::class_<CurveBlock_, std::shared_ptr<CurveBlock_>>(m, "CurveBlock_")
+        py::class_<YieldCurve_, Storable_, std::shared_ptr<YieldCurve_>>(m, "YieldCurve_");
+        py::class_<CurveBlock_, YieldCurve_, std::shared_ptr<CurveBlock_>>(m, "CurveBlock_")
             .def_property_readonly("name", [](const CurveBlock_& block) { return std::string(block.name_.c_str()); })
             .def_property_readonly("currency", [](const CurveBlock_& block) { return std::string(block.ccy_.String()); })
             .def_property_readonly("discount_curves",
@@ -212,8 +244,64 @@ namespace {
                                        return result;
                                    })
             .def_property_readonly("libor_basis", [](const CurveBlock_& block) { return block.LiborBasis(); });
+        py::class_<Bag_, Storable_, std::shared_ptr<Bag_>>(m, "Bag_");
         py::class_<CrossCurrencySwap_, std::shared_ptr<CrossCurrencySwap_>>(m, "CrossCurrencySwap_");
         py::class_<CrossCurrencyMarket_, std::shared_ptr<CrossCurrencyMarket_>>(m, "CrossCurrencyMarket_");
+
+        m.def(
+            "_StorableToJson",
+            [](const std::shared_ptr<Storable_>& value) {
+                if (!value)
+                    throw std::invalid_argument("value must be a Storable_");
+                String_ payload;
+                {
+                    py::gil_scoped_release release;
+                    payload = JSON::WriteString(*value);
+                }
+                return py::bytes(payload.data(), payload.size());
+            },
+            py::arg("value"));
+        m.def(
+            "_StorableFromJson",
+            [](const py::bytes& payload) {
+                char* data = nullptr;
+                Py_ssize_t length = 0;
+                if (PyBytes_AsStringAndSize(payload.ptr(), &data, &length) != 0)
+                    throw py::error_already_set();
+                if (length < 0 || static_cast<unsigned long long>(length) > static_cast<unsigned long long>(std::numeric_limits<std::size_t>::max()))
+                    throw std::overflow_error("archive payload length does not fit size_t");
+                Handle_<Storable_> restored;
+                {
+                    py::gil_scoped_release release;
+                    restored = JSON::ReadString(data, static_cast<std::size_t>(length), JSONReadOptions_());
+                }
+                return std::const_pointer_cast<Storable_>(restored);
+            },
+            py::arg("payload"));
+        m.def(
+            "_BagNew",
+            [](const std::string& name, const py::dict& contents) {
+                Bag_::map_t native;
+                for (const auto& item : contents) {
+                    const std::string key = py::cast<std::string>(item.first);
+                    const auto value = py::cast<std::shared_ptr<Storable_>>(item.second);
+                    if (!value)
+                        throw std::invalid_argument("bag values must be Storable_ instances");
+                    native.emplace(String_(key), Handle_<Storable_>(std::const_pointer_cast<const Storable_>(value)));
+                }
+                py::gil_scoped_release release;
+                return std::make_shared<Bag_>(String_(name), native);
+            },
+            py::arg("name"), py::arg("contents"));
+        m.def(
+            "_BagContents",
+            [](const Bag_& bag) {
+                py::dict result;
+                for (const auto& [key, value] : bag.contents_)
+                    result[py::str(StdString(key))] = std::const_pointer_cast<Storable_>(value);
+                return result;
+            },
+            py::arg("value"));
 
         // Value types used as function parameters / return values
         py::class_<CurveCalibrationSpec_>(m, "CurveCalibrationSpec_");
@@ -603,6 +691,15 @@ namespace {
     }
 
     void init_bindings_curve_enums(py::module_& m) {
+        py::enum_<RateInstrumentType_::Value_>(m, "RateInstrumentType")
+            .value("DEPOSIT", RateInstrumentType_::Value_::DEPOSIT)
+            .value("FRA", RateInstrumentType_::Value_::FRA)
+            .value("FUTURE", RateInstrumentType_::Value_::FUTURE)
+            .value("OIS", RateInstrumentType_::Value_::OIS)
+            .value("IRS", RateInstrumentType_::Value_::IRS)
+            .value("BASIS_SWAP", RateInstrumentType_::Value_::BASIS_SWAP)
+            .value("XCCY", RateInstrumentType_::Value_::XCCY);
+
         py::enum_<CurveSolveMode_::Value_>(m, "CurveSolveMode")
             .value("EXACT", CurveSolveMode_::Value_::EXACT)
             .value("APPROXIMATE", CurveSolveMode_::Value_::APPROXIMATE);
@@ -663,6 +760,231 @@ namespace {
             .value("LOG_LINEAR", LogDfScheme_::Value_::LOG_LINEAR)
             .value("LOG_CUBIC_NATURAL", LogDfScheme_::Value_::LOG_CUBIC_NATURAL)
             .value("MIXED", LogDfScheme_::Value_::MIXED);
+    }
+
+    // #lizard forgives -- adjacent additive bindings keep the public pricing surface discoverable.
+    void init_bindings_curve_pricing(py::module_& m) {
+        py::class_<DepositTradeTerms_>(m, "DepositTradeTerms_")
+            .def(py::init(
+                     [](double notional, double contractRate, bool lend, const RateIndexConvention_& index, const std::string& discountComponentKey) {
+                         return DepositTradeTerms_{
+                             notional, contractRate, lend, index, String_(discountComponentKey),
+                         };
+                     }),
+                 py::kw_only(), py::arg("notional"), py::arg("contract_rate"), py::arg("lend"), py::arg("index"), py::arg("discount_component_key"));
+
+        py::class_<FraTradeTerms_>(m, "FraTradeTerms_")
+            .def(
+                py::init([](double notional, double contractRate, bool receiveFloating, bool settleAtStart, const RateIndexConvention_& index,
+                            const FixingIdentity_& fixingIdentity, const std::string& forecastComponentKey, const std::string& discountComponentKey) {
+                    return FraTradeTerms_{
+                        notional,
+                        contractRate,
+                        receiveFloating,
+                        settleAtStart,
+                        index,
+                        fixingIdentity,
+                        String_(forecastComponentKey),
+                        String_(discountComponentKey),
+                    };
+                }),
+                py::kw_only(), py::arg("notional"), py::arg("contract_rate"), py::arg("receive_floating"), py::arg("settle_at_start"),
+                py::arg("index"), py::arg("fixing_identity"), py::arg("forecast_component_key"), py::arg("discount_component_key"));
+
+        py::class_<FutureTradeTerms_>(m, "FutureTradeTerms_")
+            .def(py::init([](double contractCount, bool longPosition, double referencePrice, double contractValuePerPricePoint,
+                             double convexityAdjustment, const RateIndexConvention_& index, const FixingIdentity_& fixingIdentity,
+                             const std::string& forecastComponentKey) {
+                     return FutureTradeTerms_{
+                         contractCount,       longPosition, referencePrice, contractValuePerPricePoint,
+                         convexityAdjustment, index,        fixingIdentity, String_(forecastComponentKey),
+                     };
+                 }),
+                 py::kw_only(), py::arg("contract_count"), py::arg("long_position"), py::arg("reference_price"),
+                 py::arg("contract_value_per_price_point"), py::arg("convexity_adjustment") = 0.0, py::arg("index"), py::arg("fixing_identity"),
+                 py::arg("forecast_component_key"));
+
+        py::class_<FixedFloatTradeTerms_>(m, "FixedFloatTradeTerms_")
+            .def(py::init([](double notional, double contractRate, bool payFixed, const RateLegConvention_& fixedLeg,
+                             const RateLegConvention_& floatLeg, const RateIndexConvention_& floatIndex, const FixingIdentity_& fixingIdentity,
+                             const std::string& forecastComponentKey, const std::string& discountComponentKey) {
+                     return FixedFloatTradeTerms_{
+                         notional,
+                         contractRate,
+                         payFixed,
+                         fixedLeg,
+                         floatLeg,
+                         floatIndex,
+                         fixingIdentity,
+                         String_(forecastComponentKey),
+                         String_(discountComponentKey),
+                     };
+                 }),
+                 py::kw_only(), py::arg("notional"), py::arg("contract_rate"), py::arg("pay_fixed"), py::arg("fixed_leg"), py::arg("float_leg"),
+                 py::arg("float_index"), py::arg("fixing_identity"), py::arg("forecast_component_key"), py::arg("discount_component_key"));
+
+        py::class_<OisTradeTerms_>(m, "OisTradeTerms_").def(py::init<FixedFloatTradeTerms_>(), py::kw_only(), py::arg("value"));
+        py::class_<IrsTradeTerms_>(m, "IrsTradeTerms_").def(py::init<FixedFloatTradeTerms_>(), py::kw_only(), py::arg("value"));
+
+        py::class_<BasisTradeTerms_>(m, "BasisTradeTerms_")
+            .def(py::init([](double notional, double contractSpread, bool receiveReferencePaySpread, const RateLegConvention_& spreadLeg,
+                             const RateLegConvention_& referenceLeg, const RateIndexConvention_& spreadIndex,
+                             const RateIndexConvention_& referenceIndex, const FixingIdentity_& spreadFixingIdentity,
+                             const FixingIdentity_& referenceFixingIdentity, const std::string& spreadForecastComponentKey,
+                             const std::string& referenceForecastComponentKey, const std::string& discountComponentKey) {
+                     return BasisTradeTerms_{
+                         notional,
+                         contractSpread,
+                         receiveReferencePaySpread,
+                         spreadLeg,
+                         referenceLeg,
+                         spreadIndex,
+                         referenceIndex,
+                         spreadFixingIdentity,
+                         referenceFixingIdentity,
+                         String_(spreadForecastComponentKey),
+                         String_(referenceForecastComponentKey),
+                         String_(discountComponentKey),
+                     };
+                 }),
+                 py::kw_only(), py::arg("notional"), py::arg("contract_spread"), py::arg("receive_reference_pay_spread"), py::arg("spread_leg"),
+                 py::arg("reference_leg"), py::arg("spread_index"), py::arg("reference_index"), py::arg("spread_fixing_identity"),
+                 py::arg("reference_fixing_identity"), py::arg("spread_forecast_component_key"), py::arg("reference_forecast_component_key"),
+                 py::arg("discount_component_key"));
+
+        py::class_<XccyTradeTerms_>(m, "XccyTradeTerms_")
+            .def(py::init([](double positionCount, double contractSpread, bool spreadOnForeignLeg, bool receiveNonSpreadPaySpread,
+                             const CrossCurrencySwapConfig_& config) {
+                     return XccyTradeTerms_{
+                         positionCount, contractSpread, spreadOnForeignLeg, receiveNonSpreadPaySpread, config,
+                     };
+                 }),
+                 py::kw_only(), py::arg("position_count"), py::arg("contract_spread"), py::arg("spread_on_foreign_leg"),
+                 py::arg("receive_non_spread_pay_spread"), py::arg("config"));
+
+        py::class_<RateTradeDefinition_>(m, "RateTradeDefinition_")
+            .def(py::init([](const std::string& instrumentId, RateInstrumentType_::Value_ instrumentType, const Date_& tradeDate,
+                             const Date_& startDate, const Date_& maturityDate, const std::string& currency, const RateTradeTerms_& terms) {
+                     return RateTradeDefinition_{
+                         String_(instrumentId),
+                         RateInstrumentType_(instrumentType),
+                         tradeDate,
+                         startDate,
+                         maturityDate,
+                         Ccy_(String_(currency)),
+                         terms,
+                     };
+                 }),
+                 py::kw_only(), py::arg("instrument_id"), py::arg("instrument_type"), py::arg("trade_date"), py::arg("start_date"),
+                 py::arg("maturity_date"), py::arg("currency"), py::arg("terms"));
+
+        py::class_<RatePricingMarket_>(m, "RatePricingMarket_")
+            .def(py::init([](const DateTime_& valuationTime, const std::string& resultCurrency,
+                             const std::map<std::string, std::shared_ptr<DiscountCurve_>>& curveComponents,
+                             const std::shared_ptr<CrossCurrencyMarket_>& xccyMarket, const std::shared_ptr<MarketFixingSnapshot_>& fixings) {
+                     RatePricingMarket_ result;
+                     result.valuationTime_ = valuationTime;
+                     result.resultCurrency_ = Ccy_(String_(resultCurrency));
+                     for (const auto& [key, curve] : curveComponents)
+                         result.curveComponents_[String_(key)] = Handle_<DiscountCurve_>(std::const_pointer_cast<const DiscountCurve_>(curve));
+                     result.xccyMarket_ = xccyMarket;
+                     result.fixings_ = ConstSnapshot(fixings);
+                     return result;
+                 }),
+                 py::kw_only(), py::arg("valuation_time"), py::arg("result_currency"), py::arg("curve_components"),
+                 py::arg("xccy_market") = std::shared_ptr<CrossCurrencyMarket_>(), py::arg("fixings") = std::shared_ptr<MarketFixingSnapshot_>());
+
+        m.def(
+            "CrossCurrencyMarket_New",
+            [](const std::shared_ptr<CurveBlock_>& domesticBlock, const std::shared_ptr<CurveBlock_>& foreignBlock, double fxSpot,
+               const DateTime_& valuationTime, const std::string& collateralCurrency, const std::shared_ptr<MarketFixingSnapshot_>& fixings,
+               const std::shared_ptr<DiscountCurve_>& basisCurve) {
+                auto result =
+                    std::make_shared<CrossCurrencyMarket_>(Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(domesticBlock)),
+                                                           Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(foreignBlock)), fxSpot,
+                                                           valuationTime, Ccy_(String_(collateralCurrency)), ConstSnapshot(fixings));
+                if (basisCurve)
+                    result->SetBasisCurve(Handle_<DiscountCurve_>(std::const_pointer_cast<const DiscountCurve_>(basisCurve)));
+                return result;
+            },
+            py::kw_only(), py::arg("domestic_block"), py::arg("foreign_block"), py::arg("fx_spot"), py::arg("valuation_time"),
+            py::arg("collateral_currency"), py::arg("fixings") = std::shared_ptr<MarketFixingSnapshot_>(),
+            py::arg("basis_curve") = std::shared_ptr<DiscountCurve_>());
+
+        py::class_<RatePricingTradeResult_>(m, "RatePricingTradeResult_")
+            .def_property_readonly("instrument_id", [](const RatePricingTradeResult_& value) { return StdString(value.instrumentId_); })
+            .def_property_readonly("instrument_type", [](const RatePricingTradeResult_& value) { return value.instrumentType_.Switch(); })
+            .def_readonly("succeeded", &RatePricingTradeResult_::succeeded_)
+            .def_readonly("pv", &RatePricingTradeResult_::pv_)
+            .def_property_readonly("currency", [](const RatePricingTradeResult_& value) { return std::string(value.currency_.String()); })
+            .def_property_readonly("required_historical_fixings",
+                                   [](const RatePricingTradeResult_& value) {
+                                       py::tuple result(value.requiredHistoricalFixings_.size());
+                                       for (int i = 0; i < static_cast<int>(value.requiredHistoricalFixings_.size()); ++i)
+                                           result[static_cast<size_t>(i)] = py::make_tuple(StdString(value.requiredHistoricalFixings_[i].indexName_),
+                                                                                           value.requiredHistoricalFixings_[i].fixingTime_);
+                                       return result;
+                                   })
+            .def_property_readonly("missing_historical_fixings",
+                                   [](const RatePricingTradeResult_& value) {
+                                       py::tuple result(value.missingHistoricalFixings_.size());
+                                       for (int i = 0; i < static_cast<int>(value.missingHistoricalFixings_.size()); ++i)
+                                           result[static_cast<size_t>(i)] = py::make_tuple(StdString(value.missingHistoricalFixings_[i].indexName_),
+                                                                                           value.missingHistoricalFixings_[i].fixingTime_);
+                                       return result;
+                                   })
+            .def_property_readonly("dependency_component_keys",
+                                   [](const RatePricingTradeResult_& value) {
+                                       py::tuple result(value.dependencyComponentKeys_.size());
+                                       for (int i = 0; i < static_cast<int>(value.dependencyComponentKeys_.size()); ++i)
+                                           result[static_cast<size_t>(i)] = StdString(value.dependencyComponentKeys_[i]);
+                                       return result;
+                                   })
+            .def_property_readonly("error", [](const RatePricingTradeResult_& value) { return StdString(value.error_); });
+
+        py::class_<RateTradeNodeSensitivityResult_>(m, "RateTradeNodeSensitivityResult_")
+            .def_readonly("eligible", &RateTradeNodeSensitivityResult_::eligible_)
+            .def_readonly("pv", &RateTradeNodeSensitivityResult_::pv_)
+            .def_property_readonly(
+                "gradient",
+                [](const RateTradeNodeSensitivityResult_& value) {
+                    return std::vector<double>(value.gradient_.begin(), value.gradient_.end());
+                })
+            .def_property_readonly(
+                "reason",
+                [](const RateTradeNodeSensitivityResult_& value) {
+                    return StdString(value.reason_);
+                });
+
+        m.def(
+            "PriceRateTrades",
+            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market) {
+                Vector_<RateTradeDefinition_> native(trades.begin(), trades.end());
+                Vector_<RatePricingTradeResult_> priced;
+                {
+                    py::gil_scoped_release release;
+                    priced = PriceRateTrades(native, market);
+                }
+                py::list result;
+                for (const auto& row : priced)
+                    result.append(row);
+                return result;
+            },
+            py::kw_only(), py::arg("trades"), py::arg("market"));
+
+        m.def("_RequiredHistoricalRateTradeFixings", &RequiredHistoricalRateTradeFixingsForPython, py::arg("trades"), py::arg("valuation_time"));
+
+        m.def(
+            "RateTradeNodeSensitivities",
+            [](const RateTradeDefinition_& trade, const RatePricingMarket_& market, const std::string& componentKey) {
+                RateTradeNodeSensitivityResult_ result;
+                {
+                    py::gil_scoped_release release;
+                    result = RateTradeNodeSensitivities(trade, market, String_(componentKey));
+                }
+                return result;
+            },
+            py::kw_only(), py::arg("trade"), py::arg("market"), py::arg("component_key"));
     }
 
     void init_bindings_curve_planning(py::module_& m) {
@@ -1421,6 +1743,7 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_planning(m);
     init_bindings_curve_instruments(m);
     init_bindings_curve_data(m);
+    init_bindings_curve_pricing(m);
     init_bindings_curve_calibration_builder(m);
     init_bindings_curve_calibration_diagnostics(m);
     init_bindings_curve_calibration_results(m);

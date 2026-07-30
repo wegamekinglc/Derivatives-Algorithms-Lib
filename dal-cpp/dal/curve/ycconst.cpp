@@ -12,9 +12,12 @@
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/storage/archive.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
+    #include <dal/auto/MG_DiscountPWC_v1_Write.inc>
+
     namespace Tape {
         constexpr double DAYS_PER_YEAR_PWC = 365.0;
 
@@ -25,6 +28,8 @@ namespace Dal {
             REQUIRE(!knotDates_.empty(), "DiscountPWC_: knot dates must not be empty");
             REQUIRE(fRightT_.size() == knotDates_.size(), "DiscountPWC_: forward length must equal knot count");
             REQUIRE(IsMonotonic(knotDates_), "DiscountPWC_: knot dates must be strictly increasing");
+            for (const auto& value : fRightT_)
+                REQUIRE(std::isfinite(AAD::Value(value)), "DiscountPWC_: forward values must be finite");
             UpdateT();
         }
 
@@ -71,7 +76,14 @@ namespace Dal {
             UpdateT();
         }
 
-        template <class T_, class B_> void DiscountPWC_<T_, B_>::Write(Archive::Store_&) const { THROW("DiscountPWC_ persistence is not supported"); }
+        template <class T_, class B_> void DiscountPWC_<T_, B_>::Write(Archive::Store_& dst) const {
+            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+                DiscountPWC_v1::XWrite(dst, this->name_, this->ccy_.String(), knotDates_, fRightT_, this->base_);
+            } else {
+                REQUIRE(false, "Tape::DiscountPWC_ is only serializable for <double, DiscountCurve_<double>>");
+                static_cast<void>(dst);
+            }
+        }
 
         template <class T_, class B_>
         std::unique_ptr<YCComponent_> DiscountPWC_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {

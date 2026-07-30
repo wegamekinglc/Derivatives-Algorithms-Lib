@@ -6,12 +6,12 @@
 #include <dal/platform/strict.hpp>
 
 #include <cmath>
+#include <dal/indice/fixingsnapshot.hpp>
+#include <dal/storage/globals.hpp>
 #include <map>
 #include <optional>
 #include <set>
 #include <utility>
-#include <dal/indice/fixingsnapshot.hpp>
-#include <dal/storage/globals.hpp>
 
 namespace Dal {
     namespace {
@@ -39,13 +39,16 @@ namespace Dal {
         for (const auto& indexHistory : values_) {
             const String_& indexName = indexHistory.first;
             REQUIRE(!indexName.empty(), "Market fixing snapshot requires non-empty index names");
+            const std::optional<String_> reverseName = ReverseCanonicalFxName(indexName);
             for (const auto& fixing : indexHistory.second) {
                 REQUIRE(fixing.first.IsValid(), "Market fixing snapshot requires valid fixing timestamps");
-                REQUIRE(std::isfinite(fixing.second) && fixing.second > 0.0,
-                        "Market fixing snapshot requires positive finite values for " + indexName + " at " + DateTime::ToString(fixing.first));
+                REQUIRE(std::isfinite(fixing.second),
+                        "Market fixing snapshot requires finite values for " + indexName + " at " + DateTime::ToString(fixing.first));
+                if (reverseName.has_value())
+                    REQUIRE(fixing.second > 0.0,
+                            "Market fixing snapshot requires positive FX values for " + indexName + " at " + DateTime::ToString(fixing.first));
             }
 
-            const std::optional<String_> reverseName = ReverseCanonicalFxName(indexName);
             if (!reverseName.has_value())
                 continue;
             const auto reverseHistory = values_.find(*reverseName);

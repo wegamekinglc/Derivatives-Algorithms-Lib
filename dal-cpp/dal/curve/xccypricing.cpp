@@ -376,7 +376,8 @@ namespace Dal {
     } // namespace
 
     template <class T_>
-    T_ PriceXccyParSpread(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings) {
+    XccyContractValues_<T_>
+    XccyContractValues(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings) {
         ValidateMarketView(plan, market);
         REQUIRE(!plan.domesticPeriods_.empty() && !plan.foreignPeriods_.empty(), "XCCY pricing requires coupon periods on both legs");
         const bool fixedNotional = plan.config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED;
@@ -408,14 +409,41 @@ namespace Dal {
             foreignPv += T_(plan.config_.foreignNotional_) * ForeignConversionFactor(foreignDiscount, market, plan.maturity_);
         }
 
-        if (convention.spreadOnForeignLeg_) {
-            REQUIRE(Dal::AAD::Value(foreignCoupons.spreadAnnuity_) > 0.0, "XCCY pricing requires a positive remaining foreign spread annuity");
-            return (domesticPv - foreignPv) / foreignCoupons.spreadAnnuity_;
-        }
+        REQUIRE(Dal::AAD::Value(foreignCoupons.spreadAnnuity_) > 0.0, "XCCY pricing requires a positive remaining foreign spread annuity");
         REQUIRE(Dal::AAD::Value(domesticCoupons.spreadAnnuity_) > 0.0, "XCCY pricing requires a positive remaining domestic spread annuity");
-        return (foreignPv - domesticPv) / domesticCoupons.spreadAnnuity_;
+        return {domesticPv, foreignPv, domesticCoupons.spreadAnnuity_, foreignCoupons.spreadAnnuity_};
     }
 
+    template <class T_>
+    T_ PriceXccyContract(const XccyCashflowPlan_& plan,
+                         const XccyMarketView_<T_>& market,
+                         const MarketFixingSnapshot_& fixings,
+                         double contractSpread,
+                         bool spreadOnForeignLeg,
+                         bool receiveNonSpreadPaySpread) {
+        REQUIRE(std::isfinite(contractSpread), "XCCY contract spread must be finite");
+        const auto values = XccyContractValues(plan, market, fixings);
+        const T_ receivePv = spreadOnForeignLeg ? values.domesticPv_ - values.foreignPv_ - T_(contractSpread) * values.foreignSpreadAnnuity_
+                                                : values.foreignPv_ - values.domesticPv_ - T_(contractSpread) * values.domesticSpreadAnnuity_;
+        if (receiveNonSpreadPaySpread)
+            return receivePv;
+        return -receivePv;
+    }
+
+    template <class T_>
+    T_ PriceXccyParSpread(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const MarketFixingSnapshot_& fixings) {
+        const auto values = XccyContractValues(plan, market, fixings);
+        if (plan.config_.convention_.spreadOnForeignLeg_)
+            return (values.domesticPv_ - values.foreignPv_) / values.foreignSpreadAnnuity_;
+        return (values.foreignPv_ - values.domesticPv_) / values.domesticSpreadAnnuity_;
+    }
+
+    template XccyContractValues_<double> XccyContractValues(const XccyCashflowPlan_&, const XccyMarketView_<double>&, const MarketFixingSnapshot_&);
+    template XccyContractValues_<Dal::AAD::Number_>
+    XccyContractValues(const XccyCashflowPlan_&, const XccyMarketView_<Dal::AAD::Number_>&, const MarketFixingSnapshot_&);
+    template double PriceXccyContract(const XccyCashflowPlan_&, const XccyMarketView_<double>&, const MarketFixingSnapshot_&, double, bool, bool);
+    template Dal::AAD::Number_
+    PriceXccyContract(const XccyCashflowPlan_&, const XccyMarketView_<Dal::AAD::Number_>&, const MarketFixingSnapshot_&, double, bool, bool);
     template double PriceXccyParSpread(const XccyCashflowPlan_&, const XccyMarketView_<double>&, const MarketFixingSnapshot_&);
     template Dal::AAD::Number_ PriceXccyParSpread(const XccyCashflowPlan_&, const XccyMarketView_<Dal::AAD::Number_>&, const MarketFixingSnapshot_&);
 } // namespace Dal
