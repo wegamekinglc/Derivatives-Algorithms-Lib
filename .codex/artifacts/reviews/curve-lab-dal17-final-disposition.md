@@ -53,11 +53,24 @@ production React page and client, real FastAPI router and persistence services,
 build/risk axes, and persisted replay. It compares `4 / PERCENT` with
 `0.04 / DECIMAL` using the same stable instrument identity.
 
+The later DAL-18 Medium review found two remaining implementation gaps in that
+candidate. Target and draft epochs did not distinguish two concurrent requests
+for the same target, and the UI displayed preference labels without projecting
+canonical bytes through the approved exact formatter. The repaired candidate
+now assigns every canonicalization a monotonic generation and ignores all state
+effects from an older generation. It also exposes the existing backend
+`render_quote` implementation through a closed, stateless
+`POST /api/curve-lab/quote-renderings` route. The response contains only an
+exact rendered string; display convention, scale, result, and rendering errors
+remain local presentation state.
+
 ## Final DAL-18 blocker closure map
 
 | Review blocker | Implementation closure | Focused regression |
 |---|---|---|
 | Canonicalizer output was displayed but not connected to the durable workspace instrument | `Curves.tsx` wires `CurveLabQuoteAuthoring.tsx` to the target/application boundary in `CurveLabWorkspace.tsx`; the application validates target epoch and family and copies only canonical `raw_quote` | `curves_quote_integration.test.tsx` covers production wiring and all write-isolation edges; `curve_lab_workspace.spec.ts` compares persisted documents, fingerprints, build/risk quote axes, native payload hashes, KRD matrices, and replay |
+| Older same-target responses could overwrite a newer quote or error | `CurveLabQuoteAuthoring.tsx` captures request generation, family, target token, and authoring epoch; only the latest matching context may update canonical output, error, submitting state, or invoke the workspace application gate | Production-page deferred tests cover success/success and success/error inverse completion, cancellation, duplicate submission, input changes, family changes, and same-family row changes; Playwright proves `4/PERCENT` followed by `5/PERCENT` remains durable `0.05` when the first response finishes last |
+| Display convention and scale were labels rather than an exact inverse projection | Closed rendering request/response schemas and `POST /api/curve-lab/quote-renderings` call the sole backend `render_quote` Decimal/half-even implementation; the frontend keeps a separate latest-render generation | Backend API tests cover scales `0/1/6/12`, signed ties, canonical zero, Future price points, closed errors, and no side-effect dependencies; component and real FastAPI/Vite browser tests assert `0.04/PERCENT/6 → 4.000000` without changing durable identity or stale state |
 | Family changes retained terms from the previous family | `migrateCalibrationInstrument` in `CurveLabWorkspace.tsx` replaces currency/pair, raw quote, and the complete family-specific term object for every supported family | `curve_lab_workspace.test.tsx` asserts the exact wire document for all seven families; `tests/e2e/curve_lab_workspace.spec.ts` sends each one through the primary Family control to the real API and requires 201 |
 | Client polling abandoned admitted work after roughly ten seconds | `waitForTerminal` has no client total deadline, publishes every admitted/polled state, and build/risk/import each retain the server run ID with an explicit resume action after transport failure | `curve_lab_workspace.test.tsx` proves a build still completes after more than ten seconds and resumes the same admitted ID after a network error |
 | Non-finite JSON numbers could reach fingerprint serialization | `CurveLabWireModel` forbids non-finite floats and every Curve Lab solver/instrument float field uses an explicit finite constrained type | `test_curve_lab_lifecycle_api.py` covers all eight float fields with `NaN`, `Infinity`, and `1e999`, asserting 422 and zero draft/audit rows |

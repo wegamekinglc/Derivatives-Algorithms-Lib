@@ -33,6 +33,26 @@ CanonicalQuoteDecimalV1 = Annotated[
 ]
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 PositiveFiniteFloat = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+QuoteInputConventionInput = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": ["DECIMAL", "PERCENT", "PRICE_POINTS"],
+            "title": "QuoteInputConventionV1",
+        }
+    ),
+]
+QuoteDisplayConventionInput = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": ["DECIMAL", "PERCENT", "PRICE_POINTS"],
+            "title": "QuoteDisplayConventionV1",
+        }
+    ),
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +76,16 @@ CURVE_LAB_V1_SUCCESS_REGISTRY: tuple[CurveLabSuccessRegistryEntry, ...] = (
 CURVE_LAB_V1_SUCCESS_FAMILIES: tuple[CurveLabV1SuccessFamily, ...] = tuple(
     row.instrument_type for row in CURVE_LAB_V1_SUCCESS_REGISTRY
 )
+CurveLabSuccessFamilyInput = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": list(CURVE_LAB_V1_SUCCESS_FAMILIES),
+            "title": "CurveLabV1SuccessFamily",
+        }
+    ),
+]
 
 
 class CurveLabWireModel(BaseModel):
@@ -67,27 +97,9 @@ class CurveLabWireModel(BaseModel):
 
 
 class CurveLabQuoteCanonicalizationRequest(CurveLabWireModel):
-    instrument_type: Annotated[
-        str,
-        WithJsonSchema(
-            {
-                "type": "string",
-                "enum": list(CURVE_LAB_V1_SUCCESS_FAMILIES),
-                "title": "CurveLabV1SuccessFamily",
-            }
-        ),
-    ]
+    instrument_type: CurveLabSuccessFamilyInput
     input_lexeme: str
-    input_convention: Annotated[
-        str,
-        WithJsonSchema(
-            {
-                "type": "string",
-                "enum": ["DECIMAL", "PERCENT", "PRICE_POINTS"],
-                "title": "QuoteInputConventionV1",
-            }
-        ),
-    ]
+    input_convention: QuoteInputConventionInput
 
     @model_validator(mode="before")
     @classmethod
@@ -129,6 +141,19 @@ class CurveLabQuoteCanonicalizationResponse(CurveLabWireModel):
             ensure_ascii=True,
             separators=(",", ":"),
         ).encode("ascii")
+
+
+class CurveLabQuoteRenderingRequest(CurveLabWireModel):
+    instrument_type: CurveLabSuccessFamilyInput
+    canonical_raw_quote: CanonicalQuoteDecimalV1
+    display_convention: QuoteDisplayConventionInput
+    display_scale: Annotated[int, Field(strict=True)]
+
+
+class CurveLabQuoteRenderingResponse(CurveLabWireModel):
+    model_config = ConfigDict(extra="forbid", validate_default=True, frozen=True)
+
+    rendered_quote: str
 
 
 class CurveLabCapabilitiesResponse(CurveLabWireModel):

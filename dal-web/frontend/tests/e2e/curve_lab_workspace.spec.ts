@@ -1,4 +1,4 @@
-import { expect, test, type Download } from "@playwright/test";
+import { expect, test, type Download, type Route } from "@playwright/test";
 
 test("canonical authoring drives identical persisted and replayed financial identity", async ({
   page,
@@ -129,12 +129,26 @@ test("canonical authoring drives identical persisted and replayed financial iden
   };
 
   await canonicalize("PERCENT", "4");
+  const decimalRender = page.waitForResponse(
+    (response) => response.url().endsWith("/api/curve-lab/quote-renderings")
+      && response.request().method() === "POST",
+  );
+  await page.getByLabel("Display scale").fill("6");
+  expect((await decimalRender).status()).toBe(200);
+  const percentRender = page.waitForResponse(
+    (response) => response.url().endsWith("/api/curve-lab/quote-renderings")
+      && response.request().method() === "POST",
+  );
+  await page.getByLabel("Display convention").selectOption("PERCENT");
+  const rendered = await percentRender;
+  expect(rendered.status()).toBe(200);
+  expect(await rendered.json()).toEqual({ rendered_quote: "4.000000" });
+  await expect(page.getByText("4.000000", { exact: true })).toBeVisible();
   const percentDraft = await createDraft();
   const percentEvidence = await buildPublishAndRisk();
 
   await page.getByRole("tab", { name: "Build" }).click();
-  await page.getByLabel("Display convention").selectOption("PERCENT");
-  await page.getByLabel("Display scale").fill("6");
+  await page.getByLabel("Display scale").fill("5");
   const unchangedBuildResponse = await page.request.get(
     `/api/curve-lab/build-runs/${percentEvidence.build.id}`,
   );
@@ -162,6 +176,63 @@ test("canonical authoring drives identical persisted and replayed financial iden
     orientation: percentEvidence.keyRateMatrix.orientation,
     values: percentEvidence.keyRateMatrix.values,
   });
+});
+
+test("latest same-target canonicalization wins when browser responses finish out of order", async ({
+  page,
+}) => {
+  test.skip(
+    process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
+    "requires the guarded canned DAL FastAPI backend",
+  );
+
+  const pending: Route[] = [];
+  await page.route("**/api/curve-lab/quote-canonicalizations", async (route) => {
+    pending.push(route);
+  });
+  await page.goto("/curves");
+  await page.getByLabel("Canonical quote target 1").check();
+  await page.getByLabel("Input convention").selectOption("PERCENT");
+  await page.getByLabel("Quote lexeme").fill("4");
+  await page.getByRole("button", { name: "Canonicalize quote" }).click();
+  await page.getByLabel("Quote lexeme").fill("5");
+  await page.getByRole("button", { name: "Canonicalize quote" }).click();
+  await expect.poll(() => pending.length).toBe(2);
+
+  const response = (rawQuote: string) => ({
+    instrument_type: "DEPOSIT",
+    quote_coordinate_kind: "RATE",
+    canonical_raw_unit: "DECIMAL",
+    raw_quote: rawQuote,
+    normalized_quote: rawQuote,
+    normalized_unit: "DECIMAL_RATE",
+    exact_risk_raw_bump: "0.0001",
+    normalized_risk_bump: "0.0001",
+  });
+  await pending[1]?.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(response("0.05")),
+  });
+  await expect(page.getByLabel("Quote 1")).toHaveValue("0.05");
+  await pending[0]?.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(response("0.04")),
+  });
+  await expect(page.getByLabel("Quote 1")).toHaveValue("0.05");
+
+  const draftResponse = page.waitForResponse(
+    (candidate) => candidate.url().endsWith("/api/curve-lab/drafts")
+      && candidate.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Create draft" }).click();
+  const created = await draftResponse;
+  expect(created.status()).toBe(201);
+  const draft = await created.json() as {
+    document: { instruments: { raw_quote: string }[] };
+  };
+  expect(draft.document.instruments[0].raw_quote).toBe("0.05");
 });
 
 test("creates a legal draft for every family through the visual control", async ({

@@ -322,7 +322,7 @@ The `/api/curve-lab` surface is additive to the calibration endpoints above:
 
 | Resource            | Operations                                                                                   |
 |---------------------|----------------------------------------------------------------------------------------------|
-| Capabilities/quotes | Read the closed V2 contract and canonicalize family-specific quote lexemes                    |
+| Capabilities/quotes | Read the closed V2 contract, canonicalize quote lexemes, and render exact presentation strings |
 | Drafts/build runs   | Create or compare-and-swap a draft, snapshot a build, and poll its immutable lifecycle       |
 | Versions/imports    | Publish, clone, archive, export native JSON/manifest, and preflight/reconstruct imports       |
 | Fixings/risk        | Persist immutable snapshots; run typed PV/DV01/KRD; fetch provenance-rich sensitivity matrices |
@@ -333,8 +333,12 @@ workspace applies that value only to the explicitly selected instrument. Input
 and display conventions and display scale remain presentation state, outside
 the persisted draft and its fingerprint, so `4/PERCENT` and `0.04/DECIMAL` for
 the same instrument produce the same financial identity, quote/risk axes, and
-replay. A target, family, or draft edit made while the request is in flight
-invalidates the delayed response.
+replay. `POST /api/curve-lab/quote-renderings` reuses the backend exact-decimal
+formatter and returns the rounded display string; for example, canonical
+`0.04` with `PERCENT` and scale `6` displays as `4.000000`. A target, family,
+draft, or authoring-input edit invalidates an in-flight response, and a
+monotonic request generation ensures only the latest same-target submission
+may update quote or status.
 
 Build, import, and risk submissions return `202 Accepted` with a persisted
 record ID; poll the corresponding run/job endpoint constructed from that ID.

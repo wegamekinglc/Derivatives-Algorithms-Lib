@@ -140,6 +140,17 @@ export interface CurveLabCanonicalQuote {
   normalized_risk_bump: string;
 }
 
+export interface CurveLabQuoteRenderingRequest {
+  instrument_type: CurveLabSuccessFamily;
+  canonical_raw_quote: string;
+  display_convention: QuoteDisplayConvention;
+  display_scale: number;
+}
+
+export interface CurveLabRenderedQuote {
+  rendered_quote: string;
+}
+
 export interface CurveLabDraft {
   id: string;
   schema_version: 2;
@@ -474,6 +485,11 @@ export const api = {
   getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
   canonicalizeCurveLabQuote: (body: CurveLabQuoteAuthoringRequest) =>
     request<CurveLabCanonicalQuote>("/curve-lab/quote-canonicalizations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  renderCurveLabQuote: (body: CurveLabQuoteRenderingRequest) =>
+    request<CurveLabRenderedQuote>("/curve-lab/quote-renderings", {
       method: "POST",
       body: JSON.stringify(body),
     }),

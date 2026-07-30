@@ -43,6 +43,13 @@ Content-Type: application/json
 }
 ```
 
+Exact display projection is also stateless. The client sends only canonical
+financial bytes plus its local convention and scale to
+`POST /api/curve-lab/quote-renderings`. The server returns one exact string
+using decimal round-half-to-even; for example, canonical `0.04` rendered as
+`PERCENT` at scale `6` is `4.000000`. The rendered string and both display
+preferences remain outside the draft and fingerprint.
+
 For the same selected instrument, authoring `4` as `PERCENT` and `0.04` as
 `DECIMAL` therefore persists the same `raw_quote`. The two forms have the same
 financial document and fingerprint, build and risk quote axes, and replay
@@ -106,9 +113,10 @@ successful response atomically replaces only that instrument's `raw_quote`.
 The input lexeme and convention, along with the display convention and scale,
 are presentation state: they are not stored in the draft or included in its
 fingerprint, and changing display preferences does not make a build stale. If
-the target, its family, or its draft data changes while canonicalization is in
-flight, the browser rejects the delayed response instead of applying it to the
-new workspace state.
+the target, its family, its draft data, or the authoring input changes while
+canonicalization is in flight, the browser ignores the delayed response. Each
+submission also has a monotonic generation, so only the latest request for the
+same target may update its quote or authoring status.
 
 For build, import, and risk work, the browser retains and displays the admitted
 record and ID before polling begins. Polling has no fixed client-side total
@@ -125,7 +133,7 @@ All Curve Lab endpoints are under `/api/curve-lab`:
 
 | Resource                       | Endpoints                                                                                  |
 |--------------------------------|--------------------------------------------------------------------------------------------|
-| Capabilities and quotes        | `GET /capabilities`, `POST /quote-canonicalizations`                                       |
+| Capabilities and quotes        | `GET /capabilities`, `POST /quote-canonicalizations`, `POST /quote-renderings`             |
 | Drafts                         | `POST /drafts`, `GET /drafts/{id}`, `PUT /drafts/{id}`                                     |
 | Build runs                     | `POST /drafts/{id}/build-runs`, `GET /build-runs/{id}`                                     |
 | Versions                       | `POST /versions`, `GET /versions`, `GET /versions/{id}`, `POST /versions/{id}/archive`     |

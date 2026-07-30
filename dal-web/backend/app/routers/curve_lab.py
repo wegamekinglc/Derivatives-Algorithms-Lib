@@ -22,6 +22,8 @@ from app.schemas.curve_lab import (
     CurveLabErrorResponse,
     CurveLabQuoteCanonicalizationRequest,
     CurveLabQuoteCanonicalizationResponse,
+    CurveLabQuoteRenderingRequest,
+    CurveLabQuoteRenderingResponse,
     CurveLabRegistryEntryDTO,
     CurveRuntimeManifestV1,
     CurveVersionCreateRequest,
@@ -59,6 +61,7 @@ from app.services.curve_risk import (
 from app.services.quote_canonicalization import (
     QuoteCanonicalizationError,
     canonicalize_quote,
+    render_quote,
 )
 
 router = APIRouter(prefix="/api/curve-lab", tags=["curve-lab"])
@@ -123,6 +126,27 @@ async def canonicalize_authoring_quote(
             request.instrument_type,
             request.input_lexeme,
             request.input_convention,
+        )
+    except QuoteCanonicalizationError as exc:
+        raise HTTPException(status_code=422, detail=exc.as_detail()) from exc
+
+
+@router.post(
+    "/quote-renderings",
+    response_model=CurveLabQuoteRenderingResponse,
+    responses={422: {"model": CurveLabErrorResponse}},
+)
+async def render_authoring_quote(
+    request: CurveLabQuoteRenderingRequest,
+) -> CurveLabQuoteRenderingResponse:
+    try:
+        return CurveLabQuoteRenderingResponse(
+            rendered_quote=render_quote(
+                request.instrument_type,
+                request.canonical_raw_quote,
+                request.display_convention,
+                request.display_scale,
+            )
         )
     except QuoteCanonicalizationError as exc:
         raise HTTPException(status_code=422, detail=exc.as_detail()) from exc

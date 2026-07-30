@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   api,
   ApiClientError,
   type CurveLabCanonicalQuote,
   type CurveLabQuoteAuthoringRequest,
+  type CurveLabQuoteRenderingRequest,
+  type CurveLabRenderedQuote,
   type CurveLabSuccessFamily,
   type QuoteDisplayConvention,
   type QuoteInputConvention,
@@ -18,9 +20,14 @@ type CanonicalizeQuote = (
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
   ...args: [CurveLabQuoteAuthoringRequest]
 ) => Promise<CurveLabCanonicalQuote>;
+type RenderQuote = (
+  // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
+  ...args: [CurveLabQuoteRenderingRequest]
+) => Promise<CurveLabRenderedQuote>;
 
 interface CurveLabQuoteAuthoringProps {
   canonicalize?: CanonicalizeQuote;
+  renderQuote?: RenderQuote;
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
   onCanonicalQuote?: (...args: [CurveLabCanonicalQuote, number?]) => boolean | undefined;
   targetInstrumentFamily?: CurveLabSuccessFamily | null;
@@ -43,6 +50,7 @@ function errorMessage(reason: unknown): string {
 
 export default function CurveLabQuoteAuthoring({
   canonicalize = api.canonicalizeCurveLabQuote,
+  renderQuote = api.renderCurveLabQuote,
   onCanonicalQuote,
   targetInstrumentFamily,
   targetToken,
@@ -55,7 +63,11 @@ export default function CurveLabQuoteAuthoring({
   const [lexeme, setLexeme] = useState("0.04");
   const [canonical, setCanonical] = useState<CurveLabCanonicalQuote | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renderedQuote, setRenderedQuote] = useState<string | null>(null);
+  const [renderingError, setRenderingError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const canonicalRequestGenerationRef = useRef(0);
+  const renderRequestGenerationRef = useRef(0);
   const activeFamily = targetInstrumentFamily ?? family;
   const projection = curveLabFamily(activeFamily);
   const activeInputConvention = projection.inputConventions.some(
@@ -68,9 +80,19 @@ export default function CurveLabQuoteAuthoring({
   )
     ? displayConvention
     : projection.inputConventions[0];
+  const canonicalRequestContextRef = useRef({
+    family: activeFamily,
+    targetToken,
+  });
+  canonicalRequestContextRef.current = {
+    family: activeFamily,
+    targetToken,
+  };
 
   useEffect(() => {
     if (targetInstrumentFamily === undefined) return;
+    canonicalRequestGenerationRef.current += 1;
+    setSubmitting(false);
     setCanonical(null);
     setError(null);
     if (targetInstrumentFamily === null || targetInstrumentFamily === family) return;
@@ -80,29 +102,68 @@ export default function CurveLabQuoteAuthoring({
     setDisplayConvention(targetProjection.inputConventions[0]);
   }, [family, targetInstrumentFamily, targetToken]);
 
+  useEffect(() => {
+    const generation = renderRequestGenerationRef.current + 1;
+    renderRequestGenerationRef.current = generation;
+    setRenderedQuote(null);
+    setRenderingError(null);
+    if (canonical === null) return;
+    void renderQuote({
+      instrument_type: canonical.instrument_type,
+      canonical_raw_quote: canonical.raw_quote,
+      display_convention: activeDisplayConvention,
+      display_scale: Number(displayScale),
+    }).then((result) => {
+      if (generation === renderRequestGenerationRef.current) {
+        setRenderedQuote(result.rendered_quote);
+      }
+    }).catch((reason: unknown) => {
+      if (generation === renderRequestGenerationRef.current) {
+        setRenderingError(errorMessage(reason));
+      }
+    });
+    return () => {
+      if (generation === renderRequestGenerationRef.current) {
+        renderRequestGenerationRef.current += 1;
+      }
+    };
+  }, [
+    activeDisplayConvention,
+    canonical,
+    displayScale,
+    renderQuote,
+  ]);
+
   const submit = async () => {
+    const generation = canonicalRequestGenerationRef.current + 1;
+    canonicalRequestGenerationRef.current = generation;
+    const requestFamily = activeFamily;
+    const requestTargetToken = targetToken;
+    const requestIsCurrent = () => (
+      generation === canonicalRequestGenerationRef.current
+      && requestFamily === canonicalRequestContextRef.current.family
+      && requestTargetToken === canonicalRequestContextRef.current.targetToken
+    );
     setSubmitting(true);
     setError(null);
     try {
       const result = await canonicalize({
-        instrument_type: activeFamily,
+        instrument_type: requestFamily,
         input_lexeme: lexeme,
         input_convention: activeInputConvention,
       });
-      const applied = targetToken === undefined
+      if (!requestIsCurrent()) return;
+      const applied = requestTargetToken === undefined
         ? onCanonicalQuote?.(result)
-        : onCanonicalQuote?.(result, targetToken);
-      if (applied === false) {
-        throw new Error(
-          "Canonical quote target changed; select the matching workspace instrument and retry.",
-        );
-      }
+        : onCanonicalQuote?.(result, requestTargetToken);
+      if (applied === false) return;
       setCanonical(result);
     } catch (reason) {
+      if (!requestIsCurrent()) return;
       setCanonical(null);
       setError(errorMessage(reason));
     } finally {
-      setSubmitting(false);
+      if (requestIsCurrent()) setSubmitting(false);
     }
   };
 
@@ -123,6 +184,8 @@ export default function CurveLabQuoteAuthoring({
             value={activeFamily}
             disabled={targetInstrumentFamily !== undefined}
             onChange={(event) => {
+              canonicalRequestGenerationRef.current += 1;
+              setSubmitting(false);
               const next = event.target.value as CurveLabSuccessFamily;
               const nextProjection = curveLabFamily(next);
               setFamily(next);
@@ -145,8 +208,11 @@ export default function CurveLabQuoteAuthoring({
           <select
             value={activeInputConvention}
             onChange={(event) => {
+              canonicalRequestGenerationRef.current += 1;
+              setSubmitting(false);
               setConvention(event.target.value as QuoteInputConvention);
               setCanonical(null);
+              setError(null);
             }}
           >
             {projection.inputConventions.map((item) => (
@@ -162,6 +228,8 @@ export default function CurveLabQuoteAuthoring({
             inputMode="decimal"
             spellCheck={false}
             onChange={(event) => {
+              canonicalRequestGenerationRef.current += 1;
+              setSubmitting(false);
               setLexeme(event.target.value);
               setCanonical(null);
               setError(null);
@@ -206,7 +274,8 @@ export default function CurveLabQuoteAuthoring({
 
         <button
           type="button"
-          disabled={submitting || targetInstrumentFamily === null}
+          aria-label="Canonicalize quote"
+          disabled={targetInstrumentFamily === null}
           onClick={() => void submit()}
         >
           {submitting ? "Canonicalizing…" : "Canonicalize quote"}
@@ -220,6 +289,7 @@ export default function CurveLabQuoteAuthoring({
       </p>
 
       {error && <div {...css("error")}>{error}</div>}
+      {renderingError && <div {...css("error")}>{renderingError}</div>}
       {canonical && (
         <output {...css("curve-lab-canonical-output")} aria-live="polite">
           <div>
@@ -239,6 +309,11 @@ export default function CurveLabQuoteAuthoring({
               {signedBump(canonical.normalized_risk_bump)} normalized
             </strong>
             <small>{canonical.quote_coordinate_kind}</small>
+          </div>
+          <div>
+            <span>Rendered quote</span>
+            <strong>{renderedQuote ?? "Rendering…"}</strong>
+            <small>exact server projection</small>
           </div>
           <div>
             <span>Presentation preference</span>

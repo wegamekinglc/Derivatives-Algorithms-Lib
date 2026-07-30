@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import CurveLabQuoteAuthoring from "../../src/components/CurveLabQuoteAuthoring";
 import {
@@ -33,10 +33,12 @@ describe("Curve Lab quote authoring", () => {
       normalized_risk_bump: "0.0001",
     };
     const normalize = vi.fn().mockResolvedValue(canonical);
+    const renderQuote = vi.fn().mockResolvedValue({ rendered_quote: "0.0400" });
     const onCanonicalQuote = vi.fn();
     render(
       <CurveLabQuoteAuthoring
         canonicalize={normalize}
+        renderQuote={renderQuote}
         onCanonicalQuote={onCanonicalQuote}
       />,
     );
@@ -74,7 +76,13 @@ describe("Curve Lab quote authoring", () => {
       exact_risk_raw_bump: "-0.01",
       normalized_risk_bump: "0.0001",
     });
-    render(<CurveLabQuoteAuthoring canonicalize={normalize} />);
+    const renderQuote = vi.fn().mockResolvedValue({ rendered_quote: "95.8225" });
+    render(
+      <CurveLabQuoteAuthoring
+        canonicalize={normalize}
+        renderQuote={renderQuote}
+      />,
+    );
 
     fireEvent.change(screen.getByLabelText("Instrument family"), {
       target: { value: "FUTURE" },
@@ -91,7 +99,7 @@ describe("Curve Lab quote authoring", () => {
     expect(
       (screen.getByLabelText("Input convention") as HTMLSelectElement).value,
     ).toBe("PRICE_POINTS");
-    expect(screen.getByText("95.8225")).not.toBeNull();
+    expect(screen.getAllByText("95.8225")).toHaveLength(2);
     expect(screen.getByText("0.041775 normalized")).not.toBeNull();
   });
 
@@ -107,10 +115,17 @@ describe("Curve Lab quote authoring", () => {
       normalized_risk_bump: "0.0001",
     };
     const normalize = vi.fn().mockResolvedValue(canonical);
+    const renderQuote = vi.fn().mockImplementation(async (request) => ({
+      rendered_quote: request.display_convention === "PERCENT"
+        && request.display_scale === 6
+        ? "4.000000"
+        : "0.0400",
+    }));
     const onCanonicalQuote = vi.fn();
     render(
       <CurveLabQuoteAuthoring
         canonicalize={normalize}
+        renderQuote={renderQuote}
         onCanonicalQuote={onCanonicalQuote}
       />,
     );
@@ -127,6 +142,61 @@ describe("Curve Lab quote authoring", () => {
 
     expect(normalize).toHaveBeenCalledTimes(1);
     expect(onCanonicalQuote).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("0.04")).not.toBeNull();
+    await waitFor(() => expect(renderQuote).toHaveBeenLastCalledWith({
+      instrument_type: "DEPOSIT",
+      canonical_raw_quote: "0.04",
+      display_convention: "PERCENT",
+      display_scale: 6,
+    }));
+    expect(screen.getByText("4.000000")).not.toBeNull();
+  });
+
+  it("keeps the latest exact display when rendering responses finish out of order", async () => {
+    const canonical = {
+      instrument_type: "DEPOSIT" as const,
+      quote_coordinate_kind: "RATE" as const,
+      canonical_raw_unit: "DECIMAL" as const,
+      raw_quote: "0.04",
+      normalized_quote: "0.04",
+      normalized_unit: "DECIMAL_RATE" as const,
+      exact_risk_raw_bump: "0.0001",
+      normalized_risk_bump: "0.0001",
+    };
+    const pending: ((value: { rendered_quote: string }) => void)[] = [];
+    const renderQuote = vi.fn().mockImplementation(
+      () => new Promise<{ rendered_quote: string }>((resolve) => {
+        pending.push(resolve);
+      }),
+    );
+    render(
+      <CurveLabQuoteAuthoring
+        canonicalize={vi.fn().mockResolvedValue(canonical)}
+        renderQuote={renderQuote}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Canonicalize quote" }));
+    await waitFor(() => expect(pending).toHaveLength(1));
+    fireEvent.change(screen.getByLabelText("Display convention"), {
+      target: { value: "PERCENT" },
+    });
+    fireEvent.change(screen.getByLabelText("Display scale"), {
+      target: { value: "6" },
+    });
+    await waitFor(() => expect(pending).toHaveLength(3));
+
+    await act(async () => {
+      pending[2]?.({ rendered_quote: "4.000000" });
+      await Promise.resolve();
+    });
+    await screen.findByText("4.000000");
+    await act(async () => {
+      pending[0]?.({ rendered_quote: "0.0400" });
+      pending[1]?.({ rendered_quote: "4.0000" });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("4.000000")).not.toBeNull();
+    expect(screen.queryByText("4.0000")).toBeNull();
   });
 });

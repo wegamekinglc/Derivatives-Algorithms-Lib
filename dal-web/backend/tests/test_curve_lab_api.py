@@ -106,6 +106,126 @@ def test_future_authoring_retains_price_and_derives_normalized_rate(client) -> N
 
 
 @pytest.mark.parametrize(
+    ("family", "raw_quote", "convention", "scale", "expected"),
+    [
+        ("IRS", "0.04", "PERCENT", 0, "4"),
+        ("IRS", "0.04", "PERCENT", 1, "4.0"),
+        ("IRS", "0.04", "PERCENT", 6, "4.000000"),
+        ("IRS", "0.04", "PERCENT", 12, "4.000000000000"),
+        ("IRS", "0.0405", "PERCENT", 1, "4.0"),
+        ("IRS", "0.0415", "PERCENT", 1, "4.2"),
+        ("IRS", "-0.0405", "PERCENT", 1, "-4.0"),
+        ("IRS", "-0.0415", "PERCENT", 1, "-4.2"),
+        ("IRS", "0", "DECIMAL", 12, "0.000000000000"),
+        ("FUTURE", "95.8225", "PRICE_POINTS", 12, "95.822500000000"),
+    ],
+)
+def test_quote_rendering_endpoint_returns_exact_presentation_strings(
+    client,
+    family: str,
+    raw_quote: str,
+    convention: str,
+    scale: int,
+    expected: str,
+) -> None:
+    response = client.post(
+        "/api/curve-lab/quote-renderings",
+        json={
+            "instrument_type": family,
+            "canonical_raw_quote": raw_quote,
+            "display_convention": convention,
+            "display_scale": scale,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"rendered_quote": expected}
+    assert isinstance(response.json()["rendered_quote"], str)
+
+
+@pytest.mark.parametrize(
+    ("payload", "code", "field"),
+    [
+        (
+            {
+                "instrument_type": "FUTURE",
+                "canonical_raw_quote": "95.8225",
+                "display_convention": "PERCENT",
+                "display_scale": 4,
+            },
+            "QUOTE_DISPLAY_CONVENTION_MISMATCH",
+            "display_convention",
+        ),
+        (
+            {
+                "instrument_type": "IRS",
+                "canonical_raw_quote": "0.04",
+                "display_convention": "PERCENT",
+                "display_scale": 13,
+            },
+            "QUOTE_DISPLAY_SCALE_INVALID",
+            "display_scale",
+        ),
+        (
+            {
+                "instrument_type": "IRS",
+                "canonical_raw_quote": "0.0400",
+                "display_convention": "PERCENT",
+                "display_scale": 4,
+            },
+            "QUOTE_PERSISTED_BYTES_NOT_CANONICAL",
+            "raw_quote",
+        ),
+    ],
+)
+def test_quote_rendering_errors_use_the_curve_lab_envelope(
+    client,
+    payload: dict[str, object],
+    code: str,
+    field: str,
+) -> None:
+    response = client.post("/api/curve-lab/quote-renderings", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == code
+    assert response.json()["detail"]["field"] == field
+
+
+def test_quote_renderer_has_no_store_gateway_queue_or_audit_dependency() -> None:
+    from app.routers import curve_lab
+
+    source_names = set(curve_lab.render_authoring_quote.__code__.co_names)
+    assert source_names.isdisjoint(
+        {"get_store", "get_gateway", "create_task", "add", "commit", "audit"}
+    )
+
+
+def test_quote_rendering_normalizes_signed_zero_at_the_authoring_boundary(client) -> None:
+    canonical = client.post(
+        "/api/curve-lab/quote-canonicalizations",
+        json={
+            "instrument_type": "IRS",
+            "input_lexeme": "-0",
+            "input_convention": "DECIMAL",
+        },
+    )
+    assert canonical.status_code == 200
+    assert canonical.json()["raw_quote"] == "0"
+
+    rendered = client.post(
+        "/api/curve-lab/quote-renderings",
+        json={
+            "instrument_type": "IRS",
+            "canonical_raw_quote": canonical.json()["raw_quote"],
+            "display_convention": "PERCENT",
+            "display_scale": 12,
+        },
+    )
+    assert rendered.status_code == 200
+    assert rendered.json() == {"rendered_quote": "0.000000000000"}
+
+
+@pytest.mark.parametrize(
     "field",
     [
         "quote_coordinate_kind",
@@ -198,11 +318,20 @@ def test_openapi_quote_contract_is_closed_and_string_valued(client) -> None:
     schemas = document["components"]["schemas"]
     request = schemas["CurveLabQuoteCanonicalizationRequest"]
     response = schemas["CurveLabQuoteCanonicalizationResponse"]
+    rendering_request = schemas["CurveLabQuoteRenderingRequest"]
+    rendering_response = schemas["CurveLabQuoteRenderingResponse"]
 
     assert request["additionalProperties"] is False
     assert response["additionalProperties"] is False
+    assert rendering_request["additionalProperties"] is False
+    assert rendering_response["additionalProperties"] is False
     assert response["properties"]["raw_quote"]["type"] == "string"
     assert response["properties"]["normalized_quote"]["type"] == "string"
+    assert rendering_request["properties"]["canonical_raw_quote"]["type"] == "string"
+    assert rendering_response["properties"]["rendered_quote"]["type"] == "string"
+    assert (
+        "/api/curve-lab/quote-renderings" in document["paths"]
+    )
     family_schema = request["properties"]["instrument_type"]
     if "$ref" in family_schema:
         family_schema = schemas[family_schema["$ref"].rsplit("/", 1)[-1]]

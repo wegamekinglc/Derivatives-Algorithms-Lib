@@ -96,6 +96,27 @@ describe("api client", () => {
     expect(typeof JSON.parse(String(init.body)).input_lexeme).toBe("string");
   });
 
+  it("requests exact quote rendering with presentation-only string input", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ rendered_quote: "4.000000" }));
+
+    await expect(api.renderCurveLabQuote({
+      instrument_type: "IRS",
+      canonical_raw_quote: "0.04",
+      display_convention: "PERCENT",
+      display_scale: 6,
+    })).resolves.toEqual({ rendered_quote: "4.000000" });
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(String(url)).toBe(`${ORIGIN}/api/curve-lab/quote-renderings`);
+    expect(JSON.parse(String(init.body))).toEqual({
+      instrument_type: "IRS",
+      canonical_raw_quote: "0.04",
+      display_convention: "PERCENT",
+      display_scale: 6,
+    });
+    expect(typeof JSON.parse(String(init.body)).canonical_raw_quote).toBe("string");
+  });
+
   it("resolves 204 No Content to undefined", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
