@@ -56,10 +56,12 @@ here as the baseline rather than dated releases:
   `docs/curve-lab.md`.
 
 - `web`: Added the Curve Lab DAL-WEB workflow for visual seven-family
-  authoring, immutable asynchronous build/import/risk runs, native
-  `Storable_` JSON and `Bag_` version persistence, dependency/fixing
-  provenance, exact quote axes, PV/DV01/KRD results, and replayable
-  sensitivity matrices. See `docs/curve-lab.md` and `dal-web/README.md`.
+  authoring with latest-request-wins canonical quote application and
+  server-authoritative Decimal/round-half-even display rendering, immutable
+  asynchronous build/import/risk runs, native `Storable_` JSON and `Bag_`
+  version persistence, dependency/fixing provenance, exact quote axes,
+  PV/DV01/KRD results, and replayable sensitivity matrices. See
+  `docs/curve-lab.md` and `dal-web/README.md`.
 
 - `matrix`: Added exact scaled-`alpha` candidate combination for `Sparse::CGSolve`
   and `Sparse::BCGSolve`. When the standalone binary64 coefficient is unsafe, the

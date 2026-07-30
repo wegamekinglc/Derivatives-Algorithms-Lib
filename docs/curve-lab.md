@@ -43,12 +43,44 @@ Content-Type: application/json
 }
 ```
 
-Exact display projection is also stateless. The client sends only canonical
-financial bytes plus its local convention and scale to
-`POST /api/curve-lab/quote-renderings`. The server returns one exact string
-using decimal round-half-to-even; for example, canonical `0.04` rendered as
-`PERCENT` at scale `6` is `4.000000`. The rendered string and both display
-preferences remain outside the draft and fingerprint.
+Exact display projection is an additive, stateless endpoint. Its closed request
+contains only an instrument family, a canonical plain-decimal string, a
+family-compatible display convention, and an integer scale from 0 through 12:
+
+```http
+POST /api/curve-lab/quote-renderings
+Content-Type: application/json
+
+{
+  "instrument_type": "IRS",
+  "canonical_raw_quote": "0.04",
+  "display_convention": "PERCENT",
+  "display_scale": 6
+}
+```
+
+The closed response is string-valued:
+
+```json
+{
+  "rendered_quote": "4.000000"
+}
+```
+
+The backend converts and rounds with `Decimal` and round-half-to-even; clients
+do not parse the financial string through binary floating point. For canonical
+`0.04` displayed as `PERCENT`, scales `0`, `1`, and `12` produce `4`, `4.0`,
+and `4.000000000000`. At scale `1`, positive ties `0.0405` and `0.0415`
+produce `4.0` and `4.2`; the corresponding negative ties produce `-4.0` and
+`-4.2`. Canonical zero renders without a negative sign, and Future
+`95.8225 / PRICE_POINTS / 12` renders as `95.822500000000`.
+
+A family/convention mismatch, a scale outside `0..12`, or non-canonical stored
+bytes returns structured `422` details such as
+`QUOTE_DISPLAY_CONVENTION_MISMATCH`, `QUOTE_DISPLAY_SCALE_INVALID`, or
+`QUOTE_PERSISTED_BYTES_NOT_CANONICAL`. Closed-schema and type failures use
+`REQUEST_VALIDATION_FAILED`. The endpoint has no store, gateway, queue, draft,
+or audit dependency and does not change any existing durable schema.
 
 For the same selected instrument, authoring `4` as `PERCENT` and `0.04` as
 `DECIMAL` therefore persists the same `raw_quote`. The two forms have the same
@@ -110,13 +142,22 @@ quote canonicalization and draft validation.
 
 Quote authoring targets one explicitly selected workspace instrument. A
 successful response atomically replaces only that instrument's `raw_quote`.
-The input lexeme and convention, along with the display convention and scale,
-are presentation state: they are not stored in the draft or included in its
-fingerprint, and changing display preferences does not make a build stale. If
-the target, its family, its draft data, or the authoring input changes while
-canonicalization is in flight, the browser ignores the delayed response. Each
-submission also has a monotonic generation, so only the latest request for the
-same target may update its quote or authoring status.
+The input lexeme and convention are local authoring inputs; only the returned
+canonical quote crosses into the draft.
+
+Every canonicalization submission receives a monotonic generation, and a newer
+same-target request may start while an older one is still in flight. Only the
+latest generation with the same family, target token, and draft epoch may
+update the durable quote, canonical output, displayed error, or
+**Canonicalizing…** state. An older success, failure, or cancellation is
+ignored. Changing the target, its family, its draft data, or the authoring input
+also invalidates the pending response.
+
+Display rendering uses a separate latest-request-wins generation. Display
+convention, scale, rendered string, and rendering error are presentation-only
+state: none is passed to the workspace, stored in the draft, included in its
+fingerprint, build/risk axes, or replay identity, or used to mark an admitted
+build stale.
 
 For build, import, and risk work, the browser retains and displays the admitted
 record and ID before polling begins. Polling has no fixed client-side total

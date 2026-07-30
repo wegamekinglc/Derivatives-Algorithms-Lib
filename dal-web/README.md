@@ -330,15 +330,25 @@ The `/api/curve-lab` surface is additive to the calibration endpoints above:
 Quote canonicalization is stateless: the endpoint accepts the exact input
 lexeme as a string and returns a canonical `raw_quote`. The production
 workspace applies that value only to the explicitly selected instrument. Input
-and display conventions and display scale remain presentation state, outside
-the persisted draft and its fingerprint, so `4/PERCENT` and `0.04/DECIMAL` for
-the same instrument produce the same financial identity, quote/risk axes, and
-replay. `POST /api/curve-lab/quote-renderings` reuses the backend exact-decimal
-formatter and returns the rounded display string; for example, canonical
-`0.04` with `PERCENT` and scale `6` displays as `4.000000`. A target, family,
-draft, or authoring-input edit invalidates an in-flight response, and a
-monotonic request generation ensures only the latest same-target submission
-may update quote or status.
+convention and lexeme remain local authoring inputs, so `4/PERCENT` and
+`0.04/DECIMAL` for the same instrument produce the same financial identity,
+quote/risk axes, and replay. A monotonic request generation permits concurrent
+same-target submissions but allows only the latest matching request to update
+the quote, canonical output, error, or submitting state. Older success,
+failure, and cancellation responses are ignored; target, family, draft, or
+authoring-input edits invalidate the pending request.
+
+`POST /api/curve-lab/quote-renderings` has a closed, additive request containing
+`instrument_type`, canonical string `canonical_raw_quote`,
+`display_convention`, and integer `display_scale` from 0 through 12. It returns
+only string `rendered_quote`. The backend uses `Decimal` with round-half-to-even,
+so `0.04/PERCENT/6` renders as `4.000000`; tests also cover scales `0/1/12`,
+positive and negative ties, normalized negative zero, and Future price points.
+Family/convention mismatches, invalid scale, and non-canonical input use the
+structured Curve Lab `422` envelope. Rendering has an independent
+latest-request-wins generation. Its convention, scale, result, and error remain
+presentation-only: they do not mutate the draft or fingerprint, alter
+build/risk axes or replay identity, or mark a build stale.
 
 Build, import, and risk submissions return `202 Accepted` with a persisted
 record ID; poll the corresponding run/job endpoint constructed from that ID.
