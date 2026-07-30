@@ -22,9 +22,7 @@ type CanonicalizeQuote = (
 interface CurveLabQuoteAuthoringProps {
   canonicalize?: CanonicalizeQuote;
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
-  onCanonicalQuote?: (
-    ...args: [CurveLabCanonicalQuote, number?]
-  ) => boolean | undefined;
+  onCanonicalQuote?: (...args: [CurveLabCanonicalQuote, number?]) => boolean | undefined;
   targetInstrumentFamily?: CurveLabSuccessFamily | null;
   targetToken?: number;
 }
