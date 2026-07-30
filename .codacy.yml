@@ -7,10 +7,12 @@ engines:
   biome:
     exclude_paths:
       # DAL-WEB is React/Vite. Codacy's Biome profile applies the Qwik-only
-      # useQwikValidLexicalScope rule to ordinary React callbacks in these
-      # components, while ESLint and the TypeScript build still analyze them.
+      # useQwikValidLexicalScope rule to ordinary React and Playwright
+      # callbacks, while ESLint and the TypeScript build still analyze them.
       - 'dal-web/frontend/src/components/CurveLabQuoteAuthoring.tsx'
       - 'dal-web/frontend/src/components/CurveLabWorkspace.tsx'
+      - 'dal-web/frontend/src/pages/Curves.tsx'
+      - 'dal-web/frontend/tests/e2e/curve_lab_workspace.spec.ts'
   lizard:
     exclude_paths:
       # Lizard's TSX parser folds the React component and downstream JSX into

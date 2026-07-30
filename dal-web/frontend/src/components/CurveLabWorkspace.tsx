@@ -627,7 +627,7 @@ const CurveLabWorkspace = forwardRef<
   };
   const selectedInstrumentFamily = useMemo(() => {
     if (selectedInstrumentIndex === null) return null;
-    const value = visualInstruments[selectedInstrumentIndex]?.instrument_type;
+    const value = itemAt(visualInstruments, selectedInstrumentIndex)?.instrument_type;
     return CURVE_LAB_FAMILIES.includes(value as CurveLabSuccessFamily)
       ? value as CurveLabSuccessFamily
       : null;
@@ -658,7 +658,7 @@ const CurveLabWorkspace = forwardRef<
     ) {
       return false;
     }
-    const selected = visualInstruments[selectedInstrumentIndex];
+    const selected = itemAt(visualInstruments, selectedInstrumentIndex);
     if (!selected) return false;
     setDraftSource(JSON.stringify({
       ...visualDraft,
