@@ -43,14 +43,10 @@ def _single_payload(
             "curve_name": name,
             "parameterization": parameterization,
             "log_df_scheme": (
-                "MIXED"
-                if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"}
-                else None
+                "MIXED" if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"} else None
             ),
             "knot_dates": (
-                ["2026-01-02", *future]
-                if parameterization == "LOG_DISCOUNT"
-                else future
+                ["2026-01-02", *future] if parameterization == "LOG_DISCOUNT" else future
             ),
             "base_curve_id": base_curve_id,
             "initial_guess_per_node": [],
@@ -165,11 +161,7 @@ def _create_http_state(client) -> dict[str, dict[str, str]]:
     )
     run_ids["joint"] = str(joint["id"])
     for index, curve in enumerate(joint["curves"]):
-        key = (
-            "joint_basis"
-            if curve["role"] == "basis"
-            else f"joint_{index}_{curve['name']}"
-        )
+        key = "joint_basis" if curve["role"] == "basis" else f"joint_{index}_{curve['name']}"
         curve_ids[key] = str(curve["id"])
     return {"run_ids": run_ids, "curve_ids": curve_ids}
 
@@ -272,12 +264,10 @@ def _collect_http_state(
         "values": values,
         "actual_schemes": actual_schemes,
         "canonical_runs": {
-            name: canonical_json_bytes(payload).decode("utf-8")
-            for name, payload in runs.items()
+            name: canonical_json_bytes(payload).decode("utf-8") for name, payload in runs.items()
         },
         "canonical_plans": {
-            name: canonical_json_bytes(plan).decode("utf-8")
-            for name, plan in plans.items()
+            name: canonical_json_bytes(plan).decode("utf-8") for name, plan in plans.items()
         },
         "canonical_plan_hashes": hashes,
         "http_reads": {
@@ -307,11 +297,7 @@ def main() -> int:
     dal_gateway._gateway_box[0] = None
     store._store_box[0] = None
     with TestClient(create_app()) as client:
-        ids = (
-            _create_http_state(client)
-            if args.mode == "write"
-            else json.loads(str(args.ids_json))
-        )
+        ids = _create_http_state(client) if args.mode == "write" else json.loads(str(args.ids_json))
         result = _collect_http_state(client, ids)
     print(
         json.dumps(

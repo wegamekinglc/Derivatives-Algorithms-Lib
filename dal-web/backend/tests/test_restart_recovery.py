@@ -239,9 +239,7 @@ def test_running_calibration_phases_reconcile_without_changing_evidence(
     run_ids: list[str] = []
     with _fresh_app(monkeypatch, tmp_path):
         store = get_store()
-        for index, phase in enumerate(
-            ("queued", "solving", "serializing", "persisting"), start=1
-        ):
+        for index, phase in enumerate(("queued", "solving", "serializing", "persisting"), start=1):
             run = _calibration(str(index) * 32, status="running", phase=phase)
             store.add_calibration_admission(run, ())
             run_ids.append(run.id)

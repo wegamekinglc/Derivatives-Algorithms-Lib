@@ -124,9 +124,7 @@ _FAILED_EXPECTED_IDENTITY_EXAMPLE = {
                 "origins": [{"kind": "INPUT", "input_knot_index": 0}],
             }
         ],
-        "free_parameters": [
-            {"date": "2027-01-02", "component": "right_forward"}
-        ],
+        "free_parameters": [{"date": "2027-01-02", "component": "right_forward"}],
         "anchor_added": False,
         "counts": {
             "submitted_knots": 1,
@@ -136,9 +134,7 @@ _FAILED_EXPECTED_IDENTITY_EXAMPLE = {
             "free_parameters": 1,
         },
     },
-    "resolved_knot_plan_hash": (
-        "e79378f7c5d80b13e2087bb5db77418334b35fe7b8f9de409dab8305d74455a8"
-    ),
+    "resolved_knot_plan_hash": ("e79378f7c5d80b13e2087bb5db77418334b35fe7b8f9de409dab8305d74455a8"),
     "expected_execution_identity": {
         "identity_version": 1,
         "execution_policy": "INPUT",
@@ -147,9 +143,7 @@ _FAILED_EXPECTED_IDENTITY_EXAMPLE = {
         "log_df_scheme": None,
         "resolved_declared_dates": ["2027-01-02"],
         "storage_dates": ["2027-01-02"],
-        "free_parameters": [
-            {"date": "2027-01-02", "component": "right_forward"}
-        ],
+        "free_parameters": [{"date": "2027-01-02", "component": "right_forward"}],
         "counts": {
             "resolved_declared_nodes": 1,
             "storage_nodes": 1,
@@ -165,8 +159,7 @@ _FAILED_EXPECTED_IDENTITY_EXAMPLE = {
     "error": {
         "code": "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH",
         "message": (
-            "persisted expected single-knot execution identity failed canonical "
-            "hash verification"
+            "persisted expected single-knot execution identity failed canonical hash verification"
         ),
         "location": None,
         "context": {
@@ -186,18 +179,16 @@ _FAILED_EXPECTED_IDENTITY_EXAMPLE = {
 def patch_openapi_examples(document: dict[str, object]) -> None:
     """Restore contract-significant nulls stripped by OpenAPI encoding."""
     paths = document["paths"]
-    joint_examples = paths["/api/calibrations/xccy/joint"]["post"]["responses"][
-        "422"
-    ]["content"]["application/json"]["examples"]
-    joint_examples["joint_free_parameter_limit_exceeded"][
-        "value"
-    ] = _JOINT_CAPACITY_EXAMPLE
-    run_examples = paths["/api/calibrations/{calibration_id}"]["get"]["responses"][
-        "200"
-    ]["content"]["application/json"]["examples"]
-    run_examples["persisted_expected_execution_identity_hash_mismatch"][
-        "value"
-    ] = _FAILED_EXPECTED_IDENTITY_EXAMPLE
+    joint_examples = paths["/api/calibrations/xccy/joint"]["post"]["responses"]["422"]["content"][
+        "application/json"
+    ]["examples"]
+    joint_examples["joint_free_parameter_limit_exceeded"]["value"] = _JOINT_CAPACITY_EXAMPLE
+    run_examples = paths["/api/calibrations/{calibration_id}"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["examples"]
+    run_examples["persisted_expected_execution_identity_hash_mismatch"]["value"] = (
+        _FAILED_EXPECTED_IDENTITY_EXAMPLE
+    )
 
 
 def _sanitize(value: object, *, depth: int = 0) -> object:
@@ -250,9 +241,7 @@ class CalibrationAPIRoute(APIRoute):
                 return _error_response(exc.status_code, exc.error)
             except Exception:  # noqa: BLE001 - deliberately sanitized boundary
                 incident_id = uuid4().hex
-                logger.exception(
-                    "Unhandled calibration API error; incident_id=%s", incident_id
-                )
+                logger.exception("Unhandled calibration API error; incident_id=%s", incident_id)
                 return _error_response(
                     500,
                     ApiErrorDTO(

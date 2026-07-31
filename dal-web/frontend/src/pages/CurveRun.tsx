@@ -77,7 +77,7 @@ function CurveRunHeader({ run }: { run: CalibrationRun }) {
 function RunningPanel({ run }: { run: CalibrationRun }) {
   return (
     <section {...css("panel", "running-panel")}>
-      <span {...css("spinner")} />
+      <span {...css("spinner")} aria-hidden="true" />
       <div>
         <h2>Native solve in progress</h2>
         <p {...css("muted")}>Polling persisted phase: <code>{run.phase}</code></p>

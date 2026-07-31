@@ -829,15 +829,13 @@ button.mode-tab.active strong {
 }
 
 .spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  background: var(--amber);
+  animation: pulse 1.5s ease-in-out infinite;
+  flex: 0 0 auto;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .failed-panel {
   border-left: 3px solid var(--red);
@@ -1543,5 +1541,14 @@ pre.debug {
 
   .cards {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand::before,
+  .status-dot,
+  .spinner,
+  .status-running::before {
+    animation: none;
   }
 }

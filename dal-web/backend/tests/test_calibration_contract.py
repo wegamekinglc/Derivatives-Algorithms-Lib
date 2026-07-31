@@ -263,9 +263,7 @@ def test_single_analytic_issue_is_mapped_back_to_submitted_instrument():
     report = SimpleNamespace(eligible=False, issues=(issue,))
 
     with pytest.raises(CalibrationHttpError) as captured:
-        _check_single_analytic_eligibility(
-            request, report, ("Deposit", "Deposit")
-        )
+        _check_single_analytic_eligibility(request, report, ("Deposit", "Deposit"))
 
     assert captured.value.error.location == ["body", "instruments", 0, "trade_date"]
     assert captured.value.error.context["input_index"] == 0
@@ -530,9 +528,7 @@ def test_unknown_native_failure_exposes_only_a_sanitized_native_message():
 
     payload = store.fail_calibration.call_args.kwargs["error_payload"]
     assert payload["code"] == "NATIVE_CALIBRATION_FAILED"
-    assert payload["context"] == {
-        "native_message": "RuntimeError: native calibration failed"
-    }
+    assert payload["context"] == {"native_message": "RuntimeError: native calibration failed"}
 
 
 def test_gateway_translates_only_the_private_native_convergence_type(
@@ -552,9 +548,7 @@ def test_gateway_translates_only_the_private_native_convergence_type(
     def exhaust() -> None:
         raise NativeConvergenceError("native detail")
 
-    request = SimpleNamespace(
-        solver=SimpleNamespace(max_evaluations=7)
-    )
+    request = SimpleNamespace(solver=SimpleNamespace(max_evaluations=7))
     with pytest.raises(NativeSolverDidNotConvergeError) as captured:
         gateway._call_native_calibration(exhaust, request)
 
@@ -583,9 +577,7 @@ def test_worker_bounded_evidence_is_validated_against_request_context():
         log_df_scheme="LOG_LINEAR",
         resolved_declared_dates=(maturity,),
         storage_dates=(today, maturity),
-        free_parameters=(
-            {"date": maturity, "component": "zero_rate"},
-        ),
+        free_parameters=({"date": maturity, "component": "zero_rate"},),
         counts={
             "resolved_declared_nodes": 1,
             "storage_nodes": 2,
@@ -593,9 +585,7 @@ def test_worker_bounded_evidence_is_validated_against_request_context():
         },
     )
 
-    with pytest.raises(
-        ValueError, match="expected execution identity does not match"
-    ):
+    with pytest.raises(ValueError, match="expected execution identity does not match"):
         _validate_single_worker_admission_context(
             SimpleNamespace(request=request),
             plan,
@@ -627,18 +617,14 @@ def test_gateway_compares_terminal_identity_to_exact_verified_carrier(
         log_df_scheme=None,
         resolved_declared_dates=(maturity,),
         storage_dates=(maturity,),
-        free_parameters=(
-            {"date": maturity, "component": "right_forward"},
-        ),
+        free_parameters=({"date": maturity, "component": "right_forward"},),
         counts={
             "resolved_declared_nodes": 1,
             "storage_nodes": 1,
             "free_parameters": 1,
         },
     )
-    mismatched = expected.model_copy(
-        update={"execution_policy": "INSTRUMENTS"}
-    )
+    mismatched = expected.model_copy(update={"execution_policy": "INSTRUMENTS"})
     evidence = VerifiedSingleWorkerAdmissionEvidence(
         resolved_knot_plan=plan,
         resolved_knot_plan_hash="plan-hash",
@@ -646,9 +632,7 @@ def test_gateway_compares_terminal_identity_to_exact_verified_carrier(
         expected_execution_identity_hash="identity-hash",
     )
     gateway = DalGateway()
-    monkeypatch.setattr(
-        gateway, "_build_single_execution_spec", lambda _verified: None
-    )
+    monkeypatch.setattr(gateway, "_build_single_execution_spec", lambda _verified: None)
     monkeypatch.setattr(
         gateway,
         "_calibrate_single_verified",
@@ -658,9 +642,7 @@ def test_gateway_compares_terminal_identity_to_exact_verified_carrier(
         ),
     )
 
-    with pytest.raises(
-        NativeExecutionIdentityMismatchError
-    ) as captured:
+    with pytest.raises(NativeExecutionIdentityMismatchError) as captured:
         gateway.calibrate_single(
             SingleGatewayPreLockRequest(request, {}),
             lambda _acquired_at: None,
@@ -697,9 +679,7 @@ def test_gateway_holds_continuous_calibration_lock_through_evidence_and_solve(
         log_df_scheme=None,
         resolved_declared_dates=(maturity,),
         storage_dates=(maturity,),
-        free_parameters=(
-            {"date": maturity, "component": "right_forward"},
-        ),
+        free_parameters=({"date": maturity, "component": "right_forward"},),
         counts={
             "resolved_declared_nodes": 1,
             "storage_nodes": 1,
@@ -717,9 +697,7 @@ def test_gateway_holds_continuous_calibration_lock_through_evidence_and_solve(
     release_verify = threading.Event()
     events: list[str] = []
     failures: list[BaseException] = []
-    monkeypatch.setattr(
-        gateway, "_build_single_execution_spec", lambda _verified: None
-    )
+    monkeypatch.setattr(gateway, "_build_single_execution_spec", lambda _verified: None)
 
     def solve(*_args):
         events.append("solve")

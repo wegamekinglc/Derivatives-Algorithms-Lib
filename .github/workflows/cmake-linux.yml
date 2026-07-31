@@ -262,6 +262,7 @@ jobs:
           uv sync --locked --inexact
           uv run --no-sync pytest
           uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
 
       - name: Install and build frontend
         working-directory: dal-web/frontend
