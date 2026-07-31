@@ -19,8 +19,7 @@ def _xccy_pair(document: Mapping[str, Any]) -> tuple[str, str]:
         for item in document["instruments"]
         if item.get("included", True)
         and item["instrument_type"] == "XCCY"
-        and str(item.get("terms", {}).get("component_key", default_component))
-        in basis_keys
+        and str(item.get("terms", {}).get("component_key", default_component)) in basis_keys
     ]
     if not instruments:
         raise ValueError("XCCY component order requires an included basis instrument")
@@ -55,9 +54,7 @@ def resolved_declaration_order(
             return 0, index
         if currency == foreign:
             return 1, index
-        raise ValueError(
-            f"XCCY declaration currency {currency!r} is outside {domestic}-{foreign}"
-        )
+        raise ValueError(f"XCCY declaration currency {currency!r} is outside {domestic}-{foreign}")
 
     return [declaration for _, declaration in sorted(indexed, key=group)]
 

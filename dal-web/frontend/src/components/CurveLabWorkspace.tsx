@@ -19,6 +19,12 @@ import {
   type CurveLabSuccessFamily,
   type CurveLabVersion,
 } from "../api/client";
+import { CURVE_LAB_SUCCESS_FAMILIES } from "../curves/curveLabRegistry";
+import {
+  curveLabErrorMessage,
+  downloadCurveLabArtifacts,
+  omitCurveLabInstrumentId,
+} from "../curves/curveLabUtils";
 import { css } from "../format";
 
 type WorkspaceTab = "build" | "runs" | "risk" | "versions";
@@ -47,15 +53,6 @@ const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
 ];
 
 const COMPONENT_KEY = "clab/v1/local/discount/USD/OIS";
-const CURVE_LAB_FAMILIES: readonly CurveLabSuccessFamily[] = [
-  "DEPOSIT",
-  "FRA",
-  "FUTURE",
-  "OIS",
-  "IRS",
-  "BASIS_SWAP",
-  "XCCY",
-];
 
 const DEFAULT_DRAFT = {
   schema_version: 2,
@@ -291,10 +288,6 @@ function topologyForMode(mode: CurveLabBuildMode) {
   };
 }
 
-function message(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
-}
-
 function itemAt<T>(values: T[] | undefined, index: number): T | undefined {
   return values?.find((_, position) => position === index);
 }
@@ -361,12 +354,12 @@ function AxisTable({
         <div {...css("table-container")}>
           <table>
             <thead>
-              <tr><th>#</th><th>Label</th><th>Component</th><th>Coordinate</th></tr>
+              <tr><th {...css("num")}>#</th><th>Label</th><th>Component</th><th>Coordinate</th></tr>
             </thead>
             <tbody>
               {rows.map((row, index) => (
                 <tr key={row.quote_id ?? row.parameter_id ?? index}>
-                  <td {...css("mono")}>{row.global_quote_index ?? row.global_parameter_index}</td>
+                  <td {...css("mono", "num")}>{row.global_quote_index ?? row.global_parameter_index}</td>
                   <td>{row.display_label}</td>
                   <td {...css("mono")}>{row.component_key}</td>
                   <td {...css("mono")}>
@@ -496,6 +489,10 @@ const CurveLabWorkspace = forwardRef<
     canonicalTargetTokenRef.current += 1;
     setCanonicalTargetToken(canonicalTargetTokenRef.current);
   };
+  const selectCanonicalTarget = (index: number | null) => {
+    invalidateCanonicalTarget();
+    setSelectedInstrumentIndex(index);
+  };
   const replaceDraftSource = (next: string) => {
     invalidateCanonicalTarget();
     setDraftSource(next);
@@ -604,11 +601,9 @@ const CurveLabWorkspace = forwardRef<
     const template = visualInstruments.slice(-1).pop()
       ?? DEFAULT_DRAFT.instruments[0];
     const next = {
-      ...template,
-      instrument_id: undefined,
+      ...omitCurveLabInstrumentId(template),
       raw_quote: "0.04",
     };
-    delete next.instrument_id;
     updateVisualDraft((current) => ({
       ...current,
       instruments: [...visualInstruments, next],
@@ -628,7 +623,7 @@ const CurveLabWorkspace = forwardRef<
   const selectedInstrumentFamily = useMemo(() => {
     if (selectedInstrumentIndex === null) return null;
     const value = itemAt(visualInstruments, selectedInstrumentIndex)?.instrument_type;
-    return CURVE_LAB_FAMILIES.includes(value as CurveLabSuccessFamily)
+    return CURVE_LAB_SUCCESS_FAMILIES.includes(value as CurveLabSuccessFamily)
       ? value as CurveLabSuccessFamily
       : null;
   }, [selectedInstrumentIndex, visualInstruments]);
@@ -720,7 +715,7 @@ const CurveLabWorkspace = forwardRef<
 
   useEffect(() => {
     void refreshVersions().catch((reason: unknown) => {
-      setError(message(reason));
+      setError(curveLabErrorMessage(reason));
     });
   }, [refreshVersions]);
 
@@ -730,7 +725,7 @@ const CurveLabWorkspace = forwardRef<
     try {
       await action();
     } catch (reason) {
-      setError(message(reason));
+      setError(curveLabErrorMessage(reason));
     } finally {
       setBusy(false);
     }
@@ -879,21 +874,12 @@ const CurveLabWorkspace = forwardRef<
       api.downloadCurveLabVersion(version.id),
       api.getCurveLabRuntimeManifest(version.id),
     ]);
-    const manifestUrl = URL.createObjectURL(new Blob(
-      [JSON.stringify(manifest, null, 2)],
-      { type: "application/json" },
-    ));
-    const manifestAnchor = document.createElement("a");
-    manifestAnchor.href = manifestUrl;
-    manifestAnchor.download = `${version.name.replace(/ /g, "-")}-${version.id.slice(0, 8)}.manifest.json`;
-    manifestAnchor.click();
-    URL.revokeObjectURL(manifestUrl);
-    const url = URL.createObjectURL(payload);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${version.name.replace(/ /g, "-")}-${version.id.slice(0, 8)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadCurveLabArtifacts({
+      payload,
+      manifest,
+      versionName: version.name,
+      versionId: version.id,
+    });
     setStatus(`Exported native JSON for ${version.name}.`);
   });
 
@@ -1157,8 +1143,7 @@ const CurveLabWorkspace = forwardRef<
                     {...css("ghost")}
                     disabled={selectedInstrumentIndex === null}
                     onClick={() => {
-                      invalidateCanonicalTarget();
-                      setSelectedInstrumentIndex(null);
+                      selectCanonicalTarget(null);
                     }}
                   >
                     Clear quote target
@@ -1179,8 +1164,7 @@ const CurveLabWorkspace = forwardRef<
                             aria-label={`Canonical quote target ${index + 1}`}
                             checked={selectedInstrumentIndex === index}
                             onChange={() => {
-                              invalidateCanonicalTarget();
-                              setSelectedInstrumentIndex(index);
+                              selectCanonicalTarget(index);
                             }}
                           />
                         </td>
@@ -1195,7 +1179,7 @@ const CurveLabWorkspace = forwardRef<
                               );
                             }}
                           >
-                            {CURVE_LAB_FAMILIES.map(
+                            {CURVE_LAB_SUCCESS_FAMILIES.map(
                               (family) => <option key={family} value={family}>{family}</option>,
                             )}
                           </select>
@@ -1432,7 +1416,7 @@ const CurveLabWorkspace = forwardRef<
                               setTradeField(index, "instrument_type", event.target.value);
                             }}
                           >
-                            {CURVE_LAB_FAMILIES.map(
+                            {CURVE_LAB_SUCCESS_FAMILIES.map(
                               (family) => <option key={family}>{family}</option>,
                             )}
                           </select>
@@ -1592,7 +1576,7 @@ const CurveLabWorkspace = forwardRef<
                     void file.text().then((source) => {
                       setImportManifest(JSON.parse(source) as Record<string, unknown>);
                     }).catch((reason: unknown) => {
-                      setError(message(reason));
+                      setError(curveLabErrorMessage(reason));
                     });
                   }
                 }}

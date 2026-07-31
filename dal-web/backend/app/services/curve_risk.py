@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from app.schemas.curve_lab import FixingSnapshotCreateV1, RiskRunRequestV2
+from app.schemas.curve_lab import (
+    CURVE_LAB_RISK_COST_COEFFICIENTS,
+    CURVE_LAB_RISK_LIMITS,
+    FixingSnapshotCreateV1,
+    RiskRunRequestV2,
+)
+from app.services.canonical_json import canonical_json_bytes, canonical_json_hash
 from app.services.curve_lab_fixings import (
     canonical_utc_datetime,
     canonical_utc_timestamp,
@@ -29,7 +36,10 @@ from app.services.curve_lab_lifecycle import (
     get_version,
 )
 from app.services.curve_lab_plan import resolved_declaration_order
-from app.services.quote_canonicalization import canonicalize_quote
+from app.services.quote_canonicalization import (
+    apply_exact_decimal_bump,
+    canonicalize_quote,
+)
 from app.services.store import ConflictError, NotFoundError
 
 if TYPE_CHECKING:
@@ -37,25 +47,98 @@ if TYPE_CHECKING:
     from app.services.store import StoreProtocol
 
 _UINT64_MAX = (1 << 64) - 1
-_LIMITS = {
-    "T": 1_000,
-    "P": 500,
-    "Q": 500,
-    "price_evaluations": 100_000,
-    "calibration_solves": 1_002,
-    "aad_recordings": 1_000,
-    "estimated_wall_millis": 900_000,
+_ESTIMATE_LIMIT_FIELDS = {
+    "T": "trades",
+    "P": "parameters",
+    "Q": "quotes",
+    "price_evaluations": "price_evaluations",
+    "calibration_solves": "calibration_solves",
+    "aad_recordings": "aad_recordings",
+    "estimated_wall_millis": "estimated_wall_millis",
 }
-_COSTS = {
-    "context_build_millis": 1,
-    "price_evaluation_millis": 1,
-    "calibration_solve_millis": 10,
-    "aad_recording_overhead_millis": 1,
-}
+
+type _FrozenJsonScalar = bool | int | float | str | bytes | None
+
+
+@dataclass(frozen=True, slots=True)
+class _FrozenJsonArray:
+    items: tuple[_FrozenJsonValue, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _FrozenJsonObject:
+    entries: tuple[tuple[str, _FrozenJsonValue], ...]
+
+
+type _FrozenJsonValue = _FrozenJsonScalar | _FrozenJsonArray | _FrozenJsonObject
+
+
+@dataclass(frozen=True, slots=True)
+class _AdmittedRiskSnapshot:
+    run_id: str
+    created_at: str
+    deadline_at: str
+    request_bytes: bytes
+    request_projection: _FrozenJsonObject
+    curve_version: _FrozenJsonObject
+    dependencies: tuple[_FrozenJsonObject, ...]
+    document: _FrozenJsonObject
+    runtime_quote_axis: tuple[_FrozenJsonObject, ...]
+    persisted_quote_axis: tuple[_FrozenJsonObject, ...] | None
+    parameter_axis: tuple[_FrozenJsonObject, ...]
+    fixing_snapshot: _FrozenJsonObject
+    estimated_work: _FrozenJsonObject
+    aad_eligible_trade_count: int
+    aad_fallback_allowed: bool
+    target_fingerprint: str
 
 
 class _CurveLabDeadlineExceededError(RuntimeError):
     pass
+
+
+def _freeze_json(value: object) -> _FrozenJsonValue:
+    if value is None or isinstance(value, (bool, int, str, bytes)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("admission snapshot contains a non-finite float")
+        return value
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("admission snapshot object keys must be strings")
+        return _FrozenJsonObject(
+            tuple((key, _freeze_json(value[key])) for key in sorted(value) if isinstance(key, str))
+        )
+    if isinstance(value, (list, tuple)):
+        return _FrozenJsonArray(tuple(_freeze_json(item) for item in value))
+    raise TypeError(f"admission snapshot contains unsupported {type(value).__name__}")
+
+
+def _freeze_json_object(value: Mapping[str, object]) -> _FrozenJsonObject:
+    frozen = _freeze_json(value)
+    if not isinstance(frozen, _FrozenJsonObject):
+        raise TypeError("admission snapshot value must be an object")
+    return frozen
+
+
+def _thaw_json(value: _FrozenJsonValue) -> object:
+    if isinstance(value, _FrozenJsonArray):
+        return [_thaw_json(item) for item in value.items]
+    if isinstance(value, _FrozenJsonObject):
+        return {key: _thaw_json(item) for key, item in value.entries}
+    return value
+
+
+def _thaw_json_object(value: _FrozenJsonObject) -> dict:
+    thawed = _thaw_json(value)
+    if not isinstance(thawed, dict):
+        raise TypeError("admission snapshot value must thaw to an object")
+    return thawed
+
+
+def _thaw_json_objects(values: tuple[_FrozenJsonObject, ...]) -> list[dict]:
+    return [_thaw_json_object(value) for value in values]
 
 
 def _timeout_risk_run(store: StoreProtocol, record: dict) -> dict:
@@ -87,7 +170,7 @@ def create_fixing_snapshot(
     }
     record = {
         **document,
-        "content_hash": hashlib.sha256(_canonical_bytes(document)).hexdigest(),
+        "content_hash": canonical_json_hash(document),
         "created_at": _now(),
     }
     try:
@@ -125,18 +208,8 @@ def get_fixing_snapshot(store: StoreProtocol, snapshot_id: str) -> dict:
         ) from exc
 
 
-def _canonical_bytes(value: object) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=True,
-        allow_nan=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("ascii")
-
-
 def _hash(value: object) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+    return canonical_json_hash(value)
 
 
 def _decimal_text(value: Decimal | str | int | float) -> str:
@@ -169,7 +242,6 @@ def estimate_work(
     quotes: int,
     measures: tuple[str, ...],
     sensitivity_layers: tuple[str, ...],
-    allow_aad_fallback: bool = True,
 ) -> dict[str, int | bool]:
     node = int(
         bool(
@@ -226,10 +298,16 @@ def estimate_work(
 
     contributions = []
     for count, coefficient in (
-        (contexts, _COSTS["context_build_millis"]),
-        (price_evaluations, _COSTS["price_evaluation_millis"]),
-        (calibration_solves, _COSTS["calibration_solve_millis"]),
-        (n_aad, _COSTS["aad_recording_overhead_millis"]),
+        (contexts, CURVE_LAB_RISK_COST_COEFFICIENTS["context_build_millis"]),
+        (
+            price_evaluations,
+            CURVE_LAB_RISK_COST_COEFFICIENTS["price_evaluation_millis"],
+        ),
+        (
+            calibration_solves,
+            CURVE_LAB_RISK_COST_COEFFICIENTS["calibration_solve_millis"],
+        ),
+        (n_aad, CURVE_LAB_RISK_COST_COEFFICIENTS["aad_recording_overhead_millis"]),
     ):
         contribution, term_overflow = _checked_multiply(count, coefficient)
         overflow |= term_overflow
@@ -262,17 +340,10 @@ def estimate_work(
 
 
 def _admit_work(estimate: dict[str, int | bool]) -> None:
-    for field in (
-        "T",
-        "P",
-        "Q",
-        "price_evaluations",
-        "calibration_solves",
-        "aad_recordings",
-        "estimated_wall_millis",
-    ):
+    for field, limit_field in _ESTIMATE_LIMIT_FIELDS.items():
         value = int(estimate[field])
-        if not estimate["overflow"] and value <= _LIMITS[field]:
+        limit = CURVE_LAB_RISK_LIMITS[limit_field]
+        if not estimate["overflow"] and value <= limit:
             continue
         code = (
             "RISK_DEADLINE_BUDGET_EXCEEDED"
@@ -285,7 +356,7 @@ def _admit_work(estimate: dict[str, int | bool]) -> None:
             "Curve Lab risk work exceeds the configured admission budget.",
             f"estimated_work.{field}",
             value,
-            constraint=f"must be <= configured limit {_LIMITS[field]}",
+            constraint=f"must be <= configured limit {limit}",
             overflow=estimate["overflow"],
             estimate=estimate,
         )
@@ -302,10 +373,13 @@ def _bumped_document(
     selected = quote_axis if quote_index is None else [quote_axis[quote_index]]
     for axis in selected:
         instrument = by_id[axis["instrument_id"]]
-        raw = Decimal(axis["raw_quote"]) + (Decimal(axis["exact_risk_raw_bump"]) * direction)
+        bump = str(axis["exact_risk_raw_bump"])
+        if direction == -1:
+            bump = bump[1:] if bump.startswith("-") else f"-{bump}"
+        raw = apply_exact_decimal_bump(str(axis["raw_quote"]), bump)
         canonical = canonicalize_quote(
             instrument["instrument_type"],
-            _decimal_text(raw),
+            raw,
             axis["canonical_raw_unit"],
         )
         instrument.update(
@@ -489,8 +563,7 @@ def _aad_parity(
     passed = all(
         discrepancy
         <= _AAD_PARITY_ABSOLUTE_TOLERANCE
-        + _AAD_PARITY_RELATIVE_TOLERANCE
-        * max(abs(Decimal(aad)), abs(Decimal(central)))
+        + _AAD_PARITY_RELATIVE_TOLERANCE * max(abs(Decimal(aad)), abs(Decimal(central)))
         for aad, central, discrepancy in zip(
             aad_values,
             central_values,
@@ -684,7 +757,11 @@ def _admit_risk_run(
     store: StoreProtocol,
     gateway: DalGateway,
     request: RiskRunRequestV2,
-) -> dict[str, object]:
+    *,
+    run_id: str,
+    request_json: dict,
+    request_bytes: bytes,
+) -> _AdmittedRiskSnapshot:
     fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
     version = get_version(store, request.curve_version_id)
     quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
@@ -727,7 +804,7 @@ def _admit_risk_run(
             "curve_version_id",
             request.curve_version_id,
         )
-    _runtime_dependencies(store, build, version)
+    dependencies = _runtime_dependencies(store, build, version)
     quote_axis = (
         list(build["quote_axis"])
         if build is not None
@@ -739,9 +816,7 @@ def _admit_risk_run(
         else list(version["verification"].get("parameter_axis", []))
     )
     trades = list(request.target.model_dump(mode="json")["trades"])
-    default_component_key = str(
-        resolved_declaration_order(document)[0]["component_key"]
-    )
+    default_component_key = str(resolved_declaration_order(document)[0]["component_key"])
     required_fixings = gateway.curve_lab_required_historical_fixings(
         trades,
         request.evaluation_time.isoformat(),
@@ -764,10 +839,7 @@ def _admit_risk_run(
         expected = expected_by_key.get(key)
         if expected is None:
             continue
-        if (
-            observation["kind"] != expected["kind"]
-            or observation["units"] != expected["units"]
-        ):
+        if observation["kind"] != expected["kind"] or observation["units"] != expected["units"]:
             raise CurveLabLifecycleError(
                 422,
                 "FIXING_SNAPSHOT_INCOMPATIBLE",
@@ -784,11 +856,7 @@ def _admit_risk_run(
                 expected_units=expected["units"],
             )
     missing = next(
-        (
-            item
-            for key, item in expected_by_key.items()
-            if key not in supplied_by_key
-        ),
+        (item for key, item in expected_by_key.items() if key not in supplied_by_key),
         None,
     )
     if missing is not None:
@@ -844,17 +912,30 @@ def _admit_risk_run(
         quotes=len(quote_axis),
         measures=request.measures,
         sensitivity_layers=request.sensitivity_layers,
-        allow_aad_fallback=request.options.aad_fallback == "ALLOW",
     )
     _admit_work(estimate)
-    return {
-        "version": version,
-        "build": build,
-        "quote_axis": quote_axis,
-        "parameter_axis": parameter_axis,
-        "estimate": estimate,
-        "fixing_snapshot": fixing_snapshot,
-    }
+    created_at = _now()
+    deadline_at = new_deadline(datetime.fromisoformat(created_at.replace("Z", "+00:00")))
+    return _AdmittedRiskSnapshot(
+        run_id=run_id,
+        created_at=created_at,
+        deadline_at=deadline_at,
+        request_bytes=request_bytes,
+        request_projection=_freeze_json_object(request_json),
+        curve_version=_freeze_json_object(version),
+        dependencies=tuple(_freeze_json_object(item) for item in dependencies),
+        document=_freeze_json_object(document),
+        runtime_quote_axis=tuple(_freeze_json_object(item) for item in quote_axis),
+        persisted_quote_axis=(
+            tuple(_freeze_json_object(item) for item in quote_axis) if build is not None else None
+        ),
+        parameter_axis=tuple(_freeze_json_object(item) for item in parameter_axis),
+        fixing_snapshot=_freeze_json_object(fixing_snapshot),
+        estimated_work=_freeze_json_object(estimate),
+        aad_eligible_trade_count=len(aad_eligible),
+        aad_fallback_allowed=request.options.aad_fallback == "ALLOW",
+        target_fingerprint=_hash(request_json["target"]),
+    )
 
 
 def create_risk_run(
@@ -862,13 +943,20 @@ def create_risk_run(
     gateway: DalGateway,
     request: RiskRunRequestV2,
 ) -> dict:
-    admitted = _admit_risk_run(store, gateway, request)
-    version = admitted["version"]
-    build = admitted["build"]
     request_json = request.model_dump(mode="json", exclude_none=True)
-    now = _now()
-    reservation = _reserve_job()
+    request_bytes = canonical_json_bytes(request_json)
     run_id = uuid4().hex
+    admitted = _admit_risk_run(
+        store,
+        gateway,
+        request,
+        run_id=run_id,
+        request_json=request_json,
+        request_bytes=request_bytes,
+    )
+    version = _thaw_json_object(admitted.curve_version)
+    fixing_snapshot = _thaw_json_object(admitted.fixing_snapshot)
+    reservation = _reserve_job()
     queued = {
         "id": run_id,
         "curve_version_id": request.curve_version_id,
@@ -876,18 +964,20 @@ def create_risk_run(
         "import_job_id": version.get("import_job_id"),
         "source_kind": ("BUILD_VERSION" if version["source_kind"] == "BUILD" else "IMPORT_VERSION"),
         "request": request_json,
-        "fixing_snapshot_hash": admitted["fixing_snapshot"]["content_hash"],
-        "target_fingerprint": _hash(request_json["target"]),
-        "quote_axis": admitted["quote_axis"] if build is not None else None,
-        "parameter_axis": admitted["parameter_axis"],
-        "estimated_work": admitted["estimate"],
+        "fixing_snapshot_hash": fixing_snapshot["content_hash"],
+        "target_fingerprint": admitted.target_fingerprint,
+        "quote_axis": (
+            _thaw_json_objects(admitted.persisted_quote_axis)
+            if admitted.persisted_quote_axis is not None
+            else None
+        ),
+        "parameter_axis": _thaw_json_objects(admitted.parameter_axis),
+        "estimated_work": _thaw_json_object(admitted.estimated_work),
         "state": "QUEUED",
         "result": None,
         "error": None,
-        "created_at": now,
-        "deadline_at": new_deadline(
-            datetime.fromisoformat(now.replace("Z", "+00:00"))
-        ),
+        "created_at": admitted.created_at,
+        "deadline_at": admitted.deadline_at,
         "finished_at": None,
     }
     try:
@@ -896,10 +986,7 @@ def create_risk_run(
             _execute_risk_run_guarded,
             store,
             gateway,
-            request,
-            run_id,
-            now,
-            deepcopy(admitted["fixing_snapshot"]),
+            admitted,
         )
     except Exception:
         reservation.cancel()
@@ -910,24 +997,14 @@ def create_risk_run(
 def _execute_risk_run_guarded(
     store: StoreProtocol,
     gateway: DalGateway,
-    request: RiskRunRequestV2,
-    run_id: str,
-    created_at: str,
-    fixing_snapshot: dict,
+    snapshot: _AdmittedRiskSnapshot,
 ) -> None:
     try:
-        _execute_risk_run(
-            store,
-            gateway,
-            request,
-            run_id=run_id,
-            created_at=created_at,
-            fixing_snapshot=fixing_snapshot,
-        )
+        _execute_risk_run(store, gateway, snapshot)
     except _CurveLabDeadlineExceededError:
-        _timeout_risk_run(store, store.get_curve_lab_risk_run(run_id))
+        _timeout_risk_run(store, store.get_curve_lab_risk_run(snapshot.run_id))
     except Exception:  # noqa: BLE001 - worker failure is persisted and sanitized
-        queued = store.get_curve_lab_risk_run(run_id)
+        queued = store.get_curve_lab_risk_run(snapshot.run_id)
         store.publish_curve_lab_risk_run(
             {
                 **queued,
@@ -937,8 +1014,8 @@ def _execute_risk_run_guarded(
                     "code": "RISK_EXECUTION_FAILED",
                     "message": "Curve risk execution failed.",
                     "field": "risk_run_id",
-                    "value": run_id,
-                    "resource_id": run_id,
+                    "value": snapshot.run_id,
+                    "resource_id": snapshot.run_id,
                     "details": {},
                 },
                 "finished_at": _now(),
@@ -950,63 +1027,22 @@ def _execute_risk_run_guarded(
 def _execute_risk_run(
     store: StoreProtocol,
     gateway: DalGateway,
-    request: RiskRunRequestV2,
-    *,
-    run_id: str,
-    created_at: str,
-    fixing_snapshot: dict,
+    snapshot: _AdmittedRiskSnapshot,
 ) -> dict:
-    version = get_version(store, request.curve_version_id)
+    request = RiskRunRequestV2.model_validate_json(snapshot.request_bytes)
+    request_json = _thaw_json_object(snapshot.request_projection)
+    version = _thaw_json_object(snapshot.curve_version)
+    dependencies = _thaw_json_objects(snapshot.dependencies)
+    document = _thaw_json_object(snapshot.document)
+    quote_axis = _thaw_json_objects(snapshot.runtime_quote_axis)
+    parameter_axis = _thaw_json_objects(snapshot.parameter_axis)
+    fixing_snapshot = _thaw_json_object(snapshot.fixing_snapshot)
     fixing_observations = list(fixing_snapshot["observations"])
     quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
-    build = (
-        store.get_curve_lab_build_run(version["build_run_id"])
-        if version["source_kind"] == "BUILD"
-        else None
-    )
-    document = (
-        deepcopy(build["request"])
-        if build is not None
-        else deepcopy(version["verification"].get("document"))
-    )
-    if not isinstance(document, dict):
-        raise CurveLabLifecycleError(
-            409,
-            "RISK_RUNTIME_CONTEXT_REQUIRED",
-            "Curve version does not carry reconstructable runtime context.",
-            "curve_version_id",
-            request.curve_version_id,
-        )
-    dependencies = _runtime_dependencies(store, build, version)
-    quote_axis = (
-        list(build["quote_axis"])
-        if build is not None
-        else list(version["verification"].get("quote_axis", []))
-    )
-    parameter_axis = (
-        list(build["parameter_axis"])
-        if build is not None
-        else list(version["verification"].get("parameter_axis", []))
-    )
     trades = list(request.target.model_dump(mode="json")["trades"])
     requested_layers = set(request.sensitivity_layers)
-    parameter_components = {axis["component_key"] for axis in parameter_axis}
-    aad_eligible_trades = sum(
-        trade["instrument_type"] == "DEPOSIT"
-        and trade["terms"].get("discount_component_key") in parameter_components
-        for trade in trades
-    )
-    estimate = estimate_work(
-        trades=len(trades),
-        aad_eligible_trades=aad_eligible_trades,
-        parameters=len(parameter_axis),
-        quotes=len(quote_axis),
-        measures=request.measures,
-        sensitivity_layers=request.sensitivity_layers,
-        allow_aad_fallback=request.options.aad_fallback == "ALLOW",
-    )
-    request_json = request.model_dump(mode="json", exclude_none=True)
-    queued = store.get_curve_lab_risk_run(run_id)
+    estimate = _thaw_json_object(snapshot.estimated_work)
+    queued = store.get_curve_lab_risk_run(snapshot.run_id)
 
     def check_deadline() -> None:
         if deadline_expired(queued["deadline_at"]):
@@ -1097,9 +1133,7 @@ def _execute_risk_run(
             else:
                 forbidden_failure = True
                 trade_methods.append(
-                    "FAILED_AAD_PARITY"
-                    if aad is not None
-                    else "FAILED_AAD_EXECUTION"
+                    "FAILED_AAD_PARITY" if aad is not None else "FAILED_AAD_EXECUTION"
                 )
         if not forbidden_failure:
             trade_to_node = selected_rows
@@ -1136,19 +1170,19 @@ def _execute_risk_run(
             )
         else:
             failed = _failed_matrix(
-                    matrix_id="trade-to-node",
-                    mathematical_name="trade_to_node_pv_gradient",
-                    orientation="TRADE_X_PARAMETER",
-                    row_axis_ref="request.target.trades",
-                    column_axis_ref="parameter_axis",
-                    rows=len(trades),
-                    columns=len(parameter_axis),
-                    method="CENTRAL_NATIVE_PARAMETER_BUMP",
-                    reason_code="PARAMETER_BUMP_FAILED",
-                    reason="A required native parameter bump failed.",
-                    input_unit="NATIVE_PARAMETER_UNIT",
-                    output_unit=(f"{request.base_currency}_PV_PER_PARAMETER_UNIT"),
-                )
+                matrix_id="trade-to-node",
+                mathematical_name="trade_to_node_pv_gradient",
+                orientation="TRADE_X_PARAMETER",
+                row_axis_ref="request.target.trades",
+                column_axis_ref="parameter_axis",
+                rows=len(trades),
+                columns=len(parameter_axis),
+                method="CENTRAL_NATIVE_PARAMETER_BUMP",
+                reason_code="PARAMETER_BUMP_FAILED",
+                reason="A required native parameter bump failed.",
+                input_unit="NATIVE_PARAMETER_UNIT",
+                output_unit=(f"{request.base_currency}_PV_PER_PARAMETER_UNIT"),
+            )
             failed["trade_methods"] = trade_methods
             failed["aad_parity"] = parity
             matrices.append(failed)
@@ -1435,21 +1469,25 @@ def _execute_risk_run(
 
     now = _now()
     record = {
-        "id": run_id,
+        "id": snapshot.run_id,
         "curve_version_id": request.curve_version_id,
         "calibration_run_id": version.get("build_run_id"),
         "import_job_id": version.get("import_job_id"),
         "source_kind": ("BUILD_VERSION" if version["source_kind"] == "BUILD" else "IMPORT_VERSION"),
         "request": request_json,
         "fixing_snapshot_hash": fixing_snapshot["content_hash"],
-        "target_fingerprint": _hash(request_json["target"]),
-        "quote_axis": quote_axis if build is not None else None,
+        "target_fingerprint": snapshot.target_fingerprint,
+        "quote_axis": (
+            _thaw_json_objects(snapshot.persisted_quote_axis)
+            if snapshot.persisted_quote_axis is not None
+            else None
+        ),
         "parameter_axis": parameter_axis,
         "estimated_work": estimate,
         "state": "SUCCEEDED",
         "result": result,
         "error": None,
-        "created_at": created_at,
+        "created_at": snapshot.created_at,
         "deadline_at": queued["deadline_at"],
         "finished_at": now,
     }

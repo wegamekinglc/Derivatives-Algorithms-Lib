@@ -1656,19 +1656,13 @@ class DalGateway:
 
         def native_leg(terms: Mapping[str, Any], prefix: str) -> Any:
             return self._dal.RateLegConvention_New(
-                self._dal.PeriodLength_New(
-                    str(terms.get(f"{prefix}_payment_frequency", "12M"))
-                ),
-                self._dal.DayBasis_New(
-                    str(terms.get(f"{prefix}_day_basis", "ACT_365F"))
-                ),
+                self._dal.PeriodLength_New(str(terms.get(f"{prefix}_payment_frequency", "12M"))),
+                self._dal.DayBasis_New(str(terms.get(f"{prefix}_day_basis", "ACT_365F"))),
             )
 
         def fixing(terms: Mapping[str, Any], prefix: str = "") -> Any:
             result = self._dal.FixingIdentity_()
-            result.index_name = str(
-                terms.get(f"{prefix}index_name", terms.get("index_name", ""))
-            )
+            result.index_name = str(terms.get(f"{prefix}index_name", terms.get("index_name", "")))
             result.fixing_hour = int(
                 terms.get(f"{prefix}fixing_hour", terms.get("fixing_hour", 11))
             )
@@ -1688,9 +1682,7 @@ class DalGateway:
             convention.initial_notional_exchange = bool(
                 terms.get("initial_notional_exchange", True)
             )
-            convention.final_notional_exchange = bool(
-                terms.get("final_notional_exchange", True)
-            )
+            convention.final_notional_exchange = bool(terms.get("final_notional_exchange", True))
             convention.spread_on_foreign_leg = spread_on_foreign
             convention.domestic_index = native_index(terms, "domestic_")
             convention.domestic_leg = native_leg(terms, "domestic")
@@ -1710,9 +1702,7 @@ class DalGateway:
         for trade in trades:
             family = str(trade["instrument_type"])
             terms = trade["terms"]
-            discount_key = str(
-                terms.get("discount_component_key", default_component_key)
-            )
+            discount_key = str(terms.get("discount_component_key", default_component_key))
             forecast_key = str(terms.get("forecast_component_key", discount_key))
             if family == "DEPOSIT":
                 native_terms = self._dal.DepositTradeTerms_(
@@ -1741,9 +1731,7 @@ class DalGateway:
                     contract_count=float(terms["contract_count"]),
                     long_position=str(terms["side"]) == "LONG",
                     reference_price=float(terms["reference_price"]),
-                    contract_value_per_price_point=float(
-                        terms["contract_value_per_price_point"]
-                    ),
+                    contract_value_per_price_point=float(terms["contract_value_per_price_point"]),
                     convexity_adjustment=float(terms.get("convexity_adjustment", 0)),
                     index=native_index(terms),
                     fixing_identity=fixing(terms),
@@ -1791,9 +1779,7 @@ class DalGateway:
                 native_terms = self._dal.XccyTradeTerms_(
                     position_count=float(terms["position_count"]),
                     contract_spread=float(terms["contract_spread"]),
-                    spread_on_foreign_leg=(
-                        str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"
-                    ),
+                    spread_on_foreign_leg=(str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"),
                     receive_non_spread_pay_spread=(
                         str(terms["side"]) == "RECEIVE_NON_SPREAD_PAY_SPREAD"
                     ),
@@ -1805,12 +1791,8 @@ class DalGateway:
                 self._dal.RateTradeDefinition_(
                     instrument_id=str(trade["trade_id"]),
                     instrument_type=getattr(self._dal.RateInstrumentType, family),
-                    trade_date=self._native_date(
-                        date.fromisoformat(str(trade["trade_date"]))
-                    ),
-                    start_date=self._native_date(
-                        date.fromisoformat(str(trade["start_date"]))
-                    ),
+                    trade_date=self._native_date(date.fromisoformat(str(trade["trade_date"]))),
+                    start_date=self._native_date(date.fromisoformat(str(trade["start_date"]))),
                     maturity_date=self._native_date(
                         date.fromisoformat(str(trade["maturity_date"]))
                     ),
@@ -1847,15 +1829,9 @@ class DalGateway:
                 "trade_index": int(trade_index),
                 "index_name": str(index_name),
                 "fixing_time": datetime.fromisoformat(repr(fixing_time)).isoformat(),
-                "kind": (
-                    "FX"
-                    if str(index_name).startswith("FX[")
-                    else "RATE"
-                ),
+                "kind": ("FX" if str(index_name).startswith("FX[") else "RATE"),
                 "units": (
-                    "DOMESTIC_PER_FOREIGN"
-                    if str(index_name).startswith("FX[")
-                    else "DECIMAL_RATE"
+                    "DOMESTIC_PER_FOREIGN" if str(index_name).startswith("FX[") else "DECIMAL_RATE"
                 ),
             }
             for trade_index, index_name, fixing_time in rows
@@ -1886,9 +1862,7 @@ class DalGateway:
                 str(
                     trade["start_date"]
                     if family == "FRA"
-                    and str(
-                        terms.get("settlement_style", "AT_START_DISCOUNTED")
-                    )
+                    and str(terms.get("settlement_style", "AT_START_DISCOUNTED"))
                     == "AT_START_DISCOUNTED"
                     else trade["maturity_date"]
                 )
@@ -1922,61 +1896,6 @@ class DalGateway:
         check_deadline: Callable[[], None] | None = None,
     ) -> list[dict[str, Any]]:
         """Adapt normalized Curve Lab trades to the native pricing kernel."""
-
-        def native_index(terms: Mapping[str, Any], prefix: str = "") -> Any:
-            def field(name: str, default: Any) -> Any:
-                return terms.get(f"{prefix}{name}", terms.get(name, default))
-
-            return self._dal.RateIndexConvention_New(
-                self._dal.PeriodLength_New(str(field("forecast_tenor", "3M"))),
-                self._dal.DayBasis_New(str(field("day_basis", "ACT_365F"))),
-                self._dal.CollateralType_(str(field("collateral", "OIS"))),
-                bool(field("use_projection_curve", False)),
-            )
-
-        def native_leg(terms: Mapping[str, Any], prefix: str) -> Any:
-            return self._dal.RateLegConvention_New(
-                self._dal.PeriodLength_New(str(terms.get(f"{prefix}_payment_frequency", "12M"))),
-                self._dal.DayBasis_New(str(terms.get(f"{prefix}_day_basis", "ACT_365F"))),
-            )
-
-        def fixing(terms: Mapping[str, Any], prefix: str = "") -> Any:
-            result = self._dal.FixingIdentity_()
-            result.index_name = str(terms.get(f"{prefix}index_name", terms.get("index_name", "")))
-            result.fixing_hour = int(
-                terms.get(f"{prefix}fixing_hour", terms.get("fixing_hour", 11))
-            )
-            result.fixing_minute = int(
-                terms.get(
-                    f"{prefix}fixing_minute",
-                    terms.get("fixing_minute", 0),
-                )
-            )
-            return result
-
-        def xccy_config(trade: Mapping[str, Any], terms: Mapping[str, Any]) -> Any:
-            pair_token = str(trade["currency_or_pair"]).replace("/", "-")
-            domestic, foreign = pair_token.split("-", 1)
-            spread_on_foreign = str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"
-            convention = self._dal.CrossCurrencyConvention_()
-            convention.initial_notional_exchange = bool(
-                terms.get("initial_notional_exchange", True)
-            )
-            convention.final_notional_exchange = bool(terms.get("final_notional_exchange", True))
-            convention.spread_on_foreign_leg = spread_on_foreign
-            convention.domestic_index = native_index(terms, "domestic_")
-            convention.domestic_leg = native_leg(terms, "domestic")
-            convention.foreign_index = native_index(terms, "foreign_")
-            convention.foreign_leg = native_leg(terms, "foreign")
-            builder = self._dal.CrossCurrencySwapConfigBuilder_()
-            builder.pair = self._dal.CurrencyPair_New(domestic, foreign)
-            builder.domestic_notional = float(terms["domestic_notional"])
-            builder.foreign_notional = float(terms["foreign_notional"])
-            builder.convention = convention
-            builder.notional_mode = self._dal.XccyNotionalMode.FIXED
-            builder.domestic_rate_fixing = fixing(terms, "domestic_")
-            builder.foreign_rate_fixing = fixing(terms, "foreign_")
-            return builder.Build()
 
         with self._calibration_lock:
             if curve_version is None:
@@ -2075,121 +1994,12 @@ class DalGateway:
                 xccy_market=native_xccy_market,
                 fixings=fixing_snapshot,
             )
-            native_trades: list[Any] = []
-            native_positions: list[int] = []
+            native_trades = self._curve_lab_native_trade_definitions(
+                trades,
+                default_key,
+            )
+            native_positions = list(range(len(trades)))
             result: list[dict[str, Any] | None] = [None] * len(trades)
-            for position, trade in enumerate(trades):
-                family = str(trade["instrument_type"])
-                terms = trade["terms"]
-                discount_key = str(terms.get("discount_component_key", default_key))
-                forecast_key = str(terms.get("forecast_component_key", discount_key))
-                if family == "DEPOSIT":
-                    native_terms = self._dal.DepositTradeTerms_(
-                        notional=float(terms["notional"]),
-                        contract_rate=float(terms["contract_rate"]),
-                        lend=str(terms["side"]) == "LEND",
-                        index=native_index(terms),
-                        discount_component_key=discount_key,
-                    )
-                elif family == "FRA":
-                    native_terms = self._dal.FraTradeTerms_(
-                        notional=float(terms["notional"]),
-                        contract_rate=float(terms["contract_rate"]),
-                        receive_floating=(str(terms["side"]) == "RECEIVE_FLOATING"),
-                        settle_at_start=(
-                            str(terms.get("settlement_style", "AT_START_DISCOUNTED"))
-                            == "AT_START_DISCOUNTED"
-                        ),
-                        index=native_index(terms),
-                        fixing_identity=fixing(terms),
-                        forecast_component_key=forecast_key,
-                        discount_component_key=discount_key,
-                    )
-                elif family == "FUTURE":
-                    native_terms = self._dal.FutureTradeTerms_(
-                        contract_count=float(terms["contract_count"]),
-                        long_position=str(terms["side"]) == "LONG",
-                        reference_price=float(terms["reference_price"]),
-                        contract_value_per_price_point=float(
-                            terms["contract_value_per_price_point"]
-                        ),
-                        convexity_adjustment=float(terms.get("convexity_adjustment", 0)),
-                        index=native_index(terms),
-                        fixing_identity=fixing(terms),
-                        forecast_component_key=forecast_key,
-                    )
-                elif family in {"OIS", "IRS"}:
-                    fixed_float = self._dal.FixedFloatTradeTerms_(
-                        notional=float(terms["notional"]),
-                        contract_rate=float(terms["contract_rate"]),
-                        pay_fixed=str(terms["side"]) == "PAY_FIXED",
-                        fixed_leg=native_leg(terms, "fixed"),
-                        float_leg=native_leg(terms, "float"),
-                        float_index=native_index(terms, "float_"),
-                        fixing_identity=fixing(terms, "float_"),
-                        forecast_component_key=forecast_key,
-                        discount_component_key=discount_key,
-                    )
-                    native_terms = (
-                        self._dal.OisTradeTerms_(value=fixed_float)
-                        if family == "OIS"
-                        else self._dal.IrsTradeTerms_(value=fixed_float)
-                    )
-                elif family == "BASIS_SWAP":
-                    native_terms = self._dal.BasisTradeTerms_(
-                        notional=float(terms["notional"]),
-                        contract_spread=float(terms["contract_spread"]),
-                        receive_reference_pay_spread=(
-                            str(terms["side"]) == "RECEIVE_REFERENCE_PAY_SPREAD"
-                        ),
-                        spread_leg=native_leg(terms, "spread"),
-                        reference_leg=native_leg(terms, "reference"),
-                        spread_index=native_index(terms, "spread_"),
-                        reference_index=native_index(terms, "reference_"),
-                        spread_fixing_identity=fixing(terms, "spread_"),
-                        reference_fixing_identity=fixing(terms, "reference_"),
-                        spread_forecast_component_key=str(
-                            terms.get("spread_forecast_component_key", forecast_key)
-                        ),
-                        reference_forecast_component_key=str(
-                            terms.get(
-                                "reference_forecast_component_key",
-                                forecast_key,
-                            )
-                        ),
-                        discount_component_key=discount_key,
-                    )
-                elif family == "XCCY":
-                    config = xccy_config(trade, terms)
-                    spread_on_foreign = str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"
-                    native_terms = self._dal.XccyTradeTerms_(
-                        position_count=float(terms["position_count"]),
-                        contract_spread=float(terms["contract_spread"]),
-                        spread_on_foreign_leg=spread_on_foreign,
-                        receive_non_spread_pay_spread=(
-                            str(terms["side"]) == "RECEIVE_NON_SPREAD_PAY_SPREAD"
-                        ),
-                        config=config,
-                    )
-                else:
-                    raise ValueError(f"unsupported Curve Lab pricing family {family!r}")
-                native_trades.append(
-                    self._dal.RateTradeDefinition_(
-                        instrument_id=str(trade["trade_id"]),
-                        instrument_type=getattr(
-                            self._dal.RateInstrumentType,
-                            family,
-                        ),
-                        trade_date=self._native_date(date.fromisoformat(str(trade["trade_date"]))),
-                        start_date=self._native_date(date.fromisoformat(str(trade["start_date"]))),
-                        maturity_date=self._native_date(
-                            date.fromisoformat(str(trade["maturity_date"]))
-                        ),
-                        currency=str(trade["currency_or_pair"]).split("-")[0],
-                        terms=native_terms,
-                    )
-                )
-                native_positions.append(position)
 
             if check_deadline is not None:
                 check_deadline()

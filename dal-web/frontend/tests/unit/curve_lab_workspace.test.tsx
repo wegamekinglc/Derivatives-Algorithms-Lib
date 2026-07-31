@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../src/api/client";
 import CurveLabWorkspace from "../../src/components/CurveLabWorkspace";
+import { CURVE_LAB_SUCCESS_FAMILIES } from "../../src/curves/curveLabRegistry";
 
 describe("Curve Lab V2 workspace", () => {
   afterEach(() => {
@@ -24,6 +25,10 @@ describe("Curve Lab V2 workspace", () => {
     expect(screen.getByRole("button", { name: "Add instrument" })).not.toBeNull();
     const advanced = screen.getByText("Advanced JSON").closest("details");
     expect(advanced?.open).toBe(false);
+    expect(
+      Array.from((screen.getByLabelText("Family 1") as HTMLSelectElement).options)
+        .map((option) => option.value),
+    ).toEqual(CURVE_LAB_SUCCESS_FAMILIES);
   });
 
   it("materializes a legal visual topology when the build mode changes", () => {
@@ -202,8 +207,21 @@ describe("Curve Lab V2 workspace", () => {
       stale: false,
       request: {},
       resolved_plan: { mode: "SINGLE" },
-      quote_axis: [],
-      parameter_axis: [],
+      quote_axis: [{
+        global_quote_index: 0,
+        quote_id: "quote-0",
+        component_key: "curve",
+        display_label: "Deposit 2027",
+        normalized_quote: "0.04",
+      }],
+      parameter_axis: [{
+        global_parameter_index: 0,
+        parameter_id: "parameter-0",
+        component_key: "curve",
+        display_label: "USD 2027",
+        coordinate_kind: "PIECEWISE_CONSTANT_FWD",
+        node_date: "2027-01-15",
+      }],
       dependency_manifest: [],
       diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
       native_payload_hash: "d".repeat(64),
@@ -240,6 +258,10 @@ describe("Curve Lab V2 workspace", () => {
     await waitFor(() => expect(api.createCurveLabDraft).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Build curve" }));
     await waitFor(() => expect(api.createCurveLabBuildRun).toHaveBeenCalledWith(draft.id));
+    fireEvent.click(screen.getByRole("tab", { name: "Runs" }));
+    const quoteAxis = screen.getByRole("heading", { name: "Quote axis" }).closest("section");
+    expect(quoteAxis?.querySelector("th")?.className).toContain("num");
+    expect(quoteAxis?.querySelector("tbody td")?.className).toContain("num");
     fireEvent.click(screen.getByRole("tab", { name: "Build" }));
     fireEvent.change(screen.getByLabelText("Version name"), {
       target: { value: "USD OIS" },

@@ -120,8 +120,9 @@ export type CurveLabSuccessFamily =
   | "BASIS_SWAP"
   | "XCCY";
 export type QuoteCoordinateKind = "RATE" | "PRICE" | "SPREAD";
-export type QuoteInputConvention = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
-export type QuoteDisplayConvention = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
+type QuoteConventionValue = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
+export type QuoteInputConvention = QuoteConventionValue;
+export type QuoteDisplayConvention = QuoteConventionValue;
 
 export interface CurveLabQuoteAuthoringRequest {
   instrument_type: CurveLabSuccessFamily;
@@ -498,8 +499,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  getCurveLabDraft: (id: string) =>
-    request<CurveLabDraft>(`/curve-lab/drafts/${id}`),
   updateCurveLabDraft: (id: string, revision: number, body: unknown) =>
     request<CurveLabDraft>(`/curve-lab/drafts/${id}`, {
       method: "PUT",

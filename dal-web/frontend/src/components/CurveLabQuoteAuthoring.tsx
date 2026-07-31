@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   api,
-  ApiClientError,
   type CurveLabCanonicalQuote,
   type CurveLabQuoteAuthoringRequest,
   type CurveLabQuoteRenderingRequest,
@@ -14,6 +13,7 @@ import {
   CURVE_LAB_FAMILY_REGISTRY,
   curveLabFamily,
 } from "../curves/curveLabRegistry";
+import { curveLabErrorMessage } from "../curves/curveLabUtils";
 import { css } from "../format";
 
 type CanonicalizeQuote = (
@@ -36,16 +36,6 @@ interface CurveLabQuoteAuthoringProps {
 
 function signedBump(value: string): string {
   return value.startsWith("-") ? value : `+${value}`;
-}
-
-function errorMessage(reason: unknown): string {
-  if (reason instanceof ApiClientError && typeof reason.detail === "object" && reason.detail) {
-    const detail = reason.detail as { message?: string; field?: string };
-    return detail.field && detail.message
-      ? `${detail.field}: ${detail.message}`
-      : detail.message ?? reason.message;
-  }
-  return reason instanceof Error ? reason.message : String(reason);
 }
 
 export default function CurveLabQuoteAuthoring({
@@ -88,13 +78,16 @@ export default function CurveLabQuoteAuthoring({
     family: activeFamily,
     targetToken,
   };
-
-  useEffect(() => {
-    if (targetInstrumentFamily === undefined) return;
+  const invalidateCanonicalRequest = () => {
     canonicalRequestGenerationRef.current += 1;
     setSubmitting(false);
     setCanonical(null);
     setError(null);
+  };
+
+  useEffect(() => {
+    if (targetInstrumentFamily === undefined) return;
+    invalidateCanonicalRequest();
     if (targetInstrumentFamily === null || targetInstrumentFamily === family) return;
     const targetProjection = curveLabFamily(targetInstrumentFamily);
     setFamily(targetInstrumentFamily);
@@ -119,7 +112,7 @@ export default function CurveLabQuoteAuthoring({
       }
     }).catch((reason: unknown) => {
       if (generation === renderRequestGenerationRef.current) {
-        setRenderingError(errorMessage(reason));
+        setRenderingError(curveLabErrorMessage(reason));
       }
     });
     return () => {
@@ -161,7 +154,7 @@ export default function CurveLabQuoteAuthoring({
     } catch (reason) {
       if (!requestIsCurrent()) return;
       setCanonical(null);
-      setError(errorMessage(reason));
+      setError(curveLabErrorMessage(reason));
     } finally {
       if (requestIsCurrent()) setSubmitting(false);
     }
@@ -184,15 +177,12 @@ export default function CurveLabQuoteAuthoring({
             value={activeFamily}
             disabled={targetInstrumentFamily !== undefined}
             onChange={(event) => {
-              canonicalRequestGenerationRef.current += 1;
-              setSubmitting(false);
+              invalidateCanonicalRequest();
               const next = event.target.value as CurveLabSuccessFamily;
               const nextProjection = curveLabFamily(next);
               setFamily(next);
               setConvention(nextProjection.inputConventions[0]);
               setDisplayConvention(nextProjection.inputConventions[0]);
-              setCanonical(null);
-              setError(null);
             }}
           >
             {CURVE_LAB_FAMILY_REGISTRY.map((row) => (
@@ -208,11 +198,8 @@ export default function CurveLabQuoteAuthoring({
           <select
             value={activeInputConvention}
             onChange={(event) => {
-              canonicalRequestGenerationRef.current += 1;
-              setSubmitting(false);
+              invalidateCanonicalRequest();
               setConvention(event.target.value as QuoteInputConvention);
-              setCanonical(null);
-              setError(null);
             }}
           >
             {projection.inputConventions.map((item) => (
@@ -228,11 +215,8 @@ export default function CurveLabQuoteAuthoring({
             inputMode="decimal"
             spellCheck={false}
             onChange={(event) => {
-              canonicalRequestGenerationRef.current += 1;
-              setSubmitting(false);
+              invalidateCanonicalRequest();
               setLexeme(event.target.value);
-              setCanonical(null);
-              setError(null);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
