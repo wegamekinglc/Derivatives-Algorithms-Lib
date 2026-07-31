@@ -1,6 +1,10 @@
 import { ApiClientError } from "../api/client";
 
-type CurveLabErrorDetail = { code?: string; message?: string; field?: string };
+interface CurveLabErrorDetail {
+  code?: string;
+  message?: string;
+  field?: string;
+}
 
 function curveLabErrorDetailMessage(detail: unknown): string | undefined {
   if (typeof detail !== "object" || !detail) return undefined;
