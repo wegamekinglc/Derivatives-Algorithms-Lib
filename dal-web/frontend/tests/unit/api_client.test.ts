@@ -22,6 +22,10 @@ describe("api client", () => {
     vi.unstubAllGlobals();
   });
 
+  it("does not expose the zero-caller Curve Lab draft getter", () => {
+    expect("getCurveLabDraft" in api).toBe(false);
+  });
+
   it("issues GET requests without a JSON content-type", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ status: "ok", backend: "b", is_native: true, evaluation_date: "d" }));
 

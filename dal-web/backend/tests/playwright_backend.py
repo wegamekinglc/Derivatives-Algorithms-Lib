@@ -68,19 +68,13 @@ def _build_app() -> FastAPI:
                 Decimal(0),
             )
             parameter_shift = sum(
-                (
-                    Decimal(str(bump))
-                    for _, bump in (kwargs.get("parameter_bumps") or ())
-                ),
+                (Decimal(str(bump)) for _, bump in (kwargs.get("parameter_bumps") or ())),
                 Decimal(0),
             )
             parameter_axis = kwargs.get("parameter_axis") or ()
-            include_node_sensitivities = bool(
-                kwargs.get("include_node_sensitivities")
-            )
+            include_node_sensitivities = bool(kwargs.get("include_node_sensitivities"))
             component_keys = [
-                str(declaration["component_key"])
-                for declaration in document["declarations"]
+                str(declaration["component_key"]) for declaration in document["declarations"]
             ]
             return [
                 {
@@ -97,9 +91,7 @@ def _build_app() -> FastAPI:
                     "dependency_component_keys": component_keys,
                     "error": "",
                     "aad_node_gradient": (
-                        ["1" for _ in parameter_axis]
-                        if include_node_sensitivities
-                        else None
+                        ["1" for _ in parameter_axis] if include_node_sensitivities else None
                     ),
                     "aad_ineligibility_reason": None,
                 }

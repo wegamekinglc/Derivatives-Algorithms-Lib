@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import UTC, datetime
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -15,7 +14,12 @@ from app.schemas.curve_lab import (
     CurveRuntimeManifestV1,
     CurveVersionCreateRequest,
 )
-from app.services.archive_preflight import ArchivePreflightError, preflight_archive
+from app.services.archive_preflight import (
+    ArchivePreflightError,
+    ArchivePreflightResult,
+    preflight_archive,
+)
+from app.services.canonical_json import canonical_json_hash
 from app.services.curve_lab_jobs import (
     CURVE_LAB_JOBS,
     CurveLabQueueFullError,
@@ -94,18 +98,28 @@ def _reserve_job():
         ) from exc
 
 
-def _canonical_bytes(value: object) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=True,
-        allow_nan=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("ascii")
+def _project_import_preflight_error(
+    error: ArchivePreflightError,
+    *,
+    job_id: str,
+    payload_length: int,
+) -> tuple[dict[str, object], int, int]:
+    return (
+        {
+            "code": error.code,
+            "message": error.message,
+            "field": error.field,
+            "value": error.value,
+            "resource_id": job_id,
+            "details": error.details,
+        },
+        error.wire_length if error.wire_length is not None else payload_length,
+        error.expanded_length if error.expanded_length is not None else 0,
+    )
 
 
 def _hash(value: object) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+    return canonical_json_hash(value)
 
 
 def _audit(
@@ -305,9 +319,7 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
     resolved_plan = {
         "schema_version": 1,
         "mode": document["mode"],
-        "component_order": [
-            declaration["component_key"] for declaration in ordered_declarations
-        ],
+        "component_order": [declaration["component_key"] for declaration in ordered_declarations],
         "stages": [
             {
                 "stage_id": stage_id(document, index),
@@ -351,9 +363,7 @@ def create_build_run(store: StoreProtocol, gateway: DalGateway, draft_id: str) -
         },
         "error": None,
         "created_at": now,
-        "deadline_at": new_deadline(
-            datetime.fromisoformat(now.replace("Z", "+00:00"))
-        ),
+        "deadline_at": new_deadline(datetime.fromisoformat(now.replace("Z", "+00:00"))),
         "finished_at": None,
     }
     try:
@@ -710,59 +720,6 @@ def quote_axis(document: dict) -> list[dict]:
     return result
 
 
-def parameter_axis(document: dict) -> list[dict]:
-    included = [item for item in document["instruments"] if item["included"]]
-    declarations = resolved_declaration_order(document)
-    default_component = declarations[0]["component_key"]
-    result: list[dict] = []
-    stage_local_index = 0
-    for declaration in declarations:
-        component_key = declaration["component_key"]
-        dates = sorted(
-            {
-                item["maturity_date"]
-                for item in included
-                if item["terms"].get("component_key", default_component) == component_key
-            }
-        )
-        representation = declaration["parameterization"]
-        coordinates: list[tuple[str, str | None]] = []
-        if representation == "PIECEWISE_LINEAR_FWD":
-            coordinates = [(date_value, side) for date_value in dates for side in ("LEFT", "RIGHT")]
-        elif representation == "PIECEWISE_CONSTANT_FWD":
-            coordinates = [(date_value, "RIGHT") for date_value in dates]
-        elif representation == "LOG_DISCOUNT":
-            coordinates = [(date_value, None) for date_value in dates[1:]]
-        else:
-            coordinates = [(date_value, None) for date_value in dates]
-        for component_local_index, (node_date, side) in enumerate(coordinates):
-            side_token = side or "SINGLE"
-            display_suffix = component_key.rsplit("/", 1)[-1]
-            result.append(
-                {
-                    "global_parameter_index": len(result),
-                    "parameter_id": (f"{component_key}:{representation}:{node_date}:{side_token}"),
-                    "component_key": component_key,
-                    "stage_id": "stage-0",
-                    "stage_local_parameter_index": stage_local_index,
-                    "component_local_parameter_index": component_local_index,
-                    "coordinate_kind": representation,
-                    "node_date": node_date,
-                    "side": side,
-                    "native_parameter_unit": (
-                        "LOG_DISCOUNT_FACTOR"
-                        if representation == "LOG_DISCOUNT"
-                        else "DECIMAL_RATE"
-                    ),
-                    "display_label": (
-                        f"{declaration['currency']} {display_suffix} {node_date} {side_token}"
-                    ),
-                }
-            )
-            stage_local_index += 1
-    return result
-
-
 def _build_public(store: StoreProtocol, record: dict) -> dict:
     current = get_draft(store, record["draft_id"])
     return {
@@ -1058,31 +1015,22 @@ def import_native_json(
             content_encoding=content_encoding,
         )
     except ArchivePreflightError as exc:
-        error = {
-            "code": exc.code,
-            "message": exc.message,
-            "field": exc.field,
-            "value": exc.value,
-            "resource_id": job_id,
-            "details": exc.details,
-        }
+        error, wire_length, expanded_length = _project_import_preflight_error(
+            exc,
+            job_id=job_id,
+            payload_length=len(payload),
+        )
         failed = {
             "id": job_id,
             "request_hash": request_hash,
-            "compressed_payload_length": (
-                exc.wire_length if exc.wire_length is not None else len(payload)
-            ),
-            "expanded_payload_length": (
-                exc.expanded_length if exc.expanded_length is not None else 0
-            ),
+            "compressed_payload_length": wire_length,
+            "expanded_payload_length": expanded_length,
             "state": "FAILED",
             "phase": "PREFLIGHT",
             "error": error,
             "resulting_version_id": None,
             "created_at": now,
-            "deadline_at": new_deadline(
-                datetime.fromisoformat(now.replace("Z", "+00:00"))
-            ),
+            "deadline_at": new_deadline(datetime.fromisoformat(now.replace("Z", "+00:00"))),
             "finished_at": now,
         }
         store.add_curve_lab_import_job(failed)
@@ -1105,9 +1053,7 @@ def import_native_json(
         "error": None,
         "resulting_version_id": None,
         "created_at": now,
-        "deadline_at": new_deadline(
-            datetime.fromisoformat(now.replace("Z", "+00:00"))
-        ),
+        "deadline_at": new_deadline(datetime.fromisoformat(now.replace("Z", "+00:00"))),
         "finished_at": None,
     }
     reservation = _reserve_job()
@@ -1118,8 +1064,7 @@ def import_native_json(
             store,
             gateway,
             queued,
-            payload,
-            content_encoding,
+            admitted,
             runtime_manifest,
         )
     except Exception:
@@ -1132,8 +1077,7 @@ def _execute_import_job(
     store: StoreProtocol,
     gateway: DalGateway,
     queued: dict,
-    payload: bytes,
-    content_encoding: str | None,
+    preflight: ArchivePreflightResult,
     runtime_manifest: CurveRuntimeManifestV1 | None,
 ) -> None:
     job_id = queued["id"]
@@ -1151,44 +1095,9 @@ def _execute_import_job(
         "phase": "PREFLIGHT",
     }
     store.update_curve_lab_import_job(job_id, running)
-    try:
-        preflight = preflight_archive(
-            payload,
-            content_encoding=content_encoding,
-        )
-    except ArchivePreflightError as exc:
-        error = {
-            "code": exc.code,
-            "message": exc.message,
-            "field": exc.field,
-            "value": exc.value,
-            "resource_id": job_id,
-            "details": exc.details,
-        }
-        store.update_curve_lab_import_job(
-            job_id,
-            {
-                **running,
-                "id": job_id,
-                "request_hash": request_hash,
-                "compressed_payload_length": (
-                    exc.wire_length if exc.wire_length is not None else len(payload)
-                ),
-                "expanded_payload_length": (
-                    exc.expanded_length if exc.expanded_length is not None else 0
-                ),
-                "state": "FAILED",
-                "phase": "PREFLIGHT",
-                "error": error,
-                "resulting_version_id": None,
-                "created_at": now,
-                "finished_at": now,
-            },
-        )
-        return
     native_running = {
         **running,
-        "compressed_payload_length": len(payload),
+        "compressed_payload_length": preflight.wire_length,
         "expanded_payload_length": preflight.expanded_length,
         "phase": "NATIVE_RECONSTRUCTION",
     }
@@ -1216,7 +1125,7 @@ def _execute_import_job(
                 **native_running,
                 "id": job_id,
                 "request_hash": request_hash,
-                "compressed_payload_length": len(payload),
+                "compressed_payload_length": preflight.wire_length,
                 "expanded_payload_length": preflight.expanded_length,
                 "state": "FAILED",
                 "phase": "NATIVE_RECONSTRUCTION",
@@ -1375,7 +1284,7 @@ def _execute_import_job(
     job = {
         "id": job_id,
         "request_hash": request_hash,
-        "compressed_payload_length": len(payload),
+        "compressed_payload_length": preflight.wire_length,
         "expanded_payload_length": preflight.expanded_length,
         "state": "SUCCEEDED",
         "phase": "PUBLISHED",

@@ -1031,9 +1031,7 @@ class DbStore:
     def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
         with self._session() as session:
             reconciled = 0
-            restart_time = datetime.fromisoformat(
-                finished_at.replace("Z", "+00:00")
-            )
+            restart_time = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
             for model, states in (
                 (
                     CurveLabBuildRunRow,

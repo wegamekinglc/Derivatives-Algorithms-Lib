@@ -789,9 +789,7 @@ class Store:
     def reconcile_curve_lab_inflight(self, finished_at: str) -> int:
         with self._lock:
             reconciled = 0
-            restart_time = datetime.fromisoformat(
-                finished_at.replace("Z", "+00:00")
-            )
+            restart_time = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
             for records, terminal in (
                 (self._curve_lab_build_runs, {"QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"}),
                 (self._curve_lab_import_jobs, {"QUEUED", "RUNNING"}),

@@ -234,10 +234,7 @@ def test_draft_rejects_non_finite_wire_numbers_without_persistence(
     assert response.json()["detail"]["code"] == "REQUEST_VALIDATION_FAILED"
     with get_store()._engine.connect() as connection:
         assert connection.execute(text("SELECT COUNT(*) FROM curve_drafts")).scalar_one() == 0
-        assert (
-            connection.execute(text("SELECT COUNT(*) FROM curve_audit_events")).scalar_one()
-            == 0
-        )
+        assert connection.execute(text("SELECT COUNT(*) FROM curve_audit_events")).scalar_one() == 0
 
 
 def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> None:
@@ -631,6 +628,34 @@ def test_import_create_acknowledges_queued_before_native_reconstruction(
         pytest.fail("import job did not reach SUCCEEDED")
 
 
+def test_import_worker_reuses_the_single_admitted_preflight(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.curve_lab_lifecycle as lifecycle
+
+    payload = b'{"~type":"Bag","name":"curves","keys":[]}'
+    original = lifecycle.preflight_archive
+    calls = 0
+
+    def counted_preflight(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(lifecycle, "preflight_archive", counted_preflight)
+
+    response = client.post(
+        "/api/curve-lab/import-jobs",
+        content=payload,
+        headers={"Content-Type": "application/json"},
+    )
+
+    completed = _completed_import(client, response)
+    assert completed["state"] == "SUCCEEDED"
+    assert calls == 1
+
+
 def test_import_allowlist_failure_never_calls_native_reader(client, monkeypatch) -> None:
     import app.services.dal_gateway as gateway_module
 
@@ -744,6 +769,7 @@ def test_gzip_preflight_failure_persists_exact_wire_and_expanded_lengths(
     persisted = client.get(f"/api/curve-lab/import-jobs/{detail['resource_id']}").json()
     assert persisted["compressed_payload_length"] == len(payload)
     assert persisted["expanded_payload_length"] == len(expanded)
+    assert persisted["error"] == detail
 
 
 def test_import_publication_rolls_back_version_when_job_write_fails(
@@ -916,20 +942,59 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
         },
         [],
     )
+    for run_id, state, deadline_at in (
+        ("risk-running-restart", "RUNNING", "2026-01-15T00:15:00+00:00"),
+        ("risk-expired-restart", "RUNNING", "2026-01-15T00:00:30+00:00"),
+    ):
+        first.publish_curve_lab_risk_run(
+            {
+                "id": run_id,
+                "curve_version_id": version["id"],
+                "calibration_run_id": None,
+                "import_job_id": None,
+                "source_kind": "VERSION",
+                "request": {},
+                "fixing_snapshot_hash": "b" * 64,
+                "target_fingerprint": "c" * 64,
+                "quote_axis": None,
+                "parameter_axis": [],
+                "estimated_work": {},
+                "state": state,
+                "result": None,
+                "error": None,
+                "created_at": "2026-01-15T00:00:00+00:00",
+                "deadline_at": deadline_at,
+                "finished_at": None,
+            },
+            [],
+        )
     first.close()
 
     restarted = DbStore(database_url)
     try:
         finished_at = "2026-01-15T00:01:00+00:00"
-        assert restarted.reconcile_curve_lab_inflight(finished_at) == 3
+        assert restarted.reconcile_curve_lab_inflight(finished_at) == 5
         records = (
             restarted.get_curve_lab_build_run(run["id"]),
             restarted.get_curve_lab_import_job("import-restart"),
             restarted.get_curve_lab_risk_run("risk-restart"),
+            restarted.get_curve_lab_risk_run("risk-running-restart"),
+            restarted.get_curve_lab_risk_run("risk-expired-restart"),
         )
-        for record in (records[0], records[2]):
+        for record, previous_state in (
+            (records[0], "SOLVING"),
+            (records[2], "QUEUED"),
+            (records[3], "RUNNING"),
+        ):
             assert record["state"] == "FAILED"
-            assert record["error"]["code"] == "SERVER_RESTARTED"
+            assert record["error"] == {
+                "code": "SERVER_RESTARTED",
+                "message": "Server restarted while Curve Lab work was running.",
+                "field": "state",
+                "value": previous_state,
+                "resource_id": record["id"],
+                "details": {},
+            }
             assert record["finished_at"] == finished_at
         assert records[1]["state"] == "TIMED_OUT"
         assert records[1]["error"] == {
@@ -941,8 +1006,97 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
             "details": {},
         }
         assert records[1]["finished_at"] == finished_at
+        assert records[4]["state"] == "TIMED_OUT"
+        assert records[4]["error"] == {
+            "code": "SOFT_DEADLINE_EXCEEDED",
+            "message": "Curve Lab work exceeded its persisted soft deadline.",
+            "field": "deadline_at",
+            "value": "2026-01-15T00:00:30+00:00",
+            "resource_id": "risk-expired-restart",
+            "details": {},
+        }
+        assert records[4]["finished_at"] == finished_at
+        assert restarted.reconcile_curve_lab_inflight(finished_at) == 0
     finally:
         restarted.close()
+
+
+def test_memory_restart_terminalizes_risk_without_replay_or_partial_artifacts(
+    monkeypatch,
+) -> None:
+    import app.services.curve_lab_lifecycle as lifecycle
+    import app.services.curve_risk as curve_risk
+    from app.services.store import Store
+
+    store = Store()
+    for run_id, state, deadline_at in (
+        ("queued-risk", "QUEUED", "2026-01-15T00:15:00+00:00"),
+        ("running-risk", "RUNNING", "2026-01-15T00:15:00+00:00"),
+        ("expired-risk", "RUNNING", "2026-01-15T00:00:30+00:00"),
+    ):
+        store.publish_curve_lab_risk_run(
+            {
+                "id": run_id,
+                "curve_version_id": "version",
+                "calibration_run_id": None,
+                "import_job_id": None,
+                "source_kind": "VERSION",
+                "request": {},
+                "fixing_snapshot_hash": "a" * 64,
+                "target_fingerprint": "b" * 64,
+                "quote_axis": None,
+                "parameter_axis": [],
+                "estimated_work": {},
+                "state": state,
+                "result": None,
+                "error": None,
+                "created_at": "2026-01-15T00:00:00+00:00",
+                "deadline_at": deadline_at,
+                "finished_at": None,
+            },
+            [],
+        )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("restart reconciliation dispatched risk work")
+
+    monkeypatch.setattr(curve_risk, "estimate_work", forbidden)
+    monkeypatch.setattr(curve_risk, "_execute_risk_run_guarded", forbidden)
+    monkeypatch.setattr(lifecycle, "preflight_archive", forbidden)
+    monkeypatch.setattr(lifecycle, "_reserve_job", forbidden)
+    finished_at = "2026-01-15T00:01:00+00:00"
+
+    assert store.reconcile_curve_lab_inflight(finished_at) == 3
+
+    for run_id, previous_state in (
+        ("queued-risk", "QUEUED"),
+        ("running-risk", "RUNNING"),
+    ):
+        record = store.get_curve_lab_risk_run(run_id)
+        assert record["state"] == "FAILED"
+        assert record["error"] == {
+            "code": "SERVER_RESTARTED",
+            "message": "Server restarted while Curve Lab work was running.",
+            "field": "state",
+            "value": previous_state,
+            "resource_id": run_id,
+            "details": {},
+        }
+        assert record["finished_at"] == finished_at
+    expired = store.get_curve_lab_risk_run("expired-risk")
+    assert expired["state"] == "TIMED_OUT"
+    assert expired["error"] == {
+        "code": "SOFT_DEADLINE_EXCEEDED",
+        "message": "Curve Lab work exceeded its persisted soft deadline.",
+        "field": "deadline_at",
+        "value": "2026-01-15T00:00:30+00:00",
+        "resource_id": "expired-risk",
+        "details": {},
+    }
+    assert expired["finished_at"] == finished_at
+    assert store._curve_lab_matrices == {}
+    assert store._curve_lab_audit_events == []
+    assert store.reconcile_curve_lab_inflight(finished_at) == 0
 
 
 def test_curve_lab_migration_upgrade_downgrade_upgrade(tmp_path, monkeypatch) -> None:
@@ -1070,9 +1224,7 @@ def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
         block_after_queued_snapshot_read,
     )
     try:
-        admitted_response = client.post(
-            f"/api/curve-lab/drafts/{draft['id']}/build-runs"
-        )
+        admitted_response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
         assert admitted_response.status_code == 202, admitted_response.text
         admitted = admitted_response.json()
         assert admitted["state"] == "QUEUED"
@@ -1080,9 +1232,9 @@ def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
 
         changed_document = _document("0.041")
         changed_document["market_snapshot_id"] = "market-2026-01-16"
-        changed_document["instruments"][0]["instrument_id"] = draft["document"][
-            "instruments"
-        ][0]["instrument_id"]
+        changed_document["instruments"][0]["instrument_id"] = draft["document"]["instruments"][0][
+            "instrument_id"
+        ]
         updated_response = client.put(
             f"/api/curve-lab/drafts/{draft['id']}",
             headers={"If-Match": '"1"'},

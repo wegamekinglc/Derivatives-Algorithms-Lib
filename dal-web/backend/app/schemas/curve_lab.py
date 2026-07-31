@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
+from types import MappingProxyType
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, model_validator
@@ -75,6 +76,25 @@ CURVE_LAB_V1_SUCCESS_REGISTRY: tuple[CurveLabSuccessRegistryEntry, ...] = (
 )
 CURVE_LAB_V1_SUCCESS_FAMILIES: tuple[CurveLabV1SuccessFamily, ...] = tuple(
     row.instrument_type for row in CURVE_LAB_V1_SUCCESS_REGISTRY
+)
+CURVE_LAB_RISK_LIMITS = MappingProxyType(
+    {
+        "trades": 1_000,
+        "parameters": 500,
+        "quotes": 500,
+        "price_evaluations": 100_000,
+        "calibration_solves": 1_002,
+        "aad_recordings": 1_000,
+        "estimated_wall_millis": 900_000,
+    }
+)
+CURVE_LAB_RISK_COST_COEFFICIENTS = MappingProxyType(
+    {
+        "context_build_millis": 1,
+        "price_evaluation_millis": 1,
+        "calibration_solve_millis": 10,
+        "aad_recording_overhead_millis": 1,
+    }
 )
 CurveLabSuccessFamilyInput = Annotated[
     str,
@@ -167,24 +187,9 @@ class CurveLabCapabilitiesResponse(CurveLabWireModel):
         "PRICE_POINTS",
     )
     max_quote_bytes: Literal[512] = 512
-    risk_limits: dict[str, int] = Field(
-        default_factory=lambda: {
-            "trades": 1_000,
-            "parameters": 500,
-            "quotes": 500,
-            "price_evaluations": 100_000,
-            "calibration_solves": 1_002,
-            "aad_recordings": 1_000,
-            "estimated_wall_millis": 900_000,
-        }
-    )
+    risk_limits: dict[str, int] = Field(default_factory=lambda: dict(CURVE_LAB_RISK_LIMITS))
     risk_cost_coefficients: dict[str, int] = Field(
-        default_factory=lambda: {
-            "context_build_millis": 1,
-            "price_evaluation_millis": 1,
-            "calibration_solve_millis": 10,
-            "aad_recording_overhead_millis": 1,
-        }
+        default_factory=lambda: dict(CURVE_LAB_RISK_COST_COEFFICIENTS)
     )
 
 

@@ -17,13 +17,11 @@ def test_curve_lab_endpoints_are_async() -> None:
 
 
 def test_curve_lab_styles_follow_the_industrial_terminal_contract() -> None:
-    stylesheet = (
-        Path(__file__).parents[2] / "frontend" / "src" / "styles.css"
-    ).read_text(encoding="utf-8")
+    stylesheet = (Path(__file__).parents[2] / "frontend" / "src" / "styles.css").read_text(
+        encoding="utf-8"
+    )
     shell_rule = stylesheet.split(".curve-lab-v2 {", 1)[1].split("}", 1)[0]
-    active_tab_rule = stylesheet.split(
-        "button.curve-lab-flow-tab.active {", 1
-    )[1].split("}", 1)[0]
+    active_tab_rule = stylesheet.split("button.curve-lab-flow-tab.active {", 1)[1].split("}", 1)[0]
 
     assert "gradient" not in shell_rule
     assert "shadow" not in active_tab_rule
@@ -329,9 +327,7 @@ def test_openapi_quote_contract_is_closed_and_string_valued(client) -> None:
     assert response["properties"]["normalized_quote"]["type"] == "string"
     assert rendering_request["properties"]["canonical_raw_quote"]["type"] == "string"
     assert rendering_response["properties"]["rendered_quote"]["type"] == "string"
-    assert (
-        "/api/curve-lab/quote-renderings" in document["paths"]
-    )
+    assert "/api/curve-lab/quote-renderings" in document["paths"]
     family_schema = request["properties"]["instrument_type"]
     if "$ref" in family_schema:
         family_schema = schemas[family_schema["$ref"].rsplit("/", 1)[-1]]
@@ -347,3 +343,89 @@ def test_openapi_quote_contract_is_closed_and_string_valued(client) -> None:
 
     encoded = json.dumps(document, sort_keys=True)
     assert '"raw_quote": {"type": "number"}' not in encoded
+
+
+def test_capability_defaults_are_the_single_risk_admission_source(client) -> None:
+    import app.services.curve_risk as curve_risk
+    from app.schemas.curve_lab import (
+        CURVE_LAB_RISK_COST_COEFFICIENTS,
+        CURVE_LAB_RISK_LIMITS,
+    )
+
+    capabilities = client.get("/api/curve-lab/capabilities")
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["risk_limits"] == dict(CURVE_LAB_RISK_LIMITS)
+    assert capabilities.json()["risk_cost_coefficients"] == dict(CURVE_LAB_RISK_COST_COEFFICIENTS)
+    assert not hasattr(curve_risk, "_LIMITS")
+    assert not hasattr(curve_risk, "_COSTS")
+
+
+@pytest.mark.parametrize(
+    ("value", "bump", "expected"),
+    [
+        ("0.04", "0.0001", "0.0401"),
+        ("95.82", "-0.01", "95.81"),
+        ("0", "-0.01", "-0.01"),
+        ("-0.0001", "0.0001", "0"),
+        ("0.0000000000000001", "0.0000000000000001", "0.0000000000000002"),
+    ],
+)
+def test_exact_decimal_bump_preserves_canonical_financial_bytes(
+    value: str,
+    bump: str,
+    expected: str,
+) -> None:
+    from app.services.quote_canonicalization import apply_exact_decimal_bump
+
+    assert apply_exact_decimal_bump(value, bump) == expected
+
+
+@pytest.mark.parametrize("value", ["01", "NaN", "1e-4", "+0.04"])
+def test_exact_decimal_bump_rejects_noncanonical_or_malformed_values(value: str) -> None:
+    from app.services.quote_canonicalization import (
+        QuoteCanonicalizationError,
+        apply_exact_decimal_bump,
+    )
+
+    with pytest.raises(QuoteCanonicalizationError):
+        apply_exact_decimal_bump(value, "0.0001")
+
+
+def test_exact_decimal_bump_rejects_a_move_erased_by_binary64() -> None:
+    from app.services.quote_canonicalization import (
+        QuoteCanonicalizationError,
+        apply_exact_decimal_bump,
+    )
+
+    with pytest.raises(QuoteCanonicalizationError) as raised:
+        apply_exact_decimal_bump(
+            "12345678901234567890.00000000000000000001",
+            "0.00000000000000000009",
+        )
+
+    assert raised.value.code == "RISK_BUMP_NOT_REPRESENTABLE"
+    assert raised.value.field == "raw_quote"
+    assert raised.value.value == "12345678901234567890.00000000000000000001"
+
+
+def test_curve_lab_canonical_json_preserves_exact_ascii_bytes_and_hash() -> None:
+    import hashlib
+
+    from app.services.canonical_json import canonical_json_bytes, canonical_json_hash
+
+    value = {"z": "é", "a": [1, True, None]}
+    expected = b'{"a":[1,true,null],"z":"\\u00e9"}'
+
+    assert canonical_json_bytes(value) == expected
+    assert canonical_json_hash(value) == hashlib.sha256(expected).hexdigest()
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_curve_lab_canonical_json_rejects_non_finite_numbers(value: float) -> None:
+    from app.services.canonical_json import canonical_json_bytes, canonical_json_hash
+
+    with pytest.raises(ValueError):
+        canonical_json_bytes({"value": value})
+    with pytest.raises(ValueError):
+        canonical_json_hash({"value": value})
