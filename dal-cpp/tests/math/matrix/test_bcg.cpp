@@ -30,7 +30,7 @@
 namespace {
     std::atomic<bool> dal35TrackAllocations_{false};
     std::atomic<std::size_t> dal35AllocationCount_{0};
-#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
     int dal35ExactWorkspaceConstructionCount_ = 0;
 #endif
 
@@ -43,7 +43,7 @@ namespace {
     }
 } // namespace
 
-#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
 #if defined(__GNUC__) || defined(__clang__)
 #define DAL35_TEST_HIDDEN_ __attribute__((visibility("hidden")))
 #else
@@ -2277,7 +2277,7 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaNamedFtzFixtures) {
 }
 #endif
 
-#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
 TEST(MatrixTest, TestCGSolveAndBCGSolveProductionExactWorkspaceConstructionBoundary) {
     const double diagonal = std::ldexp(1.0, -500);
     const double preconditioner = std::ldexp(1.0, -600);

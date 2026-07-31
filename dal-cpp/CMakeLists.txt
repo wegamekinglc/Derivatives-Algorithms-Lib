@@ -272,29 +272,12 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/*.hpp"
         "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 
-    set(DAL_CPP_DAL35_SEAM_TEST_FILTER
+    set(DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER
         "MatrixTest.TestCGSolveAndBCGSolveProductionExactWorkspaceConstructionBoundary")
-    set(DAL_CPP_DAL35_SEAM_BASE_SOURCES
+    set(DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES
         "${PROJECT_SOURCE_DIR}/dal/math/matrix/bcg.cpp"
         "${PROJECT_SOURCE_DIR}/tests/math/matrix/test_bcg.cpp"
         "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
-
-    # BEGIN DAL58_P4_PRIVATE_TARGET_SOURCES
-    set(DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES)
-    # END DAL58_P4_PRIVATE_TARGET_SOURCES
-
-    set(DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES_ABSOLUTE)
-    foreach(private_source IN LISTS DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES)
-        cmake_path(
-            ABSOLUTE_PATH private_source
-            BASE_DIRECTORY "${PROJECT_SOURCE_DIR}"
-            NORMALIZE
-            OUTPUT_VARIABLE private_source_absolute)
-        list(APPEND DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES_ABSOLUTE
-            "${private_source_absolute}")
-    endforeach()
-    list(REMOVE_ITEM TEST_FILES
-        ${DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES_ABSOLUTE})
 
     add_executable(dal_cpp_tests ${TEST_FILES})
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
@@ -302,33 +285,20 @@ if(DAL_CPP_BUILD_TESTS)
 
     gtest_discover_tests(dal_cpp_tests)
 
-    add_executable(dal_cpp_dal35_seam_tests
-        ${DAL_CPP_DAL35_SEAM_BASE_SOURCES}
-        ${DAL_CPP_DAL35_P4_PRIVATE_TARGET_SOURCES})
-    target_compile_definitions(dal_cpp_dal35_seam_tests PRIVATE DAL35_ENABLE_TEST_SEAM)
-    target_link_libraries(dal_cpp_dal35_seam_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
-    dal_apply_platform_options(dal_cpp_dal35_seam_tests)
+    add_executable(dal_cpp_bcg_workspace_boundary_tests
+        ${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES})
+    target_compile_definitions(dal_cpp_bcg_workspace_boundary_tests PRIVATE DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+    target_link_libraries(dal_cpp_bcg_workspace_boundary_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
+    dal_apply_platform_options(dal_cpp_bcg_workspace_boundary_tests)
     if(MSVC)
-        target_compile_definitions(dal_cpp_dal35_seam_tests PRIVATE IS_BASE)
+        target_compile_definitions(dal_cpp_bcg_workspace_boundary_tests PRIVATE IS_BASE)
     endif()
 
-    function(_dal_cpp_register_dal35_seam_test test_filter)
-        add_test(
-            NAME "dal35_seam::${test_filter}"
-            COMMAND dal_cpp_dal35_seam_tests
-                    "--gtest_filter=${test_filter}"
-                    "--gtest_fail_if_no_test_selected")
-    endfunction()
-
-    # BEGIN DAL58_P4_PRIVATE_TARGET_CTEST
-    _dal_cpp_register_dal35_seam_test("${DAL_CPP_DAL35_SEAM_TEST_FILTER}")
-    # END DAL58_P4_PRIVATE_TARGET_CTEST
-
     add_test(
-        NAME "dal35_scope_guard::fixtures"
-        COMMAND ${CMAKE_COMMAND}
-                -DDAL35_GUARD_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/dal35-private-target-scope-guard.cmake
-                -P ${PROJECT_SOURCE_DIR}/cmake/test-dal35-private-target-scope-guard.cmake)
+        NAME "bcg_workspace_boundary::${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
+        COMMAND dal_cpp_bcg_workspace_boundary_tests
+                "--gtest_filter=${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
+                "--gtest_fail_if_no_test_selected")
 
     install(TARGETS dal_cpp_tests
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

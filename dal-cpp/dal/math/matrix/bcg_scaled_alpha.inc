@@ -257,7 +257,7 @@ namespace Dal {
                 return plan;
             }
 
-#if defined(DAL35_ENABLE_TEST_SEAM)
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
             template <class LegacyConversion_, class ScaledEvaluation_>
             inline AlphaPlan_ ObserveAlphaDispatchForTest_(const StoredScaledBits_& numerator,
                                                           const StoredScaledBits_& denominator,
