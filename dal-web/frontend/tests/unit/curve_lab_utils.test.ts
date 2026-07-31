@@ -22,9 +22,23 @@ describe("Curve Lab UI utilities", () => {
         field: "raw_quote",
       },
     ))).toBe("QUOTE_DECIMAL_INVALID · raw_quote: Use a plain decimal.");
+    expect(curveLabErrorMessage(new ApiClientError(
+      "422: invalid quote",
+      422,
+      {
+        code: "QUOTE_DECIMAL_INVALID",
+        message: "Use a plain decimal.",
+      },
+    ))).toBe("QUOTE_DECIMAL_INVALID · Use a plain decimal.");
+    expect(curveLabErrorMessage(new ApiClientError(
+      "422: invalid quote",
+      422,
+      { field: "raw_quote" },
+    ))).toBe("422: invalid quote");
     expect(curveLabErrorMessage(new Error("network unavailable"))).toBe(
       "network unavailable",
     );
+    expect(curveLabErrorMessage("unknown failure")).toBe("unknown failure");
   });
 
   it("omits server-owned instrument ids during construction", () => {

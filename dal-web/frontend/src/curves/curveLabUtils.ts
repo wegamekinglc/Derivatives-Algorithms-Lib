@@ -1,22 +1,29 @@
 import { ApiClientError } from "../api/client";
 
+type CurveLabErrorDetail = { code?: string; message?: string; field?: string };
+
+function curveLabErrorDetailMessage(detail: unknown): string | undefined {
+  if (typeof detail !== "object" || !detail) return undefined;
+  const { code, message, field } = detail as CurveLabErrorDetail;
+  if (!message) return undefined;
+  const prefix = code ? `${code} · ` : "";
+  return field ? `${prefix}${field}: ${message}` : `${prefix}${message}`;
+}
+
 export function curveLabErrorMessage(reason: unknown): string {
-  if (reason instanceof ApiClientError && typeof reason.detail === "object" && reason.detail) {
-    const detail = reason.detail as { code?: string; message?: string; field?: string };
-    const prefix = detail.code ? `${detail.code} · ` : "";
-    if (detail.field && detail.message) {
-      return `${prefix}${detail.field}: ${detail.message}`;
-    }
-    if (detail.message) return `${prefix}${detail.message}`;
-  }
+  const detailMessage = reason instanceof ApiClientError
+    ? curveLabErrorDetailMessage(reason.detail)
+    : undefined;
+  if (detailMessage) return detailMessage;
   return reason instanceof Error ? reason.message : String(reason);
 }
 
 export function omitCurveLabInstrumentId(
   instrument: Record<string, unknown>,
 ): Record<string, unknown> {
-  const { instrument_id: _instrumentId, ...withoutInstrumentId } = instrument;
-  return withoutInstrumentId;
+  return Object.fromEntries(
+    Object.entries(instrument).filter(([key]) => key !== "instrument_id"),
+  );
 }
 
 function downloadBlob(payload: Blob, fileName: string): void {

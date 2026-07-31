@@ -759,8 +759,6 @@ def _admit_risk_run(
     request: RiskRunRequestV2,
     *,
     run_id: str,
-    created_at: str,
-    deadline_at: str,
     request_json: dict,
     request_bytes: bytes,
 ) -> _AdmittedRiskSnapshot:
@@ -916,6 +914,8 @@ def _admit_risk_run(
         sensitivity_layers=request.sensitivity_layers,
     )
     _admit_work(estimate)
+    created_at = _now()
+    deadline_at = new_deadline(datetime.fromisoformat(created_at.replace("Z", "+00:00")))
     return _AdmittedRiskSnapshot(
         run_id=run_id,
         created_at=created_at,
@@ -945,16 +945,12 @@ def create_risk_run(
 ) -> dict:
     request_json = request.model_dump(mode="json", exclude_none=True)
     request_bytes = canonical_json_bytes(request_json)
-    now = _now()
     run_id = uuid4().hex
-    deadline_at = new_deadline(datetime.fromisoformat(now.replace("Z", "+00:00")))
     admitted = _admit_risk_run(
         store,
         gateway,
         request,
         run_id=run_id,
-        created_at=now,
-        deadline_at=deadline_at,
         request_json=request_json,
         request_bytes=request_bytes,
     )
@@ -980,8 +976,8 @@ def create_risk_run(
         "state": "QUEUED",
         "result": None,
         "error": None,
-        "created_at": now,
-        "deadline_at": deadline_at,
+        "created_at": admitted.created_at,
+        "deadline_at": admitted.deadline_at,
         "finished_at": None,
     }
     try:

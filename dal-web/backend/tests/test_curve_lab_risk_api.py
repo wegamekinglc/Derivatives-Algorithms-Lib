@@ -601,6 +601,57 @@ def test_risk_create_acknowledges_queued_before_native_pricing(
     assert completed["state"] == "SUCCEEDED"
 
 
+def test_risk_deadline_starts_after_admission_preflight(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.curve_risk as curve_risk
+    from app.services.dal_gateway import get_gateway
+
+    _, version = _publish_version(client)
+
+    class CapturingReservation:
+        submitted: tuple[object, ...] | None = None
+
+        def submit(self, function, /, *args):
+            self.submitted = (function, *args)
+
+        def cancel(self) -> None:
+            pass
+
+    reservation = CapturingReservation()
+    monkeypatch.setattr(curve_risk, "_reserve_job", lambda: reservation)
+    clock = {"now": "2026-01-15T10:00:00Z"}
+    monkeypatch.setattr(curve_risk, "_now", lambda: clock["now"])
+    gateway = get_gateway()
+    original_preflight = gateway.curve_lab_required_historical_fixings
+
+    def advancing_preflight(*args, **kwargs):
+        required = original_preflight(*args, **kwargs)
+        clock["now"] = "2026-01-15T10:05:00Z"
+        return required
+
+    monkeypatch.setattr(
+        gateway,
+        "curve_lab_required_historical_fixings",
+        advancing_preflight,
+    )
+    request = _request(version["id"])
+    request["measures"] = ["PV"]
+    request["sensitivity_layers"] = []
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == 202, response.text
+    queued = response.json()
+    assert reservation.submitted is not None
+    _, _, _, snapshot = reservation.submitted
+    assert queued["created_at"] == "2026-01-15T10:05:00Z"
+    assert queued["deadline_at"] == "2026-01-15T10:20:00Z"
+    assert snapshot.created_at == queued["created_at"]
+    assert snapshot.deadline_at == queued["deadline_at"]
+
+
 @pytest.mark.parametrize("expire_after_running", [False, True])
 def test_risk_deadline_terminalizes_without_partial_matrices(
     client,
