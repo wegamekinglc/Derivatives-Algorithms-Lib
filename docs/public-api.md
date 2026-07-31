@@ -218,8 +218,20 @@ The supported family enum is closed to `DEPOSIT`, `FRA`, `FUTURE`, `OIS`,
 required historical rate/FX fixing keys before valuation. Batch pricing retains
 a success/failure result per trade.
 
-Native node AAD currently admits deposit trades only. Other families return
-`TRADE_FAMILY_NOT_AAD_ENABLED`; consumers that apply a central-parameter
+Native node AAD currently admits deposit trades only. The first failing gate
+selects the reason in this order: family (`TRADE_FAMILY_NOT_AAD_ENABLED`),
+requested dependency (`TRADE_DOES_NOT_DEPEND_ON_COMPONENT`), component
+availability (`CURVE_COMPONENT_UNAVAILABLE`), curve representation
+(`CURVE_REPRESENTATION_NOT_AAD_ENABLED`), passive trade validation
+(`TRADE_VALIDATION_FAILED`), then AAD evaluation (`AAD_EVALUATION_FAILED`).
+`TRADE_VALIDATION_FAILED` is the stable token for a supported deposit that
+fails passive pricing validation; field-level detail remains available through
+`PriceRateTrade.error_`.
+
+Every node-sensitivity failure uses the canonical four-field result:
+`eligible_ == false`, `pv_ == 0.0`, an empty `gradient_`, and a non-empty stable
+`reason_`. Python projects the equivalent `eligible == False`, `pv == 0.0`,
+`gradient == []`, and `reason` token. Consumers that apply a central-parameter
 fallback must label it separately. See the [Curve Lab guide](curve-lab.md) for
 the complete pricing, fixing, matrix, and provenance contract.
 

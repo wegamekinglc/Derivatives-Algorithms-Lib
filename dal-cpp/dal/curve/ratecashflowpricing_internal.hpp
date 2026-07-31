@@ -1,0 +1,66 @@
+//
+// Created by dal-implementer on 2026/8/1.
+//
+
+#pragma once
+
+#include <cmath>
+#include <exception>
+#include <utility>
+#include <variant>
+
+#include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/tapeguard.hpp>
+#include <dal/curve/ycconst.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
+#include <dal/curve/yczerorate.hpp>
+
+namespace Dal::RateCashflowPricingInternal {
+    using NodeSensitivityCurve_ = std::variant<std::monostate,
+                                               const Tape::DiscountPWC_<double>*,
+                                               const Tape::DiscountPWLF_<double>*,
+                                               const Tape::DiscountLogDF_<double>*,
+                                               const Tape::DiscountZeroRate_<double>*>;
+
+    inline NodeSensitivityCurve_ ClassifyNodeSensitivityCurve(const DiscountCurve_& curve) {
+        if (const auto* pwc = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve))
+            return pwc;
+        if (const auto* pwlf = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve))
+            return pwlf;
+        if (const auto* logDf = dynamic_cast<const Tape::DiscountLogDF_<double>*>(&curve))
+            return logDf;
+        if (const auto* zero = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve))
+            return zero;
+        return std::monostate{};
+    }
+
+    struct NodeSensitivityCandidate_ {
+        double pv_ = 0.0;
+        Vector_<> gradient_;
+    };
+
+    inline RateTradeNodeSensitivityResult_ NodeSensitivityFailure(const String_& reason) {
+        RateTradeNodeSensitivityResult_ result;
+        result.reason_ = reason;
+        return result;
+    }
+
+    inline RateTradeNodeSensitivityResult_ FinalizeNodeSensitivityCandidate(NodeSensitivityCandidate_ candidate, int expectedParameterCount) {
+        if (expectedParameterCount < 0 || static_cast<int>(candidate.gradient_.size()) != expectedParameterCount || !std::isfinite(candidate.pv_))
+            return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+        for (const double value : candidate.gradient_)
+            if (!std::isfinite(value))
+                return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+        return {true, candidate.pv_, std::move(candidate.gradient_), String_()};
+    }
+
+    template <class Runner_> RateTradeNodeSensitivityResult_ RunNodeSensitivityAADStage(int expectedParameterCount, Runner_&& runner) {
+        try {
+            TapeGuard_ guard(AAD::Tape());
+            return FinalizeNodeSensitivityCandidate(std::forward<Runner_>(runner)(), expectedParameterCount);
+        } catch (const std::exception&) {
+            return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+        }
+    }
+} // namespace Dal::RateCashflowPricingInternal
