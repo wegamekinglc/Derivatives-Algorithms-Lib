@@ -272,11 +272,33 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/*.hpp"
         "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 
+    set(DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER
+        "MatrixTest.TestCGSolveAndBCGSolveProductionExactWorkspaceConstructionBoundary")
+    set(DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES
+        "${PROJECT_SOURCE_DIR}/dal/math/matrix/bcg.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/math/matrix/test_bcg.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
+
     add_executable(dal_cpp_tests ${TEST_FILES})
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
     dal_apply_platform_options(dal_cpp_tests)
 
     gtest_discover_tests(dal_cpp_tests)
+
+    add_executable(dal_cpp_bcg_workspace_boundary_tests
+        ${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES})
+    target_compile_definitions(dal_cpp_bcg_workspace_boundary_tests PRIVATE DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+    target_link_libraries(dal_cpp_bcg_workspace_boundary_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
+    dal_apply_platform_options(dal_cpp_bcg_workspace_boundary_tests)
+    if(MSVC)
+        target_compile_definitions(dal_cpp_bcg_workspace_boundary_tests PRIVATE IS_BASE)
+    endif()
+
+    add_test(
+        NAME "bcg_workspace_boundary::${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
+        COMMAND dal_cpp_bcg_workspace_boundary_tests
+                "--gtest_filter=${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
+                "--gtest_fail_if_no_test_selected")
 
     install(TARGETS dal_cpp_tests
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
