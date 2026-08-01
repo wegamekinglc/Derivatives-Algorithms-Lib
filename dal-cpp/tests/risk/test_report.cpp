@@ -166,7 +166,9 @@ TEST(RiskTest, TestReportAddHeaderRowRejectsWrongWidth) {
         report.AddHeaderRow("header1", 0, {Cell_(1.0)});
         FAIL() << "Expected AddHeaderRow to reject the wrong width";
     } catch (const Dal::Exception_& e) {
-        ASSERT_NE(std::string(e.what()).find("nLabels = 2"), std::string::npos);
+        const std::string message(e.what());
+        ASSERT_NE(message.find("Wrong number (= 1) of labels (= 2)"), std::string::npos);
+        ASSERT_NE(message.find("nLabels = 2"), std::string::npos);
     }
 }
 
