@@ -1,3 +1,4 @@
+// @ts-expect-error -- Vitest runs in Node; production typings intentionally exclude Node.
 import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -5,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { api, type CalibrationRun } from "../../src/api/client";
 import CurveRun from "../../src/pages/CurveRun";
 
-const styles = readFileSync("src/styles.css", "utf8");
+const styles = readFileSync("src/styles.css", "utf8") as string;
 
 function runningRun(): CalibrationRun {
   return {

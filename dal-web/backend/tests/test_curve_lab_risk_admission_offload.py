@@ -28,6 +28,67 @@ def _prepared_admission(client, monkeypatch):
     return get_store(), gateway, request
 
 
+def test_risk_admission_native_failure_preserves_http_error_without_side_effects(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.curve_risk as curve_risk
+    from app.services.curve_lab_lifecycle import CurveLabLifecycleError
+
+    store, gateway, request = _prepared_admission(client, monkeypatch)
+    expected_error = CurveLabLifecycleError(
+        422,
+        "MISSING_HISTORICAL_FIXING",
+        "A required historical fixing is absent from the immutable snapshot.",
+        "target.trades[0]",
+        {
+            "index_name": "USD-SOFR",
+            "fixing_time": "2026-01-14T11:00:00",
+        },
+        resource_id="native-preflight-fixings",
+        constraint="fixing_time before evaluation_time requires an exact snapshot value",
+    )
+    reservations: list[object] = []
+    publications: list[tuple[dict, list[dict]]] = []
+    audits: list[dict] = []
+
+    class UnexpectedReservation:
+        def submit(self, _function, /, *_args) -> None:
+            pytest.fail("native admission failure must not submit a worker")
+
+        def cancel(self) -> None:
+            pytest.fail("native admission failure must not reserve capacity")
+
+    def reserve():
+        reservation = UnexpectedReservation()
+        reservations.append(reservation)
+        return reservation
+
+    def fail_preflight(*_args, **_kwargs):
+        raise expected_error
+
+    monkeypatch.setattr(gateway, "curve_lab_required_historical_fixings", fail_preflight)
+    monkeypatch.setattr(curve_risk, "_reserve_job", reserve)
+    monkeypatch.setattr(
+        store,
+        "publish_curve_lab_risk_run",
+        lambda record, matrices: publications.append((record, matrices)),
+    )
+    monkeypatch.setattr(
+        store,
+        "add_curve_lab_audit_event",
+        lambda record: audits.append(record),
+    )
+
+    response = client.post("/api/curve-lab/risk-runs", json=request)
+
+    assert response.status_code == expected_error.status_code
+    assert response.json() == {"detail": expected_error.detail}
+    assert reservations == []
+    assert publications == []
+    assert audits == []
+
+
 def test_risk_admission_preflight_runs_off_request_loop_while_heartbeat_advances(
     client,
     monkeypatch,
