@@ -3,6 +3,9 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <string>
+
 #include <dal/risk/report.hpp>
 #include <dal/storage/json.hpp>
 
@@ -159,7 +162,14 @@ TEST(RiskTest, TestReportSetAll) {
 TEST(RiskTest, TestReportAddHeaderRowRejectsWrongWidth) {
     const Vector_<Report::Axis_> axes = {{"header1", 2, {"a", "b"}}};
     Report_ report("test_report", axes);
-    ASSERT_THROW(report.AddHeaderRow("header1", 0, {Cell_(1.0)}), Dal::Exception_);
+    try {
+        report.AddHeaderRow("header1", 0, {Cell_(1.0)});
+        FAIL() << "Expected AddHeaderRow to reject the wrong width";
+    } catch (const Dal::Exception_& e) {
+        const std::string message(e.what());
+        ASSERT_NE(message.find("Wrong number (= 1) of labels (= 2)"), std::string::npos);
+        ASSERT_NE(message.find("nLabels = 2"), std::string::npos);
+    }
 }
 
 TEST(RiskTest, TestReportAddHeaderRowExtendsValues) {

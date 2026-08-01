@@ -133,11 +133,12 @@ namespace Dal {
 
     void Report_::AddHeaderRow(const String_& axes, int offset, const Vector_<Cell_>& values) {
         auto& [labels_, values_] = headers_[FindAxis(axes_, axes)];
-        const auto n_labels = labels_.size();
-        NOTICE(static_cast<int>(n_labels));
-        REQUIRE(values.size() == n_labels, "Wrong number (= " + ToString(static_cast<int>(values.size())) + " of labels");
+        const int nLabels = static_cast<int>(labels_.size());
+        const int nValues = static_cast<int>(values.size());
+        NOTICE(nLabels);
+        REQUIRE(nValues == nLabels, "Wrong number (= " + ToString(nValues) + ") of labels (= " + ToString(nLabels) + ")");
         if (offset >= values_.Rows())
-            values_.Resize(offset + 1, static_cast<int>(labels_.size()));
+            values_.Resize(offset + 1, nLabels);
         auto row = values_.Row(offset);
         Copy(values, &row);
     }
