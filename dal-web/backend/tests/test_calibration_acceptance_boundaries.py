@@ -54,23 +54,15 @@ def _single_representation_request(
 ) -> dict[str, object]:
     request = single_request("USD", 0.02)
     future = ["2027-01-02", "2028-01-02"]
-    knots = (
-        ["2026-01-02", *future]
-        if parameterization == "LOG_DISCOUNT"
-        else future
-    )
+    knots = ["2026-01-02", *future] if parameterization == "LOG_DISCOUNT" else future
     request["declaration"].update(
         {
             "parameterization": parameterization,
             "log_df_scheme": (
-                "LOG_LINEAR"
-                if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"}
-                else None
+                "LOG_LINEAR" if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"} else None
             ),
             "knot_dates": knots,
-            "initial_guess_per_node": (
-                [] if submitted_seed is None else submitted_seed
-            ),
+            "initial_guess_per_node": ([] if submitted_seed is None else submitted_seed),
         }
     )
     request["instruments"] = _dated_deposits("USD", future)
@@ -105,9 +97,7 @@ def test_fix_b6_initial_seeds_reach_single_native_inspection_order(
     original = gateway.calibrate_single
 
     def calibrate(pre_lock_request, *args):
-        observed.append(
-            list(pre_lock_request.request.declaration.initial_guess_per_node)
-        )
+        observed.append(list(pre_lock_request.request.declaration.initial_guess_per_node))
         return original(pre_lock_request, *args)
 
     with mock.patch.object(gateway, "calibrate_single", side_effect=calibrate):
@@ -122,9 +112,9 @@ def test_fix_b6_initial_seeds_reach_single_native_inspection_order(
 
     assert completed["status"] == "completed"
     assert observed == [expected]
-    assert _persisted_request(completed)["declaration"][
-        "resolved_initial_guess_per_node"
-    ] == expected
+    assert (
+        _persisted_request(completed)["declaration"]["resolved_initial_guess_per_node"] == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -142,9 +132,9 @@ def test_fix_b6_log_negative_zero_and_explicit_override(
         "/api/calibrations/single",
         _single_representation_request("LOG_DISCOUNT", scalar=scalar),
     )
-    assert _persisted_request(completed)["declaration"][
-        "resolved_initial_guess_per_node"
-    ] == expected
+    assert (
+        _persisted_request(completed)["declaration"]["resolved_initial_guess_per_node"] == expected
+    )
 
     overridden = submit_and_wait(
         client,
@@ -155,12 +145,14 @@ def test_fix_b6_log_negative_zero_and_explicit_override(
             submitted_seed=[-0.123, -0.456],
         ),
     )
-    assert _persisted_request(overridden)["declaration"][
-        "submitted_initial_guess_per_node"
-    ] == [-0.123, -0.456]
-    assert _persisted_request(overridden)["declaration"][
-        "resolved_initial_guess_per_node"
-    ] == [-0.123, -0.456]
+    assert _persisted_request(overridden)["declaration"]["submitted_initial_guess_per_node"] == [
+        -0.123,
+        -0.456,
+    ]
+    assert _persisted_request(overridden)["declaration"]["resolved_initial_guess_per_node"] == [
+        -0.123,
+        -0.456,
+    ]
 
 
 def test_fix_b6_seed_shape_and_non_finite_values_fail_at_production_api(
@@ -225,9 +217,7 @@ def test_fix_b6_staged_and_joint_gateway_inspection_see_resolved_vectors(
     original_staged = gateway.calibrate_staged_xccy
 
     def calibrate_staged(request, *args):
-        observed_staged.append(
-            list(request.request.basis.initial_guess_per_node)
-        )
+        observed_staged.append(list(request.request.basis.initial_guess_per_node))
         return original_staged(request, *args)
 
     with mock.patch.object(
@@ -320,12 +310,8 @@ def _staged_dimension_request(
         {
             **xccy_swap(),
             "label": f"basis-{index + 1}",
-            "start": (
-                "2026-01-02" if index < 2 else "2026-02-02"
-            ),
-            "maturity": (
-                "2027-01-02" if index == 0 else "2028-01-02"
-            ),
+            "start": ("2026-01-02" if index < 2 else "2026-02-02"),
+            "maturity": ("2027-01-02" if index == 0 else "2028-01-02"),
         }
         for index in range(residual_count)
     ]
@@ -342,12 +328,8 @@ def _joint_dimension_request(overdetermined: bool) -> dict[str, object]:
         {
             **xccy_swap(),
             "label": f"basis-{index + 1}",
-            "start": (
-                "2026-01-02" if index < 2 else "2026-02-02"
-            ),
-            "maturity": (
-                "2027-01-02" if index == 0 else "2028-01-02"
-            ),
+            "start": ("2026-01-02" if index < 2 else "2026-02-02"),
+            "maturity": ("2027-01-02" if index == 0 else "2028-01-02"),
         }
         for index in range(basis_count)
     ]
@@ -491,9 +473,7 @@ def test_fix_b1_joint_basis_schemes_cross_production_gateway_and_rebuild_dto(
                 _observed=observed,
                 _original=original,
             ):
-                _observed.append(
-                    gateway_request.request.basis.log_df_scheme
-                )
+                _observed.append(gateway_request.request.basis.log_df_scheme)
                 return _original(gateway_request, *args)
 
             with mock.patch.object(
@@ -506,11 +486,7 @@ def test_fix_b1_joint_basis_schemes_cross_production_gateway_and_rebuild_dto(
                     "/api/calibrations/xccy/joint",
                     request,
                 )
-            basis_curve = next(
-                curve
-                for curve in completed["curves"]
-                if curve["role"] == "basis"
-            )
+            basis_curve = next(curve for curve in completed["curves"] if curve["role"] == "basis")
             assert observed == [scheme]
             assert basis_curve["parameterization"] == parameterization
             assert basis_curve["log_df_scheme"] == scheme
@@ -540,11 +516,7 @@ def _single_storage_boundary_request(
 ) -> dict[str, object]:
     request = single_request("USD", 0.02)
     future = future_knots(future_count)
-    knots = (
-        ["2026-01-02", *future]
-        if parameterization == "LOG_DISCOUNT"
-        else future
-    )
+    knots = ["2026-01-02", *future] if parameterization == "LOG_DISCOUNT" else future
     request["declaration"].update(
         {
             "parameterization": parameterization,
@@ -577,9 +549,7 @@ def test_fix_b2_storage_boundaries_cover_single_and_joint_anchor_projection(
         curve = completed["curves"][0]
         assert completed["resolved_knot_plan"]["counts"]["storage_nodes"] == 100
         assert curve["anchor_date"] == "2026-01-02"
-        assert len(curve["node_dates"]) == (
-            99 if parameterization == "ZERO_RATE" else 100
-        )
+        assert len(curve["node_dates"]) == (99 if parameterization == "ZERO_RATE" else 100)
 
     gateway = get_gateway()
     store = get_store()
@@ -608,9 +578,7 @@ def test_fix_b2_storage_boundaries_cover_single_and_joint_anchor_projection(
     ):
         response = client.post("/api/calibrations/single", json=overflow)
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == (
-        "CURVE_STORAGE_NODE_LIMIT_EXCEEDED"
-    )
+    assert response.json()["error"]["code"] == ("CURVE_STORAGE_NODE_LIMIT_EXCEEDED")
     assert response.json()["error"]["location"][-1] == 99
     assert admission.call_count == planner.call_count == 1
     assert insert.call_count == native.call_count == 0
@@ -618,9 +586,7 @@ def test_fix_b2_storage_boundaries_cover_single_and_joint_anchor_projection(
     for target in ("domestic", "basis"):
         request = joint_request()
         declaration = (
-            request["domestic"]["declarations"][0]
-            if target == "domestic"
-            else request["basis"]
+            request["domestic"]["declarations"][0] if target == "domestic" else request["basis"]
         )
         declaration.update(
             {
@@ -642,14 +608,10 @@ def test_fix_b2_storage_boundaries_cover_single_and_joint_anchor_projection(
             request,
         )
         expected_name = (
-            declaration["curve_name"]
-            if target == "domestic"
-            else request["basis"]["curve_name"]
+            declaration["curve_name"] if target == "domestic" else request["basis"]["curve_name"]
         )
         target_curve = next(
-            curve
-            for curve in completed["curves"]
-            if curve["name"] == expected_name
+            curve for curve in completed["curves"] if curve["name"] == expected_name
         )
         assert target_curve["anchor_date"] == "2026-01-02"
         assert len(target_curve["node_dates"]) == 99
@@ -678,9 +640,7 @@ def test_fix_b2_storage_boundaries_cover_single_and_joint_anchor_projection(
                 json=request,
             )
         assert rejected.status_code == 422
-        assert rejected.json()["error"]["code"] == (
-            "CURVE_STORAGE_NODE_LIMIT_EXCEEDED"
-        )
+        assert rejected.json()["error"]["code"] == ("CURVE_STORAGE_NODE_LIMIT_EXCEEDED")
         assert insert.call_count == native.call_count == preflight.call_count == 0
 
 
@@ -703,6 +663,7 @@ def test_fix_scheme_min_nodes_reject_accept_boundaries_at_api(
     accept_future: int,
 ) -> None:
     """FIX-SCHEME-MIN-NODES — each scheme rejects N-1 and accepts N."""
+
     def request(count: int) -> dict[str, object]:
         payload = single_request("USD", 0.02)
         future = future_knots(max(count, 1))
@@ -733,9 +694,7 @@ def test_fix_scheme_min_nodes_reject_accept_boundaries_at_api(
             json=request(reject_future),
         )
         assert rejected.status_code == 422
-        assert rejected.json()["error"]["code"] == (
-            "CURVE_SCHEME_NODE_COUNT_INVALID"
-        )
+        assert rejected.json()["error"]["code"] == ("CURVE_SCHEME_NODE_COUNT_INVALID")
     accepted = submit_and_wait(
         client,
         "/api/calibrations/single",
@@ -813,9 +772,7 @@ def test_fix_joint_free_parameter_limit_exhausts_modes_flags_and_downstream(
                     )
                 assert response.status_code == 422
                 error = response.json()["error"]
-                assert error["code"] == (
-                    "JOINT_FREE_PARAMETER_LIMIT_EXCEEDED"
-                )
+                assert error["code"] == ("JOINT_FREE_PARAMETER_LIMIT_EXCEEDED")
                 assert error["context"]["total_free_parameters"] == total
                 assert planner.call_count == 1
                 assert (
@@ -872,9 +829,12 @@ def test_fix_joint_free_parameter_limit_exhausts_modes_flags_and_downstream(
     assert estimator.call_count == 1
     assert estimator.call_args.args[2] == built[0].total_free_parameters
     document = client.app.openapi()
-    assert document["components"]["schemas"]["JointXccyCalibrationRequest"][
-        "x-dal-max-total-free-parameters"
-    ] == 200
+    assert (
+        document["components"]["schemas"]["JointXccyCalibrationRequest"][
+            "x-dal-max-total-free-parameters"
+        ]
+        == 200
+    )
 
 
 def test_reviewer_joint_capacity_precedes_unsupported_convention(client) -> None:
@@ -1163,9 +1123,9 @@ def test_section_18_missing_xccy_leg_route_maps_native_report_to_api(
 ) -> None:
     """API-04/API-06 — missing XCCY discount route has the submitted location."""
     request = joint_request()
-    request["basis"]["instruments"][0]["config"]["convention"]["domestic_index"][
-        "collateral"
-    ] = "MISSING"
+    request["basis"]["instruments"][0]["config"]["convention"]["domestic_index"]["collateral"] = (
+        "MISSING"
+    )
     issue = SimpleNamespace(
         reason=SimpleNamespace(name="DISCOUNT_ROUTE_MISSING"),
         group="basis",
@@ -1355,21 +1315,20 @@ def test_fix_cb1_downstream_counts_share_one_plan_across_every_consumer(
     future = ["2026-02-02", "2026-03-02", "2026-04-02"]
     request = single_request("USD", 0.02)
     log_discount = parameterization == "LOG_DISCOUNT"
-    submitted_knots = (
-        ["2026-01-02", *future[:2]]
-        if log_discount
-        else future
-    )
+    submitted_knots = ["2026-01-02", *future[:2]] if log_discount else future
     if policy == "INSTRUMENTS":
         submitted_knots = []
     request["declaration"].update(
         {
             "knot_policy": policy,
             "parameterization": parameterization,
-            "log_df_scheme": "LOG_LINEAR" if parameterization in {
+            "log_df_scheme": "LOG_LINEAR"
+            if parameterization
+            in {
                 "ZERO_RATE",
                 "LOG_DISCOUNT",
-            } else None,
+            }
+            else None,
             "knot_dates": submitted_knots,
             "initial_guess_per_node": [],
         }
@@ -1435,13 +1394,9 @@ def test_fix_cb1_downstream_counts_share_one_plan_across_every_consumer(
     assert len(completed["effective_inverse"]["row_axis"]) == free
     assert estimated == [(free, free)]
     persisted = _persisted_request(completed)
-    assert len(
-        persisted["declaration"]["resolved_initial_guess_per_node"]
-    ) == free
+    assert len(persisted["declaration"]["resolved_initial_guess_per_node"]) == free
     curve = completed["curves"][0]
-    reconstructed_storage = len(curve["node_dates"]) + int(
-        parameterization == "ZERO_RATE"
-    )
+    reconstructed_storage = len(curve["node_dates"]) + int(parameterization == "ZERO_RATE")
     assert reconstructed_storage == storage
     preview = client.get(
         f"/api/calibrations/{completed['id']}",
@@ -1495,13 +1450,7 @@ def test_fix_cb1_log_policy_rejects_instruments_before_planner_and_augments(
         )
     assert rejected.status_code == 422
     assert rejected.json()["error"]["code"] == "KNOT_POLICY_INCOMPATIBLE"
-    assert (
-        admission.call_count
-        == planner.call_count
-        == insert.call_count
-        == native.call_count
-        == 0
-    )
+    assert admission.call_count == planner.call_count == insert.call_count == native.call_count == 0
 
     augmented = copy.deepcopy(incompatible)
     augmented["declaration"]["knot_policy"] = "AUGMENTED"
@@ -1527,10 +1476,7 @@ def test_fix_cb1_log_policy_rejects_instruments_before_planner_and_augments(
 
 def _boundary_instruments(resolved_count: int) -> list[dict[str, object]]:
     nodes = future_knots(resolved_count)
-    spans = [
-        (nodes[index], nodes[index + 1])
-        for index in range(0, resolved_count - 1, 2)
-    ]
+    spans = [(nodes[index], nodes[index + 1]) for index in range(0, resolved_count - 1, 2)]
     if resolved_count % 2:
         spans.append((nodes[-2], nodes[-1]))
     return [
@@ -1574,9 +1520,7 @@ def _policy_boundary_request(
             "knot_policy": policy,
             "parameterization": parameterization,
             "log_df_scheme": (
-                "LOG_LINEAR"
-                if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"}
-                else None
+                "LOG_LINEAR" if parameterization in {"ZERO_RATE", "LOG_DISCOUNT"} else None
             ),
             "knot_dates": knots,
             "initial_guess_per_node": [],
@@ -1627,9 +1571,7 @@ def test_fix_cb1_policy_boundaries_cover_every_policy_representation_maximum(
         parameterization in {"ZERO_RATE", "LOG_DISCOUNT"}
     )
     assert counts["free_parameters"] == (
-        2 * accept_count
-        if parameterization == "PIECEWISE_LINEAR_FWD"
-        else accept_count
+        2 * accept_count if parameterization == "PIECEWISE_LINEAR_FWD" else accept_count
     )
 
     gateway = get_gateway()
@@ -1666,9 +1608,7 @@ def test_fix_cb1_policy_boundaries_cover_every_policy_representation_maximum(
         )
     assert rejected.status_code == 422
     assert rejected.json()["error"]["code"] == (
-        "VALIDATION_ERROR"
-        if schema_reject
-        else "CURVE_STORAGE_NODE_LIMIT_EXCEEDED"
+        "VALIDATION_ERROR" if schema_reject else "CURVE_STORAGE_NODE_LIMIT_EXCEEDED"
     )
     assert insert.call_count == native.call_count == 0
     if schema_reject:

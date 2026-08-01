@@ -31,8 +31,7 @@ def _insert_legacy_entities(engine: Engine) -> None:
     with engine.begin() as connection:
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
         connection.exec_driver_sql(
-            "INSERT INTO product "
-            "(id, name, description, template, rows) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO product (id, name, description, template, rows) VALUES (?, ?, ?, ?, ?)",
             (
                 "legacy-product",
                 "Legacy product",
@@ -83,8 +82,7 @@ def _insert_legacy_entities(engine: Engine) -> None:
             ("legacy-portfolio", "Legacy portfolio", "must survive"),
         )
         connection.exec_driver_sql(
-            "INSERT INTO portfolio_trade "
-            "(portfolio_id, trade_id, position) VALUES (?, ?, ?)",
+            "INSERT INTO portfolio_trade (portfolio_id, trade_id, position) VALUES (?, ?, ?)",
             ("legacy-portfolio", "legacy-trade", 0),
         )
         connection.exec_driver_sql(
@@ -114,9 +112,7 @@ def _legacy_rows(engine: Engine) -> dict[str, tuple[tuple[object, ...], ...]]:
         return {
             table: tuple(
                 tuple(row)
-                for row in connection.exec_driver_sql(
-                    f"SELECT * FROM {table} ORDER BY 1"
-                ).all()
+                for row in connection.exec_driver_sql(f"SELECT * FROM {table} ORDER BY 1").all()
             )
             for table in _LEGACY_TABLES
         }
@@ -176,9 +172,7 @@ def _assert_legacy_unchanged(
     _assert_legacy_fk_enforcement(engine)
 
 
-def test_calibration_migration_upgrade_downgrade_upgrade(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_calibration_migration_upgrade_downgrade_upgrade(tmp_path: Path, monkeypatch) -> None:
     database_url = f"sqlite:///{tmp_path / 'migration.db'}"
     monkeypatch.setenv("DAL_WEB_DB_URL", database_url)
     config = _config()
@@ -226,9 +220,7 @@ def test_calibration_migration_upgrade_downgrade_upgrade(
     }
     assert {
         constraint["name"]
-        for constraint in inspector.get_unique_constraints(
-            "calibration_instrument_definition"
-        )
+        for constraint in inspector.get_unique_constraints("calibration_instrument_definition")
     } == {
         "uq_calibration_instrument_run_group_calibration",
         "uq_calibration_instrument_run_group_input",

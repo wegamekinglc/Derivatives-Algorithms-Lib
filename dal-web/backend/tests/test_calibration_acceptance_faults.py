@@ -76,10 +76,7 @@ def test_fix_bk07_frozen_integrity_error_evidence_is_deep_and_byte_stable() -> N
     }
     evidence = calibration_service.freeze_integrity_error_evidence(
         "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH",
-        (
-            "persisted expected single-knot execution identity failed "
-            "canonical hash verification"
-        ),
+        ("persisted expected single-knot execution identity failed canonical hash verification"),
         source_location,
         source_context,
     )
@@ -122,12 +119,11 @@ def test_fix_bk07_frozen_integrity_error_evidence_is_deep_and_byte_stable() -> N
     first_wire.context["nested"]["array"][0]["leaf"] = "wire changed"
     second_wire = calibration_service.to_api_error_dto(evidence)
     decoded_wire = json.loads(evidence.canonical_error_utf8)
-    assert calibration_service.canonical_json_bytes(
-        second_wire.model_dump(mode="json")
-    ) == evidence.canonical_error_utf8
-    assert calibration_service.canonical_json_bytes(decoded_wire) == (
-        evidence.canonical_error_utf8
+    assert (
+        calibration_service.canonical_json_bytes(second_wire.model_dump(mode="json"))
+        == evidence.canonical_error_utf8
     )
+    assert calibration_service.canonical_json_bytes(decoded_wire) == (evidence.canonical_error_utf8)
     assert second_wire.context["nested"]["array"][0]["leaf"] == "before"
     assert source_context["nested"] is not second_wire.context["nested"]
 
@@ -171,9 +167,7 @@ def test_fix_bk06_untyped_callback_fault_is_a_lifecycle_failure(
 
     assert terminal["status"] == "failed"
     assert terminal["error"]["code"] == "LIFECYCLE_TRANSITION_FAILED"
-    assert terminal["error"]["context"]["transition"] == (
-        "verify_pre_native_admission_evidence"
-    )
+    assert terminal["error"]["context"]["transition"] == ("verify_pre_native_admission_evidence")
     assert build.call_count == inspect_identity.call_count == native.call_count == 0
     assert terminal["actual_execution_identity"] is None
     assert terminal["timings"] == {
@@ -303,12 +297,8 @@ def test_fix_worker_execution_identity_faults_are_atomic_and_never_repaired(
 
     def terminal_identity(expected, result, elapsed_ms):
         if fault_stage != "post_solve_storage":
-            return gateway_module._require_terminal_single_identity(
-                expected, result, elapsed_ms
-            )
-        actual = expected.model_copy(
-            update={"today": expected.today.replace(day=3)}
-        )
+            return gateway_module._require_terminal_single_identity(expected, result, elapsed_ms)
+        actual = expected.model_copy(update={"today": expected.today.replace(day=3)})
         raise calibration_service.NativeExecutionIdentityMismatchError(
             expected,
             actual,
@@ -441,9 +431,7 @@ def test_fix_b5_bk06_shared_recorder_proves_conc_01_06_production_order(
         canonical_hash,
     )
 
-    original_validate = (
-        calibration_service._validate_single_worker_admission_context
-    )
+    original_validate = calibration_service._validate_single_worker_admission_context
 
     def validate(*args, **kwargs):
         result = original_validate(*args, **kwargs)
@@ -717,11 +705,7 @@ def test_fix_cb1_bk01_bk03_integrity_faults_are_atomic_and_never_repaired(
         run_id = submitted.json()["id"]
         assert load_entered.wait(timeout=5.0)
 
-        field = (
-            "resolved_knot_plan"
-            if domain == "plan"
-            else "expected_execution_identity"
-        )
+        field = "resolved_knot_plan" if domain == "plan" else "expected_execution_identity"
         hash_field = f"{field}_hash"
         with store._session() as session:
             row = session.get(CalibrationRunRow, run_id)
@@ -930,9 +914,7 @@ def test_fix_bk07_integrity_terminal_fault_matrix_uses_atomic_fallback(
     assert build.call_count == inspect_identity.call_count == native.call_count == 0
     assert complete.call_count == 0
     assert projection_calls == int(fault_stage != "factory")
-    assert bytes_guard_calls == int(
-        fault_stage in {"terminal_bytes", "store_commit"}
-    )
+    assert bytes_guard_calls == int(fault_stage in {"terminal_bytes", "store_commit"})
     assert integrity_store_calls == int(fault_stage == "store_commit")
     with store._session() as session:
         curve_count = session.scalar(

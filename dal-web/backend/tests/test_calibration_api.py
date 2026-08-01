@@ -171,8 +171,7 @@ def test_single_admission_maps_unknown_day_basis_to_stable_convention_error(
     assert response.json()["error"] == {
         "code": "UNSUPPORTED_CONVENTION",
         "message": (
-            "instruments[0].index.day_basis value 'NOT_A_DAY_BASIS' "
-            "is not a supported day_basis"
+            "instruments[0].index.day_basis value 'NOT_A_DAY_BASIS' is not a supported day_basis"
         ),
         "location": ["body", "instruments", 0, "index", "day_basis"],
         "context": {
@@ -207,15 +206,10 @@ def test_instrument_knot_policy_rejects_an_all_historical_candidate_set(
 def test_openapi_pins_joint_capacity_and_failed_integrity_examples(client) -> None:
     document = client.app.openapi()
     schemas = document["components"]["schemas"]
-    assert (
-        schemas["JointXccyCalibrationRequest"][
-            "x-dal-max-total-free-parameters"
-        ]
-        == 200
-    )
-    joint_422 = document["paths"]["/api/calibrations/xccy/joint"]["post"][
-        "responses"
-    ]["422"]["content"]["application/json"]["examples"]
+    assert schemas["JointXccyCalibrationRequest"]["x-dal-max-total-free-parameters"] == 200
+    joint_422 = document["paths"]["/api/calibrations/xccy/joint"]["post"]["responses"]["422"][
+        "content"
+    ]["application/json"]["examples"]
     capacity = joint_422["joint_free_parameter_limit_exceeded"]["value"]["error"]
     assert capacity == {
         "code": "JOINT_FREE_PARAMETER_LIMIT_EXCEEDED",
@@ -232,12 +226,10 @@ def test_openapi_pins_joint_capacity_and_failed_integrity_examples(client) -> No
             "offending_storage_nodes": 2,
         },
     }
-    run_examples = document["paths"]["/api/calibrations/{calibration_id}"][
-        "get"
-    ]["responses"]["200"]["content"]["application/json"]["examples"]
-    failed = run_examples[
-        "persisted_expected_execution_identity_hash_mismatch"
-    ]["value"]
+    run_examples = document["paths"]["/api/calibrations/{calibration_id}"]["get"]["responses"][
+        "200"
+    ]["content"]["application/json"]["examples"]
+    failed = run_examples["persisted_expected_execution_identity_hash_mismatch"]["value"]
     assert failed["status"] == "failed"
     assert failed["actual_jacobian_mode"] is None
     assert failed["actual_execution_identity"] is None
@@ -246,10 +238,7 @@ def test_openapi_pins_joint_capacity_and_failed_integrity_examples(client) -> No
         "native_solve_ms": None,
         "serialization_ms": None,
     }
-    assert (
-        failed["error"]["code"]
-        == "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH"
-    )
+    assert failed["error"]["code"] == "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH"
 
 
 def test_new_router_has_stable_validation_and_not_found_envelopes(client) -> None:

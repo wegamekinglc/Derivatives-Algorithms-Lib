@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
@@ -37,6 +38,7 @@ from app.schemas.curve_lab import (
 from app.services.archive_preflight import ArchiveLimits
 from app.services.curve_lab_lifecycle import (
     CurveLabLifecycleError,
+    _version_public,
     archive_version,
     clone_version,
     create_build_run,
@@ -45,6 +47,7 @@ from app.services.curve_lab_lifecycle import (
     get_build_run,
     get_draft,
     get_import_job,
+    get_version,
     import_native_json,
     list_versions,
     native_payload,
@@ -250,15 +253,8 @@ async def list_curve_versions(
 
 @router.get("/versions/{version_id}", response_model=CurveVersionResponse)
 async def get_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
-    from app.services.curve_lab_lifecycle import get_version
-
     try:
-        record = get_version(store, version_id)
-        return {
-            key: value
-            for key, value in record.items()
-            if key not in {"native_payload", "idempotency_key", "verification"}
-        }
+        return _version_public(get_version(store, version_id))
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
 
@@ -406,7 +402,7 @@ async def create_curve_risk_run(
     gateway=Depends(gateway_dependency),
 ) -> dict:
     try:
-        return create_risk_run(store, gateway, request)
+        return await asyncio.to_thread(create_risk_run, store, gateway, request)
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
 

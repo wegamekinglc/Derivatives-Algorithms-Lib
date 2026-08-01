@@ -34,14 +34,10 @@ def upgrade() -> None:
         sa.Column("resolved_knot_plan", sa.JSON(), nullable=True),
         sa.Column("resolved_knot_plan_hash", sa.String(length=64), nullable=True),
         sa.Column("expected_execution_identity", sa.JSON(), nullable=True),
-        sa.Column(
-            "expected_execution_identity_hash", sa.String(length=64), nullable=True
-        ),
+        sa.Column("expected_execution_identity_hash", sa.String(length=64), nullable=True),
         sa.Column("actual_jacobian_mode", sa.String(length=16), nullable=True),
         sa.Column("actual_execution_identity", sa.JSON(), nullable=True),
-        sa.Column(
-            "actual_execution_identity_hash", sa.String(length=64), nullable=True
-        ),
+        sa.Column("actual_execution_identity_hash", sa.String(length=64), nullable=True),
         sa.Column("result_payload", sa.JSON(), nullable=True),
         sa.Column("error_payload", sa.JSON(), nullable=True),
         sa.Column("backend", sa.String(length=64), nullable=False),
@@ -66,8 +62,7 @@ def upgrade() -> None:
             name="ck_calibration_run_status_phase",
         ),
         sa.CheckConstraint(
-            "actual_jacobian_mode IS NULL OR "
-            "actual_jacobian_mode IN ('ANALYTIC','BUMPED')",
+            "actual_jacobian_mode IS NULL OR actual_jacobian_mode IN ('ANALYTIC','BUMPED')",
             name="ck_calibration_run_actual_jacobian_mode",
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -94,12 +89,8 @@ def upgrade() -> None:
             "role IN ('discount','forward','basis','base')",
             name="ck_curve_definition_role",
         ),
-        sa.ForeignKeyConstraint(
-            ["base_curve_id"], ["curve_definition.id"], ondelete="RESTRICT"
-        ),
-        sa.ForeignKeyConstraint(
-            ["source_run_id"], ["calibration_run.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["base_curve_id"], ["curve_definition.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["source_run_id"], ["calibration_run.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -130,12 +121,8 @@ def upgrade() -> None:
             "calibration_index >= 0",
             name="ck_calibration_instrument_calibration_index",
         ),
-        sa.CheckConstraint(
-            "input_index >= 0", name="ck_calibration_instrument_input_index"
-        ),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["calibration_run.id"], ondelete="CASCADE"
-        ),
+        sa.CheckConstraint("input_index >= 0", name="ck_calibration_instrument_input_index"),
+        sa.ForeignKeyConstraint(["run_id"], ["calibration_run.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "run_id",
@@ -154,14 +141,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("calibration_instrument_definition")
-    op.drop_index(
-        "ix_curve_definition_base_curve_id", table_name="curve_definition"
-    )
-    op.drop_index(
-        "ix_curve_definition_source_run_id", table_name="curve_definition"
-    )
+    op.drop_index("ix_curve_definition_base_curve_id", table_name="curve_definition")
+    op.drop_index("ix_curve_definition_source_run_id", table_name="curve_definition")
     op.drop_table("curve_definition")
-    op.drop_index(
-        "ix_calibration_run_status_created_at", table_name="calibration_run"
-    )
+    op.drop_index("ix_calibration_run_status_created_at", table_name="calibration_run")
     op.drop_table("calibration_run")

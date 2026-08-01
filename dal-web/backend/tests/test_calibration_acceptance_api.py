@@ -72,9 +72,7 @@ def test_fix_cb1_policy_resolution_matches_direct_planner_and_persistence(
     payload = policy_resolution_request(policy)
     request = SingleCalibrationRequest.model_validate(payload)
     gateway = get_gateway()
-    direct = gateway._plan_single(
-        SingleGatewayAdmissionRequest(request, {})
-    ).to_bounded_dto()
+    direct = gateway._plan_single(SingleGatewayAdmissionRequest(request, {})).to_bounded_dto()
     expected = direct.model_dump(mode="json")
 
     with mock.patch.object(
@@ -126,8 +124,7 @@ def test_fix_cb1_policy_resolution_matches_direct_planner_and_persistence(
         ],
     }[policy]
     assert [
-        (item["origin"]["kind"], item["disposition"])
-        for item in expected["candidate_trace"]
+        (item["origin"]["kind"], item["disposition"]) for item in expected["candidate_trace"]
     ] == expected_trace
 
 
@@ -390,13 +387,8 @@ def test_fix_b3_serialization_passes_are_two_for_completion_and_one_for_get(
     assert clock.calls == 2
     assert adapter.calls[0] == response.content
     assert int(response.headers["content-length"]) == len(response.content)
-    assert int(response.headers["x-dal-response-bytes"]) == len(
-        response.content
-    )
-    assert (
-        store.get_calibration_run(run_id).serialization_ms
-        == persisted_timing
-    )
+    assert int(response.headers["x-dal-response-bytes"]) == len(response.content)
+    assert store.get_calibration_run(run_id).serialization_ms == persisted_timing
 
 
 def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
@@ -448,8 +440,7 @@ def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
         before_curves = tuple(
             tuple(row)
             for row in connection.exec_driver_sql(
-                "SELECT * FROM curve_definition "
-                "WHERE source_run_id = ? ORDER BY id",
+                "SELECT * FROM curve_definition WHERE source_run_id = ? ORDER BY id",
                 (run_id,),
             ).all()
         )
@@ -505,8 +496,7 @@ def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
         after_curves = tuple(
             tuple(row)
             for row in connection.exec_driver_sql(
-                "SELECT * FROM curve_definition "
-                "WHERE source_run_id = ? ORDER BY id",
+                "SELECT * FROM curve_definition WHERE source_run_id = ? ORDER BY id",
                 (run_id,),
             ).all()
         )
@@ -602,10 +592,11 @@ def test_fix_b8_submitted_index_beats_canonical_issue_order_and_control(
         "/api/calibrations/single",
         payload,
     )
-    assert [
-        diagnostic["market_rate"]
-        for diagnostic in completed["instrument_diagnostics"]
-    ] == [0.01, 0.02, 0.03]
+    assert [diagnostic["market_rate"] for diagnostic in completed["instrument_diagnostics"]] == [
+        0.01,
+        0.02,
+        0.03,
+    ]
 
 
 def test_fix_b9_router_500_covers_retrieval_adapter_and_legacy_boundary(

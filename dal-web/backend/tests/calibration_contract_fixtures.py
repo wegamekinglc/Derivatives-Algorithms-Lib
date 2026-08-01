@@ -153,9 +153,7 @@ def xccy_swap() -> dict[str, object]:
     }
 
 
-def staged_request(
-    domestic_curve_id: str, foreign_curve_id: str
-) -> dict[str, object]:
+def staged_request(domestic_curve_id: str, foreign_curve_id: str) -> dict[str, object]:
     return {
         "schema_version": 1,
         "name": "usd_eur_basis_2026_01_02",
@@ -342,9 +340,7 @@ def policy_resolution_request(policy: str) -> dict[str, object]:
     request["declaration"].update(
         {
             "knot_policy": policy,
-            "knot_dates": (
-                [] if policy == "INSTRUMENTS" else ["2026-03-02", "2026-05-02"]
-            ),
+            "knot_dates": ([] if policy == "INSTRUMENTS" else ["2026-03-02", "2026-05-02"]),
             "initial_guess_per_node": [],
         }
     )
@@ -413,9 +409,7 @@ def first_offender_request(source: str) -> tuple[dict[str, object], dict[str, ob
                 "knot_policy": "INSTRUMENTS",
                 "knot_dates": [],
                 "parameterization": (
-                    "PIECEWISE_CONSTANT_FWD"
-                    if source == "start"
-                    else "ZERO_RATE"
+                    "PIECEWISE_CONSTANT_FWD" if source == "start" else "ZERO_RATE"
                 ),
                 "log_df_scheme": None if source == "start" else "LOG_LINEAR",
             }
@@ -429,11 +423,7 @@ def first_offender_request(source: str) -> tuple[dict[str, object], dict[str, ob
             "candidate_ordinal": candidate_ordinal,
             "candidate_date": instruments[instrument_index][field],
             "origin": {
-                "kind": (
-                    "INSTRUMENT_START"
-                    if source == "start"
-                    else "INSTRUMENT_END"
-                ),
+                "kind": ("INSTRUMENT_START" if source == "start" else "INSTRUMENT_END"),
                 "instrument_input_index": instrument_index,
             },
         }
@@ -476,9 +466,7 @@ def first_offender_request(source: str) -> tuple[dict[str, object], dict[str, ob
     raise ValueError("unsupported first-offender fixture")
 
 
-def wait_for_terminal(
-    client: TestClient, submitted: Mapping[str, object]
-) -> dict[str, object]:
+def wait_for_terminal(client: TestClient, submitted: Mapping[str, object]) -> dict[str, object]:
     location = str(submitted["location"])
     for _ in range(200):
         response = client.get(location)
@@ -489,9 +477,7 @@ def wait_for_terminal(
     raise AssertionError(f"calibration remained running at {location}")
 
 
-def submit_and_wait(
-    client: TestClient, path: str, payload: dict[str, object]
-) -> dict[str, object]:
+def submit_and_wait(client: TestClient, path: str, payload: dict[str, object]) -> dict[str, object]:
     response = client.post(path, json=payload)
     assert response.status_code == 202, response.text
     return wait_for_terminal(
