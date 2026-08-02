@@ -287,6 +287,7 @@ namespace Dal::Script {
             end_date += *cur;
             ++cur;
         }
+        REQUIRE2(cur == closeIt, "too many arguments for `DCF`", ScriptError_);
 
         cur = ++closeIt;
         // TODO: we only implement normal day count fraction convention and leave `context` as empty
