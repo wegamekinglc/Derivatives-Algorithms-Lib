@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, inlineStyle } from "../format";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
@@ -114,12 +115,11 @@ export default function ProductBuilder() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Product Builder</h1>
-          <p>Compose DAL scripted products as a schedule of (date, event) rows.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="BOOKS / SCRIPTED PRODUCTS"
+        title="Product Builder"
+        subtitle="Compose DAL scripted products as a schedule of (date, event) rows."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -147,7 +147,7 @@ export default function ProductBuilder() {
 
       <div {...css("grid-2")}>
         <div {...css("panel")}>
-          <h2>Definition</h2>
+          <h3 {...css("panel-title")}>Definition</h3>
           <div {...css("field")}>
             <label htmlFor="product-name">Name</label>
             <input
@@ -169,7 +169,7 @@ export default function ProductBuilder() {
             />
           </div>
 
-          <h3>Event schedule</h3>
+          <h3 {...css("panel-title")}>Event schedule</h3>
           {rows.map((r) => (
             <div {...css("event-builder-row")} key={r.row_id}>
               <select
@@ -241,7 +241,7 @@ export default function ProductBuilder() {
         </div>
 
         <div {...css("panel")}>
-          <h2>DAL product debug</h2>
+          <h3 {...css("panel-title")}>DAL product debug</h3>
           {debug ? (
             <pre {...css("debug")}>{debug}</pre>
           ) : (
@@ -254,7 +254,7 @@ export default function ProductBuilder() {
       </div>
 
       <div {...css("panel")}>
-        <h2>Saved products</h2>
+        <h3 {...css("panel-title")}>Saved products</h3>
         {products.length === 0 ? (
           <p {...css("muted")}>No saved products yet. Build one above and click Save.</p>
         ) : (

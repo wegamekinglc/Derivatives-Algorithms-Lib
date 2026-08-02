@@ -11,6 +11,7 @@ import CurveLabWorkspace, {
   type CurveLabCanonicalTarget,
   type CurveLabWorkspaceHandle,
 } from "../components/CurveLabWorkspace";
+import PageHeader from "../components/PageHeader";
 import { calibrationExamples } from "../curves/examples";
 import { locateCalibrationField, type LocatedField } from "../curves/visualization";
 import { css } from "../format";
@@ -95,133 +96,134 @@ export default function Curves() {
 
   return (
     <div {...css("curve-workbench")}>
-      <div {...css("page-header")}>
-        <div>
-          <span {...css("eyebrow")}>CALIBRATION / RISK</span>
-          <h1>Curve Workbench</h1>
-          <p>Author a deterministic solve, then inspect fit, matrices and persisted reconstruction state.</p>
-        </div>
-        <div {...css("workbench-stat")}>
-          <strong>{lines}</strong>
-          <span>request lines</span>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="CURVE LAB / CONSTRUCTION"
+        title="Curve Builder"
+        subtitle="Construct deterministic curve sets from instruments, dependencies and conventions."
+      />
 
       <CurveLabWorkspace
         ref={workspaceRef}
         onCanonicalTargetChange={setCanonicalTarget}
       />
 
-      <CurveLabQuoteAuthoring
-        targetInstrumentFamily={canonicalTarget?.family ?? null}
-        targetToken={canonicalTarget?.token}
-        onCanonicalQuote={applyCanonicalQuote}
-      />
+      <details {...css("curve-builder-legacy")}>
+        <summary>Quote authoring tools</summary>
+        <CurveLabQuoteAuthoring
+          targetInstrumentFamily={canonicalTarget?.family ?? null}
+          targetToken={canonicalTarget?.token}
+          onCanonicalQuote={applyCanonicalQuote}
+        />
+      </details>
 
-      <div {...css("mode-tabs")} role="tablist" aria-label="Calibration mode">
-        {MODES.map((item, index) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === item.value}
-            {...css("mode-tab", mode === item.value && "active")}
-            key={item.value}
-            onClick={() => {
-              setMode(item.value);
-              setSource(formattedExample(item.value));
-              setError(null);
-              setLocated(null);
-            }}
-          >
-            <span>0{index + 1}</span>
-            <strong>{item.label}</strong>
-            <small>{item.note}</small>
-          </button>
-        ))}
-      </div>
+      <details {...css("curve-builder-legacy")}>
+        <summary>Legacy JSON calibration</summary>
 
-      <div {...css("workbench-layout")}>
-        <aside {...css("workbench-outline")}>
-          <h2>Request anatomy</h2>
-          {["Declaration & representation", "Knots & initial seeds", "Instruments & conventions", "Solver & matrix settings"].map((item, index) => (
-            <div key={item} {...css("outline-row", located?.row === index && "has-error")}>
-              <span>{index + 1}</span>
-              <p>{item}</p>
-            </div>
-          ))}
-          <div {...css("contract-note")}>
-            <strong>Native boundary</strong>
-            <p>Validation, planning and calibration are executed by the compiled DAL gateway.</p>
-          </div>
-        </aside>
-
-        <section {...css("request-editor")}>
-          <div {...css("editor-heading")}>
-            <div>
-              <span {...css("tag")}>{mode.replace("_", " ")}</span>
-              <strong>JSON contract editor</strong>
-            </div>
+        <div {...css("mode-tabs")} role="tablist" aria-label="Calibration mode">
+          {MODES.map((item, index) => (
             <button
               type="button"
-              {...css("ghost")}
+              role="tab"
+              aria-selected={mode === item.value}
+              {...css("mode-tab", mode === item.value && "active")}
+              key={item.value}
               onClick={() => {
-                setSource(formattedExample(mode));
-              }}
-            >
-              Reset example
-            </button>
-          </div>
-          <label>
-            <span>Calibration request JSON</span>
-            <textarea
-              value={source}
-              spellCheck={false}
-              rows={Math.max(24, Math.min(44, lines))}
-              onChange={(event) => {
-                setSource(event.target.value);
+                setMode(item.value);
+                setSource(formattedExample(item.value));
                 setError(null);
                 setLocated(null);
               }}
-            />
-          </label>
-          {error && (
-            <div {...css("error", "editor-error")}>
-              <strong>{located ? `${located.section} · ${located.field}` : "Request error"}</strong>
-              <span>{error}</span>
-            </div>
-          )}
-          <div {...css("submit-row")}>
-            <p>202 creates an immutable run; this page never performs calibration math.</p>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => {
-                const request = parseCalibrationRequest(source);
-                if (request.error) {
-                  setError(request.error);
-                  return;
-                }
-                setSubmitting(true);
-                setError(null);
-                void api.submitCalibration(mode, request.body)
-                  .then((run) => {
-                    navigate(`/curves/runs/${run.id}`);
-                  })
-                  .catch((reason: unknown) => {
-                    const presented = presentCalibrationError(reason);
-                    setLocated(presented.located);
-                    setError(presented.message);
-                  })
-                  .finally(() => {
-                    setSubmitting(false);
-                  });
-              }}
             >
-              {submitting ? "Submitting…" : "Run calibration"}
+              <span>0{index + 1}</span>
+              <strong>{item.label}</strong>
+              <small>{item.note}</small>
             </button>
-          </div>
-        </section>
-      </div>
+          ))}
+        </div>
+
+        <div {...css("workbench-layout")}>
+          <aside {...css("workbench-outline")}>
+            <h2>Request anatomy</h2>
+            {["Declaration & representation", "Knots & initial seeds", "Instruments & conventions", "Solver & matrix settings"].map((item, index) => (
+              <div key={item} {...css("outline-row", located?.row === index && "has-error")}>
+                <span>{index + 1}</span>
+                <p>{item}</p>
+              </div>
+            ))}
+            <div {...css("contract-note")}>
+              <strong>Native boundary</strong>
+              <p>Validation, planning and calibration are executed by the compiled DAL gateway.</p>
+            </div>
+          </aside>
+
+          <section {...css("request-editor")}>
+            <div {...css("editor-heading")}>
+              <div>
+                <span {...css("tag")}>{mode.replace("_", " ")}</span>
+                <strong>JSON contract editor</strong>
+              </div>
+              <button
+                type="button"
+                {...css("ghost")}
+                onClick={() => {
+                  setSource(formattedExample(mode));
+                }}
+              >
+                Reset example
+              </button>
+            </div>
+            <label>
+              <span>Calibration request JSON</span>
+              <textarea
+                value={source}
+                spellCheck={false}
+                rows={Math.max(24, Math.min(44, lines))}
+                onChange={(event) => {
+                  setSource(event.target.value);
+                  setError(null);
+                  setLocated(null);
+                }}
+              />
+            </label>
+            {error && (
+              <div {...css("error", "editor-error")}>
+                <strong>{located ? `${located.section} · ${located.field}` : "Request error"}</strong>
+                <span>{error}</span>
+              </div>
+            )}
+            <div {...css("submit-row")}>
+              <p>202 creates an immutable run; this page never performs calibration math.</p>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  const request = parseCalibrationRequest(source);
+                  if (request.error) {
+                    setError(request.error);
+                    return;
+                  }
+                  setSubmitting(true);
+                  setError(null);
+                  void api.submitCalibration(mode, request.body)
+                    .then((run) => {
+                      navigate(`/curves/runs/${run.id}`);
+                    })
+                    .catch((reason: unknown) => {
+                      const presented = presentCalibrationError(reason);
+                      setLocated(presented.located);
+                      setError(presented.message);
+                    })
+                    .finally(() => {
+                      setSubmitting(false);
+                    });
+                }}
+              >
+                {submitting ? "Submitting…" : "Run calibration"}
+              </button>
+            </div>
+          </section>
+        </div>
+      </details>
     </div>
   );
 }

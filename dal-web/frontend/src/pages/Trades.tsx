@@ -5,6 +5,7 @@ import {
   type ProductDefinition,
   type Trade,
 } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
@@ -98,12 +99,11 @@ export default function Trades() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Trades</h1>
-          <p>Each trade links a scripted product to a model and a notional.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="BOOKS / TICKETS"
+        title="Trades"
+        subtitle="Each trade links a scripted product to a model and a notional."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -114,7 +114,7 @@ export default function Trades() {
       ) : (
       <>
       <div {...css("panel")}>
-        <h2>New trade</h2>
+        <h3 {...css("panel-title")}>New trade</h3>
         <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
           <div>
             <label htmlFor="trade-name">Name</label>
@@ -214,7 +214,9 @@ export default function Trades() {
         </div>
       </div>
 
-      <div {...css("table-container")}>
+      <div {...css("panel")}>
+        <h3 {...css("panel-title")}>All trades</h3>
+        <div {...css("table-container")}>
         <table>
           <thead>
             <tr>
@@ -258,6 +260,7 @@ export default function Trades() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {selected && (

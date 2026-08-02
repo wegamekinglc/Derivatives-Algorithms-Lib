@@ -10,6 +10,7 @@ import { api, type CalibrationRun } from "../api/client";
 import CalibrationLifecycle from "../components/CalibrationLifecycle";
 import FitPlot from "../components/FitPlot";
 import MatrixHeatmap from "../components/MatrixHeatmap";
+import PageHeader from "../components/PageHeader";
 import QuoteBumpPanel from "../components/QuoteBumpPanel";
 import { alignFitSeries } from "../curves/visualization";
 import { css } from "../format";
@@ -63,13 +64,14 @@ function useCalibrationRun(runId: string) {
 
 function CurveRunHeader({ run }: { run: CalibrationRun }) {
   return (
-    <div {...css("run-header")}>
-      <div>
-        <Link to="/curves" {...css("back-link")}>← Curve workbench</Link>
-        <span {...css("eyebrow")}>{run.kind.split("_").join(" ")} / {run.id.slice(0, 8)}</span>
-        <h1>{run.name}</h1>
-      </div>
-      <span {...css("run-status", run.status)}>{run.status}</span>
+    <div>
+      <Link to="/curves" {...css("back-link")}>← Curve Builder</Link>
+      <PageHeader
+        eyebrow={`${run.kind.split("_").join(" ")} / ${run.id.slice(0, 8)}`}
+        title={run.name}
+      >
+        <span {...css("run-status", run.status)}>{run.status}</span>
+      </PageHeader>
     </div>
   );
 }
@@ -130,7 +132,7 @@ function RunMetrics({ run }: { run: CalibrationRun }) {
 function PersistedCurves({ run }: { run: CalibrationRun }) {
   return (
     <section {...css("panel")}>
-      <h2>Persisted curves</h2>
+      <h3 {...css("panel-title")}>Persisted curves</h3>
       <div {...css("table-container")}>
         <table>
           <thead><tr><th>Curve</th><th>Role</th><th>Representation</th><th>Nodes</th><th>State</th></tr></thead>
@@ -159,7 +161,7 @@ function FxForwardCurve({ run }: { run: CalibrationRun }) {
   const forwardValues = forwards.forwards[Symbol.iterator]();
   return (
     <section {...css("panel")}>
-      <h2>FX forward curve</h2>
+      <h3 {...css("panel-title")}>FX forward curve</h3>
       <div {...css("fx-strip")}>
         {forwards.dates.map((item) => (
           <div key={item}><span>{item}</span><strong>{forwardValues.next().value?.toFixed(8)}</strong></div>

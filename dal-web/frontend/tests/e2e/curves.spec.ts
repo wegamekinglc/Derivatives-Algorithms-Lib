@@ -7,7 +7,8 @@ test("creates, polls, visualizes and reloads a persisted calibration", async ({ 
   );
 
   await page.goto("/curves");
-  await expect(page.getByRole("heading", { name: "Curve Workbench" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Curve Builder" })).toBeVisible();
+  await page.getByText("Legacy JSON calibration").click();
   await page.getByRole("button", { name: "Run calibration" }).click();
 
   await expect(page).toHaveURL(/\/curves\/runs\/[0-9a-f]{32}$/);

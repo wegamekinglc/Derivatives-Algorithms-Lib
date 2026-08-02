@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Portfolio, type Trade, type ValuationResult } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, fmtMoney, inlineStyle } from "../format";
 
 export default function Dashboard() {
@@ -36,12 +37,11 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Dashboard</h1>
-          <p>Portfolio overview and recent valuation activity.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="DAL WORKBENCH / OVERVIEW"
+        title="Dashboard"
+        subtitle="Portfolio overview and recent valuation activity."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -67,7 +67,7 @@ export default function Dashboard() {
       </div>
 
       <div {...css("panel")}>
-        <h2>Recent valuation runs</h2>
+        <h3 {...css("panel-title")}>Recent valuation runs</h3>
         {loading ? (
           <p {...css("muted")}>Loading…</p>
         ) : valuations.length === 0 ? (

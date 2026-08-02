@@ -15,7 +15,7 @@ describe("Curve Lab V2 workspace", () => {
 
     render(<CurveLabWorkspace />);
 
-    expect(screen.getByRole("heading", { name: "Curve topology" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Curve set" })).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Calibration instruments" })).not.toBeNull();
     expect(screen.getByLabelText("As-of date")).not.toBeNull();
     expect(screen.getByLabelText("Declaration role 1")).not.toBeNull();
@@ -23,7 +23,8 @@ describe("Curve Lab V2 workspace", () => {
     expect(screen.getByLabelText("Quote 1")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Add declaration" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Add instrument" })).not.toBeNull();
-    const advanced = screen.getByText("Advanced JSON").closest("details");
+    expect(screen.getByRole("button", { name: "Build & Validate" })).not.toBeNull();
+    const advanced = screen.getByText("Solver & advanced JSON").closest("details");
     expect(advanced?.open).toBe(false);
     expect(
       Array.from((screen.getByLabelText("Family 1") as HTMLSelectElement).options)
@@ -35,16 +36,20 @@ describe("Curve Lab V2 workspace", () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
 
     render(<CurveLabWorkspace />);
-    fireEvent.change(screen.getByLabelText("Build mode"), {
-      target: { value: "STAGED_XCCY" },
-    });
+    fireEvent.click(screen.getByRole("tab", { name: "Staged XCCY" }));
 
-    expect(screen.getAllByLabelText(/Declaration role/)).toHaveLength(3);
+    expect(screen.getByRole("button", { name: /USD OIS · Discount/ })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /EUR OIS · Discount/ })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /USD-EUR · Basis/ })).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /USD-EUR · Basis/ }));
     expect((screen.getByLabelText("Declaration role 3") as HTMLSelectElement).value).toBe("BASIS");
-    expect((screen.getByLabelText("Declaration currency 1") as HTMLInputElement).value).toBe("USD");
-    expect((screen.getByLabelText("Declaration currency 2") as HTMLInputElement).value).toBe("EUR");
     expect((screen.getByLabelText("Declaration currency 3") as HTMLInputElement).value).toBe("USD");
-    expect(screen.getAllByLabelText(/Family/)).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole("button", { name: /EUR OIS · Discount/ }));
+    expect((screen.getByLabelText("Declaration currency 2") as HTMLInputElement).value).toBe("EUR");
+    expect((screen.getByLabelText("Declaration role 2") as HTMLSelectElement).value).toBe("DISCOUNT");
+    expect(screen.getAllByLabelText(/Family \d/)).toHaveLength(3);
   });
 
   it.each([
@@ -245,7 +250,9 @@ describe("Curve Lab V2 workspace", () => {
       created_at: "2026-01-15T00:00:02Z",
     };
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "createCurveLabDraft").mockResolvedValue(draft);
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
+      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
+    );
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
     vi.spyOn(api, "createCurveLabVersion").mockResolvedValue(version);
 
@@ -399,5 +406,97 @@ describe("Curve Lab V2 workspace", () => {
 
     expect(load).toHaveBeenCalledTimes(2);
     expect(screen.getByText("Build cccccccc finished SUCCEEDED.")).not.toBeNull();
+  });
+
+  it("builds and validates from the header without leaving the builder", async () => {
+    const draft = {
+      id: "a".repeat(32),
+      schema_version: 2 as const,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD" as const,
+      document: {},
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    };
+    const build = {
+      id: "c".repeat(32),
+      draft_id: draft.id,
+      draft_revision: 1,
+      draft_fingerprint: draft.fingerprint,
+      state: "SUCCEEDED",
+      stale: false,
+      request: {},
+      resolved_plan: { mode: "SINGLE" },
+      quote_axis: [],
+      parameter_axis: [],
+      dependency_manifest: [],
+      diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
+      native_payload_hash: "d".repeat(64),
+      error: null,
+      created_at: "2026-01-15T00:00:00Z",
+      finished_at: "2026-01-15T00:00:01Z",
+    };
+    vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
+      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
+    );
+    vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
+
+    render(<CurveLabWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "Build & Validate" }));
+
+    await waitFor(() => expect(api.createCurveLabBuildRun).toHaveBeenCalledWith(draft.id));
+    expect(api.createCurveLabDraft).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.getByText("NATIVE_ARCHIVE_VALIDATED")).not.toBeNull());
+    expect(screen.getByRole("heading", { name: "Curve set" })).not.toBeNull();
+    expect(screen.getByText("Last success:")).not.toBeNull();
+  });
+
+  it("raises a dismissible rebuild banner when quotes change after a build", async () => {
+    const draft = {
+      id: "a".repeat(32),
+      schema_version: 2 as const,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD" as const,
+      document: {},
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    };
+    const build = {
+      id: "c".repeat(32),
+      draft_id: draft.id,
+      draft_revision: 1,
+      draft_fingerprint: draft.fingerprint,
+      state: "SUCCEEDED",
+      stale: false,
+      request: {},
+      resolved_plan: { mode: "SINGLE" },
+      quote_axis: [],
+      parameter_axis: [],
+      dependency_manifest: [],
+      diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
+      native_payload_hash: "d".repeat(64),
+      error: null,
+      created_at: "2026-01-15T00:00:00Z",
+      finished_at: "2026-01-15T00:00:01Z",
+    };
+    vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
+      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
+    );
+    vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
+
+    render(<CurveLabWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "Build & Validate" }));
+    await waitFor(() => expect(api.createCurveLabBuildRun).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Draft changed · rebuild required")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Quote 1"), { target: { value: "0.05" } });
+    expect(screen.getByText("Draft changed · rebuild required")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss rebuild notice" }));
+    expect(screen.queryByText("Draft changed · rebuild required")).toBeNull();
   });
 });
