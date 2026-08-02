@@ -277,6 +277,7 @@ if(DAL_CPP_BUILD_TESTS)
     set(DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES
         "${PROJECT_SOURCE_DIR}/dal/math/matrix/bcg.cpp"
         "${PROJECT_SOURCE_DIR}/tests/math/matrix/test_bcg.cpp"
+        "${PROJECT_SOURCE_DIR}/test-support/bcg_allocation_probe.cpp"
         "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
 
     add_executable(dal_cpp_tests ${TEST_FILES})
@@ -298,6 +299,12 @@ if(DAL_CPP_BUILD_TESTS)
         NAME "bcg_workspace_boundary::${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
         COMMAND dal_cpp_bcg_workspace_boundary_tests
                 "--gtest_filter=${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_FILTER}"
+                "--gtest_fail_if_no_test_selected")
+
+    add_test(
+        NAME "bcg_allocation_boundary::MatrixTest.TestCGSolveAndBCGSolveScaledAlphaAddsNoHeapAllocations"
+        COMMAND dal_cpp_bcg_workspace_boundary_tests
+                "--gtest_filter=MatrixTest.TestCGSolveAndBCGSolveScaledAlphaAddsNoHeapAllocations"
                 "--gtest_fail_if_no_test_selected")
 
     install(TARGETS dal_cpp_tests

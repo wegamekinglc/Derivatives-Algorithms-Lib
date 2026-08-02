@@ -34,7 +34,7 @@ TEST(CalibrationPlannerTest, TestAugmentedPlanPreservesTraversalOriginsAndRawPar
     ASSERT_EQ(plan.candidateTrace_.size(), 7);
     EXPECT_EQ(plan.candidateTrace_[0].disposition_, CurveKnotCandidateDisposition_::Value_::ADDED);
     EXPECT_EQ(plan.candidateTrace_[2].disposition_, CurveKnotCandidateDisposition_::Value_::DUPLICATE);
-    EXPECT_EQ(plan.candidateTrace_[3].disposition_, CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY);
+    ASSERT_EQ(plan.candidateTrace_[3].disposition_, CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY);
     EXPECT_EQ(plan.candidateTrace_[3].origin_.kind_, CurveKnotOriginKind_::Value_::INSTRUMENT_START);
     EXPECT_EQ(plan.candidateTrace_[4].origin_.instrumentInputIndex_, 0);
 

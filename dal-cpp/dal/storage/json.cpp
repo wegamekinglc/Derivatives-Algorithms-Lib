@@ -85,22 +85,21 @@ namespace Dal {
             return true;
         }
 
-        void ValidateStringBytes(const String_& value) {
-            const auto nul = std::find(value.begin(), value.end(), '\0');
-            REQUIRE(nul == value.end(), "ARCHIVE_STRING_NUL");
+        void ValidateStringRange(const char* begin, std::size_t length, const char* invalidEncoding) {
+            REQUIRE(std::find(begin, begin + length, '\0') == begin + length, "ARCHIVE_STRING_NUL");
             std::size_t badOffset = 0;
-            REQUIRE(ValidUtf8(value.data(), value.size(), &badOffset),
-                    "ARCHIVE_STRING_INVALID_UTF8 at byte " + ToString(static_cast<int>(badOffset)));
+            REQUIRE(ValidUtf8(begin, length, &badOffset),
+                    String_(invalidEncoding) + " at byte " + ToString(static_cast<int>(badOffset)));
+        }
+
+        void ValidateStringBytes(const String_& value) {
+            ValidateStringRange(value.data(), value.size(), "ARCHIVE_STRING_INVALID_UTF8");
         }
 
         void ValidateDecodedString(const element_t& value) {
             const auto* begin = value.GetString();
             const auto length = static_cast<std::size_t>(value.GetStringLength());
-            REQUIRE(std::find(begin, begin + length, '\0') == begin + length, "ARCHIVE_STRING_NUL");
-            std::size_t badOffset = 0;
-            REQUIRE(
-                ValidUtf8(begin, length, &badOffset),
-                "ARCHIVE_STRING_INVALID_UNICODE at byte " + ToString(static_cast<int>(badOffset)));
+            ValidateStringRange(begin, length, "ARCHIVE_STRING_INVALID_UNICODE");
         }
 
         void ValidateDecodedStrings(const element_t& value) {
