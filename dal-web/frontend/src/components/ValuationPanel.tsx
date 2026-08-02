@@ -16,13 +16,17 @@ const MAX_PATHS = 2 ** 24;
 function pollDelay(signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return Promise.resolve(false);
   return new Promise((resolve) => {
-    const finish = (shouldContinue: boolean) => {
+    function finish(shouldContinue: boolean) {
       clearTimeout(timer);
       signal.removeEventListener("abort", stop);
       resolve(shouldContinue);
-    };
-    const stop = () => finish(false);
-    const timer = setTimeout(() => finish(true), POLL_INTERVAL_MS);
+    }
+    function stop() {
+      finish(false);
+    }
+    const timer = setTimeout(() => {
+      finish(true);
+    }, POLL_INTERVAL_MS);
     signal.addEventListener("abort", stop, { once: true });
   });
 }
@@ -40,7 +44,9 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
   const [lifetime] = useState(() => new AbortController());
 
   useEffect(() => {
-    return () => lifetime.abort();
+    return () => {
+      lifetime.abort();
+    };
   }, [lifetime]);
 
   async function run() {
@@ -59,7 +65,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       };
       // Backend now returns a pending result with status="running".
       const pending = await onRun(request);
-      if (signal.aborted) return;
+      signal.throwIfAborted();
       setResult(pending);
       setStatusLabel("pricing…");
 
@@ -68,7 +74,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       for (let i = 0; i < MAX_POLL_ATTEMPTS && current.status === "running"; i++) {
         if (!(await pollDelay(signal))) return;
         current = await api.getValuation(pending.id);
-        if (signal.aborted) return;
+        signal.throwIfAborted();
         setResult(current);
       }
       if (current.status === "running") {
