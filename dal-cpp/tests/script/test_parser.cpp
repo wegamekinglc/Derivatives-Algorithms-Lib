@@ -87,6 +87,11 @@ TEST(ScriptTest, TestParserDCF) {
     ASSERT_NEAR(val, 1.00274, 1e-5);
 }
 
+TEST(ScriptTest, TestParserDCFRejectsExtraArguments) {
+    Parser_ parser;
+    ASSERT_THROW(parser.Parse("x = DCF(ACT365F, 2023-04-23, 2024-04-23, 2025-04-23)"), ScriptError_);
+}
+
 TEST(ScriptTest, TestParseIf) {
     Parser_ parser;
     String_ event = R"(
