@@ -15,7 +15,7 @@ export default function FitPlot({ rows }: { rows: FitSeriesRow[] }) {
   const high = Math.max(...rates);
   return (
     <section {...css("panel")}>
-      <h2>Market fit & residuals</h2>
+      <h3 {...css("panel-title")}>Market fit & residuals</h3>
       <div {...css("plot-grid")}>
         <svg viewBox="0 0 100 100" role="img" aria-labelledby="fit-title fit-desc">
           <title id="fit-title">Market and model calibration rates</title>

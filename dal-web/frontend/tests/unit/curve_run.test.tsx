@@ -66,6 +66,7 @@ describe("CurveRun running state", () => {
       ".status-dot",
       ".spinner",
       ".status-running::before",
+      ".curve-builder-step.running .curve-builder-step-bubble",
     ]);
     const reducedMotionStart = styles.indexOf("@media (prefers-reduced-motion: reduce)");
     expect(reducedMotionStart).toBeGreaterThanOrEqual(0);

@@ -1,4 +1,5 @@
 import {
+  Fragment,
   forwardRef,
   useCallback,
   useEffect,
@@ -19,7 +20,18 @@ import {
   type CurveLabSuccessFamily,
   type CurveLabVersion,
 } from "../api/client";
+import CurvePreview from "./CurvePreview";
 import { CURVE_LAB_SUCCESS_FAMILIES } from "../curves/curveLabRegistry";
+import {
+  declarationLabel,
+  formatTenor,
+  instrumentDayCount,
+  quoteSeries,
+  quotesAsOf,
+  stepperStates,
+  type CurveBuilderStepId,
+  type CurveBuilderStepState,
+} from "../curves/curveBuilderUtils";
 import {
   curveLabErrorMessage,
   downloadCurveLabArtifacts,
@@ -50,6 +62,21 @@ const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
   { id: "runs", label: "Runs", note: "Axes and lifecycle evidence" },
   { id: "risk", label: "Pricing & Risk", note: "PV, DV01, KRD and matrices" },
   { id: "versions", label: "Versions", note: "Clone, archive, import and export" },
+];
+
+const BUILD_MODES: { value: CurveLabBuildMode; label: string }[] = [
+  { value: "SINGLE", label: "Single" },
+  { value: "MULTI_CURVE", label: "Multi-Curve" },
+  { value: "STAGED_XCCY", label: "Staged XCCY" },
+  { value: "JOINT_XCCY", label: "Joint XCCY" },
+];
+
+const BUILDER_STEPS: { id: CurveBuilderStepId; label: string }[] = [
+  { id: "declaration", label: "Declaration" },
+  { id: "dependencies", label: "Dependencies" },
+  { id: "instruments", label: "Instruments" },
+  { id: "solve", label: "Solve" },
+  { id: "validate", label: "Validate" },
 ];
 
 const COMPONENT_KEY = "clab/v1/local/discount/USD/OIS";
@@ -446,6 +473,11 @@ const CurveLabWorkspace = forwardRef<
   const [baseCurrency, setBaseCurrency] = useState("USD");
   const [compareVersionId, setCompareVersionId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selectedDeclarationIndex, setSelectedDeclarationIndex] = useState(0);
+  const [depListOpen, setDepListOpen] = useState(false);
+  const [editedAfterBuild, setEditedAfterBuild] = useState(false);
+  const [bannerDismissedKey, setBannerDismissedKey] = useState<string | null>(null);
+  const [lastSuccess, setLastSuccess] = useState<string | null>(null);
   const selectedVersion = useMemo(
     () => versions.find((item) => item.id === selectedVersionId) ?? null,
     [selectedVersionId, versions],
@@ -501,6 +533,7 @@ const CurveLabWorkspace = forwardRef<
     // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
     transform: (...args: [Record<string, unknown>]) => Record<string, unknown>,
   ) => {
+    setEditedAfterBuild(true);
     replaceDraftSource(JSON.stringify(transform(visualDraft), null, 2));
   };
   const setDraftField = (field: string, value: unknown) => {
@@ -509,6 +542,7 @@ const CurveLabWorkspace = forwardRef<
   const setBuildMode = (mode: CurveLabBuildMode) => {
     const topology = topologyForMode(mode);
     setSelectedInstrumentIndex(null);
+    setSelectedDeclarationIndex(0);
     updateVisualDraft((current) => ({
       ...current,
       mode,
@@ -736,25 +770,50 @@ const CurveLabWorkspace = forwardRef<
     setDraft(created);
     replaceDraftSource(JSON.stringify(editableDocument(created.document), null, 2));
     setBuild(null);
+    setEditedAfterBuild(false);
     setStatus(`Draft ${created.id.slice(0, 8)} revision ${created.revision} is ready.`);
   });
 
-  const pollBuild = async (initial: CurveLabBuildRun) => {
+  const pollBuild = async (
+    initial: CurveLabBuildRun,
+    options?: { switchToRuns?: boolean },
+  ) => {
     const terminal = await waitForTerminal(
       initial,
       api.getCurveLabBuildRun,
       setBuild,
     );
     setStatus(`Build ${terminal.id.slice(0, 8)} finished ${terminal.state}.`);
-    setTab("runs");
+    if (terminal.state === "SUCCEEDED") {
+      setLastSuccess(terminal.finished_at ?? new Date().toISOString());
+    }
+    if (options?.switchToRuns !== false) {
+      setTab("runs");
+    }
   };
 
   const buildCurve = () => execute(async () => {
     if (!draft) throw new Error("Create a draft before building.");
+    setEditedAfterBuild(false);
     const created = await api.createCurveLabBuildRun(draft.id);
     setBuild(created);
     setStatus(`Build ${created.id.slice(0, 8)} admitted ${created.state}.`);
     await pollBuild(created);
+  });
+
+  // Header orchestration: persist the current document, then build, without
+  // leaving the builder screen (preview and status strip update in place).
+  const buildAndValidate = () => execute(async () => {
+    const persisted = draft === null
+      ? await api.createCurveLabDraft(parseJson(draftSource))
+      : await api.updateCurveLabDraft(draft.id, draft.revision, parseJson(draftSource));
+    setDraft(persisted);
+    replaceDraftSource(JSON.stringify(editableDocument(persisted.document), null, 2));
+    setEditedAfterBuild(false);
+    const created = await api.createCurveLabBuildRun(persisted.id);
+    setBuild(created);
+    setStatus(`Build ${created.id.slice(0, 8)} admitted ${created.state}.`);
+    await pollBuild(created, { switchToRuns: false });
   });
 
   const resumeBuild = () => execute(async () => {
@@ -772,6 +831,7 @@ const CurveLabWorkspace = forwardRef<
     setDraft(updated);
     replaceDraftSource(JSON.stringify(editableDocument(updated.document), null, 2));
     setBuild(null);
+    setEditedAfterBuild(false);
     setStatus(`Saved draft ${updated.id.slice(0, 8)} revision ${updated.revision}; rebuild required.`);
   });
 
@@ -864,6 +924,8 @@ const CurveLabWorkspace = forwardRef<
     setDraft(cloned);
     replaceDraftSource(JSON.stringify(editableDocument(cloned.document), null, 2));
     setSelectedInstrumentIndex(null);
+    setSelectedDeclarationIndex(0);
+    setEditedAfterBuild(false);
     setBuild(null);
     setTab("build");
     setStatus(`Cloned ${version.name} into draft ${cloned.id.slice(0, 8)}.`);
@@ -907,16 +969,41 @@ const CurveLabWorkspace = forwardRef<
     await pollImport(importJob);
   });
 
-  return (
-    <section {...css("curve-lab-v2")} aria-labelledby="curve-lab-v2-title">
-      <div {...css("curve-lab-v2-heading")}>
-        <div>
-          <span {...css("eyebrow")}>CURVE LAB / REVISION 8</span>
-          <h2 id="curve-lab-v2-title">Durable curve workflow</h2>
-        </div>
-        <span {...css("tag")}>native JSON · exact axes · replayable risk</span>
-      </div>
+  const asOfDate = String(visualDraft.as_of_date ?? "");
+  const includedInstruments = visualInstruments.filter(
+    (instrument) => instrument.included !== false,
+  );
+  const activeDeclarationIndex = visualDeclarations.length === 0
+    ? 0
+    : Math.min(selectedDeclarationIndex, visualDeclarations.length - 1);
+  const activeDeclaration = itemAt(visualDeclarations, activeDeclarationIndex);
+  const fitState = build?.diagnostics && typeof build.diagnostics.fit_state === "string"
+    ? build.diagnostics.fit_state
+    : null;
+  const steps = stepperStates({
+    declarationCount: visualDeclarations.length,
+    dependencyCount: dependencyVersionIds.length,
+    dependencyAvailable: versions.length,
+    includedInstrumentCount: includedInstruments.length,
+    buildState: build?.state ?? null,
+    fitState,
+    mode: String(visualDraft.mode ?? "SINGLE"),
+  });
+  const rebuildRequired = build !== null && (
+    editedAfterBuild
+    || build.stale
+    || (draft !== null && build.draft_revision !== draft.revision)
+  );
+  const bannerKey = `${build?.id ?? "none"}:${draft?.revision ?? 0}:${editedAfterBuild ? "edited" : "clean"}`;
+  const showRebuildBanner = rebuildRequired && bannerDismissedKey !== bannerKey;
+  const previewPoints = quoteSeries(
+    visualInstruments,
+    asOfDate,
+    build?.state === "SUCCEEDED" ? build.quote_axis : null,
+  );
 
+  return (
+    <section {...css("curve-lab-v2")} aria-label="Curve Lab workflow">
       <div {...css("curve-lab-flow-tabs")} role="tablist" aria-label="Curve Lab workflow">
         {TABS.map((item, index) => (
           <button
@@ -941,183 +1028,172 @@ const CurveLabWorkspace = forwardRef<
       {status && <div {...css("curve-lab-success", "curve-lab-workspace-message")}>{status}</div>}
 
       {tab === "build" && (
-        <div {...css("curve-lab-flow-layout")}>
-          <section {...css("request-editor", "curve-lab-flow-editor")}>
-            <div {...css("editor-heading")}>
-              <strong>Visual curve builder</strong>
-              <span {...css("tag")}>closed V2 controls</span>
+        <div {...css("curve-builder")}>
+          <div {...css("curve-builder-header")}>
+            <div {...css("curve-builder-header-fields")}>
+              <label>
+                <span>As of</span>
+                <input
+                  type="date"
+                  aria-label="As-of date"
+                  value={asOfDate}
+                  onChange={(event) => {
+                    setDraftField("as_of_date", event.target.value);
+                  }}
+                />
+              </label>
+              <label>
+                <span>Market</span>
+                <input
+                  aria-label="Market snapshot"
+                  value={String(visualDraft.market_snapshot_id ?? "")}
+                  onChange={(event) => {
+                    setDraftField("market_snapshot_id", event.target.value);
+                  }}
+                />
+              </label>
             </div>
-            <section {...css("panel")}>
-              <h3>Curve topology</h3>
-              <div {...css("form-grid")}>
-                <label>
-                  <span>Build mode</span>
-                  <select
-                    value={String(visualDraft.mode ?? "SINGLE")}
-                    onChange={(event) => {
-                      setBuildMode(event.target.value as CurveLabBuildMode);
-                    }}
-                  >
-                    <option value="SINGLE">Single curve</option>
-                    <option value="MULTI_CURVE">Joint multi-curve</option>
-                    <option value="STAGED_XCCY">XCCY staged</option>
-                    <option value="JOINT_XCCY">XCCY joint</option>
-                  </select>
-                </label>
-                <label>
-                  <span>As-of date</span>
-                  <input
-                    type="date"
-                    value={String(visualDraft.as_of_date ?? "")}
-                    onChange={(event) => {
-                      setDraftField("as_of_date", event.target.value);
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>Market snapshot</span>
-                  <input
-                    value={String(visualDraft.market_snapshot_id ?? "")}
-                    onChange={(event) => {
-                      setDraftField("market_snapshot_id", event.target.value);
-                    }}
-                  />
-                </label>
+            <button
+              type="button"
+              {...css("curve-builder-primary")}
+              disabled={busy}
+              onClick={() => void buildAndValidate()}
+            >
+              Build &amp; Validate
+            </button>
+          </div>
+
+          <div {...css("curve-builder-mode-tabs")} role="tablist" aria-label="Build mode">
+            {BUILD_MODES.map((item, index) => (
+              <button
+                key={item.value}
+                type="button"
+                role="tab"
+                aria-selected={String(visualDraft.mode ?? "SINGLE") === item.value}
+                {...css(
+                  "curve-builder-mode-tab",
+                  String(visualDraft.mode ?? "SINGLE") === item.value && "active",
+                )}
+                onClick={() => {
+                  setBuildMode(item.value);
+                }}
+              >
+                <span aria-hidden="true">0{index + 1}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div {...css("curve-builder-stepper")} aria-label="Build progress">
+            {BUILDER_STEPS.map((step, index) => {
+              const state: CurveBuilderStepState = steps[step.id];
+              const previousDone = index > 0
+                && steps[BUILDER_STEPS[index - 1].id] === "done";
+              return (
+                <Fragment key={step.id}>
+                  {index > 0 && (
+                    <span {...css("curve-builder-step-link", previousDone && "done")} />
+                  )}
+                  <div {...css("curve-builder-step", state)}>
+                    <span {...css("curve-builder-step-bubble")} aria-hidden="true">
+                      {state === "done" ? "✓" : state === "failed" ? "!" : index + 1}
+                    </span>
+                    {step.label}
+                  </div>
+                </Fragment>
+              );
+            })}
+          </div>
+
+          {showRebuildBanner && (
+            <div {...css("curve-builder-banner")} role="status">
+              <span aria-hidden="true">⚠</span>
+              <span>Draft changed · rebuild required</span>
+              <button
+                type="button"
+                aria-label="Dismiss rebuild notice"
+                onClick={() => {
+                  setBannerDismissedKey(bannerKey);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          <div {...css("curve-builder-grid")}>
+            <aside {...css("panel", "curve-builder-set")}>
+              <h3 {...css("panel-title")}>Curve set</h3>
+              <div {...css("curve-builder-nodes")}>
+                {visualDeclarations.map((declaration, index) => {
+                  const key = String(declaration.component_key ?? index);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={activeDeclarationIndex === index}
+                      {...css(
+                        "curve-builder-node",
+                        activeDeclarationIndex === index && "selected",
+                      )}
+                      onClick={() => {
+                        setSelectedDeclarationIndex(index);
+                      }}
+                    >
+                      <span {...css("curve-builder-node-text")}>
+                        <strong>{declarationLabel(key)}</strong>
+                        <small {...css("mono")}>{key}</small>
+                      </span>
+                      <span {...css("curve-builder-chip", "draft")}>
+                        {draft ? draft.state.replace(/_/g, " ") : "local"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <div {...css("curve-lab-section-heading")}>
-                <div>
-                  <h3>Curve declarations</h3>
-                  <p {...css("muted")}>
-                    Each component owns an included calibration instrument.
-                  </p>
-                </div>
+              <div {...css("curve-builder-set-row")}>
                 <button
                   type="button"
+                  {...css("ghost")}
                   disabled={visualDraft.mode === "SINGLE"}
                   onClick={addDeclaration}
                 >
                   Add declaration
                 </button>
+                <button
+                  type="button"
+                  {...css("danger")}
+                  aria-label={`Remove declaration ${activeDeclarationIndex + 1}`}
+                  disabled={visualDeclarations.length === 1}
+                  onClick={() => {
+                    removeDeclaration(activeDeclarationIndex);
+                  }}
+                >
+                  Remove
+                </button>
               </div>
-              <div {...css("table-container")}>
-                <table aria-label="Curve declarations">
-                  <thead>
-                    <tr>
-                      <th>Role</th>
-                      <th>Currency</th>
-                      <th>Component key</th>
-                      <th>Parameterization</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visualDeclarations.map((declaration, index) => (
-                      <tr key={String(declaration.component_key ?? index)}>
-                        <td>
-                          <select
-                            aria-label={`Declaration role ${index + 1}`}
-                            value={String(declaration.role ?? "DISCOUNT")}
-                            onChange={(event) => {
-                              setDeclarationField(index, "role", event.target.value);
-                            }}
-                          >
-                            <option value="DISCOUNT">Discount</option>
-                            <option value="PROJECTION">Projection</option>
-                            <option value="BASIS">Basis</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Declaration currency ${index + 1}`}
-                            value={String(declaration.currency ?? "")}
-                            maxLength={3}
-                            onChange={(event) => {
-                              setDeclarationField(
-                                index,
-                                "currency",
-                                event.target.value.toUpperCase(),
-                              );
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Declaration component key ${index + 1}`}
-                            {...css("mono")}
-                            value={String(declaration.component_key ?? "")}
-                            onChange={(event) => {
-                              setDeclarationField(
-                                index,
-                                "component_key",
-                                event.target.value,
-                              );
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <select
-                            aria-label={`Declaration parameterization ${index + 1}`}
-                            value={String(
-                              declaration.parameterization ?? "PIECEWISE_CONSTANT_FWD"
-                            )}
-                            onChange={(event) => {
-                              setDeclarationField(
-                                index,
-                                "parameterization",
-                                event.target.value,
-                              );
-                            }}
-                          >
-                            <option value="PIECEWISE_CONSTANT_FWD">PWC forward</option>
-                            <option value="PIECEWISE_LINEAR_FWD">Linear forward</option>
-                            <option value="ZERO_RATE">Zero rate</option>
-                            <option value="LOG_DISCOUNT">Log discount</option>
-                          </select>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            {...css("danger")}
-                            aria-label={`Remove declaration ${index + 1}`}
-                            disabled={visualDeclarations.length === 1}
-                            onClick={() => {
-                              removeDeclaration(index);
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            <section {...css("panel")}>
-              <div {...css("curve-lab-section-heading")}>
-                <div>
-                  <h3>Curve dependencies</h3>
-                  <p {...css("muted")}>
-                    Bind visible immutable versions needed by this build.
-                  </p>
-                </div>
-                <span {...css("tag")}>{dependencyVersionIds.length} selected</span>
-              </div>
-              {versions.length === 0 ? (
-                <p {...css("muted")}>No visible curve versions are available.</p>
-              ) : (
-                <div {...css("curve-lab-dependency-list")}>
-                  {versions.map((version) => (
+              <button
+                type="button"
+                {...css("curve-builder-add-dep")}
+                aria-expanded={depListOpen}
+                onClick={() => {
+                  setDepListOpen(!depListOpen);
+                }}
+              >
+                + Add dependency
+              </button>
+              <div {...css("curve-builder-dep-list", depListOpen && "open")}>
+                {versions.length === 0 ? (
+                  <p {...css("muted")}>No visible curve versions are available.</p>
+                ) : (
+                  versions.map((version) => (
                     <label key={version.id}>
                       <input
                         type="checkbox"
                         aria-label={`Use ${version.name} as dependency`}
                         checked={dependencyVersionIds.includes(version.id)}
                         onChange={(event) => {
-                          toggleDependency(
-                            version.id,
-                            event.target.checked,
-                          );
+                          toggleDependency(version.id, event.target.checked);
                         }}
                       />
                       <span>
@@ -1127,172 +1203,353 @@ const CurveLabWorkspace = forwardRef<
                         </small>
                       </span>
                     </label>
-                  ))}
+                  ))
+                )}
+              </div>
+              {activeDeclaration && (
+                <div {...css("curve-builder-fields")}>
+                  <label>
+                    <span>Currency</span>
+                    <input
+                      aria-label={`Declaration currency ${activeDeclarationIndex + 1}`}
+                      value={String(activeDeclaration.currency ?? "")}
+                      maxLength={3}
+                      onChange={(event) => {
+                        setDeclarationField(
+                          activeDeclarationIndex,
+                          "currency",
+                          event.target.value.toUpperCase(),
+                        );
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Role</span>
+                    <select
+                      aria-label={`Declaration role ${activeDeclarationIndex + 1}`}
+                      value={String(activeDeclaration.role ?? "DISCOUNT")}
+                      onChange={(event) => {
+                        setDeclarationField(activeDeclarationIndex, "role", event.target.value);
+                      }}
+                    >
+                      <option value="DISCOUNT">Discount</option>
+                      <option value="PROJECTION">Projection</option>
+                      <option value="BASIS">Basis</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Component key</span>
+                    <input
+                      aria-label={`Declaration component key ${activeDeclarationIndex + 1}`}
+                      {...css("mono")}
+                      value={String(activeDeclaration.component_key ?? "")}
+                      onChange={(event) => {
+                        setDeclarationField(
+                          activeDeclarationIndex,
+                          "component_key",
+                          event.target.value,
+                        );
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Parameterization</span>
+                    <select
+                      aria-label={`Declaration parameterization ${activeDeclarationIndex + 1}`}
+                      value={String(
+                        activeDeclaration.parameterization ?? "PIECEWISE_CONSTANT_FWD",
+                      )}
+                      onChange={(event) => {
+                        setDeclarationField(
+                          activeDeclarationIndex,
+                          "parameterization",
+                          event.target.value,
+                        );
+                      }}
+                    >
+                      <option value="PIECEWISE_CONSTANT_FWD">PWC forward</option>
+                      <option value="PIECEWISE_LINEAR_FWD">Linear forward</option>
+                      <option value="ZERO_RATE">Zero rate</option>
+                      <option value="LOG_DISCOUNT">Log discount</option>
+                    </select>
+                  </label>
                 </div>
               )}
-            </section>
-            <section {...css("panel")}>
-              <div {...css("curve-lab-section-heading")}>
-                <div>
-                  <h3>Calibration instruments</h3>
-                  <p {...css("muted")}>Edit registry family, dates, inclusion and canonical quote.</p>
-                </div>
-                <div {...css("curve-lab-row-actions")}>
+              <div {...css("curve-builder-set-actions")}>
+                <dl {...css("curve-builder-ids")}>
+                  <dt>Draft</dt>
+                  <dd>{draft ? `${draft.id.slice(0, 8)} · r${draft.revision}` : "not created"}</dd>
+                  <dt>Build</dt>
+                  <dd>{build ? `${build.id.slice(0, 8)} · ${build.state}` : "not run"}</dd>
+                </dl>
+                <div {...css("curve-builder-set-row")}>
                   <button
                     type="button"
                     {...css("ghost")}
-                    disabled={selectedInstrumentIndex === null}
-                    onClick={() => {
-                      selectCanonicalTarget(null);
-                    }}
+                    disabled={busy}
+                    onClick={() => void createDraft()}
                   >
-                    Clear quote target
+                    Create draft
                   </button>
-                  <button type="button" onClick={addInstrument}>Add instrument</button>
+                  <button
+                    type="button"
+                    {...css("ghost")}
+                    disabled={busy || !draft}
+                    onClick={() => void saveDraft()}
+                  >
+                    Save draft changes
+                  </button>
+                </div>
+                <div {...css("curve-builder-set-row")}>
+                  <button
+                    type="button"
+                    {...css("ghost")}
+                    disabled={busy || !draft}
+                    onClick={() => void buildCurve()}
+                  >
+                    Build curve
+                  </button>
+                  {build && !isTerminal(build) && (
+                    <button
+                      type="button"
+                      {...css("ghost")}
+                      disabled={busy}
+                      aria-label={`Resume build polling ${build.id.slice(0, 8)}`}
+                      onClick={() => void resumeBuild()}
+                    >
+                      Resume build polling
+                    </button>
+                  )}
+                </div>
+                <label>
+                  <span>Version name</span>
+                  <input
+                    value={versionName}
+                    onChange={(event) => {
+                      setVersionName(event.target.value);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || build?.state !== "SUCCEEDED"}
+                  onClick={() => void publishVersion()}
+                >
+                  Publish version
+                </button>
+              </div>
+            </aside>
+
+            <section {...css("curve-builder-instruments")}>
+              <div {...css("panel")}>
+                <div {...css("curve-lab-section-heading")}>
+                  <h3>Calibration instruments</h3>
+                  <div {...css("curve-lab-row-actions")}>
+                    <button
+                      type="button"
+                      {...css("ghost")}
+                      disabled={selectedInstrumentIndex === null}
+                      onClick={() => {
+                        selectCanonicalTarget(null);
+                      }}
+                    >
+                      Clear quote target
+                    </button>
+                    <button type="button" onClick={addInstrument}>Add instrument</button>
+                  </div>
+                </div>
+                <div {...css("table-container")}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th><span {...css("sr-only")}>Canonical target</span></th>
+                        <th>Include</th>
+                        <th>Type</th>
+                        <th>Tenor</th>
+                        <th>Maturity</th>
+                        <th {...css("num")}>Quote</th>
+                        <th>Day count</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                        <th><span {...css("sr-only")}>Row actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visualInstruments.map((instrument, index) => {
+                        const terms = instrument.terms as Record<string, unknown> | undefined;
+                        const included = instrument.included !== false;
+                        return (
+                          <tr
+                            key={String(instrument.instrument_id ?? index)}
+                            {...css(selectedInstrumentIndex === index && "target")}
+                          >
+                            <td>
+                              <input
+                                type="radio"
+                                name="curve-lab-canonical-target"
+                                aria-label={`Canonical quote target ${index + 1}`}
+                                checked={selectedInstrumentIndex === index}
+                                onChange={() => {
+                                  selectCanonicalTarget(index);
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                aria-label={`Included ${index + 1}`}
+                                type="checkbox"
+                                checked={Boolean(instrument.included)}
+                                onChange={(event) => {
+                                  setInstrumentField(index, "included", event.target.checked);
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <select
+                                aria-label={`Family ${index + 1}`}
+                                value={String(instrument.instrument_type ?? "DEPOSIT")}
+                                onChange={(event) => {
+                                  setInstrumentFamily(
+                                    index,
+                                    event.target.value as CurveLabSuccessFamily,
+                                  );
+                                }}
+                              >
+                                {CURVE_LAB_SUCCESS_FAMILIES.map(
+                                  (family) => (
+                                    <option key={family} value={family}>{family}</option>
+                                  ),
+                                )}
+                              </select>
+                            </td>
+                            <td {...css("mono", "muted")}>
+                              {formatTenor(asOfDate, String(instrument.maturity_date ?? ""))}
+                            </td>
+                            <td>
+                              <input
+                                aria-label={`Maturity ${index + 1}`}
+                                type="date"
+                                value={String(instrument.maturity_date ?? "")}
+                                onChange={(event) => {
+                                  setInstrumentField(index, "maturity_date", event.target.value);
+                                }}
+                              />
+                            </td>
+                            <td {...css("num")}>
+                              <input
+                                aria-label={`Quote ${index + 1}`}
+                                {...css("curve-builder-quote")}
+                                inputMode="decimal"
+                                value={String(instrument.raw_quote ?? "")}
+                                onChange={(event) => {
+                                  setInstrumentField(index, "raw_quote", event.target.value);
+                                }}
+                              />
+                            </td>
+                            <td>{instrumentDayCount(terms)}</td>
+                            <td {...css("muted")}>{String(instrument.source ?? "—")}</td>
+                            <td>
+                              <span
+                                {...css(included
+                                  ? "curve-builder-tag-ready"
+                                  : "curve-builder-tag-excluded")}
+                              >
+                                {included ? "Ready" : "Excluded"}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                {...css("danger")}
+                                disabled={visualInstruments.length === 1}
+                                onClick={() => {
+                                  removeInstrument(index);
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div {...css("curve-builder-table-footer")}>
+                    <span>{visualInstruments.length} instruments</span>
+                    <span>Quotes as of {quotesAsOf(visualInstruments, asOfDate)}</span>
+                  </div>
                 </div>
               </div>
-              <div {...css("table-container")}>
-                <table>
-                  <thead><tr><th>Canonical target</th><th>Family</th><th>Maturity</th><th>Quote</th><th>Included</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {visualInstruments.map((instrument, index) => (
-                      <tr key={String(instrument.instrument_id ?? index)}>
-                        <td>
-                          <input
-                            type="radio"
-                            name="curve-lab-canonical-target"
-                            aria-label={`Canonical quote target ${index + 1}`}
-                            checked={selectedInstrumentIndex === index}
-                            onChange={() => {
-                              selectCanonicalTarget(index);
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <select
-                            aria-label={`Family ${index + 1}`}
-                            value={String(instrument.instrument_type ?? "DEPOSIT")}
-                            onChange={(event) => {
-                              setInstrumentFamily(
-                                index,
-                                event.target.value as CurveLabSuccessFamily,
-                              );
-                            }}
-                          >
-                            {CURVE_LAB_SUCCESS_FAMILIES.map(
-                              (family) => <option key={family} value={family}>{family}</option>,
-                            )}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Maturity ${index + 1}`}
-                            type="date"
-                            value={String(instrument.maturity_date ?? "")}
-                            onChange={(event) => {
-                              setInstrumentField(index, "maturity_date", event.target.value);
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Quote ${index + 1}`}
-                            inputMode="decimal"
-                            value={String(instrument.raw_quote ?? "")}
-                            onChange={(event) => {
-                              setInstrumentField(index, "raw_quote", event.target.value);
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Included ${index + 1}`}
-                            type="checkbox"
-                            checked={Boolean(instrument.included)}
-                            onChange={(event) => {
-                              setInstrumentField(index, "included", event.target.checked);
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            {...css("danger")}
-                            disabled={visualInstruments.length === 1}
-                            onClick={() => {
-                              removeInstrument(index);
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <details {...css("curve-builder-advanced")}>
+                <summary>Solver &amp; advanced JSON</summary>
+                <p {...css("muted", "mono")}>
+                  {String(
+                    (visualDraft.solver as Record<string, unknown> | undefined)?.solve_mode
+                      ?? "EXACT",
+                  )}
+                  {" · "}
+                  {String(
+                    (visualDraft.solver as Record<string, unknown> | undefined)?.parameterization
+                      ?? "PIECEWISE_CONSTANT_FWD",
+                  )}
+                </p>
+                <label>
+                  <span>Build document JSON</span>
+                  <textarea
+                    value={draftSource}
+                    rows={20}
+                    spellCheck={false}
+                    onChange={(event) => {
+                      setEditedAfterBuild(true);
+                      replaceDraftSource(event.target.value);
+                    }}
+                  />
+                </label>
+              </details>
             </section>
-            <section {...css("panel")}>
-              <h3>Solver controls</h3>
-              <p {...css("muted")}>
-                {String((visualDraft.solver as Record<string, unknown> | undefined)?.solve_mode ?? "EXACT")}
+
+            <CurvePreview
+              points={previewPoints}
+              buildState={build?.state ?? null}
+              fitState={fitState}
+              includedCount={includedInstruments.length}
+              totalCount={visualInstruments.length}
+            />
+          </div>
+
+          <footer {...css("curve-builder-statusbar")}>
+            <span>
+              Curve Set:{" "}
+              <strong>
+                {declarationLabel(String(visualDeclarations[0]?.component_key ?? "—"))}
                 {" · "}
-                {String((visualDraft.solver as Record<string, unknown> | undefined)?.parameterization ?? "PIECEWISE_CONSTANT_FWD")}
-              </p>
-            </section>
-            <details>
-              <summary>Advanced JSON</summary>
-              <label>
-                <span>Build document JSON</span>
-                <textarea
-                  value={draftSource}
-                  rows={24}
-                  spellCheck={false}
-                  onChange={(event) => {
-                    replaceDraftSource(event.target.value);
-                  }}
-                />
-              </label>
-            </details>
-            <div {...css("submit-row")}>
-              <p>Server-derived quote and parameter axes are frozen at build time.</p>
-              <button type="button" disabled={busy} onClick={() => void createDraft()}>
-                Create draft
-              </button>
-            </div>
-          </section>
-          <aside {...css("panel", "curve-lab-actions")}>
-            <h3>Build controls</h3>
-            <dl>
-              <dt>Draft</dt><dd>{draft ? `${draft.id.slice(0, 8)} · r${draft.revision}` : "not created"}</dd>
-              <dt>Build</dt><dd>{build ? `${build.id.slice(0, 8)} · ${build.state}` : "not run"}</dd>
-            </dl>
-            <button type="button" disabled={busy || !draft} onClick={() => void buildCurve()}>
-              Build curve
-            </button>
-            {build && !isTerminal(build) && (
-              <button
-                type="button"
-                disabled={busy}
-                aria-label={`Resume build polling ${build.id.slice(0, 8)}`}
-                onClick={() => void resumeBuild()}
+                {draft ? draft.state.replace(/_/g, " ") : "LOCAL"}
+              </strong>
+            </span>
+            <span>Dependencies: <strong>{dependencyVersionIds.length}</strong></span>
+            <span>Instruments: <strong>{visualInstruments.length}</strong></span>
+            <span>
+              Status:{" "}
+              <strong
+                {...css(rebuildRequired
+                  ? "warn"
+                  : build?.state === "SUCCEEDED" ? "ok" : undefined)}
               >
-                Resume build polling
-              </button>
-            )}
-            <button type="button" disabled={busy || !draft} onClick={() => void saveDraft()}>
-              Save draft changes
-            </button>
-            <label>
-              <span>Version name</span>
-              <input value={versionName} onChange={(event) => {
-                setVersionName(event.target.value);
-              }} />
-            </label>
-            <button type="button" disabled={busy || build?.state !== "SUCCEEDED"} onClick={() => void publishVersion()}>
-              Publish version
-            </button>
-          </aside>
+                {rebuildRequired ? "Rebuild required" : build?.state ?? "Draft"}
+              </strong>
+            </span>
+            <span {...css("curve-builder-statusbar-spacer")} />
+            <span>
+              Last build:{" "}
+              <strong {...css("mono")}>
+                {build ? `${build.id.slice(0, 8)} · ${build.state}` : "—"}
+              </strong>
+            </span>
+            <span>
+              Last success:{" "}
+              <strong {...css("mono")}>{lastSuccess ?? "—"}</strong>
+            </span>
+          </footer>
         </div>
       )}
 

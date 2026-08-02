@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type ModelDefinition, type ModelKind } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, fmtNum, inlineStyle } from "../format";
 
 export default function Models() {
@@ -90,12 +91,11 @@ export default function Models() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Models</h1>
-          <p>Black-Scholes model data passed to DAL via BSModelData_New.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="RISK / VOLATILITY MODELS"
+        title="Models"
+        subtitle="Black-Scholes model data passed to DAL via BSModelData_New."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -106,7 +106,7 @@ export default function Models() {
       ) : (
       <>
       <div {...css("panel")}>
-        <h2>New model</h2>
+        <h3 {...css("panel-title")}>New model</h3>
         <div {...css("field")}>
           <label htmlFor="model-name">Name</label>
           <input
@@ -274,7 +274,9 @@ export default function Models() {
         </div>
       </div>
 
-      <div {...css("table-container")}>
+      <div {...css("panel")}>
+        <h3 {...css("panel-title")}>Registered models</h3>
+        <div {...css("table-container")}>
         <table>
           <thead>
             <tr>
@@ -323,6 +325,7 @@ export default function Models() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       </>
       )}

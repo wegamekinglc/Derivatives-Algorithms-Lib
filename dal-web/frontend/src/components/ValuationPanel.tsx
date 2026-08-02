@@ -100,7 +100,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
 
   return (
     <div {...css("panel")}>
-      <h2>{title}</h2>
+      <h3 {...css("panel-title")}>{title}</h3>
       {error && <div {...css("error")}>{error}</div>}
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <label>

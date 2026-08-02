@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Portfolio, type Trade } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
@@ -81,12 +82,11 @@ export default function Portfolios() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Portfolios</h1>
-          <p>Group trades into books and price the whole book at once.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="BOOKS / COMPOSITION"
+        title="Portfolios"
+        subtitle="Group trades into books and price the whole book at once."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -97,7 +97,7 @@ export default function Portfolios() {
       ) : (
       <div {...css("grid-2")}>
         <div {...css("panel")}>
-          <h2>Books</h2>
+          <h3 {...css("panel-title")}>Books</h3>
           <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
             <input
               value={name}

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { api, type ValuationResult } from "../api/client";
+import PageHeader from "../components/PageHeader";
 import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
 export default function Valuations() {
@@ -14,12 +15,11 @@ export default function Valuations() {
 
   return (
     <div>
-      <div {...css("page-header")}>
-        <div>
-          <h1>Valuation Runs</h1>
-          <p>Reproducible history of every Monte Carlo valuation.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="RISK / VALUATION RUNS"
+        title="Valuation Runs"
+        subtitle="Reproducible history of every Monte Carlo valuation."
+      />
 
       {error && <div {...css("error")}>{error}</div>}
 
@@ -28,7 +28,9 @@ export default function Valuations() {
       ) : runs.length === 0 ? (
         <p {...css("muted")}>No valuation runs recorded yet.</p>
       ) : (
-        <div {...css("table-container")}>
+        <div {...css("panel")}>
+          <h3 {...css("panel-title")}>Run history</h3>
+          <div {...css("table-container")}>
           <table>
             <thead>
               <tr>
@@ -87,7 +89,7 @@ export default function Valuations() {
                   <tr key={`${r.id}-detail`}>
                     <td colSpan={8}>
                       <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
-                        <h2>Greeks</h2>
+                        <h3 {...css("panel-title")}>Greeks</h3>
                         {Object.keys(r.total_greeks).length === 0 ? (
                           <p {...css("muted")}>No Greeks (AAD disabled).</p>
                         ) : (
@@ -99,7 +101,7 @@ export default function Valuations() {
                             ))}
                           </div>
                         )}
-                        <h2 {...inlineStyle({ marginTop: 16 })}>Trades</h2>
+                        <h3 {...css("panel-title")} {...inlineStyle({ marginTop: 16 })}>Trades</h3>
                         <div {...css("table-container")}>
                           <table>
                             <thead>
@@ -128,7 +130,7 @@ export default function Valuations() {
                   <tr key={`${r.id}-detail`}>
                     <td colSpan={8}>
                       <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
-                        <h2>Error</h2>
+                        <h3 {...css("panel-title")}>Error</h3>
                         <p {...css("error")}>{r.error_message || "Unknown error"}</p>
                       </div>
                     </td>
@@ -138,6 +140,7 @@ export default function Valuations() {
             ))}
           </tbody>
         </table>
+        </div>
         </div>
       )}
     </div>

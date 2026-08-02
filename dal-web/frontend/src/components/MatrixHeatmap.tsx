@@ -21,7 +21,7 @@ export default function MatrixHeatmap({
   return (
     <section {...css("panel", "matrix-panel")}>
       <div {...css("matrix-heading")}>
-        <h2>{title}</h2>
+        <h3 {...css("panel-title")}>{title}</h3>
         <span {...css("tag")}>{model.shapeLabel} · {matrix.scaling}</span>
       </div>
       {!model.available ? (
