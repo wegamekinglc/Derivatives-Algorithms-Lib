@@ -1398,7 +1398,7 @@ const CurveLabWorkspace = forwardRef<
                               <input
                                 aria-label={`Included ${index + 1}`}
                                 type="checkbox"
-                                checked={Boolean(instrument.included)}
+                                checked={instrument.included !== false}
                                 onChange={(event) => {
                                   setInstrumentField(index, "included", event.target.checked);
                                 }}
