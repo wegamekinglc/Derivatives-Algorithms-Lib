@@ -10,6 +10,7 @@ test("canonical authoring drives identical persisted and replayed financial iden
   );
 
   await page.goto("/curves");
+  await page.getByText("Quote authoring tools").click();
   await page.getByLabel("Version name").fill("Canonical equivalence");
   await page.getByLabel("Canonical quote target 1").check();
 
@@ -191,6 +192,7 @@ test("latest same-target canonicalization wins when browser responses finish out
     pending.push(route);
   });
   await page.goto("/curves");
+  await page.getByText("Quote authoring tools").click();
   await page.getByLabel("Canonical quote target 1").check();
   await page.getByLabel("Input convention").selectOption("PERCENT");
   await page.getByLabel("Quote lexeme").fill("4");
