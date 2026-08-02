@@ -18,6 +18,7 @@ class AgentDocsTest(unittest.TestCase):
 
         self.assertIn(".codex/skills/dal-web/SKILL.md", relative)
         self.assertIn(".codex/references/code-style.md", relative)
+        self.assertIn(".codex/artifacts/README.md", relative)
         self.assertIn(".github/copilot-instructions.md", relative)
         self.assertIn("dal-web/backend/README.md", relative)
 
