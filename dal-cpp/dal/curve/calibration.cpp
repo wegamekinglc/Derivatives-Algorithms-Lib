@@ -523,7 +523,7 @@ namespace Dal {
         } else if (spec.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
             REQUIRE(knotDates.front() > spec.today_, "ZERO_RATE calibration requires every knot to be strictly after today");
         } else if (spec.parameterization_ == CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD) {
-            REQUIRE(knotDates.front() >= spec.today_, "Piecewise-constant forward calibration knot dates must not precede today");
+            REQUIRE(knotDates.front() >= spec.today_, "PIECEWISE_CONSTANT_FWD calibration requires knot 0 to be on or after today");
         } else {
             REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
         }

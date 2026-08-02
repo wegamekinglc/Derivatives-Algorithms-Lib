@@ -202,6 +202,20 @@ TEST(CalibrationTest, TestValidateCurveCalibrationSpecRejectsZeroRateAnchorKnotW
     }
 }
 
+TEST(CalibrationTest, TestValidateCurveCalibrationSpecRejectsPiecewiseConstantForwardPreAnchorKnotWithSpecificMessage) {
+    CurveCalibrationSpec_ spec = MakeValidSpec();
+    spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+    spec.knotDates_[0] = spec.today_.AddDays(-1);
+
+    try {
+        ValidateCurveCalibrationSpec(spec);
+        FAIL() << "Expected PIECEWISE_CONSTANT_FWD pre-anchor knot to be rejected";
+    } catch (const Dal::Exception_& e) {
+        ASSERT_TRUE(std::string(e.what()).find("PIECEWISE_CONSTANT_FWD calibration requires knot 0 to be on or after today") != std::string::npos)
+            << e.what();
+    }
+}
+
 TEST(CalibrationTest, TestValidateCurveCalibrationSpecChecksZeroRateGuessAgainstParameterCount) {
     CurveCalibrationSpec_ spec = MakeValidSpec();
     spec.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;

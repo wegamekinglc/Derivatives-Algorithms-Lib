@@ -1170,6 +1170,40 @@ def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypa
     assert client.get("/api/curve-lab/versions").json() == []
 
 
+def test_native_parameter_axis_failure_preserves_original_build_error(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    gateway = gateway_module.get_gateway()
+
+    def fail_parameter_axis(_document, _payload) -> list[dict]:
+        raise ValueError("deliberate parameter-axis failure")
+
+    monkeypatch.setattr(
+        gateway,
+        "curve_lab_archive_parameter_axis",
+        fail_parameter_axis,
+    )
+
+    response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+
+    assert response.status_code == 202
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert run["state"] == "FAILED"
+    assert run["parameter_axis"] == []
+    assert run["diagnostics"]["parameter_count"] == 0
+    assert run["error"]["code"] == "NATIVE_BUILD_FAILED"
+    assert "deliberate parameter-axis failure" not in run["error"]["message"]
+
+
 def test_build_create_acknowledges_queued_before_blocking_native_work(
     client,
     monkeypatch,
