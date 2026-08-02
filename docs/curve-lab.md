@@ -111,8 +111,9 @@ The **Curve Lab** screen has four tabs:
 
 1. **Build** — choose the topology, declare components, add typed instruments
    and version dependencies, then create or save a draft.
-2. **Runs** — start an immutable build snapshot and poll it to `SUCCEEDED`,
-   `FAILED`, or `TIMED_OUT`.
+2. **Runs** — start an immutable build snapshot, poll it to `SUCCEEDED`,
+   `FAILED`, or `TIMED_OUT`, and inspect node-level discount factors,
+   continuously compounded ACT/365F zero rates, and one-day forwards.
 3. **Pricing & Risk** — price typed trades against a published version and
    request PV, DV01, key-rate DV01, and optional diagnostic matrices.
 4. **Versions** — publish a successful, non-stale run; clone a version to a new

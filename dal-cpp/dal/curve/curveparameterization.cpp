@@ -111,6 +111,9 @@ namespace Dal {
             nodeDates.Append(declaredKnots);
             break;
         case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
+            REQUIRE(declaredKnots.front() >= anchor, "MakeCurveDefinition: piecewise-constant forward knots must not precede the anchor");
+            nodeDates = declaredKnots;
+            break;
         case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
             REQUIRE(declaredKnots.front() > anchor, "MakeCurveDefinition: forward knots must be after the anchor");
             nodeDates = declaredKnots;

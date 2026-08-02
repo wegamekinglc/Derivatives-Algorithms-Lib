@@ -332,6 +332,17 @@ def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
 def test_version_publication_is_cas_idempotent_immutable_and_archivable(client) -> None:
     draft = _create_draft(client)
     run = _completed_build(client, draft["id"])
+    assert run["curve_views"] == [
+        {
+            "parameter_id": run["parameter_axis"][0]["parameter_id"],
+            "component_key": "clab/v1/local/discount/USD/OIS",
+            "node_date": "2026-04-16",
+            "side": "RIGHT",
+            "discount_factor": pytest.approx(0.990077),
+            "zero_rate": pytest.approx(0.04),
+            "one_day_forward_rate": pytest.approx(0.04),
+        }
+    ]
     request = {
         "draft_id": draft["id"],
         "draft_revision": draft["revision"],
@@ -1157,6 +1168,40 @@ def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypa
     assert run["diagnostics"]["fit_state"] == "FAILED"
     assert client.get(f"/api/curve-lab/build-runs/{run['id']}").json() == run
     assert client.get("/api/curve-lab/versions").json() == []
+
+
+def test_native_parameter_axis_failure_preserves_original_build_error(
+    client,
+    monkeypatch,
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    gateway = gateway_module.get_gateway()
+
+    def fail_parameter_axis(_document, _payload) -> list[dict]:
+        raise ValueError("deliberate parameter-axis failure")
+
+    monkeypatch.setattr(
+        gateway,
+        "curve_lab_archive_parameter_axis",
+        fail_parameter_axis,
+    )
+
+    response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+
+    assert response.status_code == 202
+    run = _wait_for_job(
+        client,
+        "build-runs",
+        response.json()["id"],
+        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+    )
+    assert run["state"] == "FAILED"
+    assert run["parameter_axis"] == []
+    assert run["diagnostics"]["parameter_count"] == 0
+    assert run["error"]["code"] == "NATIVE_BUILD_FAILED"
+    assert "deliberate parameter-axis failure" not in run["error"]["message"]
 
 
 def test_build_create_acknowledges_queued_before_blocking_native_work(

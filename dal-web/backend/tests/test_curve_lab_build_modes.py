@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from copy import deepcopy
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -407,6 +409,78 @@ def test_multi_curve_calls_native_bundle_with_declaration_local_stages() -> None
     assert curves == {
         DISCOUNT_KEY: {"native": "discount"},
         PROJECTION_KEY: {"native": "projection"},
+    }
+
+
+def test_piecewise_constant_curve_builder_adds_valuation_date_boundary() -> None:
+    from app.services.dal_gateway import DalGateway
+
+    document = _multi_document()
+    document["mode"] = "SINGLE"
+    document["declarations"] = document["declarations"][:1]
+    document["instruments"][1]["terms"]["component_key"] = DISCOUNT_KEY
+    gateway = DalGateway()
+    gateway._dal = _RecordingMultiDal()
+
+    builder = gateway._curve_lab_curve_builder(
+        document,
+        document["declarations"][0],
+        document["instruments"],
+        {},
+    )
+
+    assert builder.knotDates_ == [
+        "2026-01-15",
+        "2027-01-15",
+        "2028-01-15",
+    ]
+
+
+def test_curve_views_project_discount_zero_and_forward_values_on_native_axis() -> None:
+    from app.services.dal_gateway import DalGateway
+
+    class FlatCurve:
+        def __call__(self, start: str, end: str) -> float:
+            days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+            return math.exp(-0.04 * days / 365.0)
+
+    document = _multi_document()
+    document["mode"] = "SINGLE"
+    document["declarations"] = document["declarations"][:1]
+    parameter_axis = [
+        {
+            "parameter_id": f"{DISCOUNT_KEY}:today",
+            "component_key": DISCOUNT_KEY,
+            "node_date": "2026-01-15",
+            "side": "RIGHT",
+        },
+        {
+            "parameter_id": f"{DISCOUNT_KEY}:one-year",
+            "component_key": DISCOUNT_KEY,
+            "node_date": "2027-01-15",
+            "side": "RIGHT",
+        },
+    ]
+    gateway = DalGateway()
+    gateway._dal = _RecordingMultiDal()
+
+    views = gateway._curve_lab_curve_views_from_curves(
+        document,
+        {DISCOUNT_KEY: FlatCurve()},
+        parameter_axis,
+    )
+
+    assert views[0] == {
+        **parameter_axis[0],
+        "discount_factor": 1.0,
+        "zero_rate": None,
+        "one_day_forward_rate": pytest.approx(0.04),
+    }
+    assert views[1] == {
+        **parameter_axis[1],
+        "discount_factor": pytest.approx(math.exp(-0.04)),
+        "zero_rate": pytest.approx(0.04),
+        "one_day_forward_rate": pytest.approx(0.04),
     }
 
 
