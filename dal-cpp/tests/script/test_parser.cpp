@@ -354,6 +354,13 @@ TEST(ScriptTest, TestParseDanglingPlusThrows) {
     ASSERT_THROW(parser.Parse(event), ScriptError_);
 }
 
+TEST(ScriptTest, TestParseTerminalFunctionAndConditionTokensThrow) {
+    Parser_ parser;
+    for (const String_& event : {String_("x = DCF"), String_("x = LOG"), String_("IF x > 1")}) {
+        SCOPED_TRACE(event.c_str());
+        ASSERT_THROW(parser.Parse(event), ScriptError_);
+    }
+}
 
 TEST(ScriptTest, TestParseIfWithoutThenThrows) {
     Parser_ parser;

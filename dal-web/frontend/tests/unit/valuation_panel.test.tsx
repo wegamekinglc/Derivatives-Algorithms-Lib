@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import ValuationPanel from "../../src/components/ValuationPanel";
 import { api, type ValuationConfig, type ValuationResult } from "../../src/api/client";
 
@@ -42,6 +43,10 @@ describe("ValuationPanel", () => {
 
   beforeEach(() => {
     getValuationSpy = vi.spyOn(api, "getValuation");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("submits the configured valuation request and renders an immediately-completed result", async () => {
@@ -113,6 +118,43 @@ describe("ValuationPanel", () => {
     expect(getValuationSpy).toHaveBeenCalledWith("v1");
     expect(screen.getByText(TOTAL_PV_TEXT)).toBeTruthy();
     expect(screen.queryByText("Unit PV")).toBeNull();
+    expect(runButton().disabled).toBe(false);
+  });
+
+  it("stops polling when the panel unmounts", async () => {
+    vi.useFakeTimers();
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult({ status: "running" }));
+    getValuationSpy.mockResolvedValue(makeResult({ status: "running" }));
+    const view = render(<ValuationPanel onRun={onRun} />);
+
+    fireEvent.click(runButton());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    view.unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(getValuationSpy).not.toHaveBeenCalled();
+  });
+
+  it("remains usable after the StrictMode effect replay", async () => {
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult());
+    render(
+      <StrictMode>
+        <ValuationPanel onRun={onRun} />
+      </StrictMode>,
+    );
+
+    fireEvent.click(runButton());
+
+    await screen.findByText("Total PV");
+    expect(onRun).toHaveBeenCalledTimes(1);
     expect(runButton().disabled).toBe(false);
   });
 

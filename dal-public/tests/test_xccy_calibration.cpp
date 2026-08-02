@@ -92,7 +92,7 @@ TEST(XccyCalibrationTest, TestJointBuilderDefaultsMatchCoreJointCalibration) {
 
 TEST(XccyCalibrationTest, TestJointBasisLogDfSchemeDefaultsAndRoundTrips) {
     Dal::XccyBasisCurveDeclaration_ basis;
-    EXPECT_EQ(basis.logDfScheme_, Dal::LogDfScheme_::Value_::LOG_LINEAR);
+    ASSERT_EQ(basis.logDfScheme_, Dal::LogDfScheme_::Value_::LOG_LINEAR);
 
     basis.logDfScheme_ = Dal::LogDfScheme_::Value_::MIXED;
     Dal::JointXccyCalibrationSpecBuilder_ builder;
@@ -103,7 +103,7 @@ TEST(XccyCalibrationTest, TestJointBasisLogDfSchemeDefaultsAndRoundTrips) {
     builder.fxSpot_ = 1.1;
 
     const auto spec = builder.Build();
-    EXPECT_EQ(spec.basis_.logDfScheme_, Dal::LogDfScheme_::Value_::MIXED);
+    ASSERT_EQ(spec.basis_.logDfScheme_, Dal::LogDfScheme_::Value_::MIXED);
 }
 
 // Build baseline curves for XCCY calibration

@@ -22,6 +22,11 @@ os.environ.setdefault("WEBUI_SEED_DEMO", "0")
 # Install before any `import dal` inside the app under test.
 sys.modules["dal"] = build_fake_dal()
 
+import app.services.dal_gateway as _gateway_module  # noqa: E402
+from tests.fake_gateway import FakeDalGateway  # noqa: E402
+
+_gateway_module.DalGateway = FakeDalGateway
+
 
 def _reset_singletons() -> None:
     import app.services.dal_gateway as gw

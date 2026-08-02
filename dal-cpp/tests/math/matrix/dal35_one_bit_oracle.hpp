@@ -25,11 +25,15 @@ namespace Dal35OneBitOracle_ {
         std::uint64_t baseBits_;
     };
 
-    enum class OracleClass_ : std::uint8_t { FINITE, NON_FINITE };
+    struct OracleClass_ {
+        static constexpr std::uint8_t FINITE = 0;
+        static constexpr std::uint8_t NON_FINITE = 1;
+    };
+    using OracleClassValue_ = std::uint8_t;
 
     struct OracleResult_ {
         std::uint64_t bits_;
-        OracleClass_ classification_;
+        OracleClassValue_ classification_;
     };
 
     struct RawFinite_ {

@@ -8,6 +8,7 @@ import types
 import pytest
 
 from app.native_runtime import NativeDalUnavailableError, load_native_dal
+from tests.fake_dal import build_fake_dal
 
 
 def test_native_preflight_reports_install_command(monkeypatch):
@@ -37,4 +38,13 @@ def test_native_preflight_rejects_incomplete_module(monkeypatch):
     monkeypatch.setattr(importlib, "import_module", lambda _name: incomplete)
 
     with pytest.raises(NativeDalUnavailableError, match="missing required symbols"):
+        load_native_dal()
+
+
+def test_native_preflight_rejects_base_only_module_without_calibration_surface(monkeypatch):
+    incomplete = build_fake_dal()
+    del incomplete.__dal_web_test_double__
+    monkeypatch.setattr(importlib, "import_module", lambda _name: incomplete)
+
+    with pytest.raises(NativeDalUnavailableError, match="CalibrateSingleCurve"):
         load_native_dal()

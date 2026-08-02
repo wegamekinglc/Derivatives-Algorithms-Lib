@@ -13,6 +13,15 @@ SPEC.loader.exec_module(CHECK_DOCS)
 
 
 class AgentDocsTest(unittest.TestCase):
+    def test_all_docs_cover_codex_skills_and_references(self):
+        relative = {path.relative_to(CHECK_DOCS.ROOT).as_posix() for path in CHECK_DOCS.ALL_DOCS}
+
+        self.assertIn(".codex/skills/dal-web/SKILL.md", relative)
+        self.assertIn(".codex/references/code-style.md", relative)
+        self.assertIn(".codex/artifacts/README.md", relative)
+        self.assertIn(".github/copilot-instructions.md", relative)
+        self.assertIn("dal-web/backend/README.md", relative)
+
     def test_agent_docs_cover_agent_facing_guides(self):
         expected = {
             "AGENTS.md",
@@ -147,6 +156,16 @@ class CheckAgentPathsTest(unittest.TestCase):
 
 
 class AgentDocsStandardChecksTest(unittest.TestCase):
+    def test_math_macro_check_ignores_inline_code_examples(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            document = Path(tmp) / "example.md"
+            document.write_text("Use `\\operatorname{x}` only as a literal example.\n", encoding="utf-8")
+            errors: list[str] = []
+
+            CHECK_DOCS.check_math_macros((document,), errors)
+
+            self.assertEqual(errors, [])
+
     def test_current_agent_docs_pass_standard_checks(self):
         errors: list[str] = []
         CHECK_DOCS.check_links(CHECK_DOCS.AGENT_DOCS, errors)

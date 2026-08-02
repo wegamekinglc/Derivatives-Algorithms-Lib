@@ -11,7 +11,8 @@ from typing import Any
 import dal  # the fake installed by conftest
 import pytest
 
-from app.services.dal_gateway import DalGateway, ValuationRequest
+from app.services.dal_gateway import DalGateway, NativeDalCapabilityError, ValuationRequest
+from tests.fake_gateway import NativeDalGateway
 
 
 def make_gateway() -> DalGateway:
@@ -36,6 +37,13 @@ def test_gateway_backend():
     gw = make_gateway()
     assert gw.is_native is True
     assert gw.backend_name == "dal"
+
+
+def test_gateway_rejects_fallbacks_without_explicit_test_gateway():
+    gateway = NativeDalGateway()
+
+    with pytest.raises(NativeDalCapabilityError, match="synthetic production fallbacks"):
+        gateway._require_test_double_fallback("single-curve calibration")
 
 
 def test_evaluation_date_roundtrip():

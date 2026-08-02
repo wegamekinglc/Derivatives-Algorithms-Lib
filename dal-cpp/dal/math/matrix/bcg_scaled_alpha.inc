@@ -309,11 +309,18 @@ namespace Dal {
                 bool negative_;
             };
 
-            enum class AlphaPath_ : std::uint8_t { DENOMINATOR_ZERO, LEGACY_ZERO, ORDINARY_NORMAL, SCALED_EXACT };
+            // Internal byte tags avoid adding implementation details to the public Machinist enum surface.
+            struct AlphaPath_ {
+                static constexpr std::uint8_t DENOMINATOR_ZERO = 0;
+                static constexpr std::uint8_t LEGACY_ZERO = 1;
+                static constexpr std::uint8_t ORDINARY_NORMAL = 2;
+                static constexpr std::uint8_t SCALED_EXACT = 3;
+            };
+            using AlphaPathValue_ = std::uint8_t;
 
             struct AlphaPlan_ {
                 ExactAlpha_ exact_;
-                AlphaPath_ path_;
+                AlphaPathValue_ path_;
             };
 
             constexpr std::uint64_t BINARY64_FRACTION_MASK_ = (1ULL << 52U) - 1ULL;
@@ -604,11 +611,15 @@ namespace Dal {
                 return HasBitBelow_(numerator, discardedBits - 1) ? 1 : 0;
             }
 
-            enum class RoundedClass_ : std::uint8_t { FINITE, NON_FINITE };
+            struct RoundedClass_ {
+                static constexpr std::uint8_t FINITE = 0;
+                static constexpr std::uint8_t NON_FINITE = 1;
+            };
+            using RoundedClassValue_ = std::uint8_t;
 
             struct RoundedBinary64_ {
                 std::uint64_t bits_;
-                RoundedClass_ classification_;
+                RoundedClassValue_ classification_;
             };
 
             inline RoundedBinary64_ Round_(const ExactMagnitude_& numerator, std::uint64_t denominator, int binaryExponent, bool negative) {
@@ -681,10 +692,16 @@ namespace Dal {
                 return Round_(*magnitude, alpha.denominator_, commonExponent, comparison < 0);
             }
 
-            enum class CandidateSubject_ : std::uint8_t { NONE, X, RESIDUAL, SHADOW_RESIDUAL };
+            struct CandidateSubject_ {
+                static constexpr std::uint8_t NONE = 0;
+                static constexpr std::uint8_t X = 1;
+                static constexpr std::uint8_t RESIDUAL = 2;
+                static constexpr std::uint8_t SHADOW_RESIDUAL = 3;
+            };
+            using CandidateSubjectValue_ = std::uint8_t;
 
             struct CandidateEvidence_ {
-                CandidateSubject_ subject_;
+                CandidateSubjectValue_ subject_;
                 int firstNonFiniteIndex_;
             };
 
@@ -707,7 +724,7 @@ namespace Dal {
             inline CandidateEvidence_ EvaluateCandidateSubject_(const ExactAlpha_& alpha,
                                                                 const Vector_<>& values,
                                                                 const Vector_<>& base,
-                                                                CandidateSubject_ subject,
+                                                                CandidateSubjectValue_ subject,
                                                                 ExactWorkspace_* workspace,
                                                                 Vector_<>* output) {
                 for (int i = 0; i < static_cast<int>(values.size()); ++i) {

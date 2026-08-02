@@ -157,13 +157,13 @@ namespace {
 TEST(RateCashflowPricingTest, TestRegistryAndDepositCashflows) {
     const auto families = Dal::RateInstrumentTypeListAll();
     ASSERT_EQ(families.size(), 7);
-    ASSERT_EQ(families[0].String(), "DEPOSIT");
-    ASSERT_EQ(families[1].String(), "FRA");
-    ASSERT_EQ(families[2].String(), "FUTURE");
-    ASSERT_EQ(families[3].String(), "OIS");
-    ASSERT_EQ(families[4].String(), "IRS");
-    ASSERT_EQ(families[5].String(), "BASIS_SWAP");
-    ASSERT_EQ(families[6].String(), "XCCY");
+    ASSERT_STREQ(families[0].String(), "DEPOSIT");
+    ASSERT_STREQ(families[1].String(), "FRA");
+    ASSERT_STREQ(families[2].String(), "FUTURE");
+    ASSERT_STREQ(families[3].String(), "OIS");
+    ASSERT_STREQ(families[4].String(), "IRS");
+    ASSERT_STREQ(families[5].String(), "BASIS_SWAP");
+    ASSERT_STREQ(families[6].String(), "XCCY");
 
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ maturity(2027, 1, 15);

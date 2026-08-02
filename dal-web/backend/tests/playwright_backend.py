@@ -30,8 +30,9 @@ def _build_app() -> FastAPI:
     from app.dependencies import gateway_dependency
     from app.main import app as fastapi_app
     from app.services.dal_gateway import DalGateway, HealthSnapshot
+    from tests.fake_gateway import FakeDalGateway
 
-    class CannedDalGateway(DalGateway):
+    class CannedDalGateway(FakeDalGateway):
         @property
         def is_native(self) -> bool:
             return False

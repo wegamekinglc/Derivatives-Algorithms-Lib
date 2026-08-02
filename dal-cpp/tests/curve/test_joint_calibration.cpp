@@ -47,8 +47,8 @@ TEST(JointCalibrationTest, TestLogDiscountScalarGuessUsesDatedRawUnits) {
     const Vector_<> scalar = JointCalibrationInternal::BuildGuessSlice(declaration, definition, 0.04, "joint_log");
 
     ASSERT_EQ(scalar.size(), static_cast<size_t>(2));
-    EXPECT_NEAR(scalar[0], -0.04, 1.0e-14);
-    EXPECT_NEAR(scalar[1], -0.08, 1.0e-14);
+    ASSERT_NEAR(scalar[0], -0.04, 1.0e-14);
+    ASSERT_NEAR(scalar[1], -0.08, 1.0e-14);
 }
 
 namespace {

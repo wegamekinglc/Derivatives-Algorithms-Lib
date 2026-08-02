@@ -12,7 +12,10 @@ from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPONENT_READMES = tuple(ROOT.glob("dal-*/README.md"))
+COMPONENT_READMES = (
+    *ROOT.glob("dal-*/README.md"),
+    ROOT / "dal-web/backend/README.md",
+)
 DOCS = tuple(
     sorted(
         {
@@ -36,7 +39,9 @@ AGENT_DOCS = tuple(
         }
     )
 )
-ALL_DOCS = (*DOCS, *AGENT_DOCS)
+CODEX_DOCS = tuple(sorted((ROOT / ".codex").rglob("*.md")))
+GITHUB_DOCS = tuple(sorted((ROOT / ".github").rglob("*.md")))
+ALL_DOCS = tuple(sorted({*DOCS, *AGENT_DOCS, *CODEX_DOCS, *GITHUB_DOCS}))
 
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*$")
@@ -382,8 +387,9 @@ def check_math_macros(documents: tuple[Path, ...], errors: list[str]) -> None:
     for document in documents:
         lines = document.read_text(encoding="utf-8").splitlines()
         for line_number, line in without_fenced_code(lines):
+            visible = INLINE_CODE_RE.sub("", line)
             for bad, good in FORBIDDEN_MATH_MACROS.items():
-                if bad in line:
+                if bad in visible:
                     errors.append(
                         f"{relative(document)}:{line_number}: GitHub does not render "
                         f"'{bad}' in math; use '{good}' instead"

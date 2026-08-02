@@ -243,7 +243,7 @@ namespace Dal::Script {
 
     void Parser_::ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps) {
         eps = -1.0;
-        while (*cur == ";" || *cur == ":") {
+        while (cur != end && (*cur == ";" || *cur == ":")) {
             const char c = (*cur)[0];
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
@@ -254,31 +254,33 @@ namespace Dal::Script {
 
     double Parser_::ParseDCF(TokIt_& cur, const TokIt_& end) {
         // TODO: we assume `DCF` function won't contain another nested function
-        REQUIRE2((*cur)[0] == '(', "No opening ( following `DCF`", ScriptError_);
+        REQUIRE2(cur != end && (*cur)[0] == '(', "missing opening '(' after `DCF`", ScriptError_);
         auto closeIt = FindMatch<'(', ')'>(cur, end);
         ++cur;
 
         // Parse basis and dates between parentheses
-        REQUIRE2(cur != closeIt, "doesn't find `basis` for `DCF", ScriptError_);
+        REQUIRE2(cur != closeIt, "missing `basis` for `DCF`", ScriptError_);
         String_ day_basis = "";
         while (cur != closeIt && (*cur)[0] != ',') {
             day_basis += *cur;
             ++cur;
         }
+        REQUIRE2(cur != closeIt, "missing `start` for `DCF`", ScriptError_);
         ++cur;
         while (cur != closeIt && (*cur)[0] == ',')
             ++cur;
-        REQUIRE2(cur != closeIt, "doesn't find `start` for `DCF", ScriptError_);
+        REQUIRE2(cur != closeIt, "missing `start` for `DCF`", ScriptError_);
 
         String_ start_date = "";
         while (cur != closeIt && (*cur)[0] != ',') {
             start_date += *cur;
             ++cur;
         }
+        REQUIRE2(cur != closeIt, "missing `end` for `DCF`", ScriptError_);
         ++cur;
         while (cur != closeIt && (*cur)[0] == ',')
             ++cur;
-        REQUIRE2(cur != closeIt, "doesn't find `end` for `DCF", ScriptError_);
+        REQUIRE2(cur != closeIt, "missing `end` for `DCF`", ScriptError_);
 
         String_ end_date = "";
         while (cur != closeIt && (*cur)[0] != ',') {
@@ -292,7 +294,7 @@ namespace Dal::Script {
     }
 
     Vector_<Expression_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
-        REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
+        REQUIRE2(cur != end && (*cur)[0] == '(', "No opening ( following function name", ScriptError_);
         auto closeIt = FindMatch<'(', ')'>(cur, end);
 
         //	Parse expressions between parentheses
@@ -300,7 +302,7 @@ namespace Dal::Script {
         ++cur;
         while (cur != closeIt) {
             args.push_back(ParseExpr(cur, end));
-            if ((*cur)[0] == ',')
+            if (cur != end && (*cur)[0] == ',')
                 ++cur;
             else if (cur != closeIt)
                 THROW2("Arguments must be separated by commas", ScriptError_);

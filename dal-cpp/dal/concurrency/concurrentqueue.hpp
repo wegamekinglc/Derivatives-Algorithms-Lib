@@ -20,7 +20,7 @@ namespace Dal {
 
     template <class T_> class ConcurrentQueue_ {
         std::queue<T_> queue_;
-        mutable std::mutex mutex_;
+        std::mutex mutex_;
         std::condition_variable cv_;
         bool interrupt_;
 
@@ -28,7 +28,7 @@ namespace Dal {
         ConcurrentQueue_() : interrupt_(false) {}
         ~ConcurrentQueue_() { Interrupt(); }
 
-        bool Empty() const {
+        bool Empty() {
             std::lock_guard<std::mutex> lk(mutex_);
             return queue_.empty();
         }
