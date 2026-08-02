@@ -59,11 +59,16 @@ interface CurveLabWorkspaceProps {
   onCanonicalTargetChange?: (...args: [CurveLabCanonicalTarget | null]) => void;
 }
 
-const CURVE_VIEW_LABELS: Record<CurveView, string> = {
-  discount: "Discount factors",
-  zero: "Zero rates",
-  forward: "Forwards",
-};
+function curveViewLabel(view: CurveView): string {
+  switch (view) {
+    case "discount":
+      return "Discount factors";
+    case "zero":
+      return "Zero rates";
+    case "forward":
+      return "Forwards";
+  }
+}
 
 function curveViewValue(point: CurveLabCurveViewPoint, view: CurveView): string {
   if (view === "discount") return point.discount_factor.toFixed(10);
@@ -1626,7 +1631,7 @@ const CurveLabWorkspace = forwardRef<
                   {curveView === "forward" && "One-day continuously compounded ACT/365F forwards; LEFT samples the preceding interval."}
                 </p>
                 <div {...css("table-container")}>
-                  <table aria-label={`${CURVE_VIEW_LABELS[curveView]} curve values`}>
+                  <table aria-label={`${curveViewLabel(curveView)} curve values`}>
                     <thead><tr><th>Node</th><th>Component</th><th>Side</th><th {...css("num")}>Value</th></tr></thead>
                     <tbody>
                       {(build.curve_views ?? []).map((point) => (
