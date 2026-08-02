@@ -1,3 +1,7 @@
+//
+// Created by dal-implementer on 2026/8/1.
+//
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -10,6 +14,193 @@
 
 namespace Dal {
     namespace {
+        namespace BcgExactMagnitudePrivate_ {
+            constexpr int LIMB_BITS_ = 32;
+
+            template <int LimbCount_, int MaxBitIndex_> struct Magnitude_ {
+                static constexpr int LIMB_COUNT_ = LimbCount_;
+                static constexpr int MAX_BIT_INDEX_ = MaxBitIndex_;
+
+                std::array<std::uint32_t, LimbCount_> limbs_{};
+                int first_ = LimbCount_;
+                int last_ = -1;
+            };
+
+            template <class Magnitude_> inline void Reset_(Magnitude_* magnitude) noexcept {
+                if (magnitude->first_ == Magnitude_::LIMB_COUNT_ && magnitude->last_ == -1)
+                    return;
+                if (magnitude->first_ >= 0 && magnitude->first_ <= magnitude->last_ && magnitude->last_ < Magnitude_::LIMB_COUNT_) {
+                    for (int i = magnitude->first_; i <= magnitude->last_; ++i)
+                        magnitude->limbs_[i] = 0;
+                } else {
+                    for (std::uint32_t& limb : magnitude->limbs_)
+                        limb = 0;
+                }
+                magnitude->first_ = Magnitude_::LIMB_COUNT_;
+                magnitude->last_ = -1;
+            }
+
+            template <class Magnitude_> inline void Touch_(int limb, Magnitude_* magnitude) noexcept {
+                magnitude->first_ = std::min(magnitude->first_, limb);
+                magnitude->last_ = std::max(magnitude->last_, limb);
+            }
+
+            template <class Magnitude_> inline bool WordFits_(int limb, std::uint32_t value) noexcept {
+                if (value == 0)
+                    return true;
+                if (limb < 0 || limb >= Magnitude_::LIMB_COUNT_)
+                    return false;
+                const int availableBits = Magnitude_::MAX_BIT_INDEX_ - LIMB_BITS_ * limb + 1;
+                return availableBits >= LIMB_BITS_ || (availableBits > 0 && (value >> availableBits) == 0);
+            }
+
+            template <class Magnitude_> inline bool AddAt_(int limb, std::uint32_t value, Magnitude_* magnitude) noexcept {
+                std::uint64_t carry = value;
+                while (carry != 0) {
+                    if (limb < 0 || limb >= Magnitude_::LIMB_COUNT_)
+                        return false;
+                    const std::uint64_t sum = static_cast<std::uint64_t>(magnitude->limbs_[limb]) + carry;
+                    const std::uint32_t word = static_cast<std::uint32_t>(sum);
+                    if (!WordFits_<Magnitude_>(limb, word))
+                        return false;
+                    magnitude->limbs_[limb] = word;
+                    Touch_(limb, magnitude);
+                    carry = sum >> LIMB_BITS_;
+                    ++limb;
+                }
+                return true;
+            }
+
+            template <class Magnitude_>
+            inline bool AddShiftedLimb_(std::uint32_t value, int firstBit, Magnitude_* magnitude) noexcept {
+                if (value == 0)
+                    return true;
+                if (firstBit < 0)
+                    return false;
+                const int limb = firstBit / LIMB_BITS_;
+                const int shift = firstBit % LIMB_BITS_;
+                const std::uint64_t shifted = static_cast<std::uint64_t>(value) << shift;
+                return AddAt_(limb, static_cast<std::uint32_t>(shifted), magnitude) &&
+                       AddAt_(limb + 1, static_cast<std::uint32_t>(shifted >> LIMB_BITS_), magnitude);
+            }
+
+            template <class Magnitude_>
+            inline bool AddShiftedWord_(std::uint64_t value, int firstBit, Magnitude_* magnitude) noexcept {
+                return AddShiftedLimb_(static_cast<std::uint32_t>(value), firstBit, magnitude) &&
+                       AddShiftedLimb_(static_cast<std::uint32_t>(value >> LIMB_BITS_), firstBit + LIMB_BITS_, magnitude);
+            }
+
+            inline std::array<std::uint32_t, 4> Multiply53_(std::uint64_t lhs, std::uint64_t rhs) noexcept {
+                const std::array<std::uint32_t, 2> left = {static_cast<std::uint32_t>(lhs), static_cast<std::uint32_t>(lhs >> LIMB_BITS_)};
+                const std::array<std::uint32_t, 2> right = {static_cast<std::uint32_t>(rhs), static_cast<std::uint32_t>(rhs >> LIMB_BITS_)};
+                std::array<std::uint32_t, 4> result{};
+                for (int i = 0; i < 2; ++i) {
+                    std::uint64_t carry = 0;
+                    for (int j = 0; j < 2; ++j) {
+                        const std::uint64_t sum = static_cast<std::uint64_t>(result[i + j]) + static_cast<std::uint64_t>(left[i]) * right[j] + carry;
+                        result[i + j] = static_cast<std::uint32_t>(sum);
+                        carry = sum >> LIMB_BITS_;
+                    }
+                    int output = i + 2;
+                    while (carry != 0 && output < static_cast<int>(result.size())) {
+                        const std::uint64_t sum = static_cast<std::uint64_t>(result[output]) + carry;
+                        result[output] = static_cast<std::uint32_t>(sum);
+                        carry = sum >> LIMB_BITS_;
+                        ++output;
+                    }
+                }
+                return result;
+            }
+
+            template <class Magnitude_>
+            inline bool AddProduct_(std::uint64_t lhs, std::uint64_t rhs, int firstBit, Magnitude_* magnitude) noexcept {
+                if (lhs == 0 || rhs == 0)
+                    return true;
+                const std::array<std::uint32_t, 4> product = Multiply53_(lhs, rhs);
+                for (int word = 0; word < static_cast<int>(product.size()); ++word)
+                    if (!AddShiftedLimb_(product[word], firstBit + LIMB_BITS_ * word, magnitude))
+                        return false;
+                return true;
+            }
+
+            template <class Magnitude_> inline void Trim_(Magnitude_* magnitude) noexcept {
+                while (magnitude->first_ <= magnitude->last_ && magnitude->limbs_[magnitude->first_] == 0)
+                    ++magnitude->first_;
+                while (magnitude->last_ >= magnitude->first_ && magnitude->limbs_[magnitude->last_] == 0)
+                    --magnitude->last_;
+                if (magnitude->last_ < magnitude->first_) {
+                    magnitude->first_ = Magnitude_::LIMB_COUNT_;
+                    magnitude->last_ = -1;
+                }
+            }
+
+            template <class Magnitude_> inline int Compare_(const Magnitude_& lhs, const Magnitude_& rhs) noexcept {
+                if (lhs.last_ != rhs.last_)
+                    return lhs.last_ < rhs.last_ ? -1 : 1;
+                for (int i = lhs.last_; i >= std::min(lhs.first_, rhs.first_); --i)
+                    if (lhs.limbs_[i] != rhs.limbs_[i])
+                        return lhs.limbs_[i] < rhs.limbs_[i] ? -1 : 1;
+                return 0;
+            }
+
+            template <class Magnitude_> inline bool Add_(const Magnitude_& rhs, Magnitude_* lhs) noexcept {
+                for (int i = rhs.first_; i <= rhs.last_; ++i)
+                    if (!AddAt_(i, rhs.limbs_[i], lhs))
+                        return false;
+                return true;
+            }
+
+            template <class Magnitude_> inline bool Subtract_(const Magnitude_& rhs, Magnitude_* lhs) noexcept {
+                const int first = std::min(lhs->first_, rhs.first_);
+                const int last = lhs->last_;
+                lhs->first_ = first;
+                std::uint64_t borrow = 0;
+                for (int i = first; i <= last; ++i) {
+                    Touch_(i, lhs);
+                    const std::uint64_t subtrahend = static_cast<std::uint64_t>(rhs.limbs_[i]) + borrow;
+                    const std::uint64_t minuend = lhs->limbs_[i];
+                    if (minuend < subtrahend) {
+                        lhs->limbs_[i] = static_cast<std::uint32_t>((1ULL << LIMB_BITS_) + minuend - subtrahend);
+                        borrow = 1;
+                    } else {
+                        lhs->limbs_[i] = static_cast<std::uint32_t>(minuend - subtrahend);
+                        borrow = 0;
+                    }
+                }
+                Trim_(lhs);
+                return borrow == 0;
+            }
+
+            template <class Magnitude_> inline bool Bit_(const Magnitude_& value, int bit) noexcept {
+                if (bit < 0 || bit > Magnitude_::MAX_BIT_INDEX_)
+                    return false;
+                return (value.limbs_[bit / LIMB_BITS_] & (1U << (bit % LIMB_BITS_))) != 0;
+            }
+
+            template <class Magnitude_> inline bool HasBitBelow_(const Magnitude_& value, int exclusiveBit) noexcept {
+                if (exclusiveBit <= 0 || value.last_ < value.first_)
+                    return false;
+                const int lastBit = std::min(exclusiveBit - 1, Magnitude_::MAX_BIT_INDEX_);
+                const int lastLimb = lastBit / LIMB_BITS_;
+                for (int i = value.first_; i < lastLimb; ++i)
+                    if (value.limbs_[i] != 0)
+                        return true;
+                if (lastLimb < value.first_)
+                    return false;
+                const int bits = lastBit % LIMB_BITS_ + 1;
+                const std::uint32_t mask =
+                    bits == LIMB_BITS_ ? std::numeric_limits<std::uint32_t>::max() : (1U << bits) - 1U;
+                return (value.limbs_[lastLimb] & mask) != 0;
+            }
+
+            template <class Magnitude_> inline int HighestBit_(const Magnitude_& value) noexcept {
+                int highestLimbBit = 0;
+                for (std::uint32_t top = value.limbs_[value.last_]; top > 1; top >>= 1U)
+                    ++highestLimbBit;
+                return LIMB_BITS_ * value.last_ + highestLimbBit;
+            }
+        } // namespace BcgExactMagnitudePrivate_
+
         namespace BcgScaledAlphaPrivate_ {
             struct AccumulatorBounds_ {
                 int minExponent_;
@@ -274,11 +465,8 @@ namespace Dal {
 
             constexpr int EXACT_CANDIDATE_LIMB_COUNT_ = REVIEWED_CANDIDATE_BOUNDS_.candidateLimbCount_;
 
-            struct ExactMagnitude_ {
-                std::array<std::uint32_t, EXACT_CANDIDATE_LIMB_COUNT_> limbs_{};
-                int first_ = EXACT_CANDIDATE_LIMB_COUNT_;
-                int last_ = -1;
-            };
+            using ExactMagnitude_ = BcgExactMagnitudePrivate_::Magnitude_<EXACT_CANDIDATE_LIMB_COUNT_,
+                                                                          REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_>;
 
             struct ExactWorkspace_ {
                 ExactMagnitude_ positive_;
@@ -286,17 +474,7 @@ namespace Dal {
             };
 
             inline void ResetMagnitude_(ExactMagnitude_* magnitude) noexcept {
-                if (magnitude->first_ == EXACT_CANDIDATE_LIMB_COUNT_ && magnitude->last_ == -1)
-                    return;
-                if (magnitude->first_ >= 0 && magnitude->first_ <= magnitude->last_ && magnitude->last_ < EXACT_CANDIDATE_LIMB_COUNT_) {
-                    for (int i = magnitude->first_; i <= magnitude->last_; ++i)
-                        magnitude->limbs_[i] = 0;
-                } else {
-                    for (std::uint32_t& limb : magnitude->limbs_)
-                        limb = 0;
-                }
-                magnitude->first_ = EXACT_CANDIDATE_LIMB_COUNT_;
-                magnitude->last_ = -1;
+                BcgExactMagnitudePrivate_::Reset_(magnitude);
             }
 
             class WorkspaceCallReset_ {
@@ -328,125 +506,34 @@ namespace Dal {
                           std::to_string(REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_) + "] bound");
             }
 
-            inline void TouchLimb_(int limb, ExactMagnitude_* magnitude) {
-                magnitude->first_ = std::min(magnitude->first_, limb);
-                magnitude->last_ = std::max(magnitude->last_, limb);
-            }
-
-            inline void AddBit_(int bit, ExactMagnitude_* magnitude) {
-                std::uint64_t carry = 1;
-                int currentBit = bit;
-                while (carry != 0) {
-                    CheckLogicalBitRange_(currentBit, currentBit);
-                    const int limb = currentBit / 32;
-                    const int offset = currentBit % 32;
-                    TouchLimb_(limb, magnitude);
-                    const std::uint64_t sum = static_cast<std::uint64_t>(magnitude->limbs_[limb]) + (carry << offset);
-                    magnitude->limbs_[limb] = static_cast<std::uint32_t>(sum);
-                    carry = sum >> 32U;
-                    currentBit = (limb + 1) * 32;
-                }
-            }
-
-            inline std::array<std::uint32_t, 4> Multiply53_(std::uint64_t lhs, std::uint64_t rhs) {
-                const std::array<std::uint32_t, 2> left = {static_cast<std::uint32_t>(lhs), static_cast<std::uint32_t>(lhs >> 32U)};
-                const std::array<std::uint32_t, 2> right = {static_cast<std::uint32_t>(rhs), static_cast<std::uint32_t>(rhs >> 32U)};
-                std::array<std::uint32_t, 4> result{};
-                for (int i = 0; i < 2; ++i) {
-                    std::uint64_t carry = 0;
-                    for (int j = 0; j < 2; ++j) {
-                        const std::uint64_t sum = static_cast<std::uint64_t>(result[i + j]) + static_cast<std::uint64_t>(left[i]) * right[j] + carry;
-                        result[i + j] = static_cast<std::uint32_t>(sum);
-                        carry = sum >> 32U;
-                    }
-                    int output = i + 2;
-                    while (carry != 0) {
-                        const std::uint64_t sum = static_cast<std::uint64_t>(result[output]) + carry;
-                        result[output] = static_cast<std::uint32_t>(sum);
-                        carry = sum >> 32U;
-                        ++output;
-                    }
-                }
-                return result;
-            }
-
             inline void AddProduct_(std::uint64_t lhs, std::uint64_t rhs, int shift, ExactMagnitude_* magnitude) {
-                if (lhs == 0 || rhs == 0)
-                    return;
-                const std::array<std::uint32_t, 4> product = Multiply53_(lhs, rhs);
-                for (int word = 0; word < static_cast<int>(product.size()); ++word)
-                    for (int bit = 0; bit < 32; ++bit)
-                        if ((product[word] & (1U << bit)) != 0)
-                            AddBit_(shift + 32 * word + bit, magnitude);
-            }
-
-            inline void Trim_(ExactMagnitude_* magnitude) {
-                while (magnitude->first_ <= magnitude->last_ && magnitude->limbs_[magnitude->first_] == 0)
-                    ++magnitude->first_;
-                while (magnitude->last_ >= magnitude->first_ && magnitude->limbs_[magnitude->last_] == 0)
-                    --magnitude->last_;
-                if (magnitude->last_ < magnitude->first_) {
-                    magnitude->first_ = EXACT_CANDIDATE_LIMB_COUNT_;
-                    magnitude->last_ = -1;
-                }
+                if (!BcgExactMagnitudePrivate_::AddProduct_(lhs, rhs, shift, magnitude))
+                    CheckLogicalBitRange_(REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_ + 1,
+                                          REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_ + 1);
             }
 
             inline int Compare_(const ExactMagnitude_& lhs, const ExactMagnitude_& rhs) {
-                if (lhs.last_ != rhs.last_)
-                    return lhs.last_ < rhs.last_ ? -1 : 1;
-                for (int i = lhs.last_; i >= std::min(lhs.first_, rhs.first_); --i)
-                    if (lhs.limbs_[i] != rhs.limbs_[i])
-                        return lhs.limbs_[i] < rhs.limbs_[i] ? -1 : 1;
-                return 0;
+                return BcgExactMagnitudePrivate_::Compare_(lhs, rhs);
             }
 
             inline void Subtract_(const ExactMagnitude_& subtrahend, ExactMagnitude_* minuend) {
                 const int first = std::min(minuend->first_, subtrahend.first_);
                 const int last = minuend->last_;
                 CheckLogicalBitRange_(32 * first, std::min(REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_, 32 * last + 31));
-                minuend->first_ = first;
-                std::uint64_t borrow = 0;
-                for (int i = first; i <= last; ++i) {
-                    TouchLimb_(i, minuend);
-                    const std::uint64_t rhs = static_cast<std::uint64_t>(subtrahend.limbs_[i]) + borrow;
-                    const std::uint64_t lhs = minuend->limbs_[i];
-                    if (lhs < rhs) {
-                        minuend->limbs_[i] = static_cast<std::uint32_t>((1ULL << 32U) + lhs - rhs);
-                        borrow = 1;
-                    } else {
-                        minuend->limbs_[i] = static_cast<std::uint32_t>(lhs - rhs);
-                        borrow = 0;
-                    }
-                }
-                if (borrow != 0)
+                if (!BcgExactMagnitudePrivate_::Subtract_(subtrahend, minuend))
                     THROW("scaled candidate exact subtraction underflow");
-                Trim_(minuend);
             }
 
             inline bool Bit_(const ExactMagnitude_& value, int bit) {
-                if (bit < 0 || bit > REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_)
-                    return false;
-                return (value.limbs_[bit / 32] & (1U << (bit % 32))) != 0;
+                return BcgExactMagnitudePrivate_::Bit_(value, bit);
             }
 
             inline bool HasBitBelow_(const ExactMagnitude_& value, int exclusiveBit) {
-                if (exclusiveBit <= 0 || value.last_ < value.first_)
-                    return false;
-                const int lastBit = std::min(exclusiveBit - 1, REVIEWED_CANDIDATE_BOUNDS_.maxLogicalBitIndex_);
-                const int lastLimb = lastBit / 32;
-                for (int i = value.first_; i < lastLimb; ++i)
-                    if (value.limbs_[i] != 0)
-                        return true;
-                if (lastLimb < value.first_)
-                    return false;
-                const int bits = lastBit % 32 + 1;
-                const std::uint32_t mask = bits == 32 ? std::numeric_limits<std::uint32_t>::max() : (1U << bits) - 1U;
-                return (value.limbs_[lastLimb] & mask) != 0;
+                return BcgExactMagnitudePrivate_::HasBitBelow_(value, exclusiveBit);
             }
 
             inline int HighestBit_(const ExactMagnitude_& value) {
-                const std::uint32_t top = value.limbs_[value.last_];
-                return 32 * value.last_ + HighestBit_(static_cast<std::uint64_t>(top));
+                return BcgExactMagnitudePrivate_::HighestBit_(value);
             }
 
             inline int CompareNormalized_(const ExactMagnitude_& numerator, std::uint64_t denominator) {

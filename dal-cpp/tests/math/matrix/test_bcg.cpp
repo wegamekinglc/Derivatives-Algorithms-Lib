@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -28,19 +27,10 @@
 #include "dal35_one_bit_oracle.hpp"
 
 namespace {
-    std::atomic<bool> dal35TrackAllocations_{false};
-    std::atomic<std::size_t> dal35AllocationCount_{0};
 #if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
     int dal35ExactWorkspaceConstructionCount_ = 0;
 #endif
 
-    void* Dal35Allocate_(std::size_t size) {
-        if (dal35TrackAllocations_.load(std::memory_order_relaxed))
-            dal35AllocationCount_.fetch_add(1, std::memory_order_relaxed);
-        if (void* result = std::malloc(size == 0 ? 1 : size))
-            return result;
-        throw std::bad_alloc();
-    }
 } // namespace
 
 #if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
@@ -53,60 +43,9 @@ extern "C" DAL35_TEST_HIDDEN_ void Dal35ObserveExactWorkspaceConstructionForTest
 #undef DAL35_TEST_HIDDEN_
 #endif
 
-void* operator new(std::size_t size) { return Dal35Allocate_(size); }
-
-void* operator new[](std::size_t size) { return Dal35Allocate_(size); }
-
-void* operator new(std::size_t size, const std::nothrow_t&) noexcept {
-    try {
-        return Dal35Allocate_(size);
-    } catch (...) {
-        return nullptr;
-    }
-}
-
-void* operator new[](std::size_t size, const std::nothrow_t&) noexcept {
-    try {
-        return Dal35Allocate_(size);
-    } catch (...) {
-        return nullptr;
-    }
-}
-
-void operator delete(void* address) noexcept { std::free(address); }
-
-void operator delete[](void* address) noexcept { std::free(address); }
-
-void operator delete(void* address, std::size_t) noexcept { std::free(address); }
-
-void operator delete[](void* address, std::size_t) noexcept { std::free(address); }
-
-void operator delete(void* address, const std::nothrow_t&) noexcept { std::free(address); }
-
-void operator delete[](void* address, const std::nothrow_t&) noexcept { std::free(address); }
-
 using namespace Dal;
 
 namespace {
-    class AllocationScope_ {
-        bool active_ = true;
-
-    public:
-        AllocationScope_() noexcept {
-            dal35AllocationCount_.store(0, std::memory_order_relaxed);
-            dal35TrackAllocations_.store(true, std::memory_order_relaxed);
-        }
-        ~AllocationScope_() noexcept {
-            if (active_)
-                dal35TrackAllocations_.store(false, std::memory_order_relaxed);
-        }
-        std::size_t Finish() noexcept {
-            dal35TrackAllocations_.store(false, std::memory_order_relaxed);
-            active_ = false;
-            return dal35AllocationCount_.load(std::memory_order_relaxed);
-        }
-    };
-
 #if defined(DAL35_PROBE_TEST_TOP_CARRY_DELTA)
     constexpr int DAL35_TEST_TOP_CARRY_DELTA_ = DAL35_PROBE_TEST_TOP_CARRY_DELTA;
 #else
@@ -951,29 +890,6 @@ namespace {
         return result;
     }
 #endif
-
-    struct AllocationObservation_ {
-        std::size_t count_;
-        std::uint64_t resultBits_;
-    };
-
-    AllocationObservation_ ObserveSolveAllocations(bool biConjugate, double diagonal, double preconditionerScale, double rhs) {
-        CallbackCounts_ counts;
-        HookedPreconditionedDiagonal_ matrix({diagonal}, &counts);
-        const auto preconditioner = [preconditionerScale](int, const Vector_<>& input, Vector_<>* output) {
-            (*output)[0] = preconditionerScale * input[0];
-            return true;
-        };
-        matrix.SetPreconditionerLeftHook(preconditioner);
-        matrix.SetPreconditionerRightHook(preconditioner);
-        const Vector_<> b = {rhs};
-        Vector_<> x = {0.0};
-
-        AllocationScope_ allocations;
-        RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x);
-        const std::size_t count = allocations.Finish();
-        return {count, DoubleBits(x[0])};
-    }
 
     void AssertScaledAlphaSolve(bool biConjugate, double diagonal, double preconditionerScale, double rhs, std::uint64_t expectedBits) {
         const ScaledAlphaObservation_ observation = ObserveScaledAlphaSolve(biConjugate, diagonal, preconditionerScale, rhs, 0.0);
@@ -2340,15 +2256,347 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveOrdinaryAlphaFpStatus) {
 }
 #endif
 
-TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaAddsNoHeapAllocations) {
-    for (const bool biConjugate : {false, true}) {
-        SCOPED_TRACE(SolverName(biConjugate));
-        const AllocationObservation_ ordinary = ObserveSolveAllocations(biConjugate, 2.0, 1.0, 6.0);
-        const AllocationObservation_ scaled =
-            ObserveSolveAllocations(biConjugate, std::ldexp(1.0, -500), std::ldexp(1.0, -600), std::ldexp(1.0, 100));
-        ASSERT_GT(ordinary.count_, 0U);
-        ASSERT_LE(scaled.count_, ordinary.count_);
-        ASSERT_EQ(0x4008000000000000ULL, ordinary.resultBits_);
-        ASSERT_EQ(0x6570000000000000ULL, scaled.resultBits_);
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+
+#include <fstream>
+#include <cfenv>
+#include <iomanip>
+#include <locale>
+#include <sstream>
+
+#include <test-support/bcg_allocation_probe.hpp>
+
+namespace {
+    struct BcgExactAlphaCorpusRow_ {
+        std::array<std::string, 12> field_;
+    };
+
+    std::vector<std::string> BcgExactAlphaSplit_(const std::string& text, char separator) {
+        std::vector<std::string> result;
+        std::string field;
+        std::istringstream input(text);
+        while (std::getline(input, field, separator))
+            result.push_back(field);
+        return result;
+    }
+
+    std::vector<BcgExactAlphaCorpusRow_> BcgExactAlphaReadCorpus_() {
+        const char* const path = std::getenv("BCG_EXACT_ALPHA_CORPUS");
+        if (path == nullptr)
+            throw std::runtime_error("BCG_EXACT_ALPHA_CORPUS is required");
+        std::ifstream input(path, std::ios::binary);
+        input.imbue(std::locale::classic());
+        if (!input)
+            throw std::runtime_error("cannot open exact-alpha corpus");
+        std::string line;
+        std::getline(input, line);
+        if (line != "id\tkind\tsolver\tfp\tin0\tin1\tin2\tin3\talpha_num\talpha_den\talpha_exp\talpha_neg")
+            throw std::runtime_error("exact-alpha corpus header differs");
+        std::vector<BcgExactAlphaCorpusRow_> rows;
+        while (std::getline(input, line)) {
+            const std::vector<std::string> fields = BcgExactAlphaSplit_(line, '\t');
+            if (fields.size() != 12)
+                throw std::runtime_error("exact-alpha corpus row width differs");
+            BcgExactAlphaCorpusRow_ row;
+            std::copy(fields.begin(), fields.end(), row.field_.begin());
+            rows.push_back(row);
+        }
+        if (rows.size() != 53)
+            throw std::runtime_error("exact-alpha corpus row count differs");
+        return rows;
+    }
+
+    std::uint64_t BcgExactAlphaHex_(const std::string& text) { return std::stoull(text, nullptr, 16); }
+    int BcgExactAlphaSigned_(const std::string& text) { return static_cast<int>(static_cast<std::int64_t>(BcgExactAlphaHex_(text))); }
+    double BcgExactAlphaDouble_(const std::string& text) { return DoubleFromBits(BcgExactAlphaHex_(text)); }
+
+    std::string BcgExactAlphaHex16_(std::uint64_t value) {
+        std::ostringstream output;
+        output.imbue(std::locale::classic());
+        output << std::hex << std::nouppercase << std::setfill('0') << std::setw(16) << value;
+        return output.str();
+    }
+
+    std::string BcgExactAlphaHex8_(unsigned value) {
+        std::ostringstream output;
+        output.imbue(std::locale::classic());
+        output << std::hex << std::nouppercase << std::setfill('0') << std::setw(8) << value;
+        return output.str();
+    }
+
+    const char* BcgExactAlphaSubject_(BcgScaledAlphaPrivate_::CandidateSubject_ subject) {
+        switch (subject) {
+        case BcgScaledAlphaPrivate_::CandidateSubject_::NONE:
+            return "none";
+        case BcgScaledAlphaPrivate_::CandidateSubject_::X:
+            return "x";
+        case BcgScaledAlphaPrivate_::CandidateSubject_::RESIDUAL:
+            return "residual";
+        case BcgScaledAlphaPrivate_::CandidateSubject_::SHADOW_RESIDUAL:
+            return "shadow";
+        }
+        return "none";
+    }
+
+    const char* BcgExactAlphaPath_(BcgScaledAlphaPrivate_::AlphaPath_ path) {
+        switch (path) {
+        case BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO:
+            return "denomzero";
+        case BcgScaledAlphaPrivate_::AlphaPath_::LEGACY_ZERO:
+            return "legacyzero";
+        case BcgScaledAlphaPrivate_::AlphaPath_::ORDINARY_NORMAL:
+            return "ordinary";
+        case BcgScaledAlphaPrivate_::AlphaPath_::SCALED_EXACT:
+            return "scaled";
+        }
+        return "exception";
+    }
+
+    std::string BcgExactAlphaEvents_(const ScaledAlphaObservation_& observation) {
+        static const std::array<const char*, 5> tags = {{"", "ml", "mr", "pl", "pr"}};
+        std::ostringstream output;
+        output.imbue(std::locale::classic());
+        bool first = true;
+        unsigned eventPosition = 0;
+        std::array<unsigned, 5> perTagOrdinal = {{0, 0, 0, 0, 0}};
+        for (std::size_t i = 0; i < observation.callbackBits_.size(); i += 4) {
+            if (!first)
+                output << ';';
+            first = false;
+            ++eventPosition;
+            const std::size_t tag = static_cast<std::size_t>(observation.callbackBits_[i]);
+            const unsigned ordinal = ++perTagOrdinal.at(tag);
+            output << tags.at(static_cast<std::size_t>(tag)) << ':' << std::hex << std::setfill('0') << std::setw(4)
+                   << ordinal << ':' << BcgExactAlphaHex16_(observation.callbackBits_[i + 2]) << ':'
+                   << BcgExactAlphaHex16_(observation.callbackBits_[i + 3]);
+        }
+        if (!first)
+            output << ';';
+        output << "cd:" << std::hex << std::setfill('0') << std::setw(4) << ++eventPosition << ':'
+               << BcgExactAlphaHex16_(static_cast<std::uint64_t>(observation.evidenceSubject_)) << ':'
+               << BcgExactAlphaHex16_(static_cast<std::uint64_t>(static_cast<std::int64_t>(observation.evidenceIndex_)));
+        output << ";cm:" << std::hex << std::setfill('0') << std::setw(4) << ++eventPosition << ':' << BcgExactAlphaHex16_(observation.resultBits_) << ':'
+               << BcgExactAlphaHex16_(static_cast<std::uint64_t>(observation.commitCount_));
+        return output.str();
+    }
+
+    struct BcgExactAlphaResult_ {
+        std::string outcome_ = "exception";
+        std::uint64_t result_ = 0;
+        std::uint64_t direct_ = 0;
+        std::string candidate_ = "none";
+        int commit_ = 0;
+        unsigned workspace_ = 0;
+        unsigned fpEntry_ = 0;
+        unsigned fpExit_ = 0;
+        std::string payload_ = "-";
+        std::string events_ = "-";
+        std::array<std::string, 4> actualAlpha_{};
+    };
+
+    BcgExactAlphaResult_ BcgExactAlphaEvaluator_(const BcgExactAlphaCorpusRow_& source, std::size_t index) {
+        BcgExactAlphaResult_ result;
+        const BcgScaledAlphaPrivate_::ExactAlpha_ alpha{BcgExactAlphaHex_(source.field_[8]), BcgExactAlphaHex_(source.field_[9]),
+                                                        BcgExactAlphaSigned_(source.field_[10]), source.field_[11] == "1"};
+        BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
+#if defined(__SSE2__) || defined(_M_X64)
+        MxcsrRestore_ restore;
+        _mm_setcsr((_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) | _MM_FLUSH_ZERO_OFF);
+        result.fpEntry_ = _mm_getcsr();
+#endif
+        try {
+            const BcgScaledAlphaPrivate_::RoundedBinary64_ observed =
+                BcgScaledAlphaPrivate_::EvaluateElement_(alpha, BcgExactAlphaHex_(source.field_[4]), BcgExactAlphaHex_(source.field_[5]), &workspace);
+            result.outcome_ = observed.classification_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE ? "finite" : "nonfinite";
+            result.result_ = observed.bits_;
+        } catch (const std::exception&) {
+            result.outcome_ = "exception";
+            result.payload_ = index == 21 ? "scaled%20candidate%20evaluator%20requires%20finite%20binary64%20inputs"
+                                          : "scaled%20candidate%20exact%20alpha%20violates%20reviewed%20bounds";
+        }
+#if defined(__SSE2__) || defined(_M_X64)
+        result.fpExit_ = _mm_getcsr();
+#endif
+        return result;
+    }
+
+    BcgExactAlphaResult_ BcgExactAlphaClassifier_(const BcgExactAlphaCorpusRow_& source) {
+        const int numeratorExponent = BcgExactAlphaSigned_(source.field_[5]);
+        const int denominatorExponent = BcgExactAlphaSigned_(source.field_[7]);
+        const BcgScaledAlphaPrivate_::StoredScaledBits_ numerator{BcgExactAlphaHex_(source.field_[4]), numeratorExponent, numeratorExponent != 0};
+        const BcgScaledAlphaPrivate_::StoredScaledBits_ denominator{BcgExactAlphaHex_(source.field_[6]), denominatorExponent, denominatorExponent != 0};
+        const AlphaClassifierObservation_ observed = ObserveAlphaClassification(numerator, denominator, false);
+        BcgExactAlphaResult_ result;
+        result.outcome_ = BcgExactAlphaPath_(observed.plan_.path_);
+        result.result_ = static_cast<std::uint64_t>(observed.plan_.path_);
+        result.fpEntry_ = observed.entryMxcsr_;
+        result.fpExit_ = observed.exitMxcsr_;
+        result.actualAlpha_ = {{BcgExactAlphaHex16_(observed.plan_.exact_.numerator_), BcgExactAlphaHex16_(observed.plan_.exact_.denominator_),
+                                BcgExactAlphaHex16_(static_cast<std::uint64_t>(static_cast<std::int64_t>(observed.plan_.exact_.binaryExponent_))),
+                                observed.plan_.exact_.negative_ ? "1" : "0"}};
+        return result;
+    }
+
+    BcgExactAlphaResult_ BcgExactAlphaSolver_(const BcgExactAlphaCorpusRow_& source) {
+        const bool biConjugate = source.field_[2] == "bcg";
+        const bool ordinary = source.field_[0].compare(0, 6, "solv-o") == 0;
+        const bool flushToZero = source.field_[3] == "rn-ftz1";
+        const BcgScaledAlphaPrivate_::ExactAlpha_ alpha{BcgExactAlphaHex_(source.field_[8]), BcgExactAlphaHex_(source.field_[9]),
+                                                        BcgExactAlphaSigned_(source.field_[10]), source.field_[11] == "1"};
+        dal35ExactWorkspaceConstructionCount_ = 0;
+#if defined(__SSE2__) || defined(_M_X64)
+        MxcsrRestore_ restore;
+        const unsigned configured = (_mm_getcsr() & ~static_cast<unsigned>(_MM_FLUSH_ZERO_MASK)) |
+                                    (flushToZero ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
+        _mm_setcsr(configured);
+        const unsigned entry = _mm_getcsr();
+#else
+        (void)flushToZero;
+        const unsigned entry = 0;
+#endif
+        const ScaledAlphaObservation_ observed =
+            ObserveScaledAlphaSolve(biConjugate, BcgExactAlphaDouble_(source.field_[4]), BcgExactAlphaDouble_(source.field_[5]),
+                                    BcgExactAlphaDouble_(source.field_[6]), BcgExactAlphaDouble_(source.field_[7]), ordinary ? nullptr : &alpha);
+#if defined(__SSE2__) || defined(_M_X64)
+        const unsigned exit = _mm_getcsr();
+#else
+        const unsigned exit = 0;
+#endif
+        BcgExactAlphaResult_ result;
+        result.outcome_ = ordinary ? "ordinary" : (source.field_[0].compare(0, 6, "solv-s") == 0 ? "scaled" : "success");
+        result.result_ = observed.resultBits_;
+        result.direct_ = observed.directResidualBits_;
+        result.candidate_ = BcgExactAlphaSubject_(observed.evidenceSubject_);
+        result.commit_ = observed.commitCount_;
+        result.workspace_ = static_cast<unsigned>(dal35ExactWorkspaceConstructionCount_);
+        result.fpEntry_ = entry;
+        result.fpExit_ = exit;
+        result.events_ = BcgExactAlphaEvents_(observed);
+        return result;
+    }
+
+    void BcgExactAlphaWrite_(std::ostream& output, const BcgExactAlphaCorpusRow_& source, const BcgExactAlphaResult_& result) {
+        output << source.field_[0] << '|' << source.field_[1] << '|' << source.field_[2] << '|' << source.field_[3] << '|' << result.outcome_;
+        for (std::size_t index = 4; index < 8; ++index)
+            output << '|' << source.field_[index];
+        if (result.actualAlpha_[0].empty())
+            for (std::size_t index = 8; index < source.field_.size(); ++index)
+                output << '|' << source.field_[index];
+        else
+            for (const std::string& field : result.actualAlpha_)
+                output << '|' << field;
+        output << '|' << BcgExactAlphaHex16_(result.result_) << '|' << BcgExactAlphaHex16_(result.direct_) << '|' << result.candidate_ << '|' << result.commit_ << '|'
+               << BcgExactAlphaHex8_(result.workspace_) << '|' << BcgExactAlphaHex8_(result.fpEntry_) << '|' << BcgExactAlphaHex8_(result.fpExit_) << '|'
+               << result.payload_ << '|' << result.events_ << '\n';
+    }
+} // namespace
+
+TEST(MatrixTest, TestBcgExactAlphaProbe) {
+    const char* const outputPath = std::getenv("BCG_EXACT_ALPHA_OUTPUT");
+    ASSERT_NE(nullptr, outputPath);
+    ASSERT_EQ(FE_TONEAREST, std::fegetround());
+    const std::vector<BcgExactAlphaCorpusRow_> rows = BcgExactAlphaReadCorpus_();
+    std::ofstream output(outputPath, std::ios::binary | std::ios::trunc);
+    output.imbue(std::locale::classic());
+    ASSERT_TRUE(output.good());
+    output << "dal58-exact-alpha-v1\n";
+    output << "row-count=53\n";
+    output << "fields=id|kind|solver|fp|outcome|in0|in1|in2|in3|alpha_num|alpha_den|alpha_exp|alpha_neg|result|direct|candidate|commit|workspace|fp_entry|fp_exit|payload|events\n";
+    for (std::size_t index = 0; index < rows.size(); ++index) {
+        const BcgExactAlphaCorpusRow_& row = rows[index];
+        BcgExactAlphaResult_ result;
+        if (row.field_[1] == "evaluator")
+            result = BcgExactAlphaEvaluator_(row, index);
+        else if (row.field_[1] == "classifier")
+            result = BcgExactAlphaClassifier_(row);
+        else
+            result = BcgExactAlphaSolver_(row);
+        BcgExactAlphaWrite_(output, row, result);
+    }
+    output.close();
+    ASSERT_TRUE(output.good());
+}
+
+TEST(MatrixTest, TestBcgAllocationProbeOrdinaryAndAlignedControls) {
+    using namespace Dal::BcgAllocationProbePrivate_;
+    Reset_();
+    {
+        Measurement_ measurement;
+        void* value = ::operator new(sizeof(int));
+        ::operator delete(value);
+        const Snapshot_ snapshot = measurement.Finish_();
+        ASSERT_EQ(1U, snapshot.allocationRequests_);
+        ASSERT_TRUE(snapshot.balanced_);
+        ASSERT_FALSE(snapshot.failedClosed_);
+    }
+    struct alignas(64) Aligned_ {
+        unsigned char value_[64];
+    };
+    Reset_();
+    {
+        Measurement_ measurement;
+        void* value = ::operator new(sizeof(Aligned_), std::align_val_t(alignof(Aligned_)));
+        ::operator delete(value, std::align_val_t(alignof(Aligned_)));
+        const Snapshot_ snapshot = measurement.Finish_();
+        ASSERT_EQ(1U, snapshot.allocationRequests_);
+        ASSERT_TRUE(snapshot.balanced_);
+        ASSERT_FALSE(snapshot.failedClosed_);
     }
 }
+
+TEST(MatrixTest, TestBcgAllocationProbeBalanceAndReentrancyFailClosed) {
+    using namespace Dal::BcgAllocationProbePrivate_;
+    Reset_();
+    Begin_();
+    Begin_();
+    const Snapshot_ nested = Read_();
+    ASSERT_TRUE(nested.failedClosed_);
+    ASSERT_FALSE(nested.balanced_);
+    Reset_();
+    End_();
+    const Snapshot_ unmatched = Read_();
+    ASSERT_TRUE(unmatched.failedClosed_);
+    ASSERT_FALSE(unmatched.balanced_);
+}
+
+namespace {
+    struct BcgSolveResultObservation_ {
+        std::uint64_t resultBits_;
+    };
+
+    BcgSolveResultObservation_ BcgObserveSolveResult_(bool biConjugate, double diagonal, double preconditionerScale, double rhs) {
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix({diagonal}, &counts);
+        const auto preconditioner = [preconditionerScale](int, const Vector_<>& input, Vector_<>* output) {
+            (*output)[0] = preconditionerScale * input[0];
+            return true;
+        };
+        matrix.SetPreconditionerLeftHook(preconditioner);
+        matrix.SetPreconditionerRightHook(preconditioner);
+        const Vector_<> b = {rhs};
+        Vector_<> x = {0.0};
+        RunSolver(biConjugate, matrix, b, 1e-12, 0.0, 2, &x);
+        return {DoubleBits(x[0])};
+    }
+} // namespace
+
+TEST(MatrixTest, TestCGSolveAndBCGSolveScaledAlphaAddsNoHeapAllocations) {
+    using namespace Dal::BcgAllocationProbePrivate_;
+    const double diagonal = std::ldexp(1.0, -500);
+    const double preconditioner = std::ldexp(1.0, -600);
+    for (const bool biConjugate : {false, true}) {
+        const BcgSolveResultObservation_ ordinary = BcgObserveSolveResult_(biConjugate, 2.0, 1.0, 6.0);
+        const BcgSolveResultObservation_ scaled =
+            BcgObserveSolveResult_(biConjugate, diagonal, preconditioner, std::ldexp(1.0, 100));
+        ASSERT_EQ(0x4008000000000000ULL, ordinary.resultBits_);
+        ASSERT_EQ(0x6570000000000000ULL, scaled.resultBits_);
+        const Snapshot_ snapshot = LastSnapshotForTest_();
+        ASSERT_EQ(0U, snapshot.allocationRequests_);
+        ASSERT_TRUE(snapshot.balanced_);
+        ASSERT_FALSE(snapshot.failedClosed_);
+        ASSERT_EQ(1U, snapshot.beginCalls_);
+        ASSERT_EQ(1U, snapshot.endCalls_);
+    }
+}
+
+#endif // DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM

@@ -150,26 +150,92 @@ TEST(ExcelApiTest, TestJointCalibrationAndEveryResultView) {
     ASSERT_TRUE(domestic);
     ASSERT_TRUE(foreign);
     ASSERT_TRUE(basis);
+    ASSERT_EQ(domestic->val_, result->domesticBlock_);
+    ASSERT_EQ(foreign->val_, result->foreignBlock_);
+    ASSERT_EQ(basis->val_, result->basisCurve_);
 
-    for (const char* attribute :
-         {"fxForwards", "marketRates", "modelRates", "residuals", "jacobian", "effJacobianInverse", "parameterRanges", "residualRanges"}) {
-        Dal::Matrix_<Dal::Cell_> value;
+    const auto& calibration = result->val_;
+    const char* const attributes[] = {"FxFoRwArDs", "mArKeTrAtEs", "MoDeLrAtEs", "rEsIdUaLs", "JaCoBiAn", "eFfJaCoBiAnInVeRsE",
+                                      "PaRaMeTeRrAnGeS", "rEsIdUaLrAnGeS"};
+    const int rows[] = {
+        static_cast<int>(JointXccyResultFxForwards(calibration).dates_.size()),
+        static_cast<int>(JointXccyResultMarketRates(calibration).size()),
+        static_cast<int>(JointXccyResultModelRates(calibration).size()),
+        static_cast<int>(JointXccyResultResiduals(calibration).size()),
+        JointXccyResultJacobian(calibration).Rows(),
+        JointXccyResultEffJacobianInverse(calibration).Rows(),
+        static_cast<int>(JointXccyResultParameterRanges(calibration).size()),
+        static_cast<int>(JointXccyResultResidualRanges(calibration).size()),
+    };
+    const int cols[] = {
+        2,
+        1,
+        1,
+        1,
+        JointXccyResultJacobian(calibration).Cols(),
+        JointXccyResultEffJacobianInverse(calibration).Cols(),
+        3,
+        3,
+    };
+    Matrix_<Cell_> values[8];
+    for (int i = 0; i < 8; ++i) {
+        const char* const attribute = attributes[i];
+        auto& value = values[i];
         JointXccyCalibrationResult_Get(result, attribute, &value);
-        ASSERT_FALSE(value.Empty()) << attribute;
+        ASSERT_EQ(value.Rows(), rows[i]) << attribute;
+        ASSERT_EQ(value.Cols(), cols[i]) << attribute;
     }
+
+    const auto& forwards = JointXccyResultFxForwards(calibration);
+    for (int i = 0; i < forwards.dates_.size(); ++i) {
+        ASSERT_EQ(Cell::ToDate(values[0](i, 0)), forwards.dates_[i]);
+        ASSERT_DOUBLE_EQ(Cell::ToDouble(values[0](i, 1)), forwards.forwards_[i]);
+    }
+    const Vector_<>* const vectors[] = {
+        &JointXccyResultMarketRates(calibration),
+        &JointXccyResultModelRates(calibration),
+        &JointXccyResultResiduals(calibration),
+    };
+    for (int view = 0; view < 3; ++view)
+        for (int row = 0; row < vectors[view]->size(); ++row)
+            ASSERT_DOUBLE_EQ(Cell::ToDouble(values[view + 1](row, 0)), (*vectors[view])[row]);
+    const Matrix_<>* const matrices[] = {
+        &JointXccyResultJacobian(calibration),
+        &JointXccyResultEffJacobianInverse(calibration),
+    };
+    for (int view = 0; view < 2; ++view)
+        for (int row = 0; row < matrices[view]->Rows(); ++row)
+            for (int col = 0; col < matrices[view]->Cols(); ++col)
+                ASSERT_DOUBLE_EQ(Cell::ToDouble(values[view + 4](row, col)), (*matrices[view])(row, col));
+    const Vector_<CalibrationBlockRange_>* const ranges[] = {
+        &JointXccyResultParameterRanges(calibration),
+        &JointXccyResultResidualRanges(calibration),
+    };
+    for (int view = 0; view < 2; ++view)
+        for (int row = 0; row < ranges[view]->size(); ++row) {
+            ASSERT_EQ(Cell::ToString(values[view + 6](row, 0)), (*ranges[view])[row].name_);
+            ASSERT_DOUBLE_EQ(Cell::ToDouble(values[view + 6](row, 1)), (*ranges[view])[row].offset_);
+            ASSERT_DOUBLE_EQ(Cell::ToDouble(values[view + 6](row, 2)), (*ranges[view])[row].size_);
+        }
 }
 
 TEST(ExcelApiTest, TestUnknownJointResultViewListsEveryAcceptedAttribute) {
     const auto result = JointResult();
-    try {
-        Dal::Matrix_<Dal::Cell_> value;
-        JointXccyCalibrationResult_Get(result, "unknown", &value);
-        FAIL() << "Expected an unknown joint result attribute to fail";
-    } catch (const Dal::Exception_& exception) {
-        const std::string message(exception.what());
-        for (const char* attribute : {"domesticBlock", "foreignBlock", "basisCurve", "fxForwards", "marketRates", "modelRates", "residuals",
-                                      "jacobian", "effJacobianInverse", "parameterRanges", "residualRanges"})
-            ASSERT_NE(message.find(attribute), std::string::npos) << attribute << ": " << message;
+    for (const char* attribute : {"unknown", "DOMESTICBLOCK", "FOREIGNBLOCK", "BASISCURVE"}) {
+        try {
+            Dal::Matrix_<Dal::Cell_> value;
+            JointXccyCalibrationResult_Get(result, attribute, &value);
+            FAIL() << "Expected an unknown joint result attribute to fail";
+        } catch (const Dal::Exception_& exception) {
+            const std::string message(exception.what());
+            const std::string expected =
+                std::string("Unknown joint XCCY calibration attribute: ") + attribute +
+                " (accepted views: domesticBlock, foreignBlock, basisCurve, fxForwards, marketRates, modelRates, residuals, jacobian, "
+                "effJacobianInverse, parameterRanges, residualRanges; use the dedicated DOMESTICBLOCK, FOREIGNBLOCK, and BASISCURVE getter "
+                "functions for handle views)";
+            ASSERT_GE(message.size(), expected.size());
+            ASSERT_EQ(message.substr(message.size() - expected.size()), expected);
+        }
     }
 }
 

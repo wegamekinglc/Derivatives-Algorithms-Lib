@@ -2,7 +2,6 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -18,6 +17,9 @@
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/math/matrix/bcg_scaled_alpha.inc>
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+#include <test-support/bcg_allocation_probe.hpp>
+#endif
 
 #if defined(DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION) && !defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
 #error "DAL35_PROBE_ORDINARY_WORKSPACE_CONSTRUCTION requires DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM"
@@ -135,29 +137,47 @@ namespace Dal {
             return NormalizeScaled(lhs.mantissa_ + std::ldexp(rhs.mantissa_, rhs.exponent_ - lhs.exponent_), lhs.exponent_);
         }
 
-        Scaled_ SlowScaledNorm(const Vector_<>& values) {
-            double scale = 0.0;
-            double sumSquares = 1.0;
-            for (const double value : values) {
+        struct ScaledSumSquares_ {
+            double scale_ = 0.0;
+            double sumSquares_ = 1.0;
+
+            void Add(double value) {
                 const double magnitude = std::fabs(value);
                 if (magnitude == 0.0)
-                    continue;
-                if (scale < magnitude) {
-                    const double ratio = scale / magnitude;
-                    sumSquares = 1.0 + sumSquares * ratio * ratio;
-                    scale = magnitude;
+                    return;
+                if (scale_ < magnitude) {
+                    const double ratio = scale_ / magnitude;
+                    sumSquares_ = 1.0 + sumSquares_ * ratio * ratio;
+                    scale_ = magnitude;
                 } else {
-                    const double ratio = magnitude / scale;
-                    sumSquares += ratio * ratio;
+                    const double ratio = magnitude / scale_;
+                    sumSquares_ += ratio * ratio;
                 }
             }
-            return scale == 0.0 ? Scaled_{0.0, 0, false} : MultiplyScaled(ScaledFromDouble(scale), std::sqrt(sumSquares));
+
+            Scaled_ Norm() const {
+                return scale_ == 0.0 ? Scaled_{0.0, 0, false} : MultiplyScaled(ScaledFromDouble(scale_), std::sqrt(sumSquares_));
+            }
+        };
+
+        Scaled_ SlowScaledNorm(const Vector_<>& values) {
+            ScaledSumSquares_ statistics;
+            for (const double value : values)
+                statistics.Add(value);
+            return statistics.Norm();
+        }
+
+        bool IsReliableSquareSum(double sumSquares) {
+            return std::isfinite(sumSquares) && sumSquares >= std::numeric_limits<double>::min();
+        }
+
+        Scaled_ NormFromSquareSum(const Vector_<>& values, double sumSquares) {
+            return IsReliableSquareSum(sumSquares) ? ScaledFromDouble(std::sqrt(sumSquares)) : SlowScaledNorm(values);
         }
 
         Scaled_ ScaledNorm(const Vector_<>& values) {
             const double sumSquares = InnerProduct(values, values);
-            return std::isfinite(sumSquares) && sumSquares >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(sumSquares))
-                                                                                                 : SlowScaledNorm(values);
+            return NormFromSquareSum(values, sumSquares);
         }
 
         bool ScaledLessOrEqual(Scaled_ lhs, Scaled_ rhs) {
@@ -202,38 +222,18 @@ namespace Dal {
                           BcgScaledAlphaPrivate_::REVIEWED_BOUNDS_FINGERPRINT_),
                       "DAL35_PRODUCTION_DERIVED_BOUNDS_FINGERPRINT_MISMATCH");
 
-        struct ExactPositive_ {
-            std::array<std::uint32_t, EXACT_LIMB_COUNT> limbs_{};
-            int first_ = EXACT_LIMB_COUNT;
-            int last_ = -1;
-        };
-
-        void ExactAddAt(int index, std::uint32_t value, ExactPositive_* result) {
-            std::uint64_t carry = value;
-            while (carry != 0) {
-                const std::uint64_t sum = static_cast<std::uint64_t>(result->limbs_[index]) + carry;
-                result->limbs_[index] = static_cast<std::uint32_t>(sum);
-                result->first_ = std::min(result->first_, index);
-                result->last_ = std::max(result->last_, index);
-                carry = sum >> EXACT_LIMB_BITS;
-                ++index;
-            }
-        }
+        using ExactPositive_ =
+            BcgExactMagnitudePrivate_::Magnitude_<EXACT_LIMB_COUNT, EXACT_LIMB_COUNT * EXACT_LIMB_BITS - 1>;
 
         void ExactAddShiftedLimb(std::uint32_t value, int exponent, ExactPositive_* result) {
             if (value == 0)
                 return;
             const int offset = exponent - EXACT_MIN_EXPONENT;
-            const int index = offset / EXACT_LIMB_BITS;
-            const int shift = offset % EXACT_LIMB_BITS;
-            const std::uint64_t shifted = static_cast<std::uint64_t>(value) << shift;
-            ExactAddAt(index, static_cast<std::uint32_t>(shifted), result);
-            ExactAddAt(index + 1, static_cast<std::uint32_t>(shifted >> EXACT_LIMB_BITS), result);
+            (void)BcgExactMagnitudePrivate_::AddShiftedLimb_(value, offset, result);
         }
 
         void ExactAddShiftedWord(std::uint64_t value, int exponent, ExactPositive_* result) {
-            ExactAddShiftedLimb(static_cast<std::uint32_t>(value), exponent, result);
-            ExactAddShiftedLimb(static_cast<std::uint32_t>(value >> EXACT_LIMB_BITS), exponent + EXACT_LIMB_BITS, result);
+            (void)BcgExactMagnitudePrivate_::AddShiftedWord_(value, exponent - EXACT_MIN_EXPONENT, result);
         }
 
         void ExactAddDoubleProduct(double lhs, double rhs, ExactPositive_* result) {
@@ -243,14 +243,8 @@ namespace Dal {
             int rhsExponent = 0;
             const std::uint64_t lhsSignificand = static_cast<std::uint64_t>(std::ldexp(std::frexp(std::fabs(lhs), &lhsExponent), 53));
             const std::uint64_t rhsSignificand = static_cast<std::uint64_t>(std::ldexp(std::frexp(std::fabs(rhs), &rhsExponent), 53));
-            const std::uint64_t lhsLow = static_cast<std::uint32_t>(lhsSignificand);
-            const std::uint64_t lhsHigh = lhsSignificand >> EXACT_LIMB_BITS;
-            const std::uint64_t rhsLow = static_cast<std::uint32_t>(rhsSignificand);
-            const std::uint64_t rhsHigh = rhsSignificand >> EXACT_LIMB_BITS;
             const int exponent = lhsExponent + rhsExponent - 106;
-            ExactAddShiftedWord(lhsLow * rhsLow, exponent, result);
-            ExactAddShiftedWord(lhsLow * rhsHigh + lhsHigh * rhsLow, exponent + EXACT_LIMB_BITS, result);
-            ExactAddShiftedWord(lhsHigh * rhsHigh, exponent + 2 * EXACT_LIMB_BITS, result);
+            (void)BcgExactMagnitudePrivate_::AddProduct_(lhsSignificand, rhsSignificand, exponent - EXACT_MIN_EXPONENT, result);
         }
 
         ExactPositive_ ExactNormSquare(const Vector_<>& values) {
@@ -260,73 +254,26 @@ namespace Dal {
             return result;
         }
 
-        void ExactTrim(ExactPositive_* value) {
-            while (value->first_ <= value->last_ && value->limbs_[value->first_] == 0)
-                ++value->first_;
-            while (value->last_ >= value->first_ && value->limbs_[value->last_] == 0)
-                --value->last_;
-            if (value->last_ < value->first_) {
-                value->first_ = EXACT_LIMB_COUNT;
-                value->last_ = -1;
-            }
-        }
-
         int ExactCompare(const ExactPositive_& lhs, const ExactPositive_& rhs) {
-            if (lhs.last_ != rhs.last_)
-                return lhs.last_ < rhs.last_ ? -1 : 1;
-            for (int index = lhs.last_; index >= std::min(lhs.first_, rhs.first_); --index) {
-                if (lhs.limbs_[index] != rhs.limbs_[index])
-                    return lhs.limbs_[index] < rhs.limbs_[index] ? -1 : 1;
-            }
-            return 0;
+            return BcgExactMagnitudePrivate_::Compare_(lhs, rhs);
         }
 
         ExactPositive_ ExactAdd(ExactPositive_ lhs, const ExactPositive_& rhs) {
-            for (int index = rhs.first_; index <= rhs.last_; ++index)
-                ExactAddAt(index, rhs.limbs_[index], &lhs);
+            (void)BcgExactMagnitudePrivate_::Add_(rhs, &lhs);
             return lhs;
         }
 
         ExactPositive_ ExactSubtract(const ExactPositive_& lhs, const ExactPositive_& rhs) {
-            ExactPositive_ result;
-            std::uint64_t borrow = 0;
-            for (int index = 0; index < EXACT_LIMB_COUNT; ++index) {
-                const std::uint64_t subtrahend = static_cast<std::uint64_t>(rhs.limbs_[index]) + borrow;
-                const std::uint64_t minuend = lhs.limbs_[index];
-                if (minuend < subtrahend) {
-                    result.limbs_[index] = static_cast<std::uint32_t>((1ULL << EXACT_LIMB_BITS) + minuend - subtrahend);
-                    borrow = 1;
-                } else {
-                    result.limbs_[index] = static_cast<std::uint32_t>(minuend - subtrahend);
-                    borrow = 0;
-                }
-            }
-            result.first_ = 0;
-            result.last_ = EXACT_LIMB_COUNT - 1;
-            ExactTrim(&result);
+            ExactPositive_ result = lhs;
+            (void)BcgExactMagnitudePrivate_::Subtract_(rhs, &result);
             return result;
         }
 
-        bool ExactBit(const ExactPositive_& value, int bit) { return (value.limbs_[bit / EXACT_LIMB_BITS] & (1U << (bit % EXACT_LIMB_BITS))) != 0; }
+        bool ExactBit(const ExactPositive_& value, int bit) { return BcgExactMagnitudePrivate_::Bit_(value, bit); }
 
-        bool ExactHasBitBelow(const ExactPositive_& value, int bit) {
-            const int lastFullLimb = bit / EXACT_LIMB_BITS;
-            for (int index = value.first_; index < lastFullLimb; ++index)
-                if (value.limbs_[index] != 0)
-                    return true;
-            const int partialBits = bit % EXACT_LIMB_BITS;
-            if (lastFullLimb < value.first_ || partialBits == 0)
-                return false;
-            const std::uint32_t mask = (1U << partialBits) - 1U;
-            return (value.limbs_[lastFullLimb] & mask) != 0;
-        }
+        bool ExactHasBitBelow(const ExactPositive_& value, int bit) { return BcgExactMagnitudePrivate_::HasBitBelow_(value, bit); }
 
-        int ExactHighestBit(const ExactPositive_& value) {
-            int highestLimbBit = 0;
-            for (std::uint32_t top = value.limbs_[value.last_]; top > 1; top >>= 1)
-                ++highestLimbBit;
-            return EXACT_LIMB_BITS * value.last_ + highestLimbBit;
-        }
+        int ExactHighestBit(const ExactPositive_& value) { return BcgExactMagnitudePrivate_::HighestBit_(value); }
 
         std::uint64_t ExactLeadingSignificand(const ExactPositive_& value, int highestBit) {
             std::uint64_t significand = 0;
@@ -641,10 +588,7 @@ namespace Dal {
             return ratio;
         }
 
-        void StableCombination(
-            double multiplier, const Vector_<>& values, const Vector_<>& base, const char* solver, const char* subject, Vector_<>* result) {
-            (void)solver;
-            (void)subject;
+        void StableCombination(double multiplier, const Vector_<>& values, const Vector_<>& base, Vector_<>* result) {
             for (int i = 0; i < static_cast<int>(values.size()); ++i)
                 (*result)[i] = std::fma(multiplier, values[i], base[i]);
         }
@@ -755,11 +699,6 @@ namespace Dal {
                 ThrowFailure(solver, "numerical breakdown", "direct residual");
         }
 
-        Scaled_ DirectResidualNorm(const Vector_<>& residual, double squareSum) {
-            if (std::isfinite(squareSum) && squareSum >= std::numeric_limits<double>::min())
-                return ScaledFromDouble(std::sqrt(squareSum));
-            return SlowScaledNorm(residual);
-        }
 #endif
 
         Scaled_ ValidatedDirectResidual(Vector_<>* callbackValues, const Vector_<>& b, int expectedSize, const char* solver, const char* callback) {
@@ -768,11 +707,11 @@ namespace Dal {
             DirectResidualEvidence_ evidence = AccumulateDirectResidualPrefix(callbackValues, b, expectedSize);
             AccumulateDirectResidualTail(callbackValues, b, expectedSize, &evidence);
             ValidateDirectResidualEvidence(*callbackValues, expectedSize, evidence, solver, callback);
-            return DirectResidualNorm(*callbackValues, evidence.squareSum_);
+            return NormFromSquareSum(*callbackValues, evidence.squareSum_);
 #else
             ValidateCallbackResult(*callbackValues, expectedSize, solver, callback, false);
             StableBatch_ stableBatch;
-            StableCombination(-1.0, *callbackValues, b, solver, "direct residual", callbackValues);
+            StableCombination(-1.0, *callbackValues, b, callbackValues);
             stableBatch.Finish(solver, *callbackValues, "direct residual");
             return ScaledNorm(*callbackValues);
 #endif
@@ -840,10 +779,10 @@ namespace Dal {
         void PrepareDirectionCandidates(
             KrylovState_* state, double betaRatio, const Vector_<>& leftPreconditioned, const Vector_<>& rightPreconditioned, const char* solver) {
             StableBatch_ stableBatch;
-            StableCombination(betaRatio, state->p_, leftPreconditioned, solver, "candidate direction", &state->pCandidate_);
+            StableCombination(betaRatio, state->p_, leftPreconditioned, &state->pCandidate_);
             const Vector_<>* shadowCandidate = nullptr;
             if (NeedsShadowDirection(*state)) {
-                StableCombination(betaRatio, state->pp_, rightPreconditioned, solver, "candidate shadow direction", &state->ppCandidate_);
+                StableCombination(betaRatio, state->pp_, rightPreconditioned, &state->ppCandidate_);
                 shadowCandidate = &state->ppCandidate_;
             }
             stableBatch.Finish(solver, state->pCandidate_, "candidate direction", shadowCandidate, "candidate shadow direction");
@@ -868,6 +807,10 @@ namespace Dal {
         }
 
         void PrepareScaledCandidates(KrylovState_& s, const BcgScaledAlphaPrivate_::ExactAlpha_& alpha, const Vector_<>& x, const char* solver) {
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+            BcgAllocationProbePrivate_::Reset_();
+            BcgAllocationProbePrivate_::Measurement_ allocationMeasurement;
+#endif
             BcgScaledAlphaPrivate_::ExactWorkspace_ workspace;
 #if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
             Dal35ObserveExactWorkspaceConstructionForTest_();
@@ -880,6 +823,9 @@ namespace Dal {
                                                                 &s.rCandidate_,
                                                                 s.biConjugate_ ? &s.rrCandidate_ : nullptr};
             const BcgScaledAlphaPrivate_::CandidateEvidence_ evidence = BcgScaledAlphaPrivate_::EvaluateCandidateGroup_(alpha, group, &workspace);
+#if defined(DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
+            allocationMeasurement.Finish_();
+#endif
             if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::X)
                 ThrowFailure(solver, "numerical breakdown", "candidate x");
             if (evidence.subject_ == BcgScaledAlphaPrivate_::CandidateSubject_::RESIDUAL)
@@ -922,10 +868,10 @@ namespace Dal {
             s.A_.MultiplyLeft(s.pCandidate_, &s.rCandidate_);
             ValidateCallbackResult(s.rCandidate_, s.A_.Size(), solver, "MultiplyLeft", false);
             const Vector_<>& rightDirection = s.symmetricBiConjugate_ ? s.pCandidate_ : s.ppCandidate_;
-            if (s.biConjugate_)
+            if (s.biConjugate_) {
                 s.A_.MultiplyRight(rightDirection, &s.rrCandidate_);
-            if (s.biConjugate_)
                 ValidateCallbackResult(s.rrCandidate_, s.A_.Size(), solver, "MultiplyRight", false);
+            }
 
             const Vector_<>& shadowDirection = s.biConjugate_ ? rightDirection : s.pCandidate_;
             const Scaled_ alphaDenominator = ScaledDot(s.rCandidate_, shadowDirection);
@@ -942,10 +888,10 @@ namespace Dal {
                 return;
 #endif
             StableBatch_ stableBatch;
-            StableCombination(alpha, s.pCandidate_, x, solver, "candidate x", &s.xCandidate_);
-            StableCombination(-alpha, s.rCandidate_, s.r_, solver, "candidate residual", &s.rCandidate_);
+            StableCombination(alpha, s.pCandidate_, x, &s.xCandidate_);
+            StableCombination(-alpha, s.rCandidate_, s.r_, &s.rCandidate_);
             if (s.biConjugate_)
-                StableCombination(-alpha, s.rrCandidate_, s.rr_, solver, "candidate shadow residual", &s.rrCandidate_);
+                StableCombination(-alpha, s.rrCandidate_, s.rr_, &s.rrCandidate_);
             stableBatch.Finish(solver, s.xCandidate_, "candidate x", &s.rCandidate_, "candidate residual", s.biConjugate_ ? &s.rrCandidate_ : nullptr,
                                "candidate shadow residual");
         }
@@ -994,8 +940,7 @@ namespace Dal {
                 ValidateFiniteInput(b, solver, "b");
                 ValidateFiniteInput(x, solver, "x");
             }
-            return std::isfinite(sumSquares) && sumSquares >= std::numeric_limits<double>::min() ? ScaledFromDouble(std::sqrt(sumSquares))
-                                                                                                 : SlowScaledNorm(b);
+            return NormFromSquareSum(b, sumSquares);
         }
 
         void

@@ -3,27 +3,25 @@ if(NOT DEFINED DAL_REPOSITORY_ROOT)
 endif()
 
 # Machinist's legacy Enumeration template emits trailing whitespace on an
-# otherwise-empty branch and more than one final newline. Keep the generated
-# calibration enums reproducible without rewriting unrelated legacy output.
-set(DAL_CALIBRATION_GENERATED_ENUMS
-    MG_AnalyticIneligibilityReason_enum
-    MG_CurveFreeParameterComponent_enum
-    MG_CurveKnotCandidateDisposition_enum
-    MG_CurveKnotOriginKind_enum
-    MG_RateInstrumentType_enum)
+# otherwise-empty branch and more than one final newline. Keep this manifest
+# explicit so unrelated legacy generated output is never discovered broadly.
+set(DAL_CALIBRATION_GENERATED_PATHS
+    "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.hpp"
+    "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.inc"
+    "dal-cpp/dal/auto/MG_CurveFreeParameterComponent_enum.hpp"
+    "dal-cpp/dal/auto/MG_CurveFreeParameterComponent_enum.inc"
+    "dal-cpp/dal/auto/MG_CurveKnotCandidateDisposition_enum.hpp"
+    "dal-cpp/dal/auto/MG_CurveKnotCandidateDisposition_enum.inc"
+    "dal-cpp/dal/auto/MG_CurveKnotOriginKind_enum.hpp"
+    "dal-cpp/dal/auto/MG_CurveKnotOriginKind_enum.inc"
+    "dal-cpp/dal/auto/MG_RateInstrumentType_enum.hpp"
+    "dal-cpp/dal/auto/MG_RateInstrumentType_enum.inc"
+    "dal-cpp/dal/auto/MG_DiscountPWC_object.hpp"
+    "dal-cpp/dal/auto/MG_DiscountPWC_v1_Read.inc"
+    "dal-cpp/dal/auto/MG_DiscountPWC_v1_Write.inc")
 
-set(DAL_CALIBRATION_GENERATED_PATHS)
-foreach(DAL_ENUM_NAME IN LISTS DAL_CALIBRATION_GENERATED_ENUMS)
-    list(APPEND DAL_CALIBRATION_GENERATED_PATHS
-        "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/${DAL_ENUM_NAME}.hpp"
-        "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/${DAL_ENUM_NAME}.inc")
-endforeach()
-list(APPEND DAL_CALIBRATION_GENERATED_PATHS
-    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_object.hpp"
-    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_v1_Read.inc"
-    "${DAL_REPOSITORY_ROOT}/dal-cpp/dal/auto/MG_DiscountPWC_v1_Write.inc")
-
-foreach(DAL_GENERATED_PATH IN LISTS DAL_CALIBRATION_GENERATED_PATHS)
+foreach(DAL_GENERATED_RELATIVE_PATH IN LISTS DAL_CALIBRATION_GENERATED_PATHS)
+    set(DAL_GENERATED_PATH "${DAL_REPOSITORY_ROOT}/${DAL_GENERATED_RELATIVE_PATH}")
     if(NOT EXISTS "${DAL_GENERATED_PATH}")
         message(FATAL_ERROR "Expected generated source is missing: ${DAL_GENERATED_PATH}")
     endif()

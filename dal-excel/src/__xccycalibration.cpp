@@ -445,6 +445,40 @@ namespace Dal {
             return result;
         }
 
+        using JointXccyResultViewGetter_ = Matrix_<Cell_> (*)(const JointXccyCalibrationResult_&);
+
+        struct JointXccyResultView_ {
+            const char* name_;
+            JointXccyResultViewGetter_ getter_;
+        };
+
+        const JointXccyResultView_ JOINT_XCCY_RESULT_VIEWS[] = {
+            {"fxForwards", [](const JointXccyCalibrationResult_& result) {
+                 return FxForwardsAsCells(JointXccyResultFxForwards(result));
+             }},
+            {"marketRates", [](const JointXccyCalibrationResult_& result) {
+                 return AsCellColumn(JointXccyResultMarketRates(result));
+             }},
+            {"modelRates", [](const JointXccyCalibrationResult_& result) {
+                 return AsCellColumn(JointXccyResultModelRates(result));
+             }},
+            {"residuals", [](const JointXccyCalibrationResult_& result) {
+                 return AsCellColumn(JointXccyResultResiduals(result));
+             }},
+            {"jacobian", [](const JointXccyCalibrationResult_& result) {
+                 return AsCellMatrix(JointXccyResultJacobian(result));
+             }},
+            {"effJacobianInverse", [](const JointXccyCalibrationResult_& result) {
+                 return AsCellMatrix(JointXccyResultEffJacobianInverse(result));
+             }},
+            {"parameterRanges", [](const JointXccyCalibrationResult_& result) {
+                 return RangesAsCells(JointXccyResultParameterRanges(result));
+             }},
+            {"residualRanges", [](const JointXccyCalibrationResult_& result) {
+                 return RangesAsCells(JointXccyResultResidualRanges(result));
+             }},
+        };
+
         using XccyResultViewGetter_ = Matrix_<Cell_> (*)(const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_&);
 
         struct XccyResultView_ {
@@ -637,27 +671,16 @@ namespace Dal {
 
     void JointXccyCalibrationResult_Get(const Handle_<StorableJointXccyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
         REQUIRE(result, "Invalid joint XCCY calibration result handle");
-        if (attribute == "fxForwards")
-            *value = FxForwardsAsCells(JointXccyResultFxForwards(result->val_));
-        else if (attribute == "marketRates")
-            *value = AsCellColumn(JointXccyResultMarketRates(result->val_));
-        else if (attribute == "modelRates")
-            *value = AsCellColumn(JointXccyResultModelRates(result->val_));
-        else if (attribute == "residuals")
-            *value = AsCellColumn(JointXccyResultResiduals(result->val_));
-        else if (attribute == "jacobian")
-            *value = AsCellMatrix(JointXccyResultJacobian(result->val_));
-        else if (attribute == "effJacobianInverse")
-            *value = AsCellMatrix(JointXccyResultEffJacobianInverse(result->val_));
-        else if (attribute == "parameterRanges")
-            *value = RangesAsCells(JointXccyResultParameterRanges(result->val_));
-        else if (attribute == "residualRanges")
-            *value = RangesAsCells(JointXccyResultResidualRanges(result->val_));
-        else
-            THROW("Unknown joint XCCY calibration attribute: " + attribute +
-                  " (accepted views: domesticBlock, foreignBlock, basisCurve, fxForwards, marketRates, modelRates, residuals, jacobian, "
-                  "effJacobianInverse, parameterRanges, residualRanges; use the dedicated DOMESTICBLOCK, FOREIGNBLOCK, and BASISCURVE getter "
-                  "functions for handle views)");
+        for (const auto& view : JOINT_XCCY_RESULT_VIEWS) {
+            if (attribute == view.name_) {
+                *value = view.getter_(result->val_);
+                return;
+            }
+        }
+        THROW("Unknown joint XCCY calibration attribute: " + attribute +
+              " (accepted views: domesticBlock, foreignBlock, basisCurve, fxForwards, marketRates, modelRates, residuals, jacobian, "
+              "effJacobianInverse, parameterRanges, residualRanges; use the dedicated DOMESTICBLOCK, FOREIGNBLOCK, and BASISCURVE getter "
+              "functions for handle views)");
     }
     // clang-format off
 #ifdef _WIN32
