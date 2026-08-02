@@ -36,9 +36,12 @@ export function formatTenor(asOf: string, maturity: string): string {
 
 // First available day-basis term, display-formatted: "ACT_365F" → "ACT/365F".
 export function instrumentDayCount(terms: Record<string, unknown> | undefined): string {
-  const basis = ["day_basis", "fixed_day_basis", "spread_day_basis", "domestic_day_basis"]
-    .map((field) => terms?.[field])
-    .find((value) => typeof value === "string" && value.length > 0);
+  const basis = [
+    terms?.day_basis,
+    terms?.fixed_day_basis,
+    terms?.spread_day_basis,
+    terms?.domestic_day_basis,
+  ].find((value) => typeof value === "string" && value.length > 0);
   return typeof basis === "string" ? basis.replace(/_/g, "/") : "—";
 }
 
