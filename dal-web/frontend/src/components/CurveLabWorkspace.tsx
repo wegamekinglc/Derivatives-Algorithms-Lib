@@ -13,6 +13,7 @@ import {
   ApiClientError,
   type CurveLabBuildRun,
   type CurveLabCanonicalQuote,
+  type CurveLabCurveViewPoint,
   type CurveLabDraft,
   type CurveLabImportJob,
   type CurveLabMatrix,
@@ -41,6 +42,7 @@ import { css } from "../format";
 
 type WorkspaceTab = "build" | "runs" | "risk" | "versions";
 type CurveLabBuildMode = "SINGLE" | "MULTI_CURVE" | "STAGED_XCCY" | "JOINT_XCCY";
+type CurveView = "discount" | "zero" | "forward";
 
 export interface CurveLabWorkspaceHandle {
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
@@ -55,6 +57,20 @@ export interface CurveLabCanonicalTarget {
 interface CurveLabWorkspaceProps {
   // eslint-disable-next-line no-unused-vars -- core ESLint sees type-only parameter names.
   onCanonicalTargetChange?: (...args: [CurveLabCanonicalTarget | null]) => void;
+}
+
+const CURVE_VIEW_LABELS: Record<CurveView, string> = {
+  discount: "Discount factors",
+  zero: "Zero rates",
+  forward: "Forwards",
+};
+
+function curveViewValue(point: CurveLabCurveViewPoint, view: CurveView): string {
+  if (view === "discount") return point.discount_factor.toFixed(10);
+  const value = view === "zero" ? point.zero_rate : point.one_day_forward_rate;
+  return value === null
+    ? "—"
+    : `${value.toFixed(10)} (${(value * 100).toFixed(6)}%)`;
 }
 
 const TABS: { id: WorkspaceTab; label: string; note: string }[] = [
@@ -464,7 +480,7 @@ const CurveLabWorkspace = forwardRef<
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importManifest, setImportManifest] = useState<Record<string, unknown> | null>(null);
-  const [curveView, setCurveView] = useState<"discount" | "zero" | "forward">("discount");
+  const [curveView, setCurveView] = useState<CurveView>("discount");
   const [selectedInstrumentIndex, setSelectedInstrumentIndex] = useState<number | null>(null);
   const canonicalTargetTokenRef = useRef(0);
   const [canonicalTargetToken, setCanonicalTargetToken] = useState(0);
@@ -1605,21 +1621,29 @@ const CurveLabWorkspace = forwardRef<
                   </div>
                 </div>
                 <p {...css("muted")}>
-                  {curveView === "discount" && "Native discount-factor view on the persisted node axis."}
-                  {curveView === "zero" && "Continuously compounded zero-rate view on the persisted node axis."}
-                  {curveView === "forward" && "Instantaneous forward coordinates in native parameter order."}
+                  {curveView === "discount" && "Native discount factors from valuation date to each persisted node."}
+                  {curveView === "zero" && "Continuously compounded ACT/365F zero rates on the persisted node axis."}
+                  {curveView === "forward" && "One-day continuously compounded ACT/365F forwards; LEFT samples the preceding interval."}
                 </p>
                 <div {...css("table-container")}>
-                  <table>
-                    <thead><tr><th>Node</th><th>Component</th><th>Native coordinate</th></tr></thead>
+                  <table aria-label={`${CURVE_VIEW_LABELS[curveView]} curve values`}>
+                    <thead><tr><th>Node</th><th>Component</th><th>Side</th><th {...css("num")}>Value</th></tr></thead>
                     <tbody>
-                      {build.parameter_axis.map((axis) => (
-                        <tr key={String(axis.parameter_id)}>
-                          <td>{String(axis.node_date)}</td>
-                          <td {...css("mono")}>{String(axis.component_key)}</td>
-                          <td>{String(axis.coordinate_kind)}</td>
+                      {(build.curve_views ?? []).map((point) => (
+                        <tr key={point.parameter_id}>
+                          <td {...css("mono")}>{point.node_date}</td>
+                          <td {...css("mono")}>{point.component_key}</td>
+                          <td>{point.side ?? "—"}</td>
+                          <td {...css("mono", "num")}>{curveViewValue(point, curveView)}</td>
                         </tr>
                       ))}
+                      {(build.curve_views ?? []).length === 0 && (
+                        <tr>
+                          <td colSpan={4} {...css("muted")}>
+                            Numeric curve views are unavailable for this run. Rebuild the curve to populate them.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

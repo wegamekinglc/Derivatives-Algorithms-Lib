@@ -227,6 +227,15 @@ describe("Curve Lab V2 workspace", () => {
         coordinate_kind: "PIECEWISE_CONSTANT_FWD",
         node_date: "2027-01-15",
       }],
+      curve_views: [{
+        parameter_id: "parameter-0",
+        component_key: "curve",
+        node_date: "2027-01-15",
+        side: "RIGHT" as const,
+        discount_factor: 0.961,
+        zero_rate: 0.04,
+        one_day_forward_rate: 0.041,
+      }],
       dependency_manifest: [],
       diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
       native_payload_hash: "d".repeat(64),
@@ -269,6 +278,14 @@ describe("Curve Lab V2 workspace", () => {
     const quoteAxis = screen.getByRole("heading", { name: "Quote axis" }).closest("section");
     expect(quoteAxis?.querySelector("th")?.className).toContain("num");
     expect(quoteAxis?.querySelector("tbody td")?.className).toContain("num");
+    expect(screen.getByRole("table", { name: "Discount factors curve values" }).textContent)
+      .toContain("0.9610000000");
+    fireEvent.click(screen.getByRole("button", { name: "Zero rates" }));
+    expect(screen.getByRole("table", { name: "Zero rates curve values" }).textContent)
+      .toContain("0.0400000000 (4.000000%)");
+    fireEvent.click(screen.getByRole("button", { name: "Forwards" }));
+    expect(screen.getByRole("table", { name: "Forwards curve values" }).textContent)
+      .toContain("0.0410000000 (4.100000%)");
     fireEvent.click(screen.getByRole("tab", { name: "Build" }));
     fireEvent.change(screen.getByLabelText("Version name"), {
       target: { value: "USD OIS" },

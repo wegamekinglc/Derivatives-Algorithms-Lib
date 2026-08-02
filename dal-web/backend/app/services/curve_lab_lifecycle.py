@@ -482,6 +482,11 @@ def _execute_build_run(
             document,
             native_payload,
         )
+        curve_views = gateway.curve_lab_archive_curve_views(
+            document,
+            native_payload,
+            parameter_coordinates,
+        )
     except Exception:  # noqa: BLE001 - native failure becomes immutable evidence
         error = {
             "code": "NATIVE_BUILD_FAILED",
@@ -553,6 +558,7 @@ def _execute_build_run(
             "quote_count": len(quote_coordinates),
             "parameter_count": len(parameter_coordinates),
             "payload_bytes": len(native_payload),
+            "curve_views": curve_views,
         },
         "error": None,
         "created_at": queued["created_at"],
@@ -722,10 +728,19 @@ def quote_axis(document: dict) -> list[dict]:
 
 def _build_public(store: StoreProtocol, record: dict) -> dict:
     current = get_draft(store, record["draft_id"])
+    diagnostics = record.get("diagnostics")
+    curve_views = diagnostics.get("curve_views", []) if diagnostics else []
+    public_diagnostics = (
+        {key: value for key, value in diagnostics.items() if key != "curve_views"}
+        if diagnostics is not None
+        else None
+    )
     return {
         key: value
         for key, value in {
             **record,
+            "curve_views": curve_views,
+            "diagnostics": public_diagnostics,
             "stale": (
                 current["revision"] != record["draft_revision"]
                 or current["fingerprint"] != record["draft_fingerprint"]

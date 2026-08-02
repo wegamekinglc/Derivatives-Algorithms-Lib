@@ -332,6 +332,17 @@ def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
 def test_version_publication_is_cas_idempotent_immutable_and_archivable(client) -> None:
     draft = _create_draft(client)
     run = _completed_build(client, draft["id"])
+    assert run["curve_views"] == [
+        {
+            "parameter_id": run["parameter_axis"][0]["parameter_id"],
+            "component_key": "clab/v1/local/discount/USD/OIS",
+            "node_date": "2026-04-16",
+            "side": "RIGHT",
+            "discount_factor": pytest.approx(0.990077),
+            "zero_rate": pytest.approx(0.04),
+            "one_day_forward_rate": pytest.approx(0.04),
+        }
+    ]
     request = {
         "draft_id": draft["id"],
         "draft_revision": draft["revision"],

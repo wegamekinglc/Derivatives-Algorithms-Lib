@@ -9,11 +9,12 @@ service module imports ``dal`` directly -- they all go through :class:`DalGatewa
 from __future__ import annotations
 
 import hashlib
+import math
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, NamedTuple
 
 from app.native_runtime import load_native_dal
@@ -788,6 +789,107 @@ class DalGateway:
             curves = self._curve_lab_archive_curves(payload, root_kind, document)
             return self._curve_lab_parameter_axis_from_curves(document, curves)
 
+    def curve_lab_archive_curve_views(
+        self,
+        document: Mapping[str, Any],
+        payload: bytes,
+        parameter_axis: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Project numerical curve views from the calibrated native archive."""
+
+        root_kind = "DISCOUNT_CURVE" if document["mode"] == "SINGLE" else "CURVE_SET"
+        with self._calibration_lock:
+            curves = self._curve_lab_archive_curves(payload, root_kind, document)
+            return self._curve_lab_curve_views_from_curves(
+                document,
+                curves,
+                parameter_axis,
+            )
+
+    def _curve_lab_curve_views_from_curves(
+        self,
+        document: Mapping[str, Any],
+        curves: Mapping[str, Any],
+        parameter_axis: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        as_of = date.fromisoformat(str(document["as_of_date"]))
+        result: list[dict[str, Any]] = []
+        for axis in parameter_axis:
+            node = date.fromisoformat(str(axis["node_date"]))
+            curve = curves[str(axis["component_key"])]
+            discount_factor = self._curve_lab_discount_factor(curve, as_of, node)
+            elapsed_days = (node - as_of).days
+            zero_rate = (
+                None if elapsed_days == 0 else -math.log(discount_factor) * 365.0 / elapsed_days
+            )
+            left_side = axis.get("side") == "LEFT"
+            forward_start = node - timedelta(days=1) if left_side else node
+            forward_end = node if left_side else node + timedelta(days=1)
+            one_day_discount = self._curve_lab_discount_factor(
+                curve,
+                forward_start,
+                forward_end,
+            )
+            result.append(
+                {
+                    "parameter_id": str(axis["parameter_id"]),
+                    "component_key": str(axis["component_key"]),
+                    "node_date": str(axis["node_date"]),
+                    "side": axis.get("side"),
+                    "discount_factor": discount_factor,
+                    "zero_rate": zero_rate,
+                    "one_day_forward_rate": -math.log(one_day_discount) * 365.0,
+                }
+            )
+        return result
+
+    def _curve_lab_discount_factor(
+        self,
+        curve: Any,
+        start: date,
+        end: date,
+    ) -> float:
+        if isinstance(curve, Mapping):
+            return self._curve_lab_mapping_discount_factor(curve, start, end)
+        value = float(curve(self._native_date(start), self._native_date(end)))
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError("Curve Lab numerical view requires positive finite discount factors")
+        return value
+
+    @classmethod
+    def _curve_lab_mapping_discount_factor(
+        cls,
+        curve: Mapping[str, Any],
+        start: date,
+        end: date,
+    ) -> float:
+        if end < start:
+            return 1.0 / cls._curve_lab_mapping_discount_factor(curve, end, start)
+        dates = [
+            date.fromisoformat(str(item)) for item in curve.get("dates", curve.get("knotDates", ()))
+        ]
+        values = [float(item) for item in curve.get("values", curve.get("rightVals", ()))]
+        if not dates or len(dates) != len(values):
+            raise ValueError("Curve Lab test curve requires matching PWC dates and values")
+        integral = 0.0
+        cursor = start
+        while cursor < end:
+            right_index = max(
+                (index for index, knot in enumerate(dates) if knot <= cursor),
+                default=0,
+            )
+            next_knot = min((knot for knot in dates if knot > cursor), default=end)
+            segment_end = min(end, next_knot)
+            integral += (segment_end - cursor).days * values[right_index]
+            cursor = segment_end
+        value = math.exp(-integral / 365.0)
+        base = curve.get("base")
+        if isinstance(base, Mapping):
+            value *= cls._curve_lab_mapping_discount_factor(base, start, end)
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError("Curve Lab numerical view requires positive finite discount factors")
+        return value
+
     def _curve_lab_parameter_axis_from_curves(
         self,
         document: Mapping[str, Any],
@@ -1260,7 +1362,8 @@ class DalGateway:
                 f"Curve Lab declaration {declaration['component_key']!r} has no instruments"
             )
         builder = self._dal.CurveCalibrationSpecBuilder_()
-        builder.today_ = self._native_date(date.fromisoformat(str(document["as_of_date"])))
+        today = self._native_date(date.fromisoformat(str(document["as_of_date"])))
+        builder.today_ = today
         builder.ccy_ = self._dal.String_(str(declaration["currency"]))
         builder.curveName_ = self._dal.String_(str(declaration["component_key"]))
         builder.instruments_ = [
@@ -1270,7 +1373,7 @@ class DalGateway:
             )
             for item in instruments
         ]
-        builder.knotDates_ = [
+        knot_dates = [
             self._native_date(date.fromisoformat(str(item["maturity_date"])))
             for item in sorted(
                 instruments,
@@ -1280,6 +1383,9 @@ class DalGateway:
                 ),
             )
         ]
+        if declaration["parameterization"] == "PIECEWISE_CONSTANT_FWD":
+            knot_dates.insert(0, today)
+        builder.knotDates_ = knot_dates
         route = str(declaration["component_key"]).rsplit("/", 1)[-1]
         builder.targetCollateral_ = self._dal.CollateralType_(
             route if declaration["role"] == "DISCOUNT" else "OIS"

@@ -618,6 +618,18 @@ class ParameterAxisEntryV2(CurveLabWireModel):
     display_label: str
 
 
+class CurveViewPointV1(CurveLabWireModel):
+    model_config = ConfigDict(extra="forbid", validate_default=True, frozen=True)
+
+    parameter_id: str
+    component_key: str
+    node_date: date
+    side: Literal["LEFT", "RIGHT"] | None
+    discount_factor: PositiveFiniteFloat
+    zero_rate: FiniteFloat | None
+    one_day_forward_rate: FiniteFloat
+
+
 class CurveLabDependencyManifestEntryV2(CurveLabWireModel):
     version_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
     content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -646,6 +658,7 @@ class CurveBuildRunResponse(CurveLabWireModel):
     resolved_plan: dict[str, object]
     quote_axis: tuple[QuoteAxisEntryV2, ...]
     parameter_axis: tuple[ParameterAxisEntryV2, ...]
+    curve_views: tuple[CurveViewPointV1, ...] = ()
     dependency_manifest: tuple[CurveLabDependencyManifestEntryV2, ...]
     diagnostics: dict[str, object] | None
     native_payload_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None

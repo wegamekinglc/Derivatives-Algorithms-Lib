@@ -659,6 +659,14 @@
             "title": "Created At",
             "type": "string"
           },
+          "curve_views": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CurveViewPointV1"
+            },
+            "title": "Curve Views",
+            "type": "array"
+          },
           "deadline_at": {
             "format": "date-time",
             "title": "Deadline At",
@@ -2568,6 +2576,70 @@
           "created_at"
         ],
         "title": "CurveVersionResponse",
+        "type": "object"
+      },
+      "CurveViewPointV1": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "title": "Component Key",
+            "type": "string"
+          },
+          "discount_factor": {
+            "exclusiveMinimum": 0.0,
+            "title": "Discount Factor",
+            "type": "number"
+          },
+          "node_date": {
+            "format": "date",
+            "title": "Node Date",
+            "type": "string"
+          },
+          "one_day_forward_rate": {
+            "title": "One Day Forward Rate",
+            "type": "number"
+          },
+          "parameter_id": {
+            "title": "Parameter Id",
+            "type": "string"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LEFT",
+                  "RIGHT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "zero_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zero Rate"
+          }
+        },
+        "required": [
+          "parameter_id",
+          "component_key",
+          "node_date",
+          "side",
+          "discount_factor",
+          "zero_rate",
+          "one_day_forward_rate"
+        ],
+        "title": "CurveViewPointV1",
         "type": "object"
       },
       "DepositInstrumentDTO": {

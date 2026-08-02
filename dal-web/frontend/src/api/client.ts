@@ -177,6 +177,16 @@ export interface CurveLabAxisEntry {
   node_date?: string;
 }
 
+export interface CurveLabCurveViewPoint {
+  parameter_id: string;
+  component_key: string;
+  node_date: string;
+  side: "LEFT" | "RIGHT" | null;
+  discount_factor: number;
+  zero_rate: number | null;
+  one_day_forward_rate: number;
+}
+
 export interface CurveLabBuildRun {
   id: string;
   draft_id: string;
@@ -188,6 +198,7 @@ export interface CurveLabBuildRun {
   resolved_plan: Record<string, unknown>;
   quote_axis: CurveLabAxisEntry[];
   parameter_axis: CurveLabAxisEntry[];
+  curve_views?: CurveLabCurveViewPoint[];
   dependency_manifest: {
     version_id: string;
     content_hash: string;
