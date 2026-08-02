@@ -41,7 +41,7 @@ namespace Dal::AAD {
         template <class L_, class R_, class O_>
         friend double Value(const BinaryExpression_<L_, R_, O_>&);
 
-        enum { numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_) };
+        static constexpr int numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_);
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
             if constexpr (LHS_::numNumbers_ > 0)
@@ -159,7 +159,7 @@ namespace Dal::AAD {
         template <class A_, class O_>
         friend double Value(const UnaryExpression_<A_, O_>&);
 
-        enum { numNumbers_ = ARG_::numNumbers_ };
+        static constexpr int numNumbers_ = ARG_::numNumbers_;
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
@@ -464,7 +464,7 @@ namespace Dal::AAD {
         }
 
     public:
-        enum { numNumbers_ = 1 };
+        static constexpr int numNumbers_ = 1;
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {

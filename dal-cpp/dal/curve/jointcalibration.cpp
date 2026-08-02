@@ -123,35 +123,29 @@ namespace Dal {
             const JointMultiCurveCalibrationSpec_* spec_;
             const std::vector<CurveSlot_>* slots_;
             CurveJacobianMode_ jacobianMode_;
-            mutable int evaluationCount_ = 0;
-            mutable AnalyticEligibility_ cachedEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
-
-            void EvaluateEligibilityOnce() const {
-                if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
-                    return;
-                cachedEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? AnalyticEligibility_::Value_::ELIGIBLE
-                                                                                         : AnalyticEligibility_::Value_::INELIGIBLE;
-            }
-
-            [[nodiscard]] bool Eligible() const {
-                EvaluateEligibilityOnce();
-                return cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE;
-            }
+            int* evaluationCount_;
+            AnalyticEligibility_ analyticEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const;
 
         public:
-            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, CurveJacobianMode_ jacobianMode)
-                : spec_(&spec), slots_(&slots), jacobianMode_(jacobianMode) {}
-
-            [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
+            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec,
+                                   const std::vector<CurveSlot_>& slots,
+                                   CurveJacobianMode_ jacobianMode,
+                                   int* evaluationCount)
+                : spec_(&spec), slots_(&slots), jacobianMode_(jacobianMode), evaluationCount_(evaluationCount) {
+                REQUIRE(evaluationCount_, "JointResidualFunction_: null evaluation count");
+                if (jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC)
+                    analyticEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? AnalyticEligibility_::Value_::ELIGIBLE
+                                                                                               : AnalyticEligibility_::Value_::INELIGIBLE;
+            }
 
             Handle_<CurveBlock_> BuildCurvesFromX(const Vector_<>& x) const {
                 return JointCalibrationInternal::BuildCurveBlock(InternalSpec(*spec_), *slots_, x);
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                ++evaluationCount_;
+                ++*evaluationCount_;
                 const Handle_<CurveBlock_> yc = BuildCurvesFromX(x);
                 int totalResiduals = 0;
                 for (const auto& slot : *slots_)
@@ -165,8 +159,7 @@ namespace Dal {
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
-                EvaluateEligibilityOnce();
-                if (cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
+                if (analyticEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
                     return AnalyticJacobian(x, f);
                 return nullptr;
             }
@@ -211,10 +204,10 @@ namespace Dal {
             return Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
         }
 
-        [[noreturn]] void ThrowNonConvergence(const JointResidualFunction_& func, const Vector_<>& residuals) {
+        [[noreturn]] void ThrowNonConvergence(int evaluationCount, const Vector_<>& residuals) {
             const ResidualStats_ stats = ResidualStats(residuals);
             THROW(String_("Joint multi-curve calibration failed to converge: maxAbsResidual = ") + String::FromDouble(stats.maxAbsResidual_) +
-                  ", rmsResidual = " + String::FromDouble(stats.rmsResidual_) + " after " + String::FromInt(func.EvaluationCount()) + " evaluations");
+                  ", rmsResidual = " + String::FromDouble(stats.rmsResidual_) + " after " + String::FromInt(evaluationCount) + " evaluations");
         }
 
         // ---- CalibrateJointMultiCurve assembly helpers ----
@@ -284,7 +277,8 @@ namespace Dal {
 
         const Vector_<> tol(totalResiduals, spec.tolerance_);
         std::unique_ptr<Sparse::TriDiagonal_> weights = JointCalibrationInternal::BuildJointSmoothing(slots);
-        JointResidualFunction_ func(spec, slots, options.jacobianMode_);
+        int evaluationCount = 0;
+        JointResidualFunction_ func(spec, slots, options.jacobianMode_, &evaluationCount);
         Matrix_<> fwdJacAtSolution;
         const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
 
@@ -301,10 +295,10 @@ namespace Dal {
         auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solved);
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
-        JointMultiCurveCalibrationResult_ result = AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves, totalResiduals,
-                                                                  func.EvaluationCount(), std::move(fwdJacAtSolution));
+        JointMultiCurveCalibrationResult_ result =
+            AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves, totalResiduals, evaluationCount, std::move(fwdJacAtSolution));
         if (!converged)
-            ThrowNonConvergence(func, finalResiduals);
+            ThrowNonConvergence(evaluationCount, finalResiduals);
         result.converged_ = true;
         return result;
     }

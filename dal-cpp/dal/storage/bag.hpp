@@ -2,7 +2,10 @@
 // Created by wegam on 2023/1/20.
 //
 
+#pragma once
+
 #include <map>
+
 #include <dal/math/vectors.hpp>
 #include <dal/storage/storable.hpp>
 

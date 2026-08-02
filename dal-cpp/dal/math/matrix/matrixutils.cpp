@@ -10,7 +10,7 @@
 
 namespace Dal {
     namespace {
-        typedef Matrix_<Cell_> Table_;
+        using Table_ = Matrix_<Cell_>;
 
         struct WriterView_ {
             Table_* dst_;
@@ -217,7 +217,7 @@ namespace Dal {
 
         std::unique_ptr<Writer_> NewWriter(const String_& format);
         template <class M_> std::unique_ptr<Writer_> MultipleWriter(const String_& format, char separator, M_ make_multiple) {
-            typedef typename std::remove_reference<decltype(*make_multiple())>::type multiple_t;
+            using multiple_t = typename std::remove_reference<decltype(*make_multiple())>::type;
             Vector_<String_> subs = Split(format, separator);
             if (subs.size() <= 1)
                 return nullptr;

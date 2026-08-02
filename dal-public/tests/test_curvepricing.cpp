@@ -11,8 +11,8 @@
 TEST(CurvePricingPublicTest, TestClosedRegistryAndStructuredTerms) {
     const auto families = Dal::RateInstrumentTypeListAll();
     ASSERT_EQ(families.size(), 7);
-    ASSERT_EQ(families[0].String(), "DEPOSIT");
-    ASSERT_EQ(families[6].String(), "XCCY");
+    ASSERT_STREQ(families[0].String(), "DEPOSIT");
+    ASSERT_STREQ(families[6].String(), "XCCY");
 
     Dal::DepositTradeTerms_ deposit;
     deposit.notional_ = 1'000'000.0;

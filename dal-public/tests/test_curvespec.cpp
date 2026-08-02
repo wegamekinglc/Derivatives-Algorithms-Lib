@@ -75,9 +75,9 @@ TEST(CurveSpecTest, TestSingleCurveOptionsOverloadIsPublicAndAdditive) {
     ASSERT_NE(overload, nullptr);
 
     Dal::CurveCalibrationOptions_ options;
-    EXPECT_EQ(options.jacobianMode_, Dal::CurveJacobianMode_::Value_::ANALYTIC);
-    EXPECT_TRUE(options.computeForwardJacobian_);
-    EXPECT_TRUE(options.computeEffJacobianInverse_);
+    ASSERT_EQ(options.jacobianMode_, Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    ASSERT_TRUE(options.computeForwardJacobian_);
+    ASSERT_TRUE(options.computeEffJacobianInverse_);
 }
 
 // Single-curve calibration (EXACT, PIECEWISE_LINEAR_FWD)

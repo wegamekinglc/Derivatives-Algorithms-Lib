@@ -90,10 +90,10 @@ TEST(CurveDataTest, TestCompleteCurveFactoriesExposeExactReconstructionState) {
     const auto pwlf = DiscountPWLFNew("pwlf", "USD", knotDates, left, right, base);
     const auto* typedPwlf = dynamic_cast<const Dal::Tape::DiscountPWLF_<double>*>(pwlf.get());
     ASSERT_NE(typedPwlf, nullptr);
-    EXPECT_EQ(typedPwlf->KnotDates(), knotDates);
-    EXPECT_EQ(typedPwlf->FLeft(), left);
-    EXPECT_EQ(typedPwlf->FRight(), right);
-    EXPECT_EQ(typedPwlf->Base().get(), base.get());
+    ASSERT_EQ(typedPwlf->KnotDates(), knotDates);
+    ASSERT_EQ(typedPwlf->FLeft(), left);
+    ASSERT_EQ(typedPwlf->FRight(), right);
+    ASSERT_EQ(typedPwlf->Base().get(), base.get());
 
     const Vector_<Date_> logDates = Dal::Vector::Join(Vector_<Date_>{Today()}, knotDates);
     const Vector_<> logDf{0.0, -0.001, -0.02, -0.05, -0.09};
@@ -104,11 +104,11 @@ TEST(CurveDataTest, TestCompleteCurveFactoriesExposeExactReconstructionState) {
     const auto mapped = DiscountLogDFNew("log", "USD", logDates, logDf, options);
     const auto* typedMapped = dynamic_cast<const Dal::DiscountLogDF_*>(mapped.get());
     ASSERT_NE(typedMapped, nullptr);
-    EXPECT_EQ(typedMapped->NodeDates(), logDates);
-    EXPECT_EQ(typedMapped->NodeLogDF(), logDf);
-    EXPECT_EQ(typedMapped->DayCount().String(), String_("ACT_360"));
-    EXPECT_EQ(typedMapped->Scheme(), LogDfScheme_::Value_::MIXED);
-    EXPECT_EQ(typedMapped->Base().get(), base.get());
+    ASSERT_EQ(typedMapped->NodeDates(), logDates);
+    ASSERT_EQ(typedMapped->NodeLogDF(), logDf);
+    ASSERT_EQ(typedMapped->DayCount().String(), String_("ACT_360"));
+    ASSERT_EQ(typedMapped->Scheme(), LogDfScheme_::Value_::MIXED);
+    ASSERT_EQ(typedMapped->Base().get(), base.get());
 }
 
 // DiscountZeroRateNew
@@ -201,7 +201,7 @@ TEST(CurveDataTest, TestCurveBlockNewFull) {
 
     auto block = CurveBlockNew(String_("usd"), String_("USD"), discounts, forwards, DayBasis_New("ACT_365F"));
     ASSERT_TRUE(block != nullptr);
-    EXPECT_EQ(block->DiscountCurves().size(), 1);
-    EXPECT_EQ(block->ForwardCurves().size(), 1);
-    EXPECT_EQ(block->LiborBasis().String(), String_("ACT_365F"));
+    ASSERT_EQ(block->DiscountCurves().size(), 1);
+    ASSERT_EQ(block->ForwardCurves().size(), 1);
+    ASSERT_EQ(block->LiborBasis().String(), String_("ACT_365F"));
 }

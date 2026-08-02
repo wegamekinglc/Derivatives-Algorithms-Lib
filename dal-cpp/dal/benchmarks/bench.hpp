@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -24,15 +25,8 @@ namespace Dal::Bench {
     // Anti-dead-code-elimination sink. Forces the compiler to materialize
     // side effects of the benchmark body so work is not optimized away.
     inline void DoNotOptimize(const void* p) {
-#ifdef _MSC_VER
-        _ReadWriteBarrier();
-        (void)p;
-#elif defined(__GNUC__)
-        asm volatile("" : : "r"(p) : "memory");
-#else
-        volatile const void* sink = p;
-        (void)sink;
-#endif
+        static std::atomic<const void*> sink;
+        sink.store(p, std::memory_order_relaxed);
     }
 
     struct Result_ {

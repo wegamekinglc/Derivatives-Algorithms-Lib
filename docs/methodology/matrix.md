@@ -235,6 +235,29 @@ results, non-finite arithmetic, recurrence breakdown, or failed direct confirmat
 without exposing a partial candidate, leaving `x` at the entry state or the last fully
 committed finite iterate.
 
+### Exact-Alpha Differential Probe
+
+`MatrixTest.TestBcgExactAlphaProbe` is an external differential probe rather than a normal
+CTest assertion. It consumes a 53-row, tab-separated corpus supplied by the comparison
+harness and writes a bit-exact trace for comparison with an independent implementation.
+The corpus and expected trace deliberately remain owned by that external harness, so CTest
+does not register the probe or claim it as repository-local coverage.
+
+Build and run the seam executable explicitly:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp_bcg_workspace_boundary_tests
+BCG_EXACT_ALPHA_CORPUS=/absolute/path/to/exact-alpha.tsv \
+BCG_EXACT_ALPHA_OUTPUT=/tmp/dal-exact-alpha.txt \
+  ./build/Release-linux/dal-cpp/dal_cpp_bcg_workspace_boundary_tests \
+  --gtest_filter=MatrixTest.TestBcgExactAlphaProbe
+```
+
+The corpus header must be
+`id kind solver fp in0 in1 in2 in3 alpha_num alpha_den alpha_exp alpha_neg`, with fields
+separated by tabs. A missing path, a different header, or any row count other than 53 fails
+the probe before it writes a usable trace.
+
 ## Examples
 
 No dedicated example program exercises the matrix layer in isolation; the

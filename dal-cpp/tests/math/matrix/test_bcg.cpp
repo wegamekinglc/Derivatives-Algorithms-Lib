@@ -499,7 +499,7 @@ namespace {
         const char* id_;
         Dal35OneBitOracle_::OracleInput_ input_;
         std::uint64_t expectedBits_;
-        Dal35OneBitOracle_::OracleClass_ expectedClass_;
+        Dal35OneBitOracle_::OracleClassValue_ expectedClass_;
     };
 
     const std::array<OracleBootstrapRow_, 10>& OracleBootstrapRows() {
@@ -565,7 +565,7 @@ namespace {
         std::uint64_t valueBits_;
         std::uint64_t baseBits_;
         std::uint64_t expectedBits_;
-        BcgScaledAlphaPrivate_::RoundedClass_ expectedClass_;
+        BcgScaledAlphaPrivate_::RoundedClassValue_ expectedClass_;
     };
 
     const std::array<EvaluatorRow_, 21>& EvaluatorRows() {
@@ -693,7 +693,7 @@ namespace {
     struct ScaledAlphaObservation_ {
         std::uint64_t resultBits_ = 0;
         std::uint64_t directResidualBits_ = 0;
-        BcgScaledAlphaPrivate_::CandidateSubject_ evidenceSubject_ = BcgScaledAlphaPrivate_::CandidateSubject_::NONE;
+        BcgScaledAlphaPrivate_::CandidateSubjectValue_ evidenceSubject_ = BcgScaledAlphaPrivate_::CandidateSubject_::NONE;
         int evidenceIndex_ = -1;
         int commitCount_ = 0;
         int confirmationCount_ = 0;
@@ -1063,7 +1063,7 @@ namespace {
         std::uint64_t expectedNumerator_;
         std::uint64_t expectedDenominator_;
         int expectedExponent_;
-        BcgScaledAlphaPrivate_::AlphaPath_ expectedPath_;
+        BcgScaledAlphaPrivate_::AlphaPathValue_ expectedPath_;
     };
 
     const std::array<ClassifierRow_, 12>& ClassifierRows() {
@@ -1140,9 +1140,9 @@ namespace {
 
     void AssertEvaluatorOracle(const EvaluatorRow_& row) {
         const Dal35OneBitOracle_::OracleResult_ oracle = Dal35OneBitOracle_::Evaluate_(OracleInput(row.alpha_, row.valueBits_, row.baseBits_));
-        const Dal35OneBitOracle_::OracleClass_ expectedOracleClass = row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE
-                                                                         ? Dal35OneBitOracle_::OracleClass_::FINITE
-                                                                         : Dal35OneBitOracle_::OracleClass_::NON_FINITE;
+        const Dal35OneBitOracle_::OracleClassValue_ expectedOracleClass = row.expectedClass_ == BcgScaledAlphaPrivate_::RoundedClass_::FINITE
+                                                                              ? Dal35OneBitOracle_::OracleClass_::FINITE
+                                                                              : Dal35OneBitOracle_::OracleClass_::NON_FINITE;
         ASSERT_EQ(expectedOracleClass, oracle.classification_);
         if (oracle.classification_ == Dal35OneBitOracle_::OracleClass_::FINITE)
             ASSERT_EQ(row.expectedBits_, oracle.bits_);
@@ -2324,7 +2324,7 @@ namespace {
         return output.str();
     }
 
-    const char* BcgExactAlphaSubject_(BcgScaledAlphaPrivate_::CandidateSubject_ subject) {
+    const char* BcgExactAlphaSubject_(BcgScaledAlphaPrivate_::CandidateSubjectValue_ subject) {
         switch (subject) {
         case BcgScaledAlphaPrivate_::CandidateSubject_::NONE:
             return "none";
@@ -2338,7 +2338,7 @@ namespace {
         return "none";
     }
 
-    const char* BcgExactAlphaPath_(BcgScaledAlphaPrivate_::AlphaPath_ path) {
+    const char* BcgExactAlphaPath_(BcgScaledAlphaPrivate_::AlphaPathValue_ path) {
         switch (path) {
         case BcgScaledAlphaPrivate_::AlphaPath_::DENOMINATOR_ZERO:
             return "denomzero";

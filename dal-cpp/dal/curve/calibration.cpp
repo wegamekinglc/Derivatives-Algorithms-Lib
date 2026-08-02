@@ -300,7 +300,7 @@ namespace Dal {
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
             CurveJacobianMode_ jacobianMode_;
-            mutable AnalyticEligibility_ cachedEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
+            AnalyticEligibility_ analyticEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -332,6 +332,9 @@ namespace Dal {
                     rates_.push_back(inst->Precompute(fundingYC));
                     marketRates_.push_back(inst->MarketRate());
                 }
+                if (jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC)
+                    analyticEligibility_ =
+                        EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
@@ -363,26 +366,14 @@ namespace Dal {
                     static_cast<void>(f);
                     return nullptr;
                 }
-                EvaluateEligibilityOnce();
-                if (cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
+                if (analyticEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
                     return AnalyticJacobian(x, f);
                 static_cast<void>(x);
                 static_cast<void>(f);
                 return nullptr;
             }
 
-            // Cache the eligibility verdict once; Gradient is called per solver iteration.
-            void EvaluateEligibilityOnce() const {
-                if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
-                    return;
-                cachedEligibility_ =
-                    EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
-            }
-
-            [[nodiscard]] bool Eligible() const {
-                EvaluateEligibilityOnce();
-                return cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE;
-            }
+            [[nodiscard]] bool Eligible() const { return analyticEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE; }
 
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {
                 const AnalyticEligibilityReport_ report = SingleAnalyticEligibility(anchor_, calibrateDiscountCurve_, instruments_);

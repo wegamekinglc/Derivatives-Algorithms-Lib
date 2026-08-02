@@ -14,10 +14,12 @@
 
 #include <iomanip>
 #include <iostream>
+
+#include <dal/benchmarks/bench.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
-#include <dal/script/preprocessor.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/script/preprocessor.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/timer.hpp>
@@ -79,41 +81,41 @@ int main() {
     // Stage 1: preprocessing only.
     {
         Preprocessor_ preprocessor;
-        volatile size_t sink = 0;
+        size_t sink = 0;
         Timer_ timer;
         for (size_t i = 0; i < kIterations; ++i) {
             auto result = preprocessor.Process(table);
             sink += result.events_.size();
         }
+        Bench::DoNotOptimize(&sink);
         Report("preprocess (stage 1)", timer.Elapsed<microseconds>(), kIterations);
-        (void)sink;
     }
 
     // Stage 2: parsing only (preprocess once, reparse repeatedly).
     {
         Preprocessor_ preprocessor;
         auto preprocessed = preprocessor.Process(table);
-        volatile size_t sink = 0;
+        size_t sink = 0;
         Timer_ timer;
         for (size_t i = 0; i < kIterations; ++i) {
             Parser_ parser(preprocessed.constVariables_);
             for (const auto& dateEvent : preprocessed.events_)
                 sink += parser.Parse(dateEvent.second).size();
         }
+        Bench::DoNotOptimize(&sink);
         Report("parse (stage 2)", timer.Elapsed<microseconds>(), kIterations);
-        (void)sink;
     }
 
     // Combined: full ScriptProduct_ construction (stage 1 + stage 2).
     {
-        volatile size_t sink = 0;
+        size_t sink = 0;
         Timer_ timer;
         for (size_t i = 0; i < kIterations; ++i) {
             ScriptProduct_ product(dates, events);
             sink += product.EventDates().size();
         }
+        Bench::DoNotOptimize(&sink);
         Report("construct (stage 1+2)", timer.Elapsed<microseconds>(), kIterations);
-        (void)sink;
     }
 
     return 0;

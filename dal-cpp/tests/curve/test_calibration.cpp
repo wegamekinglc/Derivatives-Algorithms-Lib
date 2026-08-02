@@ -259,11 +259,11 @@ TEST(CalibrationTest, TestResolveInitialGuessMapsLogDiscountScalarByNodeDate) {
     const Vector_<> scalar = ResolveCurveCalibrationInitialGuess(spec);
 
     ASSERT_EQ(scalar.size(), static_cast<size_t>(2));
-    EXPECT_NEAR(scalar[0], -0.04, 1.0e-14);
-    EXPECT_NEAR(scalar[1], -0.08, 1.0e-14);
+    ASSERT_NEAR(scalar[0], -0.04, 1.0e-14);
+    ASSERT_NEAR(scalar[1], -0.08, 1.0e-14);
 
     spec.initialGuessPerNode_ = {-0.03, -0.07};
-    EXPECT_EQ(ResolveCurveCalibrationInitialGuess(spec), spec.initialGuessPerNode_);
+    ASSERT_EQ(ResolveCurveCalibrationInitialGuess(spec), spec.initialGuessPerNode_);
 }
 
 TEST(CalibrationTest, TestValidatePositiveDiscountFactorsRejectsInvalidCurves) {

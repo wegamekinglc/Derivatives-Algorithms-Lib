@@ -385,8 +385,8 @@ jobs:
             slug: asan-ubsan
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
-            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:StorageTest.TestEvaluationDate*
-            public-filter: PublicApiTest.TestMonteCarlo*
+            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows
+            public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms
           - label: TSan concurrency tests
             slug: tsan
             sanitizers: thread
