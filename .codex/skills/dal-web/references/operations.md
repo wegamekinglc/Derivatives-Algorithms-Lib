@@ -114,28 +114,28 @@ The backend imports the compiled `dal` package (dal-python pybind11 bindings) di
 2. From `dal-web/backend/`, install it against the existing staged prefix for
    the selected platform.
 
-Linux/macOS:
+   Linux/macOS:
 
-```bash
-uv sync --inexact
-stage="$(cd ../../build/stage/Release-linux && pwd -P)"
-uv pip install ../../dal-python \
-  "--config-settings=cmake.define.DAL_INSTALL_PREFIX=$stage"
-uv run --no-sync python -m app.native_runtime
-```
+   ```bash
+   uv sync --inexact
+   stage="$(cd ../../build/stage/Release-linux && pwd -P)"
+   uv pip install ../../dal-python \
+     "--config-settings=cmake.define.DAL_INSTALL_PREFIX=$stage"
+   uv run --no-sync python -m app.native_runtime
+   ```
 
-Windows (PowerShell 7+):
+   Windows (PowerShell 7+):
 
-```powershell
-uv sync --inexact
-$stage = Resolve-Path ../../build/stage/Release-windows
-uv pip install ../../dal-python --config-settings "cmake.define.DAL_INSTALL_PREFIX=$stage"
-uv run --no-sync python -m app.native_runtime
-```
+   ```powershell
+   uv sync --inexact
+   $stage = Resolve-Path ../../build/stage/Release-windows
+   uv pip install ../../dal-python --config-settings "cmake.define.DAL_INSTALL_PREFIX=$stage"
+   uv run --no-sync python -m app.native_runtime
+   ```
 
-The prefix must already contain the matching staged DAL install. The explicit
-`uv sync --inexact` and `uv run --no-sync` lifecycle preserves the manually
-installed native package.
+   The prefix must already contain the matching staged DAL install. The explicit
+   `uv sync --inexact` and `uv run --no-sync` lifecycle preserves the manually
+   installed native package.
 
 The start scripts inherit the caller's environment, so once `dal` is importable just run them directly:
 
