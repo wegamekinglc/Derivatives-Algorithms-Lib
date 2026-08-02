@@ -110,6 +110,32 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveExact) {
     ASSERT_LT(result.diagnostics_.rmsResidual_, 1.0e-6);
 }
 
+TEST(CurveSpecTest, TestCalibrateSingleCurvePiecewiseConstantForwardFromToday) {
+    CurveCalibrationSpecBuilder_ builder;
+    builder.today_ = Today();
+    builder.ccy_ = "USD";
+    builder.curveName_ = "pwc_deposits";
+    builder.calibrateDiscountCurve_ = true;
+    builder.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+    builder.initialGuess_ = 0.05;
+
+    const Date_ firstMaturity = Dal::Date::AddMonths(Today(), 12);
+    const Date_ secondMaturity = Dal::Date::AddMonths(Today(), 18);
+    const RateIndexConvention_ index = RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_365F"), CollateralType_OIS());
+    builder.knotDates_ = {Today(), firstMaturity, secondMaturity};
+    builder.instruments_ = {
+        DepositNew(Today(), Today(), firstMaturity, 0.04, index),
+        DepositNew(Today(), Today(), secondMaturity, 0.04, index),
+    };
+
+    const CalibrationResult_ result = CalibrateSingleCurve(builder.Build());
+
+    ASSERT_NE(result.curve_, nullptr);
+    ASSERT_EQ(result.diagnostics_.marketRates_.size(), 2);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-6);
+    ASSERT_LT(result.diagnostics_.rmsResidual_, 1.0e-6);
+}
+
 // Single-curve calibration with Jacobian
 
 TEST(CurveSpecTest, TestCalibrateSingleCurveWithBumpedJacobian) {

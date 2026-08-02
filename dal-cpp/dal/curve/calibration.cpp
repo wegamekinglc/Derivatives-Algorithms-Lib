@@ -522,6 +522,8 @@ namespace Dal {
             REQUIRE(knotDates.front() == spec.today_, "LOG_DISCOUNT calibration requires knot 0 to be exactly the anchor (== today)");
         } else if (spec.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
             REQUIRE(knotDates.front() > spec.today_, "ZERO_RATE calibration requires every knot to be strictly after today");
+        } else if (spec.parameterization_ == CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD) {
+            REQUIRE(knotDates.front() >= spec.today_, "Piecewise-constant forward calibration knot dates must not precede today");
         } else {
             REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
         }
@@ -606,16 +608,11 @@ namespace Dal {
                                                           const Matrix_<>* effJacobianInverse) {
             CurveCalibrationResult_ retval;
             retval.curve_ = BuildDiscountCurveUniqueT<double>(definition, result, spec.baseCurve_);
-            // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
-            // validate the free knots only.
-            if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-                Vector_<Date_> freeKnots;
-                for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
-                    freeKnots.push_back(knotDates[i]);
-                ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, freeKnots);
-            } else {
-                ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
-            }
+            Vector_<Date_> futureKnots;
+            for (const auto& knot : knotDates)
+                if (knot > spec.today_)
+                    futureKnots.push_back(knot);
+            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, futureKnots);
             Handle_<DiscountCurve_> diagnosticsCurve(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
             auto discountCurves = spec.discountCurves_;
             auto forwardCurves = spec.forwardCurves_;

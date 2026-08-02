@@ -48,6 +48,20 @@ TEST(CurveParameterizationTest, TestLayoutsMatchStableSolverColumnOrder) {
     ASSERT_FALSE(pwlLayout.pinnedAnchor_);
 }
 
+TEST(CurveParameterizationTest, TestPiecewiseConstantDefinitionAllowsAnchorBoundaryOnly) {
+    const Date_ anchor(2024, 1, 15);
+    const Date_ maturity(2025, 1, 15);
+    const DayBasis_ dayCount("ACT_365F");
+
+    const auto definition = MakeCurveDefinition("pwc", "USD", CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
+                                                LogDfScheme_::Value_::LOG_LINEAR, Vector_<Date_>{anchor, maturity}, anchor, dayCount);
+
+    ASSERT_EQ(definition.nodeDates_, Vector_<Date_>({anchor, maturity}));
+    ASSERT_THROW(MakeCurveDefinition("pwc", "USD", CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, LogDfScheme_::Value_::LOG_LINEAR,
+                                     Vector_<Date_>{anchor.AddDays(-1), maturity}, anchor, dayCount),
+                 Exception_);
+}
+
 TEST(CurveParameterizationTest, TestZeroRateDefinitionPrependsAnchorAndPreservesGeometry) {
     const Date_ anchor(2024, 1, 15);
     const Vector_<Date_> maturities{Date_(2024, 4, 15), Date_(2024, 7, 15), Date_(2025, 1, 15)};
