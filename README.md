@@ -16,15 +16,15 @@ Every push and pull request builds and tests this compiler × AAD-backend
 matrix. GitHub publishes one status badge per workflow; open a workflow run
 for per-job results.
 
-| Platform | Compiler | AADet | XAD | CoDiPack | Adept |
-|----------|----------|-------|-----|----------|-------|
-| Ubuntu (`ubuntu-latest`) | GCC 13 | ✓ | ✓ | ✓ | ✓ |
-| Ubuntu (`ubuntu-latest`) | GCC 14 | ✓ | ✓ | ✓ | ✓ |
-| Ubuntu (`ubuntu-latest`) | GCC 15 | ✓ | ✓ | ✓ | ✓ |
-| Ubuntu (`ubuntu-latest`) | Clang 18 | ✓ | ✓ | ✓ | ✓ |
-| Ubuntu (`ubuntu-latest`) | Clang 19 | ✓ | ✓ | ✓ | ✓ |
-| Ubuntu (`ubuntu-latest`) | Clang 20 | ✓ | ✓ | ✓ | ✓ |
-| Windows (`windows-latest`) | MSVC | ✓ | ✓ | — | ✓ |
+| Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
+|----------------------------|----------|-------|-----|----------|-------|
+| Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓     | ✓   | ✓        | ✓     |
+| Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓     | ✓   | ✓        | ✓     |
+| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓     | ✓   | ✓        | ✓     |
+| Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓     | ✓   | ✓        | ✓     |
+| Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓     | ✓   | ✓        | ✓     |
+| Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓     | ✓   | ✓        | ✓     |
+| Windows (`windows-latest`) | MSVC     | ✓     | ✓   | —        | ✓     |
 
 - GCC 13/14 legs additionally run gcov coverage; Coveralls tracks GCC 14 + AADet.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
