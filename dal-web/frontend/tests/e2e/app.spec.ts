@@ -28,7 +28,7 @@ test("navigates between primary pages", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Product Builder" })).toBeVisible();
 
   await page.goto("/models");
-  await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Models", exact: true })).toBeVisible();
 
   await page.goto("/valuations");
   await expect(page.getByRole("heading", { name: "Valuation Runs" })).toBeVisible();
