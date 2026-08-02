@@ -1,6 +1,8 @@
 # DAL Documentation Inventory
 
-Reviewed on 2026-08-02. The inventory was regenerated from:
+Reviewed on 2026-08-02 from final merged baseline
+`0215d9e78417102cab47578689dc670b7e275e62`. The in-scope inventory was
+regenerated from:
 
 ```bash
 git ls-files '*.md' '.codex/agents/*.toml' \
@@ -9,7 +11,17 @@ git ls-files '*.md' '.codex/agents/*.toml' \
 
 The final in-scope inventory contains 102 tracked files: 90 Markdown
 documents, 10 Codex agent TOML contracts, and two Codex skill-interface YAML
-files.
+files. Repository-wide tracked totals were regenerated separately with:
+
+```bash
+git ls-files '*.md' | wc -l
+git ls-files '*.toml' | wc -l
+git ls-files '*.yaml' '*.yml' | wc -l
+```
+
+Those commands report 90 Markdown, 12 TOML, and nine YAML/YML files. The two
+additional TOML files and seven additional YAML/YML files are outside this
+inventory's agent-contract/interface scope.
 
 Status meanings:
 
@@ -148,6 +160,7 @@ Status meanings:
 
 - Final inventory entries: **102**.
 - Final files by type: **90 Markdown**, **10 TOML**, **2 YAML**.
+- Repository-wide tracked totals: **90 Markdown**, **12 TOML**, **9 YAML/YML**.
 - Final files by area: **5 root**, **6 component**, **28 docs**, **2 GitHub**,
   **30 Claude**, **31 Codex**.
 - The 10 Claude agent roles and 10 Codex agent roles have the same role-name

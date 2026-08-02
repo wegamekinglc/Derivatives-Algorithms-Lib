@@ -51,9 +51,7 @@ here as the baseline rather than dated releases:
   including explicit historical rate/FX fixing demand, snapshot admission,
   passive and AAD valuation, and first-order node sensitivities. The same
   typed batch surface is additive in public C++ and Python. See
-  `docs/methodology/yield_curve.md`,
-  `docs/methodology/yield_curve_jacobian.md`, `docs/public-api.md`, and
-  `docs/curve-lab.md`.
+  `docs/public-api.md` and `docs/curve-lab.md`.
 
 - `web`: Added the Curve Lab DAL-WEB workflow for visual seven-family
   authoring with latest-request-wins canonical quote application and
@@ -118,6 +116,9 @@ here as the baseline rather than dated releases:
 - `matrix`: Fixed the `Matrix_` move constructor to value-initialize `cols_` —
   a moved-from matrix previously carried an indeterminate column count (latent
   UB present since 2022) and now has defined zero dimensions.
+- `model`: Fixed Black-Scholes clone construction to initialize its
+  pre-allocation timeline state; cloning before `Allocate()` no longer copies
+  indeterminate state. Public constructor and binding signatures are unchanged.
 
 - `aad`: Fixed multi-result adjoint propagation on the native backend. Reverse
   sweeps now dispatch to the vector-adjoint path (`TapNode_::PropagateAll`)

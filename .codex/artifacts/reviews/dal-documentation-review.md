@@ -4,22 +4,27 @@ Review date: 2026-08-02
 
 ## Scope and baseline
 
-The review started from a clean dedicated branch whose `HEAD` and freshly
-resolved `origin/master` were both
-`b60c07491cd01a9e429bfc87c21bab6aced40118` (`fix: prevent Report notice
-lifetime misuse (DAL-57) (#273)`, committed 2026-08-02 06:36:04 +08:00).
-The regenerated starting inventory contained 117 in-scope tracked files: 105
-Markdown documents, 10 `.codex/agents/*.toml` contracts, and two
-`.codex/skills/**/agents/openai.yaml` interfaces.
+The final P5 refresh started from a clean dedicated branch whose `HEAD` and
+freshly resolved `origin/master` were both
+`0215d9e78417102cab47578689dc670b7e275e62` (`DAL-64: harden Krylov numerics
+and validation (#275)`). The regenerated in-scope inventory contains 102
+tracked files: 90 Markdown documents, 10 `.codex/agents/*.toml` contracts,
+and two `.codex/skills/**/agents/openai.yaml` interfaces. Repository-wide
+tracked totals are 90 Markdown, 12 TOML, and nine YAML/YML files.
 
-Every tracked Markdown file was opened and parsed. Semantic reconciliation used
+The earlier exhaustive pass opened and parsed every tracked Markdown file. The
+final P5 refresh re-ran the inventory and reconciled its changed claims against
 current public headers, source, bindings, examples, tests, build manifests,
 OpenAPI, CI, repository contracts, and active artifacts. Retained plans,
 specifications, designs, and critiques were treated as proposed or historical
 evidence unless current source and tests proved delivery. The completed
-artifact cleanup leaves 102 in-scope files: 90 Markdown documents, 10 TOML
-contracts, and two YAML interfaces. The exact file-by-file classification is in
-[DAL documentation inventory](dal-documentation-inventory.md).
+artifact cleanup still leaves the same 102 in-scope files at the final merged
+tree. The exact file-by-file classification and reproducible count commands
+are in the [DAL documentation inventory](dal-documentation-inventory.md).
+
+`.github/scripts/check_docs.py` dynamically selects the root and component
+guides, the published and retained `docs/` tree, and four agent-facing guides.
+That selection currently contains 40 Markdown files.
 
 ## Findings and dispositions
 
@@ -81,7 +86,20 @@ their words, links, API claims, or ordering:
   roots, matrix semantics, and admission limits;
 - `docs/public-api.md` — the Python workflow table.
 
-### No content change — source changes after the Curve Lab documentation pass
+### Medium — DAL-55 changelog disposition conflicted with precedent
+
+The earlier audit treated PR #266 as an internal correction that did not need a
+changelog entry. The accepted P5 API decision instead records
+`DAL55_CHANGELOG=yes`. Immutable merge commit `417845e5` initializes
+`BlackScholes_::todayOnTimeLine_` and `defLine_` and adds a poisoned-storage
+pre-allocation clone regression. The existing `Matrix_` entry records the
+analogous removal of latent uninitialized state without a signature change.
+
+`CHANGELOG.md` now records the Black-Scholes correction in the same current
+format and states that public constructor and binding signatures are unchanged.
+It does not claim a new methodology or public API.
+
+### No published-prose change — other final merged packages
 
 The remaining source changes after the latest Curve Lab documentation commits
 do not require published prose or changelog updates:
@@ -91,27 +109,28 @@ do not require published prose or changelog updates:
   public and OpenAPI contracts, restart behavior, deadlines, and ordering.
 - PR #269 already updated `docs/public-api.md` for the closed deposit node
   sensitivity failure contract.
-- PR #266 initializes internal Black-Scholes clone state without changing the
-  public surface.
-- The BCG workspace-boundary target and PR #273 Report notice lifetime fix are
-  internal test/correctness changes with unchanged methodology and APIs.
+- The BCG workspace-boundary target, PR #273 Report notice lifetime fix, and
+  PR #275 test-harness/numerics hardening do not add a public API or methodology;
+  the solver behavior in PR #275 is already covered by `CHANGELOG.md` and
+  `docs/methodology/matrix.md`.
 
 No new methodology page, numerical algorithm, public removal, deprecation,
-breaking API, or significant capability is introduced by this maintenance
-patch. `CHANGELOG.md`, `docs/README.md`, and the `CLAUDE.md` methodology list
-therefore require no edit.
+breaking API, or significant capability is introduced by the remaining
+packages. `docs/README.md` and the `CLAUDE.md` methodology list therefore
+require no edit.
 
-## Modified-file disposition
+## P5 modified-file disposition
 
-- `.codex/artifacts/reviews/dal-documentation-inventory.md` — refreshes the
-  exhaustive inventory, adds `docs/curve-lab.md`, and records final counts.
+- `CHANGELOG.md` — corrects the seven-family citations and records the
+  source-backed DAL-55 latent-state fix.
+- `.codex/artifacts/reviews/dal-documentation-inventory.md` — binds the
+  exhaustive inventory and repository-wide tracked counts to the final tree.
 - `.codex/artifacts/reviews/dal-documentation-review.md` — records this audit,
-  discrepancies, lifecycle decisions, agent reconciliation, and verification.
-- `dal-web/README.md` — aligns four current pipe tables only.
-- `docs/curve-lab.md` — aligns five current pipe tables only.
-- `docs/public-api.md` — aligns one current pipe-table row only.
-- The 60 files enumerated under the completed-artifact finding were removed
-  because their work is merged and no longer controls an active gate.
+  the checker selection, DAL-55 discrepancy, final counts, and verification.
+- `.codex/skills/dal-web/references/operations.md` and
+  `.claude/skills/dal-web-setup/SKILL.md` — add the authoritative Bash and
+  PowerShell staged-prefix installation commands while preserving their
+  platform-specific packaging.
 
 ## Agent contract and Multica roster reconciliation
 
@@ -152,28 +171,30 @@ history outside the Codex active-artifact lifecycle.
 
 ## Validation record
 
-- `python3 .github/scripts/check_docs.py` — passed for the repository checker's
-  40 published and top-level agent-facing Markdown files.
+- `python3 .github/scripts/check_docs.py` — passed for the 40 Markdown files
+  dynamically selected from root/component guides, `docs/`, and the four
+  agent-facing guides.
 - `python3 -m unittest discover -s .github/scripts/tests -p 'test_check_docs.py' -v`
   — passed all 18 tests.
-- Full-scope Markdown/TOML/YAML audit — 90 Markdown documents (24,379 lines),
-  376 links/images, 93 pipe tables, 10 valid TOML contracts, two valid YAML
-  interfaces, 17 valid frontmatter blocks, 10 roles per platform, and 16
-  indexed methodology pages; zero local-link, anchor, pipe-table, whitespace,
-  final-newline, parse, role-set, or index errors.
+- Repository-wide tracked counts — 90 Markdown, 12 TOML, and nine YAML/YML
+  files. The audit's narrower contract/interface inventory remains 90 Markdown,
+  10 Codex agent TOML, and two Codex skill-interface YAML files (102 total).
+- In-scope inventory reconciliation — all 102 command-selected paths are
+  classified once; the area totals remain 5 root, 6 component, 28 docs,
+  2 GitHub, 30 Claude, and 31 Codex files.
 - Multica DAL roster comparison — 10 squad agents mapped one-to-one to the 10
   TOML contracts; zero `description` or `instructions` differences.
 - `git diff --check` — passed.
 
-No C++ build or test suite was run: this patch changes documentation formatting,
-active-artifact lifecycle state, and audit records only, and the doc-writer role
-does not edit or validate C++ behavior.
+No C++ build or test suite was run: this patch changes changelog, documentation,
+setup-instruction, and audit content only, and the doc-writer role does not edit
+or validate C++ behavior.
 
 ## Remaining decisions and risks
 
-1. `.github/scripts/check_docs.py` covers 40 of the final 90 Markdown files; the
-   full-inventory structural audit remains an explicit maintenance step rather
-   than a CI gate.
+1. `.github/scripts/check_docs.py` dynamically selects 40 of the final 90
+   Markdown files; the full-inventory structural audit remains an explicit
+   maintenance step rather than a CI gate.
 2. Retention or relocation of implemented Claude records and
    `docs/superpowers/` history remains a repository-governance decision.
 3. `.codex/artifacts/designs/api-shape-dedup.md` still awaits approval and must
