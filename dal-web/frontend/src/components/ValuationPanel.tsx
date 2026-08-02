@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, type ValuationConfig, type ValuationResult } from "../api/client";
 import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
@@ -13,6 +13,20 @@ const MAX_POLL_ATTEMPTS = 200;
 // ruinously long Monte Carlo run. 2^24 (~16.7M) is far past convergence.
 const MAX_PATHS = 2 ** 24;
 
+function pollDelay(signal: AbortSignal): Promise<boolean> {
+  if (signal.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const finish = (shouldContinue: boolean) => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", stop);
+      resolve(shouldContinue);
+    };
+    const stop = () => finish(false);
+    const timer = setTimeout(() => finish(true), POLL_INTERVAL_MS);
+    signal.addEventListener("abort", stop, { once: true });
+  });
+}
+
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
   const [numPaths, setNumPaths] = useState(65536);
   const [method, setMethod] = useState<"sobol" | "pseudo">("sobol");
@@ -23,8 +37,14 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ValuationResult | null>(null);
   const [statusLabel, setStatusLabel] = useState<string | null>(null);
+  const [lifetime] = useState(() => new AbortController());
+
+  useEffect(() => {
+    return () => lifetime.abort();
+  }, [lifetime]);
 
   async function run() {
+    const signal = lifetime.signal;
     setBusy(true);
     setError(null);
     setStatusLabel("submitting…");
@@ -39,14 +59,16 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       };
       // Backend now returns a pending result with status="running".
       const pending = await onRun(request);
+      if (signal.aborted) return;
       setResult(pending);
       setStatusLabel("pricing…");
 
       // Poll the backend until the background pricing task completes.
       let current = pending;
       for (let i = 0; i < MAX_POLL_ATTEMPTS && current.status === "running"; i++) {
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        if (!(await pollDelay(signal))) return;
         current = await api.getValuation(pending.id);
+        if (signal.aborted) return;
         setResult(current);
       }
       if (current.status === "running") {
@@ -56,10 +78,11 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       }
       setStatusLabel(null);
     } catch (e: unknown) {
+      if (signal.aborted) return;
       setError(String(e));
       setStatusLabel(null);
     } finally {
-      setBusy(false);
+      if (!signal.aborted) setBusy(false);
     }
   }
 

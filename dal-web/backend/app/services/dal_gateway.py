@@ -169,6 +169,10 @@ class GatewayLifecycleTransitionError(Exception):
         self.transition = transition
 
 
+class NativeDalCapabilityError(RuntimeError):
+    """Raised when a production DAL module lacks a required web capability."""
+
+
 class DalGateway:
     """Thin, thread-safe adapter over the DAL public Python API."""
 
@@ -325,21 +329,23 @@ class DalGateway:
             native_names = tuple(_native_instrument_name(item.kind) for item in instruments)
             latest_end = max(item.maturity for item in instruments)
             execution_spec = self._build_single_spec(normalized, request.referenced_curves, plan)
-            eligibility = (
-                self._dal.ValidateSingleCurveAnalyticEligibility(execution_spec)
-                if execution_spec is not None
-                and hasattr(self._dal, "ValidateSingleCurveAnalyticEligibility")
-                else None
-            )
-            resolved_guess = (
-                tuple(
+            if execution_spec is not None and hasattr(
+                self._dal, "ValidateSingleCurveAnalyticEligibility"
+            ):
+                eligibility = self._dal.ValidateSingleCurveAnalyticEligibility(execution_spec)
+            else:
+                self._require_test_double_fallback("single-curve analytic eligibility validation")
+                eligibility = None
+            if execution_spec is not None and hasattr(
+                self._dal, "ResolveCurveCalibrationInitialGuess"
+            ):
+                resolved_guess = tuple(
                     float(value)
                     for value in self._dal.ResolveCurveCalibrationInitialGuess(execution_spec)
                 )
-                if execution_spec is not None
-                and hasattr(self._dal, "ResolveCurveCalibrationInitialGuess")
-                else _fallback_resolved_initial_guess(normalized, plan)
-            )
+            else:
+                self._require_test_double_fallback("single-curve initial-guess resolution")
+                resolved_guess = _fallback_resolved_initial_guess(normalized, plan)
             return SingleGatewayAdmissionResult(
                 resolved_knot_plan=plan,
                 native_names_by_input=native_names,
@@ -418,6 +424,7 @@ class DalGateway:
         if native_spec is None or not hasattr(
             self._dal, "InspectCurveCalibrationExecutionIdentity"
         ):
+            self._require_test_double_fallback("single-curve execution identity inspection")
             return expected.model_copy(deep=True)
         return _native_identity_to_dto(
             self._dal.InspectCurveCalibrationExecutionIdentity(native_spec)
@@ -443,6 +450,7 @@ class DalGateway:
                 )
                 result = _native_staged_result_to_gateway(request.request, native_result)
             else:
+                self._require_test_double_fallback("staged cross-currency calibration")
                 result = self._calibrate_xccy_fallback(request.request, "xccy_staged")
             self._refresh_health_snapshot()
             return result._replace(native_solve_ms=(time.perf_counter() - started) * 1000.0)
@@ -450,6 +458,9 @@ class DalGateway:
     def validate_staged_xccy_admission(self, request: StagedXccyGatewayRequest) -> object | None:
         with self._calibration_lock:
             if not hasattr(self._dal, "ValidateCrossCurrencyAnalyticEligibility"):
+                self._require_test_double_fallback(
+                    "staged cross-currency analytic eligibility validation"
+                )
                 return None
             native_spec = self._build_staged_xccy_spec(request.request, request.referenced_curves)
             return self._dal.ValidateCrossCurrencyAnalyticEligibility(native_spec)
@@ -461,6 +472,7 @@ class DalGateway:
         extension = getattr(self._dal, "_dal", self._dal)
         preflight = getattr(extension, "_RequiredHistoricalXccyFixings", None)
         if preflight is None:
+            self._require_test_double_fallback("cross-currency historical fixing planning")
             return ()
         with self._calibration_lock:
             instruments = [
@@ -497,6 +509,7 @@ class DalGateway:
                 )
                 result = _native_joint_result_to_gateway(request.request, native_result)
             else:
+                self._require_test_double_fallback("joint cross-currency calibration")
                 result = self._calibrate_xccy_fallback(request.request, "xccy_joint")
             self._refresh_health_snapshot()
             return result._replace(native_solve_ms=(time.perf_counter() - started) * 1000.0)
@@ -504,6 +517,9 @@ class DalGateway:
     def validate_joint_xccy_admission(self, request: JointXccyGatewayRequest) -> object | None:
         with self._calibration_lock:
             if not hasattr(self._dal, "ValidateJointXccyAnalyticEligibility"):
+                self._require_test_double_fallback(
+                    "joint cross-currency analytic eligibility validation"
+                )
                 return None
             return self._dal.ValidateJointXccyAnalyticEligibility(
                 self._build_joint_xccy_spec(request.request)
@@ -635,6 +651,7 @@ class DalGateway:
             )
             native_result = self._dal.CalibrateSingleCurve(builder.Build())
             return {str(declaration["component_key"]): native_result.curve_}
+        self._require_test_double_fallback("Curve Lab single-curve calibration")
         return self._curve_lab_fallback_curves(document, declarations)
 
     def _curve_lab_multi_curves(
@@ -1310,6 +1327,7 @@ class DalGateway:
         document: Mapping[str, Any],
         declarations: list[Mapping[str, Any]],
     ) -> dict[str, Any]:
+        self._require_test_double_fallback("Curve Lab passive curve construction")
         curves: dict[str, Any] = {}
         for declaration in declarations:
             instruments = self._curve_lab_declaration_instruments(
@@ -1814,6 +1832,7 @@ class DalGateway:
         preflight = getattr(extension, "_RequiredHistoricalRateTradeFixings", None)
         valuation = canonical_utc_datetime(evaluation_time)
         if preflight is None:
+            self._require_test_double_fallback("Curve Lab historical fixing planning")
             return self._curve_lab_required_historical_fixings_fallback(
                 trades,
                 valuation,
@@ -2145,6 +2164,7 @@ class DalGateway:
                 ),
             )
             return _native_plan_to_dto(native)
+        self._require_test_double_fallback("single-curve knot planning")
         return _fallback_single_plan(request)
 
     def _build_rate_instrument(self, instrument: object) -> Any:
@@ -2472,6 +2492,7 @@ class DalGateway:
                 native_result,
                 actual,
             )
+        self._require_test_double_fallback("single-curve calibration")
         plan = verified.evidence.resolved_knot_plan
         declaration = request.declaration
         values = (
@@ -2504,6 +2525,7 @@ class DalGateway:
         plan: ResolvedSingleKnotPlanDTO,
     ) -> object | None:
         if not hasattr(self._dal, "CurveCalibrationSpecBuilder_"):
+            self._require_test_double_fallback("single-curve spec construction")
             return None
         declaration = request.declaration
         builder = self._dal.CurveCalibrationSpecBuilder_()
@@ -2581,6 +2603,7 @@ class DalGateway:
         }
 
     def _calibrate_xccy_fallback(self, request: object, kind: str) -> GatewayCalibrationResult:
+        self._require_test_double_fallback("cross-currency calibration")
         if kind == "xccy_joint":
             return _fallback_joint_result(request)
         curve = {
@@ -2602,6 +2625,12 @@ class DalGateway:
             "base_curve_id": None,
         }
         return _fallback_result(request, (curve,), None, xccy=True)
+
+    def _require_test_double_fallback(self, capability: str) -> None:
+        raise NativeDalCapabilityError(
+            f"Native DAL capability is required for {capability}; "
+            "synthetic production fallbacks are disabled"
+        )
 
 
 def _require_single_execution_identity(

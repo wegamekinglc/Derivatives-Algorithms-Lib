@@ -16,6 +16,7 @@ from typing import Any
 def build_fake_dal() -> types.ModuleType:
     """Return the minimal compiled-``dal`` stand-in used by web tests."""
     fake = types.ModuleType("dal")
+    fake.__dal_web_test_double__ = True
 
     class Date_:  # noqa: N801 - match DAL public naming
         def __init__(self, y: int, m: int, d: int) -> None:

@@ -24,6 +24,30 @@ _REQUIRED_SYMBOLS = (
     "Product_New",
 )
 
+_REQUIRED_CALIBRATION_SYMBOLS = (
+    "CalibrateJointXccyMarket",
+    "CalibrateMultiCurveBundle",
+    "CalibrateSingleCurve",
+    "CalibrateXccyMarket",
+    "CurveCalibrationSpecBuilder_",
+    "CrossCurrencyCalibrationSpecBuilder_",
+    "InspectCurveCalibrationExecutionIdentity",
+    "JointXccyCalibrationSpecBuilder_",
+    "MultiCurveCalibrationSpec_",
+    "PlanCurveCalibrationKnots",
+    "ResolveCurveCalibrationInitialGuess",
+    "ValidateCrossCurrencyAnalyticEligibility",
+    "ValidateJointXccyAnalyticEligibility",
+    "ValidateSingleCurveAnalyticEligibility",
+)
+
+_REQUIRED_PRIVATE_SYMBOLS = (
+    "_RequiredHistoricalRateTradeFixings",
+    "_RequiredHistoricalXccyFixings",
+)
+
+_TEST_DOUBLE_MARKER = "__dal_web_test_double__"
+
 
 def _failure_message(reason: str) -> str:
     return (
@@ -47,6 +71,14 @@ def load_native_dal() -> ModuleType:
         raise NativeDalUnavailableError(_failure_message(str(exc))) from exc
 
     missing = [name for name in _REQUIRED_SYMBOLS if not hasattr(module, name)]
+    if not getattr(module, _TEST_DOUBLE_MARKER, False):
+        missing.extend(name for name in _REQUIRED_CALIBRATION_SYMBOLS if not hasattr(module, name))
+        extension = getattr(module, "_dal", None)
+        missing.extend(
+            f"_dal.{name}"
+            for name in _REQUIRED_PRIVATE_SYMBOLS
+            if extension is None or not hasattr(extension, name)
+        )
     if missing:
         names = ", ".join(missing)
         raise NativeDalUnavailableError(
