@@ -9,9 +9,6 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 
 ## CI
 
-[![CMake Linux CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml)
-[![CMake Windows CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-windows.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-windows.yml)
-
 Every push and pull request builds and tests this compiler × AAD-backend
 matrix. GitHub publishes one status badge per workflow; open a workflow run
 for per-job results.

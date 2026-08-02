@@ -37,8 +37,7 @@ Create durable artifacts only when they control active work. Remove completed ar
 their current-state outcome is documented and Git history preserves implementation and review
 history.
 
-The retained `designs/api-shape-dedup.md` is active because it is design-only and still awaits
-approval.
+No tracked artifact currently controls active work.
 
 ## Preserved Claude Sources
 
