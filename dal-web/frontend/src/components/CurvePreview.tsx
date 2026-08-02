@@ -53,7 +53,9 @@ export default function CurvePreview({
           role="tab"
           aria-selected={view === "raw"}
           {...css(view === "raw" && "active")}
-          onClick={() => setView("raw")}
+          onClick={() => {
+            setView("raw");
+          }}
         >
           Raw quotes
         </button>
@@ -64,7 +66,9 @@ export default function CurvePreview({
           disabled={!hasNormalized}
           title={hasNormalized ? "Normalized quotes from the succeeded build" : "Available after a succeeded build"}
           {...css(view === "normalized" && "active")}
-          onClick={() => setView("normalized")}
+          onClick={() => {
+            setView("normalized");
+          }}
         >
           Normalized
         </button>
