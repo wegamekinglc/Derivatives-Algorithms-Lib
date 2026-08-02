@@ -1,13 +1,13 @@
 # DAL Documentation Inventory
 
-Reviewed on 2026-07-26. The inventory was regenerated from:
+Reviewed on 2026-08-02. The inventory was regenerated from:
 
 ```bash
 git ls-files '*.md' '.codex/agents/*.toml' \
   '.codex/skills/**/agents/openai.yaml' | sort
 ```
 
-The final in-scope inventory contains 101 tracked files: 89 Markdown
+The final in-scope inventory contains 102 tracked files: 90 Markdown
 documents, 10 Codex agent TOML contracts, and two Codex skill-interface YAML
 files.
 
@@ -41,10 +41,11 @@ Status meanings:
 - `dal-web/README.md` — Purpose: web application setup, architecture, and development guide. Status: **current**.
 - `dal-web/backend/README.md` — Purpose: FastAPI backend setup, native-binding requirement, and test guide. Status: **current**.
 
-## Published and retained documentation (27 Markdown)
+## Published and retained documentation (28 Markdown)
 
 - `docs/README.md` — Purpose: documentation index and status boundary for published, experimental, and historical material. Status: **current**.
 - `docs/architecture.md` — Purpose: repository architecture and component/data-flow overview. Status: **current**.
+- `docs/curve-lab.md` — Purpose: current Curve Lab authoring, persistence, pricing, risk, and operations contract. Status: **current**.
 - `docs/installation.md` — Purpose: platform prerequisites and component installation instructions. Status: **current**.
 - `docs/public-api.md` — Purpose: public C++, Python, and Excel surface guide. Status: **current**.
 - `docs/experimental/aad-analytic-jacobian-curve-calibration.md` — Purpose: AAD Jacobian design exploration and validation notes. Status: **experimental**.
@@ -145,9 +146,9 @@ Status meanings:
 
 ## Coverage reconciliation
 
-- Final inventory entries: **101**.
-- Final files by type: **89 Markdown**, **10 TOML**, **2 YAML**.
-- Final files by area: **5 root**, **6 component**, **27 docs**, **2 GitHub**,
+- Final inventory entries: **102**.
+- Final files by type: **90 Markdown**, **10 TOML**, **2 YAML**.
+- Final files by area: **5 root**, **6 component**, **28 docs**, **2 GitHub**,
   **30 Claude**, **31 Codex**.
 - The 10 Claude agent roles and 10 Codex agent roles have the same role-name
   set. Their representations intentionally differ; see the review artifact.

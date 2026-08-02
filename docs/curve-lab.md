@@ -89,12 +89,12 @@ result.
 
 The four supported build topologies are closed contracts:
 
-| Mode           | Declaration topology                                                        |
-|----------------|-----------------------------------------------------------------------------|
-| `SINGLE`       | Exactly one discount component                                               |
-| `MULTI_CURVE`  | One-currency discount and projection components; no basis component          |
-| `STAGED_XCCY`  | Domestic and foreign components plus exactly one basis component, staged     |
-| `JOINT_XCCY`   | Domestic and foreign components plus exactly one basis component, solved jointly |
+| Mode          | Declaration topology                                                             |
+|---------------|----------------------------------------------------------------------------------|
+| `SINGLE`      | Exactly one discount component                                                   |
+| `MULTI_CURVE` | One-currency discount and projection components; no basis component              |
+| `STAGED_XCCY` | Domestic and foreign components plus exactly one basis component, staged         |
+| `JOINT_XCCY`  | Domestic and foreign components plus exactly one basis component, solved jointly |
 
 Component roles are `DISCOUNT`, `PROJECTION`, and `BASIS`. Supported native
 parameter coordinates are `PIECEWISE_CONSTANT_FWD`,
@@ -172,17 +172,17 @@ in-memory UI state after a page reload.
 
 All Curve Lab endpoints are under `/api/curve-lab`:
 
-| Resource                       | Endpoints                                                                                  |
-|--------------------------------|--------------------------------------------------------------------------------------------|
-| Capabilities and quotes        | `GET /capabilities`, `POST /quote-canonicalizations`, `POST /quote-renderings`             |
-| Drafts                         | `POST /drafts`, `GET /drafts/{id}`, `PUT /drafts/{id}`                                     |
-| Build runs                     | `POST /drafts/{id}/build-runs`, `GET /build-runs/{id}`                                     |
-| Versions                       | `POST /versions`, `GET /versions`, `GET /versions/{id}`, `POST /versions/{id}/archive`     |
-| Version portability            | `POST /versions/{id}/clone`, `GET /versions/{id}/native-json`, `GET /versions/{id}/runtime-manifest` |
-| Imports                        | `POST /import-jobs`, `GET /import-jobs`, `GET /import-jobs/{id}`                          |
-| Fixing snapshots               | `POST /fixing-snapshots`, `GET /fixing-snapshots`, `GET /fixing-snapshots/{id}`            |
-| Pricing and risk               | `POST /risk-runs`, `GET /risk-runs`, `GET /risk-runs/{id}`                                |
-| Materialized matrices          | `GET /risk-runs/{id}/matrices/{matrix_id}`                                                 |
+| Resource                | Endpoints                                                                                            |
+|-------------------------|------------------------------------------------------------------------------------------------------|
+| Capabilities and quotes | `GET /capabilities`, `POST /quote-canonicalizations`, `POST /quote-renderings`                       |
+| Drafts                  | `POST /drafts`, `GET /drafts/{id}`, `PUT /drafts/{id}`                                               |
+| Build runs              | `POST /drafts/{id}/build-runs`, `GET /build-runs/{id}`                                               |
+| Versions                | `POST /versions`, `GET /versions`, `GET /versions/{id}`, `POST /versions/{id}/archive`               |
+| Version portability     | `POST /versions/{id}/clone`, `GET /versions/{id}/native-json`, `GET /versions/{id}/runtime-manifest` |
+| Imports                 | `POST /import-jobs`, `GET /import-jobs`, `GET /import-jobs/{id}`                                     |
+| Fixing snapshots        | `POST /fixing-snapshots`, `GET /fixing-snapshots`, `GET /fixing-snapshots/{id}`                      |
+| Pricing and risk        | `POST /risk-runs`, `GET /risk-runs`, `GET /risk-runs/{id}`                                           |
+| Materialized matrices   | `GET /risk-runs/{id}/matrices/{matrix_id}`                                                           |
 
 The live Swagger UI is served at `/docs`. The committed contract is
 `dal-web/backend/openapi/dal-web.openapi.json`; regenerate it from
@@ -258,10 +258,10 @@ and quote identities, canonical quote values, and exact risk bumps.
 
 A successful build serializes the native result through `Storable_` JSON:
 
-| Build shape      | REST `root_kind`  | Native root                                                     |
-|------------------|-------------------|-----------------------------------------------------------------|
-| Single component | `DISCOUNT_CURVE`  | `DiscountCurve_`                                                |
-| Multiple roots   | `CURVE_SET`       | `Bag_` containing named `DiscountCurve_` / `CurveBlock_` values |
+| Build shape      | REST `root_kind` | Native root                                                     |
+|------------------|------------------|-----------------------------------------------------------------|
+| Single component | `DISCOUNT_CURVE` | `DiscountCurve_`                                                |
+| Multiple roots   | `CURVE_SET`      | `Bag_` containing named `DiscountCurve_` / `CurveBlock_` values |
 
 `CURVE_SET` is the REST vocabulary; `Bag` is the native archive tag. Published
 versions are immutable records containing the exact canonical native payload,
@@ -322,12 +322,12 @@ Risk measures have the following semantics:
 
 Optional matrix layers are self-describing:
 
-| Layer                         | Mathematical name                      | Orientation         | Method and units                                                                 |
-|-------------------------------|----------------------------------------|---------------------|----------------------------------------------------------------------------------|
-| `TRADE_TO_NODE`               | `trade_to_node_pv_gradient`            | trade × parameter   | Native AAD after parity verification, otherwise central parameter bump; PV per native parameter unit |
-| `CALIBRATION_JACOBIAN`        | `d_parameter_d_normalized_quote`       | parameter × quote   | Central full recalibration; native parameter unit per decimal-rate quote unit    |
-| `COMPOSED_QUOTE_DIAGNOSTIC`   | `trade_to_node_times_calibration_jacobian` | trade × quote   | Matrix composition; base-currency PV per decimal-rate quote unit                 |
-| Key-rate result               | independently recalibrated quote risk  | trade × quote       | Full recalibration at the exact family-specific quote bump                       |
+| Layer                       | Mathematical name                          | Orientation       | Method and units                                                                                     |
+|-----------------------------|--------------------------------------------|-------------------|------------------------------------------------------------------------------------------------------|
+| `TRADE_TO_NODE`             | `trade_to_node_pv_gradient`                | trade × parameter | Native AAD after parity verification, otherwise central parameter bump; PV per native parameter unit |
+| `CALIBRATION_JACOBIAN`      | `d_parameter_d_normalized_quote`           | parameter × quote | Central full recalibration; native parameter unit per decimal-rate quote unit                        |
+| `COMPOSED_QUOTE_DIAGNOSTIC` | `trade_to_node_times_calibration_jacobian` | trade × quote     | Matrix composition; base-currency PV per decimal-rate quote unit                                     |
+| Key-rate result             | independently recalibrated quote risk      | trade × quote     | Full recalibration at the exact family-specific quote bump                                           |
 
 Every matrix response carries row and column axis references, dimensions,
 availability and reason, method, unit and bump metadata, version and fixing
@@ -414,15 +414,15 @@ Build, import, and risk work share one process-local queue with 2 workers and
 calls. The risk estimator rejects work before queue admission when any bound is
 exceeded:
 
-| Dimension                   | Limit   |
-|-----------------------------|---------|
-| Trades                      | 1,000   |
-| Native parameters           | 500     |
-| Quotes                      | 500     |
-| Price evaluations           | 100,000 |
-| Calibration solves          | 1,002   |
-| AAD recordings              | 1,000   |
-| Estimated wall time         | 900,000 ms |
+| Dimension           | Limit      |
+|---------------------|------------|
+| Trades              | 1,000      |
+| Native parameters   | 500        |
+| Quotes              | 500        |
+| Price evaluations   | 100,000    |
+| Calibration solves  | 1,002      |
+| AAD recordings      | 1,000      |
+| Estimated wall time | 900,000 ms |
 
 Archive import bounds are 10 MiB on the wire, 50 MiB expanded, depth 64,
 500,000 values, 10,000 objects, 50,000 references, 1 MiB per string,
