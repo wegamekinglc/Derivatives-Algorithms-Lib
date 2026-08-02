@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import ValuationPanel from "../../src/components/ValuationPanel";
 import { api, type ValuationConfig, type ValuationResult } from "../../src/api/client";
 
@@ -138,6 +139,23 @@ describe("ValuationPanel", () => {
     });
 
     expect(getValuationSpy).not.toHaveBeenCalled();
+  });
+
+  it("remains usable after the StrictMode effect replay", async () => {
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult());
+    render(
+      <StrictMode>
+        <ValuationPanel onRun={onRun} />
+      </StrictMode>,
+    );
+
+    fireEvent.click(runButton());
+
+    await screen.findByText("Total PV");
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(runButton().disabled).toBe(false);
   });
 
   it("renders the per-trade table for multi-trade results", async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type ValuationConfig, type ValuationResult } from "../api/client";
 import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
@@ -41,16 +41,22 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ValuationResult | null>(null);
   const [statusLabel, setStatusLabel] = useState<string | null>(null);
-  const [lifetime] = useState(() => new AbortController());
+  const lifetime = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    lifetime.current = controller;
     return () => {
-      lifetime.abort();
+      controller.abort();
+      if (lifetime.current === controller) {
+        lifetime.current = null;
+      }
     };
-  }, [lifetime]);
+  }, []);
 
   async function run() {
-    const signal = lifetime.signal;
+    const signal = lifetime.current?.signal;
+    if (signal === undefined) return;
     setBusy(true);
     setError(null);
     setStatusLabel("submitting…");
