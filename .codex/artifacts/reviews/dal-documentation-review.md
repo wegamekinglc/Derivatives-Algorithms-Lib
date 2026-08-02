@@ -1,170 +1,180 @@
 # DAL Documentation Review
 
-Review date: 2026-07-26
+Review date: 2026-08-02
 
 ## Scope and baseline
 
-The review started from freshly fetched `origin/master` at
-`54768fdd0c1a551d997475ea9d40e069b146a097` and covered every tracked Markdown
-file, every `.codex/agents/*.toml` contract, both
-`.codex/skills/**/agents/openai.yaml` interfaces, and the corresponding Claude
-agent and skill descriptions. The regenerated starting inventory contained 102
-files: 90 Markdown documents, 10 TOML contracts, and two YAML interfaces. The
-completed activity plan removed by this review leaves the final inventory at
-101 files: 89 Markdown documents, 10 TOML contracts, and two YAML interfaces.
-The exhaustive file-by-file classification is in
-[DAL documentation inventory](dal-documentation-inventory.md).
+The review started from a clean dedicated branch whose `HEAD` and freshly
+resolved `origin/master` were both
+`b60c07491cd01a9e429bfc87c21bab6aced40118` (`fix: prevent Report notice
+lifetime misuse (DAL-57) (#273)`, committed 2026-08-02 06:36:04 +08:00).
+The regenerated starting inventory contained 117 in-scope tracked files: 105
+Markdown documents, 10 `.codex/agents/*.toml` contracts, and two
+`.codex/skills/**/agents/openai.yaml` interfaces.
 
-Ground truth was established from current public headers, implementations,
-bindings, examples, tests, build manifests, dependency locks, CI workflows,
-repository-level guidance, and active artifacts. Retained specifications,
-designs, critiques, and plans were treated as historical or proposed evidence,
-not as shipped behavior. The audit combined semantic source comparison with
-full-inventory link, anchor, path, table, whitespace, final-newline,
-TOML/YAML/frontmatter, role-set, methodology-index, and Multica roster checks.
+Every tracked Markdown file was opened and parsed. Semantic reconciliation used
+current public headers, source, bindings, examples, tests, build manifests,
+OpenAPI, CI, repository contracts, and active artifacts. Retained plans,
+specifications, designs, and critiques were treated as proposed or historical
+evidence unless current source and tests proved delivery. The completed
+artifact cleanup leaves 102 in-scope files: 90 Markdown documents, 10 TOML
+contracts, and two YAML interfaces. The exact file-by-file classification is in
+[DAL documentation inventory](dal-documentation-inventory.md).
 
 ## Findings and dispositions
 
-### Medium — a completed plan remained in the active-artifact tree
+### Medium — completed Codex work remained marked as active
 
-- **File:** `.codex/artifacts/plans/p1-staged-xccy-sensitivity.md`
-- **Evidence:** the plan targets `feature/dal-6-staged-xccy-sensitivity`; PR
-  #257 is merged into `master`, and the resulting core, public C++, Python,
-  Excel, methodology, public-API, and changelog surfaces are present in the
-  current tree.
-- **Disposition:** removed the plan. `.codex/README.md` reserves
-  `.codex/artifacts/` for work products that still control active work and
-  requires completed artifacts to be removed once current documentation and
-  Git history preserve the result.
+`.codex/README.md` reserves `.codex/artifacts/` for work products that still
+control active work. Sixty tracked files instead preserved completed DAL-10,
+DAL-33, and Curve Lab delivery state, including statements that PRs were open,
+unmerged, or awaiting gates that are now complete.
 
-### Medium — Claude feature routing bypassed critique and named an absent role
+Current `origin/master` proves the relevant outcomes:
 
-- **Files:** `.claude/agents/dal-spec-writer.md` and
-  `.claude/agents/dal-api-designer.md`
-- **Evidence:** the spec contract allowed non-public features to proceed
-  directly to `dal-implementer`, and the API contract sent a locked surface
-  directly to implementation. Both contracts also assigned work to an
-  `architect` role that does not exist in either platform's 10-role roster.
-- **Disposition:** route every new feature through `dal-critic` before
-  implementation. Public-API work reaches the critic after
-  `dal-api-designer`; non-public work reaches it after `dal-spec-writer`.
-  Replace `architect` responsibilities with the actual API-design or critique
-  gate, depending on context.
+- DAL-10 is represented by merged PR #259 (`f8381ffc`) and the current
+  calibration workbench source, tests, and `dal-web/README.md`.
+- DAL-33 is represented by merged PR #262 (`8d34e79e`), its matrix tests,
+  `docs/methodology/matrix.md`, and `CHANGELOG.md`.
+- Curve Lab is represented by merged PR #265 (`b089b8c9`), the current backend,
+  frontend, OpenAPI, tests, `docs/curve-lab.md`, `dal-web/README.md`,
+  `docs/public-api.md`, and `CHANGELOG.md`.
 
-### Medium — Claude contracts used stale public paths and namespace spelling
+The following completed artifact groups were removed; Git history preserves all
+of their delivery and review evidence:
 
-- **Files:** `.claude/agents/dal-spec-writer.md`,
-  `.claude/agents/dal-api-designer.md`, `.claude/agents/dal-critic.md`,
-  `.claude/agents/dal-implementer.md`, and
-  `.claude/agents/dal-doc-writer.md`
-- **Evidence:** the contracts referred to a nonexistent `public/` tree, and
-  the API designer named a lowercase `dal::` namespace. The current surfaces
-  are `dal-public/src/`, `dal-python/src/bindings/`, and `dal-excel/src/`;
-  public C++ declarations use `Dal::`.
-- **Disposition:** replace the stale path and namespace references with the
-  current repository surfaces and `Dal::` spelling.
+- DAL-33: `.codex/artifacts/DAL-33-codacy-complexity-before.json`,
+  `.codex/artifacts/DAL-33-implementer-v2.md`,
+  `.codex/artifacts/DAL-33-performance-v2/paired/results.json`, its
+  `summary.md`, and all 40
+  `krylov_perf/{01..20}-{base,head}.txt` samples.
+- Curve Lab design/review:
+  `.codex/artifacts/critiques/curve-lab-technical-design-review.md`, all five
+  tracked files under
+  `.codex/artifacts/designs/curve-lab-revision-8/`,
+  `.codex/artifacts/reviews/curve-lab-dal17-final-disposition.md`,
+  `.codex/artifacts/reviews/curve-lab-dal20-documentation-decision.md`, and
+  `.codex/artifacts/specs/curve-lab-dal-web-v0.5.md`.
+- Curve Lab execution: all six plans named
+  `.codex/artifacts/plans/2026-07-28-curve-lab-dal23-repairs.md`,
+  `2026-07-28-curve-lab-dal23-round-3.md`,
+  `2026-07-29-curve-lab-dal19-round5.md`,
+  `2026-07-30-curve-lab-canonical-quote-wiring.md`,
+  `2026-07-30-curve-lab-m1-m2-repairs.md`, and
+  `curve-lab-revision-8-implementation.md`.
+- DAL-10: `.codex/artifacts/plans/dal-10-contract-evidence.md`.
 
-### No documentation change — exact Krylov residual handling
+The active `designs/api-shape-dedup.md` remains because it is design-only and
+still awaits approval. This inventory and review remain as the active handoff
+for independent documentation review.
 
-The latest `master` change makes `CGSolve` and `BCGSolve` return immediately
-when the supplied initial guess has an exact component-wise zero residual while
-still iterating on representable nonzero residuals whose squared norm
-underflows. `docs/methodology/matrix.md` already states the public convergence
-criterion and solver roles without claiming a contradictory first-iteration
-behavior. This edge-case fix does not add a public API, numerical method, or
-significant methodology shift, so neither published prose nor `CHANGELOG.md`
-needs another entry.
+### Low — current Curve Lab tables were not exactly aligned
 
-### No content drift — staged XCCY sensitivity documentation
+Ten pipe tables added or extended with Curve Lab content had valid column
+counts but did not satisfy the repository rule that every column use its exact
+maximum content width. The tables were mechanically aligned without changing
+their words, links, API claims, or ordering:
 
-The staged XCCY additions in `CHANGELOG.md`, the Excel and Python READMEs,
-`docs/public-api.md`, and the XCCY/Jacobian methodology pages agree with the
-current core and public structs, overloads, binding aliases, Excel selectors,
-availability truth table, axis ordering, and solver-scaled effective-inverse
-tests. The one-argument defaults remain `ANALYTIC`, forward Jacobian requested,
-and effective inverse requested. No corrective edit was required.
+- `dal-web/README.md` — four tables covering DAL calls, persisted calibration
+  entities, endpoint highlights, and Curve Lab operations;
+- `docs/curve-lab.md` — five tables covering topology, endpoints, archive
+  roots, matrix semantics, and admission limits;
+- `docs/public-api.md` — the Python workflow table.
+
+### No content change — source changes after the Curve Lab documentation pass
+
+The remaining source changes after the latest Curve Lab documentation commits
+do not require published prose or changelog updates:
+
+- PR #270 freezes admitted risk inputs, deduplicates runtime paths, offloads
+  native admission work, and adds review coverage while explicitly preserving
+  public and OpenAPI contracts, restart behavior, deadlines, and ordering.
+- PR #269 already updated `docs/public-api.md` for the closed deposit node
+  sensitivity failure contract.
+- PR #266 initializes internal Black-Scholes clone state without changing the
+  public surface.
+- The BCG workspace-boundary target and PR #273 Report notice lifetime fix are
+  internal test/correctness changes with unchanged methodology and APIs.
+
+No new methodology page, numerical algorithm, public removal, deprecation,
+breaking API, or significant capability is introduced by this maintenance
+patch. `CHANGELOG.md`, `docs/README.md`, and the `CLAUDE.md` methodology list
+therefore require no edit.
+
+## Modified-file disposition
+
+- `.codex/artifacts/reviews/dal-documentation-inventory.md` — refreshes the
+  exhaustive inventory, adds `docs/curve-lab.md`, and records final counts.
+- `.codex/artifacts/reviews/dal-documentation-review.md` — records this audit,
+  discrepancies, lifecycle decisions, agent reconciliation, and verification.
+- `dal-web/README.md` — aligns four current pipe tables only.
+- `docs/curve-lab.md` — aligns five current pipe tables only.
+- `docs/public-api.md` — aligns one current pipe-table row only.
+- The 60 files enumerated under the completed-artifact finding were removed
+  because their work is merged and no longer controls an active gate.
 
 ## Agent contract and Multica roster reconciliation
 
 The DAL squad contains 10 agent members, and its name set exactly matches the
 10 `.codex/agents/*.toml` names. For every member:
 
-- the Multica `description` exactly matches the TOML `description` and is
-  between 56 and 77 Unicode characters, below the 255-character limit;
-- the Multica `instructions` exactly match `developer_instructions` after the
-  TOML block string's single formatting newline is stripped;
-- no `description` or `instructions` update was necessary;
-- runtime, model, thinking level, service tier, skills, environment, MCP,
-  visibility, concurrency, avatar, squad membership, role, and leader fields
-  were not changed.
+- Multica `description` exactly matches the TOML `description`;
+- descriptions are 56–77 Unicode code points, below the 255-code-point limit;
+- Multica `instructions` exactly match normalized TOML
+  `developer_instructions`;
+- no Multica `description` or `instructions` update is necessary.
+
+No repository agent TOML changed. Runtime, model, thinking level, service tier,
+skills, environment, MCP, visibility, concurrency, avatar, squad membership,
+role, and leader fields were read but not modified.
 
 ## Intentional Claude/Codex differences
 
-- Both platforms define the same 10 DAL role names and cover specification,
-  API design, critique, implementation, testing, review, documentation,
+- Both platforms retain the same 10 role names and cover specification, API
+  design, critique, implementation, testing, review, documentation,
   performance, simplification, and orchestration.
-- Claude roles remain verbose Markdown contracts with YAML frontmatter,
-  Claude-specific tool declarations, invocation language, and `.claude/`
-  artifact paths. Codex roles remain compact TOML contracts with explicit
-  delegation authorization, focused references, and `.codex/artifacts/`
-  outputs. After correcting the unsupported routing, role-name, path, and
-  namespace drift above, these remaining differences are supported platform
-  differences rather than missing parity.
-- Both route new features through specification, optional API design,
-  critique, implementation, testing, review, and documentation. Both keep
-  performance and simplification as post-correctness sidecars and require
-  reviewer coverage for code changes.
-- Claude exposes five user-invocable Markdown skills. Codex exposes two
-  reusable skills with `openai.yaml` metadata and seven shared references.
-  This packaging difference is intentional.
-- `.claude/rules/git-commit-pr.md` and
-  `.codex/references/git-commit-pr.md` remain byte-identical, as do the two
-  unit-test-style guides. Other pairs retain platform-specific artifact roots
-  and invocation behavior.
+- Claude keeps verbose Markdown contracts, Claude-specific tool/invocation
+  language, `.claude/` artifact paths, and its worktree conventions. Codex keeps
+  compact TOML contracts, explicit delegation authorization, focused shared
+  references, and conditional `.codex/artifacts/` outputs.
+- Both route new work through specification, optional API design, critique,
+  implementation, testing, review, and documentation; performance and
+  simplification remain post-correctness sidecars. Both require reviewer
+  coverage for code changes.
+- Claude's five user-facing skill documents and Codex's two reusable skills
+  plus shared references are different platform packaging, not missing role
+  coverage.
 
-## Artifact and status decisions
-
-- `.claude/designs/api-shape-dedup.md` and
-  `.codex/artifacts/designs/api-shape-dedup.md` remain byte-identical active
-  designs awaiting approval; they are not described as shipped behavior.
-- Joint-AAD, PDE, web-persistence, simultaneous-multi-curve,
-  compiled-evaluator, and XCCY records remain classified as implemented
-  history. Their historical commands and proposed paths are not current
-  operational guidance.
-- The two `docs/experimental/` files remain explicitly non-normative. The four
-  `docs/superpowers/` records remain historical design and implementation
-  material outside the published documentation index.
-- No `CHANGELOG.md` entry was added because this review changes only
-  documentation lifecycle state and audit records.
-
-## Remaining decisions and risks
-
-1. `.github/scripts/check_docs.py` still validates a curated 39-file set rather
-   than every tracked Markdown document. Expanding CI coverage requires a
-   separate automation change outside this documentation-only patch.
-2. Retention or relocation of implemented Claude records and
-   `docs/superpowers/` history remains a repository-governance decision.
-3. The API-shape deduplication design still awaits approval; documentation must
-   continue to describe current duplicated validation behavior until it is
-   implemented.
+No unsupported role, routing, responsibility, permission, escalation, handoff,
+or artifact-path drift remains. Implemented `.claude/**` records and historical
+`docs/superpowers/**` material remain deliberately classified as retained
+history outside the Codex active-artifact lifecycle.
 
 ## Validation record
 
 - `python3 .github/scripts/check_docs.py` — passed for the repository checker's
-  curated 39 Markdown files.
+  40 published and top-level agent-facing Markdown files.
 - `python3 -m unittest discover -s .github/scripts/tests -p 'test_check_docs.py' -v`
-  — 18 tests passed.
-- Targeted Claude contract audit — both specification paths and the API-note
-  path reach `dal-critic` before implementation; zero absent `architect`
-  role references, standalone `public/` paths, or lowercase `dal::` namespace
-  references remain in the five corrected contracts.
-- Temporary MarkdownIt/PyYAML/tomllib full-scope audit — 89 Markdown documents,
-  365 parsed links or images, 85 exactly aligned tables, 17 valid Markdown
-  frontmatter blocks, 10 valid TOML contracts, two valid YAML interfaces, 101
-  exact inventory entries, 10 roles per platform, and 16 methodology pages;
-  zero link, anchor, table, whitespace, final-newline, parse, set, or index
-  errors.
-- `multica agent list --output json` plus TOML field comparison — all 10 DAL
-  descriptions and normalized instruction contracts matched; zero field
-  updates.
+  — passed all 18 tests.
+- Full-scope Markdown/TOML/YAML audit — 90 Markdown documents (24,379 lines),
+  376 links/images, 93 pipe tables, 10 valid TOML contracts, two valid YAML
+  interfaces, 17 valid frontmatter blocks, 10 roles per platform, and 16
+  indexed methodology pages; zero local-link, anchor, pipe-table, whitespace,
+  final-newline, parse, role-set, or index errors.
+- Multica DAL roster comparison — 10 squad agents mapped one-to-one to the 10
+  TOML contracts; zero `description` or `instructions` differences.
 - `git diff --check` — passed.
+
+No C++ build or test suite was run: this patch changes documentation formatting,
+active-artifact lifecycle state, and audit records only, and the doc-writer role
+does not edit or validate C++ behavior.
+
+## Remaining decisions and risks
+
+1. `.github/scripts/check_docs.py` covers 40 of the final 90 Markdown files; the
+   full-inventory structural audit remains an explicit maintenance step rather
+   than a CI gate.
+2. Retention or relocation of implemented Claude records and
+   `docs/superpowers/` history remains a repository-governance decision.
+3. `.codex/artifacts/designs/api-shape-dedup.md` still awaits approval and must
+   continue to be treated as a proposal, not shipped behavior.

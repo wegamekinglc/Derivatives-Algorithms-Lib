@@ -46,18 +46,18 @@ dal-web/
 The backend maps business entities onto DAL's scripted-product / model /
 Monte-Carlo public API:
 
-| UI concept      | DAL public API call                              |
-|-----------------|--------------------------------------------------|
-| Product builder | `Product_New(dates, events)`, `Product_Debug`    |
-| Black-Scholes   | `BSModelData_New(spot, vol, rate, div)`          |
-| Dupire          | `DupireModelData_New(spot, rate, repo, ...)`     |
-| Evaluation date | `EvaluationDate_Set` / `EvaluationDate_Get`      |
-| Valuation       | `MonteCarlo_Value(product, model, n_paths, ...)` |
-| Curve planning  | `PlanCurveCalibrationKnots`, eligibility and execution-identity inspectors |
-| Calibration     | `CalibrateSingleCurve`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`    |
+| UI concept      | DAL public API call                                                                |
+|-----------------|------------------------------------------------------------------------------------|
+| Product builder | `Product_New(dates, events)`, `Product_Debug`                                      |
+| Black-Scholes   | `BSModelData_New(spot, vol, rate, div)`                                            |
+| Dupire          | `DupireModelData_New(spot, rate, repo, ...)`                                       |
+| Evaluation date | `EvaluationDate_Set` / `EvaluationDate_Get`                                        |
+| Valuation       | `MonteCarlo_Value(product, model, n_paths, ...)`                                   |
+| Curve planning  | `PlanCurveCalibrationKnots`, eligibility and execution-identity inspectors         |
+| Calibration     | `CalibrateSingleCurve`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`          |
 | Curve rebuild   | `DiscountPWC_New`, `DiscountPWLF_New`, `DiscountZeroRate_New`, `DiscountLogDF_New` |
-| Curve archive   | Private `Storable_` JSON and `Bag_` integration bridge                       |
-| Rate pricing    | `PriceRateTrades`, fixing planning, and `RateTradeNodeSensitivities`          |
+| Curve archive   | Private `Storable_` JSON and `Bag_` integration bridge                             |
+| Rate pricing    | `PriceRateTrades`, fixing planning, and `RateTradeNodeSensitivities`               |
 
 No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
@@ -96,8 +96,8 @@ implements the same `StoreProtocol` the routers depend on:
 | Calibration entity                | Persisted state                                                                                  |
 |-----------------------------------|--------------------------------------------------------------------------------------------------|
 | `CalibrationRun`                  | Versioned request, normalized solver/options, lifecycle, execution evidence, results, and errors |
-| `CurveDefinition`                 | Versioned reconstruction data and base-curve ID; each base curve is an independent persisted row  |
-| `CalibrationInstrumentDefinition` | Normalized instrument payload plus its input and canonical calibration ordering                   |
+| `CurveDefinition`                 | Versioned reconstruction data and base-curve ID; each base curve is an independent persisted row |
+| `CalibrationInstrumentDefinition` | Normalized instrument payload plus its input and canonical calibration ordering                  |
 
 Curve rows store complete reconstruction data for
 `PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`, `ZERO_RATE`, and
@@ -299,32 +299,32 @@ is running and the port in `vite.config.ts` matches.
 The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
 `/docs` once the backend is running. Highlights beyond the standard CRUD:
 
-| Endpoint                                         | Notes                                                                                       |
-|--------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `GET /api/health`                                | Reports the active DAL backend (`dal`).                                                     |
-| `POST /api/products`, `PUT /api/products/{id}`   | Create / partially update a scripted product.                                               |
-| `POST /api/products/debug`                       | Render the DAL `Product_Debug` dump for arbitrary rows.                                     |
-| `POST /api/models`, `PUT /api/models/{id}`       | Black-Scholes or Dupire model data.                                                         |
-| `POST /api/trades`, `PUT /api/trades/{id}`       | Link a product + model + notional.                                                          |
-| `POST /api/portfolios/{id}/trades/{tid}`         | Add a trade to a portfolio.                                                                 |
-| `POST /api/trades/{id}/value`                    | Start an **async** single-trade valuation (returns `status: "running"`).                    |
-| `POST /api/portfolios/{id}/value`                | Start an **async** portfolio valuation (returns `status: "running"`).                       |
-| `GET /api/valuations/{id}`                       | Poll until `status` becomes `"completed"` or `"failed"`.                                    |
-| `POST /api/calibrations/single`                  | Submit a versioned single discount/projection curve calibration; returns `202` + `Location`. |
-| `POST /api/calibrations/xccy/staged`             | Submit staged XCCY basis calibration over persisted domestic/foreign curve blocks.           |
-| `POST /api/calibrations/xccy/joint`              | Submit one joint domestic, foreign, and basis calibration.                                  |
-| `GET /api/calibrations/{id}`                     | Read the persisted run and optionally request a quote-bump preview.                          |
-| `GET /api/curves/{id}`                           | Read a versioned, recursively reconstructible persisted curve DTO.                           |
+| Endpoint                                       | Notes                                                                                        |
+|------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `GET /api/health`                              | Reports the active DAL backend (`dal`).                                                      |
+| `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product.                                                |
+| `POST /api/products/debug`                     | Render the DAL `Product_Debug` dump for arbitrary rows.                                      |
+| `POST /api/models`, `PUT /api/models/{id}`     | Black-Scholes or Dupire model data.                                                          |
+| `POST /api/trades`, `PUT /api/trades/{id}`     | Link a product + model + notional.                                                           |
+| `POST /api/portfolios/{id}/trades/{tid}`       | Add a trade to a portfolio.                                                                  |
+| `POST /api/trades/{id}/value`                  | Start an **async** single-trade valuation (returns `status: "running"`).                     |
+| `POST /api/portfolios/{id}/value`              | Start an **async** portfolio valuation (returns `status: "running"`).                        |
+| `GET /api/valuations/{id}`                     | Poll until `status` becomes `"completed"` or `"failed"`.                                     |
+| `POST /api/calibrations/single`                | Submit a versioned single discount/projection curve calibration; returns `202` + `Location`. |
+| `POST /api/calibrations/xccy/staged`           | Submit staged XCCY basis calibration over persisted domestic/foreign curve blocks.           |
+| `POST /api/calibrations/xccy/joint`            | Submit one joint domestic, foreign, and basis calibration.                                   |
+| `GET /api/calibrations/{id}`                   | Read the persisted run and optionally request a quote-bump preview.                          |
+| `GET /api/curves/{id}`                         | Read a versioned, recursively reconstructible persisted curve DTO.                           |
 
 ### Curve Lab V2 API
 
 The `/api/curve-lab` surface is additive to the calibration endpoints above:
 
-| Resource            | Operations                                                                                   |
-|---------------------|----------------------------------------------------------------------------------------------|
+| Resource            | Operations                                                                                     |
+|---------------------|------------------------------------------------------------------------------------------------|
 | Capabilities/quotes | Read the closed V2 contract, canonicalize quote lexemes, and render exact presentation strings |
-| Drafts/build runs   | Create or compare-and-swap a draft, snapshot a build, and poll its immutable lifecycle       |
-| Versions/imports    | Publish, clone, archive, export native JSON/manifest, and preflight/reconstruct imports       |
+| Drafts/build runs   | Create or compare-and-swap a draft, snapshot a build, and poll its immutable lifecycle         |
+| Versions/imports    | Publish, clone, archive, export native JSON/manifest, and preflight/reconstruct imports        |
 | Fixings/risk        | Persist immutable snapshots; run typed PV/DV01/KRD; fetch provenance-rich sensitivity matrices |
 
 Quote canonicalization is stateless: the endpoint accepts the exact input
