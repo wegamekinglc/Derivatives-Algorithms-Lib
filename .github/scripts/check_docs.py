@@ -444,24 +444,32 @@ def requirement_name(requirement: str) -> str:
     return re.sub(r"[-_.]+", "-", match.group(0)).lower()
 
 
-def check_backend_dependency_metadata(errors: list[str]) -> None:
+def backend_declared_requirements() -> set[str]:
     pyproject_path = ROOT / "dal-web/backend/pyproject.toml"
     with pyproject_path.open("rb") as stream:
         metadata = tomllib.load(stream)
     project = metadata["project"]
-    declared = {
+    return {
         requirement_name(requirement)
         for requirement in (
             *project.get("dependencies", ()),
             *project.get("optional-dependencies", {}).get("dev", ()),
         )
     }
+
+
+def backend_requirements_file() -> set[str]:
     requirements_path = ROOT / "dal-web/backend/requirements.txt"
-    requirements = {
+    return {
         requirement_name(line)
         for line in requirements_path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     }
+
+
+def check_backend_requirement_sets(
+    declared: set[str], requirements: set[str], errors: list[str]
+) -> None:
     if missing := sorted(declared - requirements):
         errors.append(
             "dal-web/backend/requirements.txt: missing dependencies declared by "
@@ -473,19 +481,32 @@ def check_backend_dependency_metadata(errors: list[str]) -> None:
             f"{extra}"
         )
 
+
+def linux_extended_test_packages() -> set[str]:
     workflow = (ROOT / ".github/workflows/cmake-linux.yml").read_text(encoding="utf-8")
     install = re.search(r"uv pip install\s+([^\n]+?)\s+-e\s+dal-web/backend", workflow)
-    workflow_packages = (
+    return (
         set()
         if install is None
         else {requirement_name(token) for token in install.group(1).split()}
     )
+
+
+def check_linux_extended_test_packages(
+    declared: set[str], workflow_packages: set[str], errors: list[str]
+) -> None:
     required_test_packages = {"pytest", *(name for name in declared if name.startswith("httpx"))}
     if missing := sorted(required_test_packages - workflow_packages):
         errors.append(
             ".github/workflows/cmake-linux.yml: extended tests omit declared test "
             f"dependencies: {missing}"
         )
+
+
+def check_backend_dependency_metadata(errors: list[str]) -> None:
+    declared = backend_declared_requirements()
+    check_backend_requirement_sets(declared, backend_requirements_file(), errors)
+    check_linux_extended_test_packages(declared, linux_extended_test_packages(), errors)
 
 
 def check_current_state_doc_locations(errors: list[str], root: Path = ROOT) -> None:
@@ -513,7 +534,7 @@ def check_ci_compiler_inventory(errors: list[str]) -> None:
         )
 
 
-def check_repository_workflows(errors: list[str]) -> None:
+def check_windows_python_helpers(errors: list[str]) -> None:
     for relative_path in ("dal-python/run_tests.ps1", "dal-python/build_wheel.ps1"):
         text = (ROOT / relative_path).read_text(encoding="utf-8")
         normalized = text.replace("\\", "/")
@@ -524,6 +545,8 @@ def check_repository_workflows(errors: list[str]) -> None:
         if "DAL_INSTALL_PREFIX" not in text:
             errors.append(f"{relative_path}: does not pass the canonical DAL_INSTALL_PREFIX")
 
+
+def check_component_build_modes(errors: list[str]) -> None:
     for relative_path, stale_flag in (
         ("dal-python/CMakeLists.txt", "DAL_PYTHON_AS_SUBDIRECTORY"),
         ("dal-excel/CMakeLists.txt", "DAL_EXCEL_AS_SUBDIRECTORY"),
@@ -535,6 +558,8 @@ def check_repository_workflows(errors: list[str]) -> None:
     if "${CMAKE_CURRENT_SOURCE_DIR}/.." not in excel_cmake:
         errors.append("dal-excel/CMakeLists.txt: standalone target lacks the repository include root")
 
+
+def check_web_launcher_portability(errors: list[str]) -> None:
     start = (ROOT / "dal-web/scripts/start.sh").read_text(encoding="utf-8")
     stop = (ROOT / "dal-web/scripts/stop.sh").read_text(encoding="utf-8")
     if "check_cmd ss" in start or "check_cmd ss" in stop:
@@ -544,6 +569,8 @@ def check_repository_workflows(errors: list[str]) -> None:
     if re.search(r"\bseq\b", start) or re.search(r"\bseq\b", stop):
         errors.append("dal-web/scripts: macOS launchers must not require GNU/Coreutils seq")
 
+
+def check_windows_generation_and_tests(errors: list[str]) -> None:
     windows_build = (ROOT / "build_windows.bat").read_text(encoding="utf-8")
     windows_workflow = (ROOT / ".github/workflows/cmake-windows.yml").read_text(encoding="utf-8")
     normalizer = "normalize-calibration-generated-enums.cmake"
@@ -554,9 +581,19 @@ def check_repository_workflows(errors: list[str]) -> None:
     if "DAL_CPP_BUILD_BENCHMARKS=OFF" not in windows_build or "-LE benchmark" not in windows_build:
         errors.append("build_windows.bat: normal verification must exclude benchmark tests")
 
+
+def check_benchmark_case_policy(errors: list[str]) -> None:
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     if "Head-only cases are reported as new informational coverage" not in contributing:
         errors.append("CONTRIBUTING.md: benchmark case-set policy does not describe head-only coverage")
+
+
+def check_repository_workflows(errors: list[str]) -> None:
+    check_windows_python_helpers(errors)
+    check_component_build_modes(errors)
+    check_web_launcher_portability(errors)
+    check_windows_generation_and_tests(errors)
+    check_benchmark_case_policy(errors)
 
 
 def code_regions(lines: list[str]) -> list[tuple[int, str]]:
