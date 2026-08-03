@@ -14,7 +14,7 @@ cmake_minimum_required(VERSION 3.21.0)
 # ---------------------------------------------------------------------------
 # Detect build mode
 # ---------------------------------------------------------------------------
-if(NOT DAL_PYTHON_AS_SUBDIRECTORY)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(DAL_PYTHON_IS_TOPLEVEL TRUE)
     message(STATUS "dal-python: standalone top-level mode")
 else()

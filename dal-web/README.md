@@ -175,9 +175,11 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1          
 pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force    # escalate to force kill
 ```
 
-Both launchers check prerequisites (Python ≥ 3.13, uv, node, npm, curl), verify
-ports `8001` (backend) and `5173` (frontend) are free, synchronize backend
-dependencies with `uv sync --inexact`, and run the native-DAL preflight with
+Both launchers check their platform prerequisites, including Python ≥ 3.13,
+uv, node, and npm. The bash launcher also needs `curl`, `grep`, `nohup`, and
+either `ss` or `lsof`; its stopper needs `grep` and `lsof`. They verify ports `8001`
+(backend) and `5173` (frontend) are free, synchronize backend dependencies with
+`uv sync --inexact`, and run the native-DAL preflight with
 `uv run --no-sync python -m app.native_runtime`. They then install frontend
 dependencies, launch Uvicorn with `uv run --no-sync` and Vite in the background,
 wait for both services, and smoke-test the proxy (`/api` → backend). `--inexact`
@@ -188,8 +190,7 @@ Log files differ by platform. On Linux/macOS both streams are merged into a
 single `.server.log` next to each server. On Windows each service writes two
 files: `.server.log` (stdout) and `.server.log.err` (stderr).
 
-Note the one prerequisite-name difference: the bash script checks `python3`,
-the PowerShell script checks `python`.
+The bash script checks `python3`; the PowerShell script checks `python`.
 
 `stop.sh` / `stop.ps1` kill by PID from those files, verify each port is
 actually free, and fall back to port-based kill if an orphaned child is holding
@@ -268,8 +269,9 @@ free the port or run on a different one:
 # Option A — stop any running web UI
 ./dal-web/scripts/stop.sh
 
-# Option B — find and kill whatever is using port 8001
-fuser -k 8001/tcp
+# Option B — find listener PIDs, then pass them to kill
+lsof -tiTCP:8001 -sTCP:LISTEN
+kill <pid>
 
 # Option C — use a different port (e.g. 8002)
 uv run --no-sync python -m uvicorn app.main:app --reload --port 8002

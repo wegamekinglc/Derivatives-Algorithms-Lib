@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tomllib
@@ -108,6 +109,8 @@ STALE_DOCUMENTATION = {
 FORBIDDEN_MATH_MACROS = {
     r"\operatorname": r"\mathrm",
 }
+
+HTTP_METHODS = {"delete", "get", "patch", "post", "put"}
 
 
 def relative(path: Path) -> str:
@@ -396,6 +399,203 @@ def check_math_macros(documents: tuple[Path, ...], errors: list[str]) -> None:
                     )
 
 
+def normalized_endpoint(method: str, path: str) -> tuple[str, str]:
+    return method.upper(), re.sub(r"\{[^}]+\}", "{}", path)
+
+
+def check_curve_lab_endpoint_inventory(errors: list[str]) -> None:
+    document = ROOT / "docs/curve-lab.md"
+    text = document.read_text(encoding="utf-8")
+    try:
+        table = text.split("All Curve Lab endpoints are under `/api/curve-lab`:", maxsplit=1)[1]
+        table = table.split("\n\nThe live Swagger UI", maxsplit=1)[0]
+    except IndexError:
+        errors.append("docs/curve-lab.md: missing canonical REST endpoint inventory")
+        return
+
+    documented = {
+        normalized_endpoint(method, f"/api/curve-lab{path}")
+        for method, path in re.findall(
+            r"`(GET|POST|PUT|PATCH|DELETE)\s+(/[^`\s]+)`",
+            table,
+        )
+    }
+    openapi_path = ROOT / "dal-web/backend/openapi/dal-web.openapi.json"
+    openapi = json.loads(openapi_path.read_text(encoding="utf-8"))
+    actual = {
+        normalized_endpoint(method, path)
+        for path, operations in openapi["paths"].items()
+        if path.startswith("/api/curve-lab")
+        for method in operations
+        if method.lower() in HTTP_METHODS
+    }
+    if documented != actual:
+        errors.append(
+            "docs/curve-lab.md: Curve Lab endpoint inventory drift: "
+            f"documented-only={sorted(documented - actual)}, "
+            f"OpenAPI-only={sorted(actual - documented)}"
+        )
+
+
+def requirement_name(requirement: str) -> str:
+    match = re.match(r"[A-Za-z0-9_.-]+", requirement.strip())
+    if match is None:
+        raise ValueError(f"invalid requirement: {requirement!r}")
+    return re.sub(r"[-_.]+", "-", match.group(0)).lower()
+
+
+def backend_declared_requirements() -> set[str]:
+    pyproject_path = ROOT / "dal-web/backend/pyproject.toml"
+    with pyproject_path.open("rb") as stream:
+        metadata = tomllib.load(stream)
+    project = metadata["project"]
+    return {
+        requirement_name(requirement)
+        for requirement in (
+            *project.get("dependencies", ()),
+            *project.get("optional-dependencies", {}).get("dev", ()),
+        )
+    }
+
+
+def backend_requirements_file() -> set[str]:
+    requirements_path = ROOT / "dal-web/backend/requirements.txt"
+    return {
+        requirement_name(line)
+        for line in requirements_path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
+def check_backend_requirement_sets(
+    declared: set[str], requirements: set[str], errors: list[str]
+) -> None:
+    if missing := sorted(declared - requirements):
+        errors.append(
+            "dal-web/backend/requirements.txt: missing dependencies declared by "
+            f"pyproject.toml: {missing}"
+        )
+    if extra := sorted(requirements - declared):
+        errors.append(
+            "dal-web/backend/requirements.txt: dependencies absent from pyproject.toml: "
+            f"{extra}"
+        )
+
+
+def linux_extended_test_packages() -> set[str]:
+    workflow = (ROOT / ".github/workflows/cmake-linux.yml").read_text(encoding="utf-8")
+    install = re.search(r"uv pip install\s+([^\n]+?)\s+-e\s+dal-web/backend", workflow)
+    return (
+        set()
+        if install is None
+        else {requirement_name(token) for token in install.group(1).split()}
+    )
+
+
+def check_linux_extended_test_packages(
+    declared: set[str], workflow_packages: set[str], errors: list[str]
+) -> None:
+    required_test_packages = {"pytest", *(name for name in declared if name.startswith("httpx"))}
+    if missing := sorted(required_test_packages - workflow_packages):
+        errors.append(
+            ".github/workflows/cmake-linux.yml: extended tests omit declared test "
+            f"dependencies: {missing}"
+        )
+
+
+def check_backend_dependency_metadata(errors: list[str]) -> None:
+    declared = backend_declared_requirements()
+    check_backend_requirement_sets(declared, backend_requirements_file(), errors)
+    check_linux_extended_test_packages(declared, linux_extended_test_packages(), errors)
+
+
+def check_current_state_doc_locations(errors: list[str], root: Path = ROOT) -> None:
+    historical_root = root / "docs/superpowers"
+    for document in sorted(historical_root.rglob("*.md")) if historical_root.exists() else ():
+        errors.append(
+            f"{document.relative_to(root).as_posix()}: completed implementation plans and "
+            "design history do not belong under current-state docs/"
+        )
+
+
+def check_ci_compiler_inventory(errors: list[str]) -> None:
+    workflow = (ROOT / ".github/workflows/cmake-linux.yml").read_text(encoding="utf-8")
+    match = re.search(r"^\s*compiler:\s*\[([^]]+)\]", workflow, flags=re.MULTILINE)
+    if match is None:
+        errors.append(".github/workflows/cmake-linux.yml: compiler matrix was not found")
+        return
+    compilers = {value.strip() for value in match.group(1).split(",")}
+    copilot = (ROOT / ".github/copilot-instructions.md").read_text(encoding="utf-8")
+    missing = sorted(compiler for compiler in compilers if compiler not in copilot)
+    if missing:
+        errors.append(
+            ".github/copilot-instructions.md: CI compiler inventory omits "
+            f"{missing}"
+        )
+
+
+def check_windows_python_helpers(errors: list[str]) -> None:
+    for relative_path in ("dal-python/run_tests.ps1", "dal-python/build_wheel.ps1"):
+        text = (ROOT / relative_path).read_text(encoding="utf-8")
+        normalized = text.replace("\\", "/")
+        if "build_win.ps1" in text:
+            errors.append(f"{relative_path}: references nonexistent build_win.ps1")
+        if "build/stage/Release-windows" not in normalized:
+            errors.append(f"{relative_path}: default install prefix is not the canonical Windows stage")
+        if "DAL_INSTALL_PREFIX" not in text:
+            errors.append(f"{relative_path}: does not pass the canonical DAL_INSTALL_PREFIX")
+
+
+def check_component_build_modes(errors: list[str]) -> None:
+    for relative_path, stale_flag in (
+        ("dal-python/CMakeLists.txt", "DAL_PYTHON_AS_SUBDIRECTORY"),
+        ("dal-excel/CMakeLists.txt", "DAL_EXCEL_AS_SUBDIRECTORY"),
+    ):
+        if stale_flag in (ROOT / relative_path).read_text(encoding="utf-8"):
+            errors.append(f"{relative_path}: subdirectory detection depends on unset {stale_flag}")
+
+    excel_cmake = (ROOT / "dal-excel/CMakeLists.txt").read_text(encoding="utf-8")
+    if "${CMAKE_CURRENT_SOURCE_DIR}/.." not in excel_cmake:
+        errors.append("dal-excel/CMakeLists.txt: standalone target lacks the repository include root")
+
+
+def check_web_launcher_portability(errors: list[str]) -> None:
+    start = (ROOT / "dal-web/scripts/start.sh").read_text(encoding="utf-8")
+    stop = (ROOT / "dal-web/scripts/stop.sh").read_text(encoding="utf-8")
+    if "check_cmd ss" in start or "check_cmd ss" in stop:
+        errors.append("dal-web/scripts: macOS launchers must not require Linux-only ss")
+    if "xargs -r" in stop:
+        errors.append("dal-web/scripts/stop.sh: GNU-only xargs -r is not macOS portable")
+    if re.search(r"\bseq\b", start) or re.search(r"\bseq\b", stop):
+        errors.append("dal-web/scripts: macOS launchers must not require GNU/Coreutils seq")
+
+
+def check_windows_generation_and_tests(errors: list[str]) -> None:
+    windows_build = (ROOT / "build_windows.bat").read_text(encoding="utf-8")
+    windows_workflow = (ROOT / ".github/workflows/cmake-windows.yml").read_text(encoding="utf-8")
+    normalizer = "normalize-calibration-generated-enums.cmake"
+    if normalizer not in windows_build:
+        errors.append("build_windows.bat: code generation bypasses the canonical normalizer")
+    if windows_workflow.count(normalizer) < 2:
+        errors.append(".github/workflows/cmake-windows.yml: generation jobs bypass the normalizer")
+    if "DAL_CPP_BUILD_BENCHMARKS=OFF" not in windows_build or "-LE benchmark" not in windows_build:
+        errors.append("build_windows.bat: normal verification must exclude benchmark tests")
+
+
+def check_benchmark_case_policy(errors: list[str]) -> None:
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    if "Head-only cases are reported as new informational coverage" not in contributing:
+        errors.append("CONTRIBUTING.md: benchmark case-set policy does not describe head-only coverage")
+
+
+def check_repository_workflows(errors: list[str]) -> None:
+    check_windows_python_helpers(errors)
+    check_component_build_modes(errors)
+    check_web_launcher_portability(errors)
+    check_windows_generation_and_tests(errors)
+    check_benchmark_case_policy(errors)
+
+
 def code_regions(lines: list[str]) -> list[tuple[int, str]]:
     # Path claims are checked only where conventions put them: fenced code and
     # inline code spans. Prose (e.g. "docs/changelog") is not parsed.
@@ -465,6 +665,11 @@ def main() -> int:
     check_stale_commands(ALL_DOCS, errors)
     check_math_macros(ALL_DOCS, errors)
     check_agent_paths(AGENT_DOCS, ROOT, errors)
+    check_curve_lab_endpoint_inventory(errors)
+    check_backend_dependency_metadata(errors)
+    check_current_state_doc_locations(errors)
+    check_ci_compiler_inventory(errors)
+    check_repository_workflows(errors)
 
     if errors:
         print("Documentation checks failed:", file=sys.stderr)

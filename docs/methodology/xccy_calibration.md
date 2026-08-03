@@ -93,9 +93,9 @@ required observations fail with the index, timestamp, and pricing context.
 `MarketFixingSnapshot_` is an immutable nested map
 `index name -> DateTime_ -> value`. The same snapshot can contain rate and FX
 observations and is retained by the calibration result. Index names must be
-non-empty, timestamps valid, and observations positive and finite. The
-positive-value requirement means that rate fixings from negative-rate regimes
-(for example EURIBOR, ESTR, TIBOR, or SARON over 2014–2022) are not accepted.
+non-empty, timestamps valid, and observations finite. Canonical FX observations
+must also be positive because reverse lookup may take their reciprocal. Rate
+fixings may be zero or negative.
 
 Direct lookup wins. If that observation is absent and the name is canonical FX,
 lookup returns the reciprocal of the reverse canonical observation. When both

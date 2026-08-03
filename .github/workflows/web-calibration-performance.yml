@@ -30,7 +30,7 @@ jobs:
           uv venv "$VIRTUAL_ENV" --python 3.13
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
-          uv pip install pytest numpy -r dal-web/backend/requirements.txt
+          uv pip install numpy -e "dal-web/backend[dev]"
 
       - name: Build Release/native AADET
         env:

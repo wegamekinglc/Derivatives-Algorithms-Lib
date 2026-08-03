@@ -177,5 +177,40 @@ class AgentDocsStandardChecksTest(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+class SemanticConsistencyTest(unittest.TestCase):
+    def test_endpoint_normalization_ignores_parameter_names(self):
+        self.assertEqual(
+            CHECK_DOCS.normalized_endpoint("get", "/runs/{run_id}"),
+            ("GET", "/runs/{}"),
+        )
+
+    def test_requirement_names_follow_distribution_normalization(self):
+        self.assertEqual(CHECK_DOCS.requirement_name("uvicorn[standard]>=0.29"), "uvicorn")
+        self.assertEqual(CHECK_DOCS.requirement_name("scikit_build.core~=1.0"), "scikit-build-core")
+
+    def test_historical_work_products_are_rejected_under_docs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            historical = root / "docs/superpowers/plans/old.md"
+            historical.parent.mkdir(parents=True)
+            historical.write_text("# Old plan\n", encoding="utf-8")
+            errors: list[str] = []
+
+            CHECK_DOCS.check_current_state_doc_locations(errors, root)
+
+            self.assertEqual(len(errors), 1)
+            self.assertIn("docs/superpowers/plans/old.md", errors[0])
+
+    def test_current_repository_semantic_contracts_pass(self):
+        errors: list[str] = []
+        CHECK_DOCS.check_curve_lab_endpoint_inventory(errors)
+        CHECK_DOCS.check_backend_dependency_metadata(errors)
+        CHECK_DOCS.check_current_state_doc_locations(errors)
+        CHECK_DOCS.check_ci_compiler_inventory(errors)
+        CHECK_DOCS.check_repository_workflows(errors)
+
+        self.assertEqual(errors, [])
+
+
 if __name__ == "__main__":
     unittest.main()

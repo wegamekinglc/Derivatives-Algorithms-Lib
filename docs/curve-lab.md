@@ -180,9 +180,9 @@ All Curve Lab endpoints are under `/api/curve-lab`:
 | Build runs              | `POST /drafts/{id}/build-runs`, `GET /build-runs/{id}`                                               |
 | Versions                | `POST /versions`, `GET /versions`, `GET /versions/{id}`, `POST /versions/{id}/archive`               |
 | Version portability     | `POST /versions/{id}/clone`, `GET /versions/{id}/native-json`, `GET /versions/{id}/runtime-manifest` |
-| Imports                 | `POST /import-jobs`, `GET /import-jobs`, `GET /import-jobs/{id}`                                     |
-| Fixing snapshots        | `POST /fixing-snapshots`, `GET /fixing-snapshots`, `GET /fixing-snapshots/{id}`                      |
-| Pricing and risk        | `POST /risk-runs`, `GET /risk-runs`, `GET /risk-runs/{id}`                                           |
+| Imports                 | `POST /import-jobs`, `GET /import-jobs/{id}`                                                         |
+| Fixing snapshots        | `POST /fixing-snapshots`, `GET /fixing-snapshots/{id}`                                               |
+| Pricing and risk        | `POST /risk-runs`, `GET /risk-runs/{id}`                                                             |
 | Materialized matrices   | `GET /risk-runs/{id}/matrices/{matrix_id}`                                                           |
 
 The live Swagger UI is served at `/docs`. The committed contract is

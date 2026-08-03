@@ -28,9 +28,12 @@ Choose the launcher by platform, not by guess:
 - **Windows** — when `pwsh` is on `PATH` (PowerShell 7+) or the session platform is `win32`, use the `.ps1` scripts.
 - **Linux / macOS / WSL / git-bash** — otherwise use the `.sh` scripts.
 
-The two families are behaviourally equivalent (same prereqs, ports, health checks, smoke test, PID/log files, exit codes). Two platform differences are worth remembering:
+The two families are behaviourally equivalent in ports, health checks, smoke
+test, PID/log files, and exit codes. Platform differences are worth remembering:
 
-- **Prereq command name:** the bash script checks `python3`; the PowerShell script checks `python`.
+- **Prerequisites:** the bash start script checks `python3`, `curl`, `grep`,
+  `nohup`, and either `ss` or `lsof`; its stopper requires `grep` and `lsof`.
+  PowerShell checks `python` and uses native networking/process commands.
 - **Log files:** on Linux/macOS each service writes a single merged `.server.log`. On Windows each service writes two files — `.server.log` (stdout) and `.server.log.err` (stderr).
 - **Force flag spelling:** `--force` (bash) versus `-Force` (PowerShell). Do not mix them.
 
@@ -52,8 +55,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1  # Windo
 ```
 
 The script:
-1. Verifies prerequisite commands (python, uv, node, npm; `python3` on bash,
-   `python` on PowerShell) and enforces Python ≥ 3.13. The committed frontend
+1. Verifies prerequisite commands (Python, uv, node, and npm) and enforces
+   Python ≥ 3.13. Bash also checks `curl`, `grep`, `nohup`, and either `ss` or
+   `lsof`; the bash stopper requires `grep` and `lsof`. The committed frontend
    toolchain requires Node.js `^20.19.0` or `>=22.12.0`.
 2. Reads the backend port from `dal-web/frontend/vite.config.ts` (currently `:8001`)
 3. Checks that both ports are free
@@ -163,7 +167,12 @@ Default SQLite file is gitignored under `dal-web/backend/.data/`. To run the Ale
 
 ## Troubleshooting
 
-- **Port already in use** — run the stop script for your platform first, or manually free the port: `sudo fuser -k <port>/tcp` on Linux/macOS; on Windows, `Get-NetTCPConnection -LocalPort <port> -State Listen` then `Stop-Process -Id <pid> -Force`.
+- **Port already in use** — run the stop script for your platform first. For
+  manual diagnosis, use `sudo fuser -k <port>/tcp` on Linux; on macOS, find
+  listeners with `lsof -tiTCP:<port> -sTCP:LISTEN` and pass the returned PIDs
+  to `kill`; on Windows, use
+  `Get-NetTCPConnection -LocalPort <port> -State Listen` then
+  `Stop-Process -Id <pid> -Force`.
 - **Backend fails to start** — check `dal-web/backend/.server.log` (and `.server.log.err` on Windows). Common causes: missing dependencies, port conflict, Python version mismatch.
 - **Frontend fails to start** — check `dal-web/frontend/.server.log` (and `.server.log.err` on Windows). Common causes: port conflict, node_modules out of date (try `rm -rf node_modules && npm install`).
 - **Proxy not forwarding** — verify `dal-web/frontend/vite.config.ts` has the correct `proxy.target` port, and that the backend is actually running.

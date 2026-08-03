@@ -300,6 +300,10 @@ Linux/macOS:
 ./dal-web/scripts/stop.sh
 ```
 
+The bash launcher requires `curl`, `grep`, `nohup`, and either `ss` or `lsof`;
+the stopper requires `grep` and `lsof`. These commands are available through
+standard Linux packages and macOS developer tooling/Homebrew.
+
 Windows (PowerShell 7+):
 
 ```powershell

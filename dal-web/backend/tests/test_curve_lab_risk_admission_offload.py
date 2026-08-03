@@ -6,7 +6,7 @@ import asyncio
 import threading
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx2 import ASGITransport, AsyncClient
 
 from tests.test_curve_lab_risk_api import _publish_version, _request
 
