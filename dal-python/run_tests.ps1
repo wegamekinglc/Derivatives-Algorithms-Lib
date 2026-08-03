@@ -7,13 +7,14 @@
 #
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
-#   - The C++ library must be built first (run ..\build_win.ps1 or build from top-level CMake)
+#   - The C++ library must be installed first (run ..\build_windows.bat)
 #   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and Python 3.10+ development headers
 #   - Visual Studio 2022 with C++ workload
 
 param(
     [switch]$Clean,
     [switch]$Help,
+    [string]$DalInstallPrefix,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$PytestArgs
 )
@@ -22,6 +23,12 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DalDir = Split-Path -Parent $ScriptDir
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = $env:DAL_INSTALL_PREFIX
+}
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = Join-Path $DalDir "build\stage\Release-windows"
+}
 
 if ($Help) {
     Write-Output "Usage: .\run_tests.ps1 [OPTIONS] [-- pytest_args...]"
@@ -30,6 +37,7 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     Write-Output ""
     Write-Output "All other arguments are forwarded to pytest."
@@ -40,23 +48,21 @@ Write-Output "================================================"
 Write-Output " DAL Python Binding -- Build & Test (uv-managed)"
 Write-Output "================================================"
 Write-Output "  DAL root:    $DalDir"
+Write-Output "  DAL install: $DalInstallPrefix"
 Write-Output "  Working dir: $ScriptDir"
 Write-Output ""
 
 # ---- Step 1: Verify C++ library is built ------------------------------------
 
-$LibPublic = Join-Path $DalDir "lib\dal_public.lib"
-$LibCpp = Join-Path $DalDir "lib\dal_cpp.lib"
+$LibPublic = Join-Path $DalInstallPrefix "lib\dal_public.lib"
+$LibCpp = Join-Path $DalInstallPrefix "lib\dal_cpp.lib"
 
 if (-not ((Test-Path $LibPublic) -and (Test-Path $LibCpp))) {
-    Write-Output "ERROR: DAL C++ libraries not found in $DalDir\lib\"
-    Write-Output "       Build the C++ library first using the top-level CMakeLists.txt:"
+    Write-Output "ERROR: DAL C++ libraries not found in $DalInstallPrefix\lib\"
+    Write-Output "       Build and install DAL first:"
     Write-Output ""
     Write-Output "         cd $DalDir"
-    Write-Output "         mkdir build && cd build"
-    Write-Output "         cmake .. -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_PYTHON=ON"
-    Write-Output "         cmake --build . --config Release"
-    Write-Output "         cmake --install . --config Release"
+    Write-Output "         .\build_windows.bat"
     Write-Output ""
     exit 1
 }
@@ -107,13 +113,13 @@ uv pip install scikit-build-core pytest numpy
 
 Write-Output ""
 Write-Output "Installing dal-python in editable mode..."
-Write-Output "  DAL_DIR=$DalDir"
+Write-Output "  DAL_INSTALL_PREFIX=$DalInstallPrefix"
 
-$env:DAL_DIR = $DalDir
+$env:DAL_INSTALL_PREFIX = $DalInstallPrefix
 
 uv pip install `
     --no-build-isolation `
-    --config-settings=cmake.define.DAL_DIR="$DalDir" `
+    --config-settings=cmake.define.DAL_INSTALL_PREFIX="$DalInstallPrefix" `
     -e ".[test]"
 
 Write-Output "[OK] Package installed"

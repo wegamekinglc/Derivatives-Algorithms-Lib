@@ -4,7 +4,7 @@
 # The wheel can be installed without requiring compilation or the C++ source code.
 #
 # Prerequisites:
-# - C++ library must be built (lib\dal_public.lib and lib\dal_cpp.lib)
+# - C++ library must be installed (run ..\build_windows.bat)
 # - uv must be installed
 # - Python 3.10+ with development headers
 # - Visual Studio 2022 with C++ workload
@@ -15,15 +15,19 @@
 
 param(
     [switch]$Clean,
-    [switch]$Help
+    [switch]$Help,
+    [string]$DalInstallPrefix
 )
 
 $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$DalDir = $env:DAL_DIR
-if (-not $DalDir) {
-    $DalDir = Split-Path -Parent $ScriptDir
+$DalDir = Split-Path -Parent $ScriptDir
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = $env:DAL_INSTALL_PREFIX
+}
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = Join-Path $DalDir "build\stage\Release-windows"
 }
 
 if ($Help) {
@@ -33,6 +37,7 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     exit 0
 }
@@ -45,18 +50,15 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$LibPublic = Join-Path $DalDir "lib\dal_public.lib"
-$LibCpp = Join-Path $DalDir "lib\dal_cpp.lib"
+$LibPublic = Join-Path $DalInstallPrefix "lib\dal_public.lib"
+$LibCpp = Join-Path $DalInstallPrefix "lib\dal_cpp.lib"
 
 if (-not ((Test-Path $LibPublic) -and (Test-Path $LibCpp))) {
-    Write-Output "Error: DAL libraries not found in $DalDir\lib\"
-    Write-Output "Build the C++ library first using the top-level CMakeLists.txt:"
+    Write-Output "Error: DAL libraries not found in $DalInstallPrefix\lib\"
+    Write-Output "Build and install DAL first:"
     Write-Output ""
     Write-Output "  cd $DalDir"
-    Write-Output "  mkdir build && cd build"
-    Write-Output "  cmake .. -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_PYTHON=ON"
-    Write-Output "  cmake --build . --config Release"
-    Write-Output "  cmake --install . --config Release"
+    Write-Output "  .\build_windows.bat"
     Write-Output ""
     exit 1
 }
@@ -90,9 +92,9 @@ Write-Output "  Build dependencies installed"
 
 # Build wheel
 Write-Output "Building wheel..."
-$env:DAL_DIR = $DalDir
+$env:DAL_INSTALL_PREFIX = $DalInstallPrefix
 
-uv build --wheel --no-build-isolation --config-settings=cmake.define.DAL_DIR="$DalDir"
+uv build --wheel --no-build-isolation --config-settings=cmake.define.DAL_INSTALL_PREFIX="$DalInstallPrefix"
 
 # Find the built wheel
 $DistDir = Join-Path $ScriptDir "dist"

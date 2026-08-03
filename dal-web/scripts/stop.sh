@@ -52,20 +52,24 @@ warn()  { printf "%s[warn]%s  %s\n" "${YELLOW}" "${NC}" "$*"; }
 error() { printf "%s[error]%s %s\n" "${RED}"    "${NC}" "$*" >&2; }
 
 port_busy() {
-  ss -tlnp 2>/dev/null | grep -qE ":${1}(\s|$)"
+  if command -v ss >/dev/null 2>&1; then
+    ss -tln 2>/dev/null | grep -qE ":${1}([[:space:]]|$)"
+  else
+    lsof -nP -iTCP:"${1}" -sTCP:LISTEN -t >/dev/null 2>&1
+  fi
 }
 
 # Kill a process by PID with SIGTERM, waiting up to TIMEOUT seconds.
 # Returns 0 on success, 1 if the process is still alive.
 kill_graceful() {
-  local pid="$1" name="$2" timeout="${3:-5}"
+  local pid="$1" name="$2" timeout="${3:-5}" attempt
   if ! kill -0 "${pid}" 2>/dev/null; then
     # Process is already gone.
     return 0
   fi
   info "Sending SIGTERM to ${name} (PID ${pid})..."
   kill -TERM "${pid}" 2>/dev/null || true
-  for _ in $(seq 1 $(( timeout * 2 ))); do
+  for (( attempt = 0; attempt < timeout * 2; attempt++ )); do
     if ! kill -0 "${pid}" 2>/dev/null; then
       return 0
     fi
@@ -101,12 +105,16 @@ kill_by_port() {
     return 0
   fi
   info "Killing ${name} by port ${port} (PIDs: ${pids//$'\n'/, })..."
-  echo "${pids}" | xargs -r kill 2>/dev/null || true
+  for pid in ${pids}; do
+    kill "${pid}" 2>/dev/null || true
+  done
   sleep 1
   if port_busy "${port}"; then
     if [ "${FORCE}" -eq 1 ]; then
       warn "Port ${port} still busy; escalating to SIGKILL..."
-      echo "${pids}" | xargs -r kill -KILL 2>/dev/null || true
+      for pid in ${pids}; do
+        kill -KILL "${pid}" 2>/dev/null || true
+      done
       sleep 1
     fi
   fi
@@ -124,9 +132,7 @@ check_cmd() {
 
 FAILED_PREREQS=0
 check_cmd grep      || FAILED_PREREQS=1
-check_cmd ss        || FAILED_PREREQS=1
 check_cmd lsof      || FAILED_PREREQS=1
-check_cmd xargs     || FAILED_PREREQS=1
 [ "${FAILED_PREREQS}" -eq 0 ] || exit 1
 
 # ---------------------------------------------------------------------------

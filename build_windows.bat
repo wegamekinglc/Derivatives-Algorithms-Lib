@@ -78,6 +78,12 @@ if errorlevel 1 (
     popd
     exit /b 1
 )
+cmake "-DDAL_REPOSITORY_ROOT=%DAL_DIR%" -P "%DAL_DIR%\dal-cpp\cmake\normalize-calibration-generated-enums.cmake"
+if errorlevel 1 (
+    echo Generated enum normalization failed
+    popd
+    exit /b 1
+)
 bin\Machinist.exe -c "%DAL_DIR%\dal-cpp\config\dal.ifc" -l "%DAL_DIR%\dal-cpp\config\dal.mgl" -d "%DAL_DIR%\dal-excel"
 if errorlevel 1 (
     echo Machinist code generation for dal-excel failed
@@ -88,7 +94,7 @@ popd
 
 cd /d "%DAL_DIR%"
 
-cmake --preset %BUILD_TYPE%-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --preset %BUILD_TYPE%-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON -DDAL_CPP_BUILD_BENCHMARKS=OFF
 if errorlevel 1 (
     echo CMake configure failed
     exit /b 1
@@ -112,7 +118,7 @@ if errorlevel 1 (
 )
 
 echo Starting unit test suite via ctest
-ctest --test-dir "build\%BUILD_TYPE%-windows" --output-on-failure -C %BUILD_TYPE%
+ctest --test-dir "build\%BUILD_TYPE%-windows" --output-on-failure -C %BUILD_TYPE% -LE benchmark
 if errorlevel 1 (
     echo ctest failed
     exit /b 1

@@ -62,7 +62,11 @@ warn()  { printf "%s[warn]%s  %s\n" "${YELLOW}" "${NC}" "$*"; }
 error() { printf "%s[error]%s %s\n" "${RED}"    "${NC}" "$*" >&2; }
 
 port_busy() {
-  ss -tlnp 2>/dev/null | grep -qE ":${1}(\s|$)"
+  if command -v ss >/dev/null 2>&1; then
+    ss -tln 2>/dev/null | grep -qE ":${1}([[:space:]]|$)"
+  else
+    lsof -nP -iTCP:"${1}" -sTCP:LISTEN -t >/dev/null 2>&1
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -83,8 +87,11 @@ check_cmd uv        || FAILED_PREREQS=1
 check_cmd node      || FAILED_PREREQS=1
 check_cmd npm       || FAILED_PREREQS=1
 check_cmd curl      || FAILED_PREREQS=1
-check_cmd ss        || FAILED_PREREQS=1
 check_cmd nohup     || FAILED_PREREQS=1
+if ! command -v ss >/dev/null 2>&1 && ! command -v lsof >/dev/null 2>&1; then
+  error "either ss or lsof is required to inspect listening ports."
+  FAILED_PREREQS=1
+fi
 [ "${FAILED_PREREQS}" -eq 0 ] || exit 1
 
 PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
@@ -136,7 +143,7 @@ info "  backend PID ${BACKEND_PID}, log: ${BACKEND_LOG_FILE}"
 
 # Wait for backend to accept connections (up to 20s).
 info "Waiting for backend health check..."
-for _ in $(seq 1 40); do
+for (( attempt = 0; attempt < 40; attempt++ )); do
   if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
     info "  backend is up"
     break
@@ -179,7 +186,7 @@ info "  frontend PID ${FRONTEND_PID}, log: ${FRONTEND_LOG_FILE}"
 
 # Wait for frontend to accept connections (up to 30s).
 info "Waiting for frontend to be ready..."
-for _ in $(seq 1 60); do
+for (( attempt = 0; attempt < 60; attempt++ )); do
   if curl -sf "http://localhost:${FRONTEND_PORT}" >/dev/null 2>&1; then
     info "  frontend is up"
     break

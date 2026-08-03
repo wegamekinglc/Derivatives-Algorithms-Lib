@@ -139,6 +139,7 @@ jobs:
         run: |
           export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
           ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+          cmake -DDAL_REPOSITORY_ROOT="$PWD" -P dal-cpp/cmake/normalize-calibration-generated-enums.cmake
           ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 
       - name: Compile
@@ -255,6 +256,7 @@ jobs:
         run: |
           export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
           ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+          cmake -DDAL_REPOSITORY_ROOT="$PWD" -P dal-cpp/cmake/normalize-calibration-generated-enums.cmake
           ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 
       - name: Compile

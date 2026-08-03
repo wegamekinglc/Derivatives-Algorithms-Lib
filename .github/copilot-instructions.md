@@ -37,7 +37,8 @@ Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column
 CMake cache variables (AAD backends, sub-project/test/example/benchmark toggles, sanitizers)
 are listed in [CLAUDE.md](../CLAUDE.md#build-commands) and the
 [installation guide options table](../docs/installation.md#common-cmake-options). CI runs
-the full matrix: native/xad/codipack/adept × gcc-13/14, clang-18/19, plus MSVC.
+the full matrix: native/xad/codipack/adept × gcc-13, gcc-14, gcc-15, clang-18,
+clang-19, clang-20, plus MSVC.
 
 ## Architecture
 

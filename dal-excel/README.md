@@ -48,7 +48,8 @@ domestic and foreign rate-fixing identities. Pass that handle to
 
 `MARKETFIXINGSNAPSHOT.NEW` takes parallel index-name, fixing-time, and value
 ranges and returns one immutable snapshot handle. The arrays must have equal
-length, timestamps must be valid, and observations must be positive and finite.
+length, timestamps must be valid, and observations must be finite. Canonical FX
+observations must also be positive; rate fixings may be zero or negative.
 Repeated `(index name, timestamp)` rows are rejected. The canonical name for a
 domestic/foreign pair is `FX[foreign/domestic]`, for example `FX[EUR/USD]` for
 USD/EUR. Lookup uses the requested direction when present and otherwise uses

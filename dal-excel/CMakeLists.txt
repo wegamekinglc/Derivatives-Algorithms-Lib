@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.21.0)
 # ---------------------------------------------------------------------------
 # Detect build mode
 # ---------------------------------------------------------------------------
-if(NOT DAL_EXCEL_AS_SUBDIRECTORY)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(DAL_EXCEL_IS_TOPLEVEL TRUE)
     message(STATUS "dal-excel: standalone top-level mode")
 else()
@@ -83,7 +83,6 @@ endif()
 # ---------------------------------------------------------------------------
 # Library target: dal_excel (alias DAL::excel)
 #
-# Mirrors the original public/excel/CMakeLists.txt exactly:
 # Mirrors the original public/excel/CMakeLists.txt:
 # - SHARED library built from all dal-excel/src/*.hpp and *.cpp
 # - Auto-generated *.inc files under dal-excel/auto/ (from Machinist)
@@ -98,6 +97,7 @@ file(GLOB_RECURSE EXCEL_FILES CONFIGURE_DEPENDS
 
 add_library(dal_excel SHARED ${EXCEL_FILES})
 add_library(DAL::excel ALIAS dal_excel)
+target_include_directories(dal_excel PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)
