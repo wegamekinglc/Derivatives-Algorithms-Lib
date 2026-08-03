@@ -177,7 +177,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force   
 
 Both launchers check their platform prerequisites, including Python ≥ 3.13,
 uv, node, and npm. The bash launcher also needs `curl`, `grep`, `nohup`, and
-either `ss` or `lsof`; its stopper needs `lsof`. They verify ports `8001`
+either `ss` or `lsof`; its stopper needs `grep` and `lsof`. They verify ports `8001`
 (backend) and `5173` (frontend) are free, synchronize backend dependencies with
 `uv sync --inexact`, and run the native-DAL preflight with
 `uv run --no-sync python -m app.native_runtime`. They then install frontend
@@ -269,8 +269,9 @@ free the port or run on a different one:
 # Option A — stop any running web UI
 ./dal-web/scripts/stop.sh
 
-# Option B — find and kill whatever is using port 8001
-fuser -k 8001/tcp
+# Option B — find listener PIDs, then pass them to kill
+lsof -tiTCP:8001 -sTCP:LISTEN
+kill <pid>
 
 # Option C — use a different port (e.g. 8002)
 uv run --no-sync python -m uvicorn app.main:app --reload --port 8002
