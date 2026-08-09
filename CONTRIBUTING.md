@@ -99,9 +99,10 @@ bash ./build_linux.sh --benchmarks
 Linux pull requests compare base and head builds on the same runner with GCC 14,
 Release mode, native CPU tuning, the native AAD backend, and
 `DAL_NUM_THREADS=4`. The gate runs two independent rounds of ten interleaved
-process-level samples per side. A comparable case fails only when its head/base
-median exceeds `+4%` in both rounds, which requires a repeated regression rather
-than a single noisy measurement. Base-only cases fail as removals or renames.
+process-level samples per side. A comparable case fails only when the head
+best-of-N minimum is more than `4%` above the base minimum in both rounds,
+which requires a repeated regression rather than a single noisy measurement.
+Base-only cases fail as removals or renames.
 Head-only cases are reported as new informational coverage; the explicit Sobol
 precise-policy migration remains validated separately, and the head Sobol
 precise/fast ratio has a `10x` ceiling. The Windows benchmark job remains

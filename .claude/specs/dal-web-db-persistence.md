@@ -1,5 +1,9 @@
 # dal-web database persistence
 
+> **Artifact status: implemented history.** Database-backed storage and migrations have shipped.
+> Current setup and restart behavior are documented in `dal-web/README.md` and
+> `docs/architecture.md`. The proposal language below describes the pre-implementation baseline.
+
 ## Goal
 
 Give the dal-web backend real persistent storage backed by a database, with

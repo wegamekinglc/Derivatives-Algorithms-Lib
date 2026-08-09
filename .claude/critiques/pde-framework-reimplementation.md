@@ -1,5 +1,9 @@
 # PDE Solver Framework Reimplementation - Critic Critique
 
+> **Artifact status: implemented history.** The reviewed PDE reimplementation has shipped.
+> Current supported behavior is documented in `docs/methodology/pde.md`.
+> References to the retired PDE stack below describe the critique baseline and are intentionally historical.
+
 ## Target
 - Spec: `.claude/specs/pde-framework-reimplementation.md` (including the API Design section added by `dal-api-designer`)
 

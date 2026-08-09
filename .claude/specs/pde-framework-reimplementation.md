@@ -1,5 +1,9 @@
 # PDE Solver Framework Reimplementation - Specification
 
+> **Artifact status: implemented history.** The PDE framework reimplementation has shipped.
+> Current supported behavior is documented in `docs/methodology/pde.md`.
+> References to the retired PDE stack and staged acceptance plan below describe the implementation baseline.
+
 ## Source
 - Issue: user request on 2026-07-07 (clean-room reimplementation of the PDE solver framework)
 - Related methodology: `docs/methodology/pde.md` (meshers, coordinate maps, boundary-null convention)

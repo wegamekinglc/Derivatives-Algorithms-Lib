@@ -1,6 +1,11 @@
 # Script Engine — Compiled Evaluator Alignment
 
-Plan-only document (no implementation yet). Covers: aligning the compiled
+> **Artifact status: implemented history.** Compiled/tree-walk parity, public
+> compiled selection, and compiled fuzzy evaluation have shipped. Current
+> supported behavior is documented in `docs/methodology/script_engine.md`.
+> Paths, line citations, defects, and phases below describe the planning baseline.
+
+This planning document covers aligning the compiled
 bytecode evaluator with the tree-walk evaluator, the parity test harness that
 makes that alignment regression-proof, and the path to making `compiled=true`
 a safe default. This is candidate #1 in

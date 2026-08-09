@@ -1,5 +1,11 @@
 # dal-public Spec Builder API-Shape Deduplication -- Design
 
+> **Artifact status: implemented history.** The accepted design shipped as the
+> brace-initialized `Build()` implementations and shared `CurveSolverOptions_`
+> vocabulary in `dal-public/src/curvespec.hpp`, `dal-public/src/curvespec.cpp`,
+> `dal-public/src/xccycalibration.hpp`, and `dal-public/src/xccycalibration.cpp`.
+> The analysis below is retained as design history, not pending work.
+
 ## Source
 
 - User request on 2026-06-27: design (do not implement) two API-shape duplications in the
@@ -7,8 +13,6 @@
 - Read-only sweep of `dal-public/src/`, `dal-public/tests/`, `dal-python/src/`,
   `dal-python/tests/`, `dal-python/examples/`, `dal-excel/src/`, `dal-excel/auto/`,
   `dal-cpp/examples/`, `dal-cpp/tests/`, and `docs/` on 2026-06-27.
-
-**STATUS: Design only. No code changes. Awaiting user approval of the recommendation.**
 
 ## Problem Statement
 
