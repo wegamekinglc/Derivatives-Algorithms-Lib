@@ -1,4 +1,7 @@
 file(GLOB_RECURSE EXCELWRITER_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
+# ExcelDriver_ is excluded from dal_library unless USE_EXCEL_REPORT is defined.
+# Compile its implementation in this target, where the Office imports are enabled.
+list(APPEND EXCELWRITER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../dal/io/exceldriverlite.cpp")
 add_executable(excelwriter ${EXCELWRITER_FILES})
 
 target_link_libraries(excelwriter dal_library)
