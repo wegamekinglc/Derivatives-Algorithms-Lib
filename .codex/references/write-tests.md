@@ -65,13 +65,13 @@ Every `TEST()` block is self-contained — set up its own data, exercise the API
 
 **Assertions by type:**
 
-| Situation                        | Macro                                      | Example                                        |
-|----------------------------------|--------------------------------------------|------------------------------------------------|
-| Float (tolerant)                 | `ASSERT_NEAR(actual, expected, tol)`       | `ASSERT_NEAR(price, 8.5359, 1e-10)`            |
-| Float (exact, e.g. knot points)  | `ASSERT_DOUBLE_EQ(expected, actual)`       | `ASSERT_DOUBLE_EQ(f[2], interp(x[2]))`         |
-| Integer / size / object equality | `ASSERT_EQ(expected, actual)`              | `ASSERT_EQ(Year(dt), yyyy)`                    |
-| Boolean condition                | `ASSERT_TRUE(expr)` / `ASSERT_FALSE(expr)` | `ASSERT_TRUE(dt.IsValid())`                    |
-| Expected exception               | `ASSERT_THROW(stmt, Dal::Exception_)`      | `ASSERT_THROW(Mesher(0,0,5), Dal::Exception_)` |
+| Situation                        | Macro                                      | Example                                                                 |
+|----------------------------------|--------------------------------------------|-------------------------------------------------------------------------|
+| Float (tolerant)                 | `ASSERT_NEAR(actual, expected, tol)`       | `ASSERT_NEAR(price, 8.5359, 1e-10)`                                     |
+| Float (exact, e.g. knot points)  | `ASSERT_DOUBLE_EQ(expected, actual)`       | `ASSERT_DOUBLE_EQ(f[2], interp(x[2]))`                                  |
+| Integer / size / object equality | `ASSERT_EQ(expected, actual)`              | `ASSERT_EQ(Year(dt), yyyy)`                                             |
+| Boolean condition                | `ASSERT_TRUE(expr)` / `ASSERT_FALSE(expr)` | `ASSERT_TRUE(dt.IsValid())`                                             |
+| Expected exception               | `ASSERT_THROW(stmt, Dal::Exception_)`      | `ASSERT_THROW(Dal::PDE::MakeUniformGrid(1.0, 0.0, 5), Dal::Exception_)` |
 
 - Never use `EXPECT_*` — always `ASSERT_*` for fail-fast.
 - Tolerance for `ASSERT_NEAR`: `1e-10` is most common in this repo, followed by `1e-8` and `1e-6`. Use `1e-4` for Monte Carlo or iterative

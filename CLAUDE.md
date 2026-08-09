@@ -169,7 +169,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Interpolation** — [Interpolation](docs/methodology/interpolation.md)
 - **Matrix and Linear Algebra** — [Matrix and linear algebra](docs/methodology/matrix.md)
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
-- **PDE Finite-Difference Meshers and Coordinate Maps** — [PDE meshers](docs/methodology/pde.md)
+- **PDE Framework, Grid Construction, and Coordinate Maps** — [PDE framework](docs/methodology/pde.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, and benchmarks
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)

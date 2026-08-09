@@ -14,6 +14,8 @@ review outcome is represented in current documentation and Git history.
   `512e3dcfb4cb6dbaa3cf6c4db5a057ae838bef86`.
 - Baseline commit date and subject: 2026-08-04,
   `fix: reconcile repository workflows and documentation (#282)`.
+- Reviewer remediation starts from the exact first-stage head
+  `05f29abca7522aada9a647bf02c08ad068b03924`.
 
 ## Scope
 
@@ -192,6 +194,18 @@ application guide. Historical body content was not rewritten as if it were curre
 `.codex/README.md` and `.codex/artifacts/README.md` previously said that no artifact controlled
 active work. They now identify this DAL-92 handoff while independent review is pending.
 
+### Current PDE terminology and exception examples
+
+Independent review found four current-contract occurrences that the first audit had missed.
+`README.md` and `CLAUDE.md` still presented the removed finite-difference mesher family as a
+current PDE surface, while `.codex/references/write-tests.md` and
+`.claude/skills/dal-unit-test-write/SKILL.md` used a nonexistent `Mesher(0,0,5)` exception
+example. The current index language now names the PDE framework, grid construction, and
+coordinate maps. Both test-writing contracts now use
+`Dal::PDE::MakeUniformGrid(1.0, 0.0, 5)`, whose reversed bounds are rejected by the
+`REQUIRE(points.yHigh_ > points.yLow_, ...)` precondition and are covered by
+`dal-cpp/tests/math/pde/test_pdegrid.cpp` as a `Dal::Exception_` case.
+
 ## Agent and Platform Reconciliation
 
 - The DAL squad contains exactly the same 10 names as `.codex/agents/*.toml` and
@@ -222,19 +236,28 @@ shift, removal, or deprecation.
 - Nine files under `.claude/{api-notes,critiques,designs,specs}/` — mark shipped work as
   implemented history and identify current authority.
 - `.codex/README.md` and `.codex/artifacts/README.md` — index the active DAL-92 review artifact.
+- `README.md` and `CLAUDE.md` — replace retired mesher wording with the current PDE framework,
+  grid-construction, and coordinate-map surface.
+- `.codex/references/write-tests.md` and `.claude/skills/dal-unit-test-write/SKILL.md` — replace
+  the nonexistent `Mesher(...)` exception example with a source- and test-backed
+  `Dal::PDE::MakeUniformGrid(...)` precondition failure.
 - `.codex/artifacts/DAL-92/doc-writer/audit.md` — preserve exhaustive scope, evidence,
-  decisions, checks, and handoff risk for independent review.
+  reviewer remediation, decisions, checks, and handoff risk for independent re-review.
 
 No methodology document was added, removed, or renamed, so `docs/README.md` and the
 `CLAUDE.md` methodology list require no edit.
 
 ## Validation Record
 
-- `python3 .github/scripts/check_docs.py` — passed for 55 curated Markdown files.
+- `python3 .github/scripts/check_docs.py` — passed for its 55 curated Markdown files.
 - `python3 -m unittest discover -s .github/scripts/tests -p 'test_check_docs.py' -v`
   — 24 tests passed.
 - Full tracked-Markdown link, anchor, table, math-macro, whitespace, and final-newline audit
   — 85 files passed.
+- Current API, symbol, and example re-audit — all 85 Markdown files were rechecked; current
+  contracts contain no retired Mesher API or example. Outside this remediation record, remaining
+  mesher references are confined to `CHANGELOG.md` and clearly bounded implemented-history
+  artifacts.
 - TOML, skill YAML, and `SKILL.md` frontmatter parsing — 10 TOML, 2 YAML, and 7 skill
   frontmatters passed.
 - Methodology-index reconciliation — both indexes exactly cover all 16 normative pages.
@@ -250,6 +273,10 @@ No methodology document was added, removed, or renamed, so `docs/README.md` and 
   those records from being mistaken for current usage guidance.
 - Runtime-created paths such as `.server.pid`, `.server.log`, and `dal-python/.venv/`, plus
   illustrative placeholders in agent examples, are intentionally absent from Git.
+- `.github/scripts/check_docs.py` intentionally remains unchanged in this remediation. Its
+  55-of-85 Markdown coverage is a non-blocking follow-up because the independent full-tree
+  checks cover all 85 tracked Markdown files for DAL-92.
 - No C++ build or numerical test suite is required for this Markdown-only patch. Repository
   documentation checks and parser/static consistency checks are the acceptance surface.
-- No blocker remains for independent review. The draft PR must not be merged by this stage.
+- The identified reviewer blocker is corrected; independent re-review remains required. The
+  draft PR must not be merged by this stage.

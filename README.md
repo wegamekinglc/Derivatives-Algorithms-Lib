@@ -183,7 +183,7 @@ Methodology notes (see the index above for the full list):
 - [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, Jacobian / inverse-Jacobian risk
 - [Cross-Currency Pricing and Calibration](docs/methodology/xccy_calibration.md) — fixed, resettable, and MTM swaps; immutable fixing snapshots; staged basis and simultaneous domestic/foreign/basis calibration
 - [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
-- [PDE](docs/methodology/pde.md) — finite-difference meshers and coordinate maps
+- [PDE](docs/methodology/pde.md) — PDE framework, grid construction, and coordinate maps
 - [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
 - [Random](docs/methodology/random.md) — random number generation and path construction
 - [Black / Bachelier](docs/methodology/black_scholes.md) — vanilla option pricing
