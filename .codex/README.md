@@ -37,7 +37,8 @@ Create durable artifacts only when they control active work. Remove completed ar
 their current-state outcome is documented and Git history preserves implementation and review
 history.
 
-No tracked artifact currently controls active work.
+The active DAL-92 documentation audit is recorded under
+`.codex/artifacts/DAL-92/doc-writer/` until independent review is complete.
 
 ## Preserved Claude Sources
 

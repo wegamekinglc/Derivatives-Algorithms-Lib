@@ -1,5 +1,11 @@
 # Joint Multi-Curve AAD Analytic Jacobian (Phase B) - Specification
 
+> **Artifact status: implemented history.** This specification has shipped.
+> Current supported behavior is documented in
+> `docs/methodology/yield_curve.md` and
+> `docs/methodology/yield_curve_jacobian.md`. Paths, line citations, acceptance
+> checkboxes, and hand-offs below describe the implementation baseline and are retained as historical evidence.
+
 > Status: **REVISED (third pass) — 2026-06-20.** This pass DROPS the second-pass
 > CP4 / critique-B5 scope reduction (reject `OISSwap_`, switch the example to
 > vanilla `Swap_`, defer `Tape::OisSwapRate_<T_>`). The lead re-verified
@@ -19,10 +25,10 @@
 > is priced through a NEW `Tape::JointRate_<T_>` base whose `operator()` takes a
 > `const JointCurveBlock_<T_>&` (CP3) — NOT through Phase A's `Tape::Rate_<T_>` virtual
 > (which is bound to `YCCtx_<T_>` and reads a single curve). The OIS-discount slice
-> (`forecast == discount`) rides the inherited `Swap_::PrecomputeT<T_>`. This is a
-> DESIGN-ONLY spec. No code, no headers, no test scaffolding. Implementation is the
-> `dal-implementer`'s job; API shape is `dal-api-designer`'s job; algorithm selection
-> is the architect's job.
+> (`forecast == discount`) rides the inherited `Swap_::PrecomputeT<T_>`. This is the
+> original design-only spec. No code, headers, or test scaffolding were authored in
+> this artifact. Implementation was the `dal-implementer`'s job; API shape is
+> `dal-api-designer`'s job; algorithm selection is the architect's job.
 
 ## Source
 

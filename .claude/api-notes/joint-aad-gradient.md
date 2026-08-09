@@ -1,5 +1,11 @@
 # Joint Multi-Curve AAD Analytic Jacobian (Phase B) - API Note
 
+> **Artifact status: implemented history.** The API decisions in this note have shipped.
+> Current supported behavior is documented in
+> `docs/methodology/yield_curve.md` and
+> `docs/methodology/yield_curve_jacobian.md`. Paths, line citations, and staged
+> hand-offs below describe the implementation baseline and are retained as historical evidence.
+
 > Status: **REVISED (third pass) — 2026-06-20.** This pass DROPS the
 > second-pass CP4 / critique-B5 decision (reject `OISSwap_`, switch the
 > example to vanilla `Swap_`, defer `Tape::OisSwapRate_<T_>` to Phase B+1).
