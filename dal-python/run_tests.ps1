@@ -8,7 +8,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be installed first (run ..\build_windows.bat)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and Python 3.10+ development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.10-3.13 development headers
 #   - Visual Studio 2022 with C++ workload
 
 param(
@@ -84,7 +84,7 @@ if ($Clean) {
 
 if (-not (Test-Path $VenvDir)) {
     Write-Output "Creating fresh uv virtual environment..."
-    uv venv $VenvDir --python ">=3.10"
+    uv venv $VenvDir --python ">=3.10,<3.14"
 }
 else {
     Write-Output "Reusing existing virtual environment at .venv/"
@@ -107,7 +107,7 @@ Write-Output "  Path:   $(Get-Command python | Select-Object -ExpandProperty Sou
 
 Write-Output ""
 Write-Output "Installing dependencies (scikit-build-core, pytest, numpy)..."
-uv pip install scikit-build-core pytest numpy
+uv pip install "scikit-build-core==1.0.3" pytest numpy
 
 # ---- Step 4: Install the package in editable mode ---------------------------
 

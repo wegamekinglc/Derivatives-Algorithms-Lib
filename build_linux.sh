@@ -53,7 +53,7 @@ if [[ $BUILD_PYTHON == true ]]; then
     python_bin="$venv_dir/bin/python"
     if [[ ! -x "$python_bin" ]]; then
         if command -v uv >/dev/null 2>&1; then
-            uv venv "$venv_dir" --python ">=3.10"
+            uv venv "$venv_dir" --python ">=3.10,<3.14"
         elif command -v python3 >/dev/null 2>&1; then
             python3 -m venv "$venv_dir"
         else

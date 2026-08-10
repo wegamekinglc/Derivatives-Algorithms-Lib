@@ -10,7 +10,7 @@ here instead of maintaining separate build recipes.
 | Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool                         |
 | Linux    | GCC 13+ or Clang 18+; Make or Ninja                                                          |
 | Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                                 |
-| Python   | Python 3.10+ with development headers; `uv` recommended                                      |
+| Python   | CPython 3.10-3.13 with development headers; `uv` recommended                                |
 | Web      | Python 3.13+, `uv`, npm, Node.js `^20.19.0` or `>=22.12.0`, and a built native `dal` package |
 | Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`                         |
 

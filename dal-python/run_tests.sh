@@ -10,7 +10,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The staged C++ install must exist (run ../build_linux.sh from repo root)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and Python 3.10+ development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.10-3.13 development headers
 #
 
 set -eu
@@ -47,7 +47,7 @@ echo "[OK] DAL CMake package found: $DAL_PUBLIC_CONFIG"
 VENV_DIR="$SCRIPT_DIR/.venv"
 if [[ ! -d "$VENV_DIR" ]]; then
     echo "Creating fresh uv virtual environment..."
-    uv venv "$VENV_DIR" --python ">=3.10"
+    uv venv "$VENV_DIR" --python ">=3.10,<3.14"
 else
     echo "Reusing existing virtual environment at .venv/"
 fi
@@ -62,7 +62,7 @@ echo "  Path:   $(which python)"
 
 echo ""
 echo "Installing dependencies (scikit-build-core, pytest, numpy)..."
-uv pip install scikit-build-core pytest numpy
+uv pip install "scikit-build-core==1.0.3" pytest numpy
 
 # ---- Step 4: Install the package in editable mode ---------------------------
 

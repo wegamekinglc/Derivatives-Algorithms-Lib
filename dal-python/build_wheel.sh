@@ -7,7 +7,7 @@
 # Prerequisites:
 # - Staged C++ install must contain the exported dal-public CMake package
 # - uv must be installed
-# - Python 3.10+ with development headers
+# - CPython 3.10-3.13 with development headers
 #
 # Usage:
 #   ./build_wheel.sh              # Build wheel for current platform
@@ -84,14 +84,14 @@ fi
 # Create build environment
 echo -e "${YELLOW}Creating build environment...${NC}"
 if [ ! -d ".venv" ]; then
-    uv venv
+    uv venv --python ">=3.10,<3.14"
 fi
 source .venv/bin/activate
 echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q scikit-build-core cmake ninja build
+uv pip install -q "scikit-build-core==1.0.3" cmake ninja build
 if [ "$MANYLINUX" = true ]; then
     uv pip install -q auditwheel
 fi

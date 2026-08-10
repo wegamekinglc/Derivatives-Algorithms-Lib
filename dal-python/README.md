@@ -13,14 +13,14 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 ## Prerequisites
 
-- **Python 3.10+** with development headers
+- **CPython 3.10-3.13** with development headers
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
 - **pybind11 2.11.1** — installed automatically for isolated package builds;
   repository builds fall back to the pinned `dal-cpp/externals/pybind11`
   submodule, so run `git submodule update --init --recursive` on fresh clones
 - **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - **DAL C++ staged install** — build core/public first; the canonical workflow is
-  in [docs/installation.md](../docs/installation.md#python-bindings)
+  in the [installation guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/installation.md#python-bindings)
 
 ### Building the C++ Library
 
@@ -44,7 +44,7 @@ Clone the repository and install in editable mode:
 cd Derivatives-Algorithms-Lib/dal-python
 
 # Create a virtual environment with uv
-uv venv
+uv venv --python ">=3.10,<3.14"
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies and build the extension
@@ -71,6 +71,7 @@ and runs the configured C++/public/Python tests.
 ## Building Distribution Packages
 
 For production deployment, you can build pre-compiled binary wheels or source distributions.
+Official PyPI releases contain precompiled wheels only.
 
 ### Building a Binary Wheel
 
@@ -105,10 +106,10 @@ The source archive is created under `dist/`.
 
 Install from source (requires C++ build tools):
 ```bash
-pip install dist/dal_python-2025.12.7.tar.gz \
+pip install dist/dal_python-2026.8.11.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 # or
-uv pip install dist/dal_python-2025.12.7.tar.gz \
+uv pip install dist/dal_python-2026.8.11.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 ```
 
@@ -117,9 +118,67 @@ uv pip install dist/dal_python-2025.12.7.tar.gz \
 - CMake 3.21+
 - pybind11 2.11.1 (declared as an isolated build requirement and installed
   automatically; repository builds may use the pinned vendored submodule)
-- Python 3.10+ development headers
+- CPython 3.10-3.13 development headers
 - DAL staged install containing the `dal-public`/`dal-cpp` CMake packages and
   platform libraries
+
+## PyPI Binary Release
+
+The repository release workflow builds and tests this wheel matrix:
+
+| Operating system | Architecture | Wheel platform tag          | CPython versions |
+|------------------|--------------|-----------------------------|------------------|
+| Linux            | x86-64       | `manylinux_2_28_x86_64`     | 3.10-3.13        |
+| Windows          | x86-64       | `win_amd64`                 | 3.10-3.13        |
+
+The Linux tag requires glibc 2.28 or newer. macOS, Linux ARM, musllinux, PyPy,
+free-threaded CPython, source distributions, and CPython 3.14 are not part of the
+current PyPI release contract.
+
+### One-time PyPI setup
+
+Configure a Trusted Publisher on the existing `dal-python` PyPI project with:
+
+| Field                | Value                              |
+|----------------------|------------------------------------|
+| PyPI project         | `dal-python`                       |
+| GitHub owner         | `wegamekinglc`                     |
+| GitHub repository    | `Derivatives-Algorithms-Lib`       |
+| Workflow filename    | `dal-python-release.yml`           |
+| GitHub environment   | `pypi`                             |
+
+Create the matching `pypi` environment in the GitHub repository and require a
+manual deployment approval if the repository plan supports it. The workflow uses
+OIDC short-lived credentials; do not add a long-lived PyPI API token.
+
+### Release procedure
+
+1. Choose a new PEP 440 version that does not exist on PyPI. Update both
+   `pyproject.toml` and `src/dal/__init__.py`.
+2. Build and test the workspace with `bash ./build_linux.sh --full` from the
+   repository root. Review and merge the version and release-note changes to
+   `master` only after the exact PR head is green.
+3. Run the `dal-python wheels and PyPI release` workflow manually from `master`.
+   This is a build-only rehearsal. Confirm that eight wheels and the SHA-256
+   release manifest are present.
+4. Tag that reviewed `master` commit and push only the tag:
+
+   ```bash
+   git tag -a dal-python-v<version> -m "Release dal-python <version>"
+   git push origin dal-python-v<version>
+   ```
+
+5. The tag run rebuilds and tests every wheel, validates the combined manifest,
+   checks that the version is unused on PyPI, then publishes the exact artifacts
+   from the build jobs through the `pypi` environment.
+6. Verify the PyPI file list contains all eight wheels. In fresh Windows and Linux
+   environments, install `dal-python==<version>`, import `dal`, and confirm
+   `dal.__version__` equals `<version>`.
+
+PyPI versions and files are immutable. Never use a skip-existing option to repair
+an incomplete release; correct the issue, increment the version, and run the full
+process again. Local `build_wheel.*` scripts are for diagnostics and private
+deployment only; their output is not a PyPI release artifact.
 
 ## Usage
 
@@ -373,7 +432,7 @@ curve-construction and calibration workflows:
 - **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`), `XccyNotionalMode` (`FIXED`, `RESETTABLE`, `MARK_TO_MARKET`)
 - **Spec builders** — `CurveCalibrationSpecBuilder_`, `CrossCurrencyCalibrationSpecBuilder_`, and `JointXccyCalibrationSpecBuilder_`
 
-The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in [docs/methodology/yield_curve.md](../docs/methodology/yield_curve.md) and [docs/methodology/yield_curve_jacobian.md](../docs/methodology/yield_curve_jacobian.md).
+The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in the [yield-curve guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve.md) and [Jacobian guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve_jacobian.md).
 
 ### Continuously Compounded Zero-Rate Curves
 
@@ -480,9 +539,9 @@ either diagnostic matrix. The `eff_jacobian_inverse` matrix has shape
 `totalParameters x totalResiduals` and is the weighted inverse of the solver's
 tolerance-scaled Jacobian. Transforming a raw decimal quote bump therefore
 requires division by the spec's `tolerance_`; see the
-[Jacobian methodology](../docs/methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
+[Jacobian methodology](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
 
-The runnable [joint XCCY calibration example](examples/007.xccy_joint_calibration.py)
+The runnable [joint XCCY calibration example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/007.xccy_joint_calibration.py)
 uses an explicit fixing snapshot for a started MTM trade. It prints convergence,
 the maximum absolute residual, Jacobian dimensions, named parameter and residual
 half-open ranges, and every FX-forward date and value. With the `dal` package
@@ -529,17 +588,17 @@ uv run --no-sync python -c "import dal; print(dal.__version__)"
 
 ## License
 
-MIT License. See the repository [LICENSE](../LICENSE).
+MIT License. See the repository [LICENSE](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/LICENSE).
 
 ## Contributing
 
-Follow the repository [contributor guide](../CONTRIBUTING.md). Binding changes
+Follow the repository [contributor guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/CONTRIBUTING.md). Binding changes
 should include Python tests and updates to the
-[public API guide](../docs/public-api.md) when the supported surface changes.
+[public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md) when the supported surface changes.
 
 ## See Also
 
-- [DAL C++ Library](../README.md) — Workspace overview
-- [Installation guide](../docs/installation.md) — Canonical setup commands
-- [Public API guide](../docs/public-api.md) — C++, Python, and Excel entry points
+- [DAL C++ Library](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib) — Workspace overview
+- [Installation guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/installation.md) — Canonical setup commands
+- [Public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md) — C++, Python, and Excel entry points
 - [pybind11 Documentation](https://pybind11.readthedocs.io/) — pybind11 binding syntax
