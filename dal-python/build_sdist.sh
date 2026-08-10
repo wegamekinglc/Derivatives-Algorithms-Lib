@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 # - uv must be installed
-# - Python 3.10+
+# - CPython 3.10-3.13
 #
 # Usage:
 #   ./build_sdist.sh         # Build source distribution
@@ -66,14 +66,14 @@ fi
 # Create build environment
 echo -e "${YELLOW}Creating build environment...${NC}"
 if [ ! -d ".venv" ]; then
-    uv venv
+    uv venv --python ">=3.10,<3.14"
 fi
 source .venv/bin/activate
 echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q scikit-build-core build "pybind11==2.11.1"
+uv pip install -q "scikit-build-core==1.0.3" build "pybind11==2.11.1"
 echo -e "${GREEN}✓ Build dependencies installed${NC}"
 
 # Build sdist
@@ -109,7 +109,7 @@ echo "Note: Building from source requires:"
 echo "  - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)"
 echo "  - CMake 3.21+"
 echo "  - pybind11 2.11.1 (installed automatically from the sdist build requirements)"
-echo "  - Python 3.10+ development headers"
+echo "  - CPython 3.10-3.13 development headers"
 echo "  - DAL staged install containing lib/cmake/dal-public/dal-publicConfig.cmake"
 echo ""
 

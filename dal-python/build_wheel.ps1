@@ -6,7 +6,7 @@
 # Prerequisites:
 # - C++ library must be installed (run ..\build_windows.bat)
 # - uv must be installed
-# - Python 3.10+ with development headers
+# - CPython 3.10-3.13 with development headers
 # - Visual Studio 2022 with C++ workload
 #
 # Usage:
@@ -79,7 +79,7 @@ if ($Clean) {
 Write-Output "Creating build environment..."
 $VenvDir = Join-Path $ScriptDir ".venv"
 if (-not (Test-Path $VenvDir)) {
-    uv venv $VenvDir --python ">=3.10"
+    uv venv $VenvDir --python ">=3.10,<3.14"
 }
 $VenvActivate = Join-Path $VenvDir "Scripts\Activate.ps1"
 . $VenvActivate
@@ -87,7 +87,7 @@ Write-Output "  Build environment ready"
 
 # Install build dependencies
 Write-Output "Installing build dependencies..."
-uv pip install -q scikit-build-core cmake ninja build
+uv pip install -q "scikit-build-core==1.0.3" cmake ninja build
 Write-Output "  Build dependencies installed"
 
 # Build wheel
