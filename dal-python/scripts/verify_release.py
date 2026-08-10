@@ -87,6 +87,10 @@ def validate_native_extension(path: Path, names: list[str], family: str) -> None
         raise ValueError(f"{path.name}: expected one compiled _dal extension, found {extensions}")
 
 
+def normalized_requires_python(value: str) -> frozenset[str]:
+    return frozenset(specifier.strip() for specifier in value.split(","))
+
+
 def validate_package_metadata(
     path: Path, metadata, expected_version: str, expected_requires_python: str
 ) -> None:
@@ -97,8 +101,12 @@ def validate_package_metadata(
         "Requires-Python": expected_requires_python,
     }
     for key, expected in expected_metadata.items():
-        if metadata[key] != expected:
-            raise ValueError(f"{path.name}: {key}={metadata[key]!r}, expected {expected!r}")
+        actual = metadata[key]
+        equivalent = actual == expected
+        if key == "Requires-Python":
+            equivalent = normalized_requires_python(actual) == normalized_requires_python(expected)
+        if not equivalent:
+            raise ValueError(f"{path.name}: {key}={actual!r}, expected {expected!r}")
     if not str(metadata.get_payload()).strip():
         raise ValueError(f"{path.name}: package description is empty")
 
@@ -108,9 +116,12 @@ def validate_wheel_metadata(
 ) -> None:
     if wheel_metadata["Root-Is-Purelib"] != "false":
         raise ValueError(f"{path.name}: native wheel is incorrectly marked pure")
-    filename_tag = f"{python_tag}-{abi_tag}-{platform_tag}"
-    if filename_tag not in wheel_metadata.get_all("Tag", []):
-        raise ValueError(f"{path.name}: WHEEL metadata omits {filename_tag}")
+    filename_tags = {
+        f"{python_tag}-{abi_tag}-{platform}" for platform in platform_tag.split(".")
+    }
+    missing_tags = filename_tags - set(wheel_metadata.get_all("Tag", []))
+    if missing_tags:
+        raise ValueError(f"{path.name}: WHEEL metadata omits {sorted(missing_tags)}")
 
 
 def validate_wheel(

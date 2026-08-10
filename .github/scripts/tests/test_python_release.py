@@ -50,7 +50,10 @@ class PythonReleaseTest(unittest.TestCase):
                     (
                         "Wheel-Version: 1.0",
                         "Root-Is-Purelib: false",
-                        f"Tag: {python_tag}-{python_tag}-{platform_tag}",
+                        *(
+                            f"Tag: {python_tag}-{python_tag}-{platform}"
+                            for platform in platform_tag.split(".")
+                        ),
                         "",
                     )
                 ),
@@ -61,7 +64,11 @@ class PythonReleaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             version, _, _ = VERIFY_RELEASE.project_configuration()
-            self.write_wheel(directory, "cp313", "manylinux_2_28_x86_64")
+            self.write_wheel(
+                directory,
+                "cp313",
+                "manylinux_2_27_x86_64.manylinux_2_28_x86_64",
+            )
             self.write_wheel(directory, "cp313", "win_amd64")
 
             manifest = VERIFY_RELEASE.validate_release(
@@ -93,6 +100,12 @@ class PythonReleaseTest(unittest.TestCase):
         version, _, _ = VERIFY_RELEASE.project_configuration()
         with self.assertRaisesRegex(ValueError, f"must equal {re.escape(f'dal-python-v{version}')}"):
             VERIFY_RELEASE.validate_versions("dal-python-v0")
+
+    def test_python_requirement_order_is_not_significant(self):
+        self.assertEqual(
+            VERIFY_RELEASE.normalized_requires_python(">=3.10,<3.14"),
+            VERIFY_RELEASE.normalized_requires_python("<3.14, >=3.10"),
+        )
 
     def test_finds_native_config_in_lib_and_lib64(self):
         relative = Path("cmake") / "dal-public" / "dal-publicConfig.cmake"
