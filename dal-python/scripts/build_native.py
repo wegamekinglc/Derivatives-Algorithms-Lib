@@ -36,9 +36,8 @@ def run_cmake(arguments: list[str]) -> None:
     """Run the fixed CMake executable without a shell or caller-selected program."""
     print("+ cmake", *arguments, flush=True)
     # Paths come from checked_directory and the remaining arguments are constants.
-    subprocess.run(  # noqa: S603  # nosec B603  # nosemgrep
-        [str(cmake_executable()), *arguments], check=True, shell=False
-    )
+    command = [str(cmake_executable()), *arguments]
+    subprocess.run(command, check=True, shell=False)  # noqa: S603  # nosec B603  # nosemgrep
 
 
 def find_public_config(install_dir: Path) -> Path:

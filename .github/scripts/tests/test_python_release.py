@@ -123,6 +123,17 @@ class PythonReleaseTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unexpected cmake executable"):
                 BUILD_NATIVE.cmake_executable()
 
+    def test_run_cmake_uses_resolved_executable_without_shell(self):
+        executable = Path("/opt/cmake/bin/cmake")
+        with patch.object(
+            BUILD_NATIVE, "cmake_executable", return_value=executable
+        ), patch.object(BUILD_NATIVE.subprocess, "run") as run:
+            BUILD_NATIVE.run_cmake(["--version"])
+
+            run.assert_called_once_with(
+                [str(executable), "--version"], check=True, shell=False
+            )
+
     def test_pypi_version_check_uses_fixed_https_endpoint(self):
         with patch.object(VERIFY_RELEASE, "HTTPSConnection") as connection:
             response = connection.return_value.getresponse.return_value
