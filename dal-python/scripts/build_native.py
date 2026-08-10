@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-import subprocess
+import subprocess  # noqa: S404  # nosec B404 -- required to invoke the fixed CMake tool
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -21,9 +21,13 @@ def checked_directory(path: Path, label: str) -> Path:
     return resolved
 
 
-def run(command: list[str]) -> None:
-    print("+", subprocess.list2cmdline(command), flush=True)
-    subprocess.run(command, check=True)
+def run_cmake(arguments: list[str]) -> None:
+    """Run the fixed CMake executable without a shell or caller-selected program."""
+    print("+ cmake", *arguments, flush=True)
+    # Paths come from checked_directory and the remaining arguments are constants.
+    subprocess.run(  # noqa: S603  # nosec B603  # nosemgrep
+        ["cmake", *arguments], check=True, shell=False
+    )
 
 
 def find_public_config(install_dir: Path) -> Path:
@@ -37,19 +41,31 @@ def find_public_config(install_dir: Path) -> Path:
     raise RuntimeError(f"native install is missing a DAL public CMake package; checked {expected}")
 
 
+def generator_configuration(is_windows: bool) -> tuple[list[str], list[str]]:
+    if is_windows:
+        return (
+            [
+                "-G",
+                "Visual Studio 17 2022",
+                "-A",
+                "x64",
+                "-DMSVC_RUNTIME=static",
+                "-DXAD_STATIC_MSVC_RUNTIME=ON",
+            ],
+            ["--config", "Release"],
+        )
+    return ["-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release"], []
+
+
 def build_native(build_dir: Path, install_dir: Path) -> None:
     build_dir = checked_directory(build_dir, "build directory")
     install_dir = checked_directory(install_dir, "install directory")
 
     configure = [
-        "cmake",
         "-S",
         str(REPOSITORY_ROOT),
         "-B",
         str(build_dir),
-        "-G",
-        "Ninja",
-        "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         "-DBUILD_SHARED_LIBS=OFF",
         "-DDAL_BUILD_PUBLIC=ON",
@@ -64,22 +80,24 @@ def build_native(build_dir: Path, install_dir: Path) -> None:
         "-DDAL_USE_CODIPACK_AAD=OFF",
         "-DDAL_USE_ADEPT_AAD=OFF",
     ]
-    if os.name == "nt":
-        configure.extend(["-DMSVC_RUNTIME=static", "-DXAD_STATIC_MSVC_RUNTIME=ON"])
+    generator, build_config = generator_configuration(os.name == "nt")
+    configure.extend(generator)
 
-    run(configure)
-    run(
+    run_cmake(configure)
+    run_cmake(
         [
-            "cmake",
             "--build",
             str(build_dir),
             "--target",
             "dal_public",
+            *build_config,
             "--parallel",
             str(min(os.cpu_count() or 2, 4)),
         ]
     )
-    run(["cmake", "--install", str(build_dir), "--prefix", str(install_dir)])
+    run_cmake(
+        ["--install", str(build_dir), "--prefix", str(install_dir), *build_config]
+    )
 
     find_public_config(install_dir)
 

@@ -588,16 +588,10 @@ def check_benchmark_case_policy(errors: list[str]) -> None:
         errors.append("CONTRIBUTING.md: benchmark case-set policy does not describe head-only coverage")
 
 
-def check_python_release_workflow(errors: list[str]) -> None:
-    with (ROOT / "dal-python/pyproject.toml").open("rb") as stream:
-        metadata = tomllib.load(stream)
+def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
     project = metadata["project"]
-    cibuildwheel = metadata["tool"]["cibuildwheel"]
-    expected_builds = {"cp310-*", "cp311-*", "cp312-*", "cp313-*"}
-
     if "scikit-build-core==1.0.3" not in metadata["build-system"]["requires"]:
         errors.append("dal-python/pyproject.toml: scikit-build-core must be reproducibly pinned")
-
     init = (ROOT / "dal-python/src/dal/__init__.py").read_text(encoding="utf-8")
     version_match = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']\s*$', init, re.MULTILINE)
     source_version = version_match.group(1) if version_match else None
@@ -609,6 +603,11 @@ def check_python_release_workflow(errors: list[str]) -> None:
         errors.append("dal-python/pyproject.toml: release wheels must target CPython 3.10-3.13")
     if project.get("readme") != "README.md":
         errors.append("dal-python/pyproject.toml: project.readme must publish the component README")
+
+
+def check_cibuildwheel_config(errors: list[str], metadata: dict) -> None:
+    cibuildwheel = metadata["tool"]["cibuildwheel"]
+    expected_builds = {"cp310-*", "cp311-*", "cp312-*", "cp313-*"}
     if set(cibuildwheel.get("build", [])) != expected_builds:
         errors.append("dal-python/pyproject.toml: cibuildwheel build matrix must cover cp310-cp313")
     if cibuildwheel.get("linux", {}).get("manylinux-x86_64-image") != "manylinux_2_28":
@@ -618,6 +617,8 @@ def check_python_release_workflow(errors: list[str]) -> None:
     if cibuildwheel.get("windows", {}).get("archs") != ["AMD64"]:
         errors.append("dal-python/pyproject.toml: Windows wheel architecture must be AMD64")
 
+
+def check_python_helper_scripts(errors: list[str]) -> None:
     for relative_path in (
         "build_linux.sh",
         "dal-python/build_sdist.sh",
@@ -632,6 +633,8 @@ def check_python_release_workflow(errors: list[str]) -> None:
         if relative_path != "build_linux.sh" and '"scikit-build-core==1.0.3"' not in script:
             errors.append(f"{relative_path}: scikit-build-core must match the build-system pin")
 
+
+def check_python_release_action(errors: list[str]) -> None:
     workflow_path = ROOT / ".github/workflows/dal-python-release.yml"
     workflow = workflow_path.read_text(encoding="utf-8")
     required_fragments = (
@@ -661,6 +664,15 @@ def check_python_release_workflow(errors: list[str]) -> None:
             errors.append(
                 ".github/workflows/dal-python-release.yml: actions must be pinned to full SHAs"
             )
+
+
+def check_python_release_workflow(errors: list[str]) -> None:
+    with (ROOT / "dal-python/pyproject.toml").open("rb") as stream:
+        metadata = tomllib.load(stream)
+    check_python_project_metadata(errors, metadata)
+    check_cibuildwheel_config(errors, metadata)
+    check_python_helper_scripts(errors)
+    check_python_release_action(errors)
 
 
 def check_repository_workflows(errors: list[str]) -> None:

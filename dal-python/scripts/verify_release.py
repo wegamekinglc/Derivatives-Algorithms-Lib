@@ -6,13 +6,12 @@ from __future__ import annotations
 import argparse
 from email.parser import BytesParser
 from hashlib import sha256
-import json
+from http.client import HTTPSConnection
 from pathlib import Path
 import re
 import sys
 import tomllib
-from urllib.error import HTTPError
-from urllib.request import urlopen
+from urllib.parse import quote
 from zipfile import ZipFile
 
 
@@ -65,9 +64,9 @@ def platform_family(platform_tag: str) -> str:
     raise ValueError(f"unsupported or unrepaired wheel platform tag: {platform_tag}")
 
 
-def validate_wheel(
+def validate_wheel_filename(
     path: Path, expected_version: str, expected_requires_python: str
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str]:
     distribution, version, python_tag, abi_tag, platform_tag = wheel_parts(path)
     if distribution != "dal_python":
         raise ValueError(f"{path.name}: unexpected distribution {distribution}")
@@ -76,52 +75,76 @@ def validate_wheel(
     if abi_tag != python_tag:
         raise ValueError(f"{path.name}: ABI {abi_tag} does not match {python_tag}")
     family = platform_family(platform_tag)
+    return python_tag, abi_tag, platform_tag, family
+
+
+def validate_native_extension(path: Path, names: list[str], family: str) -> None:
+    extension_suffix = ".pyd" if family == "windows" else ".so"
+    extensions = [
+        name for name in names if name.startswith("dal/_dal.") and name.endswith(extension_suffix)
+    ]
+    if len(extensions) != 1:
+        raise ValueError(f"{path.name}: expected one compiled _dal extension, found {extensions}")
+
+
+def validate_package_metadata(
+    path: Path, metadata, expected_version: str, expected_requires_python: str
+) -> None:
+    expected_metadata = {
+        "Name": "dal-python",
+        "Version": expected_version,
+        "License-Expression": "MIT",
+        "Requires-Python": expected_requires_python,
+    }
+    for key, expected in expected_metadata.items():
+        if metadata[key] != expected:
+            raise ValueError(f"{path.name}: {key}={metadata[key]!r}, expected {expected!r}")
+    if not str(metadata.get_payload()).strip():
+        raise ValueError(f"{path.name}: package description is empty")
+
+
+def validate_wheel_metadata(
+    path: Path, wheel_metadata, python_tag: str, abi_tag: str, platform_tag: str
+) -> None:
+    if wheel_metadata["Root-Is-Purelib"] != "false":
+        raise ValueError(f"{path.name}: native wheel is incorrectly marked pure")
+    filename_tag = f"{python_tag}-{abi_tag}-{platform_tag}"
+    if filename_tag not in wheel_metadata.get_all("Tag", []):
+        raise ValueError(f"{path.name}: WHEEL metadata omits {filename_tag}")
+
+
+def validate_wheel(
+    path: Path, expected_version: str, expected_requires_python: str
+) -> tuple[str, str, str]:
+    python_tag, abi_tag, platform_tag, family = validate_wheel_filename(
+        path, expected_version, expected_requires_python
+    )
 
     with ZipFile(path) as archive:
         names = archive.namelist()
-        extension_suffix = ".pyd" if family == "windows" else ".so"
-        extensions = [
-            name
-            for name in names
-            if name.startswith("dal/_dal.") and name.endswith(extension_suffix)
-        ]
-        if len(extensions) != 1:
-            raise ValueError(f"{path.name}: expected one compiled _dal extension, found {extensions}")
-
+        validate_native_extension(path, names, family)
         metadata = metadata_from_wheel(archive, "/METADATA")
         wheel_metadata = metadata_from_wheel(archive, "/WHEEL")
-        expected_metadata = {
-            "Name": "dal-python",
-            "Version": expected_version,
-            "License-Expression": "MIT",
-            "Requires-Python": expected_requires_python,
-        }
-        for key, expected in expected_metadata.items():
-            if metadata[key] != expected:
-                raise ValueError(f"{path.name}: {key}={metadata[key]!r}, expected {expected!r}")
-        if not str(metadata.get_payload()).strip():
-            raise ValueError(f"{path.name}: package description is empty")
-        if wheel_metadata["Root-Is-Purelib"] != "false":
-            raise ValueError(f"{path.name}: native wheel is incorrectly marked pure")
-
-        archive_tags = wheel_metadata.get_all("Tag", [])
-        filename_tag = f"{python_tag}-{abi_tag}-{platform_tag}"
-        if filename_tag not in archive_tags:
-            raise ValueError(f"{path.name}: WHEEL metadata omits {filename_tag}")
+        validate_package_metadata(path, metadata, expected_version, expected_requires_python)
+        validate_wheel_metadata(path, wheel_metadata, python_tag, abi_tag, platform_tag)
 
     digest = sha256(path.read_bytes()).hexdigest()
     return python_tag, family, digest
 
 
 def ensure_version_is_new_on_pypi(version: str) -> None:
-    url = f"https://pypi.org/pypi/dal-python/{version}/json"
+    path = f"/pypi/dal-python/{quote(version, safe='')}/json"
+    connection = HTTPSConnection("pypi.org", timeout=20)
     try:
-        with urlopen(url, timeout=20) as response:
-            json.load(response)
-    except HTTPError as error:
-        if error.code == 404:
-            return
-        raise
+        connection.request("GET", path, headers={"Accept": "application/json"})
+        response = connection.getresponse()
+        response.read()
+    finally:
+        connection.close()
+    if response.status == 404:
+        return
+    if response.status != 200:
+        raise OSError(f"PyPI version check failed with HTTP {response.status}")
     raise ValueError(f"dal-python {version} already exists on PyPI and cannot be overwritten")
 
 

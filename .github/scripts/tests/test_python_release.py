@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import tempfile
 import unittest
+from unittest.mock import patch
 from zipfile import ZipFile
 
 
@@ -103,6 +104,44 @@ class PythonReleaseTest(unittest.TestCase):
                 config.touch()
 
                 self.assertEqual(BUILD_NATIVE.find_public_config(install_dir), config)
+
+    def test_windows_native_build_selects_msvc_release(self):
+        generator, build_config = BUILD_NATIVE.generator_configuration(is_windows=True)
+
+        self.assertIn("Visual Studio 17 2022", generator)
+        self.assertIn("x64", generator)
+        self.assertEqual(build_config, ["--config", "Release"])
+
+    def test_pypi_version_check_uses_fixed_https_endpoint(self):
+        with patch.object(VERIFY_RELEASE, "HTTPSConnection") as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 404
+
+            VERIFY_RELEASE.ensure_version_is_new_on_pypi("2026.8.11+candidate")
+
+            connection.assert_called_once_with("pypi.org", timeout=20)
+            connection.return_value.request.assert_called_once_with(
+                "GET",
+                "/pypi/dal-python/2026.8.11%2Bcandidate/json",
+                headers={"Accept": "application/json"},
+            )
+            connection.return_value.close.assert_called_once_with()
+
+    def test_pypi_version_check_rejects_existing_release(self):
+        with patch.object(VERIFY_RELEASE, "HTTPSConnection") as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 200
+
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                VERIFY_RELEASE.ensure_version_is_new_on_pypi("2026.8.11")
+
+    def test_pypi_version_check_rejects_unexpected_status(self):
+        with patch.object(VERIFY_RELEASE, "HTTPSConnection") as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 503
+
+            with self.assertRaisesRegex(OSError, "HTTP 503"):
+                VERIFY_RELEASE.ensure_version_is_new_on_pypi("2026.8.11")
 
 
 if __name__ == "__main__":
