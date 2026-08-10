@@ -26,6 +26,17 @@ def run(command: list[str]) -> None:
     subprocess.run(command, check=True)
 
 
+def find_public_config(install_dir: Path) -> Path:
+    """Find the installed DAL public CMake package on Unix and Windows layouts."""
+    relative = Path("cmake") / "dal-public" / "dal-publicConfig.cmake"
+    candidates = tuple(install_dir / lib_dir / relative for lib_dir in ("lib", "lib64"))
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    expected = ", ".join(str(candidate) for candidate in candidates)
+    raise RuntimeError(f"native install is missing a DAL public CMake package; checked {expected}")
+
+
 def build_native(build_dir: Path, install_dir: Path) -> None:
     build_dir = checked_directory(build_dir, "build directory")
     install_dir = checked_directory(install_dir, "install directory")
@@ -70,9 +81,7 @@ def build_native(build_dir: Path, install_dir: Path) -> None:
     )
     run(["cmake", "--install", str(build_dir), "--prefix", str(install_dir)])
 
-    public_config = install_dir / "lib" / "cmake" / "dal-public" / "dal-publicConfig.cmake"
-    if not public_config.is_file():
-        raise RuntimeError(f"native install is missing {public_config}")
+    find_public_config(install_dir)
 
 
 def main() -> int:

@@ -13,6 +13,11 @@ SPEC = importlib.util.spec_from_file_location("verify_release", SCRIPT)
 VERIFY_RELEASE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VERIFY_RELEASE)
 
+BUILD_SCRIPT = SCRIPT.with_name("build_native.py")
+BUILD_SPEC = importlib.util.spec_from_file_location("build_native", BUILD_SCRIPT)
+BUILD_NATIVE = importlib.util.module_from_spec(BUILD_SPEC)
+BUILD_SPEC.loader.exec_module(BUILD_NATIVE)
+
 
 class PythonReleaseTest(unittest.TestCase):
     def write_wheel(self, directory: Path, python_tag: str, platform_tag: str) -> Path:
@@ -87,6 +92,17 @@ class PythonReleaseTest(unittest.TestCase):
         version, _, _ = VERIFY_RELEASE.project_configuration()
         with self.assertRaisesRegex(ValueError, f"must equal {re.escape(f'dal-python-v{version}')}"):
             VERIFY_RELEASE.validate_versions("dal-python-v0")
+
+    def test_finds_native_config_in_lib_and_lib64(self):
+        relative = Path("cmake") / "dal-public" / "dal-publicConfig.cmake"
+        for lib_dir in ("lib", "lib64"):
+            with self.subTest(lib_dir=lib_dir), tempfile.TemporaryDirectory() as tmp:
+                install_dir = Path(tmp)
+                config = install_dir / lib_dir / relative
+                config.parent.mkdir(parents=True)
+                config.touch()
+
+                self.assertEqual(BUILD_NATIVE.find_public_config(install_dir), config)
 
 
 if __name__ == "__main__":
