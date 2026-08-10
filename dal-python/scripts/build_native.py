@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from shutil import which
 import subprocess  # noqa: S404  # nosec B404 -- required to invoke the fixed CMake tool
 
 
@@ -21,12 +22,22 @@ def checked_directory(path: Path, label: str) -> Path:
     return resolved
 
 
+def cmake_executable() -> Path:
+    discovered = which("cmake")
+    if discovered is None:
+        raise RuntimeError("cmake executable was not found on PATH")
+    executable = Path(discovered).resolve()
+    if executable.name.lower() not in {"cmake", "cmake.exe"}:
+        raise RuntimeError(f"unexpected cmake executable path: {executable}")
+    return executable
+
+
 def run_cmake(arguments: list[str]) -> None:
     """Run the fixed CMake executable without a shell or caller-selected program."""
     print("+ cmake", *arguments, flush=True)
     # Paths come from checked_directory and the remaining arguments are constants.
     subprocess.run(  # noqa: S603  # nosec B603  # nosemgrep
-        ["cmake", *arguments], check=True, shell=False
+        [str(cmake_executable()), *arguments], check=True, shell=False
     )
 
 

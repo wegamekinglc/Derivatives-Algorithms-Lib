@@ -112,6 +112,17 @@ class PythonReleaseTest(unittest.TestCase):
         self.assertIn("x64", generator)
         self.assertEqual(build_config, ["--config", "Release"])
 
+    def test_cmake_executable_is_resolved_to_absolute_path(self):
+        with patch.object(BUILD_NATIVE, "which", return_value="/opt/cmake/bin/cmake"):
+            self.assertEqual(
+                BUILD_NATIVE.cmake_executable(), Path("/opt/cmake/bin/cmake")
+            )
+
+    def test_cmake_executable_rejects_unexpected_name(self):
+        with patch.object(BUILD_NATIVE, "which", return_value="/tmp/not-cmake"):
+            with self.assertRaisesRegex(RuntimeError, "unexpected cmake executable"):
+                BUILD_NATIVE.cmake_executable()
+
     def test_pypi_version_check_uses_fixed_https_endpoint(self):
         with patch.object(VERIFY_RELEASE, "HTTPSConnection") as connection:
             response = connection.return_value.getresponse.return_value
