@@ -11,6 +11,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 PWSH = shutil.which("pwsh")
+DOTNET = shutil.which("dotnet")
 
 
 PROCESS_DOUBLE_SOURCE = r"""
@@ -34,6 +35,13 @@ public static class ProcessDouble {
         Directory.CreateDirectory(scripts);
         string executable = Process.GetCurrentProcess().MainModule.FileName;
         File.Copy(executable, Path.Combine(scripts, "python.exe"), true);
+        string assemblyDirectory = Path.GetDirectoryName(typeof(ProcessDouble).Assembly.Location);
+        foreach (string suffix in new string[] { ".dll", ".deps.json", ".runtimeconfig.json" }) {
+            string source = Path.Combine(assemblyDirectory, "process_double" + suffix);
+            if (File.Exists(source)) {
+                File.Copy(source, Path.Combine(scripts, Path.GetFileName(source)), true);
+            }
+        }
         File.WriteAllText(
             Path.Combine(scripts, "Activate.ps1"),
             "$env:PATH = \"$PSScriptRoot;$env:PATH\"\r\n"
@@ -78,35 +86,47 @@ public static class ProcessDouble {
 """
 
 
-@unittest.skipUnless(os.name == "nt" and PWSH, "requires Windows pwsh")
+@unittest.skipUnless(
+    os.name == "nt" and PWSH and DOTNET, "requires Windows pwsh and .NET SDK"
+)
 class PythonPowerShellHelpersTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._compiler_directory = tempfile.TemporaryDirectory()
         directory = Path(cls._compiler_directory.name)
-        source = directory / "process_double.cs"
-        compiler = directory / "compile.ps1"
-        cls.process_double = directory / "process_double.exe"
+        project = directory / "process-double"
+        project.mkdir()
+        source = project / "Program.cs"
+        project_file = project / "process_double.csproj"
+        cls.process_double_directory = directory / "output"
         source.write_text(PROCESS_DOUBLE_SOURCE, encoding="utf-8")
-        compiler.write_text(
-            "param([string]$Source, [string]$Output)\n"
-            "Add-Type -Path $Source -OutputAssembly $Output -OutputType ConsoleApplication\n",
+        project_file.write_text(
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n"
+            "  <PropertyGroup>\n"
+            "    <OutputType>Exe</OutputType>\n"
+            "    <TargetFramework>net8.0</TargetFramework>\n"
+            "    <ImplicitUsings>disable</ImplicitUsings>\n"
+            "    <Nullable>disable</Nullable>\n"
+            "    <UseAppHost>true</UseAppHost>\n"
+            "    <AssemblyName>process_double</AssemblyName>\n"
+            "  </PropertyGroup>\n"
+            "</Project>\n",
             encoding="utf-8",
         )
         subprocess.run(
             (
-                PWSH,
-                "-NoLogo",
-                "-NoProfile",
-                "-File",
-                str(compiler),
-                "-Source",
-                str(source),
-                "-Output",
-                str(cls.process_double),
+                DOTNET,
+                "publish",
+                str(project_file),
+                "-c",
+                "Release",
+                "-o",
+                str(cls.process_double_directory),
+                "--nologo",
             ),
             check=True,
         )
+        cls.process_double = cls.process_double_directory / "process_double.exe"
 
     @classmethod
     def tearDownClass(cls):
@@ -128,10 +148,16 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
         (libraries / "dal_cpp.lib").touch()
 
         fake_bin = root / "fake-bin"
-        fake_bin.mkdir()
-        shutil.copy2(self.process_double, fake_bin / "uv.exe")
+        self.install_process_double(fake_bin, "uv.exe")
         log = root / "process-double.log"
         return package, install, fake_bin, log
+
+    def install_process_double(self, directory: Path, executable_name: str):
+        directory.mkdir(parents=True)
+        for source in self.process_double_directory.iterdir():
+            if source.is_file():
+                shutil.copy2(source, directory / source.name)
+        shutil.copy2(self.process_double, directory / executable_name)
 
     def environment(self, fake_bin: Path, log: Path, **overrides):
         environment = os.environ.copy()
@@ -176,8 +202,7 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
 
     def create_reused_environment(self, package: Path):
         scripts = package / ".venv" / "Scripts"
-        scripts.mkdir(parents=True)
-        shutil.copy2(self.process_double, scripts / "python.exe")
+        self.install_process_double(scripts, "python.exe")
         (scripts / "Activate.ps1").write_text(
             '$env:PATH = "$PSScriptRoot;$env:PATH"\n', encoding="utf-8"
         )
