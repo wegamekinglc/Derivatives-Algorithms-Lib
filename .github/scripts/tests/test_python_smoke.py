@@ -1,10 +1,11 @@
 """Tests for the isolated dal-python wheel smoke helper."""
 
+import asyncio
 import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import call, patch
+from unittest.mock import AsyncMock, call, patch
 
 
 SCRIPT = (
@@ -134,15 +135,29 @@ class PythonSmokeTest(unittest.TestCase):
                 ],
             )
 
-    def test_process_environment_pins_resolved_executable_directory(self):
+    def test_static_subcommand_keeps_absolute_executable(self):
         smoke = load_smoke()
-        executable = Path("/opt/uv/bin/uv")
+        executable = Path("/opt/environment/bin/python")
 
-        with patch.object(smoke.shutil, "which", return_value=str(executable)):
-            environment = smoke.process_environment(executable, {"PATH": "/usr/bin"})
+        with patch.object(
+            smoke.asyncio, "create_subprocess_exec", new_callable=AsyncMock
+        ) as start:
+            asyncio.run(
+                smoke.start_python_process(
+                    executable,
+                    ("-I", "/opt/smoke.py"),
+                    None,
+                    {},
+                )
+            )
 
-        self.assertEqual(environment["PATH"].split(smoke.os.pathsep)[0], "/opt/uv/bin")
-
+        start.assert_awaited_once_with(
+            str(executable),
+            "-I",
+            "/opt/smoke.py",
+            cwd=None,
+            env={},
+        )
 
 if __name__ == "__main__":
     unittest.main()
