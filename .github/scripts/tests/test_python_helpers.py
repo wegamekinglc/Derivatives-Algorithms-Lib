@@ -288,7 +288,7 @@ class PythonHelpersTest(unittest.TestCase):
             python = venv_bin / "python"
             python.write_text(
                 "#!/bin/sh\n"
-                'if [ "$1" = "$COMPAT_SCRIPT" ]; then exec "$REAL_PYTHON" "$@"; fi\n'
+                'if [ "$1" = "$COMPAT_SCRIPT" ]; then exit 0; fi\n'
                 'if [ "$1" = "-c" ]; then exit 0; fi\n'
                 'if [ "$1" = "--version" ]; then exit 0; fi\n'
                 'for arg in "$@"; do printf "%s\\n" "$arg" >> "$PYTHON_LOG"; done\n'
@@ -302,7 +302,6 @@ class PythonHelpersTest(unittest.TestCase):
                     "PATH": f"{venv_bin}:{fake_bin}:/usr/bin:/bin",
                     "DAL_INSTALL_PREFIX": str(root / "stage"),
                     "COMPAT_SCRIPT": str(scripts / SCRIPT.name),
-                    "REAL_PYTHON": os.sys.executable,
                     "PYTHON_LOG": str(python_log),
                 }
             )
