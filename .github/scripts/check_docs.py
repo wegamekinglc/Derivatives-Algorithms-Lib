@@ -359,19 +359,8 @@ def check_metadata(errors: list[str]) -> None:
             errors.append(f"{relative(document)}: stale BSD-3-Clause license metadata")
 
 
-def check_stale_commands(documents: tuple[Path, ...], errors: list[str]) -> None:
-    for document in documents:
-        text = document.read_text(encoding="utf-8")
-        for stale, explanation in STALE_DOCUMENTATION.items():
-            for match in re.finditer(re.escape(stale), text):
-                line_number = text.count("\n", 0, match.start()) + 1
-                errors.append(f"{relative(document)}:{line_number}: {explanation}: {stale}")
-
-    build_script = (ROOT / "build_linux.sh").read_text(encoding="utf-8")
+def check_build_script_options(build_script: str, installation: str, errors: list[str]) -> None:
     implemented = set(BUILD_OPTION_RE.findall(build_script))
-    # Public documentation for the local selector is delivered by the separate documentation stage.
-    implemented.discard("--python")
-    installation = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
     try:
         option_section = installation.split("### Script options", maxsplit=1)[1]
         option_section = re.split(r"^#{2,3}\s", option_section, maxsplit=1, flags=re.MULTILINE)[0]
@@ -384,6 +373,21 @@ def check_stale_commands(documents: tuple[Path, ...], errors: list[str]) -> None
             "docs/installation.md: build_linux.sh option table drift: "
             f"implemented={sorted(implemented)}, documented={sorted(documented)}"
         )
+
+
+def check_stale_commands(documents: tuple[Path, ...], errors: list[str]) -> None:
+    for document in documents:
+        text = document.read_text(encoding="utf-8")
+        for stale, explanation in STALE_DOCUMENTATION.items():
+            for match in re.finditer(re.escape(stale), text):
+                line_number = text.count("\n", 0, match.start()) + 1
+                errors.append(f"{relative(document)}:{line_number}: {explanation}: {stale}")
+
+    check_build_script_options(
+        (ROOT / "build_linux.sh").read_text(encoding="utf-8"),
+        (ROOT / "docs/installation.md").read_text(encoding="utf-8"),
+        errors,
+    )
 
 
 def check_math_macros(documents: tuple[Path, ...], errors: list[str]) -> None:
@@ -766,6 +770,87 @@ def check_python_release_projections(errors: list[str], metadata: dict, workflow
             )
 
 
+def check_python_release_document_texts(
+    readme: str, installation: str, changelog: str, errors: list[str]
+) -> None:
+    current_docs = {
+        "dal-python/README.md": readme,
+        "docs/installation.md": installation,
+    }
+    stale_patterns = (
+        r"\b3\.10(?:-|–|—|\s+to\s+|\s+through\s+)3\.13\b",
+        r"\beight wheels\b",
+    )
+    for document, text in current_docs.items():
+        for pattern in stale_patterns:
+            if re.search(pattern, text, flags=re.IGNORECASE):
+                errors.append(f"{document}: stale DAL Python compatibility or wheel-count claim")
+
+    required = {
+        "dal-python/README.md": (
+            "CPython 3.9-3.13",
+            ">=3.9,<3.14",
+            "`manylinux_2_28_x86_64`",
+            "`win_amd64`",
+            "`cp39-cp39`",
+            "`cp313-cp313`",
+            "four wheels",
+            "ten wheels",
+        ),
+        "docs/installation.md": (
+            "CPython 3.9-3.13",
+            ">=3.9,<3.14",
+            "`cp39-cp39`",
+            "`cp313-cp313`",
+            "four wheels",
+            "ten wheels",
+        ),
+        "CHANGELOG.md": (
+            "CPython 3.9-3.13",
+            "Requires-Python: >=3.9,<3.14",
+            "ten CPython-specific wheels",
+        ),
+    }
+    texts = {**current_docs, "CHANGELOG.md": changelog}
+    for document, fragments in required.items():
+        for fragment in fragments:
+            if fragment not in texts[document]:
+                errors.append(f"{document}: missing DAL Python release contract {fragment!r}")
+
+    selector_docs = f"{readme}\n{installation}"
+    for command in (
+        "build_linux.sh --python 3.9",
+        "build_sdist.sh --python 3.9",
+        "build_wheel.sh --python 3.9",
+        "build_wheel.ps1 -Python 3.9",
+        "run_tests.sh --python 3.9",
+        "run_tests.ps1 -Python 3.9",
+    ):
+        if command not in selector_docs:
+            errors.append(f"DAL Python public docs: missing local selector example {command!r}")
+
+    for exclusion in (
+        "CPython 3.14",
+        "macOS",
+        "Linux ARM",
+        "musllinux",
+        "PyPy",
+        "free-threaded CPython",
+        "source distributions",
+    ):
+        if exclusion not in readme:
+            errors.append(f"dal-python/README.md: missing release exclusion {exclusion!r}")
+
+
+def check_python_release_documentation(errors: list[str]) -> None:
+    check_python_release_document_texts(
+        (ROOT / "dal-python/README.md").read_text(encoding="utf-8"),
+        (ROOT / "docs/installation.md").read_text(encoding="utf-8"),
+        (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
+        errors,
+    )
+
+
 def check_python_release_workflow(errors: list[str]) -> None:
     with (ROOT / "dal-python/pyproject.toml").open("rb") as stream:
         metadata = tomllib.load(stream)
@@ -775,6 +860,7 @@ def check_python_release_workflow(errors: list[str]) -> None:
     check_python_release_action(errors)
     workflow = (ROOT / ".github/workflows/dal-python-release.yml").read_text(encoding="utf-8")
     check_python_release_projections(errors, metadata, workflow)
+    check_python_release_documentation(errors)
 
 
 def check_repository_workflows(errors: list[str]) -> None:

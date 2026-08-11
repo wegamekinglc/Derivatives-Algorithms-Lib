@@ -44,6 +44,13 @@ here as the baseline rather than dated releases:
   constant-condition folding), and the fuzzy evaluator for pathwise AAD through
   discontinuous payoffs. See `docs/methodology/script_engine.md`.
 
+## 2026-08
+
+- `python`: Expanded the public `dal-python` compatibility contract to
+  CPython 3.9-3.13 (`Requires-Python: >=3.9,<3.14`) and the complete Linux x86-64/Windows
+  AMD64 release from eight to ten CPython-specific wheels. See
+  `dal-python/README.md` and `docs/installation.md`.
+
 ## 2026-07
 
 - `curve`: Added immutable native rate-cashflow planning and pricing for
