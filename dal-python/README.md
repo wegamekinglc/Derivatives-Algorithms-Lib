@@ -13,7 +13,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 ## Prerequisites
 
-- **CPython 3.10-3.13** with development headers
+- **CPython 3.9-3.13** with development headers (`Requires-Python: >=3.9,<3.14`)
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
 - **pybind11 2.11.1** — installed automatically for isolated package builds;
   repository builds fall back to the pinned `dal-cpp/externals/pybind11`
@@ -44,7 +44,7 @@ Clone the repository and install in editable mode:
 cd Derivatives-Algorithms-Lib/dal-python
 
 # Create a virtual environment with uv
-uv venv --python ">=3.10,<3.14"
+uv venv --python ">=3.9,<3.14"
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies and build the extension
@@ -68,6 +68,32 @@ bash ../build_linux.sh --full
 The workspace script creates or reuses `dal-python/.venv`, builds the extension,
 and runs the configured C++/public/Python tests.
 
+### Selecting a CPython Version
+
+The local helpers accept an exact supported minor. On POSIX entry points use
+`--python`; on PowerShell entry points use `-Python`:
+
+```bash
+# From the repository root; --python also enables the Python bindings.
+bash ./build_linux.sh --python 3.9
+
+# From dal-python/.
+./build_sdist.sh --python 3.9
+./build_wheel.sh --python 3.9
+./run_tests.sh --python 3.9
+```
+
+```powershell
+# From dal-python/.
+.\build_wheel.ps1 -Python 3.9
+.\run_tests.ps1 -Python 3.9
+```
+
+The accepted values are 3.9, 3.10, 3.11, 3.12, and 3.13. When the selector is
+omitted, the helpers resolve a CPython in `>=3.9,<3.14`. A reused `.venv` must
+already use the selected CPython minor; mismatches fail without replacing the
+environment.
+
 ## Building Distribution Packages
 
 For production deployment, you can build pre-compiled binary wheels or source distributions.
@@ -79,6 +105,7 @@ Binary wheels contain the compiled C++ extension and can be installed without re
 
 ```bash
 DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux ./build_wheel.sh
+DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux ./build_wheel.sh --python 3.9
 DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux ./build_wheel.sh --clean
 ```
 
@@ -99,6 +126,7 @@ Source distributions allow users to build from source on any platform:
 
 ```bash
 ./build_sdist.sh         # Build source distribution
+./build_sdist.sh --python 3.9 # Select an exact supported CPython
 ./build_sdist.sh --clean # Clean build artifacts before building
 ```
 
@@ -118,7 +146,7 @@ uv pip install dist/dal_python-2026.8.11.tar.gz \
 - CMake 3.21+
 - pybind11 2.11.1 (declared as an isolated build requirement and installed
   automatically; repository builds may use the pinned vendored submodule)
-- CPython 3.10-3.13 development headers
+- CPython 3.9-3.13 development headers
 - DAL staged install containing the `dal-public`/`dal-cpp` CMake packages and
   platform libraries
 
@@ -126,14 +154,25 @@ uv pip install dist/dal_python-2026.8.11.tar.gz \
 
 The repository release workflow builds and tests this wheel matrix:
 
-| Operating system | Architecture | Wheel platform tag          | CPython versions |
-|------------------|--------------|-----------------------------|------------------|
-| Linux            | x86-64       | `manylinux_2_28_x86_64`     | 3.10-3.13        |
-| Windows          | x86-64       | `win_amd64`                 | 3.10-3.13        |
+| Operating system | Architecture | Wheel platform tag      | CPython versions |
+|------------------|--------------|-------------------------|------------------|
+| Linux            | x86-64       | `manylinux_2_28_x86_64` | 3.9-3.13         |
+| Windows          | x86-64       | `win_amd64`             | 3.9-3.13         |
 
-The Linux tag requires glibc 2.28 or newer. macOS, Linux ARM, musllinux, PyPy,
-free-threaded CPython, source distributions, and CPython 3.14 are not part of the
-current PyPI release contract.
+Every release artifact is a CPython-specific native wheel. Python/ABI tags run
+from `cp39-cp39` through `cp313-cp313`; DAL does not publish `abi3` or universal
+wheels. Pull requests build the floor and ceiling (`cp39` and `cp313`) on both
+platforms, for four wheels. Manual and release-tag runs build all five supported
+interpreters on both platforms, for ten wheels. Every wheel runs the complete
+installed-wheel Python suite, and the two `cp39` wheels also run a fresh,
+source-independent installed-wheel smoke test.
+
+Linux filenames always include `manylinux_2_28_x86_64` and may also contain
+unique compatible PEP 600 x86-64 components for glibc baselines no newer than
+2.28. Mixed platform families, other architectures, raw Linux, legacy manylinux,
+and musllinux tags are rejected. macOS, Linux ARM, PyPy, free-threaded CPython,
+source distributions, and CPython 3.14 are not part of the current PyPI release
+contract.
 
 ### One-time PyPI setup
 
@@ -159,7 +198,7 @@ OIDC short-lived credentials; do not add a long-lived PyPI API token.
    repository root. Review and merge the version and release-note changes to
    `master` only after the exact PR head is green.
 3. Run the `dal-python wheels and PyPI release` workflow manually from `master`.
-   This is a build-only rehearsal. Confirm that eight wheels and the SHA-256
+   This is a build-only rehearsal. Confirm that ten wheels and the SHA-256
    release manifest are present.
 4. Tag that reviewed `master` commit and push only the tag:
 
@@ -171,7 +210,7 @@ OIDC short-lived credentials; do not add a long-lived PyPI API token.
 5. The tag run rebuilds and tests every wheel, validates the combined manifest,
    checks that the version is unused on PyPI, then publishes the exact artifacts
    from the build jobs through the `pypi` environment.
-6. Verify the PyPI file list contains all eight wheels. In fresh Windows and Linux
+6. Verify the PyPI file list contains all ten wheels. In fresh Windows and Linux
    environments, install `dal-python==<version>`, import `dal`, and confirm
    `dal.__version__` equals `<version>`.
 

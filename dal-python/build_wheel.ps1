@@ -6,20 +6,27 @@
 # Prerequisites:
 # - C++ library must be installed (run ..\build_windows.bat)
 # - uv must be installed
-# - CPython 3.10-3.13 with development headers
+# - CPython 3.9-3.13 with development headers
 # - Visual Studio 2022 with C++ workload
 #
 # Usage:
 #   .\build_wheel.ps1              # Build wheel for current platform
+#   .\build_wheel.ps1 -Python 3.9  # Select an exact supported CPython
 #   .\build_wheel.ps1 -Clean       # Clean build artifacts before building
 
 param(
     [switch]$Clean,
     [switch]$Help,
+    [string]$Python,
     [string]$DalInstallPrefix
 )
 
 $ErrorActionPreference = "Stop"
+$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
+$PythonRequested = $PSBoundParameters.ContainsKey("Python")
+if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
+    Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
+}
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DalDir = Split-Path -Parent $ScriptDir
@@ -37,6 +44,7 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
     Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     exit 0
@@ -66,10 +74,12 @@ if (-not ((Test-Path $LibPublic) -and (Test-Path $LibCpp))) {
 Write-Output "  Prerequisites satisfied"
 
 # Clean if requested
+$VenvDir = Join-Path $ScriptDir ".venv"
 if ($Clean) {
     Write-Output "Cleaning build artifacts..."
     if (Test-Path (Join-Path $ScriptDir "build")) { Remove-Item -Recurse -Force (Join-Path $ScriptDir "build") }
     if (Test-Path (Join-Path $ScriptDir "dist")) { Remove-Item -Recurse -Force (Join-Path $ScriptDir "dist") }
+    if (Test-Path $VenvDir) { Remove-Item -Recurse -Force $VenvDir }
     Get-ChildItem -Path $ScriptDir -Directory -Filter "*.egg-info" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Get-ChildItem -Path $ScriptDir -Directory -Filter "__pycache__" -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Write-Output "  Clean complete"
@@ -77,10 +87,23 @@ if ($Clean) {
 
 # Create build environment
 Write-Output "Creating build environment..."
-$VenvDir = Join-Path $ScriptDir ".venv"
-if (-not (Test-Path $VenvDir)) {
-    uv venv $VenvDir --python ">=3.10,<3.14"
+$VenvPython = Join-Path $VenvDir "Scripts\python.exe"
+if (-not (Test-Path $VenvPython)) {
+    if (Test-Path $VenvDir) {
+        Write-Error "build_wheel.ps1: environment '$VenvDir' has no executable Python; rerun with -Clean to recreate it"
+    }
+    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.14" }
+    uv venv $VenvDir --python $PythonRequest
 }
+$CompatArgs = @(
+    (Join-Path $ScriptDir "scripts\python_compat.py"),
+    "--entry-point", "dal-python/build_wheel.ps1",
+    "--environment", $VenvDir,
+    "--remediation", "rerun with -Clean to recreate $VenvDir"
+)
+if ($PythonRequested) { $CompatArgs += @("--requested", $Python) }
+& $VenvPython @CompatArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $VenvActivate = Join-Path $VenvDir "Scripts\Activate.ps1"
 . $VenvActivate
 Write-Output "  Build environment ready"

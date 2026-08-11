@@ -10,7 +10,7 @@ here instead of maintaining separate build recipes.
 | Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool                         |
 | Linux    | GCC 13+ or Clang 18+; Make or Ninja                                                          |
 | Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                                 |
-| Python   | CPython 3.10-3.13 with development headers; `uv` recommended                                |
+| Python   | CPython 3.9-3.13 with development headers (`>=3.9,<3.14`); `uv` recommended                 |
 | Web      | Python 3.13+, `uv`, npm, Node.js `^20.19.0` or `>=22.12.0`, and a built native `dal` package |
 | Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`                         |
 
@@ -42,17 +42,19 @@ It does not regenerate tracked Machinist output unless requested.
 
 ### Script options
 
-| Option         | Effect                                                               |
-|----------------|----------------------------------------------------------------------|
-| `--full`       | Enable Python bindings and benchmarks                                |
-| `--benchmarks` | Enable native benchmark targets                                      |
-| `--generate`   | Run the `dal_generate` target before the normal build                |
-| `--coverage`   | Enable coverage and produce a report with an available coverage tool |
+| Option         | Effect                                                                      |
+|----------------|-----------------------------------------------------------------------------|
+| `--full`       | Enable Python bindings and benchmarks                                       |
+| `--benchmarks` | Enable native benchmark targets                                             |
+| `--generate`   | Run the `dal_generate` target before the normal build                       |
+| `--coverage`   | Enable coverage and produce a report with an available coverage tool        |
+| `--python`     | Enable Python bindings and select an exact supported minor (for example 3.9) |
 
 Examples:
 
 ```bash
 bash ./build_linux.sh --full
+bash ./build_linux.sh --python 3.9
 bash ./build_linux.sh --benchmarks
 bash ./build_linux.sh --generate
 BUILD_TYPE=Debug bash ./build_linux.sh
@@ -60,7 +62,10 @@ BUILD_TYPE=Debug bash ./build_linux.sh
 
 When Python is requested, the script creates or reuses
 `dal-python/.venv`, installs `pytest` and `numpy` if needed, and configures CMake
-with that interpreter. Useful environment overrides are:
+with that interpreter. `--python` accepts exactly 3.9, 3.10, 3.11, 3.12, or
+3.13; without it, the script resolves CPython in `>=3.9,<3.14`. A reused
+environment must match the requested minor and is not replaced on a mismatch.
+Useful environment overrides are:
 
 | Variable                 | Meaning                                                          |
 |--------------------------|------------------------------------------------------------------|
@@ -236,7 +241,7 @@ For a generator that must be selected explicitly, add
 To build and test Python as part of the workspace:
 
 ```bash
-bash ./build_linux.sh --full
+bash ./build_linux.sh --python 3.9
 ```
 
 For an editable package in a chosen environment, first build the C++ staging
@@ -245,7 +250,7 @@ prefix, then install `dal-python` against that prefix:
 ```bash
 bash ./build_linux.sh
 cd dal-python
-uv venv
+uv venv --python ">=3.9,<3.14"
 source .venv/bin/activate
 uv pip install -e ".[test]" "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 python -m pytest tests -v
@@ -256,6 +261,37 @@ or the matching Windows preset when building under MSVC. On Windows, activate
 with `.venv\Scripts\activate`. See the
 [Python component guide](../dal-python/README.md)
 for the exposed API and package layout.
+
+All package helpers use the same exact-selector contract. From `dal-python/`,
+the POSIX commands are:
+
+```bash
+./build_sdist.sh --python 3.9
+./build_wheel.sh --python 3.9
+./run_tests.sh --python 3.9
+```
+
+The Windows PowerShell commands are:
+
+```powershell
+.\build_wheel.ps1 -Python 3.9
+.\run_tests.ps1 -Python 3.9
+```
+
+The test wrappers remove their selector and forward the remaining pytest
+arguments in order. Existing environments are inspected before dependency
+installation; a different minor, an unsupported version, or a non-CPython
+interpreter fails without mutating that environment.
+
+Official releases remain CPython-specific, wheel-only builds for Linux x86-64
+(`manylinux_2_28_x86_64`) and Windows AMD64 (`win_amd64`). Pull requests build
+`cp39-cp39` and `cp313-cp313` on both platforms (four wheels). Manual and tag
+runs build CPython 3.9-3.13 on both platforms (ten wheels). Every wheel runs the
+full installed-wheel test suite; the two `cp39` wheels also run the fresh
+source-independent smoke. Linux filenames always include the 2.28 platform
+component and may also carry unique compatible PEP 600 x86-64 components for
+older glibc baselines. CPython 3.14, macOS, ARM, musllinux, PyPy, free-threaded
+CPython, and sdist publication are outside this release matrix.
 
 ## Web UI
 

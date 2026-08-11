@@ -2,24 +2,31 @@
 #
 # Usage:
 #   cd dal-python && .\run_tests.ps1              # run all tests
+#   cd dal-python && .\run_tests.ps1 -Python 3.9   # select an exact CPython
 #   cd dal-python && .\run_tests.ps1 -v            # verbose pytest output
 #   cd dal-python && .\run_tests.ps1 -k test_date  # run specific tests
 #
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be installed first (run ..\build_windows.bat)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.10-3.13 development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.13 development headers
 #   - Visual Studio 2022 with C++ workload
 
 param(
     [switch]$Clean,
     [switch]$Help,
+    [string]$Python,
     [string]$DalInstallPrefix,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$PytestArgs
 )
 
 $ErrorActionPreference = "Stop"
+$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
+$PythonRequested = $PSBoundParameters.ContainsKey("Python")
+if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
+    Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
+}
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DalDir = Split-Path -Parent $ScriptDir
@@ -37,11 +44,16 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
     Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     Write-Output ""
     Write-Output "All other arguments are forwarded to pytest."
     exit 0
+}
+
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    Write-Error "Error: uv is required by dal-python/run_tests.ps1"
 }
 
 Write-Output "================================================"
@@ -84,7 +96,8 @@ if ($Clean) {
 
 if (-not (Test-Path $VenvDir)) {
     Write-Output "Creating fresh uv virtual environment..."
-    uv venv $VenvDir --python ">=3.10,<3.14"
+    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.14" }
+    uv venv $VenvDir --python $PythonRequest
 }
 else {
     Write-Output "Reusing existing virtual environment at .venv/"
@@ -98,6 +111,16 @@ if (-not (Test-Path $VenvPython)) {
     Write-Output "       Try running with -Clean to recreate the venv."
     exit 1
 }
+
+$CompatArgs = @(
+    (Join-Path $ScriptDir "scripts\python_compat.py"),
+    "--entry-point", "dal-python/run_tests.ps1",
+    "--environment", $VenvDir,
+    "--remediation", "rerun with -Clean to recreate $VenvDir"
+)
+if ($PythonRequested) { $CompatArgs += @("--requested", $Python) }
+& $VenvPython @CompatArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 . $VenvActivate
 Write-Output "  Python: $(python --version)"
@@ -147,9 +170,9 @@ Write-Output " Running tests"
 Write-Output "================================================"
 Write-Output ""
 
-$pytestArgs = @("tests/", "-v")
+$EffectivePytestArgs = @("tests/", "-v")
 if ($PytestArgs) {
-    $pytestArgs += $PytestArgs
+    $EffectivePytestArgs += $PytestArgs
 }
 
-python -m pytest @pytestArgs
+python -m pytest @EffectivePytestArgs
