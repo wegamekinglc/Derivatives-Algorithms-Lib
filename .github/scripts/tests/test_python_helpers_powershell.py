@@ -7,11 +7,24 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[3]
 PWSH = shutil.which("pwsh")
 DOTNET = shutil.which("dotnet")
+
+
+class PowerShellProcessRunnerTest(unittest.TestCase):
+    def test_process_environment_pins_resolved_executable_directory(self):
+        executable = Path("/opt/powershell/pwsh.exe")
+
+        with patch.object(shutil, "which", return_value=str(executable)):
+            environment = process_environment(executable, {"PATH": "/usr/bin"})
+
+        self.assertEqual(
+            environment["PATH"].split(os.pathsep)[0], "/opt/powershell"
+        )
 
 
 class ProcessResult:
@@ -20,23 +33,53 @@ class ProcessResult:
         self.stdout = stdout
 
 
-async def wait_for_process(
-    executable, arguments, *, cwd=None, environment=None, capture_output=False
-):
+def process_environment(executable, environment):
     executable = Path(executable)
     if not executable.is_absolute():
         raise ValueError(
             "process executable must be an absolute path: %r" % str(executable)
         )
+    child_environment = (
+        os.environ.copy() if environment is None else environment.copy()
+    )
+    previous_path = child_environment.get("PATH", "")
+    child_environment["PATH"] = str(executable.parent) + os.pathsep + previous_path
+    resolved = shutil.which(executable.name, path=child_environment["PATH"])
+    if resolved is None or Path(resolved).resolve() != executable.resolve():
+        raise ValueError("could not pin process executable %r" % str(executable))
+    return child_environment
+
+
+async def start_process(executable, arguments, process_cwd, environment, output, error):
+    executable_name = executable.name.lower()
+    if executable_name == "dotnet.exe":
+        if arguments[:1] != ("publish",):
+            raise ValueError("unexpected dotnet argument vector %r" % (arguments,))
+        return await asyncio.create_subprocess_exec(
+            "dotnet.exe", "publish", *arguments[1:], cwd=process_cwd, env=environment,
+            stdout=output, stderr=error
+        )
+    if executable_name == "pwsh.exe":
+        if arguments[:1] != ("-NoLogo",):
+            raise ValueError("unexpected pwsh argument vector %r" % (arguments,))
+        return await asyncio.create_subprocess_exec(
+            "pwsh.exe", "-NoLogo", *arguments[1:], cwd=process_cwd, env=environment,
+            stdout=output, stderr=error
+        )
+    raise ValueError("unexpected process executable %r" % str(executable))
+
+
+async def wait_for_process(
+    executable, arguments, *, cwd=None, environment=None, capture_output=False
+):
+    executable = Path(executable)
+    arguments = tuple(str(argument) for argument in arguments)
+    process_cwd = None if cwd is None else str(Path(cwd).resolve())
+    child_environment = process_environment(executable, environment)
     output = asyncio.subprocess.PIPE if capture_output else None
     error = asyncio.subprocess.STDOUT if capture_output else None
-    process = await asyncio.create_subprocess_exec(
-        str(executable),
-        *(str(argument) for argument in arguments),
-        cwd=None if cwd is None else str(Path(cwd).resolve()),
-        env=environment,
-        stdout=output,
-        stderr=error,
+    process = await start_process(
+        executable, arguments, process_cwd, child_environment, output, error
     )
     stdout, _ = await process.communicate()
     text = "" if stdout is None else stdout.decode("utf-8", errors="replace")

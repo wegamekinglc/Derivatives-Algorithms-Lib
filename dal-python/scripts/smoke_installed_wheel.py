@@ -251,13 +251,70 @@ def executable_path(executable):
     return path
 
 
-async def wait_for_process(executable, arguments, cwd, environment):
-    process = await asyncio.create_subprocess_exec(
-        str(executable_path(executable)),
-        *(str(argument) for argument in arguments),
-        cwd=None if cwd is None else str(canonical(cwd)),
-        env=environment,
+def process_environment(executable, environment):
+    executable = executable_path(executable)
+    child_environment = (
+        os.environ.copy() if environment is None else environment.copy()
     )
+    previous_path = child_environment.get("PATH", "")
+    child_environment["PATH"] = str(executable.parent) + os.pathsep + previous_path
+    resolved = shutil.which(executable.name, path=child_environment["PATH"])
+    if resolved is None or canonical(resolved) != canonical(executable):
+        raise ValueError("could not pin process executable %r" % str(executable))
+    return child_environment
+
+
+async def start_uv_process(executable_name, arguments, process_cwd, environment):
+    if arguments[:1] == ("venv",):
+        remaining = arguments[1:]
+        if executable_name == "uv":
+            return await asyncio.create_subprocess_exec(
+                "uv", "venv", *remaining, cwd=process_cwd, env=environment
+            )
+        return await asyncio.create_subprocess_exec(
+            "uv.exe", "venv", *remaining, cwd=process_cwd, env=environment
+        )
+    if arguments[:1] == ("pip",):
+        remaining = arguments[1:]
+        if executable_name == "uv":
+            return await asyncio.create_subprocess_exec(
+                "uv", "pip", *remaining, cwd=process_cwd, env=environment
+            )
+        return await asyncio.create_subprocess_exec(
+            "uv.exe", "pip", *remaining, cwd=process_cwd, env=environment
+        )
+    raise ValueError("unexpected uv argument vector %r" % (arguments,))
+
+
+async def start_python_process(executable_name, arguments, process_cwd, environment):
+    if arguments[:1] != ("-I",):
+        raise ValueError("unexpected Python argument vector %r" % (arguments,))
+    remaining = arguments[1:]
+    if executable_name == "python":
+        return await asyncio.create_subprocess_exec(
+            "python", "-I", *remaining, cwd=process_cwd, env=environment
+        )
+    return await asyncio.create_subprocess_exec(
+        "python.exe", "-I", *remaining, cwd=process_cwd, env=environment
+    )
+
+
+async def wait_for_process(executable, arguments, cwd, environment):
+    executable = executable_path(executable)
+    arguments = tuple(str(argument) for argument in arguments)
+    process_cwd = None if cwd is None else str(canonical(cwd))
+    child_environment = process_environment(executable, environment)
+    executable_name = executable.name.lower()
+    if executable_name in ("uv", "uv.exe"):
+        process = await start_uv_process(
+            executable_name, arguments, process_cwd, child_environment
+        )
+    elif executable_name in ("python", "python.exe"):
+        process = await start_python_process(
+            executable_name, arguments, process_cwd, child_environment
+        )
+    else:
+        raise ValueError("unexpected process executable %r" % str(executable))
     return await process.wait()
 
 

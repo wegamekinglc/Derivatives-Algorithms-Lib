@@ -134,6 +134,15 @@ class PythonSmokeTest(unittest.TestCase):
                 ],
             )
 
+    def test_process_environment_pins_resolved_executable_directory(self):
+        smoke = load_smoke()
+        executable = Path("/opt/uv/bin/uv")
+
+        with patch.object(smoke.shutil, "which", return_value=str(executable)):
+            environment = smoke.process_environment(executable, {"PATH": "/usr/bin"})
+
+        self.assertEqual(environment["PATH"].split(smoke.os.pathsep)[0], "/opt/uv/bin")
+
 
 if __name__ == "__main__":
     unittest.main()
