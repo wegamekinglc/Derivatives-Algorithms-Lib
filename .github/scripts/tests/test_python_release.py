@@ -35,6 +35,8 @@ class PythonReleaseTest(unittest.TestCase):
         native_extensions: int = 1,
         metadata_files: int = 1,
         wheel_files: int = 1,
+        metadata_directory: str | None = None,
+        wheel_directory: str | None = None,
     ) -> Path:
         version, requires_python, _ = VERIFY_RELEASE.project_configuration()
         extension = "pyd" if platform_tag == "win_amd64" else "so"
@@ -87,10 +89,14 @@ class PythonReleaseTest(unittest.TestCase):
             for index in range(native_extensions):
                 archive.writestr(f"dal/_dal.{python_tag}.{index}.{extension}", b"native")
             for index in range(metadata_files):
-                prefix = dist_info if index == 0 else f"duplicate_{index}.dist-info"
+                prefix = metadata_directory or dist_info
+                if index:
+                    prefix = f"duplicate_{index}.dist-info"
                 archive.writestr(f"{prefix}/METADATA", metadata_text)
             for index in range(wheel_files):
-                prefix = dist_info if index == 0 else f"duplicate_{index}.dist-info"
+                prefix = wheel_directory or dist_info
+                if index:
+                    prefix = f"duplicate_{index}.dist-info"
                 archive.writestr(f"{prefix}/WHEEL", wheel_text)
         return wheel
 
@@ -297,18 +303,37 @@ class PythonReleaseTest(unittest.TestCase):
 
     def test_rejects_missing_or_duplicate_archive_members(self):
         version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        dist_info = rf"dal_python-{re.escape(version)}\.dist-info"
         cases = (
             ({"native_extensions": 0}, "compiled _dal extension"),
             ({"native_extensions": 2}, "compiled _dal extension"),
-            ({"metadata_files": 0}, "exactly one /METADATA"),
-            ({"metadata_files": 2}, "exactly one /METADATA"),
-            ({"wheel_files": 0}, "exactly one /WHEEL"),
-            ({"wheel_files": 2}, "exactly one /WHEEL"),
+            ({"metadata_files": 0}, rf"exactly one {dist_info}/METADATA"),
+            ({"metadata_files": 2}, rf"exactly one {dist_info}/METADATA"),
+            ({"wheel_files": 0}, rf"exactly one {dist_info}/WHEEL"),
+            ({"wheel_files": 2}, rf"exactly one {dist_info}/WHEEL"),
         )
         for options, message in cases:
             with self.subTest(options=options), tempfile.TemporaryDirectory() as tmp:
                 wheel = self.write_wheel(Path(tmp), "cp39", "win_amd64", **options)
                 with self.assertRaisesRegex(ValueError, message):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_metadata_outside_filename_dist_info_directory(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        cases = (
+            ({"metadata_directory": "arbitrary"}, "METADATA"),
+            ({"metadata_directory": "wrong.dist-info"}, "METADATA"),
+            ({"wheel_directory": "arbitrary"}, "WHEEL"),
+            ({"wheel_directory": "wrong.dist-info"}, "WHEEL"),
+        )
+        for options, member in cases:
+            with self.subTest(options=options), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(Path(tmp), "cp39", "win_amd64", **options)
+
+                with self.assertRaisesRegex(
+                    ValueError,
+                    rf"dal_python-{re.escape(version)}\.dist-info/{member}",
+                ):
                     VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
 
     def test_accepts_reduced_and_complete_matrices(self):

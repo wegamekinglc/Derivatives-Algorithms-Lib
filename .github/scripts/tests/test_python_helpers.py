@@ -135,7 +135,8 @@ class PythonHelpersTest(unittest.TestCase):
         self.assertIn('PYTEST_ARGS+=("$1")', posix)
         self.assertIn('"${PYTEST_ARGS[@]}"', posix)
         self.assertIn("ValueFromRemainingArguments", powershell)
-        self.assertIn("$pytestArgs += $PytestArgs", powershell)
+        self.assertIn("$EffectivePytestArgs += $PytestArgs", powershell)
+        self.assertIn("python -m pytest @EffectivePytestArgs", powershell)
 
     def test_package_helpers_fail_clearly_without_uv(self):
         root = SCRIPT.parents[2]

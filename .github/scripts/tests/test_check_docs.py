@@ -258,6 +258,19 @@ class PythonReleaseContractTest(unittest.TestCase):
         self.assertIn("uv run --isolated --no-project --python 3.9", workflow)
         self.assertIn(".github/scripts/check_dal_python_syntax.py", workflow)
 
+    def test_workflow_executes_powershell_helper_contracts_on_windows(self):
+        workflow = (
+            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Test executable PowerShell helper contracts", workflow)
+        self.assertIn("test_python_helpers_powershell.py", workflow)
+        self.assertIn("matrix.platform == 'windows-amd64'", workflow)
+        self.assertLess(
+            workflow.index("Test executable PowerShell helper contracts"),
+            workflow.index("Build and test wheels"),
+        )
+
     def test_rejects_independent_workflow_projection_drift(self):
         workflow = (
             CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"

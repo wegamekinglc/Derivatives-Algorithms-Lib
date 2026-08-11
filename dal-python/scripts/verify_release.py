@@ -77,11 +77,15 @@ def wheel_parts(path: Path) -> tuple[str, str, str, str, str]:
     return tuple(parts)  # type: ignore[return-value]
 
 
-def metadata_from_wheel(archive: ZipFile, suffix: str):
-    matches = [name for name in archive.namelist() if name.endswith(suffix)]
-    if len(matches) != 1:
-        raise ValueError(f"wheel must contain exactly one {suffix}, found {matches}")
-    return BytesParser().parsebytes(archive.read(matches[0]))
+def metadata_from_wheel(path: Path, archive: ZipFile, dist_info: str, filename: str):
+    expected = f"{dist_info}/{filename}"
+    member_pattern = re.compile(rf"[^/]+\.dist-info/{re.escape(filename)}")
+    matches = [name for name in archive.namelist() if member_pattern.fullmatch(name)]
+    if matches != [expected]:
+        raise ValueError(
+            f"{path.name}: wheel must contain exactly one {expected}, found {matches}"
+        )
+    return BytesParser().parsebytes(archive.read(expected))
 
 
 def platform_family(platform_tag: str) -> str:
@@ -213,8 +217,10 @@ def validate_wheel(
     with ZipFile(path) as archive:
         names = archive.namelist()
         validate_native_extension(path, names, family)
-        metadata = metadata_from_wheel(archive, "/METADATA")
-        wheel_metadata = metadata_from_wheel(archive, "/WHEEL")
+        distribution, version, _, _, _ = wheel_parts(path)
+        dist_info = f"{distribution}-{version}.dist-info"
+        metadata = metadata_from_wheel(path, archive, dist_info, "METADATA")
+        wheel_metadata = metadata_from_wheel(path, archive, dist_info, "WHEEL")
         validate_package_metadata(path, metadata, expected_version, expected_requires_python)
         validate_wheel_metadata(path, wheel_metadata, python_tag, abi_tag, platform_tag)
 

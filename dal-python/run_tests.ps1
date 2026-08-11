@@ -170,9 +170,9 @@ Write-Output " Running tests"
 Write-Output "================================================"
 Write-Output ""
 
-$pytestArgs = @("tests/", "-v")
+$EffectivePytestArgs = @("tests/", "-v")
 if ($PytestArgs) {
-    $pytestArgs += $PytestArgs
+    $EffectivePytestArgs += $PytestArgs
 }
 
-python -m pytest @pytestArgs
+python -m pytest @EffectivePytestArgs
