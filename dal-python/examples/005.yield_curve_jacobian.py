@@ -56,7 +56,8 @@ def _is_jacobian_empty(jacobian):
 
 
 def _jacobian_header_row(free_knots, n_cols):
-    header = f"  {'row \\ col':<14}"
+    column_label = 'row \\ col'
+    header = f"  {column_label:<14}"
     for j in range(n_cols):
         header += f" {str(free_knots[j]):>10}"
     return header

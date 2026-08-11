@@ -21,44 +21,101 @@ BUILD_SPEC.loader.exec_module(BUILD_NATIVE)
 
 
 class PythonReleaseTest(unittest.TestCase):
-    def write_wheel(self, directory: Path, python_tag: str, platform_tag: str) -> Path:
+    def write_wheel(
+        self,
+        directory: Path,
+        python_tag: str,
+        platform_tag: str,
+        *,
+        abi_tag: str | None = None,
+        metadata_overrides: dict[str, tuple[str, ...]] | None = None,
+        wheel_overrides: dict[str, tuple[str, ...]] | None = None,
+        extra_metadata_headers: tuple[str, ...] = (),
+        extra_wheel_headers: tuple[str, ...] = (),
+        native_extensions: int = 1,
+        metadata_files: int = 1,
+        wheel_files: int = 1,
+    ) -> Path:
         version, requires_python, _ = VERIFY_RELEASE.project_configuration()
         extension = "pyd" if platform_tag == "win_amd64" else "so"
+        abi_tag = abi_tag or python_tag
         wheel = directory / (
-            f"dal_python-{version}-{python_tag}-{python_tag}-{platform_tag}.whl"
+            f"dal_python-{version}-{python_tag}-{abi_tag}-{platform_tag}.whl"
         )
         dist_info = f"dal_python-{version}.dist-info"
+        metadata_headers = {
+            "Metadata-Version": ("2.4",),
+            "Name": ("dal-python",),
+            "Version": (version,),
+            "License-Expression": ("MIT",),
+            "Requires-Python": (requires_python,),
+        }
+        metadata_headers.update(metadata_overrides or {})
+        wheel_headers = {
+            "Wheel-Version": ("1.0",),
+            "Root-Is-Purelib": ("false",),
+            "Tag": tuple(
+                f"{python_tag}-{abi_tag}-{platform}"
+                for platform in platform_tag.split(".")
+            ),
+        }
+        wheel_headers.update(wheel_overrides or {})
+        metadata_text = "\n".join(
+            (
+                *(
+                    f"{key}: {value}"
+                    for key, values in metadata_headers.items()
+                    for value in values
+                ),
+                *extra_metadata_headers,
+                "",
+                "DAL package description",
+            )
+        )
+        wheel_text = "\n".join(
+            (
+                *(
+                    f"{key}: {value}"
+                    for key, values in wheel_headers.items()
+                    for value in values
+                ),
+                *extra_wheel_headers,
+                "",
+            )
+        )
         with ZipFile(wheel, "w") as archive:
-            archive.writestr(f"dal/_dal.{python_tag}.{extension}", b"native")
-            archive.writestr(
-                f"{dist_info}/METADATA",
-                "\n".join(
-                    (
-                        "Metadata-Version: 2.4",
-                        "Name: dal-python",
-                        f"Version: {version}",
-                        "License-Expression: MIT",
-                        f"Requires-Python: {requires_python}",
-                        "",
-                        "DAL package description",
-                    )
-                ),
-            )
-            archive.writestr(
-                f"{dist_info}/WHEEL",
-                "\n".join(
-                    (
-                        "Wheel-Version: 1.0",
-                        "Root-Is-Purelib: false",
-                        *(
-                            f"Tag: {python_tag}-{python_tag}-{platform}"
-                            for platform in platform_tag.split(".")
-                        ),
-                        "",
-                    )
-                ),
-            )
+            for index in range(native_extensions):
+                archive.writestr(f"dal/_dal.{python_tag}.{index}.{extension}", b"native")
+            for index in range(metadata_files):
+                prefix = dist_info if index == 0 else f"duplicate_{index}.dist-info"
+                archive.writestr(f"{prefix}/METADATA", metadata_text)
+            for index in range(wheel_files):
+                prefix = dist_info if index == 0 else f"duplicate_{index}.dist-info"
+                archive.writestr(f"{prefix}/WHEEL", wheel_text)
         return wheel
+
+    def write_matrix(self, directory: Path, python_tags: tuple[str, ...]) -> None:
+        for python_tag in python_tags:
+            self.write_wheel(directory, python_tag, "manylinux_2_28_x86_64")
+            self.write_wheel(directory, python_tag, "win_amd64")
+
+    def test_project_configuration_supports_python_39(self):
+        _, requires_python, python_tags = VERIFY_RELEASE.project_configuration()
+
+        self.assertEqual(
+            VERIFY_RELEASE.normalized_requires_python(requires_python),
+            frozenset((">=3.9", "<3.14")),
+        )
+        self.assertEqual(
+            set(python_tags),
+            {"cp39", "cp310", "cp311", "cp312", "cp313"},
+        )
+
+    def test_rejects_duplicate_expected_python_selector(self):
+        _, _, configured = VERIFY_RELEASE.project_configuration()
+
+        with self.assertRaisesRegex(ValueError, "duplicate selector 'cp39'"):
+            VERIFY_RELEASE.validate_expected_python_tags(("cp39", "cp39"), configured)
 
     def test_accepts_complete_platform_pair(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -87,6 +144,212 @@ class PythonReleaseTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "unrepaired wheel platform"):
                 VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_mixed_linux_platform_tag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+            wheel = self.write_wheel(
+                directory,
+                "cp39",
+                "manylinux_2_28_x86_64.win_amd64",
+            )
+
+            with self.assertRaisesRegex(ValueError, "platform component 'win_amd64'"):
+                VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_duplicate_requires_python_header(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+            wheel = self.write_wheel(
+                directory,
+                "cp39",
+                "win_amd64",
+                extra_metadata_headers=(f"Requires-Python: {requires_python}",),
+            )
+
+            with self.assertRaisesRegex(ValueError, "2 Requires-Python headers"):
+                VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_compressed_python_and_abi_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+            wheel = self.write_wheel(directory, "cp39.cp310", "win_amd64")
+
+            with self.assertRaisesRegex(ValueError, "single CPython tag"):
+                VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_expected_python_selector_validation(self):
+        _, _, configured = VERIFY_RELEASE.project_configuration()
+        cases = (
+            ((), "explicit value is empty"),
+            (("cp39", ""), "malformed selector"),
+            (("cp39", " "), "malformed selector"),
+            ((" cp39",), "malformed selector"),
+            (("cp3",), "malformed selector"),
+            (("cp38",), "not configured"),
+        )
+        for selectors, message in cases:
+            with self.subTest(selectors=selectors), self.assertRaisesRegex(ValueError, message):
+                VERIFY_RELEASE.validate_expected_python_tags(selectors, configured)
+
+    def test_rejects_invalid_abi_tags(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        for abi_tag in ("cp310", "abi3", "none"):
+            with self.subTest(abi_tag=abi_tag), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(
+                    Path(tmp), "cp39", "win_amd64", abi_tag=abi_tag
+                )
+                with self.assertRaisesRegex(ValueError, "Python and ABI|does not match"):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_invalid_platform_components(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        platforms = (
+            "linux_x86_64",
+            "manylinux_2_28_x86_64.musllinux_1_2_x86_64",
+            "manylinux_2_28_x86_64.macosx_14_0_x86_64",
+            "manylinux_2_28_x86_64.win_amd64",
+            "manylinux_2_28_x86_64.manylinux_2_28_aarch64",
+            "manylinux_2_28_x86_64.manylinux2014_x86_64",
+            "manylinux_2_28_x86_64.manylinux_2_29_x86_64",
+            "manylinux_2_28_x86_64.manylinux_2_28_x86_64",
+            "win32",
+            "win_amd64.win32",
+        )
+        for platform in platforms:
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(Path(tmp), "cp39", platform)
+                with self.assertRaises(ValueError):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_missing_or_duplicate_required_headers(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        for key in ("Name", "Version", "License-Expression", "Requires-Python"):
+            for values in ((), ("unexpected", "unexpected")):
+                with self.subTest(key=key, values=values), tempfile.TemporaryDirectory() as tmp:
+                    wheel = self.write_wheel(
+                        Path(tmp),
+                        "cp39",
+                        "win_amd64",
+                        metadata_overrides={key: values},
+                    )
+                    with self.assertRaisesRegex(ValueError, f"{re.escape(key)} headers"):
+                        VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+        for key in ("Wheel-Version", "Root-Is-Purelib"):
+            for values in ((), ("unexpected", "unexpected")):
+                with self.subTest(key=key, values=values), tempfile.TemporaryDirectory() as tmp:
+                    wheel = self.write_wheel(
+                        Path(tmp),
+                        "cp39",
+                        "win_amd64",
+                        wheel_overrides={key: values},
+                    )
+                    with self.assertRaisesRegex(ValueError, f"{re.escape(key)} headers"):
+                        VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_noncanonical_requires_python(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        for value in (
+            ">=3.10,<3.14",
+            ">=3.9,<3.14,!=3.10",
+            ">=3.9,>=3.9,<3.14",
+            ">=3.9,<3.14,<3.14",
+        ):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(
+                    Path(tmp),
+                    "cp39",
+                    "win_amd64",
+                    metadata_overrides={"Requires-Python": (value,)},
+                )
+                with self.assertRaisesRegex(ValueError, "Requires-Python"):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_wheel_tag_multiset_drift(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        cases = ((), ("cp39-cp39-win32",), ("cp39-cp39-win_amd64",) * 2)
+        for tags in cases:
+            with self.subTest(tags=tags), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(
+                    Path(tmp),
+                    "cp39",
+                    "win_amd64",
+                    wheel_overrides={"Tag": tags},
+                )
+                with self.assertRaisesRegex(ValueError, "contents and cardinality"):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_wrong_purelib_value(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+            wheel = self.write_wheel(
+                Path(tmp),
+                "cp39",
+                "win_amd64",
+                wheel_overrides={"Root-Is-Purelib": ("true",)},
+            )
+
+            with self.assertRaisesRegex(ValueError, "incorrectly marked pure"):
+                VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_rejects_missing_or_duplicate_archive_members(self):
+        version, requires_python, _ = VERIFY_RELEASE.project_configuration()
+        cases = (
+            ({"native_extensions": 0}, "compiled _dal extension"),
+            ({"native_extensions": 2}, "compiled _dal extension"),
+            ({"metadata_files": 0}, "exactly one /METADATA"),
+            ({"metadata_files": 2}, "exactly one /METADATA"),
+            ({"wheel_files": 0}, "exactly one /WHEEL"),
+            ({"wheel_files": 2}, "exactly one /WHEEL"),
+        )
+        for options, message in cases:
+            with self.subTest(options=options), tempfile.TemporaryDirectory() as tmp:
+                wheel = self.write_wheel(Path(tmp), "cp39", "win_amd64", **options)
+                with self.assertRaisesRegex(ValueError, message):
+                    VERIFY_RELEASE.validate_wheel(wheel, version, requires_python)
+
+    def test_accepts_reduced_and_complete_matrices(self):
+        for python_tags in (
+            ("cp39", "cp313"),
+            ("cp39", "cp310", "cp311", "cp312", "cp313"),
+        ):
+            with self.subTest(python_tags=python_tags), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                self.write_matrix(directory, python_tags)
+
+                manifest = VERIFY_RELEASE.validate_release(
+                    directory, expected_python_tags=python_tags
+                )
+
+                self.assertEqual(len(manifest), len(python_tags) * 2)
+
+    def test_rejects_each_missing_newer_target_from_complete_matrix(self):
+        configured = ("cp39", "cp310", "cp311", "cp312", "cp313")
+        for missing in configured[1:]:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                self.write_matrix(directory, tuple(tag for tag in configured if tag != missing))
+                with self.assertRaisesRegex(ValueError, "wheel matrix mismatch"):
+                    VERIFY_RELEASE.validate_release(directory)
+
+    def test_rejects_duplicate_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            self.write_wheel(directory, "cp39", "manylinux_2_28_x86_64")
+            self.write_wheel(
+                directory,
+                "cp39",
+                "manylinux_2_27_x86_64.manylinux_2_28_x86_64",
+            )
+            self.write_wheel(directory, "cp39", "win_amd64")
+
+            with self.assertRaisesRegex(ValueError, "duplicate wheel target"):
+                VERIFY_RELEASE.validate_release(
+                    directory, expected_python_tags=("cp39",)
+                )
 
     def test_rejects_incomplete_platform_pair(self):
         with tempfile.TemporaryDirectory() as tmp:

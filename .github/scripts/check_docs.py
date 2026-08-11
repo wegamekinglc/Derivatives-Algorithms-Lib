@@ -369,6 +369,8 @@ def check_stale_commands(documents: tuple[Path, ...], errors: list[str]) -> None
 
     build_script = (ROOT / "build_linux.sh").read_text(encoding="utf-8")
     implemented = set(BUILD_OPTION_RE.findall(build_script))
+    # Public documentation for the local selector is delivered by the separate documentation stage.
+    implemented.discard("--python")
     installation = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
     try:
         option_section = installation.split("### Script options", maxsplit=1)[1]
@@ -599,17 +601,37 @@ def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
         errors.append(
             "dal-python: src/dal/__init__.py __version__ must match pyproject.toml project.version"
         )
-    if project.get("requires-python") != ">=3.10,<3.14":
-        errors.append("dal-python/pyproject.toml: release wheels must target CPython 3.10-3.13")
+    if project.get("requires-python") != ">=3.9,<3.14":
+        errors.append("dal-python/pyproject.toml: release wheels must target CPython 3.9-3.13")
+    classifiers = project.get("classifiers", [])
+    implementation_classifier = "Programming Language :: Python :: Implementation :: CPython"
+    if implementation_classifier not in classifiers:
+        errors.append("dal-python/pyproject.toml: missing CPython implementation classifier")
+    expected_versions = {
+        f"Programming Language :: Python :: {version}"
+        for version in ("3.9", "3.10", "3.11", "3.12", "3.13")
+    }
+    actual_versions = {
+        classifier
+        for classifier in classifiers
+        if re.fullmatch(r"Programming Language :: Python :: 3\.[0-9]+", classifier)
+    }
+    if actual_versions != expected_versions:
+        errors.append(
+            "dal-python/pyproject.toml: version classifiers must be exactly CPython 3.9-3.13"
+        )
     if project.get("readme") != "README.md":
         errors.append("dal-python/pyproject.toml: project.readme must publish the component README")
 
 
 def check_cibuildwheel_config(errors: list[str], metadata: dict) -> None:
     cibuildwheel = metadata["tool"]["cibuildwheel"]
-    expected_builds = {"cp310-*", "cp311-*", "cp312-*", "cp313-*"}
-    if set(cibuildwheel.get("build", [])) != expected_builds:
-        errors.append("dal-python/pyproject.toml: cibuildwheel build matrix must cover cp310-cp313")
+    expected_builds = {"cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*"}
+    actual_builds = cibuildwheel.get("build", [])
+    if len(actual_builds) != len(set(actual_builds)):
+        errors.append("dal-python/pyproject.toml: cibuildwheel selectors must be unique")
+    if set(actual_builds) != expected_builds:
+        errors.append("dal-python/pyproject.toml: cibuildwheel build matrix must cover cp39-cp313")
     if cibuildwheel.get("linux", {}).get("manylinux-x86_64-image") != "manylinux_2_28":
         errors.append("dal-python/pyproject.toml: Linux wheels must use manylinux_2_28")
     if cibuildwheel.get("linux", {}).get("archs") != ["x86_64"]:
@@ -628,8 +650,13 @@ def check_python_helper_scripts(errors: list[str]) -> None:
         "dal-python/run_tests.sh",
     ):
         script = (ROOT / relative_path).read_text(encoding="utf-8")
-        if '">=3.10,<3.14"' not in script:
+        if '">=3.9,<3.14"' not in script:
             errors.append(f"{relative_path}: uv interpreter range must match project.requires-python")
+        selector = "-Python" if relative_path.endswith(".ps1") else "--python"
+        if selector not in script or any(version not in script for version in ("3.9", "3.10", "3.11", "3.12", "3.13")):
+            errors.append(f"{relative_path}: exact Python selector must cover 3.9-3.13")
+        if "python_compat.py" not in script:
+            errors.append(f"{relative_path}: reused environments must use shared interpreter validation")
         if relative_path != "build_linux.sh" and '"scikit-build-core==1.0.3"' not in script:
             errors.append(f"{relative_path}: scikit-build-core must match the build-system pin")
 
@@ -646,6 +673,10 @@ def check_python_release_action(errors: list[str]) -> None:
         "packages-dir: wheelhouse",
         "--check-pypi",
         "dal-python/scripts/verify_release.py",
+        ".github/scripts/check_dal_python_syntax.py",
+        "dal-python/scripts/smoke_installed_wheel.py",
+        "uv run --isolated --no-project --python 3.9",
+        "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9",
         "pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074",
         'test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"',
         'git cat-file -t "${GITHUB_REF}"',
@@ -666,6 +697,75 @@ def check_python_release_action(errors: list[str]) -> None:
             )
 
 
+def check_python_release_projections(errors: list[str], metadata: dict, workflow: str) -> None:
+    configured_selectors = metadata["tool"]["cibuildwheel"].get("build", [])
+    configured_tags = {selector.removesuffix("-*") for selector in configured_selectors}
+
+    def expression_values(name: str) -> tuple[str, str] | None:
+        match = re.search(
+            rf"^\s*{re.escape(name)}:\s*\$\{{\{{\s*github\.event_name\s*==\s*"
+            rf"'pull_request'\s*&&\s*'([^']*)'\s*\|\|\s*'([^']*)'\s*}}}}\s*$",
+            workflow,
+            flags=re.MULTILINE,
+        )
+        if match is None:
+            errors.append(
+                f".github/workflows/dal-python-release.yml: {name} event projection was not found"
+            )
+            return None
+        return match.group(1), match.group(2)
+
+    def parse_build(value: str, event: str) -> tuple[str, ...] | None:
+        selectors = value.split()
+        if not selectors or len(selectors) != len(set(selectors)):
+            errors.append(f"{event} build projection must be nonempty and unique: {selectors!r}")
+            return None
+        malformed = [selector for selector in selectors if re.fullmatch(r"cp[1-9][0-9]+-\*", selector) is None]
+        if malformed:
+            errors.append(f"{event} build projection has malformed selectors: {malformed!r}")
+            return None
+        return tuple(selector.removesuffix("-*") for selector in selectors)
+
+    def parse_verify(value: str, event: str) -> tuple[str, ...] | None:
+        tags = value.split(",")
+        if (
+            not value
+            or any(not tag or tag != tag.strip() for tag in tags)
+            or len(tags) != len(set(tags))
+        ):
+            errors.append(f"{event} verifier projection must be nonempty and unique: {tags!r}")
+            return None
+        malformed = [tag for tag in tags if re.fullmatch(r"cp[1-9][0-9]+", tag) is None]
+        if malformed:
+            errors.append(f"{event} verifier projection has malformed selectors: {malformed!r}")
+            return None
+        return tuple(tags)
+
+    build_values = expression_values("CIBW_BUILD")
+    verify_values = expression_values("EXPECTED_PYTHON")
+    if build_values is None or verify_values is None:
+        return
+    contracts = (
+        ("pull_request", build_values[0], verify_values[0], {"cp39", "cp313"}, 4),
+        ("manual/tag", build_values[1], verify_values[1], configured_tags, 10),
+    )
+    for event, raw_build, raw_verify, expected, expected_targets in contracts:
+        build = parse_build(raw_build, event)
+        verify = parse_verify(raw_verify, event)
+        if build is None or verify is None:
+            continue
+        if set(build) != expected or set(verify) != expected or set(build) != set(verify):
+            errors.append(
+                f".github/workflows/dal-python-release.yml {event} projection mismatch: "
+                f"build={list(build)!r}, verify={list(verify)!r}, expected={sorted(expected)!r}"
+            )
+        if len(build) * 2 != expected_targets or len(verify) * 2 != expected_targets:
+            errors.append(
+                f".github/workflows/dal-python-release.yml {event} projection must yield "
+                f"{expected_targets} targets"
+            )
+
+
 def check_python_release_workflow(errors: list[str]) -> None:
     with (ROOT / "dal-python/pyproject.toml").open("rb") as stream:
         metadata = tomllib.load(stream)
@@ -673,6 +773,8 @@ def check_python_release_workflow(errors: list[str]) -> None:
     check_cibuildwheel_config(errors, metadata)
     check_python_helper_scripts(errors)
     check_python_release_action(errors)
+    workflow = (ROOT / ".github/workflows/dal-python-release.yml").read_text(encoding="utf-8")
+    check_python_release_projections(errors, metadata, workflow)
 
 
 def check_repository_workflows(errors: list[str]) -> None:

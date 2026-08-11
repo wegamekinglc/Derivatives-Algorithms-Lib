@@ -7,10 +7,11 @@
 # Prerequisites:
 # - Staged C++ install must contain the exported dal-public CMake package
 # - uv must be installed
-# - CPython 3.10-3.13 with development headers
+# - CPython 3.9-3.13 with development headers
 #
 # Usage:
 #   ./build_wheel.sh              # Build wheel for current platform
+#   ./build_wheel.sh --python 3.9 # Select an exact supported CPython
 #   ./build_wheel.sh --manylinux  # Build manylinux-compatible wheel (Linux only)
 #   ./build_wheel.sh --clean      # Clean build artifacts before building
 
@@ -28,14 +29,24 @@ NC='\033[0m' # No Color
 # Parse arguments
 MANYLINUX=false
 CLEAN=false
-for arg in "$@"; do
-    case $arg in
+PYTHON_REQUESTED=false
+PYTHON_VERSION=""
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --manylinux)
             MANYLINUX=true
-            shift
             ;;
         --clean)
             CLEAN=true
+            ;;
+        --python)
+            PYTHON_REQUESTED=true
+            if [[ $# -lt 2 ]]; then
+                echo "--python requires one of $SUPPORTED_PYTHONS" >&2
+                exit 1
+            fi
+            PYTHON_VERSION=$2
             shift
             ;;
         --help|-h)
@@ -46,11 +57,24 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --manylinux    Build manylinux-compatible wheel (Linux only)"
             echo "  --clean        Clean build artifacts before building"
+            echo "  --python MINOR Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
             echo "  --help, -h     Show this help message"
             exit 0
             ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
+    shift
 done
+
+if [[ $PYTHON_REQUESTED == true ]]; then
+    case "$PYTHON_VERSION" in
+        3.9|3.10|3.11|3.12|3.13) ;;
+        *)
+            echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
+            exit 1
+            ;;
+    esac
+fi
 
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
@@ -76,17 +100,36 @@ echo -e "${GREEN}✓ Prerequisites satisfied${NC}"
 # Clean if requested
 if [ "$CLEAN" = true ]; then
     echo -e "${YELLOW}Cleaning build artifacts...${NC}"
-    rm -rf build/ dist/ *.egg-info .pytest_cache
+    rm -rf build/ dist/ .venv/ *.egg-info .pytest_cache
     find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
     echo -e "${GREEN}✓ Clean complete${NC}"
 fi
 
 # Create build environment
 echo -e "${YELLOW}Creating build environment...${NC}"
-if [ ! -d ".venv" ]; then
-    uv venv --python ">=3.10,<3.14"
+VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
+if [[ ! -x "$VENV_PYTHON" ]]; then
+    if [[ -e "$VENV_DIR" ]]; then
+        echo "build_wheel.sh: environment '$VENV_DIR' has no executable Python; rerun with --clean to recreate it" >&2
+        exit 1
+    fi
+    if [[ $PYTHON_REQUESTED == true ]]; then
+        uv venv "$VENV_DIR" --python "$PYTHON_VERSION"
+    else
+        uv venv "$VENV_DIR" --python ">=3.9,<3.14"
+    fi
 fi
-source .venv/bin/activate
+compat_args=(
+    --entry-point dal-python/build_wheel.sh
+    --environment "$VENV_DIR"
+    --remediation "rerun with --clean to recreate $VENV_DIR"
+)
+if [[ $PYTHON_REQUESTED == true ]]; then
+    compat_args+=(--requested "$PYTHON_VERSION")
+fi
+"$VENV_PYTHON" "$SCRIPT_DIR/scripts/python_compat.py" "${compat_args[@]}"
+source "$VENV_DIR/bin/activate"
 echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies

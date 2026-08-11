@@ -6,6 +6,9 @@ COVERAGE=false
 BUILD_PYTHON=false
 BUILD_BENCHMARKS=false
 GENERATE=false
+PYTHON_REQUESTED=false
+PYTHON_VERSION=""
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -13,10 +16,30 @@ while [[ $# -gt 0 ]]; do
         --full) BUILD_PYTHON=true; BUILD_BENCHMARKS=true ;;
         --benchmarks) BUILD_BENCHMARKS=true ;;
         --generate) GENERATE=true ;;
+        --python)
+            PYTHON_REQUESTED=true
+            BUILD_PYTHON=true
+            if [[ $# -lt 2 ]]; then
+                echo "--python requires one of $SUPPORTED_PYTHONS" >&2
+                exit 1
+            fi
+            PYTHON_VERSION=$2
+            shift
+            ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
     shift
 done
+
+if [[ $PYTHON_REQUESTED == true ]]; then
+    case "$PYTHON_VERSION" in
+        3.9|3.10|3.11|3.12|3.13) ;;
+        *)
+            echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
+            exit 1
+            ;;
+    esac
+fi
 
 DAL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BUILD_TYPE=${BUILD_TYPE:-Release}
@@ -51,16 +74,36 @@ fi
 if [[ $BUILD_PYTHON == true ]]; then
     venv_dir="$DAL_DIR/dal-python/.venv"
     python_bin="$venv_dir/bin/python"
+    compat_script="$DAL_DIR/dal-python/scripts/python_compat.py"
+    remediation="remove or replace $venv_dir, then rerun"
+    compat_args=(
+        --entry-point build_linux.sh
+        --environment "$venv_dir"
+        --remediation "$remediation"
+    )
+    if [[ $PYTHON_REQUESTED == true ]]; then
+        compat_args+=(--requested "$PYTHON_VERSION")
+    fi
     if [[ ! -x "$python_bin" ]]; then
+        if [[ -e "$venv_dir" ]]; then
+            echo "build_linux.sh: environment '$venv_dir' has no executable Python; $remediation" >&2
+            exit 1
+        fi
         if command -v uv >/dev/null 2>&1; then
-            uv venv "$venv_dir" --python ">=3.10,<3.14"
+            if [[ $PYTHON_REQUESTED == true ]]; then
+                uv venv "$venv_dir" --python "$PYTHON_VERSION"
+            else
+                uv venv "$venv_dir" --python ">=3.9,<3.14"
+            fi
         elif command -v python3 >/dev/null 2>&1; then
+            python3 "$compat_script" "${compat_args[@]}"
             python3 -m venv "$venv_dir"
         else
             echo "Python bindings requested, but neither uv nor python3 is available." >&2
             exit 1
         fi
     fi
+    "$python_bin" "$compat_script" "${compat_args[@]}"
 
     if ! "$python_bin" -c "import numpy, pytest" >/dev/null 2>&1; then
         if command -v uv >/dev/null 2>&1; then

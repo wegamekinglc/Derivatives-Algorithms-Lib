@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from email.parser import BytesParser
 from hashlib import sha256
 from http.client import HTTPSConnection
@@ -21,6 +22,8 @@ INIT = PACKAGE_ROOT / "src" / "dal" / "__init__.py"
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']\s*$', re.MULTILINE)
 LINUX_PLATFORM = "manylinux_2_28_x86_64"
 WINDOWS_PLATFORM = "win_amd64"
+PYTHON_TAG_RE = re.compile(r"cp[1-9][0-9]+")
+MANYLINUX_PLATFORM_RE = re.compile(r"manylinux_([0-9]+)_([0-9]+)_x86_64")
 
 
 def project_configuration() -> tuple[str, str, tuple[str, ...]]:
@@ -37,6 +40,32 @@ def source_version() -> str:
     if match is None:
         raise ValueError(f"{INIT} does not declare __version__")
     return match.group(1)
+
+
+def validate_expected_python_tags(
+    python_tags: tuple[str, ...], configured_python_tags: tuple[str, ...]
+) -> tuple[str, ...]:
+    if not python_tags:
+        raise ValueError(
+            "--expected-python: explicit value is empty; omit the option for the configured "
+            "full set or supply a nonempty configured subset"
+        )
+    seen: set[str] = set()
+    for python_tag in python_tags:
+        if not python_tag or python_tag != python_tag.strip():
+            raise ValueError(f"--expected-python: malformed selector {python_tag!r}")
+        if PYTHON_TAG_RE.fullmatch(python_tag) is None:
+            raise ValueError(f"--expected-python: malformed selector {python_tag!r}")
+        if python_tag in seen:
+            raise ValueError(f"--expected-python: duplicate selector {python_tag!r}")
+        if python_tag not in configured_python_tags:
+            configured = ", ".join(configured_python_tags)
+            raise ValueError(
+                f"--expected-python: selector {python_tag!r} is not configured; "
+                f"configured tags are {configured}"
+            )
+        seen.add(python_tag)
+    return python_tags
 
 
 def wheel_parts(path: Path) -> tuple[str, str, str, str, str]:
@@ -56,11 +85,30 @@ def metadata_from_wheel(archive: ZipFile, suffix: str):
 
 
 def platform_family(platform_tag: str) -> str:
-    tags = set(platform_tag.split("."))
-    if LINUX_PLATFORM in tags:
+    components = platform_tag.split(".")
+    if not components or any(not component for component in components):
+        raise ValueError(f"platform field {platform_tag!r} contains an empty component")
+    if len(components) != len(set(components)):
+        raise ValueError(f"platform field {platform_tag!r} contains duplicate components")
+    if LINUX_PLATFORM in components:
+        for component in components:
+            match = MANYLINUX_PLATFORM_RE.fullmatch(component)
+            if match is None:
+                raise ValueError(
+                    f"platform component {component!r} is not a PEP 600 x86-64 component"
+                )
+            glibc_version = tuple(int(part) for part in match.groups())
+            if glibc_version > (2, 28):
+                raise ValueError(
+                    f"platform component {component!r} exceeds the manylinux 2.28 baseline"
+                )
         return "linux"
-    if tags == {WINDOWS_PLATFORM}:
+    if components == [WINDOWS_PLATFORM]:
         return "windows"
+    if WINDOWS_PLATFORM in components:
+        raise ValueError(
+            f"Windows platform must be exactly {WINDOWS_PLATFORM!r}, observed {platform_tag!r}"
+        )
     raise ValueError(f"unsupported or unrepaired wheel platform tag: {platform_tag}")
 
 
@@ -72,6 +120,11 @@ def validate_wheel_filename(
         raise ValueError(f"{path.name}: unexpected distribution {distribution}")
     if version != expected_version:
         raise ValueError(f"{path.name}: version {version} != {expected_version}")
+    if PYTHON_TAG_RE.fullmatch(python_tag) is None or PYTHON_TAG_RE.fullmatch(abi_tag) is None:
+        raise ValueError(
+            f"{path.name}: Python and ABI fields must each contain one single CPython tag; "
+            f"observed {python_tag!r} and {abi_tag!r}"
+        )
     if abi_tag != python_tag:
         raise ValueError(f"{path.name}: ABI {abi_tag} does not match {python_tag}")
     family = platform_family(platform_tag)
@@ -91,6 +144,13 @@ def normalized_requires_python(value: str) -> frozenset[str]:
     return frozenset(specifier.strip() for specifier in value.split(","))
 
 
+def single_header(path: Path, metadata, key: str) -> str:
+    values = metadata.get_all(key, [])
+    if len(values) != 1:
+        raise ValueError(f"{path.name}: METADATA has {len(values)} {key} headers; expected exactly 1")
+    return values[0]
+
+
 def validate_package_metadata(
     path: Path, metadata, expected_version: str, expected_requires_python: str
 ) -> None:
@@ -101,10 +161,16 @@ def validate_package_metadata(
         "Requires-Python": expected_requires_python,
     }
     for key, expected in expected_metadata.items():
-        actual = metadata[key]
+        actual = single_header(path, metadata, key)
         equivalent = actual == expected
         if key == "Requires-Python":
-            equivalent = normalized_requires_python(actual) == normalized_requires_python(expected)
+            actual_specifiers = tuple(specifier.strip() for specifier in actual.split(","))
+            expected_specifiers = normalized_requires_python(expected)
+            equivalent = (
+                len(actual_specifiers) == len(expected_specifiers)
+                and len(set(actual_specifiers)) == len(actual_specifiers)
+                and set(actual_specifiers) == expected_specifiers
+            )
         if not equivalent:
             raise ValueError(f"{path.name}: {key}={actual!r}, expected {expected!r}")
     if not str(metadata.get_payload()).strip():
@@ -114,14 +180,27 @@ def validate_package_metadata(
 def validate_wheel_metadata(
     path: Path, wheel_metadata, python_tag: str, abi_tag: str, platform_tag: str
 ) -> None:
-    if wheel_metadata["Root-Is-Purelib"] != "false":
+    wheel_versions = wheel_metadata.get_all("Wheel-Version", [])
+    if len(wheel_versions) != 1:
+        raise ValueError(
+            f"{path.name}: WHEEL has {len(wheel_versions)} Wheel-Version headers; expected exactly 1"
+        )
+    purelib_values = wheel_metadata.get_all("Root-Is-Purelib", [])
+    if len(purelib_values) != 1:
+        raise ValueError(
+            f"{path.name}: WHEEL has {len(purelib_values)} Root-Is-Purelib headers; expected exactly 1"
+        )
+    if purelib_values[0] != "false":
         raise ValueError(f"{path.name}: native wheel is incorrectly marked pure")
-    filename_tags = {
+    filename_tags = [
         f"{python_tag}-{abi_tag}-{platform}" for platform in platform_tag.split(".")
-    }
-    missing_tags = filename_tags - set(wheel_metadata.get_all("Tag", []))
-    if missing_tags:
-        raise ValueError(f"{path.name}: WHEEL metadata omits {sorted(missing_tags)}")
+    ]
+    wheel_tags = wheel_metadata.get_all("Tag", [])
+    if Counter(wheel_tags) != Counter(filename_tags):
+        raise ValueError(
+            f"{path.name}: WHEEL tags {wheel_tags!r} must equal expanded filename tags "
+            f"{filename_tags!r} in contents and cardinality"
+        )
 
 
 def validate_wheel(
@@ -181,7 +260,11 @@ def validate_release(
 ) -> list[str]:
     version, requires_python, configured_python_tags = validate_versions(tag, check_pypi)
 
-    python_tags = expected_python_tags or configured_python_tags
+    python_tags = (
+        configured_python_tags
+        if expected_python_tags is None
+        else validate_expected_python_tags(expected_python_tags, configured_python_tags)
+    )
     wheels = sorted(dist_dir.glob("*.whl"))
     if not wheels:
         raise ValueError(f"no wheels found under {dist_dir}")
@@ -213,7 +296,9 @@ def main() -> int:
     parser.add_argument("--check-pypi", action="store_true")
     parser.add_argument("--version-only", action="store_true")
     args = parser.parse_args()
-    expected_python = tuple(args.expected_python.split(",")) if args.expected_python else None
+    expected_python = (
+        tuple(args.expected_python.split(",")) if args.expected_python is not None else None
+    )
     try:
         if args.version_only:
             version, _, _ = validate_versions(args.tag, args.check_pypi)

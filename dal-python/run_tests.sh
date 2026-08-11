@@ -4,16 +4,52 @@
 #
 # Usage:
 #   cd dal-python && bash run_tests.sh              # run all tests
+#   cd dal-python && bash run_tests.sh --python 3.9  # select an exact CPython
 #   cd dal-python && bash run_tests.sh -v            # verbose pytest output
 #   cd dal-python && bash run_tests.sh -k test_date  # run specific tests
 #
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The staged C++ install must exist (run ../build_linux.sh from repo root)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.10-3.13 development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.13 development headers
 #
 
 set -eu
+
+PYTHON_REQUESTED=false
+PYTHON_VERSION=""
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+PYTEST_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --python)
+            PYTHON_REQUESTED=true
+            if [[ $# -lt 2 ]]; then
+                echo "--python requires one of $SUPPORTED_PYTHONS" >&2
+                exit 1
+            fi
+            PYTHON_VERSION=$2
+            shift
+            ;;
+        *) PYTEST_ARGS+=("$1") ;;
+    esac
+    shift
+done
+
+if [[ $PYTHON_REQUESTED == true ]]; then
+    case "$PYTHON_VERSION" in
+        3.9|3.10|3.11|3.12|3.13) ;;
+        *)
+            echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is required by dal-python/run_tests.sh" >&2
+    exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -45,12 +81,31 @@ echo "[OK] DAL CMake package found: $DAL_PUBLIC_CONFIG"
 # ---- Step 2: Create or reuse uv virtual environment -------------------------
 
 VENV_DIR="$SCRIPT_DIR/.venv"
-if [[ ! -d "$VENV_DIR" ]]; then
+VENV_PYTHON="$VENV_DIR/bin/python"
+if [[ ! -x "$VENV_PYTHON" ]]; then
+    if [[ -e "$VENV_DIR" ]]; then
+        echo "run_tests.sh: environment '$VENV_DIR' has no executable Python; remove or replace $VENV_DIR, then rerun" >&2
+        exit 1
+    fi
     echo "Creating fresh uv virtual environment..."
-    uv venv "$VENV_DIR" --python ">=3.10,<3.14"
+    if [[ $PYTHON_REQUESTED == true ]]; then
+        uv venv "$VENV_DIR" --python "$PYTHON_VERSION"
+    else
+        uv venv "$VENV_DIR" --python ">=3.9,<3.14"
+    fi
 else
     echo "Reusing existing virtual environment at .venv/"
 fi
+
+compat_args=(
+    --entry-point dal-python/run_tests.sh
+    --environment "$VENV_DIR"
+    --remediation "remove or replace $VENV_DIR, then rerun"
+)
+if [[ $PYTHON_REQUESTED == true ]]; then
+    compat_args+=(--requested "$PYTHON_VERSION")
+fi
+"$VENV_PYTHON" "$SCRIPT_DIR/scripts/python_compat.py" "${compat_args[@]}"
 
 # Activate the venv for subsequent commands
 # shellcheck disable=SC1091
@@ -100,4 +155,4 @@ echo "================================================"
 echo ""
 
 # Pass through any extra arguments to pytest (e.g., -v, -k, --tb=short)
-python -m pytest tests/ -v "$@"
+python -m pytest tests/ -v "${PYTEST_ARGS[@]}"

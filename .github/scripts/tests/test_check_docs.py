@@ -1,8 +1,10 @@
 """Tests for the DAL documentation checker."""
 
+import copy
 import importlib.util
 from pathlib import Path
 import tempfile
+import tomllib
 import unittest
 
 
@@ -210,6 +212,70 @@ class SemanticConsistencyTest(unittest.TestCase):
         CHECK_DOCS.check_repository_workflows(errors)
 
         self.assertEqual(errors, [])
+
+
+class PythonReleaseContractTest(unittest.TestCase):
+    def metadata(self) -> dict:
+        with (CHECK_DOCS.ROOT / "dal-python/pyproject.toml").open("rb") as stream:
+            return tomllib.load(stream)
+
+    def test_requires_cpython_classifier(self):
+        metadata = self.metadata()
+        metadata["project"]["classifiers"].remove(
+            "Programming Language :: Python :: Implementation :: CPython"
+        )
+        errors: list[str] = []
+
+        CHECK_DOCS.check_python_project_metadata(errors, metadata)
+
+        self.assertTrue(any("CPython implementation classifier" in error for error in errors))
+
+    def test_rejects_duplicate_configured_selector(self):
+        metadata = copy.deepcopy(self.metadata())
+        metadata["tool"]["cibuildwheel"]["build"].append("cp39-*")
+        errors: list[str] = []
+
+        CHECK_DOCS.check_cibuildwheel_config(errors, metadata)
+
+        self.assertTrue(any("unique" in error for error in errors))
+
+    def test_current_workflow_projections_match_event_contract(self):
+        workflow = (
+            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
+        ).read_text(encoding="utf-8")
+        errors: list[str] = []
+
+        CHECK_DOCS.check_python_release_projections(errors, self.metadata(), workflow)
+
+        self.assertEqual(errors, [])
+
+    def test_workflow_runs_fresh_cp39_smoke(self):
+        workflow = (
+            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("dal-python/scripts/smoke_installed_wheel.py", workflow)
+        self.assertIn("uv run --isolated --no-project --python 3.9", workflow)
+        self.assertIn(".github/scripts/check_dal_python_syntax.py", workflow)
+
+    def test_rejects_independent_workflow_projection_drift(self):
+        workflow = (
+            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
+        ).read_text(encoding="utf-8")
+        mutations = (
+            ("cp39-* cp313-*", "cp313-*"),
+            ("cp39,cp313", "cp313"),
+            ("cp39-* cp310-* cp311-* cp312-* cp313-*", "cp39-* cp311-* cp312-* cp313-*"),
+            ("cp39,cp310,cp311,cp312,cp313", "cp39,cp310,cp311,cp312,cp38"),
+            ("cp39-* cp313-*", "cp39-* cp39-* cp313-*"),
+            ("cp39,cp313", "cp39,,cp313"),
+        )
+        for old, new in mutations:
+            with self.subTest(new=new):
+                mutated = workflow.replace(old, new, 1)
+                errors: list[str] = []
+                CHECK_DOCS.check_python_release_projections(errors, self.metadata(), mutated)
+                self.assertNotEqual(errors, [])
 
 
 if __name__ == "__main__":

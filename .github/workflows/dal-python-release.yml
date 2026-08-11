@@ -29,6 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Set up Python compatibility runner
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # @v9.0.0
+
+      - name: Check Python 3.9 syntax compatibility
+        run: >-
+          uv run --isolated --no-project --python 3.9 python
+          .github/scripts/check_dal_python_syntax.py
+
       - name: Validate version and tag policy
         shell: bash
         run: |
@@ -66,7 +74,20 @@ jobs:
           package-dir: dal-python
           output-dir: wheelhouse
         env:
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp313-*' || 'cp310-* cp311-* cp312-* cp313-*' }}
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp39-* cp313-*' || 'cp39-* cp310-* cp311-* cp312-* cp313-*' }}
+
+      - name: Set up Python 3.9 smoke interpreter
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # @v9.0.0
+
+      - name: Smoke test installed Python 3.9 wheel
+        run: >-
+          uv run --isolated --no-project --python 3.9 python
+          dal-python/scripts/smoke_installed_wheel.py
+          --wheelhouse "${{ github.workspace }}/wheelhouse"
+          --environment "${{ runner.temp }}/dal-python-smoke-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.platform }}"
+          --work-dir "${{ runner.temp }}/dal-python-smoke-work-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.platform }}"
+          --exclude "${{ github.workspace }}"
+          --exclude "${{ github.workspace }}/wheelhouse"
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -82,7 +103,7 @@ jobs:
     needs: wheels
     runs-on: ubuntu-24.04
     env:
-      EXPECTED_PYTHON: ${{ github.event_name == 'pull_request' && 'cp313' || 'cp310,cp311,cp312,cp313' }}
+      EXPECTED_PYTHON: ${{ github.event_name == 'pull_request' && 'cp39,cp313' || 'cp39,cp310,cp311,cp312,cp313' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
