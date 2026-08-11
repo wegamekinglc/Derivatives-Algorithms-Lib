@@ -1,10 +1,10 @@
 """Executable Windows tests for the PowerShell Python helpers."""
 
+import asyncio
 import base64
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 import unittest
 
@@ -12,6 +12,60 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 PWSH = shutil.which("pwsh")
 DOTNET = shutil.which("dotnet")
+
+
+class ProcessResult:
+    def __init__(self, returncode, stdout):
+        self.returncode = returncode
+        self.stdout = stdout
+
+
+async def wait_for_process(
+    executable, arguments, *, cwd=None, environment=None, capture_output=False
+):
+    executable = Path(executable)
+    if not executable.is_absolute():
+        raise ValueError(
+            "process executable must be an absolute path: %r" % str(executable)
+        )
+    output = asyncio.subprocess.PIPE if capture_output else None
+    error = asyncio.subprocess.STDOUT if capture_output else None
+    process = await asyncio.create_subprocess_exec(
+        str(executable),
+        *(str(argument) for argument in arguments),
+        cwd=None if cwd is None else str(Path(cwd).resolve()),
+        env=environment,
+        stdout=output,
+        stderr=error,
+    )
+    stdout, _ = await process.communicate()
+    text = "" if stdout is None else stdout.decode("utf-8", errors="replace")
+    return ProcessResult(process.returncode, text)
+
+
+def run_process(
+    executable,
+    arguments,
+    *,
+    cwd=None,
+    environment=None,
+    capture_output=False,
+    check=False,
+):
+    result = asyncio.run(
+        wait_for_process(
+            executable,
+            arguments,
+            cwd=cwd,
+            environment=environment,
+            capture_output=capture_output,
+        )
+    )
+    if check and result.returncode:
+        raise OSError(
+            "command %r exited with status %s" % (executable, result.returncode)
+        )
+    return result
 
 
 PROCESS_DOUBLE_SOURCE = r"""
@@ -113,9 +167,9 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
             "</Project>\n",
             encoding="utf-8",
         )
-        subprocess.run(
+        run_process(
+            DOTNET,
             (
-                DOTNET,
                 "publish",
                 str(project_file),
                 "-c",
@@ -171,9 +225,9 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
         return environment
 
     def run_helper(self, package: Path, name: str, arguments, environment):
-        return subprocess.run(
+        return run_process(
+            PWSH,
             (
-                PWSH,
                 "-NoLogo",
                 "-NoProfile",
                 "-File",
@@ -181,10 +235,8 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
                 *arguments,
             ),
             cwd=package,
-            env=environment,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            environment=environment,
+            capture_output=True,
             check=False,
         )
 

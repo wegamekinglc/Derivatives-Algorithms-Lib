@@ -20,6 +20,43 @@ BUILD_NATIVE = importlib.util.module_from_spec(BUILD_SPEC)
 BUILD_SPEC.loader.exec_module(BUILD_NATIVE)
 
 
+def metadata_headers(version, requires_python, overrides):
+    headers = {
+        "Metadata-Version": ("2.4",),
+        "Name": ("dal-python",),
+        "Version": (version,),
+        "License-Expression": ("MIT",),
+        "Requires-Python": (requires_python,),
+    }
+    headers.update(overrides or {})
+    return headers
+
+
+def wheel_headers(python_tag, abi_tag, platform_tag, overrides):
+    headers = {
+        "Wheel-Version": ("1.0",),
+        "Root-Is-Purelib": ("false",),
+        "Tag": tuple(
+            f"{python_tag}-{abi_tag}-{platform}" for platform in platform_tag.split(".")
+        ),
+    }
+    headers.update(overrides or {})
+    return headers
+
+
+def header_text(headers, extra_headers, body=()):
+    lines = [f"{key}: {value}" for key, values in headers.items() for value in values]
+    return "\n".join((*lines, *extra_headers, "", *body))
+
+
+def write_archive_members(archive, directory, override, member, count, contents):
+    for index in range(count):
+        prefix = override or directory
+        if index:
+            prefix = f"duplicate_{index}.dist-info"
+        archive.writestr(f"{prefix}/{member}", contents)
+
+
 class PythonReleaseTest(unittest.TestCase):
     def write_wheel(
         self,
@@ -45,59 +82,36 @@ class PythonReleaseTest(unittest.TestCase):
             f"dal_python-{version}-{python_tag}-{abi_tag}-{platform_tag}.whl"
         )
         dist_info = f"dal_python-{version}.dist-info"
-        metadata_headers = {
-            "Metadata-Version": ("2.4",),
-            "Name": ("dal-python",),
-            "Version": (version,),
-            "License-Expression": ("MIT",),
-            "Requires-Python": (requires_python,),
-        }
-        metadata_headers.update(metadata_overrides or {})
-        wheel_headers = {
-            "Wheel-Version": ("1.0",),
-            "Root-Is-Purelib": ("false",),
-            "Tag": tuple(
-                f"{python_tag}-{abi_tag}-{platform}"
-                for platform in platform_tag.split(".")
-            ),
-        }
-        wheel_headers.update(wheel_overrides or {})
-        metadata_text = "\n".join(
-            (
-                *(
-                    f"{key}: {value}"
-                    for key, values in metadata_headers.items()
-                    for value in values
-                ),
-                *extra_metadata_headers,
-                "",
-                "DAL package description",
-            )
+        metadata_text = header_text(
+            metadata_headers(version, requires_python, metadata_overrides),
+            extra_metadata_headers,
+            ("DAL package description",),
         )
-        wheel_text = "\n".join(
-            (
-                *(
-                    f"{key}: {value}"
-                    for key, values in wheel_headers.items()
-                    for value in values
-                ),
-                *extra_wheel_headers,
-                "",
-            )
+        wheel_text = header_text(
+            wheel_headers(python_tag, abi_tag, platform_tag, wheel_overrides),
+            extra_wheel_headers,
         )
         with ZipFile(wheel, "w") as archive:
             for index in range(native_extensions):
-                archive.writestr(f"dal/_dal.{python_tag}.{index}.{extension}", b"native")
-            for index in range(metadata_files):
-                prefix = metadata_directory or dist_info
-                if index:
-                    prefix = f"duplicate_{index}.dist-info"
-                archive.writestr(f"{prefix}/METADATA", metadata_text)
-            for index in range(wheel_files):
-                prefix = wheel_directory or dist_info
-                if index:
-                    prefix = f"duplicate_{index}.dist-info"
-                archive.writestr(f"{prefix}/WHEEL", wheel_text)
+                archive.writestr(
+                    f"dal/_dal.{python_tag}.{index}.{extension}", b"native"
+                )
+            write_archive_members(
+                archive,
+                dist_info,
+                metadata_directory,
+                "METADATA",
+                metadata_files,
+                metadata_text,
+            )
+            write_archive_members(
+                archive,
+                dist_info,
+                wheel_directory,
+                "WHEEL",
+                wheel_files,
+                wheel_text,
+            )
         return wheel
 
     def write_matrix(self, directory: Path, python_tags: tuple[str, ...]) -> None:

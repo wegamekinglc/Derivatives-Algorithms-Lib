@@ -701,52 +701,116 @@ def check_python_release_action(errors: list[str]) -> None:
             )
 
 
-def check_python_release_projections(errors: list[str], metadata: dict, workflow: str) -> None:
+def release_expression_values(
+    workflow: str, name: str, errors: list[str]
+) -> tuple[str, str] | None:
+    match = re.search(
+        rf"^\s*{re.escape(name)}:\s*\$\{{\{{\s*github\.event_name\s*==\s*"
+        rf"'pull_request'\s*&&\s*'([^']*)'\s*\|\|\s*'([^']*)'\s*}}}}\s*$",
+        workflow,
+        flags=re.MULTILINE,
+    )
+    if match is None:
+        errors.append(
+            f".github/workflows/dal-python-release.yml: {name} event projection was not found"
+        )
+        return None
+    return match.group(1), match.group(2)
+
+
+def parse_build_projection(
+    value: str, event: str, errors: list[str]
+) -> tuple[str, ...] | None:
+    selectors = value.split()
+    if not selectors or len(selectors) != len(set(selectors)):
+        errors.append(
+            f"{event} build projection must be nonempty and unique: {selectors!r}"
+        )
+        return None
+    malformed = [
+        selector
+        for selector in selectors
+        if re.fullmatch(r"cp[1-9][0-9]+-\*", selector) is None
+    ]
+    if malformed:
+        errors.append(
+            f"{event} build projection has malformed selectors: {malformed!r}"
+        )
+        return None
+    return tuple(selector.removesuffix("-*") for selector in selectors)
+
+
+def verifier_projection_parts_are_valid(value: str, tags: list[str]) -> bool:
+    if not value:
+        return False
+    if any(not tag or tag != tag.strip() for tag in tags):
+        return False
+    return len(tags) == len(set(tags))
+
+
+def parse_verify_projection(
+    value: str, event: str, errors: list[str]
+) -> tuple[str, ...] | None:
+    tags = value.split(",")
+    if not verifier_projection_parts_are_valid(value, tags):
+        errors.append(
+            f"{event} verifier projection must be nonempty and unique: {tags!r}"
+        )
+        return None
+    malformed = [tag for tag in tags if re.fullmatch(r"cp[1-9][0-9]+", tag) is None]
+    if malformed:
+        errors.append(
+            f"{event} verifier projection has malformed selectors: {malformed!r}"
+        )
+        return None
+    return tuple(tags)
+
+
+def release_projection_mismatches(
+    build: tuple[str, ...], verify: tuple[str, ...], expected: set[str]
+) -> bool:
+    return (
+        set(build) != expected or set(verify) != expected or set(build) != set(verify)
+    )
+
+
+def release_projection_target_count_mismatches(
+    build: tuple[str, ...], verify: tuple[str, ...], expected_targets: int
+) -> bool:
+    return len(build) * 2 != expected_targets or len(verify) * 2 != expected_targets
+
+
+def check_release_projection_contract(
+    event: str,
+    raw_build: str,
+    raw_verify: str,
+    expected: set[str],
+    expected_targets: int,
+    errors: list[str],
+) -> None:
+    build = parse_build_projection(raw_build, event, errors)
+    verify = parse_verify_projection(raw_verify, event, errors)
+    if build is None or verify is None:
+        return
+    if release_projection_mismatches(build, verify, expected):
+        errors.append(
+            f".github/workflows/dal-python-release.yml {event} projection mismatch: "
+            f"build={list(build)!r}, verify={list(verify)!r}, expected={sorted(expected)!r}"
+        )
+    if release_projection_target_count_mismatches(build, verify, expected_targets):
+        errors.append(
+            f".github/workflows/dal-python-release.yml {event} projection must yield "
+            f"{expected_targets} targets"
+        )
+
+
+def check_python_release_projections(
+    errors: list[str], metadata: dict, workflow: str
+) -> None:
     configured_selectors = metadata["tool"]["cibuildwheel"].get("build", [])
     configured_tags = {selector.removesuffix("-*") for selector in configured_selectors}
-
-    def expression_values(name: str) -> tuple[str, str] | None:
-        match = re.search(
-            rf"^\s*{re.escape(name)}:\s*\$\{{\{{\s*github\.event_name\s*==\s*"
-            rf"'pull_request'\s*&&\s*'([^']*)'\s*\|\|\s*'([^']*)'\s*}}}}\s*$",
-            workflow,
-            flags=re.MULTILINE,
-        )
-        if match is None:
-            errors.append(
-                f".github/workflows/dal-python-release.yml: {name} event projection was not found"
-            )
-            return None
-        return match.group(1), match.group(2)
-
-    def parse_build(value: str, event: str) -> tuple[str, ...] | None:
-        selectors = value.split()
-        if not selectors or len(selectors) != len(set(selectors)):
-            errors.append(f"{event} build projection must be nonempty and unique: {selectors!r}")
-            return None
-        malformed = [selector for selector in selectors if re.fullmatch(r"cp[1-9][0-9]+-\*", selector) is None]
-        if malformed:
-            errors.append(f"{event} build projection has malformed selectors: {malformed!r}")
-            return None
-        return tuple(selector.removesuffix("-*") for selector in selectors)
-
-    def parse_verify(value: str, event: str) -> tuple[str, ...] | None:
-        tags = value.split(",")
-        if (
-            not value
-            or any(not tag or tag != tag.strip() for tag in tags)
-            or len(tags) != len(set(tags))
-        ):
-            errors.append(f"{event} verifier projection must be nonempty and unique: {tags!r}")
-            return None
-        malformed = [tag for tag in tags if re.fullmatch(r"cp[1-9][0-9]+", tag) is None]
-        if malformed:
-            errors.append(f"{event} verifier projection has malformed selectors: {malformed!r}")
-            return None
-        return tuple(tags)
-
-    build_values = expression_values("CIBW_BUILD")
-    verify_values = expression_values("EXPECTED_PYTHON")
+    build_values = release_expression_values(workflow, "CIBW_BUILD", errors)
+    verify_values = release_expression_values(workflow, "EXPECTED_PYTHON", errors)
     if build_values is None or verify_values is None:
         return
     contracts = (
@@ -754,29 +818,14 @@ def check_python_release_projections(errors: list[str], metadata: dict, workflow
         ("manual/tag", build_values[1], verify_values[1], configured_tags, 10),
     )
     for event, raw_build, raw_verify, expected, expected_targets in contracts:
-        build = parse_build(raw_build, event)
-        verify = parse_verify(raw_verify, event)
-        if build is None or verify is None:
-            continue
-        if set(build) != expected or set(verify) != expected or set(build) != set(verify):
-            errors.append(
-                f".github/workflows/dal-python-release.yml {event} projection mismatch: "
-                f"build={list(build)!r}, verify={list(verify)!r}, expected={sorted(expected)!r}"
-            )
-        if len(build) * 2 != expected_targets or len(verify) * 2 != expected_targets:
-            errors.append(
-                f".github/workflows/dal-python-release.yml {event} projection must yield "
-                f"{expected_targets} targets"
-            )
+        check_release_projection_contract(
+            event, raw_build, raw_verify, expected, expected_targets, errors
+        )
 
 
-def check_python_release_document_texts(
-    readme: str, installation: str, changelog: str, errors: list[str]
+def check_stale_python_release_texts(
+    current_docs: dict[str, str], errors: list[str]
 ) -> None:
-    current_docs = {
-        "dal-python/README.md": readme,
-        "docs/installation.md": installation,
-    }
     stale_patterns = (
         r"\b3\.10(?:-|–|—|\s+to\s+|\s+through\s+)3\.13\b",
         r"\beight wheels\b",
@@ -784,8 +833,14 @@ def check_python_release_document_texts(
     for document, text in current_docs.items():
         for pattern in stale_patterns:
             if re.search(pattern, text, flags=re.IGNORECASE):
-                errors.append(f"{document}: stale DAL Python compatibility or wheel-count claim")
+                errors.append(
+                    f"{document}: stale DAL Python compatibility or wheel-count claim"
+                )
 
+
+def check_required_python_release_texts(
+    texts: dict[str, str], errors: list[str]
+) -> None:
     required = {
         "dal-python/README.md": (
             "CPython 3.9-3.13",
@@ -811,13 +866,15 @@ def check_python_release_document_texts(
             "ten CPython-specific wheels",
         ),
     }
-    texts = {**current_docs, "CHANGELOG.md": changelog}
     for document, fragments in required.items():
         for fragment in fragments:
             if fragment not in texts[document]:
-                errors.append(f"{document}: missing DAL Python release contract {fragment!r}")
+                errors.append(
+                    f"{document}: missing DAL Python release contract {fragment!r}"
+                )
 
-    selector_docs = f"{readme}\n{installation}"
+
+def check_python_release_selector_texts(selector_docs: str, errors: list[str]) -> None:
     for command in (
         "build_linux.sh --python 3.9",
         "build_sdist.sh --python 3.9",
@@ -827,8 +884,12 @@ def check_python_release_document_texts(
         "run_tests.ps1 -Python 3.9",
     ):
         if command not in selector_docs:
-            errors.append(f"DAL Python public docs: missing local selector example {command!r}")
+            errors.append(
+                f"DAL Python public docs: missing local selector example {command!r}"
+            )
 
+
+def check_python_release_exclusion_texts(readme: str, errors: list[str]) -> None:
     for exclusion in (
         "CPython 3.14",
         "macOS",
@@ -839,7 +900,23 @@ def check_python_release_document_texts(
         "source distributions",
     ):
         if exclusion not in readme:
-            errors.append(f"dal-python/README.md: missing release exclusion {exclusion!r}")
+            errors.append(
+                f"dal-python/README.md: missing release exclusion {exclusion!r}"
+            )
+
+
+def check_python_release_document_texts(
+    readme: str, installation: str, changelog: str, errors: list[str]
+) -> None:
+    current_docs = {
+        "dal-python/README.md": readme,
+        "docs/installation.md": installation,
+    }
+    texts = {**current_docs, "CHANGELOG.md": changelog}
+    check_stale_python_release_texts(current_docs, errors)
+    check_required_python_release_texts(texts, errors)
+    check_python_release_selector_texts(f"{readme}\n{installation}", errors)
+    check_python_release_exclusion_texts(readme, errors)
 
 
 def check_python_release_documentation(errors: list[str]) -> None:

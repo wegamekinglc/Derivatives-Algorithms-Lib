@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 
 SCRIPT = (
@@ -87,29 +87,51 @@ class PythonSmokeTest(unittest.TestCase):
         smoke = load_smoke()
 
         for variable in ("PYTHONPATH", "PYTHONHOME"):
-            with self.subTest(variable=variable), self.assertRaisesRegex(ValueError, variable):
+            with (
+                self.subTest(variable=variable),
+                self.assertRaisesRegex(ValueError, variable),
+            ):
                 smoke.validate_runtime_isolation(True, False, {variable: "/source"})
 
-    def test_creates_fresh_environment_with_resolved_uv(self):
+    def test_environment_commands_use_resolved_executable_and_argument_vectors(self):
         smoke = load_smoke()
         with tempfile.TemporaryDirectory() as tmp:
             environment = Path(tmp) / "environment"
-            with patch.object(smoke.shutil, "which", return_value="/opt/uv/bin/uv"), patch.object(
-                smoke.subprocess, "run"
-            ) as run:
+            python = environment / "bin" / "python"
+            wheel = Path(tmp) / "dal_python-2026.8.11-cp39-cp39-linux_x86_64.whl"
+            self.assertEqual(smoke.executable_path(python), python)
+            with (
+                patch.object(smoke.shutil, "which", return_value="/opt/uv/bin/uv"),
+                patch.object(smoke, "run_process") as run,
+            ):
                 smoke.create_environment(environment, Path("/opt/python/bin/python"))
+                smoke.install_wheel(python, wheel)
 
-            run.assert_called_once_with(
+            self.assertEqual(
+                run.call_args_list,
                 [
-                    "/opt/uv/bin/uv",
-                    "venv",
-                    "--no-project",
-                    "--python",
-                    "/opt/python/bin/python",
-                    str(environment),
+                    call(
+                        Path("/opt/uv/bin/uv"),
+                        (
+                            "venv",
+                            "--no-project",
+                            "--python",
+                            "/opt/python/bin/python",
+                            str(environment),
+                        ),
+                    ),
+                    call(
+                        Path("/opt/uv/bin/uv"),
+                        (
+                            "pip",
+                            "install",
+                            "--python",
+                            str(python),
+                            "--no-config",
+                            str(wheel),
+                        ),
+                    ),
                 ],
-                check=True,
-                shell=False,
             )
 
 

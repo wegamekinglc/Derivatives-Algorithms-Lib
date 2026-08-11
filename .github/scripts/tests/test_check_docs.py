@@ -306,6 +306,24 @@ class PythonReleaseContractTest(unittest.TestCase):
 
         self.assertEqual(errors, [])
 
+    def test_projection_parsers_preserve_validation_boundaries(self):
+        errors: list[str] = []
+
+        self.assertEqual(
+            CHECK_DOCS.parse_build_projection("cp39-* cp313-*", "pull_request", errors),
+            ("cp39", "cp313"),
+        )
+        self.assertEqual(
+            CHECK_DOCS.parse_verify_projection("cp39,cp313", "pull_request", errors),
+            ("cp39", "cp313"),
+        )
+        self.assertEqual(errors, [])
+
+        self.assertIsNone(
+            CHECK_DOCS.parse_verify_projection("cp39,,cp313", "pull_request", errors)
+        )
+        self.assertTrue(any("nonempty and unique" in error for error in errors))
+
     def test_workflow_runs_fresh_cp39_smoke(self):
         workflow = (
             CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"

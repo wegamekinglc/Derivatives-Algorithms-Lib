@@ -2,6 +2,7 @@
 """Install and smoke-test one cp39 dal-python wheel in a fresh environment."""
 
 import argparse
+import asyncio
 from importlib import machinery, metadata
 import json
 import os
@@ -9,7 +10,6 @@ from pathlib import Path
 import platform
 import shutil
 import site
-import subprocess
 import sys
 import sysconfig
 
@@ -54,20 +54,28 @@ def require_new_path(path, label):
     return resolved
 
 
-def validate_installed_path(label, observed, site_roots, excluded_roots):
-    resolved = canonical(observed)
-    allowed = [canonical(root) for root in site_roots]
-    excluded = [canonical(root) for root in excluded_roots]
+def require_path_in_roots(label, resolved, allowed):
     if not any(contained_by(resolved, root) for root in allowed):
         raise ValueError(
             "%s %r is outside fresh site-packages roots %r"
             % (label, str(resolved), [str(root) for root in allowed])
         )
+
+
+def reject_path_in_roots(label, resolved, excluded):
     if any(contained_by(resolved, root) for root in excluded):
         raise ValueError(
             "%s %r is inside excluded source/test root %r"
             % (label, str(resolved), [str(root) for root in excluded])
         )
+
+
+def validate_installed_path(label, observed, site_roots, excluded_roots):
+    resolved = canonical(observed)
+    allowed = [canonical(root) for root in site_roots]
+    excluded = [canonical(root) for root in excluded_roots]
+    require_path_in_roots(label, resolved, allowed)
+    reject_path_in_roots(label, resolved, excluded)
     return resolved
 
 
@@ -125,12 +133,12 @@ def validate_sys_path(entries, excluded_roots):
             )
 
 
-def validate_runtime(args):
-    validate_smoke_interpreter(platform.python_implementation(), sys.version_info)
-    validate_runtime_isolation(sys.flags.isolated, site.ENABLE_USER_SITE, os.environ)
-
+def validate_runtime_roots(args):
     environment_root = canonical(args.environment)
-    if canonical(sys.prefix) != environment_root or canonical(sys.base_prefix) == environment_root:
+    if (
+        canonical(sys.prefix) != environment_root
+        or canonical(sys.base_prefix) == environment_root
+    ):
         raise ValueError(
             "fresh wheel smoke prefix %r is not the requested isolated environment %r"
             % (str(canonical(sys.prefix)), str(environment_root))
@@ -143,6 +151,17 @@ def validate_runtime(args):
     site_roots = {
         canonical(sysconfig.get_path(name)) for name in ("purelib", "platlib")
     }
+    return environment_root, work_dir, excluded_roots, site_roots
+
+
+def validate_date_operation(dal):
+    value = dal.Date_(2024, 1, 2)
+    observed_date = (dal.Year(value), dal.Month(value), dal.Day(value))
+    if observed_date != (2024, 1, 2):
+        raise ValueError("DAL Date_ smoke returned %r" % (observed_date,))
+
+
+def installed_runtime(site_roots, excluded_roots):
     distribution = metadata.distribution("dal-python")
     distribution_root = validate_installed_path(
         "dal-python distribution root",
@@ -169,12 +188,19 @@ def validate_runtime(args):
         for distribution in metadata.distributions()
         if distribution.metadata.get("Name")
     )
-    value = dal.Date_(2024, 1, 2)
-    observed_date = (dal.Year(value), dal.Month(value), dal.Day(value))
-    if observed_date != (2024, 1, 2):
-        raise ValueError("DAL Date_ smoke returned %r" % (observed_date,))
+    validate_date_operation(dal)
+    return {
+        "dal_file": package_path,
+        "native_file": native_path,
+        "distribution_root": distribution_root,
+        "distribution_version": distribution_version,
+        "module_version": dal.__version__,
+        "distributions": inventory,
+    }
 
-    evidence = {
+
+def runtime_evidence(args, environment_root, work_dir, site_roots, runtime):
+    return {
         "environment": str(environment_root),
         "python": sys.version,
         "wheel": str(canonical(args.wheel)),
@@ -182,13 +208,23 @@ def validate_runtime(args):
         "work_dir": str(work_dir),
         "site_packages": sorted(str(root) for root in site_roots),
         "sys_path": [str(canonical(entry)) for entry in sys.path if entry],
-        "dal_file": str(package_path),
-        "native_file": str(native_path),
-        "distribution_root": str(distribution_root),
-        "distribution_version": distribution_version,
-        "module_version": dal.__version__,
-        "distributions": inventory,
+        "dal_file": str(runtime["dal_file"]),
+        "native_file": str(runtime["native_file"]),
+        "distribution_root": str(runtime["distribution_root"]),
+        "distribution_version": runtime["distribution_version"],
+        "module_version": runtime["module_version"],
+        "distributions": runtime["distributions"],
     }
+
+
+def validate_runtime(args):
+    validate_smoke_interpreter(platform.python_implementation(), sys.version_info)
+    validate_runtime_isolation(sys.flags.isolated, site.ENABLE_USER_SITE, os.environ)
+    environment_root, work_dir, excluded_roots, site_roots = validate_runtime_roots(
+        args
+    )
+    runtime = installed_runtime(site_roots, excluded_roots)
+    evidence = runtime_evidence(args, environment_root, work_dir, site_roots, runtime)
     print(json.dumps(evidence, indent=2, sort_keys=True))
 
 
@@ -208,67 +244,94 @@ def uv_executable():
     return executable
 
 
+def executable_path(executable):
+    path = Path(executable)
+    if not path.is_absolute():
+        raise ValueError("process executable must be an absolute path: %r" % str(path))
+    return path
+
+
+async def wait_for_process(executable, arguments, cwd, environment):
+    process = await asyncio.create_subprocess_exec(
+        str(executable_path(executable)),
+        *(str(argument) for argument in arguments),
+        cwd=None if cwd is None else str(canonical(cwd)),
+        env=environment,
+    )
+    return await process.wait()
+
+
+def run_process(executable, arguments, *, cwd=None, environment=None):
+    returncode = asyncio.run(wait_for_process(executable, arguments, cwd, environment))
+    if returncode:
+        raise OSError(
+            "command %r exited with status %s" % (str(executable), returncode)
+        )
+
+
 def create_environment(environment, interpreter):
-    subprocess.run(
-        [
-            str(uv_executable()),
+    run_process(
+        uv_executable(),
+        (
             "venv",
             "--no-project",
             "--python",
             str(interpreter),
             str(environment),
-        ],
-        check=True,
-        shell=False,
+        ),
     )
 
 
 def install_wheel(python, wheel):
-    subprocess.run(
-        [
-            str(uv_executable()),
+    run_process(
+        uv_executable(),
+        (
             "pip",
             "install",
             "--python",
             str(python),
             "--no-config",
             str(wheel),
-        ],
-        check=True,
-        shell=False,
+        ),
     )
 
 
-def create_and_run(args):
-    validate_smoke_interpreter(platform.python_implementation(), sys.version_info)
-    if args.wheel is None:
-        candidates = sorted(canonical(args.wheelhouse).glob("*-cp39-cp39-*.whl"))
+def resolve_smoke_wheel(wheel, wheelhouse):
+    if wheel is None:
+        candidates = sorted(canonical(wheelhouse).glob("*-cp39-cp39-*.whl"))
         if len(candidates) != 1:
             raise ValueError(
                 "cp39 fresh smoke expected exactly one wheel under %s, found %r"
-                % (canonical(args.wheelhouse), [path.name for path in candidates])
+                % (canonical(wheelhouse), [path.name for path in candidates])
             )
-        args.wheel = candidates[0]
-    wheel = canonical(args.wheel)
-    if not wheel.is_file():
-        raise ValueError("cp39 fresh smoke wheel does not exist: %s" % wheel)
-    if "-cp39-cp39-" not in wheel.name or wheel.suffix != ".whl":
-        raise ValueError("cp39 fresh smoke requires a cp39-cp39 wheel; observed %s" % wheel.name)
+        wheel = candidates[0]
+    resolved = canonical(wheel)
+    if not resolved.is_file():
+        raise ValueError("cp39 fresh smoke wheel does not exist: %s" % resolved)
+    if "-cp39-cp39-" not in resolved.name or resolved.suffix != ".whl":
+        raise ValueError(
+            "cp39 fresh smoke requires a cp39-cp39 wheel; observed %s" % resolved.name
+        )
+    return resolved
 
+
+def new_smoke_paths(args):
     environment = require_new_path(args.environment, "target environment")
     work_dir = require_new_path(args.work_dir, "working directory")
     excluded = [canonical(path) for path in args.exclude]
-    for label, path in (("target environment", environment), ("working directory", work_dir)):
+    for label, path in (
+        ("target environment", environment),
+        ("working directory", work_dir),
+    ):
         if any(contained_by(path, root) for root in excluded):
-            raise ValueError("%s %r must be outside excluded roots" % (label, str(path)))
+            raise ValueError(
+                "%s %r must be outside excluded roots" % (label, str(path))
+            )
+    return environment, work_dir, excluded
 
-    create_environment(environment, Path(sys.executable))
-    work_dir.mkdir(parents=True)
-    python = environment_python(environment)
-    install_wheel(python, wheel)
 
-    command = [
-        str(python),
+def verification_arguments(wheel, environment, work_dir, excluded):
+    arguments = [
         "-I",
         str(canonical(__file__)),
         "--verify",
@@ -280,17 +343,31 @@ def create_and_run(args):
         str(work_dir),
     ]
     for path in excluded:
-        command.extend(("--exclude", str(path)))
-    clean_environment = os.environ.copy()
-    clean_environment.pop("PYTHONPATH", None)
-    clean_environment.pop("PYTHONHOME", None)
-    clean_environment["PYTHONNOUSERSITE"] = "1"
-    subprocess.run(
-        command,
-        cwd=str(work_dir),
-        env=clean_environment,
-        check=True,
-        shell=False,
+        arguments.extend(("--exclude", str(path)))
+    return arguments
+
+
+def isolated_process_environment():
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    environment.pop("PYTHONHOME", None)
+    environment["PYTHONNOUSERSITE"] = "1"
+    return environment
+
+
+def create_and_run(args):
+    validate_smoke_interpreter(platform.python_implementation(), sys.version_info)
+    wheel = resolve_smoke_wheel(args.wheel, args.wheelhouse)
+    environment, work_dir, excluded = new_smoke_paths(args)
+    create_environment(environment, Path(sys.executable))
+    work_dir.mkdir(parents=True)
+    python = environment_python(environment)
+    install_wheel(python, wheel)
+    run_process(
+        python,
+        verification_arguments(wheel, environment, work_dir, excluded),
+        cwd=work_dir,
+        environment=isolated_process_environment(),
     )
 
 
@@ -309,7 +386,7 @@ def main():
             validate_runtime(args)
         else:
             create_and_run(args)
-    except (OSError, subprocess.CalledProcessError, ValueError) as error:
+    except (OSError, ValueError) as error:
         print("cp39 fresh smoke failed: %s" % error, file=sys.stderr)
         return 1
     return 0
