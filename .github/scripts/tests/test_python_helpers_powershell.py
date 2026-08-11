@@ -17,14 +17,12 @@ DOTNET = shutil.which("dotnet")
 
 class PowerShellProcessRunnerTest(unittest.TestCase):
     def test_process_environment_pins_resolved_executable_directory(self):
-        executable = Path("/opt/powershell/pwsh.exe")
+        executable = Path.cwd() / "pwsh.exe"
 
         with patch.object(shutil, "which", return_value=str(executable)):
             environment = process_environment(executable, {"PATH": "/usr/bin"})
 
-        self.assertEqual(
-            environment["PATH"].split(os.pathsep)[0], "/opt/powershell"
-        )
+        self.assertEqual(environment["PATH"].split(os.pathsep)[0], str(Path.cwd()))
 
 
 class ProcessResult:
