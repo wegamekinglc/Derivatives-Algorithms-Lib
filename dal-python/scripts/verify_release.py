@@ -117,7 +117,7 @@ def platform_family(platform_tag: str) -> str:
 
 
 def validate_wheel_filename(
-    path: Path, expected_version: str, expected_requires_python: str
+    path: Path, expected_version: str
 ) -> tuple[str, str, str, str]:
     distribution, version, python_tag, abi_tag, platform_tag = wheel_parts(path)
     if distribution != "dal_python":
@@ -211,7 +211,7 @@ def validate_wheel(
     path: Path, expected_version: str, expected_requires_python: str
 ) -> tuple[str, str, str]:
     python_tag, abi_tag, platform_tag, family = validate_wheel_filename(
-        path, expected_version, expected_requires_python
+        path, expected_version
     )
 
     with ZipFile(path) as archive:

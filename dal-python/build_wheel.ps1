@@ -22,6 +22,20 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Help) {
+    Write-Output "Usage: .\build_wheel.ps1 [OPTIONS]"
+    Write-Output ""
+    Write-Output "Build Python wheel package for dal-python"
+    Write-Output ""
+    Write-Output "Options:"
+    Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
+    Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
+    Write-Output "  -Help          Show this help message"
+    exit 0
+}
+
 $SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
 $PythonRequested = $PSBoundParameters.ContainsKey("Python")
 if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
@@ -35,19 +49,6 @@ if (-not $DalInstallPrefix) {
 }
 if (-not $DalInstallPrefix) {
     $DalInstallPrefix = Join-Path $DalDir "build\stage\Release-windows"
-}
-
-if ($Help) {
-    Write-Output "Usage: .\build_wheel.ps1 [OPTIONS]"
-    Write-Output ""
-    Write-Output "Build Python wheel package for dal-python"
-    Write-Output ""
-    Write-Output "Options:"
-    Write-Output "  -Clean         Clean build artifacts before building"
-    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
-    Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
-    Write-Output "  -Help          Show this help message"
-    exit 0
 }
 
 # Check prerequisites

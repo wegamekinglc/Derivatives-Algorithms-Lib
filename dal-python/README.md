@@ -174,6 +174,12 @@ and musllinux tags are rejected. macOS, Linux ARM, PyPy, free-threaded CPython,
 source distributions, and CPython 3.14 are not part of the current PyPI release
 contract.
 
+The SHA-256 release manifest records the exact verified bytes of every wheel,
+and the publish job re-checks the downloaded artifacts against it before
+upload. The toolchain is pinned (full action SHAs, exact build dependency
+versions, named manylinux/runner images), but byte-for-byte reproducibility
+across independent rebuilds is not currently enforced.
+
 ### One-time PyPI setup
 
 Configure a Trusted Publisher on the existing `dal-python` PyPI project with:
