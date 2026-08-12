@@ -6,6 +6,7 @@ interpreter's grammar, so only a 3.9 host enforces the 3.9 grammar floor.
 """
 
 from pathlib import Path
+import platform
 import sys
 
 
@@ -35,13 +36,15 @@ def syntax_errors(paths):
 
 
 def main():
-    if sys.version_info[:2] != GRAMMAR_FLOOR:
+    implementation = platform.python_implementation()
+    if implementation != "CPython" or sys.version_info[:2] != GRAMMAR_FLOOR:
         floor = "%d.%d" % GRAMMAR_FLOOR
+        observed = "%s %s" % (implementation, sys.version.split()[0])
         print(
             "Python %s syntax gate must run under CPython %s exactly (observed %s); "
             "run: uv run --isolated --no-project --python %s python "
             ".github/scripts/check_dal_python_syntax.py"
-            % (floor, floor, sys.version.split()[0], floor),
+            % (floor, floor, observed, floor),
             file=sys.stderr,
         )
         return 1

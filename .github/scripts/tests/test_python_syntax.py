@@ -2,8 +2,10 @@
 
 import importlib.util
 from pathlib import Path
+import platform
 import sys
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_dal_python_syntax.py"
@@ -23,9 +25,16 @@ class PythonSyntaxTest(unittest.TestCase):
         self.assertEqual(CHECK_SYNTAX.syntax_errors(CHECK_SYNTAX.python_paths()), [])
 
     def test_main_runs_only_under_the_grammar_floor(self):
-        if sys.version_info[:2] == CHECK_SYNTAX.GRAMMAR_FLOOR:
-            self.assertEqual(CHECK_SYNTAX.main(), 0)
-        else:
+        is_gate_interpreter = (
+            platform.python_implementation() == "CPython"
+            and sys.version_info[:2] == CHECK_SYNTAX.GRAMMAR_FLOOR
+        )
+        self.assertEqual(CHECK_SYNTAX.main(), 0 if is_gate_interpreter else 1)
+
+    def test_main_rejects_non_cpython_interpreters(self):
+        with mock.patch.object(
+            CHECK_SYNTAX.platform, "python_implementation", return_value="PyPy"
+        ):
             self.assertEqual(CHECK_SYNTAX.main(), 1)
 
 
