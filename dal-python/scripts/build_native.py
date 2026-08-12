@@ -27,7 +27,7 @@ def cmake_executable() -> Path:
     if discovered is None:
         raise RuntimeError("cmake executable was not found on PATH")
     executable = Path(discovered).resolve()
-    if executable.name.lower() not in {"cmake", "cmake.exe"}:
+    if executable.name.lower() not in {"cmake", "cmake.exe", "cmake3", "cmake3.exe"}:
         raise RuntimeError(f"unexpected cmake executable path: {executable}")
     return executable
 
@@ -60,7 +60,6 @@ def generator_configuration(is_windows: bool) -> tuple[list[str], list[str]]:
                 "-A",
                 "x64",
                 "-DMSVC_RUNTIME=static",
-                "-DXAD_STATIC_MSVC_RUNTIME=ON",
             ],
             ["--config", "Release"],
         )

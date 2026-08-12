@@ -22,20 +22,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
-$PythonRequested = $PSBoundParameters.ContainsKey("Python")
-if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
-    Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
-}
-
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$DalDir = Split-Path -Parent $ScriptDir
-if (-not $DalInstallPrefix) {
-    $DalInstallPrefix = $env:DAL_INSTALL_PREFIX
-}
-if (-not $DalInstallPrefix) {
-    $DalInstallPrefix = Join-Path $DalDir "build\stage\Release-windows"
-}
 
 if ($Help) {
     Write-Output "Usage: .\run_tests.ps1 [OPTIONS] [-- pytest_args...]"
@@ -50,6 +36,21 @@ if ($Help) {
     Write-Output ""
     Write-Output "All other arguments are forwarded to pytest."
     exit 0
+}
+
+$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
+$PythonRequested = $PSBoundParameters.ContainsKey("Python")
+if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
+    Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
+}
+
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$DalDir = Split-Path -Parent $ScriptDir
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = $env:DAL_INSTALL_PREFIX
+}
+if (-not $DalInstallPrefix) {
+    $DalInstallPrefix = Join-Path $DalDir "build\stage\Release-windows"
 }
 
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {

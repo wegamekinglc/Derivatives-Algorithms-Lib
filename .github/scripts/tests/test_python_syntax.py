@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 
@@ -20,6 +21,12 @@ class PythonSyntaxTest(unittest.TestCase):
         self.assertIn("dal-python/scripts/smoke_installed_wheel.py", paths)
         self.assertIn("dal-python/examples/005.yield_curve_jacobian.py", paths)
         self.assertEqual(CHECK_SYNTAX.syntax_errors(CHECK_SYNTAX.python_paths()), [])
+
+    def test_main_runs_only_under_the_grammar_floor(self):
+        if sys.version_info[:2] == CHECK_SYNTAX.GRAMMAR_FLOOR:
+            self.assertEqual(CHECK_SYNTAX.main(), 0)
+        else:
+            self.assertEqual(CHECK_SYNTAX.main(), 1)
 
 
 if __name__ == "__main__":

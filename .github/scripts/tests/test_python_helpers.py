@@ -209,6 +209,9 @@ class PythonHelpersTest(unittest.TestCase):
 
     def test_posix_helpers_preserve_rejected_reused_environment(self):
         source_root = SCRIPT.parents[2]
+        # The reused environment wraps the host interpreter, so request a
+        # supported minor that always differs from the host's.
+        requested = "3.10" if "%d.%d" % os.sys.version_info[:2] == "3.9" else "3.9"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "repo"
             package = root / "dal-python"
@@ -251,7 +254,7 @@ class PythonHelpersTest(unittest.TestCase):
             for cwd, script in helpers:
                 with self.subTest(script=script):
                     result = subprocess.run(
-                        ("bash", script, "--python", "3.9"),
+                        ("bash", script, "--python", requested),
                         cwd=cwd,
                         env=environment,
                         stdout=subprocess.PIPE,
@@ -260,7 +263,7 @@ class PythonHelpersTest(unittest.TestCase):
                         check=False,
                     )
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertIn("requested 3.9", result.stdout)
+                    self.assertIn(f"requested {requested}", result.stdout)
                     self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve")
                     self.assertFalse(uv_log.exists())
 

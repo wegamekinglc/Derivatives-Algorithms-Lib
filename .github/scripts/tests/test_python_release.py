@@ -433,6 +433,12 @@ class PythonReleaseTest(unittest.TestCase):
                 BUILD_NATIVE.cmake_executable(), Path("/opt/cmake/bin/cmake")
             )
 
+    def test_cmake_executable_accepts_versioned_cmake3_symlink_target(self):
+        with patch.object(BUILD_NATIVE, "which", return_value="/usr/bin/cmake3"):
+            self.assertEqual(
+                BUILD_NATIVE.cmake_executable(), Path("/usr/bin/cmake3")
+            )
+
     def test_cmake_executable_rejects_unexpected_name(self):
         with patch.object(BUILD_NATIVE, "which", return_value="/tmp/not-cmake"):
             with self.assertRaisesRegex(RuntimeError, "unexpected cmake executable"):
