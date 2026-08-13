@@ -7,7 +7,7 @@ non-agent workflows, and active work records.
 
 - `.codex/agents/` registers ten named DAL specialists and contains their complete role contracts.
 - `.codex/references/` contains shared C++, test, review, performance, and Git conventions.
-- `.codex/skills/` contains only reusable workflows without dedicated agents: `dal-git-pr` and `dal-web`.
+- `.codex/skills/` contains only reusable workflows without dedicated agents: `dal-git-pr`.
 - `.codex/artifacts/` contains only work products that still control active work.
 
 `CLAUDE.md` remains canonical only for shared build/test commands and architecture.
@@ -24,7 +24,7 @@ in the current session.
 
 ## References
 
-Agent contracts link only the references needed for their role. Git/PR and web references that
+Agent contracts link only the references needed for their role. Git/PR references that
 belong to one surviving workflow remain inside that skill; cross-role conventions live directly
 under `.codex/references/`.
 
@@ -47,5 +47,5 @@ Tracked `.claude/**` and `CLAUDE.md` are preserved unless explicitly requested. 
 
 ## Validation
 
-Validate all agent TOMLs, both remaining skills and their YAML metadata, direct local Markdown
+Validate all agent TOMLs, the surviving skill and its YAML metadata, direct local Markdown
 links, exact reference and artifact sets, protected Claude paths, and `git diff --check`.

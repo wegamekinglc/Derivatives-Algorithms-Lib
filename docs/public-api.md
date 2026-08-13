@@ -232,8 +232,7 @@ Every node-sensitivity failure uses the canonical four-field result:
 `eligible_ == false`, `pv_ == 0.0`, an empty `gradient_`, and a non-empty stable
 `reason_`. Python projects the equivalent `eligible == False`, `pv == 0.0`,
 `gradient == []`, and `reason` token. Consumers that apply a central-parameter
-fallback must label it separately. See the [Curve Lab guide](curve-lab.md) for
-the complete pricing, fixing, matrix, and provenance contract.
+fallback must label it separately.
 
 ## Python
 
@@ -364,14 +363,13 @@ Python exports the seven-family enum, all family-specific terms classes,
 `RateTradeDefinition_`, `RatePricingMarket_`, `PriceRateTrades`, and
 `RateTradeNodeSensitivities`. The pricing and sensitivity functions use
 keyword-only arguments and release the GIL around native work. A complete
-deposit example is in the [Curve Lab native API section](curve-lab.md#native-c-and-python).
+deposit example is in `dal-python/tests/test_curve_pricing.py`.
 
 `Storable_` exposes read-only `name` and `type` properties, and the native
-`YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for DAL-WEB archive
-compatibility. `_StorableToJson`, `_StorableFromJson`, `_BagNew`, and
-`_BagContents` are private integration helpers rather than supported general
-serialization functions. Use Curve Lab version export/import when the web
-compatibility contract is required.
+`YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for archive
+compatibility with the standalone web application. `_StorableToJson`,
+`_StorableFromJson`, `_BagNew`, and `_BagContents` are private integration
+helpers rather than supported general serialization functions.
 
 See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
 

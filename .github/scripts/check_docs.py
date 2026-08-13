@@ -93,8 +93,6 @@ STALE_DOCUMENTATION = {
     "bin/dal_cpp_tests": "reference the build-tree test binary; staged bin/ installs go stale",
     "bin/dal_public_tests": "reference the build-tree test binary; staged bin/ installs go stale",
     "--gtest_filter=CurveTest.*": "the CurveTest suite does not exist",
-    "dal_stub.py": "the web backend has no runtime stub module",
-    "DAL_REQUIRE_NATIVE": "native DAL is the only supported production backend",
 }
 
 # LaTeX macros GitHub's math renderer fails to display, mapped to a renderable

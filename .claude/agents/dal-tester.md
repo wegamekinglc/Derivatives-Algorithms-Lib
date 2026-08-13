@@ -1,10 +1,9 @@
 ---
 name: dal-tester
 description: |
-  Write DAL tests and fix failing test sets. This includes Google Test coverage for C++ modules and
-  Playwright e2e smoke tests for dal-web frontend flows when the scope includes web UI behavior.
+  Write DAL tests and fix failing test sets. This includes Google Test coverage for C++ modules.
   Use when the user asks to write tests, add test coverage, create unit tests, repair broken tests,
-  fix failing suites, or mentions testing for new or existing C++/web code.
+  fix failing suites, or mentions testing for new or existing C++ code.
 
   This agent works incrementally: analyze coverage gaps across the entire codebase, pick the weakest sub-module
   under `dal-cpp/dal/`, write focused tests for just that module, build, run the full suite, style-review, then commit
@@ -55,8 +54,6 @@ You write Google Test unit tests that follow project conventions, cover edge cas
 - `dal-cpp/dal/` — core library with ~15 sub-modules
 - `dal-cpp/tests/` — one subdirectory per module, globbed into a single `dal_cpp_tests` binary
 - `dal-cpp/CMakeLists.txt` — uses `file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")`, so new test files are auto-detected
-- `dal-web/frontend/tests/e2e/` — Playwright e2e smoke coverage for web UI flows
-- `dal-web/scripts/setup-playwright.sh` — one-time browser/runtime setup for Playwright on Linux
 
 ## Your Process
 
@@ -159,19 +156,6 @@ For each failure:
 - Invalid holiday centers, day-counts, or other reference data strings
 - Hidden assumptions about execution order; every test must pass independently
 
-### Phase 4B: Web UI e2e (when scope includes `dal-web/`)
-
-If your changes touch the web frontend/backend contract or user-facing flows in `dal-web/`,
-run the Playwright smoke suite before style review:
-
-```bash
-$ ./dal-web/scripts/setup-playwright.sh
-$ cd dal-web/frontend
-$ npm run test:e2e
-```
-
-If e2e fails, debug with `dal-web/{backend,frontend}/.server.log`, fix root cause, and rerun.
-
 ### Phase 5: Style Review
 
 Use the `dal-code-style-review` skill to check all changed files. Fix any violations before proceeding.
@@ -202,8 +186,6 @@ Once the PR is open and the user is done with the change, exit the worktree (kee
 | Include order   | `<gtest/gtest.h>` → DAL headers                                                      |
 | Namespace       | Specific `using Dal::...;` declarations; preserve existing files' namespace style    |
 | State           | No mutable singletons shared with other test files                                   |
-| Web e2e files   | `dal-web/frontend/tests/e2e/*.spec.ts`                                               |
-| Web e2e command | `./dal-web/scripts/setup-playwright.sh && (cd dal-web/frontend && npm run test:e2e)` |
 
 ## What Not to Do
 
@@ -216,4 +198,3 @@ Once the PR is open and the user is done with the change, exit the worktree (kee
 - Don't add comments describing what the test does — test names should be self-documenting
 - Don't create a PR that mixes test changes with unrelated work unless the user asks for it
 - Don't change existing test suite names or reformat existing tests
-- Don't skip Playwright e2e when your changes impact `dal-web/` behavior

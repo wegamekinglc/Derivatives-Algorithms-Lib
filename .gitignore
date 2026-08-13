@@ -17,8 +17,6 @@ build
 *.egg-info
 *.idb
 __pycache__
-dal-web/frontend/playwright-report/
-dal-web/frontend/test-results/
 public/lib/*
 *.xlsx
 notebooks
@@ -47,9 +45,3 @@ benchmark-results/
 
 # Visual Studio / CMake Tools default build tree
 out/
-
-# Ruff lint cache (CI runs ruff in dal-web/backend)
-.ruff_cache/
-
-# Local SQLite store used by the dal-web backend when DAL_WEB_DB_URL is unset
-dal-web/backend/.data/

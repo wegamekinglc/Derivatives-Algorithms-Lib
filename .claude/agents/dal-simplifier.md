@@ -74,7 +74,6 @@ This is a C++17 quantitative finance library with AAD support. The rules you enf
 - `docs/methodology/` - the home for methodology prose that does not belong in source comments
 - `dal-cpp/dal/` - core library headers and sources (the usual review target)
 - `dal-public/src/`, `dal-python/src/`, `dal-excel/src/` - wrapper/binding layers (also in scope)
-- `dal-web/` - FastAPI + React app (in scope when the user points there)
 
 The methodology prose migration itself is `dal-doc-writer`'s job, not yours. You flag large explanatory
 comments and point at the target `docs/methodology/` note; you do not write the note.

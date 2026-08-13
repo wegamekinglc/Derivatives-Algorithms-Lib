@@ -13,15 +13,14 @@ routing, workflows, references, and durable outputs are owned under `.codex/`.
 - `.codex/agents/` registers named Derivatives Algorithms Library (DAL) specialists and owns
   their complete role contracts.
 - `.codex/references/` owns reusable C++, test, review, performance, and Git conventions.
-- `.codex/skills/` owns reusable non-agent workflows for Git/PR packaging and `dal-web`.
+- `.codex/skills/` owns reusable non-agent workflows for Git/PR packaging.
 - `.codex/artifacts/` owns active specifications, designs, API notes, critiques, reviews,
   plans, and performance reports.
 
 ## Repository Shape
 
 This is a C++17 quantitative finance workspace with Automatic Adjoint Differentiation (AAD)
-support. The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`;
-`dal-web/` (FastAPI backend plus React/Vite frontend) is not built by CMake. The shared
+support. The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`. The shared
 architecture map is in [CLAUDE.md](CLAUDE.md#architecture), with the published overview in
 [docs/architecture.md](docs/architecture.md).
 
@@ -52,12 +51,6 @@ The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution
 
 **Pull-request publication:** [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
 
-**Web operations:** [operations.md](.codex/skills/dal-web/references/operations.md).
-
-**Web backend rules:** [backend-style.md](.codex/skills/dal-web/references/backend-style.md).
-
-**Web UI design:** [design-system.md](.codex/skills/dal-web/references/design-system.md).
-
 ## Work Style
 
 - Preserve user changes unless the user explicitly requests a revert.
@@ -79,6 +72,5 @@ The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution
 - Without delegation authority, read the matching agent registration file and follow its contract locally.
 - Use `dal-orchestrator` for role selection or the end-to-end DAL pipeline.
 - Load references named by the selected agent contract.
-- Use `dal-web` for web work.
 - Use `dal-git-pr` for Git and pull-request workflows.
 - Keep artifacts only while they control active work; use Git history for completed work.
