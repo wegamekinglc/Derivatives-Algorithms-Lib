@@ -54,12 +54,12 @@ The native dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-exce
 `dal-public` is a developer-facing convenience facade over core DAL types; it is
 not an ABI-isolated compatibility boundary.
 
-| Sub-project   | Purpose                                                                                |
-|---------------|----------------------------------------------------------------------------------------|
-| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD                                     |
-| `dal-public/` | Public C++ convenience facade over `DAL::cpp`                                          |
-| `dal-python/` | pybind11 Python bindings                                                               |
-| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                                                     |
+| Sub-project   | Purpose                                            |
+|---------------|----------------------------------------------------|
+| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD |
+| `dal-public/` | Public C++ convenience facade over `DAL::cpp`      |
+| `dal-python/` | pybind11 Python bindings                           |
+| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                 |
 
 Core modules in `dal-cpp/dal/`:
 

@@ -18,12 +18,12 @@ The native build dependency direction is:
 dal-cpp <- dal-public <- {dal-python, dal-excel}
 ```
 
-| Component           | Responsibility                                                                                       |
-|---------------------|------------------------------------------------------------------------------------------------------|
-| `dal-cpp/`          | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
-| `dal-public/`       | Convenience builders and valuation/calibration entry points over core DAL types                      |
-| `dal-python/`       | pybind11 module plus small Python convenience wrappers                                               |
-| `dal-excel/`        | Excel conversion, object repository, and Machinist-generated worksheet registration                  |
+| Component     | Responsibility                                                                                       |
+|---------------|------------------------------------------------------------------------------------------------------|
+| `dal-cpp/`    | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
+| `dal-public/` | Convenience builders and valuation/calibration entry points over core DAL types                      |
+| `dal-python/` | pybind11 module plus small Python convenience wrappers                                               |
+| `dal-excel/`  | Excel conversion, object repository, and Machinist-generated worksheet registration                  |
 
 `DAL::cpp` and `DAL::public` are exported as installable CMake packages.
 `DAL::public` is not an ABI-isolated layer: its headers expose core handles and
