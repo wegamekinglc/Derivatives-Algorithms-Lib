@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "dal-python"
-version = "2026.8.11"
+version = "2026.8.14"
 description = "Python bindings for the DAL quantitative finance library"
 requires-python = ">=3.9,<3.14"
 readme = "README.md"
