@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 import tomllib
@@ -13,10 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPONENT_READMES = (
-    *ROOT.glob("dal-*/README.md"),
-    ROOT / "dal-web/backend/README.md",
-)
+COMPONENT_READMES = (*ROOT.glob("dal-*/README.md"),)
 DOCS = tuple(
     sorted(
         {
@@ -78,7 +74,6 @@ AGENT_PATH_PREFIXES = (
     "dal-excel/",
     "dal-public/",
     "dal-python/",
-    "dal-web/",
     "docs/",
     "tests/",
 )
@@ -86,7 +81,6 @@ AGENT_PATH_PREFIXES = (
 AGENT_ALLOWED_MISSING = {
     ".claude/settings.local.json",
     ".claude/worktrees",
-    "dal-web/backend/.data",
 }
 
 AGENT_ROOT_FILE_RE = re.compile(
@@ -109,9 +103,6 @@ STALE_DOCUMENTATION = {
 FORBIDDEN_MATH_MACROS = {
     r"\operatorname": r"\mathrm",
 }
-
-HTTP_METHODS = {"delete", "get", "patch", "post", "put"}
-
 
 def relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
@@ -405,116 +396,6 @@ def check_math_macros(documents: tuple[Path, ...], errors: list[str]) -> None:
                     )
 
 
-def normalized_endpoint(method: str, path: str) -> tuple[str, str]:
-    return method.upper(), re.sub(r"\{[^}]+\}", "{}", path)
-
-
-def check_curve_lab_endpoint_inventory(errors: list[str]) -> None:
-    document = ROOT / "docs/curve-lab.md"
-    text = document.read_text(encoding="utf-8")
-    try:
-        table = text.split("All Curve Lab endpoints are under `/api/curve-lab`:", maxsplit=1)[1]
-        table = table.split("\n\nThe live Swagger UI", maxsplit=1)[0]
-    except IndexError:
-        errors.append("docs/curve-lab.md: missing canonical REST endpoint inventory")
-        return
-
-    documented = {
-        normalized_endpoint(method, f"/api/curve-lab{path}")
-        for method, path in re.findall(
-            r"`(GET|POST|PUT|PATCH|DELETE)\s+(/[^`\s]+)`",
-            table,
-        )
-    }
-    openapi_path = ROOT / "dal-web/backend/openapi/dal-web.openapi.json"
-    openapi = json.loads(openapi_path.read_text(encoding="utf-8"))
-    actual = {
-        normalized_endpoint(method, path)
-        for path, operations in openapi["paths"].items()
-        if path.startswith("/api/curve-lab")
-        for method in operations
-        if method.lower() in HTTP_METHODS
-    }
-    if documented != actual:
-        errors.append(
-            "docs/curve-lab.md: Curve Lab endpoint inventory drift: "
-            f"documented-only={sorted(documented - actual)}, "
-            f"OpenAPI-only={sorted(actual - documented)}"
-        )
-
-
-def requirement_name(requirement: str) -> str:
-    match = re.match(r"[A-Za-z0-9_.-]+", requirement.strip())
-    if match is None:
-        raise ValueError(f"invalid requirement: {requirement!r}")
-    return re.sub(r"[-_.]+", "-", match.group(0)).lower()
-
-
-def backend_declared_requirements() -> set[str]:
-    pyproject_path = ROOT / "dal-web/backend/pyproject.toml"
-    with pyproject_path.open("rb") as stream:
-        metadata = tomllib.load(stream)
-    project = metadata["project"]
-    return {
-        requirement_name(requirement)
-        for requirement in (
-            *project.get("dependencies", ()),
-            *project.get("optional-dependencies", {}).get("dev", ()),
-        )
-    }
-
-
-def backend_requirements_file() -> set[str]:
-    requirements_path = ROOT / "dal-web/backend/requirements.txt"
-    return {
-        requirement_name(line)
-        for line in requirements_path.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    }
-
-
-def check_backend_requirement_sets(
-    declared: set[str], requirements: set[str], errors: list[str]
-) -> None:
-    if missing := sorted(declared - requirements):
-        errors.append(
-            "dal-web/backend/requirements.txt: missing dependencies declared by "
-            f"pyproject.toml: {missing}"
-        )
-    if extra := sorted(requirements - declared):
-        errors.append(
-            "dal-web/backend/requirements.txt: dependencies absent from pyproject.toml: "
-            f"{extra}"
-        )
-
-
-def linux_extended_test_packages() -> set[str]:
-    workflow = (ROOT / ".github/workflows/cmake-linux.yml").read_text(encoding="utf-8")
-    install = re.search(r"uv pip install\s+([^\n]+?)\s+-e\s+dal-web/backend", workflow)
-    return (
-        set()
-        if install is None
-        else {requirement_name(token) for token in install.group(1).split()}
-    )
-
-
-def check_linux_extended_test_packages(
-    declared: set[str], workflow_packages: set[str], errors: list[str]
-) -> None:
-    required_test_packages = {"pytest", *(name for name in declared if name.startswith("httpx"))}
-    if missing := sorted(required_test_packages - workflow_packages):
-        errors.append(
-            ".github/workflows/cmake-linux.yml: extended tests omit declared test "
-            f"dependencies: {missing}"
-        )
-
-
-def check_backend_dependency_metadata(errors: list[str]) -> None:
-    declared = backend_declared_requirements()
-    check_backend_requirement_sets(declared, backend_requirements_file(), errors)
-    check_linux_extended_test_packages(declared, linux_extended_test_packages(), errors)
-
-
 def check_current_state_doc_locations(errors: list[str], root: Path = ROOT) -> None:
     historical_root = root / "docs/superpowers"
     for document in sorted(historical_root.rglob("*.md")) if historical_root.exists() else ():
@@ -563,17 +444,6 @@ def check_component_build_modes(errors: list[str]) -> None:
     excel_cmake = (ROOT / "dal-excel/CMakeLists.txt").read_text(encoding="utf-8")
     if "${CMAKE_CURRENT_SOURCE_DIR}/.." not in excel_cmake:
         errors.append("dal-excel/CMakeLists.txt: standalone target lacks the repository include root")
-
-
-def check_web_launcher_portability(errors: list[str]) -> None:
-    start = (ROOT / "dal-web/scripts/start.sh").read_text(encoding="utf-8")
-    stop = (ROOT / "dal-web/scripts/stop.sh").read_text(encoding="utf-8")
-    if "check_cmd ss" in start or "check_cmd ss" in stop:
-        errors.append("dal-web/scripts: macOS launchers must not require Linux-only ss")
-    if "xargs -r" in stop:
-        errors.append("dal-web/scripts/stop.sh: GNU-only xargs -r is not macOS portable")
-    if re.search(r"\bseq\b", start) or re.search(r"\bseq\b", stop):
-        errors.append("dal-web/scripts: macOS launchers must not require GNU/Coreutils seq")
 
 
 def check_windows_generation_and_tests(errors: list[str]) -> None:
@@ -943,7 +813,6 @@ def check_python_release_workflow(errors: list[str]) -> None:
 def check_repository_workflows(errors: list[str]) -> None:
     check_windows_python_helpers(errors)
     check_component_build_modes(errors)
-    check_web_launcher_portability(errors)
     check_windows_generation_and_tests(errors)
     check_benchmark_case_policy(errors)
     check_python_release_workflow(errors)
@@ -1018,8 +887,6 @@ def main() -> int:
     check_stale_commands(ALL_DOCS, errors)
     check_math_macros(ALL_DOCS, errors)
     check_agent_paths(AGENT_DOCS, ROOT, errors)
-    check_curve_lab_endpoint_inventory(errors)
-    check_backend_dependency_metadata(errors)
     check_current_state_doc_locations(errors)
     check_ci_compiler_inventory(errors)
     check_repository_workflows(errors)

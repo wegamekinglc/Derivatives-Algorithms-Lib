@@ -18,11 +18,9 @@ class AgentDocsTest(unittest.TestCase):
     def test_all_docs_cover_codex_skills_and_references(self):
         relative = {path.relative_to(CHECK_DOCS.ROOT).as_posix() for path in CHECK_DOCS.ALL_DOCS}
 
-        self.assertIn(".codex/skills/dal-web/SKILL.md", relative)
         self.assertIn(".codex/references/code-style.md", relative)
         self.assertIn(".codex/artifacts/README.md", relative)
         self.assertIn(".github/copilot-instructions.md", relative)
-        self.assertIn("dal-web/backend/README.md", relative)
 
     def test_agent_docs_cover_agent_facing_guides(self):
         expected = {
@@ -52,10 +50,10 @@ class AgentReferencedPathsTest(unittest.TestCase):
         self.assertEqual(CHECK_DOCS.agent_referenced_paths(text), [(1, "dal-cpp/dal/math")])
 
     def test_extracts_fenced_command_path(self):
-        text = "```bash\n./dal-web/scripts/setup-playwright.sh\n```"
+        text = "```bash\n./dal-python/build_wheel.sh\n```"
 
         self.assertEqual(
-            CHECK_DOCS.agent_referenced_paths(text), [(2, "dal-web/scripts/setup-playwright.sh")]
+            CHECK_DOCS.agent_referenced_paths(text), [(2, "dal-python/build_wheel.sh")]
         )
 
     def test_ignores_prose_without_code_formatting(self):
@@ -145,8 +143,8 @@ class CheckAgentPathsTest(unittest.TestCase):
 
             errors = self._check(
                 root,
-                "SQLite data uses `dal-web/backend/.data/`; local Claude state uses "
-                "`.claude/settings.local.json` and `.claude/worktrees/`.",
+                "Local Claude state uses `.claude/settings.local.json` and "
+                "`.claude/worktrees/`.",
             )
 
             self.assertEqual(errors, [])
@@ -180,16 +178,6 @@ class AgentDocsStandardChecksTest(unittest.TestCase):
 
 
 class SemanticConsistencyTest(unittest.TestCase):
-    def test_endpoint_normalization_ignores_parameter_names(self):
-        self.assertEqual(
-            CHECK_DOCS.normalized_endpoint("get", "/runs/{run_id}"),
-            ("GET", "/runs/{}"),
-        )
-
-    def test_requirement_names_follow_distribution_normalization(self):
-        self.assertEqual(CHECK_DOCS.requirement_name("uvicorn[standard]>=0.29"), "uvicorn")
-        self.assertEqual(CHECK_DOCS.requirement_name("scikit_build.core~=1.0"), "scikit-build-core")
-
     def test_historical_work_products_are_rejected_under_docs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -205,8 +193,6 @@ class SemanticConsistencyTest(unittest.TestCase):
 
     def test_current_repository_semantic_contracts_pass(self):
         errors: list[str] = []
-        CHECK_DOCS.check_curve_lab_endpoint_inventory(errors)
-        CHECK_DOCS.check_backend_dependency_metadata(errors)
         CHECK_DOCS.check_current_state_doc_locations(errors)
         CHECK_DOCS.check_ci_compiler_inventory(errors)
         CHECK_DOCS.check_repository_workflows(errors)
