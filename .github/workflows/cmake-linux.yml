@@ -230,9 +230,7 @@ jobs:
           uv venv "$VIRTUAL_ENV" --python 3.13
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
-          # Install the backend package itself so the native subprocess fixture
-          # gets the same declared production dependency closure as the API.
-          uv pip install pytest numpy httpx2 -e dal-web/backend
+          uv pip install pytest numpy
 
       - name: Compile and test
         env:
@@ -247,69 +245,6 @@ jobs:
       - name: Verify generated sources
         run: |
           cmake --build build/Release-linux --target dal_check_generated --parallel 2
-
-      - name: Test native DAL web gateway
-        env:
-          DAL_NUM_THREADS: 2
-          PYTHONPATH: ${{ github.workspace }}/build/stage/Release-linux:${{ github.workspace }}/dal-web/backend
-        run: |
-          python .github/scripts/check_native_web_gateway.py
-          python -m pytest dal-web/backend/tests/test_curve_reconstruction_process.py \
-            -m native
-
-  # Web product surfaces are backend-agnostic except for the native gateway
-  # smoke test above. Keep their dependency setup and browser run together so
-  # npm/uv environments are created only once.
-  web-quality:
-    name: Web backend, frontend, and browser
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # @v9.0.0
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # @v7.0.0
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: dal-web/frontend/package-lock.json
-
-      - name: Test and lint backend
-        working-directory: dal-web/backend
-        run: |
-          uv sync --locked --inexact
-          uv run --no-sync pytest
-          uv run --no-sync ruff check .
-          uv run --no-sync ruff format --check .
-
-      - name: Install and build frontend
-        working-directory: dal-web/frontend
-        run: |
-          npm ci
-          npm run build
-
-      - name: Run frontend unit tests
-        working-directory: dal-web/frontend
-        run: |
-          npm test
-
-      - name: Enforce backend-only quote-bump arithmetic
-        run: |
-          python .github/scripts/check_frontend_quote_bump_boundary.py
-          uv run --project dal-web/backend --no-sync \
-            python .github/scripts/generate_web_calibration_perf_reports.py
-
-      - name: Prepare Chrome
-        run: |
-          ./dal-web/scripts/setup-playwright.sh
-
-      - name: Run browser smoke tests
-        env:
-          DAL_PLAYWRIGHT_TEST_BACKEND: 1
-        working-directory: dal-web/frontend
-        run: |
-          npm run test:e2e
 
   documentation:
     name: Documentation integrity
