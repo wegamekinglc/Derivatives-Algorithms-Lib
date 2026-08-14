@@ -3,39 +3,10 @@
 # https://docs.codacy.com/repositories-configure/codacy-configuration-file/
 
 # Exclude generated artifacts and paths where Codacy reports false positives.
-engines:
-  biome:
-    exclude_paths:
-      # DAL-WEB is React/Vite. Codacy's Biome profile applies the Qwik-only
-      # useQwikValidLexicalScope rule to ordinary React and Playwright
-      # callbacks, while ESLint and the TypeScript build still analyze them.
-      - 'dal-web/frontend/src/components/CurveLabQuoteAuthoring.tsx'
-      - 'dal-web/frontend/src/components/CurveLabWorkspace.tsx'
-      - 'dal-web/frontend/src/pages/Curves.tsx'
-      - 'dal-web/frontend/tests/e2e/curve_lab_workspace.spec.ts'
-  lizard:
-    exclude_paths:
-      # Lizard's TSX parser folds the React component and downstream JSX into
-      # small helpers, producing incorrect function boundaries and metrics.
-      - 'dal-web/frontend/src/components/CurveLabQuoteAuthoring.tsx'
-      - 'dal-web/frontend/src/components/CurveLabWorkspace.tsx'
-      # Codacy's fixed CCN/NLOC thresholds do not model branch-complete schema
-      # validators and transaction-sized workflow orchestrators. These paths
-      # remain covered by Ruff, Bandit, contract tests, and lifecycle matrices.
-      - 'dal-web/backend/app/schemas/curve_lab.py'
-      - 'dal-web/backend/app/services/archive_preflight.py'
-      - 'dal-web/backend/app/services/curve_lab_lifecycle.py'
-      - 'dal-web/backend/app/services/curve_lab_plan.py'
-      - 'dal-web/backend/app/services/curve_risk.py'
-      - 'dal-web/backend/app/services/db/store_db.py'
-      - 'dal-web/backend/app/services/quote_canonicalization.py'
-      - 'dal-web/backend/app/services/store.py'
-
 exclude_paths:
   # Python test files — Codacy's "assert will be removed with -O" warning
   # is a false positive for pytest test suites (tests are never run with -O)
   - 'dal-python/tests/**'
-  - 'dal-web/backend/tests/**'
   # Python build artifacts (pybind11 outputs are now generated at build time)
   - 'dal-python/.venv/**'
   - 'dal-python/.pytest_cache/**'
@@ -50,13 +21,6 @@ exclude_paths:
   - 'build/**'
   - 'bin/**'
   - 'lib/**'
-  # Playwright e2e tooling — the config resolves the provisioned Chrome binary
-  # and its NSS libraries via fs path discovery, which trips the "non-literal
-  # fs filename" security rule. While the Chrome path can be overridden via
-  # the PLAYWRIGHT_CHROME_PATH environment variable, the resolved paths are
-  # constrained to the repo-local Chrome installation. This is test-only
-  # tooling run locally by developers, not exposed to untrusted input.
-  - 'dal-web/frontend/playwright.config.ts'
   # Internal project documentation and agent/skill definitions.
   # The Codacy Agentlinter is designed to enforce style rules for AI-agent
   # prompts (no undefined acronyms, no absolute rules without escape hatches,

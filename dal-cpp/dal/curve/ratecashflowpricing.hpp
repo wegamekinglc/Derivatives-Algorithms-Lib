@@ -17,7 +17,7 @@
 
 /*IF--------------------------------------------------------------------------
 enumeration RateInstrumentType
-    Closed Curve Lab pricing family registry
+    Closed rate-instrument pricing family registry
 switchable
 alternative DEPOSIT
 alternative FRA

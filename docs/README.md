@@ -9,12 +9,10 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
 ## Start Here
 
 - **[Installation guide](installation.md)** — prerequisites, build profiles, staged
-  installs, Python bindings, and web startup
+  installs, and Python bindings
 - **[Architecture](architecture.md)** — component boundaries, runtime ownership,
   generated code, valuation, and calibration flows
 - **[Public API guide](public-api.md)** — supported C++, Python, and Excel entry points
-- **[Curve Lab](curve-lab.md)** — visual curve construction, immutable versions,
-  native archive portability, typed pricing, first-order risk, and operations
 - **[Contributing](../CONTRIBUTING.md)** — build, test, generation, formatting, docs,
   and review expectations
 
@@ -25,17 +23,13 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
 - **[Public C++ facade](../dal-public/README.md)** — convenience API and compatibility contract
 - **[Python bindings](../dal-python/README.md)** — package usage and Python API
 - **[Excel add-in](../dal-excel/README.md)** — Windows XLL and worksheet functions
-- **[Web application](../dal-web/README.md)** — FastAPI/React application workflow
-- **[Curve Lab](curve-lab.md)** — the DAL-WEB curve build, version, import, pricing,
-  and sensitivity contract
 
 ## Installation
 
 - **[installation.md](installation.md)** — Complete Installation Guide
-  - System requirements (C++ compiler, Python, Node.js)
+  - System requirements (C++ compiler, Python)
   - C++ library installation (Linux and Windows)
   - Python bindings setup with uv
-  - Web UI installation and startup
   - Verification and troubleshooting
 
 ## Methodology (`methodology/`)

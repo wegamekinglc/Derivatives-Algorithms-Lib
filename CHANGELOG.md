@@ -46,6 +46,11 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `web`: Removed `dal-web/` from this repository. The portfolio management web
+  UI now lives at [wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web)
+  and depends on the published `dal-python` PyPI package. The
+  `web-calibration-performance` workflow and the web CI jobs were removed with it.
+
 - `python`: Expanded the public `dal-python` compatibility contract to
   CPython 3.9-3.13 (`Requires-Python: >=3.9,<3.14`) and the complete Linux x86-64/Windows
   AMD64 release from eight to ten CPython-specific wheels. See

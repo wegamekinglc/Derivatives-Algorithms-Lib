@@ -42,8 +42,7 @@ clang-19, clang-20, plus MSVC.
 
 ## Architecture
 
-Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`; `dal-web` consumes
-the Python public API. The published map is [docs/architecture.md](../docs/architecture.md).
+Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`. The published map is [docs/architecture.md](../docs/architecture.md).
 
 | Sub-project   | Target / purpose                                        |
 |---------------|---------------------------------------------------------|
@@ -51,7 +50,6 @@ the Python public API. The published map is [docs/architecture.md](../docs/archi
 | `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`   |
 | `dal-python/` | pybind11 Python bindings (`dal` package)                |
 | `dal-excel/`  | `.xll` add-in, Windows-only                             |
-| `dal-web/`    | FastAPI backend + React/Vite frontend                   |
 
 Core modules: `math/` (interp, opt, PDE, RNG, matrix, `aad/`), `script/` (lexer → parser →
 AST → simulation), `model/`, `curve/`, `indice/`, `risk/`, `concurrency/`, `storage/`,
@@ -85,7 +83,6 @@ Naming, type idioms, error handling, and enum markup follow
 
 ## Tooling
 
-- Python: **uv** is required for `dal-web/` and recommended for `dal-python/`;
-  standalone `dal-python` package builds also support pip.
-- Web: `./dal-web/scripts/start.sh`; frontend http://localhost:5173.
+- Python: **uv** is recommended for `dal-python/`; standalone `dal-python` package
+  builds also support pip.
 - DAL agent rules: `.codex/skills/*/SKILL.md` and `.codex/skills/dal-agent-team/references/shared-rules.md`.

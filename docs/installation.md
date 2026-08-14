@@ -5,14 +5,13 @@ here instead of maintaining separate build recipes.
 
 ## Requirements
 
-| Surface  | Requirements                                                                                 |
-|----------|----------------------------------------------------------------------------------------------|
-| Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool                         |
-| Linux    | GCC 13+ or Clang 18+; Make or Ninja                                                          |
-| Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                                 |
-| Python   | CPython 3.9-3.13 with development headers (`>=3.9,<3.14`); `uv` recommended                 |
-| Web      | Python 3.13+, `uv`, npm, Node.js `^20.19.0` or `>=22.12.0`, and a built native `dal` package |
-| Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`                         |
+| Surface  | Requirements                                                                |
+|----------|-----------------------------------------------------------------------------|
+| Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool        |
+| Linux    | GCC 13+ or Clang 18+; Make or Ninja                                         |
+| Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                |
+| Python   | CPython 3.9-3.13 with development headers (`>=3.9,<3.14`); `uv` recommended |
+| Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`        |
 
 Clone all submodules:
 
@@ -293,71 +292,6 @@ component and may also carry unique compatible PEP 600 x86-64 components for
 older glibc baselines. CPython 3.14, macOS, ARM, musllinux, PyPy, free-threaded
 CPython, and sdist publication are outside this release matrix.
 
-## Web UI
-
-The web application is not part of the CMake workspace. It is native-only: the
-backend requires the compiled `dal` Python package and has no runtime stub
-fallback. Backend unit tests inject a fake module only to isolate FastAPI wiring.
-
-### Install the native package into the backend environment
-
-Build a staged C++ install, then from `dal-web/backend`:
-
-```bash
-uv sync --inexact
-uv pip install ../../dal-python \
-  --config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
-uv run --no-sync python -m app.native_runtime
-cd ../..
-```
-
-`uv sync --inexact` preserves the manually installed local DAL package. The
-preflight command checks the import and required binding symbols.
-
-PowerShell uses the Windows stage:
-
-```powershell
-Set-Location dal-web/backend
-uv sync --inexact
-$stage = Resolve-Path ../../build/stage/Release-windows
-uv pip install ../../dal-python --config-settings "cmake.define.DAL_INSTALL_PREFIX=$stage"
-uv run --no-sync python -m app.native_runtime
-Set-Location ../..
-```
-
-### Start both services
-
-Run the launchers from the repository root.
-
-Linux/macOS:
-
-```bash
-./dal-web/scripts/start.sh
-./dal-web/scripts/stop.sh
-```
-
-The bash launcher requires `curl`, `grep`, `nohup`, and either `ss` or `lsof`;
-the stopper requires `grep` and `lsof`. These commands are available through
-standard Linux packages and macOS developer tooling/Homebrew.
-
-Windows (PowerShell 7+):
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
-```
-
-Both launchers run `uv sync --inexact`, perform the native-DAL preflight, and
-then launch the backend with `uv run --no-sync` so dependency synchronization
-cannot remove the local binding. They also install frontend packages, check
-ports, wait for readiness, and smoke-test the Vite proxy.
-
-- Frontend: <http://localhost:5173>
-- Backend API docs: <http://127.0.0.1:8001/docs>
-
-See [dal-web/README.md](../dal-web/README.md) for persistence, API, and service
-details.
-
 ## Verification
 
 The automated Linux script runs the configured CTest suite. For a manual build:
@@ -373,15 +307,10 @@ build/core-dev/dal-cpp/dal_cpp_tests --gtest_filter=CalibrationTest.*
 build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 ```
 
-Python and web checks:
+Python checks:
 
 ```bash
 (cd dal-python && python -m pytest tests -v)
-(cd dal-web/backend && uv run --no-sync pytest)
-(cd dal-web/frontend && npm run build)
-(cd dal-web/frontend && npm test)
-./dal-web/scripts/setup-playwright.sh
-(cd dal-web/frontend && npm run test:e2e)
 ```
 
 ## Code Generation
@@ -420,18 +349,6 @@ Confirm that the editable install used an absolute staged
 ```bash
 python -c "import dal; print(dal.__version__)"
 ```
-
-For the web environment, run the actionable preflight:
-
-```bash
-cd dal-web/backend
-uv run --no-sync python -m app.native_runtime
-```
-
-### Web ports are occupied
-
-Use the matching stop script before restarting. The launchers report whether
-ports 8001 or 5173 are already bound.
 
 ### A clean Debug build appears optimized
 

@@ -26,8 +26,7 @@ for per-job results.
 - GCC 13/14 legs additionally run gcov coverage; Coveralls tracks GCC 14 + AADet.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
 - Separate Linux jobs cover CoDiPack thread isolation, a warning-clean build,
-  ASan/UBSan/TSan spot tests, Python bindings plus the web gateway, and
-  benchmark regression gating.
+  ASan/UBSan/TSan spot tests, Python bindings, and benchmark regression gating.
 
 ## Quick Start
 
@@ -39,7 +38,7 @@ bash build_linux.sh
 
 The Linux default builds/tests core and public C++ and stages the install under
 `build/stage/Release-linux`; use `--full` for Python plus benchmarks. For the
-supported profiles, Windows workflow, Python bindings, Web UI, and troubleshooting,
+supported profiles, Windows workflow, Python bindings, and troubleshooting,
 see the **[installation guide](docs/installation.md)**.
 
 ## Architecture
@@ -48,22 +47,19 @@ see the **[installation guide](docs/installation.md)**.
 dal-cpp (DAL::cpp)
   └─ dal-public (DAL::public)
        ├─ dal-python
-       │    └─ dal-web backend ← REST ← React frontend
        └─ dal-excel
 ```
 
 The native dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`.
 `dal-public` is a developer-facing convenience facade over core DAL types; it is
-not an ABI-isolated compatibility boundary. The web backend is native-only and
-imports the compiled `dal` Python package through one gateway.
+not an ABI-isolated compatibility boundary.
 
-| Sub-project   | Purpose                                                                                |
-|---------------|----------------------------------------------------------------------------------------|
-| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD                                     |
-| `dal-public/` | Public C++ convenience facade over `DAL::cpp`                                          |
-| `dal-python/` | pybind11 Python bindings                                                               |
-| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                                                     |
-| `dal-web/`    | Portfolio management web app (FastAPI + React), uses DAL through the Python public API |
+| Sub-project   | Purpose                                            |
+|---------------|----------------------------------------------------|
+| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD |
+| `dal-public/` | Public C++ convenience facade over `DAL::cpp`      |
+| `dal-python/` | pybind11 Python bindings                           |
+| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                 |
 
 Core modules in `dal-cpp/dal/`:
 
@@ -146,28 +142,8 @@ bash ./build_linux.sh --benchmarks
 
 ## Web UI
 
-Portfolio management web app in `dal-web/`. Install the native `dal` package into
-the backend environment first; the launchers run an import preflight and stop with
-actionable guidance when it is unavailable.
-
-```bash
-./dal-web/scripts/start.sh     # Start backend + frontend (Linux/macOS)
-./dal-web/scripts/stop.sh      # Stop services (Linux/macOS)
-./dal-web/scripts/setup-playwright.sh
-cd dal-web/frontend && npm run test:e2e   # frontend e2e smoke tests
-```
-
-```powershell
-# Windows (requires PowerShell 7+)
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
-```
-
-- Frontend: http://localhost:5173
-- API docs: http://127.0.0.1:8001/docs
-
-See the canonical [installation guide](docs/installation.md#web-ui) for setup and
-[dal-web/README.md](dal-web/README.md) for application details.
+The portfolio management web UI moved to its own repository:
+[wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web).
 
 ## Documentation
 

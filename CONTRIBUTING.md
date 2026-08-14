@@ -1,14 +1,11 @@
 # Contributing to DAL
 
-DAL is a C++17 quantitative-finance workspace with AAD, Python, Excel, and web
+DAL is a C++17 quantitative-finance workspace with AAD, Python, and Excel
 surfaces. Keep changes small, test the contract being changed, and preserve the
 dependency direction:
 
 ```text
 dal-cpp <- dal-public <- {dal-python, dal-excel}
-                           ^
-                           |
-                        dal-web
 ```
 
 ## Set Up
@@ -73,16 +70,6 @@ Python tests can be run with:
 
 ```bash
 (cd dal-python && python -m pytest tests -v)
-```
-
-Web backend/frontend:
-
-```bash
-(cd dal-web/backend && uv run --no-sync pytest)
-(cd dal-web/backend && uv run --no-sync ruff check .)
-(cd dal-web/frontend && npm run build)
-./dal-web/scripts/setup-playwright.sh
-(cd dal-web/frontend && npm run test:e2e)
 ```
 
 Installed-package changes should also configure and run the consumer under

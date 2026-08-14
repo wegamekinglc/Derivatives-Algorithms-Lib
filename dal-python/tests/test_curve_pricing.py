@@ -1,4 +1,4 @@
-"""Typed native Curve Lab pricing surface."""
+"""Typed native rate cashflow pricing surface."""
 
 import dal
 import pytest

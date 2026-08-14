@@ -1,7 +1,7 @@
 # DAL Architecture
 
 DAL is a C++17 quantitative-finance workspace with a core numerical engine,
-developer-facing adapters, and Python, Excel, and web delivery surfaces.
+developer-facing adapters, and Python and Excel delivery surfaces.
 
 ## Components and Dependency Direction
 
@@ -9,8 +9,6 @@ developer-facing adapters, and Python, Excel, and web delivery surfaces.
 dal-cpp (DAL::cpp)
   └─ dal-public (DAL::public)
        ├─ dal-python (_dal / dal)
-       │    └─ dal-web backend
-       │         └─ HTTP API ← React/Vite frontend
        └─ dal-excel (.xll, Windows)
 ```
 
@@ -20,14 +18,12 @@ The native build dependency direction is:
 dal-cpp <- dal-public <- {dal-python, dal-excel}
 ```
 
-| Component           | Responsibility                                                                                       |
-|---------------------|------------------------------------------------------------------------------------------------------|
-| `dal-cpp/`          | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
-| `dal-public/`       | Convenience builders and valuation/calibration entry points over core DAL types                      |
-| `dal-python/`       | pybind11 module plus small Python convenience wrappers                                               |
-| `dal-excel/`        | Excel conversion, object repository, and Machinist-generated worksheet registration                  |
-| `dal-web/backend/`  | FastAPI persistence and orchestration through one native DAL gateway                                 |
-| `dal-web/frontend/` | React/Vite portfolio, trade, model, product, and valuation UI                                        |
+| Component     | Responsibility                                                                                       |
+|---------------|------------------------------------------------------------------------------------------------------|
+| `dal-cpp/`    | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
+| `dal-public/` | Convenience builders and valuation/calibration entry points over core DAL types                      |
+| `dal-python/` | pybind11 module plus small Python convenience wrappers                                               |
+| `dal-excel/`  | Excel conversion, object repository, and Machinist-generated worksheet registration                  |
 
 `DAL::cpp` and `DAL::public` are exported as installable CMake packages.
 `DAL::public` is not an ABI-isolated layer: its headers expose core handles and
@@ -129,21 +125,10 @@ random-generator, and tape activity per worker. Curve calibration uses
 `TapeGuard_` to rewind the current thread's tape on entry and exit, including
 exception unwind.
 
-### Web serialization policy
-
-The web service offloads blocking pricing with `asyncio.to_thread`, and the
-Python binding releases the GIL during native work, so the event loop and
-unrelated Python work remain responsive. `DalGateway` also holds its own Python
-lock across request-level evaluation-date mutation, product/model construction,
-and valuation. That lock is a web orchestration policy, separate from the DAL
-valuation/mutation barrier and store mutex. Web pricing is serialized within one
-backend process; use isolated processes when independent concurrent valuations
-are needed. Each process owns its own DAL globals and thread pool.
-
 ## Scripted Monte Carlo Valuation Flow
 
 ```text
-C++ / Python / Excel / web caller
+C++ / Python / Excel caller
   -> product and model builders
   -> ValueByMonteCarlo / MonteCarlo_Value / MONTECARLO.VALUE
   -> script preprocessing and parsing
@@ -214,8 +199,6 @@ are not hand-edited.
   opaque handles plus Python-friendly builders.
 - Excel uses generated worksheet functions and stores object handles in its
   repository between calls.
-- The web backend is native-only and imports `dal` in
-  `backend/app/services/dal_gateway.py`; no other backend module imports DAL.
 
 See the [public API guide](public-api.md) for supported entry points and the
 [installation guide](installation.md) for build and package consumption.
