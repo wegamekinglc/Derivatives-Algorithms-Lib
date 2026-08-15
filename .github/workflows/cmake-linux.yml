@@ -181,7 +181,7 @@ jobs:
 
       - name: Build CoDiPack
         run: |
-          cmake --build build/Release-codipack --parallel 2
+          cmake --build build/Release-codipack --parallel "$(nproc)"
 
       - name: Test CoDiPack thread isolation
         run: |
@@ -190,7 +190,7 @@ jobs:
 
       - name: Test CoDiPack suite
         run: |
-          ctest --test-dir build/Release-codipack --output-on-failure -LE benchmark
+          ctest --test-dir build/Release-codipack --output-on-failure --parallel "$(nproc)" -LE benchmark
 
   # Extended build: dal-cpp + dal-public + dal-python.
   # Lives in a separate job so the main 24-job compiler×backend matrix
@@ -244,7 +244,7 @@ jobs:
 
       - name: Verify generated sources
         run: |
-          cmake --build build/Release-linux --target dal_check_generated --parallel 2
+          cmake --build build/Release-linux --target dal_check_generated --parallel "$(nproc)"
 
   documentation:
     name: Documentation integrity
@@ -304,7 +304,7 @@ jobs:
             -DDAL_USE_XAD_AAD=OFF \
             -DDAL_USE_CODIPACK_AAD=OFF \
             -DDAL_USE_ADEPT_AAD=OFF
-          cmake --build "$build_dir" --target dal_cpp dal_public --parallel 2
+          cmake --build "$build_dir" --target dal_cpp dal_public --parallel "$(nproc)"
 
   sanitizers:
     name: ${{ matrix.label }}
@@ -367,7 +367,7 @@ jobs:
           if [ -n '${{ matrix.public-filter }}' ]; then
             targets+=(dal_public_tests)
           fi
-          cmake --build "$build_dir" --target "${targets[@]}" --parallel 2
+          cmake --build "$build_dir" --target "${targets[@]}" --parallel "$(nproc)"
           echo "SANITIZER_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
 
       - name: Run focused core tests

@@ -142,7 +142,10 @@ cmake --install "$BUILD_DIR" --prefix "$INSTALL_DIR"
 
 # Benchmarks are registered as CTest tests (label "benchmark") so CI can discover
 # them; never run them in the default test pass, even under --benchmarks/--full.
-ctest_flags=(--test-dir "$BUILD_DIR" --output-on-failure -LE benchmark)
+# Tests are registered per gtest case via gtest_discover_tests; each case is an
+# independent process, so ctest can run them in parallel. The few file-writing
+# tests (src.csv / src.json / bad.json) use distinct filenames.
+ctest_flags=(--test-dir "$BUILD_DIR" --output-on-failure --parallel "$NUM_CORES" -LE benchmark)
 if [[ "${VERBOSE:-0}" == "1" ]]; then
     ctest_flags+=(--verbose)
 fi
