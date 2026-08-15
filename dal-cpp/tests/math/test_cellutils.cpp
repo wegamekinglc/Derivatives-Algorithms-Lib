@@ -52,7 +52,10 @@ TEST(CellUtilsTest, TestCoerceToString) {
     ASSERT_EQ(CoerceToString(cell), "2");
 
     cell = 2.499;
-    ASSERT_EQ(CoerceToString(cell), "2.499000");
+    ASSERT_EQ(CoerceToString(cell), "2.499");
+
+    cell = true;
+    ASSERT_EQ(CoerceToString(cell), "TRUE");
 
     cell = Date_(2020, 11 ,14);
     ASSERT_EQ(CoerceToString(cell), "2020-11-14");

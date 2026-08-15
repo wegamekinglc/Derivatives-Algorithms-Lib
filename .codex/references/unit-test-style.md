@@ -1,5 +1,8 @@
 # Unit Test Style Guide
 
+<!-- This file is mirrored between `.claude/rules/unit-test-style.md` and
+     `.codex/references/unit-test-style.md`. Keep the two copies byte-identical. -->
+
 ## Framework
 
 - Google Test (gtest), with one binary per sub-project:

@@ -77,7 +77,7 @@ namespace Dal {
         CurveDefinition_ BasisDefinition(const CrossCurrencyCalibrationSpec_& spec, const DateTime_& valuationTime) {
             return MakeCurveDefinition(String_("xccy_basis_") + spec.basisPair_.domestic_.String(), spec.basisPair_.domestic_.String(),
                                        CurveParameterization_(CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD),
-                                       LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.knotDates_, valuationTime.Date(), DayBasis_("ACT_365F"));
+                                       LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.knotDates_, valuationTime.Date(), DayBasis::Act365F());
         }
 
         void AddEligibilityIssue(
@@ -311,22 +311,15 @@ namespace Dal {
                                              const XccyBasisCalibrationFunc_& func,
                                              const Vector_<>& guess,
                                              const Vector_<>& tolerance,
-                                             const Sparse::TriDiagonal_& weights,
-                                             const UnderdeterminedControls_& controls) {
+                                             const Sparse::TriDiagonal_& weights) {
             XccyBasisSolveResult_ result;
             result.approximate_ = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+            result.hasEffJacobianInverse_ = !result.approximate_ && options.computeEffJacobianInverse_;
             const bool wantForwardJacobian =
-                options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && !result.approximate_;
-            if (result.approximate_) {
-                result.parameters_ = Underdetermined::Approximate(func, guess, tolerance, spec.fitTolerance_, weights, controls);
-                return result;
-            }
-
-            result.hasEffJacobianInverse_ = options.computeEffJacobianInverse_;
-            std::unique_ptr<Sparse::SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
-            result.parameters_ = Underdetermined::Find(func, guess, tolerance, *decomposition, controls,
-                                                       result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
-                                                       wantForwardJacobian ? &result.forwardJacobian_ : nullptr);
+                !result.approximate_ && options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC;
+            result.parameters_ = RunCurveSolver(func, guess, tolerance, !result.approximate_, spec.fitTolerance_, weights, spec.maxEvaluations_,
+                                                spec.maxRestarts_, result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
+                                                wantForwardJacobian ? &result.forwardJacobian_ : nullptr);
             return result;
         }
 
@@ -408,11 +401,11 @@ namespace Dal {
 
     AnalyticEligibilityReport_ ValidateCrossCurrencyAnalyticEligibility(const CrossCurrencyCalibrationSpec_& spec) {
         AnalyticEligibilityReport_ report;
-        if (spec.domesticCurveBlock_ && spec.domesticCurveBlock_->LiborBasis().String() != String_("ACT_365F")) {
+        if (spec.domesticCurveBlock_ && !HasAct365FLiborBasis(spec.domesticCurveBlock_->LiborBasis())) {
             AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "domestic", -1, -1,
                                        "domestic libor basis must be ACT_365F");
         }
-        if (spec.foreignCurveBlock_ && spec.foreignCurveBlock_->LiborBasis().String() != String_("ACT_365F")) {
+        if (spec.foreignCurveBlock_ && !HasAct365FLiborBasis(spec.foreignCurveBlock_->LiborBasis())) {
             AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "foreign", -1, -1,
                                        "foreign libor basis must be ACT_365F");
         }
@@ -458,15 +451,8 @@ namespace Dal {
             knotDateTimes.push_back(DateTime_(date));
         std::unique_ptr<Sparse::TriDiagonal_> weights(Underdetermined::WeightsPWC(knotDateTimes, spec.smoothingWeight_));
 
-        constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
-        constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
-        Dictionary_ controlsDictionary;
-        controlsDictionary.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
-        controlsDictionary.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
-        UnderdeterminedControls_ controls(controlsDictionary);
-
         XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_);
-        XccyBasisSolveResult_ solve = SolveXccyBasis(spec, options, func, guess, tolerance, *weights, controls);
+        XccyBasisSolveResult_ solve = SolveXccyBasis(spec, options, func, guess, tolerance, *weights);
         return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, options, &solve);
     }
 } // namespace Dal

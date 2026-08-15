@@ -21,7 +21,7 @@ namespace Dal {
 
     struct JointCurrencyCurveSpec_ {
         Ccy_ ccy_;
-        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ liborBasis_ = DayBasis::Act365F();
         Vector_<JointCurveDeclaration_> curves_;
     };
 

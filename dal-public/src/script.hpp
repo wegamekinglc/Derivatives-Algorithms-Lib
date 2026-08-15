@@ -5,6 +5,7 @@
 #pragma once
 
 #include <sstream>
+#include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 
 namespace Dal {
@@ -20,7 +21,7 @@ namespace Dal {
         std::ostringstream out;
         product->Product().Debug(out);
         String_ rtn(out.str());
-        REQUIRE2(rtn.size() != 0, "emtpy script product description", ScriptError_);
+        REQUIRE2(rtn.size() != 0, "empty script product description", ScriptError_);
         return rtn;
     }
 } // namespace Dal

@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <utility>
 
+#include <dal/curve/tapediscount.hpp>
 #include <dal/curve/yczerorate.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/storage/archive.hpp>
@@ -80,17 +81,10 @@ namespace Dal {
         template <class T_, class B_> T_ DiscountZeroRate_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
             const double yfFrom = dayCount_(anchorDate_, from, nullptr);
             const double yfTo = dayCount_(anchorDate_, to, nullptr);
-            if constexpr (std::is_same_v<T_, double>) {
-                const double logDfFrom = LogDfAt(yfFrom);
-                const double logDfTo = LogDfAt(yfTo);
-                return std::exp(logDfTo - logDfFrom) * (this->base_ ? (*this->base_)(from, to) : 1.0);
-            } else {
-                const T_ logDfFrom = LogDfAt(yfFrom);
-                const T_ logDfTo = LogDfAt(yfTo);
-                if (this->base_)
-                    return AAD::exp(logDfTo - logDfFrom) * (*this->base_)(from, to);
-                return AAD::exp(logDfTo - logDfFrom);
-            }
+            const T_ logDfFrom = LogDfAt(yfFrom);
+            const T_ logDfTo = LogDfAt(yfTo);
+            const T_ logDf = logDfTo - logDfFrom;
+            return DiscountFromLogDf(logDf, this->base_, from, to);
         }
 
         template <class T_, class B_> int DiscountZeroRate_<T_, B_>::NX() const { return static_cast<int>(zeroRates_.size()); }
@@ -101,7 +95,7 @@ namespace Dal {
         }
 
         template <class T_, class B_> void DiscountZeroRate_<T_, B_>::Write(Archive::Store_& dst) const {
-            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+            if constexpr (IsDoubleSerializable<T_, B_>()) {
                 DiscountZeroRate_v1::XWrite(dst, this->Name(), this->ccy_.String(), anchorDate_, nodeDates_, NodeZeroRates(), dayCount_.String(),
                                             scheme_.String(), this->base_);
             } else {

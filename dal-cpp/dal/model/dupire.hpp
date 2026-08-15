@@ -228,6 +228,11 @@ namespace Dal {
                 Matrix_<T_> lVols_;
             } results;
 
+            REQUIRE(!inclSpots.empty(), "DupireCalib: inclSpots must not be empty");
+            REQUIRE(std::is_sorted(inclSpots.begin(), inclSpots.end()), "DupireCalib: inclSpots must be sorted");
+            REQUIRE(!inclTimes.empty(), "DupireCalib: inclTimes must not be empty");
+            REQUIRE(std::is_sorted(inclTimes.begin(), inclTimes.end()), "DupireCalib: inclTimes must be sorted");
+
             // year-fraction (1/8760)
             constexpr double ONE_HOUR_YF = 0.000114469;
             results.spots_ = FillData(inclSpots, maxDs, 0.01);

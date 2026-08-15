@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include <dal/curve/piecewiseconstant.hpp>
+#include <dal/curve/tapediscount.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/storage/archive.hpp>
@@ -57,15 +58,8 @@ namespace Dal {
         }
 
         template <class T_, class B_> T_ DiscountPWC_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            if constexpr (std::is_same_v<T_, double>) {
-                const double integral = IntegralTo(to) - IntegralTo(from);
-                return std::exp(-integral / DAYS_PER_YEAR_PWC) * (this->base_ ? (*this->base_)(from, to) : 1.0);
-            } else {
-                const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR_PWC;
-                if (this->base_)
-                    return AAD::exp(logDf) * (*this->base_)(from, to);
-                return AAD::exp(logDf);
-            }
+            const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR_PWC;
+            return DiscountFromLogDf(logDf, this->base_, from, to);
         }
 
         template <class T_, class B_> int DiscountPWC_<T_, B_>::NX() const { return static_cast<int>(knotDates_.size()); }
@@ -77,7 +71,7 @@ namespace Dal {
         }
 
         template <class T_, class B_> void DiscountPWC_<T_, B_>::Write(Archive::Store_& dst) const {
-            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+            if constexpr (IsDoubleSerializable<T_, B_>()) {
                 DiscountPWC_v1::XWrite(dst, this->name_, this->ccy_.String(), knotDates_, fRightT_, this->base_);
             } else {
                 REQUIRE(false, "Tape::DiscountPWC_ is only serializable for <double, DiscountCurve_<double>>");

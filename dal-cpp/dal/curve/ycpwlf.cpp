@@ -12,6 +12,7 @@
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/tapediscount.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
@@ -102,17 +103,12 @@ namespace Dal {
                 // path below stays the AAD-tape recording path.
                 const PiecewiseLinear_ pwl(knotDates_, fLeftT_, fRightT_);
                 const double integral = pwl.IntegralTo(to) - pwl.IntegralTo(from);
-                const double baseFactor = this->base_ ? (*this->base_)(from, to) : 1.0;
-                return std::exp(-integral / DAYS_PER_YEAR_PWLF) * baseFactor;
+                return DiscountFromLogDf(-integral / DAYS_PER_YEAR_PWLF, this->base_, from, to);
             } else {
                 const double fromT = static_cast<double>(from - knotDates_.front());
                 const double toT = static_cast<double>(to - knotDates_.front());
                 const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
-                if (this->base_) {
-                    const auto baseVal = (*this->base_)(from, to);
-                    return Dal::AAD::exp(logDf) * baseVal;
-                }
-                return Dal::AAD::exp(logDf) * static_cast<double>(1.0);
+                return DiscountFromLogDf(logDf, this->base_, from, to);
             }
         }
 
@@ -134,7 +130,7 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::Write(Archive::Store_& dst) const {
-            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+            if constexpr (IsDoubleSerializable<T_, B_>()) {
                 DiscountPWLF_v1::XWrite(dst, this->name_, this->ccy_.String(),
                                         knotDates_, fLeftT_, fRightT_, this->base_);
             } else {

@@ -36,9 +36,6 @@
 namespace Dal {
 
     namespace {
-        constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
-        constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
-
         using JointCalibrationInternal::CurveSlot_;
 
         template <class T_> Vector_<T_> SliceParameters(const Vector_<T_>& parameters, const CurveSlot_& slot) {
@@ -103,7 +100,7 @@ namespace Dal {
 
         bool JointSpecEligibleForAnalyticJacobian(const JointMultiCurveCalibrationSpec_* spec, const std::vector<CurveSlot_>* slots) {
             REQUIRE(spec && slots, "JointSpecEligibleForAnalyticJacobian: null spec/slots");
-            if (spec->liborBasis_.String() != String_("ACT_365F")) {
+            if (!HasAct365FLiborBasis(spec->liborBasis_)) {
                 NOTICE("Joint AAD Jacobian requires liborBasis_ == ACT_365F; falling back to bumped");
                 return false;
             }
@@ -192,22 +189,12 @@ namespace Dal {
                                  const Vector_<>& tol,
                                  const Sparse::TriDiagonal_& weights,
                                  Matrix_<>* optFwdJacAtSolution = nullptr) {
-            Dictionary_ ctrlDict;
-            ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
-            ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
-            UnderdeterminedControls_ controls(ctrlDict);
-
-            if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
-                std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                return Underdetermined::Find(func, guess, tol, *wDecomp, controls, nullptr, optFwdJacAtSolution);
-            }
-            return Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
+            return RunCurveSolver(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, spec.fitTolerance_, weights,
+                                  spec.maxEvaluations_, spec.maxRestarts_, nullptr, optFwdJacAtSolution);
         }
 
         [[noreturn]] void ThrowNonConvergence(int evaluationCount, const Vector_<>& residuals) {
-            const ResidualStats_ stats = ResidualStats(residuals);
-            THROW(String_("Joint multi-curve calibration failed to converge: maxAbsResidual = ") + String::FromDouble(stats.maxAbsResidual_) +
-                  ", rmsResidual = " + String::FromDouble(stats.rmsResidual_) + " after " + String::FromInt(evaluationCount) + " evaluations");
+            THROW("Joint multi-curve calibration failed to converge: " + NonConvergenceStats(residuals, evaluationCount));
         }
 
         // ---- CalibrateJointMultiCurve assembly helpers ----
@@ -283,14 +270,7 @@ namespace Dal {
         const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
 
         const Vector_<> finalResiduals = func.F(solved);
-        const double barA = 10.0 * spec.fitTolerance_;
-        bool converged = true;
-        for (const double r : finalResiduals) {
-            if (std::fabs(r) > barA) {
-                converged = false;
-                break;
-            }
-        }
+        const bool converged = ResidualsWithinBar(finalResiduals, 10.0 * spec.fitTolerance_);
 
         auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solved);
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);

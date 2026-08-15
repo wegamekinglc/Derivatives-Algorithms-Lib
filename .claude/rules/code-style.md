@@ -1,5 +1,20 @@
 # Code Style Guide for DAL C++
 
+<!-- This file is mirrored between `.claude/rules/code-style.md` and
+     `.codex/references/code-style.md`. Keep the two copies byte-identical. -->
+
+## Contents
+
+- [Formatting](#formatting-primarily-enforced-by-clang-format)
+- [General conventions](#general)
+- [Functional style and duplication](#functional-style-and-parameter-mutation)
+- [Markdown tables](#markdown-tables)
+- [Headers, namespaces, and types](#header-files)
+- [Machinist enums](#enums)
+- [Errors and common patterns](#error-handling)
+- [Public function naming](#public-function-naming-dal-excel-and-dal-python)
+- [Tests, comments, and documentation](#test-conventions-google-test)
+
 ## Formatting (primarily enforced by `.clang-format`)
 
 - Base style: LLVM
@@ -54,7 +69,8 @@
 - Keep separator rows compact: each column's dash count equals the column width (content length + 2). Do not add spaces around dashes between pipes.
 - When table cells reference specific C++ files, use project-relative paths such as `dal-cpp/dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
 - For convention-only filename examples, use filenames without project-relative paths, such as `threadpool.cpp` or `test_date.cpp`.
-- Keep related markdown tables consistent across `.claude` guidance files.
+- Keep related Markdown tables consistent across repository and agent guidance files
+  (`.claude/rules/` and `.codex/references/` hold mirrored copies; keep them in sync).
 
 ## Header Files
 

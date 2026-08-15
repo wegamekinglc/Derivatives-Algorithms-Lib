@@ -24,50 +24,32 @@ As long as this comment is preserved at the Top of the file
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
+#include <dal/script/visitor/evalstate.hpp>
 #include <dal/script/visitor/smoothing.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <functional>
 #include <iostream>
 
 namespace Dal::Script {
-    template <class T_> struct EvalState_ {
-        Vector_<T_> variables_;
-        Vector_<> variablesInit_;
-        Vector_<T_> constVariables_;
-
+    template <class T_> struct EvalState_ : EvalStateCore_<T_> {
         //  Fuzzy If blend state.
         double defEps_ = 0.0;
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
-        StaticStack_<T_> dStack_;
-        StaticStack_<bool> bStack_;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
                             size_t maxNestedIfs = 0,
                             double defEps = 0.0)
-            : variablesInit_(variables), constVariables_(constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
-            variables_.Resize(variablesInit_.size());
-            for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variablesInit_[i]);
-            for (auto& varStore : varStore0_)
-                varStore.Resize(variables_.size());
-            for (auto& varStore : varStore1_)
-                varStore.Resize(variables_.size());
+            : EvalStateCore_<T_>(variables, constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
+            ResizeVarStores(&varStore0_, &varStore1_, variables.size());
         }
 
         void Init() {
-            for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variablesInit_[i]);
+            EvalStateCore_<T_>::Init();
             nestedIfLvl_ = 0;
-            dStack_.Reset();
-            bStack_.Reset();
         }
-
-        const Vector_<T_>& VarVals() const { return variables_; }
-        Vector_<T_>& ConstVarVals() { return constVariables_; }
-        const Vector_<T_>& ConstVarVals() const { return constVariables_; }
     };
 
     //  Hand-written because opcodes are NTTPs and serialized stream integers.

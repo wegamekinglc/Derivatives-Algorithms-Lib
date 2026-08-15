@@ -41,19 +41,13 @@ namespace Dal::Script {
 
         FuzzyEvaluator_(const Vector_<>& variables,  const Vector_<T>& constVariables, const size_t maxNestedIfs, const double defEps = 0)
             : Base(variables, constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs), nestedIfLvl_(0) {
-            for (auto& varStore : varStore0_)
-                varStore.Resize(variables.size());
-            for (auto& varStore : varStore1_)
-                varStore.Resize(variables.size());
+            ResizeVarStores(&varStore0_, &varStore1_, variables.size());
         }
 
         FuzzyEvaluator_(const FuzzyEvaluator_& rhs)
             : Base(rhs), defEps_(rhs.defEps_), varStore0_(rhs.varStore0_.size()), varStore1_(rhs.varStore1_.size()),
               nestedIfLvl_(0) {
-            for (auto& varStore : varStore0_)
-                varStore.Resize(variables_.size());
-            for (auto& varStore : varStore1_)
-                varStore.Resize(variables_.size());
+            ResizeVarStores(&varStore0_, &varStore1_, variables_.size());
         }
 
         FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
@@ -63,10 +57,7 @@ namespace Dal::Script {
             defEps_ = rhs.defEps_;
             varStore0_.Resize(rhs.varStore0_.size());
             varStore1_.Resize(rhs.varStore1_.size());
-            for (auto& varStore : varStore0_)
-                varStore.Resize(variables_.size());
-            for (auto& varStore : varStore1_)
-                varStore.Resize(variables_.size());
+            ResizeVarStores(&varStore0_, &varStore1_, variables_.size());
             nestedIfLvl_ = 0;
             return *this;
         }

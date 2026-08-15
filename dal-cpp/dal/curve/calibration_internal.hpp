@@ -6,14 +6,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/math/matrix/banded.hpp>
+#include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/accrualperiod.hpp>
 #include <dal/protocol/rateconvention.hpp>
+#include <dal/time/daybasis.hpp>
 #include <dal/time/schedules.hpp>
 
 namespace Dal {
@@ -74,6 +78,9 @@ namespace Dal {
         return AccrualPeriod_(period.accrualStart_, period.accrualEnd_, 1.0, basis, period.dayCountContext_, period.isStub_);
     }
 
+    // Shared analytic-Jacobian eligibility bar: the libor basis must be the canonical ACT/365F.
+    [[nodiscard]] inline bool HasAct365FLiborBasis(const DayBasis_& basis) { return basis == DayBasis::Act365F(); }
+
     // Build a leg's coupon periods. PeriodT must be an aggregate initializable as
     // {SchedulePeriod_, AccrualPeriod_} (e.g. CouponPeriod_, XccyCouponPeriod_).
     template <class PeriodT_>
@@ -123,6 +130,53 @@ namespace Dal {
     inline void RequireFiniteResidualStats(const ResidualStats_& stats, const String_& context) {
         REQUIRE(std::isfinite(stats.maxAbsResidual_), context + " maximum absolute residual must be finite");
         REQUIRE(std::isfinite(stats.rmsResidual_), context + " RMS residual must be finite");
+    }
+
+    // Shared convergence bar for the joint calibrations: every residual within 10x the caller's tolerance.
+    [[nodiscard]] inline bool ResidualsWithinBar(const Vector_<>& residuals, double bar) {
+        for (const double r : residuals) {
+            if (std::fabs(r) > bar)
+                return false;
+        }
+        return true;
+    }
+
+    // Shared non-convergence message tail: residual stats plus the solver evaluation count. Each call
+    // site keeps its own prefix and exception type.
+    [[nodiscard]] inline String_ NonConvergenceStats(const Vector_<>& residuals, int evaluationCount, bool includeRms = true) {
+        const ResidualStats_ stats = ResidualStats(residuals);
+        String_ retval = "maxAbsResidual = " + String::FromDouble(stats.maxAbsResidual_);
+        if (includeRms)
+            retval += ", rmsResidual = " + String::FromDouble(stats.rmsResidual_);
+        return retval + " after " + String::FromInt(evaluationCount) + " evaluations";
+    }
+
+    // Solver-control dictionary keys shared by every curve-calibration driver.
+    constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
+    constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
+
+    // Shared underdetermined-solver driver: exact solves decompose the smoothing weights and call
+    // Find; everything else uses the approximate fit. The exact flag (not the solve mode) is passed
+    // so each call site keeps its own EXACT-vs-APPROXIMATE branching semantics.
+    inline Vector_<> RunCurveSolver(const Underdetermined::Function_& func,
+                                    const Vector_<>& guess,
+                                    const Vector_<>& tol,
+                                    bool exact,
+                                    double fitTolerance,
+                                    const Sparse::TriDiagonal_& weights,
+                                    int maxEvaluations,
+                                    int maxRestarts,
+                                    Matrix_<>* effJacobianInverse = nullptr,
+                                    Matrix_<>* fwdJacobian = nullptr) {
+        Dictionary_ ctrlDict;
+        ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(maxEvaluations)));
+        ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(maxRestarts)));
+        const UnderdeterminedControls_ controls(ctrlDict);
+        if (exact) {
+            std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
+            return Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse, fwdJacobian);
+        }
+        return Underdetermined::Approximate(func, guess, tol, fitTolerance, weights, controls);
     }
 
     // Resolve the coupon-months count for a single-period instrument's day-count context.

@@ -4,15 +4,17 @@
 
 #include <gtest/gtest.h>
 
-#include <dal/concurrency/threadpool.hpp>
-#include <dal/utilities/exceptions.hpp>
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <future>
+#include <string>
 #include <thread>
+#include <vector>
+
+#include <dal/concurrency/threadpool.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using namespace Dal;
 
@@ -35,25 +37,62 @@ namespace {
         releaseWorkerClaim->wait();
     }
 
-    void SetThreadCountEnvironment(const char* value) {
+    int SetThreadCountEnvironmentRaw(const char* value) {
 #ifdef _WIN32
-        ASSERT_EQ(_putenv_s("DAL_NUM_THREADS", value), 0);
+        return static_cast<int>(_putenv_s("DAL_NUM_THREADS", value));
 #else
-        ASSERT_EQ(setenv("DAL_NUM_THREADS", value, 1), 0);
+        return setenv("DAL_NUM_THREADS", value, 1);
 #endif
     }
 
-    void ClearThreadCountEnvironment() {
+    int ClearThreadCountEnvironmentRaw() {
 #ifdef _WIN32
-        ASSERT_EQ(_putenv_s("DAL_NUM_THREADS", ""), 0);
+        return static_cast<int>(_putenv_s("DAL_NUM_THREADS", ""));
 #else
-        ASSERT_EQ(unsetenv("DAL_NUM_THREADS"), 0);
+        return unsetenv("DAL_NUM_THREADS");
 #endif
     }
+
+    // RAII save/restore of DAL_NUM_THREADS. Every test in this binary shares the process and the
+    // ThreadPool_ singleton, so an override left behind by a failing assertion would silently
+    // change the thread count other tests observe.
+    class ScopedThreadCountEnvironment_ {
+        bool hadValue_;
+        std::string savedValue_;
+
+    public:
+        explicit ScopedThreadCountEnvironment_(const char* value) {
+            const char* current = std::getenv("DAL_NUM_THREADS");
+            hadValue_ = current != nullptr;
+            if (hadValue_)
+                savedValue_ = current;
+            EXPECT_EQ(SetThreadCountEnvironmentRaw(value), 0);
+        }
+
+        ~ScopedThreadCountEnvironment_() {
+            if (hadValue_)
+                SetThreadCountEnvironmentRaw(savedValue_.c_str());
+            else
+                ClearThreadCountEnvironmentRaw();
+        }
+    };
 
     size_t ExpectedThreadCount(size_t requested) {
         const size_t hardware = std::max(1u, std::thread::hardware_concurrency());
         return std::min(requested, hardware);
+    }
+
+    // Bounded poll for Stop() having begun teardown (active_ flips false under the same critical
+    // section that latches stopping_). Used only where no task future can observe the transition;
+    // the timeout turns a production deadlock into a test failure instead of an infinite spin.
+    bool WaitUntilPoolInactive(ThreadPool_* threadPool, std::chrono::milliseconds timeout) {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
+        while (threadPool->IsActive()) {
+            if (std::chrono::steady_clock::now() >= deadline)
+                return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return true;
     }
 
 } // namespace
@@ -105,14 +144,25 @@ TEST(ConcurrencyTest, TestThreadPoolStartStopLifecycle) {
 TEST(ConcurrencyTest, TestThreadPoolUsesEnvironmentLimit) {
     ThreadPool_* threadPool = ThreadPool_::GetInstance();
     threadPool->Stop();
-    SetThreadCountEnvironment("2");
 
-    threadPool->Start(0, true);
-    ASSERT_EQ(threadPool->NumThreads(), ExpectedThreadCount(2));
-
-    threadPool->Stop();
-    ClearThreadCountEnvironment();
+    const char* preexisting = std::getenv("DAL_NUM_THREADS");
+    const std::string preexistingValue = preexisting != nullptr ? preexisting : "";
+    {
+        const ScopedThreadCountEnvironment_ envOverride("2");
+        threadPool->Start(0, true);
+        ASSERT_EQ(threadPool->NumThreads(), ExpectedThreadCount(2));
+        threadPool->Stop();
+    }
     ASSERT_FALSE(threadPool->IsActive());
+
+    // The guard must restore the exact prior environment, whatever the outcome above.
+    const char* restored = std::getenv("DAL_NUM_THREADS");
+    if (preexisting != nullptr) {
+        ASSERT_TRUE(restored != nullptr);
+        ASSERT_STREQ(restored, preexistingValue.c_str());
+    } else {
+        ASSERT_TRUE(restored == nullptr || restored[0] == '\0');
+    }
 }
 
 TEST(ConcurrencyTest, TestThreadPoolTaskCannotStopOrRestartPool) {
@@ -159,12 +209,17 @@ TEST(ConcurrencyTest, TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks
         return true;
     });
     auto waiter = std::async(std::launch::async, [&]() { return threadPool->ActiveWait(claimed); });
-    taskClaimed.get_future().wait();
+    // The caller in `waiter` pops tasks FIFO, so it claims `claimed` and sets taskClaimed.
+    // Bounded waits act as the hang guard throughout: a broken handshake fails within seconds.
+    ASSERT_EQ(taskClaimed.get_future().wait_for(10s), std::future_status::ready)
+        << "caller never claimed the first queued task";
 
     auto stopper = std::async(std::launch::async, [threadPool]() { threadPool->Stop(); });
-    while (threadPool->IsActive())
-        std::this_thread::yield();
-    const bool stoppedBeforeClaimedTaskFinished = stopper.wait_for(0s) == std::future_status::ready;
+    // The claimed task is still blocked on `release`, so Stop() must stay blocked waiting for its
+    // active caller to drain. Stop() can never complete here, so this bounded negative wait cannot
+    // false-fail the way an IsActive() spin + wait_for(0s) instant check could mis-order.
+    ASSERT_EQ(stopper.wait_for(50ms), std::future_status::timeout)
+        << "Stop() returned while a claimed caller task was still blocked";
 
     releaseTask.set_value();
     ASSERT_TRUE(waiter.get());
@@ -186,7 +241,6 @@ TEST(ConcurrencyTest, TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks
     ASSERT_TRUE(restarted.get());
     threadPool->Stop();
 
-    ASSERT_FALSE(stoppedBeforeClaimedTaskFinished);
     ASSERT_TRUE(queuedTaskWasCancelled);
     ASSERT_EQ(sentinelRuns.load(), 1);
 }
@@ -213,29 +267,25 @@ TEST(ConcurrencyTest, TestThreadPoolStopPreventsWorkerClaimAfterStoppingBegins) 
                 ++taskRuns;
                 return true;
             });
-            workerAtClaim.get_future().wait();
+            // Bounded waits replace the old 2s watchdog thread and the IsActive() spin: the worker
+            // is parked before its claim and no other thread pops, so `unclaimed` becomes ready
+            // only when Stop() clears the queue and breaks the task promise. That makes the future
+            // itself a deterministic "stop has begun" handshake.
+            if (workerAtClaim.get_future().wait_for(10s) != std::future_status::ready)
+                std::_Exit(45);
 
-            std::promise<void> finished;
-            std::thread watchdog([completion = finished.get_future()]() mutable {
-                if (completion.wait_for(2s) == std::future_status::timeout)
-                    std::_Exit(42);
-            });
-            std::thread stopper([&]() { threadPool->Stop(); });
-            while (threadPool->IsActive())
-                std::this_thread::yield();
+            std::thread stopper([threadPool]() { threadPool->Stop(); });
+            if (unclaimed.wait_for(10s) != std::future_status::ready)
+                std::_Exit(46);
 
             bool taskWasCancelledBeforeWorkerRelease = false;
-            if (unclaimed.wait_for(0s) == std::future_status::ready) {
-                try {
-                    static_cast<void>(unclaimed.get());
-                } catch (const std::future_error& error) {
-                    taskWasCancelledBeforeWorkerRelease = error.code() == std::make_error_code(std::future_errc::broken_promise);
-                }
+            try {
+                static_cast<void>(unclaimed.get());
+            } catch (const std::future_error& error) {
+                taskWasCancelledBeforeWorkerRelease = error.code() == std::make_error_code(std::future_errc::broken_promise);
             }
             releaseWorker.set_value();
             stopper.join();
-            finished.set_value();
-            watchdog.join();
             std::_Exit(taskWasCancelledBeforeWorkerRelease && taskRuns.load() == 0 ? 0 : 43);
         },
         ::testing::ExitedWithCode(0), "");
@@ -268,22 +318,20 @@ TEST(ConcurrencyTest, TestThreadPoolStopCancelsQueueBeforeDrainingNestedCallerWa
             nested = threadPool->SpawnTask([]() { return true; });
 
             auto caller = std::async(std::launch::async, [&]() { return threadPool->ActiveWait(outer); });
-            outerClaimed.get_future().wait();
-            std::promise<void> finished;
-            std::thread watchdog([completion = finished.get_future()]() mutable {
-                if (completion.wait_for(2s) == std::future_status::timeout)
-                    std::_Exit(42);
-            });
-            std::thread stopper([&]() { threadPool->Stop(); });
-            while (threadPool->IsActive())
-                std::this_thread::yield();
+            if (outerClaimed.get_future().wait_for(10s) != std::future_status::ready)
+                std::_Exit(45);
+
+            std::thread stopper([threadPool]() { threadPool->Stop(); });
+            // The caller is busy running `outer` and a 1-thread pool has no workers, so `nested`
+            // becomes ready only when Stop() clears the queue. Waiting on the future is the
+            // deterministic "stop has begun" handshake; no watchdog or IsActive() spin is needed.
+            if (nested.wait_for(10s) != std::future_status::ready)
+                std::_Exit(46);
 
             allowNestedWait.set_value();
             stopper.join();
             const bool callerRanTask = caller.get();
             const bool outerObservedCancellation = outer.get();
-            finished.set_value();
-            watchdog.join();
             std::_Exit(callerRanTask && outerObservedCancellation ? 0 : 43);
         },
         ::testing::ExitedWithCode(0), "");
@@ -317,26 +365,23 @@ TEST(ConcurrencyTest, TestThreadPoolStopCancelsQueueBeforeJoiningNestedWorkerWai
                 }
                 return !nestedWasRun && nestedWasCancelled && nestedRuns.load() == 0;
             });
-            outerClaimed.get_future().wait();
+            if (outerClaimed.get_future().wait_for(10s) != std::future_status::ready)
+                std::_Exit(45);
             nested = threadPool->SpawnTask([&]() {
                 ++nestedRuns;
                 return true;
             });
 
-            std::promise<void> finished;
-            std::thread watchdog([completion = finished.get_future()]() mutable {
-                if (completion.wait_for(2s) == std::future_status::timeout)
-                    std::_Exit(42);
-            });
-            std::thread stopper([&]() { threadPool->Stop(); });
-            while (threadPool->IsActive())
-                std::this_thread::yield();
+            std::thread stopper([threadPool]() { threadPool->Stop(); });
+            // The single worker is busy running `outer`, so `nested` becomes ready only when
+            // Stop() clears the queue: a deterministic "stop has begun" handshake that replaces
+            // the old watchdog thread and IsActive() spin.
+            if (nested.wait_for(10s) != std::future_status::ready)
+                std::_Exit(46);
 
             allowNestedWait.set_value();
             stopper.join();
             const bool outerObservedCancellation = outer.get();
-            finished.set_value();
-            watchdog.join();
             std::_Exit(outerObservedCancellation ? 0 : 43);
         },
         ::testing::ExitedWithCode(0), "");
@@ -370,20 +415,17 @@ TEST(ConcurrencyTest, TestThreadPoolStopAllowsNestedQueriesAndRejectsSubmission)
                 return count == 2 && !active && submissionRejected;
             });
 
-            taskStarted.get_future().wait();
-            std::promise<void> finished;
-            std::thread watchdog([completion = finished.get_future()]() mutable {
-                if (completion.wait_for(2s) == std::future_status::timeout)
-                    std::_Exit(42);
-            });
-            std::thread stopper([&]() { threadPool->Stop(); });
-            while (threadPool->IsActive())
-                std::this_thread::yield();
+            if (taskStarted.get_future().wait_for(10s) != std::future_status::ready)
+                std::_Exit(45);
+            std::thread stopper([threadPool]() { threadPool->Stop(); });
+            // No task future can observe stopping_ here (the probing task is itself blocked), so
+            // poll IsActive() with a bounded timeout instead of an unbounded yield spin; the
+            // timeout, not a watchdog thread, is the hang guard.
+            if (!WaitUntilPoolInactive(threadPool, 10s))
+                std::_Exit(46);
             releasePromise.set_value();
             stopper.join();
             const bool taskResult = task.get();
-            finished.set_value();
-            watchdog.join();
             std::_Exit(taskResult ? 0 : 43);
         },
         ::testing::ExitedWithCode(0), "");

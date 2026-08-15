@@ -1,5 +1,8 @@
 # Git Commit and PR Guide
 
+<!-- This file is mirrored between `.claude/rules/git-commit-pr.md` and
+     `.codex/references/git-commit-pr.md`. Keep the two copies byte-identical. -->
+
 ## Branch Naming
 
 - Feature branches: `feature/<short-description>` (e.g., `feature/log-linear-interp-and-refactor`)

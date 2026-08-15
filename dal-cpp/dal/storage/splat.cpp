@@ -420,6 +420,8 @@ namespace Dal {
     }
 
     Handle_<Storable_> UnSplatFile(const String_& fileName, bool quiet) {
-        return UnSplat(FileTable(fileName), quiet);
+        const auto data = FileTable(fileName);
+        REQUIRE(!data.Empty(), "Can't read object from missing or empty file '" + fileName + "'");
+        return UnSplat(data, quiet);
     }
 } // namespace Dal
