@@ -16,18 +16,10 @@ TEST(HostTest, TestLocalTime) {
 
     Dal::Host::LocalTime(&year, &month, &day, &hour, &minute, &second);
 
-    time_t t = time(nullptr);
-    struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef _WIN32
-    localtime_s(&now, &t);
-#else
-    localtime_r(&t, &now);
-#endif
-
-    ASSERT_EQ(year, now.tm_year + 1900);
-    ASSERT_EQ(month, now.tm_mon + 1);
-    ASSERT_EQ(day, now.tm_mday);
-    ASSERT_EQ(hour, now.tm_hour);
-    ASSERT_EQ(minute, now.tm_min);
-    ASSERT_EQ(second, now.tm_sec);
+    // The clock may tick over between LocalTime() and time(nullptr), so compare
+    // whole timestamps with a small tolerance instead of exact fields.
+    struct tm first = {second, minute, hour, day, month - 1, year - 1900, 0, 0, -1};
+    const double elapsed = difftime(time(nullptr), mktime(&first));
+    ASSERT_GE(elapsed, -2.0);
+    ASSERT_LE(elapsed, 2.0);
 }
