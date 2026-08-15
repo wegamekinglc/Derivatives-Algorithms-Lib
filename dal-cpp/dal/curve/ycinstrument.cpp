@@ -18,15 +18,6 @@
 
 namespace Dal {
 
-    namespace Tape {
-        template <class T_>
-        T_ ForwardRate(const DiscountCurve_<T_>& forecast,
-                       const Date_& start,
-                       const Date_& maturity,
-                       const DayBasis_& basis,
-                       const Handle_<DayBasis::Context_>& context);
-    } // namespace Tape
-
     namespace {
         PeriodLength_ PeriodFromMonths(int months) {
             REQUIRE(months == 1 || months == 3 || months == 6 || months == 12, "Unsupported calibration instrument frequency");
@@ -76,11 +67,7 @@ namespace Dal {
             double operator()(const YieldCurve_& yc) const override {
                 const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return Tape::ForwardRate<double>(forecast,
-                                                 period.accrualStart_,
-                                                 period.accrualEnd_,
-                                                 convention_.dayBasis_,
-                                                 period.dayCountContext_);
+                return Tape::DepositRateFromCurves(forecast, period, convention_.dayBasis_);
             }
         };
 
@@ -106,11 +93,7 @@ namespace Dal {
                 const SchedulePeriod_ period =
                     BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return Tape::ForwardRate<double>(forecast,
-                                                 period.accrualStart_,
-                                                 period.accrualEnd_,
-                                                 convention_.dayBasis_,
-                                                 period.dayCountContext_) - convexityAdjustment_;
+                return Tape::ForwardRateFromCurves(forecast, period, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 
@@ -135,22 +118,12 @@ namespace Dal {
             double operator()(const YieldCurve_& yc) const override {
                 const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback_, floatIndexConvention_.collateral_);
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, floatIndexConvention_);
-
-                double annuity = 0.0;
-                for (const auto& period : fixedPeriods_)
-                    annuity += period.accrual_.dcf_ * discount(tradeDate_, period.schedule_.paymentDate_);
-                REQUIRE(annuity > 0.0, "Swap pricing requires positive fixed-leg annuity");
-
-                double floatPv = 0.0;
-                for (const auto& period : floatPeriods_) {
-                    const double fixing = Tape::ForwardRate<double>(forecast,
-                                                                    period.schedule_.accrualStart_,
-                                                                    period.schedule_.accrualEnd_,
-                                                                    floatIndexConvention_.dayBasis_,
-                                                                    period.schedule_.dayCountContext_);
-                    floatPv += fixing * period.accrual_.dcf_ * discount(tradeDate_, period.schedule_.paymentDate_);
-                }
-                return floatPv / annuity;
+                return Tape::SwapRateFromCurves(discount,
+                                                forecast,
+                                                tradeDate_,
+                                                fixedPeriods_,
+                                                floatPeriods_,
+                                                floatIndexConvention_.dayBasis_);
             }
         };
 
@@ -212,16 +185,6 @@ namespace Dal {
 
     namespace Tape {
         template <class T_>
-        T_ ForwardRate(const DiscountCurve_<T_>& forecast,
-                        const Date_& start,
-                        const Date_& maturity,
-                        const DayBasis_& basis,
-                        const Handle_<DayBasis::Context_>& context) {
-            const T_ fwdDf = forecast(start, maturity);
-            return (1.0 / fwdDf - 1.0) / basis(start, maturity, context.get());
-        }
-
-        template <class T_>
         class DepositRate_ : public Rate_<T_> {
             Date_ start_;
             Date_ maturity_;
@@ -232,11 +195,7 @@ namespace Dal {
 
             T_ operator()(const YCCtx_<T_>& ctx) const override {
                 const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
-                return ForwardRate(ctx.curve_,
-                                    period.accrualStart_,
-                                    period.accrualEnd_,
-                                    convention_.dayBasis_,
-                                    period.dayCountContext_);
+                return DepositRateFromCurves(ctx.curve_, period, convention_.dayBasis_);
             }
         };
 
@@ -256,12 +215,7 @@ namespace Dal {
             T_ operator()(const YCCtx_<T_>& ctx) const override {
                 const SchedulePeriod_ period =
                     BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
-                return ForwardRate(ctx.curve_,
-                                    period.accrualStart_,
-                                    period.accrualEnd_,
-                                    convention_.dayBasis_,
-                                    period.dayCountContext_)
-                       - static_cast<double>(convexityAdjustment_);
+                return ForwardRateFromCurves(ctx.curve_, period, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 
@@ -283,33 +237,14 @@ namespace Dal {
 
             T_ operator()(const YCCtx_<T_>& ctx) const override {
                 // Phase A: forecast == discount == ctx.curve_ (guaranteed by EligibleForAnalyticJacobian).
-                const DiscountCurve_<T_>& discount = ctx.curve_;
-                T_ annuity(static_cast<double>(0.0));
-                for (const auto& period : fixedPeriods_)
-                    annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
-                // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
-                // only work on native and CoDiPack (XAD/Adept have no conversion operator).
-                REQUIRE(Dal::AAD::Value(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
-
-                T_ floatPv(static_cast<double>(0.0));
-                for (const auto& period : floatPeriods_) {
-                    const T_ fixing = ForwardRate(discount,
-                                                   period.schedule_.accrualStart_,
-                                                   period.schedule_.accrualEnd_,
-                                                   floatIndexConvention_.dayBasis_,
-                                                   period.schedule_.dayCountContext_);
-                    floatPv += fixing * static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
-                }
-                return floatPv / annuity;
+                return SwapRateFromCurves(ctx.curve_,
+                                          ctx.curve_,
+                                          tradeDate_,
+                                          fixedPeriods_,
+                                          floatPeriods_,
+                                          floatIndexConvention_.dayBasis_);
             }
         };
-
-        // Resolve forecast curve in joint block: forward if useProjectionCurve_, else discount.
-        template <class T_>
-        inline const DiscountCurve_<T_>& ResolveForecastT(const JointCurveBlock_<T_>& block, const RateIndexConvention_& conv) {
-            return conv.useProjectionCurve_ ? block.Forward(conv.forecastTenor_, conv.collateral_)
-                                            : block.Discount(conv.collateral_);
-        }
 
         template <class T_>
         class DepositRateProj_ : public JointRate_<T_> {
@@ -321,13 +256,9 @@ namespace Dal {
                 : start_(start), maturity_(maturity), convention_(convention) {}
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
+                const DiscountCurve_<T_>& forecast = ForecastCurve(block, convention_);
                 const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
-                return ForwardRate(forecast,
-                                   period.accrualStart_,
-                                   period.accrualEnd_,
-                                   convention_.dayBasis_,
-                                   period.dayCountContext_);
+                return DepositRateFromCurves(forecast, period, convention_.dayBasis_);
             }
         };
 
@@ -345,15 +276,10 @@ namespace Dal {
                 : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
+                const DiscountCurve_<T_>& forecast = ForecastCurve(block, convention_);
                 const SchedulePeriod_ period =
                     BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
-                return ForwardRate(forecast,
-                                   period.accrualStart_,
-                                   period.accrualEnd_,
-                                   convention_.dayBasis_,
-                                   period.dayCountContext_)
-                       - static_cast<double>(convexityAdjustment_);
+                return ForwardRateFromCurves(forecast, period, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 
@@ -374,23 +300,15 @@ namespace Dal {
                   floatIndexConvention_(floatIndexConvention) {}
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                // Forecast and discount are distinct: forecast via ResolveForecastT, discount via block.Discount.
+                // Forecast and discount are distinct: forecast via ForecastCurve, discount via block.Discount.
                 const DiscountCurve_<T_>& discount = block.Discount(floatIndexConvention_.collateral_);
-                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, floatIndexConvention_);
-                T_ annuity(static_cast<double>(0.0));
-                for (const auto& period : fixedPeriods_)
-                    annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
-                REQUIRE(Dal::AAD::Value(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
-                T_ floatPv(static_cast<double>(0.0));
-                for (const auto& period : floatPeriods_) {
-                    const T_ fixing = ForwardRate(forecast,
-                                                   period.schedule_.accrualStart_,
-                                                   period.schedule_.accrualEnd_,
-                                                   floatIndexConvention_.dayBasis_,
-                                                   period.schedule_.dayCountContext_);
-                    floatPv += fixing * static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
-                }
-                return floatPv / annuity;
+                const DiscountCurve_<T_>& forecast = ForecastCurve(block, floatIndexConvention_);
+                return SwapRateFromCurves(discount,
+                                          forecast,
+                                          tradeDate_,
+                                          fixedPeriods_,
+                                          floatPeriods_,
+                                          floatIndexConvention_.dayBasis_);
             }
         };
     } // namespace Tape

@@ -31,7 +31,7 @@ namespace Dal::JointCalibrationInternal {
     struct CurveCollectionSpec_ {
         Date_ today_;
         String_ ccy_;
-        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ liborBasis_ = DayBasis::Act365F();
         const Vector_<JointCurveDeclaration_>* curves_ = nullptr;
         String_ context_ = "Joint multi-curve calibration";
         String_ declarationLabel_ = "Declaration";
@@ -299,7 +299,7 @@ namespace Dal::JointCalibrationInternal {
     }
 
     inline String_ AnalyticIneligibilityReason(const CurveCollectionSpec_& spec, const std::vector<CurveSlot_>& slots) {
-        if (spec.liborBasis_.String() != String_("ACT_365F"))
+        if (!HasAct365FLiborBasis(spec.liborBasis_))
             return spec.context_ + " requires liborBasis_ == ACT_365F for an analytic Jacobian";
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& declaration = (*spec.curves_)[slot.curveIndex_];

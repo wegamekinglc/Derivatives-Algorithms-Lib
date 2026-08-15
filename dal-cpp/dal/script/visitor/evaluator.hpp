@@ -10,17 +10,19 @@
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
+#include <dal/script/visitor/evalstate.hpp>
 
 namespace Dal::Script {
 
-    template <class T_, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T_>> {
+    template <class T_, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T_>>, protected EvalStateCore_<T_> {
     protected:
-        Vector_<T_> variables_;
-        Vector_<> variablesInit_;
-        Vector_<T_> constVariables_;
+        using StateCore_ = EvalStateCore_<T_>;
 
-        StaticStack_<T_> dStack_;
-        StaticStack_<bool> bStack_;
+        using StateCore_::bStack_;
+        using StateCore_::constVariables_;
+        using StateCore_::dStack_;
+        using StateCore_::variables_;
+        using StateCore_::variablesInit_;
 
         const AAD::Scenario_<T_>* scenario_;
 
@@ -29,58 +31,30 @@ namespace Dal::Script {
     public:
         using ConstVisitor_<EVAL_<T_>>::Visit;
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
+        using StateCore_::ConstVarVals;
+        using StateCore_::Init;
+        using StateCore_::VarVals;
 
         EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
-            : variablesInit_(variables), constVariables_(constVariables), curEvt_(-1) {
-            variables_.Resize(variablesInit_.size());
-            for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variablesInit_[i]);
-            bStack_ = StaticStack_<bool>();
-            scenario_ = nullptr;
-        }
+            : StateCore_(variables, constVariables), scenario_(nullptr), curEvt_(-1) {}
 
-        EvaluatorBase_(const EvaluatorBase_& rhs)
-            : variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_), curEvt_(rhs.curEvt_), bStack_(rhs.bStack_), scenario_(rhs.scenario_) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs) : StateCore_(rhs), scenario_(rhs.scenario_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
-            variables_ = rhs.variables_;
-            variablesInit_ = rhs.variablesInit_;
-            constVariables_ = rhs.constVariables_;
-            bStack_ = rhs.bStack_;
+            StateCore_::operator=(rhs);
             scenario_ = rhs.scenario_;
+            curEvt_ = rhs.curEvt_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept
-            : variables_(std::move(rhs.variables_)), variablesInit_(std::move(rhs.variablesInit_)),
-              constVariables_(std::move(rhs.constVariables_)), bStack_(std::move(rhs.bStack_)), scenario_(rhs.scenario_),
-              curEvt_(rhs.curEvt_) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : StateCore_(std::move(rhs)), scenario_(rhs.scenario_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
-            variables_ = std::move(rhs.variables_);
-            variablesInit_ = std::move(rhs.variablesInit_);
-            constVariables_ = std::move(rhs.constVariables_);
-            bStack_ = std::move(rhs.bStack_);
+            StateCore_::operator=(std::move(rhs));
             scenario_ = rhs.scenario_;
+            curEvt_ = rhs.curEvt_;
             return *this;
         }
-
-        Vector_<T_>& ConstVarVals() {
-            return constVariables_;
-        }
-        
-        const Vector_<T_>& ConstVarVals() const {
-            return constVariables_;
-        }
-
-        void Init() {
-            for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variablesInit_[i]);
-            dStack_.Reset();
-            bStack_.Reset();
-        }
-
-        [[nodiscard]] FORCE_INLINE const Vector_<T_>& VarVals() const { return variables_; }
 
         FORCE_INLINE void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
 

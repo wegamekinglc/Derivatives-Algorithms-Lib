@@ -56,6 +56,21 @@ here as the baseline rather than dated releases:
   AMD64 release from eight to ten CPython-specific wheels. See
   `dal-python/README.md` and `docs/installation.md`.
 
+- `matrix`: Hardened the BCG Krylov solver internals. The exact scaled-`alpha`
+  limb arithmetic moved into shared helpers under
+  `dal-cpp/dal/math/matrix/bcg_scaled_alpha.inc`, scaled-norm square sums now
+  share a single reliability check with a slow exact fallback, and solver
+  workspace construction is validated against boundary allocation sizes. JSON
+  archive string validation (NUL and UTF-8 checks) is unified across raw and
+  decoded strings, and the Excel joint-XCCY result getter validates attribute
+  names through one view table instead of a per-branch if-chain. Public
+  signatures and bindings are unchanged. See `docs/methodology/matrix.md`.
+
+- `script`: The script parser now rejects extra `DCF` arguments. The parser
+  previously skipped every token after the third `DCF` argument, so malformed
+  calls passed validation; the argument list must now be consumed completely,
+  and excess arguments throw `ScriptError_`. Correct usage is unaffected.
+
 ## 2026-07
 
 - `curve`: Added immutable native rate-cashflow planning and pricing for
@@ -63,7 +78,8 @@ here as the baseline rather than dated releases:
   including explicit historical rate/FX fixing demand, snapshot admission,
   passive and AAD valuation, and first-order node sensitivities. The same
   typed batch surface is additive in public C++ and Python. See
-  `docs/public-api.md` and `docs/curve-lab.md`.
+  `docs/public-api.md` and `docs/curve-lab.md` (moved to
+  https://github.com/wegamekinglc/dal-web).
 
 - `web`: Added the Curve Lab DAL-WEB workflow for visual seven-family
   authoring with latest-request-wins canonical quote application and
@@ -71,7 +87,8 @@ here as the baseline rather than dated releases:
   asynchronous build/import/risk runs, native `Storable_` JSON and `Bag_`
   version persistence, dependency/fixing provenance, exact quote axes,
   PV/DV01/KRD results, and replayable sensitivity matrices. See
-  `docs/curve-lab.md` and `dal-web/README.md`.
+  `docs/curve-lab.md` (moved to https://github.com/wegamekinglc/dal-web) and
+  `dal-web/README.md` (now at https://github.com/wegamekinglc/dal-web).
 
 - `matrix`: Added exact scaled-`alpha` candidate combination for `Sparse::CGSolve`
   and `Sparse::BCGSolve`. When the standalone binary64 coefficient is unsafe, the
@@ -221,7 +238,8 @@ here as the baseline rather than dated releases:
   handles. Base curves are referenced by ID and recursively expanded on read;
   quote-bump previews are calculated per GET request from the persisted effective
   inverse and are not stored. Completed results survive a database-backed restart;
-  orphaned running calibrations become failed on startup. See `dal-web/README.md`.
+  orphaned running calibrations become failed on startup. See `dal-web/README.md`
+  (now at https://github.com/wegamekinglc/dal-web).
 - `web`: Defined the backend as native-only and added startup preflight checks that
   preserve and validate the locally installed `dal` package before Uvicorn starts.
 

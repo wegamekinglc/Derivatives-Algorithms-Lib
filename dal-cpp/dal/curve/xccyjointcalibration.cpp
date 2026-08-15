@@ -28,9 +28,6 @@ namespace Dal {
         using JointCalibrationInternal::CurveCollectionSpec_;
         using JointCalibrationInternal::CurveSlot_;
 
-        constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
-        constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
-
         String_ PairName(const CurrencyPair_& pair) { return String_(pair.domestic_.String()) + "/" + pair.foreign_.String(); }
 
         String_ TenorName(const PeriodLength_& tenor) { return String::FromInt(tenor.Months()) + "M (" + tenor.String() + ")"; }
@@ -50,7 +47,7 @@ namespace Dal {
 
         CurveDefinition_ BasisDefinition(const JointXccyCalibrationSpec_& spec) {
             return MakeCurveDefinition(spec.basis_.curveName_, spec.pair_.domestic_.String(), spec.basis_.parameterization_, spec.basis_.logDfScheme_,
-                                       spec.basis_.knotDates_, spec.valuationTime_.Date(), DayBasis_("ACT_365F"));
+                                       spec.basis_.knotDates_, spec.valuationTime_.Date(), DayBasis::Act365F());
         }
 
         String_ DiscountSlotName(const JointCurrencyCurveSpec_& currency, const CollateralType_& collateral) {
@@ -261,7 +258,7 @@ namespace Dal {
                                          const String_& group,
                                          const Date_& anchor,
                                          AnalyticEligibilityReport_* report) {
-            if (currency.liborBasis_.String() != String_("ACT_365F")) {
+            if (!HasAct365FLiborBasis(currency.liborBasis_)) {
                 const String_ label = group == String_("domestic") ? String_("Domestic") : String_("Foreign");
                 AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, group, -1, -1, -1,
                                     label + " requires ACT_365F libor basis for an analytic Jacobian");
@@ -446,25 +443,16 @@ namespace Dal {
                            const Vector_<>& guess,
                            const Sparse::TriDiagonal_& smoothing,
                            int residualCount) {
-            Dictionary_ controlsDictionary;
-            controlsDictionary.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
-            controlsDictionary.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
-            UnderdeterminedControls_ controls(controlsDictionary);
             const Vector_<> tolerance(residualCount, spec.tolerance_);
 
             SolveResult_ result;
             result.approximate_ = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            if (result.approximate_) {
-                result.parameters_ = Underdetermined::Approximate(function, guess, tolerance, spec.fitTolerance_, smoothing, controls);
-                return result;
-            }
-
-            result.hasEffectiveInverse_ = options.computeEffJacobianInverse_;
-            const bool wantForward = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC;
-            std::unique_ptr<Sparse::SymmetricDecomposition_> decomposition(smoothing.DecomposeSymmetric());
-            result.parameters_ = Underdetermined::Find(function, guess, tolerance, *decomposition, controls,
-                                                       result.hasEffectiveInverse_ ? &result.effectiveInverse_ : nullptr,
-                                                       wantForward ? &result.forwardJacobian_ : nullptr);
+            result.hasEffectiveInverse_ = !result.approximate_ && options.computeEffJacobianInverse_;
+            const bool wantForward =
+                !result.approximate_ && options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC;
+            result.parameters_ = RunCurveSolver(function, guess, tolerance, !result.approximate_, spec.fitTolerance_, smoothing, spec.maxEvaluations_,
+                                                spec.maxRestarts_, result.hasEffectiveInverse_ ? &result.effectiveInverse_ : nullptr,
+                                                wantForward ? &result.forwardJacobian_ : nullptr);
             return result;
         }
 
@@ -622,10 +610,9 @@ namespace Dal {
         SolveResult_ solve = Solve(spec, options, function, guess, *smoothing, layout.totalResiduals_);
         JointXccyCalibrationResult_ result = AssembleResult(spec, layout, function, &evaluationCount, fixings, &solve);
         const double convergenceBound = spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 10.0 * spec.tolerance_ : 10.0 * spec.fitTolerance_;
-        if (result.jointMaxAbsResidual_ > convergenceBound) {
-            const String_ message = "Joint XCCY calibration failed to converge for pair " + PairName(spec.pair_) +
-                                    ": maxAbsResidual = " + String::FromDouble(result.jointMaxAbsResidual_) + " after " +
-                                    String::FromInt(result.solverEvaluations_) + " evaluations";
+        if (!ResidualsWithinBar(result.residuals_, convergenceBound)) {
+            const String_ message = "Joint XCCY calibration failed to converge for pair " + PairName(spec.pair_) + ": " +
+                                    NonConvergenceStats(result.residuals_, result.solverEvaluations_, false);
             THROW2(message, Underdetermined::ConvergenceError_);
         }
         return result;

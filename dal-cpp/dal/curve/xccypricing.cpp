@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/time/dateincrement.hpp>
@@ -111,10 +112,7 @@ namespace Dal {
         }
 
         template <class T_> T_ DiscountFromValuation(const Tape::DiscountCurve_<T_>& curve, const DateTime_& valuationTime, const Date_& date) {
-            const T_ result = date == valuationTime.Date() ? T_(1.0) : curve(valuationTime.Date(), date);
-            const double value = Dal::AAD::Value(result);
-            REQUIRE(std::isfinite(value) && value > 0.0, "XCCY pricing requires positive finite discount factors");
-            return result;
+            return Tape::DiscountFromValuation(curve, valuationTime, date, "XCCY pricing requires positive finite discount factors");
         }
 
         template <class T_, class F_>
@@ -241,18 +239,12 @@ namespace Dal {
 
 namespace Dal {
     namespace {
-        template <class T_>
-        const Tape::DiscountCurve_<T_>& ForecastCurve(const Tape::JointCurveBlock_<T_>& block, const RateIndexConvention_& convention) {
-            return convention.useProjectionCurve_ ? block.Forward(convention.forecastTenor_, convention.collateral_)
-                                                  : block.Discount(convention.collateral_);
-        }
-
         template <class T_> T_ ActiveForwardRate(const XccyCouponPeriod_& period, const Tape::DiscountCurve_<T_>& forecast) {
             const T_ df = forecast(period.schedule_.accrualStart_, period.schedule_.accrualEnd_);
             const double dfValue = Dal::AAD::Value(df);
             REQUIRE(std::isfinite(dfValue) && dfValue > 0.0 && period.accrual_.dcf_ > 0.0,
                     "XCCY floating coupon requires positive finite forecast discount factor and positive accrual fraction");
-            return (T_(1.0) / df - T_(1.0)) / static_cast<double>(period.accrual_.dcf_);
+            return Tape::ForwardRateFromDf(df, static_cast<double>(period.accrual_.dcf_));
         }
 
         template <class T_>
@@ -387,8 +379,8 @@ namespace Dal {
         const auto& convention = plan.config_.convention_;
         const auto& domesticDiscount = market.domestic_->Discount(convention.domesticIndex_.collateral_);
         const auto& foreignDiscount = market.foreign_->Discount(convention.foreignIndex_.collateral_);
-        const auto& domesticForecast = ForecastCurve(*market.domestic_, convention.domesticIndex_);
-        const auto& foreignForecast = ForecastCurve(*market.foreign_, convention.foreignIndex_);
+        const auto& domesticForecast = Tape::ForecastCurve(*market.domestic_, convention.domesticIndex_);
+        const auto& foreignForecast = Tape::ForecastCurve(*market.foreign_, convention.foreignIndex_);
         REQUIRE(domesticDiscount.ccy_ == plan.config_.pair_.domestic_ && foreignDiscount.ccy_ == plan.config_.pair_.foreign_,
                 "XCCY discount curves do not match the configured currency pair");
 

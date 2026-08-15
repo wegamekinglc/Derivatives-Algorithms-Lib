@@ -11,6 +11,7 @@
 
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
@@ -55,11 +56,7 @@ namespace Dal {
         }
 
         double Discount(const DiscountCurve_& curve, const DateTime_& valuationTime, const Date_& paymentDate) {
-            if (paymentDate < valuationTime.Date())
-                return 0.0;
-            const double result = paymentDate == valuationTime.Date() ? 1.0 : curve(valuationTime.Date(), paymentDate);
-            REQUIRE(std::isfinite(result) && result > 0.0, "Rate pricing requires positive finite discount factors");
-            return result;
+            return Tape::DiscountFromValuation(curve, valuationTime, paymentDate, "Rate pricing requires positive finite discount factors");
         }
 
         void AddUnique(const String_& value, Vector_<String_>* values) {
@@ -82,7 +79,7 @@ namespace Dal {
             const double df = forecast(start, maturity);
             REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(df) && df > 0.0,
                     "Floating rate pricing requires positive finite accrual and forecast discount factor");
-            return (1.0 / df - 1.0) / accrual;
+            return Tape::ForwardRateFromDf(df, accrual);
         }
 
         double ResolveRate(const SchedulePeriod_& period,
@@ -355,12 +352,12 @@ namespace Dal {
                         if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWC_<double>*>) {
                             result.definition_ = MakeCurveDefinition(
                                 taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis_("ACT_365F"));
+                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
                             result.passiveParameters_ = taggedCurve->FRight();
                         } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWLF_<double>*>) {
                             result.definition_ = MakeCurveDefinition(
                                 taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis_("ACT_365F"));
+                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
                             const Vector_<> left = taggedCurve->FLeft();
                             const Vector_<> right = taggedCurve->FRight();
                             result.passiveParameters_ = Vector_<>(2 * left.size());

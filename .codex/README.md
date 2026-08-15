@@ -7,7 +7,8 @@ non-agent workflows, and active work records.
 
 - `.codex/agents/` registers ten named DAL specialists and contains their complete role contracts.
 - `.codex/references/` contains shared C++, test, review, performance, and Git conventions.
-- `.codex/skills/` contains only reusable workflows without dedicated agents: `dal-git-pr`.
+- `.codex/skills/` contains reusable workflows without dedicated agents (`dal-git-pr`), plus the
+  compatibility-only `dal-agent-team/` shim described under References below.
 - `.codex/artifacts/` contains only work products that still control active work.
 
 `CLAUDE.md` remains canonical only for shared build/test commands and architecture.
@@ -36,9 +37,6 @@ protected Claude and Copilot links valid while routing readers to the current su
 Create durable artifacts only when they control active work. Remove completed artifacts after
 their current-state outcome is documented and Git history preserves implementation and review
 history.
-
-The active DAL-92 documentation audit is recorded under
-`.codex/artifacts/DAL-92/doc-writer/` until independent review is complete.
 
 ## Preserved Claude Sources
 

@@ -30,17 +30,9 @@ namespace Dal {
             RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
         }
 
-        bool IsHoliday(const Vector_<Date_>& holidays, Vector_<Date_>::const_iterator* nextHoliday, const Date_& date) {
-            if (*nextHoliday != holidays.end() && **nextHoliday == date) {
-                ++(*nextHoliday);
-                return true;
-            }
-            return false;
-        }
-
-        bool IsWorkWeekend(const Vector_<Date_>& workWeekends, Vector_<Date_>::const_iterator* nextWorkWeekend, const Date_& date) {
-            if (*nextWorkWeekend != workWeekends.end() && **nextWorkWeekend == date) {
-                ++(*nextWorkWeekend);
+        bool StepIfMatch(const Vector_<Date_>& dates, Vector_<Date_>::const_iterator* next, const Date_& date) {
+            if (*next != dates.end() && **next == date) {
+                ++(*next);
                 return true;
             }
             return false;
@@ -55,12 +47,12 @@ namespace Dal {
             int retval = 0;
             for (Date_ d = stop; d < end; ++d) {
                 if (!Date::IsWeekEnd(d)) {
-                    if (IsHoliday(holidays, &nextHoliday, d))
+                    if (StepIfMatch(holidays, &nextHoliday, d))
                         continue;
                     ++retval;
                 }
 
-                if (IsWorkWeekend(workWeekends, &nextWorkWeekend, d))
+                if (StepIfMatch(workWeekends, &nextWorkWeekend, d))
                     ++retval;
             }
             return retval;

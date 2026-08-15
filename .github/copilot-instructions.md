@@ -44,12 +44,12 @@ clang-19, clang-20, plus MSVC.
 
 Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`. The published map is [docs/architecture.md](../docs/architecture.md).
 
-| Sub-project   | Target / purpose                                        |
-|---------------|---------------------------------------------------------|
-| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD |
-| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`   |
-| `dal-python/` | pybind11 Python bindings (`dal` package)                |
-| `dal-excel/`  | `.xll` add-in, Windows-only                             |
+| Sub-project   | Target / purpose                                                                  |
+|---------------|-----------------------------------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD                           |
+| `dal-public/` | `DAL::public` — convenience facade over `DAL::cpp`; not a stable API/ABI boundary |
+| `dal-python/` | pybind11 Python bindings (`dal` package)                                          |
+| `dal-excel/`  | `.xll` add-in, Windows-only                                                       |
 
 Core modules: `math/` (interp, opt, PDE, RNG, matrix, `aad/`), `script/` (lexer → parser →
 AST → simulation), `model/`, `curve/`, `indice/`, `risk/`, `concurrency/`, `storage/`,
@@ -85,4 +85,6 @@ Naming, type idioms, error handling, and enum markup follow
 
 - Python: **uv** is recommended for `dal-python/`; standalone `dal-python` package
   builds also support pip.
-- DAL agent rules: `.codex/skills/*/SKILL.md` and `.codex/skills/dal-agent-team/references/shared-rules.md`.
+- DAL agent rules: `.codex/skills/dal-git-pr/SKILL.md` (the only skill shipping a `SKILL.md`;
+  `dal-agent-team/` holds compatibility references only) and
+  `.codex/skills/dal-agent-team/references/shared-rules.md`.

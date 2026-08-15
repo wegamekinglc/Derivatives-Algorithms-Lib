@@ -26,16 +26,16 @@ cmake --build build/Debug-linux -j32
 cmake --install build/Debug-linux
 ```
 
-The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options:
+The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options. The agent-critical subset:
 
-- `DAL_BUILD_PUBLIC` (default `ON`) — build `dal-public`
-- `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (pybind11 + Python package)
-- `DAL_BUILD_EXCEL` (default `OFF`) — build `dal-excel` (Windows-only)
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
-- `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
+- `DAL_PUBLIC_BUILD_TESTS` (default `ON`) — build the `dal-public` test suite
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
+- `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (pybind11 + Python package)
 - `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
 - `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` to the compile and link of every target in the workspace, plus compile-only `-fno-omit-frame-pointer`
+
+The full workspace option table (sub-project, example, native-arch, and MSVC-runtime toggles) lives in [docs/installation.md](docs/installation.md#common-cmake-options).
 
 CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 

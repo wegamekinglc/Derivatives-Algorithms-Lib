@@ -46,8 +46,6 @@ namespace Dal {
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
-        constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
-        constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
 
         void AddAnalyticIssue(AnalyticEligibilityReport_* report,
                               AnalyticIneligibilityReason_ reason,
@@ -245,8 +243,8 @@ namespace Dal {
             for (const auto& node : result->resolvedDeclaredNodes_)
                 resolvedDates.push_back(node.date_);
             RequireLogDiscountAnchor(*result, resolvedDates, parameterization, today);
-            const CurveDefinition_ definition = MakeCurveDefinition("planned", "", parameterization, LogDfScheme_::Value_::LOG_LINEAR,
-                                                                    resolvedDates, today, DayBasis_("ACT_365F"));
+            const CurveDefinition_ definition =
+                MakeCurveDefinition("planned", "", parameterization, LogDfScheme_::Value_::LOG_LINEAR, resolvedDates, today, DayBasis::Act365F());
             result->freeParameters_ = DescribeCurveFreeParameters(definition);
             result->storageNodes_.reserve(definition.nodeDates_.size());
             for (const auto& date : definition.nodeDates_) {
@@ -584,19 +582,10 @@ namespace Dal {
                                            const Sparse::TriDiagonal_& weights,
                                            bool computeEffJacobianInverse,
                                            Matrix_<>* fwdJacobian) {
-            Dictionary_ ctrlDict;
-            ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
-            ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
-            UnderdeterminedControls_ controls(ctrlDict);
-
             SolverOutput_ out;
-            if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
-                std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                Matrix_<>* effJacobianInverse = computeEffJacobianInverse ? &out.effJacobianInverse_ : nullptr;
-                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse, fwdJacobian);
-            } else {
-                out.result_ = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
-            }
+            out.result_ =
+                RunCurveSolver(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, spec.fitTolerance_, weights, spec.maxEvaluations_,
+                               spec.maxRestarts_, computeEffJacobianInverse ? &out.effJacobianInverse_ : nullptr, fwdJacobian);
             return out;
         }
 

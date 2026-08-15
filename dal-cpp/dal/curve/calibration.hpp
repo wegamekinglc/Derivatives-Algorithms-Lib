@@ -221,7 +221,7 @@ namespace Dal {
         CollateralType_ targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         PeriodLength_ targetTenor_;
         bool calibrateDiscountCurve_ = true;
-        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ liborBasis_ = DayBasis::Act365F();
         double smoothingWeight_ = 1.0;
         double tolerance_ = 1.0e-8;
         double fitTolerance_ = 1.0e-6;
@@ -273,7 +273,7 @@ namespace Dal {
         String_ name_ = "bundle";
         String_ ccy_;
         Vector_<CurveCalibrationSpec_> stages_;
-        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ liborBasis_ = DayBasis::Act365F();
     };
 
     struct MultiCurveCalibrationResult_ {

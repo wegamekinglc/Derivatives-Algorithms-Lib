@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-07-24
+Last updated: 2026-08-15
 
 Codex-native guidance for this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.

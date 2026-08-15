@@ -5,6 +5,7 @@
 #include <cmath>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/fittable.hpp>
+#include <dal/curve/tapediscount.hpp>
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -70,17 +71,10 @@ namespace Dal {
         template <class T_, class B_> T_ DiscountLogDF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
             const double yfFrom = dayCount_(nodeDates_.front(), from, nullptr);
             const double yfTo = dayCount_(nodeDates_.front(), to, nullptr);
-            if constexpr (std::is_same_v<T_, double>) {
-                const double logDfFrom = LogDfAt(yfFrom);
-                const double logDfTo = LogDfAt(yfTo);
-                return std::exp(logDfTo - logDfFrom) * (this->base_ ? (*this->base_)(from, to) : 1.0);
-            } else {
-                const T_ logDfFrom = LogDfAt(yfFrom);
-                const T_ logDfTo = LogDfAt(yfTo);
-                if (this->base_)
-                    return Dal::AAD::exp(logDfTo - logDfFrom) * (*this->base_)(from, to);
-                return Dal::AAD::exp(logDfTo - logDfFrom);
-            }
+            const T_ logDfFrom = LogDfAt(yfFrom);
+            const T_ logDfTo = LogDfAt(yfTo);
+            const T_ logDf = logDfTo - logDfFrom;
+            return DiscountFromLogDf(logDf, this->base_, from, to);
         }
 
         template <class T_, class B_> T_ DiscountLogDF_<T_, B_>::LogDfAt(double yf) const { return interpolation_->Evaluate(logDF_, yf); }
@@ -94,7 +88,7 @@ namespace Dal {
         }
 
         template <class T_, class B_> void DiscountLogDF_<T_, B_>::Write(Archive::Store_& dst) const {
-            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+            if constexpr (IsDoubleSerializable<T_, B_>()) {
                 Vector_<> logDFDouble(logDF_.size());
                 for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
                     logDFDouble[i] = Dal::AAD::Value(logDF_[i]);

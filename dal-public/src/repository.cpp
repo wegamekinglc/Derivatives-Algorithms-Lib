@@ -12,8 +12,8 @@ namespace Dal {
     namespace {
         const ObjectAccess_* RequireRepo_() {
             ENV_SEED_TYPE(ObjectAccess_); // POSTPONED -- mark this function as taking _ENV input
-            auto repo = Environment::Find<ObjectAccess_>(_env);
-            REQUIRE(repo, "no repo found");
+            const auto* repo = Environment::Find<ObjectAccess_>(_env);
+            REQUIRE(repo, "no repo found in the environment");
             return repo;
         }
     } // namespace

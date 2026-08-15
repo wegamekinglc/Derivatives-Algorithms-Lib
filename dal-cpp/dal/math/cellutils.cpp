@@ -2,6 +2,8 @@
 // Created by wegam on 2020/10/25.
 //
 
+#include <charconv>
+#include <system_error>
 #include <dal/platform/strict.hpp>
 #include <dal/math/cellutils.hpp>
 #include <dal/string/strings.hpp>
@@ -14,11 +16,15 @@ namespace Dal {
         if (Cell::IsString(src))
             return Cell::ToString(src);
         if (Cell::IsBool(src))
-            return Cell::ToBool(src) ? String_("true") : String_("false");
+            return Cell::ToBool(src) ? String_("TRUE") : String_("FALSE");
         if (Cell::IsInt(src))
             return String::FromInt(Cell::ToInt(src));
-        if (Cell::IsDouble(src))
-            return String::FromDouble(Cell::ToDouble(src));
+        if (Cell::IsDouble(src)) {
+            // shortest round-trip representation, so file round-trip preserves the value
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), Cell::ToDouble(src));
+            return String_(buf, result.ptr);
+        }
         if (Cell::IsDate(src))
             return Date::ToString(Cell::ToDate(src));
         if (Cell::IsDateTime(src))

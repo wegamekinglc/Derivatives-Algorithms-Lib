@@ -22,6 +22,17 @@ div is number
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+    namespace {
+        Vector_<String_> BlackScholesLabels() {
+            Vector_<String_> labels(4);
+            labels[0] = "spot";
+            labels[1] = "vol";
+            labels[2] = "rate";
+            labels[3] = "div";
+            return labels;
+        }
+    } // namespace
+
     namespace AAD {
         template <class T_ = double> class BlackScholes_ : public Model_<T_> {
             T_ spot_;
@@ -59,12 +70,7 @@ namespace Dal {
                           const U_& vol,
                           const U_& rate = U_(0.0),
                           const U_& div = U_(0.0))
-                : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(4) {
-                parameterLabels_[0] = "spot";
-                parameterLabels_[1] = "vol";
-                parameterLabels_[2] = "rate";
-                parameterLabels_[3] = "div";
-
+                : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(BlackScholesLabels()) {
                 SetParamPointers();
             }
 
@@ -156,11 +162,7 @@ namespace Dal {
                      double rate = 0.0,
                      double div = 0.0)
                      : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
-            parameterLabels_.Resize(4);
-            parameterLabels_[0] = "spot";
-            parameterLabels_[1] = "vol";
-            parameterLabels_[2] = "rate";
-            parameterLabels_[3] = "div";
+            parameterLabels_ = BlackScholesLabels();
         }
 
         void Write(Archive::Store_& dst) const override;

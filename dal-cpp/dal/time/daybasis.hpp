@@ -36,4 +36,9 @@ namespace Dal {
     } // namespace DayBasis
 
 #include <dal/auto/MG_DayBasis_enum.hpp>
+
+    namespace DayBasis {
+        // Canonical ACT/365F basis -- the libor basis assumed by curve calibration and pricing blocks.
+        [[nodiscard]] inline DayBasis_ Act365F() { return DayBasis_("ACT_365F"); }
+    } // namespace DayBasis
 } // namespace Dal

@@ -6,6 +6,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/calibration.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/time/periodlength.hpp>
 
 namespace Dal {
@@ -18,7 +19,7 @@ namespace Dal {
     } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
-        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_("ACT_365F") {}
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_(DayBasis::Act365F()) {}
 
     CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
         : CurveBlock_(CheckedCurve(dc).name_,
@@ -88,7 +89,7 @@ namespace Dal {
         REQUIRE(maturity > fixingDate, "FwdLibor requires fixing date before maturity");
         const double df = forecast(fixingDate, maturity);
         REQUIRE(df > 0.0, "FwdLibor requires positive forecast discount factor");
-        return (1.0 / df - 1.0) / liborBasis_(fixingDate, maturity, nullptr);
+        return Tape::ForwardRateFromDf(df, liborBasis_(fixingDate, maturity, nullptr));
     }
 
     void CurveBlock_::Write(Archive::Store_&) const {
