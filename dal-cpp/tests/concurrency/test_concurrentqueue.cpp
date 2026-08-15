@@ -116,11 +116,11 @@ TEST(ConcurrencyTest, TestConcurrentQueueSingleProducerSingleConsumer) {
 
     // The consumer pops exactly `count` items; Pop only fails on Interrupt, which never fires
     // here, so the join-based protocol needs no timing assumptions.
-    thread producer([&queue]() {
+    thread producer([&queue, count]() {
         for (int i = 0; i < count; ++i)
             queue.Push(i);
     });
-    thread consumer([&queue, &consumed]() {
+    thread consumer([&queue, &consumed, count]() {
         for (int i = 0; i < count; ++i) {
             int out = -1;
             if (queue.Pop(out))
@@ -144,7 +144,7 @@ TEST(ConcurrencyTest, TestConcurrentQueueMultiProducerDrainConservesCount) {
     vector<thread> producers;
     producers.reserve(numProducers);
     for (int p = 0; p < numProducers; ++p) {
-        producers.emplace_back([&queue, p]() {
+        producers.emplace_back([&queue, p, perProducer]() {
             for (int i = 0; i < perProducer; ++i)
                 queue.Push(p * perProducer + i);
         });
