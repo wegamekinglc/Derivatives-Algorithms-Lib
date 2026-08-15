@@ -8,48 +8,73 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The matrix is generated rather than declared inline for two reasons:
+  #
+  # 1. Push events (master merges, direct branch pushes) run a lean subset --
+  #    gcc-14 and clang-20 across all four AAD backends (8 legs) -- because
+  #    pull requests already ran the full 6 x 4 matrix before merge. Pull
+  #    requests still get every compiler x backend combination.
+  # 2. Coverage is consolidated onto the single gcc-14/aadet leg, the only
+  #    one Coveralls consumes. Every backend is still fully compiled and
+  #    tested; the dropped legs only repeated gcov-instrumented builds whose
+  #    lcov output nobody read.
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - id: generate
+        run: |
+          python3 - "${{ github.event_name }}" <<'PYEOF' >> "$GITHUB_OUTPUT"
+          import json
+          import sys
+
+          event = sys.argv[1]
+
+          compilers = [
+              {"compiler": "clang-18", "cc": "clang-18", "cxx": "clang++-18",
+               "packages": "clang-18 libomp-18-dev libstdc++-14-dev"},
+              {"compiler": "clang-19", "cc": "clang-19", "cxx": "clang++-19",
+               "packages": "clang-19 libomp-19-dev libstdc++-14-dev"},
+              {"compiler": "clang-20", "cc": "clang-20", "cxx": "clang++-20",
+               "packages": "clang-20 libomp-20-dev libstdc++-14-dev"},
+              {"compiler": "gcc-13", "cc": "gcc-13", "cxx": "g++-13",
+               "packages": "gcc-13 g++-13"},
+              {"compiler": "gcc-14", "cc": "gcc-14", "cxx": "g++-14",
+               "packages": "gcc-14 g++-14"},
+              # gcc-15 comes from ppa:ubuntu-toolchain-r/test, not the Ubuntu
+              # 24.04 archive; the build job adds the PPA for this leg.
+              {"compiler": "gcc-15", "cc": "gcc-15", "cxx": "g++-15",
+               "packages": "gcc-15 g++-15"},
+          ]
+          backends = ["aadet", "xad", "codipack", "adept"]
+          push_compilers = {"gcc-14", "clang-20"}
+
+          include = []
+          for entry in compilers:
+              if event == "push" and entry["compiler"] not in push_compilers:
+                  continue
+              for backend in backends:
+                  leg = dict(entry)
+                  leg["aad-backend"] = backend
+                  leg["coverage"] = (
+                      entry["compiler"] == "gcc-14" and backend == "aadet")
+                  if leg["coverage"]:
+                      leg["gcov"] = "gcov-14"
+                  include.append(leg)
+
+          print(f"matrix={json.dumps({'include': include})}")
+          PYEOF
+
   build:
+    # Explicit name keeps the historical "build (<compiler>, <backend>)"
+    # check names stable for branch protection and log searching.
+    name: build (${{ matrix.compiler }}, ${{ matrix.aad-backend }})
+    needs: define-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        compiler: [clang-18, clang-19, clang-20, gcc-13, gcc-14, gcc-15]
-        aad-backend: [aadet, xad, codipack, adept]
-        include:
-          - compiler: clang-18
-            cc: clang-18
-            cxx: clang++-18
-            packages: clang-18 libomp-18-dev libstdc++-14-dev
-            coverage: false
-          - compiler: clang-19
-            cc: clang-19
-            cxx: clang++-19
-            packages: clang-19 libomp-19-dev libstdc++-14-dev
-            coverage: false
-          - compiler: clang-20
-            cc: clang-20
-            cxx: clang++-20
-            packages: clang-20 libomp-20-dev libstdc++-14-dev
-            coverage: false
-          - compiler: gcc-13
-            cc: gcc-13
-            cxx: g++-13
-            packages: gcc-13 g++-13
-            coverage: true
-            gcov: gcov-13
-          - compiler: gcc-14
-            cc: gcc-14
-            cxx: g++-14
-            packages: gcc-14 g++-14
-            coverage: true
-            gcov: gcov-14
-          # gcc-15 comes from ppa:ubuntu-toolchain-r/test (not in the Ubuntu
-          # 24.04 archive); coverage stays on gcc-13/gcc-14 to keep gcov legs lean.
-          - compiler: gcc-15
-            cc: gcc-15
-            cxx: g++-15
-            packages: gcc-15 g++-15
-            coverage: false
+      matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -58,8 +83,8 @@ jobs:
 
       # The action's key gets only a "ccache-" prefix and a trailing
       # timestamp, so the key itself must carry every matrix dimension
-      # (OS, compiler, backend) to keep the 24 jobs from colliding.
-      # Coverage legs are excluded: cache hits skip compilation, and the
+      # (OS, compiler, backend) to keep the matrix legs from colliding.
+      # The coverage leg is excluded: cache hits skip compilation, and the
       # .gcno notes gcov needs are only emitted when the compiler runs.
       - name: Setup ccache
         if: matrix.coverage == false
@@ -104,7 +129,7 @@ jobs:
               FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
           esac
           # Python bindings are backend-agnostic — tested separately in
-          # the build-extended job so the 24-job matrix stays lean.
+          # the build-extended job so the matrix stays lean.
           FLAGS="$FLAGS -DDAL_BUILD_PYTHON=OFF"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
@@ -146,8 +171,9 @@ jobs:
             lcov --list coverage/lcov.info --ignore-errors empty
           fi
 
+      # Only one leg carries coverage (gcc-14/aadet) — see define-matrix.
       - name: Coveralls
-        if: matrix.coverage && matrix.compiler == 'gcc-14' && matrix.aad-backend == 'aadet'
+        if: matrix.coverage
         uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -181,7 +207,7 @@ jobs:
 
       - name: Build CoDiPack
         run: |
-          cmake --build build/Release-codipack --parallel 2
+          cmake --build build/Release-codipack --parallel "$(nproc)"
 
       - name: Test CoDiPack thread isolation
         run: |
@@ -190,12 +216,12 @@ jobs:
 
       - name: Test CoDiPack suite
         run: |
-          ctest --test-dir build/Release-codipack --output-on-failure -LE benchmark
+          ctest --test-dir build/Release-codipack --output-on-failure --parallel "$(nproc)" -LE benchmark
 
   # Extended build: dal-cpp + dal-public + dal-python.
-  # Lives in a separate job so the main 24-job compiler×backend matrix
-  # stays lean — the Python bindings are backend-agnostic, so testing
-  # them against one representative configuration is sufficient.
+  # Lives in a separate job so the main compiler×backend matrix stays
+  # lean — the Python bindings are backend-agnostic, so testing them
+  # against one representative configuration is sufficient.
   build-extended:
     runs-on: ubuntu-latest
     env:
@@ -244,7 +270,7 @@ jobs:
 
       - name: Verify generated sources
         run: |
-          cmake --build build/Release-linux --target dal_check_generated --parallel 2
+          cmake --build build/Release-linux --target dal_check_generated --parallel "$(nproc)"
 
   documentation:
     name: Documentation integrity
@@ -304,7 +330,7 @@ jobs:
             -DDAL_USE_XAD_AAD=OFF \
             -DDAL_USE_CODIPACK_AAD=OFF \
             -DDAL_USE_ADEPT_AAD=OFF
-          cmake --build "$build_dir" --target dal_cpp dal_public --parallel 2
+          cmake --build "$build_dir" --target dal_cpp dal_public --parallel "$(nproc)"
 
   sanitizers:
     name: ${{ matrix.label }}
@@ -367,7 +393,7 @@ jobs:
           if [ -n '${{ matrix.public-filter }}' ]; then
             targets+=(dal_public_tests)
           fi
-          cmake --build "$build_dir" --target "${targets[@]}" --parallel 2
+          cmake --build "$build_dir" --target "${targets[@]}" --parallel "$(nproc)"
           echo "SANITIZER_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
 
       - name: Run focused core tests

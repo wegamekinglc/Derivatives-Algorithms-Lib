@@ -157,7 +157,7 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          ctest --test-dir build/Release-windows --output-on-failure --verbose -C Release
+          ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release
 
       - name: Test installed CMake consumer
         shell: pwsh
