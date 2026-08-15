@@ -406,10 +406,15 @@ def check_current_state_doc_locations(errors: list[str], root: Path = ROOT) -> N
 def check_ci_compiler_inventory(errors: list[str]) -> None:
     workflow = (ROOT / ".github/workflows/cmake-linux.yml").read_text(encoding="utf-8")
     match = re.search(r"^\s*compiler:\s*\[([^]]+)\]", workflow, flags=re.MULTILINE)
-    if match is None:
+    if match is not None:
+        compilers = {value.strip() for value in match.group(1).split(",")}
+    else:
+        # The matrix is produced by the define-matrix job; the compiler
+        # inventory lives in its generator table as "compiler": "<name>".
+        compilers = set(re.findall(r'"compiler":\s*"([^"]+)"', workflow))
+    if not compilers:
         errors.append(".github/workflows/cmake-linux.yml: compiler matrix was not found")
         return
-    compilers = {value.strip() for value in match.group(1).split(",")}
     copilot = (ROOT / ".github/copilot-instructions.md").read_text(encoding="utf-8")
     missing = sorted(compiler for compiler in compilers if compiler not in copilot)
     if missing:
