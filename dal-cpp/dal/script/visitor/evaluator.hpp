@@ -44,6 +44,7 @@ namespace Dal::Script {
                 return *this;
             StateCore_::operator=(rhs);
             scenario_ = rhs.scenario_;
+            curEvt_ = rhs.curEvt_;
             return *this;
         }
 
@@ -51,6 +52,7 @@ namespace Dal::Script {
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             StateCore_::operator=(std::move(rhs));
             scenario_ = rhs.scenario_;
+            curEvt_ = rhs.curEvt_;
             return *this;
         }
 

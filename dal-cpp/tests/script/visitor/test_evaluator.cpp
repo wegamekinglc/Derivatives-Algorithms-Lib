@@ -296,3 +296,37 @@ TEST(ScriptTest, TestEvaluatorMoveConstructorPreservesVariablesInit) {
     ASSERT_NEAR(dst.VarVals()[0], 10.0, 1e-10);
     ASSERT_NEAR(dst.VarVals()[1], 20.0, 1e-10);
 }
+
+TEST(ScriptTest, TestEvaluatorCopyAssignmentPreservesCurrentEvent) {
+    // Regression: EvaluatorBase_ copy/move assignment copied scenario_ but not
+    // curEvt_, so an assigned evaluator read spot()/numeraire_ at a stale event
+    // index (default-constructed curEvt_ is size_t(-1), an out-of-bounds read).
+    Parser_ parser;
+    auto event = parser.Parse("x = spot()");
+    VarIndexer_ indexer;
+    for (auto& stat : event)
+        stat->Accept(indexer);
+    const Vector_<> vars(indexer.VarNames().size(), 0.0);
+
+    AAD::Scenario_<double> scenario(2);
+    scenario[0].spot_ = 100.0;
+    scenario[0].numeraire_ = 1.0;
+    scenario[1].spot_ = 250.0;
+    scenario[1].numeraire_ = 1.0;
+
+    Evaluator_<double> src(vars);
+    src.SetScenario(&scenario);
+    src.SetCurEvt(1);
+
+    Evaluator_<double> copyDst(vars);
+    copyDst = src;
+    for (auto& stat : event)
+        stat->Accept(copyDst);
+    ASSERT_NEAR(copyDst.VarVals()[0], 250.0, 1e-10);
+
+    Evaluator_<double> moveDst(vars);
+    moveDst = std::move(src);
+    for (auto& stat : event)
+        stat->Accept(moveDst);
+    ASSERT_NEAR(moveDst.VarVals()[0], 250.0, 1e-10);
+}

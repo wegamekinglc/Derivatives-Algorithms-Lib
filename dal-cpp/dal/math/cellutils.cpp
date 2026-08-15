@@ -3,6 +3,7 @@
 //
 
 #include <charconv>
+#include <system_error>
 #include <dal/platform/strict.hpp>
 #include <dal/math/cellutils.hpp>
 #include <dal/string/strings.hpp>
