@@ -40,7 +40,7 @@ namespace Dal {
         Date_ today_;
         String_ ccy_;
         Vector_<JointCurveDeclaration_> curves_;
-        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ liborBasis_ = DayBasis::Act365F();
         double tolerance_ = 1.0e-8;    // per-residual tol passed to the solver
         double fitTolerance_ = 1.0e-6; // APPROXIMATE fit tol
         double smoothingWeight_ = 1.0; // unused; per-declaration smoothingWeight_ is the active field

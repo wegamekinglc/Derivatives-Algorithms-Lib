@@ -16,7 +16,7 @@ namespace Dal {
         int fixingLag_ = 0;
         bool useProjectionCurve_ = false;
         PeriodLength_ forecastTenor_;
-        DayBasis_ dayBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ dayBasis_ = DayBasis::Act365F();
         BizDayConvention_ businessDayConvention_ = BizDayConvention_("Following");
         Holidays_ fixingHolidays_ = Holidays_("");
         Holidays_ accrualHolidays_ = Holidays_("");
@@ -27,7 +27,7 @@ namespace Dal {
     struct RateLegConvention_ {
         int paymentLag_ = 0;
         PeriodLength_ paymentFrequency_;
-        DayBasis_ dayBasis_ = DayBasis_("ACT_365F");
+        DayBasis_ dayBasis_ = DayBasis::Act365F();
         BizDayConvention_ businessDayConvention_ = BizDayConvention_("Following");
         BizDayConvention_ paymentConvention_ = BizDayConvention_("Following");
         Holidays_ accrualHolidays_ = Holidays_("");

@@ -352,12 +352,12 @@ namespace Dal {
                         if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWC_<double>*>) {
                             result.definition_ = MakeCurveDefinition(
                                 taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis_("ACT_365F"));
+                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
                             result.passiveParameters_ = taggedCurve->FRight();
                         } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWLF_<double>*>) {
                             result.definition_ = MakeCurveDefinition(
                                 taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis_("ACT_365F"));
+                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
                             const Vector_<> left = taggedCurve->FLeft();
                             const Vector_<> right = taggedCurve->FRight();
                             result.passiveParameters_ = Vector_<>(2 * left.size());

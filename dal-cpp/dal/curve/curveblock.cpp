@@ -19,7 +19,7 @@ namespace Dal {
     } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
-        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_("ACT_365F") {}
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_(DayBasis::Act365F()) {}
 
     CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
         : CurveBlock_(CheckedCurve(dc).name_,
