@@ -34,24 +34,24 @@ libraries.
 
 The main core namespaces live under `dal-cpp/dal/`:
 
-| Area           | Contents                                                                                                     |
-|----------------|--------------------------------------------------------------------------------------------------------------|
-| `math/`        | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives |
-| `math/aad/`    | Native and adapter-backed reverse-mode AAD facade                                                            |
-| `curve/`       | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
-| `script/`      | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
-| `model/`       | Black-Scholes, Dupire, implied- and local-volatility machinery                                               |
-| `time/`        | Dates, calendars, schedules, and day-count bases                                                             |
-| `protocol/`    | Market and contract conventions: accrual, payment, coupon, option types, collateral                          |
-| `currency/`    | Currency definitions and static data                                                                         |
-| `indice/`      | Index interfaces, fixing stores and immutable snapshots, name-driven parsers                                 |
-| `risk/`        | Risk report types and aggregation                                                                            |
-| `storage/`     | Storables, archives, process-wide dates/fixings, and repository integration                                  |
-| `concurrency/` | Lazy process-wide worker pool and synchronized task queue                                                    |
-| `platform/`    | Compile-time configuration, constants, host and process initialization                                       |
-| `io/`          | Excel driver/import helpers                                                                                  |
-| `string/`, `utilities/` | String type, algorithms, dictionary, and environment/composite helpers                                |
-| `auto/`        | Machinist-generated enums, storables, and readers/writers                                                    |
+| Area                    | Contents                                                                                                       |
+|-------------------------|----------------------------------------------------------------------------------------------------------------|
+| `math/`                 | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives   |
+| `math/aad/`             | Native and adapter-backed reverse-mode AAD facade                                                              |
+| `curve/`                | Discount/forward curves, calibration instruments, single- and multi-curve solvers                              |
+| `script/`               | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                    |
+| `model/`                | Black-Scholes, Dupire, implied- and local-volatility machinery                                                 |
+| `time/`                 | Dates, calendars, schedules, and day-count bases                                                               |
+| `protocol/`             | Market and contract conventions: accrual, payment, coupon, option types, collateral                            |
+| `currency/`             | Currency definitions and static data                                                                           |
+| `indice/`               | Index interfaces, fixing stores and immutable snapshots, name-driven parsers                                   |
+| `risk/`                 | Risk report types and aggregation                                                                              |
+| `storage/`              | Storables, archives, process-wide dates/fixings, and repository integration                                    |
+| `concurrency/`          | Lazy process-wide worker pool and synchronized task queue                                                      |
+| `platform/`             | Compile-time configuration, constants, host and process initialization                                         |
+| `io/`                   | Excel driver/import helpers                                                                                    |
+| `string/`, `utilities/` | String type, algorithms, dictionary, and environment/composite helpers                                         |
+| `auto/`                 | Machinist-generated enums, storables, and readers/writers                                                      |
 
 Methodology belongs in `docs/methodology/`; local source comments document the
 invariants needed to maintain a symbol safely.
