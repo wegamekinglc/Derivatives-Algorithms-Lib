@@ -224,6 +224,38 @@ TEST(ScriptTest, TestDebuggerTreeIfStatement) {
     ASSERT_EQ(lines[0], String_("(1) if spot() > BARRIER ⟨ε=0.1⟩ then alive ← 0"));
 }
 
+TEST(ScriptTest, TestDebuggerTreeNegPowIsParenthesized) {
+    //  -(a ^ b) must not render as the ambiguous "−a ^ b"
+    Expression_ a = MakeBaseNode<NodeVar_>("a");
+    Expression_ b = MakeBaseNode<NodeVar_>("b");
+    Expression_ powNode = MakeBaseBinary<NodePow_>(a, b);
+    auto neg = MakeNode<NodeUMinus_>();
+    neg->arguments_.Resize(1);
+    neg->arguments_[0] = std::move(powNode);
+
+    Debugger_ visitor;
+    neg->Accept(visitor);
+    Vector_<String_> lines;
+    DebugNodeTree(visitor.Top(), "", "", TreeStyle(false), 125, lines);
+    ASSERT_EQ(lines.size(), 1u);
+    ASSERT_EQ(lines[0], String_("−(a ^ b)"));
+}
+
+TEST(ScriptTest, TestDebuggerJsonStringPassesUtf8Through) {
+    //  Multi-byte sequences must pass through as UTF-8, never \u-escaped per byte
+    std::ostringstream utf8;
+    JsonWriteString(String_("naïve"), utf8);
+    ASSERT_EQ(utf8.str(), "\"naïve\"");
+
+    std::ostringstream quoted;
+    JsonWriteString(String_("a\"b\\c"), quoted);
+    ASSERT_EQ(quoted.str(), "\"a\\\"b\\\\c\"");
+
+    std::ostringstream control;
+    JsonWriteString(String_(std::string("a\nb", 3)), control);
+    ASSERT_EQ(control.str(), "\"a\\nb\"");
+}
+
 TEST(ScriptTest, TestDebuggerProductJson) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
     const Vector_<Cell_> dates = {Cell_("STRIKE"), Cell_(Date_(2023, 9, 25)), Cell_(Date_(2025, 9, 25))};

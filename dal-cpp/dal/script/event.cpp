@@ -107,18 +107,75 @@ namespace Dal::Script {
         return maxNestedIfs;
     }
 
+    namespace {
+        //  A fresh debugger per statement: the IR of previous statements would
+        //  otherwise stay on the stack and grow the dump's footprint
+        void DumpEventsJson(const Vector_<Date_>& dates,
+                            const Vector_<Event_>& events,
+                            const char* phase,
+                            size_t& eventId,
+                            size_t& nodeId,
+                            bool& firstEvent,
+                            std::ostream& ost) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                if (!firstEvent)
+                    ost << ',';
+                firstEvent = false;
+                ost << "{\"index\":" << eventId++ << ",\"date\":\"" << Date::ToString(dates[i])
+                    << "\",\"phase\":\"" << phase << "\",\"statements\":[";
+                for (size_t s = 0; s < events[i].size(); ++s) {
+                    if (s)
+                        ost << ',';
+                    Debugger_ d;
+                    events[i][s]->Accept(d);
+                    DebugNodeJson(d.Top(), nodeId, ost);
+                }
+                ost << "]}";
+            }
+        }
+
+        void DumpStatementTree(const Event_& statements, const TreeStyle_& st, int width, std::ostream& ost) {
+            for (size_t s = 0; s < statements.size(); ++s) {
+                Debugger_ d;
+                statements[s]->Accept(d);
+                Vector_<String_> lines;
+                const String_ first =
+                    String_(s + 1 == statements.size() ? st.elbow : st.tee) + "(" + String_(std::to_string(s + 1)) + ") ";
+                const String_ cont = String_(s + 1 == statements.size() ? st.blank : st.pipe);
+                DebugNodeTree(d.Top(), first, cont, st, width, lines);
+                for (const auto& line : lines)
+                    ost << line << '\n';
+            }
+        }
+
+        void DumpEventsTree(const Vector_<Date_>& dates,
+                            const Vector_<Event_>& events,
+                            const char* phase,
+                            size_t& eventId,
+                            const TreeStyle_& st,
+                            int width,
+                            std::ostream& ost) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                ost << st.eventS << ' ' << ++eventId << ' ' << st.dotS << ' ' << Date::ToString(dates[i]) << ' '
+                    << st.dotS << ' ' << phase << '\n';
+                DumpStatementTree(events[i], st, width, ost);
+                ost << '\n';
+            }
+        }
+    } // namespace
+
     void ScriptProduct_::Debug(std::ostream& ost) const {
         size_t v = 0;
         for (auto& variable : variables_)
             ost << "Var[" << v++ << "] = " << variable << std::endl;
 
-        Debugger_ d;
         size_t e = 0;
         for (auto i = 0; i < events_.size(); ++i) {
             auto& evtIt = events_[i];
             ost << "EventTime_: " << Date::ToString(eventDates_[i]) << "\tEvent_: " << ++e << std::endl;
             unsigned s = 0;
             for (const auto& stat : evtIt) {
+                Debugger_ d;
                 stat->Accept(d);
                 ost << "Statement_: " << ++s << std::endl;
                 ost << d.String() << std::endl;
@@ -154,25 +211,8 @@ namespace Dal::Script {
         size_t eventId = 0;
         size_t nodeId = 0;
         bool firstEvent = true;
-        const auto dump = [&](const Vector_<Date_>& dates, const Vector_<Event_>& events, const char* phase) {
-            for (size_t i = 0; i < events.size(); ++i) {
-                if (!firstEvent)
-                    ost << ',';
-                firstEvent = false;
-                ost << "{\"index\":" << eventId++ << ",\"date\":\"" << Date::ToString(dates[i])
-                    << "\",\"phase\":\"" << phase << "\",\"statements\":[";
-                Debugger_ d;
-                for (size_t s = 0; s < events[i].size(); ++s) {
-                    if (s)
-                        ost << ',';
-                    events[i][s]->Accept(d);
-                    DebugNodeJson(d.Top(), nodeId, ost);
-                }
-                ost << "]}";
-            }
-        };
-        dump(pastEventDates_, pastEvents_, "past");
-        dump(eventDates_, events_, "future");
+        DumpEventsJson(pastEventDates_, pastEvents_, "past", eventId, nodeId, firstEvent, ost);
+        DumpEventsJson(eventDates_, events_, "future", eventId, nodeId, firstEvent, ost);
         ost << "]}";
     }
 
@@ -200,27 +240,8 @@ namespace Dal::Script {
             ost << '\n';
         }
         size_t eventId = 0;
-        const auto dump = [&](const Vector_<Date_>& dates, const Vector_<Event_>& events, const char* phase) {
-            for (size_t i = 0; i < events.size(); ++i) {
-                const auto& statements = events[i];
-                ost << st.eventS << ' ' << ++eventId << ' ' << st.dotS << ' ' << Date::ToString(dates[i]) << ' '
-                    << st.dotS << ' ' << phase << '\n';
-                Debugger_ d;
-                for (size_t s = 0; s < statements.size(); ++s) {
-                    statements[s]->Accept(d);
-                    Vector_<String_> lines;
-                    const String_ first =
-                        String_(s + 1 == statements.size() ? st.elbow : st.tee) + "(" + String_(std::to_string(s + 1)) + ") ";
-                    const String_ cont = String_(s + 1 == statements.size() ? st.blank : st.pipe);
-                    DebugNodeTree(d.Top(), first, cont, st, width, lines);
-                    for (const auto& line : lines)
-                        ost << line << '\n';
-                }
-                ost << '\n';
-            }
-        };
-        dump(pastEventDates_, pastEvents_, "past");
-        dump(eventDates_, events_, "future");
+        DumpEventsTree(pastEventDates_, pastEvents_, "past", eventId, st, width, ost);
+        DumpEventsTree(eventDates_, events_, "future", eventId, st, width, ost);
     }
 
     ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
