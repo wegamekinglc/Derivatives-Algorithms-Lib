@@ -1,7 +1,13 @@
 # dal-web Extraction Design
 
+> **Artifact status: implemented history.** The extraction has shipped (merged as
+> PR #290, 2026-08-15): `dal-web/` now lives at
+> [wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web) and depends on the
+> published `dal-python` PyPI package; the parent-repo removal and CI cleanup merged
+> with it. The design below is retained as historical evidence, not pending work.
+
 Date: 2026-08-14
-Status: approved by user (2026-08-14)
+Status: approved by user (2026-08-14); shipped 2026-08-15 (PR #290)
 Approach: A — three-stage, validate before delete
 
 ## Goal

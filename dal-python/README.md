@@ -9,6 +9,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
 - **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians
+- **Rate cashflow pricing** — typed planning, batch PV, and AAD node sensitivities for deposit, FRA, future, OIS, IRS, basis-swap, and cross-currency trades
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
 
 ## Prerequisites
@@ -418,6 +419,7 @@ Tests are located in `tests/` and cover:
 - AAD Greek computation and validation
 - Random number generator properties
 - Curve construction plus single and staged multi-curve calibration
+- Rate cashflow planning, pricing, and node sensitivities
 - Staged XCCY basis calibration, sensitivity matrices, axes, and availability metadata
 - Resettable/MTM XCCY construction with immutable fixing snapshots
 - Joint domestic/foreign/basis XCCY calibration, including matrix and named-range contracts
@@ -428,7 +430,13 @@ Tests are located in `tests/` and cover:
 dal-python/
 ├── CMakeLists.txt          # Build configuration
 ├── pyproject.toml          # Python package metadata (scikit-build-core)
-├── run_tests.sh            # Standalone binding test helper
+├── build_sdist.sh          # Source distribution helper
+├── build_wheel.sh          # Wheel build helpers (POSIX and PowerShell)
+├── build_wheel.ps1
+├── run_tests.sh            # Standalone binding test helpers (POSIX and PowerShell)
+├── run_tests.ps1
+├── examples/               # Numbered end-to-end Python examples
+├── scripts/                # Release verification and installed-wheel smoke helpers
 ├── src/
 │   ├── bindings/
 │   │   ├── module.cpp        # pybind11 module definition

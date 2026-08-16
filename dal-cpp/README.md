@@ -8,8 +8,9 @@ generation, storage, and concurrency.
 
 | Path          | Contents                                                     |
 |---------------|--------------------------------------------------------------|
-| `dal/`        | Core headers and implementations, organized by domain        |
-| `tests/`      | Google Test coverage for core behavior and numerical methods |
+| `dal/`          | Core headers and implementations, organized by domain        |
+| `tests/`        | Google Test coverage for core behavior and numerical methods |
+| `test-support/` | Test-only helpers shared across suites                       |
 | `examples/`   | Runnable C++ examples                                        |
 | `benchmarks/` | Opt-in native performance executables                        |
 | `config/`     | Machinist interface and generation configuration             |

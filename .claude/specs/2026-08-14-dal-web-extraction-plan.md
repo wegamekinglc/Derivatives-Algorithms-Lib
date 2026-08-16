@@ -1,5 +1,11 @@
 # dal-web Extraction Implementation Plan
 
+> **Artifact status: implemented history.** All phases of this plan shipped (merged
+> as PR #290, 2026-08-15); the standalone repository is live at
+> [wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web). Task checkboxes,
+> local paths, and commands below describe the execution baseline and are retained
+> as historical evidence, not pending work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move `dal-web/` out of Derivatives-Algorithms-Lib into a standalone `wegamekinglc/dal-web` GitHub repo that depends on PyPI `dal-python>=2026.8.14`, then remove all dal-web content from the parent repo.
