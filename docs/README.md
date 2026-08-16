@@ -101,6 +101,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Domain processor (variable range analysis, always-true/false flags)
   - Constant condition processor (dead-branch pruning)
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
+  - Product debug outputs (legacy text, versioned JSON, Unicode/ASCII tree)
 
 - **[dupire.md](methodology/dupire.md)** — Dupire Local Volatility
   - Discounted spot-call contract and rate-aware Dupire formula

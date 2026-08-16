@@ -40,7 +40,7 @@ on other toolchains.
 | Header                                 | Main entry points                                                                                   |
 |----------------------------------------|-----------------------------------------------------------------------------------------------------|
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                          |
-| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`                                                            |
+| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree`       |
 | `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                              |
 | `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`                                                                                 |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                           |
@@ -108,6 +108,14 @@ interval, so evaluation-date setters wait until valuation finishes while
 getters remain available through the store lock. Monte Carlo valuations are
 serialized within one process; callers that require independent concurrent
 dates should use isolated processes.
+
+Script products dump three ways: `DebugScriptProduct` returns the legacy
+indented s-expression listing, `DebugScriptProductJson` a compact versioned
+JSON AST (schema `dal.script-product/1`, past events included, variable and
+constant tables resolved), and `DebugScriptProductTree(product, ascii, width)`
+a width-aware Unicode tree with a pure-ASCII fallback. See the
+[script engine methodology](methodology/script_engine.md#product-debug-outputs)
+for the formats and the dump grammar.
 
 ### C++ curve calibration
 
@@ -247,7 +255,7 @@ import dal
 | Workflow                | Python entry points                                                                                                                                                                            |
 |-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                    |
-| Script products         | `Product_New`, `Product_Debug`                                                                                                                                                                 |
+| Script products         | `Product_New`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                        |
 | Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                       |
 | Valuation               | `MonteCarlo_Value`                                                                                                                                                                             |
 | Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                               |

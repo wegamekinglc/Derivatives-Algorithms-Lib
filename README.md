@@ -9,9 +9,11 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 
 ## CI
 
-Every push and pull request builds and tests this compiler × AAD-backend
-matrix. GitHub publishes one status badge per workflow; open a workflow run
-for per-job results.
+Pull requests build and test the full compiler × AAD-backend matrix below.
+Pushes (master merges and direct branch pushes) run a lean GCC 14 + Clang 20
+subset across all four backends, because the pull request already covered
+every combination. GitHub publishes one status badge per workflow; open a
+workflow run for per-job results.
 
 | Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
 |----------------------------|----------|-------|-----|----------|-------|
@@ -23,10 +25,11 @@ for per-job results.
 | Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓     | ✓   | ✓        | ✓     |
 | Windows (`windows-latest`) | MSVC     | ✓     | ✓   | —        | ✓     |
 
-- GCC 13/14 legs additionally run gcov coverage; Coveralls tracks GCC 14 + AADet.
+- The GCC 14 + AADet leg additionally runs gcov coverage, tracked by Coveralls.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
-- Separate Linux jobs cover CoDiPack thread isolation, a warning-clean build,
-  ASan/UBSan/TSan spot tests, Python bindings, and benchmark regression gating.
+- Separate Linux jobs cover CoDiPack thread isolation, Python bindings with
+  generated-source verification, documentation integrity, a warning-clean
+  build, ASan/UBSan/TSan spot tests, and benchmark regression gating.
 
 ## Quick Start
 
@@ -61,14 +64,20 @@ not an ABI-isolated compatibility boundary.
 | `dal-python/` | pybind11 Python bindings                           |
 | `dal-excel/`  | Excel `.xll` add-in (Windows-only)                 |
 
-Core modules in `dal-cpp/dal/`:
+Core domains in `dal-cpp/dal/`:
 
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
 - **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
 - **script/** — Expression scripting engine for exotic payoffs, with tree-walk and compiled evaluation modes
-- **model/** — Financial models (Black-Scholes, etc.)
+- **model/** — Financial models (Black-Scholes, Dupire local volatility, etc.)
+- **time/** — Dates, calendars, schedules, and day-count bases
+- **protocol/**, **currency/**, **indice/** — Market/contract conventions, currency data, and index/fixing management
+- **risk/** — Risk report types and aggregation
+- **storage/** — Storable objects, archives, and repository integration
 - **concurrency/** — Thread pool for parallel Monte Carlo
+- **platform/**, **io/**, **string/**, **utilities/** — Infrastructure: configuration, host init, Excel I/O helpers, strings, dictionaries
+- **auto/** — Machinist-generated enums and serialization (do not hand-edit)
 
 ## Examples
 
@@ -131,6 +140,16 @@ For implementation details and parity coverage, see [Script Engine methodology](
 bash ./build_linux.sh --benchmarks
 ./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
+
+### Script Product Debug Dumps
+
+Script products dump three ways: the legacy s-expression listing
+(`DebugScriptProduct` in C++, `Product_Debug` in Python), a versioned JSON AST
+for machine consumers (`DebugScriptProductJson` / `Product_DebugJson`, schema
+`dal.script-product/1`), and a width-aware Unicode tree with an ASCII fallback
+(`DebugScriptProductTree` / `Product_DebugTree`). See
+[Product Debug Outputs](docs/methodology/script_engine.md#product-debug-outputs)
+for the formats.
 
 ### Excel
 

@@ -35,6 +35,7 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 | `random.hpp`                               | Pseudo-random and Sobol matrix fills             |
 | `curveprotocol.hpp`, `curveinstrument.hpp` | Curve conventions and quoted instruments         |
 | `curvedata.hpp`, `curvespec.hpp`           | Curve construction and single/staged calibration |
+| `curvepricing.hpp`                         | Typed rate-cashflow planning, pricing, and node sensitivities |
 | `xccycalibration.hpp`                      | Cross-currency calibration                       |
 | `interp.hpp`                               | Linear interpolation helper                      |
 | `repository.hpp`                           | Host-environment repository operations           |

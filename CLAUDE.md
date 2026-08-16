@@ -100,16 +100,24 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 **Core library (`dal-cpp/`)** — built as the `dal_cpp` target (alias `DAL::cpp`):
 - `dal-cpp/dal/math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding, AAD
-- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation), with tree-walk evaluation as the default and a compiled flat-stream evaluator behind the `compiled` flag
+- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation), with tree-walk evaluation as the default, a compiled flat-stream evaluator behind the `compiled` flag, and legacy-text, JSON, and Unicode-tree debug dumps
 - `dal-cpp/dal/model/` — financial models
 - `dal-cpp/dal/curve/` — yield/discount curve handling
-- `dal-cpp/dal/indice/` — reference rate index management
-- `dal-cpp/dal/risk/` — risk calculations
+- `dal-cpp/dal/time/` — dates, calendars, schedules, and day-count bases
+- `dal-cpp/dal/protocol/` — market and contract conventions (accrual, payment, coupon, option types, collateral)
+- `dal-cpp/dal/currency/` — currency definitions and static data
+- `dal-cpp/dal/indice/` — index interfaces, fixing stores and immutable snapshots, and name-driven parsers
+- `dal-cpp/dal/risk/` — risk report types and aggregation
 - `dal-cpp/dal/concurrency/` — thread pool and concurrent queue
-- `dal-cpp/dal/storage/` — data persistence (files matching `_repository.*` are excluded from the build)
+- `dal-cpp/dal/storage/` — storable objects, archives, and persistence (files matching `_repository.*` are excluded from the build)
+- `dal-cpp/dal/platform/` — compile-time configuration, constants, host and process initialization
+- `dal-cpp/dal/io/` — Excel driver/import helpers
+- `dal-cpp/dal/string/`, `dal-cpp/dal/utilities/` — string type plus algorithms, dictionary, and environment/composite helpers
 - `dal-cpp/dal/auto/` — auto-generated code (Machinist output, glob-included into the library)
+- `dal-cpp/dal/benchmarks/` — shared benchmark harness header (`bench.hpp`)
 - `dal-cpp/tests/` — Google Test files compiled into the `dal_cpp_tests` binary
-- `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo, finite difference, scripting, concurrency, Sobol, underdetermined optimization)
+- `dal-cpp/test-support/` — test-only helpers shared across suites
+- `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo vanillas and exotics, finite difference, curve and cross-currency calibration, yield-curve Jacobian, interpolation, scripting, concurrency, Sobol, Excel export, underdetermined optimization)
 - `dal-cpp/benchmarks/` — standalone performance benchmark programs, one executable per target (19 total: matrix, script, tape, jacobian, pde, rng, interp, krylov, banded, cholesky, specialfunctions, black, iv_brent, script_mc, curve_calibration, xccy, ycinstrument, threadpool, stacks); each registers as a CTest test under the `benchmark` label (CI discovers them with `ctest -N -L benchmark`), and `build_linux.sh` never runs them in its ctest pass (`-LE benchmark`); an 8-target subset is gated by the paired regression script. `script_mc_perf` compares tree-walk and compiled script evaluation
 - `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
@@ -155,7 +163,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 - **PDE Framework, Grid Construction, and Coordinate Maps** — [PDE framework](docs/methodology/pde.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
-- **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, and benchmarks
+- **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, product debug dumps, and benchmarks
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)

@@ -97,6 +97,7 @@ is the exact argument and settings-key reference.
 | `src/`      | Handwritten Excel conversion, repository, and public-function implementations |
 | `auto/`     | Machinist-generated registration wrappers and HTML function help              |
 | `examples/` | Example workbooks                                                             |
+| `tests/`    | Excel-side Google Test coverage                                               |
 
 Machinist generates both core storables and Excel wrappers from the shared
 configuration. After markup changes, regenerate both trees:
