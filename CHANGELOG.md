@@ -46,6 +46,14 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `script`: Added two script-product debug dumps alongside the legacy
+  s-expression one: `DebugScriptProductJson` / `Product_DebugJson` emit a
+  versioned JSON AST (schema `dal.script-product/1`) for machine consumers
+  such as web front ends, and `DebugScriptProductTree` / `Product_DebugTree`
+  render a width-aware Unicode (or ASCII) tree for humans. Both include past
+  events and resolved variable/constant tables. See
+  `docs/methodology/script_engine.md` § Product Debug Outputs.
+
 - `web`: Removed `dal-web/` from this repository. The portfolio management web
   UI now lives at [wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web)
   and depends on the published `dal-python` PyPI package. The
