@@ -141,6 +141,16 @@ bash ./build_linux.sh --benchmarks
 ./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
+### Script Product Debug Dumps
+
+Script products dump three ways: the legacy s-expression listing
+(`DebugScriptProduct` in C++, `Product_Debug` in Python), a versioned JSON AST
+for machine consumers (`DebugScriptProductJson` / `Product_DebugJson`, schema
+`dal.script-product/1`), and a width-aware Unicode tree with an ASCII fallback
+(`DebugScriptProductTree` / `Product_DebugTree`). See
+[Product Debug Outputs](docs/methodology/script_engine.md#product-debug-outputs)
+for the formats.
+
 ### Excel
 
 ```

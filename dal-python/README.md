@@ -356,7 +356,9 @@ dupire_model = dal.DupireModelData_New(
 ### Products
 
 - `dal.Product_New(dates, events)` — Create a script product from event dates and payoff definitions
-- `dal.Product_Debug(product)` — Print human-readable product structure
+- `dal.Product_Debug(product)` — Print the legacy human-readable product structure
+- `dal.Product_DebugJson(product)` — Versioned JSON dump of the product AST (schema `dal.script-product/1`)
+- `dal.Product_DebugTree(product, ascii=False, width=125)` — Width-aware Unicode (or ASCII) product tree
 
 ### Valuation
 
