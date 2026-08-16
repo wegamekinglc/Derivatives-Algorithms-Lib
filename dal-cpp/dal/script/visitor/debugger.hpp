@@ -105,7 +105,9 @@ namespace Dal::Script {
         ost << ']';
     }
 
-    inline void JsonWriteIf(const DebugNode_& node, size_t& id, std::ostream& ost) {
+    inline bool JsonWriteIf(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "if")
+            return false;
         const size_t firstElse = node.firstElse < 0 ? node.children.size() : static_cast<size_t>(node.firstElse);
         ost << ",\"condition\":";
         DebugNodeJson(node.children[0], id, ost);
@@ -122,42 +124,51 @@ namespace Dal::Script {
             DebugNodeJson(node.children[i], id, ost);
         }
         ost << ']';
+        return true;
     }
 
-    //  Writes the kind-specific fields; returns false when the kind takes only children
+    inline bool JsonWriteAssign(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "assign" && node.kind != "pays")
+            return false;
+        ost << ",\"target\":";
+        DebugNodeJson(node.children[0], id, ost);
+        ost << ",\"value\":";
+        DebugNodeJson(node.children[1], id, ost);
+        return true;
+    }
+
+    inline bool JsonWriteNamed(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "var" && node.kind != "const_var")
+            return false;
+        ost << ",\"name\":";
+        JsonWriteString(node.name, ost);
+        ost << ",\"index\":" << node.index << (node.kind == "var" ? ",\"const_value\":" : ",\"value\":")
+            << DebugNumber(node.number);
+        return true;
+    }
+
+    inline bool JsonWriteConst(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "const")
+            return false;
+        ost << ",\"value\":" << DebugNumber(node.number);
+        return true;
+    }
+
+    inline bool JsonWriteCompare(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "eq0" && node.kind != "gt0" && node.kind != "ge0")
+            return false;
+        if (node.discrete)
+            ost << ",\"mode\":\"discrete\",\"lb\":" << DebugNumber(node.lb) << ",\"rb\":" << DebugNumber(node.rb);
+        else
+            ost << ",\"mode\":\"continuous\",\"eps\":" << DebugNumber(node.number);
+        JsonWriteChildren(node, id, ost);
+        return true;
+    }
+
+    //  Writes the kind-specific fields; false when the kind takes only children
     inline bool JsonWriteFields(const DebugNode_& node, size_t& id, std::ostream& ost) {
-        const String_& k = node.kind;
-        if (k == "if") {
-            JsonWriteIf(node, id, ost);
-            return true;
-        }
-        if (k == "assign" || k == "pays") {
-            ost << ",\"target\":";
-            DebugNodeJson(node.children[0], id, ost);
-            ost << ",\"value\":";
-            DebugNodeJson(node.children[1], id, ost);
-            return true;
-        }
-        if (k == "var" || k == "const_var") {
-            ost << ",\"name\":";
-            JsonWriteString(node.name, ost);
-            ost << ",\"index\":" << node.index << (k == "var" ? ",\"const_value\":" : ",\"value\":")
-                << DebugNumber(node.number);
-            return true;
-        }
-        if (k == "const") {
-            ost << ",\"value\":" << DebugNumber(node.number);
-            return true;
-        }
-        if (k == "eq0" || k == "gt0" || k == "ge0") {
-            if (node.discrete)
-                ost << ",\"mode\":\"discrete\",\"lb\":" << DebugNumber(node.lb) << ",\"rb\":" << DebugNumber(node.rb);
-            else
-                ost << ",\"mode\":\"continuous\",\"eps\":" << DebugNumber(node.number);
-            JsonWriteChildren(node, id, ost);
-            return true;
-        }
-        return false;
+        return JsonWriteIf(node, id, ost) || JsonWriteAssign(node, id, ost) || JsonWriteNamed(node, id, ost) ||
+               JsonWriteConst(node, id, ost) || JsonWriteCompare(node, id, ost);
     }
 
     //  Machine-friendly JSON; ids are pre-order and unique per dump.
@@ -299,25 +310,36 @@ namespace Dal::Script {
         return true;
     }
 
+    inline const char* FunctionSymbol(const String_& kind, const TreeStyle_& st) {
+        if (kind == "log")
+            return st.logS;
+        if (kind == "exp")
+            return st.expS;
+        return st.sqrtS;
+    }
+
+    inline String_ TreeInlineNeg(const DebugNode_& node, const TreeStyle_& st) {
+        //  Parenthesize a nested neg (avoid "−−x") and a pow operand (avoid the
+        //  "−a ^ b" ambiguity between −(a ^ b) and (−a) ^ b)
+        if (node.children[0].kind == "neg")
+            return String_(st.negate) + "(" + TreeInline(node.children[0], st) + ")";
+        return String_(st.negate) + TreeParen(node.children[0], st, 8);
+    }
+
     inline bool TreeInlineUnary(const DebugNode_& node, const TreeStyle_& st, String_& out) {
         const String_& k = node.kind;
         if (k == "log" || k == "exp" || k == "sqrt") {
-            out = String_(k == "log" ? st.logS : k == "exp" ? st.expS : st.sqrtS) + "(" +
-                  TreeInline(node.children[0], st) + ")";
+            out = String_(FunctionSymbol(k, st)) + "(" + TreeInline(node.children[0], st) + ")";
             return true;
         }
         if (k == "uplus") {
             out = TreeParen(node.children[0], st, 6);
             return true;
         }
-        if (k != "neg")
-            return false;
-        //  Parenthesize a nested neg (avoid "−−x") and a pow operand (avoid the
-        //  "−a ^ b" ambiguity between −(a ^ b) and (−a) ^ b)
-        if (node.children[0].kind == "neg")
-            out = String_(st.negate) + "(" + TreeInline(node.children[0], st) + ")";
+        if (k == "neg")
+            out = TreeInlineNeg(node, st);
         else
-            out = String_(st.negate) + TreeParen(node.children[0], st, 8);
+            return false;
         return true;
     }
 
@@ -383,20 +405,23 @@ namespace Dal::Script {
         return true;
     }
 
+    inline String_ TreeInlineIf(const DebugNode_& node, const TreeStyle_& st) {
+        const size_t firstElse = node.firstElse < 0 ? node.children.size() : static_cast<size_t>(node.firstElse);
+        String_ rtn = String_("if ") + TreeInline(node.children[0], st) + " then";
+        for (size_t i = 1; i < firstElse; ++i)
+            rtn += " " + TreeInline(node.children[i], st);
+        for (size_t i = firstElse; i < node.children.size(); ++i)
+            rtn += " else " + TreeInline(node.children[i], st);
+        return rtn;
+    }
+
     inline String_ TreeInlineStatement(const DebugNode_& node, const TreeStyle_& st) {
         const String_& k = node.kind;
         if (k == "assign" || k == "pays")
             return TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS) + " " +
                    TreeInline(node.children[1], st);
-        if (k == "if") {
-            const size_t firstElse = node.firstElse < 0 ? node.children.size() : static_cast<size_t>(node.firstElse);
-            String_ rtn = String_("if ") + TreeInline(node.children[0], st) + " then";
-            for (size_t i = 1; i < firstElse; ++i)
-                rtn += " " + TreeInline(node.children[i], st);
-            for (size_t i = firstElse; i < node.children.size(); ++i)
-                rtn += " else " + TreeInline(node.children[i], st);
-            return rtn;
-        }
+        if (k == "if")
+            return TreeInlineIf(node, st);
         //  collect
         String_ rtn;
         for (size_t i = 0; i < node.children.size(); ++i) {
@@ -423,17 +448,8 @@ namespace Dal::Script {
         bool connected;
     };
 
-    //  Fills the statement-family header (assign, pays, if); false for other kinds
-    inline bool TreeBranchStatement(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width,
-                                    String_& header, Vector_<TreeBranch_>& branches) {
-        const String_& k = node.kind;
-        if (k == "assign" || k == "pays") {
-            header = first + TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS);
-            branches.push_back(TreeBranch_{&node.children[1], String_(), true});
-            return true;
-        }
-        if (k != "if")
-            return false;
+    inline void TreeBranchIf(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width,
+                             String_& header, Vector_<TreeBranch_>& branches) {
         const size_t firstElse = node.firstElse < 0 ? node.children.size() : static_cast<size_t>(node.firstElse);
         const String_ condInline = TreeInline(node.children[0], st);
         if (DisplayWidth(first + "if " + condInline + " then") <= width)
@@ -446,6 +462,20 @@ namespace Dal::Script {
             branches.push_back(TreeBranch_{&node.children[i], String_(st.thenS), false});
         for (size_t i = firstElse; i < node.children.size(); ++i)
             branches.push_back(TreeBranch_{&node.children[i], String_(st.elseS), false});
+    }
+
+    //  Fills the statement-family header (assign, pays, if); false for other kinds
+    inline bool TreeBranchStatement(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width,
+                                    String_& header, Vector_<TreeBranch_>& branches) {
+        const String_& k = node.kind;
+        if (k == "assign" || k == "pays") {
+            header = first + TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS);
+            branches.push_back(TreeBranch_{&node.children[1], String_(), true});
+            return true;
+        }
+        if (k != "if")
+            return false;
+        TreeBranchIf(node, first, st, width, header, branches);
         return true;
     }
 
@@ -456,41 +486,75 @@ namespace Dal::Script {
             return st.negate;
         if (kind == "uplus")
             return "+";
-        if (kind == "log")
-            return st.logS;
-        if (kind == "exp")
-            return st.expS;
-        return st.sqrtS;
+        return FunctionSymbol(kind, st);
     }
 
-    //  Fills the single-operand header (comparisons and unary operators); false for other kinds
-    inline bool TreeBranchValue(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
-                                Vector_<TreeBranch_>& branches) {
-        const String_& k = node.kind;
-        if (k == "eq0" || k == "gt0" || k == "ge0")
-            header = first + (k == "eq0" ? st.eqS : k == "gt0" ? st.gtS : st.geS) + FuzzySuffix(node, st);
-        else if (k == "not" || k == "neg" || k == "uplus" || k == "log" || k == "exp" || k == "sqrt")
-            header = first + UnarySymbol(k, st);
-        else
-            return false;
+    inline const char* CompareSymbol(const String_& kind, const TreeStyle_& st) {
+        if (kind == "eq0")
+            return st.eqS;
+        if (kind == "gt0")
+            return st.gtS;
+        return st.geS;
+    }
+
+    inline void PushOperand(const DebugNode_& node, Vector_<TreeBranch_>& branches) {
         branches.push_back(TreeBranch_{&node.children[0], String_(), true});
+    }
+
+    inline bool TreeBranchCompare(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
+                                  Vector_<TreeBranch_>& branches) {
+        if (node.kind != "eq0" && node.kind != "gt0" && node.kind != "ge0")
+            return false;
+        header = first + CompareSymbol(node.kind, st) + FuzzySuffix(node, st);
+        PushOperand(node, branches);
         return true;
     }
 
-    //  Fills the header for everything else: binary operators, max/min, collect
+    inline bool TreeBranchUnaryHeader(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
+                                      Vector_<TreeBranch_>& branches) {
+        if (node.kind != "not" && node.kind != "neg" && node.kind != "uplus" && node.kind != "log" &&
+            node.kind != "exp" && node.kind != "sqrt")
+            return false;
+        header = first + UnarySymbol(node.kind, st);
+        PushOperand(node, branches);
+        return true;
+    }
+
+    //  Header symbol for everything that branches by operands: binary operators
+    //  and max/min; collect gets no symbol
+    inline String_ OperatorHeader(const String_& kind, const TreeStyle_& st) {
+        if (kind == "max")
+            return String_(st.maxS);
+        if (kind == "min")
+            return String_(st.minS);
+        if (kind == "collect")
+            return String_();
+        if (kind == "pow")
+            return String_(st.power);
+        return String_(BinarySymbol(kind, st));
+    }
+
     inline void TreeBranchOperators(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
                                     Vector_<TreeBranch_>& branches) {
-        const String_& k = node.kind;
-        if (k == "max" || k == "min")
-            header = first + (k == "max" ? st.maxS : st.minS);
-        else if (k == "collect")
-            header = first;
-        else if (k == "add" || k == "sub" || k == "mul" || k == "div" || k == "pow")
-            header = first + BinarySymbol(k, st);
-        else
-            header = first + k;
+        header = first + OperatorHeader(node.kind, st);
         for (const auto& child : node.children)
             branches.push_back(TreeBranch_{&child, String_(), true});
+    }
+
+    inline void DebugNodeTree(const DebugNode_& node, const String_& first, const String_& cont, const TreeStyle_& st,
+                              size_t width, Vector_<String_>& out);
+
+    inline void EmitBranches(const Vector_<TreeBranch_>& branches, const String_& cont, const TreeStyle_& st,
+                             size_t width, Vector_<String_>& out) {
+        for (size_t i = 0; i < branches.size(); ++i) {
+            const bool last = i + 1 == branches.size();
+            const TreeBranch_& branch = branches[i];
+            const String_ branchFirst =
+                branch.connected ? cont + (last ? st.elbow : st.tee) + branch.marker : cont + branch.marker;
+            const String_ branchCont =
+                branch.connected ? cont + (last ? st.blank : st.pipe) : cont + String_(DisplayWidth(branch.marker), ' ');
+            DebugNodeTree(*branch.node, branchFirst, branchCont, st, width, out);
+        }
     }
 
     //  Human-friendly tree block: inline while it fits the width budget, branches below otherwise.
@@ -507,19 +571,11 @@ namespace Dal::Script {
         String_ header = first;
         Vector_<TreeBranch_> branches;
         if (!TreeBranchStatement(node, first, st, width, header, branches) &&
-            !TreeBranchValue(node, first, st, header, branches))
+            !TreeBranchCompare(node, first, st, header, branches) && !TreeBranchUnaryHeader(node, first, st, header, branches))
             TreeBranchOperators(node, first, st, header, branches);
 
         out.push_back(header);
-        for (size_t i = 0; i < branches.size(); ++i) {
-            const bool last = i + 1 == branches.size();
-            const TreeBranch_& branch = branches[i];
-            const String_ branchFirst =
-                branch.connected ? cont + (last ? st.elbow : st.tee) + branch.marker : cont + branch.marker;
-            const String_ branchCont =
-                branch.connected ? cont + (last ? st.blank : st.pipe) : cont + String_(DisplayWidth(branch.marker), ' ');
-            DebugNodeTree(*branch.node, branchFirst, branchCont, st, width, out);
-        }
+        EmitBranches(branches, cont, st, width, out);
     }
 
     class Debugger_ : public ConstVisitor_<Debugger_> {
