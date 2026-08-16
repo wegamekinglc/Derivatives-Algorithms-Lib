@@ -562,6 +562,48 @@ valuation calls `IndexVariables` and `PreProcess` before evaluation or
 `dal-cpp/dal/script/simulation.hpp`, templated on `double` for value-only runs
 and on `AAD::Number_` for pathwise-adjoint runs.
 
+## Product Debug Outputs
+
+`ScriptProduct_::Debug` writes the legacy dump: the variable table followed by
+each future event's statements as indented s-expressions with labels like
+`MAX(`, `VAR[x,-1,0.000000]`, `IF[FIRSTELSE=-1]`.
+
+Two further dumps render the same AST for other consumers. All three are
+produced from the debug IR that `Debugger_` builds, and the two new ones also
+include past events, tagged with their phase:
+
+- **JSON** — `ScriptProduct_::DebugJson` writes a compact, deterministic
+  document with schema `dal.script-product/1`, meant for machine consumption
+  (the `Product_DebugJson` binding, and web front ends). The document carries
+  the variable and constant tables plus the payoff slot whenever the product
+  has been through `IndexVariables`; every AST node becomes an object with a
+  unique pre-order `id` and a stable snake_case `kind` (`add`, `sub`, `mul`,
+  `div`, `pow`, `log`, `exp`, `sqrt`, `max`, `min`, `neg`, `uplus`, `eq0`,
+  `gt0`, `ge0`, `and`, `or`, `not`, `assign`, `pays`, `if`, `spot`, `const`,
+  `var`, `const_var`, `true`, `false`, `collect`). Structured kinds get
+  structured fields — `condition`/`then`/`else` for `if`, `target`/`value`
+  for `assign` and `pays`, `mode`/`eps` (continuous) or `mode`/`lb`/`rb`
+  (discrete) for comparisons — and everything else uses `children`. Numbers
+  use the shortest decimal form that round-trips; a continuous comparison
+  reports the smoothing width in `eps`, where `-1` means the script did not
+  set one (the default smoothing factor applies).
+- **Tree** — `ScriptProduct_::DebugTree(ost, ascii, width)` writes a
+  human-friendly rendering: statements collapse to inline math while they fit
+  the width budget (`width` caps the line width, default 125), for example
+  `call ⇐ max(spot() − STRIKE, 0)`, with comparisons folded back from
+  `GTZERO(SUB(a, b))` to `a > b` and smoothing shown as `⟨ε=0.1⟩` or
+  `⟨[lb, rb]⟩`. Anything wider expands into box-drawing branches; `if`
+  branches are marked `▶` (then) and `▷` (else). `ascii = true` switches
+  every symbol to a pure-ASCII set for constrained consoles — Unicode output
+  needs a UTF-8 terminal (on Windows, Windows Terminal or `chcp 65001`).
+
+The dal-public wrappers `DebugScriptProductJson` and
+`DebugScriptProductTree` run `IndexVariables` on a private copy before
+dumping, so indices, the variable table, and the payoff slot are resolved
+while the dumped AST still mirrors the script as written. The Python surface
+is `Product_DebugJson(product)` and
+`Product_DebugTree(product, ascii=False, width=125)`.
+
 ## See Also
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that

@@ -41,4 +41,22 @@ void init_bindings_script(py::module_& m) {
                     std::const_pointer_cast<const ScriptProductData_>(product))
                 ).c_str();
         });
+
+    m.def("Product_DebugJson",
+        [](const std::shared_ptr<ScriptProductData_>& product) -> std::string {
+            return DebugScriptProductJson(
+                Handle_<ScriptProductData_>(
+                    std::const_pointer_cast<const ScriptProductData_>(product))
+                ).c_str();
+        });
+
+    m.def("Product_DebugTree",
+        [](const std::shared_ptr<ScriptProductData_>& product, bool ascii, int width) -> std::string {
+            return DebugScriptProductTree(
+                Handle_<ScriptProductData_>(
+                    std::const_pointer_cast<const ScriptProductData_>(product)),
+                ascii,
+                width).c_str();
+        },
+        py::arg("product"), py::arg("ascii") = false, py::arg("width") = 125);
 }

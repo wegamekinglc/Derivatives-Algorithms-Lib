@@ -99,7 +99,7 @@ def test_product_debug_contains_payoff_info():
     assert len(debug_str) > 10  # nosec B101 - pytest assertions are intentional
 
 
-def test_product_new_barrier_knockout():
+def test_product_debug_barrier_knockout():
     """Create a barrier knockout product with monitoring schedule."""
     eval_date = dal.Date_(2022, 9, 25)
     maturity = dal.Date_(2025, 9, 25)
@@ -127,3 +127,56 @@ def test_product_new_barrier_knockout():
     assert product is not None  # nosec B101 - pytest assertions are intentional
     debug_str = dal.Product_Debug(product)
     assert len(debug_str) > 0  # nosec B101 - pytest assertions are intentional
+
+
+def _make_european_call():
+    maturity = dal.Date_(2025, 9, 24)
+    dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
+    events = ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"]
+    return dal.Product_New(dates, events)
+
+
+def test_product_debug_json():
+    """Product_DebugJson returns the machine-friendly schema with resolved metadata."""
+    product = _make_european_call()
+
+    debug_json = dal.Product_DebugJson(product)
+    assert debug_json.startswith('{"schema":"dal.script-product/1"')  # nosec B101
+    assert '"payoff_index":0' in debug_json  # nosec B101
+    assert '"variables":[{"index":0,"name":"call"}]' in debug_json  # nosec B101
+    assert '"constants":[{"index":0,"name":"STRIKE","value":100}]' in debug_json  # nosec B101
+    assert '"kind":"pays"' in debug_json  # nosec B101
+    assert '"phase":"future"' in debug_json  # nosec B101
+
+
+def test_product_debug_json_is_repeatable():
+    """Product_DebugJson output is deterministic."""
+    product = _make_european_call()
+
+    assert dal.Product_DebugJson(product) == dal.Product_DebugJson(product)  # nosec B101
+
+
+def test_product_debug_tree():
+    """Product_DebugTree returns a human-friendly unicode tree."""
+    product = _make_european_call()
+
+    tree = dal.Product_DebugTree(product)
+    assert "Variables: call*" in tree  # nosec B101
+    assert "Constants: STRIKE=100" in tree  # nosec B101
+    assert "📅 1 · 2025-09-24 · future" in tree  # nosec B101
+    assert "call ⇐ max(spot() − STRIKE, 0)" in tree  # nosec B101
+
+
+def test_product_debug_tree_ascii_and_width():
+    """Product_DebugTree exposes the ascii style and width parameters."""
+    product = _make_european_call()
+
+    ascii_tree = dal.Product_DebugTree(product, ascii=True, width=40)
+    assert "# 1 @ 2025-09-24 @ future" in ascii_tree  # nosec B101
+    assert "`-- (1) call <= max(spot() - STRIKE, 0)" in ascii_tree  # nosec B101
+
+    narrow = dal.Product_DebugTree(product, ascii=True, width=10)
+    #  Too narrow to inline: the payoff statement keeps its header but branches
+    assert "`-- (1) call <=" in narrow  # nosec B101
+    assert "`-- max" in narrow  # nosec B101
+    assert "`-- 0" in narrow  # nosec B101

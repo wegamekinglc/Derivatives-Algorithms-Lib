@@ -126,6 +126,103 @@ namespace Dal::Script {
         }
     }
 
+    void ScriptProduct_::DebugJson(std::ostream& ost) const {
+        ost << "{\"schema\":\"dal.script-product/1\"";
+        if (!variables_.empty()) {
+            ost << ",\"variables\":[";
+            for (size_t i = 0; i < variables_.size(); ++i) {
+                if (i)
+                    ost << ',';
+                ost << "{\"index\":" << i << ",\"name\":";
+                JsonWriteString(variables_[i], ost);
+                ost << '}';
+            }
+            ost << "],\"payoff_index\":" << payoffIdx_;
+        }
+        if (!consVariables_.empty()) {
+            ost << ",\"constants\":[";
+            for (size_t i = 0; i < consVariables_.size(); ++i) {
+                if (i)
+                    ost << ',';
+                ost << "{\"index\":" << i << ",\"name\":";
+                JsonWriteString(consVariables_[i], ost);
+                ost << ",\"value\":" << DebugNumber(consVariablesValues_[i]) << '}';
+            }
+            ost << ']';
+        }
+        ost << ",\"events\":[";
+        size_t eventId = 0;
+        size_t nodeId = 0;
+        bool firstEvent = true;
+        const auto dump = [&](const Vector_<Date_>& dates, const Vector_<Event_>& events, const char* phase) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                if (!firstEvent)
+                    ost << ',';
+                firstEvent = false;
+                ost << "{\"index\":" << eventId++ << ",\"date\":\"" << Date::ToString(dates[i])
+                    << "\",\"phase\":\"" << phase << "\",\"statements\":[";
+                Debugger_ d;
+                for (size_t s = 0; s < events[i].size(); ++s) {
+                    if (s)
+                        ost << ',';
+                    events[i][s]->Accept(d);
+                    DebugNodeJson(d.Top(), nodeId, ost);
+                }
+                ost << "]}";
+            }
+        };
+        dump(pastEventDates_, pastEvents_, "past");
+        dump(eventDates_, events_, "future");
+        ost << "]}";
+    }
+
+    void ScriptProduct_::DebugTree(std::ostream& ost, bool ascii, int width) const {
+        const TreeStyle_& st = TreeStyle(ascii);
+        if (!variables_.empty()) {
+            ost << "Variables:";
+            for (size_t i = 0; i < variables_.size(); ++i) {
+                if (i)
+                    ost << ',';
+                ost << ' ' << variables_[i];
+                if (i == payoffIdx_)
+                    ost << '*';
+            }
+            ost << '\n';
+            if (!consVariables_.empty()) {
+                ost << "Constants:";
+                for (size_t i = 0; i < consVariables_.size(); ++i) {
+                    if (i)
+                        ost << ',';
+                    ost << ' ' << consVariables_[i] << '=' << DebugNumber(consVariablesValues_[i]);
+                }
+                ost << '\n';
+            }
+            ost << '\n';
+        }
+        size_t eventId = 0;
+        const auto dump = [&](const Vector_<Date_>& dates, const Vector_<Event_>& events, const char* phase) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                const auto& statements = events[i];
+                ost << st.eventS << ' ' << ++eventId << ' ' << st.dotS << ' ' << Date::ToString(dates[i]) << ' '
+                    << st.dotS << ' ' << phase << '\n';
+                Debugger_ d;
+                for (size_t s = 0; s < statements.size(); ++s) {
+                    statements[s]->Accept(d);
+                    Vector_<String_> lines;
+                    const String_ first =
+                        String_(s + 1 == statements.size() ? st.elbow : st.tee) + "(" + String_(std::to_string(s + 1)) + ") ";
+                    const String_ cont = String_(s + 1 == statements.size() ? st.blank : st.pipe);
+                    DebugNodeTree(d.Top(), first, cont, st, width, lines);
+                    for (const auto& line : lines)
+                        ost << line << '\n';
+                }
+                ost << '\n';
+            }
+        };
+        dump(pastEventDates_, pastEvents_, "past");
+        dump(eventDates_, events_, "future");
+    }
+
     ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
         REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 

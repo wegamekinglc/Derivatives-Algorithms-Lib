@@ -24,6 +24,29 @@ namespace Dal {
         REQUIRE2(rtn.size() != 0, "empty script product description", ScriptError_);
         return rtn;
     }
+
+    namespace Script {
+        //  IndexVariables fills the variable and constant tables (and the payoff
+        //  slot) without restructuring the AST, so the dump mirrors the script
+        //  as written but with resolved indices
+        FORCE_INLINE ScriptProduct_ ProductForDump(const Handle_<ScriptProductData_>& product) {
+            auto parsed = product->Product();
+            parsed.IndexVariables();
+            return parsed;
+        }
+    } // namespace Script
+
+    FORCE_INLINE String_ DebugScriptProductJson(const Handle_<ScriptProductData_>& product) {
+        std::ostringstream out;
+        Script::ProductForDump(product).DebugJson(out);
+        return String_(out.str());
+    }
+
+    FORCE_INLINE String_ DebugScriptProductTree(const Handle_<ScriptProductData_>& product, bool ascii = false, int width = 125) {
+        std::ostringstream out;
+        Script::ProductForDump(product).DebugTree(out, ascii, width);
+        return String_(out.str());
+    }
 } // namespace Dal
 
 

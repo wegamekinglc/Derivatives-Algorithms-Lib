@@ -157,6 +157,10 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
+        //  Machine-friendly JSON dump, schema dal.script-product/1; includes past events
+        void DebugJson(std::ostream& ost = std::cout) const;
+        //  Human-friendly tree dump; `width` caps the line width, `ascii` selects the fallback style
+        void DebugTree(std::ostream& ost = std::cout, bool ascii = false, int width = 125) const;
         [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const;
 
         [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
