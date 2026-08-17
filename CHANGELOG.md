@@ -54,6 +54,14 @@ here as the baseline rather than dated releases:
   events and resolved variable/constant tables. See
   `docs/methodology/script_engine.md` § Product Debug Outputs.
 
+- `script`: Added runnable demos for the tree debug dump:
+  `dal-cpp/examples/script_tree/` (C++, via `ScriptProduct_::DebugTree`) and
+  `dal-python/examples/008.script_tree.py` (via `Product_DebugTree`). Each
+  renders a UOC script product at the default and a narrow width -- showing
+  inline statements expanding into box-drawing branches -- plus the ASCII
+  fallback for constrained consoles. See
+  `docs/methodology/script_engine.md` § Product Debug Outputs.
+
 - `web`: Removed `dal-web/` from this repository. The portfolio management web
   UI now lives at [wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web)
   and depends on the published `dal-python` PyPI package. The
