@@ -57,7 +57,7 @@ int main() {
 
     // final payoff
     eventDates.emplace_back(Date_(2023, 9, 25));
-    events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 END uoc pays alive * MAX(spot() - STRIKE, 0.0)");
+    events.emplace_back("uoc pays alive * MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
     //  Resolve the variable/constant tables and the payoff slot, so the dump
