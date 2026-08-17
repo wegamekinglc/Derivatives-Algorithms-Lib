@@ -611,3 +611,6 @@ is `Product_DebugJson(product)` and
 - [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
+- [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree/) and
+  [`dal-python/examples/008.script_tree.py`](../../dal-python/examples/008.script_tree.py)
+  — runnable demos of the Unicode/ASCII tree dump at several width budgets.
