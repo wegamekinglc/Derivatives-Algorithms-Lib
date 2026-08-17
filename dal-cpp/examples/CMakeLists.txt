@@ -13,6 +13,7 @@ add_subdirectory(european_fd)
 add_subdirectory(snowball)
 add_subdirectory(sobol)
 add_subdirectory(script)
+add_subdirectory(script_tree)
 add_subdirectory(underdetermined)
 add_subdirectory(uoc)
 add_subdirectory(vanilla)
@@ -68,6 +69,7 @@ set(DAL_EXAMPLE_TARGETS
     snowball
     sobol
     script
+    script_tree
     underdetermined
     uoc
     vanilla
