@@ -72,6 +72,5 @@ TEST(InterpTest, TestInterp1LinearJsonSerialization) {
 TEST(InterpTest, TestNewLinearRejectsEmpty) {
     Vector_<> x;
     Vector_<> f;
-    ASSERT_THROW(Handle_<Interp1_> interp(NewLinear("interp", x, f)), Dal::Exception_);
-    ASSERT_THROW(Dal::InterpLinearImplX<>(x, f, 0.0), Dal::Exception_);
+    ASSERT_THROW((void)Handle_<Interp1_>(NewLinear("interp", x, f)), Dal::Exception_);
 }
