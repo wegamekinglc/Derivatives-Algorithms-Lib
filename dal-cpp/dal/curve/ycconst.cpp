@@ -20,8 +20,6 @@ namespace Dal {
     #include <dal/auto/MG_DiscountPWC_v1_Write.inc>
 
     namespace Tape {
-        constexpr double DAYS_PER_YEAR_PWC = 365.0;
-
         template <class T_, class B_>
         DiscountPWC_<T_, B_>::DiscountPWC_(
             const String_& name, const String_& ccy, const Vector_<Date_>& knotDates, const Vector_<T_>& fRightT, const Handle_<B_>& base)
@@ -58,7 +56,7 @@ namespace Dal {
         }
 
         template <class T_, class B_> T_ DiscountPWC_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR_PWC;
+            const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR;
             return DiscountFromLogDf(logDf, this->base_, from, to);
         }
 

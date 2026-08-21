@@ -15,11 +15,6 @@
 
 namespace Dal {
     namespace {
-        bool ValidFixingIdentity(const FixingIdentity_& identity) {
-            return !identity.indexName_.empty() && identity.fixingHour_ >= 0 && identity.fixingHour_ < 24 && identity.fixingMinute_ >= 0 &&
-                   identity.fixingMinute_ < 60;
-        }
-
         void ValidateResetConfig(const CrossCurrencySwapConfig_& config) {
             if (config.notionalMode_ == XccyNotionalMode_::Value_::FIXED)
                 return;
@@ -29,12 +24,6 @@ namespace Dal {
                     "Resettable XCCY plan requires a valid FX fixing time");
             REQUIRE(ValidFixingIdentity(config.domesticRateFixing_) && ValidFixingIdentity(config.foreignRateFixing_),
                     "Resettable XCCY plan requires explicit domestic and foreign rate fixing identities");
-        }
-
-        DateTime_ RateFixingTime(const Date_& date, const FixingIdentity_& identity) {
-            if (identity.fixingHour_ < 0 || identity.fixingMinute_ < 0)
-                return DateTime_(date);
-            return DateTime_(date, identity.fixingHour_, identity.fixingMinute_);
         }
 
         Date_ FxFixingDate(const Date_& effectiveDate, const FxResetConvention_& convention) {
@@ -49,16 +38,12 @@ namespace Dal {
                 return;
             for (auto& period : *periods) {
                 period.rateIndexName_ = identity.indexName_;
-                period.rateFixingTime_ = RateFixingTime(period.schedule_.fixingDate_, identity);
+                period.rateFixingTime_ = FixingDateTime(period.schedule_.fixingDate_, identity);
             }
         }
 
         bool RequestLess(const FixingRequest_& lhs, const FixingRequest_& rhs) {
             return lhs.indexName_ < rhs.indexName_ || (lhs.indexName_ == rhs.indexName_ && lhs.fixingTime_ < rhs.fixingTime_);
-        }
-
-        bool SameRequest(const FixingRequest_& lhs, const FixingRequest_& rhs) {
-            return lhs.indexName_ == rhs.indexName_ && lhs.fixingTime_ == rhs.fixingTime_;
         }
 
         void AddHistoricalRateRequests(const Vector_<XccyCouponPeriod_>& periods,
@@ -197,7 +182,7 @@ namespace Dal {
         }
 
         std::sort(result.begin(), result.end(), RequestLess);
-        result.erase(std::unique(result.begin(), result.end(), SameRequest), result.end());
+        result.erase(std::unique(result.begin(), result.end(), SameFixingRequest), result.end());
         return result;
     }
     template <class T_>

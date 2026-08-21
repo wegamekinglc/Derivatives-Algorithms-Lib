@@ -20,6 +20,7 @@ namespace Dal {
 
     template <class T_ = double>
     FORCE_INLINE T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
+        REQUIRE(!x.empty() && x.size() == y.size(), "InterpLinearImplX: x and y must be non-empty and the same size");
         auto pge = LowerBound(x, Value(x0));
         if (pge == x.end())
             return y.back();

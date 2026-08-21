@@ -15,7 +15,6 @@
 namespace Dal {
     // See docs/methodology/yield_curve_jacobian.md: "Joint Multi-Curve Analytic Jacobian".
     namespace Tape {
-        constexpr double DAYS_PER_YEAR_PWLF = 365.0;
 
         template <class T_, class B_ = DiscountCurve_<double>>
         class DiscountPWLF_ : public CurveWithBase_<DiscountCurve_<T_>, B_>, public FittableCurve_ {

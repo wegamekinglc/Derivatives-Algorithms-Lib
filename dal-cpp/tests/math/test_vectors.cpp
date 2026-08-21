@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using vector_t = Dal::Vector_<>;
 
@@ -218,4 +219,16 @@ TEST(VectorTest, TestVectorMultiply) {
         ASSERT_DOUBLE_EQ(s2[i], 2.0 * s1[i]);
         ASSERT_DOUBLE_EQ(s3[i], 2.0 * s1[i]);
     }
+}
+
+TEST(VectorTest, TestXRangeRequiresAtLeastTwoPoints) {
+    ASSERT_THROW(Dal::Vector::XRange(0.0, 1.0, 0), Dal::Exception_);
+    ASSERT_THROW(Dal::Vector::XRange(0.0, 1.0, 1), Dal::Exception_);
+}
+
+TEST(VectorTest, TestVectorAddSizeMismatch) {
+    vector_t s1 = {1., 2., 3.};
+    vector_t s2 = {1., 2.};
+    ASSERT_THROW(s1 += s2, Dal::Exception_);
+    ASSERT_THROW((void)(s1 * s2), Dal::Exception_);
 }

@@ -18,8 +18,6 @@
 namespace Dal::AAD {
     // year-fraction (1/730)
     constexpr double HALF_DAY_YF = 0.00136986301369863;
-    // std approximation used by the strike cutoff: atmCall * sqrt(2pi)
-    constexpr double SQRT_2PI = 2.506628274631;
 } // namespace Dal::AAD
 
 /*IF--------------------------------------------------------------------------
@@ -201,7 +199,7 @@ namespace Dal {
             const size_t nSpots = distance(spotsBegin, spotsEnd);
 
             const auto atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
-            const double std = atmCall * SQRT_2PI;
+            const double std = atmCall * M_SQRT_2_PI;
 
             int il = 0;
             while (il < nSpots && spots[il] < ivs.Spot() - 2.5 * std)

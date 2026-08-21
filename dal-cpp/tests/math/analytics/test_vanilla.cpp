@@ -75,3 +75,8 @@ TEST(AnalyticsTest, TestBachelierAAD) {
     ASSERT_NEAR(Adjoint(vol), 0.53578740155317184, 1e-8);
     ASSERT_NEAR(Adjoint(T), 2.9468307085424446, 1e-8);
 }
+
+TEST(AnalyticsTest, TestIVolRejectsNonPositiveMaturity) {
+    ASSERT_THROW(BlackScholesIVol(110.0, 120.0, 8.5, 0.0), Dal::Exception_);
+    ASSERT_THROW(BachelierIVol(110.0, 120.0, 8.0, -1.0), Dal::Exception_);
+}

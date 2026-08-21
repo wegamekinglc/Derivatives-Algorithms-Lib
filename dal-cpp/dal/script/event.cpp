@@ -88,7 +88,6 @@ namespace Dal::Script {
         }
 
         // TODO: more specific data settings
-        constexpr double DAYS_PER_YEAR = 365.0;
         const auto evaluationDate = Global::Dates_::EvaluationDate();
         for (auto& date : eventDates_) {
             const double ttm = (date - evaluationDate) / DAYS_PER_YEAR;

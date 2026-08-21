@@ -143,20 +143,20 @@ namespace Dal::Script {
             VisitCondition(node, [](const T_ x) { return x >= 0; });
         }
 
-        FORCE_INLINE void Visit(const NodeAnd_& node) {
+        template <class OP> FORCE_INLINE void VisitBoolBinary(const Node_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const bool rhs = bStack_.TopAndPop();
             auto& lhs = bStack_.Top();
-            lhs = lhs && rhs;
+            lhs = op(lhs, rhs);
+        }
+
+        FORCE_INLINE void Visit(const NodeAnd_& node) {
+            VisitBoolBinary(node, [](bool x, bool y) { return x && y; });
         }
 
         FORCE_INLINE void Visit(const NodeOr_& node) {
-            VisitNode(*node.arguments_[0]);
-            VisitNode(*node.arguments_[1]);
-            const bool rhs = bStack_.TopAndPop();
-            auto& lhs = bStack_.Top();
-            lhs = lhs || rhs;
+            VisitBoolBinary(node, [](bool x, bool y) { return x || y; });
         }
 
         FORCE_INLINE void Visit(const NodeNot_& node) {
@@ -171,11 +171,11 @@ namespace Dal::Script {
             const auto isTrue = bStack_.TopAndPop();
 
             if (isTrue) {
-                const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+                const auto lastTrue = node.LastTrueIndex();
                 for (unsigned i = 1; i <= lastTrue; ++i) {
                     VisitNode(*node.arguments_[i]);
                 }
-            } else if (node.firstElse_ != -1) {
+            } else if (node.HasElse()) {
                 const size_t n = node.arguments_.size();
                 for (unsigned i = node.firstElse_; i < n; ++i) {
                     VisitNode(*node.arguments_[i]);

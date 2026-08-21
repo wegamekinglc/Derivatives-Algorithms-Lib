@@ -57,7 +57,7 @@ namespace Dal::Script {
         // If
         void Visit(NodeIf_& node) {
             if (node.alwaysTrue_) {
-                size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+                size_t lastTrueStat = node.LastTrueIndex();
 
                 Vector_<ExprTree_> args = std::move(node.arguments_);
                 *current_ = std::unique_ptr<Node_>(new NodeCollect_);
@@ -67,13 +67,11 @@ namespace Dal::Script {
                 VisitArgsSetCurrent(**current_);
             }
             else if (node.alwaysFalse_) {
-                int firstElseStatement = node.firstElse_;
-
                 Vector_<ExprTree_> args = std::move(node.arguments_);
                 *current_ = std::unique_ptr<Node_>(new NodeCollect_);
 
-                if (firstElseStatement != -1)
-                    for (size_t i = firstElseStatement; i < args.size(); ++i)
+                if (node.HasElse())
+                    for (size_t i = static_cast<size_t>(node.firstElse_); i < args.size(); ++i)
                         (*current_)->arguments_.push_back(std::move(args[i]));
                 VisitArgsSetCurrent(**current_);
             }
