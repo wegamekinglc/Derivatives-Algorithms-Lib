@@ -82,7 +82,7 @@ namespace Dal::Script {
         }
 
         void EvalFalseBranch(const NodeIf_& node) {
-            if (node.firstElse_ != -1)
+            if (node.HasElse())
                 for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                     VisitNode(*node.arguments_[i]);
         }
@@ -105,6 +105,7 @@ namespace Dal::Script {
         }
 
         void EvalFuzzyBranches(const NodeIf_& node, size_t lastTrueStat, const T& dt) {
+            REQUIRE(nestedIfLvl_ > 0 && nestedIfLvl_ <= varStore0_.size(), "fuzzy If nesting exceeds allocated var stores");
             const size_t lvl = nestedIfLvl_ - 1;
             StoreAffectedVars(node, lvl);
             EvalTrueBranch(node, lastTrueStat);
@@ -114,7 +115,7 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeIf_& node) {
-            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+            const size_t lastTrueStat = node.LastTrueIndex();
 
             ++nestedIfLvl_;
 

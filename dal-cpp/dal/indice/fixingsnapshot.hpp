@@ -21,6 +21,10 @@ namespace Dal {
         DateTime_ fixingTime_;
     };
 
+    inline bool SameFixingRequest(const FixingRequest_& lhs, const FixingRequest_& rhs) {
+        return lhs.indexName_ == rhs.indexName_ && lhs.fixingTime_ == rhs.fixingTime_;
+    }
+
     class MarketFixingSnapshot_ {
     public:
         using history_t = std::map<DateTime_, double>;

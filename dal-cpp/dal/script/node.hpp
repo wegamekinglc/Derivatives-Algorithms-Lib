@@ -118,13 +118,18 @@ namespace Dal::Script {
 
     //	If
     struct NodeIf_ : public Visitable_<ActNode_, NodeIf_, VISITORS> {
-        // -1 means no else branch; consumers test firstElse_ == -1
+        // -1 means no else branch; prefer HasElse() over testing firstElse_ == -1
         int firstElse_ = -1;
         //	For fuzzy eval: indices of variables affected in statements, including nested
         Vector_<size_t> affectedVars_;
         //	Always true/false as per domain processor
         bool alwaysTrue_ = false;
         bool alwaysFalse_ = false;
+
+        [[nodiscard]] bool HasElse() const { return firstElse_ != -1; }
+        [[nodiscard]] size_t LastTrueIndex() const {
+            return HasElse() ? static_cast<size_t>(firstElse_) - 1 : arguments_.size() - 1;
+        }
     };
 
     //	Collection of statements
@@ -154,25 +159,23 @@ namespace Dal::Script {
         return std::unique_ptr<Node_>(new ConcreteNode_(std::forward<Args>(args)...));
     }
 
+    template <class NodeType_> void SetBinaryArgs(NodeType_& top, ExprTree_& lhs, ExprTree_& rhs) {
+        top.arguments_.Resize(2);
+        top.arguments_[0] = std::move(lhs);
+        top.arguments_[1] = std::move(rhs);
+    }
+
     //	Build binary concrete, and set its arguments_ to lhs and rhs
     template <class NodeType_> std::unique_ptr<NodeType_> MakeBinary(ExprTree_& lhs, ExprTree_& rhs) {
         auto top = MakeNode<NodeType_>();
-        top->arguments_.Resize(2);
-        //	Take ownership of lhs and rhs
-        top->arguments_[0] = std::move(lhs);
-        top->arguments_[1] = std::move(rhs);
-        //	Return
+        SetBinaryArgs(*top, lhs, rhs);
         return top;
     }
 
     //  Same but return as pointer on base
     template <class ConcreteNode_> ExprTree_ MakeBaseBinary(ExprTree_& lhs, ExprTree_& rhs) {
         auto top = MakeBaseNode<ConcreteNode_>();
-        top->arguments_.Resize(2);
-        //	Take ownership of lhs and rhs
-        top->arguments_[0] = std::move(lhs);
-        top->arguments_[1] = std::move(rhs);
-        //	Return
+        SetBinaryArgs(*top, lhs, rhs);
         return top;
     }
 } // namespace Dal::Script

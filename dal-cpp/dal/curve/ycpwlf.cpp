@@ -103,11 +103,11 @@ namespace Dal {
                 // path below stays the AAD-tape recording path.
                 const PiecewiseLinear_ pwl(knotDates_, fLeftT_, fRightT_);
                 const double integral = pwl.IntegralTo(to) - pwl.IntegralTo(from);
-                return DiscountFromLogDf(-integral / DAYS_PER_YEAR_PWLF, this->base_, from, to);
+                return DiscountFromLogDf(-integral / DAYS_PER_YEAR, this->base_, from, to);
             } else {
                 const double fromT = static_cast<double>(from - knotDates_.front());
                 const double toT = static_cast<double>(to - knotDates_.front());
-                const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
+                const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR);
                 return DiscountFromLogDf(logDf, this->base_, from, to);
             }
         }

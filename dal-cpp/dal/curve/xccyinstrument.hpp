@@ -10,6 +10,7 @@
 #include <dal/curve/xccynotionalmode.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
+#include <dal/time/datetime.hpp>
 
 namespace Dal {
     class CrossCurrencyMarket_;
@@ -34,6 +35,17 @@ namespace Dal {
         int fixingHour_ = -1;
         int fixingMinute_ = -1;
     };
+
+    inline bool ValidFixingIdentity(const FixingIdentity_& identity) {
+        return !identity.indexName_.empty() && identity.fixingHour_ >= 0 && identity.fixingHour_ < 24 && identity.fixingMinute_ >= 0 &&
+               identity.fixingMinute_ < 60;
+    }
+
+    inline DateTime_ FixingDateTime(const Date_& date, const FixingIdentity_& identity) {
+        if (identity.fixingHour_ < 0 || identity.fixingMinute_ < 0)
+            return DateTime_(date);
+        return DateTime_(date, identity.fixingHour_, identity.fixingMinute_);
+    }
 
     struct FxResetConvention_ {
         int fixingLag_ = -1;

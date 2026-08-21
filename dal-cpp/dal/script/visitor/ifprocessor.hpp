@@ -62,17 +62,13 @@ namespace Dal::Script {
                      inserter(varStack_.Top(), varStack_.Top().end()));
         }
 
-        void Visit(NodeAssign_& node) {
-            //	Visit the lhs var
+        void VisitLhsIfNested(Node_& node) {
             if (nestedIfLvl_)
                 node.arguments_[0]->Accept(*this);
         }
 
-        void Visit(NodePays_& node) {
-            //	Visit the lhs var
-            if (nestedIfLvl_)
-                node.arguments_[0]->Accept(*this);
-        }
+        void Visit(NodeAssign_& node) { VisitLhsIfNested(node); }
+        void Visit(NodePays_& node) { VisitLhsIfNested(node); }
 
         void Visit(NodeVar_& node) {
             //	Insert the var idx

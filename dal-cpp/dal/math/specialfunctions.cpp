@@ -41,7 +41,6 @@ namespace Dal {
 
         REQUIRE(x >= 0.0 && x <= 1.0, "x should be in bound [0, 1]");
 
-        static const double INV_NORM = 2.5066282746310002;
         static const double a1_ = -3.969683028665376e+01;
         static const double a2_ = 2.209460984245205e+02;
         static const double a3_ = -2.759285104469687e+02;
@@ -68,18 +67,14 @@ namespace Dal {
         static const double x_high_ = 1.0 - x_low_;
 
         double z;
+        const auto TailRational = [&](double p) {
+            const double r = std::sqrt(-2.0 * std::log(p));
+            return (((((c1_ * r + c2_) * r + c3_) * r + c4_) * r + c5_) * r + c6_) /
+                   ((((d1_ * r + d2_) * r + d3_) * r + d4_) * r + 1.0);
+        };
+
         if (x < x_low_ || x_high_ < x) {
-            if (x < x_low_) {
-                // Rational approximation for the lower region 0<x<u_low
-                z = std::sqrt(-2.0 * std::log(x));
-                z = (((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
-                    ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
-            } else {
-                // Rational approximation for the upper region u_high<x<1
-                z = std::sqrt(-2.0 * std::log(1.0 - x));
-                z = -(((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
-                    ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
-            }
+            z = x < x_low_ ? TailRational(x) : -TailRational(1.0 - x);
         } else {
             z = x - 0.5;
             double r = z * z;
@@ -89,7 +84,7 @@ namespace Dal {
 
         if (polish) {
             const double err = NCDF(z, precise) - x;
-            z -= err * INV_NORM * std::exp(std::min(8.0, 0.5 * Square(z)));
+            z -= err * M_SQRT_2_PI * std::exp(std::min(8.0, 0.5 * Square(z)));
         }
         return z;
     }

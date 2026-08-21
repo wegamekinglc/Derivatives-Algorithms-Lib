@@ -65,6 +65,10 @@ namespace Dal {
                     lower_ = owned.release();
             }
 
+            Cholesky_(const Cholesky_&) = delete;
+            Cholesky_& operator=(const Cholesky_&) = delete;
+            Cholesky_(Cholesky_&&) = delete;
+            Cholesky_& operator=(Cholesky_&&) = delete;
             ~Cholesky_() override {
                 if (!needKeep_)
                     delete lower_;

@@ -186,4 +186,9 @@ TEST(AADTapeTest, TestClearEmptiesAdjointsMultiAfterMultiToNonMultiToggle) {
 
     Clear(*tape);
 }
+
+TEST(AADTapeTest, TestSetNumResultsForAADRejectsOutOfRange) {
+    ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, 0), Dal::Exception_);
+    ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, Dal::AAD::ADJ_SIZE + 1), Dal::Exception_);
+}
 #endif

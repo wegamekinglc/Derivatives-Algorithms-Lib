@@ -214,52 +214,36 @@ namespace Dal::Script {
             VisitCondition<SupEqual>(node, [](double x) { return x >= 0.0; });
         }
 
-        void Visit(const NodeAnd_& node) {
+        template <NodeType_ Hard, NodeType_ Soft> void VisitBoolBinary(const Node_& node) {
             node.arguments_[0]->Accept(*this);
             node.arguments_[1]->Accept(*this);
-            nodeStream_.emplace_back(fuzzy_ ? FuzzyAnd : And);
+            nodeStream_.emplace_back(fuzzy_ ? Soft : Hard);
         }
 
-        void Visit(const NodeOr_& node) {
-            node.arguments_[0]->Accept(*this);
-            node.arguments_[1]->Accept(*this);
-            nodeStream_.emplace_back(fuzzy_ ? FuzzyOr : Or);
-        }
+        void Visit(const NodeAnd_& node) { VisitBoolBinary<And, FuzzyAnd>(node); }
+        void Visit(const NodeOr_& node) { VisitBoolBinary<Or, FuzzyOr>(node); }
 
         void Visit(const NodeNot_& node) {
             node.arguments_[0]->Accept(*this);
             nodeStream_.emplace_back(fuzzy_ ? FuzzyNot : Not);
         }
 
-        void Visit(const NodeAssign_& node) {
+        template <NodeType_ NT, NodeType_ NTConst> void VisitAssignLike(const Node_& node) {
             const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
             const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
-
             if (rhs->isConst_) {
-                nodeStream_.emplace_back(AssignConst);
+                nodeStream_.emplace_back(NTConst);
                 nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
                 constStream_.emplace_back(rhs->constVal_);
             } else {
                 node.arguments_[1]->Accept(*this);
-                nodeStream_.emplace_back(Assign);
+                nodeStream_.emplace_back(NT);
             }
-            nodeStream_.emplace_back(int(var->index_));
+            nodeStream_.emplace_back(static_cast<int>(var->index_));
         }
 
-        void Visit(const NodePays_& node) {
-            const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
-            const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
-
-            if (rhs->isConst_) {
-                nodeStream_.emplace_back(PaysConst);
-                nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
-                constStream_.emplace_back(rhs->constVal_);
-            } else {
-                node.arguments_[1]->Accept(*this);
-                nodeStream_.emplace_back(Pays);
-            }
-            nodeStream_.emplace_back(var->index_);
-        }
+        void Visit(const NodeAssign_& node) { VisitAssignLike<Assign, AssignConst>(node); }
+        void Visit(const NodePays_& node) { VisitAssignLike<Pays, PaysConst>(node); }
 
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
@@ -286,10 +270,10 @@ namespace Dal::Script {
         void Visit(const NodeCollect_& node) { VisitArguments(node); }
 
         void CompileHardIf(const NodeIf_& node, size_t lastTrue, size_t n) {
-            nodeStream_.emplace_back(node.firstElse_ == -1 ? If : IfElse);
+            nodeStream_.emplace_back(node.HasElse() ? IfElse : If);
             const size_t thisSpace = nodeStream_.size() - 1;
             nodeStream_.emplace_back(0);
-            if (node.firstElse_ != -1)
+            if (node.HasElse())
                 nodeStream_.emplace_back(0);
 
             for (size_t i = 1; i <= lastTrue; ++i) {
@@ -297,7 +281,7 @@ namespace Dal::Script {
             }
             nodeStream_[thisSpace + 1] = int(nodeStream_.size());
 
-            if (node.firstElse_ != -1) {
+            if (node.HasElse()) {
                 for (size_t i = node.firstElse_; i < n; ++i) {
                     node.arguments_[i]->Accept(*this);
                 }
@@ -319,7 +303,7 @@ namespace Dal::Script {
                 node.arguments_[i]->Accept(*this);
             nodeStream_[thisSpace + 1] = int(nodeStream_.size());
 
-            if (node.firstElse_ != -1)
+            if (node.HasElse())
                 for (size_t i = node.firstElse_; i < n; ++i)
                     node.arguments_[i]->Accept(*this);
             nodeStream_[thisSpace + 2] = int(nodeStream_.size());
@@ -328,7 +312,7 @@ namespace Dal::Script {
         void Visit(const NodeIf_& node) {
             node.arguments_[0]->Accept(*this);
 
-            const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+            const auto lastTrue = node.LastTrueIndex();
             const auto n = node.arguments_.size();
 
             if (fuzzy_)
@@ -631,6 +615,7 @@ namespace Dal::Script {
                 } else if (t < EPSILON) {
                     i = lastTrue;
                 } else {
+                    REQUIRE(state.nestedIfLvl_ < state.varStore0_.size(), "compiled FuzzyIf nesting exceeds allocated var stores");
                     const size_t lvl = state.nestedIfLvl_++;
                     for (int k = 0; k < nAff; ++k) {
                         const size_t idx = nodeStream[firstAff + k];

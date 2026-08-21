@@ -472,7 +472,7 @@ namespace Dal::AAD {
             exprNode.pDerivatives_[n_] = adjoint;
         }
 
-        Number_() = default;
+        Number_(): value_(0.0), node_(nullptr) {}
 
         Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
 
@@ -556,7 +556,10 @@ namespace Dal::AAD {
     FORCE_INLINE double Value(const UnaryExpression_<ARG_, OP_>& e) { return e.value_; }
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
-    FORCE_INLINE double& Adjoint(const Number_& num) { return num.node_->Adjoint(); }
+    FORCE_INLINE double& Adjoint(const Number_& num) {
+        REQUIRE(num.node_ != nullptr, "Adjoint: Number_ has no tape node");
+        return num.node_->Adjoint();
+    }
 
     FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
 } // namespace Dal::AAD
@@ -738,8 +741,8 @@ namespace Dal::AAD {
 
 #if defined(DAL_USE_ADEPT_AAD) || defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD)
 namespace Dal::AAD {
-    constexpr double INV_SQRT_2PI = 0.3989422804014327;
-    constexpr double SQRT_2 = 1.4142135623730951;
+    constexpr double INV_SQRT_2PI = 1.0 / M_SQRT_2_PI;
+    constexpr double SQRT_2 = M_SQRT_2;
 
     FORCE_INLINE Number_ NPDF(const Number_& z) {
         return INV_SQRT_2PI * exp(-0.5 * z * z);

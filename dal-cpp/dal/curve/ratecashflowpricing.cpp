@@ -32,11 +32,6 @@ namespace Dal {
             AccrualPeriod_ accrual_;
         };
 
-        bool ValidFixingIdentity(const FixingIdentity_& identity) {
-            return !identity.indexName_.empty() && identity.fixingHour_ >= 0 && identity.fixingHour_ < 24 && identity.fixingMinute_ >= 0 &&
-                   identity.fixingMinute_ < 60;
-        }
-
         Date_ FixingDate(const Date_& accrualStart, const RateIndexConvention_& index) {
             if (index.fixingLag_ == 0)
                 return accrualStart;
@@ -46,7 +41,7 @@ namespace Dal {
 
         DateTime_ FixingTime(const Date_& accrualStart, const RateIndexConvention_& index, const FixingIdentity_& identity) {
             REQUIRE(ValidFixingIdentity(identity), "Floating rate pricing requires an explicit valid fixing identity");
-            return DateTime_(FixingDate(accrualStart, index), identity.fixingHour_, identity.fixingMinute_);
+            return FixingDateTime(FixingDate(accrualStart, index), identity);
         }
 
         const DiscountCurve_& Curve(const RatePricingMarket_& market, const String_& key) {
@@ -64,12 +59,8 @@ namespace Dal {
                 values->push_back(value);
         }
 
-        bool SameFixing(const FixingRequest_& lhs, const FixingRequest_& rhs) {
-            return lhs.indexName_ == rhs.indexName_ && lhs.fixingTime_ == rhs.fixingTime_;
-        }
-
         void AddUnique(const FixingRequest_& value, Vector_<FixingRequest_>* values) {
-            if (std::find_if(values->begin(), values->end(), [&](const auto& item) { return SameFixing(item, value); }) == values->end())
+            if (std::find_if(values->begin(), values->end(), [&](const auto& item) { return SameFixingRequest(item, value); }) == values->end())
                 values->push_back(value);
         }
 

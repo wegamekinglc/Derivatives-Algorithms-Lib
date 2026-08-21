@@ -17,6 +17,7 @@
 #include <iterator>
 #include <list>
 #include <type_traits>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
 
@@ -105,6 +106,7 @@ namespace Dal::AAD {
         }
 
         template <size_t N_> T_* EmplaceBackMulti() {
+            static_assert(N_ > 0 && N_ <= BLOCK_SIZE_);
             if (std::distance(nextSpace_, lastSpace_) < static_cast<int>(N_))
                 NextBlock();
             auto old_next = nextSpace_;
@@ -113,6 +115,7 @@ namespace Dal::AAD {
         }
 
         T_* EmplaceBackMulti(const size_t& n) {
+            REQUIRE(n > 0 && n <= BLOCK_SIZE_, "EmplaceBackMulti: n out of range");
             if (std::distance(nextSpace_, lastSpace_) < static_cast<int>(n))
                 NextBlock();
             auto old_next = nextSpace_;

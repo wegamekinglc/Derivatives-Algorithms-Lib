@@ -12,4 +12,5 @@ namespace Dal {
     constexpr double M_SQRT_2 = 1.4142135623730951;
     constexpr double M_SQRT_2_PI = 2.5066282746310002;
     constexpr double ONE_MINUS_EPS = 0.999999999999;
+    constexpr double DAYS_PER_YEAR = 365.0;
 } // namespace Dal

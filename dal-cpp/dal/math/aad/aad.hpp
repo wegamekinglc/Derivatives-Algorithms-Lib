@@ -31,6 +31,7 @@ namespace Dal::AAD {
 
     // Contract: one mode per sweep — all nodes on a tape must be recorded under a single multi_ setting between Clear()s.
     FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t numResults = 1) {
+        REQUIRE(numResults > 0 && numResults <= ADJ_SIZE, "SetNumResultsForAAD: numResults out of range");
         Tape_* tape = Tape();
         bool oldMulti = tape->multi_;
         size_t oldNumAdj = tape->numAdj_;

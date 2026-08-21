@@ -87,49 +87,39 @@ namespace Dal::Script {
         }
 
         // Functions
+        void VisitApplyUnary(Node_& node, double (*func)(double), const Interval_& domain) {
+            VisitArguments(node);
+            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(func, domain);
+            domStack_.Pop();
+            domStack_.Push(std::move(res));
+        }
+
         void Visit(NodeLog_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(
-                log, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
-            domStack_.Pop();
-            domStack_.Push(std::move(res));
+            VisitApplyUnary(node, log, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
         }
-
         void Visit(NodeSqrt_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(sqrt, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
-            domStack_.Pop();
-            domStack_.Push(std::move(res));
+            VisitApplyUnary(node, sqrt, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
+        }
+        void Visit(NodeExp_& node) {
+            VisitApplyUnary(node, exp, Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_)));
         }
 
-        void Visit(NodeExp_& node) {
+        template <class OP_> void VisitExtrema(Node_& node, const OP_& op) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(
-                    exp, Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_)));
+            Domain_ res = domStack_.Top();
             domStack_.Pop();
+            for (size_t i = 1; i < node.arguments_.size(); ++i) {
+                res = op(res, domStack_.Top());
+                domStack_.Pop();
+            }
             domStack_.Push(std::move(res));
         }
 
         void Visit(NodeMax_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_.Top();
-            domStack_.Pop();
-            for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.DMax(domStack_.Top());
-                domStack_.Pop();
-            }
-            domStack_.Push(std::move(res));
+            VisitExtrema(node, [](const Domain_& x, const Domain_& y) { return x.DMax(y); });
         }
-
         void Visit(NodeMin_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_.Top();
-            domStack_.Pop();
-            for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.DMin(domStack_.Top());
-                domStack_.Pop();
-            }
-            domStack_.Push(std::move(res));
+            VisitExtrema(node, [](const Domain_& x, const Domain_& y) { return x.DMin(y); });
         }
 
         // Conditions
@@ -284,7 +274,7 @@ namespace Dal::Script {
 
         // Instructions
         void Visit(NodeIf_& node) {
-            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+            const size_t lastTrueStat = node.LastTrueIndex();
 
             node.arguments_[0]->Accept(*this);
 
@@ -299,7 +289,7 @@ namespace Dal::Script {
             } else if (cp == Value_::AlwaysFalse) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                if (node.firstElse_ != -1)
+                if (node.HasElse())
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         node.arguments_[i]->Accept(*this);
             } else {
@@ -319,7 +309,7 @@ namespace Dal::Script {
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
                     varDomains_[node.affectedVars_[i]] = std::move(domStore0[i]);
 
-                if (node.firstElse_ != -1)
+                if (node.HasElse())
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         node.arguments_[i]->Accept(*this);
 

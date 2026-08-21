@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/blocklist.hpp>
 
 using namespace Dal::AAD;
@@ -40,4 +40,10 @@ TEST(AADTest, TestBlockListRewindToMark) {
     ASSERT_EQ(blocks.Size(), 8);
     blocks.RewindToMark();
     ASSERT_EQ(blocks.Size(), 5);
+}
+
+TEST(AADTest, TestBlockListEmplaceBackMultiRejectsOversizedN) {
+    BlockList_<double, 10> blocks;
+    ASSERT_THROW(blocks.EmplaceBackMulti(11), Dal::Exception_);
+    ASSERT_THROW(blocks.EmplaceBackMulti(0), Dal::Exception_);
 }
