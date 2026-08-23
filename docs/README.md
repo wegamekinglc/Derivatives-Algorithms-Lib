@@ -147,6 +147,12 @@ Reference studies and capability explorations that are not normative methodology
   — Compatibility redirect to the supported yield-curve and AAD methodology.
 - **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
   — Validated rateslib/PTIRDS single-currency curve replication.
+- **[aad-node-risk-portfolio-aggregation-design.md](experimental/aad-node-risk-portfolio-aggregation-design.md)**
+  — Revised design for node-level AAD risk across all rate families, with
+  frozen P0 contracts for tape isolation, batch keys, aggregation, Excel, and
+  XCCY dependency.
+- **[aad-node-risk-portfolio-aggregation-plan.md](experimental/aad-node-risk-portfolio-aggregation-plan.md)**
+  — Staged implementation plan (stages 0–5) matching those frozen P0 contracts.
 
 ## Documentation Conventions
 
