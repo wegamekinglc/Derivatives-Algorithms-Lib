@@ -46,6 +46,12 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: `RateTradeNodeSensitivities` success domain widened to OIS and IRS trades (either
+  dependency, forecast or discount), on top of Deposit/FRA/Future; the stage-1 generalized
+  multi-component machinery prices them unchanged. OIS overnight compounding runs on the
+  active tape only through the forecast curve's parameters. Basis/XCCY remain gated by
+  `TRADE_FAMILY_NOT_AAD_ENABLED`; the six-token failure set and its priority are unchanged.
+
 - `curve`: `RateTradeNodeSensitivities` success domain widened from Deposit-only to FRA and
   Future trades (per requested dependency: FRA forecast/discount, Future forecast), via a
   multi-component AAD stage that registers only the target component's parameters and holds

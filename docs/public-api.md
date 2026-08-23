@@ -226,9 +226,10 @@ The supported family enum is closed to `DEPOSIT`, `FRA`, `FUTURE`, `OIS`,
 required historical rate/FX fixing keys before valuation. Batch pricing retains
 a success/failure result per trade.
 
-Native node AAD currently admits deposit, FRA, and futures trades; for FRA the
-requested component may be either dependency (forecast or discount), for futures
-the forecast dependency. The first failing gate
+Native node AAD currently admits deposit, FRA, futures, OIS, and IRS trades; for
+FRA, OIS, and IRS the requested component may be either dependency (forecast or
+discount), for futures the forecast dependency, for deposits the discount
+dependency. The first failing gate
 selects the reason in this order: family (`TRADE_FAMILY_NOT_AAD_ENABLED`),
 requested dependency (`TRADE_DOES_NOT_DEPEND_ON_COMPONENT`), component
 availability (`CURVE_COMPONENT_UNAVAILABLE`), curve representation
