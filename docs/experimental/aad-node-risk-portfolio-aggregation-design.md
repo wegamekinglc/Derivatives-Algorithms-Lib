@@ -1,9 +1,8 @@
 # Full Product-Family AAD Node Risk and Portfolio Aggregation — Design
 
-> Status: reviewed design, not yet implemented. The plan passed an L-level review
-> (AAD/numerics and public-contract focus) with no blockers against baseline
-> `origin/master@ec89eb72`. The staged execution steps, test strategy, and
-> acceptance criteria live in the companion
+> Status: revised design, not yet implemented. Identifiers match the local tree.
+> P0 contracts that the implementation review found still open are frozen below.
+> Staged execution, tests, and acceptance criteria live in the companion
 > [implementation plan](aad-node-risk-portfolio-aggregation-plan.md).
 
 ## Goals and Scope
@@ -30,6 +29,52 @@
   `XccyMarketView_::fxSpot_` is already `T_`, a later small step can activate it);
   no new JSON/serialization contracts (P1); the `Report_` storage format and the
   `RateInstrumentType_` closed set are untouched; no ABI-isolation layer rework.
+
+## Frozen P0 contracts
+
+These are closed for the first implementation series. Reopening any of them
+requires a new design revision, not a silent choice inside a stage-5 issue.
+
+1. **Non-target curves are truly passive `double` curves.** The active component
+   is built as `AAD::Number_` and registered through `RegisterCurveParameters`.
+   Every other curve the kernel reads is a `DiscountCurve_<double>` (or the
+   existing mixed-base `<AAD::Number_, DiscountCurve_<double>>` handle when the
+   active curve has a double base). Unregistered constant `AAD::Number_` curves
+   are not an acceptable "passive" stand-in: they still record OIS daily
+   compounding on the tape. Isolation tests must show the non-target gradient is
+   identically zero and that tape size does not scale with passive-node count.
+2. **Batch `componentKeys` is one shared list.**
+   `RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` applies the
+   same key list to every trade (Cartesian product, deterministic trade-major
+   then key order). A trade that does not depend on a listed key returns the
+   existing `TRADE_DOES_NOT_DEPEND_ON_COMPONENT` cell. Per-trade key lists are
+   out of scope for P0.
+3. **Aggregation is unconverted, grouped by actual PV currency.** The grouping
+   key is each family's actual PV denomination: non-XCCY in the trade currency,
+   XCCY in the domestic currency produced by covered-interest parity inside
+   `PriceXccyContract`. `RatePricingTradeResult_.currency_` is
+   `market.resultCurrency_` and must never be used as a grouping key. The
+   aggregate result carries an explicit policy label `UnconvertedByActualPvCcy`.
+   FX conversion is a later increment and needs an explicit FX-input contract.
+4. **`Report_` is the numeric tensor, not the whole result.** Successful node
+   values live in a `Report_` whose axes come from
+   `DescribeCurveFreeParameters` / `BuildCurveParameterLayout`. Failures,
+   currencies, and the aggregation policy live in a parallel meta table.
+5. **Excel emits a long-form spill.** Columns are
+   `trade, component, reason, pv, node, value` (plus currency on aggregate
+   rows). Mixed components have different node counts and dates, so a single
+   "columns = nodes" grid is not a P0 contract. The surface is
+   `dal-excel/src/__curvepricing.cpp` plus Machinist-generated stubs.
+6. **P0 is serial on one tape.** `RateTradeNodeSensitivitiesBatch` must not
+   dispatch onto the existing thread pool. The tape is `thread_local`.
+7. **XCCY "depends on" means curves actually consumed.** A market-aware
+   `BuildRateCashflowPlan` overload (existing `(trade, valuationTime)` signature
+   unchanged) emits keys for the collateral/tenor-selected curves, not for every
+   in-block member. Pointer identity is valid only when the XCCY block and
+   `market.curveComponents_` share the same `Handle_`. An unused in-block member
+   is a negative case (must not be eligible-with-all-zeros). An in-block curve
+   that cannot be classified is not `CURVE_REPRESENTATION_NOT_AAD_ENABLED`; that
+   token remains a representation failure.
 
 ## Current-Code Facts
 
@@ -74,8 +119,11 @@ design:
   that can be mirrored. Excel currently has **no** rate-pricing surface at
   all (`dal-excel/src/` has no corresponding file), so it is a net-new binding.
 - `BuildRateCashflowPlan` currently leaves `dependencyComponentKeys_` empty for
-  XCCY, and `RatePricingMarket_::resultCurrency_` is passed through without
-  conversion (each family's PV is denominated in the trade's own currency).
+  XCCY, and `RatePricingTradeResult_.currency_` copies
+  `RatePricingMarket_::resultCurrency_` without conversion. Non-XCCY PV is
+  denominated in the trade currency; XCCY PV is already in the domestic
+  currency via covered-interest parity inside `PriceXccyContract`. Aggregation
+  must use that actual PV currency, not the passthrough field.
 - Existing test assets generalize directly: `AssertRawNodeGradientMatchesCentralBumps`
   in `dal-cpp/tests/curve/test_ratecashflowpricing.cpp` (central-difference
   comparison across the four curve representations, borrow/lend sign antisymmetry,
@@ -107,19 +155,19 @@ design:
   parameter perturbation" (the same convention as the existing Deposit path and
   the central-difference tests); quote-space conversion is deliberately not done —
   that is the job of the calibration Jacobian, an existing capability.
-- **Multi-currency treatment.** Aggregation groups by trade currency; the
-  pass-through-no-conversion status of `resultCurrency_` is preserved, and
-  cross-currency totals are explicitly labeled "unconverted, grouped by currency".
-  Optional conversion at the valuation time is a later increment (it depends on an
+- **Multi-currency treatment.** Frozen P0 contract 3: group without converting,
+  using each family's actual PV currency and the `UnconvertedByActualPvCcy`
+  label. Do not group on `RatePricingTradeResult_.currency_`. Optional
+  conversion at the valuation time is a later increment (it depends on an
   FX-input contract, which this feature deliberately does not introduce
   implicitly).
 - **Python.** The new batch/aggregation functions stay keyword-only with
   read-only results and release the GIL for the whole native execution (one
   release per batch, marshalling afterwards); existing bindings are untouched.
-- **Excel.** A new `dal-excel/src/__curvepricing.cpp` surface plus the Machinist
-  `public` marker (regenerate the stubs and commit them), results emitted as a
-  spill table (rows = trade/component, columns = nodes), naming following the
-  existing `public`-function conventions; no internal object structure leaks.
+- **Excel.** Frozen P0 contract 5: `dal-excel/src/__curvepricing.cpp` plus
+  Machinist-generated stubs; long-form spill
+  (`trade, component, reason, pv, node, value`). No internal object structure
+  leaks.
 - **Documentation.** The sentence "Native node AAD currently admits deposit trades
   only" in `docs/public-api.md` is updated in the same PR as each family lands (the
   docs must never disagree with the success domain), and the CHANGELOG records the
@@ -146,20 +194,14 @@ carries production-level risk:
    In the same step, the XCCY branch of `BuildRateCashflowPlan` is extended to
    emit these dependency keys (currently empty), which makes the
    `TRADE_DOES_NOT_DEPEND_ON_COMPONENT` gate effective for XCCY. A curve that
-   cannot be classified inside a block falls through to
-   `CURVE_REPRESENTATION_NOT_AAD_ENABLED`.
-2. **Batch result shape: reuse the single-trade structure.** Consistent with the
-   precedent of `PriceRateTrades` reusing `RatePricingTradeResult_`; the new
-   function is a purely incremental surface with no compatibility risk, and per
-   (trade, component) entries make failure isolation align naturally with
-   single-trade semantics.
-3. **Aggregation currency treatment: group without converting.** The same
-   componentKey within a single market always points to the same curve object
-   (map semantics), the parameter axis is aligned through
-   `BuildCurveParameterLayout`, and gradient additivity holds within a currency
-   group. One caveat from the review — the grouping key must derive from each
-   family's *actual* PV pricing currency — is pinned in the implementation plan
-   (review follow-up 2).
+   cannot be classified inside a block is not
+   `CURVE_REPRESENTATION_NOT_AAD_ENABLED`; that token remains a representation
+   failure (frozen P0 contract 7).
+2. **Batch result shape: reuse the single-trade structure**, with one shared
+   `componentKeys` list (frozen P0 contract 2).
+3. **Aggregation currency treatment: group without converting**, using actual PV
+   currency and the `UnconvertedByActualPvCcy` label (frozen P0 contract 3).
+   `RatePricingTradeResult_.currency_` must never be the grouping key.
 
 ## Key Risks and Countermeasures
 
