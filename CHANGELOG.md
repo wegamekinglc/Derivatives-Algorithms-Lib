@@ -46,6 +46,12 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: `RateTradeNodeSensitivities` success domain widened from Deposit-only to FRA and
+  Future trades (per requested dependency: FRA forecast/discount, Future forecast), via a
+  multi-component AAD stage that registers only the target component's parameters and holds
+  every other dependency as a passive `double` curve. OIS/IRS/Basis/XCCY remain gated by
+  `TRADE_FAMILY_NOT_AAD_ENABLED`; the six-token failure set and its priority are unchanged.
+
 - `script`: Added two script-product debug dumps alongside the legacy
   s-expression one: `DebugScriptProductJson` / `Product_DebugJson` emit a
   versioned JSON AST (schema `dal.script-product/1`) for machine consumers
