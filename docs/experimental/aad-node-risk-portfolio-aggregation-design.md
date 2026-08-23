@@ -1,7 +1,11 @@
 # Full Product-Family AAD Node Risk and Portfolio Aggregation — Design
 
-> Status: revised design, not yet implemented. Identifiers match the local tree.
-> P0 contracts that the implementation review found still open are frozen below.
+> Status: revised design (rev. 2), not yet implemented. Identifiers match the
+> local tree. P0 contracts that the implementation review found still open are
+> frozen below; rev. 2 additionally freezes the heterogeneous curve-view
+> mechanism (contract 1), the per-component aggregation shape (contract 4),
+> and the XCCY active-typed assembly (contract 8), and tightens
+> active == passive PV to bitwise equality.
 > Staged execution, tests, and acceptance criteria live in the companion
 > [implementation plan](aad-node-risk-portfolio-aggregation-plan.md).
 
@@ -26,8 +30,10 @@
 - **Non-goals.** No new product families (cap/floor/swaption are P2); no vega or
   volatility axis; no parallel batch execution in P0 (serial, deterministic order —
   see risk 3); no AAD axis on the FX spot (the hook already exists:
-  `XccyMarketView_::fxSpot_` is already `T_`, a later small step can activate it);
-  no new JSON/serialization contracts (P1); the `Report_` storage format and the
+  `XccyMarketView_::fxSpot_` is already `T_`, a later small step can activate
+  it) — P0 XCCY node risk therefore ships rate axes only, with no FX delta,
+  and consumers must not read it as complete XCCY risk; no new
+  JSON/serialization contracts (P1); the `Report_` storage format and the
   `RateInstrumentType_` closed set are untouched; no ABI-isolation layer rework.
 
 ## Frozen P0 contracts
@@ -35,14 +41,25 @@
 These are closed for the first implementation series. Reopening any of them
 requires a new design revision, not a silent choice inside a stage-5 issue.
 
-1. **Non-target curves are truly passive `double` curves.** The active component
-   is built as `AAD::Number_` and registered through `RegisterCurveParameters`.
-   Every other curve the kernel reads is a `DiscountCurve_<double>` (or the
-   existing mixed-base `<AAD::Number_, DiscountCurve_<double>>` handle when the
-   active curve has a double base). Unregistered constant `AAD::Number_` curves
-   are not an acceptable "passive" stand-in: they still record OIS daily
-   compounding on the tape. Isolation tests must show the non-target gradient is
-   identically zero and that tape size does not scale with passive-node count.
+1. **Non-target curves are truly passive `double` curves, reached through a
+   heterogeneous curve reference.** The active component is built as
+   `AAD::Number_` and registered through `RegisterCurveParameters`. The
+   single-currency kernels do not read `market.curveComponents_` (a
+   double-only map) directly: each component key is resolved once per call
+   into an internal `CurveRef_<T_>` sum type holding exactly one of
+   `const DiscountCurve_<T_>*` (the target component) or
+   `const DiscountCurve_<double>*` (every other component), so mixed
+   active/passive arithmetic type-checks without registering passive
+   parameters. The passive path is `T_ = double` with every reference
+   passive, keeping `Price<double>` a thin wrapper over the same code. The
+   active curve's own base keeps the existing mixed-base
+   `<AAD::Number_, DiscountCurve_<double>>` handle. Unregistered constant
+   `AAD::Number_` curves are not an acceptable "passive" stand-in for the
+   single-currency families: they still record OIS daily compounding on the
+   tape. Isolation tests must show the non-target gradient is identically
+   zero and that tape size does not scale with passive-node count. XCCY
+   follows contract 8 instead — its view types cannot express this
+   mechanism.
 2. **Batch `componentKeys` is one shared list.**
    `RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` applies the
    same key list to every trade (Cartesian product, deterministic trade-major
@@ -56,9 +73,13 @@ requires a new design revision, not a silent choice inside a stage-5 issue.
    `market.resultCurrency_` and must never be used as a grouping key. The
    aggregate result carries an explicit policy label `UnconvertedByActualPvCcy`.
    FX conversion is a later increment and needs an explicit FX-input contract.
-4. **`Report_` is the numeric tensor, not the whole result.** Successful node
-   values live in a `Report_` whose axes come from
-   `DescribeCurveFreeParameters` / `BuildCurveParameterLayout`. Failures,
+4. **`Report_` is the numeric tensor, not the whole result — one dense tensor
+   per component.** `Report_` is dense with fixed strides, and node counts
+   differ across components (PWC N vs PWLF 2N), so the aggregation result is
+   one `Report_` per component over a single node axis whose labels come from
+   `DescribeCurveFreeParameters` / `BuildCurveParameterLayout` of the
+   market's curve for that component; no padding convention is introduced.
+   PV totals are grouped by actual PV currency under contract 3. Failures,
    currencies, and the aggregation policy live in a parallel meta table.
 5. **Excel emits a long-form spill.** Columns are
    `trade, component, reason, pv, node, value` (plus currency on aggregate
@@ -75,6 +96,23 @@ requires a new design revision, not a silent choice inside a stage-5 issue.
    is a negative case (must not be eligible-with-all-zeros). An in-block curve
    that cannot be classified is not `CURVE_REPRESENTATION_NOT_AAD_ENABLED`; that
    token remains a representation failure.
+8. **XCCY builds every consumed curve active-typed; only the target component
+   is registered.** `XccyMarketView_<T_>` and `JointCurveBlock_<T_>` are
+   uniformly typed in `T_` — a block cannot hold `double` curves — so
+   contract 1's heterogeneous reference does not extend to XCCY. The XCCY
+   stage follows the proven `Residuals<T_>` assembly instead: every curve the
+   trade actually consumes is built as `AAD::Number_`
+   (`BuildTypedCurveBlock<AAD::Number_>` for the domestic/foreign blocks,
+   `BuildDiscountCurveUniqueT<AAD::Number_>` for the basis), and only the
+   target component's parameters go through `RegisterCurveParameters`;
+   `fxSpot_` is an unregistered constant scalar, as in calibration. This is
+   acceptable specifically for XCCY because the kernel resolves one fixing
+   per coupon period (no daily loop): tape size is bounded by periods ×
+   knots touched and is guarded by the `rate_risk_perf` XCCY case, while the
+   OIS daily-compounding amplification that contract 1 excludes does not
+   occur. Isolation is still enforced — non-target gradients are identically
+   zero — but the tape assertion is a size bound, not passive-node-count
+   independence.
 
 ## Current-Code Facts
 
@@ -95,11 +133,14 @@ design:
 - The curve layer is already fully templated:
   `BuildCurveParameterLayout` / `DescribeCurveFreeParameters` (a date + component
   descriptor per parameter) / `RegisterCurveParameters` /
-  `BuildDiscountCurveUnique<T_,B_>`, including an existing mixed-base
+  `BuildDiscountCurveUniqueT<T_,B_>`, including an existing mixed-base
   instantiation `<AAD::Number_, DiscountCurve_<double>>` in
   `dal-cpp/dal/curve/curveparameterization.cpp`. The XCCY kernel
   (`PriceXccyContract<T_>`, `XccyMarketView_<T_>`) is already instantiated for
-  both double and AAD. The ready-made template for assembling multi-curve active
+  both double and AAD. `XccyMarketView_<T_>` and `JointCurveBlock_<T_>` are
+  uniformly typed in `T_` (a block cannot mix `double` and `AAD::Number_`
+  curves), so the XCCY node stage cannot reuse contract 1's heterogeneous
+  reference and follows frozen P0 contract 8. The ready-made template for assembling multi-curve active
   blocks is `BuildTypedCurveBlock<T_>` (with base layering,
   `dal-cpp/dal/curve/jointcalibration_internal.hpp`), and the complete stage
   pattern — `Residuals<T_>` + `TapeGuard_` + `RegisterCurveParameters` +
@@ -146,7 +187,8 @@ design:
   deterministic result order.
 - **Portfolio aggregation (new).** Sum the successful entries along the
   (component, currency, node/parameter) axes and return the aggregate plus axis
-  labels. The axis labels (parameter dates, component types) **must** be derived
+  labels: one dense `Report_` per component over its node axis, plus PV totals
+  per actual PV currency (frozen P0 contracts 3 and 4). The axis labels (parameter dates, component types) **must** be derived
   from `DescribeCurveFreeParameters`, and the parameter count and order **must**
   take `BuildCurveParameterLayout().parameterCount_` as the single source of
   truth — no hand-written parameter ordering or counting is acceptable (the

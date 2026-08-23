@@ -1,8 +1,11 @@
 # Full Product-Family AAD Node Risk and Portfolio Aggregation — Implementation Plan
 
-> Status: revised implementation plan, not yet started. P0 contracts from the
-> implementation review are frozen below and in the companion
-> [design](aad-node-risk-portfolio-aggregation-design.md).
+> Status: revised implementation plan (rev. 2), not yet started. P0 contracts
+> from the implementation review are frozen below and in the companion
+> [design](aad-node-risk-portfolio-aggregation-design.md); rev. 2 freezes the
+> heterogeneous curve view and the aggregation shape (follow-ups 4–5), the
+> stage-0 `Value()` unwrap points, batch hoisting, and bitwise
+> active == passive.
 
 ## Frozen P0 follow-ups
 
@@ -20,6 +23,19 @@ design; implementation issues must not reopen them.
 3. **Batch `componentKeys` (stage 5).** One shared key list applied to every
    trade (Cartesian product, trade-major then key order). Missing dependency
    returns `TRADE_DOES_NOT_DEPEND_ON_COMPONENT`.
+4. **Heterogeneous curve view (stages 0–1).** Single-currency kernels reach
+   curves through an internal `CurveRef_<T_>` sum type (active
+   `const DiscountCurve_<T_>*` for the target key, passive
+   `const DiscountCurve_<double>*` otherwise), resolved once per curve per
+   call; the `Price<double>` wrapper builds every reference passive. XCCY
+   does not use this mechanism — its uniformly typed view follows design
+   frozen P0 contract 8 (all consumed curves active-typed, only the target
+   registered).
+5. **Aggregation shape (stage 5).** One dense `Report_` per component over
+   its node axis; PV totals grouped by actual PV currency under
+   `UnconvertedByActualPvCcy`; failures/currency/policy in the parallel meta
+   table (design, frozen P0 contracts 3 and 4). No ragged-tensor or padding
+   convention.
 
 ## Stages 0–5
 
@@ -41,9 +57,18 @@ unmerged earlier state.
 - **Scope.** Templatize `Discount`/`ForwardRate`/`ResolveRate`/`PriceFixedFloat`/
   `PriceBasis` and the Deposit/FRA/Future branches of `Price` to `T_`;
   `Price(trade, market, result)` collapses into a thin wrapper over
-  `Price<double>`; add explicit double/`AAD::Number_` instantiations. Fixing reads
+  `Price<double>` (every `CurveRef_` passive); add explicit
+  double/`AAD::Number_` instantiations. Fixing reads
   and exception paths (the THROW inside `ResolveRate` plus the
-  `missingHistoricalFixings_` accounting) keep identical logic inside the template.
+  `missingHistoricalFixings_` accounting) keep identical logic inside the
+  template. Every `REQUIRE` on a `T_`-typed intermediate unwraps through
+  `Dal::AAD::Value` — never `static_cast<double>`, which only compiles on the
+  native and CoDiPack backends (the `jointrate.hpp` paradigm): the
+  `ForwardRate` accrual/discount-factor check, the FRA start-settled
+  denominator check, and the discount-positivity check (already centralized
+  in the templated `Tape::DiscountFromValuation`). Fixing values stay
+  `double` end to end, so their checks are untouched; primal-side checks
+  record nothing on the tape.
   Switch the Deposit AAD stage to the templated kernel and delete the hand-written
   formula in the lambda — from then on "active PV == passive PV" is guaranteed by
   the same code, not maintained by comparison.
@@ -58,7 +83,11 @@ unmerged earlier state.
 - **Scope.** Generalize `PrepareNodeSensitivityCurve` into "prepare
   definition + passive parameters separately for **every** component the trade
   depends on": the target component's parameters are registered as independent
-  variables via `RegisterCurveParameters`. Every other curve the kernel reads is
+  variables via `RegisterCurveParameters`. The stage assembles the
+  `CurveRef_<AAD::Number_>` view of frozen follow-up 4 — the target key
+  resolves to the freshly built active curve, every other key to the existing
+  `DiscountCurve_<double>` — and the templated kernels consume that view.
+  Every other curve the kernel reads is
   a `DiscountCurve_<double>` (or the existing mixed-base
   `<AAD::Number_, DiscountCurve_<double>>` handle when the active curve has a
   double base). Unregistered constant `AAD::Number_` curves are not an acceptable
@@ -100,9 +129,12 @@ unmerged earlier state.
 - **Scope.** Follow the frozen componentKey contract (design, decision point 1):
   locate in-block slots by pointer identity, and walk classification +
   preparation for each of the domestic/foreign blocks and the basis curve;
-  assemble `XccyMarketView_<AAD::Number_>` on the `Residuals<T_>` pattern
-  (non-target blocks stay `double` / mixed-base; fxSpot remains a constant
-  `double` in P0); give `PriceXccy` the `result` accounting parameter so it
+  assemble `XccyMarketView_<AAD::Number_>` on the `Residuals<T_>` pattern per
+  frozen P0 contract 8 — every consumed curve is built active-typed
+  (`BuildTypedCurveBlock<AAD::Number_>` blocks,
+  `BuildDiscountCurveUniqueT<AAD::Number_>` basis), only the target
+  component's parameters are registered, and `fxSpot_` stays an unregistered
+  constant scalar; give `PriceXccy` the `result` accounting parameter so it
   matches the other families (a missing fixing goes through
   `TRADE_VALIDATION_FAILED` — no new token). `BuildRateCashflowPlan` emits the
   XCCY dependency keys per frozen P0 follow-up 1 (market-aware overload;
@@ -117,9 +149,13 @@ unmerged earlier state.
 
 ### Stage 5 — batch/aggregation + bindings + performance
 
-- **Scope.** `RateTradeNodeSensitivitiesBatch` and aggregation as a `Report_`
-  numeric tensor plus a parallel meta table (failures, currencies,
-  `UnconvertedByActualPvCcy`). `componentKeys` is one shared list (frozen P0
+- **Scope.** `RateTradeNodeSensitivitiesBatch` and aggregation as one dense
+  `Report_` per component plus a parallel meta table (failures, currencies,
+  `UnconvertedByActualPvCcy`). The batch hoists each trade's passive pricing
+  (the `TRADE_VALIDATION_FAILED` gate) and each component's
+  classification/preparation out of the (trade, component) inner loop — the
+  Cartesian product costs one passive PV per trade and one preparation per
+  component, not T×K of each. `componentKeys` is one shared list (frozen P0
   contract 2). P0 is serial: do not dispatch onto the thread pool. dal-public
   passthrough; Python batch binding (keyword-only, read-only, one GIL release
   for the whole batch, mirroring `_CurveCalibrationGilBarrier_EnableForTesting`);
@@ -140,7 +176,9 @@ Core tests carry the load; public/Python/Excel contract tests close it out.
   (PWC/PWLF/LogDF/ZeroRate), compare every native parameter column (tolerances
   keep the existing mixed absolute + relative form).
 - **Active == passive PV.** For each family and component, assert `aad.pv_`
-  equals `PriceRateTrade().pv_` (the existing Deposit case uses 1e-12); when the
+  is bitwise equal to `PriceRateTrade().pv_` (`ASSERT_DOUBLE_EQ`) — after
+  stage 0 both paths run the same templated code in the same operation order,
+  so equality is exact, not 1e-12; when the
   borrow/pay direction flips, PV and gradient flip sign together (reusing the
   borrow-antisymmetry case pattern).
 - **Three fixing states.** Future fixing (projection path, nonzero gradient);
@@ -150,7 +188,10 @@ Core tests carry the load; public/Python/Excel contract tests close it out.
   inspectable).
 - **Multi-component.** Call separately for each dependent component; non-target
   component columns are all zero; forecast≠discount, the Basis three-component
-  case, and XCCY dual-block + basis each covered.
+  case, and XCCY dual-block + basis each covered. Tape isolation: for
+  single-currency families, tape size does not scale with passive-node count;
+  for XCCY, assert the contract-8 size bound (periods × knots touched)
+  instead.
 - **XCCY specifics.** Multi-currency pairs, collateral currencies, wrong keys,
   unregistered keys, in-block unclassifiable representations, before/after
   maturity, missing fixings in both currencies, and the unused-block-member
@@ -173,7 +214,8 @@ Core tests carry the load; public/Python/Excel contract tests close it out.
   `__doc__` first-line assertions) + GIL-release proof; the Excel long-form
   spill contract (`trade, component, reason, pv, node, value`, plus currency
   on aggregate rows). Node order within a component still follows
-  `BuildCurveParameterLayout`.
+  `BuildCurveParameterLayout`. The aggregation result carries one dense
+  `Report_` per component — no padded shared node axis.
 - **Registry.** The consistency assertion between the family-enabled set and
   `RateInstrumentTypeListAll()` is updated as stages land.
 
@@ -194,8 +236,8 @@ Gates belong to GitHub CI; this section only marks where they attach.
 ## Acceptance Criteria
 
 - All seven families × (each applicable curve representation) have passing
-  AAD-vs-central-difference cases; each family has a passing active == passive
-  case.
+  AAD-vs-central-difference cases; each family has a passing bitwise
+  active == passive case.
 - Gradients for any non-target dependent component are strictly zero;
   terms-mismatch still returns `TRADE_FAMILY_NOT_AAD_ENABLED`; the six-token
   closed set and its priority are unchanged, and the existing Deposit assertions
@@ -206,8 +248,11 @@ Gates belong to GitHub CI; this section only marks where they attach.
 - Every family has a before/after-maturity case and, where a layered curve
   applies, a base-curve isolation case.
 - Batch: partial-failure isolation + numerical identity with single-trade calls
-  + deterministic serial order; aggregation groups by actual PV currency under
-  `UnconvertedByActualPvCcy`; axis labels correspond one-to-one with
+  + deterministic serial order; passive pricing and per-component preparation
+  are hoisted (one passive PV per trade, one preparation per component, not
+  T×K); aggregation groups by actual PV currency under
+  `UnconvertedByActualPvCcy`; each component's node values form a dense
+  `Report_` whose axis labels correspond one-to-one with
   `DescribeCurveFreeParameters`, and the parameter count matches
   `BuildCurveParameterLayout`. Failures and currency/policy live in the
   parallel meta table, not inside `Report_`.
