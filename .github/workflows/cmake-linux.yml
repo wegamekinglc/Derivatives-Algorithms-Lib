@@ -100,10 +100,21 @@ jobs:
 
       # gcc-15 is not in the Ubuntu 24.04 archive; the toolchain test PPA
       # publishes it for noble. add-apt-repository refreshes the apt lists.
+      # The Launchpad lookup and apt refresh are transient-prone (seen on
+      # PR #299: two gcc-15 legs failed in this step within minutes while the
+      # other two succeeded), so retry with backoff before giving up.
       - name: Add gcc-15 toolchain PPA
         if: matrix.compiler == 'gcc-15'
         run: |
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          for attempt in 1 2 3 4; do
+            if sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; then
+              exit 0
+            fi
+            echo "PPA setup failed (attempt $attempt of 4); retrying after backoff"
+            sleep $((attempt * 20))
+          done
+          echo "PPA setup failed after 4 attempts"
+          exit 1
 
       - name: Setup
         run: |
