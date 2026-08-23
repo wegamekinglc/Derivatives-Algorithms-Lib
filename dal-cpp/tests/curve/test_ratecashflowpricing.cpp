@@ -193,14 +193,10 @@ namespace {
 
     // Family-generic form of the Deposit battery above: the assembled market places the built
     // curve under the target component key and holds every other dependency on a fixed curve,
-    // so central bumps perturb the target component only.
+    // so central bumps perturb the target component only. Dates follow the Deposit battery;
+    // the early window falls entirely before the first knot so later columns are structural zeros.
     template <class BuildCurve_, class AssembleMarket_>
     void AssertFamilyNodeGradientMatchesCentralBumps(const Dal::RateInstrumentType_& family,
-                                                     const Dal::Date_& today,
-                                                     const Dal::Date_& start,
-                                                     const Dal::Date_& maturity,
-                                                     const Dal::Date_& earlyStart,
-                                                     const Dal::Date_& earlyMaturity,
                                                      const Dal::RateTradeTerms_& terms,
                                                      const Dal::RateTradeTerms_& oppositeTerms,
                                                      const Dal::String_& componentKey,
@@ -212,6 +208,11 @@ namespace {
                                                      double absoluteTolerance,
                                                      double relativeTolerance,
                                                      const Dal::Vector_<int>& structuralZeroColumns) {
+        const Dal::Date_ today(2026, 1, 15);
+        const Dal::Date_ start(2026, 10, 15);
+        const Dal::Date_ maturity(2029, 1, 15);
+        const Dal::Date_ earlyStart(2026, 2, 15);
+        const Dal::Date_ earlyMaturity(2026, 4, 15);
         const auto trade = Trade(family, today, start, maturity, terms);
         const auto market = assembleMarket(buildCurve(parameters));
         const auto aad = Dal::RateTradeNodeSensitivities(trade, market, componentKey);
@@ -755,9 +756,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADForecastPwcRawColumnsMatchCentralBum
     };
     auto opposite = FraTerms();
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite), "forecast",
-                                                assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3, PWC_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite),
+                                                "forecast", assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3, PWC_NATIVE_PARAMETER_BUMP,
                                                 PWC_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWC_RAW_GRADIENT_RELATIVE_TOLERANCE, {1, 2});
 }
 
@@ -783,10 +783,10 @@ TEST(RateCashflowPricingTest, TestFraNodeAADForecastPwlfRawColumnsMatchCentralBu
     };
     auto opposite = FraTerms();
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite), "forecast",
-                                                assembleMarket, buildCurve, {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6, PWLF_NATIVE_PARAMETER_BUMP,
-                                                PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite),
+                                                "forecast", assembleMarket, buildCurve, {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6,
+                                                PWLF_NATIVE_PARAMETER_BUMP, PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE,
+                                                PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
 }
 
 TEST(RateCashflowPricingTest, TestFraNodeAADForecastLogDiscountRawColumnsMatchCentralBumps) {
@@ -808,9 +808,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADForecastLogDiscountRawColumnsMatchCe
     };
     auto opposite = FraTerms();
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite), "forecast",
-                                                assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3, LOG_DISCOUNT_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite),
+                                                "forecast", assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3, LOG_DISCOUNT_NATIVE_PARAMETER_BUMP,
                                                 LOG_DISCOUNT_RAW_GRADIENT_ABSOLUTE_TOLERANCE, LOG_DISCOUNT_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
@@ -831,9 +830,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADForecastZeroRateRawColumnsMatchCentr
     };
     auto opposite = FraTerms();
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite), "forecast",
-                                                assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3, ZERO_RATE_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(FraTerms()), Dal::RateTradeTerms_(opposite),
+                                                "forecast", assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3, ZERO_RATE_NATIVE_PARAMETER_BUMP,
                                                 ZERO_RATE_RAW_GRADIENT_ABSOLUTE_TOLERANCE, ZERO_RATE_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
@@ -854,9 +852,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADDiscountPwcRawColumnsMatchCentralBum
     auto terms = FraTerms(false);
     auto opposite = terms;
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite), "discount",
-                                                assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3, PWC_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite),
+                                                "discount", assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3, PWC_NATIVE_PARAMETER_BUMP,
                                                 PWC_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWC_RAW_GRADIENT_RELATIVE_TOLERANCE, {1, 2});
 }
 
@@ -883,10 +880,10 @@ TEST(RateCashflowPricingTest, TestFraNodeAADDiscountPwlfRawColumnsMatchCentralBu
     auto terms = FraTerms(false);
     auto opposite = terms;
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite), "discount",
-                                                assembleMarket, buildCurve, {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6, PWLF_NATIVE_PARAMETER_BUMP,
-                                                PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite),
+                                                "discount", assembleMarket, buildCurve, {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6,
+                                                PWLF_NATIVE_PARAMETER_BUMP, PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE,
+                                                PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
 }
 
 TEST(RateCashflowPricingTest, TestFraNodeAADDiscountLogDiscountRawColumnsMatchCentralBumps) {
@@ -909,9 +906,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADDiscountLogDiscountRawColumnsMatchCe
     auto terms = FraTerms(false);
     auto opposite = terms;
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite), "discount",
-                                                assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3, LOG_DISCOUNT_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite),
+                                                "discount", assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3, LOG_DISCOUNT_NATIVE_PARAMETER_BUMP,
                                                 LOG_DISCOUNT_RAW_GRADIENT_ABSOLUTE_TOLERANCE, LOG_DISCOUNT_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
@@ -933,9 +929,8 @@ TEST(RateCashflowPricingTest, TestFraNodeAADDiscountZeroRateRawColumnsMatchCentr
     auto terms = FraTerms(false);
     auto opposite = terms;
     opposite.receiveFloating_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite), "discount",
-                                                assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3, ZERO_RATE_NATIVE_PARAMETER_BUMP,
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FRA"), Dal::RateTradeTerms_(terms), Dal::RateTradeTerms_(opposite),
+                                                "discount", assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3, ZERO_RATE_NATIVE_PARAMETER_BUMP,
                                                 ZERO_RATE_RAW_GRADIENT_ABSOLUTE_TOLERANCE, ZERO_RATE_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
@@ -955,10 +950,10 @@ TEST(RateCashflowPricingTest, TestFutureNodeAADForecastPwcRawColumnsMatchCentral
     };
     auto opposite = FutureTerms();
     opposite.long_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FutureTerms()), Dal::RateTradeTerms_(opposite),
-                                                "forecast", assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3, PWC_NATIVE_PARAMETER_BUMP,
-                                                PWC_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWC_RAW_GRADIENT_RELATIVE_TOLERANCE, {1, 2});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), Dal::RateTradeTerms_(FutureTerms()),
+                                                Dal::RateTradeTerms_(opposite), "forecast", assembleMarket, buildCurve, {0.01, -0.005, 0.03}, 3,
+                                                PWC_NATIVE_PARAMETER_BUMP, PWC_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWC_RAW_GRADIENT_RELATIVE_TOLERANCE,
+                                                {1, 2});
 }
 
 TEST(RateCashflowPricingTest, TestFutureNodeAADForecastPwlfRawColumnsMatchCentralBumps) {
@@ -983,11 +978,10 @@ TEST(RateCashflowPricingTest, TestFutureNodeAADForecastPwlfRawColumnsMatchCentra
     };
     auto opposite = FutureTerms();
     opposite.long_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FutureTerms()), Dal::RateTradeTerms_(opposite),
-                                                "forecast", assembleMarket, buildCurve, {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6,
-                                                PWLF_NATIVE_PARAMETER_BUMP, PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE,
-                                                PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), Dal::RateTradeTerms_(FutureTerms()),
+                                                Dal::RateTradeTerms_(opposite), "forecast", assembleMarket, buildCurve,
+                                                {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6, PWLF_NATIVE_PARAMETER_BUMP,
+                                                PWLF_RAW_GRADIENT_ABSOLUTE_TOLERANCE, PWLF_RAW_GRADIENT_RELATIVE_TOLERANCE, {2, 3, 4, 5});
 }
 
 TEST(RateCashflowPricingTest, TestFutureNodeAADForecastLogDiscountRawColumnsMatchCentralBumps) {
@@ -1009,10 +1003,10 @@ TEST(RateCashflowPricingTest, TestFutureNodeAADForecastLogDiscountRawColumnsMatc
     };
     auto opposite = FutureTerms();
     opposite.long_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FutureTerms()), Dal::RateTradeTerms_(opposite),
-                                                "forecast", assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3, LOG_DISCOUNT_NATIVE_PARAMETER_BUMP,
-                                                LOG_DISCOUNT_RAW_GRADIENT_ABSOLUTE_TOLERANCE, LOG_DISCOUNT_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), Dal::RateTradeTerms_(FutureTerms()),
+                                                Dal::RateTradeTerms_(opposite), "forecast", assembleMarket, buildCurve, {-0.005, 0.0, -0.06}, 3,
+                                                LOG_DISCOUNT_NATIVE_PARAMETER_BUMP, LOG_DISCOUNT_RAW_GRADIENT_ABSOLUTE_TOLERANCE,
+                                                LOG_DISCOUNT_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
 TEST(RateCashflowPricingTest, TestFutureNodeAADForecastZeroRateRawColumnsMatchCentralBumps) {
@@ -1032,10 +1026,10 @@ TEST(RateCashflowPricingTest, TestFutureNodeAADForecastZeroRateRawColumnsMatchCe
     };
     auto opposite = FutureTerms();
     opposite.long_ = false;
-    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::Date_(2026, 2, 15),
-                                                Dal::Date_(2026, 4, 15), Dal::RateTradeTerms_(FutureTerms()), Dal::RateTradeTerms_(opposite),
-                                                "forecast", assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3, ZERO_RATE_NATIVE_PARAMETER_BUMP,
-                                                ZERO_RATE_RAW_GRADIENT_ABSOLUTE_TOLERANCE, ZERO_RATE_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
+    AssertFamilyNodeGradientMatchesCentralBumps(Dal::RateInstrumentType_("FUTURE"), Dal::RateTradeTerms_(FutureTerms()),
+                                                Dal::RateTradeTerms_(opposite), "forecast", assembleMarket, buildCurve, {0.01, 0.0, -0.005}, 3,
+                                                ZERO_RATE_NATIVE_PARAMETER_BUMP, ZERO_RATE_RAW_GRADIENT_ABSOLUTE_TOLERANCE,
+                                                ZERO_RATE_RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
 }
 
 TEST(RateCashflowPricingTest, TestFraAndFutureNodeAADActivePvEqualsPassiveBitwiseBothSettlementModes) {
