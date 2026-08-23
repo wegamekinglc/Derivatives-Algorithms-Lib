@@ -47,7 +47,8 @@ namespace Dal {
         // Curve reference for the pricing kernels: the target component as an active
         // DiscountCurve_<T_>, every other component as its passive double curve, so mixed
         // active/passive arithmetic type-checks without registering passive parameters
-        // (design contract 1). T_ = double keeps every reference passive.
+        // (frozen P0 contract 1 in docs/experimental/aad-node-risk-portfolio-aggregation-design.md).
+        // T_ = double keeps every reference passive.
         template <class T_> struct CurveRef_ {
             const Tape::DiscountCurve_<T_>* active_ = nullptr;
             const Tape::DiscountCurve_<double>* passive_ = nullptr;
@@ -72,11 +73,10 @@ namespace Dal {
         }
 
         template <class T_> T_ Discount(const CurveRef_<T_>& curve, const DateTime_& valuationTime, const Date_& paymentDate) {
+            static constexpr const char* POSITIVE_DISCOUNT_FACTORS = "Rate pricing requires positive finite discount factors";
             if (curve.active_)
-                return Tape::DiscountFromValuation(*curve.active_, valuationTime, paymentDate,
-                                                   "Rate pricing requires positive finite discount factors");
-            return T_(
-                Tape::DiscountFromValuation(*curve.passive_, valuationTime, paymentDate, "Rate pricing requires positive finite discount factors"));
+                return Tape::DiscountFromValuation(*curve.active_, valuationTime, paymentDate, POSITIVE_DISCOUNT_FACTORS);
+            return T_(Tape::DiscountFromValuation(*curve.passive_, valuationTime, paymentDate, POSITIVE_DISCOUNT_FACTORS));
         }
 
         void AddUnique(const String_& value, Vector_<String_>* values) {
@@ -136,19 +136,13 @@ namespace Dal {
             return result;
         }
 
-        template <class Terms_>
         void AddFloatingPlan(const RateTradeDefinition_& trade,
-                             const Terms_& terms,
                              const DateTime_& valuationTime,
                              const RateLegConvention_& leg,
                              const RateIndexConvention_& index,
                              const FixingIdentity_& identity,
-                             const String_& forecastKey,
-                             const String_& discountKey,
                              bool dailyObservations,
                              RateCashflowPlan_* result) {
-            AddUnique(forecastKey, &result->dependencyComponentKeys_);
-            AddUnique(discountKey, &result->dependencyComponentKeys_);
             for (const auto& period :
                  BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, leg, index.fixingLag_, index.fixingHolidays_)) {
                 if (period.schedule_.paymentDate_ < valuationTime.Date())
@@ -165,7 +159,6 @@ namespace Dal {
                     addObservation(period.schedule_.accrualStart_);
                 }
             }
-            static_cast<void>(terms);
         }
 
         // #lizard forgives -- explicit instrument-family validation is the public contract boundary.
@@ -188,30 +181,34 @@ namespace Dal {
             return std::find(enabled.begin(), enabled.end(), trade.instrumentType_) != enabled.end() && TermsMatchFamily(trade);
         }
 
-        // Curve components the trade's pricing actually reads, in deterministic terms order; the
-        // AAD stage prepares every one of them and registers only the requested target.
-        Vector_<String_> AadDependencyKeys(const RateTradeDefinition_& trade) {
-            Vector_<String_> result;
+        // Curve components the trade's pricing actually reads, in deterministic terms order — the
+        // single enumeration shared by the cashflow plan and the AAD stage's dependency gate.
+        void AppendDependencyKeys(const RateTradeTerms_& terms, Vector_<String_>* result) {
             std::visit(
-                [&](const auto& terms) {
-                    using terms_t = std::decay_t<decltype(terms)>;
+                [&](const auto& value) {
+                    using terms_t = std::decay_t<decltype(value)>;
                     if constexpr (std::is_same_v<terms_t, DepositTradeTerms_>) {
-                        AddUnique(terms.discountComponentKey_, &result);
+                        AddUnique(value.discountComponentKey_, result);
                     } else if constexpr (std::is_same_v<terms_t, FraTradeTerms_>) {
-                        AddUnique(terms.forecastComponentKey_, &result);
-                        AddUnique(terms.discountComponentKey_, &result);
+                        AddUnique(value.forecastComponentKey_, result);
+                        AddUnique(value.discountComponentKey_, result);
                     } else if constexpr (std::is_same_v<terms_t, FutureTradeTerms_>) {
-                        AddUnique(terms.forecastComponentKey_, &result);
+                        AddUnique(value.forecastComponentKey_, result);
                     } else if constexpr (std::is_same_v<terms_t, OisTradeTerms_> || std::is_same_v<terms_t, IrsTradeTerms_>) {
-                        AddUnique(terms.value_.forecastComponentKey_, &result);
-                        AddUnique(terms.value_.discountComponentKey_, &result);
+                        AddUnique(value.value_.forecastComponentKey_, result);
+                        AddUnique(value.value_.discountComponentKey_, result);
                     } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
-                        AddUnique(terms.spreadForecastComponentKey_, &result);
-                        AddUnique(terms.referenceForecastComponentKey_, &result);
-                        AddUnique(terms.discountComponentKey_, &result);
+                        AddUnique(value.spreadForecastComponentKey_, result);
+                        AddUnique(value.referenceForecastComponentKey_, result);
+                        AddUnique(value.discountComponentKey_, result);
                     }
                 },
-                trade.terms_);
+                terms);
+        }
+
+        Vector_<String_> AadDependencyKeys(const RateTradeDefinition_& trade) {
+            Vector_<String_> result;
+            AppendDependencyKeys(trade.terms_, &result);
             return result;
         }
 
@@ -498,34 +495,29 @@ namespace Dal {
         REQUIRE(valuationTime.IsValid(), "Rate cashflow plan requires a valid valuation time");
         RateCashflowPlan_ result;
         result.trade_ = trade;
+        AppendDependencyKeys(trade.terms_, &result.dependencyComponentKeys_);
         std::visit(
             [&](const auto& terms) {
                 using terms_t = std::decay_t<decltype(terms)>;
                 if constexpr (std::is_same_v<terms_t, DepositTradeTerms_>) {
-                    AddUnique(terms.discountComponentKey_, &result.dependencyComponentKeys_);
+                    // No fixing requests: the single accrual span is pure discounting.
                 } else if constexpr (std::is_same_v<terms_t, FraTradeTerms_>) {
-                    AddUnique(terms.forecastComponentKey_, &result.dependencyComponentKeys_);
-                    AddUnique(terms.discountComponentKey_, &result.dependencyComponentKeys_);
                     const auto period = SinglePeriod(trade, terms.index_);
                     const Date_ payment = terms.settleAtStart_ ? period.accrualStart_ : period.accrualEnd_;
                     const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
                     if (payment >= valuationTime.Date() && fixingTime < valuationTime)
                         AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
                 } else if constexpr (std::is_same_v<terms_t, FutureTradeTerms_>) {
-                    AddUnique(terms.forecastComponentKey_, &result.dependencyComponentKeys_);
                     const auto period = SinglePeriod(trade, terms.index_);
                     const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
                     if (trade.maturityDate_ >= valuationTime.Date() && fixingTime < valuationTime)
                         AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
                 } else if constexpr (std::is_same_v<terms_t, OisTradeTerms_> || std::is_same_v<terms_t, IrsTradeTerms_>) {
-                    AddFloatingPlan(trade, terms, valuationTime, terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_,
-                                    terms.value_.forecastComponentKey_, terms.value_.discountComponentKey_, std::is_same_v<terms_t, OisTradeTerms_>,
-                                    &result);
+                    AddFloatingPlan(trade, valuationTime, terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_,
+                                    std::is_same_v<terms_t, OisTradeTerms_>, &result);
                 } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
-                    AddFloatingPlan(trade, terms, valuationTime, terms.spreadLeg_, terms.spreadIndex_, terms.spreadFixingIdentity_,
-                                    terms.spreadForecastComponentKey_, terms.discountComponentKey_, false, &result);
-                    AddFloatingPlan(trade, terms, valuationTime, terms.referenceLeg_, terms.referenceIndex_, terms.referenceFixingIdentity_,
-                                    terms.referenceForecastComponentKey_, terms.discountComponentKey_, false, &result);
+                    AddFloatingPlan(trade, valuationTime, terms.spreadLeg_, terms.spreadIndex_, terms.spreadFixingIdentity_, false, &result);
+                    AddFloatingPlan(trade, valuationTime, terms.referenceLeg_, terms.referenceIndex_, terms.referenceFixingIdentity_, false, &result);
                 } else if constexpr (std::is_same_v<terms_t, XccyTradeTerms_>) {
                     const auto plan = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
                     result.requiredHistoricalFixings_ = RequiredHistoricalFixings(plan, valuationTime);
@@ -571,8 +563,9 @@ namespace Dal {
         if (std::find(dependencyKeys.begin(), dependencyKeys.end(), componentKey) == dependencyKeys.end())
             return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
 
-        // Availability and representation are gated for every component the trade depends on:
-        // the stage prepares each one separately and registers only the target's parameters.
+        // Availability and representation are gated for every component the trade depends on;
+        // only the requested target is prepared and its parameters registered — every other
+        // dependency stays the market's passive double curve.
         std::map<String_, NodeSensitivityCurve_> classifiedCurves;
         for (const auto& key : dependencyKeys) {
             const auto found = market.curveComponents_.find(key);
@@ -587,19 +580,17 @@ namespace Dal {
         if (!passive.succeeded_ || !std::isfinite(passive.pv_))
             return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
 
-        std::map<String_, NodeSensitivityPreparation_> preparations;
+        NodeSensitivityPreparation_ target;
         try {
-            for (const auto& [key, classifiedCurve] : classifiedCurves)
-                preparations.emplace(key, PrepareNodeSensitivityCurve(classifiedCurve, market.valuationTime_.Date()));
+            target = PrepareNodeSensitivityCurve(classifiedCurves.at(componentKey), market.valuationTime_.Date());
         } catch (const std::exception&) {
             return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
         }
 
-        const auto target = preparations.find(componentKey);
-        return RunNodeSensitivityAADStage(target->second.expectedParameterCount_, [&]() {
-            Vector_<AAD::Number_> parameters = RegisterCurveParameters(target->second.passiveParameters_);
+        return RunNodeSensitivityAADStage(target.expectedParameterCount_, [&]() {
+            Vector_<AAD::Number_> parameters = RegisterCurveParameters(target.passiveParameters_);
             AAD::NewRecording(*AAD::Tape());
-            const auto activeCurve = BuildDiscountCurveUniqueT<AAD::Number_>(target->second.definition_, parameters, target->second.passiveBase_);
+            const auto activeCurve = BuildDiscountCurveUniqueT<AAD::Number_>(target.definition_, parameters, target.passiveBase_);
             // Fixing failures were already gated by the passive price above; this diagnostics result is stage scratch.
             RatePricingTradeResult_ activeDiagnostics;
             const RateMarketView_<AAD::Number_> view{&market, &componentKey, activeCurve.get()};
