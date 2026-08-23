@@ -44,14 +44,39 @@ namespace Dal {
             return FixingDateTime(FixingDate(accrualStart, index), identity);
         }
 
-        const DiscountCurve_& Curve(const RatePricingMarket_& market, const String_& key) {
-            const auto found = market.curveComponents_.find(key);
-            REQUIRE(found != market.curveComponents_.end() && found->second, "Rate pricing market is missing curve component " + key);
-            return *found->second;
+        // Curve reference for the pricing kernels: the target component as an active
+        // DiscountCurve_<T_>, every other component as its passive double curve, so mixed
+        // active/passive arithmetic type-checks without registering passive parameters
+        // (design contract 1). T_ = double keeps every reference passive.
+        template <class T_> struct CurveRef_ {
+            const Tape::DiscountCurve_<T_>* active_ = nullptr;
+            const Tape::DiscountCurve_<double>* passive_ = nullptr;
+
+            T_ operator()(const Date_& from, const Date_& to) const { return active_ ? (*active_)(from, to) : T_((*passive_)(from, to)); }
+        };
+
+        template <class T_> struct RateMarketView_ {
+            const RatePricingMarket_* market_ = nullptr;
+            const String_* activeKey_ = nullptr;
+            const Tape::DiscountCurve_<T_>* activeCurve_ = nullptr;
+        };
+
+        template <class T_> CurveRef_<T_> Curve(const RateMarketView_<T_>& view, const String_& key) {
+            if (view.activeKey_ && key == *view.activeKey_) {
+                REQUIRE(view.activeCurve_, "Rate pricing active curve component is missing for " + key);
+                return {view.activeCurve_, nullptr};
+            }
+            const auto found = view.market_->curveComponents_.find(key);
+            REQUIRE(found != view.market_->curveComponents_.end() && found->second, "Rate pricing market is missing curve component " + key);
+            return {nullptr, &*found->second};
         }
 
-        double Discount(const DiscountCurve_& curve, const DateTime_& valuationTime, const Date_& paymentDate) {
-            return Tape::DiscountFromValuation(curve, valuationTime, paymentDate, "Rate pricing requires positive finite discount factors");
+        template <class T_> T_ Discount(const CurveRef_<T_>& curve, const DateTime_& valuationTime, const Date_& paymentDate) {
+            if (curve.active_)
+                return Tape::DiscountFromValuation(*curve.active_, valuationTime, paymentDate,
+                                                   "Rate pricing requires positive finite discount factors");
+            return T_(
+                Tape::DiscountFromValuation(*curve.passive_, valuationTime, paymentDate, "Rate pricing requires positive finite discount factors"));
         }
 
         void AddUnique(const String_& value, Vector_<String_>* values) {
@@ -64,21 +89,26 @@ namespace Dal {
                 values->push_back(value);
         }
 
-        double ForwardRate(
-            const DiscountCurve_& forecast, const Date_& start, const Date_& maturity, const DayBasis_& basis, const DayBasis::Context_* context) {
+        template <class T_>
+        T_ ForwardRate(
+            const CurveRef_<T_>& forecast, const Date_& start, const Date_& maturity, const DayBasis_& basis, const DayBasis::Context_* context) {
             const double accrual = basis(start, maturity, context);
-            const double df = forecast(start, maturity);
-            REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(df) && df > 0.0,
+            const T_ df = forecast(start, maturity);
+            // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
+            // only work on native and CoDiPack (XAD/Adept have no conversion operator).
+            const double dfValue = AAD::Value(df);
+            REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(dfValue) && dfValue > 0.0,
                     "Floating rate pricing requires positive finite accrual and forecast discount factor");
             return Tape::ForwardRateFromDf(df, accrual);
         }
 
-        double ResolveRate(const SchedulePeriod_& period,
-                           const RateIndexConvention_& index,
-                           const FixingIdentity_& identity,
-                           const DiscountCurve_& forecast,
-                           const RatePricingMarket_& market,
-                           RatePricingTradeResult_* result) {
+        template <class T_>
+        T_ ResolveRate(const SchedulePeriod_& period,
+                       const RateIndexConvention_& index,
+                       const FixingIdentity_& identity,
+                       const CurveRef_<T_>& forecast,
+                       const RatePricingMarket_& market,
+                       RatePricingTradeResult_* result) {
             const DateTime_ fixingTime = FixingTime(period.accrualStart_, index, identity);
             const FixingRequest_ request{identity.indexName_, fixingTime};
             const auto projected = [&]() {
@@ -95,7 +125,7 @@ namespace Dal {
                 THROW("Missing historical fixing " + identity.indexName_);
             }
             REQUIRE(std::isfinite(*supplied), "Historical rate fixing must be finite");
-            return *supplied;
+            return T_(*supplied);
         }
 
         SchedulePeriod_ SinglePeriod(const RateTradeDefinition_& trade, const RateIndexConvention_& index) {
@@ -151,31 +181,33 @@ namespace Dal {
             REQUIRE(matches, "Rate instrument type does not match its immutable terms alternative");
         }
 
-        double PriceFixedFloat(const RateTradeDefinition_& trade,
-                               const FixedFloatTradeTerms_& terms,
-                               bool overnight,
-                               const RatePricingMarket_& market,
-                               RatePricingTradeResult_* result) {
+        template <class T_>
+        T_ PriceFixedFloat(const RateTradeDefinition_& trade,
+                           const FixedFloatTradeTerms_& terms,
+                           bool overnight,
+                           const RateMarketView_<T_>& view,
+                           RatePricingTradeResult_* result) {
             REQUIRE(std::isfinite(terms.notional_) && terms.notional_ > 0.0, "Swap notional must be positive and finite");
             REQUIRE(std::isfinite(terms.contractRate_), "Swap contract rate must be finite");
-            const auto& discount = Curve(market, terms.discountComponentKey_);
-            const auto& forecast = Curve(market, terms.forecastComponentKey_);
-            double fixedPv = 0.0;
+            const auto& market = *view.market_;
+            const auto discount = Curve(view, terms.discountComponentKey_);
+            const auto forecast = Curve(view, terms.forecastComponentKey_);
+            T_ fixedPv(0.0);
             for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.fixedLeg_, 0, Holidays::None())) {
-                const double df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
+                const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
                 fixedPv += terms.notional_ * terms.contractRate_ * period.accrual_.dcf_ * df;
             }
-            double floatPv = 0.0;
+            T_ floatPv(0.0);
             for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.floatLeg_,
                                                                      terms.floatIndex_.fixingLag_, terms.floatIndex_.fixingHolidays_)) {
-                const double df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
-                if (df == 0.0)
+                const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
+                if (AAD::Value(df) == 0.0)
                     continue;
-                double couponRate = 0.0;
+                T_ couponRate(0.0);
                 if (!overnight) {
                     couponRate = ResolveRate(period.schedule_, terms.floatIndex_, terms.fixingIdentity_, forecast, market, result);
                 } else {
-                    double compound = 1.0;
+                    T_ compound(1.0);
                     for (Date_ day = period.schedule_.accrualStart_; day < period.schedule_.accrualEnd_; ++day) {
                         SchedulePeriod_ daily;
                         daily.accrualStart_ = day;
@@ -189,40 +221,46 @@ namespace Dal {
                 }
                 floatPv += terms.notional_ * couponRate * period.accrual_.dcf_ * df;
             }
-            const double payFixedPv = floatPv - fixedPv;
-            return terms.payFixed_ ? payFixedPv : -payFixedPv;
+            const T_ payFixedPv = floatPv - fixedPv;
+            if (terms.payFixed_)
+                return payFixedPv;
+            return -payFixedPv;
         }
 
-        double PriceBasis(const RateTradeDefinition_& trade,
-                          const BasisTradeTerms_& terms,
-                          const RatePricingMarket_& market,
-                          RatePricingTradeResult_* result) {
+        template <class T_>
+        T_ PriceBasis(const RateTradeDefinition_& trade,
+                      const BasisTradeTerms_& terms,
+                      const RateMarketView_<T_>& view,
+                      RatePricingTradeResult_* result) {
             REQUIRE(std::isfinite(terms.notional_) && terms.notional_ > 0.0, "Basis swap notional must be positive and finite");
             REQUIRE(std::isfinite(terms.contractSpread_), "Basis swap contract spread must be finite");
-            const auto& discount = Curve(market, terms.discountComponentKey_);
-            const auto& spreadForecast = Curve(market, terms.spreadForecastComponentKey_);
-            const auto& referenceForecast = Curve(market, terms.referenceForecastComponentKey_);
-            double spreadPv = 0.0;
+            const auto& market = *view.market_;
+            const auto discount = Curve(view, terms.discountComponentKey_);
+            const auto spreadForecast = Curve(view, terms.spreadForecastComponentKey_);
+            const auto referenceForecast = Curve(view, terms.referenceForecastComponentKey_);
+            T_ spreadPv(0.0);
             for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.spreadLeg_,
                                                                      terms.spreadIndex_.fixingLag_, terms.spreadIndex_.fixingHolidays_)) {
-                const double df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
-                if (df == 0.0)
+                const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
+                if (AAD::Value(df) == 0.0)
                     continue;
-                const double rate = ResolveRate(period.schedule_, terms.spreadIndex_, terms.spreadFixingIdentity_, spreadForecast, market, result);
+                const T_ rate = ResolveRate(period.schedule_, terms.spreadIndex_, terms.spreadFixingIdentity_, spreadForecast, market, result);
                 spreadPv += terms.notional_ * (rate + terms.contractSpread_) * period.accrual_.dcf_ * df;
             }
-            double referencePv = 0.0;
+            T_ referencePv(0.0);
             for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.referenceLeg_,
                                                                      terms.referenceIndex_.fixingLag_, terms.referenceIndex_.fixingHolidays_)) {
-                const double df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
-                if (df == 0.0)
+                const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
+                if (AAD::Value(df) == 0.0)
                     continue;
-                const double rate =
+                const T_ rate =
                     ResolveRate(period.schedule_, terms.referenceIndex_, terms.referenceFixingIdentity_, referenceForecast, market, result);
                 referencePv += terms.notional_ * rate * period.accrual_.dcf_ * df;
             }
-            const double receiveReference = referencePv - spreadPv;
-            return terms.receiveReferencePaySpread_ ? receiveReference : -receiveReference;
+            const T_ receiveReference = referencePv - spreadPv;
+            if (terms.receiveReferencePaySpread_)
+                return receiveReference;
+            return -receiveReference;
         }
 
         Tape::JointCurveBlock_<double> JointBlock(const CurveBlock_& block) {
@@ -263,21 +301,24 @@ namespace Dal {
         }
 
         // #lizard forgives -- family-specific pricing branches preserve the audited formula mapping.
-        double Price(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RatePricingTradeResult_* result) {
+        template <class T_> T_ Price(const RateTradeDefinition_& trade, const RateMarketView_<T_>& view, RatePricingTradeResult_* result) {
+            const auto& market = *view.market_;
             if (const auto* terms = std::get_if<DepositTradeTerms_>(&trade.terms_)) {
                 REQUIRE(std::isfinite(terms->notional_) && terms->notional_ > 0.0, "Deposit notional must be positive and finite");
                 REQUIRE(std::isfinite(terms->contractRate_), "Deposit contract rate must be finite");
-                const auto& discount = Curve(market, terms->discountComponentKey_);
+                const auto discount = Curve(view, terms->discountComponentKey_);
                 const double accrual = terms->index_.dayBasis_(trade.startDate_, trade.maturityDate_, nullptr);
                 REQUIRE(std::isfinite(accrual) && accrual > 0.0, "Deposit accrual must be positive and finite");
-                const double start = trade.startDate_ < market.valuationTime_.Date()
-                                         ? 0.0
-                                         : -terms->notional_ * Discount(discount, market.valuationTime_, trade.startDate_);
-                const double maturity =
-                    trade.maturityDate_ < market.valuationTime_.Date()
-                        ? 0.0
-                        : terms->notional_ * (1.0 + terms->contractRate_ * accrual) * Discount(discount, market.valuationTime_, trade.maturityDate_);
-                return terms->lend_ ? start + maturity : -(start + maturity);
+                const T_ start = trade.startDate_ < market.valuationTime_.Date()
+                                     ? T_(0.0)
+                                     : T_(-terms->notional_ * Discount(discount, market.valuationTime_, trade.startDate_));
+                const T_ maturity = trade.maturityDate_ < market.valuationTime_.Date()
+                                        ? T_(0.0)
+                                        : T_(terms->notional_ * (1.0 + terms->contractRate_ * accrual) *
+                                             Discount(discount, market.valuationTime_, trade.maturityDate_));
+                if (terms->lend_)
+                    return start + maturity;
+                return -(start + maturity);
             }
             if (const auto* terms = std::get_if<FraTradeTerms_>(&trade.terms_)) {
                 REQUIRE(std::isfinite(terms->notional_) && terms->notional_ > 0.0, "FRA notional must be positive and finite");
@@ -285,18 +326,21 @@ namespace Dal {
                 auto period = SinglePeriod(trade, terms->index_);
                 const Date_ payment = terms->settleAtStart_ ? period.accrualStart_ : period.accrualEnd_;
                 if (payment < market.valuationTime_.Date())
-                    return 0.0;
-                const auto& forecast = Curve(market, terms->forecastComponentKey_);
-                const auto& discount = Curve(market, terms->discountComponentKey_);
-                const double rate = ResolveRate(period, terms->index_, terms->fixingIdentity_, forecast, market, result);
+                    return T_(0.0);
+                const auto forecast = Curve(view, terms->forecastComponentKey_);
+                const auto discount = Curve(view, terms->discountComponentKey_);
+                const T_ rate = ResolveRate(period, terms->index_, terms->fixingIdentity_, forecast, market, result);
                 const double accrual = terms->index_.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get());
-                double payoff = terms->notional_ * accrual * (rate - terms->contractRate_);
+                T_ payoff = terms->notional_ * accrual * (rate - terms->contractRate_);
                 if (terms->settleAtStart_) {
-                    REQUIRE(1.0 + accrual * rate > 0.0, "Start-settled FRA denominator must be positive");
-                    payoff /= 1.0 + accrual * rate;
+                    const T_ denominator = 1.0 + accrual * rate;
+                    REQUIRE(AAD::Value(denominator) > 0.0, "Start-settled FRA denominator must be positive");
+                    payoff /= denominator;
                 }
                 payoff *= Discount(discount, market.valuationTime_, payment);
-                return terms->receiveFloating_ ? payoff : -payoff;
+                if (terms->receiveFloating_)
+                    return payoff;
+                return -payoff;
             }
             if (const auto* terms = std::get_if<FutureTradeTerms_>(&trade.terms_)) {
                 REQUIRE(std::isfinite(terms->contractCount_) && terms->contractCount_ > 0.0, "Future contract count must be positive and finite");
@@ -304,24 +348,59 @@ namespace Dal {
                             terms->contractValuePerPricePoint_ > 0.0 && std::isfinite(terms->convexityAdjustment_),
                         "Future pricing terms must be finite and point value must be positive");
                 if (trade.maturityDate_ < market.valuationTime_.Date())
-                    return 0.0;
+                    return T_(0.0);
                 auto period = SinglePeriod(trade, terms->index_);
-                const auto& forecast = Curve(market, terms->forecastComponentKey_);
-                const double forward = ResolveRate(period, terms->index_, terms->fixingIdentity_, forecast, market, result);
-                const double modelPrice = 100.0 * (1.0 - forward + terms->convexityAdjustment_);
-                const double pv = terms->contractCount_ * terms->contractValuePerPricePoint_ * (modelPrice - terms->referencePrice_);
-                return terms->long_ ? pv : -pv;
+                const auto forecast = Curve(view, terms->forecastComponentKey_);
+                const T_ forward = ResolveRate(period, terms->index_, terms->fixingIdentity_, forecast, market, result);
+                const T_ modelPrice = 100.0 * (1.0 - forward + terms->convexityAdjustment_);
+                const T_ pv = terms->contractCount_ * terms->contractValuePerPricePoint_ * (modelPrice - terms->referencePrice_);
+                if (terms->long_)
+                    return pv;
+                return -pv;
             }
             if (const auto* terms = std::get_if<OisTradeTerms_>(&trade.terms_))
-                return PriceFixedFloat(trade, terms->value_, true, market, result);
+                return PriceFixedFloat(trade, terms->value_, true, view, result);
             if (const auto* terms = std::get_if<IrsTradeTerms_>(&trade.terms_))
-                return PriceFixedFloat(trade, terms->value_, false, market, result);
+                return PriceFixedFloat(trade, terms->value_, false, view, result);
             if (const auto* terms = std::get_if<BasisTradeTerms_>(&trade.terms_))
-                return PriceBasis(trade, *terms, market, result);
+                return PriceBasis(trade, *terms, view, result);
             if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_))
-                return PriceXccy(trade, *terms, market);
+                return T_(PriceXccy(trade, *terms, market));
             THROW("Rate trade terms alternative is unsupported");
         }
+
+        // Passive entry: every CurveRef_ resolves from the market's double curves.
+        double Price(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RatePricingTradeResult_* result) {
+            const RateMarketView_<double> view{&market, nullptr, nullptr};
+            return Price(trade, view, result);
+        }
+
+        // Explicit instantiations: every kernel compiles for the passive double path and the AAD path.
+        template double Discount(const CurveRef_<double>&, const DateTime_&, const Date_&);
+        template AAD::Number_ Discount(const CurveRef_<AAD::Number_>&, const DateTime_&, const Date_&);
+        template double ForwardRate(const CurveRef_<double>&, const Date_&, const Date_&, const DayBasis_&, const DayBasis::Context_*);
+        template AAD::Number_ ForwardRate(const CurveRef_<AAD::Number_>&, const Date_&, const Date_&, const DayBasis_&, const DayBasis::Context_*);
+        template double ResolveRate(const SchedulePeriod_&,
+                                    const RateIndexConvention_&,
+                                    const FixingIdentity_&,
+                                    const CurveRef_<double>&,
+                                    const RatePricingMarket_&,
+                                    RatePricingTradeResult_*);
+        template AAD::Number_ ResolveRate(const SchedulePeriod_&,
+                                          const RateIndexConvention_&,
+                                          const FixingIdentity_&,
+                                          const CurveRef_<AAD::Number_>&,
+                                          const RatePricingMarket_&,
+                                          RatePricingTradeResult_*);
+        template double
+        PriceFixedFloat(const RateTradeDefinition_&, const FixedFloatTradeTerms_&, bool, const RateMarketView_<double>&, RatePricingTradeResult_*);
+        template AAD::Number_ PriceFixedFloat(
+            const RateTradeDefinition_&, const FixedFloatTradeTerms_&, bool, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
+        template double PriceBasis(const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<double>&, RatePricingTradeResult_*);
+        template AAD::Number_
+        PriceBasis(const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
+        template double Price(const RateTradeDefinition_&, const RateMarketView_<double>&, RatePricingTradeResult_*);
+        template AAD::Number_ Price(const RateTradeDefinition_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
 
         struct NodeSensitivityPreparation_ {
             CurveDefinition_ definition_;
@@ -479,17 +558,10 @@ namespace Dal {
             Vector_<AAD::Number_> parameters = RegisterCurveParameters(preparation.passiveParameters_);
             AAD::NewRecording(*AAD::Tape());
             const auto activeCurve = BuildDiscountCurveUniqueT<AAD::Number_>(preparation.definition_, parameters, preparation.passiveBase_);
-            const double accrual = terms->index_.dayBasis_(trade.startDate_, trade.maturityDate_, nullptr);
-            const AAD::Number_ start = trade.startDate_ < market.valuationTime_.Date()
-                                           ? AAD::Number_(0.0)
-                                           : -terms->notional_ * (*activeCurve)(market.valuationTime_.Date(), trade.startDate_);
-            const AAD::Number_ maturity =
-                trade.maturityDate_ < market.valuationTime_.Date()
-                    ? AAD::Number_(0.0)
-                    : terms->notional_ * (1.0 + terms->contractRate_ * accrual) * (*activeCurve)(market.valuationTime_.Date(), trade.maturityDate_);
-            AAD::Number_ pv = start + maturity;
-            if (!terms->lend_)
-                pv = -pv;
+            // Deposit pricing resolves no fixings; the passive gate above already did the fixing accounting.
+            RatePricingTradeResult_ activeDiagnostics;
+            const RateMarketView_<AAD::Number_> view{&market, &componentKey, activeCurve.get()};
+            AAD::Number_ pv = Price(trade, view, &activeDiagnostics);
             AAD::Adjoint(pv) = 1.0;
             AAD::PropagateToStart(*AAD::Tape());
             NodeSensitivityCandidate_ candidate;
