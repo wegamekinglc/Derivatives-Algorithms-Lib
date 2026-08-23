@@ -169,16 +169,50 @@ namespace Dal {
         }
 
         // #lizard forgives -- explicit instrument-family validation is the public contract boundary.
+        bool TermsMatchFamily(const RateTradeDefinition_& trade) {
+            return (trade.instrumentType_ == RateInstrumentType_::Value_::DEPOSIT && std::holds_alternative<DepositTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::FRA && std::holds_alternative<FraTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::FUTURE && std::holds_alternative<FutureTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::OIS && std::holds_alternative<OisTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::IRS && std::holds_alternative<IrsTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::BASIS_SWAP && std::holds_alternative<BasisTradeTerms_>(trade.terms_)) ||
+                   (trade.instrumentType_ == RateInstrumentType_::Value_::XCCY && std::holds_alternative<XccyTradeTerms_>(trade.terms_));
+        }
+
         void ValidateTermMatch(const RateTradeDefinition_& trade) {
-            const bool matches =
-                (trade.instrumentType_ == RateInstrumentType_::Value_::DEPOSIT && std::holds_alternative<DepositTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::FRA && std::holds_alternative<FraTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::FUTURE && std::holds_alternative<FutureTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::OIS && std::holds_alternative<OisTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::IRS && std::holds_alternative<IrsTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::BASIS_SWAP && std::holds_alternative<BasisTradeTerms_>(trade.terms_)) ||
-                (trade.instrumentType_ == RateInstrumentType_::Value_::XCCY && std::holds_alternative<XccyTradeTerms_>(trade.terms_));
-            REQUIRE(matches, "Rate instrument type does not match its immutable terms alternative");
+            REQUIRE(TermsMatchFamily(trade), "Rate instrument type does not match its immutable terms alternative");
+        }
+
+        bool IsFamilyAadEnabled(const RateTradeDefinition_& trade) {
+            const auto enabled = RateCashflowPricingInternal::AadEnabledRateFamilies();
+            return std::find(enabled.begin(), enabled.end(), trade.instrumentType_) != enabled.end() && TermsMatchFamily(trade);
+        }
+
+        // Curve components the trade's pricing actually reads, in deterministic terms order; the
+        // AAD stage prepares every one of them and registers only the requested target.
+        Vector_<String_> AadDependencyKeys(const RateTradeDefinition_& trade) {
+            Vector_<String_> result;
+            std::visit(
+                [&](const auto& terms) {
+                    using terms_t = std::decay_t<decltype(terms)>;
+                    if constexpr (std::is_same_v<terms_t, DepositTradeTerms_>) {
+                        AddUnique(terms.discountComponentKey_, &result);
+                    } else if constexpr (std::is_same_v<terms_t, FraTradeTerms_>) {
+                        AddUnique(terms.forecastComponentKey_, &result);
+                        AddUnique(terms.discountComponentKey_, &result);
+                    } else if constexpr (std::is_same_v<terms_t, FutureTradeTerms_>) {
+                        AddUnique(terms.forecastComponentKey_, &result);
+                    } else if constexpr (std::is_same_v<terms_t, OisTradeTerms_> || std::is_same_v<terms_t, IrsTradeTerms_>) {
+                        AddUnique(terms.value_.forecastComponentKey_, &result);
+                        AddUnique(terms.value_.discountComponentKey_, &result);
+                    } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
+                        AddUnique(terms.spreadForecastComponentKey_, &result);
+                        AddUnique(terms.referenceForecastComponentKey_, &result);
+                        AddUnique(terms.discountComponentKey_, &result);
+                    }
+                },
+                trade.terms_);
+            return result;
         }
 
         template <class T_>
@@ -531,34 +565,42 @@ namespace Dal {
     RateTradeNodeSensitivityResult_
     RateTradeNodeSensitivities(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const String_& componentKey) {
         using namespace RateCashflowPricingInternal;
-        const auto* terms = std::get_if<DepositTradeTerms_>(&trade.terms_);
-        if (!terms || trade.instrumentType_ != RateInstrumentType_::Value_::DEPOSIT)
+        if (!IsFamilyAadEnabled(trade))
             return NodeSensitivityFailure("TRADE_FAMILY_NOT_AAD_ENABLED");
-        if (terms->discountComponentKey_ != componentKey)
+        const Vector_<String_> dependencyKeys = AadDependencyKeys(trade);
+        if (std::find(dependencyKeys.begin(), dependencyKeys.end(), componentKey) == dependencyKeys.end())
             return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
-        const auto found = market.curveComponents_.find(componentKey);
-        if (found == market.curveComponents_.end() || !found->second)
-            return NodeSensitivityFailure("CURVE_COMPONENT_UNAVAILABLE");
-        const auto classifiedCurve = ClassifyNodeSensitivityCurve(*found->second);
-        if (std::holds_alternative<std::monostate>(classifiedCurve))
-            return NodeSensitivityFailure("CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+
+        // Availability and representation are gated for every component the trade depends on:
+        // the stage prepares each one separately and registers only the target's parameters.
+        std::map<String_, NodeSensitivityCurve_> classifiedCurves;
+        for (const auto& key : dependencyKeys) {
+            const auto found = market.curveComponents_.find(key);
+            if (found == market.curveComponents_.end() || !found->second)
+                return NodeSensitivityFailure("CURVE_COMPONENT_UNAVAILABLE");
+            classifiedCurves[key] = ClassifyNodeSensitivityCurve(*found->second);
+            if (std::holds_alternative<std::monostate>(classifiedCurves[key]))
+                return NodeSensitivityFailure("CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+        }
 
         const auto passive = PriceRateTrade(trade, market);
         if (!passive.succeeded_ || !std::isfinite(passive.pv_))
             return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
 
-        NodeSensitivityPreparation_ preparation;
+        std::map<String_, NodeSensitivityPreparation_> preparations;
         try {
-            preparation = PrepareNodeSensitivityCurve(classifiedCurve, market.valuationTime_.Date());
+            for (const auto& [key, classifiedCurve] : classifiedCurves)
+                preparations.emplace(key, PrepareNodeSensitivityCurve(classifiedCurve, market.valuationTime_.Date()));
         } catch (const std::exception&) {
             return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
         }
 
-        return RunNodeSensitivityAADStage(preparation.expectedParameterCount_, [&]() {
-            Vector_<AAD::Number_> parameters = RegisterCurveParameters(preparation.passiveParameters_);
+        const auto target = preparations.find(componentKey);
+        return RunNodeSensitivityAADStage(target->second.expectedParameterCount_, [&]() {
+            Vector_<AAD::Number_> parameters = RegisterCurveParameters(target->second.passiveParameters_);
             AAD::NewRecording(*AAD::Tape());
-            const auto activeCurve = BuildDiscountCurveUniqueT<AAD::Number_>(preparation.definition_, parameters, preparation.passiveBase_);
-            // Deposit pricing resolves no fixings; the passive gate above already did the fixing accounting.
+            const auto activeCurve = BuildDiscountCurveUniqueT<AAD::Number_>(target->second.definition_, parameters, target->second.passiveBase_);
+            // Fixing failures were already gated by the passive price above; this diagnostics result is stage scratch.
             RatePricingTradeResult_ activeDiagnostics;
             const RateMarketView_<AAD::Number_> view{&market, &componentKey, activeCurve.get()};
             AAD::Number_ pv = Price(trade, view, &activeDiagnostics);

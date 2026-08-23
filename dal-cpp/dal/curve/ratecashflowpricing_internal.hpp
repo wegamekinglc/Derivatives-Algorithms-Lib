@@ -40,6 +40,14 @@ namespace Dal::RateCashflowPricingInternal {
         Vector_<> gradient_;
     };
 
+    // AAD family-eligibility registry: the rate families whose node-sensitivity stage is
+    // open. A family enters this set only once its multi-component AAD stage is onboarded;
+    // the per-trade gate additionally requires the terms alternative to match the family,
+    // so terms-mismatch trades keep hitting the family gate by construction.
+    inline Vector_<RateInstrumentType_> AadEnabledRateFamilies() {
+        return {RateInstrumentType_::Value_::DEPOSIT, RateInstrumentType_::Value_::FRA, RateInstrumentType_::Value_::FUTURE};
+    }
+
     inline RateTradeNodeSensitivityResult_ NodeSensitivityFailure(const String_& reason) {
         RateTradeNodeSensitivityResult_ result;
         result.reason_ = reason;
