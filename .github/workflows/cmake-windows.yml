@@ -179,7 +179,9 @@ jobs:
             & $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
             exit 0
           }
-          & $cdb -g -G -lines -c 'sxe -c "kv50; !analyze -v; qd" av; g' `
+          # NB: no -g here on purpose: -g skips the initial breakpoint, which
+          # is where the -c commands (the sxe handler setup) execute.
+          & $cdb -G -lines -c 'sxe -c "kv50; !analyze -v; qd" av; g' `
             $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
           Write-Host "=== DIAG-CAPTURE-END (cdb exit $LASTEXITCODE) ==="
           exit 0
