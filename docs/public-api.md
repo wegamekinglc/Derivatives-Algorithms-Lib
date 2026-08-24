@@ -219,6 +219,9 @@ Dal::BuildRateCashflowPlan(trade, market);
 Dal::PriceRateTrade(trade, market);
 Dal::PriceRateTrades(trades, market);
 Dal::RateTradeNodeSensitivities(trade, market, componentKey);
+Dal::RateTradeNodeSensitivitiesBatch(trades, market, componentKeys);
+Dal::AggregateRatePortfolioNodeRisk(trades, market, componentKeys);
+Dal::RateNodeSensitivityAxisLabels(market, componentKey);
 Dal::CurvePricingFamilyRegistry();
 ```
 
@@ -256,6 +259,43 @@ Every node-sensitivity failure uses the canonical four-field result:
 `gradient == []`, and `reason` token. Consumers that apply a central-parameter
 fallback must label it separately.
 
+For XCCY the classification gate walks the consumed curves in a fixed order —
+domestic discount, domestic forecast, foreign discount, foreign forecast, then the
+basis curve — and the first curve in that order that cannot be classified decides
+the token: `CURVE_REPRESENTATION_NOT_AAD_ENABLED` when it is the addressed
+component, `AAD_EVALUATION_FAILED` for any other consumed curve (that token stays
+a failure of the addressed representation). This walk runs before passive trade
+validation, so a consumed non-target curve that cannot be classified reports
+`AAD_EVALUATION_FAILED` even when passive pricing would also fail.
+
+`RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` applies one
+shared component key list to every trade (Cartesian product), serially and in a
+deterministic trade-major then key order; each (trade, component) entry carries
+exactly the single-trade `RateTradeNodeSensitivityResult_` shape plus its
+addressing fields, failures are isolated per entry and nothing is thrown.
+Successful entries are numerically identical to the corresponding single-trade
+calls. The batch hoists each trade's passive pricing (the
+`TRADE_VALIDATION_FAILED` gate) to one passive PV per trade and each component's
+classification and preparation to one preparation per curve, never per (trade,
+component) pair.
+
+`AggregateRatePortfolioNodeRisk(trades, market, componentKeys)` runs the same
+sweep and returns the portfolio aggregate: one dense `Report_` per component over
+its node axis (the parameter count and order take
+`BuildCurveParameterLayout().parameterCount_` as the single source of truth; the
+per-node header rows pair each parameter's date with its
+`DescribeCurveFreeParameters` component; components with no eligible contribution
+keep their dense zero tensor), PV totals grouped by each trade's actual PV
+currency — the trade currency, or the domestic currency a XCCY swap's PV takes
+from covered-interest parity; `RatePricingTradeResult_.currency_` is never the
+grouping key — under the explicit `UnconvertedByActualPvCcy` policy (no FX
+conversion; each trade's PV counts once, not once per component), and a parallel
+meta table carrying one row per (trade, component) entry with its failure token,
+actual PV currency, and PV. A component whose classification or preparation
+fails carries no tensor; its failures live only in the meta table, and no padding
+convention is introduced. `RateNodeSensitivityAxisLabels(market, componentKey)`
+exposes the same `<date>:<component>` node labels standalone.
+
 ## Python
 
 Import the installed package with:
@@ -276,7 +316,7 @@ import dal
 | Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
 | Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
 | XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
-| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`                                                                                     |
+| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`                               |
 | Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
 
 The basic valuation shape is:
@@ -430,6 +470,7 @@ Primary worksheet families are:
 | Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                        |
 | Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                     |
 | Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                       |
+| Rate risk       | `RATEDEPOSITTRADE.NEW`, `RATEFRATRADE.NEW`, `RATEFUTURETRADE.NEW`, `RATEFIXEDFLOATTRADE.NEW`, `RATEBASISTRADE.NEW`, `RATEXCCYTRADE.NEW`, `RATEPRICINGMARKET.NEW`, `RATETRADENODESENSITIVITIESBATCH.SPILL`, `RATEPORTFOLIONODERISK.SPILL` |
 | Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                   |
 
 `DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously

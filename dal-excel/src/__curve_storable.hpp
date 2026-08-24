@@ -7,6 +7,7 @@
 #pragma once
 
 #include "__platform.hpp"
+#include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
 #include <dal-public/src/xccycalibration.hpp>
@@ -90,6 +91,18 @@ namespace Dal {
     struct StorableDiscountCurve_ : public Storable_ {
         Handle_<DiscountCurve_> val_;
         explicit StorableDiscountCurve_(const Handle_<DiscountCurve_>& v) : Storable_("DiscountCurve", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableRateTradeDefinition_ : public Storable_ {
+        RateTradeDefinition_ val_;
+        explicit StorableRateTradeDefinition_(const RateTradeDefinition_& v) : Storable_("RateTradeDefinition", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableRatePricingMarket_ : public Storable_ {
+        RatePricingMarket_ val_;
+        explicit StorableRatePricingMarket_(const RatePricingMarket_& v) : Storable_("RatePricingMarket", String_()), val_(v) {}
         void Write(Archive::Store_&) const override {}
     };
 

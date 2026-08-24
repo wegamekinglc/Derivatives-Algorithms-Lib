@@ -1,6 +1,6 @@
 # Full Product-Family AAD Node Risk and Portfolio Aggregation — Implementation Plan
 
-> Status: revised implementation plan (rev. 2), not yet started. P0 contracts
+> Status: implemented (stages 0–5 landed; this plan is the execution record). P0 contracts
 > from the implementation review are frozen below and in the companion
 > [design](aad-node-risk-portfolio-aggregation-design.md); rev. 2 freezes the
 > heterogeneous curve view and the aggregation shape (follow-ups 4–5), the

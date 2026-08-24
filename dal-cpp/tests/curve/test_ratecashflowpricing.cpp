@@ -2827,3 +2827,363 @@ TEST(RateCashflowPricingTest, TestOisPlanRecordsEachDailyHistoricalObservation) 
     ASSERT_EQ(plan.requiredHistoricalFixings_[0].fixingTime_, Dal::DateTime_(start, 11, 0));
     ASSERT_EQ(plan.requiredHistoricalFixings_[1].fixingTime_, Dal::DateTime_(start.AddDays(1), 11, 0));
 }
+
+TEST(RateCashflowPricingTest, TestBatchCellsMatchSingleTradeCallsAndIsolatePartialFailure) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
+
+    auto firstDeposit = DepositTerms();
+    firstDeposit.notional_ = 100.0;
+    auto secondDeposit = DepositTerms();
+    secondDeposit.notional_ = 250.0;
+    secondDeposit.lend_ = false;
+    auto invalidFra = FraTerms();
+    invalidFra.notional_ = std::numeric_limits<double>::quiet_NaN();
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, start, maturity, firstDeposit),
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, start, maturity, secondDeposit),
+        Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, invalidFra),
+        Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{FixedFloatTerms()}),
+    };
+    const Dal::Vector_<Dal::String_> keys{"discount", "forecast"};
+
+    const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, keys);
+
+    // Deterministic serial order: trade-major, then the shared key list.
+    ASSERT_EQ(cells.size(), 8u);
+    for (int tradeIndex = 0; tradeIndex < 4; ++tradeIndex)
+        for (int keyIndex = 0; keyIndex < 2; ++keyIndex) {
+            const auto& cell = cells[tradeIndex * 2 + keyIndex];
+            ASSERT_EQ(cell.instrumentId_, trades[tradeIndex].instrumentId_);
+            ASSERT_EQ(cell.componentKey_, keys[keyIndex]);
+        }
+
+    // Successful entries are numerically identical to the single-trade calls, including cells that
+    // follow failing entries in the same batch (per-entry isolation).
+    for (int tradeIndex : {0, 1, 3})
+        for (int keyIndex = 0; keyIndex < 2; ++keyIndex) {
+            const auto& cell = cells[tradeIndex * 2 + keyIndex];
+            const auto single = Dal::RateTradeNodeSensitivities(trades[tradeIndex], market, keys[keyIndex]);
+            ASSERT_EQ(cell.result_.eligible_, single.eligible_);
+            ASSERT_DOUBLE_EQ(cell.result_.pv_, single.pv_);
+            ASSERT_EQ(cell.result_.gradient_, single.gradient_);
+            ASSERT_EQ(cell.result_.reason_, single.reason_);
+        }
+
+    // Deposit never depends on the forecast key; the invalid FRA fails validation on both keys.
+    AssertCanonicalFailure(cells[1].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+    AssertCanonicalFailure(cells[3].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+    AssertCanonicalFailure(cells[4].result_, "TRADE_VALIDATION_FAILED");
+    AssertCanonicalFailure(cells[5].result_, "TRADE_VALIDATION_FAILED");
+}
+
+TEST(RateCashflowPricingTest, TestBatchHandlesEmptyListsAndDuplicateKeys) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2027, 1, 15);
+    const auto market = Market(today, FlatCurve(maturity));
+    const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms());
+
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivitiesBatch({}, market, {"discount"}).empty());
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivitiesBatch({trade}, market, {}).empty());
+
+    const auto cells = Dal::RateTradeNodeSensitivitiesBatch({trade}, market, {"discount", "discount", "unknown"});
+    ASSERT_EQ(cells.size(), 3u);
+    const auto single = Dal::RateTradeNodeSensitivities(trade, market, "discount");
+    for (int duplicate = 0; duplicate < 2; ++duplicate) {
+        ASSERT_EQ(cells[duplicate].componentKey_, "discount");
+        ASSERT_DOUBLE_EQ(cells[duplicate].result_.pv_, single.pv_);
+        ASSERT_EQ(cells[duplicate].result_.gradient_, single.gradient_);
+    }
+    AssertCanonicalFailure(cells[2].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+}
+
+TEST(RateCashflowPricingTest, TestBatchHoistsPassivePricingAndPerCurvePreparation) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+
+    {
+        // Three FRAs over two shared keys: one passive PV per trade, one preparation per curve.
+        const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms()),
+            Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms(false)),
+            Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms(false)),
+        };
+        internal::g_nodeSensitivityPassivePriceCount = 0;
+        internal::g_nodeSensitivityPreparationCount = 0;
+        const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, {"forecast", "discount"});
+        ASSERT_EQ(cells.size(), 6u);
+        for (const auto& cell : cells)
+            ASSERT_TRUE(cell.result_.eligible_);
+        ASSERT_EQ(internal::g_nodeSensitivityPassivePriceCount, 3);
+        ASSERT_EQ(internal::g_nodeSensitivityPreparationCount, 2);
+    }
+
+    {
+        // Trades whose every cell fails the dependency gate are never passively priced.
+        const auto market = Market(today, FlatCurve(maturity));
+        const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms());
+        internal::g_nodeSensitivityPassivePriceCount = 0;
+        internal::g_nodeSensitivityPreparationCount = 0;
+        const auto cells = Dal::RateTradeNodeSensitivitiesBatch({trade}, market, {"unrelated"});
+        ASSERT_EQ(cells.size(), 1u);
+        AssertCanonicalFailure(cells[0].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+        ASSERT_EQ(internal::g_nodeSensitivityPassivePriceCount, 0);
+        ASSERT_EQ(internal::g_nodeSensitivityPreparationCount, 0);
+    }
+
+    {
+        // Two XCCY trades sharing one market: the five consumed curves are prepared once between
+        // them (pointer-keyed memo), and each trade is passively priced once.
+        const auto market = FlatXccyMarket(today);
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms())),
+            Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms(false))),
+        };
+        internal::g_nodeSensitivityPassivePriceCount = 0;
+        internal::g_nodeSensitivityPreparationCount = 0;
+        const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, {XCCY_DOM_OIS, XCCY_FOR_FWD_3M});
+        ASSERT_EQ(cells.size(), 4u);
+        for (const auto& cell : cells)
+            ASSERT_TRUE(cell.result_.eligible_);
+        ASSERT_EQ(internal::g_nodeSensitivityPassivePriceCount, 2);
+        ASSERT_EQ(internal::g_nodeSensitivityPreparationCount, 5);
+    }
+}
+
+TEST(RateCashflowPricingTest, TestBatchXccyCellsMatchSingleTradeCalls) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto market = FlatXccyMarket(today);
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms())),
+        Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms(true, false))),
+    };
+    const Dal::Vector_<Dal::String_> keys{XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS};
+
+    const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, keys);
+    ASSERT_EQ(cells.size(), 10u);
+    for (int tradeIndex = 0; tradeIndex < 2; ++tradeIndex)
+        for (int keyIndex = 0; keyIndex < 5; ++keyIndex) {
+            const auto& cell = cells[tradeIndex * 5 + keyIndex];
+            const auto single = Dal::RateTradeNodeSensitivities(trades[tradeIndex], market, keys[keyIndex]);
+            ASSERT_EQ(cell.result_.eligible_, single.eligible_);
+            ASSERT_DOUBLE_EQ(cell.result_.pv_, single.pv_);
+            ASSERT_EQ(cell.result_.gradient_, single.gradient_);
+            ASSERT_EQ(cell.result_.reason_, single.reason_);
+        }
+}
+
+TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskBuildsDensePerComponentTensors) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 7, 15), Dal::Date_(2028, 7, 15)};
+    const auto discount = Dal::Handle_<Dal::DiscountCurve_>(
+        Dal::NewDiscountPWC("pwc", "USD", Dal::PiecewiseConstant_(knots, Dal::Vector_<>(3, 0.03))));
+    const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), discount);
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms()),
+        Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms()),
+    };
+    const Dal::Vector_<Dal::String_> keys{"discount", "forecast"};
+
+    const auto aggregate = Dal::AggregateRatePortfolioNodeRisk(trades, market, keys);
+
+    ASSERT_EQ(aggregate.policy_, "UnconvertedByActualPvCcy");
+    ASSERT_EQ(aggregate.meta_.size(), 4u);
+    ASSERT_TRUE(aggregate.meta_[0].eligible_);
+    ASSERT_FALSE(aggregate.meta_[1].eligible_);
+    ASSERT_EQ(aggregate.meta_[1].reason_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+    ASSERT_TRUE(aggregate.meta_[2].eligible_);
+    ASSERT_TRUE(aggregate.meta_[3].eligible_);
+
+    // PV totals count each trade once, not once per component.
+    ASSERT_EQ(aggregate.pvByActualPvCcy_.size(), 1u);
+    const double expectedPv = Dal::RateTradeNodeSensitivities(trades[0], market, "discount").pv_ +
+                               Dal::RateTradeNodeSensitivities(trades[1], market, "discount").pv_;
+    ASSERT_NEAR(aggregate.pvByActualPvCcy_.at("USD"), expectedPv, 1.0e-10 * std::max(1.0, std::abs(expectedPv)));
+
+    // One dense Report_ per component, node axis from the layout, header rows from the free
+    // parameters, values the sum of the per-trade gradients.
+    ASSERT_EQ(aggregate.components_.size(), 2u);
+    ASSERT_EQ(aggregate.components_[0].componentKey_, "discount");
+    ASSERT_EQ(aggregate.components_[1].componentKey_, "forecast");
+    const auto& discountComponent = *aggregate.components_[0].values_;
+    const auto definition = Dal::MakeCurveDefinition("pwc", "USD", Dal::CurveParameterization_(Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD),
+                                                     Dal::LogDfScheme_::Value_::LOG_LINEAR, knots, today, Dal::DayBasis_("ACT_365F"));
+    const int expectedCount = Dal::BuildCurveParameterLayout(definition).parameterCount_;
+    ASSERT_EQ(discountComponent.Size("node"), expectedCount);
+    const auto freeParameters = Dal::DescribeCurveFreeParameters(definition);
+    const auto& header = discountComponent.Header("node");
+    for (int node = 0; node < expectedCount; ++node) {
+        Dal::Report::Address_ address = discountComponent.MakeAddress();
+        address["node"] = node;
+        const double expected = Dal::RateTradeNodeSensitivities(trades[0], market, "discount").gradient_[node] +
+                                Dal::RateTradeNodeSensitivities(trades[1], market, "discount").gradient_[node];
+        ASSERT_DOUBLE_EQ(discountComponent[address], expected);
+        ASSERT_EQ(header.values_(node, 0), Dal::Cell_(freeParameters[node].date_));
+        ASSERT_EQ(header.values_(node, 1), Dal::Cell_(freeParameters[node].component_.String()));
+    }
+}
+
+TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskGroupsByActualPvCurrency) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+
+    {
+        // The passthrough result currency is never the grouping key: report in JPY, group in USD.
+        auto market = Market(today, FlatCurve(maturity));
+        market.resultCurrency_ = Dal::Ccy_("JPY");
+        const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms());
+        const auto aggregate = Dal::AggregateRatePortfolioNodeRisk({trade}, market, {"discount"});
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.size(), 1u);
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.count("JPY"), 0u) << "result currency leaked into the grouping";
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.count("USD"), 1u);
+        ASSERT_EQ(aggregate.meta_[0].actualPvCcy_, Dal::Ccy_("USD"));
+    }
+
+    {
+        // XCCY PV is domestic by covered-interest parity: the USD/EUR swap groups under USD while
+        // an EUR-denominated FRA on the same market's foreign curves groups under EUR.
+        const auto market = FlatXccyMarket(today);
+        const auto xccy = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+        auto eurTerms = FraTerms();
+        eurTerms.forecastComponentKey_ = XCCY_FOR_FWD_3M;
+        eurTerms.discountComponentKey_ = XCCY_FOR_OIS;
+        const Dal::RateTradeDefinition_ eurFra{"fra-eur", Dal::RateInstrumentType_("FRA"), today, start, maturity, Dal::Ccy_("EUR"), eurTerms};
+        const auto aggregate = Dal::AggregateRatePortfolioNodeRisk({xccy, eurFra}, market, {XCCY_DOM_OIS, XCCY_FOR_FWD_3M});
+        ASSERT_EQ(aggregate.meta_.size(), 4u);
+        ASSERT_TRUE(aggregate.meta_[0].eligible_);
+        ASSERT_TRUE(aggregate.meta_[3].eligible_);
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.size(), 2u);
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.count("USD"), 1u);
+        ASSERT_EQ(aggregate.pvByActualPvCcy_.count("EUR"), 1u);
+        ASSERT_EQ(aggregate.meta_[0].actualPvCcy_, Dal::Ccy_("USD"));
+        ASSERT_EQ(aggregate.meta_[3].actualPvCcy_, Dal::Ccy_("EUR"));
+    }
+}
+
+TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskKeepsFailuresInMetaTableOnly) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2027, 1, 15);
+    const auto market = Market(today, FlatCurve(maturity));
+    auto invalid = DepositTerms();
+    invalid.notional_ = std::numeric_limits<double>::quiet_NaN();
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms()),
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, invalid),
+    };
+    const Dal::Vector_<Dal::String_> keys{"discount", "missing"};
+
+    const auto aggregate = Dal::AggregateRatePortfolioNodeRisk(trades, market, keys);
+
+    ASSERT_EQ(aggregate.meta_.size(), 4u);
+    ASSERT_TRUE(aggregate.meta_[0].eligible_);
+    for (const int row : {1, 3}) {
+        ASSERT_FALSE(aggregate.meta_[row].eligible_);
+        ASSERT_DOUBLE_EQ(aggregate.meta_[row].pv_, 0.0);
+        ASSERT_EQ(aggregate.meta_[row].reason_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+    }
+    ASSERT_FALSE(aggregate.meta_[2].eligible_);
+    ASSERT_EQ(aggregate.meta_[2].reason_, "TRADE_VALIDATION_FAILED");
+
+    // "missing" has no tensor (no classified curve to label an axis); "discount" keeps its dense
+    // zero-or-summed tensor. No padding, no ragged rows.
+    ASSERT_EQ(aggregate.components_.size(), 1u);
+    ASSERT_EQ(aggregate.components_[0].componentKey_, "discount");
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADReasonPrecedenceForCombinedFailures) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto horizon = Dal::Date_(2031, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    auto invalidTerms = XccyTerms();
+    invalidTerms.positionCount_ = std::numeric_limits<double>::quiet_NaN();
+    const auto invalidTrade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(invalidTerms));
+    const auto supported = FlatXccyMarket(today);
+
+    // Family precedes everything: mismatched terms alternative stays on the family token.
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(
+                               Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, DepositTerms()), supported, XCCY_DOM_OIS),
+                           "TRADE_FAMILY_NOT_AAD_ENABLED");
+
+    // Requested dependency precedes classification and validation: wrong key wins on a market
+    // whose addressed target is unclassifiable and whose trade is invalid.
+    auto unsupportedTarget = FlatXccySpec(horizon);
+    unsupportedTarget.domesticOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+    const auto unsupportedTargetMarket = BuildXccyMarket(today, unsupportedTarget);
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, unsupportedTargetMarket, "unknown"), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+
+    // The classification walk precedes passive validation: the addressed unclassifiable target
+    // keeps the representation token even when passive pricing would also fail, and a consumed
+    // non-target that cannot be classified is an evaluation failure on the same precedence.
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, unsupportedTargetMarket, XCCY_DOM_OIS), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+    auto unsupportedForeign = FlatXccySpec(horizon);
+    unsupportedForeign.foreignOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>("EUR"));
+    const auto unsupportedForeignMarket = BuildXccyMarket(today, unsupportedForeign);
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, unsupportedForeignMarket, XCCY_DOM_OIS), "AAD_EVALUATION_FAILED");
+
+    // Walk order decides between two unclassifiable consumed curves: domestic discount walks
+    // first, so requesting the foreign discount still reports the domestic failure as evaluation,
+    // while requesting the domestic discount keeps the representation token.
+    auto bothUnsupported = FlatXccySpec(horizon);
+    bothUnsupported.domesticOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+    bothUnsupported.foreignOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>("EUR"));
+    const auto bothUnsupportedMarket = BuildXccyMarket(today, bothUnsupported);
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, bothUnsupportedMarket, XCCY_DOM_OIS), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, bothUnsupportedMarket, XCCY_FOR_OIS), "AAD_EVALUATION_FAILED");
+
+    // Passive validation on an otherwise clean market.
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, supported, XCCY_DOM_OIS), "TRADE_VALIDATION_FAILED");
+}
+
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+TEST(RateCashflowPricingTest, TestNodeSensitivitySweepTapeSizeIndependentOfPassiveCurveDensity) {
+    // Direct native seam (Tape_::nodes_ / BlockList_::Size()): an unregistered-constant
+    // AAD::Number_ passive curve would still pass value and width assertions, but its per-knot
+    // construction state would land on the tape — only this count separates the two.
+    namespace internal = Dal::RateCashflowPricingInternal;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto forecast = Dal::Handle_<Dal::DiscountCurve_>(
+        Dal::NewDiscountPWC("pwc", "USD", Dal::PiecewiseConstant_({Dal::Date_(2026, 7, 15), Dal::Date_(2027, 7, 15), Dal::Date_(2028, 7, 15)}, {0.01, -0.005, 0.03})));
+    Dal::Vector_<Dal::Date_> denseKnots;
+    for (Dal::Date_ knot = Dal::Date_(2026, 2, 15); knot <= Dal::Date_(2029, 12, 15); knot = knot.AddDays(30))
+        denseKnots.push_back(knot);
+    const auto denseDiscount = Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("dense", "USD", Dal::PiecewiseConstant_(denseKnots, Dal::Vector_<>(denseKnots.size(), 0.03))));
+    const auto smallDiscount = FlatCurve(maturity, 0.03);
+
+    int fraSmallTape = 0;
+    int fraDenseTape = 0;
+    int oisSmallTape = 0;
+    int oisDenseTape = 0;
+    const auto fraTrade = Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms());
+    const auto oisTrade = Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{FixedFloatTerms()});
+
+    internal::g_nodeSensitivityTapeSizeSink = &fraSmallTape;
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    internal::g_nodeSensitivityTapeSizeSink = &fraDenseTape;
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
+    internal::g_nodeSensitivityTapeSizeSink = &oisSmallTape;
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    internal::g_nodeSensitivityTapeSizeSink = &oisDenseTape;
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
+    internal::g_nodeSensitivityTapeSizeSink = nullptr;
+
+    ASSERT_GT(fraSmallTape, 0);
+    ASSERT_GT(oisSmallTape, 0);
+    ASSERT_EQ(fraSmallTape, fraDenseTape) << "FRA sweep tape grows with passive discount node count";
+    ASSERT_EQ(oisSmallTape, oisDenseTape) << "OIS sweep tape grows with passive discount node count";
+    ASSERT_GT(oisSmallTape, fraSmallTape) << "OIS daily compounding shapes the recording";
+}
+#endif

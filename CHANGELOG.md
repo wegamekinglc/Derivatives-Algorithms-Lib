@@ -46,6 +46,21 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: batch and portfolio-aggregation node-risk APIs close out the seven-family AAD node
+  risk feature. `RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` sweeps the
+  Cartesian product of a trade list and one shared component key list serially and
+  deterministically, returning exactly the single-trade result shape per (trade, component) cell
+  with per-entry failure isolation and nothing thrown; passive pricing is hoisted to one passive
+  PV per trade and classification/preparation to one per curve. `AggregateRatePortfolioNodeRisk`
+  sums the successful entries into one dense `Report_` per component (node count and order from
+  `BuildCurveParameterLayout`, header rows from `DescribeCurveFreeParameters`), groups PV totals
+  by each trade's actual PV currency under the `UnconvertedByActualPvCcy` policy (no FX
+  conversion), and carries failures and currencies in a parallel meta table. The Python bindings
+  expose both keyword-only with read-only results and one GIL release per batch; the Excel add-in
+  gains the rate trade/market builders and long-form spills
+  (`trade, component, reason, pv, node, value`, plus currency on aggregate rows). A
+  `rate_risk_perf` benchmark joins the paired regression-gate subset.
+
 - `curve`: `RateTradeNodeSensitivities` success domain widened to XCCY trades (any consumed curve
   registered under a component key — the collateral/tenor-selected domestic/foreign discount and
   forecast curves plus the basis curve), completing the seven-family P0 success domain. XCCY

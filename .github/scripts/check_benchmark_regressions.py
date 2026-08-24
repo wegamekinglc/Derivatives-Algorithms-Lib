@@ -26,6 +26,7 @@ BENCHMARKS = (
     "krylov_perf",
     "banded_perf",
     "cholesky_perf",
+    "rate_risk_perf",
 )
 FAST_SOBOL_CASE = "Sobol FillNormal fast (100K x 10D)"
 OLD_PRECISE_SOBOL_CASE = "Sobol FillNormal precise (100K x 10D)"

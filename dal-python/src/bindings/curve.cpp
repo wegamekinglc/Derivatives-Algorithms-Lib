@@ -40,9 +40,18 @@ using namespace Dal;
 
 namespace {
     std::atomic<int> s_curveCalibrationGilBarrierMilliseconds{0};
+    std::atomic<int> s_rateRiskGilBarrierMilliseconds{0};
 
     void RunCurveCalibrationGilBarrierForTesting() {
         const int milliseconds = s_curveCalibrationGilBarrierMilliseconds.exchange(0);
+        if (milliseconds > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
+
+    // One-shot barrier proving the rate-risk batch bindings hold the GIL released for the whole
+    // native execution; mirrors the calibration-side paradigm.
+    void RunRateRiskGilBarrierForTesting() {
+        const int milliseconds = s_rateRiskGilBarrierMilliseconds.exchange(0);
         if (milliseconds > 0)
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
@@ -985,6 +994,132 @@ namespace {
                 return result;
             },
             py::kw_only(), py::arg("trade"), py::arg("market"), py::arg("component_key"));
+
+        py::class_<RateTradeNodeSensitivityCell_>(m, "RateTradeNodeSensitivityCell_")
+            .def_property_readonly("instrument_id", [](const RateTradeNodeSensitivityCell_& value) { return StdString(value.instrumentId_); })
+            .def_property_readonly("component_key", [](const RateTradeNodeSensitivityCell_& value) { return StdString(value.componentKey_); })
+            .def_readonly("result", &RateTradeNodeSensitivityCell_::result_);
+
+        py::class_<RatePortfolioNodeRiskMetaEntry_>(m, "RatePortfolioNodeRiskMetaEntry_")
+            .def_property_readonly("instrument_id", [](const RatePortfolioNodeRiskMetaEntry_& value) { return StdString(value.instrumentId_); })
+            .def_property_readonly("component_key", [](const RatePortfolioNodeRiskMetaEntry_& value) { return StdString(value.componentKey_); })
+            .def_readonly("eligible", &RatePortfolioNodeRiskMetaEntry_::eligible_)
+            .def_property_readonly("reason", [](const RatePortfolioNodeRiskMetaEntry_& value) { return StdString(value.reason_); })
+            .def_property_readonly("actual_pv_ccy", [](const RatePortfolioNodeRiskMetaEntry_& value) { return std::string(value.actualPvCcy_.String()); })
+            .def_readonly("pv", &RatePortfolioNodeRiskMetaEntry_::pv_);
+
+        py::class_<RatePortfolioNodeRiskComponent_>(m, "RatePortfolioNodeRiskComponent_")
+            .def_property_readonly("component_key", [](const RatePortfolioNodeRiskComponent_& value) { return StdString(value.componentKey_); })
+            .def_property_readonly("node_count", [](const RatePortfolioNodeRiskComponent_& value) { return value.values_ ? value.values_->Size("node") : 0; })
+            .def_property_readonly("node_dates",
+                                   [](const RatePortfolioNodeRiskComponent_& value) {
+                                       py::tuple result(value.values_ ? value.values_->Size("node") : 0);
+                                       if (!value.values_)
+                                           return result;
+                                       const auto& header = value.values_->Header("node");
+                                       for (int node = 0; node < value.values_->Size("node"); ++node)
+                                           result[static_cast<size_t>(node)] = Cell::ToDate(header.values_(node, 0));
+                                       return result;
+                                   })
+            .def_property_readonly("node_components",
+                                   [](const RatePortfolioNodeRiskComponent_& value) {
+                                       py::tuple result(value.values_ ? value.values_->Size("node") : 0);
+                                       if (!value.values_)
+                                           return result;
+                                       const auto& header = value.values_->Header("node");
+                                       for (int node = 0; node < value.values_->Size("node"); ++node)
+                                           result[static_cast<size_t>(node)] = StdString(Cell::ToString(header.values_(node, 1)));
+                                       return result;
+                                   })
+            .def_property_readonly(
+                "values",
+                [](const RatePortfolioNodeRiskComponent_& value) {
+                    std::vector<double> result;
+                    if (!value.values_)
+                        return result;
+                    const int nodeCount = value.values_->Size("node");
+                    result.reserve(static_cast<size_t>(nodeCount));
+                    Report::Address_ address = value.values_->MakeAddress();
+                    for (int node = 0; node < nodeCount; ++node) {
+                        address["node"] = node;
+                        result.push_back((*value.values_)[address]);
+                    }
+                    return result;
+                });
+
+        py::class_<RatePortfolioNodeRisk_>(m, "RatePortfolioNodeRisk_")
+            .def_property_readonly("policy", [](const RatePortfolioNodeRisk_& value) { return StdString(value.policy_); })
+            .def_property_readonly(
+                "components",
+                [](const RatePortfolioNodeRisk_& value) {
+                    py::tuple result(value.components_.size());
+                    for (int index = 0; index < static_cast<int>(value.components_.size()); ++index)
+                        result[static_cast<size_t>(index)] = py::cast(value.components_[index]);
+                    return result;
+                })
+            .def_property_readonly(
+                "pv_by_actual_pv_ccy",
+                [](const RatePortfolioNodeRisk_& value) {
+                    py::dict result;
+                    for (const auto& [ccy, pv] : value.pvByActualPvCcy_)
+                        result[py::str(StdString(ccy))] = pv;
+                    return result;
+                })
+            .def_property_readonly(
+                "meta",
+                [](const RatePortfolioNodeRisk_& value) {
+                    py::tuple result(value.meta_.size());
+                    for (int index = 0; index < static_cast<int>(value.meta_.size()); ++index)
+                        result[static_cast<size_t>(index)] = py::cast(value.meta_[index]);
+                    return result;
+                });
+
+        m.def(
+            "RateTradeNodeSensitivitiesBatch",
+            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+                Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
+                Vector_<String_> nativeKeys;
+                nativeKeys.reserve(componentKeys.size());
+                for (const auto& key : componentKeys)
+                    nativeKeys.push_back(String_(key));
+                Vector_<RateTradeNodeSensitivityCell_> cells;
+                {
+                    // One release for the whole serial batch; nothing inside touches Python, all
+                    // marshalling happens under the GIL afterwards.
+                    py::gil_scoped_release release;
+                    RunRateRiskGilBarrierForTesting();
+                    cells = RateTradeNodeSensitivitiesBatch(nativeTrades, market, nativeKeys);
+                }
+                py::list result;
+                for (const auto& cell : cells)
+                    result.append(cell);
+                return result;
+            },
+            py::kw_only(), py::arg("trades"), py::arg("market"), py::arg("component_keys"));
+
+        m.def(
+            "AggregateRatePortfolioNodeRisk",
+            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+                Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
+                Vector_<String_> nativeKeys;
+                nativeKeys.reserve(componentKeys.size());
+                for (const auto& key : componentKeys)
+                    nativeKeys.push_back(String_(key));
+                RatePortfolioNodeRisk_ aggregate;
+                {
+                    py::gil_scoped_release release;
+                    RunRateRiskGilBarrierForTesting();
+                    aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, nativeKeys);
+                }
+                return aggregate;
+            },
+            py::kw_only(), py::arg("trades"), py::arg("market"), py::arg("component_keys"));
+
+        m.def("_RateRiskGilBarrier_EnableForTesting", [](int milliseconds) {
+            if (milliseconds <= 0)
+                throw std::invalid_argument("rate-risk GIL barrier duration must be positive");
+            s_rateRiskGilBarrierMilliseconds.store(milliseconds);
+        });
     }
 
     void init_bindings_curve_planning(py::module_& m) {
