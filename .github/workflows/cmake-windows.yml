@@ -166,14 +166,21 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== DIAG-CAPTURE-START ==="
+          $root = $env:GITHUB_WORKSPACE
+          $py = Join-Path $root 'dal-python\.venv\Scripts\python.exe'
+          # dal_python_pytest runs with WORKING_DIRECTORY = the build-tree
+          # dal-python dir, where the assembled dal/ package (with _dal.pyd)
+          # lives; python -m pytest puts CWD on sys.path, so import dal works.
+          $buildPkg = Join-Path $root 'build\Release-windows\dal-python'
+          Set-Location $buildPkg
           $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
           if (-not (Test-Path $cdb)) {
             Write-Host "cdb not found at $cdb; running plain pytest instead"
-            & dal-python\.venv\Scripts\python.exe -X faulthandler -m pytest dal-python\tests\test_curve_pricing.py -q --tb=short
+            & $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
             exit 0
           }
           & $cdb -g -G -lines -c 'sxe -c "kv50; !analyze -v; qd" av; g' `
-            dal-python\.venv\Scripts\python.exe -X faulthandler -m pytest dal-python\tests\test_curve_pricing.py -q --tb=short
+            $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
           Write-Host "=== DIAG-CAPTURE-END (cdb exit $LASTEXITCODE) ==="
           exit 0
 
