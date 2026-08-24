@@ -158,6 +158,7 @@ jobs:
             -DCMAKE_CXX_FLAGS="-DWIN32 -D_WINDOWS -EHsc -Zi" \
             -DCMAKE_CXX_FLAGS_RELEASE="-O2 -Ob2 -DNDEBUG" \
             -DCMAKE_SHARED_LINKER_FLAGS="-DEBUG" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-DEBUG" \
             ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"}
           cmake --build build/Release-windows --parallel
           cmake --install build/Release-windows
