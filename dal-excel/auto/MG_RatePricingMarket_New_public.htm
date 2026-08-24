@@ -22,7 +22,7 @@ Assemble a rate pricing market from curve components and an optional XCCY market
 <tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Immutable fixing snapshot</td></tr>
 <tr><td>domesticBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY domestic curve block (required for XCCY trades)</td></tr>
 <tr><td>foreignBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY foreign curve block (required for XCCY trades)</td></tr>
-<tr><td>fxSpot</td><td>number</td><td>yes</td><td>Positive domestic-per-foreign FX spot</td></tr>
+<tr><td>fxSpot</td><td>number</td><td>yes (default = 0.0)</td><td>Positive domestic-per-foreign FX spot</td></tr>
 <tr><td>collateralCurrency</td><td>string</td><td>yes</td><td>XCCY collateral currency code</td></tr>
 <tr><td>basisCurve</td><td>handle of type StorableDiscountCurve</td><td>yes</td><td>XCCY basis curve</td></tr>
 

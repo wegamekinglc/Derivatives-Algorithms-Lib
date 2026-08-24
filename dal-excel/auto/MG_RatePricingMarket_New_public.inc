@@ -24,7 +24,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "foreignBlock (input #7)";
         const Handle_<StorableCurveBlock_> foreignBlock = Excel::ToHandle<StorableCurveBlock_>(_env, xl_foreignBlock, true);
         argName = "fxSpot (input #8)";
-        const boost::optional<double> fxSpot = Excel::ToDouble(xl_fxSpot, true);
+        const double fxSpot = Excel::ToDouble(xl_fxSpot, true).value_or(0.0);
         argName = "collateralCurrency (input #9)";
         const String_ collateralCurrency = Excel::ToString(xl_collateralCurrency, true);
         argName = "basisCurve (input #10)";

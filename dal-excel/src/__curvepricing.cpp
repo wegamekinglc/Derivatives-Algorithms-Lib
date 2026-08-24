@@ -262,7 +262,7 @@ domesticBlock is handle StorableCurveBlock
     XCCY domestic curve block (required for XCCY trades)
 foreignBlock is handle StorableCurveBlock
     XCCY foreign curve block (required for XCCY trades)
-fxSpot is number
+fxSpot is number (0.0)
     Positive domestic-per-foreign FX spot
 collateralCurrency is string
     XCCY collateral currency code
