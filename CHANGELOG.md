@@ -46,6 +46,16 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: `RateTradeNodeSensitivities` success domain widened to XCCY trades (any consumed curve
+  registered under a component key — the collateral/tenor-selected domestic/foreign discount and
+  forecast curves plus the basis curve), completing the seven-family P0 success domain. XCCY
+  addressing locates block slots by pointer identity against `curveComponents_`; the active stage
+  rebuilds every consumed curve as `AAD::Number_` and registers only the addressed component's
+  parameters (the FX spot stays a constant, so XCCY node risk ships rate axes only). A market-aware
+  `BuildRateCashflowPlan(trade, market)` overload emits the XCCY dependency keys, and `PriceXccy`
+  now carries the fixing accounting so a missing fixing returns `TRADE_VALIDATION_FAILED`. The
+  six-token failure set and its priority are unchanged.
+
 - `curve`: `RateTradeNodeSensitivities` success domain widened to basis swap trades (any of the three
   dependencies: spread forecast, reference forecast, or discount), on top of Deposit/FRA/Future/OIS/IRS;
   the generalized multi-component stage prices them unchanged, holding the two non-target dependencies

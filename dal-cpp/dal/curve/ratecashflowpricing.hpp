@@ -151,6 +151,10 @@ namespace Dal {
     };
 
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime);
+    // Market-aware plan: identical to the (trade, valuationTime) form for single-currency families;
+    // for XCCY it additionally emits the dependency keys of the curves the trade actually consumes,
+    // addressed by pointer identity against curveComponents_ (frozen P0 follow-up 1).
+    RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const RatePricingMarket_& market);
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market);
     Vector_<RatePricingTradeResult_> PriceRateTrades(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market);
     RateTradeNodeSensitivityResult_
