@@ -70,6 +70,12 @@ namespace Dal {
         void Write(Archive::Store_&) const override {}
     };
 
+    struct StorableFixingIdentity_ : public Storable_ {
+        FixingIdentity_ val_;
+        explicit StorableFixingIdentity_(const FixingIdentity_& v) : Storable_("FixingIdentity", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
     struct StorableYCInstrument_ : public Storable_ {
         Handle_<YCInstrument_> val_;
         explicit StorableYCInstrument_(const Handle_<YCInstrument_>& v) : Storable_("YCInstrument", String_()), val_(v) {}

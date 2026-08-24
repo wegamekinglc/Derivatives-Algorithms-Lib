@@ -71,6 +71,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)
 option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
+option(DAL_BUILD_EXCEL_PORTABLE_TESTS "Add dal-excel on non-Windows for its portable contract tests" ON)
 
 # Applied workspace-wide (like USE_COVERAGE): partially instrumented builds
 # miss errors at library boundaries. -fno-sanitize-recover=all is deliberately
@@ -102,6 +103,6 @@ if(DAL_BUILD_PYTHON)
     add_subdirectory(dal-python)
 endif()
 
-if(DAL_BUILD_EXCEL)
+if(DAL_BUILD_EXCEL OR DAL_BUILD_EXCEL_PORTABLE_TESTS)
     add_subdirectory(dal-excel)
 endif()

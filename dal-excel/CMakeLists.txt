@@ -50,10 +50,37 @@ endif()
 option(DAL_EXCEL_BUILD_TESTS "Build dal-excel tests" ON)
 
 # ---------------------------------------------------------------------------
-# Platform guard: dal-excel is Windows-only
+# Platform guard: the Excel XLL is Windows-only, but the binding sources are
+# _WIN32-guarded everywhere they touch the Excel SDK, so on other platforms they
+# compile against dal-public alone. Build the portable contract tests there
+# (DAL_EXCEL_API_TESTS_PORTABLE) to cover the typed binding functions --
+# storable handles and long-form spills -- without Excel.
 # ---------------------------------------------------------------------------
 if(NOT WIN32)
-    message(STATUS "dal-excel: skipping build (requires Windows + Office COM DLLs)")
+    if(DAL_EXCEL_BUILD_TESTS)
+        enable_testing()
+        if(NOT TARGET GTest::gtest_main)
+            find_package(GTest REQUIRED)
+        endif()
+        include(GoogleTest)
+        file(GLOB_RECURSE PORTABLE_BINDING_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+        list(FILTER PORTABLE_BINDING_SOURCES EXCLUDE REGEX "(_excel|_xlcall)\.cpp$")
+        file(GLOB_RECURSE PORTABLE_TEST_FILES CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp")
+        add_executable(dal_excel_portable_tests ${PORTABLE_BINDING_SOURCES} ${PORTABLE_TEST_FILES})
+        target_compile_definitions(dal_excel_portable_tests PRIVATE DAL_EXCEL_API_TESTS_PORTABLE)
+        if(TARGET DAL::public)
+            target_link_libraries(dal_excel_portable_tests PRIVATE DAL::public)
+        elseif(TARGET dal_public)
+            target_link_libraries(dal_excel_portable_tests PRIVATE dal_public)
+        elseif(DAL_EXCEL_USES_INSTALLED_PUBLIC)
+            target_link_libraries(dal_excel_portable_tests PRIVATE DAL::public)
+        endif()
+        target_link_libraries(dal_excel_portable_tests PRIVATE GTest::gtest_main)
+        gtest_discover_tests(dal_excel_portable_tests)
+    endif()
+    message(STATUS "dal-excel: skipping XLL build (requires Windows + Office COM DLLs)")
     return()
 endif()
 

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "__platform.hpp"
+#include <dal/math/cell.hpp>
 #include <dal-public/src/global.hpp>
 
 /*IF--------------------------------------------------------------------------

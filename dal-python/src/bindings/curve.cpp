@@ -56,6 +56,42 @@ namespace {
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
+    Vector_<String_> NativeComponentKeys(const std::vector<std::string>& componentKeys) {
+        Vector_<String_> native;
+        for (const auto& key : componentKeys)
+            native.push_back(String_(key));
+        return native;
+    }
+
+    // Out-of-line native execution of the rate-risk batch and aggregation: marshalling happens
+    // under the GIL, the whole serial native run under one release, and the results are returned
+    // by value for the callers to marshal back under the GIL. Keeping the released section in a
+    // plain function (no lambda captures, no Python-owned references inside) makes the GIL-free
+    // region explicit and identical between the two entry points.
+    Vector_<RateTradeNodeSensitivityCell_>
+    RunRateTradeNodeSensitivitiesBatch(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+        const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
+        Vector_<RateTradeNodeSensitivityCell_> cells;
+        {
+            py::gil_scoped_release release;
+            RunRateRiskGilBarrierForTesting();
+            cells = RateTradeNodeSensitivitiesBatch(nativeTrades, market, NativeComponentKeys(componentKeys));
+        }
+        return cells;
+    }
+
+    RatePortfolioNodeRisk_
+    RunAggregateRatePortfolioNodeRisk(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+        const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
+        RatePortfolioNodeRisk_ aggregate;
+        {
+            py::gil_scoped_release release;
+            RunRateRiskGilBarrierForTesting();
+            aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, NativeComponentKeys(componentKeys));
+        }
+        return aggregate;
+    }
+
     template <class Class_, class Member_>
     void DefReadWriteAliases(py::class_<Class_>& cls, const char* legacyName, const char* snakeName, Member_ Class_::* member) {
         cls.def_readwrite(legacyName, member).def_readwrite(snakeName, member);
@@ -1077,19 +1113,7 @@ namespace {
         m.def(
             "RateTradeNodeSensitivitiesBatch",
             [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
-                Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
-                Vector_<String_> nativeKeys;
-                nativeKeys.reserve(componentKeys.size());
-                for (const auto& key : componentKeys)
-                    nativeKeys.push_back(String_(key));
-                Vector_<RateTradeNodeSensitivityCell_> cells;
-                {
-                    // One release for the whole serial batch; nothing inside touches Python, all
-                    // marshalling happens under the GIL afterwards.
-                    py::gil_scoped_release release;
-                    RunRateRiskGilBarrierForTesting();
-                    cells = RateTradeNodeSensitivitiesBatch(nativeTrades, market, nativeKeys);
-                }
+                const Vector_<RateTradeNodeSensitivityCell_> cells = RunRateTradeNodeSensitivitiesBatch(trades, market, componentKeys);
                 py::list result;
                 for (const auto& cell : cells)
                     result.append(cell);
@@ -1100,18 +1124,7 @@ namespace {
         m.def(
             "AggregateRatePortfolioNodeRisk",
             [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
-                Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
-                Vector_<String_> nativeKeys;
-                nativeKeys.reserve(componentKeys.size());
-                for (const auto& key : componentKeys)
-                    nativeKeys.push_back(String_(key));
-                RatePortfolioNodeRisk_ aggregate;
-                {
-                    py::gil_scoped_release release;
-                    RunRateRiskGilBarrierForTesting();
-                    aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, nativeKeys);
-                }
-                return aggregate;
+                return RunAggregateRatePortfolioNodeRisk(trades, market, componentKeys);
             },
             py::kw_only(), py::arg("trades"), py::arg("market"), py::arg("component_keys"));
 

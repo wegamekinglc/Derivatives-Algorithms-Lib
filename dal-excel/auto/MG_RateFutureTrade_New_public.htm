@@ -15,20 +15,14 @@ Create a futures rate trade for node-sensitivity pricing
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
-<tr><td>instrumentId</td><td>string</td><td></td><td>Trade identifier</td></tr>
-<tr><td>tradeDate</td><td>date</td><td></td><td>The trade date</td></tr>
-<tr><td>start</td><td>date</td><td></td><td>The start date</td></tr>
-<tr><td>maturity</td><td>date</td><td></td><td>The maturity date</td></tr>
-<tr><td>currency</td><td>string</td><td></td><td>Trade currency code (the actual PV denomination)</td></tr>
+<tr><td>header</td><td>handle of type StorableRateTradeDefinition</td><td></td><td>The trade header (from RATETRADEHEADER.NEW)</td></tr>
 <tr><td>contractCount</td><td>number</td><td></td><td>Positive contract count</td></tr>
 <tr><td>longPosition</td><td>boolean</td><td></td><td>True when long the future</td></tr>
 <tr><td>referencePrice</td><td>number</td><td></td><td>Reference (trade) price</td></tr>
 <tr><td>contractValuePerPricePoint</td><td>number</td><td></td><td>Positive value per price point</td></tr>
 <tr><td>convexityAdjustment</td><td>number</td><td></td><td>Convexity adjustment</td></tr>
 <tr><td>index</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The rate index convention</td></tr>
-<tr><td>fixingIndexName</td><td>string</td><td></td><td>Fixing index name</td></tr>
-<tr><td>fixingHour</td><td>integer</td><td></td><td>Fixing publication hour (0-23)</td></tr>
-<tr><td>fixingMinute</td><td>integer</td><td></td><td>Fixing publication minute (0-59)</td></tr>
+<tr><td>fixingIdentity</td><td>handle of type StorableFixingIdentity</td><td></td><td>The fixing publication identity (from RATEFIXINGIDENTITY.NEW)</td></tr>
 <tr><td>forecastComponentKey</td><td>string</td><td></td><td>Market component key of the forecast curve</td></tr>
 
 </table>

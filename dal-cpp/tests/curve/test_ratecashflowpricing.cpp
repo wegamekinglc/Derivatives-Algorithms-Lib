@@ -3187,3 +3187,32 @@ TEST(RateCashflowPricingTest, TestNodeSensitivitySweepTapeSizeIndependentOfPassi
     ASSERT_GT(oisSmallTape, fraSmallTape) << "OIS daily compounding shapes the recording";
 }
 #endif
+
+TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskCountsDuplicateKeysOnce) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2027, 1, 15);
+    const auto market = Market(today, FlatCurve(maturity));
+    const auto trade = Trade(Dal::RateInstrumentType_("DEPOSIT"), today, today, maturity, DepositTerms());
+
+    // Duplicate keys still produce one meta row per cell, but the PV total and every component
+    // tensor must match the single-key aggregate exactly -- never scaled by the duplicate count.
+    const auto single = Dal::AggregateRatePortfolioNodeRisk({trade}, market, {"discount"});
+    const auto duplicated = Dal::AggregateRatePortfolioNodeRisk({trade}, market, {"discount", "discount", "discount"});
+
+    ASSERT_EQ(single.meta_.size(), 1u);
+    ASSERT_EQ(duplicated.meta_.size(), 3u);
+    for (const auto& meta : duplicated.meta_)
+        ASSERT_TRUE(meta.eligible_);
+    ASSERT_EQ(single.pvByActualPvCcy_.size(), duplicated.pvByActualPvCcy_.size());
+    ASSERT_DOUBLE_EQ(duplicated.pvByActualPvCcy_.at("USD"), single.pvByActualPvCcy_.at("USD"));
+    ASSERT_EQ(duplicated.components_.size(), 1u);
+    ASSERT_EQ(duplicated.components_[0].componentKey_, "discount");
+    ASSERT_EQ(duplicated.components_[0].values_->Size("node"), single.components_[0].values_->Size("node"));
+    Dal::Report::Address_ singleAddress = single.components_[0].values_->MakeAddress();
+    Dal::Report::Address_ duplicatedAddress = duplicated.components_[0].values_->MakeAddress();
+    for (int node = 0; node < single.components_[0].values_->Size("node"); ++node) {
+        singleAddress["node"] = node;
+        duplicatedAddress["node"] = node;
+        ASSERT_DOUBLE_EQ((*duplicated.components_[0].values_)[duplicatedAddress], (*single.components_[0].values_)[singleAddress]);
+    }
+}

@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateFixingIdentity_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateFixingIdentity_New (in Excel: RATEFIXINGIDENTITY.NEW)</h1>
+Create a rate fixing publication identity
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>indexName</td><td>string</td><td></td><td>Fixing index name (e.g. "USD-LIBOR-3M")</td></tr>
+<tr><td>hour</td><td>integer</td><td></td><td>Fixing publication hour (0-23)</td></tr>
+<tr><td>minute</td><td>integer</td><td></td><td>Fixing publication minute (0-59)</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>identity</td><td>handle of type StorableFixingIdentity</td><td>The fixing identity</td></tr>
+</table>
+
+
+
+
+
+

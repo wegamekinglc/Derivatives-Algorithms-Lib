@@ -54,12 +54,17 @@ def parse_benchmark_output(output: str) -> dict[str, float]:
     return results
 
 
-def benchmark_binary(build_root: Path, benchmark: str) -> Path:
+def benchmark_binary_path(build_root: Path, benchmark: str) -> Path:
+    """Resolved gated-binary path without requiring its existence."""
     if benchmark not in BENCHMARKS:
         raise ValueError(f"unsupported benchmark: {benchmark}")
-
     resolved_root = build_root.resolve()
-    binary = (resolved_root / "dal-cpp" / "benchmarks" / benchmark / benchmark).resolve()
+    return (resolved_root / "dal-cpp" / "benchmarks" / benchmark / benchmark).resolve()
+
+
+def benchmark_binary(build_root: Path, benchmark: str) -> Path:
+    resolved_root = build_root.resolve()
+    binary = benchmark_binary_path(build_root, benchmark)
     if not binary.is_relative_to(resolved_root):
         raise ValueError(f"benchmark binary escapes build root: {binary}")
     if not binary.is_file():
@@ -111,14 +116,24 @@ def collect_samples(
         benchmark_dir.mkdir(parents=True, exist_ok=True)
         sides = {"base": {}, "head": {}}
         roots = {"base": base_root, "head": head_root}
+        # A gated binary absent on the base side is binary-level new coverage (this PR adds a
+        # benchmark to the gate): its head cases are reported for information and never compared.
+        # Absent on the head side means the PR dropped gated coverage: fail loudly here.
+        present = {side: benchmark_binary_path(roots[side], benchmark).is_file() for side in ("base", "head")}
+        if not present["head"]:
+            raise RuntimeError(f"{benchmark}: gated benchmark binary is missing on the head side")
         for sample in range(sample_count):
             order = ("base", "head") if sample % 2 == 0 else ("head", "base")
             for side in order:
+                if not present[side]:
+                    continue
                 output_file = benchmark_dir / f"{sample + 1:02d}-{side}.txt"
                 values = run_benchmark(roots[side], benchmark, output_file)
                 for case, value in values.items():
                     sides[side].setdefault(case, []).append(value)
-        validate_sample_counts(benchmark, sides, sample_count)
+        for side in ("base", "head"):
+            if present[side]:
+                validate_sample_counts(benchmark, sides, sample_count)
         collected[benchmark] = sides
     return collected
 
@@ -239,6 +254,8 @@ def compare_benchmark(
 ) -> tuple[list[dict[str, object]], list[str]]:
     base = min_samples(samples["base"])
     head = min_samples(samples["head"])
+    if not base:
+        return ([new_coverage_row(case, value) for case, value in sorted(head.items())], [])
     migration_permitted, failures, new_coverage = benchmark_case_differences(benchmark, base, head)
     rows = []
     if migration_permitted:
