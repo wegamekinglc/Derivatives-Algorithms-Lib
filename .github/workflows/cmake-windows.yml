@@ -155,6 +155,9 @@ jobs:
           # investigation. Later -D wins over ADDITIONAL_CMAKE_FLAGS.
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} \
             -DDAL_BUILD_EXCEL=OFF -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF \
+            -DCMAKE_CXX_FLAGS="/DWIN32 /D_WINDOWS /EHsc /Zi" \
+            -DCMAKE_CXX_FLAGS_RELEASE="/O2 /Ob2 /DNDEBUG" \
+            -DCMAKE_SHARED_LINKER_FLAGS="/DEBUG" \
             ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"}
           cmake --build build/Release-windows --parallel
           cmake --install build/Release-windows
@@ -186,7 +189,8 @@ jobs:
           # the real interpreter as a child; debug children too. The 80000003
           # handler auto-continues child initial breakpoints so cdb never sits
           # at a prompt waiting for stdin in CI.
-          & $cdb -o -G -lines -c 'sxe -c "g" 80000003; sxe -c "kv50; !analyze -v; qd" c0000005; g' `
+          & $cdb -o -G -lines -y "srv*;$buildPkg;$buildPkg\dal" `
+            -c 'sxe -c "g" 80000003; sxe -c "kv50; !analyze -v; qd" c0000005; g' `
             $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
           Write-Host "=== DIAG-CAPTURE-END (cdb exit $LASTEXITCODE) ==="
           exit 0
