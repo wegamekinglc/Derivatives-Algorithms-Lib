@@ -180,8 +180,9 @@ jobs:
             exit 0
           }
           # NB: no -g here on purpose: -g skips the initial breakpoint, which
-          # is where the -c commands (the sxe handler setup) execute.
-          & $cdb -G -lines -c 'sxe -c "kv50; !analyze -v; qd" av; g' `
+          # is where the -c commands (the sxe handler setup) execute. Register
+          # the AV handler by numeric code plus the ae/ar names newer cdb uses.
+          & $cdb -G -lines -c 'sxe -c "kv50; !analyze -v; qd" c0000005; sxe -c "kv50; !analyze -v; qd" ae; sxe -c "kv50; !analyze -v; qd" ar; g' `
             $py -X faulthandler -m pytest "$root\dal-python\tests\test_curve_pricing.py" -q --tb=short
           Write-Host "=== DIAG-CAPTURE-END (cdb exit $LASTEXITCODE) ==="
           exit 0
