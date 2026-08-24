@@ -296,6 +296,98 @@ fails carries no tensor; its failures live only in the meta table, and no paddin
 convention is introduced. `RateNodeSensitivityAxisLabels(market, componentKey)`
 exposes the same `<date>:<component>` node labels standalone.
 
+The wiring is name-based: terms address curves through their `*ComponentKey_`
+fields, those keys must resolve in `RatePricingMarket_::curveComponents_`, and
+the requested `componentKey` selects which curve's parameters are registered as
+AAD inputs. This deposit example is illustrative — it mirrors the fixtures in
+`dal-cpp/tests/curve/test_ratecashflowpricing.cpp`:
+
+```cpp
+#include <dal-public/src/curvedata.hpp>
+#include <dal-public/src/curvepricing.hpp>
+#include <iostream>
+
+namespace {
+    Dal::RateIndexConvention_ QuarterlyIndex() {
+        Dal::RateIndexConvention_ result;
+        result.forecastTenor_ = Dal::PeriodLength_("3M");
+        result.dayBasis_ = Dal::DayBasis_("ACT_365F");
+        result.collateral_ = Dal::CollateralType_("OIS");
+        return result;
+    }
+}
+
+int main() {
+    const Dal::Date_ today(2026, 1, 15), maturity(2027, 1, 15);
+
+    // Curve components are registered by name in the market.
+    Dal::RatePricingMarket_ market;
+    market.valuationTime_ = Dal::DateTime_(today, 10, 30);
+    market.resultCurrency_ = Dal::Ccy_("USD");
+    market.curveComponents_["discount"] = Dal::DiscountPWCNew("flat", "USD", {maturity}, {0.04});
+    market.curveComponents_["forecast"] = Dal::DiscountPWCNew("flat", "USD", {maturity}, {0.04});
+    market.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+
+    Dal::DepositTradeTerms_ terms;
+    terms.notional_ = 100.0;
+    terms.contractRate_ = 0.05;
+    terms.lend_ = true;
+    terms.index_ = QuarterlyIndex();
+    terms.discountComponentKey_ = "discount";
+    const Dal::RateTradeDefinition_ trade{"deposit-1", Dal::RateInstrumentType_("DEPOSIT"),
+                                          today, today, maturity, Dal::Ccy_("USD"), terms};
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{trade};
+    const Dal::Vector_<Dal::String_> keys{"discount", "forecast"};
+
+    // Single trade: a deposit only depends on the discount component, so a
+    // "forecast" request returns TRADE_DOES_NOT_DEPEND_ON_COMPONENT.
+    const auto single = Dal::RateTradeNodeSensitivities(trade, market, "discount");
+    std::cout << "eligible=" << single.eligible_ << " pv=" << single.pv_
+              << " |grad|=" << single.gradient_.size() << " reason='" << single.reason_ << "'\n";
+
+    // Batch: shared key list, Cartesian product, trade-major then key order.
+    const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, keys);
+    for (const auto& c : cells)
+        std::cout << c.instrumentId_ << " x " << c.componentKey_
+                  << " -> eligible=" << c.result_.eligible_
+                  << " reason='" << c.result_.reason_ << "'\n";
+
+    // Portfolio aggregation: dense tensor per component, PV by actual PV currency, meta table.
+    const auto agg = Dal::AggregateRatePortfolioNodeRisk(trades, market, keys);
+    std::cout << "policy=" << agg.policy_ << "\n";
+    for (const auto& comp : agg.components_)
+        std::cout << "component " << comp.componentKey_
+                  << " nodes=" << comp.values_->Size("node") << "\n";
+    for (const auto& [ccy, pv] : agg.pvByActualPvCcy_)
+        std::cout << "PV[" << ccy << "] = " << pv << "\n";
+
+    // Node labels, one per tensor row, "<date>:<component>".
+    const auto labels = Dal::RateNodeSensitivityAxisLabels(market, "discount");
+    return 0;
+}
+```
+
+`RateTradeNodeSensitivityResult_` is `{ eligible_, pv_, gradient_, reason_ }`;
+`RateTradeNodeSensitivityCell_` adds the `instrumentId_` / `componentKey_`
+addressing fields; `RatePortfolioNodeRiskMetaEntry_` rows carry
+`{ instrumentId_, componentKey_, eligible_, reason_, actualPvCcy_, pv_ }`.
+The other families differ only in their terms struct — Python names the same
+fields in snake_case:
+
+| Family  | Terms type                                                        | Fields beyond notional and the index convention                                                                            | Addressable components                              |
+|---------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| FRA     | `FraTradeTerms_`                                                  | `contractRate_`, `receiveFloating_`, `settleAtStart_`, `fixingIdentity_`                                                   | forecast or discount                                |
+| Future  | `FutureTradeTerms_`                                               | `contractCount_`, `long_`, `referencePrice_`, `contractValuePerPricePoint_`, `convexityAdjustment_`, `fixingIdentity_`     | forecast                                            |
+| OIS/IRS | `FixedFloatTradeTerms_` (via `OisTradeTerms_` / `IrsTradeTerms_`) | `contractRate_`, `payFixed_`, `fixedLeg_`, `floatLeg_`, `fixingIdentity_`                                                  | forecast or discount                                |
+| Basis   | `BasisTradeTerms_`                                                | `contractSpread_`, `receiveReferencePaySpread_`, `spreadFixingIdentity_`, `referenceFixingIdentity_`, both leg conventions | spread forecast, reference forecast, or discount    |
+| XCCY    | `XccyTradeTerms_`                                                 | `positionCount_`, `contractSpread_`, `spreadOnForeignLeg_`, `receiveNonSpreadPaySpread_`                                   | any consumed curve registered under a component key |
+
+Fixing treatment is common to all families: future fixings project (nonzero
+gradient), past fixings must be supplied in the snapshot (that period's gradient
+is structurally zero), and a past-but-missing fixing fails passive validation —
+`PriceRateTrades(...)[i].missingHistoricalFixings_` names the gap while the
+sensitivity returns the `TRADE_VALIDATION_FAILED` token.
+
 ## Python
 
 Import the installed package with:
@@ -422,10 +514,21 @@ bump requires division by the spec's `tolerance_`, as described in the
 ### Python rate cashflow pricing
 
 Python exports the seven-family enum, all family-specific terms classes,
-`RateTradeDefinition_`, `RatePricingMarket_`, `PriceRateTrades`, and
-`RateTradeNodeSensitivities`. The pricing and sensitivity functions use
-keyword-only arguments and release the GIL around native work. A complete
-deposit example is in `dal-python/tests/test_curve_pricing.py`.
+`RateTradeDefinition_`, `RatePricingMarket_`, `PriceRateTrades`,
+`RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, and
+`AggregateRatePortfolioNodeRisk`. The pricing and sensitivity functions use
+keyword-only arguments and release the GIL around native work.
+`component_keys` must be a Python `list` — a tuple is rejected with `TypeError`
+before any native work starts. The minimal single-trade call:
+
+```python
+r = dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key="discount")
+# r.eligible, r.pv, list(r.gradient), r.reason
+```
+
+Results are read-only projections of the C++ shapes. A complete runnable
+deposit example covering the batch and aggregation calls is in the
+[dal-python README](../dal-python/README.md#rate-cashflow-pricing-and-node-risk).
 
 `Storable_` exposes read-only `name` and `type` properties, and the native
 `YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for archive
@@ -499,6 +602,40 @@ handles.
 `modelRates`, `residuals`, `jacobian`, `effJacobianInverse`,
 `parameterRanges`, or `residualRanges`. Joint settings can request both matrix
 computations independently.
+
+### Rate risk
+
+The rate-risk family is handle-based: build the index convention, trade header,
+and trade with their constructors, assemble the market, then spill the results.
+A minimal deposit sequence:
+
+```text
+A1: =PERIODLENGTH.NEW("3M")
+B1: =DAYBASIS.NEW("ACT_365F")
+C1: =RATEINDEXCONVENTION.NEW(A1, B1, COLLATERALTYPE.OIS())
+D1: =RATETRADEHEADER.NEW("deposit-1", DATE(2026,1,15), DATE(2026,1,15), DATE(2027,1,15), "USD")
+E1: =RATEDEPOSITTRADE.NEW(D1, 100, 0.05, TRUE, C1, "discount")
+F1: =DISCOUNTPWLF.NEW("flat", "USD", DATE(2027,1,15), 0.04)
+
+' component keys and curve handles are parallel arrays; the six optional
+' trailing market arguments (fixings, XCCY blocks, fxSpot, collateral
+' currency, basis curve) stay empty for a single-currency market
+G1: =RATEPRICINGMARKET.NEW(NOW(), "USD", {"discount","forecast"}, {F1,F1}, , , , , , )
+
+H1: =RATETRADENODESENSITIVITIESBATCH.SPILL({E1}, {"discount","forecast"}, G1)
+I1: =RATEPORTFOLIONODERISK.SPILL({E1}, {"discount"}, G1)
+```
+
+Both spill functions take `(trades, componentKeys, market)` and return long-form
+spills rather than node-gridded columns, since components can carry different
+node counts. `RATETRADENODESENSITIVITIESBATCH.SPILL` emits the six columns
+`trade, component, reason, pv, node, value` — one row per node of each eligible
+(trade, component) entry plus a reason row per failed entry.
+`RATEPORTFOLIONODERISK.SPILL` emits the same columns plus a trailing
+`currency`, with one aggregate row per actual PV currency. Only trades with
+past fixing dates need a fixing-snapshot handle, and XCCY additionally needs
+the domestic/foreign blocks and the basis curve.
+
 Generated function help under `dal-excel/auto/*.htm` is the argument-level
 catalog used by Excel registration.
 

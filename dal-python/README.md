@@ -606,6 +606,73 @@ installed in the active environment, run it from the repository root:
 python dal-python/examples/007.xccy_joint_calibration.py
 ```
 
+## Rate Cashflow Pricing and Node Risk
+
+Typed rate trades price and produce AAD node sensitivities against a
+component-keyed market. Every pricing and sensitivity function is keyword-only,
+returns read-only results, and releases the GIL around native work. A complete
+deposit example, mirroring the fixtures in `tests/test_curve_pricing.py`:
+
+```python
+import dal
+
+today, maturity = dal.Date_(2026, 1, 15), dal.Date_(2027, 1, 15)
+
+# 1) Curve and market: curves are registered by component key; trade terms
+#    address them through their *_component_key fields.
+curve = dal.DiscountPWC_New("usd", "USD", [maturity], [0.04])
+market = dal.RatePricingMarket_(
+    valuation_time=dal.DateTime_(today, 10, 30),
+    result_currency="USD",
+    curve_components={"discount": curve, "forecast": curve},
+    fixings=dal.MarketFixingSnapshot_New({}),
+)
+
+# 2) Index convention, terms, and trade
+index = dal.RateIndexConvention_New(
+    dal.PeriodLength_New("3M"), dal.DayBasis_New("ACT_365F"), dal.CollateralType_OIS())
+terms = dal.DepositTradeTerms_(
+    notional=100.0, contract_rate=0.05, lend=True,
+    index=index, discount_component_key="discount")
+trade = dal.RateTradeDefinition_(
+    instrument_id="deposit-1", instrument_type=dal.RateInstrumentType.DEPOSIT,
+    trade_date=today, start_date=today, maturity_date=maturity,
+    currency="USD", terms=terms)
+
+# 3) Single-trade sensitivity (a deposit depends only on the discount component,
+#    so a "forecast" request returns reason="TRADE_DOES_NOT_DEPEND_ON_COMPONENT")
+r = dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key="discount")
+assert r.eligible and len(r.gradient) == 1 and r.reason == ""
+
+# 4) Batch: component_keys must be a list — a tuple raises TypeError before any
+#    native work starts. Deterministic trade-major then key order.
+cells = dal.RateTradeNodeSensitivitiesBatch(
+    trades=[trade], market=market, component_keys=["discount", "forecast"])
+for c in cells:
+    print(c.instrument_id, c.component_key, c.result.eligible, c.result.reason)
+
+# 5) Portfolio aggregation
+agg = dal.AggregateRatePortfolioNodeRisk(
+    trades=[trade], market=market, component_keys=["discount"])
+print(agg.policy)                    # UnconvertedByActualPvCcy
+comp = agg.components[0]             # .component_key / .node_count / .node_dates /
+                                     # .node_components / .values
+print(dict(agg.pv_by_actual_pv_ccy)) # {'USD': ...}
+print(agg.meta[0].reason, agg.meta[0].actual_pv_ccy)
+```
+
+Failures never raise. A trade that fails passive pricing — for example
+`notional=float("nan")` — keeps `PriceRateTrades` field-level detail in
+`result[0].error`, while every sensitivity call returns the canonical read-only
+four-field result: `eligible=False`, `pv=0.0`, `gradient=[]`, and a stable
+`reason` token (`"TRADE_VALIDATION_FAILED"` here). In a batch, failed entries
+are isolated per (trade, component) cell; the remaining entries are unaffected.
+
+All seven families — deposit, FRA, future, OIS, IRS, basis swap, and XCCY —
+share this call pattern and differ only in their terms class. The per-family
+terms fields, the addressable components, and the C++ and Excel equivalents are
+in the [public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md#c-rate-cashflow-pricing).
+
 ## Troubleshooting
 
 ### "Cannot find DAL::public" during build
