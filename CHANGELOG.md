@@ -46,6 +46,12 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: `RateTradeNodeSensitivities` success domain widened to basis swap trades (any of the three
+  dependencies: spread forecast, reference forecast, or discount), on top of Deposit/FRA/Future/OIS/IRS;
+  the generalized multi-component stage prices them unchanged, holding the two non-target dependencies
+  as passive `double` curves. XCCY remains gated by `TRADE_FAMILY_NOT_AAD_ENABLED`; the six-token
+  failure set and its priority are unchanged.
+
 - `curve`: `RateTradeNodeSensitivities` success domain widened to OIS and IRS trades (either
   dependency, forecast or discount), on top of Deposit/FRA/Future; the stage-1 generalized
   multi-component machinery prices them unchanged. OIS overnight compounding runs on the
