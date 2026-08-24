@@ -46,7 +46,7 @@ namespace Dal::RateCashflowPricingInternal {
     // so terms-mismatch trades keep hitting the family gate by construction.
     inline Vector_<RateInstrumentType_> AadEnabledRateFamilies() {
         return {RateInstrumentType_::Value_::DEPOSIT, RateInstrumentType_::Value_::FRA, RateInstrumentType_::Value_::FUTURE,
-                RateInstrumentType_::Value_::OIS, RateInstrumentType_::Value_::IRS};
+                RateInstrumentType_::Value_::OIS,     RateInstrumentType_::Value_::IRS, RateInstrumentType_::Value_::BASIS_SWAP};
     }
 
     inline RateTradeNodeSensitivityResult_ NodeSensitivityFailure(const String_& reason) {

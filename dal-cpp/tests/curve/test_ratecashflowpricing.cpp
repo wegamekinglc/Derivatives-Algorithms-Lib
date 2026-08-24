@@ -112,6 +112,30 @@ namespace {
         return result;
     }
 
+    Dal::BasisTradeTerms_ BasisTerms(bool receiveReference = true) {
+        Dal::BasisTradeTerms_ result;
+        result.notional_ = 1'000'000.0;
+        result.contractSpread_ = 0.001;
+        result.receiveReferencePaySpread_ = receiveReference;
+        result.spreadLeg_ = AnnualLeg();
+        result.referenceLeg_ = AnnualLeg();
+        result.spreadIndex_ = QuarterlyIndex();
+        result.referenceIndex_ = QuarterlyIndex();
+        // Different fixing identities per leg: the spread leg fixes on LIBOR, the reference leg on SOFR.
+        result.spreadFixingIdentity_ = {"USD-LIBOR-3M", 11, 0};
+        result.referenceFixingIdentity_ = {"USD-SOFR", 11, 0};
+        result.spreadForecastComponentKey_ = "forecast";
+        result.referenceForecastComponentKey_ = "reference";
+        result.discountComponentKey_ = "discount";
+        return result;
+    }
+
+    // Shared wrapper of the fixed-float terms into the family's terms alternative.
+    Dal::RateTradeTerms_ AsFamilyTerms(const Dal::RateInstrumentType_& family, const Dal::FixedFloatTradeTerms_& value) {
+        return family == Dal::RateInstrumentType_("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{value})
+                                                         : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{value});
+    }
+
     Dal::RatePricingMarket_
     ComponentMarket(const Dal::Date_& today, const Dal::Handle_<Dal::DiscountCurve_>& forecast, const Dal::Handle_<Dal::DiscountCurve_>& discount) {
         Dal::RatePricingMarket_ result;
@@ -120,6 +144,20 @@ namespace {
         result.curveComponents_["discount"] = discount;
         result.curveComponents_["forecast"] = forecast;
         result.curveComponents_["reference"] = discount;
+        result.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+        return result;
+    }
+
+    Dal::RatePricingMarket_ ComponentMarket(const Dal::Date_& today,
+                                            const Dal::Handle_<Dal::DiscountCurve_>& forecast,
+                                            const Dal::Handle_<Dal::DiscountCurve_>& reference,
+                                            const Dal::Handle_<Dal::DiscountCurve_>& discount) {
+        Dal::RatePricingMarket_ result;
+        result.valuationTime_ = Dal::DateTime_(today, 10, 30);
+        result.resultCurrency_ = Dal::Ccy_("USD");
+        result.curveComponents_["discount"] = discount;
+        result.curveComponents_["forecast"] = forecast;
+        result.curveComponents_["reference"] = reference;
         result.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
         return result;
     }
@@ -266,23 +304,23 @@ namespace {
             ASSERT_NEAR(structural.gradient_[column], 0.0, 1.0e-12) << "structural-zero raw column " << column;
     }
 
-    // OIS/IRS battery driver: one call runs the family gradient helper across all four curve
-    // representations for one target component; the built curve lands under the target key and
-    // the other dependency stays on a distinct flat curve (forecast != discount). The relative
-    // tolerance sits one order above the single-period families: daily compounding and the
-    // multi-period discounting add curvature that scales the central-difference truncation.
-    template <class MakeTerms_>
-    void AssertFixedFloatNodeBatteries(const Dal::RateInstrumentType_& family, const MakeTerms_& makeTerms, const Dal::String_& componentKey) {
+    // Family battery driver: one call runs the family gradient helper across all four curve
+    // representations for one target component; the assembled market places the built curve under
+    // the target component key and holds every other dependency on a distinct flat curve, so
+    // central bumps perturb the target component only. The relative tolerance sits one order above
+    // the single-period families: multi-period discounting and compounding add curvature that
+    // scales the central-difference truncation.
+    template <class MakeTerms_, class AssembleMarket_>
+    void AssertFamilyNodeBatteries(const Dal::RateInstrumentType_& family,
+                                   const MakeTerms_& makeTerms,
+                                   const Dal::String_& componentKey,
+                                   const AssembleMarket_& assembleMarket) {
         constexpr double NATIVE_PARAMETER_BUMP = 1.0e-6;
         constexpr double RAW_GRADIENT_ABSOLUTE_TOLERANCE = 1.0e-6;
         constexpr double RAW_GRADIENT_RELATIVE_TOLERANCE = 1.0e-7;
         const Dal::Date_ today(2026, 1, 15);
         const Dal::Date_ maturity(2029, 1, 15);
         const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15)};
-        const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& curve) {
-            return componentKey == "forecast" ? ComponentMarket(today, curve, FlatCurve(maturity, 0.03))
-                                              : ComponentMarket(today, FlatCurve(maturity, 0.04), curve);
-        };
         AssertFamilyNodeGradientMatchesCentralBumps(
             family, makeTerms(true), makeTerms(false), componentKey, assembleMarket,
             [&](const Dal::Vector_<>& parameters) {
@@ -319,6 +357,36 @@ namespace {
                                                                                   Dal::LogDfScheme_::Value_::LOG_LINEAR));
             },
             {0.01, 0.0, -0.005}, 3, NATIVE_PARAMETER_BUMP, RAW_GRADIENT_ABSOLUTE_TOLERANCE, RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
+    }
+
+    // OIS/IRS battery: the built curve lands under the target key and the other dependency stays
+    // on a distinct flat curve (forecast != discount).
+    void AssertFixedFloatNodeBatteries(const Dal::RateInstrumentType_& family, const Dal::String_& componentKey) {
+        const Dal::Date_ today(2026, 1, 15);
+        const Dal::Date_ maturity(2029, 1, 15);
+        const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& curve) {
+            return componentKey == "forecast" ? ComponentMarket(today, curve, FlatCurve(maturity, 0.03))
+                                              : ComponentMarket(today, FlatCurve(maturity, 0.04), curve);
+        };
+        AssertFamilyNodeBatteries(
+            family, [&](bool payFixed) { return AsFamilyTerms(family, FixedFloatTerms(payFixed)); }, componentKey, assembleMarket);
+    }
+
+    // Basis battery: the built curve lands under the target key and the other two dependencies
+    // stay on distinct flat curves (spread forecast != reference forecast != discount).
+    void AssertBasisNodeBatteries(const Dal::String_& componentKey) {
+        const Dal::Date_ today(2026, 1, 15);
+        const Dal::Date_ maturity(2029, 1, 15);
+        const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& curve) {
+            if (componentKey == "forecast")
+                return ComponentMarket(today, curve, FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03));
+            if (componentKey == "reference")
+                return ComponentMarket(today, FlatCurve(maturity, 0.04), curve, FlatCurve(maturity, 0.03));
+            return ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.025), curve);
+        };
+        AssertFamilyNodeBatteries(
+            Dal::RateInstrumentType_("BASIS_SWAP"), [](bool receiveReference) { return Dal::RateTradeTerms_(BasisTerms(receiveReference)); },
+            componentKey, assembleMarket);
     }
 } // namespace
 
@@ -701,7 +769,7 @@ TEST(RateCashflowPricingTest, TestDepositNodeAADRewindsPerTradeAndIsThreadLocal)
 TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesStayGated) {
     const auto enabled = Dal::RateCashflowPricingInternal::AadEnabledRateFamilies();
     const auto families = Dal::RateInstrumentTypeListAll();
-    ASSERT_EQ(enabled.size(), 5);
+    ASSERT_EQ(enabled.size(), 6);
     for (const auto& family : enabled)
         ASSERT_NE(std::find(families.begin(), families.end(), family), families.end());
 
@@ -748,19 +816,11 @@ TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesS
                     market, "discount")
                     .eligible_);
 
-    Dal::BasisTradeTerms_ basis;
-    basis.spreadLeg_ = AnnualLeg();
-    basis.referenceLeg_ = AnnualLeg();
-    basis.spreadIndex_ = QuarterlyIndex();
-    basis.referenceIndex_ = QuarterlyIndex();
-    basis.spreadFixingIdentity_ = {"USD-LIBOR-3M", 11, 0};
-    basis.referenceFixingIdentity_ = {"USD-SOFR", 11, 0};
-    basis.spreadForecastComponentKey_ = "forecast";
-    basis.referenceForecastComponentKey_ = "reference";
-    basis.discountComponentKey_ = "discount";
-    AssertCanonicalFailure(
-        Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, today, maturity, basis), market, "forecast"),
-        "TRADE_FAMILY_NOT_AAD_ENABLED");
+    const auto basisTrade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, today, maturity, BasisTerms());
+    ASSERT_EQ(Dal::BuildRateCashflowPlan(basisTrade, market.valuationTime_).dependencyComponentKeys_,
+              (Dal::Vector_<Dal::String_>{"forecast", "reference", "discount"}));
+    for (const auto& key : {"forecast", "reference", "discount"})
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(basisTrade, market, key).eligible_);
     AssertCanonicalFailure(
         Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("XCCY"), today, today, maturity, Dal::XccyTradeTerms_{}), market, "forecast"),
         "TRADE_FAMILY_NOT_AAD_ENABLED");
@@ -1109,27 +1169,19 @@ TEST(RateCashflowPricingTest, TestFutureNodeAADForecastZeroRateRawColumnsMatchCe
 }
 
 TEST(RateCashflowPricingTest, TestOisNodeAADForecastRawColumnsMatchCentralBumpsAllRepresentations) {
-    AssertFixedFloatNodeBatteries(
-        Dal::RateInstrumentType_("OIS"), [](bool payFixed) { return Dal::RateTradeTerms_(Dal::OisTradeTerms_{FixedFloatTerms(payFixed)}); },
-        "forecast");
+    AssertFixedFloatNodeBatteries(Dal::RateInstrumentType_("OIS"), "forecast");
 }
 
 TEST(RateCashflowPricingTest, TestOisNodeAADDiscountRawColumnsMatchCentralBumpsAllRepresentations) {
-    AssertFixedFloatNodeBatteries(
-        Dal::RateInstrumentType_("OIS"), [](bool payFixed) { return Dal::RateTradeTerms_(Dal::OisTradeTerms_{FixedFloatTerms(payFixed)}); },
-        "discount");
+    AssertFixedFloatNodeBatteries(Dal::RateInstrumentType_("OIS"), "discount");
 }
 
 TEST(RateCashflowPricingTest, TestIrsNodeAADForecastRawColumnsMatchCentralBumpsAllRepresentations) {
-    AssertFixedFloatNodeBatteries(
-        Dal::RateInstrumentType_("IRS"), [](bool payFixed) { return Dal::RateTradeTerms_(Dal::IrsTradeTerms_{FixedFloatTerms(payFixed)}); },
-        "forecast");
+    AssertFixedFloatNodeBatteries(Dal::RateInstrumentType_("IRS"), "forecast");
 }
 
 TEST(RateCashflowPricingTest, TestIrsNodeAADDiscountRawColumnsMatchCentralBumpsAllRepresentations) {
-    AssertFixedFloatNodeBatteries(
-        Dal::RateInstrumentType_("IRS"), [](bool payFixed) { return Dal::RateTradeTerms_(Dal::IrsTradeTerms_{FixedFloatTerms(payFixed)}); },
-        "discount");
+    AssertFixedFloatNodeBatteries(Dal::RateInstrumentType_("IRS"), "discount");
 }
 
 TEST(RateCashflowPricingTest, TestOisAndIrsNodeAADActivePvEqualsPassiveBitwise) {
@@ -1218,19 +1270,16 @@ TEST(RateCashflowPricingTest, TestOisAndIrsNodeAADFixedAndFloatLegGradientStruct
     const double fixedLegDiscountGradient = fullTerms.notional_ * fullTerms.contractRate_ * tau * toPayment * paymentDf;
 
     for (const auto& family : {Dal::RateInstrumentType_("OIS"), Dal::RateInstrumentType_("IRS")}) {
-        const auto wrap = [&](const Dal::FixedFloatTradeTerms_& value) {
-            return family == Dal::RateInstrumentType_("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{value})
-                                                             : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{value});
-        };
-        const auto full = Dal::PriceRateTrade(Trade(family, today, start, maturity, wrap(fullTerms)), market);
-        const auto floatOnly = Dal::PriceRateTrade(Trade(family, today, start, maturity, wrap(floatOnlyTerms)), market);
+        const auto full = Dal::PriceRateTrade(Trade(family, today, start, maturity, AsFamilyTerms(family, fullTerms)), market);
+        const auto floatOnly = Dal::PriceRateTrade(Trade(family, today, start, maturity, AsFamilyTerms(family, floatOnlyTerms)), market);
         ASSERT_TRUE(full.succeeded_);
         ASSERT_TRUE(floatOnly.succeeded_);
         ASSERT_NEAR(full.pv_ - floatOnly.pv_, fixedLegPv, 1.0e-8 * std::max(1.0, std::abs(fixedLegPv)));
 
-        const auto fullGradient = Dal::RateTradeNodeSensitivities(Trade(family, today, start, maturity, wrap(fullTerms)), market, "discount");
+        const auto fullGradient =
+            Dal::RateTradeNodeSensitivities(Trade(family, today, start, maturity, AsFamilyTerms(family, fullTerms)), market, "discount");
         const auto floatOnlyGradient =
-            Dal::RateTradeNodeSensitivities(Trade(family, today, start, maturity, wrap(floatOnlyTerms)), market, "discount");
+            Dal::RateTradeNodeSensitivities(Trade(family, today, start, maturity, AsFamilyTerms(family, floatOnlyTerms)), market, "discount");
         ASSERT_TRUE(fullGradient.eligible_);
         ASSERT_TRUE(floatOnlyGradient.eligible_);
         ASSERT_EQ(fullGradient.gradient_.size(), 1);
@@ -1414,11 +1463,7 @@ TEST(RateCashflowPricingTest, TestOisAndIrsNodeAADBeforeAndAfterMaturityExpiry) 
         ComponentMarket(Dal::Date_(maturity.AddDays(1)), FlatCurve(maturity.AddDays(30), 0.04), FlatCurve(maturity.AddDays(30), 0.03));
 
     for (const auto& family : {Dal::RateInstrumentType_("OIS"), Dal::RateInstrumentType_("IRS")}) {
-        const auto wrap = [&](bool payFixed) {
-            return family == Dal::RateInstrumentType_("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{FixedFloatTerms(payFixed)})
-                                                             : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{FixedFloatTerms(payFixed)});
-        };
-        const auto trade = Trade(family, today, start, maturity, wrap(true));
+        const auto trade = Trade(family, today, start, maturity, AsFamilyTerms(family, FixedFloatTerms(true)));
         const auto liveMarket = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
         const auto liveForecast = Dal::RateTradeNodeSensitivities(trade, liveMarket, "forecast");
         const auto liveDiscount = Dal::RateTradeNodeSensitivities(trade, liveMarket, "discount");
@@ -1456,11 +1501,7 @@ TEST(RateCashflowPricingTest, TestOisAndIrsNodeAADIsolationFromPassiveNodeCount)
         Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("dense", "USD", Dal::PiecewiseConstant_(denseKnots, denseForward)));
 
     for (const auto& family : {Dal::RateInstrumentType_("OIS"), Dal::RateInstrumentType_("IRS")}) {
-        const auto wrap = [&](bool payFixed) {
-            return family == Dal::RateInstrumentType_("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{FixedFloatTerms(payFixed)})
-                                                             : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{FixedFloatTerms(payFixed)});
-        };
-        const auto trade = Trade(family, today, start, maturity, wrap(true));
+        const auto trade = Trade(family, today, start, maturity, AsFamilyTerms(family, FixedFloatTerms(true)));
         const auto small = Dal::RateTradeNodeSensitivities(trade, ComponentMarket(today, forecast, FlatCurve(maturity, 0.03)), "forecast");
         const auto large = Dal::RateTradeNodeSensitivities(trade, ComponentMarket(today, forecast, denseDiscount), "forecast");
 
@@ -1477,6 +1518,306 @@ TEST(RateCashflowPricingTest, TestOisAndIrsNodeAADIsolationFromPassiveNodeCount)
         ASSERT_TRUE(discountSensitivity.eligible_);
         ASSERT_EQ(static_cast<int>(discountSensitivity.gradient_.size()), static_cast<int>(denseKnots.size()));
     }
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADSpreadForecastRawColumnsMatchCentralBumpsAllRepresentations) { AssertBasisNodeBatteries("forecast"); }
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADReferenceForecastRawColumnsMatchCentralBumpsAllRepresentations) {
+    AssertBasisNodeBatteries("reference");
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADDiscountRawColumnsMatchCentralBumpsAllRepresentations) { AssertBasisNodeBatteries("discount"); }
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADActivePvEqualsPassiveBitwise) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 2, 15);
+    const Dal::Date_ maturity(2026, 4, 15);
+    const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03));
+
+    for (const bool receiveReference : {true, false}) {
+        const auto trade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms(receiveReference));
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        for (const auto& key : {"forecast", "reference", "discount"}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_);
+            ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_);
+            ASSERT_NE(sensitivity.gradient_[0], 0.0);
+        }
+    }
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADThreeComponentIsolation) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    // The last knot sits inside the accrual span: a PWC parameter is live only from its knot
+    // date, so a final knot beyond maturity would leave the last column structurally zero.
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15), Dal::Date_(2028, 10, 15)};
+    const auto spread = Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("spread", "USD", Dal::PiecewiseConstant_(knots, {0.01, -0.005, 0.03})));
+    const auto reference =
+        Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("reference", "USD", Dal::PiecewiseConstant_(knots, {0.02, 0.015, 0.025})));
+    const auto trade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms());
+
+    {
+        // Each dependency reports exactly its own parameter columns — the other two components
+        // contribute none — and every column is live at these knots.
+        const auto market = ComponentMarket(today, spread, reference, FlatCurve(maturity, 0.03));
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        for (const auto& [key, expectedSize] : {std::pair<Dal::String_, int>{"forecast", 3}, {"reference", 3}, {"discount", 1}}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_);
+            ASSERT_EQ(static_cast<int>(sensitivity.gradient_.size()), expectedSize);
+            ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_);
+            for (const double column : sensitivity.gradient_)
+                ASSERT_NE(column, 0.0) << key << " column expected live";
+        }
+    }
+
+    // Dense passive dependencies with constant forwards equal to the flat curves they replace: the
+    // passive components are double curves that never record on the tape, so the target's PV and
+    // gradient do not scale with the passive node count.
+    Dal::Vector_<Dal::Date_> denseKnots;
+    for (Dal::Date_ knot = Dal::Date_(2026, 2, 15); knot <= Dal::Date_(2029, 12, 15); knot = knot.AddDays(30))
+        denseKnots.push_back(knot);
+    const auto dense = [&](double forward) {
+        return Dal::Handle_<Dal::DiscountCurve_>(
+            Dal::NewDiscountPWC("dense", "USD", Dal::PiecewiseConstant_(denseKnots, Dal::Vector_<>(denseKnots.size(), forward))));
+    };
+    const auto assertDensePassivesLeaveTargetUntouched = [&](const Dal::String_& key, const auto& flat, const auto& withDense) {
+        const auto small = Dal::RateTradeNodeSensitivities(trade, flat, key);
+        const auto large = Dal::RateTradeNodeSensitivities(trade, withDense, key);
+        ASSERT_TRUE(small.eligible_);
+        ASSERT_TRUE(large.eligible_);
+        ASSERT_EQ(small.gradient_.size(), large.gradient_.size());
+        ASSERT_NEAR(large.pv_, small.pv_, 1.0e-10 * std::max(1.0, std::abs(small.pv_)));
+        for (int column = 0; column < static_cast<int>(small.gradient_.size()); ++column)
+            ASSERT_NEAR(large.gradient_[column], small.gradient_[column], 1.0e-10 * std::max(1.0, std::abs(small.gradient_[column])))
+                << "column " << column;
+    };
+    assertDensePassivesLeaveTargetUntouched("forecast", ComponentMarket(today, spread, FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03)),
+                                            ComponentMarket(today, spread, dense(0.025), dense(0.03)));
+    assertDensePassivesLeaveTargetUntouched("reference", ComponentMarket(today, FlatCurve(maturity, 0.04), reference, FlatCurve(maturity, 0.03)),
+                                            ComponentMarket(today, dense(0.04), reference, dense(0.03)));
+    assertDensePassivesLeaveTargetUntouched("discount",
+                                            ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03)),
+                                            ComponentMarket(today, dense(0.04), dense(0.025), FlatCurve(maturity, 0.03)));
+
+    const auto discountSensitivity =
+        Dal::RateTradeNodeSensitivities(trade, ComponentMarket(today, dense(0.04), dense(0.025), dense(0.03)), "discount");
+    ASSERT_TRUE(discountSensitivity.eligible_);
+    ASSERT_EQ(static_cast<int>(discountSensitivity.gradient_.size()), static_cast<int>(denseKnots.size()));
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADPassiveCurvesStayOutOfTheActiveGradient) {
+    // Both forecast keys address the same curve object: in each call the leg reading the active key
+    // runs on the registered parameters and the other leg on the passive double copy, so the two
+    // forecast gradients partition the shared curve's total derivative instead of double-counting
+    // it.
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15), Dal::Date_(2028, 10, 15)};
+    const Dal::Vector_<> sharedParameters{0.02, 0.018, 0.022};
+    const auto buildShared = [&](const Dal::Vector_<>& parameters) {
+        return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("shared", "USD", Dal::PiecewiseConstant_(knots, parameters)));
+    };
+    const auto assemble = [&](const Dal::Handle_<Dal::DiscountCurve_>& forecast, const Dal::Handle_<Dal::DiscountCurve_>& discount) {
+        return ComponentMarket(today, forecast, forecast, discount);
+    };
+    const auto trade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms());
+    const auto market = assemble(buildShared(sharedParameters), FlatCurve(maturity, 0.03));
+    const auto spreadSensitivity = Dal::RateTradeNodeSensitivities(trade, market, "forecast");
+    const auto referenceSensitivity = Dal::RateTradeNodeSensitivities(trade, market, "reference");
+    const auto discountSensitivity = Dal::RateTradeNodeSensitivities(trade, market, "discount");
+    ASSERT_TRUE(spreadSensitivity.eligible_);
+    ASSERT_TRUE(referenceSensitivity.eligible_);
+    ASSERT_TRUE(discountSensitivity.eligible_);
+    ASSERT_EQ(spreadSensitivity.gradient_.size(), 3);
+    ASSERT_EQ(referenceSensitivity.gradient_.size(), 3);
+    for (int column = 0; column < 3; ++column) {
+        ASSERT_NE(spreadSensitivity.gradient_[column], 0.0) << "spread column " << column;
+        ASSERT_NE(referenceSensitivity.gradient_[column], 0.0) << "reference column " << column;
+    }
+
+    constexpr double epsilon = 1.0e-6;
+    for (int column = 0; column < 3; ++column) {
+        auto plusParameters = sharedParameters;
+        auto minusParameters = sharedParameters;
+        plusParameters[column] += epsilon;
+        minusParameters[column] -= epsilon;
+        const auto plus = Dal::PriceRateTrade(trade, assemble(buildShared(plusParameters), FlatCurve(maturity, 0.03)));
+        const auto minus = Dal::PriceRateTrade(trade, assemble(buildShared(minusParameters), FlatCurve(maturity, 0.03)));
+        ASSERT_TRUE(plus.succeeded_);
+        ASSERT_TRUE(minus.succeeded_);
+        const double total = (plus.pv_ - minus.pv_) / (2.0 * epsilon);
+        const double partitioned = spreadSensitivity.gradient_[column] + referenceSensitivity.gradient_[column];
+        const double tolerance = 1.0e-6 + 1.0e-7 * std::max(std::abs(partitioned), std::abs(total));
+        ASSERT_NEAR(partitioned, total, tolerance) << "shared forecast column " << column;
+    }
+
+    const auto discountPlus = Dal::PriceRateTrade(trade, assemble(buildShared(sharedParameters), FlatCurve(maturity, 0.03 + epsilon)));
+    const auto discountMinus = Dal::PriceRateTrade(trade, assemble(buildShared(sharedParameters), FlatCurve(maturity, 0.03 - epsilon)));
+    ASSERT_TRUE(discountPlus.succeeded_);
+    ASSERT_TRUE(discountMinus.succeeded_);
+    const double totalDiscount = (discountPlus.pv_ - discountMinus.pv_) / (2.0 * epsilon);
+    const double discountTolerance = 1.0e-6 + 1.0e-7 * std::max(std::abs(discountSensitivity.gradient_[0]), std::abs(totalDiscount));
+    ASSERT_NEAR(discountSensitivity.gradient_[0], totalDiscount, discountTolerance);
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADFixingStatesProjectedSuppliedAndMissing) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 3, 16);
+    const Dal::Date_ maturity(2026, 5, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15)};
+    const auto spreadForecast =
+        Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("spread", "USD", Dal::PiecewiseConstant_(knots, {0.01, 0.012, 0.015})));
+    const auto referenceForecast =
+        Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("reference", "USD", Dal::PiecewiseConstant_(knots, {0.02, 0.022, 0.025})));
+    const auto discount = FlatCurve(maturity, 0.03);
+
+    auto terms = BasisTerms();
+    // The legs' fixing identities differ in name and publication hour; the ComponentMarket
+    // valuation time (10:30) falls between the 09:00 and 11:00 fixings, isolating one leg's
+    // fixing state from the other's.
+    terms.spreadFixingIdentity_ = {"USD-LIBOR-3M", 9, 0};
+    terms.referenceFixingIdentity_ = {"USD-SOFR", 11, 0};
+    const auto trade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, terms);
+
+    {
+        // Before either fixing: both legs projected, both forecasts carry gradient on the live
+        // column only.
+        const auto market = ComponentMarket(today, spreadForecast, referenceForecast, discount);
+        const auto spreadSensitivity = Dal::RateTradeNodeSensitivities(trade, market, "forecast");
+        const auto referenceSensitivity = Dal::RateTradeNodeSensitivities(trade, market, "reference");
+        ASSERT_TRUE(spreadSensitivity.eligible_);
+        ASSERT_TRUE(referenceSensitivity.eligible_);
+        ASSERT_NE(spreadSensitivity.gradient_[0], 0.0);
+        ASSERT_DOUBLE_EQ(spreadSensitivity.gradient_[1], 0.0);
+        ASSERT_DOUBLE_EQ(spreadSensitivity.gradient_[2], 0.0);
+        ASSERT_NE(referenceSensitivity.gradient_[0], 0.0);
+        ASSERT_DOUBLE_EQ(referenceSensitivity.gradient_[1], 0.0);
+        ASSERT_DOUBLE_EQ(referenceSensitivity.gradient_[2], 0.0);
+    }
+
+    Dal::MarketFixingSnapshot_::values_t spreadHistory;
+    spreadHistory["USD-LIBOR-3M"][Dal::DateTime_(start, 9, 0)] = 0.031;
+    {
+        // Spread leg fixed and supplied, reference leg still projected: the spread forecast
+        // gradient is structurally zero while the reference forecast and discount stay live.
+        auto supplied = ComponentMarket(start, spreadForecast, referenceForecast, discount);
+        supplied.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(spreadHistory));
+        const auto passive = Dal::PriceRateTrade(trade, supplied);
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 1);
+        ASSERT_TRUE(passive.missingHistoricalFixings_.empty());
+
+        const auto spreadSensitivity = Dal::RateTradeNodeSensitivities(trade, supplied, "forecast");
+        const auto referenceSensitivity = Dal::RateTradeNodeSensitivities(trade, supplied, "reference");
+        const auto discountSensitivity = Dal::RateTradeNodeSensitivities(trade, supplied, "discount");
+        ASSERT_TRUE(spreadSensitivity.eligible_);
+        ASSERT_TRUE(referenceSensitivity.eligible_);
+        ASSERT_TRUE(discountSensitivity.eligible_);
+        ASSERT_DOUBLE_EQ(spreadSensitivity.pv_, passive.pv_);
+        ASSERT_DOUBLE_EQ(referenceSensitivity.pv_, passive.pv_);
+        ASSERT_DOUBLE_EQ(discountSensitivity.pv_, passive.pv_);
+        for (const double column : spreadSensitivity.gradient_)
+            ASSERT_DOUBLE_EQ(column, 0.0);
+        ASSERT_NE(referenceSensitivity.gradient_[0], 0.0);
+        ASSERT_NE(discountSensitivity.gradient_[0], 0.0);
+    }
+
+    {
+        // Mirror with the reference leg fixed and supplied: the fixing identities gate per leg.
+        auto mirroredTerms = BasisTerms();
+        mirroredTerms.spreadFixingIdentity_ = {"USD-LIBOR-3M", 11, 0};
+        mirroredTerms.referenceFixingIdentity_ = {"USD-SOFR", 9, 0};
+        const auto mirrored = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, mirroredTerms);
+        Dal::MarketFixingSnapshot_::values_t referenceHistory;
+        referenceHistory["USD-SOFR"][Dal::DateTime_(start, 9, 0)] = 0.0205;
+        auto supplied = ComponentMarket(start, spreadForecast, referenceForecast, discount);
+        supplied.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(referenceHistory));
+        const auto passive = Dal::PriceRateTrade(mirrored, supplied);
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 1);
+        ASSERT_TRUE(passive.missingHistoricalFixings_.empty());
+
+        const auto referenceSensitivity = Dal::RateTradeNodeSensitivities(mirrored, supplied, "reference");
+        const auto spreadSensitivity = Dal::RateTradeNodeSensitivities(mirrored, supplied, "forecast");
+        ASSERT_TRUE(referenceSensitivity.eligible_);
+        ASSERT_TRUE(spreadSensitivity.eligible_);
+        ASSERT_DOUBLE_EQ(referenceSensitivity.pv_, passive.pv_);
+        for (const double column : referenceSensitivity.gradient_)
+            ASSERT_DOUBLE_EQ(column, 0.0);
+        ASSERT_NE(spreadSensitivity.gradient_[0], 0.0);
+    }
+
+    {
+        // Missing spread fixing (reference leg still projected): passive pricing fails on exactly
+        // the spread leg's identity and the node stage reports the validation token.
+        const auto missing = ComponentMarket(start, spreadForecast, referenceForecast, discount);
+        const auto passive = Dal::PriceRateTrade(trade, missing);
+        ASSERT_FALSE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 1);
+        ASSERT_EQ(passive.missingHistoricalFixings_.size(), 1);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, missing, "forecast"), "TRADE_VALIDATION_FAILED");
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, missing, "discount"), "TRADE_VALIDATION_FAILED");
+    }
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADBeforeAndAfterMaturityExpiry) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 2, 15);
+    const Dal::Date_ maturity(2026, 4, 15);
+    const auto expired = ComponentMarket(Dal::Date_(maturity.AddDays(1)), FlatCurve(maturity.AddDays(30), 0.04),
+                                         FlatCurve(maturity.AddDays(30), 0.025), FlatCurve(maturity.AddDays(30), 0.03));
+    const auto live = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03));
+    const auto trade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms());
+
+    for (const auto& key : {"forecast", "reference", "discount"}) {
+        const auto liveSensitivity = Dal::RateTradeNodeSensitivities(trade, live, key);
+        ASSERT_TRUE(liveSensitivity.eligible_);
+        ASSERT_NE(liveSensitivity.pv_, 0.0);
+        ASSERT_NE(liveSensitivity.gradient_[0], 0.0);
+
+        const auto settled = Dal::RateTradeNodeSensitivities(trade, expired, key);
+        ASSERT_TRUE(settled.eligible_);
+        ASSERT_DOUBLE_EQ(settled.pv_, 0.0);
+        for (const double column : settled.gradient_)
+            ASSERT_DOUBLE_EQ(column, 0.0);
+    }
+}
+
+TEST(RateCashflowPricingTest, TestBasisNodeAADReasonPrecedenceForCombinedFailures) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto supported = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.025), FlatCurve(maturity, 0.03));
+    auto invalidTerms = BasisTerms();
+    invalidTerms.notional_ = std::numeric_limits<double>::quiet_NaN();
+    const auto invalidTrade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, invalidTerms);
+    const auto validTrade = Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms());
+
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, supported, "wrong"), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(validTrade, supported, "wrong"), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+
+    auto missingReference = supported;
+    missingReference.curveComponents_.erase("reference");
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(validTrade, missingReference, "forecast"), "CURVE_COMPONENT_UNAVAILABLE");
+    auto nullDiscount = supported;
+    nullDiscount.curveComponents_["discount"] = Dal::Handle_<Dal::DiscountCurve_>();
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(validTrade, nullDiscount, "forecast"), "CURVE_COMPONENT_UNAVAILABLE");
+
+    auto unsupportedReference = supported;
+    unsupportedReference.curveComponents_["reference"] = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(validTrade, unsupportedReference, "forecast"), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, unsupportedReference, "forecast"), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+    auto unsupportedTarget = supported;
+    unsupportedTarget.curveComponents_["forecast"] = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(validTrade, unsupportedTarget, "forecast"), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, supported, "forecast"), "TRADE_VALIDATION_FAILED");
 }
 
 TEST(RateCashflowPricingTest, TestFraAndFutureNodeAADActivePvEqualsPassiveBitwiseBothSettlementModes) {
@@ -1768,33 +2109,16 @@ TEST(RateCashflowPricingTest, TestFloatingFamilySidesAreExactOpposites) {
     fixedFloat.discountComponentKey_ = "discount";
     for (const auto& family : {"OIS", "IRS"}) {
         const auto type = Dal::RateInstrumentType_(family);
-        const Dal::RateTradeTerms_ first = family == std::string("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{fixedFloat})
-                                                                        : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{fixedFloat});
-        const double receive = Dal::PriceRateTrade(Trade(type, today, today, maturity, first), market).pv_;
+        const double receive = Dal::PriceRateTrade(Trade(type, today, today, maturity, AsFamilyTerms(type, fixedFloat)), market).pv_;
         fixedFloat.payFixed_ = false;
-        const Dal::RateTradeTerms_ opposite = family == std::string("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{fixedFloat})
-                                                                           : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{fixedFloat});
-        const double pay = Dal::PriceRateTrade(Trade(type, today, today, maturity, opposite), market).pv_;
+        const double pay = Dal::PriceRateTrade(Trade(type, today, today, maturity, AsFamilyTerms(type, fixedFloat)), market).pv_;
         ASSERT_NEAR(receive, -pay, 1.0e-10);
         fixedFloat.payFixed_ = true;
     }
 
-    Dal::BasisTradeTerms_ basis;
-    basis.notional_ = 1'000'000.0;
-    basis.contractSpread_ = 0.001;
-    basis.receiveReferencePaySpread_ = true;
-    basis.spreadLeg_ = AnnualLeg();
-    basis.referenceLeg_ = AnnualLeg();
-    basis.spreadIndex_ = QuarterlyIndex();
-    basis.referenceIndex_ = QuarterlyIndex();
-    basis.spreadFixingIdentity_ = {"USD-LIBOR-3M", 11, 0};
-    basis.referenceFixingIdentity_ = {"USD-SOFR", 11, 0};
-    basis.spreadForecastComponentKey_ = "forecast";
-    basis.referenceForecastComponentKey_ = "reference";
-    basis.discountComponentKey_ = "discount";
+    const auto basis = BasisTerms();
     const auto first = Dal::PriceRateTrade(Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, today, maturity, basis), market);
-    basis.receiveReferencePaySpread_ = false;
-    const auto opposite = Dal::PriceRateTrade(Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, today, maturity, basis), market);
+    const auto opposite = Dal::PriceRateTrade(Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, today, maturity, BasisTerms(false)), market);
     ASSERT_NEAR(first.pv_, -opposite.pv_, 1.0e-10);
 }
 
