@@ -5,6 +5,7 @@
 #pragma once
 
 #include "__curve_storable.hpp"
+#include "__curvepricing_test_api.hpp"
 #include "__platform.hpp"
 #include "__settingskeys.hpp"
 #include <algorithm>

@@ -56,38 +56,43 @@ namespace {
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
-    Vector_<String_> NativeComponentKeys(const std::vector<std::string>& componentKeys) {
+    // Component keys convert under the GIL from a py::list -- the parameter deliberately avoids
+    // std::vector<std::string>: core.cpp binds that container opaque, and a generic list_caster
+    // instantiation in this TU would ODR-split against it (MSVC folds the two instantiations,
+    // then destroys the argument temporary with the wrong layout -- the Windows-only crash
+    // dal-tester pinned with a native stack).
+    Vector_<String_> NativeComponentKeys(const py::list& componentKeys) {
         Vector_<String_> native;
-        for (const auto& key : componentKeys)
-            native.push_back(String_(key));
+        for (auto item : componentKeys)
+            native.push_back(String_(py::cast<std::string>(item)));
         return native;
     }
 
     // Out-of-line native execution of the rate-risk batch and aggregation: marshalling happens
     // under the GIL, the whole serial native run under one release, and the results are returned
     // by value for the callers to marshal back under the GIL. Keeping the released section in a
-    // plain function (no lambda captures, no Python-owned references inside) makes the GIL-free
-    // region explicit and identical between the two entry points.
+    // plain function (no lambda captures, no Python objects inside) makes the GIL-free region
+    // explicit and identical between the two entry points.
     Vector_<RateTradeNodeSensitivityCell_>
-    RunRateTradeNodeSensitivitiesBatch(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+    RunRateTradeNodeSensitivitiesBatch(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys) {
         const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
         Vector_<RateTradeNodeSensitivityCell_> cells;
         {
             py::gil_scoped_release release;
             RunRateRiskGilBarrierForTesting();
-            cells = RateTradeNodeSensitivitiesBatch(nativeTrades, market, NativeComponentKeys(componentKeys));
+            cells = RateTradeNodeSensitivitiesBatch(nativeTrades, market, componentKeys);
         }
         return cells;
     }
 
     RatePortfolioNodeRisk_
-    RunAggregateRatePortfolioNodeRisk(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
+    RunAggregateRatePortfolioNodeRisk(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys) {
         const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
         RatePortfolioNodeRisk_ aggregate;
         {
             py::gil_scoped_release release;
             RunRateRiskGilBarrierForTesting();
-            aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, NativeComponentKeys(componentKeys));
+            aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, componentKeys);
         }
         return aggregate;
     }
@@ -1112,8 +1117,9 @@ namespace {
 
         m.def(
             "RateTradeNodeSensitivitiesBatch",
-            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
-                const Vector_<RateTradeNodeSensitivityCell_> cells = RunRateTradeNodeSensitivitiesBatch(trades, market, componentKeys);
+            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const py::list& componentKeys) {
+                const Vector_<RateTradeNodeSensitivityCell_> cells =
+                    RunRateTradeNodeSensitivitiesBatch(trades, market, NativeComponentKeys(componentKeys));
                 py::list result;
                 for (const auto& cell : cells)
                     result.append(cell);
@@ -1123,8 +1129,8 @@ namespace {
 
         m.def(
             "AggregateRatePortfolioNodeRisk",
-            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const std::vector<std::string>& componentKeys) {
-                return RunAggregateRatePortfolioNodeRisk(trades, market, componentKeys);
+            [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const py::list& componentKeys) {
+                return RunAggregateRatePortfolioNodeRisk(trades, market, NativeComponentKeys(componentKeys));
             },
             py::kw_only(), py::arg("trades"), py::arg("market"), py::arg("component_keys"));
 

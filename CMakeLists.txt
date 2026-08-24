@@ -103,6 +103,6 @@ if(DAL_BUILD_PYTHON)
     add_subdirectory(dal-python)
 endif()
 
-if(DAL_BUILD_EXCEL OR DAL_BUILD_EXCEL_PORTABLE_TESTS)
+if(DAL_BUILD_EXCEL OR (NOT WIN32 AND DAL_BUILD_EXCEL_PORTABLE_TESTS))
     add_subdirectory(dal-excel)
 endif()
