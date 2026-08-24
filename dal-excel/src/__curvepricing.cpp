@@ -352,6 +352,20 @@ namespace Dal {
             }
         }
 
+        std::shared_ptr<CrossCurrencyMarket_> BuildXccyMarket(const Handle_<StorableCurveBlock_>& domesticBlock,
+                                                              const Handle_<StorableCurveBlock_>& foreignBlock,
+                                                              double fxSpot,
+                                                              const String_& collateralCurrency,
+                                                              const Handle_<StorableDiscountCurve_>& basisCurve,
+                                                              const DateTime_& valuationTime,
+                                                              const Handle_<MarketFixingSnapshot_>& fixings) {
+            auto native = std::make_shared<CrossCurrencyMarket_>(domesticBlock->val_, foreignBlock->val_, fxSpot, valuationTime,
+                                                                 Ccy_(collateralCurrency), fixings);
+            if (basisCurve && basisCurve->val_)
+                native->SetBasisCurve(basisCurve->val_);
+            return native;
+        }
+
         // Optional XCCY market: both blocks and a positive FX spot are required once any XCCY
         // input is present.
         void AddXccyMarket(const Handle_<StorableCurveBlock_>& domesticBlock,
@@ -367,11 +381,7 @@ namespace Dal {
                 return;
             REQUIRE(std::isfinite(fxSpot) && fxSpot > 0.0, "An XCCY rate pricing market needs a positive FX spot");
             REQUIRE(!collateralCurrency.empty(), "An XCCY rate pricing market needs a collateral currency");
-            auto native = std::make_shared<CrossCurrencyMarket_>(domesticBlock->val_, foreignBlock->val_, fxSpot, market.valuationTime_,
-                                                                 Ccy_(collateralCurrency), market.fixings_);
-            if (basisCurve && basisCurve->val_)
-                native->SetBasisCurve(basisCurve->val_);
-            result->xccyMarket_ = native;
+            result->xccyMarket_ = BuildXccyMarket(domesticBlock, foreignBlock, fxSpot, collateralCurrency, basisCurve, market.valuationTime_, market.fixings_);
         }
 
         // Long-form rows per batch cell: one row per node of an eligible cell (label = parameter

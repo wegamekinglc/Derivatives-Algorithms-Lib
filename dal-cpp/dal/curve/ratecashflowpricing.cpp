@@ -997,6 +997,16 @@ namespace Dal {
             std::map<String_, Vector_<>> gradientSums_;
         };
 
+        void AddGradientSum(const RateTradeNodeSensitivityCell_& cell, std::map<String_, Vector_<>>* gradientSums) {
+            Vector_<>& sum = (*gradientSums)[cell.componentKey_];
+            if (sum.empty()) {
+                sum.Resize(cell.result_.gradient_.size());
+                std::fill(sum.begin(), sum.end(), 0.0);
+            }
+            for (int node = 0; node < static_cast<int>(cell.result_.gradient_.size()); ++node)
+                sum[node] += cell.result_.gradient_[node];
+        }
+
         void AccumulateTradeCells(const RateTradeDefinition_& trade,
                                   const Vector_<RateTradeNodeSensitivityCell_>& cells,
                                   int firstCell,
@@ -1025,13 +1035,7 @@ namespace Dal {
                 }
                 if (!gradientCounted.insert(cell.componentKey_).second)
                     continue;
-                Vector_<>& sum = accumulator->gradientSums_[cell.componentKey_];
-                if (sum.empty()) {
-                    sum.Resize(cell.result_.gradient_.size());
-                    std::fill(sum.begin(), sum.end(), 0.0);
-                }
-                for (int node = 0; node < static_cast<int>(cell.result_.gradient_.size()); ++node)
-                    sum[node] += cell.result_.gradient_[node];
+                AddGradientSum(cell, &accumulator->gradientSums_);
             }
         }
 
