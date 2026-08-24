@@ -149,10 +149,33 @@ jobs:
           CXX: ${{ matrix.cxx }}
         run: |
           rm -rf build/Release-windows build/stage/Release-windows
+          # DIAGNOSTIC BRANCH ONLY (dal-tester): dal-excel off to bypass the two
+          # fix-round Windows regressions (dal_excel_tests LNK2019 x7, GTest
+          # REQUIRED in subdirectory mode) that mask the pytest segfault under
+          # investigation. Later -D wins over ADDITIONAL_CMAKE_FLAGS.
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} \
+            -DDAL_BUILD_EXCEL=OFF -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF \
             ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"}
           cmake --build build/Release-windows --parallel
           cmake --install build/Release-windows
+
+      # DIAGNOSTIC BRANCH ONLY (dal-tester): capture a native stack for the
+      # dal_python_pytest access violation under cdb before the normal ctest
+      # step runs. Never merged; no product code is touched on this branch.
+      - name: Diagnose rate-pricing pytest crash under cdb
+        shell: pwsh
+        run: |
+          Write-Host "=== DIAG-CAPTURE-START ==="
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) {
+            Write-Host "cdb not found at $cdb; running plain pytest instead"
+            & dal-python\.venv\Scripts\python.exe -X faulthandler -m pytest dal-python\tests\test_curve_pricing.py -q --tb=short
+            exit 0
+          }
+          & $cdb -g -G -lines -c 'sxe -c "kv50; !analyze -v; qd" av; g' `
+            dal-python\.venv\Scripts\python.exe -X faulthandler -m pytest dal-python\tests\test_curve_pricing.py -q --tb=short
+          Write-Host "=== DIAG-CAPTURE-END (cdb exit $LASTEXITCODE) ==="
+          exit 0
 
       - name: Test
         shell: bash
