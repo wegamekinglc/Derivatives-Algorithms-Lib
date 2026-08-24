@@ -303,7 +303,31 @@ namespace Dal {
             return result;
         }
 
-        double PriceXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
+        const MarketFixingSnapshot_& XccyFixings(const RatePricingMarket_& market, const CrossCurrencyMarket_& nativeMarket) {
+            static const MarketFixingSnapshot_ empty;
+            const Handle_<MarketFixingSnapshot_>& fixings = market.fixings_ ? market.fixings_ : nativeMarket.Fixings();
+            return fixings ? *fixings : empty;
+        }
+
+        // Same accounting contract as ResolveRate: every strictly-past observation the plan needs is
+        // recorded as required, and the first missing one fails validation on the stable token.
+        void AccountXccyHistoricalFixings(const XccyCashflowPlan_& plan,
+                                          const DateTime_& valuationTime,
+                                          const MarketFixingSnapshot_& fixings,
+                                          RatePricingTradeResult_* result) {
+            for (const auto& request : RequiredHistoricalFixings(plan, valuationTime)) {
+                AddUnique(request, &result->requiredHistoricalFixings_);
+                if (!fixings.Find(request.indexName_, request.fixingTime_)) {
+                    AddUnique(request, &result->missingHistoricalFixings_);
+                    THROW("Missing historical fixing " + request.indexName_);
+                }
+            }
+        }
+
+        double PriceXccy(const RateTradeDefinition_& trade,
+                         const XccyTradeTerms_& terms,
+                         const RatePricingMarket_& market,
+                         RatePricingTradeResult_* result) {
             REQUIRE(std::isfinite(terms.positionCount_) && terms.positionCount_ > 0.0, "XCCY position count must be positive and finite");
             if (trade.maturityDate_ < market.valuationTime_.Date())
                 return 0.0;
@@ -324,11 +348,11 @@ namespace Dal {
             view.domestic_ = &domestic;
             view.foreign_ = &foreign;
             view.basis_ = nativeMarket.BasisCurve();
-            const Handle_<MarketFixingSnapshot_> fixings = market.fixings_ ? market.fixings_ : nativeMarket.Fixings();
-            const MarketFixingSnapshot_ empty;
             const auto plan = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
-            return terms.positionCount_ * PriceXccyContract(plan, view, fixings ? *fixings : empty, terms.contractSpread_, terms.spreadOnForeignLeg_,
-                                                            terms.receiveNonSpreadPaySpread_);
+            const MarketFixingSnapshot_& fixings = XccyFixings(market, nativeMarket);
+            AccountXccyHistoricalFixings(plan, market.valuationTime_, fixings, result);
+            return terms.positionCount_ *
+                   PriceXccyContract(plan, view, fixings, terms.contractSpread_, terms.spreadOnForeignLeg_, terms.receiveNonSpreadPaySpread_);
         }
 
         // #lizard forgives -- family-specific pricing branches preserve the audited formula mapping.
@@ -396,7 +420,7 @@ namespace Dal {
             if (const auto* terms = std::get_if<BasisTradeTerms_>(&trade.terms_))
                 return PriceBasis(trade, *terms, view, result);
             if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_))
-                return T_(PriceXccy(trade, *terms, market));
+                return T_(PriceXccy(trade, *terms, market, result));
             THROW("Rate trade terms alternative is unsupported");
         }
 
@@ -485,6 +509,158 @@ namespace Dal {
             result.expectedParameterCount_ = BuildCurveParameterLayout(result.definition_).parameterCount_;
             return result;
         }
+
+        void AddUniqueCurve(const DiscountCurve_* curve, Vector_<const DiscountCurve_*>* curves) {
+            if (curve && std::find(curves->begin(), curves->end(), curve) == curves->end())
+                curves->push_back(curve);
+        }
+
+        // XCCY addressing (design decision point 1): the curves a trade consumes are the
+        // collateral/tenor-selected slots of the domestic/foreign blocks plus the basis curve —
+        // never mere block membership. Slots are located by routing the same JointCurveBlock_
+        // logic the pricing kernel uses.
+        Vector_<const DiscountCurve_*> ConsumedXccyCurves(const XccyTradeTerms_& terms, const CrossCurrencyMarket_& nativeMarket) {
+            const auto domestic = JointBlock(nativeMarket.DomesticBlock());
+            const auto foreign = JointBlock(nativeMarket.ForeignBlock());
+            const auto& convention = terms.config_.convention_;
+            Vector_<const DiscountCurve_*> result;
+            AddUniqueCurve(&domestic.Discount(convention.domesticIndex_.collateral_), &result);
+            AddUniqueCurve(&Tape::ForecastCurve(domestic, convention.domesticIndex_), &result);
+            AddUniqueCurve(&foreign.Discount(convention.foreignIndex_.collateral_), &result);
+            AddUniqueCurve(&Tape::ForecastCurve(foreign, convention.foreignIndex_), &result);
+            AddUniqueCurve(nativeMarket.BasisCurve(), &result);
+            return result;
+        }
+
+        // An addressed curve must also be registered under a stable key in curveComponents_; the
+        // shared-ownership Handles make pointer comparison well-defined with no false positives.
+        // Without an XCCY market — or against a block the config cannot route — no key can be
+        // established, so the dependency gate reports every request as not consumed.
+        Vector_<String_> XccyDependencyKeys(const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
+            Vector_<String_> result;
+            if (!market.xccyMarket_)
+                return result;
+            Vector_<const DiscountCurve_*> consumed;
+            try {
+                consumed = ConsumedXccyCurves(terms, *market.xccyMarket_);
+            } catch (const std::exception&) {
+                return result;
+            }
+            for (const auto* curve : consumed)
+                for (const auto& [key, handle] : market.curveComponents_)
+                    if (handle && handle.get() == curve)
+                        AddUnique(key, &result);
+            return result;
+        }
+
+        Vector_<AAD::Number_> ConstantActiveParameters(const Vector_<>& parameters) {
+            Vector_<AAD::Number_> result(parameters.size());
+            for (int i = 0; i < static_cast<int>(parameters.size()); ++i)
+                result[i] = AAD::Number_(parameters[i]);
+            return result;
+        }
+
+        // #lizard forgives -- the XCCY stage mirrors the audited six-gate pipeline of the single-currency path.
+        RateTradeNodeSensitivityResult_ RateTradeNodeSensitivitiesXccy(const RateTradeDefinition_& trade,
+                                                                       const XccyTradeTerms_& terms,
+                                                                       const RatePricingMarket_& market,
+                                                                       const String_& componentKey) {
+            using namespace RateCashflowPricingInternal;
+            const Vector_<String_> dependencyKeys = XccyDependencyKeys(terms, market);
+            if (std::find(dependencyKeys.begin(), dependencyKeys.end(), componentKey) == dependencyKeys.end())
+                return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+            REQUIRE(market.xccyMarket_, "XCCY node sensitivity requires an immutable cross-currency market");
+            const auto& nativeMarket = *market.xccyMarket_;
+            const DiscountCurve_* targetCurve = market.curveComponents_.at(componentKey).get();
+
+            // Classification walk over the consumed curves only — unused in-block members are never
+            // classified. The addressed component keeps the representation token; any other
+            // consumed curve that cannot be classified is an assembly failure instead (frozen P0
+            // contract 7: that token stays a representation failure).
+            std::map<const DiscountCurve_*, NodeSensitivityCurve_> classified;
+            for (const auto* curve : ConsumedXccyCurves(terms, nativeMarket)) {
+                classified[curve] = ClassifyNodeSensitivityCurve(*curve);
+                if (!std::holds_alternative<std::monostate>(classified[curve]))
+                    continue;
+                return NodeSensitivityFailure(curve == targetCurve ? "CURVE_REPRESENTATION_NOT_AAD_ENABLED" : "AAD_EVALUATION_FAILED");
+            }
+
+            const auto passive = PriceRateTrade(trade, market);
+            if (!passive.succeeded_ || !std::isfinite(passive.pv_))
+                return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
+
+            std::map<const DiscountCurve_*, NodeSensitivityPreparation_> prepared;
+            int expectedParameterCount = 0;
+            try {
+                for (const auto& [curve, classification] : classified) {
+                    prepared[curve] = PrepareNodeSensitivityCurve(classification, market.valuationTime_.Date());
+                    if (curve == targetCurve)
+                        expectedParameterCount = prepared[curve].expectedParameterCount_;
+                }
+            } catch (const std::exception&) {
+                return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+            }
+
+            const auto plan = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
+            const bool expired = trade.maturityDate_ < market.valuationTime_.Date();
+            // Active-typed assembly (frozen P0 contract 8): the uniformly typed XCCY view cannot
+            // hold double curves, so every consumed curve is rebuilt as AAD::Number_ — only the
+            // addressed component's parameters are registered, the others stay constant-typed, and
+            // fxSpot_ is an unregistered constant scalar (P0 ships rate axes only, no FX delta).
+            return RunNodeSensitivityAADStage(expectedParameterCount, [&]() {
+                const Vector_<AAD::Number_> targetParameters = RegisterCurveParameters(prepared.at(targetCurve).passiveParameters_);
+                AAD::NewRecording(*AAD::Tape());
+                NodeSensitivityCandidate_ candidate;
+                if (expired) {
+                    candidate.pv_ = 0.0;
+                    candidate.gradient_ = Vector_<>(targetParameters.size(), 0.0);
+                    return candidate;
+                }
+                std::map<const DiscountCurve_*, std::shared_ptr<Tape::DiscountCurve_<AAD::Number_>>> active;
+                for (const auto& [curve, preparation] : prepared)
+                    active.emplace(curve, BuildDiscountCurveUniqueT<AAD::Number_>(
+                                              preparation.definition_,
+                                              curve == targetCurve ? targetParameters : ConstantActiveParameters(preparation.passiveParameters_),
+                                              preparation.passiveBase_));
+
+                const auto fillTypedBlock = [&](const CurveBlock_& source, Tape::JointCurveBlock_<AAD::Number_>* typed) {
+                    for (const auto& [collateral, handle] : source.DiscountCurves()) {
+                        const auto found = active.find(handle.get());
+                        if (found != active.end())
+                            typed->discountCurves[collateral] = found->second.get();
+                    }
+                    for (const auto& [tenor, handle] : source.ForwardCurves()) {
+                        const auto found = active.find(handle.get());
+                        if (found != active.end())
+                            typed->forwardCurves[tenor] = found->second.get();
+                    }
+                };
+                Tape::JointCurveBlock_<AAD::Number_> domesticBlock, foreignBlock;
+                fillTypedBlock(nativeMarket.DomesticBlock(), &domesticBlock);
+                fillTypedBlock(nativeMarket.ForeignBlock(), &foreignBlock);
+
+                XccyMarketView_<AAD::Number_> view;
+                view.valuationTime_ = market.valuationTime_;
+                view.pair_ = terms.config_.pair_;
+                view.collateralCurrency_ = nativeMarket.CollateralCurrency();
+                view.fxSpot_ = AAD::Number_(nativeMarket.FxSpot());
+                view.domestic_ = &domesticBlock;
+                view.foreign_ = &foreignBlock;
+                if (const DiscountCurve_* basisCurve = nativeMarket.BasisCurve())
+                    view.basis_ = active.at(basisCurve).get();
+
+                const MarketFixingSnapshot_& fixings = XccyFixings(market, nativeMarket);
+                AAD::Number_ pv = terms.positionCount_ * PriceXccyContract(plan, view, fixings, terms.contractSpread_, terms.spreadOnForeignLeg_,
+                                                                           terms.receiveNonSpreadPaySpread_);
+                AAD::Adjoint(pv) = 1.0;
+                AAD::PropagateToStart(*AAD::Tape());
+                candidate.pv_ = AAD::Value(pv);
+                candidate.gradient_ = Vector_<>(targetParameters.size());
+                for (int i = 0; i < static_cast<int>(targetParameters.size()); ++i)
+                    candidate.gradient_[i] = AAD::AdjointValue(targetParameters[i]);
+                return candidate;
+            });
+        }
     } // namespace
 
     // #lizard forgives -- one plan builder keeps family-specific cashflow admission atomic.
@@ -527,13 +703,21 @@ namespace Dal {
         return result;
     }
 
+    RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
+        RateCashflowPlan_ result = BuildRateCashflowPlan(trade, market.valuationTime_);
+        if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_))
+            for (const auto& key : XccyDependencyKeys(*terms, market))
+                AddUnique(key, &result.dependencyComponentKeys_);
+        return result;
+    }
+
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
         RatePricingTradeResult_ result;
         result.instrumentId_ = trade.instrumentId_;
         result.instrumentType_ = trade.instrumentType_;
         result.currency_ = market.resultCurrency_;
         try {
-            const auto plan = BuildRateCashflowPlan(trade, market.valuationTime_);
+            const auto plan = BuildRateCashflowPlan(trade, market);
             result.requiredHistoricalFixings_ = plan.requiredHistoricalFixings_;
             result.dependencyComponentKeys_ = plan.dependencyComponentKeys_;
             result.pv_ = Price(trade, market, &result);
@@ -559,6 +743,8 @@ namespace Dal {
         using namespace RateCashflowPricingInternal;
         if (!IsFamilyAadEnabled(trade))
             return NodeSensitivityFailure("TRADE_FAMILY_NOT_AAD_ENABLED");
+        if (const auto* xccyTerms = std::get_if<XccyTradeTerms_>(&trade.terms_))
+            return RateTradeNodeSensitivitiesXccy(trade, *xccyTerms, market, componentKey);
         const Vector_<String_> dependencyKeys = AadDependencyKeys(trade);
         if (std::find(dependencyKeys.begin(), dependencyKeys.end(), componentKey) == dependencyKeys.end())
             return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");

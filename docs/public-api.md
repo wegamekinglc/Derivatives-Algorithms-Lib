@@ -215,6 +215,7 @@ exposes the core `RateTradeDefinition_`, family-specific terms,
 
 ```cpp
 Dal::BuildRateCashflowPlan(trade, market.valuationTime_);
+Dal::BuildRateCashflowPlan(trade, market);
 Dal::PriceRateTrade(trade, market);
 Dal::PriceRateTrades(trades, market);
 Dal::RateTradeNodeSensitivities(trade, market, componentKey);
@@ -224,13 +225,21 @@ Dal::CurvePricingFamilyRegistry();
 The supported family enum is closed to `DEPOSIT`, `FRA`, `FUTURE`, `OIS`,
 `IRS`, `BASIS_SWAP`, and `XCCY`. Planning determines curve dependencies and
 required historical rate/FX fixing keys before valuation. Batch pricing retains
-a success/failure result per trade.
+a success/failure result per trade. Both plan overloads agree for the
+single-currency families; the market-aware form additionally emits the XCCY
+dependency keys of the curves the trade actually consumes (the
+collateral/tenor-selected domestic and foreign discount and forecast curves
+plus the basis curve), each addressed by pointer identity against
+`RatePricingMarket_::curveComponents_`.
 
-Native node AAD currently admits deposit, FRA, futures, OIS, IRS, and basis
-swap trades; for FRA, OIS, and IRS the requested component may be either
+Native node AAD currently admits deposit, FRA, futures, OIS, IRS, basis swap,
+and XCCY trades; for FRA, OIS, and IRS the requested component may be either
 dependency (forecast or discount), for futures the forecast dependency, for
-deposits the discount dependency, and for basis swaps any of the three
-dependencies (spread forecast, reference forecast, or discount). The first
+deposits the discount dependency, for basis swaps any of the three
+dependencies (spread forecast, reference forecast, or discount), and for XCCY
+any consumed curve registered under a component key. XCCY node risk ships
+rate axes only — the FX spot is a constant, not an AAD input — so consumers
+must not read it as complete XCCY risk. The first
 failing gate
 selects the reason in this order: family (`TRADE_FAMILY_NOT_AAD_ENABLED`),
 requested dependency (`TRADE_DOES_NOT_DEPEND_ON_COMPONENT`), component

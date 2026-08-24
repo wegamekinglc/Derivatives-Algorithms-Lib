@@ -18,10 +18,12 @@
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
+#include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/aad/aad.hpp>
 
 namespace {
     Dal::RateIndexConvention_ QuarterlyIndex() {
@@ -132,6 +134,8 @@ namespace {
 
     // Shared wrapper of the fixed-float terms into the family's terms alternative.
     Dal::RateTradeTerms_ AsFamilyTerms(const Dal::RateInstrumentType_& family, const Dal::FixedFloatTradeTerms_& value) {
+        REQUIRE(family == Dal::RateInstrumentType_("OIS") || family == Dal::RateInstrumentType_("IRS"),
+                "AsFamilyTerms wraps fixed-float terms for OIS/IRS only");
         return family == Dal::RateInstrumentType_("OIS") ? Dal::RateTradeTerms_(Dal::OisTradeTerms_{value})
                                                          : Dal::RateTradeTerms_(Dal::IrsTradeTerms_{value});
     }
@@ -164,7 +168,7 @@ namespace {
 
     class UnsupportedDiscountCurve_ : public Dal::DiscountCurve_ {
     public:
-        UnsupportedDiscountCurve_() : DiscountCurve_("unsupported", "USD") {}
+        explicit UnsupportedDiscountCurve_(const Dal::String_& ccy = "USD") : DiscountCurve_("unsupported", ccy) {}
 
         double operator()(const Dal::Date_&, const Dal::Date_&) const override { return 1.0; }
         void Poll(Dal::Vector_<const Dal::YCComponent_*>* all) const override { all->push_back(this); }
@@ -309,12 +313,14 @@ namespace {
     // the target component key and holds every other dependency on a distinct flat curve, so
     // central bumps perturb the target component only. The relative tolerance sits one order above
     // the single-period families: multi-period discounting and compounding add curvature that
-    // scales the central-difference truncation.
+    // scales the central-difference truncation. curveCcy names the currency of the built curve's
+    // slot (XCCY foreign/basis slots are not USD).
     template <class MakeTerms_, class AssembleMarket_>
     void AssertFamilyNodeBatteries(const Dal::RateInstrumentType_& family,
                                    const MakeTerms_& makeTerms,
                                    const Dal::String_& componentKey,
-                                   const AssembleMarket_& assembleMarket) {
+                                   const AssembleMarket_& assembleMarket,
+                                   const Dal::String_& curveCcy = "USD") {
         constexpr double NATIVE_PARAMETER_BUMP = 1.0e-6;
         constexpr double RAW_GRADIENT_ABSOLUTE_TOLERANCE = 1.0e-6;
         constexpr double RAW_GRADIENT_RELATIVE_TOLERANCE = 1.0e-7;
@@ -324,7 +330,7 @@ namespace {
         AssertFamilyNodeGradientMatchesCentralBumps(
             family, makeTerms(true), makeTerms(false), componentKey, assembleMarket,
             [&](const Dal::Vector_<>& parameters) {
-                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("pwc", "USD", Dal::PiecewiseConstant_(knots, parameters)));
+                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("pwc", curveCcy, Dal::PiecewiseConstant_(knots, parameters)));
             },
             {0.01, -0.005, 0.03}, 3, NATIVE_PARAMETER_BUMP, RAW_GRADIENT_ABSOLUTE_TOLERANCE, RAW_GRADIENT_RELATIVE_TOLERANCE, {1, 2});
         AssertFamilyNodeGradientMatchesCentralBumps(
@@ -336,7 +342,7 @@ namespace {
                     left[node] = parameters[2 * node];
                     right[node] = parameters[2 * node + 1];
                 }
-                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWLF("pwlf", "USD", Dal::PiecewiseLinear_(knots, left, right)));
+                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWLF("pwlf", curveCcy, Dal::PiecewiseLinear_(knots, left, right)));
             },
             {0.01, 0.0, -0.005, 0.02, 0.03, -0.01}, 6, NATIVE_PARAMETER_BUMP, RAW_GRADIENT_ABSOLUTE_TOLERANCE, RAW_GRADIENT_RELATIVE_TOLERANCE,
             {2, 3, 4, 5});
@@ -345,7 +351,7 @@ namespace {
                                                         Dal::Vector_<> stored{0.0};
                                                         stored.Append(parameters);
                                                         return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountLogDF(
-                                                            "logdf", "USD", Dal::Vector_<Dal::Date_>{today, knots[0], knots[1], knots[2]}, stored,
+                                                            "logdf", curveCcy, Dal::Vector_<Dal::Date_>{today, knots[0], knots[1], knots[2]}, stored,
                                                             Dal::DayBasis_("ACT_365F"), Dal::LogDfScheme_::Value_::LOG_LINEAR));
                                                     },
                                                     {-0.005, 0.0, -0.06}, 3, NATIVE_PARAMETER_BUMP, RAW_GRADIENT_ABSOLUTE_TOLERANCE,
@@ -353,8 +359,8 @@ namespace {
         AssertFamilyNodeGradientMatchesCentralBumps(
             family, makeTerms(true), makeTerms(false), componentKey, assembleMarket,
             [&](const Dal::Vector_<>& parameters) {
-                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountZeroRate("zero", "USD", today, knots, parameters, Dal::DayBasis_("ACT_365F"),
-                                                                                  Dal::LogDfScheme_::Value_::LOG_LINEAR));
+                return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountZeroRate("zero", curveCcy, today, knots, parameters,
+                                                                                  Dal::DayBasis_("ACT_365F"), Dal::LogDfScheme_::Value_::LOG_LINEAR));
             },
             {0.01, 0.0, -0.005}, 3, NATIVE_PARAMETER_BUMP, RAW_GRADIENT_ABSOLUTE_TOLERANCE, RAW_GRADIENT_RELATIVE_TOLERANCE, {2});
     }
@@ -387,6 +393,146 @@ namespace {
         AssertFamilyNodeBatteries(
             Dal::RateInstrumentType_("BASIS_SWAP"), [](bool receiveReference) { return Dal::RateTradeTerms_(BasisTerms(receiveReference)); },
             componentKey, assembleMarket);
+    }
+
+    constexpr const char* XCCY_DOM_OIS = "domOis";
+    constexpr const char* XCCY_DOM_FWD_3M = "domFwd3M";
+    constexpr const char* XCCY_DOM_FWD_6M = "domFwd6M";
+    constexpr const char* XCCY_FOR_OIS = "forOis";
+    constexpr const char* XCCY_FOR_FWD_3M = "forFwd3M";
+    constexpr const char* XCCY_BASIS = "basis";
+
+    Dal::RateIndexConvention_ XccyIndex(bool projection) {
+        auto result = QuarterlyIndex();
+        if (projection) {
+            result.useProjectionCurve_ = true;
+            result.forecastTenor_ = Dal::PeriodLength_("3M");
+        }
+        return result;
+    }
+
+    Dal::XccyTradeTerms_ XccyTerms(const Dal::Ccy_& domestic,
+                                   const Dal::Ccy_& foreign,
+                                   bool receiveNonSpread,
+                                   bool projection,
+                                   const Dal::CollateralType_& domesticCollateral = Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)) {
+        Dal::XccyTradeTerms_ result;
+        result.positionCount_ = 1.0;
+        result.contractSpread_ = 0.001;
+        result.spreadOnForeignLeg_ = true;
+        result.receiveNonSpreadPaySpread_ = receiveNonSpread;
+        result.config_.pair_ = Dal::CurrencyPair_(domestic, foreign);
+        result.config_.domesticNotional_ = 1'000'000.0;
+        result.config_.foreignNotional_ = 900'000.0;
+        result.config_.convention_.domesticLeg_ = AnnualLeg();
+        result.config_.convention_.foreignLeg_ = AnnualLeg();
+        result.config_.convention_.domesticIndex_ = XccyIndex(projection);
+        result.config_.convention_.domesticIndex_.collateral_ = domesticCollateral;
+        result.config_.convention_.foreignIndex_ = XccyIndex(projection);
+        result.config_.convention_.spreadOnForeignLeg_ = true;
+        result.config_.domesticRateFixing_ = {Dal::String_(domestic.String()) + "-INDEX", 11, 0};
+        result.config_.foreignRateFixing_ = {Dal::String_(foreign.String()) + "-INDEX", 11, 0};
+        return result;
+    }
+
+    Dal::XccyTradeTerms_ XccyTerms(bool receiveNonSpread = true, bool projection = true) {
+        return XccyTerms(Dal::Ccy_("USD"), Dal::Ccy_("EUR"), receiveNonSpread, projection);
+    }
+
+    // Curve inventory of a test XCCY market. Null handles leave the slot out of the block and the
+    // key out of curveComponents_, so negative cases can shape addressing precisely.
+    struct XccyMarketSpec_ {
+        Dal::Handle_<Dal::DiscountCurve_> domesticOis_, domesticGc_, domesticFwd3M_, domesticFwd6M_;
+        Dal::Handle_<Dal::DiscountCurve_> foreignOis_, foreignFwd3M_;
+        Dal::Handle_<Dal::DiscountCurve_> basis_;
+        double fxSpot_ = 1.2;
+        Dal::Ccy_ domestic_ = Dal::Ccy_("USD");
+        Dal::Ccy_ foreign_ = Dal::Ccy_("EUR");
+        Dal::Handle_<Dal::MarketFixingSnapshot_> fixings_;
+    };
+
+    XccyMarketSpec_ FlatXccySpec(const Dal::Date_& horizon) {
+        XccyMarketSpec_ spec;
+        spec.domesticOis_ = FlatCurve(horizon, 0.03, "USD");
+        spec.domesticFwd3M_ = FlatCurve(horizon, 0.032, "USD");
+        spec.foreignOis_ = FlatCurve(horizon, 0.02, "EUR");
+        spec.foreignFwd3M_ = FlatCurve(horizon, 0.022, "EUR");
+        spec.basis_ = FlatCurve(horizon, 0.001, "USD");
+        return spec;
+    }
+
+    // Pointer-identity contract: the block slots and the curveComponents_ entries share the same
+    // Handles, so every consumed curve is addressable under a stable key.
+    Dal::RatePricingMarket_ BuildXccyMarket(const Dal::Date_& today, const XccyMarketSpec_& spec) {
+        std::map<Dal::CollateralType_, Dal::Handle_<Dal::DiscountCurve_>> domesticDiscounts;
+        domesticDiscounts[Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)] = spec.domesticOis_;
+        if (spec.domesticGc_)
+            domesticDiscounts[Dal::CollateralType_(Dal::CollateralType_::Value_::GC)] = spec.domesticGc_;
+        std::map<Dal::PeriodLength_, Dal::Handle_<Dal::DiscountCurve_>> domesticForwards;
+        if (spec.domesticFwd3M_)
+            domesticForwards[Dal::PeriodLength_("3M")] = spec.domesticFwd3M_;
+        if (spec.domesticFwd6M_)
+            domesticForwards[Dal::PeriodLength_("6M")] = spec.domesticFwd6M_;
+        std::map<Dal::CollateralType_, Dal::Handle_<Dal::DiscountCurve_>> foreignDiscounts;
+        foreignDiscounts[Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)] = spec.foreignOis_;
+        std::map<Dal::PeriodLength_, Dal::Handle_<Dal::DiscountCurve_>> foreignForwards;
+        if (spec.foreignFwd3M_)
+            foreignForwards[Dal::PeriodLength_("3M")] = spec.foreignFwd3M_;
+
+        const auto domesticBlock = Dal::Handle_<Dal::CurveBlock_>(
+            new Dal::CurveBlock_("domestic", spec.domestic_.String(), domesticDiscounts, domesticForwards, Dal::DayBasis_("ACT_365F")));
+        const auto foreignBlock = Dal::Handle_<Dal::CurveBlock_>(
+            new Dal::CurveBlock_("foreign", spec.foreign_.String(), foreignDiscounts, foreignForwards, Dal::DayBasis_("ACT_365F")));
+        const auto fixings = spec.fixings_ ? spec.fixings_ : Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+        const auto native = std::make_shared<Dal::CrossCurrencyMarket_>(domesticBlock, foreignBlock, spec.fxSpot_, Dal::DateTime_(today, 10, 30),
+                                                                        spec.domestic_, fixings);
+        if (spec.basis_)
+            native->SetBasisCurve(spec.basis_);
+
+        Dal::RatePricingMarket_ result;
+        result.valuationTime_ = Dal::DateTime_(today, 10, 30);
+        result.resultCurrency_ = spec.domestic_;
+        result.xccyMarket_ = native;
+        result.fixings_ = fixings;
+        const auto registerIf = [&](const char* key, const Dal::Handle_<Dal::DiscountCurve_>& curve) {
+            if (curve)
+                result.curveComponents_[key] = curve;
+        };
+        registerIf(XCCY_DOM_OIS, spec.domesticOis_);
+        registerIf("domGc", spec.domesticGc_);
+        registerIf(XCCY_DOM_FWD_3M, spec.domesticFwd3M_);
+        registerIf(XCCY_DOM_FWD_6M, spec.domesticFwd6M_);
+        registerIf(XCCY_FOR_OIS, spec.foreignOis_);
+        registerIf(XCCY_FOR_FWD_3M, spec.foreignFwd3M_);
+        registerIf(XCCY_BASIS, spec.basis_);
+        return result;
+    }
+
+    Dal::RatePricingMarket_ FlatXccyMarket(const Dal::Date_& today) { return BuildXccyMarket(today, FlatXccySpec(Dal::Date_(2031, 1, 15))); }
+
+    // XCCY battery: the built curve lands in the addressed block slot (registered under its key)
+    // while every other consumed curve stays on a distinct flat curve, so central bumps perturb the
+    // addressed component only. Foreign slots are EUR curves; the basis stays domestic (USD).
+    void AssertXccyNodeBatteries(const Dal::String_& componentKey) {
+        const Dal::Date_ today(2026, 1, 15);
+        const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& curve) {
+            auto spec = FlatXccySpec(Dal::Date_(2031, 1, 15));
+            if (componentKey == XCCY_DOM_OIS)
+                spec.domesticOis_ = curve;
+            else if (componentKey == XCCY_DOM_FWD_3M)
+                spec.domesticFwd3M_ = curve;
+            else if (componentKey == XCCY_FOR_OIS)
+                spec.foreignOis_ = curve;
+            else if (componentKey == XCCY_FOR_FWD_3M)
+                spec.foreignFwd3M_ = curve;
+            else
+                spec.basis_ = curve;
+            return BuildXccyMarket(today, spec);
+        };
+        const Dal::String_ curveCcy = componentKey == XCCY_FOR_OIS || componentKey == XCCY_FOR_FWD_3M ? Dal::String_("EUR") : Dal::String_("USD");
+        AssertFamilyNodeBatteries(
+            Dal::RateInstrumentType_("XCCY"), [](bool receiveNonSpread) { return Dal::RateTradeTerms_(XccyTerms(receiveNonSpread)); }, componentKey,
+            assembleMarket, curveCcy);
     }
 } // namespace
 
@@ -769,7 +915,7 @@ TEST(RateCashflowPricingTest, TestDepositNodeAADRewindsPerTradeAndIsThreadLocal)
 TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesStayGated) {
     const auto enabled = Dal::RateCashflowPricingInternal::AadEnabledRateFamilies();
     const auto families = Dal::RateInstrumentTypeListAll();
-    ASSERT_EQ(enabled.size(), 6);
+    ASSERT_EQ(enabled.size(), 7);
     for (const auto& family : enabled)
         ASSERT_NE(std::find(families.begin(), families.end(), family), families.end());
 
@@ -821,9 +967,11 @@ TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesS
               (Dal::Vector_<Dal::String_>{"forecast", "reference", "discount"}));
     for (const auto& key : {"forecast", "reference", "discount"})
         ASSERT_TRUE(Dal::RateTradeNodeSensitivities(basisTrade, market, key).eligible_);
+    // XCCY is open in the registry; that market carries no cross-currency market, so no component
+    // can be addressed and the dependency gate — not the family gate — answers.
     AssertCanonicalFailure(
         Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("XCCY"), today, today, maturity, Dal::XccyTradeTerms_{}), market, "forecast"),
-        "TRADE_FAMILY_NOT_AAD_ENABLED");
+        "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
 
     AssertCanonicalFailure(
         Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::RateTradeTerms_(FraTerms())), market,
@@ -1819,6 +1967,447 @@ TEST(RateCashflowPricingTest, TestBasisNodeAADReasonPrecedenceForCombinedFailure
 
     AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, supported, "forecast"), "TRADE_VALIDATION_FAILED");
 }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADDomOisRawColumnsMatchCentralBumpsAllRepresentations) { AssertXccyNodeBatteries(XCCY_DOM_OIS); }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADDomFwd3MRawColumnsMatchCentralBumpsAllRepresentations) { AssertXccyNodeBatteries(XCCY_DOM_FWD_3M); }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADForOisRawColumnsMatchCentralBumpsAllRepresentations) { AssertXccyNodeBatteries(XCCY_FOR_OIS); }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADForFwd3MRawColumnsMatchCentralBumpsAllRepresentations) { AssertXccyNodeBatteries(XCCY_FOR_FWD_3M); }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADBasisRawColumnsMatchCentralBumpsAllRepresentations) { AssertXccyNodeBatteries(XCCY_BASIS); }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADPlannerEmitsConsumedDependencyKeys) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto market = FlatXccyMarket(today);
+
+    // Market-aware overload: "depends on" = the collateral/tenor-selected curves actually consumed
+    // (domestic discount + forecast, foreign discount + forecast, basis), in deterministic walk order.
+    const auto plan = Dal::BuildRateCashflowPlan(trade, market);
+    ASSERT_EQ(plan.dependencyComponentKeys_,
+              (Dal::Vector_<Dal::String_>({XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS})));
+
+    // The (trade, valuationTime) signature and its XCCY behaviour stay unchanged: no keys without a market.
+    ASSERT_TRUE(Dal::BuildRateCashflowPlan(trade, market.valuationTime_).dependencyComponentKeys_.empty());
+    const auto priced = Dal::PriceRateTrade(trade, market);
+    ASSERT_TRUE(priced.succeeded_);
+    ASSERT_EQ(priced.dependencyComponentKeys_, plan.dependencyComponentKeys_);
+
+    // Without projection the forecast routes to the discount slot: the walk dedupes by pointer, so
+    // each block contributes exactly one curve.
+    const auto noProjection = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms(true, false)));
+    ASSERT_EQ(Dal::BuildRateCashflowPlan(noProjection, market).dependencyComponentKeys_,
+              (Dal::Vector_<Dal::String_>({XCCY_DOM_OIS, XCCY_FOR_OIS, XCCY_BASIS})));
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADAllConsumedComponentsEligibleWithLiveGradients) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto market = FlatXccyMarket(today);
+    const auto passive = Dal::PriceRateTrade(trade, market);
+    ASSERT_TRUE(passive.succeeded_);
+
+    for (const auto& key : {XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS}) {
+        const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+        ASSERT_TRUE(sensitivity.eligible_) << key;
+        ASSERT_EQ(static_cast<int>(sensitivity.gradient_.size()), 1) << key;
+        ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_) << key;
+        // Magnitude floor, not just non-zero: a live column must carry real sensitivity.
+        ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8) << key;
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADMultiCurrencyPairs) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+
+    {
+        auto spec = FlatXccySpec(Dal::Date_(2031, 1, 15));
+        spec.domestic_ = Dal::Ccy_("EUR");
+        spec.foreign_ = Dal::Ccy_("JPY");
+        spec.fxSpot_ = 160.0;
+        spec.domesticOis_ = FlatCurve(Dal::Date_(2031, 1, 15), 0.025, "EUR");
+        spec.domesticFwd3M_ = FlatCurve(Dal::Date_(2031, 1, 15), 0.027, "EUR");
+        spec.foreignOis_ = FlatCurve(Dal::Date_(2031, 1, 15), 0.005, "JPY");
+        spec.foreignFwd3M_ = FlatCurve(Dal::Date_(2031, 1, 15), 0.007, "JPY");
+        spec.basis_ = FlatCurve(Dal::Date_(2031, 1, 15), 0.0008, "EUR");
+        const auto market = BuildXccyMarket(today, spec);
+        const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity,
+                                 Dal::RateTradeTerms_(XccyTerms(Dal::Ccy_("EUR"), Dal::Ccy_("JPY"), true, true)));
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_NE(passive.pv_, 0.0);
+        for (const auto& key : {XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_) << key;
+            ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_) << key;
+            ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8) << key;
+        }
+    }
+
+    {
+        // USD/EUR with the reverse notional direction: PV and gradient flip sign together.
+        const auto market = FlatXccyMarket(today);
+        const auto receive = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms(true)));
+        const auto pay = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms(false)));
+        const auto receiveSensitivity = Dal::RateTradeNodeSensitivities(receive, market, XCCY_DOM_OIS);
+        const auto paySensitivity = Dal::RateTradeNodeSensitivities(pay, market, XCCY_DOM_OIS);
+        ASSERT_TRUE(receiveSensitivity.eligible_);
+        ASSERT_TRUE(paySensitivity.eligible_);
+        ASSERT_DOUBLE_EQ(paySensitivity.pv_, -receiveSensitivity.pv_);
+        ASSERT_DOUBLE_EQ(paySensitivity.gradient_[0], -receiveSensitivity.gradient_[0]);
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADCollateralRoutingSelectsConsumedDiscount) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto horizon = Dal::Date_(2031, 1, 15);
+    auto spec = FlatXccySpec(horizon);
+    spec.domesticGc_ = FlatCurve(horizon, 0.035, "USD");
+    const auto market = BuildXccyMarket(today, spec);
+    const auto trade = Trade(
+        Dal::RateInstrumentType_("XCCY"), today, start, maturity,
+        Dal::RateTradeTerms_(XccyTerms(Dal::Ccy_("USD"), Dal::Ccy_("EUR"), true, true, Dal::CollateralType_(Dal::CollateralType_::Value_::GC))));
+
+    // The GC-collateral index selects the GC discount curve; the OIS discount curve stays in the
+    // block but unconsumed, so it is not a dependency (unused-block-member semantics).
+    ASSERT_EQ(Dal::BuildRateCashflowPlan(trade, market).dependencyComponentKeys_,
+              (Dal::Vector_<Dal::String_>({"domGc", XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS})));
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+
+    const auto passive = Dal::PriceRateTrade(trade, market);
+    ASSERT_TRUE(passive.succeeded_);
+    const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, "domGc");
+    ASSERT_TRUE(sensitivity.eligible_);
+    ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_);
+    ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8);
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADAddressingNegativeCases) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto horizon = Dal::Date_(2031, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto supported = FlatXccyMarket(today);
+
+    // Wrong key: never consumed, whatever the registry holds.
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, supported, "unknown"), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+
+    {
+        // Unused in-block member: a registered 6M forward the trade never reads must be a canonical
+        // failure, never eligible-with-all-zeros.
+        auto spec = FlatXccySpec(horizon);
+        spec.domesticFwd6M_ = FlatCurve(horizon, 0.04, "USD");
+        const auto market = BuildXccyMarket(today, spec);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_FWD_6M), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS).eligible_);
+        ASSERT_GT(std::abs(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS).gradient_[0]), 1.0e-8);
+    }
+
+    {
+        // Unregistered key: the consumed foreign forecast is dropped from the registry; the key no
+        // longer addresses anything, and the remaining targets still sweep unchanged.
+        auto unregistered = supported;
+        unregistered.curveComponents_.erase(XCCY_FOR_FWD_3M);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, unregistered, XCCY_FOR_FWD_3M), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+        const auto reference = Dal::RateTradeNodeSensitivities(trade, supported, XCCY_DOM_OIS);
+        const auto unaffected = Dal::RateTradeNodeSensitivities(trade, unregistered, XCCY_DOM_OIS);
+        ASSERT_TRUE(unaffected.eligible_);
+        ASSERT_DOUBLE_EQ(unaffected.pv_, reference.pv_);
+        ASSERT_EQ(unaffected.gradient_, reference.gradient_);
+    }
+
+    {
+        // In-block unclassifiable representation, unused member: never classified, no effect.
+        auto spec = FlatXccySpec(horizon);
+        spec.domesticFwd6M_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+        const auto market = BuildXccyMarket(today, spec);
+        const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS);
+        ASSERT_TRUE(sensitivity.eligible_);
+        ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8);
+    }
+
+    {
+        // In-block unclassifiable representation, addressed target: the representation token.
+        auto spec = FlatXccySpec(horizon);
+        spec.domesticOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>());
+        const auto market = BuildXccyMarket(today, spec);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS), "CURVE_REPRESENTATION_NOT_AAD_ENABLED");
+    }
+
+    {
+        // In-block unclassifiable representation, consumed non-target: passive pricing succeeds on
+        // its constant DFs, but the active assembly cannot rebuild it — an evaluation failure, not
+        // the representation token (that token stays a failure of the addressed component).
+        auto spec = FlatXccySpec(horizon);
+        spec.foreignOis_ = Dal::Handle_<Dal::DiscountCurve_>(std::make_shared<const UnsupportedDiscountCurve_>("EUR"));
+        const auto market = BuildXccyMarket(today, spec);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS), "AAD_EVALUATION_FAILED");
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADBeforeAndAfterMaturityExpiry) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 2, 15);
+    const Dal::Date_ maturity(2026, 4, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto horizon = Dal::Date_(2031, 1, 15);
+
+    auto expired = FlatXccySpec(horizon);
+    const auto expiredMarket = BuildXccyMarket(maturity.AddDays(1), expired);
+    const auto liveMarket = BuildXccyMarket(today, FlatXccySpec(horizon));
+
+    for (const auto& key : {XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS}) {
+        const auto live = Dal::RateTradeNodeSensitivities(trade, liveMarket, key);
+        ASSERT_TRUE(live.eligible_) << key;
+        ASSERT_NE(live.pv_, 0.0) << key;
+        ASSERT_GT(std::abs(live.gradient_[0]), 1.0e-8) << key;
+
+        const auto settled = Dal::RateTradeNodeSensitivities(trade, expiredMarket, key);
+        ASSERT_TRUE(settled.eligible_) << key;
+        ASSERT_DOUBLE_EQ(settled.pv_, 0.0) << key;
+        for (const double column : settled.gradient_)
+            ASSERT_DOUBLE_EQ(column, 0.0) << key;
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADFixingStatesProjectedSuppliedAndMissing) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 2, 15);
+    const Dal::Date_ maturity(2026, 4, 15);
+    const auto horizon = Dal::Date_(2031, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto terms = XccyTerms();
+    const Dal::String_ domesticIndex = terms.config_.domesticRateFixing_.indexName_;
+    const Dal::String_ foreignIndex = terms.config_.foreignRateFixing_.indexName_;
+    // Fixing keys come from the plan itself: the schedule business-day adjustment moves the accrual
+    // start, so hand-built DateTime_ keys would silently miss.
+    const auto plan = Dal::BuildXccyCashflowPlan(start, maturity, terms.config_);
+    const Dal::DateTime_ domesticFixingTime = plan.domesticPeriods_.front().rateFixingTime_;
+    const Dal::DateTime_ foreignFixingTime = plan.foreignPeriods_.front().rateFixingTime_;
+    const Dal::Date_ valuationDate = std::max(domesticFixingTime.Date(), foreignFixingTime.Date()).AddDays(1);
+
+    {
+        // Both legs projected before either fixing.
+        const auto market = BuildXccyMarket(today, FlatXccySpec(horizon));
+        for (const auto& key : {XCCY_DOM_FWD_3M, XCCY_FOR_FWD_3M, XCCY_DOM_OIS, XCCY_BASIS}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_) << key;
+            ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8) << key;
+        }
+    }
+
+    const auto withFixings = [&](const Dal::MarketFixingSnapshot_::values_t& values) {
+        auto spec = FlatXccySpec(horizon);
+        spec.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(values));
+        return BuildXccyMarket(valuationDate, spec);
+    };
+    Dal::MarketFixingSnapshot_::values_t domesticOnly;
+    domesticOnly[domesticIndex][domesticFixingTime] = 0.031;
+    Dal::MarketFixingSnapshot_::values_t foreignOnly;
+    foreignOnly[foreignIndex][foreignFixingTime] = 0.021;
+    Dal::MarketFixingSnapshot_::values_t both = domesticOnly;
+    both[foreignIndex][foreignFixingTime] = 0.021;
+
+    {
+        // Missing fixing in the foreign currency: passive pricing records both requests, fails on
+        // exactly the foreign one, and the node stage answers with the validation token.
+        const auto market = withFixings(domesticOnly);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_FALSE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 2);
+        ASSERT_EQ(passive.missingHistoricalFixings_.size(), 1);
+        ASSERT_EQ(passive.missingHistoricalFixings_[0].indexName_, foreignIndex);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS), "TRADE_VALIDATION_FAILED");
+    }
+    {
+        // Mirror: missing fixing in the domestic currency.
+        const auto market = withFixings(foreignOnly);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_FALSE(passive.succeeded_);
+        ASSERT_EQ(passive.missingHistoricalFixings_.size(), 1);
+        ASSERT_EQ(passive.missingHistoricalFixings_[0].indexName_, domesticIndex);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_FOR_OIS), "TRADE_VALIDATION_FAILED");
+    }
+    {
+        // Both fixings missing: accounting is fail-fast on the first missing request (name order),
+        // so exactly one entry is recorded before the validation throw.
+        const auto market = withFixings({});
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_FALSE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 2);
+        ASSERT_EQ(passive.missingHistoricalFixings_.size(), 1);
+        AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS), "TRADE_VALIDATION_FAILED");
+    }
+    {
+        // Both supplied: the whole float legs are constants, so both forecast gradients are
+        // structurally zero while discounting and the basis stay live.
+        const auto market = withFixings(both);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_EQ(passive.requiredHistoricalFixings_.size(), 2);
+        ASSERT_TRUE(passive.missingHistoricalFixings_.empty());
+        for (const auto& key : {XCCY_DOM_FWD_3M, XCCY_FOR_FWD_3M}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_) << key;
+            ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_) << key;
+            for (const double column : sensitivity.gradient_)
+                ASSERT_DOUBLE_EQ(column, 0.0) << key;
+        }
+        for (const auto& key : {XCCY_DOM_OIS, XCCY_FOR_OIS, XCCY_BASIS}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_) << key;
+            ASSERT_GT(std::abs(sensitivity.gradient_[0]), 1.0e-8) << key;
+        }
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADTriPartiteIsolation) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    // The last knot sits inside the accrual span so every column is live.
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15), Dal::Date_(2028, 10, 15)};
+    const auto shaped = [&](double forward, const Dal::String_& ccy) {
+        return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("shaped", ccy, Dal::PiecewiseConstant_(knots, {forward, forward, forward})));
+    };
+    const auto noCurve = Dal::Handle_<Dal::DiscountCurve_>();
+    const auto assemble = [&](const Dal::Handle_<Dal::DiscountCurve_>& denseForeignOis, const Dal::Handle_<Dal::DiscountCurve_>& denseDomesticFwd) {
+        auto spec = FlatXccySpec(Dal::Date_(2031, 1, 15));
+        spec.domesticOis_ = shaped(0.03, "USD");
+        spec.domesticFwd3M_ = denseDomesticFwd ? denseDomesticFwd : shaped(0.032, "USD");
+        spec.foreignOis_ = denseForeignOis ? denseForeignOis : shaped(0.02, "EUR");
+        spec.foreignFwd3M_ = shaped(0.022, "EUR");
+        spec.basis_ = shaped(0.001, "USD");
+        return BuildXccyMarket(today, spec);
+    };
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+
+    {
+        // Each of the five consumed components reports exactly its own three columns — all live.
+        const auto market = assemble(noCurve, noCurve);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        for (const auto& key : {XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS}) {
+            const auto sensitivity = Dal::RateTradeNodeSensitivities(trade, market, key);
+            ASSERT_TRUE(sensitivity.eligible_) << key;
+            ASSERT_EQ(static_cast<int>(sensitivity.gradient_.size()), 3) << key;
+            ASSERT_DOUBLE_EQ(sensitivity.pv_, passive.pv_) << key;
+            for (int column = 0; column < 3; ++column)
+                ASSERT_GT(std::abs(sensitivity.gradient_[column]), 1.0e-8) << key << " column " << column;
+        }
+    }
+
+    // Dense non-target curves with the same flat forwards: the constant-typed rebuilds contribute
+    // their values only, so the target's PV and gradient do not scale with the passive node count.
+    Dal::Vector_<Dal::Date_> denseKnots;
+    for (Dal::Date_ knot = Dal::Date_(2026, 2, 15); knot <= Dal::Date_(2029, 12, 15); knot = knot.AddDays(30))
+        denseKnots.push_back(knot);
+    const auto dense = [&](double forward, const Dal::String_& ccy) {
+        return Dal::Handle_<Dal::DiscountCurve_>(
+            Dal::NewDiscountPWC("dense", ccy, Dal::PiecewiseConstant_(denseKnots, Dal::Vector_<>(denseKnots.size(), forward))));
+    };
+    const auto assertDenseNonTargetLeavesTargetUntouched = [&](const Dal::String_& key, const auto& flat, const auto& withDense) {
+        const auto small = Dal::RateTradeNodeSensitivities(trade, flat, key);
+        const auto large = Dal::RateTradeNodeSensitivities(trade, withDense, key);
+        ASSERT_TRUE(small.eligible_);
+        ASSERT_TRUE(large.eligible_);
+        ASSERT_EQ(small.gradient_.size(), large.gradient_.size());
+        ASSERT_NEAR(large.pv_, small.pv_, 1.0e-10 * std::max(1.0, std::abs(small.pv_)));
+        for (int column = 0; column < static_cast<int>(small.gradient_.size()); ++column)
+            ASSERT_NEAR(large.gradient_[column], small.gradient_[column], 1.0e-10 * std::max(1.0, std::abs(small.gradient_[column])))
+                << "column " << column;
+    };
+    assertDenseNonTargetLeavesTargetUntouched(XCCY_DOM_OIS, assemble(noCurve, noCurve), assemble(dense(0.02, "EUR"), noCurve));
+    assertDenseNonTargetLeavesTargetUntouched(XCCY_FOR_OIS, assemble(noCurve, noCurve), assemble(noCurve, dense(0.032, "USD")));
+}
+
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+TEST(RateCashflowPricingTest, TestXccyNodeAADTapeSizeBoundedByPeriodsTimesKnots) {
+    // Frozen P0 contract 8 size bound: the kernel resolves one fixing per coupon period, so the
+    // recording scales with periods (and a per-knot curve-construction constant), never with the
+    // calendar-day count a daily-compounding loop would add. Measured on the native tape.
+    using Dal::AAD::Number_;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 7, 15), Dal::Date_(2028, 7, 15), Dal::Date_(2029, 7, 15)};
+
+    const auto flatForward = [&](const Dal::String_& ccy, double forward) {
+        const auto definition =
+            Dal::MakeCurveDefinition("flat", ccy, Dal::CurveParameterization_(Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD),
+                                     Dal::LogDfScheme_::Value_::LOG_LINEAR, knots, today, Dal::DayBasis_("ACT_365F"));
+        Dal::Vector_<Number_> parameters(knots.size());
+        for (int i = 0; i < static_cast<int>(knots.size()); ++i)
+            parameters[i] = Number_(forward);
+        return Dal::BuildDiscountCurveUniqueT<Number_>(definition, parameters);
+    };
+
+    Dal::RateLegConvention_ quarterlyLeg;
+    quarterlyLeg.paymentFrequency_ = Dal::PeriodLength_("3M");
+    quarterlyLeg.dayBasis_ = Dal::DayBasis_("ACT_365F");
+    const auto configWithLeg = [&](const Dal::RateLegConvention_& leg) {
+        auto config = XccyTerms(true, true).config_;
+        config.convention_.domesticLeg_ = leg;
+        config.convention_.foreignLeg_ = leg;
+        return config;
+    };
+
+    // Mirrors the stage order: recording starts, then every consumed curve is rebuilt (per-knot
+    // constant) and the contract priced.
+    const auto measure = [&](const Dal::Date_& start, const Dal::Date_& maturity, const Dal::RateLegConvention_& leg) {
+        auto* tape = Dal::AAD::Tape();
+        Dal::AAD::Rewind(*tape);
+        Dal::AAD::NewRecording(*tape);
+        auto domesticOis = flatForward("USD", 0.03);
+        auto domesticFwd = flatForward("USD", 0.032);
+        auto foreignOis = flatForward("EUR", 0.02);
+        auto foreignFwd = flatForward("EUR", 0.022);
+        auto basis = flatForward("USD", 0.001);
+        Dal::Tape::JointCurveBlock_<Number_> domestic, foreign;
+        domestic.discountCurves[Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)] = domesticOis.get();
+        domestic.forwardCurves[Dal::PeriodLength_("3M")] = domesticFwd.get();
+        foreign.discountCurves[Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)] = foreignOis.get();
+        foreign.forwardCurves[Dal::PeriodLength_("3M")] = foreignFwd.get();
+        Dal::XccyMarketView_<Number_> view;
+        view.valuationTime_ = Dal::DateTime_(today, 10, 30);
+        view.pair_ = Dal::CurrencyPair_(Dal::Ccy_("USD"), Dal::Ccy_("EUR"));
+        view.collateralCurrency_ = Dal::Ccy_("USD");
+        view.fxSpot_ = Number_(1.2);
+        view.domestic_ = &domestic;
+        view.foreign_ = &foreign;
+        view.basis_ = basis.get();
+        const Dal::MarketFixingSnapshot_ empty;
+        const Number_ pv = Dal::PriceXccyContract(Dal::BuildXccyCashflowPlan(start, maturity, configWithLeg(leg)), view, empty, 0.001, true, true);
+        (void)Dal::AAD::Value(pv);
+        const int size = tape->nodes_.Size();
+        Dal::AAD::Rewind(*tape);
+        return size;
+    };
+
+    // Eight quarterly periods vs sixteen: linear in periods up to the fixed curve-construction cost.
+    const int sizeQuarterly = measure(Dal::Date_(2026, 4, 15), Dal::Date_(2028, 4, 15), quarterlyLeg);
+    const int sizeQuarterlyDoubled = measure(Dal::Date_(2026, 4, 15), Dal::Date_(2030, 4, 15), quarterlyLeg);
+    ASSERT_GT(sizeQuarterly, 0);
+    ASSERT_NEAR(sizeQuarterlyDoubled, 2 * sizeQuarterly, 0.25 * sizeQuarterly);
+
+    // Eight annual periods vs eight quarterly periods: the same period count over a four-times
+    // longer calendar span records a comparable amount — no per-day amplification.
+    const int sizeAnnual = measure(Dal::Date_(2026, 4, 15), Dal::Date_(2034, 4, 15), AnnualLeg());
+    ASSERT_GT(sizeAnnual, 0);
+    ASSERT_LE(sizeAnnual, 1.5 * sizeQuarterly);
+}
+#endif
 
 TEST(RateCashflowPricingTest, TestFraAndFutureNodeAADActivePvEqualsPassiveBitwiseBothSettlementModes) {
     const Dal::Date_ today(2026, 1, 15);
