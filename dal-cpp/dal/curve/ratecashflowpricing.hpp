@@ -13,6 +13,7 @@
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/protocol/rateconvention.hpp>
+#include <dal/risk/report.hpp>
 #include <dal/time/datetime.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -150,6 +151,40 @@ namespace Dal {
         String_ reason_;
     };
 
+    // One (trade, component) entry of the batch sweep: exactly the single-trade result shape plus
+    // the addressing fields, in deterministic trade-major then key order.
+    struct RateTradeNodeSensitivityCell_ {
+        String_ instrumentId_;
+        String_ componentKey_;
+        RateTradeNodeSensitivityResult_ result_;
+    };
+
+    // Aggregation meta row, parallel to the batch cells: the failure token (empty when eligible),
+    // the trade's actual PV currency, and that cell's PV.
+    struct RatePortfolioNodeRiskMetaEntry_ {
+        String_ instrumentId_;
+        String_ componentKey_;
+        bool eligible_ = false;
+        String_ reason_;
+        Ccy_ actualPvCcy_;
+        double pv_ = 0.0;
+    };
+
+    // One dense Report_ per component over its node axis: node count and order from
+    // BuildCurveParameterLayout, header rows from DescribeCurveFreeParameters. Absent when the
+    // component's classification or preparation fails (the meta table carries those tokens).
+    struct RatePortfolioNodeRiskComponent_ {
+        String_ componentKey_;
+        std::shared_ptr<Report_> values_;
+    };
+
+    struct RatePortfolioNodeRisk_ {
+        String_ policy_ = "UnconvertedByActualPvCcy";
+        Vector_<RatePortfolioNodeRiskComponent_> components_;
+        std::map<String_, double> pvByActualPvCcy_;
+        Vector_<RatePortfolioNodeRiskMetaEntry_> meta_;
+    };
+
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime);
     // Market-aware plan: identical to the (trade, valuationTime) form for single-currency families;
     // for XCCY it additionally emits the dependency keys of the curves the trade actually consumes,
@@ -159,4 +194,19 @@ namespace Dal {
     Vector_<RatePricingTradeResult_> PriceRateTrades(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market);
     RateTradeNodeSensitivityResult_
     RateTradeNodeSensitivities(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const String_& componentKey);
+    // Batch sweep over the Cartesian product of trades and one shared componentKeys list, serially
+    // and deterministically: per-entry failure isolation, nothing thrown, numerically identical to
+    // the single-trade call for every successful entry. Passive pricing is hoisted per trade and
+    // classification/preparation per component, not per (trade, component).
+    Vector_<RateTradeNodeSensitivityCell_>
+    RateTradeNodeSensitivitiesBatch(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys);
+    // Portfolio aggregation over the same batch: one dense Report_ per component, PV totals grouped
+    // by each trade's actual PV currency (unconverted, frozen P0 contract 3), failures and
+    // currencies in the parallel meta table.
+    RatePortfolioNodeRisk_
+    AggregateRatePortfolioNodeRisk(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys);
+    // Node-axis labels of one component, "<date>:<component>" per parameter, from the same
+    // DescribeCurveFreeParameters source as the aggregation tensors; empty when the component is
+    // unavailable or its representation is not AAD-enabled.
+    Vector_<String_> RateNodeSensitivityAxisLabels(const RatePricingMarket_& market, const String_& componentKey);
 } // namespace Dal

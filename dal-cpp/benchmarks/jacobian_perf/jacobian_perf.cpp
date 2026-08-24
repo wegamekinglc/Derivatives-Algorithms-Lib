@@ -52,6 +52,10 @@ namespace {
 
 int main() {
     constexpr int kRepeats = 100;
+    // Each harvest body runs all 24 rows (~7-9us): time ~100 bodies per rep so one timed rep
+    // clears the ~600us stability floor -- single-iteration timing left these cases in the
+    // transient-dominated regime and tripped the paired gate as min-statistic noise.
+    constexpr int kHarvestInnerLoops = 100;
     Bench::PrintHeader();
 
     // Tape-record the parameters and residuals once.
@@ -76,7 +80,7 @@ int main() {
                 for (int i = 0; i < kN; ++i)
                     jacobianDense(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
             }
-        }, 3, kRepeats);
+        }, 3, kRepeats, kHarvestInnerLoops);
         Bench::Print(r);
     }
 
@@ -92,7 +96,7 @@ int main() {
                 for (int i = 0; i < width; ++i)
                     jacobianSparse(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
             }
-        }, 3, kRepeats);
+        }, 3, kRepeats, kHarvestInnerLoops);
         Bench::Print(r);
     }
 

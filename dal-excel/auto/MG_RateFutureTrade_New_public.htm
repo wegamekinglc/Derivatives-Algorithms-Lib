@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateFutureTrade_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateFutureTrade_New (in Excel: RATEFUTURETRADE.NEW)</h1>
+Create a futures rate trade for node-sensitivity pricing
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>header</td><td>handle of type StorableRateTradeDefinition</td><td></td><td>The trade header (from RATETRADEHEADER.NEW)</td></tr>
+<tr><td>contractCount</td><td>number</td><td></td><td>Positive contract count</td></tr>
+<tr><td>longPosition</td><td>boolean</td><td></td><td>True when long the future</td></tr>
+<tr><td>referencePrice</td><td>number</td><td></td><td>Reference (trade) price</td></tr>
+<tr><td>contractValuePerPricePoint</td><td>number</td><td></td><td>Positive value per price point</td></tr>
+<tr><td>convexityAdjustment</td><td>number</td><td></td><td>Convexity adjustment</td></tr>
+<tr><td>index</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The rate index convention</td></tr>
+<tr><td>fixingIdentity</td><td>handle of type StorableFixingIdentity</td><td></td><td>The fixing publication identity (from RATEFIXINGIDENTITY.NEW)</td></tr>
+<tr><td>forecastComponentKey</td><td>string</td><td></td><td>Market component key of the forecast curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>trade</td><td>handle of type StorableRateTradeDefinition</td><td>The futures trade definition</td></tr>
+</table>
+
+
+
+
+
+

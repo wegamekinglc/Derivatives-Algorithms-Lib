@@ -39,18 +39,25 @@ namespace Dal::Bench {
 
     // Run body() warmup times (discarded), then repeats times (timed).
     // Returns median/min/max wall-clock nanoseconds per iteration.
+    // The clock is steady_clock, never high_resolution_clock: on platforms where the
+    // high-resolution clock is not monotonic a captured clock regression yields negative
+    // intervals, which the regression gate's row parser then silently drops as unparseable —
+    // surfacing later as a bogus "incomplete samples" failure.
     template <class Body_>
-    Result_ Run(const std::string& name, Body_&& body, int warmup = 3, int repeats = 10) {
+    Result_ Run(const std::string& name, Body_&& body, int warmup = 3, int repeats = 10, int innerLoops = 1) {
         for (int i = 0; i < warmup; ++i)
             body();
 
         std::vector<int64_t> samples;
         samples.reserve(static_cast<size_t>(repeats));
         for (int i = 0; i < repeats; ++i) {
-            const auto t0 = std::chrono::high_resolution_clock::now();
-            body();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            samples.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count());
+            const auto t0 = std::chrono::steady_clock::now();
+            for (int inner = 0; inner < innerLoops; ++inner)
+                body();
+            const auto t1 = std::chrono::steady_clock::now();
+            // innerLoops > 1 amortizes scheduler transients for bodies well under ~50us: report
+            // the per-iteration interval so the printed row keeps its per-call meaning.
+            samples.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count() / innerLoops);
         }
 
         std::sort(samples.begin(), samples.end());

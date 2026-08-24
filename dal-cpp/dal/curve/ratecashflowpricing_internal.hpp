@@ -16,7 +16,26 @@
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
 
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+#define DAL_RATE_RISK_NATIVE_AAD 1
+#else
+#define DAL_RATE_RISK_NATIVE_AAD 0
+#endif
+
 namespace Dal::RateCashflowPricingInternal {
+#if DAL_RATE_RISK_NATIVE_AAD
+    // Test-only observation seam: when non-null, every completed node-sensitivity sweep stores the
+    // native tape's live node count here (measured after propagation, before the TapeGuard_ rewind).
+    // An unregistered-constant AAD::Number_ passive curve still yields correct values and gradient
+    // width, so only this direct count distinguishes it from a truly passive double curve.
+    inline int* g_nodeSensitivityTapeSizeSink = nullptr;
+#endif
+
+    // Test instrumentation for the sweep engine shared by the single-trade and batch entry points:
+    // the hoisted per-trade passive prices and per-curve preparations actually performed.
+    inline int g_nodeSensitivityPassivePriceCount = 0;
+    inline int g_nodeSensitivityPreparationCount = 0;
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,
@@ -68,7 +87,12 @@ namespace Dal::RateCashflowPricingInternal {
     template <class Runner_> RateTradeNodeSensitivityResult_ RunNodeSensitivityAADStage(int expectedParameterCount, Runner_&& runner) {
         try {
             TapeGuard_ guard(AAD::Tape());
-            return FinalizeNodeSensitivityCandidate(std::forward<Runner_>(runner)(), expectedParameterCount);
+            NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
+#if DAL_RATE_RISK_NATIVE_AAD
+            if (g_nodeSensitivityTapeSizeSink)
+                *g_nodeSensitivityTapeSizeSink = AAD::Tape()->nodes_.Size();
+#endif
+            return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {
             return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
         }

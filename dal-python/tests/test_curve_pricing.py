@@ -113,3 +113,194 @@ def test_node_sensitivity_binding_remains_keyword_only_and_read_only():
         sensitivity.gradient = []
     with pytest.raises(AttributeError):
         sensitivity.reason = "changed"
+
+
+def _batch_inputs(*, notional=100.0):
+    today = dal.Date_(2026, 1, 15)
+    maturity = dal.Date_(2027, 1, 15)
+    curve = dal.DiscountPWC_New("usd", "USD", [maturity], [0.04])
+    index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("3M"),
+        dal.DayBasis_New("ACT_365F"),
+        dal.CollateralType_OIS(),
+    )
+    terms = dal.DepositTradeTerms_(
+        notional=notional,
+        contract_rate=0.05,
+        lend=True,
+        index=index,
+        discount_component_key="discount",
+    )
+    trade = dal.RateTradeDefinition_(
+        instrument_id="deposit-1",
+        instrument_type=dal.RateInstrumentType.DEPOSIT,
+        trade_date=today,
+        start_date=today,
+        maturity_date=maturity,
+        currency="USD",
+        terms=terms,
+    )
+    market = dal.RatePricingMarket_(
+        valuation_time=dal.DateTime_(today, 10, 30),
+        result_currency="USD",
+        curve_components={"discount": curve},
+        fixings=dal.MarketFixingSnapshot_New({}),
+    )
+    return trade, market
+
+
+def test_batch_node_sensitivities_match_single_trade_calls_in_deterministic_order():
+    trade, market = _batch_inputs()
+
+    cells = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount", "forecast"])
+    single = dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key="discount")
+
+    assert len(cells) == 2  # nosec B101
+    assert cells[0].instrument_id == "deposit-1"  # nosec B101
+    assert cells[0].component_key == "discount"  # nosec B101
+    assert cells[0].result.eligible is True  # nosec B101
+    assert cells[0].result.pv == single.pv  # nosec B101
+    assert list(cells[0].result.gradient) == list(single.gradient)  # nosec B101
+    assert cells[1].component_key == "forecast"  # nosec B101
+    assert cells[1].result.eligible is False  # nosec B101
+    assert cells[1].result.reason == "TRADE_DOES_NOT_DEPEND_ON_COMPONENT"  # nosec B101
+
+
+def test_batch_node_sensitivities_isolate_partial_failure():
+    valid, market = _batch_inputs()
+    invalid, _ = _batch_inputs(notional=float("nan"))
+
+    cells = dal.RateTradeNodeSensitivitiesBatch(trades=[valid, invalid], market=market, component_keys=["discount"])
+
+    assert len(cells) == 2  # nosec B101
+    assert cells[0].result.eligible is True  # nosec B101
+    assert cells[1].result.eligible is False  # nosec B101
+    assert cells[1].result.reason == "TRADE_VALIDATION_FAILED"  # nosec B101
+
+
+def test_batch_node_sensitivities_binding_remains_keyword_only_and_read_only():
+    # Structure, not spelling: pybind11 renders std::vector parameters as List[...] on the pinned
+    # 2.11.1 toolchain and collections.abc.Sequence[...] on newer versions -- both are the same
+    # keyword-only surface, so the snapshot pins names, order, and the return type instead.
+    signature = dal.RateTradeNodeSensitivitiesBatch.__doc__.splitlines()[0]
+    assert signature.startswith("RateTradeNodeSensitivitiesBatch(*, ")  # nosec B101
+    trades_at = signature.index("trades: ")
+    market_at = signature.index("market: ")
+    keys_at = signature.index("component_keys: ")
+    assert trades_at < market_at < keys_at  # nosec B101
+    assert "dal._dal.RateTradeDefinition_" in signature[trades_at:market_at]  # nosec B101
+    assert "dal._dal.RatePricingMarket_" in signature[market_at:keys_at]  # nosec B101
+    assert signature[keys_at:].startswith("component_keys: ")  # nosec B101
+    assert signature.endswith(") -> list")  # nosec B101
+    trade, market = _batch_inputs()
+    with pytest.raises(TypeError):
+        dal.RateTradeNodeSensitivitiesBatch([trade], market, ["discount"])
+    with pytest.raises(TypeError):
+        dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, keys=["discount"])
+    cells = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount"])
+    with pytest.raises(AttributeError):
+        cells[0].result = cells[0].result
+    with pytest.raises(AttributeError):
+        cells[0].result.eligible = False
+
+
+def test_aggregate_portfolio_node_risk_groups_by_actual_pv_currency():
+    trade, market = _batch_inputs()
+
+    aggregate = dal.AggregateRatePortfolioNodeRisk(trades=[trade], market=market, component_keys=["discount"])
+
+    assert aggregate.policy == "UnconvertedByActualPvCcy"  # nosec B101
+    assert len(aggregate.components) == 1  # nosec B101
+    component = aggregate.components[0]
+    assert component.component_key == "discount"  # nosec B101
+    assert component.node_count == 1  # nosec B101
+    assert component.node_dates == (dal.Date_(2027, 1, 15),)  # nosec B101
+    assert component.node_components == ("RIGHT_FORWARD",)  # nosec B101
+    single = dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key="discount")
+    assert list(component.values) == list(single.gradient)  # nosec B101
+    assert set(aggregate.pv_by_actual_pv_ccy) == {"USD"}  # nosec B101
+    assert aggregate.pv_by_actual_pv_ccy["USD"] == pytest.approx(single.pv)  # nosec B101
+    assert len(aggregate.meta) == 1  # nosec B101
+    assert aggregate.meta[0].actual_pv_ccy == "USD"  # nosec B101
+    assert aggregate.meta[0].eligible is True  # nosec B101
+    assert aggregate.meta[0].reason == ""  # nosec B101
+
+
+def test_aggregate_portfolio_node_risk_binding_remains_keyword_only_and_read_only():
+    # Same structure-not-spelling policy as the batch snapshot (container rendering varies by
+    # pybind11 version); names, order, and the return type are the contract.
+    signature = dal.AggregateRatePortfolioNodeRisk.__doc__.splitlines()[0]
+    assert signature.startswith("AggregateRatePortfolioNodeRisk(*, ")  # nosec B101
+    trades_at = signature.index("trades: ")
+    market_at = signature.index("market: ")
+    keys_at = signature.index("component_keys: ")
+    assert trades_at < market_at < keys_at  # nosec B101
+    assert "dal._dal.RateTradeDefinition_" in signature[trades_at:market_at]  # nosec B101
+    assert "dal._dal.RatePricingMarket_" in signature[market_at:keys_at]  # nosec B101
+    assert signature[keys_at:].startswith("component_keys: ")  # nosec B101
+    assert signature.endswith(") -> dal._dal.RatePortfolioNodeRisk_")  # nosec B101
+    trade, market = _batch_inputs()
+    with pytest.raises(TypeError):
+        dal.AggregateRatePortfolioNodeRisk([trade], market, ["discount"])
+    aggregate = dal.AggregateRatePortfolioNodeRisk(trades=[trade], market=market, component_keys=["discount"])
+    with pytest.raises(AttributeError):
+        aggregate.policy = "converted"
+    with pytest.raises(AttributeError):
+        aggregate.meta[0].eligible = False
+
+
+def test_rate_risk_batch_releases_gil_for_the_whole_native_execution():
+    import sys
+    import threading
+
+    started = threading.Event()
+    ready = threading.Event()
+    stopped = threading.Event()
+    heartbeat_count = [0]
+
+    def heartbeat() -> None:
+        ready.set()
+        assert started.wait(timeout=5.0)  # nosec B101
+        while not stopped.is_set():
+            heartbeat_count[0] += 1
+
+    trade, market = _batch_inputs()
+    previous_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1.0)
+    try:
+        thread = threading.Thread(target=heartbeat)
+        thread.start()
+        assert ready.wait(timeout=5.0)  # nosec B101
+        dal._dal._RateRiskGilBarrier_EnableForTesting(75)
+        started.set()
+        dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount"])
+        count_seen_on_return = heartbeat_count[0]
+    finally:
+        stopped.set()
+        sys.setswitchinterval(previous_interval)
+        thread.join(timeout=5.0)
+    assert not thread.is_alive()  # nosec B101
+    assert count_seen_on_return > 0  # nosec B101
+
+
+def test_batch_partial_key_lists_stay_canonical_per_cell():
+    """Key-list composition discrimination: existing-only, missing-only, mixed, and empty."""
+    trade, market = _batch_inputs()
+
+    only_existing = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount"])
+    assert len(only_existing) == 1  # nosec B101
+    assert only_existing[0].result.eligible is True  # nosec B101
+
+    only_missing = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["forecast"])
+    assert len(only_missing) == 1  # nosec B101
+    assert only_missing[0].result.eligible is False  # nosec B101
+    assert only_missing[0].result.reason == "TRADE_DOES_NOT_DEPEND_ON_COMPONENT"  # nosec B101
+
+    mixed = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["forecast", "discount"])
+    assert len(mixed) == 2  # nosec B101
+    assert mixed[0].result.reason == "TRADE_DOES_NOT_DEPEND_ON_COMPONENT"  # nosec B101
+    assert mixed[1].result.eligible is True  # nosec B101
+    assert mixed[1].result.pv == only_existing[0].result.pv  # nosec B101
+
+    empty = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=[])
+    assert empty == []  # nosec B101

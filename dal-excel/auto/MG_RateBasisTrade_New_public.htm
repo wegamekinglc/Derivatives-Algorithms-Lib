@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateBasisTrade_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateBasisTrade_New (in Excel: RATEBASISTRADE.NEW)</h1>
+Create a basis swap rate trade for node-sensitivity pricing
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>header</td><td>handle of type StorableRateTradeDefinition</td><td></td><td>The trade header (from RATETRADEHEADER.NEW)</td></tr>
+<tr><td>notional</td><td>number</td><td></td><td>Positive notional</td></tr>
+<tr><td>contractSpread</td><td>number</td><td></td><td>Contract spread on the spread leg</td></tr>
+<tr><td>receiveReference</td><td>boolean</td><td></td><td>True to receive the reference leg</td></tr>
+<tr><td>spreadLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>Spread leg convention</td></tr>
+<tr><td>referenceLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>Reference leg convention</td></tr>
+<tr><td>spreadIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>Spread leg index convention</td></tr>
+<tr><td>referenceIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>Reference leg index convention</td></tr>
+<tr><td>spreadFixingIdentity</td><td>handle of type StorableFixingIdentity</td><td></td><td>Spread leg fixing identity</td></tr>
+<tr><td>referenceFixingIdentity</td><td>handle of type StorableFixingIdentity</td><td></td><td>Reference leg fixing identity</td></tr>
+<tr><td>spreadForecastComponentKey</td><td>string</td><td></td><td>Market component key of the spread forecast curve</td></tr>
+<tr><td>referenceForecastComponentKey</td><td>string</td><td></td><td>Market component key of the reference forecast curve</td></tr>
+<tr><td>discountComponentKey</td><td>string</td><td></td><td>Market component key of the discount curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>trade</td><td>handle of type StorableRateTradeDefinition</td><td>The basis swap trade definition</td></tr>
+</table>
+
+
+
+
+
+

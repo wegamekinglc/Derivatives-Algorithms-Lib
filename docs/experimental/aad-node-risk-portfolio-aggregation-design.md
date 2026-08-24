@@ -1,10 +1,10 @@
 # Full Product-Family AAD Node Risk and Portfolio Aggregation — Design
 
-> Status: revised design (rev. 2), not yet implemented. Identifiers match the
+> Status: implemented (all seven families, stages 0–5 landed). Identifiers match the
 > local tree. P0 contracts that the implementation review found still open are
-> frozen below; rev. 2 additionally freezes the heterogeneous curve-view
+> frozen below; rev. 2 additionally froze the heterogeneous curve-view
 > mechanism (contract 1), the per-component aggregation shape (contract 4),
-> and the XCCY active-typed assembly (contract 8), and tightens
+> and the XCCY active-typed assembly (contract 8), and tightened
 > active == passive PV to bitwise equality.
 > Staged execution, tests, and acceptance criteria live in the companion
 > [implementation plan](aad-node-risk-portfolio-aggregation-plan.md).

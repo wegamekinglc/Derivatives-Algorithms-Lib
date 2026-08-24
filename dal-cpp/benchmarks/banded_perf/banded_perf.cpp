@@ -21,6 +21,9 @@ namespace {
 
 int main() {
     constexpr int kMulRepeats = 1000;
+    // Each multiply is ~8us; time ~100 per rep so one timed rep clears the ~600us stability
+    // floor instead of being dominated by scheduler transients.
+    constexpr int kMulInnerLoops = 100;
     constexpr int kDecomposeRepeats = 100;
     Bench::PrintHeader();
 
@@ -45,7 +48,7 @@ int main() {
         auto r = Bench::Run("TriDecomp MultiplyLeft (10K)", [&]() {
             decomp->MultiplyLeft(x, &b);
             sink += b[0];
-        }, 3, kMulRepeats);
+        }, 3, kMulRepeats, kMulInnerLoops);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
@@ -56,7 +59,7 @@ int main() {
         auto r = Bench::Run("TriDiagonal MultiplyLeft (10K)", [&]() {
             A.MultiplyLeft(x, &b);
             sink += b[0];
-        }, 3, kMulRepeats);
+        }, 3, kMulRepeats, kMulInnerLoops);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }

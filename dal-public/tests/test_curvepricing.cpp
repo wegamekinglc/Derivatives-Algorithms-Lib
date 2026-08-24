@@ -67,3 +67,29 @@ TEST(CurvePricingPublicTest, TestNodeSensitivityReasonConsumerAcceptsAdditiveVal
     ASSERT_EQ(consume("TRADE_VALIDATION_FAILED"), 5);
     ASSERT_EQ(consume("UNKNOWN_REASON"), -1);
 }
+
+TEST(CurvePricingPublicTest, TestBatchAndAggregationEntryPointsRemainCallableThroughPublicHeader) {
+    static_assert(std::is_aggregate_v<Dal::RateTradeNodeSensitivityCell_>);
+    static_assert(std::is_aggregate_v<Dal::RatePortfolioNodeRiskMetaEntry_>);
+    static_assert(std::is_aggregate_v<Dal::RatePortfolioNodeRiskComponent_>);
+    static_assert(std::is_aggregate_v<Dal::RatePortfolioNodeRisk_>);
+    using batch_t = Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&,
+                                                                        const Dal::RatePricingMarket_&,
+                                                                        const Dal::Vector_<Dal::String_>&);
+    using aggregate_t = Dal::RatePortfolioNodeRisk_ (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&, const Dal::RatePricingMarket_&, const Dal::Vector_<Dal::String_>&);
+    const batch_t batch = &Dal::RateTradeNodeSensitivitiesBatch;
+    const aggregate_t aggregate = &Dal::AggregateRatePortfolioNodeRisk;
+    ASSERT_NE(batch, nullptr);
+    ASSERT_NE(aggregate, nullptr);
+
+    const Dal::RateTradeNodeSensitivityCell_ cellDefaults;
+    ASSERT_TRUE(cellDefaults.instrumentId_.empty());
+    ASSERT_TRUE(cellDefaults.componentKey_.empty());
+    ASSERT_FALSE(cellDefaults.result_.eligible_);
+
+    const Dal::RatePortfolioNodeRisk_ aggregateDefaults;
+    ASSERT_EQ(aggregateDefaults.policy_, "UnconvertedByActualPvCcy");
+    ASSERT_TRUE(aggregateDefaults.components_.empty());
+    ASSERT_TRUE(aggregateDefaults.pvByActualPvCcy_.empty());
+    ASSERT_TRUE(aggregateDefaults.meta_.empty());
+}

@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RatePricingMarket_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RatePricingMarket_New (in Excel: RATEPRICINGMARKET.NEW)</h1>
+Assemble a rate pricing market from curve components and an optional XCCY market
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>valuationTime</td><td>cell</td><td></td><td>Valuation timestamp as an Excel date or date-time cell</td></tr>
+<tr><td>resultCurrency</td><td>string</td><td></td><td>Reported (passthrough) currency code; never the aggregation grouping key</td></tr>
+<tr><td>componentKeys</td><td>vector of strings</td><td></td><td>Component keys, parallel to componentCurves</td></tr>
+<tr><td>componentCurves</td><td>vector of handles</td><td></td><td>Discount curve handles, parallel to componentKeys</td></tr>
+<tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Immutable fixing snapshot</td></tr>
+<tr><td>domesticBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY domestic curve block (required for XCCY trades)</td></tr>
+<tr><td>foreignBlock</td><td>handle of type StorableCurveBlock</td><td>yes</td><td>XCCY foreign curve block (required for XCCY trades)</td></tr>
+<tr><td>fxSpot</td><td>number</td><td>yes (default = 0.0)</td><td>Positive domestic-per-foreign FX spot</td></tr>
+<tr><td>collateralCurrency</td><td>string</td><td>yes</td><td>XCCY collateral currency code</td></tr>
+<tr><td>basisCurve</td><td>handle of type StorableDiscountCurve</td><td>yes</td><td>XCCY basis curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>market</td><td>handle of type StorableRatePricingMarket</td><td>The rate pricing market</td></tr>
+</table>
+
+
+
+
+
+
