@@ -380,7 +380,7 @@ fields in snake_case:
 | Future  | `FutureTradeTerms_`                                               | `contractCount_`, `long_`, `referencePrice_`, `contractValuePerPricePoint_`, `convexityAdjustment_`, `fixingIdentity_`     | forecast                                            |
 | OIS/IRS | `FixedFloatTradeTerms_` (via `OisTradeTerms_` / `IrsTradeTerms_`) | `contractRate_`, `payFixed_`, `fixedLeg_`, `floatLeg_`, `fixingIdentity_`                                                  | forecast or discount                                |
 | Basis   | `BasisTradeTerms_`                                                | `contractSpread_`, `receiveReferencePaySpread_`, `spreadFixingIdentity_`, `referenceFixingIdentity_`, both leg conventions | spread forecast, reference forecast, or discount    |
-| XCCY    | `XccyTradeTerms_`                                                 | `positionCount_`, `contractSpread_`, `spreadOnForeignLeg_`, `receiveNonSpreadPaySpread_`                                   | any consumed curve registered under a component key |
+| XCCY    | `XccyTradeTerms_`                                                 | `positionCount_`, `contractSpread_`, `spreadOnForeignLeg_`, `receiveNonSpreadPaySpread_`, `config_`                        | any consumed curve registered under a component key |
 
 Fixing treatment is common to all families: future fixings project (nonzero
 gradient), past fixings must be supplied in the snapshot (that period's gradient
@@ -618,9 +618,10 @@ F2: =DISCOUNTPWLF.NEW("flat-forecast", "USD", DATE(2027,1,15), 0.04)
 
 ' the index convention's first three arguments are plain strings, not handles;
 ' the component-key array and the curve-handle range must be equal-length
-' parallel arrays; the six optional trailing market arguments (fixings, XCCY
-' blocks, fxSpot, collateral currency, basis curve) stay empty for a
-' single-currency market
+' parallel arrays; the six trailing market arguments (fixings, domestic block,
+' foreign block, fxSpot, collateral currency, basis curve) stay empty for a
+' single-currency market, while an XCCY market requires both blocks, a positive
+' fxSpot, and a collateral currency
 G1: =RATEPRICINGMARKET.NEW(NOW(), "USD", {"discount","forecast"}, F1:F2, , , , , , )
 
 H1: =RATETRADENODESENSITIVITIESBATCH.SPILL(E1, {"discount","forecast"}, G1)
