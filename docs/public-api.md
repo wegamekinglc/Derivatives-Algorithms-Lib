@@ -610,20 +610,21 @@ and trade with their constructors, assemble the market, then spill the results.
 A minimal deposit sequence:
 
 ```text
-A1: =PERIODLENGTH.NEW("3M")
-B1: =DAYBASIS.NEW("ACT_365F")
-C1: =RATEINDEXCONVENTION.NEW(A1, B1, COLLATERALTYPE.OIS())
+C1: =RATEINDEXCONVENTION.NEW("3M", "ACT_365F", "OIS")
 D1: =RATETRADEHEADER.NEW("deposit-1", DATE(2026,1,15), DATE(2026,1,15), DATE(2027,1,15), "USD")
 E1: =RATEDEPOSITTRADE.NEW(D1, 100, 0.05, TRUE, C1, "discount")
-F1: =DISCOUNTPWLF.NEW("flat", "USD", DATE(2027,1,15), 0.04)
+F1: =DISCOUNTPWLF.NEW("flat-discount", "USD", DATE(2027,1,15), 0.04)
+F2: =DISCOUNTPWLF.NEW("flat-forecast", "USD", DATE(2027,1,15), 0.04)
 
-' component keys and curve handles are parallel arrays; the six optional
-' trailing market arguments (fixings, XCCY blocks, fxSpot, collateral
-' currency, basis curve) stay empty for a single-currency market
-G1: =RATEPRICINGMARKET.NEW(NOW(), "USD", {"discount","forecast"}, {F1,F1}, , , , , , )
+' the index convention's first three arguments are plain strings, not handles;
+' the component-key array and the curve-handle range must be equal-length
+' parallel arrays; the six optional trailing market arguments (fixings, XCCY
+' blocks, fxSpot, collateral currency, basis curve) stay empty for a
+' single-currency market
+G1: =RATEPRICINGMARKET.NEW(NOW(), "USD", {"discount","forecast"}, F1:F2, , , , , , )
 
-H1: =RATETRADENODESENSITIVITIESBATCH.SPILL({E1}, {"discount","forecast"}, G1)
-I1: =RATEPORTFOLIONODERISK.SPILL({E1}, {"discount"}, G1)
+H1: =RATETRADENODESENSITIVITIESBATCH.SPILL(E1, {"discount","forecast"}, G1)
+I1: =RATEPORTFOLIONODERISK.SPILL(E1, {"discount"}, G1)
 ```
 
 Both spill functions take `(trades, componentKeys, market)` and return long-form
