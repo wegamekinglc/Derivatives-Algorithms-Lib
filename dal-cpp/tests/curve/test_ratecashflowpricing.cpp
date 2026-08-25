@@ -3239,3 +3239,99 @@ TEST(RateCashflowPricingTest, TestXccyNodeAADUnresolvableMarketFailsAsValidation
     AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(expired, noXccyMarket, XCCY_DOM_OIS), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
 }
 
+TEST(RateCashflowPricingTest, TestIrsNodeAADBaseCurveIsolationOnLayeredCurves) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15)};
+    const Dal::Vector_<> overlayParameters{0.005, 0.01, 0.015};
+    const auto base = FlatCurve(maturity, 0.02);
+    const auto buildCurve = [&](const Dal::Vector_<>& parameters) {
+        return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("overlay", "USD", Dal::PiecewiseConstant_(knots, parameters), base));
+    };
+    const auto trade = Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, AsFamilyTerms(Dal::RateInstrumentType_("IRS"), FixedFloatTerms()));
+
+    for (const char* componentKey : {"forecast", "discount"}) {
+        const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& layered) {
+            return Dal::String_(componentKey) == "forecast" ? ComponentMarket(today, layered, FlatCurve(maturity, 0.03))
+                                                            : ComponentMarket(today, FlatCurve(maturity, 0.035), layered);
+        };
+        const auto market = assembleMarket(buildCurve(overlayParameters));
+        const auto aad = Dal::RateTradeNodeSensitivities(trade, market, componentKey);
+        const auto passive = Dal::PriceRateTrade(trade, market);
+
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_TRUE(aad.eligible_);
+        ASSERT_EQ(static_cast<int>(aad.gradient_.size()), 3);
+        // The overlay is the active layer: bitwise identical PV, nonzero gradient on every overlay
+        // node, while the double base stays passive and out of the tape.
+        ASSERT_DOUBLE_EQ(aad.pv_, passive.pv_);
+        for (const double column : aad.gradient_)
+            ASSERT_NE(column, 0.0);
+
+        constexpr double bump = 1.0e-6;
+        for (int column = 0; column < 3; ++column) {
+            auto plusParameters = overlayParameters;
+            auto minusParameters = overlayParameters;
+            plusParameters[column] += bump;
+            minusParameters[column] -= bump;
+            const auto plus = Dal::PriceRateTrade(trade, assembleMarket(buildCurve(plusParameters)));
+            const auto minus = Dal::PriceRateTrade(trade, assembleMarket(buildCurve(minusParameters)));
+            ASSERT_TRUE(plus.succeeded_);
+            ASSERT_TRUE(minus.succeeded_);
+            const double finiteDifference = (plus.pv_ - minus.pv_) / (2.0 * bump);
+            const double tolerance = 1.0e-6 + 1.0e-7 * std::max(std::abs(aad.gradient_[column]), std::abs(finiteDifference));
+            ASSERT_NEAR(aad.gradient_[column], finiteDifference, tolerance) << componentKey << " overlay column " << column;
+        }
+    }
+}
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADBaseCurveIsolationOnLayeredCurve) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto horizon = Dal::Date_(2031, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2026, 7, 15), Dal::Date_(2027, 1, 15), Dal::Date_(2028, 1, 15)};
+    const Dal::Vector_<> overlayParameters{0.005, 0.01, 0.015};
+    const auto base = FlatCurve(horizon, 0.025, "USD");
+    const auto buildCurve = [&](const Dal::Vector_<>& parameters) {
+        return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("overlay", "USD", Dal::PiecewiseConstant_(knots, parameters), base));
+    };
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+    const auto assembleMarket = [&](const Dal::Handle_<Dal::DiscountCurve_>& layered) {
+        auto spec = FlatXccySpec(horizon);
+        spec.domesticFwd3M_ = layered;
+        return BuildXccyMarket(today, spec);
+    };
+    const auto market = assembleMarket(buildCurve(overlayParameters));
+    const auto aad = Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_FWD_3M);
+    const auto passive = Dal::PriceRateTrade(trade, market);
+
+    ASSERT_TRUE(passive.succeeded_);
+    ASSERT_TRUE(aad.eligible_);
+    ASSERT_EQ(static_cast<int>(aad.gradient_.size()), 3);
+    ASSERT_DOUBLE_EQ(aad.pv_, passive.pv_);
+    for (const double column : aad.gradient_)
+        ASSERT_NE(column, 0.0);
+
+    constexpr double bump = 1.0e-6;
+    for (int column = 0; column < 3; ++column) {
+        auto plusParameters = overlayParameters;
+        auto minusParameters = overlayParameters;
+        plusParameters[column] += bump;
+        minusParameters[column] -= bump;
+        const auto plus = Dal::PriceRateTrade(trade, assembleMarket(buildCurve(plusParameters)));
+        const auto minus = Dal::PriceRateTrade(trade, assembleMarket(buildCurve(minusParameters)));
+        ASSERT_TRUE(plus.succeeded_);
+        ASSERT_TRUE(minus.succeeded_);
+        const double finiteDifference = (plus.pv_ - minus.pv_) / (2.0 * bump);
+        const double tolerance = 1.0e-6 + 1.0e-7 * std::max(std::abs(aad.gradient_[column]), std::abs(finiteDifference));
+        ASSERT_NEAR(aad.gradient_[column], finiteDifference, tolerance) << "xccy overlay column " << column;
+    }
+
+    // The other consumed components keep their own live gradients against the same layered market.
+    const auto domOis = Dal::RateTradeNodeSensitivities(trade, market, XCCY_DOM_OIS);
+    ASSERT_TRUE(domOis.eligible_);
+    ASSERT_DOUBLE_EQ(domOis.pv_, passive.pv_);
+    ASSERT_GT(std::abs(domOis.gradient_[0]), 1.0e-8);
+}

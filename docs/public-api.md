@@ -251,7 +251,11 @@ availability (`CURVE_COMPONENT_UNAVAILABLE`), curve representation
 (`TRADE_VALIDATION_FAILED`), then AAD evaluation (`AAD_EVALUATION_FAILED`).
 `TRADE_VALIDATION_FAILED` is the stable token for a supported trade that
 fails passive pricing validation; field-level detail remains available through
-`PriceRateTrade.error_`.
+`PriceRateTrade.error_`. For the single-currency families the availability and
+representation gates walk every component the trade depends on, in dependency
+order, and the first failing key decides the token — a passive (non-target)
+dependency that is unavailable or not AAD-representable fails the cell even
+when the addressed component itself is healthy.
 
 Every node-sensitivity failure uses the canonical four-field result:
 `eligible_ == false`, `pv_ == 0.0`, an empty `gradient_`, and a non-empty stable
