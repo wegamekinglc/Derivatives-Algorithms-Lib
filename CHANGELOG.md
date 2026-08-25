@@ -46,6 +46,13 @@ here as the baseline rather than dated releases:
 
 ## 2026-08
 
+- `curve`: XCCY node-risk failure token corrected for unresolvable markets: when the
+  cross-currency market cannot be resolved (no `xccyMarket_`, or a block the config cannot
+  route), `RateTradeNodeSensitivities` now reports the passive-pricing failure as
+  `TRADE_VALIDATION_FAILED` instead of `TRADE_DOES_NOT_DEPEND_ON_COMPONENT`. Expired XCCY
+  trades are unaffected (they keep the dependency token). The `rate_risk_perf` benchmark
+  gains the contract-8 XCCY case (24 XCCY x 5 consumed components).
+
 - `curve`: batch and portfolio-aggregation node-risk APIs close out the seven-family AAD node
   risk feature. `RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` sweeps the
   Cartesian product of a trade list and one shared component key list serially and

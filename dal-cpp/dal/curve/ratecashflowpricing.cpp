@@ -861,6 +861,16 @@ namespace Dal {
             RateTradeNodeSensitivityResult_ SweepXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, const String_& componentKey) {
                 using namespace RateCashflowPricingInternal;
                 const XccyNodeSensitivityHoist_& hoist = HoistXccy(trade, terms);
+                if (!hoist.consumed_.resolved_) {
+                    // Unresolvable market structure (no XCCY market, or a block the config cannot
+                    // route): no key is addressable, but the honest token is the failure passive
+                    // pricing produces -- not "trade does not depend on component". An expired
+                    // trade prices to zero without touching the XCCY market, so it keeps the
+                    // dependency token.
+                    if (!PassiveOk(trade))
+                        return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
+                    return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+                }
                 if (std::find(hoist.dependencyKeys_.begin(), hoist.dependencyKeys_.end(), componentKey) == hoist.dependencyKeys_.end())
                     return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
                 REQUIRE(market_.xccyMarket_, "XCCY node sensitivity requires an immutable cross-currency market");

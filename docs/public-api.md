@@ -266,7 +266,12 @@ the token: `CURVE_REPRESENTATION_NOT_AAD_ENABLED` when it is the addressed
 component, `AAD_EVALUATION_FAILED` for any other consumed curve (that token stays
 a failure of the addressed representation). This walk runs before passive trade
 validation, so a consumed non-target curve that cannot be classified reports
-`AAD_EVALUATION_FAILED` even when passive pricing would also fail.
+`AAD_EVALUATION_FAILED` even when passive pricing would also fail. When the XCCY
+market itself cannot be resolved — no `xccyMarket_`, or a block the config cannot
+route — no component key is addressable and the request reports the passive
+pricing failure as `TRADE_VALIDATION_FAILED` instead of
+`TRADE_DOES_NOT_DEPEND_ON_COMPONENT` (an expired trade prices to zero without
+touching the XCCY market and keeps the dependency token).
 
 `RateTradeNodeSensitivitiesBatch(trades, market, componentKeys)` applies one
 shared component key list to every trade (Cartesian product), serially and in a

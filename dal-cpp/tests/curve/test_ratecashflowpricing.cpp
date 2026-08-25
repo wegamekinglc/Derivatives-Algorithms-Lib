@@ -967,11 +967,13 @@ TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesS
               (Dal::Vector_<Dal::String_>{"forecast", "reference", "discount"}));
     for (const auto& key : {"forecast", "reference", "discount"})
         ASSERT_TRUE(Dal::RateTradeNodeSensitivities(basisTrade, market, key).eligible_);
-    // XCCY is open in the registry; that market carries no cross-currency market, so no component
-    // can be addressed and the dependency gate — not the family gate — answers.
+    // XCCY is open in the registry; that market carries no cross-currency market, so passive
+    // pricing fails and the validation gate — not the family gate — answers (an expired XCCY
+    // trade would keep the dependency token).
     AssertCanonicalFailure(
-        Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("XCCY"), today, today, maturity, Dal::XccyTradeTerms_{}), market, "forecast"),
-        "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+        Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms())), market,
+                                        "forecast"),
+        "TRADE_VALIDATION_FAILED");
 
     AssertCanonicalFailure(
         Dal::RateTradeNodeSensitivities(Trade(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, Dal::RateTradeTerms_(FraTerms())), market,
@@ -3216,3 +3218,24 @@ TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskCountsDuplicateKeysO
         ASSERT_DOUBLE_EQ((*duplicated.components_[0].values_)[duplicatedAddress], (*single.components_[0].values_)[singleAddress]);
     }
 }
+
+TEST(RateCashflowPricingTest, TestXccyNodeAADUnresolvableMarketFailsAsValidation) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms()));
+
+    // No XCCY market at all: nothing is addressable, and the honest token is the passive
+    // validation failure -- not "trade does not depend on component".
+    auto noXccyMarket = FlatXccyMarket(today);
+    noXccyMarket.xccyMarket_.reset();
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, noXccyMarket, XCCY_DOM_OIS), "TRADE_VALIDATION_FAILED");
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(trade, noXccyMarket, "unknown"), "TRADE_VALIDATION_FAILED");
+
+    // An expired trade has no market dependency: passive pricing returns zero before touching the
+    // XCCY market, so the request stays on the dependency token even without a resolvable market.
+    const auto expired =
+        Trade(Dal::RateInstrumentType_("XCCY"), today, today.AddDays(-400), today.AddDays(-5), Dal::RateTradeTerms_(XccyTerms()));
+    AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(expired, noXccyMarket, XCCY_DOM_OIS), "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+}
+
