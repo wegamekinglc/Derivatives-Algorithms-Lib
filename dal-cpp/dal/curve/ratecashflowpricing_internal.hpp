@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cmath>
 #include <exception>
 #include <utility>
@@ -28,13 +29,16 @@ namespace Dal::RateCashflowPricingInternal {
     // native tape's live node count here (measured after propagation, before the TapeGuard_ rewind).
     // An unregistered-constant AAD::Number_ passive curve still yields correct values and gradient
     // width, so only this direct count distinguishes it from a truly passive double curve.
-    inline int* g_nodeSensitivityTapeSizeSink = nullptr;
+    // Atomic because library code reads it on every sweep; P0 is serial, but callers may sweep
+    // concurrently on separate threads.
+    inline std::atomic<int*> g_nodeSensitivityTapeSizeSink{nullptr};
 #endif
 
     // Test instrumentation for the sweep engine shared by the single-trade and batch entry points:
-    // the hoisted per-trade passive prices and per-curve preparations actually performed.
-    inline int g_nodeSensitivityPassivePriceCount = 0;
-    inline int g_nodeSensitivityPreparationCount = 0;
+    // the hoisted per-trade passive prices and per-curve preparations actually performed. Atomic
+    // for the same concurrent-caller reason.
+    inline std::atomic<int> g_nodeSensitivityPassivePriceCount{0};
+    inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
 
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
@@ -89,8 +93,8 @@ namespace Dal::RateCashflowPricingInternal {
             TapeGuard_ guard(AAD::Tape());
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
 #if DAL_RATE_RISK_NATIVE_AAD
-            if (g_nodeSensitivityTapeSizeSink)
-                *g_nodeSensitivityTapeSizeSink = AAD::Tape()->nodes_.Size();
+            if (int* sink = g_nodeSensitivityTapeSizeSink.load())
+                *sink = AAD::Tape()->nodes_.Size();
 #endif
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {
