@@ -3,12 +3,20 @@
 //
 // Rate node-risk sweep benchmarks: the long-batch serial sweep (tape memory/latency
 // driver — one passive PV per trade, one preparation per component, one AAD sweep per
-// (trade, component) cell) and the OIS daily-compounding recording shape.
+// (trade, component) cell), the OIS daily-compounding recording shape, and the XCCY
+// active-typed assembly shape (frozen P0 contract 8).
+
+#include <algorithm>
+#include <cstdio>
+#include <memory>
 
 #include <dal/benchmarks/bench.hpp>
+#include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
+#include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/xccyinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/rateconvention.hpp>
@@ -33,11 +41,11 @@ namespace {
         return result;
     }
 
-    Handle_<DiscountCurve_> KnottedCurve(const String_& name, const Date_& horizon, double flatForward) {
+    Handle_<DiscountCurve_> KnottedCurve(const String_& name, const Date_& horizon, double flatForward, const String_& ccy = "USD") {
         static const Vector_<Date_> knots{Date_(2026, 7, 15), Date_(2027, 1, 15), Date_(2028, 1, 15), Date_(2029, 1, 15),
                                           Date_(2030, 1, 15), Date_(2031, 1, 15), Date_(2032, 1, 15), Date_(2033, 1, 15)};
         (void)horizon;
-        return Handle_<DiscountCurve_>(NewDiscountPWC(name, "USD", PiecewiseConstant_(knots, Vector_<>(knots.size(), flatForward))));
+        return Handle_<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knots, Vector_<>(knots.size(), flatForward))));
     }
 
     RatePricingMarket_ Market(const Date_& today, const Date_& horizon) {
@@ -72,6 +80,71 @@ namespace {
 
     RateTradeDefinition_ OisTrade(const Date_& today, const Date_& start, const Date_& maturity) {
         return {"ois", RateInstrumentType_(RateInstrumentType_::Value_::OIS), today, start, maturity, Ccy_("USD"), OisTradeTerms_{FixedFloatTerms()}};
+    }
+
+    RateIndexConvention_ XccyIndex() {
+        RateIndexConvention_ result = QuarterlyIndex();
+        result.useProjectionCurve_ = true;
+        result.forecastTenor_ = PeriodLength_("3M");
+        return result;
+    }
+
+    XccyTradeTerms_ XccyTerms(bool receiveNonSpread) {
+        XccyTradeTerms_ result;
+        result.positionCount_ = 1.0;
+        result.contractSpread_ = 0.001;
+        result.spreadOnForeignLeg_ = true;
+        result.receiveNonSpreadPaySpread_ = receiveNonSpread;
+        result.config_.pair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+        result.config_.domesticNotional_ = 1'000'000.0;
+        result.config_.foreignNotional_ = 900'000.0;
+        result.config_.convention_.domesticLeg_ = AnnualLeg();
+        result.config_.convention_.foreignLeg_ = AnnualLeg();
+        result.config_.convention_.domesticIndex_ = XccyIndex();
+        result.config_.convention_.foreignIndex_ = XccyIndex();
+        result.config_.convention_.spreadOnForeignLeg_ = true;
+        result.config_.domesticRateFixing_ = {"USD-INDEX", 11, 0};
+        result.config_.foreignRateFixing_ = {"EUR-INDEX", 11, 0};
+        return result;
+    }
+
+    // Pointer-identity contract: the block slots and the curveComponents_ entries share the same
+    // Handles, so every consumed curve is addressable under its key.
+    RatePricingMarket_ XccyMarket(const Date_& today, const Date_& horizon) {
+        const auto domesticOis = KnottedCurve("domOis", horizon, 0.03);
+        const auto domesticFwd = KnottedCurve("domFwd3M", horizon, 0.032);
+        const auto foreignOis = KnottedCurve("forOis", horizon, 0.02, "EUR");
+        const auto foreignFwd = KnottedCurve("forFwd3M", horizon, 0.022, "EUR");
+        const auto basis = KnottedCurve("basis", horizon, 0.001);
+        const auto domesticBlock = Handle_<CurveBlock_>(new CurveBlock_("domestic",
+                                                                        "USD",
+                                                                        {{CollateralType_(CollateralType_::Value_::OIS), domesticOis}},
+                                                                        {{PeriodLength_("3M"), domesticFwd}},
+                                                                        DayBasis::Act365F()));
+        const auto foreignBlock = Handle_<CurveBlock_>(new CurveBlock_("foreign",
+                                                                       "EUR",
+                                                                       {{CollateralType_(CollateralType_::Value_::OIS), foreignOis}},
+                                                                       {{PeriodLength_("3M"), foreignFwd}},
+                                                                       DayBasis::Act365F()));
+        const auto fixings = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+        auto native = std::make_shared<CrossCurrencyMarket_>(domesticBlock, foreignBlock, 1.2, DateTime_(today, 10, 30), Ccy_("USD"), fixings);
+        native->SetBasisCurve(basis);
+
+        RatePricingMarket_ result;
+        result.valuationTime_ = DateTime_(today, 10, 30);
+        result.resultCurrency_ = Ccy_("USD");
+        result.xccyMarket_ = native;
+        result.fixings_ = fixings;
+        result.curveComponents_["domOis"] = domesticOis;
+        result.curveComponents_["domFwd3M"] = domesticFwd;
+        result.curveComponents_["forOis"] = foreignOis;
+        result.curveComponents_["forFwd3M"] = foreignFwd;
+        result.curveComponents_["basis"] = basis;
+        return result;
+    }
+
+    RateTradeDefinition_ XccyTrade(const Date_& today, const Date_& start, const Date_& maturity, bool receiveNonSpread) {
+        return {"xccy", RateInstrumentType_(RateInstrumentType_::Value_::XCCY), today, start, maturity, Ccy_("USD"), XccyTerms(receiveNonSpread)};
     }
 } // namespace
 
@@ -144,5 +217,29 @@ int main() {
         std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes, static_cast<int>(sensitivity.eligible_));
     }
 #endif
+
+    {
+        // The XCCY shape of frozen P0 contract 8: every consumed curve is rebuilt active-typed on
+        // each (trade, component) sweep and only the addressed component is registered, so the
+        // per-sweep tape is bounded by periods x knots touched. 24 trades x 5 consumed components
+        // = 120 serial sweeps; this is the regression-gate guard for that bound.
+        const Date_ xccyMaturity(2031, 4, 15);
+        const auto xccyMarket = XccyMarket(today, xccyMaturity);
+        const Vector_<String_> xccyKeys{"domOis", "domFwd3M", "forOis", "forFwd3M", "basis"};
+        Vector_<RateTradeDefinition_> xccyTrades;
+        xccyTrades.reserve(24);
+        for (int index = 0; index < 24; ++index)
+            xccyTrades.push_back(XccyTrade(today, start, xccyMaturity, index % 2 == 0));
+        const auto probe = RateTradeNodeSensitivitiesBatch(xccyTrades, xccyMarket, xccyKeys);
+        const int eligible = static_cast<int>(std::count_if(probe.begin(), probe.end(), [](const auto& cell) { return cell.result_.eligible_; }));
+        std::fprintf(stderr, "XCCY batch eligible cells: %d/%d\n", eligible, static_cast<int>(probe.size()));
+        double sink = 0.0;
+        const auto result = Bench::Run("Rate XCCY batch serial (24 XCCY x 5 components)", [&]() {
+            const auto cells = RateTradeNodeSensitivitiesBatch(xccyTrades, xccyMarket, xccyKeys);
+            sink += cells.front().result_.pv_ + cells.back().result_.pv_;
+        });
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
     return 0;
 }

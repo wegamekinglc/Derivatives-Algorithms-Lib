@@ -123,8 +123,13 @@ design:
   in `dal-cpp/dal/curve/ratecashflowpricing.cpp` hardcodes Deposit. The six-gate
   pipeline, the closed set of six failure tokens, and their priority order are
   fixed in `dal-cpp/dal/curve/ratecashflowpricing_internal.hpp` and documented in
-  `docs/public-api.md`. The failure shape is `eligible_=false / pv_=0 / empty
-  gradient_ / non-empty reason_`.
+  `docs/public-api.md`. (Post-implementation note: the gate pipeline now lives in
+  the `NodeSensitivitySweeper_` sweep engine in `ratecashflowpricing.cpp`;
+  `ratecashflowpricing_internal.hpp` keeps the family registry, the finalizer,
+  and the stage runner. For the single-currency families the availability and
+  representation gates walk every dependency key in dependency order, and the
+  first failing key decides the token.) The failure shape is `eligible_=false /
+  pv_=0 / empty gradient_ / non-empty reason_`.
 - The Deposit AAD pricing formula is **hand-copied** inside the stage lambda and
   exists in parallel with the passive `Price` Deposit branch. This is the direct
   motivation for "kernel templatization first": without removing the fork, every new
