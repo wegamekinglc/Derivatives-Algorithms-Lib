@@ -93,7 +93,7 @@ namespace Dal::RateCashflowPricingInternal {
             TapeGuard_ guard(AAD::Tape());
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
 #if DAL_RATE_RISK_NATIVE_AAD
-            if (int* sink = g_nodeSensitivityTapeSizeSink.load())
+            if (int* sink = g_nodeSensitivityTapeSizeSink.load(std::memory_order_relaxed))
                 *sink = AAD::Tape()->nodes_.Size();
 #endif
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);

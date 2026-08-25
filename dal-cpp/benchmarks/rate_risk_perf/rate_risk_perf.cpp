@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <memory>
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/curve/curveblock.hpp>
