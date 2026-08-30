@@ -12,10 +12,19 @@ on:
       - .github/scripts/tests/test_python_syntax.py
       - .github/workflows/dal-python-release.yml
       - dal-python/**
+      - '!dal-python/**/*.md'
+      - '!dal-python/**/*.mdx'
+      - '!dal-python/**/*.rst'
       - CMakeLists.txt
       - CMakePresets.json
       - dal-cpp/**
+      - '!dal-cpp/**/*.md'
+      - '!dal-cpp/**/*.mdx'
+      - '!dal-cpp/**/*.rst'
       - dal-public/**
+      - '!dal-public/**/*.md'
+      - '!dal-public/**/*.mdx'
+      - '!dal-public/**/*.rst'
   push:
     tags:
       - dal-python-v*

@@ -1,5 +1,9 @@
 name: CMake Windows CI
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 # Per-ref grouping: a new push cancels stale runs of the same ref only --
 # distinct PRs (refs/pull/N/merge) never cancel each other.
@@ -8,7 +12,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python3 .github/scripts/classify_ci_changes.py
+          --base "$BASE_SHA" --head "$HEAD_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: windows-latest
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -189,6 +215,8 @@ jobs:
   # remains the proven direct-cmake path for compilation and tests.
   build-script:
     name: build_windows.bat (configure-only)
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: windows-latest
 
     steps:
@@ -205,6 +233,8 @@ jobs:
   # Results appear in the CI logs and job summary; timings are not a pass/fail gate.
   benchmark:
     name: Benchmarks
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: windows-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
@@ -320,3 +350,29 @@ jobs:
           done
 
           exit "$benchmark_failure"
+
+  windows-gate:
+    name: Windows CI gate
+    if: always()
+    needs:
+      - changes
+      - build
+      - build-script
+      - benchmark
+    runs-on: ubuntu-latest
+    env:
+      DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
+      BUILD_SCRIPT_RESULT: ${{ needs.build-script.result }}
+      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+    steps:
+      - name: Require the selected CI path to pass
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$DOCS_ONLY" = true ]; then
+            exit 0
+          fi
+          test "$BUILD_RESULT" = success
+          test "$BUILD_SCRIPT_RESULT" = success
+          test "$BENCHMARK_RESULT" = success

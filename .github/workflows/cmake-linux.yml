@@ -1,5 +1,9 @@
 name: CMake Linux CI
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 # Per-ref grouping: a new push cancels stale runs of the same ref only --
 # distinct PRs (refs/pull/N/merge) never cancel each other.
@@ -8,9 +12,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python3 .github/scripts/classify_ci_changes.py
+          --base "$BASE_SHA" --head "$HEAD_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
   # The matrix is generated rather than declared inline for two reasons:
   #
-  # 1. Push events (master merges, direct branch pushes) run a lean subset --
+  # 1. Push events (master merges or direct master pushes) run a lean subset --
   #    gcc-14 and clang-20 across all four AAD backends (8 legs) -- because
   #    pull requests already ran the full 6 x 4 matrix before merge. Pull
   #    requests still get every compiler x backend combination.
@@ -19,6 +43,8 @@ jobs:
   #    tested; the dropped legs only repeated gcov-instrumented builds whose
   #    lcov output nobody read.
   define-matrix:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
@@ -70,7 +96,10 @@ jobs:
     # Explicit name keeps the historical "build (<compiler>, <backend>)"
     # check names stable for branch protection and log searching.
     name: build (${{ matrix.compiler }}, ${{ matrix.aad-backend }})
-    needs: define-matrix
+    needs:
+      - changes
+      - define-matrix
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -191,6 +220,8 @@ jobs:
 
   codipack-thread-isolation:
     name: CoDiPack thread isolation
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     env:
       CC: gcc-14
@@ -234,6 +265,8 @@ jobs:
   # lean — the Python bindings are backend-agnostic, so testing them
   # against one representative configuration is sufficient.
   build-extended:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -285,6 +318,7 @@ jobs:
 
   documentation:
     name: Documentation integrity
+    needs: changes
     runs-on: ubuntu-latest
 
     steps:
@@ -296,6 +330,8 @@ jobs:
 
   warning-clean:
     name: Warning-clean GCC build
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -345,6 +381,8 @@ jobs:
 
   sanitizers:
     name: ${{ matrix.label }}
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -431,6 +469,8 @@ jobs:
   # interleaves repeated runs so host noise affects both sides comparably.
   benchmark:
     name: Benchmarks
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
@@ -558,3 +598,47 @@ jobs:
             --samples 10 \
             --confirmation-rounds 2 \
             --threshold-percent 4
+
+  linux-gate:
+    name: Linux CI gate
+    if: always()
+    needs:
+      - changes
+      - documentation
+      - define-matrix
+      - build
+      - codipack-thread-isolation
+      - build-extended
+      - warning-clean
+      - sanitizers
+      - benchmark
+    runs-on: ubuntu-latest
+    env:
+      DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      DOCS_RESULT: ${{ needs.documentation.result }}
+      MATRIX_RESULT: ${{ needs.define-matrix.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
+      CODIPACK_RESULT: ${{ needs.codipack-thread-isolation.result }}
+      EXTENDED_RESULT: ${{ needs.build-extended.result }}
+      WARNING_RESULT: ${{ needs.warning-clean.result }}
+      SANITIZER_RESULT: ${{ needs.sanitizers.result }}
+      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+    steps:
+      - name: Require the selected CI path to pass
+        run: |
+          test "$CHANGES_RESULT" = success
+          test "$DOCS_RESULT" = success
+          if [ "$DOCS_ONLY" = true ]; then
+            exit 0
+          fi
+          for result in \
+            "$MATRIX_RESULT" \
+            "$BUILD_RESULT" \
+            "$CODIPACK_RESULT" \
+            "$EXTENDED_RESULT" \
+            "$WARNING_RESULT" \
+            "$SANITIZER_RESULT" \
+            "$BENCHMARK_RESULT"; do
+            test "$result" = success
+          done
