@@ -162,11 +162,12 @@ The repository release workflow builds and tests this wheel matrix:
 
 Every release artifact is a CPython-specific native wheel. Python/ABI tags run
 from `cp39-cp39` through `cp313-cp313`; DAL does not publish `abi3` or universal
-wheels. Pull requests build the floor and ceiling (`cp39` and `cp313`) on both
-platforms, for four wheels. Manual and release-tag runs build all five supported
-interpreters on both platforms, for ten wheels. Every wheel runs the complete
-installed-wheel Python suite, and the two `cp39` wheels also run a fresh,
-source-independent installed-wheel smoke test.
+wheels. Path-matched pull requests build the floor and ceiling (`cp39` and
+`cp313`) on both platforms, for four wheels; documentation-only component
+changes remain on the lightweight documentation CI path. Manual and release-tag
+runs build all five supported interpreters on both platforms, for ten wheels.
+Every wheel runs the complete installed-wheel Python suite, and the two `cp39`
+wheels also run a fresh, source-independent installed-wheel smoke test.
 
 Linux filenames always include `manylinux_2_28_x86_64` and may also contain
 unique compatible PEP 600 x86-64 components for glibc baselines no newer than

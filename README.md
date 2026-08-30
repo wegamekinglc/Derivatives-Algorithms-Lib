@@ -9,11 +9,13 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 
 ## CI
 
-Pull requests build and test the full compiler × AAD-backend matrix below.
-Pushes (master merges and direct branch pushes) run a lean GCC 14 + Clang 20
-subset across all four backends, because the pull request already covered
-every combination. GitHub publishes one status badge per workflow; open a
-workflow run for per-job results.
+Pull requests with source, configuration, or build changes build and test the
+full compiler × AAD-backend matrix below. Documentation-only changes run the
+documentation integrity check and stable Linux/Windows gates without starting
+the compile, sanitizer, or benchmark jobs. Pushes to `master` (merges and direct
+master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
+because the pull request already covered every combination. GitHub publishes
+one status badge per workflow; open a workflow run for per-job results.
 
 | Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
 |----------------------------|----------|-------|-----|----------|-------|
