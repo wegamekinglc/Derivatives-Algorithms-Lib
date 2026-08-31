@@ -37,6 +37,7 @@ namespace Dal {
         explicit MarketFixingSnapshot_(const values_t& values = values_t());
         [[nodiscard]] std::optional<double> Find(const String_& indexName, const DateTime_& fixingTime) const;
         [[nodiscard]] double Require(const String_& indexName, const DateTime_& fixingTime, const String_& context) const;
+        [[nodiscard]] const values_t& Values() const { return values_; }
     };
 
     Handle_<MarketFixingSnapshot_> SnapshotGlobalFixings(const Vector_<FixingRequest_>& requests);

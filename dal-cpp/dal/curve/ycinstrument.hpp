@@ -122,6 +122,7 @@ namespace Dal {
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
+        [[nodiscard]] double ConvexityAdjustment() const { return convexityAdjustment_; }
     };
 
     class Swap_ : public YCInstrument_ {
@@ -151,6 +152,8 @@ namespace Dal {
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return floatIndexConvention_; }
+        [[nodiscard]] const RateLegConvention_& FixedLegConvention() const { return fixedLegConvention_; }
+        [[nodiscard]] const RateLegConvention_& FloatLegConvention() const { return floatLegConvention_; }
     };
 
     class OISSwap_ : public Swap_ {
@@ -190,6 +193,10 @@ namespace Dal {
         [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] const RateIndexConvention_& SpreadIndexConvention() const { return spreadIndexConvention_; }
+        [[nodiscard]] const RateLegConvention_& SpreadLegConvention() const { return spreadLegConvention_; }
+        [[nodiscard]] const RateIndexConvention_& ReferenceIndexConvention() const { return referenceIndexConvention_; }
+        [[nodiscard]] const RateLegConvention_& ReferenceLegConvention() const { return referenceLegConvention_; }
     };
 
     class STIR_ : public FRA_ {

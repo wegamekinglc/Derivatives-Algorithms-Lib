@@ -93,6 +93,7 @@ namespace Dal {
             const Date_& tradeDate, const Date_& start, const Date_& maturity, double marketRate, const CrossCurrencySwapConfig_& config);
         [[nodiscard]] String_ Name() const;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const;
+        [[nodiscard]] Date_ TradeDate() const { return tradeDate_; }
         [[nodiscard]] double MarketRate() const { return marketRate_; }
         [[nodiscard]] const CrossCurrencySwapConfig_& Config() const { return config_; }
         [[nodiscard]] Handle_<Rate_> Precompute() const;
