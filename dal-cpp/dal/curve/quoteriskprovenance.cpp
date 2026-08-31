@@ -1894,7 +1894,7 @@ namespace Dal {
     };
 
     RateQuoteRiskProvenance_::RateQuoteRiskProvenance_(const std::shared_ptr<const Data_>& data) : data_(data) {
-        REQUIRE(data_, "Quote-risk provenance data is empty");
+        REQUIRE(data_, "QUOTE_RISK_PROVENANCE_DATA_EMPTY");
     }
 
     const String_& RateQuoteRiskProvenance_::Kind() const { return data_->kind_; }
