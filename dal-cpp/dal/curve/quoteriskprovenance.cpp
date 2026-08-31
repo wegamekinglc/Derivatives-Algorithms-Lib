@@ -13,7 +13,6 @@
 #include <cstring>
 #include <limits>
 #include <map>
-#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -1243,6 +1242,73 @@ namespace Dal {
                                        spec.basis_.knotDates_, spec.valuationTime_.Date(), DayBasis::Act365F());
         }
 
+        void ValidateUnlayeredSolvedCurve(const DiscountCurve_& curve, const CurveDefinition_& definition) {
+            const Handle_<DiscountCurve_> noBase;
+            ValidateSolvedCurveDefinition(curve, definition, &noBase);
+        }
+
+        struct JointCurveSlots_ {
+            std::set<CollateralType_> discounts_;
+            std::set<PeriodLength_> forwards_;
+        };
+
+        JointCurveSlots_ ExpectedJointCurveSlots(const JointCurrencyCurveSpec_& currency) {
+            JointCurveSlots_ result;
+            for (const auto& declaration : currency.curves_) {
+                if (declaration.calibrateDiscountCurve_) {
+                    REQUIRE(!declaration.baseLayeredOverDiscount_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                    REQUIRE(result.discounts_.insert(declaration.targetCollateral_).second, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                } else {
+                    REQUIRE(result.forwards_.insert(declaration.targetTenor_).second, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                }
+            }
+            return result;
+        }
+
+        template <class Key_> void ValidateExactCurveSlots(const std::map<Key_, Handle_<DiscountCurve_>>& actual, const std::set<Key_>& expected) {
+            REQUIRE(actual.size() == expected.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            for (const auto& key : expected)
+                REQUIRE(actual.find(key) != actual.end(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        const DiscountCurve_& JointSlotCurve(const JointCurveDeclaration_& declaration, const CurveBlock_& block) {
+            if (declaration.calibrateDiscountCurve_) {
+                const auto found = block.DiscountCurves().find(declaration.targetCollateral_);
+                REQUIRE(found != block.DiscountCurves().end(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                return *found->second;
+            }
+            const auto found = block.ForwardCurves().find(declaration.targetTenor_);
+            REQUIRE(found != block.ForwardCurves().end(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            return *found->second;
+        }
+
+        Handle_<DiscountCurve_> ExpectedJointSlotBase(const JointCurveDeclaration_& declaration, const CurveBlock_& block) {
+            if (declaration.calibrateDiscountCurve_ || !declaration.baseLayeredOverDiscount_)
+                return Handle_<DiscountCurve_>();
+            const auto found = block.DiscountCurves().find(declaration.targetCollateral_);
+            REQUIRE(found != block.DiscountCurves().end(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            return found->second;
+        }
+
+        void ValidateJointCurveBlockTopology(const JointCurrencyCurveSpec_& currency, const CurveBlock_& block, const Date_& anchor) {
+            const JointCurveSlots_ expected = ExpectedJointCurveSlots(currency);
+            REQUIRE(block.ccy_ == currency.ccy_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(block.LiborBasis() == currency.liborBasis_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateExactCurveSlots(block.DiscountCurves(), expected.discounts_);
+            ValidateExactCurveSlots(block.ForwardCurves(), expected.forwards_);
+            for (const auto& declaration : currency.curves_) {
+                const Handle_<DiscountCurve_> expectedBase = ExpectedJointSlotBase(declaration, block);
+                ValidateSolvedCurveDefinition(JointSlotCurve(declaration, block), JointDefinition(declaration, currency, anchor), &expectedBase);
+            }
+        }
+
+        void ValidateJointResultTopology(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
+            const Date_ anchor = spec.valuationTime_.Date();
+            ValidateJointCurveBlockTopology(spec.domestic_, *result.domesticCurveBlock_, anchor);
+            ValidateJointCurveBlockTopology(spec.foreign_, *result.foreignCurveBlock_, anchor);
+            ValidateUnlayeredSolvedCurve(*result.basisCurve_, JointBasisDefinition(spec));
+        }
+
         const DiscountCurve_&
         JointResultCurve(const String_& block, const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
             auto find = [&](const String_& group, const JointCurrencyCurveSpec_& currency, const CurveBlock_& curveBlock) -> const DiscountCurve_* {
@@ -1260,21 +1326,6 @@ namespace Dal {
                 return *curve;
             REQUIRE(block == String_("basis:") + spec.basis_.curveName_, "QUOTE_RISK_PARAMETER_RANGE_SPEC_MISMATCH");
             return *result.basisCurve_;
-        }
-
-        CurveDefinition_ JointResultDefinition(const String_& block, const JointXccyCalibrationSpec_& spec) {
-            auto find = [&](const String_& group, const JointCurrencyCurveSpec_& currency) -> std::optional<CurveDefinition_> {
-                for (const auto& declaration : currency.curves_)
-                    if (block == group + ":" + declaration.curveName_)
-                        return JointDefinition(declaration, currency, spec.valuationTime_.Date());
-                return std::nullopt;
-            };
-            if (const auto definition = find("domestic", spec.domestic_))
-                return *definition;
-            if (const auto definition = find("foreign", spec.foreign_))
-                return *definition;
-            REQUIRE(block == String_("basis:") + spec.basis_.curveName_, "QUOTE_RISK_PARAMETER_RANGE_SPEC_MISMATCH");
-            return JointBasisDefinition(spec);
         }
 
         void ValidateJointAxisCurveRanges(const String_& block,
@@ -1615,7 +1666,6 @@ namespace Dal {
                                           const RateQuoteRiskProvenanceConfig_& config) {
             for (const auto& range : axis.parameterRanges_) {
                 const DiscountCurve_& solvedCurve = JointResultCurve(range.blockKey_, spec, result);
-                ValidateSolvedCurveDefinition(solvedCurve, JointResultDefinition(range.blockKey_, spec));
                 const String_& component = config.componentKeyByParameterBlock_.at(range.blockKey_);
                 const auto found = market.curveComponents_.find(component);
                 REQUIRE(found != market.curveComponents_.end(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
@@ -1633,6 +1683,7 @@ namespace Dal {
             const int parameters = static_cast<int>(axis.parameters_.size());
             const int residuals = static_cast<int>(axis.quotes_.size());
             ValidateJointResultShape(spec, result, residuals);
+            ValidateJointResultTopology(spec, result);
             ValidateJointApproximateFlags(spec, result);
             const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
             ValidateEffectiveInverse(result.effJacobianInverse_, !options.computeEffJacobianInverse_ || approximate, parameters, residuals);
@@ -1745,7 +1796,7 @@ namespace Dal {
             REQUIRE(spec.domesticCurveBlock_, "QUOTE_RISK_SPEC_CURVE_EMPTY");
             REQUIRE(spec.foreignCurveBlock_, "QUOTE_RISK_SPEC_CURVE_EMPTY");
             const DiscountCurve_& basis = StagedBasisCurve(spec, result);
-            ValidateSolvedCurveDefinition(basis, StagedBasisDefinition(spec));
+            ValidateUnlayeredSolvedCurve(basis, StagedBasisDefinition(spec));
             const DateTime_ valuationTime = StagedValuationTime(spec);
             const Ccy_ collateralCurrency = StagedCollateralCurrency(spec);
             ValidateStagedDiagnostics(spec, result, options, axis);

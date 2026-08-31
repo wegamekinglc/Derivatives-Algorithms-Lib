@@ -355,6 +355,14 @@ namespace {
         input.market_.xccyMarket_ = std::make_shared<Dal::CrossCurrencyMarket_>(input.result_->market_);
         return input;
     }
+
+    void RebindJointMarket(JointProvenanceInput_* input) {
+        auto xccy =
+            std::make_shared<Dal::CrossCurrencyMarket_>(input->result_.domesticCurveBlock_, input->result_.foreignCurveBlock_, input->spec_.fxSpot_,
+                                                        input->spec_.valuationTime_, input->spec_.collateralCurrency_, input->result_.fixings_);
+        xccy->SetBasisCurve(input->result_.basisCurve_);
+        input->market_.xccyMarket_ = xccy;
+    }
 } // namespace
 
 TEST(QuoteRiskProvenanceTest, TestCoreHeaderFactorySignatures) {
@@ -536,6 +544,41 @@ TEST(QuoteRiskProvenanceTest, TestStagedInverseMetadataMismatchFailsClosed) {
         ASSERT_THROW(Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_),
                      Dal::Exception_);
     }
+}
+
+TEST(QuoteRiskProvenanceTest, TestJointMissingLayeredBaseTopologyFailsClosed) {
+    auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    input.spec_.domestic_.curves_[1].baseLayeredOverDiscount_ = true;
+    ASSERT_THROW(Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_), Dal::Exception_);
+}
+
+TEST(QuoteRiskProvenanceTest, TestStagedUnexpectedBaseTopologyFailsClosed) {
+    auto input = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto original = input.result_->basisCurves_.at(input.spec_.basisPair_);
+    const auto* typed = dynamic_cast<const Dal::Tape::DiscountPWC_<double>*>(original.get());
+    ASSERT_TRUE(typed);
+    const auto base = AliasCurve(input.spec_.domesticCurveBlock_->Discount(Dal::CollateralType_(Dal::CollateralType_::Value_::OIS)));
+    const Dal::Handle_<Dal::DiscountCurve_> replacement(
+        Dal::NewDiscountPWC(original->Name(), original->ccy_.String(), Dal::PiecewiseConstant_(typed->KnotDates(), typed->FRight()), base));
+    input.result_->basisCurves_[input.spec_.basisPair_] = replacement;
+    input.result_->market_.SetBasisCurve(replacement);
+    input.market_.curveComponents_["staged-basis-component"] = replacement;
+    input.market_.xccyMarket_ = std::make_shared<Dal::CrossCurrencyMarket_>(input.result_->market_);
+    ASSERT_THROW(Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_),
+                 Dal::Exception_);
+}
+
+TEST(QuoteRiskProvenanceTest, TestJointExtraSlotTopologyFailsClosed) {
+    auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    auto discounts = input.result_.domesticCurveBlock_->DiscountCurves();
+    auto forwards = input.result_.domesticCurveBlock_->ForwardCurves();
+    forwards[Dal::PeriodLength_("6M")] =
+        JointPwc("unexpected_6m", input.spec_.domestic_.ccy_, input.spec_.domestic_.curves_[0].knotDates_, {0.01, 0.01});
+    input.result_.domesticCurveBlock_ =
+        Dal::Handle_<Dal::CurveBlock_>(new Dal::CurveBlock_(input.result_.domesticCurveBlock_->Name(), input.spec_.domestic_.ccy_.String(), discounts,
+                                                            forwards, input.result_.domesticCurveBlock_->LiborBasis()));
+    RebindJointMarket(&input);
+    ASSERT_THROW(Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_), Dal::Exception_);
 }
 
 TEST(QuoteRiskProvenanceTest, TestJointRangesBindingsAndNonFiniteStateFailClosed) {
