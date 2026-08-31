@@ -153,6 +153,12 @@ Reference studies and capability explorations that are not normative methodology
   XCCY dependency.
 - **[aad-node-risk-portfolio-aggregation-plan.md](experimental/aad-node-risk-portfolio-aggregation-plan.md)**
   — Staged implementation plan (stages 0–5) matching those frozen P0 contracts.
+- **[quote-space-dv01-design.md](experimental/quote-space-dv01-design.md)**
+  — Approved design for calibration-aware portfolio quote sensitivity and DV01,
+  with explicit provenance, state fingerprints, and atomic failure handling.
+- **[quote-space-dv01-implementation-plan.md](experimental/quote-space-dv01-implementation-plan.md)**
+  — Staged implementation plan, full-recalibration oracle, frozen numerical
+  thresholds, binding gates, and rollback boundaries for quote-space DV01.
 
 ## Documentation Conventions
 
