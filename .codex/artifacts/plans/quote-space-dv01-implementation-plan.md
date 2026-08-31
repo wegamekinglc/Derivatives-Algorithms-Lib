@@ -1,7 +1,7 @@
 # Calibration-Aware Quote-Space DV01 — Implementation Plan
 
 > Status: approved plan; implementation has not started. This plan implements
-> the frozen [quote-space DV01 design](quote-space-dv01-design.md). Each work
+> the frozen [quote-space DV01 design](../designs/quote-space-dv01-design.md). Each work
 > item is an independent PR and rollback boundary. Later stages must not reopen
 > the API-design and critic closure recorded in `DAL-171`.
 
@@ -32,25 +32,25 @@
 QR-1 provenance foundation
   └─ QR-2 single-curve quote risk
        └─ QR-3 joint/staged XCCY domains
-            ├─ QR-4 public C++ + Python bindings
-            └─ QR-5 Excel bindings
-                 \                      /
-                  └──── QR-6 acceptance/performance/docs
+            └─ QR-4 public C++ + Python bindings
+                 └─ QR-5 Excel bindings
+                      └─ QR-6 acceptance/performance/docs
 ```
 
-QR-4 and QR-5 may proceed in parallel only after QR-3 is merged. QR-6 starts
-only after both binding stages are merged.
+QR-5 starts only after QR-4 is merged because `dal-excel` consumes the public
+facade and must not depend directly on `dal-cpp`. QR-6 starts only after both
+QR-4 and QR-5 are merged.
 
 ## Work Breakdown
 
-| Work item | Stage | Scope | Depends on | Suggested assignee |
-|---|---:|---|---|---|
-| QR-1 | 1 | Provenance DTOs, supported factories, fingerprints, validation | none | `dal-implementer` |
-| QR-2 | 2 | Single-curve aggregate engine and quote buckets | QR-1 | `dal-implementer` |
-| QR-3 | 3 | Joint-XCCY and staged-XCCY-basis domains, atomicity | QR-2 | `dal-implementer` |
-| QR-4 | 4 | Public C++ and Python bindings/contracts | QR-3 | `dal-implementer` |
-| QR-5 | 4 | Excel handles, spills, generated registrations, portable tests | QR-3 | `dal-implementer` |
-| QR-6 | 5 | Full numerical oracle, performance gate, docs/CHANGELOG closeout | QR-4, QR-5 | `dal-implementer` |
+| Work item | Stage | Scope                                                              | Depends on | Suggested assignee |
+|-----------|-------|--------------------------------------------------------------------|------------|--------------------|
+| QR-1      | 1     | Provenance DTOs, supported factories, fingerprints, validation     | none       | `dal-implementer`  |
+| QR-2      | 2     | Single-curve aggregate engine and quote buckets                    | QR-1       | `dal-implementer`  |
+| QR-3      | 3     | Joint-XCCY and staged-XCCY-basis domains, atomicity                | QR-2       | `dal-implementer`  |
+| QR-4      | 4     | Public C++ and Python bindings/contracts                           | QR-3       | `dal-implementer`  |
+| QR-5      | 5     | Excel handles, spills, generated registrations, portable tests     | QR-4       | `dal-implementer`  |
+| QR-6      | 6     | Full numerical oracle, performance gate, docs/CHANGELOG closeout   | QR-4, QR-5 | `dal-implementer`  |
 
 ## QR-1 — Provenance Foundation
 
@@ -62,6 +62,9 @@ only after both binding stages are merged.
   `BuildSingleCurveQuoteRiskProvenance`,
   `BuildJointXccyQuoteRiskProvenance`, and
   `BuildStagedXccyBasisQuoteRiskProvenance`.
+- Freeze the single-curve core factory parameter as
+  `const CurveCalibrationResult_&`. `dal-cpp` must not include or depend on the
+  public-only `CalibrationResult_`.
 - Implement shared validation for:
   - exact solve mode;
   - effective-inverse request and availability;
@@ -102,6 +105,8 @@ This stage does not add `AggregateRatePortfolioQuoteRisk` behavior or bindings.
 - deterministic fingerprints across repeated construction and supported
   platforms;
 - non-finite state and cyclic base DAG fail before hashing.
+- a compile-time signature check accepts `CurveCalibrationResult_` at the core
+  factory and proves the core header is self-contained without `dal-public`.
 
 ### Gate
 
@@ -210,6 +215,9 @@ types and single-curve behavior remain intact.
 
 - Add source-additive public facade passthroughs for all three provenance
   factories and aggregate quote risk.
+- Add the single-curve public overload that accepts
+  `const CalibrationResult_&` and adapts it into the QR-1 core validation path;
+  do not duplicate provenance or fingerprint semantics in `dal-public`.
 - Bind provenance configs, read-only provenance/result/meta/bucket types, enums,
   tokens, fingerprints, and units in Python.
 - Make Python constructors/factories/aggregate arguments keyword-only.
@@ -222,6 +230,9 @@ types and single-curve behavior remain intact.
 ### Focused tests
 
 - public C++ headers compile and link all new entry points;
+- the core overload accepts `CurveCalibrationResult_`, the public overload
+  accepts `CalibrationResult_`, and both produce identical provenance for the
+  same calibration result;
 - Python signature snapshots pin names/order/keyword-only shape;
 - provenance and results are read-only;
 - C++ and Python produce identical fingerprints, ordering, tokens, availability,
@@ -242,6 +253,10 @@ Reverting QR-4 removes only public/Python entry points; the core feature remains
 available to direct `DAL::cpp` consumers.
 
 ## QR-5 — Excel Surface
+
+QR-5 is stage 5 and branches from the merged QR-4 result. Its public-facade
+dependency is mandatory; it does not call `dal-cpp` directly or recreate the
+QR-4 facade.
 
 ### Scope
 
@@ -283,6 +298,8 @@ Reverting QR-5 removes Excel handles, worksheets, generated registrations, and
 portable tests. Core/public/Python behavior remains.
 
 ## QR-6 — Acceptance, Performance, and Documentation Closeout
+
+QR-6 is stage 6 and starts only after both QR-4 and QR-5 are merged.
 
 ### Scope
 
@@ -378,11 +395,11 @@ absolute error is zero; otherwise it is positive infinity.
 The test suite must include actual `N = 5`, `N = 10`, and `N = 16` fixtures.
 Any `N > 16` continues to use the `16+` thresholds and does not auto-relax.
 
-| Ladder | Width | Master worst baseline `B` | Derivative absolute | Derivative relative | DV01 absolute | DV01 relative |
-|---|---:|---:|---:|---:|---:|---:|
-| 5 | `N <= 5` | `7e-7` | `5e-6 * P_i` | `5e-6` | `5e-10 * P_i` | `5e-6` |
-| 10 | `6 <= N <= 10` | `1.8e-5` | `1e-4 * P_i` | `1e-4` | `1e-8 * P_i` | `1e-4` |
-| 16+ | `N > 10` | `1.3e-4` | `1e-3 * P_i` | `1e-3` | `1e-7 * P_i` | `1e-3` |
+| Ladder | Width            | Master worst baseline `B` | Derivative absolute | Derivative relative | DV01 absolute | DV01 relative |
+|--------|------------------|---------------------------|---------------------|---------------------|---------------|---------------|
+| 5      | `N <= 5`         | `7e-7`                    | `5e-6 * P_i`        | `5e-6`              | `5e-10 * P_i` | `5e-6`        |
+| 10     | `6 <= N <= 10`   | `1.8e-5`                  | `1e-4 * P_i`        | `1e-4`              | `1e-8 * P_i`  | `1e-4`        |
+| 16+    | `N > 10`         | `1.3e-4`                  | `1e-3 * P_i`        | `1e-3`              | `1e-7 * P_i`  | `1e-3`        |
 
 Thresholds are derived by:
 

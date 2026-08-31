@@ -3,7 +3,7 @@
 > Status: approved design; implementation has not started. This document extracts
 > the P0 contract approved in Multica issue `DAL-171` after API-design and critic
 > closure. The companion
-> [implementation plan](quote-space-dv01-implementation-plan.md) defines staged,
+> [implementation plan](../plans/quote-space-dv01-implementation-plan.md) defines staged,
 > independently reviewable delivery. The code baseline used to close the design is
 > `7d8a0ffa9157f93aa5b2fa88f27da868981971e7`.
 
@@ -94,7 +94,7 @@ otherwise bypass a supported factory.
 
 ## Supported Domains and Availability
 
-### Explicit factories
+### Core factories (QR-1)
 
 API names deliberately encode the supported domains:
 
@@ -106,7 +106,7 @@ struct RateQuoteRiskProvenanceConfig_ {
 
 RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(
     const CurveCalibrationSpec_& spec,
-    const CalibrationResult_& result,
+    const CurveCalibrationResult_& result,
     const CurveCalibrationOptions_& options,
     const RatePricingMarket_& boundMarket,
     const RateQuoteRiskProvenanceConfig_& config);
@@ -125,6 +125,30 @@ RateQuoteRiskProvenance_ BuildStagedXccyBasisQuoteRiskProvenance(
     const RatePricingMarket_& boundMarket,
     const RateQuoteRiskProvenanceConfig_& config);
 ```
+
+These declarations live in `dal-cpp`. In particular, the single-curve core
+factory accepts the core `CurveCalibrationResult_`; no core header includes or
+refers to the public-only `CalibrationResult_`.
+
+### Public single-curve overload (QR-4)
+
+The source-additive `dal-public` facade adds the overload callers of
+`CalibrateSingleCurve` can use directly:
+
+```cpp
+RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(
+    const CurveCalibrationSpec_& spec,
+    const CalibrationResult_& result,
+    const CurveCalibrationOptions_& options,
+    const RatePricingMarket_& boundMarket,
+    const RateQuoteRiskProvenanceConfig_& config);
+```
+
+The public overload adapts the public curve handle and diagnostics into the
+same core validation path; it does not duplicate fingerprint, availability, or
+state-binding semantics. Dependency direction remains
+`dal-cpp <- dal-public`: the public facade may consume the core contract, while
+the core factory never depends on `CalibrationResult_`.
 
 Every available provenance requires:
 
@@ -404,7 +428,7 @@ Implementation is complete only when:
 
 The exact numerical oracle, thresholds, staged PR boundaries, test commands,
 and rollback conditions are normative in the companion
-[implementation plan](quote-space-dv01-implementation-plan.md).
+[implementation plan](../plans/quote-space-dv01-implementation-plan.md).
 
 ## Open Questions
 
