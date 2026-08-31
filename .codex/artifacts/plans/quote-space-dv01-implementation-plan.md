@@ -43,14 +43,14 @@ QR-4 and QR-5 are merged.
 
 ## Work Breakdown
 
-| Work item | Stage | Scope                                                              | Depends on | Suggested assignee |
-|-----------|-------|--------------------------------------------------------------------|------------|--------------------|
-| QR-1      | 1     | Provenance DTOs, supported factories, fingerprints, validation     | none       | `dal-implementer`  |
-| QR-2      | 2     | Single-curve aggregate engine and quote buckets                    | QR-1       | `dal-implementer`  |
-| QR-3      | 3     | Joint-XCCY and staged-XCCY-basis domains, atomicity                | QR-2       | `dal-implementer`  |
-| QR-4      | 4     | Public C++ and Python bindings/contracts                           | QR-3       | `dal-implementer`  |
-| QR-5      | 5     | Excel handles, spills, generated registrations, portable tests     | QR-4       | `dal-implementer`  |
-| QR-6      | 6     | Full numerical oracle, performance gate, docs/CHANGELOG closeout   | QR-4, QR-5 | `dal-implementer`  |
+| Work item | Stage | Scope                                                            | Depends on | Suggested assignee |
+|-----------|-------|------------------------------------------------------------------|------------|--------------------|
+| QR-1      | 1     | Provenance DTOs, supported factories, fingerprints, validation   | none       | `dal-implementer`  |
+| QR-2      | 2     | Single-curve aggregate engine and quote buckets                  | QR-1       | `dal-implementer`  |
+| QR-3      | 3     | Joint-XCCY and staged-XCCY-basis domains, atomicity              | QR-2       | `dal-implementer`  |
+| QR-4      | 4     | Public C++ and Python bindings/contracts                         | QR-3       | `dal-implementer`  |
+| QR-5      | 5     | Excel handles, spills, generated registrations, portable tests   | QR-4       | `dal-implementer`  |
+| QR-6      | 6     | Full numerical oracle, performance gate, docs/CHANGELOG closeout | QR-4, QR-5 | `dal-implementer`  |
 
 ## QR-1 — Provenance Foundation
 
@@ -395,11 +395,11 @@ absolute error is zero; otherwise it is positive infinity.
 The test suite must include actual `N = 5`, `N = 10`, and `N = 16` fixtures.
 Any `N > 16` continues to use the `16+` thresholds and does not auto-relax.
 
-| Ladder | Width            | Master worst baseline `B` | Derivative absolute | Derivative relative | DV01 absolute | DV01 relative |
-|--------|------------------|---------------------------|---------------------|---------------------|---------------|---------------|
-| 5      | `N <= 5`         | `7e-7`                    | `5e-6 * P_i`        | `5e-6`              | `5e-10 * P_i` | `5e-6`        |
-| 10     | `6 <= N <= 10`   | `1.8e-5`                  | `1e-4 * P_i`        | `1e-4`              | `1e-8 * P_i`  | `1e-4`        |
-| 16+    | `N > 10`         | `1.3e-4`                  | `1e-3 * P_i`        | `1e-3`              | `1e-7 * P_i`  | `1e-3`        |
+| Ladder | Width          | Master worst baseline `B` | Derivative absolute | Derivative relative | DV01 absolute | DV01 relative |
+|--------|----------------|---------------------------|---------------------|---------------------|---------------|---------------|
+| 5      | `N <= 5`       | `7e-7`                    | `5e-6 * P_i`        | `5e-6`              | `5e-10 * P_i` | `5e-6`        |
+| 10     | `6 <= N <= 10` | `1.8e-5`                  | `1e-4 * P_i`        | `1e-4`              | `1e-8 * P_i`  | `1e-4`        |
+| 16+    | `N > 10`       | `1.3e-4`                  | `1e-3 * P_i`        | `1e-3`              | `1e-7 * P_i`  | `1e-3`        |
 
 Thresholds are derived by:
 
