@@ -153,6 +153,7 @@ Reference studies and capability explorations that are not normative methodology
   XCCY dependency.
 - **[aad-node-risk-portfolio-aggregation-plan.md](experimental/aad-node-risk-portfolio-aggregation-plan.md)**
   — Staged implementation plan (stages 0–5) matching those frozen P0 contracts.
+
 ## Documentation Conventions
 
 All documentation uses GitHub-flavored Markdown with:
