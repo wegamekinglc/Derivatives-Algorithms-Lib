@@ -23,6 +23,7 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/quoteriskprovenance.hpp>
+#include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
@@ -1208,7 +1209,9 @@ namespace Dal {
             const auto* typed = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve);
             REQUIRE(typed, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
             REQUIRE(typed->AnchorDate() == definition.anchorDate_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            REQUIRE(typed->NodeDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(!definition.nodeDates_.empty() && definition.nodeDates_.front() == definition.anchorDate_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            const Vector_<Date_> futureNodes(definition.nodeDates_.begin() + 1, definition.nodeDates_.end());
+            REQUIRE(typed->NodeDates() == futureNodes, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
             REQUIRE(typed->Scheme() == definition.logDfScheme_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
             REQUIRE(typed->DayCount() == definition.dayCount_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
             ValidateExpectedBase(*typed, expectedBase);
@@ -1915,6 +1918,13 @@ namespace Dal {
     const String_& RateQuoteRiskStateFingerprintScheme() {
         static const String_ result("dal.quote-risk-state/1+jcs+sha256");
         return result;
+    }
+
+    RateQuoteRiskComponentState_ CurrentRateQuoteRiskComponentState(const String_& componentKey, const RatePricingMarket_& market) {
+        const auto found = market.curveComponents_.find(componentKey);
+        if (found == market.curveComponents_.end() || !found->second)
+            return {componentKey, String_()};
+        return ComponentState(componentKey, *found->second, market);
     }
 
     RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,

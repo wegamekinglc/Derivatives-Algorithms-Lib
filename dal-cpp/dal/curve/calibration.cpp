@@ -199,10 +199,10 @@ namespace Dal {
             result->counts_.instrumentCandidates_ = static_cast<int>(instruments.size()) * MAX_RELEVANT_DATES_PER_INSTRUMENT;
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 const auto span = instruments[i]->TimeSpan();
-                VisitKnotCandidate(result, traversalIndex, today, span.first,
-                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i), true);
-                VisitKnotCandidate(result, traversalIndex, today, span.second,
-                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i), true);
+                VisitKnotCandidate(result, traversalIndex, today, span.first, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i),
+                                   true);
+                VisitKnotCandidate(result, traversalIndex, today, span.second, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i),
+                                   true);
             }
         }
 
@@ -225,8 +225,7 @@ namespace Dal {
             if (parameterization != CurveParameterization_::Value_::LOG_DISCOUNT)
                 return;
             REQUIRE(resolvedDates.front() == today &&
-                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(),
-                                    result.resolvedDeclaredNodes_.front().origins_.end(),
+                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(), result.resolvedDeclaredNodes_.front().origins_.end(),
                                     [](const CurveKnotOrigin_& origin) { return origin.kind_ == CurveKnotOriginKind_::Value_::INPUT; }),
                     "LOG_DISCOUNT knot planning requires an input anchor at today");
         }
@@ -334,6 +333,8 @@ namespace Dal {
                     analyticEligibility_ =
                         EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
+
+            [[nodiscard]] double BumpSize() const override { return 1.0e-6; }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
                 Handle_<DiscountCurve_> dc(BuildDiscountCurveUniqueT<double>(definition_, x, baseCurve_).release());

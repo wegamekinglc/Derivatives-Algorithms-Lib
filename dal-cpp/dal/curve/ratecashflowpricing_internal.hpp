@@ -39,6 +39,7 @@ namespace Dal::RateCashflowPricingInternal {
     // for the same concurrent-caller reason.
     inline std::atomic<int> g_nodeSensitivityPassivePriceCount{0};
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
+    inline std::atomic<int> g_nodeSensitivitySweepCount{0};
 
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
@@ -89,6 +90,7 @@ namespace Dal::RateCashflowPricingInternal {
     }
 
     template <class Runner_> RateTradeNodeSensitivityResult_ RunNodeSensitivityAADStage(int expectedParameterCount, Runner_&& runner) {
+        ++g_nodeSensitivitySweepCount;
         try {
             TapeGuard_ guard(AAD::Tape());
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();

@@ -4,17 +4,26 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <type_traits>
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
+#include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/quoteriskaggregation.hpp>
 #include <dal/curve/quoteriskprovenance.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/ycconst.hpp>
+#include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/archive.hpp>
@@ -144,6 +153,240 @@ namespace {
 
     Dal::RateQuoteRiskProvenance_ BuildSingle(const SingleProvenanceInput_& input) {
         return Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    }
+
+    Dal::RateTradeDefinition_ SingleDepositTrade(const SingleProvenanceInput_& input, const Dal::String_& instrumentId = "single-deposit") {
+        Dal::DepositTradeTerms_ terms;
+        terms.notional_ = 1'000'000.0;
+        terms.contractRate_ = 0.02;
+        terms.lend_ = true;
+        terms.index_ = SingleIndex();
+        terms.discountComponentKey_ = "discount";
+        return {instrumentId,
+                Dal::RateInstrumentType_::Value_::DEPOSIT,
+                input.spec_.today_,
+                input.spec_.today_,
+                input.spec_.knotDates_.back(),
+                Dal::Ccy_("USD"),
+                terms};
+    }
+
+    Dal::Handle_<Dal::DiscountCurve_> QuoteOracleCurve(const Dal::CurveCalibrationSpec_& spec) {
+        const int nKnots = static_cast<int>(spec.knotDates_.size());
+        switch (spec.parameterization_.Switch()) {
+        case Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD: {
+            Dal::Vector_<> forwards(nKnots);
+            for (int i = 0; i < nKnots; ++i)
+                forwards[i] = 0.012 + 0.0004 * i;
+            return Dal::Handle_<Dal::DiscountCurve_>(
+                Dal::NewDiscountPWC("quote_oracle_known", spec.ccy_, Dal::PiecewiseConstant_(spec.knotDates_, forwards)));
+        }
+        case Dal::CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
+            Dal::Vector_<> left(nKnots), right(nKnots);
+            for (int i = 0; i < nKnots; ++i) {
+                left[i] = 0.011 + 0.0005 * i;
+                right[i] = left[i] + 0.0003;
+            }
+            return Dal::Handle_<Dal::DiscountCurve_>(
+                Dal::NewDiscountPWLF("quote_oracle_known", spec.ccy_, Dal::PiecewiseLinear_(spec.knotDates_, left, right)));
+        }
+        case Dal::CurveParameterization_::Value_::LOG_DISCOUNT: {
+            Dal::Vector_<> logDfs(nKnots);
+            for (int i = 0; i < nKnots; ++i)
+                logDfs[i] = -0.018 * spec.liborBasis_(spec.today_, spec.knotDates_[i], nullptr);
+            return Dal::Handle_<Dal::DiscountCurve_>(
+                Dal::NewDiscountLogDF("quote_oracle_known", spec.ccy_, spec.knotDates_, logDfs, spec.liborBasis_, spec.logDfScheme_));
+        }
+        case Dal::CurveParameterization_::Value_::ZERO_RATE: {
+            Dal::Vector_<> zeroRates(nKnots);
+            for (int i = 0; i < nKnots; ++i)
+                zeroRates[i] = 0.016 + 0.0002 * i;
+            return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountZeroRate("quote_oracle_known", spec.ccy_, spec.today_, spec.knotDates_,
+                                                                              zeroRates, spec.liborBasis_, spec.logDfScheme_));
+        }
+        }
+        THROW("Unsupported quote oracle parameterization");
+    }
+
+    SingleProvenanceInput_ MakeQuoteOracleInput(Dal::CurveParameterization_ parameterization, int quoteCount, Dal::CurveJacobianMode_ mode) {
+        SingleProvenanceInput_ input;
+        input.spec_.today_ = Dal::Date_(2025, 1, 2);
+        input.spec_.ccy_ = "USD";
+        input.spec_.curveName_ = "single_quote_oracle";
+        input.spec_.targetCollateral_ = Dal::CollateralType_(Dal::CollateralType_::Value_::OIS);
+        input.spec_.parameterization_ = parameterization;
+        input.spec_.knotPolicy_ = Dal::CurveKnotPolicy_::Value_::INPUT;
+        input.spec_.solveMode_ = Dal::CurveSolveMode_::Value_::EXACT;
+        input.spec_.liborBasis_ = Dal::DayBasis_("ACT_365F");
+        input.spec_.tolerance_ = 1.0e-10;
+        input.spec_.fitTolerance_ = 1.0e-8;
+        input.spec_.smoothingWeight_ = 1.0;
+        input.spec_.initialGuess_ = 0.018;
+        input.spec_.logDfScheme_ = Dal::LogDfScheme_::Value_::LOG_LINEAR;
+
+        Dal::Vector_<Dal::Date_> maturities;
+        for (int i = 1; i <= quoteCount; ++i)
+            maturities.push_back(Dal::Date::AddMonths(input.spec_.today_, 6 * i));
+        if (parameterization == Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD) {
+            input.spec_.knotDates_.push_back(input.spec_.today_);
+            for (const auto& maturity : maturities)
+                input.spec_.knotDates_.push_back(maturity);
+        } else if (parameterization == Dal::CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD) {
+            const int knotCount = (quoteCount + 1) / 2 + 1;
+            input.spec_.knotDates_.push_back(Dal::Date::AddMonths(input.spec_.today_, 3));
+            for (int i = 1; i < knotCount; ++i)
+                input.spec_.knotDates_.push_back(Dal::Date::AddMonths(input.spec_.today_, 12 * i));
+        } else {
+            input.spec_.knotDates_ = maturities;
+            if (parameterization == Dal::CurveParameterization_::Value_::LOG_DISCOUNT) {
+                Dal::Vector_<Dal::Date_> anchored = {input.spec_.today_};
+                for (const auto& maturity : maturities)
+                    anchored.push_back(maturity);
+                input.spec_.knotDates_ = std::move(anchored);
+            }
+        }
+
+        const auto known = QuoteOracleCurve(input.spec_);
+        const Dal::CurveBlock_ knownBlock(known, input.spec_.liborBasis_);
+        switch (parameterization.Switch()) {
+        case Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
+            for (int i = 0; i < static_cast<int>(input.spec_.knotDates_.size()); ++i)
+                input.spec_.initialGuessPerNode_.push_back(0.012 + 0.0004 * i);
+            break;
+        case Dal::CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
+            for (int i = 0; i < static_cast<int>(input.spec_.knotDates_.size()); ++i) {
+                input.spec_.initialGuessPerNode_.push_back(0.011 + 0.0005 * i);
+                input.spec_.initialGuessPerNode_.push_back(0.0113 + 0.0005 * i);
+            }
+            break;
+        case Dal::CurveParameterization_::Value_::LOG_DISCOUNT:
+            for (int i = 1; i < static_cast<int>(input.spec_.knotDates_.size()); ++i)
+                input.spec_.initialGuessPerNode_.push_back(-0.018 * input.spec_.liborBasis_(input.spec_.today_, input.spec_.knotDates_[i], nullptr));
+            break;
+        case Dal::CurveParameterization_::Value_::ZERO_RATE:
+            for (int i = 0; i < static_cast<int>(input.spec_.knotDates_.size()); ++i)
+                input.spec_.initialGuessPerNode_.push_back(0.016 + 0.0002 * i);
+            break;
+        }
+        const Dal::RateIndexConvention_ index = SingleIndex();
+        Dal::Handle_<Dal::YieldCurve_> empty;
+        for (const auto& maturity : maturities) {
+            const Dal::Handle_<Dal::YCInstrument_> prototype(new Dal::Deposit_(input.spec_.today_, input.spec_.today_, maturity, 0.0, index));
+            const double quote = (*prototype->Precompute(empty))(knownBlock);
+            input.spec_.instruments_.push_back(
+                Dal::Handle_<Dal::YCInstrument_>(new Dal::Deposit_(input.spec_.today_, input.spec_.today_, maturity, quote, index)));
+        }
+
+        input.options_.jacobianMode_ = mode;
+        try {
+            input.result_ = Dal::CalibrateYieldCurve(input.spec_, input.options_);
+        } catch (const std::exception& exception) {
+            THROW("Quote oracle baseline calibration failed: " + Dal::String_(exception.what()));
+        }
+        const auto alias = std::shared_ptr<const Dal::DiscountCurve_>(std::shared_ptr<void>(), input.result_.curve_.get());
+        input.market_.valuationTime_ = Dal::DateTime_(input.spec_.today_, 9, 0);
+        input.market_.resultCurrency_ = Dal::Ccy_("USD");
+        input.market_.curveComponents_["discount"] = Dal::Handle_<Dal::DiscountCurve_>(alias);
+        input.market_.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+        input.config_.calibrationId_ = "single-quote-oracle";
+        input.config_.componentKeyByParameterBlock_[input.spec_.curveName_] = "discount";
+        return input;
+    }
+
+    struct QuoteOracleObservation_ {
+        double netPv_ = 0.0;
+        double grossAbsPv_ = 0.0;
+    };
+
+    QuoteOracleObservation_ PriceQuoteOracleTrades(const Dal::Vector_<Dal::RateTradeDefinition_>& trades, const Dal::RatePricingMarket_& market) {
+        QuoteOracleObservation_ observation;
+        for (const auto& priced : Dal::PriceRateTrades(trades, market)) {
+            REQUIRE(priced.succeeded_ && std::isfinite(priced.pv_), "Quote oracle trade failed to price");
+            observation.netPv_ += priced.pv_;
+            observation.grossAbsPv_ += std::abs(priced.pv_);
+        }
+        return observation;
+    }
+
+    QuoteOracleObservation_ RecalibrateAndPriceQuoteBump(const SingleProvenanceInput_& input,
+                                                         const Dal::Vector_<Dal::RateTradeDefinition_>& trades,
+                                                         int quoteIndex,
+                                                         double bump) {
+        Dal::CurveCalibrationSpec_ bumped = input.spec_;
+        const auto* original = dynamic_cast<const Dal::Deposit_*>(input.spec_.instruments_[quoteIndex].get());
+        REQUIRE(original, "Quote oracle expected deposit calibration instruments");
+        const auto span = original->TimeSpan();
+        bumped.instruments_[quoteIndex] = Dal::Handle_<Dal::YCInstrument_>(
+            new Dal::Deposit_(original->TradeDate(), span.first, span.second, original->MarketRate() + bump, original->FloatConvention()));
+        Dal::CurveCalibrationResult_ calibrated;
+        try {
+            calibrated = Dal::CalibrateYieldCurve(bumped, input.options_);
+        } catch (const std::exception& exception) {
+            THROW("Quote oracle bumped calibration failed for quote " + Dal::String::FromInt(quoteIndex) + " and bump " +
+                  Dal::String::FromDouble(bump) + ": " + Dal::String_(exception.what()));
+        }
+        REQUIRE(calibrated.diagnostics_.maxAbsResidual_ <= input.spec_.fitTolerance_, "Quote oracle calibration did not satisfy the fit gate");
+        Dal::RatePricingMarket_ market = input.market_;
+        const auto alias = std::shared_ptr<const Dal::DiscountCurve_>(std::shared_ptr<void>(), calibrated.curve_.get());
+        market.curveComponents_["discount"] = Dal::Handle_<Dal::DiscountCurve_>(alias);
+        return PriceQuoteOracleTrades(trades, market);
+    }
+
+    void AssertQuoteRiskOracle(Dal::CurveParameterization_ parameterization, int quoteCount, Dal::CurveJacobianMode_ mode) {
+        const auto input = MakeQuoteOracleInput(parameterization, quoteCount, mode);
+        if (parameterization == Dal::CurveParameterization_::Value_::ZERO_RATE) {
+            const auto* zero = dynamic_cast<const Dal::DiscountZeroRate_*>(input.result_.curve_.get());
+            ASSERT_NE(zero, nullptr);
+            ASSERT_EQ(zero->Name(), input.spec_.curveName_);
+            ASSERT_EQ(zero->ccy_.String(), input.spec_.ccy_);
+            ASSERT_EQ(zero->AnchorDate(), input.spec_.today_);
+            ASSERT_EQ(zero->NodeDates(), input.spec_.knotDates_);
+            ASSERT_EQ(zero->Scheme(), input.spec_.logDfScheme_);
+            ASSERT_EQ(zero->DayCount(), input.spec_.liborBasis_);
+        }
+        const auto provenance = BuildSingle(input);
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades = {SingleDepositTrade(input, "oracle-deposit")};
+        const auto aggregate = Dal::AggregateRatePortfolioQuoteRisk(trades, input.market_, {provenance});
+        ASSERT_EQ(static_cast<int>(aggregate.buckets_.size()), quoteCount);
+        const auto baseline = PriceQuoteOracleTrades(trades, input.market_);
+        constexpr double h = 1.0e-6;
+        constexpr double b = 1.0e-4;
+        constexpr double epsilon = std::numeric_limits<double>::epsilon();
+        const double derivativeAbsFactor = quoteCount <= 5 ? 5.0e-6 : (quoteCount <= 10 ? 1.0e-4 : 1.0e-3);
+        const double relativeTolerance = derivativeAbsFactor;
+
+        for (int i = 0; i < quoteCount; ++i) {
+            const auto plusH = RecalibrateAndPriceQuoteBump(input, trades, i, h);
+            const auto minusH = RecalibrateAndPriceQuoteBump(input, trades, i, -h);
+            const auto plusB = RecalibrateAndPriceQuoteBump(input, trades, i, b);
+            const auto minusB = RecalibrateAndPriceQuoteBump(input, trades, i, -b);
+            const double priceScale =
+                std::max({1.0, baseline.grossAbsPv_, plusH.grossAbsPv_, minusH.grossAbsPv_, plusB.grossAbsPv_, minusB.grossAbsPv_});
+            const double derivativeOracle = (plusH.netPv_ - minusH.netPv_) / (2.0 * h);
+            const double dv01Oracle = (plusB.netPv_ - minusB.netPv_) / 2.0;
+            const auto& bucket = aggregate.buckets_[i];
+            ASSERT_TRUE(std::isfinite(bucket.dPvDDecimalQuote_));
+            ASSERT_TRUE(std::isfinite(bucket.dv01_));
+            ASSERT_TRUE(std::isfinite(derivativeOracle));
+            ASSERT_TRUE(std::isfinite(dv01Oracle));
+            const double unitError = std::abs(bucket.dv01_ - b * bucket.dPvDDecimalQuote_);
+            const double unitScale = std::max({priceScale * b, std::abs(bucket.dv01_), b * std::abs(bucket.dPvDDecimalQuote_)});
+            ASSERT_LE(unitError, 64.0 * epsilon * unitScale);
+            const double derivativeError = std::abs(bucket.dPvDDecimalQuote_ - derivativeOracle);
+            const double derivativeScale = std::max(std::abs(bucket.dPvDDecimalQuote_), std::abs(derivativeOracle));
+            const double derivativeRelative =
+                derivativeScale == 0.0 ? (derivativeError == 0.0 ? 0.0 : std::numeric_limits<double>::infinity()) : derivativeError / derivativeScale;
+            ASSERT_TRUE(derivativeError <= derivativeAbsFactor * priceScale || derivativeRelative <= relativeTolerance)
+                << "parameterization=" << parameterization.String() << " mode=" << mode.String() << " N=" << quoteCount << " quote=" << i
+                << " api=" << bucket.dPvDDecimalQuote_ << " oracle=" << derivativeOracle << " absError=" << derivativeError
+                << " relError=" << derivativeRelative;
+            const double dv01Error = std::abs(bucket.dv01_ - dv01Oracle);
+            const double dv01Scale = std::max(std::abs(bucket.dv01_), std::abs(dv01Oracle));
+            const double dv01Relative = dv01Scale == 0.0 ? (dv01Error == 0.0 ? 0.0 : std::numeric_limits<double>::infinity()) : dv01Error / dv01Scale;
+            ASSERT_TRUE(dv01Error <= derivativeAbsFactor * b * priceScale || dv01Relative <= relativeTolerance)
+                << "parameterization=" << parameterization.String() << " mode=" << mode.String() << " N=" << quoteCount << " quote=" << i
+                << " api=" << bucket.dv01_ << " oracle=" << dv01Oracle << " absError=" << dv01Error << " relError=" << dv01Relative;
+        }
     }
 
     void RecalibrateAndBindSingle(SingleProvenanceInput_* input) {
@@ -402,6 +645,237 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
             ASSERT_EQ(provenance.Axis().fingerprint_, analyticAxis);
         }
     }
+}
+
+TEST(QuoteRiskAggregationTest, TestSingleCurveProducesUnitBearingBuckets) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    const auto trade = SingleDepositTrade(input);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance});
+
+    ASSERT_EQ(result.policy_, "UnconvertedByActualPvCcy");
+    ASSERT_EQ(result.buckets_.size(), provenance.Axis().quotes_.size());
+    ASSERT_EQ(result.meta_.size(), 1U);
+    ASSERT_TRUE(result.meta_.front().eligible_);
+    ASSERT_TRUE(result.provenanceFailures_.empty());
+    ASSERT_EQ(result.pvByActualPvCcy_.size(), 1U);
+    ASSERT_TRUE(result.pvByActualPvCcy_.count("USD"));
+    for (int i = 0; i < static_cast<int>(result.buckets_.size()); ++i) {
+        const auto& bucket = result.buckets_[i];
+        ASSERT_EQ(bucket.calibrationId_, provenance.CalibrationId());
+        ASSERT_EQ(bucket.axisFingerprint_, provenance.Axis().fingerprint_);
+        ASSERT_EQ(bucket.quoteName_, provenance.Axis().quotes_[i].displayName_);
+        ASSERT_EQ(bucket.residualBlock_, provenance.Axis().quotes_[i].blockKey_);
+        ASSERT_EQ(bucket.quoteOrdinal_, provenance.Axis().quotes_[i].blockOrdinal_);
+        ASSERT_EQ(bucket.actualPvCcy_, Dal::Ccy_("USD"));
+        ASSERT_TRUE(std::isfinite(bucket.dPvDDecimalQuote_));
+        ASSERT_NEAR(bucket.dv01_, bucket.dPvDDecimalQuote_ * 1.0e-4, 1.0e-12);
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestStaleStateFailsBeforeAnyNodeRiskWork) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    input.market_.valuationTime_ = Dal::DateTime_(input.spec_.today_, 10, 0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.store(0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.store(0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {provenance});
+
+    ASSERT_TRUE(result.buckets_.empty());
+    ASSERT_TRUE(result.meta_.empty());
+    ASSERT_EQ(result.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(result.provenanceFailures_.front().reason_, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
+    ASSERT_EQ(result.provenanceFailures_.front().componentKey_, "discount");
+    ASSERT_EQ(result.provenanceFailures_.front().expectedStateFingerprint_, provenance.State().components_.front().fingerprint_);
+    ASSERT_NE(result.provenanceFailures_.front().actualStateFingerprint_, result.provenanceFailures_.front().expectedStateFingerprint_);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.load(), 0);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(), 0);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+}
+
+TEST(QuoteRiskAggregationTest, TestDuplicateCalibrationIdsFailClosed) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    try {
+        static_cast<void>(Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {provenance, provenance}));
+        FAIL() << "Expected duplicate calibration ids to fail";
+    } catch (const Dal::Exception_& exception) {
+        ASSERT_NE(std::string(exception.what()).find("QUOTE_RISK_DUPLICATE_CALIBRATION_ID"), std::string::npos) << exception.what();
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestUnavailableProvenanceIsReportedWithoutSweeping) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    input.options_.computeEffJacobianInverse_ = false;
+    RecalibrateAndBindSingle(&input);
+    const auto provenance = BuildSingle(input);
+    ASSERT_FALSE(provenance.Available());
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {provenance});
+
+    ASSERT_TRUE(result.buckets_.empty());
+    ASSERT_TRUE(result.meta_.empty());
+    ASSERT_EQ(result.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(result.provenanceFailures_.front().reason_, "QUOTE_RISK_INVERSE_NOT_REQUESTED");
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+}
+
+TEST(QuoteRiskAggregationTest, TestEmptyInputsRemainSuccessful) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    const auto emptyTrades = Dal::AggregateRatePortfolioQuoteRisk({}, input.market_, {provenance});
+    ASSERT_TRUE(emptyTrades.buckets_.empty());
+    ASSERT_TRUE(emptyTrades.meta_.empty());
+    ASSERT_TRUE(emptyTrades.pvByActualPvCcy_.empty());
+    ASSERT_TRUE(emptyTrades.provenanceFailures_.empty());
+
+    const auto emptyProvenances = Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {});
+    ASSERT_TRUE(emptyProvenances.buckets_.empty());
+    ASSERT_TRUE(emptyProvenances.meta_.empty());
+    ASSERT_TRUE(emptyProvenances.provenanceFailures_.empty());
+    ASSERT_EQ(emptyProvenances.pvByActualPvCcy_.size(), 1U);
+    ASSERT_TRUE(emptyProvenances.pvByActualPvCcy_.count("USD"));
+}
+
+TEST(QuoteRiskAggregationTest, TestNonDependencyUsesStructuralZeroWithoutSweeping) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    input.market_.curveComponents_["unrelated"] = input.market_.curveComponents_.at("discount");
+    auto trade = SingleDepositTrade(input);
+    std::get<Dal::DepositTradeTerms_>(trade.terms_).discountComponentKey_ = "unrelated";
+    Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.store(0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance});
+
+    ASSERT_EQ(result.meta_.size(), 1U);
+    ASSERT_TRUE(result.meta_.front().eligible_);
+    ASSERT_TRUE(result.meta_.front().structuralZero_);
+    ASSERT_EQ(result.buckets_.size(), provenance.Axis().quotes_.size());
+    for (const auto& bucket : result.buckets_) {
+        ASSERT_DOUBLE_EQ(bucket.dPvDDecimalQuote_, 0.0);
+        ASSERT_DOUBLE_EQ(bucket.dv01_, 0.0);
+    }
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(), 0);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+}
+
+TEST(QuoteRiskAggregationTest, TestTradeFailureDoesNotAffectSiblingTrade) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    const auto good = SingleDepositTrade(input, "good-deposit");
+    auto bad = SingleDepositTrade(input, "bad-deposit");
+    std::get<Dal::DepositTradeTerms_>(bad.terms_).notional_ = 0.0;
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({bad, good}, input.market_, {provenance});
+
+    ASSERT_EQ(result.meta_.size(), 2U);
+    ASSERT_FALSE(result.meta_[0].eligible_);
+    ASSERT_EQ(result.meta_[0].reason_, "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+    ASSERT_EQ(result.meta_[0].failingComponentKey_, "discount");
+    ASSERT_EQ(result.meta_[0].originalNodeRiskReason_, "TRADE_VALIDATION_FAILED");
+    ASSERT_TRUE(result.meta_[1].eligible_);
+    ASSERT_EQ(result.buckets_.size(), provenance.Axis().quotes_.size());
+    ASSERT_EQ(result.pvByActualPvCcy_.size(), 1U);
+}
+
+TEST(QuoteRiskAggregationTest, TestActualPvCurrenciesRemainSeparateAndQuoteKeysIgnoreDuplicateNames) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    ASSERT_EQ(provenance.Axis().quotes_[0].displayName_, provenance.Axis().quotes_[1].displayName_);
+    auto usd = SingleDepositTrade(input, "usd-deposit");
+    auto eur = SingleDepositTrade(input, "eur-deposit");
+    eur.currencyOrPair_ = Dal::Ccy_("EUR");
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({usd, eur}, input.market_, {provenance});
+
+    ASSERT_EQ(result.pvByActualPvCcy_.size(), 2U);
+    ASSERT_TRUE(result.pvByActualPvCcy_.count("USD"));
+    ASSERT_TRUE(result.pvByActualPvCcy_.count("EUR"));
+    ASSERT_EQ(result.buckets_.size(), provenance.Axis().quotes_.size() * 2U);
+    std::set<Dal::String_> keys;
+    std::set<Dal::String_> currencies;
+    for (const auto& bucket : result.buckets_) {
+        keys.insert(bucket.quoteKey_);
+        currencies.insert(bucket.actualPvCcy_.String());
+    }
+    ASSERT_EQ(keys.size(), provenance.Axis().quotes_.size());
+    ASSERT_EQ(currencies, (std::set<Dal::String_>{"EUR", "USD"}));
+}
+
+TEST(QuoteRiskAggregationTest, TestNegativeAndOffsettingTradesRemainValid) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    auto lend = SingleDepositTrade(input, "lend");
+    auto borrow = SingleDepositTrade(input, "borrow");
+    std::get<Dal::DepositTradeTerms_>(borrow.terms_).lend_ = false;
+
+    const auto lendOnly = Dal::AggregateRatePortfolioQuoteRisk({lend}, input.market_, {provenance});
+    const auto borrowOnly = Dal::AggregateRatePortfolioQuoteRisk({borrow}, input.market_, {provenance});
+    ASSERT_LT(lendOnly.pvByActualPvCcy_.at("USD") * borrowOnly.pvByActualPvCcy_.at("USD"), 0.0);
+    ASSERT_NEAR(lendOnly.pvByActualPvCcy_.at("USD"), -borrowOnly.pvByActualPvCcy_.at("USD"), 1.0e-10);
+
+    const auto offsetting = Dal::AggregateRatePortfolioQuoteRisk({lend, borrow}, input.market_, {provenance});
+    ASSERT_NEAR(offsetting.pvByActualPvCcy_.at("USD"), 0.0, 1.0e-10);
+    for (const auto& bucket : offsetting.buckets_) {
+        ASSERT_NEAR(bucket.dPvDDecimalQuote_, 0.0, 1.0e-8);
+        ASSERT_NEAR(bucket.dv01_, 0.0, 1.0e-12);
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestStaleProvenanceDoesNotBlockFreshSibling) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto stale = BuildSingle(input);
+    input.market_.valuationTime_ = Dal::DateTime_(input.spec_.today_, 10, 0);
+    input.config_.calibrationId_ = "fresh-calibration";
+    const auto fresh = BuildSingle(input);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {stale, fresh});
+
+    ASSERT_EQ(result.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(result.provenanceFailures_.front().calibrationId_, stale.CalibrationId());
+    ASSERT_EQ(result.provenanceFailures_.front().reason_, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
+    ASSERT_EQ(result.buckets_.size(), fresh.Axis().quotes_.size());
+    for (const auto& bucket : result.buckets_)
+        ASSERT_EQ(bucket.calibrationId_, fresh.CalibrationId());
+}
+
+TEST(QuoteRiskAggregationTest, TestJointAndStagedAggregateSuccessWaitsForQr3) {
+    const auto joint = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto jointProvenance = Dal::BuildJointXccyQuoteRiskProvenance(joint.spec_, joint.result_, joint.options_, joint.market_, joint.config_);
+    const auto jointResult = Dal::AggregateRatePortfolioQuoteRisk({}, joint.market_, {jointProvenance});
+    ASSERT_TRUE(jointResult.buckets_.empty());
+    ASSERT_EQ(jointResult.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(jointResult.provenanceFailures_.front().reason_, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED");
+
+    const auto staged = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto stagedProvenance =
+        Dal::BuildStagedXccyBasisQuoteRiskProvenance(staged.spec_, *staged.result_, staged.options_, staged.market_, staged.config_);
+    const auto stagedResult = Dal::AggregateRatePortfolioQuoteRisk({}, staged.market_, {stagedProvenance});
+    ASSERT_TRUE(stagedResult.buckets_.empty());
+    ASSERT_EQ(stagedResult.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(stagedResult.provenanceFailures_.front().reason_, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED");
+}
+
+TEST(QuoteRiskAggregationTest, TestFullRecalibrationOracleAtRequiredWidthsAndModes) {
+    for (const int quoteCount : {5, 10, 16})
+        for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED})
+            for (const auto parameterization :
+                 {Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, Dal::CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
+                  Dal::CurveParameterization_::Value_::LOG_DISCOUNT, Dal::CurveParameterization_::Value_::ZERO_RATE}) {
+                SCOPED_TRACE(Dal::String_("N=") + Dal::String::FromInt(quoteCount) + " mode=" + Dal::CurveJacobianMode_(mode).String() +
+                             " parameterization=" + Dal::CurveParameterization_(parameterization).String());
+                try {
+                    AssertQuoteRiskOracle(parameterization, quoteCount, mode);
+                } catch (const std::exception& exception) {
+                    FAIL() << "N=" << quoteCount << " mode=" << Dal::CurveJacobianMode_(mode).String()
+                           << " parameterization=" << Dal::CurveParameterization_(parameterization).String() << ": " << exception.what();
+                }
+            }
 }
 
 TEST(QuoteRiskProvenanceTest, TestSingleCurveUnavailableReasonsRemainStructured) {
