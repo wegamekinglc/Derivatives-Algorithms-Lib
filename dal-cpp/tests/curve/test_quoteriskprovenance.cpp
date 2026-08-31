@@ -523,6 +523,21 @@ TEST(QuoteRiskProvenanceTest, TestStagedXccyBasisAnalyticAndBumpedConstruction) 
     }
 }
 
+TEST(QuoteRiskProvenanceTest, TestStagedInverseMetadataMismatchFailsClosed) {
+    {
+        auto input = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+        input.result_->diagnostics_.effJacobianInverseAvailability_ = "not_requested";
+        ASSERT_THROW(Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_),
+                     Dal::Exception_);
+    }
+    {
+        auto input = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+        input.result_->diagnostics_.effJacobianInverseScaling_ = "unscaled";
+        ASSERT_THROW(Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_),
+                     Dal::Exception_);
+    }
+}
+
 TEST(QuoteRiskProvenanceTest, TestJointRangesBindingsAndNonFiniteStateFailClosed) {
     {
         auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);

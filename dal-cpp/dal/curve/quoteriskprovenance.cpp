@@ -84,42 +84,72 @@ namespace Dal {
 
         bool IsContinuation(unsigned char value) { return value >= 0x80 && value <= 0xBF; }
 
+        bool HasUtf8Bytes(const std::string& value, std::size_t index, std::size_t width) { return value.size() - index >= width; }
+
+        bool ValidUtf8Two(const std::string& value, std::size_t index) {
+            if (!HasUtf8Bytes(value, index, 2))
+                return false;
+            const auto first = static_cast<unsigned char>(value[index]);
+            return first >= 0xC2 && IsContinuation(static_cast<unsigned char>(value[index + 1]));
+        }
+
+        bool ValidUtf8ThreeSecond(unsigned char first, unsigned char second) {
+            if (first == 0xE0)
+                return second >= 0xA0 && second <= 0xBF;
+            if (first == 0xED)
+                return second >= 0x80 && second <= 0x9F;
+            return IsContinuation(second);
+        }
+
+        bool ValidUtf8Three(const std::string& value, std::size_t index) {
+            if (!HasUtf8Bytes(value, index, 3))
+                return false;
+            const auto first = static_cast<unsigned char>(value[index]);
+            const auto second = static_cast<unsigned char>(value[index + 1]);
+            if (!ValidUtf8ThreeSecond(first, second))
+                return false;
+            return IsContinuation(static_cast<unsigned char>(value[index + 2]));
+        }
+
+        bool ValidUtf8FourSecond(unsigned char first, unsigned char second) {
+            if (first == 0xF0)
+                return second >= 0x90 && second <= 0xBF;
+            if (first == 0xF4)
+                return second >= 0x80 && second <= 0x8F;
+            return IsContinuation(second);
+        }
+
+        bool ValidUtf8Four(const std::string& value, std::size_t index) {
+            if (!HasUtf8Bytes(value, index, 4))
+                return false;
+            const auto first = static_cast<unsigned char>(value[index]);
+            const auto second = static_cast<unsigned char>(value[index + 1]);
+            if (!ValidUtf8FourSecond(first, second))
+                return false;
+            if (!IsContinuation(static_cast<unsigned char>(value[index + 2])))
+                return false;
+            return IsContinuation(static_cast<unsigned char>(value[index + 3]));
+        }
+
+        std::size_t Utf8MultibyteWidth(const std::string& value, std::size_t index) {
+            const auto first = static_cast<unsigned char>(value[index]);
+            if (first <= 0xDF)
+                return ValidUtf8Two(value, index) ? 2 : 0;
+            if (first <= 0xEF)
+                return ValidUtf8Three(value, index) ? 3 : 0;
+            if (first <= 0xF4)
+                return ValidUtf8Four(value, index) ? 4 : 0;
+            return 0;
+        }
+
         bool ValidUtf8(const std::string& value) {
             std::size_t index = 0;
             while (index < value.size()) {
                 const auto first = static_cast<unsigned char>(value[index]);
-                if (first <= 0x7F) {
-                    ++index;
-                    continue;
-                }
-                if (first >= 0xC2 && first <= 0xDF && index + 1 < value.size() && IsContinuation(static_cast<unsigned char>(value[index + 1]))) {
-                    index += 2;
-                    continue;
-                }
-                if (first >= 0xE0 && first <= 0xEF && index + 2 < value.size()) {
-                    const auto second = static_cast<unsigned char>(value[index + 1]);
-                    const auto third = static_cast<unsigned char>(value[index + 2]);
-                    const bool validSecond = (first == 0xE0 && second >= 0xA0 && second <= 0xBF) ||
-                                             (first == 0xED && second >= 0x80 && second <= 0x9F) ||
-                                             (((first >= 0xE1 && first <= 0xEC) || (first >= 0xEE && first <= 0xEF)) && IsContinuation(second));
-                    if (validSecond && IsContinuation(third)) {
-                        index += 3;
-                        continue;
-                    }
-                }
-                if (first >= 0xF0 && first <= 0xF4 && index + 3 < value.size()) {
-                    const auto second = static_cast<unsigned char>(value[index + 1]);
-                    const auto third = static_cast<unsigned char>(value[index + 2]);
-                    const auto fourth = static_cast<unsigned char>(value[index + 3]);
-                    const bool validSecond = (first == 0xF0 && second >= 0x90 && second <= 0xBF) ||
-                                             (first == 0xF4 && second >= 0x80 && second <= 0x8F) ||
-                                             (first >= 0xF1 && first <= 0xF3 && IsContinuation(second));
-                    if (validSecond && IsContinuation(third) && IsContinuation(fourth)) {
-                        index += 4;
-                        continue;
-                    }
-                }
-                return false;
+                const std::size_t width = first <= 0x7F ? 1 : Utf8MultibyteWidth(value, index);
+                if (width == 0)
+                    return false;
+                index += width;
             }
             return true;
         }
@@ -163,6 +193,63 @@ namespace Dal {
             return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
         }
 
+        std::string ExtractJcsNumberSign(std::string* digits) {
+            if (digits->empty())
+                return std::string();
+            if (digits->front() != '-')
+                return std::string();
+            digits->erase(digits->begin());
+            return "-";
+        }
+
+        int ParseJcsExponent(std::string exponentText) {
+            REQUIRE(!exponentText.empty(), "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
+            int sign = 1;
+            if (exponentText.front() == '+' || exponentText.front() == '-') {
+                sign = exponentText.front() == '-' ? -1 : 1;
+                exponentText.erase(exponentText.begin());
+            }
+            int exponent = 0;
+            const auto parsed = std::from_chars(exponentText.data(), exponentText.data() + exponentText.size(), exponent);
+            REQUIRE(!exponentText.empty(), "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
+            REQUIRE(parsed.ec == std::errc(), "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
+            REQUIRE(parsed.ptr == exponentText.data() + exponentText.size(), "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
+            return sign * exponent;
+        }
+
+        int ExtractJcsExponent(std::string* digits) {
+            const auto exponentAt = digits->find_first_of("eE");
+            if (exponentAt == std::string::npos)
+                return 0;
+            const int exponent = ParseJcsExponent(digits->substr(exponentAt + 1));
+            digits->erase(exponentAt);
+            return exponent;
+        }
+
+        int RemoveJcsDecimalPoint(std::string* digits) {
+            const auto decimalAt = digits->find('.');
+            const int integerDigits = decimalAt == std::string::npos ? static_cast<int>(digits->size()) : static_cast<int>(decimalAt);
+            if (decimalAt != std::string::npos)
+                digits->erase(decimalAt, 1);
+            return integerDigits;
+        }
+
+        std::string JcsPlainNumber(const std::string& digits, int decimalExponent) {
+            if (decimalExponent <= 0)
+                return "0." + std::string(static_cast<std::size_t>(-decimalExponent), '0') + digits;
+            if (decimalExponent >= static_cast<int>(digits.size()))
+                return digits + std::string(static_cast<std::size_t>(decimalExponent - static_cast<int>(digits.size())), '0');
+            return digits.substr(0, static_cast<std::size_t>(decimalExponent)) + "." + digits.substr(static_cast<std::size_t>(decimalExponent));
+        }
+
+        std::string JcsScientificNumber(const std::string& digits, int scientificExponent) {
+            std::string result(1, digits.front());
+            if (digits.size() > 1)
+                result += "." + digits.substr(1);
+            result += scientificExponent >= 0 ? "e+" : "e-";
+            return result + std::to_string(std::abs(scientificExponent));
+        }
+
         std::string JcsNumber(double value) {
             REQUIRE(std::isfinite(value), "QUOTE_RISK_NON_FINITE_FINGERPRINT_INPUT");
             if (value == 0.0)
@@ -171,96 +258,82 @@ namespace Dal {
             char buffer[64];
             const auto converted = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general);
             REQUIRE(converted.ec == std::errc(), "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
-            std::string shortest(buffer, converted.ptr);
-
-            std::string sign;
-            if (!shortest.empty() && shortest.front() == '-') {
-                sign = "-";
-                shortest.erase(shortest.begin());
-            }
-
-            int exponent = 0;
-            const auto exponentAt = shortest.find_first_of("eE");
-            if (exponentAt != std::string::npos) {
-                std::string exponentText = shortest.substr(exponentAt + 1);
-                int exponentSign = 1;
-                if (!exponentText.empty() && (exponentText.front() == '+' || exponentText.front() == '-')) {
-                    exponentSign = exponentText.front() == '-' ? -1 : 1;
-                    exponentText.erase(exponentText.begin());
-                }
-                const auto parsed = std::from_chars(exponentText.data(), exponentText.data() + exponentText.size(), exponent);
-                REQUIRE(!exponentText.empty() && parsed.ec == std::errc() && parsed.ptr == exponentText.data() + exponentText.size(),
-                        "QUOTE_RISK_JCS_NUMBER_FORMAT_FAILED");
-                exponent *= exponentSign;
-                shortest.erase(exponentAt);
-            }
-
-            const auto decimalAt = shortest.find('.');
-            const int integerDigits = decimalAt == std::string::npos ? static_cast<int>(shortest.size()) : static_cast<int>(decimalAt);
-            if (decimalAt != std::string::npos)
-                shortest.erase(decimalAt, 1);
-            const int decimalExponent = integerDigits + exponent;
+            std::string digits(buffer, converted.ptr);
+            const std::string sign = ExtractJcsNumberSign(&digits);
+            const int exponent = ExtractJcsExponent(&digits);
+            const int decimalExponent = RemoveJcsDecimalPoint(&digits) + exponent;
             const int scientificExponent = decimalExponent - 1;
+            const bool plain = scientificExponent >= -6 && scientificExponent < 21;
+            return sign + (plain ? JcsPlainNumber(digits, decimalExponent) : JcsScientificNumber(digits, scientificExponent));
+        }
 
-            std::string body;
-            if (scientificExponent >= -6 && scientificExponent < 21) {
-                if (decimalExponent <= 0)
-                    body = "0." + std::string(static_cast<std::size_t>(-decimalExponent), '0') + shortest;
-                else if (decimalExponent >= static_cast<int>(shortest.size()))
-                    body = shortest + std::string(static_cast<std::size_t>(decimalExponent - static_cast<int>(shortest.size())), '0');
-                else
-                    body = shortest.substr(0, static_cast<std::size_t>(decimalExponent)) + "." +
-                           shortest.substr(static_cast<std::size_t>(decimalExponent));
-            } else {
-                body.push_back(shortest.front());
-                if (shortest.size() > 1)
-                    body += "." + shortest.substr(1);
-                body += scientificExponent >= 0 ? "e+" : "e-";
-                body += std::to_string(std::abs(scientificExponent));
+        const char* JcsShortEscape(unsigned char byte) {
+            static const std::array<std::pair<unsigned char, const char*>, 7> ESCAPES = {
+                std::pair<unsigned char, const char*>{'"', "\\\""},
+                {'\\', "\\\\"},
+                {'\b', "\\b"},
+                {'\t', "\\t"},
+                {'\n', "\\n"},
+                {'\f', "\\f"},
+                {'\r', "\\r"},
+            };
+            for (const auto& escape : ESCAPES)
+                if (escape.first == byte)
+                    return escape.second;
+            return nullptr;
+        }
+
+        void AppendJcsByte(char raw, std::string* output) {
+            static constexpr char HEX[] = "0123456789abcdef";
+            const auto byte = static_cast<unsigned char>(raw);
+            if (const char* escape = JcsShortEscape(byte)) {
+                *output += escape;
+                return;
             }
-            return sign + body;
+            if (byte >= 0x20) {
+                output->push_back(raw);
+                return;
+            }
+            *output += "\\u00";
+            output->push_back(HEX[(byte >> 4U) & 0x0FU]);
+            output->push_back(HEX[byte & 0x0FU]);
         }
 
         void AppendJcsString(const std::string& value, std::string* output) {
             REQUIRE(ValidUtf8(value), "QUOTE_RISK_JCS_INVALID_UTF8");
-            static constexpr char HEX[] = "0123456789abcdef";
             output->push_back('"');
-            for (const char raw : value) {
-                const auto byte = static_cast<unsigned char>(raw);
-                switch (byte) {
-                case '"':
-                    *output += "\\\"";
-                    break;
-                case '\\':
-                    *output += "\\\\";
-                    break;
-                case '\b':
-                    *output += "\\b";
-                    break;
-                case '\t':
-                    *output += "\\t";
-                    break;
-                case '\n':
-                    *output += "\\n";
-                    break;
-                case '\f':
-                    *output += "\\f";
-                    break;
-                case '\r':
-                    *output += "\\r";
-                    break;
-                default:
-                    if (byte < 0x20) {
-                        *output += "\\u00";
-                        output->push_back(HEX[(byte >> 4U) & 0x0FU]);
-                        output->push_back(HEX[byte & 0x0FU]);
-                    } else {
-                        output->push_back(raw);
-                    }
-                    break;
-                }
+            for (const char raw : value)
+                AppendJcsByte(raw, output);
+            output->push_back('"');
+        }
+
+        void AppendJcs(const Json_& value, std::string* output);
+
+        void AppendJcsArray(const Json_& value, std::string* output) {
+            output->push_back('[');
+            for (std::size_t i = 0; i < value.array_.size(); ++i) {
+                if (i)
+                    output->push_back(',');
+                AppendJcs(value.array_[i], output);
             }
-            output->push_back('"');
+            output->push_back(']');
+        }
+
+        void AppendJcsObject(const Json_& value, std::string* output) {
+            output->push_back('{');
+            std::vector<const std::pair<const std::string, Json_>*> members;
+            members.reserve(value.object_.size());
+            for (const auto& member : value.object_)
+                members.push_back(&member);
+            std::sort(members.begin(), members.end(), [](const auto* lhs, const auto* rhs) { return JcsKeyLess(lhs->first, rhs->first); });
+            for (std::size_t i = 0; i < members.size(); ++i) {
+                if (i)
+                    output->push_back(',');
+                AppendJcsString(members[i]->first, output);
+                output->push_back(':');
+                AppendJcs(members[i]->second, output);
+            }
+            output->push_back('}');
         }
 
         void AppendJcs(const Json_& value, std::string* output) {
@@ -278,31 +351,10 @@ namespace Dal {
                 AppendJcsString(value.string_, output);
                 break;
             case Json_::Kind_::ARRAY:
-                output->push_back('[');
-                for (std::size_t i = 0; i < value.array_.size(); ++i) {
-                    if (i)
-                        output->push_back(',');
-                    AppendJcs(value.array_[i], output);
-                }
-                output->push_back(']');
+                AppendJcsArray(value, output);
                 break;
             case Json_::Kind_::OBJECT:
-                output->push_back('{');
-                {
-                    std::vector<const std::pair<const std::string, Json_>*> members;
-                    members.reserve(value.object_.size());
-                    for (const auto& member : value.object_)
-                        members.push_back(&member);
-                    std::sort(members.begin(), members.end(), [](const auto* lhs, const auto* rhs) { return JcsKeyLess(lhs->first, rhs->first); });
-                    for (std::size_t i = 0; i < members.size(); ++i) {
-                        if (i)
-                            output->push_back(',');
-                        AppendJcsString(members[i]->first, output);
-                        output->push_back(':');
-                        AppendJcs(members[i]->second, output);
-                    }
-                }
-                output->push_back('}');
+                AppendJcsObject(value, output);
                 break;
             }
         }
@@ -430,35 +482,69 @@ namespace Dal {
             return result;
         }
 
+        std::string ArchiveTag(const rapidjson::Value& value) {
+            const auto tag = value.FindMember("$tag");
+            if (tag == value.MemberEnd())
+                return std::string();
+            if (!tag->value.IsString())
+                return std::string();
+            return std::string(tag->value.GetString(), tag->value.GetString() + tag->value.GetStringLength());
+        }
+
+        bool RecordArchiveTag(const std::string& ownTag,
+                              const std::string& parentTag,
+                              bool definition,
+                              std::map<std::string, std::set<std::string>>* edges,
+                              std::set<std::string>* definitions) {
+            if (ownTag.empty())
+                return false;
+            if (!parentTag.empty())
+                (*edges)[parentTag].insert(ownTag);
+            if (!definition)
+                return true;
+            definitions->insert(ownTag);
+            return false;
+        }
+
+        void CollectArchiveGraph(const rapidjson::Value& value,
+                                 const std::string& parentTag,
+                                 std::map<std::string, std::set<std::string>>* edges,
+                                 std::set<std::string>* definitions);
+
+        void CollectArchiveArray(const rapidjson::Value& value,
+                                 const std::string& parentTag,
+                                 std::map<std::string, std::set<std::string>>* edges,
+                                 std::set<std::string>* definitions) {
+            for (const auto& child : value.GetArray())
+                CollectArchiveGraph(child, parentTag, edges, definitions);
+        }
+
+        void CollectArchiveObject(const rapidjson::Value& value,
+                                  const std::string& parentTag,
+                                  std::map<std::string, std::set<std::string>>* edges,
+                                  std::set<std::string>* definitions) {
+            const std::string ownTag = ArchiveTag(value);
+            const bool definition = !ownTag.empty() && value.MemberCount() > 1;
+            if (RecordArchiveTag(ownTag, parentTag, definition, edges, definitions))
+                return;
+
+            const std::string current = definition ? ownTag : parentTag;
+            for (auto member = value.MemberBegin(); member != value.MemberEnd(); ++member) {
+                if (std::strcmp(member->name.GetString(), "$tag") != 0)
+                    CollectArchiveGraph(member->value, current, edges, definitions);
+            }
+        }
+
         void CollectArchiveGraph(const rapidjson::Value& value,
                                  const std::string& parentTag,
                                  std::map<std::string, std::set<std::string>>* edges,
                                  std::set<std::string>* definitions) {
             if (value.IsArray()) {
-                for (const auto& child : value.GetArray())
-                    CollectArchiveGraph(child, parentTag, edges, definitions);
+                CollectArchiveArray(value, parentTag, edges, definitions);
                 return;
             }
-            if (!value.IsObject())
-                return;
-
-            std::string ownTag;
-            const auto tag = value.FindMember("$tag");
-            if (tag != value.MemberEnd() && tag->value.IsString())
-                ownTag.assign(tag->value.GetString(), tag->value.GetString() + tag->value.GetStringLength());
-            const bool definition = !ownTag.empty() && value.MemberCount() > 1;
-            if (!parentTag.empty() && !ownTag.empty())
-                (*edges)[parentTag].insert(ownTag);
-            if (!ownTag.empty() && !definition)
-                return;
-
-            const std::string current = definition ? ownTag : parentTag;
-            if (definition)
-                definitions->insert(ownTag);
-            for (auto member = value.MemberBegin(); member != value.MemberEnd(); ++member) {
-                if (std::strcmp(member->name.GetString(), "$tag") != 0)
-                    CollectArchiveGraph(member->value, current, edges, definitions);
-            }
+            if (value.IsObject())
+                CollectArchiveObject(value, parentTag, edges, definitions);
         }
 
         bool HasArchiveCycle(const std::string& tag,
@@ -1091,43 +1177,62 @@ namespace Dal {
                 REQUIRE(Jcs(StorableJson(*actual)) == Jcs(StorableJson(*expected)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
         }
 
+        template <class Curve_> void ValidateExpectedBase(const Curve_& curve, const Handle_<DiscountCurve_>* expectedBase) {
+            if (expectedBase)
+                ValidateBase(curve.Base(), *expectedBase);
+        }
+
+        void ValidateSolvedPwc(const DiscountCurve_& curve, const CurveDefinition_& definition, const Handle_<DiscountCurve_>* expectedBase) {
+            const auto* typed = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve);
+            REQUIRE(typed, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->KnotDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateExpectedBase(*typed, expectedBase);
+        }
+
+        void ValidateSolvedPwlf(const DiscountCurve_& curve, const CurveDefinition_& definition, const Handle_<DiscountCurve_>* expectedBase) {
+            const auto* typed = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve);
+            REQUIRE(typed, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->KnotDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateExpectedBase(*typed, expectedBase);
+        }
+
+        void ValidateSolvedLogDf(const DiscountCurve_& curve, const CurveDefinition_& definition, const Handle_<DiscountCurve_>* expectedBase) {
+            const auto* typed = dynamic_cast<const Tape::DiscountLogDF_<double>*>(&curve);
+            REQUIRE(typed, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->NodeDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->Scheme() == definition.logDfScheme_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->DayCount() == definition.dayCount_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateExpectedBase(*typed, expectedBase);
+        }
+
+        void ValidateSolvedZeroRate(const DiscountCurve_& curve, const CurveDefinition_& definition, const Handle_<DiscountCurve_>* expectedBase) {
+            const auto* typed = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve);
+            REQUIRE(typed, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->AnchorDate() == definition.anchorDate_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->NodeDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->Scheme() == definition.logDfScheme_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(typed->DayCount() == definition.dayCount_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateExpectedBase(*typed, expectedBase);
+        }
+
         void ValidateSolvedCurveDefinition(const DiscountCurve_& curve,
                                            const CurveDefinition_& definition,
                                            const Handle_<DiscountCurve_>* expectedBase = nullptr) {
-            REQUIRE(curve.Name() == definition.name_ && curve.ccy_.String() == definition.ccy_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(curve.Name() == definition.name_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(curve.ccy_.String() == definition.ccy_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
             switch (definition.parameterization_.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD: {
-                const auto* typed = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve);
-                REQUIRE(typed && typed->KnotDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                if (expectedBase)
-                    ValidateBase(typed->Base(), *expectedBase);
+            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
+                ValidateSolvedPwc(curve, definition, expectedBase);
                 return;
-            }
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
-                const auto* typed = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve);
-                REQUIRE(typed && typed->KnotDates() == definition.nodeDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                if (expectedBase)
-                    ValidateBase(typed->Base(), *expectedBase);
+            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
+                ValidateSolvedPwlf(curve, definition, expectedBase);
                 return;
-            }
-            case CurveParameterization_::Value_::LOG_DISCOUNT: {
-                const auto* typed = dynamic_cast<const Tape::DiscountLogDF_<double>*>(&curve);
-                REQUIRE(typed && typed->NodeDates() == definition.nodeDates_ && typed->Scheme() == definition.logDfScheme_ &&
-                            typed->DayCount() == definition.dayCount_,
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                if (expectedBase)
-                    ValidateBase(typed->Base(), *expectedBase);
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
+                ValidateSolvedLogDf(curve, definition, expectedBase);
                 return;
-            }
-            case CurveParameterization_::Value_::ZERO_RATE: {
-                const auto* typed = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve);
-                REQUIRE(typed && typed->AnchorDate() == definition.anchorDate_ && typed->NodeDates() == definition.nodeDates_ &&
-                            typed->Scheme() == definition.logDfScheme_ && typed->DayCount() == definition.dayCount_,
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                if (expectedBase)
-                    ValidateBase(typed->Base(), *expectedBase);
+            case CurveParameterization_::Value_::ZERO_RATE:
+                ValidateSolvedZeroRate(curve, definition, expectedBase);
                 return;
-            }
             default:
                 REQUIRE(false, "QUOTE_RISK_UNSUPPORTED_CURVE_PARAMETERIZATION");
             }
@@ -1172,6 +1277,45 @@ namespace Dal {
             return JointBasisDefinition(spec);
         }
 
+        void ValidateJointAxisCurveRanges(const String_& block,
+                                          const JointCurveDeclaration_& declaration,
+                                          const Vector_<CurveFreeParameter_>& parameters,
+                                          const CalibrationBlockRange_& parameterRange,
+                                          const CalibrationBlockRange_& residualRange) {
+            REQUIRE(parameterRange.name_ == block, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(residualRange.name_ == block, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(parameterRange.size_ == static_cast<int>(parameters.size()), "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(residualRange.size_ == static_cast<int>(declaration.instruments_.size()), "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+        }
+
+        void ValidateJointAxisCurveDiagnostics(const JointCurveDeclaration_& declaration, const JointCurveCalibrationDiagnostics_& diagnostics) {
+            REQUIRE(diagnostics.curveName_ == declaration.curveName_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(diagnostics.instrumentNames_.size() == declaration.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(diagnostics.marketRates_.size() == declaration.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(diagnostics.modelRates_.size() == declaration.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(diagnostics.residuals_.size() == declaration.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateOrderedInstrumentPairing(const Vector_<Handle_<YCInstrument_>>& instruments,
+                                              const Vector_<String_>& instrumentNames,
+                                              const Vector_<>& marketRates) {
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
+                REQUIRE(instruments[i], "QUOTE_RISK_EMPTY_CALIBRATION_INSTRUMENT");
+                REQUIRE(instrumentNames[i] == instruments[i]->Name(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(marketRates[i] == instruments[i]->MarketRate(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            }
+        }
+
+        void AppendAxisParameters(const String_& block, int offset, const Vector_<CurveFreeParameter_>& parameters, RateQuoteRiskAxis_* axis) {
+            for (int i = 0; i < static_cast<int>(parameters.size()); ++i)
+                axis->parameters_.push_back({block, i, offset + i, parameters[i].date_, parameters[i].component_});
+        }
+
+        void AppendAxisQuotes(const String_& block, int offset, const Vector_<String_>& instrumentNames, RateQuoteRiskAxis_* axis) {
+            for (int i = 0; i < static_cast<int>(instrumentNames.size()); ++i)
+                axis->quotes_.push_back({block, i, offset + i, instrumentNames[i], "DECIMAL_QUOTE"});
+        }
+
         void AppendJointAxisCurve(const String_& group,
                                   const JointCurrencyCurveSpec_& currency,
                                   const JointCurveDeclaration_& declaration,
@@ -1181,95 +1325,114 @@ namespace Dal {
                                   const Date_& anchor,
                                   RateQuoteRiskAxis_* axis) {
             const String_ block = group + ":" + declaration.curveName_;
-            REQUIRE(parameterRange.name_ == block && residualRange.name_ == block, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
             const auto parameters = DescribeCurveFreeParameters(JointDefinition(declaration, currency, anchor));
-            REQUIRE(parameterRange.size_ == static_cast<int>(parameters.size()) &&
-                        residualRange.size_ == static_cast<int>(declaration.instruments_.size()),
-                    "QUOTE_RISK_RANGE_SPEC_MISMATCH");
-            REQUIRE(diagnostics.curveName_ == declaration.curveName_ && diagnostics.instrumentNames_.size() == declaration.instruments_.size() &&
-                        diagnostics.marketRates_.size() == declaration.instruments_.size() &&
-                        diagnostics.modelRates_.size() == declaration.instruments_.size() &&
-                        diagnostics.residuals_.size() == declaration.instruments_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateJointAxisCurveRanges(block, declaration, parameters, parameterRange, residualRange);
+            ValidateJointAxisCurveDiagnostics(declaration, diagnostics);
             const auto instruments = OrderInstruments(declaration.instruments_);
-            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
-                REQUIRE(instruments[i] && diagnostics.instrumentNames_[i] == instruments[i]->Name() &&
-                            diagnostics.marketRates_[i] == instruments[i]->MarketRate(),
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            }
+            ValidateOrderedInstrumentPairing(instruments, diagnostics.instrumentNames_, diagnostics.marketRates_);
             axis->parameterRanges_.push_back({block, parameterRange.offset_, parameterRange.size_});
             axis->residualRanges_.push_back({block, residualRange.offset_, residualRange.size_});
-            for (int i = 0; i < static_cast<int>(parameters.size()); ++i)
-                axis->parameters_.push_back({block, i, parameterRange.offset_ + i, parameters[i].date_, parameters[i].component_});
-            for (int i = 0; i < static_cast<int>(diagnostics.instrumentNames_.size()); ++i)
-                axis->quotes_.push_back({block, i, residualRange.offset_ + i, diagnostics.instrumentNames_[i], "DECIMAL_QUOTE"});
+            AppendAxisParameters(block, parameterRange.offset_, parameters, axis);
+            AppendAxisQuotes(block, residualRange.offset_, diagnostics.instrumentNames_, axis);
+        }
+
+        void ValidateJointAxisShape(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result, int residualCount) {
+            const std::size_t currencyRangeCount = spec.domestic_.curves_.size() + spec.foreign_.curves_.size();
+            REQUIRE(result.parameterRanges_.size() == currencyRangeCount + 1, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(result.residualRanges_.size() == currencyRangeCount + 1, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(result.domesticDiagnostics_.size() == spec.domestic_.curves_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.foreignDiagnostics_.size() == spec.foreign_.curves_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.marketRates_.size()) == residualCount, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.modelRates_.size()) == residualCount, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.residuals_.size()) == residualCount, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateJointRates(const JointXccyCalibrationResult_& result,
+                                const JointCurveCalibrationDiagnostics_& diagnostics,
+                                const CalibrationBlockRange_& range) {
+            for (int i = 0; i < range.size_; ++i) {
+                REQUIRE(result.marketRates_[range.offset_ + i] == diagnostics.marketRates_[i], "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(result.modelRates_[range.offset_ + i] == diagnostics.modelRates_[i], "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(result.residuals_[range.offset_ + i] == diagnostics.residuals_[i], "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            }
+        }
+
+        int AppendJointCurrencyAxis(const String_& group,
+                                    const JointCurrencyCurveSpec_& currency,
+                                    const Vector_<JointCurveCalibrationDiagnostics_>& diagnostics,
+                                    const JointXccyCalibrationResult_& result,
+                                    int range,
+                                    const Date_& anchor,
+                                    RateQuoteRiskAxis_* axis) {
+            for (int i = 0; i < static_cast<int>(currency.curves_.size()); ++i, ++range) {
+                AppendJointAxisCurve(group, currency, currency.curves_[i], diagnostics[i], result.parameterRanges_[range],
+                                     result.residualRanges_[range], anchor, axis);
+                ValidateJointRates(result, diagnostics[i], result.residualRanges_[range]);
+            }
+            return range;
+        }
+
+        void ValidateJointBasisShape(const JointXccyCalibrationSpec_& spec,
+                                     const JointXccyCalibrationResult_& result,
+                                     const Vector_<CurveFreeParameter_>& parameters,
+                                     const String_& parameterBlock,
+                                     const String_& residualBlock,
+                                     const CalibrationBlockRange_& parameterRange,
+                                     const CalibrationBlockRange_& residualRange) {
+            REQUIRE(parameterRange.name_ == parameterBlock, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(residualRange.name_ == residualBlock, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(parameterRange.size_ == static_cast<int>(parameters.size()), "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(residualRange.size_ == static_cast<int>(spec.basis_.instruments_.size()), "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.instrumentNames_.size() == spec.basis_.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.marketRates_.size() == spec.basis_.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.modelRates_.size() == spec.basis_.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.residuals_.size() == spec.basis_.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateJointBasisInstrument(const JointXccyCalibrationSpec_& spec,
+                                          const JointXccyCalibrationResult_& result,
+                                          const CalibrationBlockRange_& residualRange,
+                                          int index) {
+            REQUIRE(spec.basis_.instruments_[index], "QUOTE_RISK_EMPTY_XCCY_CALIBRATION_INSTRUMENT");
+            REQUIRE(result.xccyDiagnostics_.instrumentNames_[index] == spec.basis_.instruments_[index]->Name(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.marketRates_[index] == spec.basis_.instruments_[index]->MarketRate(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.marketRates_[residualRange.offset_ + index] == result.xccyDiagnostics_.marketRates_[index],
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.modelRates_[residualRange.offset_ + index] == result.xccyDiagnostics_.modelRates_[index],
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.residuals_[residualRange.offset_ + index] == result.xccyDiagnostics_.residuals_[index], "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void
+        AppendJointBasisAxis(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result, int range, RateQuoteRiskAxis_* axis) {
+            const auto parameters = DescribeCurveFreeParameters(JointBasisDefinition(spec));
+            const String_ parameterBlock = String_("basis:") + spec.basis_.curveName_;
+            const String_ residualBlock = String_("xccy:") + spec.basis_.curveName_;
+            const auto& parameterRange = result.parameterRanges_[range];
+            const auto& residualRange = result.residualRanges_[range];
+            ValidateJointBasisShape(spec, result, parameters, parameterBlock, residualBlock, parameterRange, residualRange);
+            axis->parameterRanges_.push_back({parameterBlock, parameterRange.offset_, parameterRange.size_});
+            axis->residualRanges_.push_back({residualBlock, residualRange.offset_, residualRange.size_});
+            AppendAxisParameters(parameterBlock, parameterRange.offset_, parameters, axis);
+            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i)
+                ValidateJointBasisInstrument(spec, result, residualRange, i);
+            AppendAxisQuotes(residualBlock, residualRange.offset_, result.xccyDiagnostics_.instrumentNames_, axis);
         }
 
         RateQuoteRiskAxis_ JointAxis(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
             const int parameterCount = ValidateRangePartition(result.parameterRanges_, "QUOTE_RISK_PARAMETER");
             const int residualCount = ValidateRangePartition(result.residualRanges_, "QUOTE_RISK_RESIDUAL");
-            const std::size_t currencyRangeCount = spec.domestic_.curves_.size() + spec.foreign_.curves_.size();
-            REQUIRE(result.parameterRanges_.size() == currencyRangeCount + 1 && result.residualRanges_.size() == currencyRangeCount + 1,
-                    "QUOTE_RISK_RANGE_SPEC_MISMATCH");
-            REQUIRE(result.domesticDiagnostics_.size() == spec.domestic_.curves_.size() &&
-                        result.foreignDiagnostics_.size() == spec.foreign_.curves_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            REQUIRE(static_cast<int>(result.marketRates_.size()) == residualCount && static_cast<int>(result.modelRates_.size()) == residualCount &&
-                        static_cast<int>(result.residuals_.size()) == residualCount,
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            auto validateRates = [&](const JointCurveCalibrationDiagnostics_& diagnostics, const CalibrationBlockRange_& range) {
-                for (int i = 0; i < range.size_; ++i)
-                    REQUIRE(result.marketRates_[range.offset_ + i] == diagnostics.marketRates_[i] &&
-                                result.modelRates_[range.offset_ + i] == diagnostics.modelRates_[i] &&
-                                result.residuals_[range.offset_ + i] == diagnostics.residuals_[i],
-                            "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            };
+            ValidateJointAxisShape(spec, result, residualCount);
 
             RateQuoteRiskAxis_ axis;
             axis.scheme_ = RateQuoteRiskAxisFingerprintScheme();
             int range = 0;
-            for (int i = 0; i < static_cast<int>(spec.domestic_.curves_.size()); ++i, ++range) {
-                AppendJointAxisCurve("domestic", spec.domestic_, spec.domestic_.curves_[i], result.domesticDiagnostics_[i],
-                                     result.parameterRanges_[range], result.residualRanges_[range], spec.valuationTime_.Date(), &axis);
-                validateRates(result.domesticDiagnostics_[i], result.residualRanges_[range]);
-            }
-            for (int i = 0; i < static_cast<int>(spec.foreign_.curves_.size()); ++i, ++range) {
-                AppendJointAxisCurve("foreign", spec.foreign_, spec.foreign_.curves_[i], result.foreignDiagnostics_[i],
-                                     result.parameterRanges_[range], result.residualRanges_[range], spec.valuationTime_.Date(), &axis);
-                validateRates(result.foreignDiagnostics_[i], result.residualRanges_[range]);
-            }
-
-            const auto basisParameters = DescribeCurveFreeParameters(JointBasisDefinition(spec));
-            const String_ basisParameterBlock = String_("basis:") + spec.basis_.curveName_;
-            const String_ basisResidualBlock = String_("xccy:") + spec.basis_.curveName_;
-            const auto& parameterRange = result.parameterRanges_[range];
-            const auto& residualRange = result.residualRanges_[range];
-            REQUIRE(parameterRange.name_ == basisParameterBlock && residualRange.name_ == basisResidualBlock &&
-                        parameterRange.size_ == static_cast<int>(basisParameters.size()) &&
-                        residualRange.size_ == static_cast<int>(spec.basis_.instruments_.size()),
-                    "QUOTE_RISK_RANGE_SPEC_MISMATCH");
-            REQUIRE(result.xccyDiagnostics_.instrumentNames_.size() == spec.basis_.instruments_.size() &&
-                        result.xccyDiagnostics_.marketRates_.size() == spec.basis_.instruments_.size() &&
-                        result.xccyDiagnostics_.modelRates_.size() == spec.basis_.instruments_.size() &&
-                        result.xccyDiagnostics_.residuals_.size() == spec.basis_.instruments_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            axis.parameterRanges_.push_back({basisParameterBlock, parameterRange.offset_, parameterRange.size_});
-            axis.residualRanges_.push_back({basisResidualBlock, residualRange.offset_, residualRange.size_});
-            for (int i = 0; i < static_cast<int>(basisParameters.size()); ++i)
-                axis.parameters_.push_back(
-                    {basisParameterBlock, i, parameterRange.offset_ + i, basisParameters[i].date_, basisParameters[i].component_});
-            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i) {
-                REQUIRE(spec.basis_.instruments_[i] && result.xccyDiagnostics_.instrumentNames_[i] == spec.basis_.instruments_[i]->Name() &&
-                            result.xccyDiagnostics_.marketRates_[i] == spec.basis_.instruments_[i]->MarketRate() &&
-                            result.marketRates_[residualRange.offset_ + i] == result.xccyDiagnostics_.marketRates_[i] &&
-                            result.modelRates_[residualRange.offset_ + i] == result.xccyDiagnostics_.modelRates_[i] &&
-                            result.residuals_[residualRange.offset_ + i] == result.xccyDiagnostics_.residuals_[i],
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                axis.quotes_.push_back(
-                    {basisResidualBlock, i, residualRange.offset_ + i, result.xccyDiagnostics_.instrumentNames_[i], "DECIMAL_QUOTE"});
-            }
-            REQUIRE(static_cast<int>(axis.parameters_.size()) == parameterCount && static_cast<int>(axis.quotes_.size()) == residualCount,
-                    "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            range =
+                AppendJointCurrencyAxis("domestic", spec.domestic_, result.domesticDiagnostics_, result, range, spec.valuationTime_.Date(), &axis);
+            range = AppendJointCurrencyAxis("foreign", spec.foreign_, result.foreignDiagnostics_, result, range, spec.valuationTime_.Date(), &axis);
+            AppendJointBasisAxis(spec, result, range, &axis);
+            REQUIRE(static_cast<int>(axis.parameters_.size()) == parameterCount, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
+            REQUIRE(static_cast<int>(axis.quotes_.size()) == residualCount, "QUOTE_RISK_RANGE_SPEC_MISMATCH");
             axis.fingerprint_ = Fingerprint(AxisJson("JOINT_XCCY", axis));
             return axis;
         }
@@ -1281,32 +1444,66 @@ namespace Dal {
                                        LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.knotDates_, anchor, DayBasis::Act365F());
         }
 
+        void ValidateStagedAxisDiagnostics(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
+            REQUIRE(result.diagnostics_.parameterKnotDates_ == spec.knotDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.diagnostics_.instrumentNames_.size() == spec.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.diagnostics_.marketRates_.size() == spec.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.diagnostics_.modelRates_.size() == spec.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.diagnostics_.residuals_.size() == spec.instruments_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateStagedAxisInstruments(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
+                REQUIRE(spec.instruments_[i], "QUOTE_RISK_EMPTY_XCCY_CALIBRATION_INSTRUMENT");
+                REQUIRE(result.diagnostics_.instrumentNames_[i] == spec.instruments_[i]->Name(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(result.diagnostics_.marketRates_[i] == spec.instruments_[i]->MarketRate(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            }
+        }
+
         RateQuoteRiskAxis_ StagedAxis(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
             const auto parameters = DescribeCurveFreeParameters(StagedBasisDefinition(spec));
-            const int instruments = static_cast<int>(spec.instruments_.size());
-            REQUIRE(result.diagnostics_.parameterKnotDates_ == spec.knotDates_ &&
-                        result.diagnostics_.instrumentNames_.size() == spec.instruments_.size() &&
-                        result.diagnostics_.marketRates_.size() == spec.instruments_.size() &&
-                        result.diagnostics_.modelRates_.size() == spec.instruments_.size() &&
-                        result.diagnostics_.residuals_.size() == spec.instruments_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateStagedAxisDiagnostics(spec, result);
+            ValidateStagedAxisInstruments(spec, result);
             const String_ curveName = String_("xccy_basis_") + spec.basisPair_.domestic_.String();
             const String_ parameterBlock = String_("basis:") + curveName;
             const String_ residualBlock = String_("xccy:") + curveName;
             RateQuoteRiskAxis_ axis;
             axis.scheme_ = RateQuoteRiskAxisFingerprintScheme();
             axis.parameterRanges_.push_back({parameterBlock, 0, static_cast<int>(parameters.size())});
-            axis.residualRanges_.push_back({residualBlock, 0, instruments});
-            for (int i = 0; i < static_cast<int>(parameters.size()); ++i)
-                axis.parameters_.push_back({parameterBlock, i, i, parameters[i].date_, parameters[i].component_});
-            for (int i = 0; i < instruments; ++i) {
-                REQUIRE(spec.instruments_[i] && result.diagnostics_.instrumentNames_[i] == spec.instruments_[i]->Name() &&
-                            result.diagnostics_.marketRates_[i] == spec.instruments_[i]->MarketRate(),
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-                axis.quotes_.push_back({residualBlock, i, i, result.diagnostics_.instrumentNames_[i], "DECIMAL_QUOTE"});
-            }
+            axis.residualRanges_.push_back({residualBlock, 0, static_cast<int>(spec.instruments_.size())});
+            AppendAxisParameters(parameterBlock, 0, parameters, &axis);
+            AppendAxisQuotes(residualBlock, 0, result.diagnostics_.instrumentNames_, &axis);
             axis.fingerprint_ = Fingerprint(AxisJson("STAGED_XCCY_BASIS", axis));
             return axis;
+        }
+
+        void ValidateEffectiveInverse(const Matrix_<>& inverse, bool mustBeEmpty, int parameters, int residuals) {
+            if (mustBeEmpty) {
+                REQUIRE(inverse.Empty(), "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+                return;
+            }
+            if (inverse.Empty())
+                return;
+            REQUIRE(inverse.Rows() == parameters, "QUOTE_RISK_EFFECTIVE_INVERSE_SHAPE_INVALID");
+            REQUIRE(inverse.Cols() == residuals, "QUOTE_RISK_EFFECTIVE_INVERSE_SHAPE_INVALID");
+            ValidateFiniteMatrix(inverse, "QUOTE_RISK_EFFECTIVE_INVERSE");
+        }
+
+        void ValidateSingleDiagnosticsShape(const CurveCalibrationSpec_& spec, const CurveCalibrationResult_& result) {
+            const int instruments = static_cast<int>(spec.instruments_.size());
+            REQUIRE(result.diagnostics_.curveName_ == spec.curveName_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.diagnostics_.instrumentNames_.size()) == instruments, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.diagnostics_.marketRates_.size()) == instruments, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.diagnostics_.modelRates_.size()) == instruments, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.diagnostics_.residuals_.size()) == instruments, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateSingleInstruments(const CurveCalibrationSpec_& spec, const CurveCalibrationResult_& result) {
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
+                REQUIRE(spec.instruments_[i], "QUOTE_RISK_EMPTY_CALIBRATION_INSTRUMENT");
+                REQUIRE(result.diagnostics_.instrumentNames_[i] == spec.instruments_[i]->Name(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(result.diagnostics_.marketRates_[i] == spec.instruments_[i]->MarketRate(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            }
         }
 
         void ValidateSinglePairing(const CurveCalibrationSpec_& spec,
@@ -1317,29 +1514,12 @@ namespace Dal {
             const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.Parameterization(), spec.LogDfScheme(),
                                                                     spec.KnotDates(), spec.Today(), spec.liborBasis_);
             ValidateSolvedCurveDefinition(*result.curve_, definition, &spec.baseCurve_);
-            REQUIRE(result.diagnostics_.curveName_ == spec.curveName_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            const int instruments = static_cast<int>(spec.instruments_.size());
-            REQUIRE(static_cast<int>(result.diagnostics_.instrumentNames_.size()) == instruments &&
-                        static_cast<int>(result.diagnostics_.marketRates_.size()) == instruments &&
-                        static_cast<int>(result.diagnostics_.modelRates_.size()) == instruments &&
-                        static_cast<int>(result.diagnostics_.residuals_.size()) == instruments,
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            for (int i = 0; i < instruments; ++i) {
-                REQUIRE(spec.instruments_[i], "QUOTE_RISK_EMPTY_CALIBRATION_INSTRUMENT");
-                REQUIRE(result.diagnostics_.instrumentNames_[i] == spec.instruments_[i]->Name() &&
-                            result.diagnostics_.marketRates_[i] == spec.instruments_[i]->MarketRate(),
-                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            }
+            ValidateSingleDiagnosticsShape(spec, result);
+            ValidateSingleInstruments(spec, result);
             const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
             REQUIRE(result.diagnostics_.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            if (!options.computeEffJacobianInverse_ || approximate)
-                REQUIRE(result.diagnostics_.effJacobianInverse_.Empty(), "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
-            if (!result.diagnostics_.effJacobianInverse_.Empty()) {
-                REQUIRE(result.diagnostics_.effJacobianInverse_.Rows() == parameterCount &&
-                            result.diagnostics_.effJacobianInverse_.Cols() == instruments,
-                        "QUOTE_RISK_EFFECTIVE_INVERSE_SHAPE_INVALID");
-                ValidateFiniteMatrix(result.diagnostics_.effJacobianInverse_, "QUOTE_RISK_EFFECTIVE_INVERSE");
-            }
+            ValidateEffectiveInverse(result.diagnostics_.effJacobianInverse_, !options.computeEffJacobianInverse_ || approximate, parameterCount,
+                                     static_cast<int>(spec.instruments_.size()));
         }
 
         void ValidateConfig(const RateQuoteRiskProvenanceConfig_& config, const Vector_<RateQuoteRiskRange_>& parameterRanges) {
@@ -1372,64 +1552,100 @@ namespace Dal {
             return result;
         }
 
+        void ValidateJointResultShape(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result, int residuals) {
+            REQUIRE(std::isfinite(spec.tolerance_) && spec.tolerance_ > 0.0, "QUOTE_RISK_TOLERANCE_INVALID");
+            REQUIRE(result.domesticCurveBlock_, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
+            REQUIRE(result.foreignCurveBlock_, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
+            REQUIRE(result.basisCurve_, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
+            REQUIRE(result.converged_, "QUOTE_RISK_CALIBRATION_RESULT_NOT_CONVERGED");
+            REQUIRE(static_cast<int>(result.marketRates_.size()) == residuals, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.modelRates_.size()) == residuals, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(static_cast<int>(result.residuals_.size()) == residuals, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateFiniteVector(result.marketRates_, "QUOTE_RISK_MARKET_RATES");
+            ValidateFiniteVector(result.modelRates_, "QUOTE_RISK_MODEL_RATES");
+            ValidateFiniteVector(result.residuals_, "QUOTE_RISK_RESIDUALS");
+        }
+
+        void ValidateJointApproximateFlags(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
+            const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+            REQUIRE(result.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.xccyDiagnostics_.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            for (const auto& diagnostics : result.domesticDiagnostics_)
+                REQUIRE(diagnostics.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            for (const auto& diagnostics : result.foreignDiagnostics_)
+                REQUIRE(diagnostics.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateJointFxForwardCurve(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
+            REQUIRE(result.fxForwardCurve_.pair_ == spec.pair_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.fxForwardCurve_.dates_ == spec.basis_.knotDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.fxForwardCurve_.forwards_.size() == spec.basis_.knotDates_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateFiniteVector(result.fxForwardCurve_.forwards_, "QUOTE_RISK_FX_FORWARDS");
+            if (spec.fixings_)
+                REQUIRE(Jcs(FixingsJson(result.fixings_)) == Jcs(FixingsJson(spec.fixings_)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateXccyMarketHeader(const CrossCurrencyMarket_& xccy,
+                                      const DateTime_& valuationTime,
+                                      const CurrencyPair_& pair,
+                                      const Ccy_& collateralCurrency,
+                                      double fxSpot,
+                                      const char* error) {
+            REQUIRE(xccy.ValuationTime() == valuationTime, error);
+            REQUIRE(xccy.DomesticCcy() == pair.domestic_, error);
+            REQUIRE(xccy.ForeignCcy() == pair.foreign_, error);
+            REQUIRE(xccy.CollateralCurrency() == collateralCurrency, error);
+            REQUIRE(xccy.FxSpot() == fxSpot, error);
+            REQUIRE(xccy.BasisCurve(), error);
+        }
+
+        void ValidateJointBoundMarket(const JointXccyCalibrationResult_& result, const CrossCurrencyMarket_& xccy) {
+            REQUIRE(Jcs(CurveBlockJson(xccy.DomesticBlock())) == Jcs(CurveBlockJson(*result.domesticCurveBlock_)),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(CurveBlockJson(xccy.ForeignBlock())) == Jcs(CurveBlockJson(*result.foreignCurveBlock_)),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(StorableJson(*xccy.BasisCurve())) == Jcs(StorableJson(*result.basisCurve_)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(FixingsJson(xccy.Fixings())) == Jcs(FixingsJson(result.fixings_)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+        }
+
+        void ValidateJointBoundComponents(const JointXccyCalibrationSpec_& spec,
+                                          const JointXccyCalibrationResult_& result,
+                                          const RateQuoteRiskAxis_& axis,
+                                          const RatePricingMarket_& market,
+                                          const RateQuoteRiskProvenanceConfig_& config) {
+            for (const auto& range : axis.parameterRanges_) {
+                const DiscountCurve_& solvedCurve = JointResultCurve(range.blockKey_, spec, result);
+                ValidateSolvedCurveDefinition(solvedCurve, JointResultDefinition(range.blockKey_, spec));
+                const String_& component = config.componentKeyByParameterBlock_.at(range.blockKey_);
+                const auto found = market.curveComponents_.find(component);
+                REQUIRE(found != market.curveComponents_.end(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
+                REQUIRE(found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
+                REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(solvedCurve)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            }
+        }
+
         void ValidateJointPairing(const JointXccyCalibrationSpec_& spec,
                                   const JointXccyCalibrationResult_& result,
                                   const JointXccyCalibrationOptions_& options,
                                   const RateQuoteRiskAxis_& axis,
                                   const RatePricingMarket_& market,
                                   const RateQuoteRiskProvenanceConfig_& config) {
-            REQUIRE(std::isfinite(spec.tolerance_) && spec.tolerance_ > 0.0, "QUOTE_RISK_TOLERANCE_INVALID");
-            REQUIRE(result.domesticCurveBlock_ && result.foreignCurveBlock_ && result.basisCurve_, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
-            REQUIRE(result.converged_, "QUOTE_RISK_CALIBRATION_RESULT_NOT_CONVERGED");
             const int parameters = static_cast<int>(axis.parameters_.size());
             const int residuals = static_cast<int>(axis.quotes_.size());
-            REQUIRE(static_cast<int>(result.marketRates_.size()) == residuals && static_cast<int>(result.modelRates_.size()) == residuals &&
-                        static_cast<int>(result.residuals_.size()) == residuals,
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            ValidateFiniteVector(result.marketRates_, "QUOTE_RISK_MARKET_RATES");
-            ValidateFiniteVector(result.modelRates_, "QUOTE_RISK_MODEL_RATES");
-            ValidateFiniteVector(result.residuals_, "QUOTE_RISK_RESIDUALS");
+            ValidateJointResultShape(spec, result, residuals);
+            ValidateJointApproximateFlags(spec, result);
             const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            REQUIRE(result.usedApproximateFit_ == approximate && result.xccyDiagnostics_.usedApproximateFit_ == approximate,
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            for (const auto& diagnostics : result.domesticDiagnostics_)
-                REQUIRE(diagnostics.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            for (const auto& diagnostics : result.foreignDiagnostics_)
-                REQUIRE(diagnostics.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            if (!options.computeEffJacobianInverse_ || approximate)
-                REQUIRE(result.effJacobianInverse_.Empty(), "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
-            if (!result.effJacobianInverse_.Empty()) {
-                REQUIRE(result.effJacobianInverse_.Rows() == parameters && result.effJacobianInverse_.Cols() == residuals,
-                        "QUOTE_RISK_EFFECTIVE_INVERSE_SHAPE_INVALID");
-                ValidateFiniteMatrix(result.effJacobianInverse_, "QUOTE_RISK_EFFECTIVE_INVERSE");
-            }
-            REQUIRE(result.fxForwardCurve_.pair_ == spec.pair_ && result.fxForwardCurve_.dates_ == spec.basis_.knotDates_ &&
-                        result.fxForwardCurve_.forwards_.size() == spec.basis_.knotDates_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            ValidateFiniteVector(result.fxForwardCurve_.forwards_, "QUOTE_RISK_FX_FORWARDS");
-            if (spec.fixings_)
-                REQUIRE(Jcs(FixingsJson(result.fixings_)) == Jcs(FixingsJson(spec.fixings_)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateEffectiveInverse(result.effJacobianInverse_, !options.computeEffJacobianInverse_ || approximate, parameters, residuals);
+            ValidateJointFxForwardCurve(spec, result);
 
             ValidateConfig(config, axis.parameterRanges_);
-            REQUIRE(market.valuationTime_ == spec.valuationTime_ && market.xccyMarket_, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
+            REQUIRE(market.valuationTime_ == spec.valuationTime_, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
+            REQUIRE(market.xccyMarket_, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
             const auto& xccy = *market.xccyMarket_;
-            REQUIRE(xccy.ValuationTime() == spec.valuationTime_ && xccy.DomesticCcy() == spec.pair_.domestic_ &&
-                        xccy.ForeignCcy() == spec.pair_.foreign_ && xccy.CollateralCurrency() == spec.collateralCurrency_ &&
-                        xccy.FxSpot() == spec.fxSpot_ && xccy.BasisCurve(),
-                    "QUOTE_RISK_SPEC_MARKET_MISMATCH");
-            REQUIRE(Jcs(CurveBlockJson(xccy.DomesticBlock())) == Jcs(CurveBlockJson(*result.domesticCurveBlock_)) &&
-                        Jcs(CurveBlockJson(xccy.ForeignBlock())) == Jcs(CurveBlockJson(*result.foreignCurveBlock_)) &&
-                        Jcs(StorableJson(*xccy.BasisCurve())) == Jcs(StorableJson(*result.basisCurve_)) &&
-                        Jcs(FixingsJson(xccy.Fixings())) == Jcs(FixingsJson(result.fixings_)),
-                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
-            for (const auto& range : axis.parameterRanges_) {
-                const DiscountCurve_& solvedCurve = JointResultCurve(range.blockKey_, spec, result);
-                ValidateSolvedCurveDefinition(solvedCurve, JointResultDefinition(range.blockKey_, spec));
-                const String_& component = config.componentKeyByParameterBlock_.at(range.blockKey_);
-                const auto found = market.curveComponents_.find(component);
-                REQUIRE(found != market.curveComponents_.end() && found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
-                REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(solvedCurve)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
-            }
+            ValidateXccyMarketHeader(xccy, spec.valuationTime_, spec.pair_, spec.collateralCurrency_, spec.fxSpot_,
+                                     "QUOTE_RISK_SPEC_MARKET_MISMATCH");
+            ValidateJointBoundMarket(result, xccy);
+            ValidateJointBoundComponents(spec, result, axis, market, config);
         }
 
         const DiscountCurve_& StagedBasisCurve(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
@@ -1439,6 +1655,86 @@ namespace Dal {
             return *found->second;
         }
 
+        String_ ExpectedStagedInverseAvailability(const CrossCurrencyCalibrationOptions_& options, bool approximate) {
+            if (!options.computeEffJacobianInverse_)
+                return "not_requested";
+            return approximate ? String_("not_available_for_mode") : String_("available");
+        }
+
+        void ValidateStagedInverseMetadata(const CrossCurrencyCalibrationDiagnostics_& diagnostics,
+                                           const CrossCurrencyCalibrationOptions_& options,
+                                           bool approximate) {
+            const String_ expected = ExpectedStagedInverseAvailability(options, approximate);
+            REQUIRE(diagnostics.effJacobianInverseAvailability_ == expected, "QUOTE_RISK_EFFECTIVE_INVERSE_AVAILABILITY_MISMATCH");
+            REQUIRE(diagnostics.effJacobianInverseScaling_ == "solver_scaled", "QUOTE_RISK_EFFECTIVE_INVERSE_SCALING_MISMATCH");
+            REQUIRE((expected == "available") == !diagnostics.effJacobianInverse_.Empty(), "QUOTE_RISK_EFFECTIVE_INVERSE_AVAILABILITY_MISMATCH");
+        }
+
+        void ValidateStagedDiagnostics(const CrossCurrencyCalibrationSpec_& spec,
+                                       const CrossCurrencyCalibrationResult_& result,
+                                       const CrossCurrencyCalibrationOptions_& options,
+                                       const RateQuoteRiskAxis_& axis) {
+            const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+            REQUIRE(result.diagnostics_.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.diagnostics_.residualTolerance_ == spec.tolerance_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateFiniteVector(result.diagnostics_.marketRates_, "QUOTE_RISK_MARKET_RATES");
+            ValidateFiniteVector(result.diagnostics_.modelRates_, "QUOTE_RISK_MODEL_RATES");
+            ValidateFiniteVector(result.diagnostics_.residuals_, "QUOTE_RISK_RESIDUALS");
+            ValidateStagedInverseMetadata(result.diagnostics_, options, approximate);
+            ValidateEffectiveInverse(result.diagnostics_.effJacobianInverse_, !options.computeEffJacobianInverse_ || approximate,
+                                     static_cast<int>(axis.parameters_.size()), static_cast<int>(axis.quotes_.size()));
+        }
+
+        void ValidateStagedFxForwardCurve(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
+            REQUIRE(result.fxForwardCurve_.pair_ == spec.basisPair_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.fxForwardCurve_.dates_ == spec.knotDates_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(result.fxForwardCurve_.forwards_.size() == spec.knotDates_.size(), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateFiniteVector(result.fxForwardCurve_.forwards_, "QUOTE_RISK_FX_FORWARDS");
+        }
+
+        void ValidateStagedResultMarket(const CrossCurrencyCalibrationSpec_& spec,
+                                        const CrossCurrencyCalibrationResult_& result,
+                                        const DiscountCurve_& basis,
+                                        const DateTime_& valuationTime,
+                                        const Ccy_& collateralCurrency) {
+            ValidateXccyMarketHeader(result.market_, valuationTime, spec.basisPair_, collateralCurrency, spec.fxSpot_,
+                                     "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(Jcs(CurveBlockJson(result.market_.DomesticBlock())) == Jcs(CurveBlockJson(*spec.domesticCurveBlock_)),
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(Jcs(CurveBlockJson(result.market_.ForeignBlock())) == Jcs(CurveBlockJson(*spec.foreignCurveBlock_)),
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            REQUIRE(Jcs(StorableJson(*result.market_.BasisCurve())) == Jcs(StorableJson(basis)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            if (spec.fixings_)
+                REQUIRE(Jcs(FixingsJson(result.market_.Fixings())) == Jcs(FixingsJson(spec.fixings_)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+        }
+
+        void ValidateStagedBoundMarket(const CrossCurrencyCalibrationSpec_& spec,
+                                       const CrossCurrencyCalibrationResult_& result,
+                                       const DiscountCurve_& basis,
+                                       const DateTime_& valuationTime,
+                                       const Ccy_& collateralCurrency,
+                                       const CrossCurrencyMarket_& xccy) {
+            ValidateXccyMarketHeader(xccy, valuationTime, spec.basisPair_, collateralCurrency, spec.fxSpot_,
+                                     "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(CurveBlockJson(xccy.DomesticBlock())) == Jcs(CurveBlockJson(*spec.domesticCurveBlock_)),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(CurveBlockJson(xccy.ForeignBlock())) == Jcs(CurveBlockJson(*spec.foreignCurveBlock_)),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(StorableJson(*xccy.BasisCurve())) == Jcs(StorableJson(basis)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(Jcs(FixingsJson(xccy.Fixings())) == Jcs(FixingsJson(result.market_.Fixings())), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+        }
+
+        void ValidateStagedBoundComponent(const RateQuoteRiskAxis_& axis,
+                                          const RatePricingMarket_& market,
+                                          const RateQuoteRiskProvenanceConfig_& config,
+                                          const DiscountCurve_& basis) {
+            const String_& component = config.componentKeyByParameterBlock_.at(axis.parameterRanges_.front().blockKey_);
+            const auto found = market.curveComponents_.find(component);
+            REQUIRE(found != market.curveComponents_.end(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
+            REQUIRE(found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
+            REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(basis)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+        }
+
         void ValidateStagedPairing(const CrossCurrencyCalibrationSpec_& spec,
                                    const CrossCurrencyCalibrationResult_& result,
                                    const CrossCurrencyCalibrationOptions_& options,
@@ -1446,54 +1742,22 @@ namespace Dal {
                                    const RatePricingMarket_& market,
                                    const RateQuoteRiskProvenanceConfig_& config) {
             REQUIRE(std::isfinite(spec.tolerance_) && spec.tolerance_ > 0.0, "QUOTE_RISK_TOLERANCE_INVALID");
-            REQUIRE(spec.domesticCurveBlock_ && spec.foreignCurveBlock_, "QUOTE_RISK_SPEC_CURVE_EMPTY");
+            REQUIRE(spec.domesticCurveBlock_, "QUOTE_RISK_SPEC_CURVE_EMPTY");
+            REQUIRE(spec.foreignCurveBlock_, "QUOTE_RISK_SPEC_CURVE_EMPTY");
             const DiscountCurve_& basis = StagedBasisCurve(spec, result);
             ValidateSolvedCurveDefinition(basis, StagedBasisDefinition(spec));
             const DateTime_ valuationTime = StagedValuationTime(spec);
             const Ccy_ collateralCurrency = StagedCollateralCurrency(spec);
-            const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            REQUIRE(result.diagnostics_.usedApproximateFit_ == approximate, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            REQUIRE(result.diagnostics_.residualTolerance_ == spec.tolerance_, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            ValidateFiniteVector(result.diagnostics_.marketRates_, "QUOTE_RISK_MARKET_RATES");
-            ValidateFiniteVector(result.diagnostics_.modelRates_, "QUOTE_RISK_MODEL_RATES");
-            ValidateFiniteVector(result.diagnostics_.residuals_, "QUOTE_RISK_RESIDUALS");
-            if (!options.computeEffJacobianInverse_ || approximate)
-                REQUIRE(result.diagnostics_.effJacobianInverse_.Empty(), "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
-            if (!result.diagnostics_.effJacobianInverse_.Empty()) {
-                REQUIRE(result.diagnostics_.effJacobianInverse_.Rows() == static_cast<int>(axis.parameters_.size()) &&
-                            result.diagnostics_.effJacobianInverse_.Cols() == static_cast<int>(axis.quotes_.size()),
-                        "QUOTE_RISK_EFFECTIVE_INVERSE_SHAPE_INVALID");
-                ValidateFiniteMatrix(result.diagnostics_.effJacobianInverse_, "QUOTE_RISK_EFFECTIVE_INVERSE");
-            }
-            REQUIRE(result.fxForwardCurve_.pair_ == spec.basisPair_ && result.fxForwardCurve_.dates_ == spec.knotDates_ &&
-                        result.fxForwardCurve_.forwards_.size() == spec.knotDates_.size(),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            ValidateFiniteVector(result.fxForwardCurve_.forwards_, "QUOTE_RISK_FX_FORWARDS");
-            REQUIRE(result.market_.ValuationTime() == valuationTime && result.market_.DomesticCcy() == spec.basisPair_.domestic_ &&
-                        result.market_.ForeignCcy() == spec.basisPair_.foreign_ && result.market_.CollateralCurrency() == collateralCurrency &&
-                        result.market_.FxSpot() == spec.fxSpot_ && result.market_.BasisCurve() &&
-                        Jcs(CurveBlockJson(result.market_.DomesticBlock())) == Jcs(CurveBlockJson(*spec.domesticCurveBlock_)) &&
-                        Jcs(CurveBlockJson(result.market_.ForeignBlock())) == Jcs(CurveBlockJson(*spec.foreignCurveBlock_)) &&
-                        Jcs(StorableJson(*result.market_.BasisCurve())) == Jcs(StorableJson(basis)),
-                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
-            if (spec.fixings_)
-                REQUIRE(Jcs(FixingsJson(result.market_.Fixings())) == Jcs(FixingsJson(spec.fixings_)), "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            ValidateStagedDiagnostics(spec, result, options, axis);
+            ValidateStagedFxForwardCurve(spec, result);
+            ValidateStagedResultMarket(spec, result, basis, valuationTime, collateralCurrency);
 
             ValidateConfig(config, axis.parameterRanges_);
-            REQUIRE(market.valuationTime_ == valuationTime && market.xccyMarket_, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
+            REQUIRE(market.valuationTime_ == valuationTime, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
+            REQUIRE(market.xccyMarket_, "QUOTE_RISK_SPEC_MARKET_MISMATCH");
             const auto& xccy = *market.xccyMarket_;
-            REQUIRE(xccy.ValuationTime() == valuationTime && xccy.DomesticCcy() == spec.basisPair_.domestic_ &&
-                        xccy.ForeignCcy() == spec.basisPair_.foreign_ && xccy.CollateralCurrency() == collateralCurrency &&
-                        xccy.FxSpot() == spec.fxSpot_ && xccy.BasisCurve() &&
-                        Jcs(CurveBlockJson(xccy.DomesticBlock())) == Jcs(CurveBlockJson(*spec.domesticCurveBlock_)) &&
-                        Jcs(CurveBlockJson(xccy.ForeignBlock())) == Jcs(CurveBlockJson(*spec.foreignCurveBlock_)) &&
-                        Jcs(StorableJson(*xccy.BasisCurve())) == Jcs(StorableJson(basis)) &&
-                        Jcs(FixingsJson(xccy.Fixings())) == Jcs(FixingsJson(result.market_.Fixings())),
-                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
-            const String_& component = config.componentKeyByParameterBlock_.at(axis.parameterRanges_.front().blockKey_);
-            const auto found = market.curveComponents_.find(component);
-            REQUIRE(found != market.curveComponents_.end() && found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
-            REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(basis)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            ValidateStagedBoundMarket(spec, result, basis, valuationTime, collateralCurrency, xccy);
+            ValidateStagedBoundComponent(axis, market, config, basis);
         }
 
         RateQuoteRiskAxis_ SingleAxis(const CurveCalibrationSpec_& spec, const CurveCalibrationResult_& result) {
