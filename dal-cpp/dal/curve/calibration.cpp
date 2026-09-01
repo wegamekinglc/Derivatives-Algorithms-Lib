@@ -199,10 +199,10 @@ namespace Dal {
             result->counts_.instrumentCandidates_ = static_cast<int>(instruments.size()) * MAX_RELEVANT_DATES_PER_INSTRUMENT;
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 const auto span = instruments[i]->TimeSpan();
-                VisitKnotCandidate(result, traversalIndex, today, span.first,
-                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i), true);
-                VisitKnotCandidate(result, traversalIndex, today, span.second,
-                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i), true);
+                VisitKnotCandidate(result, traversalIndex, today, span.first, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i),
+                                   true);
+                VisitKnotCandidate(result, traversalIndex, today, span.second, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i),
+                                   true);
             }
         }
 
@@ -225,8 +225,7 @@ namespace Dal {
             if (parameterization != CurveParameterization_::Value_::LOG_DISCOUNT)
                 return;
             REQUIRE(resolvedDates.front() == today &&
-                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(),
-                                    result.resolvedDeclaredNodes_.front().origins_.end(),
+                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(), result.resolvedDeclaredNodes_.front().origins_.end(),
                                     [](const CurveKnotOrigin_& origin) { return origin.kind_ == CurveKnotOriginKind_::Value_::INPUT; }),
                     "LOG_DISCOUNT knot planning requires an input anchor at today");
         }
@@ -298,6 +297,7 @@ namespace Dal {
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
             CurveJacobianMode_ jacobianMode_;
+            double bumpSize_;
             AnalyticEligibility_ analyticEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
         public:
@@ -315,12 +315,13 @@ namespace Dal {
                                        bool calibrateDiscountCurve,
                                        const DayBasis_& liborBasis,
                                        LogDfScheme_ logDfScheme,
-                                       CurveJacobianMode_ jacobianMode)
+                                       CurveJacobianMode_ jacobianMode,
+                                       CurveSolveMode_ solveMode)
                 : ccy_(ccy), curveName_(curveName), anchor_(anchor),
                   definition_(MakeCurveDefinition(curveName, ccy, parameterization, logDfScheme, knotDates, anchor, liborBasis)),
                   instruments_(instruments), discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve),
                   targetCollateral_(targetCollateral), targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve),
-                  liborBasis_(liborBasis), jacobianMode_(jacobianMode) {
+                  liborBasis_(liborBasis), jacobianMode_(jacobianMode), bumpSize_(solveMode == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -334,6 +335,9 @@ namespace Dal {
                     analyticEligibility_ =
                         EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
+
+            // Exact quote-risk diagnostics need the oracle bump; approximate solves retain their historical linearization.
+            [[nodiscard]] double BumpSize() const override { return bumpSize_; }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
                 Handle_<DiscountCurve_> dc(BuildDiscountCurveUniqueT<double>(definition_, x, baseCurve_).release());
@@ -668,7 +672,7 @@ namespace Dal {
 
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.today_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
+                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_);
 
         // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; nullptr otherwise so the solver leaves the output empty.
         const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&

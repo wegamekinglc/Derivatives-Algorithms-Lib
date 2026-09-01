@@ -14,6 +14,8 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointrate.hpp>
+#include <dal/curve/quoteriskaggregation.hpp>
+#include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
@@ -21,6 +23,7 @@
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/time/dateincrement.hpp>
 
 namespace Dal {
@@ -733,6 +736,14 @@ namespace Dal {
                 return SweepSingleCurrency(trade, componentKey);
             }
 
+            const RatePricingTradeResult_& PassivePrice(const RateTradeDefinition_& trade) {
+                const auto found = passivePrices_.find(&trade);
+                if (found != passivePrices_.end())
+                    return found->second;
+                ++RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount;
+                return passivePrices_.emplace(&trade, PriceRateTrade(trade, market_)).first->second;
+            }
+
             // Axis source for aggregation: the preparation of a component key, or nullptr when the
             // key is unavailable, unrepresentable, or failed preparation (meta-table-only then).
             const NodeSensitivityPreparation_* PreparationForKey(const String_& key) {
@@ -786,14 +797,8 @@ namespace Dal {
             // the (trade, component) inner loop. Lazily priced on first need so trades whose every
             // cell fails an earlier gate are never priced at all.
             bool PassiveOk(const RateTradeDefinition_& trade) {
-                const auto found = passiveOk_.find(&trade);
-                if (found != passiveOk_.end())
-                    return found->second;
-                ++RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount;
-                const auto passive = PriceRateTrade(trade, market_);
-                const bool ok = passive.succeeded_ && std::isfinite(passive.pv_);
-                passiveOk_.emplace(&trade, ok);
-                return ok;
+                const auto& passive = PassivePrice(trade);
+                return passive.succeeded_ && std::isfinite(passive.pv_);
             }
 
             RateTradeNodeSensitivityResult_ SweepSingleCurrency(const RateTradeDefinition_& trade, const String_& componentKey) {
@@ -896,7 +901,7 @@ namespace Dal {
             std::map<String_, ComponentGate_> gates_;
             std::map<const DiscountCurve_*, NodeSensitivityPreparation_> prepared_;
             std::set<const DiscountCurve_*> preparationFailures_;
-            std::map<const RateTradeDefinition_*, bool> passiveOk_;
+            std::map<const RateTradeDefinition_*, RatePricingTradeResult_> passivePrices_;
             std::map<const RateTradeDefinition_*, Vector_<String_>> dependencyKeys_;
             std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_> xccyHoists_;
         };
@@ -1117,6 +1122,239 @@ namespace Dal {
             result.components_.push_back(
                 AggregateComponentTensor(key, *preparation, found != accumulator.gradientSums_.end() ? found->second : zeros));
         }
+        return result;
+    }
+
+    namespace {
+        struct PreparedQuoteRiskProvenance_ {
+            int index_ = 0;
+            const RateQuoteRiskProvenance_* provenance_ = nullptr;
+            bool active_ = false;
+            String_ componentKey_;
+            int parameterCount_ = 0;
+        };
+
+        void AppendProvenanceFailure(const RateQuoteRiskProvenance_& provenance,
+                                     const String_& reason,
+                                     const String_& componentKey,
+                                     const String_& expected,
+                                     const String_& actual,
+                                     RatePortfolioQuoteRisk_* result) {
+            result->provenanceFailures_.push_back({provenance.CalibrationId(), reason, componentKey, expected, actual});
+        }
+
+        void ValidateSingleQuoteRiskShape(const RateQuoteRiskProvenance_& provenance) {
+            const auto& axis = provenance.Axis();
+            REQUIRE(axis.parameterRanges_.size() == 1 && axis.residualRanges_.size() == 1, "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+            REQUIRE(axis.parameterRanges_.front().offset_ == 0 && axis.parameterRanges_.front().size_ == static_cast<int>(axis.parameters_.size()),
+                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+            REQUIRE(axis.residualRanges_.front().offset_ == 0 && axis.residualRanges_.front().size_ == static_cast<int>(axis.quotes_.size()),
+                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+            REQUIRE(provenance.EffectiveInverse().Rows() == static_cast<int>(axis.parameters_.size()) &&
+                        provenance.EffectiveInverse().Cols() == static_cast<int>(axis.quotes_.size()),
+                    "QUOTE_RISK_PROVENANCE_INVERSE_SHAPE_INVALID");
+            REQUIRE(std::isfinite(provenance.Tolerance()) && provenance.Tolerance() > 0.0, "QUOTE_RISK_TOLERANCE_INVALID");
+        }
+
+        Vector_<PreparedQuoteRiskProvenance_> PrepareQuoteRiskProvenances(const Vector_<RateQuoteRiskProvenance_>& provenances,
+                                                                          const RatePricingMarket_& market,
+                                                                          RatePortfolioQuoteRisk_* result) {
+            Vector_<PreparedQuoteRiskProvenance_> prepared;
+            prepared.reserve(provenances.size());
+            std::set<String_> calibrationIds;
+            for (int index = 0; index < static_cast<int>(provenances.size()); ++index) {
+                const auto& provenance = provenances[index];
+                REQUIRE(calibrationIds.insert(provenance.CalibrationId()).second, "QUOTE_RISK_DUPLICATE_CALIBRATION_ID");
+                PreparedQuoteRiskProvenance_ entry{index, &provenance};
+                if (!provenance.Available()) {
+                    AppendProvenanceFailure(provenance, provenance.Reason(), String_(), String_(), String_(), result);
+                    prepared.push_back(entry);
+                    continue;
+                }
+                if (provenance.Kind() != "SINGLE_CURVE") {
+                    AppendProvenanceFailure(provenance, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED", String_(), String_(), String_(), result);
+                    prepared.push_back(entry);
+                    continue;
+                }
+
+                ValidateSingleQuoteRiskShape(provenance);
+                const auto& parameterRange = provenance.Axis().parameterRanges_.front();
+                const auto binding = provenance.ComponentKeyByParameterBlock().find(parameterRange.blockKey_);
+                REQUIRE(binding != provenance.ComponentKeyByParameterBlock().end(), "QUOTE_RISK_PROVENANCE_BINDING_INVALID");
+                REQUIRE(provenance.State().components_.size() == 1 && provenance.State().components_.front().componentKey_ == binding->second,
+                        "QUOTE_RISK_PROVENANCE_STATE_INVALID");
+                const auto actual = CurrentRateQuoteRiskComponentState(binding->second, market);
+                const auto& expected = provenance.State().components_.front();
+                if (actual.fingerprint_ != expected.fingerprint_) {
+                    AppendProvenanceFailure(provenance, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH", binding->second, expected.fingerprint_,
+                                            actual.fingerprint_.empty() ? String_("MISSING") : actual.fingerprint_, result);
+                    prepared.push_back(entry);
+                    continue;
+                }
+                entry.active_ = true;
+                entry.componentKey_ = binding->second;
+                entry.parameterCount_ = parameterRange.size_;
+                prepared.push_back(entry);
+            }
+            return prepared;
+        }
+
+        Vector_<>& EnsureQuoteRiskGradient(int provenanceIndex,
+                                           const String_& currency,
+                                           int parameterCount,
+                                           std::map<std::pair<int, String_>, Vector_<>>* sums) {
+            auto [found, inserted] = sums->try_emplace({provenanceIndex, currency});
+            if (inserted)
+                found->second = Vector_<>(parameterCount, 0.0);
+            REQUIRE(static_cast<int>(found->second.size()) == parameterCount, "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
+            return found->second;
+        }
+
+        void AddQuoteRiskGradient(int provenanceIndex,
+                                  const String_& currency,
+                                  const Vector_<>& gradient,
+                                  std::map<std::pair<int, String_>, Vector_<>>* sums) {
+            Vector_<>& sum = EnsureQuoteRiskGradient(provenanceIndex, currency, static_cast<int>(gradient.size()), sums);
+            for (int i = 0; i < static_cast<int>(gradient.size()); ++i) {
+                REQUIRE(std::isfinite(gradient[i]), "QUOTE_RISK_NON_FINITE_GRADIENT");
+                sum[i] += gradient[i];
+                REQUIRE(std::isfinite(sum[i]), "QUOTE_RISK_NON_FINITE_GRADIENT");
+            }
+        }
+
+        void AppendQuoteRiskMeta(const RateTradeDefinition_& trade,
+                                 const PreparedQuoteRiskProvenance_& prepared,
+                                 const Ccy_& actualPvCcy,
+                                 double pv,
+                                 bool eligible,
+                                 bool structuralZero,
+                                 const String_& originalReason,
+                                 RatePortfolioQuoteRisk_* result) {
+            RatePortfolioQuoteRiskMetaEntry_ meta;
+            meta.instrumentId_ = trade.instrumentId_;
+            meta.calibrationId_ = prepared.provenance_->CalibrationId();
+            meta.eligible_ = eligible;
+            meta.structuralZero_ = structuralZero;
+            meta.reason_ = eligible ? String_() : String_("QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+            meta.failingComponentKey_ = eligible ? String_() : prepared.componentKey_;
+            meta.originalNodeRiskReason_ = originalReason;
+            meta.actualPvCcy_ = actualPvCcy;
+            meta.pv_ = pv;
+            result->meta_.push_back(std::move(meta));
+        }
+
+        void AppendQuoteRiskBuckets(const PreparedQuoteRiskProvenance_& prepared,
+                                    const String_& currency,
+                                    const Vector_<>& gradient,
+                                    RatePortfolioQuoteRisk_* result) {
+            const auto& provenance = *prepared.provenance_;
+            Vector_<> sensitivities;
+            Matrix::Multiply(gradient, provenance.EffectiveInverse(), &sensitivities);
+            REQUIRE(sensitivities.size() == provenance.Axis().quotes_.size(), "QUOTE_RISK_TRANSFORM_WIDTH_MISMATCH");
+            for (int i = 0; i < static_cast<int>(sensitivities.size()); ++i) {
+                const auto& quote = provenance.Axis().quotes_[i];
+                const double sensitivity = sensitivities[i] / provenance.Tolerance();
+                const double dv01 = sensitivity * 1.0e-4;
+                REQUIRE(std::isfinite(sensitivity) && std::isfinite(dv01), "QUOTE_RISK_NON_FINITE_OUTPUT");
+                RateQuoteRiskBucket_ bucket;
+                bucket.calibrationId_ = provenance.CalibrationId();
+                bucket.axisFingerprint_ = provenance.Axis().fingerprint_;
+                bucket.quoteKey_ = quote.blockKey_ + ":" + String::FromInt(quote.blockOrdinal_);
+                bucket.quoteName_ = quote.displayName_;
+                bucket.residualBlock_ = quote.blockKey_;
+                bucket.quoteOrdinal_ = quote.blockOrdinal_;
+                bucket.actualPvCcy_ = Ccy_(currency);
+                bucket.dPvDDecimalQuote_ = sensitivity;
+                bucket.dv01_ = dv01;
+                result->buckets_.push_back(std::move(bucket));
+            }
+        }
+
+        bool UsablePassivePrice(const RatePricingTradeResult_& passive) { return passive.succeeded_ && std::isfinite(passive.pv_); }
+
+        void ProcessQuoteRiskTradeProvenance(const RateTradeDefinition_& trade,
+                                             const RatePricingTradeResult_& passive,
+                                             const PreparedQuoteRiskProvenance_& item,
+                                             const Ccy_& actualPvCcy,
+                                             NodeSensitivitySweeper_* sweeper,
+                                             std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                             RatePortfolioQuoteRisk_* result) {
+            if (!item.active_)
+                return;
+            if (!UsablePassivePrice(passive)) {
+                const auto failed = sweeper->Sweep(trade, item.componentKey_);
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, 0.0, false, false,
+                                    failed.reason_.empty() ? String_("TRADE_VALIDATION_FAILED") : failed.reason_, result);
+                return;
+            }
+            if (std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(), item.componentKey_) ==
+                passive.dependencyComponentKeys_.end()) {
+                static_cast<void>(EnsureQuoteRiskGradient(item.index_, actualPvCcy.String(), item.parameterCount_, gradientSums));
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, true, String_(), result);
+                return;
+            }
+            const auto cell = sweeper->Sweep(trade, item.componentKey_);
+            if (!cell.eligible_) {
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, cell.reason_, result);
+                return;
+            }
+            REQUIRE(static_cast<int>(cell.gradient_.size()) == item.parameterCount_, "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
+            AddQuoteRiskGradient(item.index_, actualPvCcy.String(), cell.gradient_, gradientSums);
+            AppendQuoteRiskMeta(trade, item, actualPvCcy, cell.pv_, true, false, String_(), result);
+        }
+
+        void ProcessPricedQuoteRiskTrade(const RateTradeDefinition_& trade,
+                                         const RatePricingTradeResult_& passive,
+                                         const Vector_<PreparedQuoteRiskProvenance_>& prepared,
+                                         NodeSensitivitySweeper_* sweeper,
+                                         std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                         RatePortfolioQuoteRisk_* result) {
+            const Ccy_ actualPvCcy = ActualPvCurrency(trade);
+            if (UsablePassivePrice(passive))
+                result->pvByActualPvCcy_[actualPvCcy.String()] += passive.pv_;
+            for (const auto& item : prepared)
+                ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, result);
+        }
+
+        void ProcessQuoteRiskTrade(const RateTradeDefinition_& trade,
+                                   bool hasActiveProvenance,
+                                   const Vector_<PreparedQuoteRiskProvenance_>& prepared,
+                                   const RatePricingMarket_& market,
+                                   NodeSensitivitySweeper_* sweeper,
+                                   std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                   RatePortfolioQuoteRisk_* result) {
+            if (hasActiveProvenance) {
+                ProcessPricedQuoteRiskTrade(trade, sweeper->PassivePrice(trade), prepared, sweeper, gradientSums, result);
+                return;
+            }
+            ProcessPricedQuoteRiskTrade(trade, PriceRateTrade(trade, market), prepared, sweeper, gradientSums, result);
+        }
+
+        void AppendAllQuoteRiskBuckets(const Vector_<PreparedQuoteRiskProvenance_>& prepared,
+                                       const std::map<std::pair<int, String_>, Vector_<>>& gradientSums,
+                                       RatePortfolioQuoteRisk_* result) {
+            for (const auto& item : prepared) {
+                if (!item.active_)
+                    continue;
+                for (const auto& [key, gradient] : gradientSums)
+                    if (key.first == item.index_)
+                        AppendQuoteRiskBuckets(item, key.second, gradient, result);
+            }
+        }
+    } // namespace
+
+    RatePortfolioQuoteRisk_ AggregateRatePortfolioQuoteRisk(const Vector_<RateTradeDefinition_>& trades,
+                                                            const RatePricingMarket_& market,
+                                                            const Vector_<RateQuoteRiskProvenance_>& provenances) {
+        RatePortfolioQuoteRisk_ result;
+        const auto prepared = PrepareQuoteRiskProvenances(provenances, market, &result);
+        const bool hasActiveProvenance = std::any_of(prepared.begin(), prepared.end(), [](const auto& item) { return item.active_; });
+        NodeSensitivitySweeper_ sweeper(market);
+        std::map<std::pair<int, String_>, Vector_<>> gradientSums;
+
+        for (const auto& trade : trades)
+            ProcessQuoteRiskTrade(trade, hasActiveProvenance, prepared, market, &sweeper, &gradientSums, &result);
+        AppendAllQuoteRiskBuckets(prepared, gradientSums, &result);
         return result;
     }
 
