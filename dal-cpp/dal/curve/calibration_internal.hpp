@@ -12,6 +12,7 @@
 
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/math/matrix/banded.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
@@ -177,6 +178,27 @@ namespace Dal {
             return Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse, fwdJacobian);
         }
         return Underdetermined::Approximate(func, guess, tol, fitTolerance, weights, controls);
+    }
+
+    template <class ResidualFunction_>
+    void CentralDifferenceJacobian(
+        const Vector_<>& parameters, int residualCount, double bump, const ResidualFunction_& residualFunction, Matrix_<>* jacobian) {
+        REQUIRE(residualCount >= 0 && std::isfinite(bump) && bump > 0.0, "Central-difference Jacobian inputs are invalid");
+        jacobian->Resize(residualCount, static_cast<int>(parameters.size()));
+        Vector_<> up = parameters;
+        Vector_<> down = parameters;
+        for (int column = 0; column < static_cast<int>(parameters.size()); ++column) {
+            up[column] += bump;
+            down[column] -= bump;
+            const Vector_<> upResiduals = residualFunction(up);
+            const Vector_<> downResiduals = residualFunction(down);
+            REQUIRE(static_cast<int>(upResiduals.size()) == residualCount && static_cast<int>(downResiduals.size()) == residualCount,
+                    "Central-difference Jacobian residual width changed");
+            for (int row = 0; row < residualCount; ++row)
+                (*jacobian)(row, column) = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
+            up[column] = parameters[column];
+            down[column] = parameters[column];
+        }
     }
 
     // Resolve the coupon-months count for a single-period instrument's day-count context.

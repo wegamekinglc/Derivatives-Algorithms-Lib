@@ -41,6 +41,9 @@ namespace Dal::RateCashflowPricingInternal {
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
     inline std::atomic<int> g_nodeSensitivitySweepCount{0};
 
+    // Test-only fault seam for proving quote-risk sibling-gradient atomicity.
+    inline std::atomic<const String_*> g_quoteRiskForcedSweepFailureComponent{nullptr};
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,
