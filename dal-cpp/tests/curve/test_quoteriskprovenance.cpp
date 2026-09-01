@@ -588,6 +588,31 @@ namespace {
         return Dal::Handle_<Dal::DiscountCurve_>(std::shared_ptr<const Dal::DiscountCurve_>(std::shared_ptr<void>(), &curve));
     }
 
+    Dal::Handle_<Dal::DiscountCurve_> IndependentCurveClone(const Dal::DiscountCurve_& curve) {
+        std::unique_ptr<Dal::YCComponent_> clone = curve.Clone(curve.Name(), {});
+        auto* discount = dynamic_cast<Dal::DiscountCurve_*>(clone.get());
+        REQUIRE(discount, "Expected a cloned discount curve");
+        clone.release();
+        return Dal::Handle_<Dal::DiscountCurve_>(discount);
+    }
+
+    template <class Factory_>
+    void AssertClonedXccyBindingFailsClosed(const Factory_& factory,
+                                            const Dal::RatePricingMarket_& market,
+                                            const Dal::RateTradeDefinition_& trade,
+                                            const char* domain) {
+        try {
+            const auto provenance = factory();
+            const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, market, {provenance});
+            ASSERT_EQ(result.meta_.size(), 1U);
+            ASSERT_FALSE(result.meta_.front().eligible_ && result.meta_.front().structuralZero_)
+                << domain << " accepted equal-content clone bindings as an eligible structural zero";
+            FAIL() << domain << " accepted curve bindings that do not route through the bound XCCY market";
+        } catch (const Dal::Exception_& exception) {
+            ASSERT_NE(std::string(exception.what()).find("QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH"), std::string::npos) << exception.what();
+        }
+    }
+
     Dal::RatePricingMarket_ JointPricingMarket(const Dal::JointXccyCalibrationSpec_& spec,
                                                const Dal::JointXccyCalibrationResult_& result,
                                                const Dal::RateQuoteRiskProvenanceConfig_& config) {
@@ -1217,6 +1242,33 @@ TEST(QuoteRiskAggregationTest, TestJointAndStagedProvenancesAreAccepted) {
     const auto stagedResult = Dal::AggregateRatePortfolioQuoteRisk({}, staged.market_, {stagedProvenance});
     ASSERT_TRUE(stagedResult.buckets_.empty());
     ASSERT_TRUE(stagedResult.provenanceFailures_.empty());
+}
+
+TEST(QuoteRiskAggregationTest, TestJointEquivalentCloneBindingsFailClosedBeforeStructuralZero) {
+    auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    for (auto& [component, curve] : input.market_.curveComponents_) {
+        const auto clone = IndependentCurveClone(*curve);
+        ASSERT_NE(clone.get(), curve.get()) << component;
+        curve = clone;
+    }
+    const auto trade = XccyRiskTrade(input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(), input.spec_.pair_, "joint-clone");
+
+    AssertClonedXccyBindingFailsClosed(
+        [&]() { return Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_); },
+        input.market_, trade, "joint XCCY");
+}
+
+TEST(QuoteRiskAggregationTest, TestStagedEquivalentCloneBindingFailsClosedBeforeStructuralZero) {
+    auto input = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const Dal::String_ component = input.config_.componentKeyByParameterBlock_.begin()->second;
+    const auto original = input.market_.curveComponents_.at(component);
+    input.market_.curveComponents_[component] = IndependentCurveClone(*original);
+    ASSERT_NE(input.market_.curveComponents_.at(component).get(), original.get());
+    const auto trade = XccyRiskTrade(input.spec_.today_, input.spec_.knotDates_.back(), input.spec_.basisPair_, "staged-clone");
+
+    AssertClonedXccyBindingFailsClosed(
+        [&]() { return Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_); },
+        input.market_, trade, "staged XCCY basis");
 }
 
 TEST(QuoteRiskAggregationTest, TestJointAndStagedProduceXccyBucketsForAnalyticAndBumpedInverses) {

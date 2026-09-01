@@ -1312,8 +1312,11 @@ namespace Dal {
             ValidateUnlayeredSolvedCurve(*result.basisCurve_, JointBasisDefinition(spec));
         }
 
-        const DiscountCurve_&
-        JointResultCurve(const String_& block, const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationResult_& result) {
+        const DiscountCurve_& JointCurveForParameterBlock(const String_& block,
+                                                          const JointXccyCalibrationSpec_& spec,
+                                                          const CurveBlock_& domestic,
+                                                          const CurveBlock_& foreign,
+                                                          const DiscountCurve_& basis) {
             auto find = [&](const String_& group, const JointCurrencyCurveSpec_& currency, const CurveBlock_& curveBlock) -> const DiscountCurve_* {
                 for (const auto& declaration : currency.curves_) {
                     if (block != group + ":" + declaration.curveName_)
@@ -1323,12 +1326,12 @@ namespace Dal {
                 }
                 return nullptr;
             };
-            if (const auto* curve = find("domestic", spec.domestic_, *result.domesticCurveBlock_))
+            if (const auto* curve = find("domestic", spec.domestic_, domestic))
                 return *curve;
-            if (const auto* curve = find("foreign", spec.foreign_, *result.foreignCurveBlock_))
+            if (const auto* curve = find("foreign", spec.foreign_, foreign))
                 return *curve;
             REQUIRE(block == String_("basis:") + spec.basis_.curveName_, "QUOTE_RISK_PARAMETER_RANGE_SPEC_MISMATCH");
-            return *result.basisCurve_;
+            return basis;
         }
 
         void ValidateJointAxisCurveRanges(const String_& block,
@@ -1666,14 +1669,19 @@ namespace Dal {
                                           const JointXccyCalibrationResult_& result,
                                           const RateQuoteRiskAxis_& axis,
                                           const RatePricingMarket_& market,
+                                          const CrossCurrencyMarket_& xccy,
                                           const RateQuoteRiskProvenanceConfig_& config) {
             for (const auto& range : axis.parameterRanges_) {
-                const DiscountCurve_& solvedCurve = JointResultCurve(range.blockKey_, spec, result);
+                const DiscountCurve_& solvedCurve =
+                    JointCurveForParameterBlock(range.blockKey_, spec, *result.domesticCurveBlock_, *result.foreignCurveBlock_, *result.basisCurve_);
+                const DiscountCurve_& routedCurve =
+                    JointCurveForParameterBlock(range.blockKey_, spec, xccy.DomesticBlock(), xccy.ForeignBlock(), *xccy.BasisCurve());
                 const String_& component = config.componentKeyByParameterBlock_.at(range.blockKey_);
                 const auto found = market.curveComponents_.find(component);
                 REQUIRE(found != market.curveComponents_.end(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
                 REQUIRE(found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
                 REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(solvedCurve)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+                REQUIRE(found->second.get() == &routedCurve, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
             }
         }
 
@@ -1699,7 +1707,7 @@ namespace Dal {
             ValidateXccyMarketHeader(xccy, spec.valuationTime_, spec.pair_, spec.collateralCurrency_, spec.fxSpot_,
                                      "QUOTE_RISK_SPEC_MARKET_MISMATCH");
             ValidateJointBoundMarket(result, xccy);
-            ValidateJointBoundComponents(spec, result, axis, market, config);
+            ValidateJointBoundComponents(spec, result, axis, market, xccy, config);
         }
 
         const DiscountCurve_& StagedBasisCurve(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationResult_& result) {
@@ -1787,6 +1795,7 @@ namespace Dal {
             REQUIRE(found != market.curveComponents_.end(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
             REQUIRE(found->second, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISSING");
             REQUIRE(Jcs(StorableJson(*found->second)) == Jcs(StorableJson(basis)), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            REQUIRE(found->second.get() == market.xccyMarket_->BasisCurve(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
         }
 
         void ValidateStagedPairing(const CrossCurrencyCalibrationSpec_& spec,
