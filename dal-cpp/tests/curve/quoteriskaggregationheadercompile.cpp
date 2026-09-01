@@ -2,9 +2,9 @@
 // Created by dal-implementer on 2026/9/1.
 //
 
-#include <dal/curve/quoteriskaggregation.hpp>
-
 #include <type_traits>
+
+#include <dal/curve/quoteriskaggregation.hpp>
 
 namespace {
     using Aggregate_ = Dal::RatePortfolioQuoteRisk_ (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&,

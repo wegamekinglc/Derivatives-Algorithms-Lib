@@ -1199,16 +1199,22 @@ namespace Dal {
             return prepared;
         }
 
+        Vector_<>& EnsureQuoteRiskGradient(int provenanceIndex,
+                                           const String_& currency,
+                                           int parameterCount,
+                                           std::map<std::pair<int, String_>, Vector_<>>* sums) {
+            auto [found, inserted] = sums->try_emplace({provenanceIndex, currency});
+            if (inserted)
+                found->second = Vector_<>(parameterCount, 0.0);
+            REQUIRE(static_cast<int>(found->second.size()) == parameterCount, "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
+            return found->second;
+        }
+
         void AddQuoteRiskGradient(int provenanceIndex,
                                   const String_& currency,
                                   const Vector_<>& gradient,
                                   std::map<std::pair<int, String_>, Vector_<>>* sums) {
-            Vector_<>& sum = (*sums)[{provenanceIndex, currency}];
-            if (sum.empty()) {
-                sum.Resize(gradient.size());
-                std::fill(sum.begin(), sum.end(), 0.0);
-            }
-            REQUIRE(sum.size() == gradient.size(), "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
+            Vector_<>& sum = EnsureQuoteRiskGradient(provenanceIndex, currency, static_cast<int>(gradient.size()), sums);
             for (int i = 0; i < static_cast<int>(gradient.size()); ++i) {
                 REQUIRE(std::isfinite(gradient[i]), "QUOTE_RISK_NON_FINITE_GRADIENT");
                 sum[i] += gradient[i];
@@ -1283,7 +1289,7 @@ namespace Dal {
             }
             if (std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(), item.componentKey_) ==
                 passive.dependencyComponentKeys_.end()) {
-                AddQuoteRiskGradient(item.index_, actualPvCcy.String(), Vector_<>(item.parameterCount_, 0.0), gradientSums);
+                static_cast<void>(EnsureQuoteRiskGradient(item.index_, actualPvCcy.String(), item.parameterCount_, gradientSums));
                 AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, true, String_(), result);
                 return;
             }
@@ -1297,6 +1303,19 @@ namespace Dal {
             AppendQuoteRiskMeta(trade, item, actualPvCcy, cell.pv_, true, false, String_(), result);
         }
 
+        void ProcessPricedQuoteRiskTrade(const RateTradeDefinition_& trade,
+                                         const RatePricingTradeResult_& passive,
+                                         const Vector_<PreparedQuoteRiskProvenance_>& prepared,
+                                         NodeSensitivitySweeper_* sweeper,
+                                         std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                         RatePortfolioQuoteRisk_* result) {
+            const Ccy_ actualPvCcy = ActualPvCurrency(trade);
+            if (UsablePassivePrice(passive))
+                result->pvByActualPvCcy_[actualPvCcy.String()] += passive.pv_;
+            for (const auto& item : prepared)
+                ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, result);
+        }
+
         void ProcessQuoteRiskTrade(const RateTradeDefinition_& trade,
                                    bool hasActiveProvenance,
                                    const Vector_<PreparedQuoteRiskProvenance_>& prepared,
@@ -1304,12 +1323,11 @@ namespace Dal {
                                    NodeSensitivitySweeper_* sweeper,
                                    std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
                                    RatePortfolioQuoteRisk_* result) {
-            const RatePricingTradeResult_ passive = hasActiveProvenance ? sweeper->PassivePrice(trade) : PriceRateTrade(trade, market);
-            const Ccy_ actualPvCcy = ActualPvCurrency(trade);
-            if (UsablePassivePrice(passive))
-                result->pvByActualPvCcy_[actualPvCcy.String()] += passive.pv_;
-            for (const auto& item : prepared)
-                ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, result);
+            if (hasActiveProvenance) {
+                ProcessPricedQuoteRiskTrade(trade, sweeper->PassivePrice(trade), prepared, sweeper, gradientSums, result);
+                return;
+            }
+            ProcessPricedQuoteRiskTrade(trade, PriceRateTrade(trade, market), prepared, sweeper, gradientSums, result);
         }
 
         void AppendAllQuoteRiskBuckets(const Vector_<PreparedQuoteRiskProvenance_>& prepared,
