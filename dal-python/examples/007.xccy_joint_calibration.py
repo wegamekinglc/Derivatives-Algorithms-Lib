@@ -190,10 +190,51 @@ def print_ranges(label: str, ranges) -> None:
         print(f"  {block.name}: [{block.offset}, {block.offset + block.size})")
 
 
+def build_quote_risk_provenance(spec, result, options):
+    """Bind the three solved joint blocks to one immutable market snapshot."""
+    curve_by_block = {
+        "domestic:usd_ois": next(iter(result.domestic_curve_block.discount_curves.values())),
+        "foreign:eur_ois": next(iter(result.foreign_curve_block.discount_curves.values())),
+        "basis:usd_eur_basis": result.basis_curve,
+    }
+    bindings = {name: f"joint/{name}" for name in curve_by_block}
+    components = {bindings[name]: curve for name, curve in curve_by_block.items()}
+    xccy_market = dal.CrossCurrencyMarket_New(
+        domestic_block=result.domestic_curve_block,
+        foreign_block=result.foreign_curve_block,
+        fx_spot=1.10,
+        valuation_time=VALUATION_TIME,
+        collateral_currency="USD",
+        fixings=result.fixings,
+        basis_curve=result.basis_curve,
+    )
+    market = dal.RatePricingMarket_(
+        valuation_time=VALUATION_TIME,
+        result_currency="USD",
+        curve_components=components,
+        xccy_market=xccy_market,
+        fixings=result.fixings,
+    )
+    return dal.BuildJointXccyQuoteRiskProvenance(
+        spec=spec,
+        result=result,
+        options=options,
+        bound_market=market,
+        config=dal.RateQuoteRiskProvenanceConfig_(
+            calibration_id="usd-eur-joint",
+            component_key_by_parameter_block=bindings,
+        ),
+    )
+
+
 def main() -> int:
     """Run and validate the installed-surface joint calibration example."""
-    result = dal.CalibrateJointXccyMarket(make_spec())
+    spec = make_spec()
+    options = dal.JointXccyCalibrationOptions_()
+    result = dal.CalibrateJointXccyMarket(spec, options)
     validate_result(result)
+    provenance = build_quote_risk_provenance(spec, result, options)
+    require(provenance.available, provenance.reason)
 
     jacobian = result.jacobian_at_solution
     print(f"Converged: {result.converged}")
@@ -206,6 +247,10 @@ def main() -> int:
         result.fx_forward_curve.dates, result.fx_forward_curve.forwards
     ):
         print(f"  {date}: {forward:.12g}")
+    print(f"Quote-risk axis fingerprint: {provenance.axis.fingerprint}")
+    print("Quote-risk blocks:")
+    for block in provenance.axis.parameter_ranges:
+        print(f"  {block.block_key}: [{block.offset}, {block.offset + block.size})")
     return 0
 
 

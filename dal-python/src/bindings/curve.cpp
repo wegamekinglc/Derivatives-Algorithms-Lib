@@ -40,6 +40,7 @@ using namespace Dal;
 
 namespace {
     std::atomic<int> s_curveCalibrationGilBarrierMilliseconds{0};
+    std::atomic<int> s_quoteRiskGilBarrierMilliseconds{0};
     std::atomic<int> s_rateRiskGilBarrierMilliseconds{0};
 
     void RunCurveCalibrationGilBarrierForTesting() {
@@ -52,6 +53,12 @@ namespace {
     // native execution; mirrors the calibration-side paradigm.
     void RunRateRiskGilBarrierForTesting() {
         const int milliseconds = s_rateRiskGilBarrierMilliseconds.exchange(0);
+        if (milliseconds > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
+
+    void RunQuoteRiskGilBarrierForTesting() {
+        const int milliseconds = s_quoteRiskGilBarrierMilliseconds.exchange(0);
         if (milliseconds > 0)
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
@@ -93,6 +100,47 @@ namespace {
             py::gil_scoped_release release;
             RunRateRiskGilBarrierForTesting();
             aggregate = AggregateRatePortfolioNodeRisk(nativeTrades, market, componentKeys);
+        }
+        return aggregate;
+    }
+
+    RateQuoteRiskProvenance_ RunBuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,
+                                                                    const CalibrationResult_& result,
+                                                                    const CurveCalibrationOptions_& options,
+                                                                    const RatePricingMarket_& boundMarket,
+                                                                    const RateQuoteRiskProvenanceConfig_& config) {
+        py::gil_scoped_release release;
+        return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config);
+    }
+
+    RateQuoteRiskProvenance_ RunBuildJointXccyQuoteRiskProvenance(const JointXccyCalibrationSpec_& spec,
+                                                                  const JointXccyCalibrationResult_& result,
+                                                                  const JointXccyCalibrationOptions_& options,
+                                                                  const RatePricingMarket_& boundMarket,
+                                                                  const RateQuoteRiskProvenanceConfig_& config) {
+        py::gil_scoped_release release;
+        return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config);
+    }
+
+    RateQuoteRiskProvenance_ RunBuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_& spec,
+                                                                        const CrossCurrencyCalibrationResult_& result,
+                                                                        const CrossCurrencyCalibrationOptions_& options,
+                                                                        const RatePricingMarket_& boundMarket,
+                                                                        const RateQuoteRiskProvenanceConfig_& config) {
+        py::gil_scoped_release release;
+        return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config);
+    }
+
+    RatePortfolioQuoteRisk_ RunAggregateRatePortfolioQuoteRisk(const std::vector<RateTradeDefinition_>& trades,
+                                                               const RatePricingMarket_& market,
+                                                               const std::vector<RateQuoteRiskProvenance_>& provenances) {
+        const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
+        const Vector_<RateQuoteRiskProvenance_> nativeProvenances(provenances.begin(), provenances.end());
+        RatePortfolioQuoteRisk_ aggregate;
+        {
+            py::gil_scoped_release release;
+            RunQuoteRiskGilBarrierForTesting();
+            aggregate = AggregateRatePortfolioQuoteRisk(nativeTrades, market, nativeProvenances);
         }
         return aggregate;
     }
@@ -1888,6 +1936,142 @@ namespace {
 
         AddMatrixSnakeCaseAliases(m);
     }
+
+    void init_bindings_curve_quote_risk(py::module_& m) {
+        py::class_<RateQuoteRiskProvenanceConfig_>(m, "RateQuoteRiskProvenanceConfig_")
+            .def(py::init([](const std::string& calibrationId, const std::map<std::string, std::string>& bindings) {
+                     RateQuoteRiskProvenanceConfig_ result;
+                     result.calibrationId_ = String_(calibrationId);
+                     for (const auto& [block, component] : bindings)
+                         result.componentKeyByParameterBlock_[String_(block)] = String_(component);
+                     return result;
+                 }),
+                 py::kw_only(), py::arg("calibration_id"), py::arg("component_key_by_parameter_block"))
+            .def_property_readonly("calibration_id", [](const RateQuoteRiskProvenanceConfig_& value) { return StdString(value.calibrationId_); })
+            .def_property_readonly("component_key_by_parameter_block", [](const RateQuoteRiskProvenanceConfig_& value) {
+                std::map<std::string, std::string> result;
+                for (const auto& [block, component] : value.componentKeyByParameterBlock_)
+                    result[StdString(block)] = StdString(component);
+                return result;
+            });
+
+        py::class_<RateQuoteRiskRange_>(m, "RateQuoteRiskRange_")
+            .def_property_readonly("block_key", [](const RateQuoteRiskRange_& value) { return StdString(value.blockKey_); })
+            .def_property_readonly("offset", [](const RateQuoteRiskRange_& value) { return value.offset_; })
+            .def_property_readonly("size", [](const RateQuoteRiskRange_& value) { return value.size_; });
+
+        py::class_<RateQuoteRiskParameterCoordinate_>(m, "RateQuoteRiskParameterCoordinate_")
+            .def_property_readonly("block_key", [](const RateQuoteRiskParameterCoordinate_& value) { return StdString(value.blockKey_); })
+            .def_property_readonly("block_ordinal", [](const RateQuoteRiskParameterCoordinate_& value) { return value.blockOrdinal_; })
+            .def_property_readonly("global_ordinal", [](const RateQuoteRiskParameterCoordinate_& value) { return value.globalOrdinal_; })
+            .def_property_readonly("date", [](const RateQuoteRiskParameterCoordinate_& value) { return value.date_; })
+            .def_property_readonly("component", [](const RateQuoteRiskParameterCoordinate_& value) { return value.component_.Switch(); });
+
+        py::class_<RateQuoteRiskQuoteCoordinate_>(m, "RateQuoteRiskQuoteCoordinate_")
+            .def_property_readonly("block_key", [](const RateQuoteRiskQuoteCoordinate_& value) { return StdString(value.blockKey_); })
+            .def_property_readonly("block_ordinal", [](const RateQuoteRiskQuoteCoordinate_& value) { return value.blockOrdinal_; })
+            .def_property_readonly("global_ordinal", [](const RateQuoteRiskQuoteCoordinate_& value) { return value.globalOrdinal_; })
+            .def_property_readonly("display_name", [](const RateQuoteRiskQuoteCoordinate_& value) { return StdString(value.displayName_); })
+            .def_property_readonly("unit", [](const RateQuoteRiskQuoteCoordinate_& value) { return StdString(value.unit_); });
+
+        py::class_<RateQuoteRiskAxis_>(m, "RateQuoteRiskAxis_")
+            .def_property_readonly("scheme", [](const RateQuoteRiskAxis_& value) { return StdString(value.scheme_); })
+            .def_property_readonly("fingerprint", [](const RateQuoteRiskAxis_& value) { return StdString(value.fingerprint_); })
+            .def_property_readonly("parameter_ranges", [](const RateQuoteRiskAxis_& value) { return ValuesToTuple(value.parameterRanges_); })
+            .def_property_readonly("residual_ranges", [](const RateQuoteRiskAxis_& value) { return ValuesToTuple(value.residualRanges_); })
+            .def_property_readonly("parameters", [](const RateQuoteRiskAxis_& value) { return ValuesToTuple(value.parameters_); })
+            .def_property_readonly("quotes", [](const RateQuoteRiskAxis_& value) { return ValuesToTuple(value.quotes_); });
+
+        py::class_<RateQuoteRiskComponentState_>(m, "RateQuoteRiskComponentState_")
+            .def_property_readonly("component_key", [](const RateQuoteRiskComponentState_& value) { return StdString(value.componentKey_); })
+            .def_property_readonly("fingerprint", [](const RateQuoteRiskComponentState_& value) { return StdString(value.fingerprint_); });
+
+        py::class_<RateQuoteRiskState_>(m, "RateQuoteRiskState_")
+            .def_property_readonly("scheme", [](const RateQuoteRiskState_& value) { return StdString(value.scheme_); })
+            .def_property_readonly("fingerprint", [](const RateQuoteRiskState_& value) { return StdString(value.fingerprint_); })
+            .def_property_readonly("components", [](const RateQuoteRiskState_& value) { return ValuesToTuple(value.components_); });
+
+        py::class_<RateQuoteRiskProvenance_>(m, "RateQuoteRiskProvenance_")
+            .def_property_readonly("kind", [](const RateQuoteRiskProvenance_& value) { return StdString(value.Kind()); })
+            .def_property_readonly("available", [](const RateQuoteRiskProvenance_& value) { return value.Available(); })
+            .def_property_readonly("reason", [](const RateQuoteRiskProvenance_& value) { return StdString(value.Reason()); })
+            .def_property_readonly("calibration_id", [](const RateQuoteRiskProvenance_& value) { return StdString(value.CalibrationId()); })
+            .def_property_readonly("component_key_by_parameter_block",
+                                   [](const RateQuoteRiskProvenance_& value) {
+                                       std::map<std::string, std::string> result;
+                                       for (const auto& [block, component] : value.ComponentKeyByParameterBlock())
+                                           result[StdString(block)] = StdString(component);
+                                       return result;
+                                   })
+            .def_property_readonly("axis", [](const RateQuoteRiskProvenance_& value) { return value.Axis(); })
+            .def_property_readonly("state", [](const RateQuoteRiskProvenance_& value) { return value.State(); })
+            .def_property_readonly("effective_inverse", [](const RateQuoteRiskProvenance_& value) { return Matrix_<>(value.EffectiveInverse()); })
+            .def_property_readonly("tolerance", [](const RateQuoteRiskProvenance_& value) { return value.Tolerance(); });
+
+        py::class_<RateQuoteRiskBucket_>(m, "RateQuoteRiskBucket_")
+            .def_property_readonly("calibration_id", [](const RateQuoteRiskBucket_& value) { return StdString(value.calibrationId_); })
+            .def_property_readonly("axis_fingerprint", [](const RateQuoteRiskBucket_& value) { return StdString(value.axisFingerprint_); })
+            .def_property_readonly("quote_key", [](const RateQuoteRiskBucket_& value) { return StdString(value.quoteKey_); })
+            .def_property_readonly("quote_name", [](const RateQuoteRiskBucket_& value) { return StdString(value.quoteName_); })
+            .def_property_readonly("residual_block", [](const RateQuoteRiskBucket_& value) { return StdString(value.residualBlock_); })
+            .def_property_readonly("quote_ordinal", [](const RateQuoteRiskBucket_& value) { return value.quoteOrdinal_; })
+            .def_property_readonly("actual_pv_ccy", [](const RateQuoteRiskBucket_& value) { return std::string(value.actualPvCcy_.String()); })
+            .def_property_readonly("d_pv_d_decimal_quote", [](const RateQuoteRiskBucket_& value) { return value.dPvDDecimalQuote_; })
+            .def_property_readonly("dv01", [](const RateQuoteRiskBucket_& value) { return value.dv01_; });
+
+        py::class_<RatePortfolioQuoteRiskMetaEntry_>(m, "RatePortfolioQuoteRiskMetaEntry_")
+            .def_property_readonly("instrument_id", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return StdString(value.instrumentId_); })
+            .def_property_readonly("calibration_id", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return StdString(value.calibrationId_); })
+            .def_property_readonly("eligible", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return value.eligible_; })
+            .def_property_readonly("structural_zero", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return value.structuralZero_; })
+            .def_property_readonly("reason", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return StdString(value.reason_); })
+            .def_property_readonly("failing_component_key",
+                                   [](const RatePortfolioQuoteRiskMetaEntry_& value) { return StdString(value.failingComponentKey_); })
+            .def_property_readonly("original_node_risk_reason",
+                                   [](const RatePortfolioQuoteRiskMetaEntry_& value) { return StdString(value.originalNodeRiskReason_); })
+            .def_property_readonly("actual_pv_ccy",
+                                   [](const RatePortfolioQuoteRiskMetaEntry_& value) { return std::string(value.actualPvCcy_.String()); })
+            .def_property_readonly("pv", [](const RatePortfolioQuoteRiskMetaEntry_& value) { return value.pv_; });
+
+        py::class_<RateQuoteRiskProvenanceFailure_>(m, "RateQuoteRiskProvenanceFailure_")
+            .def_property_readonly("calibration_id", [](const RateQuoteRiskProvenanceFailure_& value) { return StdString(value.calibrationId_); })
+            .def_property_readonly("reason", [](const RateQuoteRiskProvenanceFailure_& value) { return StdString(value.reason_); })
+            .def_property_readonly("component_key", [](const RateQuoteRiskProvenanceFailure_& value) { return StdString(value.componentKey_); })
+            .def_property_readonly("expected_state_fingerprint",
+                                   [](const RateQuoteRiskProvenanceFailure_& value) { return StdString(value.expectedStateFingerprint_); })
+            .def_property_readonly("actual_state_fingerprint",
+                                   [](const RateQuoteRiskProvenanceFailure_& value) { return StdString(value.actualStateFingerprint_); });
+
+        py::class_<RatePortfolioQuoteRisk_>(m, "RatePortfolioQuoteRisk_")
+            .def_property_readonly("policy", [](const RatePortfolioQuoteRisk_& value) { return StdString(value.policy_); })
+            .def_property_readonly("buckets", [](const RatePortfolioQuoteRisk_& value) { return ValuesToTuple(value.buckets_); })
+            .def_property_readonly("pv_by_actual_pv_ccy",
+                                   [](const RatePortfolioQuoteRisk_& value) {
+                                       py::dict result;
+                                       for (const auto& [currency, pv] : value.pvByActualPvCcy_)
+                                           result[py::str(StdString(currency))] = pv;
+                                       return result;
+                                   })
+            .def_property_readonly("meta", [](const RatePortfolioQuoteRisk_& value) { return ValuesToTuple(value.meta_); })
+            .def_property_readonly("provenance_failures",
+                                   [](const RatePortfolioQuoteRisk_& value) { return ValuesToTuple(value.provenanceFailures_); });
+
+        m.def("RateQuoteRiskAxisFingerprintScheme", []() { return StdString(RateQuoteRiskAxisFingerprintScheme()); });
+        m.def("RateQuoteRiskStateFingerprintScheme", []() { return StdString(RateQuoteRiskStateFingerprintScheme()); });
+        m.def("BuildSingleCurveQuoteRiskProvenance", &RunBuildSingleCurveQuoteRiskProvenance, py::kw_only(), py::arg("spec"), py::arg("result"),
+              py::arg("options"), py::arg("bound_market"), py::arg("config"));
+        m.def("BuildJointXccyQuoteRiskProvenance", &RunBuildJointXccyQuoteRiskProvenance, py::kw_only(), py::arg("spec"), py::arg("result"),
+              py::arg("options"), py::arg("bound_market"), py::arg("config"));
+        m.def("BuildStagedXccyBasisQuoteRiskProvenance", &RunBuildStagedXccyBasisQuoteRiskProvenance, py::kw_only(), py::arg("spec"),
+              py::arg("result"), py::arg("options"), py::arg("bound_market"), py::arg("config"));
+        m.def("AggregateRatePortfolioQuoteRisk", &RunAggregateRatePortfolioQuoteRisk, py::kw_only(), py::arg("trades"), py::arg("market"),
+              py::arg("provenances"));
+        m.def("_QuoteRiskGilBarrier_EnableForTesting", [](int milliseconds) {
+            if (milliseconds <= 0)
+                throw std::invalid_argument("quote-risk GIL barrier duration must be positive");
+            s_quoteRiskGilBarrierMilliseconds.store(milliseconds);
+        });
+    }
 } // anonymous namespace
 
 void init_bindings_curve(py::module_& m) {
@@ -1902,4 +2086,5 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_calibration_diagnostics(m);
     init_bindings_curve_calibration_results(m);
     init_bindings_curve_xccy(m);
+    init_bindings_curve_quote_risk(m);
 }
