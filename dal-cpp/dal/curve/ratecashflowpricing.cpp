@@ -1281,16 +1281,18 @@ namespace Dal {
                                              RatePortfolioQuoteRisk_* result) {
             if (!item.active_)
                 return;
+            const bool dependencyPlanAvailable = passive.succeeded_ || !passive.dependencyComponentKeys_.empty();
+            const bool consumesComponent = std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(),
+                                                     item.componentKey_) != passive.dependencyComponentKeys_.end();
+            if (dependencyPlanAvailable && !consumesComponent) {
+                static_cast<void>(EnsureQuoteRiskGradient(item.index_, actualPvCcy.String(), item.parameterCount_, gradientSums));
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, true, String_(), result);
+                return;
+            }
             if (!UsablePassivePrice(passive)) {
                 const auto failed = sweeper->Sweep(trade, item.componentKey_);
                 AppendQuoteRiskMeta(trade, item, actualPvCcy, 0.0, false, false,
                                     failed.reason_.empty() ? String_("TRADE_VALIDATION_FAILED") : failed.reason_, result);
-                return;
-            }
-            if (std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(), item.componentKey_) ==
-                passive.dependencyComponentKeys_.end()) {
-                static_cast<void>(EnsureQuoteRiskGradient(item.index_, actualPvCcy.String(), item.parameterCount_, gradientSums));
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, true, String_(), result);
                 return;
             }
             const auto cell = sweeper->Sweep(trade, item.componentKey_);
