@@ -592,8 +592,7 @@ namespace {
         std::unique_ptr<Dal::YCComponent_> clone = curve.Clone(curve.Name(), {});
         auto* discount = dynamic_cast<Dal::DiscountCurve_*>(clone.get());
         REQUIRE(discount, "Expected a cloned discount curve");
-        clone.release();
-        return Dal::Handle_<Dal::DiscountCurve_>(discount);
+        return Dal::Handle_<Dal::DiscountCurve_>(std::unique_ptr<Dal::DiscountCurve_>(static_cast<Dal::DiscountCurve_*>(clone.release())));
     }
 
     template <class Factory_>
