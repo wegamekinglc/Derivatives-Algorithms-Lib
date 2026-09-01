@@ -389,6 +389,8 @@ namespace Dal {
                 return Residuals<double>(parameters);
             }
 
+            [[nodiscard]] double BumpSize() const override { return 1.0e-6; }
+
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;

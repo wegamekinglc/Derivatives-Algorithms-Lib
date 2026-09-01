@@ -1126,11 +1126,17 @@ namespace Dal {
     }
 
     namespace {
+        struct PreparedQuoteRiskBlock_ {
+            String_ componentKey_;
+            int offset_ = 0;
+            int size_ = 0;
+        };
+
         struct PreparedQuoteRiskProvenance_ {
             int index_ = 0;
             const RateQuoteRiskProvenance_* provenance_ = nullptr;
             bool active_ = false;
-            String_ componentKey_;
+            Vector_<PreparedQuoteRiskBlock_> blocks_;
             int parameterCount_ = 0;
         };
 
@@ -1143,13 +1149,20 @@ namespace Dal {
             result->provenanceFailures_.push_back({provenance.CalibrationId(), reason, componentKey, expected, actual});
         }
 
-        void ValidateSingleQuoteRiskShape(const RateQuoteRiskProvenance_& provenance) {
+        void ValidateQuoteRiskRangePartition(const Vector_<RateQuoteRiskRange_>& ranges, int axisSize) {
+            int nextOffset = 0;
+            for (const auto& range : ranges) {
+                REQUIRE(range.offset_ == nextOffset && range.size_ > 0, "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+                nextOffset += range.size_;
+            }
+            REQUIRE(nextOffset == axisSize, "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+        }
+
+        void ValidateQuoteRiskShape(const RateQuoteRiskProvenance_& provenance) {
             const auto& axis = provenance.Axis();
-            REQUIRE(axis.parameterRanges_.size() == 1 && axis.residualRanges_.size() == 1, "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
-            REQUIRE(axis.parameterRanges_.front().offset_ == 0 && axis.parameterRanges_.front().size_ == static_cast<int>(axis.parameters_.size()),
-                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
-            REQUIRE(axis.residualRanges_.front().offset_ == 0 && axis.residualRanges_.front().size_ == static_cast<int>(axis.quotes_.size()),
-                    "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+            REQUIRE(!axis.parameterRanges_.empty() && !axis.residualRanges_.empty(), "QUOTE_RISK_PROVENANCE_AXIS_INVALID");
+            ValidateQuoteRiskRangePartition(axis.parameterRanges_, static_cast<int>(axis.parameters_.size()));
+            ValidateQuoteRiskRangePartition(axis.residualRanges_, static_cast<int>(axis.quotes_.size()));
             REQUIRE(provenance.EffectiveInverse().Rows() == static_cast<int>(axis.parameters_.size()) &&
                         provenance.EffectiveInverse().Cols() == static_cast<int>(axis.quotes_.size()),
                     "QUOTE_RISK_PROVENANCE_INVERSE_SHAPE_INVALID");
@@ -1171,29 +1184,36 @@ namespace Dal {
                     prepared.push_back(entry);
                     continue;
                 }
-                if (provenance.Kind() != "SINGLE_CURVE") {
+                if (provenance.Kind() != "SINGLE_CURVE" && provenance.Kind() != "JOINT_XCCY" && provenance.Kind() != "STAGED_XCCY_BASIS") {
                     AppendProvenanceFailure(provenance, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED", String_(), String_(), String_(), result);
                     prepared.push_back(entry);
                     continue;
                 }
 
-                ValidateSingleQuoteRiskShape(provenance);
-                const auto& parameterRange = provenance.Axis().parameterRanges_.front();
-                const auto binding = provenance.ComponentKeyByParameterBlock().find(parameterRange.blockKey_);
-                REQUIRE(binding != provenance.ComponentKeyByParameterBlock().end(), "QUOTE_RISK_PROVENANCE_BINDING_INVALID");
-                REQUIRE(provenance.State().components_.size() == 1 && provenance.State().components_.front().componentKey_ == binding->second,
-                        "QUOTE_RISK_PROVENANCE_STATE_INVALID");
-                const auto actual = CurrentRateQuoteRiskComponentState(binding->second, market);
-                const auto& expected = provenance.State().components_.front();
-                if (actual.fingerprint_ != expected.fingerprint_) {
-                    AppendProvenanceFailure(provenance, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH", binding->second, expected.fingerprint_,
-                                            actual.fingerprint_.empty() ? String_("MISSING") : actual.fingerprint_, result);
+                ValidateQuoteRiskShape(provenance);
+                REQUIRE(provenance.State().components_.size() == provenance.Axis().parameterRanges_.size(), "QUOTE_RISK_PROVENANCE_STATE_INVALID");
+                bool stateMatches = true;
+                for (int rangeIndex = 0; rangeIndex < static_cast<int>(provenance.Axis().parameterRanges_.size()); ++rangeIndex) {
+                    const auto& parameterRange = provenance.Axis().parameterRanges_[rangeIndex];
+                    const auto binding = provenance.ComponentKeyByParameterBlock().find(parameterRange.blockKey_);
+                    REQUIRE(binding != provenance.ComponentKeyByParameterBlock().end(), "QUOTE_RISK_PROVENANCE_BINDING_INVALID");
+                    const auto& expected = provenance.State().components_[rangeIndex];
+                    REQUIRE(expected.componentKey_ == binding->second, "QUOTE_RISK_PROVENANCE_STATE_INVALID");
+                    const auto actual = CurrentRateQuoteRiskComponentState(binding->second, market);
+                    if (actual.fingerprint_ != expected.fingerprint_) {
+                        AppendProvenanceFailure(provenance, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH", binding->second, expected.fingerprint_,
+                                                actual.fingerprint_.empty() ? String_("MISSING") : actual.fingerprint_, result);
+                        stateMatches = false;
+                        break;
+                    }
+                    entry.blocks_.push_back({binding->second, parameterRange.offset_, parameterRange.size_});
+                }
+                if (!stateMatches) {
                     prepared.push_back(entry);
                     continue;
                 }
                 entry.active_ = true;
-                entry.componentKey_ = binding->second;
-                entry.parameterCount_ = parameterRange.size_;
+                entry.parameterCount_ = static_cast<int>(provenance.Axis().parameters_.size());
                 prepared.push_back(entry);
             }
             return prepared;
@@ -1228,6 +1248,7 @@ namespace Dal {
                                  double pv,
                                  bool eligible,
                                  bool structuralZero,
+                                 const String_& failingComponentKey,
                                  const String_& originalReason,
                                  RatePortfolioQuoteRisk_* result) {
             RatePortfolioQuoteRiskMetaEntry_ meta;
@@ -1236,7 +1257,7 @@ namespace Dal {
             meta.eligible_ = eligible;
             meta.structuralZero_ = structuralZero;
             meta.reason_ = eligible ? String_() : String_("QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
-            meta.failingComponentKey_ = eligible ? String_() : prepared.componentKey_;
+            meta.failingComponentKey_ = eligible ? String_() : failingComponentKey;
             meta.originalNodeRiskReason_ = originalReason;
             meta.actualPvCcy_ = actualPvCcy;
             meta.pv_ = pv;
@@ -1282,27 +1303,32 @@ namespace Dal {
             if (!item.active_)
                 return;
             const bool dependencyPlanAvailable = passive.succeeded_ || !passive.dependencyComponentKeys_.empty();
-            const bool consumesComponent = std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(),
-                                                     item.componentKey_) != passive.dependencyComponentKeys_.end();
-            if (dependencyPlanAvailable && !consumesComponent) {
-                static_cast<void>(EnsureQuoteRiskGradient(item.index_, actualPvCcy.String(), item.parameterCount_, gradientSums));
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, true, String_(), result);
-                return;
+            Vector_<> gradient(item.parameterCount_, 0.0);
+            int structuralZeroBlocks = 0;
+            for (const auto& block : item.blocks_) {
+                const bool consumesComponent = std::find(passive.dependencyComponentKeys_.begin(), passive.dependencyComponentKeys_.end(),
+                                                         block.componentKey_) != passive.dependencyComponentKeys_.end();
+                if (dependencyPlanAvailable && !consumesComponent) {
+                    ++structuralZeroBlocks;
+                    continue;
+                }
+                const String_* forcedFailure = RateCashflowPricingInternal::g_quoteRiskForcedFailureComponent.load();
+                const auto cell = forcedFailure && *forcedFailure == block.componentKey_
+                                      ? RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED")
+                                      : sweeper->Sweep(trade, block.componentKey_);
+                if (!UsablePassivePrice(passive) || !cell.eligible_) {
+                    const String_ reason = cell.reason_.empty() ? String_("TRADE_VALIDATION_FAILED") : cell.reason_;
+                    AppendQuoteRiskMeta(trade, item, actualPvCcy, UsablePassivePrice(passive) ? passive.pv_ : 0.0, false, false, block.componentKey_,
+                                        reason, result);
+                    return;
+                }
+                REQUIRE(static_cast<int>(cell.gradient_.size()) == block.size_, "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
+                for (int i = 0; i < block.size_; ++i)
+                    gradient[block.offset_ + i] = cell.gradient_[i];
             }
-            if (!UsablePassivePrice(passive)) {
-                const auto failed = sweeper->Sweep(trade, item.componentKey_);
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, 0.0, false, false,
-                                    failed.reason_.empty() ? String_("TRADE_VALIDATION_FAILED") : failed.reason_, result);
-                return;
-            }
-            const auto cell = sweeper->Sweep(trade, item.componentKey_);
-            if (!cell.eligible_) {
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, cell.reason_, result);
-                return;
-            }
-            REQUIRE(static_cast<int>(cell.gradient_.size()) == item.parameterCount_, "QUOTE_RISK_GRADIENT_WIDTH_MISMATCH");
-            AddQuoteRiskGradient(item.index_, actualPvCcy.String(), cell.gradient_, gradientSums);
-            AppendQuoteRiskMeta(trade, item, actualPvCcy, cell.pv_, true, false, String_(), result);
+            AddQuoteRiskGradient(item.index_, actualPvCcy.String(), gradient, gradientSums);
+            AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, structuralZeroBlocks == static_cast<int>(item.blocks_.size()), String_(),
+                                String_(), result);
         }
 
         void ProcessPricedQuoteRiskTrade(const RateTradeDefinition_& trade,

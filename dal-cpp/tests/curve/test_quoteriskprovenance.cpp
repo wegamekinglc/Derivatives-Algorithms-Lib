@@ -416,27 +416,28 @@ namespace {
         double dv01_ = 0.0;
     };
 
-    QuoteOracleRisk_ QuoteRiskOracle(const SingleProvenanceInput_& input,
-                                     const Dal::Vector_<Dal::RateTradeDefinition_>& trades,
-                                     const QuoteOracleObservation_& baseline,
-                                     int quoteIndex) {
+    template <class BumpReprice_>
+    QuoteOracleRisk_ QuoteRiskOracleFromBumps(const QuoteOracleObservation_& baseline, int quoteIndex, BumpReprice_&& bumpReprice) {
         constexpr double h = 1.0e-6;
         constexpr double b = 1.0e-4;
-        const auto plusH = RecalibrateAndPriceQuoteBump(input, trades, quoteIndex, h);
-        const auto minusH = RecalibrateAndPriceQuoteBump(input, trades, quoteIndex, -h);
-        const auto plusB = RecalibrateAndPriceQuoteBump(input, trades, quoteIndex, b);
-        const auto minusB = RecalibrateAndPriceQuoteBump(input, trades, quoteIndex, -b);
+        const auto plusH = bumpReprice(quoteIndex, h);
+        const auto minusH = bumpReprice(quoteIndex, -h);
+        const auto plusB = bumpReprice(quoteIndex, b);
+        const auto minusB = bumpReprice(quoteIndex, -b);
         const double priceScale = std::max({1.0, baseline.grossAbsPv_, plusH.grossAbsPv_, minusH.grossAbsPv_, plusB.grossAbsPv_, minusB.grossAbsPv_});
         return {priceScale, (plusH.netPv_ - minusH.netPv_) / (2.0 * h), (plusB.netPv_ - minusB.netPv_) / 2.0};
     }
 
-    void AssertQuoteRiskBucket(const Dal::RateQuoteRiskBucket_& bucket,
-                               const QuoteOracleRisk_& oracle,
-                               double tolerance,
-                               Dal::CurveParameterization_ parameterization,
-                               Dal::CurveJacobianMode_ mode,
-                               int quoteCount,
-                               int quoteIndex) {
+    QuoteOracleRisk_ QuoteRiskOracle(const SingleProvenanceInput_& input,
+                                     const Dal::Vector_<Dal::RateTradeDefinition_>& trades,
+                                     const QuoteOracleObservation_& baseline,
+                                     int quoteIndex) {
+        return QuoteRiskOracleFromBumps(baseline, quoteIndex,
+                                        [&](int index, double bump) { return RecalibrateAndPriceQuoteBump(input, trades, index, bump); });
+    }
+
+    void
+    AssertQuoteRiskBucket(const Dal::RateQuoteRiskBucket_& bucket, const QuoteOracleRisk_& oracle, double tolerance, const Dal::String_& context) {
         constexpr double b = 1.0e-4;
         constexpr double epsilon = std::numeric_limits<double>::epsilon();
         ASSERT_TRUE(std::isfinite(bucket.dPvDDecimalQuote_));
@@ -449,14 +450,12 @@ namespace {
         const double derivativeError = std::abs(bucket.dPvDDecimalQuote_ - oracle.derivative_);
         const double derivativeRelative = RelativeError(derivativeError, std::max(std::abs(bucket.dPvDDecimalQuote_), std::abs(oracle.derivative_)));
         ASSERT_TRUE(derivativeError <= tolerance * oracle.priceScale_ || derivativeRelative <= tolerance)
-            << "parameterization=" << parameterization.String() << " mode=" << mode.String() << " N=" << quoteCount << " quote=" << quoteIndex
-            << " api=" << bucket.dPvDDecimalQuote_ << " oracle=" << oracle.derivative_ << " absError=" << derivativeError
+            << context << " api=" << bucket.dPvDDecimalQuote_ << " oracle=" << oracle.derivative_ << " absError=" << derivativeError
             << " relError=" << derivativeRelative;
         const double dv01Error = std::abs(bucket.dv01_ - oracle.dv01_);
         const double dv01Relative = RelativeError(dv01Error, std::max(std::abs(bucket.dv01_), std::abs(oracle.dv01_)));
         ASSERT_TRUE(dv01Error <= tolerance * b * oracle.priceScale_ || dv01Relative <= tolerance)
-            << "parameterization=" << parameterization.String() << " mode=" << mode.String() << " N=" << quoteCount << " quote=" << quoteIndex
-            << " api=" << bucket.dv01_ << " oracle=" << oracle.dv01_ << " absError=" << dv01Error << " relError=" << dv01Relative;
+            << context << " api=" << bucket.dv01_ << " oracle=" << oracle.dv01_ << " absError=" << dv01Error << " relError=" << dv01Relative;
     }
 
     void AssertQuoteRiskOracle(Dal::CurveParameterization_ parameterization, int quoteCount, Dal::CurveJacobianMode_ mode) {
@@ -468,9 +467,11 @@ namespace {
         ASSERT_EQ(static_cast<int>(aggregate.buckets_.size()), quoteCount);
         const auto baseline = PriceQuoteOracleTrades(trades, input.market_);
         const double tolerance = QuoteOracleTolerance(quoteCount);
-        for (int i = 0; i < quoteCount; ++i)
-            AssertQuoteRiskBucket(aggregate.buckets_[i], QuoteRiskOracle(input, trades, baseline, i), tolerance, parameterization, mode, quoteCount,
-                                  i);
+        for (int i = 0; i < quoteCount; ++i) {
+            const Dal::String_ context = Dal::String_("parameterization=") + parameterization.String() + " mode=" + mode.String() +
+                                         " N=" + Dal::String::FromInt(quoteCount) + " quote=" + Dal::String::FromInt(i);
+            AssertQuoteRiskBucket(aggregate.buckets_[i], QuoteRiskOracle(input, trades, baseline, i), tolerance, context);
+        }
     }
 
     void RecalibrateAndBindSingle(SingleProvenanceInput_* input) {
@@ -689,6 +690,370 @@ namespace {
                                                         input->spec_.valuationTime_, input->spec_.collateralCurrency_, input->result_.fixings_);
         xccy->SetBasisCurve(input->result_.basisCurve_);
         input->market_.xccyMarket_ = xccy;
+    }
+
+    Dal::RateTradeDefinition_ XccyTrade(const Dal::CurrencyPair_& pair,
+                                        const Dal::Date_& today,
+                                        const Dal::Date_& maturity,
+                                        const Dal::String_& instrumentId = "quote-risk-xccy") {
+        Dal::XccyTradeTerms_ terms;
+        terms.positionCount_ = 1.0;
+        terms.contractSpread_ = 0.001;
+        terms.spreadOnForeignLeg_ = true;
+        terms.receiveNonSpreadPaySpread_ = true;
+        terms.config_ = JointXccyConfig(pair);
+        return {instrumentId, Dal::RateInstrumentType_::Value_::XCCY, today, today, maturity, pair.domestic_, terms};
+    }
+
+    Dal::RateTradeDefinition_ QuoteRiskDeposit(const Dal::Date_& today,
+                                               const Dal::Date_& maturity,
+                                               const Dal::String_& componentKey,
+                                               const Dal::Ccy_& actualPvCcy,
+                                               const Dal::String_& instrumentId) {
+        Dal::DepositTradeTerms_ terms;
+        terms.notional_ = 1'000'000.0;
+        terms.contractRate_ = 0.02;
+        terms.lend_ = true;
+        terms.index_ = JointIndex(false);
+        terms.discountComponentKey_ = componentKey;
+        return {instrumentId, Dal::RateInstrumentType_::Value_::DEPOSIT, today, today, maturity, actualPvCcy, terms};
+    }
+
+    class ScopedQuoteRiskForcedFailure_ {
+    public:
+        explicit ScopedQuoteRiskForcedFailure_(const Dal::String_& component) {
+            Dal::RateCashflowPricingInternal::g_quoteRiskForcedFailureComponent.store(&component);
+        }
+        ~ScopedQuoteRiskForcedFailure_() { Dal::RateCashflowPricingInternal::g_quoteRiskForcedFailureComponent.store(nullptr); }
+
+        ScopedQuoteRiskForcedFailure_(const ScopedQuoteRiskForcedFailure_&) = delete;
+        ScopedQuoteRiskForcedFailure_& operator=(const ScopedQuoteRiskForcedFailure_&) = delete;
+    };
+
+    Dal::Vector_<> XccyOracleBasisParameters(int count) {
+        Dal::Vector_<> result(count);
+        for (int i = 0; i < count; ++i)
+            result[i] = 0.0005 + 0.00005 * i;
+        return result;
+    }
+
+    Dal::Vector_<Dal::Date_> XccyOracleMaturities(const Dal::Date_& today, int count) {
+        Dal::Vector_<Dal::Date_> result;
+        for (int i = 1; i <= count; ++i)
+            result.push_back(Dal::Date::AddMonths(today, 12 * i));
+        return result;
+    }
+
+    Dal::Vector_<Dal::Date_> XccyOracleKnots(const Dal::Date_& today, int count) {
+        Dal::Vector_<Dal::Date_> result;
+        for (int i = 0; i < count; ++i)
+            result.push_back(Dal::Date::AddMonths(today, 6 + 12 * i));
+        return result;
+    }
+
+    Dal::Handle_<Dal::CrossCurrencySwap_> XccyOracleInstrument(const Dal::Date_& today,
+                                                               const Dal::Date_& maturity,
+                                                               const Dal::CrossCurrencySwapConfig_& config,
+                                                               const Dal::CrossCurrencyMarket_& market) {
+        const Dal::CrossCurrencySwap_ prototype(today, today, maturity, 0.0, config);
+        return Dal::Handle_<Dal::CrossCurrencySwap_>(new Dal::CrossCurrencySwap_(today, today, maturity, (*prototype.Precompute())(market), config));
+    }
+
+    Dal::Handle_<Dal::YCInstrument_> BumpOracleDeposit(const Dal::Handle_<Dal::YCInstrument_>& instrument, double bump) {
+        const auto* deposit = dynamic_cast<const Dal::Deposit_*>(instrument.get());
+        REQUIRE(deposit, "XCCY quote oracle expected a deposit");
+        const auto span = deposit->TimeSpan();
+        return Dal::Handle_<Dal::YCInstrument_>(
+            new Dal::Deposit_(deposit->TradeDate(), span.first, span.second, deposit->MarketRate() + bump, deposit->FloatConvention()));
+    }
+
+    Dal::Handle_<Dal::CrossCurrencySwap_> BumpOracleXccy(const Dal::Handle_<Dal::CrossCurrencySwap_>& instrument, double bump) {
+        REQUIRE(instrument, "XCCY quote oracle instrument is empty");
+        const auto span = instrument->TimeSpan();
+        return Dal::Handle_<Dal::CrossCurrencySwap_>(
+            new Dal::CrossCurrencySwap_(instrument->TradeDate(), span.first, span.second, instrument->MarketRate() + bump, instrument->Config()));
+    }
+
+    struct JointXccyQuoteOracleInput_ {
+        Dal::JointXccyCalibrationSpec_ spec_;
+        Dal::JointXccyCalibrationOptions_ options_;
+        Dal::JointXccyCalibrationResult_ result_;
+        Dal::RateQuoteRiskProvenanceConfig_ config_;
+        Dal::RatePricingMarket_ market_;
+        Dal::RateTradeDefinition_ trade_;
+    };
+
+    Dal::RatePricingMarket_ JointXccyOracleMarket(const Dal::JointXccyCalibrationSpec_& spec,
+                                                  const Dal::JointXccyCalibrationResult_& result,
+                                                  const Dal::RateQuoteRiskProvenanceConfig_& config) {
+        REQUIRE(result.parameterRanges_.size() == 5, "XCCY quote oracle expected domestic, foreign, and basis parameter blocks");
+        const auto collateral = Dal::CollateralType_(Dal::CollateralType_::Value_::OIS);
+        const Dal::Vector_<Dal::Handle_<Dal::DiscountCurve_>> curves = {
+            AliasCurve(result.domesticCurveBlock_->Discount(collateral)),
+            AliasCurve(result.domesticCurveBlock_->Forward(Dal::PeriodLength_("3M"), collateral)),
+            AliasCurve(result.foreignCurveBlock_->Discount(collateral)),
+            AliasCurve(result.foreignCurveBlock_->Forward(Dal::PeriodLength_("3M"), collateral)), result.basisCurve_};
+        Dal::RatePricingMarket_ market;
+        market.valuationTime_ = spec.valuationTime_;
+        market.resultCurrency_ = spec.pair_.domestic_;
+        market.fixings_ = result.fixings_;
+        for (int i = 0; i < static_cast<int>(result.parameterRanges_.size()); ++i)
+            market.curveComponents_[config.componentKeyByParameterBlock_.at(result.parameterRanges_[i].name_)] = curves[i];
+        auto xccy = std::make_shared<Dal::CrossCurrencyMarket_>(result.domesticCurveBlock_, result.foreignCurveBlock_, spec.fxSpot_,
+                                                                spec.valuationTime_, spec.collateralCurrency_, result.fixings_);
+        xccy->SetBasisCurve(result.basisCurve_);
+        market.xccyMarket_ = xccy;
+        return market;
+    }
+
+    JointXccyQuoteOracleInput_ MakeJointXccyQuoteOracleInput(int quoteCount, Dal::CurveJacobianMode_ mode) {
+        REQUIRE(quoteCount == 5 || quoteCount == 10 || quoteCount == 16, "Joint XCCY quote oracle requires a frozen ladder width");
+        JointXccyQuoteOracleInput_ input;
+        const Dal::Date_ today(2025, 1, 16);
+        const Dal::CurrencyPair_ pair(Dal::Ccy_("USD"), Dal::Ccy_("EUR"));
+        const int currencyQuoteCount = quoteCount <= 5 ? 1 : quoteCount <= 10 ? 2 : 3;
+        const int basisQuoteCount = quoteCount - 4 * currencyQuoteCount;
+        const auto currencyKnots = XccyOracleKnots(today, currencyQuoteCount);
+        const auto currencyMaturities = XccyOracleMaturities(today, currencyQuoteCount);
+        const auto basisKnots = XccyOracleKnots(today, basisQuoteCount);
+        const auto basisMaturities = XccyOracleMaturities(today, basisQuoteCount);
+        const Dal::Date_ horizon = std::max(currencyMaturities.back(), basisMaturities.back());
+        Dal::Vector_<> domesticDiscount(currencyQuoteCount), domesticForward(currencyQuoteCount), foreignDiscount(currencyQuoteCount),
+            foreignForward(currencyQuoteCount);
+        for (int i = 0; i < currencyQuoteCount; ++i) {
+            domesticDiscount[i] = 0.015 + 0.0002 * i;
+            domesticForward[i] = 0.024 + 0.0002 * i;
+            foreignDiscount[i] = 0.010 + 0.0002 * i;
+            foreignForward[i] = 0.019 + 0.0002 * i;
+        }
+        const auto domestic = JointBlock("usd_joint_oracle", pair.domestic_, currencyKnots, domesticDiscount, domesticForward);
+        const auto foreign = JointBlock("eur_joint_oracle", pair.foreign_, currencyKnots, foreignDiscount, foreignForward);
+        const Dal::Handle_<Dal::MarketFixingSnapshot_> fixings(new Dal::MarketFixingSnapshot_());
+        const auto config = JointXccyConfig(pair);
+        Dal::CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, Dal::DateTime_(today, 9, 0), pair.domestic_, fixings);
+        const auto basisParameters = XccyOracleBasisParameters(static_cast<int>(basisKnots.size()));
+        quoteMarket.SetBasisCurve(JointPwc("joint_oracle_basis_truth", pair.domestic_, basisKnots, basisParameters));
+
+        input.spec_.valuationTime_ = Dal::DateTime_(today, 9, 0);
+        input.spec_.pair_ = pair;
+        input.spec_.collateralCurrency_ = pair.domestic_;
+        input.spec_.fxSpot_ = 1.10;
+        input.spec_.fixings_ = fixings;
+        input.spec_.tolerance_ = 1.0e-10;
+        input.spec_.fitTolerance_ = 1.0e-8;
+        input.spec_.initialGuess_ = 0.005;
+        input.spec_.domestic_ = JointCurrencySpec(today, pair.domestic_, currencyKnots, currencyMaturities, domestic);
+        input.spec_.foreign_ = JointCurrencySpec(today, pair.foreign_, currencyKnots, currencyMaturities, foreign);
+        input.spec_.domestic_.curves_[0].initialGuessPerNode_ = domesticDiscount;
+        input.spec_.domestic_.curves_[1].initialGuessPerNode_ = domesticForward;
+        input.spec_.foreign_.curves_[0].initialGuessPerNode_ = foreignDiscount;
+        input.spec_.foreign_.curves_[1].initialGuessPerNode_ = foreignForward;
+        input.spec_.basis_.curveName_ = "joint_oracle_basis";
+        input.spec_.basis_.knotDates_ = basisKnots;
+        input.spec_.basis_.initialGuessPerNode_ = basisParameters;
+        for (const auto& maturity : basisMaturities)
+            input.spec_.basis_.instruments_.push_back(XccyOracleInstrument(today, maturity, config, quoteMarket));
+        input.options_.jacobianMode_ = mode;
+        try {
+            input.result_ = Dal::CalibrateJointXccyMarket(input.spec_, input.options_);
+        } catch (const std::exception& exception) {
+            THROW("Joint XCCY quote oracle baseline calibration failed: " + Dal::String_(exception.what()));
+        }
+
+        input.config_.calibrationId_ = "joint-xccy-oracle-" + Dal::String::FromInt(quoteCount);
+        for (int i = 0; i < static_cast<int>(input.result_.parameterRanges_.size()); ++i)
+            input.config_.componentKeyByParameterBlock_[input.result_.parameterRanges_[i].name_] =
+                "joint-oracle-component-" + Dal::String::FromInt(i);
+        input.market_ = JointXccyOracleMarket(input.spec_, input.result_, input.config_);
+        input.trade_ = XccyTrade(pair, today, horizon, "joint-xccy-oracle-trade");
+        std::get<Dal::XccyTradeTerms_>(input.trade_.terms_).config_ = config;
+        std::get<Dal::XccyTradeTerms_>(input.trade_.terms_).contractSpread_ = 0.25;
+        return input;
+    }
+
+    QuoteOracleObservation_ RecalibrateAndPriceJointXccyQuoteBump(const JointXccyQuoteOracleInput_& input, int quoteIndex, double bump) {
+        Dal::JointXccyCalibrationSpec_ bumped = input.spec_;
+        int ordinal = quoteIndex;
+        const auto bumpCurrency = [&](Dal::JointCurrencyCurveSpec_* currency) {
+            for (auto& declaration : currency->curves_) {
+                if (ordinal < static_cast<int>(declaration.instruments_.size())) {
+                    declaration.instruments_[ordinal] = BumpOracleDeposit(declaration.instruments_[ordinal], bump);
+                    return true;
+                }
+                ordinal -= static_cast<int>(declaration.instruments_.size());
+            }
+            return false;
+        };
+        if (!bumpCurrency(&bumped.domestic_) && !bumpCurrency(&bumped.foreign_))
+            bumped.basis_.instruments_[ordinal] = BumpOracleXccy(bumped.basis_.instruments_[ordinal], bump);
+        Dal::Vector_<double*> initialGuesses;
+        const auto appendGuesses = [&](Dal::JointCurrencyCurveSpec_* currency) {
+            for (auto& declaration : currency->curves_)
+                for (double& guess : declaration.initialGuessPerNode_)
+                    initialGuesses.push_back(&guess);
+        };
+        appendGuesses(&bumped.domestic_);
+        appendGuesses(&bumped.foreign_);
+        for (double& guess : bumped.basis_.initialGuessPerNode_)
+            initialGuesses.push_back(&guess);
+        REQUIRE(static_cast<int>(initialGuesses.size()) == input.result_.effJacobianInverse_.Rows(),
+                "Joint XCCY quote oracle initial-guess axis mismatch");
+        // Seed the local branch only; the bumped quote is still fully recalibrated and checked
+        // against the solver's residual gate before it is used as an oracle price.
+        for (int parameter = 0; parameter < static_cast<int>(initialGuesses.size()); ++parameter)
+            *initialGuesses[parameter] += input.result_.effJacobianInverse_(parameter, quoteIndex) * bump / input.spec_.tolerance_;
+        *initialGuesses.front() += 1.0e-3;
+        Dal::JointXccyCalibrationResult_ calibrated;
+        try {
+            calibrated = Dal::CalibrateJointXccyMarket(bumped, input.options_);
+        } catch (const std::exception& exception) {
+            THROW("Joint XCCY bumped calibration failed for quote " + Dal::String::FromInt(quoteIndex) + " and bump " +
+                  Dal::String::FromDouble(bump) + ": " + Dal::String_(exception.what()));
+        }
+        REQUIRE(calibrated.jointMaxAbsResidual_ <= input.spec_.fitTolerance_, "Joint XCCY quote oracle calibration failed its fit gate");
+        return PriceQuoteOracleTrades({input.trade_}, JointXccyOracleMarket(bumped, calibrated, input.config_));
+    }
+
+    struct StagedXccyQuoteOracleInput_ {
+        Dal::CrossCurrencyCalibrationSpec_ spec_;
+        Dal::CrossCurrencyCalibrationOptions_ options_;
+        std::unique_ptr<Dal::CrossCurrencyCalibrationResult_> result_;
+        Dal::RateQuoteRiskProvenanceConfig_ config_;
+        Dal::RatePricingMarket_ market_;
+        Dal::RateTradeDefinition_ trade_;
+    };
+
+    Dal::RatePricingMarket_ StagedXccyOracleMarket(const Dal::CrossCurrencyCalibrationSpec_& spec,
+                                                   const Dal::CrossCurrencyCalibrationResult_& result,
+                                                   const Dal::RateQuoteRiskProvenanceConfig_& config) {
+        const auto basis = result.basisCurves_.at(spec.basisPair_);
+        Dal::RatePricingMarket_ market;
+        market.valuationTime_ = spec.valuationTime_;
+        market.resultCurrency_ = spec.basisPair_.domestic_;
+        market.fixings_ = result.market_.Fixings();
+        market.curveComponents_[config.componentKeyByParameterBlock_.begin()->second] = basis;
+        market.xccyMarket_ = std::make_shared<Dal::CrossCurrencyMarket_>(result.market_);
+        return market;
+    }
+
+    StagedXccyQuoteOracleInput_ MakeStagedXccyQuoteOracleInput(int quoteCount, Dal::CurveJacobianMode_ mode) {
+        StagedXccyQuoteOracleInput_ input;
+        const Dal::Date_ today(2025, 1, 16);
+        const Dal::CurrencyPair_ pair(Dal::Ccy_("USD"), Dal::Ccy_("EUR"));
+        Dal::Vector_<Dal::Date_> basisKnots;
+        Dal::Vector_<Dal::Date_> instrumentMaturities;
+        for (int i = 1; i <= quoteCount; ++i) {
+            basisKnots.push_back(Dal::Date::AddMonths(today, 24 * i));
+            instrumentMaturities.push_back(Dal::Date::AddMonths(today, 24 * i + 12));
+        }
+        const Dal::Date_ horizon = Dal::Date::AddMonths(today, 3);
+        Dal::Vector_<> domesticDiscount(quoteCount), domesticForward(quoteCount), foreignDiscount(quoteCount), foreignForward(quoteCount);
+        for (int i = 0; i < quoteCount; ++i) {
+            domesticDiscount[i] = 0.015 + 0.0001 * i;
+            domesticForward[i] = 0.024 + 0.0001 * i;
+            foreignDiscount[i] = 0.010 + 0.0001 * i;
+            foreignForward[i] = 0.019 + 0.0001 * i;
+        }
+        const auto domestic = JointBlock("usd_staged_oracle", pair.domestic_, basisKnots, domesticDiscount, domesticForward);
+        const auto foreign = JointBlock("eur_staged_oracle", pair.foreign_, basisKnots, foreignDiscount, foreignForward);
+        const Dal::Handle_<Dal::MarketFixingSnapshot_> fixings(new Dal::MarketFixingSnapshot_());
+        const auto config = JointXccyConfig(pair);
+        Dal::CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, Dal::DateTime_(today, 9, 0), pair.domestic_, fixings);
+        const Dal::Vector_<> basisParameters(quoteCount, 0.0020);
+        quoteMarket.SetBasisCurve(JointPwc("staged_oracle_basis_truth", pair.domestic_, basisKnots, basisParameters));
+
+        input.spec_.today_ = today;
+        input.spec_.valuationTime_ = Dal::DateTime_(today, 9, 0);
+        input.spec_.collateralCurrency_ = pair.domestic_;
+        input.spec_.fixings_ = fixings;
+        input.spec_.basisPair_ = pair;
+        input.spec_.domesticCurveBlock_ = domestic;
+        input.spec_.foreignCurveBlock_ = foreign;
+        input.spec_.fxSpot_ = 1.10;
+        input.spec_.knotDates_ = basisKnots;
+        input.spec_.tolerance_ = 1.0e-10;
+        input.spec_.fitTolerance_ = 1.0e-8;
+        input.spec_.initialGuess_ = basisParameters.front();
+        input.spec_.maxEvaluations_ = 500;
+        input.spec_.maxRestarts_ = 40;
+        for (const auto& maturity : instrumentMaturities)
+            input.spec_.instruments_.push_back(XccyOracleInstrument(today, maturity, config, quoteMarket));
+        input.options_.jacobianMode_ = mode;
+        try {
+            input.result_ = std::make_unique<Dal::CrossCurrencyCalibrationResult_>(Dal::CalibrateCrossCurrencyMarket(input.spec_, input.options_));
+        } catch (const std::exception& exception) {
+            THROW("Staged XCCY quote oracle baseline calibration failed: " + Dal::String_(exception.what()));
+        }
+        const Dal::String_ parameterBlock = Dal::String_("basis:xccy_basis_") + pair.domestic_.String();
+        input.config_.calibrationId_ = "staged-xccy-oracle-" + Dal::String::FromInt(quoteCount);
+        input.config_.componentKeyByParameterBlock_[parameterBlock] = "staged-oracle-basis";
+        input.market_ = StagedXccyOracleMarket(input.spec_, *input.result_, input.config_);
+        input.trade_ = XccyTrade(pair, today, horizon, "staged-xccy-oracle-trade");
+        std::get<Dal::XccyTradeTerms_>(input.trade_.terms_).config_ = config;
+        return input;
+    }
+
+    QuoteOracleObservation_ RecalibrateAndPriceStagedXccyQuoteBump(const StagedXccyQuoteOracleInput_& input, int quoteIndex, double bump) {
+        std::unique_ptr<Dal::CrossCurrencyCalibrationResult_> calibrated;
+        Dal::CrossCurrencyCalibrationSpec_ bumped;
+        auto oracleOptions = input.options_;
+        oracleOptions.jacobianMode_ = Dal::CurveJacobianMode_::Value_::BUMPED;
+        const int steps = std::abs(bump) >= 1.0e-4 ? 10 : 1;
+        for (int step = 1; step <= steps; ++step) {
+            const auto* seed = calibrated ? calibrated.get() : input.result_.get();
+            bumped = input.spec_;
+            bumped.instruments_[quoteIndex] = BumpOracleXccy(input.spec_.instruments_[quoteIndex], bump * step / steps);
+            const auto basis = seed->basisCurves_.at(input.spec_.basisPair_);
+            const auto* solved = dynamic_cast<const Dal::Tape::DiscountPWC_<double>*>(basis.get());
+            REQUIRE(solved, "Staged XCCY quote oracle expected a PWC basis curve");
+            bumped.initialGuessPerNode_ = solved->FRight();
+            // Keep the exact solver on the local solution branch; every continuation point still
+            // recalibrates the bumped original quote and must independently pass the residual gate.
+            for (int parameter = 0; parameter < static_cast<int>(bumped.initialGuessPerNode_.size()); ++parameter) {
+                bumped.initialGuessPerNode_[parameter] +=
+                    seed->diagnostics_.effJacobianInverse_(parameter, quoteIndex) * (bump / steps) / input.spec_.tolerance_;
+                bumped.initialGuessPerNode_[parameter] += 1.0e-5;
+            }
+            try {
+                calibrated = std::make_unique<Dal::CrossCurrencyCalibrationResult_>(Dal::CalibrateCrossCurrencyMarket(bumped, oracleOptions));
+            } catch (const std::exception& exception) {
+                THROW("Staged XCCY bumped calibration failed for quote " + Dal::String::FromInt(quoteIndex) + " and bump " +
+                      Dal::String::FromDouble(bump) + " at continuation step " + Dal::String::FromInt(step) + ": " + Dal::String_(exception.what()));
+            }
+        }
+        REQUIRE(calibrated->diagnostics_.maxAbsResidual_ <= input.spec_.fitTolerance_, "Staged XCCY quote oracle calibration failed its fit gate");
+        return PriceQuoteOracleTrades({input.trade_}, StagedXccyOracleMarket(bumped, *calibrated, input.config_));
+    }
+
+    void AssertJointXccyQuoteRiskOracle(int quoteCount, Dal::CurveJacobianMode_ mode) {
+        const auto input = MakeJointXccyQuoteOracleInput(quoteCount, mode);
+        const auto provenance = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+        const auto aggregate = Dal::AggregateRatePortfolioQuoteRisk({input.trade_}, input.market_, {provenance});
+        ASSERT_EQ(static_cast<int>(aggregate.buckets_.size()), quoteCount);
+        const auto baseline = PriceQuoteOracleTrades({input.trade_}, input.market_);
+        for (int i = 0; i < quoteCount; ++i) {
+            const auto oracle = QuoteRiskOracleFromBumps(
+                baseline, i, [&](int index, double bump) { return RecalibrateAndPriceJointXccyQuoteBump(input, index, bump); });
+            const Dal::String_ context = Dal::String_("domain=JOINT_XCCY mode=") + mode.String() + " N=" + Dal::String::FromInt(quoteCount) +
+                                         " quote=" + Dal::String::FromInt(i);
+            AssertQuoteRiskBucket(aggregate.buckets_[i], oracle, QuoteOracleTolerance(quoteCount), context);
+        }
+    }
+
+    void AssertStagedXccyQuoteRiskOracle(int quoteCount, Dal::CurveJacobianMode_ mode) {
+        const auto input = MakeStagedXccyQuoteOracleInput(quoteCount, mode);
+        const auto provenance =
+            Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, input.config_);
+        const auto aggregate = Dal::AggregateRatePortfolioQuoteRisk({input.trade_}, input.market_, {provenance});
+        ASSERT_EQ(static_cast<int>(aggregate.buckets_.size()), quoteCount);
+        const auto baseline = PriceQuoteOracleTrades({input.trade_}, input.market_);
+        for (int i = 0; i < quoteCount; ++i) {
+            const auto oracle = QuoteRiskOracleFromBumps(
+                baseline, i, [&](int index, double bump) { return RecalibrateAndPriceStagedXccyQuoteBump(input, index, bump); });
+            const Dal::String_ context = Dal::String_("domain=STAGED_XCCY_BASIS mode=") + mode.String() + " N=" + Dal::String::FromInt(quoteCount) +
+                                         " quote=" + Dal::String::FromInt(i);
+            AssertQuoteRiskBucket(aggregate.buckets_[i], oracle, QuoteOracleTolerance(quoteCount), context);
+        }
     }
 } // namespace
 
@@ -973,21 +1338,148 @@ TEST(QuoteRiskAggregationTest, TestStaleProvenanceDoesNotBlockFreshSibling) {
         ASSERT_EQ(bucket.calibrationId_, fresh.CalibrationId());
 }
 
-TEST(QuoteRiskAggregationTest, TestJointAndStagedAggregateSuccessWaitsForQr3) {
+TEST(QuoteRiskAggregationTest, TestJointAndStagedAggregateKindsAreSupported) {
     const auto joint = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
     const auto jointProvenance = Dal::BuildJointXccyQuoteRiskProvenance(joint.spec_, joint.result_, joint.options_, joint.market_, joint.config_);
     const auto jointResult = Dal::AggregateRatePortfolioQuoteRisk({}, joint.market_, {jointProvenance});
     ASSERT_TRUE(jointResult.buckets_.empty());
-    ASSERT_EQ(jointResult.provenanceFailures_.size(), 1U);
-    ASSERT_EQ(jointResult.provenanceFailures_.front().reason_, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED");
+    ASSERT_TRUE(jointResult.provenanceFailures_.empty());
 
     const auto staged = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
     const auto stagedProvenance =
         Dal::BuildStagedXccyBasisQuoteRiskProvenance(staged.spec_, *staged.result_, staged.options_, staged.market_, staged.config_);
     const auto stagedResult = Dal::AggregateRatePortfolioQuoteRisk({}, staged.market_, {stagedProvenance});
     ASSERT_TRUE(stagedResult.buckets_.empty());
-    ASSERT_EQ(stagedResult.provenanceFailures_.size(), 1U);
-    ASSERT_EQ(stagedResult.provenanceFailures_.front().reason_, "QUOTE_RISK_AGGREGATION_KIND_NOT_SUPPORTED");
+    ASSERT_TRUE(stagedResult.provenanceFailures_.empty());
+}
+
+TEST(QuoteRiskAggregationTest, TestJointAndStagedXccyProduceTheirPublishedQuoteAxes) {
+    for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+        const auto joint = MakeJointInput(mode);
+        const auto jointProvenance = Dal::BuildJointXccyQuoteRiskProvenance(joint.spec_, joint.result_, joint.options_, joint.market_, joint.config_);
+        const auto jointTrade = XccyTrade(joint.spec_.pair_, joint.spec_.valuationTime_.Date(), joint.spec_.basis_.knotDates_.back());
+        const auto jointResult = Dal::AggregateRatePortfolioQuoteRisk({jointTrade}, joint.market_, {jointProvenance});
+        ASSERT_TRUE(jointResult.provenanceFailures_.empty());
+        ASSERT_EQ(jointResult.buckets_.size(), jointProvenance.Axis().quotes_.size());
+        ASSERT_EQ(jointResult.meta_.size(), 1U);
+        ASSERT_TRUE(jointResult.meta_.front().eligible_);
+        ASSERT_FALSE(jointResult.meta_.front().structuralZero_);
+
+        const auto staged = MakeStagedInput(mode);
+        const auto stagedProvenance =
+            Dal::BuildStagedXccyBasisQuoteRiskProvenance(staged.spec_, *staged.result_, staged.options_, staged.market_, staged.config_);
+        const auto stagedTrade = XccyTrade(staged.spec_.basisPair_, staged.spec_.valuationTime_.Date(), staged.spec_.knotDates_.back());
+        const auto stagedResult = Dal::AggregateRatePortfolioQuoteRisk({stagedTrade}, staged.market_, {stagedProvenance});
+        ASSERT_TRUE(stagedResult.provenanceFailures_.empty());
+        ASSERT_EQ(stagedResult.buckets_.size(), stagedProvenance.Axis().quotes_.size());
+        ASSERT_EQ(stagedResult.meta_.size(), 1U);
+        ASSERT_TRUE(stagedResult.meta_.front().eligible_);
+        ASSERT_FALSE(stagedResult.meta_.front().structuralZero_);
+        for (const auto& bucket : stagedResult.buckets_)
+            ASSERT_EQ(bucket.residualBlock_, stagedProvenance.Axis().residualRanges_.front().blockKey_);
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestJointXccyConsumedBlockFailureDiscardsSiblingGradients) {
+    const auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    const auto trade = XccyTrade(input.spec_.pair_, input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back());
+
+    for (int block = 0; block < static_cast<int>(provenance.Axis().parameterRanges_.size()); ++block) {
+        const Dal::String_ component = provenance.ComponentKeyByParameterBlock().at(provenance.Axis().parameterRanges_[block].blockKey_);
+        Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+        const ScopedQuoteRiskForcedFailure_ forcedFailure(component);
+        const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance});
+
+        ASSERT_TRUE(result.buckets_.empty());
+        ASSERT_EQ(result.meta_.size(), 1U);
+        ASSERT_FALSE(result.meta_.front().eligible_);
+        ASSERT_EQ(result.meta_.front().reason_, "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+        ASSERT_EQ(result.meta_.front().failingComponentKey_, component);
+        ASSERT_EQ(result.meta_.front().originalNodeRiskReason_, "AAD_EVALUATION_FAILED");
+        ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), block);
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestJointXccyUnusedBlocksAreStructuralZerosWithoutSweeps) {
+    auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    const auto& firstRange = provenance.Axis().parameterRanges_.front();
+    const auto& firstComponent = provenance.ComponentKeyByParameterBlock().at(firstRange.blockKey_);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto oneBlock = QuoteRiskDeposit(input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(), firstComponent, Dal::Ccy_("EUR"),
+                                           "one-joint-block");
+    const auto oneBlockResult = Dal::AggregateRatePortfolioQuoteRisk({oneBlock}, input.market_, {provenance});
+
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 1);
+    ASSERT_EQ(oneBlockResult.buckets_.size(), provenance.Axis().quotes_.size());
+    ASSERT_EQ(oneBlockResult.meta_.size(), 1U);
+    ASSERT_TRUE(oneBlockResult.meta_.front().eligible_);
+    ASSERT_FALSE(oneBlockResult.meta_.front().structuralZero_);
+
+    input.market_.curveComponents_["unrelated"] = input.market_.curveComponents_.at(firstComponent);
+    const auto unrelated =
+        QuoteRiskDeposit(input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(), "unrelated", Dal::Ccy_("EUR"), "no-joint-block");
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+    const auto noBlockResult = Dal::AggregateRatePortfolioQuoteRisk({unrelated}, input.market_, {provenance});
+
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+    ASSERT_EQ(noBlockResult.buckets_.size(), provenance.Axis().quotes_.size());
+    ASSERT_EQ(noBlockResult.meta_.size(), 1U);
+    ASSERT_TRUE(noBlockResult.meta_.front().eligible_);
+    ASSERT_TRUE(noBlockResult.meta_.front().structuralZero_);
+    for (const auto& bucket : noBlockResult.buckets_) {
+        ASSERT_DOUBLE_EQ(bucket.dPvDDecimalQuote_, 0.0);
+        ASSERT_DOUBLE_EQ(bucket.dv01_, 0.0);
+    }
+}
+
+TEST(QuoteRiskAggregationTest, TestStagedXccyDomesticAndForeignStateMismatchPrecedesSweeps) {
+    const auto baseline = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance =
+        Dal::BuildStagedXccyBasisQuoteRiskProvenance(baseline.spec_, *baseline.result_, baseline.options_, baseline.market_, baseline.config_);
+    auto changed = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC, 0.001);
+    const auto basis = baseline.result_->basisCurves_.at(baseline.spec_.basisPair_);
+    const auto component = provenance.State().components_.front().componentKey_;
+    changed.market_.curveComponents_[component] = basis;
+    auto changedXccy = std::make_shared<Dal::CrossCurrencyMarket_>(changed.spec_.domesticCurveBlock_, changed.spec_.foreignCurveBlock_,
+                                                                   baseline.spec_.fxSpot_, baseline.spec_.valuationTime_,
+                                                                   baseline.spec_.collateralCurrency_, baseline.result_->market_.Fixings());
+    changedXccy->SetBasisCurve(basis);
+    changed.market_.xccyMarket_ = changedXccy;
+    const auto trade = XccyTrade(baseline.spec_.basisPair_, baseline.spec_.valuationTime_.Date(), baseline.spec_.knotDates_.back());
+    Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.store(0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, changed.market_, {provenance});
+
+    ASSERT_TRUE(result.buckets_.empty());
+    ASSERT_TRUE(result.meta_.empty());
+    ASSERT_EQ(result.provenanceFailures_.size(), 1U);
+    ASSERT_EQ(result.provenanceFailures_.front().reason_, "QUOTE_RISK_CALIBRATION_STATE_MISMATCH");
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(), 0);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+}
+
+TEST(QuoteRiskAggregationTest, TestJointXccyKeepsActualPvCurrenciesSeparate) {
+    const auto input = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    const auto usd = XccyTrade(input.spec_.pair_, input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(), "usd-xccy");
+    const auto& firstRange = provenance.Axis().parameterRanges_.front();
+    const auto eur = QuoteRiskDeposit(input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(),
+                                      provenance.ComponentKeyByParameterBlock().at(firstRange.blockKey_), Dal::Ccy_("EUR"), "eur-deposit");
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({usd, eur}, input.market_, {provenance});
+
+    ASSERT_EQ(result.pvByActualPvCcy_.size(), 2U);
+    ASSERT_TRUE(result.pvByActualPvCcy_.count("USD"));
+    ASSERT_TRUE(result.pvByActualPvCcy_.count("EUR"));
+    ASSERT_EQ(result.buckets_.size(), 2U * provenance.Axis().quotes_.size());
+    std::set<Dal::String_> currencies;
+    for (const auto& bucket : result.buckets_)
+        currencies.insert(bucket.actualPvCcy_.String());
+    ASSERT_EQ(currencies, (std::set<Dal::String_>{"EUR", "USD"}));
 }
 
 TEST(QuoteRiskAggregationTest, TestFullRecalibrationOracleAtRequiredWidthsAndModes) {
@@ -1005,6 +1497,29 @@ TEST(QuoteRiskAggregationTest, TestFullRecalibrationOracleAtRequiredWidthsAndMod
                            << " parameterization=" << Dal::CurveParameterization_(parameterization).String() << ": " << exception.what();
                 }
             }
+}
+
+TEST(QuoteRiskAggregationTest, TestXccyFullRecalibrationOracleAtRequiredWidthsAndModes) {
+    for (const int quoteCount : {5, 10, 16})
+        for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+            SCOPED_TRACE(Dal::String_("N=") + Dal::String::FromInt(quoteCount) + " mode=" + Dal::CurveJacobianMode_(mode).String());
+            {
+                SCOPED_TRACE("domain=JOINT_XCCY");
+                try {
+                    ASSERT_NO_FATAL_FAILURE(AssertJointXccyQuoteRiskOracle(quoteCount, mode));
+                } catch (const std::exception& exception) {
+                    FAIL() << "JOINT_XCCY oracle failed: " << exception.what();
+                }
+            }
+            {
+                SCOPED_TRACE("domain=STAGED_XCCY_BASIS");
+                try {
+                    ASSERT_NO_FATAL_FAILURE(AssertStagedXccyQuoteRiskOracle(quoteCount, mode));
+                } catch (const std::exception& exception) {
+                    FAIL() << "STAGED_XCCY_BASIS oracle failed: " << exception.what();
+                }
+            }
+        }
 }
 
 TEST(QuoteRiskProvenanceTest, TestSingleCurveUnavailableReasonsRemainStructured) {

@@ -41,6 +41,11 @@ namespace Dal::RateCashflowPricingInternal {
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
     inline std::atomic<int> g_nodeSensitivitySweepCount{0};
 
+    // Test-only fault seam for quote-risk atomicity: when non-null, aggregation treats the named
+    // consumed component as an AAD evaluation failure before its sweep. The pointer is caller-owned
+    // and must remain alive until the aggregate call returns.
+    inline std::atomic<const String_*> g_quoteRiskForcedFailureComponent{nullptr};
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,
