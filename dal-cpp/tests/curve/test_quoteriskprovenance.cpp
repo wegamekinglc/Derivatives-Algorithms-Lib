@@ -848,6 +848,51 @@ TEST(QuoteRiskAggregationTest, TestNonDependencyUsesStructuralZeroWithoutSweepin
     ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
 }
 
+TEST(QuoteRiskAggregationTest, TestFailedNonDependencyRemainsStructuralZeroWithoutSweeping) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    input.market_.curveComponents_["unrelated"] = input.market_.curveComponents_.at("discount");
+    auto trade = SingleDepositTrade(input);
+    auto& terms = std::get<Dal::DepositTradeTerms_>(trade.terms_);
+    terms.discountComponentKey_ = "unrelated";
+    terms.notional_ = 0.0;
+    Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.store(0);
+    Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.store(0);
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance});
+
+    ASSERT_EQ(result.meta_.size(), 1U);
+    ASSERT_TRUE(result.meta_.front().eligible_);
+    ASSERT_TRUE(result.meta_.front().structuralZero_);
+    ASSERT_TRUE(result.meta_.front().reason_.empty());
+    ASSERT_EQ(result.buckets_.size(), provenance.Axis().quotes_.size());
+    for (const auto& bucket : result.buckets_) {
+        ASSERT_DOUBLE_EQ(bucket.dPvDDecimalQuote_, 0.0);
+        ASSERT_DOUBLE_EQ(bucket.dv01_, 0.0);
+    }
+    ASSERT_TRUE(result.pvByActualPvCcy_.empty());
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(), 0);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(), 0);
+}
+
+TEST(QuoteRiskAggregationTest, TestFailedDependencyPlanDoesNotClaimStructuralZero) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto provenance = BuildSingle(input);
+    input.market_.curveComponents_["unrelated"] = input.market_.curveComponents_.at("discount");
+    auto trade = SingleDepositTrade(input);
+    std::get<Dal::DepositTradeTerms_>(trade.terms_).discountComponentKey_ = "unrelated";
+    trade.maturityDate_ = trade.startDate_;
+
+    const auto result = Dal::AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance});
+
+    ASSERT_EQ(result.meta_.size(), 1U);
+    ASSERT_FALSE(result.meta_.front().eligible_);
+    ASSERT_FALSE(result.meta_.front().structuralZero_);
+    ASSERT_EQ(result.meta_.front().reason_, "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+    ASSERT_TRUE(result.buckets_.empty());
+    ASSERT_TRUE(result.pvByActualPvCcy_.empty());
+}
+
 TEST(QuoteRiskAggregationTest, TestTradeFailureDoesNotAffectSiblingTrade) {
     const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
     const auto provenance = BuildSingle(input);
@@ -1044,6 +1089,35 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAxisIsStableWhileStateTracksMutable
         ASSERT_EQ(changed->Axis().fingerprint_, baseline.Axis().fingerprint_);
         ASSERT_NE(changed->State().fingerprint_, baseline.State().fingerprint_);
     }
+}
+
+TEST(QuoteRiskProvenanceTest, TestCalibrationIdDoesNotChangeCalibrationStateFingerprint) {
+    auto firstInput = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto first = BuildSingle(firstInput);
+    auto secondInput = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    secondInput.config_.calibrationId_ = "same-state-different-id";
+    const auto second = BuildSingle(secondInput);
+
+    ASSERT_NE(first.CalibrationId(), second.CalibrationId());
+    ASSERT_EQ(first.Axis().fingerprint_, second.Axis().fingerprint_);
+    ASSERT_EQ(first.State().components_.front().fingerprint_, second.State().components_.front().fingerprint_);
+    ASSERT_EQ(first.State().fingerprint_, second.State().fingerprint_);
+
+    auto jointInput = MakeJointInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto firstJoint =
+        Dal::BuildJointXccyQuoteRiskProvenance(jointInput.spec_, jointInput.result_, jointInput.options_, jointInput.market_, jointInput.config_);
+    jointInput.config_.calibrationId_ = "same-joint-state-different-id";
+    const auto secondJoint =
+        Dal::BuildJointXccyQuoteRiskProvenance(jointInput.spec_, jointInput.result_, jointInput.options_, jointInput.market_, jointInput.config_);
+    ASSERT_EQ(firstJoint.State().fingerprint_, secondJoint.State().fingerprint_);
+
+    auto stagedInput = MakeStagedInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto firstStaged = Dal::BuildStagedXccyBasisQuoteRiskProvenance(stagedInput.spec_, *stagedInput.result_, stagedInput.options_,
+                                                                          stagedInput.market_, stagedInput.config_);
+    stagedInput.config_.calibrationId_ = "same-staged-state-different-id";
+    const auto secondStaged = Dal::BuildStagedXccyBasisQuoteRiskProvenance(stagedInput.spec_, *stagedInput.result_, stagedInput.options_,
+                                                                           stagedInput.market_, stagedInput.config_);
+    ASSERT_EQ(firstStaged.State().fingerprint_, secondStaged.State().fingerprint_);
 }
 
 TEST(QuoteRiskProvenanceTest, TestJointXccyAnalyticAndBumpedConstruction) {

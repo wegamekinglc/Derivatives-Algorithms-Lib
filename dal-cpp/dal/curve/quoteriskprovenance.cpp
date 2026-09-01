@@ -1844,7 +1844,6 @@ namespace Dal {
         Json_ StateRecord(const String_& kind,
                           const RateQuoteRiskAxis_& axis,
                           const std::map<String_, String_>& bindings,
-                          const String_& calibrationId,
                           const RatePricingMarket_& market,
                           Json_ options,
                           Json_ calibrationResult,
@@ -1855,7 +1854,6 @@ namespace Dal {
             Json_ state = Json_::Object();
             state.object_["axisFingerprint"] = Json_::String(axis.fingerprint_);
             state.object_["bindings"] = BindingsJson(bindings);
-            state.object_["calibrationId"] = Json_::String(calibrationId);
             state.object_["effectiveInverse"] = MatrixJson(effectiveInverse);
             state.object_["effectiveInverseScaling"] = Json_::String("solver_scaled");
             state.object_["kind"] = Json_::String(kind);
@@ -1957,9 +1955,9 @@ namespace Dal {
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
-        data->state_.fingerprint_ = Fingerprint(StateRecord(
-            data->kind_, data->axis_, data->bindings_, data->calibrationId_, boundMarket, SingleOptionsJson(options), SingleResultJson(result),
-            data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_));
+        data->state_.fingerprint_ =
+            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, SingleOptionsJson(options), SingleResultJson(result),
+                                    data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_));
         return RateQuoteRiskProvenance_(data);
     }
 
@@ -1988,8 +1986,8 @@ namespace Dal {
             data->effectiveInverse_ = result.effJacobianInverse_;
 
         data->state_.fingerprint_ =
-            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, data->calibrationId_, boundMarket, JointOptionsJson(options),
-                                    JointResultJson(result), data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_));
+            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, JointOptionsJson(options), JointResultJson(result),
+                                    data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_));
         return RateQuoteRiskProvenance_(data);
     }
 
@@ -2015,9 +2013,9 @@ namespace Dal {
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
-        data->state_.fingerprint_ = Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, data->calibrationId_, boundMarket,
-                                                            StagedOptionsJson(options), StagedResultJson(result), data->reason_, StagedSpecJson(spec),
-                                                            result.diagnostics_.effJacobianInverse_, data->tolerance_));
+        data->state_.fingerprint_ =
+            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, StagedOptionsJson(options), StagedResultJson(result),
+                                    data->reason_, StagedSpecJson(spec), result.diagnostics_.effJacobianInverse_, data->tolerance_));
         return RateQuoteRiskProvenance_(data);
     }
 } // namespace Dal
