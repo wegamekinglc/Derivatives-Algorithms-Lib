@@ -384,9 +384,20 @@ namespace Dal {
                                        int* evaluationCount)
                 : spec_(&spec), layout_(&layout), plans_(&plans), fixings_(fixings), jacobianMode_(jacobianMode), evaluationCount_(evaluationCount) {}
 
+            [[nodiscard]] double BumpSize() const override { return spec_->solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4; }
+
             [[nodiscard]] Vector_<> F(const Vector_<>& parameters) const override {
                 ++*evaluationCount_;
                 return Residuals<double>(parameters);
+            }
+
+            void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
+                if (BumpSize() != 1.0e-6) {
+                    Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
+                    return;
+                }
+                CentralDifferenceJacobian(
+                    parameters, static_cast<int>(residuals.size()), BumpSize(), [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {

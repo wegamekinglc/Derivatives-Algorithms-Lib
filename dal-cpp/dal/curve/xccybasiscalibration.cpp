@@ -245,6 +245,7 @@ namespace Dal {
             Vector_<> marketRates_;
             CurveDefinition_ basisDefinition_;
             CurveJacobianMode_ jacobianMode_;
+            double bumpSize_;
 
             template <class T_> Vector_<T_> Residuals(const Vector_<T_>& parameters) const {
                 const auto basis = BuildDiscountCurveT<T_>(basisDefinition_, parameters);
@@ -278,13 +279,24 @@ namespace Dal {
                                       CurveJacobianMode_ jacobianMode)
                 : valuationTime_(valuationTime), pair_(spec.basisPair_), collateralCurrency_(collateralCurrency),
                   domesticBlock_(spec.domesticCurveBlock_), foreignBlock_(spec.foreignCurveBlock_), fxSpot_(spec.fxSpot_), fixings_(fixings),
-                  plans_(plans), basisDefinition_(basisDefinition), jacobianMode_(jacobianMode) {
+                  plans_(plans), basisDefinition_(basisDefinition), jacobianMode_(jacobianMode),
+                  bumpSize_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4) {
                 marketRates_.reserve(spec.instruments_.size());
                 for (const auto& instrument : spec.instruments_)
                     marketRates_.push_back(instrument->MarketRate());
             }
 
+            [[nodiscard]] double BumpSize() const override { return bumpSize_; }
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Residuals<double>(x); }
+
+            void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* jacobian) const override {
+                if (bumpSize_ != 1.0e-6) {
+                    Underdetermined::Function_::Gradient(x, f, jacobian);
+                    return;
+                }
+                CentralDifferenceJacobian(
+                    x, static_cast<int>(f.size()), bumpSize_, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); }, jacobian);
+            }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>&) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
