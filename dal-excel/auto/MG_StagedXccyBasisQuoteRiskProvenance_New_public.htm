@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>StagedXccyBasisQuoteRiskProvenance_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>StagedXccyBasisQuoteRiskProvenance_New (in Excel: STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW)</h1>
+Freeze quote-risk provenance from one staged XCCY basis calibration result
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableCrossCurrencyCalibrationResult</td><td></td><td>The exact result returned by CALIBRATE.XCCYMARKET</td></tr>
+<tr><td>calibrationId</td><td>string</td><td></td><td>Non-empty identifier used to join and order quote-risk rows</td></tr>
+<tr><td>parameterBlockKeys</td><td>vector of strings</td><td></td><td>Staged basis parameter block key</td></tr>
+<tr><td>componentKeys</td><td>vector of strings</td><td></td><td>Pricing-market basis component key parallel to parameterBlockKeys</td></tr>
+<tr><td>market</td><td>handle of type StorableRatePricingMarket</td><td></td><td>The exact pricing market bound to the calibrated basis curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>provenance</td><td>handle of type StorableRateQuoteRiskProvenance</td><td>Immutable staged-XCCY-basis provenance; unavailable states retain their stable reason token</td></tr>
+</table>
+
+
+
+
+
+

@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include <dal-excel/src/__curve_storable.hpp>
+#include <dal-excel/src/__curvepricing_test_api.hpp>
 #include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
@@ -113,6 +114,44 @@ namespace {
     }
 
     Handle_<StorableCrossCurrencyCalibrationResult_> StagedResult() { return StagedResult(StagedSettings()); }
+
+    Handle_<StorableRatePricingMarket_>
+    JointPricingMarket(const Handle_<StorableJointXccyCalibrationResult_>& result, Vector_<String_>* blockKeys, Vector_<String_>* componentKeys) {
+        const CollateralType_ ois(CollateralType_::Value_::OIS);
+        const Vector_<Handle_<DiscountCurve_>> curves = {
+            result->domesticBlock_->DiscountCurves().at(ois),
+            result->foreignBlock_->DiscountCurves().at(ois),
+            result->basisCurve_,
+        };
+        REQUIRE(curves.size() == result->val_.parameterRanges_.size(), "Unexpected joint XCCY parameter range count");
+        RatePricingMarket_ market;
+        market.valuationTime_ = result->spec_.valuationTime_;
+        market.resultCurrency_ = result->spec_.pair_.domestic_;
+        market.fixings_ = result->val_.fixings_;
+        for (int index = 0; index < static_cast<int>(curves.size()); ++index) {
+            blockKeys->push_back(result->val_.parameterRanges_[index].name_);
+            componentKeys->push_back("joint-component-" + String::FromInt(index));
+            market.curveComponents_[componentKeys->back()] = curves[index];
+        }
+        auto xccy = std::make_shared<CrossCurrencyMarket_>(result->domesticBlock_, result->foreignBlock_, result->spec_.fxSpot_,
+                                                          result->spec_.valuationTime_, result->spec_.collateralCurrency_, result->val_.fixings_);
+        xccy->SetBasisCurve(result->basisCurve_);
+        market.xccyMarket_ = xccy;
+        return Handle_<StorableRatePricingMarket_>(new StorableRatePricingMarket_(market));
+    }
+
+    Handle_<StorableRatePricingMarket_>
+    StagedPricingMarket(const Handle_<StorableCrossCurrencyCalibrationResult_>& result, Vector_<String_>* blockKeys, Vector_<String_>* componentKeys) {
+        blockKeys->push_back(String_("basis:xccy_basis_") + result->spec_.basisPair_.domestic_.String());
+        componentKeys->push_back("staged-basis-component");
+        RatePricingMarket_ market;
+        market.valuationTime_ = result->spec_.valuationTime_.IsValid() ? result->spec_.valuationTime_ : DateTime_(result->spec_.today_);
+        market.resultCurrency_ = result->spec_.basisPair_.domestic_;
+        market.curveComponents_[componentKeys->front()] = result->basisCurve_;
+        market.fixings_ = result->val_.market_.Fixings();
+        market.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(result->val_.market_);
+        return Handle_<StorableRatePricingMarket_>(new StorableRatePricingMarket_(market));
+    }
 } // namespace
 
 TEST(ExcelApiTest, TestConfiguredCrossCurrencySwapConstruction) {
@@ -322,6 +361,29 @@ TEST(ExcelApiTest, TestStagedCalibrationExposesFrozenSensitivityViews) {
     Matrix_<Cell_> tolerance;
     XccyCalibrationResult_Get(result, "residualTolerance", &tolerance);
     ASSERT_DOUBLE_EQ(Cell::ToDouble(tolerance(0, 0)), 1.0e-8);
+}
+
+TEST(ExcelApiTest, TestJointAndStagedQuoteRiskProvenanceHandlesUsePublicFactories) {
+    {
+        const auto result = JointResult();
+        Vector_<String_> blockKeys;
+        Vector_<String_> componentKeys;
+        const auto market = JointPricingMarket(result, &blockKeys, &componentKeys);
+        Handle_<StorableRateQuoteRiskProvenance_> provenance;
+        JointXccyQuoteRiskProvenance_New(result, "joint", blockKeys, componentKeys, market, &provenance);
+        ASSERT_TRUE(provenance->val_->Available());
+        ASSERT_EQ(provenance->val_->Kind(), String_("JOINT_XCCY"));
+    }
+    {
+        const auto result = StagedResult();
+        Vector_<String_> blockKeys;
+        Vector_<String_> componentKeys;
+        const auto market = StagedPricingMarket(result, &blockKeys, &componentKeys);
+        Handle_<StorableRateQuoteRiskProvenance_> provenance;
+        StagedXccyBasisQuoteRiskProvenance_New(result, "staged", blockKeys, componentKeys, market, &provenance);
+        ASSERT_TRUE(provenance->val_->Available());
+        ASSERT_EQ(provenance->val_->Kind(), String_("STAGED_XCCY_BASIS"));
+    }
 }
 
 TEST(ExcelApiTest, TestStagedAvailabilitySeparatesRequestFlagsAndMode) {

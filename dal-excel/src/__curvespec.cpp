@@ -179,10 +179,11 @@ namespace Dal {
 
             // Build spec and calibrate via the dal-public interface
             auto spec = builder.Build();
-            auto calibrated = Dal::CalibrateSingleCurve(spec);
+            CurveCalibrationOptions_ options;
+            auto calibrated = Dal::CalibrateSingleCurve(spec, options);
 
             // Bundle curve + diagnostics into a single storable result handle
-            result->reset(new StorableCurveCalibrationResult_(calibrated));
+            result->reset(new StorableCurveCalibrationResult_(calibrated, spec, options));
         }
 
         void CalibrationResult_Get_Curve(const Handle_<StorableCurveCalibrationResult_>& result,

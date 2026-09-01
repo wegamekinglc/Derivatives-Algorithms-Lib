@@ -574,7 +574,7 @@ namespace Dal {
         // Resolve the basis curve for the calibrated currency pair
         auto it = calibrated.basisCurves_.find(pair);
         REQUIRE(it != calibrated.basisCurves_.end(), "Basis curve not found for requested currency pair");
-        result->reset(new StorableCrossCurrencyCalibrationResult_(calibrated, it->second));
+        result->reset(new StorableCrossCurrencyCalibrationResult_(calibrated, spec, options, it->second));
     }
 
     void XccyCalibrationResult_Get_BasisCurve(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
@@ -648,7 +648,8 @@ namespace Dal {
         if (!settings.Empty())
             ApplyJointSettings(SettingsDictionary(settings), builder, options);
 
-        result->reset(new StorableJointXccyCalibrationResult_(Dal::CalibrateJointXccyMarket(builder.Build(), options)));
+        const auto spec = builder.Build();
+        result->reset(new StorableJointXccyCalibrationResult_(Dal::CalibrateJointXccyMarket(spec, options), spec, options));
     }
 
     void JointXccyCalibrationResult_Get_DomesticBlock(const Handle_<StorableJointXccyCalibrationResult_>& result,
