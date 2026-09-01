@@ -93,3 +93,32 @@ TEST(CurvePricingPublicTest, TestBatchAndAggregationEntryPointsRemainCallableThr
     ASSERT_TRUE(aggregateDefaults.pvByActualPvCcy_.empty());
     ASSERT_TRUE(aggregateDefaults.meta_.empty());
 }
+
+TEST(CurvePricingPublicTest, TestQuoteRiskEntryPointsRemainCallableThroughPublicHeader) {
+    using CoreSingleFactory_ = Dal::RateQuoteRiskProvenance_ (*)(const Dal::CurveCalibrationSpec_&, const Dal::CurveCalibrationResult_&,
+                                                                 const Dal::CurveCalibrationOptions_&, const Dal::RatePricingMarket_&,
+                                                                 const Dal::RateQuoteRiskProvenanceConfig_&);
+    using PublicSingleFactory_ =
+        Dal::RateQuoteRiskProvenance_ (*)(const Dal::CurveCalibrationSpec_&, const Dal::CalibrationResult_&, const Dal::CurveCalibrationOptions_&,
+                                          const Dal::RatePricingMarket_&, const Dal::RateQuoteRiskProvenanceConfig_&);
+    using JointFactory_ = Dal::RateQuoteRiskProvenance_ (*)(const Dal::JointXccyCalibrationSpec_&, const Dal::JointXccyCalibrationResult_&,
+                                                            const Dal::JointXccyCalibrationOptions_&, const Dal::RatePricingMarket_&,
+                                                            const Dal::RateQuoteRiskProvenanceConfig_&);
+    using StagedFactory_ = Dal::RateQuoteRiskProvenance_ (*)(const Dal::CrossCurrencyCalibrationSpec_&, const Dal::CrossCurrencyCalibrationResult_&,
+                                                             const Dal::CrossCurrencyCalibrationOptions_&, const Dal::RatePricingMarket_&,
+                                                             const Dal::RateQuoteRiskProvenanceConfig_&);
+    using Aggregate_ = Dal::RatePortfolioQuoteRisk_ (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&, const Dal::RatePricingMarket_&,
+                                                        const Dal::Vector_<Dal::RateQuoteRiskProvenance_>&);
+
+    const CoreSingleFactory_ coreSingle = static_cast<CoreSingleFactory_>(&Dal::BuildSingleCurveQuoteRiskProvenance);
+    const PublicSingleFactory_ publicSingle = static_cast<PublicSingleFactory_>(&Dal::BuildSingleCurveQuoteRiskProvenance);
+    const JointFactory_ joint = &Dal::BuildJointXccyQuoteRiskProvenance;
+    const StagedFactory_ staged = &Dal::BuildStagedXccyBasisQuoteRiskProvenance;
+    const Aggregate_ aggregate = &Dal::AggregateRatePortfolioQuoteRisk;
+
+    ASSERT_NE(coreSingle, nullptr);
+    ASSERT_NE(publicSingle, nullptr);
+    ASSERT_NE(joint, nullptr);
+    ASSERT_NE(staged, nullptr);
+    ASSERT_NE(aggregate, nullptr);
+}

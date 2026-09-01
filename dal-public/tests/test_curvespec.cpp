@@ -6,6 +6,7 @@
 
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
+#include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
 
@@ -78,6 +79,57 @@ TEST(CurveSpecTest, TestSingleCurveOptionsOverloadIsPublicAndAdditive) {
     ASSERT_EQ(options.jacobianMode_, Dal::CurveJacobianMode_::Value_::ANALYTIC);
     ASSERT_TRUE(options.computeForwardJacobian_);
     ASSERT_TRUE(options.computeEffJacobianInverse_);
+}
+
+TEST(CurveSpecTest, TestPublicQuoteRiskOverloadMatchesCoreProvenance) {
+    CurveCalibrationSpecBuilder_ builder;
+    builder.today_ = Today();
+    builder.ccy_ = "USD";
+    builder.curveName_ = "public_quote_risk";
+    builder.calibrateDiscountCurve_ = true;
+    builder.tolerance_ = 1.0e-10;
+    builder.initialGuess_ = 0.02;
+    builder.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+
+    const RateIndexConvention_ index = RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_365F"), CollateralType_OIS());
+    for (int months : {6, 12}) {
+        const Date_ maturity = Dal::Date::AddMonths(Today(), months);
+        builder.knotDates_.push_back(maturity);
+        builder.instruments_.push_back(DepositNew(Today(), Today(), maturity, 0.02 + months * 1.0e-4, index));
+    }
+
+    const Dal::CurveCalibrationSpec_ spec = builder.Build();
+    const Dal::CurveCalibrationOptions_ options;
+    const CalibrationResult_ publicResult = CalibrateSingleCurve(spec, options);
+    Dal::RatePricingMarket_ market;
+    market.valuationTime_ = Dal::DateTime_(Today(), 9, 0);
+    market.resultCurrency_ = Dal::Ccy_("USD");
+    market.curveComponents_["discount"] = publicResult.curve_;
+    market.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+    Dal::RateQuoteRiskProvenanceConfig_ config;
+    config.calibrationId_ = "public-calibration";
+    config.componentKeyByParameterBlock_[spec.curveName_] = "discount";
+
+    const Dal::RateQuoteRiskProvenance_ publicProvenance = Dal::BuildSingleCurveQuoteRiskProvenance(spec, publicResult, options, market, config);
+
+    std::unique_ptr<Dal::YCComponent_> cloned = publicResult.curve_->Clone(publicResult.curve_->Name(), {});
+    auto* discount = dynamic_cast<Dal::DiscountCurve_*>(cloned.get());
+    ASSERT_NE(discount, nullptr);
+    Dal::CurveCalibrationResult_ coreResult;
+    coreResult.curve_.reset(static_cast<Dal::DiscountCurve_*>(cloned.release()));
+    coreResult.diagnostics_ = publicResult.diagnostics_;
+    const Dal::RateQuoteRiskProvenance_ coreProvenance = Dal::BuildSingleCurveQuoteRiskProvenance(spec, coreResult, options, market, config);
+
+    ASSERT_TRUE(publicProvenance.Available());
+    ASSERT_EQ(publicProvenance.Kind(), coreProvenance.Kind());
+    ASSERT_EQ(publicProvenance.Reason(), coreProvenance.Reason());
+    ASSERT_EQ(publicProvenance.Axis().fingerprint_, coreProvenance.Axis().fingerprint_);
+    ASSERT_EQ(publicProvenance.State().fingerprint_, coreProvenance.State().fingerprint_);
+    ASSERT_EQ(publicProvenance.EffectiveInverse().Rows(), coreProvenance.EffectiveInverse().Rows());
+    ASSERT_EQ(publicProvenance.EffectiveInverse().Cols(), coreProvenance.EffectiveInverse().Cols());
+    for (int row = 0; row < publicProvenance.EffectiveInverse().Rows(); ++row)
+        for (int col = 0; col < publicProvenance.EffectiveInverse().Cols(); ++col)
+            ASSERT_DOUBLE_EQ(publicProvenance.EffectiveInverse()(row, col), coreProvenance.EffectiveInverse()(row, col));
 }
 
 // Single-curve calibration (EXACT, PIECEWISE_LINEAR_FWD)
