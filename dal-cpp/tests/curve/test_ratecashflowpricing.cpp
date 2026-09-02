@@ -3157,36 +3157,81 @@ TEST(RateCashflowPricingTest, TestNodeSensitivitySweepTapeSizeIndependentOfPassi
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ start(2026, 10, 15);
     const Dal::Date_ maturity(2029, 1, 15);
-    const auto forecast = Dal::Handle_<Dal::DiscountCurve_>(
-        Dal::NewDiscountPWC("pwc", "USD", Dal::PiecewiseConstant_({Dal::Date_(2026, 7, 15), Dal::Date_(2027, 7, 15), Dal::Date_(2028, 7, 15)}, {0.01, -0.005, 0.03})));
+    const auto forecast = Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC(
+        "pwc", "USD", Dal::PiecewiseConstant_({Dal::Date_(2026, 7, 15), Dal::Date_(2027, 7, 15), Dal::Date_(2028, 7, 15)}, {0.01, -0.005, 0.03})));
     Dal::Vector_<Dal::Date_> denseKnots;
     for (Dal::Date_ knot = Dal::Date_(2026, 2, 15); knot <= Dal::Date_(2029, 12, 15); knot = knot.AddDays(30))
         denseKnots.push_back(knot);
-    const auto denseDiscount = Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC("dense", "USD", Dal::PiecewiseConstant_(denseKnots, Dal::Vector_<>(denseKnots.size(), 0.03))));
+    const auto denseDiscount = Dal::Handle_<Dal::DiscountCurve_>(
+        Dal::NewDiscountPWC("dense", "USD", Dal::PiecewiseConstant_(denseKnots, Dal::Vector_<>(denseKnots.size(), 0.03))));
     const auto smallDiscount = FlatCurve(maturity, 0.03);
 
-    int fraSmallTape = 0;
-    int fraDenseTape = 0;
-    int oisSmallTape = 0;
-    int oisDenseTape = 0;
+    std::atomic<int> fraSmallTape{0};
+    std::atomic<int> fraDenseTape{0};
+    std::atomic<int> oisSmallTape{0};
+    std::atomic<int> oisDenseTape{0};
     const auto fraTrade = Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms());
     const auto oisTrade = Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{FixedFloatTerms()});
 
-    internal::g_nodeSensitivityTapeSizeSink = &fraSmallTape;
-    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
-    internal::g_nodeSensitivityTapeSizeSink = &fraDenseTape;
-    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
-    internal::g_nodeSensitivityTapeSizeSink = &oisSmallTape;
-    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
-    internal::g_nodeSensitivityTapeSizeSink = &oisDenseTape;
-    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
-    internal::g_nodeSensitivityTapeSizeSink = nullptr;
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(fraSmallTape);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    }
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(fraDenseTape);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
+    }
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(oisSmallTape);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    }
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(oisDenseTape);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, denseDiscount), "forecast").eligible_);
+    }
 
-    ASSERT_GT(fraSmallTape, 0);
-    ASSERT_GT(oisSmallTape, 0);
-    ASSERT_EQ(fraSmallTape, fraDenseTape) << "FRA sweep tape grows with passive discount node count";
-    ASSERT_EQ(oisSmallTape, oisDenseTape) << "OIS sweep tape grows with passive discount node count";
-    ASSERT_GT(oisSmallTape, fraSmallTape) << "OIS daily compounding shapes the recording";
+    ASSERT_GT(fraSmallTape.load(), 0);
+    ASSERT_GT(oisSmallTape.load(), 0);
+    ASSERT_EQ(fraSmallTape.load(), fraDenseTape.load()) << "FRA sweep tape grows with passive discount node count";
+    ASSERT_EQ(oisSmallTape.load(), oisDenseTape.load()) << "OIS sweep tape grows with passive discount node count";
+    ASSERT_GT(oisSmallTape.load(), fraSmallTape.load()) << "OIS daily compounding shapes the recording";
+
+    std::atomic<int> mixedHighWater{0};
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(mixedHighWater);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+        ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    }
+    ASSERT_EQ(mixedHighWater.load(), oisSmallTape.load()) << "The tape observation seam did not retain the per-sweep high-water mark";
+}
+
+TEST(RateCashflowPricingTest, TestNodeSensitivityTapeObservationIsScopedAndConcurrent) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    std::atomic<int> highWater{0};
+    {
+        internal::NodeSensitivityTapeSizeObservation_ observation(highWater);
+        std::thread low([]() {
+            for (int i = 0; i < 100; ++i)
+                internal::RecordNodeSensitivityTapeSize(37);
+        });
+        std::thread high([]() {
+            for (int i = 0; i < 100; ++i)
+                internal::RecordNodeSensitivityTapeSize(83);
+        });
+        low.join();
+        high.join();
+        ASSERT_EQ(highWater.load(), 83);
+    }
+    ASSERT_EQ(internal::g_nodeSensitivityTapeSizeSink.load(), nullptr);
+
+    EXPECT_THROW(
+        {
+            std::atomic<int> ignored{0};
+            internal::NodeSensitivityTapeSizeObservation_ observation(ignored);
+            throw std::runtime_error("injected observation failure");
+        },
+        std::runtime_error);
+    ASSERT_EQ(internal::g_nodeSensitivityTapeSizeSink.load(), nullptr);
 }
 #endif
 

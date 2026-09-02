@@ -195,9 +195,34 @@ class SemanticConsistencyTest(unittest.TestCase):
         errors: list[str] = []
         CHECK_DOCS.check_current_state_doc_locations(errors)
         CHECK_DOCS.check_ci_compiler_inventory(errors)
+        CHECK_DOCS.check_benchmark_inventory(errors)
         CHECK_DOCS.check_repository_workflows(errors)
 
         self.assertEqual(errors, [])
+
+    def test_benchmark_inventory_rejects_documented_count_drift(self):
+        errors: list[str] = []
+        CHECK_DOCS.check_benchmark_inventory_texts(
+            "set(DAL_BENCHMARK_TARGETS\n    tape_perf\n    rate_risk_perf)",
+            'BENCHMARKS = ("tape_perf", "rate_risk_perf")',
+            "- `tape_perf`: tape\n- `rate_risk_perf`: risk\n",
+            "(1 total: tape, rate_risk)",
+            errors,
+        )
+
+        self.assertTrue(any("declares 1 total" in error for error in errors))
+
+    def test_benchmark_inventory_rejects_gate_reference_drift(self):
+        errors: list[str] = []
+        CHECK_DOCS.check_benchmark_inventory_texts(
+            "set(DAL_BENCHMARK_TARGETS\n    tape_perf\n    rate_risk_perf)",
+            'BENCHMARKS = ("tape_perf", "rate_risk_perf")',
+            "- `tape_perf`: tape\n",
+            "(2 total: tape, rate_risk)",
+            errors,
+        )
+
+        self.assertTrue(any("gated target inventory drift" in error for error in errors))
 
 
 class PythonReleaseContractTest(unittest.TestCase):

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 import tomllib
@@ -467,6 +468,79 @@ def check_benchmark_case_policy(errors: list[str]) -> None:
         errors.append("CONTRIBUTING.md: benchmark case-set policy does not describe head-only coverage")
 
 
+def cmake_benchmark_targets(text: str, errors: list[str]) -> set[str]:
+    match = re.search(r"set\(DAL_BENCHMARK_TARGETS\s+(.*?)\)", text, flags=re.DOTALL)
+    if match is None:
+        errors.append("dal-cpp/benchmarks/CMakeLists.txt: DAL_BENCHMARK_TARGETS was not found")
+        return set()
+    return set(match.group(1).split())
+
+
+def gated_benchmark_targets(text: str, errors: list[str]) -> set[str]:
+    tree = ast.parse(text)
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "BENCHMARKS" for target in node.targets
+        ):
+            value = ast.literal_eval(node.value)
+            return set(value)
+    errors.append(".github/scripts/check_benchmark_regressions.py: BENCHMARKS was not found")
+    return set()
+
+
+def reference_benchmark_targets(text: str) -> set[str]:
+    section = text.split("## Regression Gate And Module Map", maxsplit=1)[-1]
+    section = section.split("Do not add another executable", maxsplit=1)[0]
+    return set(re.findall(r"(?m)^- `([^`]+)`:", section))
+
+
+def documented_benchmark_inventory(text: str, errors: list[str]) -> tuple[int, set[str]]:
+    match = re.search(r"\(([0-9]+) total: ([^)]+)\)", text)
+    if match is None:
+        errors.append("CLAUDE.md: benchmark total and inventory were not found")
+        return 0, set()
+    return int(match.group(1)), {f"{name.strip()}_perf" for name in match.group(2).split(",")}
+
+
+def check_benchmark_inventory_texts(
+    cmake: str, gate: str, reference: str, claude: str, errors: list[str]
+) -> None:
+    cmake_targets = cmake_benchmark_targets(cmake, errors)
+    gate_targets = gated_benchmark_targets(gate, errors)
+    reference_targets = reference_benchmark_targets(reference)
+    documented_count, documented_targets = documented_benchmark_inventory(claude, errors)
+    if gate_targets != reference_targets:
+        errors.append(
+            ".codex/references/benchmark-workflow.md: gated target inventory drift: "
+            f"script={sorted(gate_targets)!r}, documented={sorted(reference_targets)!r}"
+        )
+    if not gate_targets.issubset(cmake_targets):
+        errors.append(
+            ".github/scripts/check_benchmark_regressions.py: gated targets are absent from CMake: "
+            f"{sorted(gate_targets - cmake_targets)!r}"
+        )
+    if documented_count != len(cmake_targets):
+        errors.append(
+            f"CLAUDE.md: declares {documented_count} total benchmarks but CMake registers "
+            f"{len(cmake_targets)}"
+        )
+    if documented_targets != cmake_targets:
+        errors.append(
+            "CLAUDE.md: benchmark target inventory drift: "
+            f"cmake={sorted(cmake_targets)!r}, documented={sorted(documented_targets)!r}"
+        )
+
+
+def check_benchmark_inventory(errors: list[str]) -> None:
+    check_benchmark_inventory_texts(
+        (ROOT / "dal-cpp/benchmarks/CMakeLists.txt").read_text(encoding="utf-8"),
+        (ROOT / ".github/scripts/check_benchmark_regressions.py").read_text(encoding="utf-8"),
+        (ROOT / ".codex/references/benchmark-workflow.md").read_text(encoding="utf-8"),
+        (ROOT / "CLAUDE.md").read_text(encoding="utf-8"),
+        errors,
+    )
+
+
 def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
     project = metadata["project"]
     if "scikit-build-core==1.0.3" not in metadata["build-system"]["requires"]:
@@ -892,6 +966,7 @@ def main() -> int:
     check_agent_paths(AGENT_DOCS, ROOT, errors)
     check_current_state_doc_locations(errors)
     check_ci_compiler_inventory(errors)
+    check_benchmark_inventory(errors)
     check_repository_workflows(errors)
 
     if errors:

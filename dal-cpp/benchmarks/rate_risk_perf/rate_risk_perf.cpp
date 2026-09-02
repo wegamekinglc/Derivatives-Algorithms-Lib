@@ -7,6 +7,7 @@
 // active-typed assembly shape (frozen P0 contract 8).
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <memory>
 
@@ -151,15 +152,48 @@ namespace {
     }
 
     void RunQuoteRiskCase(const char* name, const RateRiskPerf::QuoteRiskBenchmarkCase_& input) {
+        constexpr int kWarmup = 3;
+        constexpr int kRepeats = 10;
+        constexpr int kInvocationCount = kWarmup + kRepeats;
         const int calibrationCount = CurveCalibrationInvocationCount();
+        const int passivePriceCount = RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.load(std::memory_order_relaxed);
+        const int preparationCount = RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(std::memory_order_relaxed);
+        const int sweepCount = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(std::memory_order_relaxed);
+#if DAL_RATE_RISK_NATIVE_AAD
+        std::atomic<int> tapeHighWater{0};
+        RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ tapeObservation(tapeHighWater);
+#endif
         double sink = 0.0;
-        const auto result = Bench::Run(name, [&]() {
-            const auto risk = AggregateRatePortfolioQuoteRisk(input.trades_, input.market_, input.provenances_);
-            REQUIRE(!risk.buckets_.empty(), "Quote-risk benchmark produced no buckets");
-            sink += risk.buckets_.front().dv01_ + risk.buckets_.back().dPvDDecimalQuote_;
-        });
-        REQUIRE(CurveCalibrationInvocationCount() == calibrationCount, "Quote-risk benchmark aggregate recalibrated inside the timed region");
+        const auto result = Bench::Run(
+            name,
+            [&]() {
+                const auto risk = AggregateRatePortfolioQuoteRisk(input.trades_, input.market_, input.provenances_);
+                REQUIRE(!risk.buckets_.empty(), "Quote-risk benchmark produced no buckets");
+                REQUIRE(risk.provenanceFailures_.empty(), "Quote-risk benchmark reported a stale provenance");
+                REQUIRE(risk.meta_.size() == input.trades_.size(), "Quote-risk benchmark did not produce one observation per trade");
+                sink += risk.buckets_.front().dv01_ + risk.buckets_.back().dPvDDecimalQuote_;
+            },
+            kWarmup, kRepeats);
+        const int passivePriceDelta =
+            RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.load(std::memory_order_relaxed) - passivePriceCount;
+        const int preparationDelta =
+            RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(std::memory_order_relaxed) - preparationCount;
+        const int sweepDelta = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(std::memory_order_relaxed) - sweepCount;
+        const int observedPassivePrices = passivePriceDelta / kInvocationCount;
+        const int observedPreparations = preparationDelta / kInvocationCount;
+        const int observedSweeps = sweepDelta / kInvocationCount;
         Bench::Print(result);
+#if DAL_RATE_RISK_NATIVE_AAD
+        std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d tape_high_water=%d\n", name, observedPassivePrices,
+                     observedPreparations, observedSweeps, tapeHighWater.load(std::memory_order_relaxed));
+#else
+        std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d\n", name, observedPassivePrices, observedPreparations,
+                     observedSweeps);
+#endif
+        REQUIRE(CurveCalibrationInvocationCount() == calibrationCount, "Quote-risk benchmark aggregate recalibrated inside the timed region");
+        REQUIRE(passivePriceDelta == kInvocationCount * input.expectedPassivePriceCount_, "Quote-risk benchmark passive-price count drifted");
+        REQUIRE(preparationDelta == kInvocationCount * input.expectedPreparationCount_, "Quote-risk benchmark preparation count drifted");
+        REQUIRE(sweepDelta == kInvocationCount * input.expectedSweepCount_, "Quote-risk benchmark sweep count drifted");
         Bench::DoNotOptimize(&sink);
     }
 } // namespace
@@ -174,6 +208,12 @@ int main() {
     const auto singleQuoteRisk = RateRiskPerf::MakeSingleCurveQuoteRiskCase();
     const auto jointQuoteRisk = RateRiskPerf::MakeJointXccyQuoteRiskCase();
     const auto stagedQuoteRisk = RateRiskPerf::MakeStagedXccyBasisQuoteRiskCase();
+    const auto singleAnalyticPortfolio = RateRiskPerf::MakeSingleCurveQuoteRiskCase(5, CurveJacobianMode_::Value_::ANALYTIC, 120);
+    const auto singleBumpedPortfolio = RateRiskPerf::MakeSingleCurveQuoteRiskCase(16, CurveJacobianMode_::Value_::BUMPED, 120);
+    const auto jointAnalyticPortfolio = RateRiskPerf::MakeJointXccyQuoteRiskCase(10, CurveJacobianMode_::Value_::ANALYTIC, 24);
+    const auto jointBumpedPortfolio = RateRiskPerf::MakeJointXccyQuoteRiskCase(10, CurveJacobianMode_::Value_::BUMPED, 24);
+    const auto stagedAnalyticPortfolio = RateRiskPerf::MakeStagedXccyBasisQuoteRiskCase(16, CurveJacobianMode_::Value_::ANALYTIC, 24);
+    const auto stagedBumpedPortfolio = RateRiskPerf::MakeStagedXccyBasisQuoteRiskCase(5, CurveJacobianMode_::Value_::BUMPED, 24);
 
     Vector_<RateTradeDefinition_> trades;
     trades.reserve(kBatchTrades);
@@ -229,11 +269,14 @@ int main() {
     {
         // Informational (stderr, not a gated row): the native tape node count of one OIS
         // daily-compounding sweep — the per-sweep high-water the latency cases above stand in for.
-        int tapeNodes = 0;
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = &tapeNodes;
-        const auto sensitivity = RateTradeNodeSensitivities(OisTrade(today, start, dailyMaturity), market, keys[0]);
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = nullptr;
-        std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes, static_cast<int>(sensitivity.eligible_));
+        std::atomic<int> tapeNodes{0};
+        bool eligible = false;
+        {
+            RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ observation(tapeNodes);
+            eligible = RateTradeNodeSensitivities(OisTrade(today, start, dailyMaturity), market, keys[0]).eligible_;
+        }
+        std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes.load(std::memory_order_relaxed),
+                     static_cast<int>(eligible));
     }
 #endif
 
@@ -263,5 +306,11 @@ int main() {
     RunQuoteRiskCase("Quote risk aggregate (single curve)", singleQuoteRisk);
     RunQuoteRiskCase("Quote risk aggregate (joint XCCY)", jointQuoteRisk);
     RunQuoteRiskCase("Quote risk aggregate (staged XCCY basis)", stagedQuoteRisk);
+    RunQuoteRiskCase("Quote risk portfolio single ANALYTIC (120 deposits x N=5)", singleAnalyticPortfolio);
+    RunQuoteRiskCase("Quote risk portfolio single BUMPED (120 deposits x N=16)", singleBumpedPortfolio);
+    RunQuoteRiskCase("Quote risk portfolio joint ANALYTIC (24 XCCY x N=10/block)", jointAnalyticPortfolio);
+    RunQuoteRiskCase("Quote risk portfolio joint BUMPED (24 XCCY x N=10/block)", jointBumpedPortfolio);
+    RunQuoteRiskCase("Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)", stagedAnalyticPortfolio);
+    RunQuoteRiskCase("Quote risk portfolio staged BUMPED (24 XCCY x N=5)", stagedBumpedPortfolio);
     return 0;
 }

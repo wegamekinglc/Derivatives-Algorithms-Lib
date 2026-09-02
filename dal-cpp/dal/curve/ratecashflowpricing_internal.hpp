@@ -25,13 +25,40 @@
 
 namespace Dal::RateCashflowPricingInternal {
 #if DAL_RATE_RISK_NATIVE_AAD
-    // Test-only observation seam: when non-null, every completed node-sensitivity sweep stores the
-    // native tape's live node count here (measured after propagation, before the TapeGuard_ rewind).
-    // An unregistered-constant AAD::Number_ passive curve still yields correct values and gradient
-    // width, so only this direct count distinguishes it from a truly passive double curve.
-    // Atomic because library code reads it on every sweep; P0 is serial, but callers may sweep
-    // concurrently on separate threads.
-    inline std::atomic<int*> g_nodeSensitivityTapeSizeSink{nullptr};
+    // Test-only observation seam: registration is serial, but observed sweeps may be concurrent.
+    // The pointed-to atomic retains the largest live node count measured after propagation and
+    // before the TapeGuard_ rewind. An unregistered-constant AAD::Number_ passive curve still
+    // yields correct values and gradient width, so only this direct count distinguishes it from
+    // a truly passive double curve.
+    inline std::atomic<std::atomic<int>*> g_nodeSensitivityTapeSizeSink{nullptr};
+
+    inline void RecordNodeSensitivityTapeSize(int observed) {
+        if (auto* sink = g_nodeSensitivityTapeSizeSink.load(std::memory_order_relaxed)) {
+            int current = sink->load(std::memory_order_relaxed);
+            while (current < observed && !sink->compare_exchange_weak(current, observed, std::memory_order_relaxed)) {
+            }
+        }
+    }
+
+    class NodeSensitivityTapeSizeObservation_ {
+    public:
+        explicit NodeSensitivityTapeSizeObservation_(std::atomic<int>& sink) : sink_(&sink) {
+            std::atomic<int>* expected = nullptr;
+            REQUIRE(g_nodeSensitivityTapeSizeSink.compare_exchange_strong(expected, sink_, std::memory_order_relaxed),
+                    "A node-sensitivity tape observation is already active");
+        }
+
+        ~NodeSensitivityTapeSizeObservation_() noexcept {
+            std::atomic<int>* expected = sink_;
+            g_nodeSensitivityTapeSizeSink.compare_exchange_strong(expected, nullptr, std::memory_order_relaxed);
+        }
+
+        NodeSensitivityTapeSizeObservation_(const NodeSensitivityTapeSizeObservation_&) = delete;
+        NodeSensitivityTapeSizeObservation_& operator=(const NodeSensitivityTapeSizeObservation_&) = delete;
+
+    private:
+        std::atomic<int>* sink_;
+    };
 #endif
 
     // Test instrumentation for the sweep engine shared by the single-trade and batch entry points:
@@ -98,8 +125,7 @@ namespace Dal::RateCashflowPricingInternal {
             TapeGuard_ guard(AAD::Tape());
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
 #if DAL_RATE_RISK_NATIVE_AAD
-            if (int* sink = g_nodeSensitivityTapeSizeSink.load(std::memory_order_relaxed))
-                *sink = AAD::Tape()->nodes_.Size();
+            RecordNodeSensitivityTapeSize(AAD::Tape()->nodes_.Size());
 #endif
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {
