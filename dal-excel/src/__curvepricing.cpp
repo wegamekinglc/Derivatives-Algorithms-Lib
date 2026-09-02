@@ -14,6 +14,7 @@
 #include <dal/curve/curveblock.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <set>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
@@ -275,6 +276,99 @@ spill is cell[][]
     component's dense tensor, one aggregate row per actual PV currency carrying the
     UnconvertedByActualPvCcy policy label, and one reason row per failed (trade, component) cell.
 -IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public SingleCurveQuoteRiskProvenance_New
+    Freeze quote-risk provenance from one single-curve calibration result
+&inputs
+result is handle StorableCurveCalibrationResult
+    The exact result returned by CALIBRATE.SINGLECURVE
+calibrationId is string
+    Non-empty identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Calibration parameter block keys, in calibration order
+componentKeys is string[]
+    Pricing-market component keys parallel to parameterBlockKeys
+market is handle StorableRatePricingMarket
+    The exact pricing market bound to the calibrated curve
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Immutable single-curve provenance; unavailable states retain their stable reason token
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public JointXccyQuoteRiskProvenance_New
+    Freeze quote-risk provenance from one joint XCCY calibration result
+&inputs
+result is handle StorableJointXccyCalibrationResult
+    The exact result returned by CALIBRATE.JOINTXCCY
+calibrationId is string
+    Non-empty identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Joint calibration parameter block keys, in calibration order
+componentKeys is string[]
+    Pricing-market component keys parallel to parameterBlockKeys
+market is handle StorableRatePricingMarket
+    The exact pricing market bound to all calibrated blocks
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Immutable joint-XCCY provenance; unavailable states retain their stable reason token
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public StagedXccyBasisQuoteRiskProvenance_New
+    Freeze quote-risk provenance from one staged XCCY basis calibration result
+&inputs
+result is handle StorableCrossCurrencyCalibrationResult
+    The exact result returned by CALIBRATE.XCCYMARKET
+calibrationId is string
+    Non-empty identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Staged basis parameter block key
+componentKeys is string[]
+    Pricing-market basis component key parallel to parameterBlockKeys
+market is handle StorableRatePricingMarket
+    The exact pricing market bound to the calibrated basis curve
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Immutable staged-XCCY-basis provenance; unavailable states retain their stable reason token
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public RateQuoteRiskProvenance_New
+    Dispatch quote-risk provenance construction from a calibration-result handle
+&inputs
+result is handle
+    A supported single/joint-XCCY/staged-XCCY result, or an excluded staged/generic result
+calibrationId is string
+    Non-empty identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Calibration parameter block keys, in calibration order
+componentKeys is string[]
+    Pricing-market component keys parallel to parameterBlockKeys
+market is handle StorableRatePricingMarket
+    The exact pricing market bound to the calibration result
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Immutable provenance; excluded domains return frozen unavailable reason tokens
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public RatePortfolioQuoteRisk_Spill
+    Aggregate portfolio quote sensitivity and DV01 into a fixed long-form spill
+&inputs
+trades is handle[]
+    Rate trade definition handles
+market is handle StorableRatePricingMarket
+    The rate pricing market used by the immutable provenance handles
+provenances is handle[]
+    Quote-risk provenance handles with unique non-empty calibration identifiers
+&outputs
+spill is cell[][]
+    Ten columns in order: calibration, axis_fingerprint, quote_key, quote_name, block,
+    currency, quote_sensitivity, dv01, availability, reason. Rows follow native deterministic
+    bucket order, then provenance failures, trade/provenance failures, and excluded-domain failures.
+-IF-------------------------------------------------------------------------*/
 // clang-format on
 
 namespace Dal {
@@ -337,6 +431,18 @@ namespace Dal {
                 const auto* trade = dynamic_cast<const StorableRateTradeDefinition_*>(handle.get());
                 REQUIRE(trade, "Rate risk inputs must be rate trade definition handles (created with the RATExxxTRADE.NEW builders)");
                 result.push_back(trade->val_);
+            }
+            return result;
+        }
+
+        RateQuoteRiskProvenanceConfig_
+        QuoteRiskConfig(const String_& calibrationId, const Vector_<String_>& parameterBlockKeys, const Vector_<String_>& componentKeys) {
+            REQUIRE(parameterBlockKeys.size() == componentKeys.size(), "Quote-risk parameter blocks and component keys must be parallel arrays");
+            RateQuoteRiskProvenanceConfig_ result;
+            result.calibrationId_ = calibrationId;
+            for (int index = 0; index < static_cast<int>(parameterBlockKeys.size()); ++index) {
+                const auto inserted = result.componentKeyByParameterBlock_.emplace(parameterBlockKeys[index], componentKeys[index]);
+                REQUIRE(inserted.second, "Quote-risk parameter block keys must be unique");
             }
             return result;
         }
@@ -449,6 +555,109 @@ namespace Dal {
                 (*spill)(*row, 6) = Cell_(meta.actualPvCcy_.String());
                 ++(*row);
             }
+        }
+
+        constexpr int QUOTE_RISK_COLUMN_COUNT = 10;
+
+        Vector_<Handle_<StorableRateQuoteRiskProvenance_>> QuoteRiskProvenancesFromHandles(const Vector_<Handle_<Storable_>>& provenances) {
+            Vector_<Handle_<StorableRateQuoteRiskProvenance_>> result;
+            result.reserve(provenances.size());
+            std::set<String_> calibrationIds;
+            for (const auto& handle : provenances) {
+                const auto provenance = handle_cast<StorableRateQuoteRiskProvenance_>(handle);
+                REQUIRE(provenance, "Quote-risk inputs must be quote-risk provenance handles");
+                REQUIRE(!provenance->calibrationId_.empty(), "QUOTE_RISK_CALIBRATION_ID_EMPTY");
+                REQUIRE(calibrationIds.insert(provenance->calibrationId_).second, "QUOTE_RISK_DUPLICATE_CALIBRATION_ID");
+                result.push_back(provenance);
+            }
+            return result;
+        }
+
+        Vector_<RateQuoteRiskProvenance_> NativeQuoteRiskProvenances(const Vector_<Handle_<StorableRateQuoteRiskProvenance_>>& provenances) {
+            Vector_<RateQuoteRiskProvenance_> result;
+            for (const auto& provenance : provenances)
+                if (provenance->Native())
+                    result.push_back(*provenance->val_);
+            return result;
+        }
+
+        const StorableRateQuoteRiskProvenance_* FindQuoteRiskProvenance(const Vector_<Handle_<StorableRateQuoteRiskProvenance_>>& provenances,
+                                                                        const String_& calibrationId) {
+            for (const auto& provenance : provenances)
+                if (provenance->calibrationId_ == calibrationId)
+                    return provenance.get();
+            return nullptr;
+        }
+
+        void WriteQuoteRiskBucketRow(const RateQuoteRiskBucket_& bucket, Matrix_<Cell_>* spill, int* row) {
+            (*spill)(*row, 0) = Cell_(bucket.calibrationId_);
+            (*spill)(*row, 1) = Cell_(bucket.axisFingerprint_);
+            (*spill)(*row, 2) = Cell_(bucket.quoteKey_);
+            (*spill)(*row, 3) = Cell_(bucket.quoteName_);
+            (*spill)(*row, 4) = Cell_(bucket.residualBlock_);
+            (*spill)(*row, 5) = Cell_(bucket.actualPvCcy_.String());
+            (*spill)(*row, 6) = Cell_(bucket.dPvDDecimalQuote_);
+            (*spill)(*row, 7) = Cell_(bucket.dv01_);
+            (*spill)(*row, 8) = Cell_("available");
+            (*spill)(*row, 9) = Cell_();
+            ++(*row);
+        }
+
+        void WriteQuoteRiskFailureRow(const String_& calibrationId,
+                                      const String_& axisFingerprint,
+                                      const String_& subject,
+                                      const String_& detail,
+                                      const String_& block,
+                                      const String_& currency,
+                                      const String_& reason,
+                                      Matrix_<Cell_>* spill,
+                                      int* row) {
+            (*spill)(*row, 0) = Cell_(calibrationId);
+            (*spill)(*row, 1) = axisFingerprint.empty() ? Cell_() : Cell_(axisFingerprint);
+            (*spill)(*row, 2) = subject.empty() ? Cell_() : Cell_(subject);
+            (*spill)(*row, 3) = detail.empty() ? Cell_() : Cell_(detail);
+            (*spill)(*row, 4) = block.empty() ? Cell_() : Cell_(block);
+            (*spill)(*row, 5) = currency.empty() ? Cell_() : Cell_(currency);
+            (*spill)(*row, 6) = Cell_();
+            (*spill)(*row, 7) = Cell_();
+            (*spill)(*row, 8) = Cell_("unavailable");
+            (*spill)(*row, 9) = Cell_(reason);
+            ++(*row);
+        }
+
+        int QuoteRiskRowCount(const RatePortfolioQuoteRisk_& aggregate, const Vector_<Handle_<StorableRateQuoteRiskProvenance_>>& provenances) {
+            int result = static_cast<int>(aggregate.buckets_.size() + aggregate.provenanceFailures_.size());
+            for (const auto& meta : aggregate.meta_)
+                if (!meta.eligible_)
+                    ++result;
+            for (const auto& provenance : provenances)
+                if (!provenance->Native())
+                    ++result;
+            return result;
+        }
+
+        void WriteQuoteRiskFailureRows(const RatePortfolioQuoteRisk_& aggregate,
+                                       const Vector_<Handle_<StorableRateQuoteRiskProvenance_>>& provenances,
+                                       Matrix_<Cell_>* spill,
+                                       int* row) {
+            for (const auto& failure : aggregate.provenanceFailures_) {
+                const auto* provenance = FindQuoteRiskProvenance(provenances, failure.calibrationId_);
+                WriteQuoteRiskFailureRow(failure.calibrationId_, provenance ? provenance->AxisFingerprint() : String_(),
+                                         failure.expectedStateFingerprint_, failure.actualStateFingerprint_, failure.componentKey_, String_(),
+                                         failure.reason_, spill, row);
+            }
+            for (const auto& meta : aggregate.meta_) {
+                if (meta.eligible_)
+                    continue;
+                const auto* provenance = FindQuoteRiskProvenance(provenances, meta.calibrationId_);
+                WriteQuoteRiskFailureRow(meta.calibrationId_, provenance ? provenance->AxisFingerprint() : String_(), meta.instrumentId_,
+                                         meta.originalNodeRiskReason_, meta.failingComponentKey_, meta.actualPvCcy_.String(), meta.reason_, spill,
+                                         row);
+            }
+            for (const auto& provenance : provenances)
+                if (!provenance->Native())
+                    WriteQuoteRiskFailureRow(provenance->calibrationId_, String_(), String_(), String_(), provenance->kind_, String_(),
+                                             provenance->reason_, spill, row);
         }
     } // namespace
 
@@ -689,6 +898,89 @@ namespace Dal {
         WriteAggregateRows(aggregate, spill, &row);
     }
 
+    void RatePortfolioQuoteRisk_Spill(const Vector_<Handle_<Storable_>>& trades,
+                                      const Handle_<StorableRatePricingMarket_>& market,
+                                      const Vector_<Handle_<Storable_>>& provenances,
+                                      Matrix_<Cell_>* spill) {
+        REQUIRE(market, "Invalid rate pricing market handle");
+        const auto handles = QuoteRiskProvenancesFromHandles(provenances);
+        const auto aggregate = AggregateRatePortfolioQuoteRisk(TradesFromHandles(trades), market->val_, NativeQuoteRiskProvenances(handles));
+        spill->Resize(QuoteRiskRowCount(aggregate, handles), QUOTE_RISK_COLUMN_COUNT);
+        int row = 0;
+        for (const auto& bucket : aggregate.buckets_)
+            WriteQuoteRiskBucketRow(bucket, spill, &row);
+        WriteQuoteRiskFailureRows(aggregate, handles, spill, &row);
+    }
+
+    void SingleCurveQuoteRiskProvenance_New(const Handle_<StorableCurveCalibrationResult_>& result,
+                                            const String_& calibrationId,
+                                            const Vector_<String_>& parameterBlockKeys,
+                                            const Vector_<String_>& componentKeys,
+                                            const Handle_<StorableRatePricingMarket_>& market,
+                                            Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid single-curve calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        provenance->reset(new StorableRateQuoteRiskProvenance_(BuildSingleCurveQuoteRiskProvenance(
+            result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
+    }
+
+    void RateQuoteRiskProvenance_New(const Handle_<Storable_>& result,
+                                     const String_& calibrationId,
+                                     const Vector_<String_>& parameterBlockKeys,
+                                     const Vector_<String_>& componentKeys,
+                                     const Handle_<StorableRatePricingMarket_>& market,
+                                     Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        if (const auto single = handle_cast<StorableCurveCalibrationResult_>(result)) {
+            SingleCurveQuoteRiskProvenance_New(single, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
+            return;
+        }
+        if (const auto jointXccy = handle_cast<StorableJointXccyCalibrationResult_>(result)) {
+            JointXccyQuoteRiskProvenance_New(jointXccy, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
+            return;
+        }
+        if (const auto stagedXccy = handle_cast<StorableCrossCurrencyCalibrationResult_>(result)) {
+            StagedXccyBasisQuoteRiskProvenance_New(stagedXccy, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
+            return;
+        }
+        REQUIRE(!calibrationId.empty(), "QUOTE_RISK_CALIBRATION_ID_EMPTY");
+        if (handle_cast<StorableMultiCurveCalibrationResult_>(result)) {
+            provenance->reset(
+                new StorableRateQuoteRiskProvenance_(calibrationId, "STAGED_MULTI_CURVE", "QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE"));
+            return;
+        }
+        if (handle_cast<StorableJointMultiCurveCalibrationResult_>(result)) {
+            provenance->reset(new StorableRateQuoteRiskProvenance_(calibrationId, "JOINT_MULTI_CURVE", "QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE"));
+            return;
+        }
+        THROW("Unsupported quote-risk calibration result handle");
+    }
+
+    void JointXccyQuoteRiskProvenance_New(const Handle_<StorableJointXccyCalibrationResult_>& result,
+                                          const String_& calibrationId,
+                                          const Vector_<String_>& parameterBlockKeys,
+                                          const Vector_<String_>& componentKeys,
+                                          const Handle_<StorableRatePricingMarket_>& market,
+                                          Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid joint XCCY calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        provenance->reset(new StorableRateQuoteRiskProvenance_(BuildJointXccyQuoteRiskProvenance(
+            result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
+    }
+
+    void StagedXccyBasisQuoteRiskProvenance_New(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                                const String_& calibrationId,
+                                                const Vector_<String_>& parameterBlockKeys,
+                                                const Vector_<String_>& componentKeys,
+                                                const Handle_<StorableRatePricingMarket_>& market,
+                                                Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid staged XCCY calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        provenance->reset(new StorableRateQuoteRiskProvenance_(BuildStagedXccyBasisQuoteRiskProvenance(
+            result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
+    }
+
     // clang-format off
 #ifdef _WIN32
 #include <dal-excel/auto/MG_RateTradeHeader_New_public.inc>
@@ -702,6 +994,11 @@ namespace Dal {
 #include <dal-excel/auto/MG_RatePricingMarket_New_public.inc>
 #include <dal-excel/auto/MG_RateTradeNodeSensitivitiesBatch_Spill_public.inc>
 #include <dal-excel/auto/MG_RatePortfolioNodeRisk_Spill_public.inc>
+#include <dal-excel/auto/MG_SingleCurveQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_JointXccyQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_StagedXccyBasisQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_RateQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_RatePortfolioQuoteRisk_Spill_public.inc>
 #endif
     // clang-format on
 } // namespace Dal

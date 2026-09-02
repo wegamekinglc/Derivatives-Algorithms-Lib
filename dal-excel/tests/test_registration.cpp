@@ -2,9 +2,21 @@
 // Created by wegam on 2026/7/19.
 //
 
-#ifdef _WIN32
-
 #include <gtest/gtest.h>
+
+#include <string>
+
+#include <dal/string/strings.hpp>
+
+namespace {
+    std::string CaseSensitive(const Dal::String_& value) { return std::string(value.c_str()); }
+} // namespace
+
+TEST(ExcelRegistrationPortableTest, TestCaseSensitiveComparisonRejectsLowercaseExcelName) {
+    ASSERT_NE(CaseSensitive(Dal::String_("rateportfolioquoterisk.spill")), "RATEPORTFOLIOQUOTERISK.SPILL");
+}
+
+#ifdef _WIN32
 
 #define NOMINMAX
 #include <Windows.h>
@@ -12,7 +24,6 @@
 #include <algorithm>
 #include <cctype>
 #include <set>
-#include <string>
 
 #include <dal-excel/src/__excel_test_api.hpp>
 
@@ -42,7 +53,33 @@ namespace {
 } // namespace
 
 TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) {
-    ASSERT_GE(RegisteredFunctionsForTest().size(), 62);
+    ASSERT_GE(RegisteredFunctionsForTest().size(), 67);
+}
+
+TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata) {
+    const auto registrations = RegisteredFunctionsForTest();
+    const Vector_<String_> cNames = {
+        "xl_SingleCurveQuoteRiskProvenance_New",
+        "xl_JointXccyQuoteRiskProvenance_New",
+        "xl_StagedXccyBasisQuoteRiskProvenance_New",
+        "xl_RateQuoteRiskProvenance_New",
+        "xl_RatePortfolioQuoteRisk_Spill",
+    };
+    for (const auto& cName : cNames) {
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& registration) {
+            return registration.cName_ == cName;
+        });
+        ASSERT_NE(found, registrations.end()) << cName.c_str();
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(cName.substr(3)));
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(DeclaredArgCount(*found), found->argHelpCount_);
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+    const auto staged = std::find_if(registrations.begin(), registrations.end(), [](const auto& registration) {
+        return registration.cName_ == "xl_StagedXccyBasisQuoteRiskProvenance_New";
+    });
+    ASSERT_NE(staged, registrations.end());
+    ASSERT_EQ(staged->argNames_, String_("result,calibrationId,parameterBlockKeys,componentKeys,market"));
 }
 
 TEST(ExcelRegistrationTest, TestEveryRegisteredFunctionResolvesToAnEntryPoint) {

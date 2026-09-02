@@ -15,6 +15,8 @@
 #endif
 
 namespace Dal {
+    struct StorableRateQuoteRiskProvenance_;
+
     DAL_EXCEL_TEST_API void RateTradeHeader_New(const String_& instrumentId,
                                                 const Date_& tradeDate,
                                                 const Date_& start,
@@ -111,6 +113,39 @@ namespace Dal {
                                                         const Vector_<String_>& componentKeys,
                                                         const Handle_<StorableRatePricingMarket_>& market,
                                                         Matrix_<Cell_>* spill);
+
+    DAL_EXCEL_TEST_API void RatePortfolioQuoteRisk_Spill(const Vector_<Handle_<Storable_>>& trades,
+                                                         const Handle_<StorableRatePricingMarket_>& market,
+                                                         const Vector_<Handle_<Storable_>>& provenances,
+                                                         Matrix_<Cell_>* spill);
+
+    DAL_EXCEL_TEST_API void SingleCurveQuoteRiskProvenance_New(const Handle_<StorableCurveCalibrationResult_>& result,
+                                                               const String_& calibrationId,
+                                                               const Vector_<String_>& parameterBlockKeys,
+                                                               const Vector_<String_>& componentKeys,
+                                                               const Handle_<StorableRatePricingMarket_>& market,
+                                                               Handle_<StorableRateQuoteRiskProvenance_>* provenance);
+
+    DAL_EXCEL_TEST_API void RateQuoteRiskProvenance_New(const Handle_<Storable_>& result,
+                                                        const String_& calibrationId,
+                                                        const Vector_<String_>& parameterBlockKeys,
+                                                        const Vector_<String_>& componentKeys,
+                                                        const Handle_<StorableRatePricingMarket_>& market,
+                                                        Handle_<StorableRateQuoteRiskProvenance_>* provenance);
+
+    DAL_EXCEL_TEST_API void JointXccyQuoteRiskProvenance_New(const Handle_<StorableJointXccyCalibrationResult_>& result,
+                                                             const String_& calibrationId,
+                                                             const Vector_<String_>& parameterBlockKeys,
+                                                             const Vector_<String_>& componentKeys,
+                                                             const Handle_<StorableRatePricingMarket_>& market,
+                                                             Handle_<StorableRateQuoteRiskProvenance_>* provenance);
+
+    DAL_EXCEL_TEST_API void StagedXccyBasisQuoteRiskProvenance_New(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                                                   const String_& calibrationId,
+                                                                   const Vector_<String_>& parameterBlockKeys,
+                                                                   const Vector_<String_>& componentKeys,
+                                                                   const Handle_<StorableRatePricingMarket_>& market,
+                                                                   Handle_<StorableRateQuoteRiskProvenance_>* provenance);
 } // namespace Dal
 
 #undef DAL_EXCEL_TEST_API

@@ -22,7 +22,9 @@ namespace Dal {
         String_ xlName_;
         String_ argTypes_;
         String_ argNames_;
+        String_ help_;
         int argHelpCount_;
+        int maxArgHelpLength_;
         bool volatile_;
     };
 

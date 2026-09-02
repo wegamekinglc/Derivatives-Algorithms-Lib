@@ -1559,9 +1559,13 @@ func_with_args is string
 
     Vector_<ExcelFuncRegistration_> RegisteredFunctionsForTest() {
         Vector_<ExcelFuncRegistration_> retval;
-        for (const auto& func : TheFunctions())
-            retval.push_back(ExcelFuncRegistration_{func.cName_, func.xlName_, func.argTypes_, func.argNames_,
-                                                    static_cast<int>(func.argHelp_.size()), func.volatile_});
+        for (const auto& func : TheFunctions()) {
+            int maxArgHelpLength = 0;
+            for (const auto& help : func.argHelp_)
+                maxArgHelpLength = std::max(maxArgHelpLength, static_cast<int>(help.size()));
+            retval.push_back(ExcelFuncRegistration_{func.cName_, func.xlName_, func.argTypes_, func.argNames_, func.help_,
+                                                    static_cast<int>(func.argHelp_.size()), maxArgHelpLength, func.volatile_});
+        }
         return retval;
     }
 

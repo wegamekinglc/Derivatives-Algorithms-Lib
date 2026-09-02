@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "__platform.hpp"
 #include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
@@ -13,6 +15,7 @@
 #include <dal-public/src/xccycalibration.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/curve/yc.hpp>
@@ -126,7 +129,24 @@ namespace Dal {
 
     struct StorableCurveCalibrationResult_ : public Storable_ {
         CalibrationResult_ val_;
-        explicit StorableCurveCalibrationResult_(const CalibrationResult_& v) : Storable_("CurveCalibrationResult", String_()), val_(v) {}
+        CurveCalibrationSpec_ spec_;
+        CurveCalibrationOptions_ options_;
+        StorableCurveCalibrationResult_(const CalibrationResult_& v, const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options)
+            : Storable_("CurveCalibrationResult", String_()), val_(v), spec_(spec), options_(options) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableMultiCurveCalibrationResult_ : public Storable_ {
+        MultiCurveCalibrationResult_ val_;
+        explicit StorableMultiCurveCalibrationResult_(const MultiCurveCalibrationResult_& v)
+            : Storable_("MultiCurveCalibrationResult", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableJointMultiCurveCalibrationResult_ : public Storable_ {
+        JointMultiCurveCalibrationResult_ val_;
+        explicit StorableJointMultiCurveCalibrationResult_(const JointMultiCurveCalibrationResult_& v)
+            : Storable_("JointMultiCurveCalibrationResult", String_()), val_(v) {}
         void Write(Archive::Store_&) const override {}
     };
 
@@ -141,21 +161,50 @@ namespace Dal {
     // Holds the full result plus the basis curve resolved for the calibrated pair.
     struct StorableCrossCurrencyCalibrationResult_ : public Storable_ {
         CrossCurrencyCalibrationResult_ val_;
+        CrossCurrencyCalibrationSpec_ spec_;
+        CrossCurrencyCalibrationOptions_ options_;
         Handle_<DiscountCurve_> basisCurve_;
-        explicit StorableCrossCurrencyCalibrationResult_(const CrossCurrencyCalibrationResult_& v, const Handle_<DiscountCurve_>& basis)
-            : Storable_("CrossCurrencyCalibrationResult", String_()), val_(v), basisCurve_(basis) {}
+        StorableCrossCurrencyCalibrationResult_(const CrossCurrencyCalibrationResult_& v,
+                                                const CrossCurrencyCalibrationSpec_& spec,
+                                                const CrossCurrencyCalibrationOptions_& options,
+                                                const Handle_<DiscountCurve_>& basis)
+            : Storable_("CrossCurrencyCalibrationResult", String_()), val_(v), spec_(spec), options_(options), basisCurve_(basis) {}
         void Write(Archive::Store_&) const override {}
     };
 
     struct StorableJointXccyCalibrationResult_ : public Storable_ {
         JointXccyCalibrationResult_ val_;
+        JointXccyCalibrationSpec_ spec_;
+        JointXccyCalibrationOptions_ options_;
         Handle_<CurveBlock_> domesticBlock_;
         Handle_<CurveBlock_> foreignBlock_;
         Handle_<DiscountCurve_> basisCurve_;
 
-        explicit StorableJointXccyCalibrationResult_(const JointXccyCalibrationResult_& v)
-            : Storable_("JointXccyCalibrationResult", String_()), val_(v), domesticBlock_(JointXccyResultDomesticBlock(val_)),
-              foreignBlock_(JointXccyResultForeignBlock(val_)), basisCurve_(JointXccyResultBasisCurve(val_)) {}
+        StorableJointXccyCalibrationResult_(const JointXccyCalibrationResult_& v,
+                                            const JointXccyCalibrationSpec_& spec,
+                                            const JointXccyCalibrationOptions_& options)
+            : Storable_("JointXccyCalibrationResult", String_()), val_(v), spec_(spec), options_(options),
+              domesticBlock_(JointXccyResultDomesticBlock(val_)), foreignBlock_(JointXccyResultForeignBlock(val_)),
+              basisCurve_(JointXccyResultBasisCurve(val_)) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableRateQuoteRiskProvenance_ : public Storable_ {
+        const std::shared_ptr<const RateQuoteRiskProvenance_> val_;
+        const String_ calibrationId_;
+        const String_ kind_;
+        const String_ reason_;
+
+        explicit StorableRateQuoteRiskProvenance_(const RateQuoteRiskProvenance_& value)
+            : Storable_("RateQuoteRiskProvenance", String_()), val_(std::make_shared<const RateQuoteRiskProvenance_>(value)),
+              calibrationId_(value.CalibrationId()), kind_(value.Kind()), reason_(value.Reason()) {}
+        StorableRateQuoteRiskProvenance_(const String_& calibrationId, const String_& kind, const String_& reason)
+            : Storable_("RateQuoteRiskProvenance", String_()), calibrationId_(calibrationId), kind_(kind), reason_(reason) {}
+        [[nodiscard]] bool Native() const { return static_cast<bool>(val_); }
+        [[nodiscard]] const String_& AxisFingerprint() const {
+            static const String_ empty;
+            return val_ ? val_->Axis().fingerprint_ : empty;
+        }
         void Write(Archive::Store_&) const override {}
     };
 

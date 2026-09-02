@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RatePortfolioQuoteRisk_Spill</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RatePortfolioQuoteRisk_Spill (in Excel: RATEPORTFOLIOQUOTERISK.SPILL)</h1>
+Aggregate portfolio quote sensitivity and DV01 into a fixed long-form spill
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>trades</td><td>vector of handles</td><td></td><td>Rate trade definition handles</td></tr>
+<tr><td>market</td><td>handle of type StorableRatePricingMarket</td><td></td><td>The rate pricing market used by the immutable provenance handles</td></tr>
+<tr><td>provenances</td><td>vector of handles</td><td></td><td>Quote-risk provenance handles with unique non-empty calibration identifiers</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>spill</td><td>matrix of cells</td><td>Ten columns in order: calibration, axis_fingerprint, quote_key, quote_name, block, currency, quote_sensitivity, dv01, availability, reason. Rows follow native deterministic bucket order, then provenance failures, trade/provenance failures, and excluded-domain failures.</td></tr>
+</table>
+
+
+
+
+
+
