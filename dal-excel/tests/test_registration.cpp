@@ -2,9 +2,21 @@
 // Created by wegam on 2026/7/19.
 //
 
-#ifdef _WIN32
-
 #include <gtest/gtest.h>
+
+#include <string>
+
+#include <dal/string/strings.hpp>
+
+namespace {
+    std::string CaseSensitive(const Dal::String_& value) { return std::string(value.c_str()); }
+} // namespace
+
+TEST(ExcelRegistrationPortableTest, TestCaseSensitiveComparisonRejectsLowercaseExcelName) {
+    ASSERT_NE(CaseSensitive(Dal::String_("rateportfolioquoterisk.spill")), "RATEPORTFOLIOQUOTERISK.SPILL");
+}
+
+#ifdef _WIN32
 
 #define NOMINMAX
 #include <Windows.h>
@@ -12,7 +24,6 @@
 #include <algorithm>
 #include <cctype>
 #include <set>
-#include <string>
 
 #include <dal-excel/src/__excel_test_api.hpp>
 
@@ -59,7 +70,7 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
             return registration.cName_ == cName;
         });
         ASSERT_NE(found, registrations.end()) << cName.c_str();
-        ASSERT_EQ(found->xlName_, String_(UpperDotted(cName.substr(3)).c_str()));
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(cName.substr(3)));
         ASSERT_FALSE(found->help_.empty());
         ASSERT_EQ(DeclaredArgCount(*found), found->argHelpCount_);
         ASSERT_LE(found->maxArgHelpLength_, 255);
