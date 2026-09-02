@@ -439,6 +439,7 @@ namespace Dal {
 
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec,
                                                                  const CrossCurrencyCalibrationOptions_& options) {
+        ++g_curveCalibrationInvocationCount;
         const DateTime_ valuationTime = ResolveValuationTime(spec);
         const Ccy_ collateralCurrency = ResolveCollateralCurrency(spec);
         ValidateSpec(spec, valuationTime, collateralCurrency);

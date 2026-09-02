@@ -100,6 +100,7 @@ def main() -> int:
 
     print(f"Axis fingerprint: {provenance.axis.fingerprint}")
     print(f"State fingerprint: {provenance.state.fingerprint}")
+    print(f"Policy: {risk.policy}")
     print("Quote risk (decimal quote sensitivity, DV01):")
     for bucket in risk.buckets:
         print(

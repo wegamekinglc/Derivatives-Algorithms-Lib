@@ -27,7 +27,7 @@ substitute for correctness review.
   CMake preset overrides it to `OFF`. Every preset-based performance build must therefore pass
   `-DDAL_CPP_BUILD_BENCHMARKS=ON` explicitly.
 - The Linux CI job builds and smoke-runs all current benchmark targets. Its paired PR regression
-  gate is the eight-target closed set in
+  gate is the nine-target closed set in
   `.github/scripts/check_benchmark_regressions.py`.
 - Installed binaries under `build/stage/.../bin/` change only after `cmake --install`. They can
   be stale after a rebuild and are not valid for branch-versus-baseline comparison.
@@ -39,7 +39,7 @@ Claude artifact is required.
 
 ## Regression Gate And Module Map
 
-The regression gate is exactly these eight executables:
+The regression gate is exactly these nine executables:
 
 - `tape_perf`: native AAD tape clear, rewind, zero-adjoint, and propagation operations.
 - `jacobian_perf`: curve-calibration Jacobian sweeps and dense/row-width harvesting.
@@ -49,6 +49,8 @@ The regression gate is exactly these eight executables:
 - `krylov_perf`: conjugate-gradient solve for a 500 by 500 SPD tridiagonal system.
 - `banded_perf`: banded tridiagonal matrix-vector multiplication at size 10K.
 - `cholesky_perf`: dense Cholesky decomposition of a 200 by 200 SPD matrix.
+- `rate_risk_perf`: rate pricing, node-risk aggregation, and steady-state quote-risk aggregation
+  for single-curve, joint-XCCY, and staged-XCCY-basis provenance.
 
 Do not add another executable to the regression verdict ad hoc. The paired gate rejects names
 outside this allowlist.
@@ -217,7 +219,7 @@ The report must contain:
 - for every gated benchmark and case: baseline minimum, branch minimum, percentage delta, both
   confirmation-round deltas, and verdict;
 - paths to retained raw outputs, `results.json`, and `summary.md`;
-- any informational benchmark results outside the eight-target gate;
+- any informational benchmark results outside the nine-target gate;
 - the coverage advisory; and
 - one overall verdict: `no regression`, `regression found` with named cases, or `inconclusive`
   with the blocking reason.
@@ -231,7 +233,7 @@ Re-read the branch diff and identify changed hot paths: AAD sweeps, calibration 
 kernels, interpolation queries, random/path generation, PDE stepping, script evaluation, and
 thread-pool operations.
 
-Map each path first to the eight-target module map above, then to real current targets in
+Map each path first to the nine-target module map above, then to real current targets in
 `dal-cpp/benchmarks/CMakeLists.txt`. If a current executable already exercises the path, advise
 extending its cases or workload rather than adding a near-duplicate target.
 
@@ -249,7 +251,7 @@ Do not edit or create the benchmark in advisory mode. If implementation is reque
 - Do not compare one run, non-interleaved machines, different build types, or different compiler
   and CPU settings.
 - Do not use stale installed binaries or reuse one side's build directory for the other.
-- Do not gate on targets outside the eight-target allowlist.
+- Do not gate on targets outside the nine-target allowlist.
 - Do not edit production or benchmark code during pure measurement.
 - Do not commit, push, change PR state, submit a review, resolve threads, or merge.
 - Do not assert a regression when the environment is noisy or the samples are incomplete.

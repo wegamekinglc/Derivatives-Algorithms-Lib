@@ -649,6 +649,7 @@ namespace Dal {
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) { return CalibrateYieldCurve(spec, CurveCalibrationOptions_()); }
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
+        ++g_curveCalibrationInvocationCount;
         ValidateCurveCalibrationSpec(spec);
 
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);

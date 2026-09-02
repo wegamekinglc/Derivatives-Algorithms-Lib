@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include <type_traits>
@@ -22,6 +23,9 @@
 #include <dal/time/schedules.hpp>
 
 namespace Dal {
+
+    // Test observation seam shared by the three supported quote-risk calibration drivers.
+    inline std::atomic<int> g_curveCalibrationInvocationCount{0};
 
     // Shared internal helpers for single- and joint-curve calibration and leg-period construction.
     // inline so the header-only definitions do not violate the ODR across translation units.

@@ -35,13 +35,18 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 | `random.hpp`                               | Pseudo-random and Sobol matrix fills             |
 | `curveprotocol.hpp`, `curveinstrument.hpp` | Curve conventions and quoted instruments         |
 | `curvedata.hpp`, `curvespec.hpp`           | Curve construction and single/staged calibration |
-| `curvepricing.hpp`                         | Typed rate-cashflow planning, pricing, and node sensitivities |
+| `curvepricing.hpp`                         | Typed rate-cashflow pricing, node risk, and quote-space DV01   |
 | `xccycalibration.hpp`                      | Cross-currency calibration                       |
 | `interp.hpp`                               | Linear interpolation helper                      |
 | `repository.hpp`                           | Host-environment repository operations           |
 
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.
+
+Quote-space risk freezes single-curve, joint-XCCY, or staged-XCCY-basis
+calibration provenance, verifies bound component fingerprints, and aggregates
+portfolio price-per-decimal quote sensitivities plus DV01 without recalibration.
+See the [quote-space DV01 contract](../docs/public-api.md#c-quote-space-dv01).
 
 ## Build and Test
 

@@ -11,6 +11,7 @@
 #include <memory>
 
 #include <dal/benchmarks/bench.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
@@ -20,6 +21,8 @@
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/rateconvention.hpp>
+
+#include "quoteriskbenchfixtures.hpp"
 
 using namespace Dal;
 
@@ -146,6 +149,20 @@ namespace {
     RateTradeDefinition_ XccyTrade(const Date_& today, const Date_& start, const Date_& maturity, bool receiveNonSpread) {
         return {"xccy", RateInstrumentType_(RateInstrumentType_::Value_::XCCY), today, start, maturity, Ccy_("USD"), XccyTerms(receiveNonSpread)};
     }
+
+    void RunQuoteRiskCase(const char* name, const RateRiskPerf::QuoteRiskBenchmarkCase_& input) {
+        const int calibrationCount = g_curveCalibrationInvocationCount.load(std::memory_order_relaxed);
+        double sink = 0.0;
+        const auto result = Bench::Run(name, [&]() {
+            const auto risk = AggregateRatePortfolioQuoteRisk(input.trades_, input.market_, input.provenances_);
+            REQUIRE(!risk.buckets_.empty(), "Quote-risk benchmark produced no buckets");
+            sink += risk.buckets_.front().dv01_ + risk.buckets_.back().dPvDDecimalQuote_;
+        });
+        REQUIRE(g_curveCalibrationInvocationCount.load(std::memory_order_relaxed) == calibrationCount,
+                "Quote-risk benchmark aggregate recalibrated inside the timed region");
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 int main() {
@@ -155,6 +172,9 @@ int main() {
     const Date_ dailyMaturity(2031, 4, 15);
     const auto market = Market(today, batchMaturity);
     const Vector_<String_> keys{"forecast", "discount"};
+    const auto singleQuoteRisk = RateRiskPerf::MakeSingleCurveQuoteRiskCase();
+    const auto jointQuoteRisk = RateRiskPerf::MakeJointXccyQuoteRiskCase();
+    const auto stagedQuoteRisk = RateRiskPerf::MakeStagedXccyBasisQuoteRiskCase();
 
     Vector_<RateTradeDefinition_> trades;
     trades.reserve(kBatchTrades);
@@ -241,5 +261,8 @@ int main() {
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
     }
+    RunQuoteRiskCase("Quote risk aggregate (single curve)", singleQuoteRisk);
+    RunQuoteRiskCase("Quote risk aggregate (joint XCCY)", jointQuoteRisk);
+    RunQuoteRiskCase("Quote risk aggregate (staged XCCY basis)", stagedQuoteRisk);
     return 0;
 }

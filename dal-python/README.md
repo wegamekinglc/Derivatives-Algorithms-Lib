@@ -674,6 +674,34 @@ share this call pattern and differ only in their terms class. The per-family
 terms fields, the addressable components, and the C++ and Excel equivalents are
 in the [public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md#c-rate-cashflow-pricing).
 
+## Quote-Space DV01
+
+Freeze calibration provenance with
+`BuildSingleCurveQuoteRiskProvenance`,
+`BuildJointXccyQuoteRiskProvenance`, or
+`BuildStagedXccyBasisQuoteRiskProvenance`, then call
+`AggregateRatePortfolioQuoteRisk(trades=..., market=..., provenances=...)`.
+All four functions are keyword-only, release the GIL around native work, and
+return read-only results.
+
+Each bucket contains its calibration/axis identity, ordered quote coordinate,
+actual PV currency, `d_pv_d_decimal_quote`, and `dv01`. The former is price per
+`+1.0` decimal quote move; `dv01` is price per `+1 bp` and therefore equals the
+former times `1e-4`. Axis/state schemes are
+`dal.quote-risk-axis/1+jcs+sha256` and
+`dal.quote-risk-state/1+jcs+sha256`; fingerprint values begin with `sha256:`.
+Aggregation verifies the current market state and performs neither quote bumps
+nor recalibration.
+
+The policy is `UnconvertedByActualPvCcy`: PV and quote-risk buckets remain
+separate by each trade's actual PV currency, without FX conversion. Ordinary
+staged multi-curve chain rules and generic joint multi-curve provenance are not
+supported. The runnable
+[single-curve example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/009.quote_risk.py)
+prints the policy, both fingerprints, and all buckets; the
+[joint XCCY example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/007.xccy_joint_calibration.py)
+constructs joint provenance.
+
 ## Troubleshooting
 
 ### "Cannot find DAL::public" during build
