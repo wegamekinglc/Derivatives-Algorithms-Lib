@@ -7,6 +7,7 @@
 // active-typed assembly shape (frozen P0 contract 8).
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <memory>
 
@@ -159,8 +160,8 @@ namespace {
         const int preparationCount = RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(std::memory_order_relaxed);
         const int sweepCount = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(std::memory_order_relaxed);
 #if DAL_RATE_RISK_NATIVE_AAD
-        int tapeHighWater = 0;
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = &tapeHighWater;
+        std::atomic<int> tapeHighWater{0};
+        RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ tapeObservation(tapeHighWater);
 #endif
         double sink = 0.0;
         const auto result = Bench::Run(
@@ -173,9 +174,6 @@ namespace {
                 sink += risk.buckets_.front().dv01_ + risk.buckets_.back().dPvDDecimalQuote_;
             },
             kWarmup, kRepeats);
-#if DAL_RATE_RISK_NATIVE_AAD
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = nullptr;
-#endif
         const int passivePriceDelta =
             RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.load(std::memory_order_relaxed) - passivePriceCount;
         const int preparationDelta =
@@ -187,7 +185,7 @@ namespace {
         Bench::Print(result);
 #if DAL_RATE_RISK_NATIVE_AAD
         std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d tape_high_water=%d\n", name, observedPassivePrices,
-                     observedPreparations, observedSweeps, tapeHighWater);
+                     observedPreparations, observedSweeps, tapeHighWater.load(std::memory_order_relaxed));
 #else
         std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d\n", name, observedPassivePrices, observedPreparations,
                      observedSweeps);
@@ -271,11 +269,14 @@ int main() {
     {
         // Informational (stderr, not a gated row): the native tape node count of one OIS
         // daily-compounding sweep — the per-sweep high-water the latency cases above stand in for.
-        int tapeNodes = 0;
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = &tapeNodes;
-        const auto sensitivity = RateTradeNodeSensitivities(OisTrade(today, start, dailyMaturity), market, keys[0]);
-        RateCashflowPricingInternal::g_nodeSensitivityTapeSizeSink = nullptr;
-        std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes, static_cast<int>(sensitivity.eligible_));
+        std::atomic<int> tapeNodes{0};
+        bool eligible = false;
+        {
+            RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ observation(tapeNodes);
+            eligible = RateTradeNodeSensitivities(OisTrade(today, start, dailyMaturity), market, keys[0]).eligible_;
+        }
+        std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes.load(std::memory_order_relaxed),
+                     static_cast<int>(eligible));
     }
 #endif
 

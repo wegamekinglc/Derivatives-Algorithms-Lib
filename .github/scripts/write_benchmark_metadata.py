@@ -14,13 +14,24 @@ import subprocess
 
 def command_version(command: str) -> str:
     try:
-        completed = subprocess.run(
-            [command, "--version"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        if command == "gcc-14":
+            completed = subprocess.run(
+                ["gcc-14", "--version"], check=False, capture_output=True, text=True, timeout=30
+            )
+        elif command == "cl":
+            completed = subprocess.run(
+                ["cl", "--version"], check=False, capture_output=True, text=True, timeout=30
+            )
+        elif command == "python3":
+            completed = subprocess.run(
+                ["python3", "--version"], check=False, capture_output=True, text=True, timeout=30
+            )
+        elif command == "cmake":
+            completed = subprocess.run(
+                ["cmake", "--version"], check=False, capture_output=True, text=True, timeout=30
+            )
+        else:
+            return f"unsupported command: {command}"
     except (OSError, subprocess.TimeoutExpired) as error:
         return f"unavailable: {error}"
     output = f"{completed.stdout}\n{completed.stderr}"
@@ -44,8 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--base-sha", required=True)
-    parser.add_argument("--compiler", required=True)
-    parser.add_argument("--cmake", default="cmake")
+    parser.add_argument("--compiler", required=True, choices=("gcc-14", "cl", "python3"))
     parser.add_argument("--aad-backend", required=True)
     parser.add_argument("--threads", required=True, type=int)
     parser.add_argument("--runner-image", required=True)
@@ -79,8 +89,8 @@ def main() -> int:
         "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "local"),
         "compiler_command": args.compiler,
         "compiler_version": command_version(args.compiler),
-        "cmake_command": args.cmake,
-        "cmake_version": command_version(args.cmake),
+        "cmake_command": "cmake",
+        "cmake_version": command_version("cmake"),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -1,14 +1,24 @@
 """Tests for reproducible benchmark-environment metadata."""
 
+import importlib.util
 import json
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "write_benchmark_metadata.py"
+
+
+def load_metadata_script():
+    spec = importlib.util.spec_from_file_location("write_benchmark_metadata", SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {SCRIPT}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class BenchmarkMetadataTest(unittest.TestCase):
@@ -16,31 +26,25 @@ class BenchmarkMetadataTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "environment.json"
 
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT),
-                    "--output",
-                    str(output),
-                    "--head-sha",
-                    "head-sha",
-                    "--base-sha",
-                    "base-sha",
-                    "--compiler",
-                    sys.executable,
-                    "--aad-backend",
-                    "aadet",
-                    "--threads",
-                    "4",
-                    "--runner-image",
-                    "test-image",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-
-            self.assertEqual(completed.returncode, 0, completed.stderr)
+            argv = [
+                str(SCRIPT),
+                "--output",
+                str(output),
+                "--head-sha",
+                "head-sha",
+                "--base-sha",
+                "base-sha",
+                "--compiler",
+                "python3",
+                "--aad-backend",
+                "aadet",
+                "--threads",
+                "4",
+                "--runner-image",
+                "test-image",
+            ]
+            with mock.patch.object(sys, "argv", argv):
+                self.assertEqual(load_metadata_script().main(), 0)
             metadata = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(metadata["head_sha"], "head-sha")
             self.assertEqual(metadata["base_sha"], "base-sha")
