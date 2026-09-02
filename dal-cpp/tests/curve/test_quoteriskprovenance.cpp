@@ -1131,17 +1131,26 @@ TEST(QuoteRiskAggregationTest, TestAggregateDoesNotRecalibrateOrMutateQuotesOrBo
     for (const auto& instrument : input.spec_.instruments_)
         originalQuotes.push_back(instrument->MarketRate());
     const auto before = Dal::CurrentRateQuoteRiskComponentState("discount", input.market_);
-    Dal::g_curveCalibrationInvocationCount.store(0, std::memory_order_relaxed);
+    Dal::ResetCurveCalibrationInvocationCount();
 
     const auto result = Dal::AggregateRatePortfolioQuoteRisk({SingleDepositTrade(input)}, input.market_, {provenance});
 
     ASSERT_FALSE(result.buckets_.empty());
-    ASSERT_EQ(Dal::g_curveCalibrationInvocationCount.load(std::memory_order_relaxed), 0);
+    ASSERT_EQ(Dal::CurveCalibrationInvocationCount(), 0);
     const auto after = Dal::CurrentRateQuoteRiskComponentState("discount", input.market_);
     ASSERT_EQ(after.fingerprint_, before.fingerprint_);
     ASSERT_EQ(input.spec_.instruments_.size(), originalQuotes.size());
     for (int i = 0; i < static_cast<int>(originalQuotes.size()); ++i)
         ASSERT_DOUBLE_EQ(input.spec_.instruments_[i]->MarketRate(), originalQuotes[i]);
+}
+
+TEST(QuoteRiskAggregationTest, TestCalibrationObservationCrossesLibraryBoundary) {
+    const auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    Dal::ResetCurveCalibrationInvocationCount();
+
+    Dal::CalibrateYieldCurve(input.spec_, input.options_);
+
+    ASSERT_EQ(Dal::CurveCalibrationInvocationCount(), 1);
 }
 
 TEST(QuoteRiskAggregationTest, TestStaleStateFailsBeforeAnyNodeRiskWork) {

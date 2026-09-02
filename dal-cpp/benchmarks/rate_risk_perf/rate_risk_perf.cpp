@@ -151,15 +151,14 @@ namespace {
     }
 
     void RunQuoteRiskCase(const char* name, const RateRiskPerf::QuoteRiskBenchmarkCase_& input) {
-        const int calibrationCount = g_curveCalibrationInvocationCount.load(std::memory_order_relaxed);
+        const int calibrationCount = CurveCalibrationInvocationCount();
         double sink = 0.0;
         const auto result = Bench::Run(name, [&]() {
             const auto risk = AggregateRatePortfolioQuoteRisk(input.trades_, input.market_, input.provenances_);
             REQUIRE(!risk.buckets_.empty(), "Quote-risk benchmark produced no buckets");
             sink += risk.buckets_.front().dv01_ + risk.buckets_.back().dPvDDecimalQuote_;
         });
-        REQUIRE(g_curveCalibrationInvocationCount.load(std::memory_order_relaxed) == calibrationCount,
-                "Quote-risk benchmark aggregate recalibrated inside the timed region");
+        REQUIRE(CurveCalibrationInvocationCount() == calibrationCount, "Quote-risk benchmark aggregate recalibrated inside the timed region");
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
     }

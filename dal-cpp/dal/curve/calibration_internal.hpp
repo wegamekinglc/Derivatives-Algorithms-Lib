@@ -5,7 +5,6 @@
 #pragma once
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <memory>
 #include <type_traits>
@@ -24,8 +23,10 @@
 
 namespace Dal {
 
-    // Test observation seam shared by the three supported quote-risk calibration drivers.
-    inline std::atomic<int> g_curveCalibrationInvocationCount{0};
+    // Internal observation seam shared across the DAL library boundary.
+    BASE_EXPORT void RecordCurveCalibrationInvocation();
+    BASE_EXPORT void ResetCurveCalibrationInvocationCount();
+    BASE_EXPORT int CurveCalibrationInvocationCount();
 
     // Shared internal helpers for single- and joint-curve calibration and leg-period construction.
     // inline so the header-only definitions do not violate the ODR across translation units.

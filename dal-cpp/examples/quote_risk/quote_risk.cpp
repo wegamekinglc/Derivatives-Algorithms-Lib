@@ -72,19 +72,18 @@ int main() {
     const CurveCalibrationSpec_ spec = CalibrationSpec();
     CurveCalibrationOptions_ options;
     options.computeForwardJacobian_ = false;
-    const CurveCalibrationResult_ calibration = CalibrateYieldCurve(spec, options);
+    const auto calibration = std::make_shared<CurveCalibrationResult_>(CalibrateYieldCurve(spec, options));
 
     RatePricingMarket_ market;
     market.valuationTime_ = DateTime_(spec.today_, 9, 0);
     market.resultCurrency_ = Ccy_(spec.ccy_);
-    market.curveComponents_["discount"] =
-        Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), calibration.curve_.get()));
+    market.curveComponents_["discount"] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(calibration, calibration->curve_.get()));
     market.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
 
     RateQuoteRiskProvenanceConfig_ config;
     config.calibrationId_ = "usd-ois";
     config.componentKeyByParameterBlock_[spec.curveName_] = "discount";
-    const auto provenance = BuildSingleCurveQuoteRiskProvenance(spec, calibration, options, market, config);
+    const auto provenance = BuildSingleCurveQuoteRiskProvenance(spec, *calibration, options, market, config);
     const auto risk = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
     REQUIRE(provenance.Available(), provenance.Reason());
     REQUIRE(risk.policy_ == "UnconvertedByActualPvCcy", "Unexpected quote-risk currency policy");
