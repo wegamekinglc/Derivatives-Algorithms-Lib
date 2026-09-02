@@ -397,6 +397,52 @@ is structurally zero), and a past-but-missing fixing fails passive validation â€
 `PriceRateTrades(...)[i].missingHistoricalFixings_` names the gap while the
 sensitivity returns the `TRADE_VALIDATION_FAILED` token.
 
+### C++ quote-space DV01
+
+Quote-space aggregation is a two-step workflow. First freeze a calibration result,
+its quote/parameter axes, its effective inverse, and the state of every bound market
+component in a `RateQuoteRiskProvenance_`. Then aggregate a portfolio against one or
+more provenances:
+
+```cpp
+const auto provenance = Dal::BuildSingleCurveQuoteRiskProvenance(
+    spec, calibration, options, market,
+    Dal::RateQuoteRiskProvenanceConfig_{
+        "usd-ois", {{spec.curveName_, "discount"}}});
+const auto quoteRisk = Dal::AggregateRatePortfolioQuoteRisk(
+    trades, market, {provenance});
+```
+
+The supported provenance factories are
+`BuildSingleCurveQuoteRiskProvenance`, `BuildJointXccyQuoteRiskProvenance`,
+and `BuildStagedXccyBasisQuoteRiskProvenance`. They cover exact single-curve,
+simultaneous domestic/foreign/basis XCCY, and staged XCCY basis calibration,
+respectively. Ordinary staged multi-curve chain rules and generic joint
+multi-curve calibration do not have C++ provenance factories. Quote risk also
+requires an available effective inverse; unavailable results retain a stable
+reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
+`QUOTE_RISK_NOT_AVAILABLE_FOR_SOLVE_MODE`, or
+`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.
+
+`RateQuoteRiskAxis_` publishes named parameter/residual ranges and ordered
+coordinates. Its scheme is `dal.quote-risk-axis/1+jcs+sha256`; the bound curve
+state uses `dal.quote-risk-state/1+jcs+sha256`. Fingerprint values begin with
+`sha256:`. Aggregation recomputes the component-state fingerprints and rejects a
+stale provenance atomically instead of mixing states.
+
+Each `RateQuoteRiskBucket_` is addressed by calibration ID, axis fingerprint,
+residual block, quote ordinal/key/name, and actual PV currency.
+`dPvDDecimalQuote_` has units of price per `+1.0` decimal quote move and
+`dv01_ = dPvDDecimalQuote_ * 1e-4` is price per `+1 bp`. Portfolio PV and quote
+risk are grouped under `UnconvertedByActualPvCcy`; DAL performs no FX
+conversion. Eligible trades, structural zeros, failures, and provenance-state
+failures remain explicit in the parallel metadata. Provenance construction is
+the only calibration-time step: `AggregateRatePortfolioQuoteRisk` neither bumps
+quotes nor recalibrates curves.
+
+See the runnable [C++ quote-risk example](../dal-cpp/examples/quote_risk/) and
+the [Jacobian methodology](methodology/yield_curve_jacobian.md#production-quote-space-dv01).
+
 ## Python
 
 Import the installed package with:
@@ -417,7 +463,7 @@ import dal
 | Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
 | Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
 | XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
-| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`                               |
+| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`, quote-risk provenance builders, `AggregateRatePortfolioQuoteRisk`                               |
 | Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
 
 The basic valuation shape is:
@@ -539,6 +585,21 @@ Results are read-only projections of the C++ shapes. A complete runnable
 deposit example covering the batch and aggregation calls is in the
 [dal-python README](../dal-python/README.md#rate-cashflow-pricing-and-node-risk).
 
+### Python quote-space DV01
+
+Python exposes `RateQuoteRiskProvenanceConfig_`, all three supported provenance
+builders, and `AggregateRatePortfolioQuoteRisk` as keyword-only calls. They
+release the GIL around native construction or aggregation and return read-only
+objects. The axis/state fingerprint schemes, stable availability reasons,
+price-per-decimal and DV01 units, and `UnconvertedByActualPvCcy` policy are
+identical to C++.
+
+The runnable [single-curve quote-risk example](../dal-python/examples/009.quote_risk.py)
+prints both fingerprints, the policy, and every bucket. The
+[joint XCCY example](../dal-python/examples/007.xccy_joint_calibration.py) also
+constructs joint provenance. Staged multi-curve chain rules and generic joint
+multi-curve provenance remain outside the supported Python surface.
+
 `Storable_` exposes read-only `name` and `type` properties, and the native
 `YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for archive
 compatibility with the standalone web application. `_StorableToJson`,
@@ -646,6 +707,28 @@ node counts. `RATETRADENODESENSITIVITIESBATCH.SPILL` emits the six columns
 `currency`, with one aggregate row per actual PV currency. Only trades with
 past fixing dates need a fixing-snapshot handle, and XCCY additionally needs
 the domestic/foreign blocks and the basis curve.
+
+Quote-space DV01 uses provenance handles and a separate fixed-width spill:
+
+```text
+J1: =SINGLECURVEQUOTERISKPROVENANCE.NEW(calibrationResult, "usd-ois", parameterBlockKeys, componentKeys, G1)
+K1: =RATEPORTFOLIOQUOTERISK.SPILL(E1, G1, J1)
+```
+
+`JOINTXCCYQUOTERISKPROVENANCE.NEW` and
+`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover the other supported calibration
+domains. `RATEQUOTERISKPROVENANCE.NEW(result, calibrationId,
+parameterBlockKeys, componentKeys, market)` dispatches from a result handle;
+ordinary staged chains and generic joint calibration produce explicit rows with
+`QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE` and
+`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE` rather than an invented transform.
+
+The quote-risk spill columns are `calibration`, `axis_fingerprint`,
+`quote_key`, `quote_name`, `block`, `currency`, `quote_sensitivity`, `dv01`,
+`availability`, and `reason`. Quote sensitivity is price per decimal quote;
+DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
+`UnconvertedByActualPvCcy`, with no FX conversion. A paste-ready worksheet
+recipe is in [dal-excel/examples/008.quote_risk.md](../dal-excel/examples/008.quote_risk.md).
 
 Generated function help under `dal-excel/auto/*.htm` is the argument-level
 catalog used by Excel registration.

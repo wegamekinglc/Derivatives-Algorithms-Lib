@@ -603,6 +603,7 @@ namespace Dal {
     }
 
     JointXccyCalibrationResult_ CalibrateJointXccyMarket(const JointXccyCalibrationSpec_& spec, const JointXccyCalibrationOptions_& options) {
+        RecordCurveCalibrationInvocation();
         ValidateTopLevelSpec(spec);
         REQUIRE(options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC || options.jacobianMode_ == CurveJacobianMode_::Value_::BUMPED,
                 "Joint XCCY calibration requires ANALYTIC or BUMPED Jacobian mode");

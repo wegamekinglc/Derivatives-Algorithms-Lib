@@ -316,6 +316,23 @@ jobs:
         run: |
           cmake --build build/Release-linux --target dal_check_generated --parallel "$(nproc)"
 
+      - name: Preserve quote-risk oracle evidence
+        env:
+          DAL_QUOTE_RISK_EVIDENCE_FILE: ${{ github.workspace }}/quote-risk-oracle-evidence.csv
+        run: |
+          ./build/Release-linux/dal-cpp/dal_cpp_tests \
+            --gtest_filter='QuoteRiskAggregationTest.TestFullRecalibrationOracleAtRequiredWidthsAndModes:QuoteRiskAggregationTest.TestXccyFullRecalibrationOracleAtRequiredWidthsAndModes'
+          awk -F, 'NF != 21 { exit 1 } END { if (NR != 497) exit 1 }' "$DAL_QUOTE_RISK_EVIDENCE_FILE"
+
+      - name: Upload quote-risk oracle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: quote-risk-oracle-evidence
+          path: quote-risk-oracle-evidence.csv
+          if-no-files-found: ignore
+          retention-days: 30
+
   documentation:
     name: Documentation integrity
     needs: changes

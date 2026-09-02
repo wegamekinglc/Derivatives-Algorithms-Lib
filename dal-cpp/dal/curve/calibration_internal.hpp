@@ -23,6 +23,11 @@
 
 namespace Dal {
 
+    // Internal observation seam shared across the DAL library boundary.
+    BASE_EXPORT void RecordCurveCalibrationInvocation();
+    BASE_EXPORT void ResetCurveCalibrationInvocationCount();
+    BASE_EXPORT int CurveCalibrationInvocationCount();
+
     // Shared internal helpers for single- and joint-curve calibration and leg-period construction.
     // inline so the header-only definitions do not violate the ODR across translation units.
 

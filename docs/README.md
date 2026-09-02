@@ -94,6 +94,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
   - Staged and joint matrix dimensions, including named joint parameter/residual ranges
   - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
+  - Production quote-space DV01 provenance, state fingerprints, currency policy, and full-recalibration oracle
   - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
 
 - **[script_engine.md](methodology/script_engine.md)** — Script Engine

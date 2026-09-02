@@ -90,6 +90,33 @@ computation. `JOINTXCCYCALIBRATIONRESULT.GET` returns views selected by
 selectors publish the matrices' named layout. The generated HTML under `auto/`
 is the exact argument and settings-key reference.
 
+## Quote-Space DV01
+
+Create a provenance handle from an exact calibration result, then aggregate the
+portfolio against that frozen axis and bound market state:
+
+```text
+=SINGLECURVEQUOTERISKPROVENANCE.NEW(result, "usd-ois", parameterBlockKeys, componentKeys, market)
+=RATEPORTFOLIOQUOTERISK.SPILL(trades, market, provenance)
+```
+
+`JOINTXCCYQUOTERISKPROVENANCE.NEW` and
+`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover simultaneous XCCY and staged
+XCCY basis results. `RATEQUOTERISKPROVENANCE.NEW` dispatches from a result
+handle. Ordinary staged multi-curve chains and generic joint multi-curve results
+emit explicit unavailable rows with
+`QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE` and
+`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.
+
+The spill has ten columns: `calibration`, `axis_fingerprint`, `quote_key`,
+`quote_name`, `block`, `currency`, `quote_sensitivity`, `dv01`,
+`availability`, and `reason`. Quote sensitivity is price per decimal quote;
+DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
+`UnconvertedByActualPvCcy`; no FX conversion is applied. Provenance fingerprints
+use `dal.quote-risk-axis/1+jcs+sha256` and
+`dal.quote-risk-state/1+jcs+sha256`, with `sha256:` values. See the
+[paste-ready worksheet recipe](examples/008.quote_risk.md).
+
 ## Layout and Generated Registration
 
 | Path        | Contents                                                                      |

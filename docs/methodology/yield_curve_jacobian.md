@@ -474,6 +474,50 @@ $$
 
 A true DV01 (price change per $+1\text{bp} = +10^{-4}$ decimal) is $r_i \times 10^{-4}$.
 
+### Production quote-space DV01
+
+`AggregateRatePortfolioQuoteRisk` applies this transform to an independently
+recorded portfolio price gradient. The gradient is produced by rate-trade AAD
+against the calibrated curve parameters; it does not reuse the residual-Jacobian
+tape. Therefore each bucket carries a true
+$\partial\mathrm{PV}/\partial\text{decimal quote}$ and a price DV01, not a par-rate
+proxy.
+
+The calibration-time provenance freezes:
+
+- the ordered parameter and residual ranges plus coordinate metadata;
+- the effective inverse and tolerance scaling;
+- a caller-supplied calibration ID and parameter-block-to-market-component map;
+- `dal.quote-risk-axis/1+jcs+sha256` and
+  `dal.quote-risk-state/1+jcs+sha256` fingerprints.
+
+The supported transform domains are exact single-curve calibration, simultaneous
+domestic/foreign/basis XCCY calibration, and staged XCCY basis calibration.
+Ordinary staged multi-curve chain rules and generic joint multi-curve calibration
+are excluded because their required chain rule or effective inverse is not
+published. The transform accepts either `ANALYTIC` or `BUMPED` inverse
+construction; an approximate solve or unavailable inverse remains an explicit
+unavailable provenance.
+
+At aggregation time, DAL verifies the bound curve state before any risk sweep.
+Each trade either contributes its complete gradient for that provenance, is an
+explicit structural zero because it consumes none of the provenance components,
+or contributes no buckets and records a failure. A failed block discards that
+trade's successful sibling-block gradients. A stale provenance contributes no
+buckets. This preserves failure atomicity and prevents mixing calibration
+states. The aggregation path does not mutate quotes, bump a market, or invoke a
+calibration entry point.
+
+PV totals and quote buckets are grouped by the trade's actual PV currency under
+`UnconvertedByActualPvCcy`; no FX conversion or cross-currency netting is
+performed. Within one currency and provenance, eligible trade gradients are
+summed before applying the inverse:
+
+$$
+D_i = \left(\sum_t g_t\right)^{\mathsf T} E_{:,i}/\tau,
+\qquad \mathrm{DV01}_i = 10^{-4} D_i.
+$$
+
 ### Why divide by `tolerance_`
 
 The underdetermined solver does not operate on the raw residuals. It scales every
@@ -503,29 +547,43 @@ The transform needs $g$ as a *portfolio* sensitivity, computed independently of
 the AAD tape that produced the residual Jacobian. That tape records
 $\partial(\text{modelRate} - \text{marketRate})/\partial x$ — a rate residual, not
 a price. Reusing it for $g$ would conflate a residual sensitivity with a PV
-sensitivity (different units, different sign). The example computes $g$ by its
-own central-difference bump on the calibrated curve. In the public API the
-`YCInstrument_` surface exposes only the par-rate model rate (float-PV over
-annuity), not the leg PVs, so $g$ there is a par-rate sensitivity and $r$ is a
-par-rate risk per decimal quote bump; the annuity scaling that would convert it
-to a true price DV01 is not exposed.
+sensitivity (different units, different sign). The historical
+`yield_curve_jacobian` example computes $g$ by a central parameter bump for one
+calibration instrument and therefore illustrates the algebra with a par-rate
+quantity. The production rate-portfolio API instead records a separate AAD price
+gradient for each eligible trade and aggregates those gradients before applying
+the inverse, producing true price risk.
 
-### Nonlinear re-solve tolerance
+### Nonlinear re-solve acceptance
 
-The re-solve sanity check compares the linear inverse-Jacobian prediction
-`effJacobianInverse_ · Δquote / tolerance_` against the true rebumped parameter
-delta from a fresh `CalibrateYieldCurve`. The two diverge at a relative error
-that **grows with the number of knots**: bumping a long-end quote propagates
-through every intervening LOG_DISCOUNT knot, accumulating second-order terms the
-linear map cannot capture. The observed worst-case relative error scales roughly
-as $7\times10^{-7}$ at 5 instruments, $1.8\times10^{-5}$ at 10, and
-$1.3\times10^{-4}$ at 16. A bar of $10^{-4}$ relative at the 10-instrument size
-leaves about $5\times$ headroom over the observed worst case; it should be
-re-measured (and tightened back toward $10^{-6}$ for shorter ladders, or relaxed
-for longer ones) whenever the ladder length changes. This is looser than the
-$10^{-9}$ forward-Jacobian agreement bar by design, because the re-solve is a
-genuine nonlinear operation rather than a finite-difference check of an analytic
-derivative.
+The numerical oracle independently bumps each original market quote, fully
+recalibrates the supported domain, and fully reprices the same eligible trades.
+It covers actual quote widths $N=5$, $N=10$, and $N=16$ for both `ANALYTIC` and
+`BUMPED` inverses. With $h=10^{-6}$ and $b=10^{-4}$:
+
+$$
+D_{fd}=\frac{PV(q_i+h)-PV(q_i-h)}{2h},
+\qquad V_{fd}=\frac{PV(q_i+b)-PV(q_i-b)}{2}.
+$$
+
+The per-bucket scale $P_i$ is the maximum of one currency unit and the gross
+absolute trade PV at the base and all four bumped states. Gross absolute PV
+prevents portfolio netting from shrinking the acceptance scale. The frozen
+thresholds are:
+
+| Width          | Derivative absolute | Derivative relative | DV01 absolute | DV01 relative |
+|----------------|---------------------|---------------------|---------------|---------------|
+| `N <= 5`       | `5e-6 * P_i`        | `5e-6`              | `5e-10 * P_i` | `5e-6`        |
+| `6 <= N <= 10` | `1e-4 * P_i`        | `1e-4`              | `1e-8 * P_i`  | `1e-4`        |
+| `N > 10`       | `1e-3 * P_i`        | `1e-3`              | `1e-7 * P_i`  | `1e-3`        |
+
+Every bucket must be finite, must satisfy the exact unit identity
+$|V_{api}-bD_{api}| \le 64\epsilon\max(P_i b,|V_{api}|,b|D_{api}|)$,
+and must pass both the derivative and DV01 comparisons (absolute or relative
+within each comparison). There are no skips, percentiles, adaptive thresholds,
+or offsetting failures. CI preserves one evidence row per
+domain/mode/currency/quote with the API value, oracle value, absolute and
+relative errors, scale, and thresholds.
 
 ## Timing: BUMPED vs ANALYTIC
 

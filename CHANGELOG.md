@@ -44,6 +44,19 @@ here as the baseline rather than dated releases:
   constant-condition folding), and the fuzzy evaluator for pathwise AAD through
   discontinuous payoffs. See `docs/methodology/script_engine.md`.
 
+## 2026-09
+
+- `curve`: Added production quote-space portfolio DV01 for exact single-curve,
+  simultaneous XCCY, and staged XCCY basis calibrations. Immutable provenance
+  publishes ordered axes and SHA-256 state fingerprints; aggregation produces
+  price-per-decimal sensitivities and DV01 by actual PV currency without quote
+  bumps, FX conversion, or recalibration. C++, Python, and Excel expose the same
+  supported domains, units, and explicit unavailable/failure states. Independent
+  full-recalibration oracles gate every quote for 5/10/16-width ANALYTIC and
+  BUMPED fixtures, and `rate_risk_perf` gates single, joint-XCCY, and staged-basis
+  steady-state aggregation. See `docs/public-api.md` and
+  `docs/methodology/yield_curve_jacobian.md`.
+
 ## 2026-08
 
 - `curve`: XCCY node-risk failure token corrected for unresolvable markets: when the

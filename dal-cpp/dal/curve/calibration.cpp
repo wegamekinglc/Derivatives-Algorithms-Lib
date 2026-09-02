@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/calibration.hpp>
@@ -46,6 +47,7 @@ namespace Dal {
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
+        std::atomic<int> calibrationInvocationCount{0};
 
         void AddAnalyticIssue(AnalyticEligibilityReport_* report,
                               AnalyticIneligibilityReason_ reason,
@@ -454,6 +456,12 @@ namespace Dal {
         }
     } // namespace
 
+    void RecordCurveCalibrationInvocation() { calibrationInvocationCount.fetch_add(1, std::memory_order_relaxed); }
+
+    void ResetCurveCalibrationInvocationCount() { calibrationInvocationCount.store(0, std::memory_order_relaxed); }
+
+    int CurveCalibrationInvocationCount() { return calibrationInvocationCount.load(std::memory_order_relaxed); }
+
     std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
         REQUIRE(!knotDates.empty(), "Curve calibration weights require knot dates");
         REQUIRE(paramsPerKnot > 0, "Curve calibration weights require positive params-per-knot");
@@ -649,6 +657,7 @@ namespace Dal {
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) { return CalibrateYieldCurve(spec, CurveCalibrationOptions_()); }
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
+        RecordCurveCalibrationInvocation();
         ValidateCurveCalibrationSpec(spec);
 
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);

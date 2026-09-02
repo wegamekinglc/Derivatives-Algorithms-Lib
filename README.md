@@ -129,6 +129,17 @@ Cross-currency examples:
 - [joint domestic/foreign/basis calibration](dal-cpp/examples/xccy_mtm_calibration/)
 - [Python joint calibration](dal-python/examples/007.xccy_joint_calibration.py)
 
+Quote-space DV01 examples:
+
+- [C++ single-curve quote risk](dal-cpp/examples/quote_risk/)
+- [Python single-curve quote risk](dal-python/examples/009.quote_risk.py)
+- [Excel worksheet recipe](dal-excel/examples/008.quote_risk.md)
+
+The quote-risk workflow freezes exact single-curve, joint-XCCY, or staged-XCCY-
+basis calibration provenance and aggregates true portfolio price-per-decimal
+quote sensitivity plus DV01. Fingerprints reject stale curve state, and results
+remain separated by actual PV currency without FX conversion.
+
 ### Script Engine Modes
 
 Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`).
@@ -177,7 +188,7 @@ The portfolio management web UI moved to its own repository:
 Methodology notes (see the index above for the full list):
 
 - [AAD](docs/methodology/aad.md) — Automatic adjoint differentiation: expression templates, tape, propagation
-- [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, Jacobian / inverse-Jacobian risk
+- [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, inverse-Jacobian transforms, and production quote-space DV01
 - [Cross-Currency Pricing and Calibration](docs/methodology/xccy_calibration.md) — fixed, resettable, and MTM swaps; immutable fixing snapshots; staged basis and simultaneous domestic/foreign/basis calibration
 - [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
 - [PDE](docs/methodology/pde.md) — PDE framework, grid construction, and coordinate maps
