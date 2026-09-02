@@ -26,8 +26,8 @@ substitute for correctness review.
 - `DAL_CPP_BUILD_BENCHMARKS` defaults to `ON` in `dal-cpp/CMakeLists.txt`, but the shared `base`
   CMake preset overrides it to `OFF`. Every preset-based performance build must therefore pass
   `-DDAL_CPP_BUILD_BENCHMARKS=ON` explicitly.
-- The Linux CI job builds and smoke-runs all current benchmark targets. Its paired PR regression
-  gate is the nine-target closed set in
+- The Linux CI job builds and smoke-runs all current benchmark targets. Its paired pull-request
+  and `master`-push regression gate is the nine-target closed set in
   `.github/scripts/check_benchmark_regressions.py`.
 - Installed binaries under `build/stage/.../bin/` change only after `cmake --install`. They can
   be stale after a rebuild and are not valid for branch-versus-baseline comparison.
@@ -50,7 +50,8 @@ The regression gate is exactly these nine executables:
 - `banded_perf`: banded tridiagonal matrix-vector multiplication at size 10K.
 - `cholesky_perf`: dense Cholesky decomposition of a 200 by 200 SPD matrix.
 - `rate_risk_perf`: rate pricing, node-risk aggregation, and steady-state quote-risk aggregation
-  for single-curve, joint-XCCY, and staged-XCCY-basis provenance.
+  for single-curve, joint-XCCY, and staged-XCCY-basis provenance, including production portfolio
+  shapes with analytic and bumped inverses at N=5/10/16.
 
 Do not add another executable to the regression verdict ad hoc. The paired gate rejects names
 outside this allowlist.
@@ -159,8 +160,9 @@ is `inconclusive`, not `regression`.
 ## Current CI Reproduction
 
 The current executable gate defaults to ten samples, two confirmation rounds, and a 4% threshold.
-The Linux PR workflow passes those values explicitly. Two rounds of ten means twenty interleaved
-process samples per case and side.
+The Linux workflow passes those values explicitly for pull requests and `master` pushes. For a
+pull request the baseline is its base SHA; for a push it is `github.event.before`. Two rounds of
+ten means twenty interleaved process samples per case and side.
 
 Reproduce it against the isolated build roots:
 
@@ -187,6 +189,11 @@ The script:
 
 Use the script's nonzero exit as the current repository gate result, but still inspect and report
 its raw samples and failures.
+
+The Linux and Windows benchmark jobs upload `benchmark-results/` for 30 days. Both artifacts
+contain `environment.json` with source SHAs, runner and CPU identity, toolchain, AAD backend, and
+thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
+record and the paired gate's raw outputs, `results.json`, and `summary.md`.
 
 ## Threshold And Verdict
 

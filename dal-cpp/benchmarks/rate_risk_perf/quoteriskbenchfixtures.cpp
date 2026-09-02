@@ -152,7 +152,10 @@ namespace Dal::RateRiskPerf {
         }
     } // namespace
 
-    QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase() {
+    QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase() { return MakeSingleCurveQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
+
+    QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Single quote-risk benchmark dimensions must be positive");
         QuoteRiskBenchmarkCase_ result;
         CurveCalibrationSpec_ spec;
         spec.today_ = Date_(2025, 1, 2);
@@ -165,13 +168,18 @@ namespace Dal::RateRiskPerf {
         spec.liborBasis_ = DayBasis_("ACT_365F");
         spec.tolerance_ = 1.0e-10;
         spec.initialGuess_ = 0.02;
-        spec.knotDates_ = {Date::AddMonths(spec.today_, 6), Date::AddMonths(spec.today_, 12)};
-        const auto known = Pwc("single_quote_bench_known", Ccy_(spec.ccy_), spec.knotDates_, {0.02, 0.025});
+        Vector_<> knownForwards;
+        for (int i = 0; i < quoteCount; ++i) {
+            spec.knotDates_.push_back(Date::AddMonths(spec.today_, 6 * (i + 1)));
+            knownForwards.push_back(0.02 + 0.0005 * i);
+        }
+        const auto known = Pwc("single_quote_bench_known", Ccy_(spec.ccy_), spec.knotDates_, knownForwards);
         const CurveBlock_ knownBlock(known, spec.liborBasis_);
         for (const auto& maturity : spec.knotDates_)
             spec.instruments_.push_back(DepositInstrument(spec.today_, maturity, Index(false), knownBlock));
 
         CurveCalibrationOptions_ options;
+        options.jacobianMode_ = mode;
         options.computeForwardJacobian_ = false;
         auto calibration = std::make_shared<CurveCalibrationResult_>(CalibrateYieldCurve(spec, options));
         result.market_.valuationTime_ = DateTime_(spec.today_, 9, 0);
@@ -183,24 +191,41 @@ namespace Dal::RateRiskPerf {
         config.calibrationId_ = "single-quote-bench";
         config.componentKeyByParameterBlock_[spec.curveName_] = "discount";
         result.provenances_.push_back(BuildSingleCurveQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
-        result.trades_.push_back(DepositTrade(spec.today_, spec.knotDates_.back(), Ccy_(spec.ccy_), "discount", "single-quote-bench-trade"));
+        for (int i = 0; i < tradeCount; ++i)
+            result.trades_.push_back(
+                DepositTrade(spec.today_, spec.knotDates_.back(), Ccy_(spec.ccy_), "discount", "single-quote-bench-trade-" + String::FromInt(i)));
         result.calibrationLifetime_ = calibration;
+        result.expectedPassivePriceCount_ = tradeCount;
+        result.expectedPreparationCount_ = 1;
+        result.expectedSweepCount_ = tradeCount;
         return result;
     }
 
-    QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase() {
+    QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase() { return MakeJointXccyQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
+
+    QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Joint quote-risk benchmark dimensions must be positive");
         QuoteRiskBenchmarkCase_ result;
         const Date_ today(2025, 1, 16);
-        const Vector_<Date_> maturities{Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
-        const Vector_<Date_> knots{Date::AddMonths(today, 6), Date::AddMonths(today, 18)};
-        const Vector_<Date_> basisMaturities{Date::AddMonths(today, 18), Date::AddMonths(today, 30)};
-        const Vector_<Date_> basisKnots{Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
+        Vector_<Date_> maturities, knots, basisMaturities, basisKnots;
+        Vector_<> domesticDiscount, domesticForward, foreignDiscount, foreignForward, basisParameters;
+        for (int i = 0; i < quoteCount; ++i) {
+            maturities.push_back(Date::AddMonths(today, 12 * (i + 1)));
+            knots.push_back(Date::AddMonths(today, 6 + 12 * i));
+            basisMaturities.push_back(Date::AddMonths(today, 12 * (i + 1) + 6));
+            basisKnots.push_back(Date::AddMonths(today, 12 * (i + 1)));
+            domesticDiscount.push_back(0.015 + 0.0005 * i);
+            domesticForward.push_back(0.024 + 0.0005 * i);
+            foreignDiscount.push_back(0.010 + 0.0004 * i);
+            foreignForward.push_back(0.019 + 0.0004 * i);
+            basisParameters.push_back(0.0010 + 0.0002 * i);
+        }
         const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
-        const auto domestic = Block("usd_true_quote_bench", pair.domestic_, knots, {0.015, 0.0155}, {0.024, 0.0245});
-        const auto foreign = Block("eur_true_quote_bench", pair.foreign_, knots, {0.010, 0.0104}, {0.019, 0.0194});
+        const auto domestic = Block("usd_true_quote_bench", pair.domestic_, knots, domesticDiscount, domesticForward);
+        const auto foreign = Block("eur_true_quote_bench", pair.foreign_, knots, foreignDiscount, foreignForward);
         const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_());
         CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, DateTime_(today, 9, 0), pair.domestic_, fixings);
-        quoteMarket.SetBasisCurve(Pwc("basis_true_quote_bench", pair.domestic_, basisKnots, {0.0010, 0.0012}));
+        quoteMarket.SetBasisCurve(Pwc("basis_true_quote_bench", pair.domestic_, basisKnots, basisParameters));
 
         JointXccyCalibrationSpec_ spec;
         spec.valuationTime_ = DateTime_(today, 9, 0);
@@ -223,6 +248,7 @@ namespace Dal::RateRiskPerf {
         }
 
         JointXccyCalibrationOptions_ options;
+        options.jacobianMode_ = mode;
         options.computeForwardJacobian_ = false;
         auto calibration = std::make_shared<JointXccyCalibrationResult_>(CalibrateJointXccyMarket(spec, options));
         RateQuoteRiskProvenanceConfig_ config;
@@ -231,22 +257,40 @@ namespace Dal::RateRiskPerf {
             config.componentKeyByParameterBlock_[calibration->parameterRanges_[i].name_] = "joint-quote-bench-" + String::FromInt(i);
         result.market_ = JointMarket(spec, *calibration, config);
         result.provenances_.push_back(BuildJointXccyQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
-        result.trades_.push_back(XccyTrade(today, basisKnots.back(), pair, "joint-quote-bench-trade"));
+        for (int i = 0; i < tradeCount; ++i)
+            result.trades_.push_back(XccyTrade(today, basisKnots.back(), pair, "joint-quote-bench-trade-" + String::FromInt(i)));
         result.calibrationLifetime_ = calibration;
+        result.expectedPassivePriceCount_ = tradeCount;
+        result.expectedPreparationCount_ = 5;
+        result.expectedSweepCount_ = 5 * tradeCount;
         return result;
     }
 
     QuoteRiskBenchmarkCase_ MakeStagedXccyBasisQuoteRiskCase() {
+        return MakeStagedXccyBasisQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1);
+    }
+
+    QuoteRiskBenchmarkCase_ MakeStagedXccyBasisQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Staged quote-risk benchmark dimensions must be positive");
         QuoteRiskBenchmarkCase_ result;
         const Date_ today(2025, 1, 16);
-        const Vector_<Date_> knots{Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
+        Vector_<Date_> knots;
+        Vector_<> domesticDiscount, domesticForward, foreignDiscount, foreignForward, basisParameters;
+        for (int i = 0; i < quoteCount; ++i) {
+            knots.push_back(Date::AddMonths(today, 12 * (i + 1)));
+            domesticDiscount.push_back(0.015 + 0.0003 * i);
+            domesticForward.push_back(0.024 + 0.0003 * i);
+            foreignDiscount.push_back(0.010 + 0.0002 * i);
+            foreignForward.push_back(0.019 + 0.0002 * i);
+            basisParameters.push_back(0.0010 + 0.0001 * i);
+        }
         const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
-        const auto domestic = Block("usd_staged_quote_bench", pair.domestic_, knots, {0.015, 0.0153}, {0.024, 0.0243});
-        const auto foreign = Block("eur_staged_quote_bench", pair.foreign_, knots, {0.010, 0.0102}, {0.019, 0.0192});
+        const auto domestic = Block("usd_staged_quote_bench", pair.domestic_, knots, domesticDiscount, domesticForward);
+        const auto foreign = Block("eur_staged_quote_bench", pair.foreign_, knots, foreignDiscount, foreignForward);
         const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_());
         const auto xccyConfig = XccyConfig(pair);
         CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, DateTime_(today, 9, 0), pair.domestic_, fixings);
-        quoteMarket.SetBasisCurve(Pwc("known_staged_quote_bench", pair.domestic_, knots, {0.0010, 0.0011}));
+        quoteMarket.SetBasisCurve(Pwc("known_staged_quote_bench", pair.domestic_, knots, basisParameters));
 
         CrossCurrencyCalibrationSpec_ spec;
         spec.today_ = today;
@@ -268,6 +312,7 @@ namespace Dal::RateRiskPerf {
         }
 
         CrossCurrencyCalibrationOptions_ options;
+        options.jacobianMode_ = mode;
         options.computeForwardJacobian_ = false;
         auto calibration = std::make_shared<CrossCurrencyCalibrationResult_>(CalibrateCrossCurrencyMarket(spec, options));
         const auto basis = calibration->basisCurves_.at(pair);
@@ -280,8 +325,12 @@ namespace Dal::RateRiskPerf {
         config.calibrationId_ = "staged-quote-bench";
         config.componentKeyByParameterBlock_["basis:xccy_basis_USD"] = "staged-basis-quote-bench";
         result.provenances_.push_back(BuildStagedXccyBasisQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
-        result.trades_.push_back(XccyTrade(today, Date::AddMonths(knots.back(), 6), pair, "staged-quote-bench-trade"));
+        for (int i = 0; i < tradeCount; ++i)
+            result.trades_.push_back(XccyTrade(today, Date::AddMonths(knots.back(), 6), pair, "staged-quote-bench-trade-" + String::FromInt(i)));
         result.calibrationLifetime_ = calibration;
+        result.expectedPassivePriceCount_ = tradeCount;
+        result.expectedPreparationCount_ = 5;
+        result.expectedSweepCount_ = tradeCount;
         return result;
     }
 } // namespace Dal::RateRiskPerf

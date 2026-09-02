@@ -498,16 +498,32 @@ jobs:
           submodules: recursive
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        if: github.event_name == 'pull_request'
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           path: benchmark-base
           submodules: recursive
 
       - name: Setup
         run: |
-          sudo apt install -y gcc-14 g++-14 make cmake \
+          sudo apt install -y gcc-14 g++-14 make cmake time \
             libc++-dev autotools-dev autoconf libtool
+
+      - name: Capture benchmark environment
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          resolved_base="$BASE_SHA"
+          if [ -d benchmark-base ]; then
+            resolved_base="$(git -C benchmark-base rev-parse HEAD)"
+          fi
+          python3 .github/scripts/write_benchmark_metadata.py \
+            --output benchmark-results/environment.json \
+            --head-sha "$(git rev-parse HEAD)" \
+            --base-sha "$resolved_base" \
+            --compiler gcc-14 \
+            --aad-backend aadet \
+            --threads 4 \
+            --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
 
       - name: Test benchmark regression gate
         run: |
@@ -533,7 +549,6 @@ jobs:
           cmake --build build/benchmark-head --parallel
 
       - name: Build base benchmarks
-        if: github.event_name == 'pull_request'
         env:
           CC: gcc-14
           CXX: g++-14
@@ -577,7 +592,9 @@ jobs:
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
-            if "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
+            resource_file="benchmark-results/${bench}.resources.txt"
+            if /usr/bin/time --verbose --output="$resource_file" \
+              "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
               status=0
             else
               status=$?
@@ -603,7 +620,6 @@ jobs:
           exit "$benchmark_failure"
 
       - name: Compare base and head performance
-        if: github.event_name == 'pull_request'
         env:
           DAL_NUM_THREADS: 4
         run: |
@@ -615,6 +631,15 @@ jobs:
             --samples 10 \
             --confirmation-rounds 2 \
             --threshold-percent 4
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-linux-${{ github.run_id }}-${{ github.run_attempt }}
+          path: benchmark-results
+          if-no-files-found: warn
+          retention-days: 30
 
   linux-gate:
     name: Linux CI gate

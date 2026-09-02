@@ -212,6 +212,33 @@ class CiWorkflowFastPathTest(unittest.TestCase):
             with self.subTest(gate_dependency=job_id):
                 self.assertIn(f"needs.{job_id}.result", gate)
 
+    def test_benchmark_jobs_persist_environment_and_results(self):
+        for workflow_name in ("cmake-linux.yml", "cmake-windows.yml"):
+            with self.subTest(workflow=workflow_name):
+                benchmark = self.job(self.workflow(workflow_name), "benchmark")
+                self.assertIn("write_benchmark_metadata.py", benchmark)
+                self.assertIn("--head-sha", benchmark)
+                self.assertIn("--base-sha", benchmark)
+                self.assertIn("--aad-backend aadet", benchmark)
+                self.assertIn("--threads 4", benchmark)
+                self.assertIn("actions/upload-artifact@", benchmark)
+                self.assertIn("if: always()", benchmark)
+                self.assertIn("path: benchmark-results", benchmark)
+                self.assertIn("retention-days: 30", benchmark)
+
+        linux_benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
+        self.assertIn("/usr/bin/time --verbose", linux_benchmark)
+        self.assertIn('resource_file="benchmark-results/${bench}.resources.txt"', linux_benchmark)
+
+    def test_linux_benchmark_pairs_pull_requests_and_master_pushes(self):
+        benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
+
+        self.assertIn(
+            "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}",
+            benchmark,
+        )
+        self.assertNotIn("if: github.event_name == 'pull_request'", benchmark)
+
 
 if __name__ == "__main__":
     unittest.main()

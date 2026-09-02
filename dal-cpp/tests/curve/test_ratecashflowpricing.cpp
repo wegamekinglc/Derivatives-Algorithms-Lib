@@ -3187,6 +3187,13 @@ TEST(RateCashflowPricingTest, TestNodeSensitivitySweepTapeSizeIndependentOfPassi
     ASSERT_EQ(fraSmallTape, fraDenseTape) << "FRA sweep tape grows with passive discount node count";
     ASSERT_EQ(oisSmallTape, oisDenseTape) << "OIS sweep tape grows with passive discount node count";
     ASSERT_GT(oisSmallTape, fraSmallTape) << "OIS daily compounding shapes the recording";
+
+    int mixedHighWater = 0;
+    internal::g_nodeSensitivityTapeSizeSink = &mixedHighWater;
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(oisTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    ASSERT_TRUE(Dal::RateTradeNodeSensitivities(fraTrade, ComponentMarket(today, forecast, smallDiscount), "forecast").eligible_);
+    internal::g_nodeSensitivityTapeSizeSink = nullptr;
+    ASSERT_EQ(mixedHighWater, oisSmallTape) << "The tape observation seam did not retain the per-sweep high-water mark";
 }
 #endif
 

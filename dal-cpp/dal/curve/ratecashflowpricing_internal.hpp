@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <exception>
@@ -25,8 +26,8 @@
 
 namespace Dal::RateCashflowPricingInternal {
 #if DAL_RATE_RISK_NATIVE_AAD
-    // Test-only observation seam: when non-null, every completed node-sensitivity sweep stores the
-    // native tape's live node count here (measured after propagation, before the TapeGuard_ rewind).
+    // Test-only observation seam: when non-null, completed node-sensitivity sweeps retain the
+    // native tape's largest live node count (measured after propagation, before the TapeGuard_ rewind).
     // An unregistered-constant AAD::Number_ passive curve still yields correct values and gradient
     // width, so only this direct count distinguishes it from a truly passive double curve.
     // Atomic because library code reads it on every sweep; P0 is serial, but callers may sweep
@@ -99,7 +100,7 @@ namespace Dal::RateCashflowPricingInternal {
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
 #if DAL_RATE_RISK_NATIVE_AAD
             if (int* sink = g_nodeSensitivityTapeSizeSink.load(std::memory_order_relaxed))
-                *sink = AAD::Tape()->nodes_.Size();
+                *sink = std::max(*sink, AAD::Tape()->nodes_.Size());
 #endif
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {
