@@ -23,7 +23,8 @@
 
 namespace Dal {
 
-    // Internal observation seam shared across the DAL library boundary.
+    // Internal observation seam shared across the DAL library boundary. Test/benchmark support
+    // only: the counter is process-global, so observers must run in a quiescent process.
     BASE_EXPORT void RecordCurveCalibrationInvocation();
     BASE_EXPORT void ResetCurveCalibrationInvocationCount();
     BASE_EXPORT int CurveCalibrationInvocationCount();

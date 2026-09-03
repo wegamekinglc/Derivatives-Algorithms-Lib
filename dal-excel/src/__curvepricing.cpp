@@ -10,11 +10,11 @@
 #include "__settingskeys.hpp"
 #include <algorithm>
 #include <cmath>
+#include <set>
 #include <dal-public/src/curvepricing.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <set>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
