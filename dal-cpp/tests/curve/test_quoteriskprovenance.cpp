@@ -462,10 +462,15 @@ namespace {
         const char* path = std::getenv("DAL_QUOTE_RISK_EVIDENCE_FILE");
         if (!path || !*path)
             return;
+        // One process owns truncate-on-first-write and with it the header row; sharded runners
+        // instead set DAL_QUOTE_RISK_EVIDENCE_APPEND=1 so every shard appends data rows to the
+        // shared file, and the orchestrator owns truncating the file and writing the header.
+        const char* append = std::getenv("DAL_QUOTE_RISK_EVIDENCE_APPEND");
+        static const bool appendMode = append && *append && std::string(append) != "0";
         static bool initialized = false;
-        std::ofstream output(path, initialized ? std::ios::app : std::ios::trunc);
+        std::ofstream output(path, (initialized || appendMode) ? std::ios::app : std::ios::trunc);
         REQUIRE(output.good(), "Unable to open quote-risk oracle evidence file");
-        if (!initialized) {
+        if (!initialized && !appendMode) {
             output << "domain,mode,currency,N,quote_index,quote_key,P_i,api_derivative,oracle_derivative,derivative_absolute_error,"
                       "derivative_relative_error,derivative_absolute_threshold,derivative_relative_threshold,api_dv01,oracle_dv01,"
                       "dv01_absolute_error,dv01_relative_error,dv01_absolute_threshold,dv01_relative_threshold,unit_error,unit_threshold\n";
