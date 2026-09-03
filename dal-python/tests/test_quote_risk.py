@@ -79,17 +79,25 @@ def _run_with_quote_risk_gil_heartbeat(operation):
     ready = threading.Event()
     stopped = threading.Event()
     heartbeat_count = [0]
+    heartbeat_errors = []
 
     def heartbeat() -> None:
+        # Failures inside the worker would otherwise surface only as a zero heartbeat
+        # count on the main thread; capture and re-raise them where the test asserts.
         ready.set()
-        assert started.wait(timeout=5.0)  # nosec B101
-        while not stopped.is_set():
-            heartbeat_count[0] += 1
-            time.sleep(0)
+        try:
+            assert started.wait(timeout=5.0)  # nosec B101
+            while not stopped.is_set():
+                heartbeat_count[0] += 1
+                time.sleep(0)
+        except BaseException as error:
+            heartbeat_errors.append(error)
 
     previous_interval = sys.getswitchinterval()
     sys.setswitchinterval(1.0)
     try:
+        # Non-daemon by design: `stopped` is always set in the finally below, so the
+        # worker cannot outlive the test even when an assertion aborts the operation.
         thread = threading.Thread(target=heartbeat)
         thread.start()
         assert ready.wait(timeout=5.0)  # nosec B101
@@ -101,6 +109,8 @@ def _run_with_quote_risk_gil_heartbeat(operation):
         sys.setswitchinterval(previous_interval)
         thread.join(timeout=5.0)
     assert not thread.is_alive()  # nosec B101
+    if heartbeat_errors:
+        raise heartbeat_errors[0]
     assert heartbeat_count[0] > 0  # nosec B101
     return result
 

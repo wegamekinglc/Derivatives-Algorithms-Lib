@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import unittest
@@ -53,7 +54,12 @@ class BenchmarkMetadataTest(unittest.TestCase):
             self.assertEqual(metadata["runner_image"], "test-image")
             self.assertTrue(metadata["cpu_model"])
             self.assertIn("Python", metadata["compiler_version"])
-            self.assertIn("cmake", metadata["cmake_version"].lower())
+            # cmake is absent on some contributor machines; the script records
+            # "unavailable: ..." there, so assert against the environment we have.
+            if shutil.which("cmake") is None:
+                self.assertTrue(metadata["cmake_version"].startswith("unavailable"))
+            else:
+                self.assertIn("cmake", metadata["cmake_version"].lower())
 
 
 if __name__ == "__main__":
