@@ -63,6 +63,12 @@ namespace {
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
+    template <class Callable_> auto RunQuoteRiskWithReleasedGil(Callable_&& callable) -> decltype(callable()) {
+        py::gil_scoped_release release;
+        RunQuoteRiskGilBarrierForTesting();
+        return callable();
+    }
+
     // Component keys convert under the GIL from a py::list -- the parameter deliberately avoids
     // std::vector<std::string>: core.cpp binds that container opaque, and a generic list_caster
     // instantiation in this TU would ODR-split against it (MSVC folds the two instantiations,
@@ -109,9 +115,7 @@ namespace {
                                                                     const CurveCalibrationOptions_& options,
                                                                     const RatePricingMarket_& boundMarket,
                                                                     const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        RunQuoteRiskGilBarrierForTesting();
-        return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        return RunQuoteRiskWithReleasedGil([&]() { return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RateQuoteRiskProvenance_ RunBuildJointXccyQuoteRiskProvenance(const JointXccyCalibrationSpec_& spec,
@@ -119,9 +123,7 @@ namespace {
                                                                   const JointXccyCalibrationOptions_& options,
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        RunQuoteRiskGilBarrierForTesting();
-        return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        return RunQuoteRiskWithReleasedGil([&]() { return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RateQuoteRiskProvenance_ RunBuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_& spec,
@@ -129,9 +131,7 @@ namespace {
                                                                         const CrossCurrencyCalibrationOptions_& options,
                                                                         const RatePricingMarket_& boundMarket,
                                                                         const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        RunQuoteRiskGilBarrierForTesting();
-        return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        return RunQuoteRiskWithReleasedGil([&]() { return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RatePortfolioQuoteRisk_ RunAggregateRatePortfolioQuoteRisk(const std::vector<RateTradeDefinition_>& trades,
@@ -139,13 +139,7 @@ namespace {
                                                                const std::vector<RateQuoteRiskProvenance_>& provenances) {
         const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
         const Vector_<RateQuoteRiskProvenance_> nativeProvenances(provenances.begin(), provenances.end());
-        RatePortfolioQuoteRisk_ aggregate;
-        {
-            py::gil_scoped_release release;
-            RunQuoteRiskGilBarrierForTesting();
-            aggregate = AggregateRatePortfolioQuoteRisk(nativeTrades, market, nativeProvenances);
-        }
-        return aggregate;
+        return RunQuoteRiskWithReleasedGil([&]() { return AggregateRatePortfolioQuoteRisk(nativeTrades, market, nativeProvenances); });
     }
 
     template <class Class_, class Member_>

@@ -70,6 +70,39 @@ def _single_quote_risk_inputs(*, compute_inverse=True):
     return spec, options, calibrated, fixings, market, config, provenance, trade
 
 
+def _run_with_quote_risk_gil_heartbeat(operation):
+    import sys
+    import threading
+
+    started = threading.Event()
+    ready = threading.Event()
+    stopped = threading.Event()
+    heartbeat_count = [0]
+
+    def heartbeat() -> None:
+        ready.set()
+        assert started.wait(timeout=5.0)  # nosec B101
+        while not stopped.is_set():
+            heartbeat_count[0] += 1
+
+    previous_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1.0)
+    try:
+        thread = threading.Thread(target=heartbeat)
+        thread.start()
+        assert ready.wait(timeout=5.0)  # nosec B101
+        dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
+        started.set()
+        result = operation()
+    finally:
+        stopped.set()
+        sys.setswitchinterval(previous_interval)
+        thread.join(timeout=5.0)
+    assert not thread.is_alive()  # nosec B101
+    assert heartbeat_count[0] > 0  # nosec B101
+    return result
+
+
 def test_quote_risk_factories_and_aggregate_are_keyword_only():
     signatures = {
         "BuildSingleCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
@@ -171,51 +204,23 @@ def test_quote_risk_provenance_survives_intermediate_result_and_market_gc():
     assert len(result.buckets) == 3  # nosec B101
 
 
-def test_quote_risk_aggregate_and_factories_release_gil_for_the_complete_native_operation():
-    import sys
-    import threading
-
+def test_quote_risk_aggregate_and_single_factory_release_gil_for_the_complete_native_operation():
     spec, options, calibrated, _, market, config, provenance, trade = _single_quote_risk_inputs()
-    started = threading.Event()
-    ready = threading.Event()
-    stopped = threading.Event()
-    heartbeat_count = [0]
-
-    def heartbeat() -> None:
-        ready.set()
-        assert started.wait(timeout=5.0)  # nosec B101
-        while not stopped.is_set():
-            heartbeat_count[0] += 1
-
-    previous_interval = sys.getswitchinterval()
-    sys.setswitchinterval(1.0)
-    try:
-        thread = threading.Thread(target=heartbeat)
-        thread.start()
-        assert ready.wait(timeout=5.0)  # nosec B101
-        dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
-        started.set()
-        dal.AggregateRatePortfolioQuoteRisk(trades=[trade], market=market, provenances=[provenance])
-        aggregate_count = heartbeat_count[0]
-        dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
-        dal.BuildSingleCurveQuoteRiskProvenance(
+    _run_with_quote_risk_gil_heartbeat(
+        lambda: dal.AggregateRatePortfolioQuoteRisk(trades=[trade], market=market, provenances=[provenance])
+    )
+    _run_with_quote_risk_gil_heartbeat(
+        lambda: dal.BuildSingleCurveQuoteRiskProvenance(
             spec=spec,
             result=calibrated,
             options=options,
             bound_market=market,
             config=config,
         )
-        factory_count = heartbeat_count[0]
-    finally:
-        stopped.set()
-        sys.setswitchinterval(previous_interval)
-        thread.join(timeout=5.0)
-    assert not thread.is_alive()  # nosec B101
-    assert aggregate_count > 0  # nosec B101
-    assert factory_count > aggregate_count  # nosec B101
+    )
 
 
-def test_joint_and_staged_xccy_factories_expose_the_native_domain_shapes():
+def test_joint_and_staged_xccy_factories_release_gil_and_expose_the_native_domain_shapes():
     from test_xccy_calibration import _make_xccy_spec, _today as staged_today
     from test_xccy_joint import _joint_spec, _today as joint_today
 
@@ -246,15 +251,17 @@ def test_joint_and_staged_xccy_factories_expose_the_native_domain_shapes():
         xccy_market=joint_xccy_market,
         fixings=joint_fixings,
     )
-    joint_provenance = dal.BuildJointXccyQuoteRiskProvenance(
-        spec=joint_spec,
-        result=joint_result,
-        options=joint_options,
-        bound_market=joint_market,
-        config=dal.RateQuoteRiskProvenanceConfig_(
-            calibration_id="python-joint-xccy",
-            component_key_by_parameter_block=joint_bindings,
-        ),
+    joint_provenance = _run_with_quote_risk_gil_heartbeat(
+        lambda: dal.BuildJointXccyQuoteRiskProvenance(
+            spec=joint_spec,
+            result=joint_result,
+            options=joint_options,
+            bound_market=joint_market,
+            config=dal.RateQuoteRiskProvenanceConfig_(
+                calibration_id="python-joint-xccy",
+                component_key_by_parameter_block=joint_bindings,
+            ),
+        )
     )
 
     assert joint_provenance.available is True  # nosec B101
@@ -275,15 +282,17 @@ def test_joint_and_staged_xccy_factories_expose_the_native_domain_shapes():
         curve_components={"staged-basis": staged_result.basis_curve},
         xccy_market=staged_result.market,
     )
-    staged_provenance = dal.BuildStagedXccyBasisQuoteRiskProvenance(
-        spec=staged_spec,
-        result=staged_result,
-        options=staged_options,
-        bound_market=staged_market,
-        config=dal.RateQuoteRiskProvenanceConfig_(
-            calibration_id="python-staged-xccy",
-            component_key_by_parameter_block={"basis:xccy_basis_USD": "staged-basis"},
-        ),
+    staged_provenance = _run_with_quote_risk_gil_heartbeat(
+        lambda: dal.BuildStagedXccyBasisQuoteRiskProvenance(
+            spec=staged_spec,
+            result=staged_result,
+            options=staged_options,
+            bound_market=staged_market,
+            config=dal.RateQuoteRiskProvenanceConfig_(
+                calibration_id="python-staged-xccy",
+                component_key_by_parameter_block={"basis:xccy_basis_USD": "staged-basis"},
+            ),
+        )
     )
 
     assert staged_provenance.available is True  # nosec B101
