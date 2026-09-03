@@ -339,7 +339,9 @@ public RateQuoteRiskProvenance_New
     Dispatch quote-risk provenance construction from a calibration-result handle
 &inputs
 result is handle
-    A supported single/joint-XCCY/staged-XCCY result, or an excluded staged/generic result
+    A supported single/joint-XCCY/staged-XCCY result, or an excluded staged/generic result.
+    Excluded-domain result handles are not yet producible from Excel; only the C++ test
+    surface constructs them today.
 calibrationId is string
     Non-empty identifier used to join and order quote-risk rows
 parameterBlockKeys is string[]
@@ -366,8 +368,11 @@ provenances is handle[]
 &outputs
 spill is cell[][]
     Ten columns in order: calibration, axis_fingerprint, quote_key, quote_name, block,
-    currency, quote_sensitivity, dv01, availability, reason. Rows follow native deterministic
-    bucket order, then provenance failures, trade/provenance failures, and excluded-domain failures.
+    currency, quote_sensitivity, dv01, availability, reason. Bucket rows fill every column.
+    Failure rows mark availability "unavailable", leave quote_sensitivity and dv01 empty, and
+    repurpose quote_key/quote_name with the failure subject and detail: state fingerprints for
+    provenance failures, instrument id and original node-risk reason for trade failures.
+    Row order: deterministic buckets, provenance failures, trade failures, excluded-domain failures.
 -IF-------------------------------------------------------------------------*/
 // clang-format on
 

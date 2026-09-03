@@ -117,8 +117,8 @@ def collect_samples(
         sides = {"base": {}, "head": {}}
         roots = {"base": base_root, "head": head_root}
         # A gated binary absent on the base side is binary-level new coverage (this PR adds a
-        # benchmark to the gate): its head cases are reported for information and never compared.
-        # Absent on the head side means the PR dropped gated coverage: fail loudly here.
+        # benchmark to the gate): its head cases are reported as not-gated rows and never
+        # compared. Absent on the head side means the PR dropped gated coverage: fail loudly here.
         present = {side: benchmark_binary_path(roots[side], benchmark).is_file() for side in ("base", "head")}
         if not present["head"]:
             raise RuntimeError(f"{benchmark}: gated benchmark binary is missing on the head side")
@@ -182,6 +182,18 @@ def new_coverage_row(case: str, head_value: float) -> dict[str, object]:
         "passed": True,
         "gated": False,
         "kind": "new_coverage",
+    }
+
+
+def not_gated_no_base_row(case: str, head_value: float) -> dict[str, object]:
+    return {
+        "case": f"{case} (not gated: no base binary)",
+        "base_ns": None,
+        "head_ns": head_value,
+        "delta_percent": None,
+        "passed": True,
+        "gated": False,
+        "kind": "not_gated_no_base",
     }
 
 
@@ -255,7 +267,10 @@ def compare_benchmark(
     base = min_samples(samples["base"])
     head = min_samples(samples["head"])
     if not base:
-        return ([new_coverage_row(case, value) for case, value in sorted(head.items())], [])
+        # An empty base side means the gated binary itself was absent on the base side (a present
+        # binary always parses at least one case row): every head case is unguarded. Report the
+        # state distinctly from case-level new coverage so an ungated green run stays visible.
+        return ([not_gated_no_base_row(case, value) for case, value in sorted(head.items())], [])
     migration_permitted, failures, new_coverage = benchmark_case_differences(benchmark, base, head)
     rows = []
     if migration_permitted:
@@ -351,6 +366,12 @@ def has_new_coverage(comparisons: dict[str, list[dict[str, object]]]) -> bool:
     return any(row.get("kind") == "new_coverage" for rows in comparisons.values() for row in rows)
 
 
+def not_gated_no_base_benchmarks(comparisons: dict[str, list[dict[str, object]]]) -> list[str]:
+    return sorted(
+        benchmark for benchmark, rows in comparisons.items() if any(row.get("kind") == "not_gated_no_base" for row in rows)
+    )
+
+
 def markdown_report(
     comparisons: dict[str, list[dict[str, object]]],
     failures: list[str],
@@ -393,6 +414,16 @@ def markdown_report(
                 "",
                 "Rows marked (new coverage) are head-only benchmark cases added by the PR; "
                 "they are reported for information and are not gated.",
+            ]
+        )
+    ungated = not_gated_no_base_benchmarks(comparisons)
+    if ungated:
+        lines.extend(
+            [
+                "",
+                f"Rows marked (not gated: no base binary) belong to benchmarks whose base build "
+                f"lacked the gated binary ({', '.join(ungated)}); nothing was gated for them. "
+                f"Add a base build containing the benchmark, or confirm the target is new to the gate.",
             ]
         )
     if failures:
@@ -452,6 +483,14 @@ def main() -> int:
     if args.summary_file:
         with args.summary_file.open("a", encoding="utf-8") as summary:
             summary.write(report)
+    ungated = not_gated_no_base_benchmarks(comparisons)
+    if ungated:
+        print(
+            "::warning::Benchmark regression gate ran without base binaries for: "
+            f"{', '.join(ungated)}. Nothing was gated for those benchmarks; see the "
+            "(not gated: no base binary) rows in the summary.",
+            flush=True,
+        )
     print(report, end="")
     return 1 if failures else 0
 

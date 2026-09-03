@@ -41,7 +41,7 @@ struct XlRegister_RateQuoteRiskProvenance_New_
     XlRegister_RateQuoteRiskProvenance_New_()
     {
         Vector_<String_> argHelp;        
-        argHelp.push_back("A supported single/joint-XCCY/staged-XCCY result, or an excluded staged/generic result");
+        argHelp.push_back("A supported single/joint-XCCY/staged-XCCY result, or an excluded staged/generic result. Excluded-domain result handles are not yet producible from Excel; only the C++ test surface constructs them today.");
         argHelp.push_back("Non-empty identifier used to join and order quote-risk rows");
         argHelp.push_back("Calibration parameter block keys, in calibration order");
         argHelp.push_back("Pricing-market component keys parallel to parameterBlockKeys");

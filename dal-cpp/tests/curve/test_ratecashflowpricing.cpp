@@ -3224,7 +3224,7 @@ TEST(RateCashflowPricingTest, TestNodeSensitivityTapeObservationIsScopedAndConcu
     }
     ASSERT_EQ(internal::g_nodeSensitivityTapeSizeSink.load(), nullptr);
 
-    EXPECT_THROW(
+    ASSERT_THROW(
         {
             std::atomic<int> ignored{0};
             internal::NodeSensitivityTapeSizeObservation_ observation(ignored);

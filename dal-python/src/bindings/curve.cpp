@@ -110,6 +110,7 @@ namespace {
                                                                     const RatePricingMarket_& boundMarket,
                                                                     const RateQuoteRiskProvenanceConfig_& config) {
         py::gil_scoped_release release;
+        RunQuoteRiskGilBarrierForTesting();
         return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config);
     }
 
@@ -119,6 +120,7 @@ namespace {
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {
         py::gil_scoped_release release;
+        RunQuoteRiskGilBarrierForTesting();
         return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config);
     }
 
@@ -128,6 +130,7 @@ namespace {
                                                                         const RatePricingMarket_& boundMarket,
                                                                         const RateQuoteRiskProvenanceConfig_& config) {
         py::gil_scoped_release release;
+        RunQuoteRiskGilBarrierForTesting();
         return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config);
     }
 

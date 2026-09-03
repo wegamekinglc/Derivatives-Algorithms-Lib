@@ -81,7 +81,10 @@ def test_quote_risk_factories_and_aggregate_are_keyword_only():
     for name, arguments in signatures.items():
         signature = getattr(dal, name).__doc__.splitlines()[0]
         assert signature.startswith(f"{name}(*, ")  # nosec B101
-        positions = [signature.index(f"{argument}: ") for argument in arguments]
+        positions = []
+        for argument in arguments:
+            assert f"{argument}: " in signature, f"{name} is missing argument {argument}"  # nosec B101
+            positions.append(signature.index(f"{argument}: "))
         assert positions == sorted(positions)  # nosec B101
 
     assert not hasattr(dal, "BuildMultiCurveQuoteRiskProvenance")  # nosec B101
@@ -168,11 +171,11 @@ def test_quote_risk_provenance_survives_intermediate_result_and_market_gc():
     assert len(result.buckets) == 3  # nosec B101
 
 
-def test_quote_risk_aggregate_releases_gil_for_the_complete_native_operation():
+def test_quote_risk_aggregate_and_factories_release_gil_for_the_complete_native_operation():
     import sys
     import threading
 
-    _, _, _, _, market, _, provenance, trade = _single_quote_risk_inputs()
+    spec, options, calibrated, _, market, config, provenance, trade = _single_quote_risk_inputs()
     started = threading.Event()
     ready = threading.Event()
     stopped = threading.Event()
@@ -193,13 +196,23 @@ def test_quote_risk_aggregate_releases_gil_for_the_complete_native_operation():
         dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
         started.set()
         dal.AggregateRatePortfolioQuoteRisk(trades=[trade], market=market, provenances=[provenance])
-        count_seen_on_return = heartbeat_count[0]
+        aggregate_count = heartbeat_count[0]
+        dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
+        dal.BuildSingleCurveQuoteRiskProvenance(
+            spec=spec,
+            result=calibrated,
+            options=options,
+            bound_market=market,
+            config=config,
+        )
+        factory_count = heartbeat_count[0]
     finally:
         stopped.set()
         sys.setswitchinterval(previous_interval)
         thread.join(timeout=5.0)
     assert not thread.is_alive()  # nosec B101
-    assert count_seen_on_return > 0  # nosec B101
+    assert aggregate_count > 0  # nosec B101
+    assert factory_count > aggregate_count  # nosec B101
 
 
 def test_joint_and_staged_xccy_factories_expose_the_native_domain_shapes():

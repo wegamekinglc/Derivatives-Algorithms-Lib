@@ -250,6 +250,32 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
         self.assertIn("new case (new coverage)", report)
         self.assertIn("info", report)
 
+    def test_compare_benchmark_marks_missing_base_binary_as_not_gated(self):
+        samples = {
+            "base": {},
+            "head": {"case": [100.0] * 20},
+        }
+
+        rows, failures = BENCHMARKS.compare_benchmark("pde_perf", samples, 4.0, 10.0, 10, 2)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["kind"], "not_gated_no_base")
+        self.assertIn("not gated: no base binary", rows[0]["case"])
+        self.assertEqual(BENCHMARKS.result_label(rows[0]), "info")
+        self.assertIsNone(rows[0]["base_ns"])
+        self.assertEqual(rows[0]["head_ns"], 100.0)
+
+    def test_markdown_report_names_ungated_benchmarks_without_a_base_binary(self):
+        comparisons = {"pde_perf": [BENCHMARKS.not_gated_no_base_row("case", 100.0)]}
+
+        report = BENCHMARKS.markdown_report(comparisons, [], 10, 2, 4.0, None, 10.0)
+        ungated = BENCHMARKS.not_gated_no_base_benchmarks(comparisons)
+
+        self.assertEqual(ungated, ["pde_perf"])
+        self.assertIn("not gated: no base binary", report)
+        self.assertIn("pde_perf", report.split("Rows marked (not gated: no base binary)")[1])
+
 
 if __name__ == "__main__":
     unittest.main()
