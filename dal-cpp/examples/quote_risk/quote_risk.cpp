@@ -84,8 +84,9 @@ int main() {
     config.calibrationId_ = "usd-ois";
     config.componentKeyByParameterBlock_[spec.curveName_] = "discount";
     const auto provenance = BuildSingleCurveQuoteRiskProvenance(spec, *calibration, options, market, config);
-    const auto risk = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
     REQUIRE(provenance.Available(), provenance.Reason());
+    const auto risk = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
+    REQUIRE(risk.provenanceFailures_.empty(), "Quote-risk aggregation reported a provenance failure");
     REQUIRE(risk.policy_ == "UnconvertedByActualPvCcy", "Unexpected quote-risk currency policy");
 
     std::cout << "axis scheme: " << provenance.Axis().scheme_ << '\n';
