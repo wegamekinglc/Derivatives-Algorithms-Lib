@@ -322,7 +322,12 @@ jobs:
         run: |
           ./build/Release-linux/dal-cpp/dal_cpp_tests \
             --gtest_filter='QuoteRiskAggregationTest.TestFullRecalibrationOracleAtRequiredWidthsAndModes:QuoteRiskAggregationTest.TestXccyFullRecalibrationOracleAtRequiredWidthsAndModes'
-          awk -F, 'NF != 21 { exit 1 } END { if (NR != 497) exit 1 }' "$DAL_QUOTE_RISK_EVIDENCE_FILE"
+          # Expected rows: 1 header + 496 evidence rows =
+          #   (5 + 10 + 16) quotes x 2 Jacobian modes x
+          #   (4 single-curve parameterizations + 2 XCCY domains x 2 currency portfolios).
+          # Keep in sync with the two oracle tests filtered above.
+          expected_rows=$((1 + (5 + 10 + 16) * 2 * (4 + 2 * 2)))
+          awk -F, -v expected="$expected_rows" 'NF != 21 { exit 1 } END { if (NR != expected) exit 1 }' "$DAL_QUOTE_RISK_EVIDENCE_FILE"
 
       - name: Upload quote-risk oracle evidence
         if: always()
@@ -496,10 +501,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           submodules: recursive
+          # Depth 2 keeps HEAD~1 available: the base-SHA fallback for a branch's
+          # first push (all-zero github.event.before) resolves to the head's parent.
+          fetch-depth: 2
+
+      - name: Resolve benchmark base SHA
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          base_sha="${PR_BASE_SHA:-$EVENT_BEFORE}"
+          # A branch's first push reports an all-zero 'before'; fall back to the head's
+          # first parent so the paired gate still has a baseline to compare against.
+          if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]]; then
+            base_sha="$(git rev-parse HEAD~1)"
+          fi
+          echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          ref: ${{ env.BASE_SHA }}
           path: benchmark-base
           submodules: recursive
 
@@ -510,7 +531,7 @@ jobs:
 
       - name: Capture benchmark environment
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ env.BASE_SHA }}
         run: |
           resolved_base="$BASE_SHA"
           if [ -d benchmark-base ]; then

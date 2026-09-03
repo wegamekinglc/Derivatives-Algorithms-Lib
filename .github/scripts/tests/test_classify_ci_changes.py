@@ -233,10 +233,11 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     def test_linux_benchmark_pairs_pull_requests_and_master_pushes(self):
         benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
 
-        self.assertIn(
-            "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}",
-            benchmark,
-        )
+        self.assertIn("PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}", benchmark)
+        self.assertIn("EVENT_BEFORE: ${{ github.event.before }}", benchmark)
+        self.assertIn('base_sha="${PR_BASE_SHA:-$EVENT_BEFORE}"', benchmark)
+        self.assertIn('[[ "$base_sha" =~ ^0+$ ]]', benchmark)
+        self.assertIn("ref: ${{ env.BASE_SHA }}", benchmark)
         self.assertNotIn("if: github.event_name == 'pull_request'", benchmark)
 
 
