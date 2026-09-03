@@ -72,6 +72,7 @@ def _single_quote_risk_inputs(*, compute_inverse=True):
 
 def _run_with_quote_risk_gil_heartbeat(operation):
     import sys
+    import time
     import threading
 
     started = threading.Event()
@@ -84,6 +85,7 @@ def _run_with_quote_risk_gil_heartbeat(operation):
         assert started.wait(timeout=5.0)  # nosec B101
         while not stopped.is_set():
             heartbeat_count[0] += 1
+            time.sleep(0)
 
     previous_interval = sys.getswitchinterval()
     sys.setswitchinterval(1.0)

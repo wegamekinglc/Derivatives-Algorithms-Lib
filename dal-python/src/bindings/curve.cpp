@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
+#include <utility>
 
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
@@ -63,10 +64,10 @@ namespace {
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
-    template <class Callable_> auto RunQuoteRiskWithReleasedGil(Callable_&& callable) -> decltype(callable()) {
+    template <class Callable_> decltype(auto) RunQuoteRiskWithReleasedGil(Callable_&& callable) {
         py::gil_scoped_release release;
         RunQuoteRiskGilBarrierForTesting();
-        return callable();
+        return std::forward<Callable_>(callable)();
     }
 
     // Component keys convert under the GIL from a py::list -- the parameter deliberately avoids
