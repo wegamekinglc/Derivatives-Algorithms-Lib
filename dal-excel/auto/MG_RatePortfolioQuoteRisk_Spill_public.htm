@@ -29,7 +29,7 @@ Aggregate portfolio quote sensitivity and DV01 into a fixed long-form spill
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>spill</td><td>matrix of cells</td><td>Ten columns in order: calibration, axis_fingerprint, quote_key, quote_name, block, currency, quote_sensitivity, dv01, availability, reason. Rows follow native deterministic bucket order, then provenance failures, trade/provenance failures, and excluded-domain failures.</td></tr>
+<tr><td>spill</td><td>matrix of cells</td><td>Ten columns in order: calibration, axis_fingerprint, quote_key, quote_name, block, currency, quote_sensitivity, dv01, availability, reason. Bucket rows fill every column. Failure rows mark availability "unavailable", leave quote_sensitivity and dv01 empty, and repurpose quote_key/quote_name with the failure subject and detail: state fingerprints for provenance failures, instrument id and original node-risk reason for trade failures. Row order: deterministic buckets, provenance failures, trade failures, excluded-domain failures.</td></tr>
 </table>
 
 
