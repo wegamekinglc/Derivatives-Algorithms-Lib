@@ -109,8 +109,13 @@ namespace {
                                                                     const CurveCalibrationOptions_& options,
                                                                     const RatePricingMarket_& boundMarket,
                                                                     const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        return BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        RateQuoteRiskProvenance_ provenance;
+        {
+            py::gil_scoped_release release;
+            RunQuoteRiskGilBarrierForTesting();
+            provenance = BuildSingleCurveQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        }
+        return provenance;
     }
 
     RateQuoteRiskProvenance_ RunBuildJointXccyQuoteRiskProvenance(const JointXccyCalibrationSpec_& spec,
@@ -118,8 +123,13 @@ namespace {
                                                                   const JointXccyCalibrationOptions_& options,
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        RateQuoteRiskProvenance_ provenance;
+        {
+            py::gil_scoped_release release;
+            RunQuoteRiskGilBarrierForTesting();
+            provenance = BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        }
+        return provenance;
     }
 
     RateQuoteRiskProvenance_ RunBuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_& spec,
@@ -127,8 +137,13 @@ namespace {
                                                                         const CrossCurrencyCalibrationOptions_& options,
                                                                         const RatePricingMarket_& boundMarket,
                                                                         const RateQuoteRiskProvenanceConfig_& config) {
-        py::gil_scoped_release release;
-        return BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        RateQuoteRiskProvenance_ provenance;
+        {
+            py::gil_scoped_release release;
+            RunQuoteRiskGilBarrierForTesting();
+            provenance = BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, boundMarket, config);
+        }
+        return provenance;
     }
 
     RatePortfolioQuoteRisk_ RunAggregateRatePortfolioQuoteRisk(const std::vector<RateTradeDefinition_>& trades,
