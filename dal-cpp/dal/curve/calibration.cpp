@@ -47,6 +47,10 @@ namespace Dal {
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
+        // Benchmark/test observation seam: counts calibrations so the quote-risk performance gate
+        // can assert the timed aggregate never recalibrates. Exported across the library boundary on
+        // purpose -- a header-inline counter would split into one instance per module on Windows.
+        // The count is process-global, so observing it requires a quiescent process.
         std::atomic<int> calibrationInvocationCount{0};
 
         void AddAnalyticIssue(AnalyticEligibilityReport_* report,
