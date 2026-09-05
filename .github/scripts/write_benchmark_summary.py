@@ -83,6 +83,28 @@ def read_status(results_dir: Path, benchmark: str) -> int | None:
         return None
 
 
+def placeholder_row(case: str) -> dict[str, str]:
+    return {
+        "case": case,
+        "median": EMPTY_CELL,
+        "minimum": EMPTY_CELL,
+        "maximum": EMPTY_CELL,
+        "reps": EMPTY_CELL,
+    }
+
+
+def benchmark_rows(benchmark: str, results_dir: Path) -> list[dict[str, str]]:
+    result_file = results_dir / f"{benchmark}.txt"
+    if not result_file.is_file():
+        return [placeholder_row("(no output captured)")]
+    try:
+        output = result_file.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        output = ""
+    rows = parse_rows(output)
+    return rows if rows else [placeholder_row("(no parseable result rows)")]
+
+
 def build_report(benchmarks: list[str], results_dir: Path, configuration: str) -> str:
     lines = [
         "## Benchmark Results",
@@ -98,26 +120,7 @@ def build_report(benchmarks: list[str], results_dir: Path, configuration: str) -
         status = read_status(results_dir, benchmark)
         if status:
             failures.append((benchmark, status))
-        result_file = results_dir / f"{benchmark}.txt"
-        if not result_file.is_file():
-            lines.append(f"| {escape_cell(benchmark)} | (no output captured) | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} |")
-            continue
-        try:
-            output = result_file.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            output = ""
-        rows = parse_rows(output)
-        if not rows:
-            rows = [
-                {
-                    "case": "(no parseable result rows)",
-                    "median": EMPTY_CELL,
-                    "minimum": EMPTY_CELL,
-                    "maximum": EMPTY_CELL,
-                    "reps": EMPTY_CELL,
-                }
-            ]
-        for row in rows:
+        for row in benchmark_rows(benchmark, results_dir):
             lines.append(
                 f"| {escape_cell(benchmark)} | {escape_cell(row['case'])} | {row['median']} | "
                 f"{row['minimum']} | {row['maximum']} | {row['reps']} |"
