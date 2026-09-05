@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "write_benchmark_summary.py"
@@ -101,6 +102,48 @@ class BuildReportTest(unittest.TestCase):
         self._write("krylov_perf", "no table here\n")
 
         report = SUMMARY.build_report(["krylov_perf"], self.results_dir, "gcc-14, Release.")
+
+        self.assertIn("| krylov_perf | (no parseable result rows) |", report)
+
+    def test_pipe_characters_in_cells_are_escaped(self):
+        output = "Case with | pipe             1.100 ms        900.000 us          1.300 ms        10\n"
+        self._write("weird|perf", output)
+
+        report = SUMMARY.build_report(["weird|perf"], self.results_dir, "gcc-14, Release.")
+
+        self.assertIn("| weird\\|perf | Case with \\| pipe | 1.100 ms |", report)
+        for line in report.splitlines():
+            if line.startswith("| weird"):
+                # 6 columns => exactly 7 unescaped pipe delimiters
+                self.assertEqual(line.count("|") - line.count("\\|"), 7)
+
+    def test_unreadable_status_file_is_not_a_failure(self):
+        self._write("banded_perf", TIMED_OUTPUT, status=0)
+        (self.results_dir / "banded_perf.status").write_text("garbage\n", encoding="utf-8")
+
+        report = SUMMARY.build_report(["banded_perf"], self.results_dir, "gcc-14, Release.")
+
+        self.assertIn("All benchmarks exited cleanly.", report)
+
+    def test_status_file_oserror_is_not_a_failure(self):
+        self._write("banded_perf", TIMED_OUTPUT)
+
+        with mock.patch.object(Path, "read_text", side_effect=OSError("transient")):
+            status = SUMMARY.read_status(self.results_dir, "banded_perf")
+
+        self.assertIsNone(status)
+
+    def test_output_file_oserror_gets_placeholder_row(self):
+        self._write("krylov_perf", TIMED_OUTPUT)
+        original = Path.read_text
+
+        def flaky_read(self, *args, **kwargs):
+            if self.name == "krylov_perf.txt":
+                raise OSError("partial artifact")
+            return original(self, *args, **kwargs)
+
+        with mock.patch.object(Path, "read_text", flaky_read):
+            report = SUMMARY.build_report(["krylov_perf"], self.results_dir, "gcc-14, Release.")
 
         self.assertIn("| krylov_perf | (no parseable result rows) |", report)
 

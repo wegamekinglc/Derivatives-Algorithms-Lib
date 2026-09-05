@@ -69,13 +69,17 @@ def parse_rows(text: str) -> list[dict[str, str]]:
     return rows
 
 
+def escape_cell(text: str) -> str:
+    return text.replace("|", "\\|")
+
+
 def read_status(results_dir: Path, benchmark: str) -> int | None:
     status_file = results_dir / f"{benchmark}.status"
     if not status_file.is_file():
         return None
     try:
         return int(status_file.read_text(encoding="utf-8").strip())
-    except ValueError:
+    except (OSError, ValueError):
         return None
 
 
@@ -96,9 +100,13 @@ def build_report(benchmarks: list[str], results_dir: Path, configuration: str) -
             failures.append((benchmark, status))
         result_file = results_dir / f"{benchmark}.txt"
         if not result_file.is_file():
-            lines.append(f"| {benchmark} | (no output captured) | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} |")
+            lines.append(f"| {escape_cell(benchmark)} | (no output captured) | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} | {EMPTY_CELL} |")
             continue
-        rows = parse_rows(result_file.read_text(encoding="utf-8", errors="replace"))
+        try:
+            output = result_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            output = ""
+        rows = parse_rows(output)
         if not rows:
             rows = [
                 {
@@ -111,7 +119,7 @@ def build_report(benchmarks: list[str], results_dir: Path, configuration: str) -
             ]
         for row in rows:
             lines.append(
-                f"| {benchmark} | {row['case']} | {row['median']} | "
+                f"| {escape_cell(benchmark)} | {escape_cell(row['case'])} | {row['median']} | "
                 f"{row['minimum']} | {row['maximum']} | {row['reps']} |"
             )
     if failures:
