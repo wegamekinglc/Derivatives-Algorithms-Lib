@@ -329,14 +329,6 @@ jobs:
           fi
 
           mkdir -p benchmark-results
-          {
-            echo "## Benchmark Results"
-            echo
-            echo "Configuration: msvc, native/AADet backend."
-            echo "Discovered ${#benchmarks[@]} benchmark(s) via CTest label 'benchmark'."
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
           benchmark_failure=0
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
@@ -347,22 +339,18 @@ jobs:
               status=$?
               benchmark_failure=1
             fi
+            echo "$status" > "benchmark-results/${bench}.status"
             cat "$result_file"
             echo
-
-            {
-              echo "### $bench"
-              echo
-              echo '```text'
-              cat "$result_file"
-              echo '```'
-              if [ "$status" -ne 0 ]; then
-                echo
-                echo "Exit code: $status."
-              fi
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
           done
+
+          # One aggregated table for the whole run (same as cmake-linux.yml),
+          # replacing the old per-benchmark summary sections.
+          python3 .github/scripts/write_benchmark_summary.py \
+            --results-dir benchmark-results \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --configuration "msvc, native/AADet backend." \
+            --benchmarks "${benchmarks[@]}"
 
           exit "$benchmark_failure"
 
