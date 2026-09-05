@@ -155,7 +155,7 @@ namespace Dal::RateRiskPerf {
     QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase() { return MakeSingleCurveQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
 
     SingleCurveProvenanceMaterials_ MakeSingleCurveProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
-        REQUIRE(quoteCount > 0, "Single quote-risk benchmark dimensions must be positive");
+        REQUIRE(quoteCount > 0, "Single quote-risk benchmark quote count must be positive");
         SingleCurveProvenanceMaterials_ materials;
         CurveCalibrationSpec_& spec = materials.spec_;
         spec.today_ = Date_(2025, 1, 2);
@@ -211,7 +211,7 @@ namespace Dal::RateRiskPerf {
     QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase() { return MakeJointXccyQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
 
     JointXccyProvenanceMaterials_ MakeJointXccyProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
-        REQUIRE(quoteCount > 0, "Joint quote-risk benchmark dimensions must be positive");
+        REQUIRE(quoteCount > 0, "Joint quote-risk benchmark quote count must be positive");
         JointXccyProvenanceMaterials_ materials;
         JointXccyCalibrationSpec_& spec = materials.spec_;
         const Date_ today(2025, 1, 16);
@@ -289,7 +289,7 @@ namespace Dal::RateRiskPerf {
     }
 
     StagedXccyProvenanceMaterials_ MakeStagedXccyProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
-        REQUIRE(quoteCount > 0, "Staged quote-risk benchmark dimensions must be positive");
+        REQUIRE(quoteCount > 0, "Staged quote-risk benchmark quote count must be positive");
         StagedXccyProvenanceMaterials_ materials;
         CrossCurrencyCalibrationSpec_& spec = materials.spec_;
         const Date_ today(2025, 1, 16);
