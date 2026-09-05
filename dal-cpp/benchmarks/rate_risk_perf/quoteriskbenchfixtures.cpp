@@ -154,10 +154,10 @@ namespace Dal::RateRiskPerf {
 
     QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase() { return MakeSingleCurveQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
 
-    QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
-        REQUIRE(quoteCount > 0 && tradeCount > 0, "Single quote-risk benchmark dimensions must be positive");
-        QuoteRiskBenchmarkCase_ result;
-        CurveCalibrationSpec_ spec;
+    SingleCurveProvenanceMaterials_ MakeSingleCurveProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
+        REQUIRE(quoteCount > 0, "Single quote-risk benchmark dimensions must be positive");
+        SingleCurveProvenanceMaterials_ materials;
+        CurveCalibrationSpec_& spec = materials.spec_;
         spec.today_ = Date_(2025, 1, 2);
         spec.ccy_ = "USD";
         spec.curveName_ = "single_quote_bench";
@@ -178,23 +178,30 @@ namespace Dal::RateRiskPerf {
         for (const auto& maturity : spec.knotDates_)
             spec.instruments_.push_back(DepositInstrument(spec.today_, maturity, Index(false), knownBlock));
 
-        CurveCalibrationOptions_ options;
-        options.jacobianMode_ = mode;
-        options.computeForwardJacobian_ = false;
-        auto calibration = std::make_shared<CurveCalibrationResult_>(CalibrateYieldCurve(spec, options));
-        result.market_.valuationTime_ = DateTime_(spec.today_, 9, 0);
-        result.market_.resultCurrency_ = Ccy_(spec.ccy_);
-        result.market_.curveComponents_["discount"] =
-            Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), calibration->curve_.get()));
-        result.market_.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
-        RateQuoteRiskProvenanceConfig_ config;
-        config.calibrationId_ = "single-quote-bench";
-        config.componentKeyByParameterBlock_[spec.curveName_] = "discount";
-        result.provenances_.push_back(BuildSingleCurveQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
+        materials.options_.jacobianMode_ = mode;
+        materials.options_.computeForwardJacobian_ = false;
+        materials.calibration_ = std::make_shared<CurveCalibrationResult_>(CalibrateYieldCurve(spec, materials.options_));
+        materials.market_.valuationTime_ = DateTime_(spec.today_, 9, 0);
+        materials.market_.resultCurrency_ = Ccy_(spec.ccy_);
+        materials.market_.curveComponents_["discount"] =
+            Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), materials.calibration_->curve_.get()));
+        materials.market_.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+        materials.config_.calibrationId_ = "single-quote-bench";
+        materials.config_.componentKeyByParameterBlock_[spec.curveName_] = "discount";
+        return materials;
+    }
+
+    QuoteRiskBenchmarkCase_ MakeSingleCurveQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Single quote-risk benchmark dimensions must be positive");
+        auto materials = std::make_shared<SingleCurveProvenanceMaterials_>(MakeSingleCurveProvenanceMaterials(quoteCount, mode));
+        QuoteRiskBenchmarkCase_ result;
+        result.market_ = materials->market_;
+        result.provenances_.push_back(
+            BuildSingleCurveQuoteRiskProvenance(materials->spec_, *materials->calibration_, materials->options_, materials->market_, materials->config_));
         for (int i = 0; i < tradeCount; ++i)
-            result.trades_.push_back(
-                DepositTrade(spec.today_, spec.knotDates_.back(), Ccy_(spec.ccy_), "discount", "single-quote-bench-trade-" + String::FromInt(i)));
-        result.calibrationLifetime_ = calibration;
+            result.trades_.push_back(DepositTrade(materials->spec_.today_, materials->spec_.knotDates_.back(), Ccy_(materials->spec_.ccy_), "discount",
+                                                  "single-quote-bench-trade-" + String::FromInt(i)));
+        result.calibrationLifetime_ = materials;
         result.expectedPassivePriceCount_ = tradeCount;
         result.expectedPreparationCount_ = 1;
         result.expectedSweepCount_ = tradeCount;
@@ -203,9 +210,10 @@ namespace Dal::RateRiskPerf {
 
     QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase() { return MakeJointXccyQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1); }
 
-    QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
-        REQUIRE(quoteCount > 0 && tradeCount > 0, "Joint quote-risk benchmark dimensions must be positive");
-        QuoteRiskBenchmarkCase_ result;
+    JointXccyProvenanceMaterials_ MakeJointXccyProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
+        REQUIRE(quoteCount > 0, "Joint quote-risk benchmark dimensions must be positive");
+        JointXccyProvenanceMaterials_ materials;
+        JointXccyCalibrationSpec_& spec = materials.spec_;
         const Date_ today(2025, 1, 16);
         Vector_<Date_> maturities, knots, basisMaturities, basisKnots;
         Vector_<> domesticDiscount, domesticForward, foreignDiscount, foreignForward, basisParameters;
@@ -227,7 +235,6 @@ namespace Dal::RateRiskPerf {
         CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, DateTime_(today, 9, 0), pair.domestic_, fixings);
         quoteMarket.SetBasisCurve(Pwc("basis_true_quote_bench", pair.domestic_, basisKnots, basisParameters));
 
-        JointXccyCalibrationSpec_ spec;
         spec.valuationTime_ = DateTime_(today, 9, 0);
         spec.pair_ = pair;
         spec.collateralCurrency_ = pair.domestic_;
@@ -247,19 +254,30 @@ namespace Dal::RateRiskPerf {
                 Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity, (*prototype.Precompute())(quoteMarket), xccyConfig)));
         }
 
-        JointXccyCalibrationOptions_ options;
-        options.jacobianMode_ = mode;
-        options.computeForwardJacobian_ = false;
-        auto calibration = std::make_shared<JointXccyCalibrationResult_>(CalibrateJointXccyMarket(spec, options));
-        RateQuoteRiskProvenanceConfig_ config;
-        config.calibrationId_ = "joint-quote-bench";
-        for (int i = 0; i < static_cast<int>(calibration->parameterRanges_.size()); ++i)
-            config.componentKeyByParameterBlock_[calibration->parameterRanges_[i].name_] = "joint-quote-bench-" + String::FromInt(i);
-        result.market_ = JointMarket(spec, *calibration, config);
-        result.provenances_.push_back(BuildJointXccyQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
+        materials.options_.jacobianMode_ = mode;
+        materials.options_.computeForwardJacobian_ = false;
+        materials.calibration_ = std::make_shared<JointXccyCalibrationResult_>(CalibrateJointXccyMarket(spec, materials.options_));
+        materials.config_.calibrationId_ = "joint-quote-bench";
+        for (int i = 0; i < static_cast<int>(materials.calibration_->parameterRanges_.size()); ++i)
+            materials.config_.componentKeyByParameterBlock_[materials.calibration_->parameterRanges_[i].name_] = "joint-quote-bench-" + String::FromInt(i);
+        materials.market_ = JointMarket(spec, *materials.calibration_, materials.config_);
+        return materials;
+    }
+
+    QuoteRiskBenchmarkCase_ MakeJointXccyQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Joint quote-risk benchmark dimensions must be positive");
+        auto materials = std::make_shared<JointXccyProvenanceMaterials_>(MakeJointXccyProvenanceMaterials(quoteCount, mode));
+        QuoteRiskBenchmarkCase_ result;
+        result.market_ = materials->market_;
+        result.provenances_.push_back(
+            BuildJointXccyQuoteRiskProvenance(materials->spec_, *materials->calibration_, materials->options_, materials->market_, materials->config_));
+        Vector_<Date_> basisKnots;
+        for (int i = 0; i < quoteCount; ++i)
+            basisKnots.push_back(Date::AddMonths(materials->spec_.valuationTime_.Date(), 12 * (i + 1)));
         for (int i = 0; i < tradeCount; ++i)
-            result.trades_.push_back(XccyTrade(today, basisKnots.back(), pair, "joint-quote-bench-trade-" + String::FromInt(i)));
-        result.calibrationLifetime_ = calibration;
+            result.trades_.push_back(
+                XccyTrade(materials->spec_.valuationTime_.Date(), basisKnots.back(), materials->spec_.pair_, "joint-quote-bench-trade-" + String::FromInt(i)));
+        result.calibrationLifetime_ = materials;
         result.expectedPassivePriceCount_ = tradeCount;
         result.expectedPreparationCount_ = 5;
         result.expectedSweepCount_ = 5 * tradeCount;
@@ -270,9 +288,10 @@ namespace Dal::RateRiskPerf {
         return MakeStagedXccyBasisQuoteRiskCase(2, CurveJacobianMode_::Value_::ANALYTIC, 1);
     }
 
-    QuoteRiskBenchmarkCase_ MakeStagedXccyBasisQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
-        REQUIRE(quoteCount > 0 && tradeCount > 0, "Staged quote-risk benchmark dimensions must be positive");
-        QuoteRiskBenchmarkCase_ result;
+    StagedXccyProvenanceMaterials_ MakeStagedXccyProvenanceMaterials(int quoteCount, CurveJacobianMode_ mode) {
+        REQUIRE(quoteCount > 0, "Staged quote-risk benchmark dimensions must be positive");
+        StagedXccyProvenanceMaterials_ materials;
+        CrossCurrencyCalibrationSpec_& spec = materials.spec_;
         const Date_ today(2025, 1, 16);
         Vector_<Date_> knots;
         Vector_<> domesticDiscount, domesticForward, foreignDiscount, foreignForward, basisParameters;
@@ -292,7 +311,6 @@ namespace Dal::RateRiskPerf {
         CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, DateTime_(today, 9, 0), pair.domestic_, fixings);
         quoteMarket.SetBasisCurve(Pwc("known_staged_quote_bench", pair.domestic_, knots, basisParameters));
 
-        CrossCurrencyCalibrationSpec_ spec;
         spec.today_ = today;
         spec.valuationTime_ = DateTime_(today, 9, 0);
         spec.collateralCurrency_ = pair.domestic_;
@@ -311,23 +329,31 @@ namespace Dal::RateRiskPerf {
                 Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity, (*prototype.Precompute())(quoteMarket), xccyConfig)));
         }
 
-        CrossCurrencyCalibrationOptions_ options;
-        options.jacobianMode_ = mode;
-        options.computeForwardJacobian_ = false;
-        auto calibration = std::make_shared<CrossCurrencyCalibrationResult_>(CalibrateCrossCurrencyMarket(spec, options));
-        const auto basis = calibration->basisCurves_.at(pair);
-        result.market_.valuationTime_ = spec.valuationTime_;
-        result.market_.resultCurrency_ = pair.domestic_;
-        result.market_.curveComponents_["staged-basis-quote-bench"] = basis;
-        result.market_.fixings_ = calibration->market_.Fixings();
-        result.market_.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(calibration->market_);
-        RateQuoteRiskProvenanceConfig_ config;
-        config.calibrationId_ = "staged-quote-bench";
-        config.componentKeyByParameterBlock_["basis:xccy_basis_USD"] = "staged-basis-quote-bench";
-        result.provenances_.push_back(BuildStagedXccyBasisQuoteRiskProvenance(spec, *calibration, options, result.market_, config));
+        materials.options_.jacobianMode_ = mode;
+        materials.options_.computeForwardJacobian_ = false;
+        materials.calibration_ = std::make_shared<CrossCurrencyCalibrationResult_>(CalibrateCrossCurrencyMarket(spec, materials.options_));
+        const auto basis = materials.calibration_->basisCurves_.at(pair);
+        materials.market_.valuationTime_ = spec.valuationTime_;
+        materials.market_.resultCurrency_ = pair.domestic_;
+        materials.market_.curveComponents_["staged-basis-quote-bench"] = basis;
+        materials.market_.fixings_ = materials.calibration_->market_.Fixings();
+        materials.market_.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(materials.calibration_->market_);
+        materials.config_.calibrationId_ = "staged-quote-bench";
+        materials.config_.componentKeyByParameterBlock_["basis:xccy_basis_USD"] = "staged-basis-quote-bench";
+        return materials;
+    }
+
+    QuoteRiskBenchmarkCase_ MakeStagedXccyBasisQuoteRiskCase(int quoteCount, CurveJacobianMode_ mode, int tradeCount) {
+        REQUIRE(quoteCount > 0 && tradeCount > 0, "Staged quote-risk benchmark dimensions must be positive");
+        auto materials = std::make_shared<StagedXccyProvenanceMaterials_>(MakeStagedXccyProvenanceMaterials(quoteCount, mode));
+        QuoteRiskBenchmarkCase_ result;
+        result.market_ = materials->market_;
+        result.provenances_.push_back(
+            BuildStagedXccyBasisQuoteRiskProvenance(materials->spec_, *materials->calibration_, materials->options_, materials->market_, materials->config_));
         for (int i = 0; i < tradeCount; ++i)
-            result.trades_.push_back(XccyTrade(today, Date::AddMonths(knots.back(), 6), pair, "staged-quote-bench-trade-" + String::FromInt(i)));
-        result.calibrationLifetime_ = calibration;
+            result.trades_.push_back(XccyTrade(materials->spec_.today_, Date::AddMonths(materials->spec_.knotDates_.back(), 6), materials->spec_.basisPair_,
+                                               "staged-quote-bench-trade-" + String::FromInt(i)));
+        result.calibrationLifetime_ = materials;
         result.expectedPassivePriceCount_ = tradeCount;
         result.expectedPreparationCount_ = 5;
         result.expectedSweepCount_ = tradeCount;

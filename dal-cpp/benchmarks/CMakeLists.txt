@@ -18,7 +18,8 @@ set(DAL_BENCHMARK_TARGETS
     curve_calibration_perf
     threadpool_perf
     stacks_perf
-    rate_risk_perf)
+    rate_risk_perf
+    quote_risk_perf)
 
 foreach(benchmark_target IN LISTS DAL_BENCHMARK_TARGETS)
     add_subdirectory(${benchmark_target})
