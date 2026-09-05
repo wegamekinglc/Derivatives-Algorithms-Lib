@@ -58,9 +58,9 @@ outside this allowlist.
 
 All other benchmark targets are smoke/coverage evidence, not part of this regression verdict.
 That includes the historically excluded `matrix_perf` and `script_perf`, plus newer targets such
-as `script_mc_perf`, `curve_calibration_perf`, `xccy_perf`, `ycinstrument_perf`, and
-`threadpool_perf`. Run them as informational evidence only when the changed path or user request
-calls for them.
+as `script_mc_perf`, `curve_calibration_perf`, `xccy_perf`, `ycinstrument_perf`,
+`threadpool_perf`, and `quote_risk_perf`. Run them as informational evidence only when the
+changed path or user request calls for them.
 
 ## Baseline And Isolation
 
