@@ -1541,17 +1541,20 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveInitialAndExhaustionCounts) {
         }
     }
 
-    CallbackCounts_ counts;
-    HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
-    const Vector_<> b = {1e-12, 0.0};
-    Vector_<> x = {0.0, 0.0};
-    RunSolver(true, matrix, b, 0.0, 1e-10, 10, &x);
-    ASSERT_EQ(1, counts.left_);
-    ASSERT_EQ(0, counts.right_);
-    ASSERT_EQ(0, counts.preconditionerLeft_);
-    ASSERT_EQ(0, counts.preconditionerRight_);
-    ASSERT_DOUBLE_EQ(0.0, x[0]);
-    ASSERT_DOUBLE_EQ(0.0, x[1]);
+    for (const bool biConjugate : {false, true}) {
+        SCOPED_TRACE(SolverName(biConjugate));
+        CallbackCounts_ counts;
+        HookedPreconditionedDiagonal_ matrix({1.0, 2.0}, &counts);
+        const Vector_<> b = {1e-12, 0.0};
+        Vector_<> x = {0.0, 0.0};
+        RunSolver(biConjugate, matrix, b, 0.0, 1e-10, 10, &x);
+        ASSERT_EQ(1, counts.left_);
+        ASSERT_EQ(0, counts.right_);
+        ASSERT_EQ(0, counts.preconditionerLeft_);
+        ASSERT_EQ(0, counts.preconditionerRight_);
+        ASSERT_DOUBLE_EQ(0.0, x[0]);
+        ASSERT_DOUBLE_EQ(0.0, x[1]);
+    }
 }
 
 TEST(MatrixTest, TestCGSolveAndBCGSolveRejectDirectResidualMismatchWithoutCommit) {

@@ -965,7 +965,11 @@ namespace Dal {
                     s.rr_[i] = s.r_[i];
             if (initialResidualNorm.mantissa_ == 0.0)
                 return;
-            if (biConjugate && convergence.IsConverged(s.r_, initialResidualNorm))
+            // A guess that already meets the requested tolerance is the answer for both solvers:
+            // iterating anyway is not a harmless refinement on a numerically singular system — the
+            // first alpha can explode along the near-null direction, after which the recursive and
+            // direct residuals decouple and the confirmation guard fires spuriously.
+            if (convergence.IsConverged(s.r_, initialResidualNorm))
                 return;
 
             for (int iteration = 0; iteration < maxIterations; ++iteration) {

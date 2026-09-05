@@ -45,6 +45,8 @@ namespace Dal {
         void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) override {
             const auto nf = df.size();
             const double x2 = InnerProduct(dx, dx);
+            if (x2 == 0.0) // a zero step carries no secant information
+                return;
             for (int ii = 0; ii < nf; ++ii) {
                 auto row = j_.Row(ii);
                 const double excess = df[ii] - InnerProduct(dx, row);
