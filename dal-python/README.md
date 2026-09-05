@@ -135,10 +135,10 @@ The source archive is created under `dist/`.
 
 Install from source (requires C++ build tools):
 ```bash
-pip install dist/dal_python-2026.8.14.tar.gz \
+pip install dist/dal_python-2026.9.5.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 # or
-uv pip install dist/dal_python-2026.8.14.tar.gz \
+uv pip install dist/dal_python-2026.9.5.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 ```
 

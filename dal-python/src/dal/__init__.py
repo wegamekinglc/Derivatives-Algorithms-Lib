@@ -8,4 +8,4 @@ from .api import *
 
 __author__ = 'The Derivatives Algorithms Group'
 __email__ = 'wegamekinglc@hotmail.com'
-__version__ = "2026.8.14"
+__version__ = "2026.9.5"
