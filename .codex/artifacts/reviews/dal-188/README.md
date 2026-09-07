@@ -3,6 +3,12 @@
 Status: documentation delivery awaiting independent dal-reviewer acceptance.
 Retain this record while DAL-188 is active; retire it after acceptance.
 
+This inventory and validation record describes the initial delivery at
+`f5641e45143ca34262c170dba9bfa9cd29e4c9a0`. Independent review found one P2
+omission in the retired quote-risk plan: its continuing threshold-review
+contract. The [P2 remediation record](p2-remediation.md) documents its migration
+and the limited follow-up validation. Independent reacceptance remains pending.
+
 ## Baseline and Scope
 
 On 2026-09-07, `git fetch origin master`, `git rev-parse HEAD origin/master`,
