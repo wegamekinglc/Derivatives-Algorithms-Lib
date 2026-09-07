@@ -40,7 +40,7 @@ on other toolchains.
 | Header                                 | Main entry points                                                                                   |
 |----------------------------------------|-----------------------------------------------------------------------------------------------------|
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                          |
-| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree`       |
+| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree`        |
 | `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                              |
 | `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`                                                                                 |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                           |
@@ -305,6 +305,13 @@ fails carries no tensor; its failures live only in the meta table, and no paddin
 convention is introduced. `RateNodeSensitivityAxisLabels(market, componentKey)`
 exposes the same `<date>:<component>` node labels standalone.
 
+The component tensor sums gradients by component key and has no currency axis;
+the currency grouping applies to PV totals and the parallel metadata. For node
+gradients separated by PV currency, group eligible batch cells by
+`(componentKey, actualPvCcy)` before summing. Duplicate requested keys retain
+their metadata cells but contribute once per trade and component. See the
+[node-risk methodology](methodology/rate_node_risk.md).
+
 The wiring is name-based: terms address curves through their `*ComponentKey_`
 fields, those keys must resolve in `RatePricingMarket_::curveComponents_`, and
 the requested `componentKey` selects which curve's parameters are registered as
@@ -453,18 +460,18 @@ import dal
 
 ### Common workflows
 
-| Workflow                | Python entry points                                                                                                                                                                            |
-|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                    |
-| Script products         | `Product_New`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                        |
-| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                       |
-| Valuation               | `MonteCarlo_Value`                                                                                                                                                                             |
-| Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                               |
-| Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
-| Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
-| XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
-| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`, quote-risk provenance builders, `AggregateRatePortfolioQuoteRisk`                               |
-| Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
+| Workflow                | Python entry points                                                                                                                                                                                                                                |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                                                                        |
+| Script products         | `Product_New`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                                           |
+| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                                                                           |
+| Valuation               | `MonteCarlo_Value`                                                                                                                                                                                                                                 |
+| Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                                                                                   |
+| Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                                                                     |
+| Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`                                                     |
+| XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                                                                         |
+| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`, quote-risk provenance builders, `AggregateRatePortfolioQuoteRisk` |
+| Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                                                                                |
 
 The basic valuation shape is:
 
@@ -635,16 +642,16 @@ correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
 Primary worksheet families are:
 
-| Purpose         | Worksheet functions                                                                                                                                                        |
-|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Conventions     | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*`                                                                 |
-| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW`                                                                                                                      |
-| Instruments     | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW` |
-| Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                        |
-| Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                     |
-| Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                       |
+| Purpose         | Worksheet functions                                                                                                                                                                                                                                                                       |
+|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Conventions     | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*`                                                                                                                                                                                |
+| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW`                                                                                                                                                                                                                                     |
+| Instruments     | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW`                                                                                                                |
+| Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                                                                                                                                       |
+| Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                                                                                                                                    |
+| Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                                                                                                                                      |
 | Rate risk       | `RATETRADEHEADER.NEW`, `RATEFIXINGIDENTITY.NEW`, `RATEDEPOSITTRADE.NEW`, `RATEFRATRADE.NEW`, `RATEFUTURETRADE.NEW`, `RATEFIXEDFLOATTRADE.NEW`, `RATEBASISTRADE.NEW`, `RATEXCCYTRADE.NEW`, `RATEPRICINGMARKET.NEW`, `RATETRADENODESENSITIVITIESBATCH.SPILL`, `RATEPORTFOLIONODERISK.SPILL` |
-| Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                   |
+| Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                                                                                                                                  |
 
 `DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
 compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.

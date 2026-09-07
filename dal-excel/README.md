@@ -19,6 +19,17 @@ The Windows preset enables `DAL_BUILD_EXCEL`. See the canonical
 [installation guide](../docs/installation.md#windows-c-and-excel) for prerequisites
 and test commands.
 
+On non-Windows hosts, the default core workspace can build
+`dal_excel_portable_tests` from the binding sources and tests. It requires
+`DAL_BUILD_EXCEL_PORTABLE_TESTS=ON`, `DAL_EXCEL_BUILD_TESTS=ON`, and Google Test.
+These tests cover handles and worksheet spill contracts; the XLL itself remains
+Windows-only. For a configured core build:
+
+```bash
+cmake --build build/core-dev --target dal_excel_portable_tests --parallel
+./build/core-dev/dal-excel/dal_excel_portable_tests
+```
+
 ## Worksheet Model
 
 Object constructors return repository handles. Pass those handles to later

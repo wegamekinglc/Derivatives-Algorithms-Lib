@@ -6,6 +6,9 @@ non-agent workflows, and active work records.
 ## Surfaces
 
 - `.codex/agents/` registers ten named DAL specialists and contains their complete role contracts.
+- The matching Claude agent bodies and Multica agent instructions mirror those
+  contracts when synchronization is authorized. Platform registration metadata
+  remains separate; see [.claude/agents/README.md](../.claude/agents/README.md).
 - `.codex/references/` contains shared C++, test, review, performance, and Git conventions.
 - `.codex/skills/` contains reusable workflows without dedicated agents (`dal-git-pr`), plus the
   compatibility-only `dal-agent-team/` shim described under References below.

@@ -45,6 +45,9 @@ Tests are driven through CTest at the workspace level. Each sub-project register
 
 - `dal_cpp_tests` — core library tests (built from `dal-cpp/tests/`)
 - `dal_public_tests` — public-API tests (built from `dal-public/tests/`)
+- `dal_excel_portable_tests` — Excel binding contract tests on non-Windows hosts,
+  when `DAL_BUILD_EXCEL_PORTABLE_TESTS` and `DAL_EXCEL_BUILD_TESTS` are enabled
+  and Google Test is available; this does not build an XLL
 
 ```bash
 # Run all registered tests (build_linux.sh puts the build tree at build/Release-linux)
@@ -72,7 +75,7 @@ cmake --build build/Release-linux --target script_mc_perf -j 4
 ./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
-The paired regression gate that CI runs on pull requests lives in `.github/scripts/check_benchmark_regressions.py`; see `.claude/agents/dal-performancer.md` for reproducing it locally.
+The paired regression gate that CI runs on pull requests lives in `.github/scripts/check_benchmark_regressions.py`; see [.codex/references/benchmark-workflow.md](.codex/references/benchmark-workflow.md#current-ci-reproduction) for reproducing it locally.
 
 ## Code Style
 
@@ -135,7 +138,8 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 **Excel add-in (`dal-excel/`, Windows-only, off by default)** — depends on `DAL::public`:
 - `dal-excel/src/` — Excel binding sources
 - `dal-excel/auto/` — Machinist output for Excel `xl_*` wrappers
-- `dal-excel/tests/` — Excel-specific tests
+- `dal-excel/tests/` — Excel-specific tests, also built as portable binding
+  contract tests on non-Windows hosts when enabled and Google Test is available
 
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. Regeneration is opt-in: `build_linux.sh --generate` (or `cmake --build build/Release-linux --target dal_generate` on a configured tree) runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`
@@ -163,6 +167,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 - **PDE Framework, Grid Construction, and Coordinate Maps** — [PDE framework](docs/methodology/pde.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
+- **Rate-Trade Node Risk and Portfolio Aggregation** — [Node-risk methodology](docs/methodology/rate_node_risk.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, product debug dumps, and benchmarks
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)

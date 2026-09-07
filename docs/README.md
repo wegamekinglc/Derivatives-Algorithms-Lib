@@ -97,6 +97,10 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Production quote-space DV01 provenance, state fingerprints, currency policy, and full-recalibration oracle
   - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
 
+- **[rate_node_risk.md](methodology/rate_node_risk.md)** — Rate-Trade Node Risk
+  - Seven-family AAD eligibility, native parameter coordinates, and tape isolation
+  - Deterministic batch cells, failure isolation, component tensors, and PV currencies
+
 - **[script_engine.md](methodology/script_engine.md)** — Script Engine
   - Preprocessing pipeline (macros, schedules, constant variables)
   - Domain processor (variable range analysis, always-true/false flags)
@@ -148,12 +152,6 @@ Reference studies and capability explorations that are not normative methodology
   — Compatibility redirect to the supported yield-curve and AAD methodology.
 - **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
   — Validated rateslib/PTIRDS single-currency curve replication.
-- **[aad-node-risk-portfolio-aggregation-design.md](experimental/aad-node-risk-portfolio-aggregation-design.md)**
-  — Revised design for node-level AAD risk across all rate families, with
-  frozen P0 contracts for tape isolation, batch keys, aggregation, Excel, and
-  XCCY dependency.
-- **[aad-node-risk-portfolio-aggregation-plan.md](experimental/aad-node-risk-portfolio-aggregation-plan.md)**
-  — Staged implementation plan (stages 0–5) matching those frozen P0 contracts.
 
 ## Documentation Conventions
 

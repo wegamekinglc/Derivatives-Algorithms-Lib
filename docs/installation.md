@@ -41,12 +41,12 @@ It does not regenerate tracked Machinist output unless requested.
 
 ### Script options
 
-| Option         | Effect                                                                      |
-|----------------|-----------------------------------------------------------------------------|
-| `--full`       | Enable Python bindings and benchmarks                                       |
-| `--benchmarks` | Enable native benchmark targets                                             |
-| `--generate`   | Run the `dal_generate` target before the normal build                       |
-| `--coverage`   | Enable coverage and produce a report with an available coverage tool        |
+| Option         | Effect                                                                       |
+|----------------|------------------------------------------------------------------------------|
+| `--full`       | Enable Python bindings and benchmarks                                        |
+| `--benchmarks` | Enable native benchmark targets                                              |
+| `--generate`   | Run the `dal_generate` target before the normal build                        |
+| `--coverage`   | Enable coverage and produce a report with an available coverage tool         |
 | `--python`     | Enable Python bindings and select an exact supported minor (for example 3.9) |
 
 Examples:
@@ -118,21 +118,23 @@ with an unknown CPU baseline.
 
 ### Common CMake options
 
-| Option                     | Base default | Description                                                                           |
-|----------------------------|--------------|---------------------------------------------------------------------------------------|
-| `DAL_BUILD_PUBLIC`         | `ON`         | Build the public convenience facade                                                   |
-| `DAL_BUILD_PYTHON`         | `OFF`        | Build the pybind11 module                                                             |
-| `DAL_BUILD_EXCEL`          | `OFF`        | Build the Windows Excel add-in                                                        |
-| `DAL_CPP_BUILD_TESTS`      | `ON`         | Build core tests                                                                      |
-| `DAL_PUBLIC_BUILD_TESTS`   | `ON`         | Build public-facade tests                                                             |
-| `DAL_CPP_BUILD_EXAMPLES`   | `ON`         | Build C++ examples                                                                    |
-| `DAL_CPP_BUILD_BENCHMARKS` | `OFF`        | Build benchmarks                                                                      |
-| `DAL_ENABLE_NATIVE_ARCH`   | `OFF`        | Tune Release code for the build machine                                               |
-| `DAL_ENABLE_SANITIZERS`    | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
-| `DAL_USE_XAD_AAD`          | `OFF`        | Use XAD                                                                               |
-| `DAL_USE_CODIPACK_AAD`     | `OFF`        | Use CoDiPack                                                                          |
-| `DAL_USE_ADEPT_AAD`        | `OFF`        | Use Adept                                                                             |
-| `MSVC_RUNTIME`             | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
+| Option                           | Base default | Description                                                                           |
+|----------------------------------|--------------|---------------------------------------------------------------------------------------|
+| `DAL_BUILD_PUBLIC`               | `ON`         | Build the public convenience facade                                                   |
+| `DAL_BUILD_PYTHON`               | `OFF`        | Build the pybind11 module                                                             |
+| `DAL_BUILD_EXCEL`                | `OFF`        | Build the Windows Excel add-in                                                        |
+| `DAL_BUILD_EXCEL_PORTABLE_TESTS` | `ON`         | Include portable Excel binding tests on non-Windows hosts                             |
+| `DAL_EXCEL_BUILD_TESTS`          | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
+| `DAL_CPP_BUILD_TESTS`            | `ON`         | Build core tests                                                                      |
+| `DAL_PUBLIC_BUILD_TESTS`         | `ON`         | Build public-facade tests                                                             |
+| `DAL_CPP_BUILD_EXAMPLES`         | `ON`         | Build C++ examples                                                                    |
+| `DAL_CPP_BUILD_BENCHMARKS`       | `OFF`        | Build benchmarks                                                                      |
+| `DAL_ENABLE_NATIVE_ARCH`         | `OFF`        | Tune Release code for the build machine                                               |
+| `DAL_ENABLE_SANITIZERS`          | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
+| `DAL_USE_XAD_AAD`                | `OFF`        | Use XAD                                                                               |
+| `DAL_USE_CODIPACK_AAD`           | `OFF`        | Use CoDiPack                                                                          |
+| `DAL_USE_ADEPT_AAD`              | `OFF`        | Use Adept                                                                             |
+| `MSVC_RUNTIME`                   | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
 ### Selecting an AAD backend
 
@@ -156,6 +158,12 @@ storage is destroyed when the thread exits. This lifecycle does not depend on
 the Python GIL. A `Number_`, `Tape_`, or tape position remains thread-affine;
 create, record, propagate, and clear it on the same thread instead of moving it
 to another thread.
+
+The default non-Windows core workflow also builds and registers
+`dal_excel_portable_tests` when Google Test is available. These tests exercise
+binding functions, repository handles, and spill contracts without Microsoft
+Excel. Set `DAL_BUILD_EXCEL_PORTABLE_TESTS=OFF` to omit this component;
+`DAL_BUILD_EXCEL=OFF` alone does not disable the portable tests.
 
 ## Windows C++ and Excel
 
