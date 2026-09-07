@@ -104,7 +104,7 @@
   non-type template parameters or as stable integer bytecode operands; document
   the constraint next to the enum and do not add unused Machinist markup.
 - The Machinist code-generation tool reads `/*IF----------...` blocks and produces auto-generated `.hpp` (class definition) and `.inc` (implementation) files under `dal-cpp/dal/auto/` (and `dal-excel/auto/` for Excel public-function stubs).
-- Generated enum types are classes with a nested `enum class Value_ : char`, a `String()` method, construction from `String_`, comparison operators, and a `ListAll()` vector.
+- Generated enum types are classes with a nested `enum class Value_ : char`, a `String()` method, construction from `String_`, and comparison operators. The free function `<EnumName>ListAll()` returns their value vector (for example, `CurveSolveModeListAll()`).
 - Use `switchable` in the markup when the enum needs `.Switch()` and `operator==` against `Value_`.
 
 ### Enum markup format

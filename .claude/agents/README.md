@@ -1,112 +1,75 @@
 # DAL Agent Team
 
-A coordinated team of specialist agents for the DAL (Derivatives Algorithms Library) C++
-quantitative finance project. Each agent owns one phase of the spec → design → critique →
-implement → review → document pipeline. The orchestrator routes work between them.
+DAL has ten specialist roles. Their shared behavior contracts are owned by
+`.codex/agents/*.toml`; each matching Claude registration keeps the same
+description and behavior in Markdown with YAML frontmatter. Claude retains its
+native `model: inherit` and color metadata. These registration differences do
+not grant additional editing, delegation, publication, or merge permissions.
 
-## Team Roster
+## Roles and Routing
 
-| Role         | Agent              | Color  | Reads                                                       | Writes                                                                                                                                  |
-|--------------|--------------------|--------|-------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| Orchestrator | `dal-orchestrator` | purple | request context, specialist reports                         | task list, delegation prompts, summary                                                                                                  |
-| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules                                  | `.claude/specs/<slug>.md`                                                                                                               |
-| API designer | `dal-api-designer` | pink   | spec, design, public headers                                | `.claude/api-notes/<slug>.md`                                                                                                           |
-| Critic       | `dal-critic`       | red    | spec, design, api-note                                      | `.claude/critiques/<slug>.md`                                                                                                           |
-| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique                            | source code, tests, TDD in worktree                                                                                                     |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions                              | `dal-cpp/tests/<module>/*`, in worktree                                                                                                 |
-| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts                             | review report, optional merge                                                                                                           |
-| Performancer | `dal-performancer` | yellow | finished impl, benchmark binaries, baseline `*_perf` output | perf-regression report, benchmark-coverage advisory                                                                                     |
-| Simplifier   | `dal-simplifier`   | blue   | finished impl, existing modules                             | simplification report (duplication, near-duplicate types, dead code, verbose constructs, oversized comments); optional apply-mode edits |
-| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs                             | `docs/` and `CHANGELOG.md`                                                                                                              |
+| Agent              | Responsibility                                           |
+|--------------------|----------------------------------------------------------|
+| `dal-orchestrator` | Gather context, select roles, coordinate, and report     |
+| `dal-spec-writer`  | Define precise, testable requirements                    |
+| `dal-api-designer` | Design C++, Python, Excel, and example surfaces          |
+| `dal-critic`       | Review specifications and designs before implementation  |
+| `dal-implementer`  | Implement approved behavior with red-green-refactor      |
+| `dal-tester`       | Run, write, and repair tests as distinct activities      |
+| `dal-reviewer`     | Review full changed files, evidence, and merge readiness |
+| `dal-doc-writer`   | Reconcile current-state docs and judge changelog scope   |
+| `dal-performancer` | Measure regressions and advise on benchmark coverage     |
+| `dal-simplifier`   | Report duplication; apply fixes only when requested      |
 
+The [orchestrator contract](dal-orchestrator.md) defines the route:
 
-## Workflow
+- Unclear features: spec writer → critic → implementer → tester → reviewer → doc writer.
+- Public surfaces: insert API designer after specification and before critique.
+- Clear bug fixes: implementer → tester → reviewer → doc writer.
+- Pure coverage: tester → reviewer.
+- Pure documentation: doc writer → reviewer.
+- Performance and simplification are optional post-correctness sidecars.
 
-```
-issue ──► spec-writer ──► api-designer ──► critic
-                          (if public)        │
-                                            ▼
-                          implementer (+ tester) ◄──┘
-                                 │
-                                 ▼
-                             reviewer        ◄── in-band gate (blocking, every iteration)
-                                 │
-                                 ▼
-                          doc-writer (reconcile docs/ + CHANGELOG.md)
-                                 │
-                                 ▼
-                            merged PR
+Every code change needs a reviewer. The doc writer decides whether docs or
+`CHANGELOG.md` need changes, except for pure tests and behavior-preserving refactors.
+Task-specific instructions may select a shorter applicable route.
 
-  out-of-band quality sweeps (separate context, often background, on demand):
-    ┌─────────────────┐         ┌───────────────┐
-    │ dal-performancer│         │ dal-simplifier │
-    └────────┬────────┘         └───────┬───────┘
-             │ consume finished implementation       │
-             └────────────► (advisory; do not block merge, do not gate doc-writer)
-```
+## Authorization and Handoff
 
-The orchestrator is the only agent that decides which steps to skip. Most issues take a
-subset of the pipeline (see `dal-orchestrator.md` for the routing table). The main loop
-ends at `dal-reviewer` → `dal-doc-writer`; `dal-performancer` and `dal-simplifier` are
-out-of-band sweeps invoked on demand in a separate context (often background), not
-prerequisites to merge.
+Delegate only when the user or applicable repository guidance authorizes agent
+execution. Otherwise read the matching contract and follow it in the current
+session. Use the host's available tools to read issue/PR context, branch state,
+and active artifacts; the orchestrator may inspect this evidence while remaining
+a dispatcher.
 
-## Artifact Layout
+Each delegation includes a self-contained scope, disjoint write ownership,
+acceptance criteria, upstream decisions, and required evidence. Dependent work
+runs sequentially; only independent work may run in parallel. Report completed
+scope, branch/commit/PR, verification, remaining blockers, and open questions.
 
-| Path                 | Owner        | Purpose                                                          |
-|----------------------|--------------|------------------------------------------------------------------|
-| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)          |
-| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                     |
-| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand)   |
-| `docs/`              | doc writer   | normative quant method docs and index (referenced by all agents) |
-| `CHANGELOG.md`       | doc writer   | dated log of fundamental changes (single-version history)        |
-| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                            |
+The reviewer reports findings by default. Submitting a GitHub review, resolving
+threads, changing a PR, and merging each require explicit authorization. The
+performancer does not edit production code or benchmarks; implementation goes
+to the implementer. The simplifier edits only in explicitly requested apply mode.
 
-Filenames share a single kebab-case slug derived from the issue title, so an issue traces
-through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` end-to-end.
+## Artifacts and References
 
-## How to Invoke the Team
+Active work uses the shared [Codex artifact surface](../../.codex/artifacts/README.md):
+`specs/`, `designs/`, `api-notes/`, `critiques/`, `reviews/`, `plans/`, and performance
+reports under `.codex/artifacts/`. Create a durable document only when it controls
+active work, then retire it when the current-state outcome is documented.
+Existing `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, and
+`.claude/critiques/` documents marked as implemented history are historical
+context, not pending instructions or assertions about current paths.
 
-- **End-to-end on a GitHub issue.** "Use `dal-orchestrator` to handle issue #57." Give
-  the orchestrator the issue context; it decomposes the request and delegates to
-  teammates. Its role contract does not permit fetching or inspecting the issue itself.
-- **A single specialist.** Address the role directly: "Use `dal-spec-writer` to spec the
-  multi-curve refactor described in issue #42."
-- **Adversarial review of an existing plan.** "Use `dal-critic` on the spec at
-  `.claude/specs/foo.md`."
+Shared build/test commands and architecture remain in [CLAUDE.md](../../CLAUDE.md).
+Coding, unit-test, and Git conventions are mirrored byte-for-byte between
+`.claude/rules/` and `.codex/references/`. Specialist contracts link the references
+they require. Claude keeps its four user-invocable skills; Codex exposes
+`dal-git-pr` and uses references for test and style workflows.
 
-## Conventions Each Agent Honors
-
-- `.claude/rules/code-style.md` — naming, headers, includes, error handling, enums (Machinist)
-- `.claude/rules/unit-test-style.md` — Google Test patterns, assertions, suite naming
-- `.claude/rules/git-commit-pr.md` — branch naming, commit message format, PR template
-- `docs/methodology/*.md` — domain vocabulary; quant claims must match these docs
-
-## Team Working Agreements
-
-Two practices are mandatory for every agent that changes files in the repository
-(`dal-implementer`, `dal-tester`, `dal-doc-writer`, `dal-performancer` when it adds a benchmark, and
-`dal-simplifier` when the user has opted into apply mode; the `dal-reviewer` also reviews inside a worktree):
-
-- **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
-  editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
-  the main working tree clean. The planning agents (spec writer, API designer, critic)
-  write only into the shared `.claude/` artifact directories (created on demand) and do not need a worktree.
-- **Test-driven development (TDD).** The implementer works strictly red → green → refactor:
-  write a failing test for the next behavior, confirm it fails for the right reason, write the
-  minimum code to pass, then refactor while green. Production code is never written ahead of a
-  test that demands it. The doc writer is exempt from TDD (there is no code to test), but still
-  works in a worktree.
-
-## Hand-off Etiquette
-
-- One agent at a time per artifact. Don't fan out the same artifact to two agents in parallel.
-- Self-contained prompts. The teammate agent doesn't see the parent conversation, so the
-  invocation must include all paths, decisions, and acceptance criteria it needs.
-- Verify before reporting. Each specialist validates its own artifacts and evidence, then
-  reports the outcome. The orchestrator routes from those reports; it does not inspect
-  working trees, artifacts, diffs, tests, gates, or PR state itself.
-- A `Block` verdict from the critic routes work back to the upstream author, not forward to
-  the implementer.
-- Commit and PR publication belong to an explicitly authorized publishing specialist or
-  workflow, never to the orchestrator.
+Inspect the working tree before editing and preserve unrelated changes. Use an
+isolated checkout or worktree when work would otherwise conflict; Claude's
+`EnterWorktree` is a host-specific way to obtain that isolation. Follow
+[AGENTS.md](../../AGENTS.md) and the authorized task scope. Publishing follows
+the [Git/PR workflow](../skills/dal-commit-and-pr/SKILL.md).

@@ -186,13 +186,13 @@ across independent rebuilds is not currently enforced.
 
 Configure a Trusted Publisher on the existing `dal-python` PyPI project with:
 
-| Field                | Value                              |
-|----------------------|------------------------------------|
-| PyPI project         | `dal-python`                       |
-| GitHub owner         | `wegamekinglc`                     |
-| GitHub repository    | `Derivatives-Algorithms-Lib`       |
-| Workflow filename    | `dal-python-release.yml`           |
-| GitHub environment   | `pypi`                             |
+| Field              | Value                        |
+|--------------------|------------------------------|
+| PyPI project       | `dal-python`                 |
+| GitHub owner       | `wegamekinglc`               |
+| GitHub repository  | `Derivatives-Algorithms-Lib` |
+| Workflow filename  | `dal-python-release.yml`     |
+| GitHub environment | `pypi`                       |
 
 Create the matching `pypi` environment in the GitHub repository and require a
 manual deployment approval if the repository plan supports it. The workflow uses
@@ -357,7 +357,7 @@ dupire_model = dal.DupireModelData_New(
 ### Products
 
 - `dal.Product_New(dates, events)` — Create a script product from event dates and payoff definitions
-- `dal.Product_Debug(product)` — Print the legacy human-readable product structure
+- `dal.Product_Debug(product)` — Return the legacy human-readable product structure as a string
 - `dal.Product_DebugJson(product)` — Versioned JSON dump of the product AST (schema `dal.script-product/1`)
 - `dal.Product_DebugTree(product, ascii=False, width=125)` — Width-aware Unicode (or ASCII) product tree
 
@@ -377,7 +377,9 @@ dupire_model = dal.DupireModelData_New(
 
 **Returns:** Dictionary with keys:
 - `"PV"` — Present value
-- `"d_spot"`, `"d_vol"`, `"d_rate"`, `"d_div"`, `"d_STRIKE"` — AAD Greeks (only if `enable_aad=True`)
+- `"d_spot"`, `"d_vol"`, `"d_rate"`, `"d_div"` — Black-Scholes model AAD Greeks (only if `enable_aad=True`)
+- `"d_<name>"` — AAD sensitivity to a named product constant, such as `"d_STRIKE"`
+  when the product declares a `STRIKE` constant
 
 ### Random Generators
 
@@ -662,7 +664,9 @@ print(dict(agg.pv_by_actual_pv_ccy)) # {'USD': ...}
 print(agg.meta[0].reason, agg.meta[0].actual_pv_ccy)
 ```
 
-Failures never raise. A trade that fails passive pricing — for example
+Native per-trade pricing and sensitivity failures are returned as data. Invalid
+Python argument types or shapes can still raise before native execution.
+A trade that fails passive pricing — for example
 `notional=float("nan")` — keeps `PriceRateTrades` field-level detail in
 `result[0].error`, while every sensitivity call returns the canonical read-only
 four-field result: `eligible=False`, `pv=0.0`, `gradient=[]`, and a stable

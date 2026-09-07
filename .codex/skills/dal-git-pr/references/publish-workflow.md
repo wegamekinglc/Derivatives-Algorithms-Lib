@@ -56,12 +56,12 @@ copy build outputs, secrets, dirty submodule contents, or unrelated user changes
 Check for submodule changes:
 
 ```bash
-git diff externals/
+git diff --submodule=short -- dal-cpp/externals/
 ```
 
 There are two kinds of submodule changes — handle them differently:
 
-- **Pointer update** (the diff shows a new `Subproject commit` hash without `-dirty`): This means the submodule was intentionally updated to a newer commit. Stage it with `git add externals/<name>` and include it in the commit that motivated the update.
+- **Pointer update** (the diff shows a new `Subproject commit` hash without `-dirty`): This means the submodule was intentionally updated to a newer commit. Stage it with `git add dal-cpp/externals/<name>` and include it in the commit that motivated the update.
 - **Dirty submodule** (the diff shows the same hash with `-dirty`, or `git status` shows `modified content` / `untracked content`): This means files inside the submodule were modified locally but the submodule pointer itself hasn't changed. Do NOT stage these — they are local build artifacts or accidental edits. Skip them.
 
 ### 4. Stage and commit

@@ -13,8 +13,10 @@ Write Google Test unit tests that follow this project's
 - [Error-handling tests](#exception--error-handling-tests)
 - [Prohibited patterns](#what-not-to-do)
 
-Tests are compiled into a single `dal_cpp_tests` binary. The `dal-cpp/CMakeLists.txt` uses `file(GLOB_RECURSE)` — new `.cpp` files are picked up
-automatically, no manual build-file edits needed.
+Core tests are compiled into `dal_cpp_tests`; public and Excel tests use their
+own component targets. `dal-cpp/CMakeLists.txt` uses
+`file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`, so new core test files are picked
+up through CMake regeneration without manual build-file edits.
 
 ## Workflow
 
@@ -50,7 +52,7 @@ TEST(<Suite>, <TestName>) {
 }
 ```
 
-- `<dal/platform/platform.hpp>` is the standard platform header (used in 96% of test files). Only use `<dal/platform/strict.hpp>` in
+- `<dal/platform/platform.hpp>` is the standard platform header. Only use `<dal/platform/strict.hpp>` in
   `dal-cpp/tests/platform/`.
 - The file must end with a newline after the final `}`.
 
@@ -73,7 +75,7 @@ Every `TEST()` block is self-contained — set up its own data, exercise the API
 | Boolean condition                | `ASSERT_TRUE(expr)` / `ASSERT_FALSE(expr)` | `ASSERT_TRUE(dt.IsValid())`                                             |
 | Expected exception               | `ASSERT_THROW(stmt, Dal::Exception_)`      | `ASSERT_THROW(Dal::PDE::MakeUniformGrid(1.0, 0.0, 5), Dal::Exception_)` |
 
-- Never use `EXPECT_*` — always `ASSERT_*` for fail-fast.
+- Prefer `ASSERT_*` for fail-fast, as required by the shared unit-test conventions.
 - Tolerance for `ASSERT_NEAR`: `1e-10` is most common in this repo, followed by `1e-8` and `1e-6`. Use `1e-4` for Monte Carlo or iterative
   methods. Match the tolerance to the precision the algorithm actually guarantees.
 
@@ -85,7 +87,7 @@ Vector_<> x = {1.0, 2.0, 3.0};
 Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26)};
 
 // Polymorphic objects via factory functions and Handle_
-Handle_<Interp1_> interp = Interp1::NewLinear("test", x, y);
+Handle_<Interp1_> interp(Interp::NewLinear("test", x, y));
 
 // Direct construction for the class under test
 Date_ dt(2024, 1, 15);
@@ -104,8 +106,8 @@ for (int i = 0; i < n; ++i)
 using vector_t = Dal::Vector_<>;
 ```
 
-For helper classes, define them at file scope before the tests. Use anonymous `namespace { }` only for larger helper blocks (this pattern appears in
-~3 files in the repo).
+For helper classes, define them at file scope before the tests. Use an anonymous
+namespace for file-local helpers when appropriate.
 
 ### 4. Build and verify
 
@@ -129,8 +131,8 @@ If the build fails, the most common causes are:
 
 ### AAD tests
 
-When testing AAD-aware code, the test must manage the tape explicitly. Scoped blocks `{ }` within a TEST isolate tape operations. This is the only
-case where scoped blocks are common in this repo's tests:
+When testing AAD-aware code, the test must manage the tape explicitly. Scoped
+blocks within a TEST can isolate tape operations and other sub-cases:
 
 ```cpp
 TEST(AADTest, TestGradient) {
@@ -161,19 +163,28 @@ Key points:
 
 ### Serialization round-trip tests
 
-Many DAL types support Splat and JSON serialization. The pattern:
+Use concrete archive helpers rather than constructing the abstract
+`Archive::Store_`. This JSON round trip is from
+`StorageTest.TestJSONStore` in `dal-cpp/tests/storage/test_json.cpp`:
 
 ```cpp
-TEST(SomeTest, TestSerialization) {
-    auto original = /* create object */;
-    Archive_::Store_ store("name");
-    original->Splat(store);
-    auto restored = Archive_::UnSplat(store, "name");
-    // compare original and restored ...
+TEST(StorageTest, TestJSONStore) {
+    Vector_<> x = {1.0, 2.0, 3.0, 4.0, 5.0};
+    Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
+
+    Handle_<Interp1_> src(Interp::NewLinear("interp", x, f));
+
+    auto dst = JSON::WriteString(*src);
+    Handle_<Storable_> rtn = JSON::ReadString(dst, true);
+    Handle_<Interp1_> val(std::dynamic_pointer_cast<const Interp1_>(rtn));
+    ASSERT_TRUE(val.get() != nullptr);
+    ASSERT_DOUBLE_EQ((*src)(2.5), (*val)(2.5));
 }
 ```
 
-Check existing serialization tests in `dal-cpp/tests/storage/` for the exact API.
+Use `dal/storage/json.hpp` and `dal/math/interp/interplinear.hpp` for this
+example. `Splat(*src)` and `UnSplat(blob, true)` provide the matrix archive
+equivalent; see `dal-cpp/tests/storage/test_splat.cpp`.
 
 ### Exception / error-handling tests
 
@@ -186,8 +197,8 @@ TEST(PdeGridTest, TestThrowsOnInvalidInput) {
 
 ## What Not to Do
 
-- **No `TEST_F`** — this repo has zero uses of `TEST_F`. Always `TEST(Suite, Name)`.
-- **No `EXPECT_*`** — all assertions are fatal `ASSERT_*`.
+- **No `TEST_F`** — use `TEST(Suite, Name)` per the repository convention.
+- **Prefer `ASSERT_*`** — fail fast when a failed prerequisite invalidates later checks.
 - **No `using namespace std`** — qualify `std::` types explicitly.
 - **No comments** describing what the code does — the test name and assertions should be self-documenting. A short comment is OK for a non-obvious
   expected value or a subtle setup choice.

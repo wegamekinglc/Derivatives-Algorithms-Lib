@@ -28,17 +28,17 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 
 ## Surface
 
-| Header family                              | Purpose                                          |
-|--------------------------------------------|--------------------------------------------------|
-| `global.hpp`                               | Runtime initialization and evaluation date       |
-| `script.hpp`, `models.hpp`, `value.hpp`    | Script product, model, and Monte Carlo workflow  |
-| `random.hpp`                               | Pseudo-random and Sobol matrix fills             |
-| `curveprotocol.hpp`, `curveinstrument.hpp` | Curve conventions and quoted instruments         |
-| `curvedata.hpp`, `curvespec.hpp`           | Curve construction and single/staged calibration |
-| `curvepricing.hpp`                         | Typed rate-cashflow pricing, node risk, and quote-space DV01   |
-| `xccycalibration.hpp`                      | Cross-currency calibration                       |
-| `interp.hpp`                               | Linear interpolation helper                      |
-| `repository.hpp`                           | Host-environment repository operations           |
+| Header family                                                                        | Purpose                                                      |
+|--------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| `dal-public/src/global.hpp`                                                          | Runtime initialization and evaluation date                   |
+| `dal-public/src/script.hpp`, `dal-public/src/models.hpp`, `dal-public/src/value.hpp` | Script product, model, and Monte Carlo workflow              |
+| `dal-public/src/random.hpp`                                                          | Pseudo-random and Sobol matrix fills                         |
+| `dal-public/src/curveprotocol.hpp`, `dal-public/src/curveinstrument.hpp`             | Curve conventions and quoted instruments                     |
+| `dal-public/src/curvedata.hpp`, `dal-public/src/curvespec.hpp`                       | Curve construction and single/staged calibration             |
+| `dal-public/src/curvepricing.hpp`                                                    | Typed rate-cashflow pricing, node risk, and quote-space DV01 |
+| `dal-public/src/xccycalibration.hpp`                                                 | Cross-currency calibration                                   |
+| `dal-public/src/interp.hpp`                                                          | Linear interpolation helper                                  |
+| `dal-public/src/repository.hpp`                                                      | Host-environment repository operations                       |
 
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.

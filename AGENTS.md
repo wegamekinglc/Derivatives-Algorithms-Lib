@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-08-16
+Last updated: 2026-09-07
 
 Codex-native guidance for this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
@@ -12,6 +12,9 @@ routing, workflows, references, and durable outputs are owned under `.codex/`.
 
 - `.codex/agents/` registers named Derivatives Algorithms Library (DAL) specialists and owns
   their complete role contracts.
+- These TOMLs also own the shared DAL role contracts mirrored in Claude agent
+  bodies and Multica agent instructions. Preserve platform registration metadata;
+  synchronize other platforms only when the task authorizes those changes.
 - `.codex/references/` owns reusable C++, test, review, performance, and Git conventions.
 - `.codex/skills/` owns reusable non-agent workflows for Git/PR packaging.
 - `.codex/artifacts/` owns active specifications, designs, API notes, critiques, reviews,

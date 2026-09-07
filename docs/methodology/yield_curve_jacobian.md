@@ -585,6 +585,43 @@ or offsetting failures. CI preserves one evidence row per
 domain/mode/currency/quote with the API value, oracle value, absolute and
 relative errors, scale, and thresholds.
 
+### Threshold baseline review and changes
+
+For the three width bands above, the frozen worst-baseline values `B` are
+`7e-7`, `1.8e-5`, and `1.3e-4`, respectively. The scalar threshold is
+`T = Round125Up(5 * B)`, where `Round125Up(x)` selects the least member of
+`{1, 2, 5} * 10^k` that is not less than `x`. Thus `3.5e-6`, `9e-5`, and
+`6.5e-4` round up to `5e-6`, `1e-4`, and `1e-3`. The derivative absolute
+tolerance is `T * P_i`, and the DV01 absolute tolerance is exactly that value
+times `b = 1e-4`; both relative tolerances are `T`. Widths `N > 16` continue
+to use the `N > 10` band without automatic relaxation.
+
+Thresholds never self-learn at runtime or during an implementation PR. A new
+baseline review is required if any of these change:
+
+- solver residual scaling or tolerance;
+- curve parameterization/interpolation;
+- supported success domains;
+- oracle bump;
+- axis-width bands;
+- required fixtures add `N > 16`;
+- any valid observation exceeds the current `T / 5`, even if it still passes
+  the current threshold.
+
+Changing a threshold requires preserved commit, fixture, axis, platform,
+compiler, and AAD-backend evidence plus every per-bucket raw row. Each row must
+retain `N`, `P_i`, API value, oracle value, absolute error, relative error, and
+threshold for its domain, inverse mode, actual PV currency, and quote bucket.
+With an approved new worst baseline `B_new`, the only update rule is:
+
+```text
+T_new = Round125Up(5 * max(B_old, B_new))
+```
+
+Here `B_old` is the currently approved worst baseline for the affected width
+band. The change requires a new API-note/design revision and critic approval.
+If a result exceeds the current threshold before that review, it fails.
+
 ## Timing: BUMPED vs ANALYTIC
 
 The example also times `CurveJacobianMode_::{BUMPED,ANALYTIC}` calibrations on

@@ -9,6 +9,8 @@
   - `dal_cpp_tests` — core library tests, built from `dal-cpp/tests/`
   - `dal_public_tests` — public-API tests, built from `dal-public/tests/`
   - `dal_excel_tests` — Excel binding tests, built from `dal-excel/tests/` (Windows-only)
+  - `dal_excel_portable_tests` — portable Excel binding contracts from the same
+    tests on non-Windows hosts, when enabled and Google Test is available
 - Tests are registered with CTest via `gtest_discover_tests` and run with `ctest --output-on-failure` from the build directory.
 - The core test runner uses `Dal::RegisterAll_::Init()` before `RUN_ALL_TESTS()`.
 
