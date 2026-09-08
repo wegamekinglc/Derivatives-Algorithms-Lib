@@ -338,6 +338,26 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Validate generic joint quote-risk oracle evidence
+        env:
+          DAL_JOINT_QUOTE_RISK_EVIDENCE_FILE: ${{ github.workspace }}/generic-joint-quote-risk-oracle-v1.csv
+        run: |
+          ./build/Release-linux/dal-cpp/dal_cpp_tests \
+            --gtest_filter='JointQuoteRiskTest.TestFullRecalibrationOracleAtRequiredWidthsModesLayoutsAndLayers'
+          python3 .github/scripts/check_joint_quote_risk_evidence.py "$DAL_JOINT_QUOTE_RISK_EVIDENCE_FILE" \
+            --source-sha "$(git rev-parse HEAD)" --output generic-joint-quote-risk-manifest-v1.json
+
+      - name: Upload generic joint quote-risk oracle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: generic-joint-quote-risk-oracle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            generic-joint-quote-risk-oracle-v1.csv
+            generic-joint-quote-risk-manifest-v1.json
+          if-no-files-found: ignore
+          retention-days: 30
+
   documentation:
     name: Documentation integrity
     needs: changes
@@ -417,13 +437,13 @@ jobs:
             slug: asan-ubsan
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
-            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows
-            public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms
+            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:JointQuoteRiskTest.*
+            public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms:CurvePricingPublicTest.TestGenericJoint*
           - label: TSan concurrency tests
             slug: tsan
             sanitizers: thread
             flags: -O2 -g
-            core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable:RateCashflowPricingTest.TestNodeSensitivityTapeObservationIsScopedAndConcurrent
+            core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable:RateCashflowPricingTest.TestNodeSensitivityTapeObservationIsScopedAndConcurrent:JointQuoteRiskTest.TestSharedPassiveProvenanceUsesIndependentCallerTapes
             public-filter: ""
 
     steps:
@@ -591,6 +611,7 @@ jobs:
       - name: Run head benchmarks
         env:
           DAL_NUM_THREADS: 4
+          DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE: ${{ github.workspace }}/benchmark-results/generic-joint-raw-v1.csv
         run: |
           # Single-source benchmark list via CTest labels (H8 fix)
           # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding

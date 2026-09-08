@@ -4,17 +4,17 @@
 
 #pragma once
 
-#include <map>
-#include <dal/math/vectors.hpp>
-#include <dal/string/strings.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/logdfscheme.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/periodlength.hpp>
+#include <map>
 
 namespace Dal {
 
@@ -50,8 +50,7 @@ namespace Dal {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
     };
 
-    // Per-curve + coarse-joint diagnostics. The optional stacked residual Jacobian is carried on
-    // JointMultiCurveCalibrationResult_; an effective inverse is not exposed by the joint API.
+    // Diagnostics follow the actual residual order within each declaration.
     struct JointCurveCalibrationDiagnostics_ {
         String_ curveName_;
         int curveIndex_ = 0; // position in spec.curves_ (0-based)
@@ -62,6 +61,12 @@ namespace Dal {
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
         bool usedApproximateFit_ = false; // == (spec.solveMode_ == APPROXIMATE)
+    };
+
+    struct JointCurveCalibrationRange_ {
+        int curveIndex_ = 0;
+        int offset_ = 0;
+        int size_ = 0;
     };
 
     struct JointMultiCurveCalibrationResult_ {
@@ -76,6 +81,15 @@ namespace Dal {
         int solverEvaluations_ = 0; // informational
         // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         Matrix_<> jacobianAtSolution_;
+        // Passive M by N response: dx = E * dQuote / spec.tolerance_. No tape ownership.
+        Matrix_<> effJacobianInverse_;
+        String_ effJacobianInverseScaling_ = "solver_scaled";
+        String_ effJacobianInverseAvailability_ = "not_requested";
+        Vector_<JointCurveCalibrationRange_> parameterRanges_;
+        Vector_<JointCurveCalibrationRange_> residualRanges_;
+        Vector_<int> residualInstrumentOrdinals_; // original ordinal within the declaration, in solver residual order
+        String_ jacobianModeUsed_;
+        String_ effJacobianInverseMapping_ = "local_weighted";
     };
 
     // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
@@ -83,6 +97,10 @@ namespace Dal {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
         // Analytic at-solution residual Jacobian; ignored unless ANALYTIC + EXACT + eligible.
         bool computeJacobianAtSolution_ = true;
+        // EXACT only. For M>N, explicitly selects the fixed initial-Jacobian affine
+        // chart and can change the selected underdetermined solution. Default solves
+        // retain their existing behavior. See docs/methodology/generic_joint_quote_risk.md.
+        bool computeEffJacobianInverse_ = false;
     };
 
     // Validate inputs and run ONE Underdetermined::Find / Approximate over the concatenated

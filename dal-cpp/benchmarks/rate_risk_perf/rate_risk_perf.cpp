@@ -23,6 +23,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/rateconvention.hpp>
 
+#include "genericjointbenchmarks.hpp"
 #include "quoteriskbenchfixtures.hpp"
 
 using namespace Dal;
@@ -120,16 +121,12 @@ namespace {
         const auto foreignOis = KnottedCurve("forOis", horizon, 0.02, "EUR");
         const auto foreignFwd = KnottedCurve("forFwd3M", horizon, 0.022, "EUR");
         const auto basis = KnottedCurve("basis", horizon, 0.001);
-        const auto domesticBlock = Handle_<CurveBlock_>(new CurveBlock_("domestic",
-                                                                        "USD",
-                                                                        {{CollateralType_(CollateralType_::Value_::OIS), domesticOis}},
-                                                                        {{PeriodLength_("3M"), domesticFwd}},
-                                                                        DayBasis::Act365F()));
-        const auto foreignBlock = Handle_<CurveBlock_>(new CurveBlock_("foreign",
-                                                                       "EUR",
-                                                                       {{CollateralType_(CollateralType_::Value_::OIS), foreignOis}},
-                                                                       {{PeriodLength_("3M"), foreignFwd}},
-                                                                       DayBasis::Act365F()));
+        const auto domesticBlock =
+            Handle_<CurveBlock_>(new CurveBlock_("domestic", "USD", {{CollateralType_(CollateralType_::Value_::OIS), domesticOis}},
+                                                 {{PeriodLength_("3M"), domesticFwd}}, DayBasis::Act365F()));
+        const auto foreignBlock =
+            Handle_<CurveBlock_>(new CurveBlock_("foreign", "EUR", {{CollateralType_(CollateralType_::Value_::OIS), foreignOis}},
+                                                 {{PeriodLength_("3M"), foreignFwd}}, DayBasis::Act365F()));
         const auto fixings = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
         auto native = std::make_shared<CrossCurrencyMarket_>(domesticBlock, foreignBlock, 1.2, DateTime_(today, 10, 30), Ccy_("USD"), fixings);
         native->SetBasisCurve(basis);
@@ -312,5 +309,6 @@ int main() {
     RunQuoteRiskCase("Quote risk portfolio joint BUMPED (24 XCCY x N=10/block)", jointBumpedPortfolio);
     RunQuoteRiskCase("Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)", stagedAnalyticPortfolio);
     RunQuoteRiskCase("Quote risk portfolio staged BUMPED (24 XCCY x N=5)", stagedBumpedPortfolio);
+    RateRiskPerf::RunGenericJointBenchmarks();
     return 0;
 }

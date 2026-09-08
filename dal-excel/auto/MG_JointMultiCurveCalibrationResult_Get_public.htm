@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>JointMultiCurveCalibrationResult_Get</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>JointMultiCurveCalibrationResult_Get (in Excel: JOINTMULTICURVECALIBRATIONRESULT.GET)</h1>
+Read a generic joint calibration matrix or diagnostic
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableJointMultiCurveCalibrationResult</td><td></td><td>Generic joint calibration result</td></tr>
+<tr><td>attribute</td><td>string</td><td></td><td>Including jacobian, effJacobianInverse, parameterRanges, residualRanges, residualInstrumentOrdinals, marketRates, modelRates, residuals. See the result-field reference for scalar and inverse metadata selectors.</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>value</td><td>matrix of cells</td><td>Matrices preserve native axes. Ranges have columns curveIndex, offset, size (all zero-based). Vectors follow the complete residual order.</td></tr>
+</table>
+
+
+
+
+
+

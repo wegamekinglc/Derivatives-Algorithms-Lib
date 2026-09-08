@@ -17,6 +17,13 @@
 namespace Dal {
     struct StorableRateQuoteRiskProvenance_;
 
+    DAL_EXCEL_TEST_API void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
+                                                                   const String_& calibrationId,
+                                                                   const Vector_<String_>& parameterBlockKeys,
+                                                                   const Vector_<String_>& componentKeys,
+                                                                   const Handle_<StorableRatePricingMarket_>& market,
+                                                                   Handle_<StorableRateQuoteRiskProvenance_>* provenance);
+
     DAL_EXCEL_TEST_API void RateTradeHeader_New(const String_& instrumentId,
                                                 const Date_& tradeDate,
                                                 const Date_& start,

@@ -67,6 +67,12 @@ namespace Dal::RateCashflowPricingInternal {
     inline std::atomic<int> g_nodeSensitivityPassivePriceCount{0};
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
     inline std::atomic<int> g_nodeSensitivitySweepCount{0};
+    inline std::atomic<int> g_quoteRiskProvenancePreparationCount{0};
+
+    // Internal reference path for the generic joint oracle and benchmarks. Preserves
+    // trade-major native node cells, including base coupling, without quote metadata.
+    Vector_<RateTradeNodeSensitivityCell_>
+    JointNodeSensitivitiesBatch(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys);
 
     // Test-only fault seam for proving quote-risk sibling-gradient atomicity.
     inline std::atomic<const String_*> g_quoteRiskForcedSweepFailureComponent{nullptr};
@@ -87,6 +93,17 @@ namespace Dal::RateCashflowPricingInternal {
         if (const auto* zero = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve))
             return zero;
         return std::monostate{};
+    }
+
+    inline const DiscountCurve_* NodeSensitivityBase(const DiscountCurve_& curve) {
+        return std::visit(
+            [](const auto& typed) -> const DiscountCurve_* {
+                if constexpr (std::is_same_v<std::decay_t<decltype(typed)>, std::monostate>)
+                    return nullptr;
+                else
+                    return typed->Base().get();
+            },
+            ClassifyNodeSensitivityCurve(curve));
     }
 
     struct NodeSensitivityCandidate_ {

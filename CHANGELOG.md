@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-08
+
+- **Generic joint quote-space DV01** — exact same-currency joint calibration can
+  retain a full coupled effective inverse and expose immutable v2 quote-risk
+  provenance through C++, Python, and Excel. Explicit inverse requests define
+  a fixed initial-Jacobian subspace for underdetermined systems; default solves
+  and existing v1 domains retain their behavior. See the
+  [mapping and units contract](docs/methodology/generic_joint_quote_risk.md).
+
 ## Existing methodology and capabilities
 
 These are documented today and represent the current documented surface; they are listed

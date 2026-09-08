@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>JointMultiCurveCalibrationSpec_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>JointMultiCurveCalibrationSpec_New (in Excel: JOINTMULTICURVECALIBRATIONSPEC.NEW)</h1>
+Build a generic same-currency joint calibration spec in declaration order
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>today</td><td>date</td><td></td><td>Calibration date</td></tr>
+<tr><td>currency</td><td>string</td><td></td><td>One currency for all declarations</td></tr>
+<tr><td>declarations</td><td>vector of handles</td><td></td><td>Ordered JOINTCURVEDECLARATION.NEW handles</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Keys: liborBasis, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>spec</td><td>handle of type StorableJointMultiCurveCalibrationSpec</td><td>Spec for CALIBRATE.JOINTMULTICURVE</td></tr>
+</table>
+
+
+
+
+
+

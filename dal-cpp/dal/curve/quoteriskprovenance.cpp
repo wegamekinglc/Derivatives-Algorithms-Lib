@@ -22,9 +22,11 @@
 
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
+#include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/quoteriskprovenance.hpp>
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
@@ -35,6 +37,8 @@
 
 namespace Dal {
     namespace {
+        const String_ JOINT_AXIS_SCHEME("dal.quote-risk-axis/2+jcs+sha256");
+        const String_ JOINT_STATE_SCHEME("dal.quote-risk-state/2+jcs+sha256");
         struct Json_ {
             enum class Kind_ { NIL, BOOLEAN, NUMBER, STRING, ARRAY, OBJECT };
 
@@ -1878,13 +1882,268 @@ namespace Dal {
             return state;
         }
 
-        RateQuoteRiskComponentState_ ComponentState(const String_& componentKey, const DiscountCurve_& curve, const RatePricingMarket_& market) {
+        JointCalibrationInternal::CurveCollectionSpec_ GenericCollection(const JointMultiCurveCalibrationSpec_& spec) {
+            JointCalibrationInternal::CurveCollectionSpec_ result;
+            result.today_ = spec.today_;
+            result.ccy_ = spec.ccy_;
+            result.liborBasis_ = spec.liborBasis_;
+            result.curves_ = &spec.curves_;
+            return result;
+        }
+
+        void ValidateGenericRange(const JointCurveCalibrationRange_& range, int block, int offset, int size) {
+            REQUIRE(range.curveIndex_ == block && range.offset_ == offset && range.size_ == size, "QUOTE_RISK_PARAMETER_RANGE_SPEC_MISMATCH");
+        }
+
+        void ValidateGenericResidualOrdinals(const JointCurveDeclaration_& declaration,
+                                             const JointCurveCalibrationDiagnostics_& diagnostics,
+                                             const JointCalibrationInternal::CurveSlot_& slot,
+                                             const Vector_<int>& ordinals) {
+            std::set<int> covered;
+            for (int ordinal = 0; ordinal < slot.nInstruments_; ++ordinal) {
+                const int original = ordinals[slot.residualOffset_ + ordinal];
+                REQUIRE(original >= 0 && original < slot.nInstruments_ && covered.insert(original).second, "QUOTE_RISK_RESIDUAL_ORDINAL_INVALID");
+                const auto& instrument = declaration.instruments_[original];
+                REQUIRE(instrument == slot.instruments_[ordinal], "QUOTE_RISK_RESIDUAL_ORDINAL_INVALID");
+                REQUIRE(diagnostics.instrumentNames_[ordinal] == instrument->Name() && diagnostics.marketRates_[ordinal] == instrument->MarketRate(),
+                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            }
+        }
+
+        RateQuoteRiskAxis_ GenericJointAxis(const JointMultiCurveCalibrationSpec_& spec, const JointMultiCurveCalibrationResult_& result) {
+            const auto slots = JointCalibrationInternal::ValidateAndBuildSlots(GenericCollection(spec));
+            REQUIRE(result.diagnostics_.size() == slots.size() && result.parameterRanges_.size() == slots.size() &&
+                        result.residualRanges_.size() == slots.size(),
+                    "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+            const int residualCount = slots.back().residualOffset_ + slots.back().nInstruments_;
+            REQUIRE(static_cast<int>(result.residualInstrumentOrdinals_.size()) == residualCount, "QUOTE_RISK_RESIDUAL_ORDINAL_INVALID");
+            RateQuoteRiskAxis_ axis;
+            axis.scheme_ = JOINT_AXIS_SCHEME;
+            for (const auto& slot : slots) {
+                const int index = slot.curveIndex_;
+                const auto& declaration = spec.curves_[index];
+                const auto& diagnostics = result.diagnostics_[index];
+                ValidateGenericRange(result.parameterRanges_[index], index, slot.paramOffset_, slot.nParams_);
+                ValidateGenericRange(result.residualRanges_[index], index, slot.residualOffset_, slot.nInstruments_);
+                ValidateJointAxisCurveDiagnostics(declaration, diagnostics);
+                REQUIRE(diagnostics.curveIndex_ == index, "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                REQUIRE(diagnostics.usedApproximateFit_ == (spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE),
+                        "QUOTE_RISK_SPEC_RESULT_MISMATCH");
+                ValidateGenericResidualOrdinals(declaration, diagnostics, slot, result.residualInstrumentOrdinals_);
+                const String_ key = "curve:" + String::FromInt(index);
+                axis.parameterRanges_.push_back({key, slot.paramOffset_, slot.nParams_});
+                axis.residualRanges_.push_back({key, slot.residualOffset_, slot.nInstruments_});
+                AppendAxisParameters(key, slot.paramOffset_, DescribeCurveFreeParameters(slot.definition_), &axis);
+                AppendAxisQuotes(key, slot.residualOffset_, diagnostics.instrumentNames_, &axis);
+            }
+            Json_ record = AxisJson("JOINT_MULTI_CURVE", axis);
+            Json_ ordinals = Json_::Array();
+            for (int ordinal : result.residualInstrumentOrdinals_)
+                ordinals.array_.push_back(Json_::Number(ordinal));
+            record.object_["originalInstrumentOrdinals"] = std::move(ordinals);
+            axis.fingerprint_ = Fingerprint(record);
+            return axis;
+        }
+
+        Json_ GenericJointSpecJson(const JointMultiCurveCalibrationSpec_& spec) {
+            Json_ result = Json_::Object();
+            result.object_["today"] = DateJson(spec.today_);
+            result.object_["currency"] = Json_::String(spec.ccy_);
+            result.object_["liborBasis"] = Json_::String(spec.liborBasis_.String());
+            result.object_["tolerance"] = Json_::Number(spec.tolerance_);
+            result.object_["fitTolerance"] = Json_::Number(spec.fitTolerance_);
+            result.object_["smoothingWeight"] = Json_::Number(spec.smoothingWeight_);
+            result.object_["initialGuess"] = Json_::Number(spec.initialGuess_);
+            result.object_["maxEvaluations"] = Json_::Number(spec.maxEvaluations_);
+            result.object_["maxRestarts"] = Json_::Number(spec.maxRestarts_);
+            result.object_["solveMode"] = Json_::String(spec.solveMode_.String());
+            Json_ declarations = Json_::Array();
+            for (const auto& declaration : spec.curves_)
+                declarations.array_.push_back(JointDeclarationJson(declaration));
+            result.object_["curves"] = std::move(declarations);
+            return result;
+        }
+
+        Json_ GenericJointOptionsJson(const JointMultiCurveCalibrationOptions_& options) {
+            Json_ result = Json_::Object();
+            result.object_["jacobianMode"] = Json_::String(options.jacobianMode_.String());
+            result.object_["computeJacobianAtSolution"] = Json_::Boolean(options.computeJacobianAtSolution_);
+            result.object_["computeEffJacobianInverse"] = Json_::Boolean(options.computeEffJacobianInverse_);
+            return result;
+        }
+
+        Json_ GenericJointResultJson(const JointMultiCurveCalibrationSpec_& spec, const JointMultiCurveCalibrationResult_& result) {
+            Json_ record = Json_::Object();
+            const CurveBlock_ block("joint", spec.ccy_, result.discountCurves_, result.forwardCurves_, spec.liborBasis_);
+            record.object_["curves"] = CurveBlockJson(block);
+            record.object_["jacobian"] = MatrixJson(result.jacobianAtSolution_);
+            record.object_["effectiveInverse"] = MatrixJson(result.effJacobianInverse_);
+            record.object_["effectiveInverseScaling"] = Json_::String(result.effJacobianInverseScaling_);
+            record.object_["effectiveInverseAvailability"] = Json_::String(result.effJacobianInverseAvailability_);
+            record.object_["jacobianModeUsed"] = Json_::String(result.jacobianModeUsed_);
+            record.object_["effectiveInverseMapping"] = Json_::String(result.effJacobianInverseMapping_);
+            record.object_["converged"] = Json_::Boolean(result.converged_);
+            record.object_["maxAbsResidual"] = Json_::Number(result.jointMaxAbsResidual_);
+            record.object_["rmsResidual"] = Json_::Number(result.jointRmsResidual_);
+            record.object_["solverEvaluations"] = Json_::Number(result.solverEvaluations_);
+            Json_ diagnostics = Json_::Array();
+            for (const auto& item : result.diagnostics_)
+                diagnostics.array_.push_back(JointDiagnosticsJson(item));
+            record.object_["diagnostics"] = std::move(diagnostics);
+            return record;
+        }
+
+        void ValidateGenericInverse(const JointMultiCurveCalibrationSpec_& spec,
+                                    const JointMultiCurveCalibrationResult_& result,
+                                    const JointMultiCurveCalibrationOptions_& options,
+                                    const RateQuoteRiskAxis_& axis) {
+            REQUIRE(result.converged_, "QUOTE_RISK_CALIBRATION_NOT_CONVERGED");
+            REQUIRE(std::isfinite(spec.tolerance_) && spec.tolerance_ > 0.0, "QUOTE_RISK_TOLERANCE_INVALID");
+            REQUIRE(result.effJacobianInverseScaling_ == "solver_scaled", "QUOTE_RISK_EFFECTIVE_INVERSE_SCALING_INVALID");
+            REQUIRE(result.jacobianModeUsed_ == "ANALYTIC" || result.jacobianModeUsed_ == "BUMPED", "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+            if (options.jacobianMode_ == CurveJacobianMode_::Value_::BUMPED)
+                REQUIRE(result.jacobianModeUsed_ == "BUMPED", "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+            const bool forwardExpected =
+                options.computeJacobianAtSolution_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && result.jacobianModeUsed_ == "ANALYTIC";
+            REQUIRE(forwardExpected ? result.jacobianAtSolution_.Rows() == static_cast<int>(axis.quotes_.size()) &&
+                                          result.jacobianAtSolution_.Cols() == static_cast<int>(axis.parameters_.size())
+                                    : result.jacobianAtSolution_.Empty(),
+                    "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+            const bool chart = options.computeEffJacobianInverse_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT &&
+                               axis.parameters_.size() > axis.quotes_.size();
+            REQUIRE(result.effJacobianInverseMapping_ == (chart ? "initial_jacobian_chart" : "local_weighted"),
+                    "QUOTE_RISK_EFFECTIVE_INVERSE_MAPPING_INVALID");
+            const String_ expected = !options.computeEffJacobianInverse_                 ? "not_requested"
+                                     : spec.solveMode_ != CurveSolveMode_::Value_::EXACT ? "not_available_for_mode"
+                                     : result.effJacobianInverse_.Empty()                ? "not_available_for_mapping"
+                                                                                         : "available";
+            REQUIRE(result.effJacobianInverseAvailability_ == expected, "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+            ValidateEffectiveInverse(result.effJacobianInverse_, expected != "available", static_cast<int>(axis.parameters_.size()),
+                                     static_cast<int>(axis.quotes_.size()));
+        }
+
+        void ValidateJointBaseChain(const DiscountCurve_* curve) {
+            std::set<const DiscountCurve_*> visited;
+            while (curve) {
+                REQUIRE(visited.insert(curve).second, "QUOTE_RISK_CYCLIC_BASE_GRAPH");
+                curve = RateCashflowPricingInternal::NodeSensitivityBase(*curve);
+            }
+        }
+
+        template <class Key_>
+        void ValidateGenericRoutedSlots(const std::map<Key_, Handle_<DiscountCurve_>>& solved,
+                                        const std::map<Key_, Handle_<DiscountCurve_>>& routed) {
+            for (const auto& [key, curve] : routed) {
+                const auto expected = solved.find(key);
+                if (expected != solved.end())
+                    REQUIRE(curve.get() == expected->second.get(), "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            }
+        }
+
+        void ValidateGenericXccyRouting(const JointMultiCurveCalibrationSpec_& spec,
+                                        const JointMultiCurveCalibrationResult_& result,
+                                        const RatePricingMarket_& market) {
+            if (!market.xccyMarket_)
+                return;
+            for (const auto* block : {&market.xccyMarket_->DomesticBlock(), &market.xccyMarket_->ForeignBlock()})
+                if (block->ccy_ == Ccy_(spec.ccy_)) {
+                    ValidateGenericRoutedSlots(result.discountCurves_, block->DiscountCurves());
+                    ValidateGenericRoutedSlots(result.forwardCurves_, block->ForwardCurves());
+                }
+        }
+
+        void ValidateGenericBindings(const JointMultiCurveCalibrationSpec_& spec,
+                                     const JointMultiCurveCalibrationResult_& result,
+                                     const RatePricingMarket_& market,
+                                     const RateQuoteRiskProvenanceConfig_& config,
+                                     const RateQuoteRiskAxis_& axis) {
+            ValidateConfig(config, axis.parameterRanges_);
+            REQUIRE(market.valuationTime_.IsValid() && market.valuationTime_.Date() == spec.today_, "QUOTE_RISK_VALUATION_TIME_MISMATCH");
+            for (const auto& [key, handle] : result.discountCurves_) {
+                REQUIRE(handle, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
+                ValidateJointBaseChain(handle.get());
+            }
+            for (const auto& [key, handle] : result.forwardCurves_) {
+                REQUIRE(handle, "QUOTE_RISK_CALIBRATION_RESULT_CURVE_EMPTY");
+                ValidateJointBaseChain(handle.get());
+            }
+            const CurveBlock_ block("joint", spec.ccy_, result.discountCurves_, result.forwardCurves_, spec.liborBasis_);
+            const JointCurrencyCurveSpec_ currency{Ccy_(spec.ccy_), spec.liborBasis_, spec.curves_};
+            ValidateJointCurveBlockTopology(currency, block, spec.today_);
+            ValidateGenericXccyRouting(spec, result, market);
+            for (int index = 0; index < static_cast<int>(spec.curves_.size()); ++index) {
+                const auto& declaration = spec.curves_[index];
+                const auto& curve = JointSlotCurve(declaration, block);
+                const auto found = market.curveComponents_.find(config.componentKeyByParameterBlock_.at(axis.parameterRanges_[index].blockKey_));
+                REQUIRE(found != market.curveComponents_.end() && found->second.get() == &curve, "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+            }
+        }
+
+        const DiscountCurve_* PassiveBase(const DiscountCurve_& curve) { return RateCashflowPricingInternal::NodeSensitivityBase(curve); }
+
+        Json_ RegisteredCurveKeys(const DiscountCurve_* curve, const RatePricingMarket_& market) {
+            Json_ result = Json_::Array();
+            for (const auto& [key, handle] : market.curveComponents_)
+                if (curve && handle.get() == curve)
+                    result.array_.push_back(Json_::String(key));
+            return result;
+        }
+
+        bool CurveReaches(const DiscountCurve_* curve, const DiscountCurve_* target) {
+            std::set<const DiscountCurve_*> visited;
+            while (curve) {
+                if (curve == target)
+                    return true;
+                REQUIRE(visited.insert(curve).second, "QUOTE_RISK_CYCLIC_CURVE_GRAPH");
+                curve = PassiveBase(*curve);
+            }
+            return false;
+        }
+
+        Json_ JointComponentRoutingJson(const String_& componentKey, const RatePricingMarket_& market) {
+            Json_ result = Json_::Object();
+            const auto* target = market.curveComponents_.at(componentKey).get();
+            for (const auto& [key, curve] : market.curveComponents_)
+                if (curve && CurveReaches(curve.get(), target))
+                    result.object_[std::string(key.data(), key.size())] = RegisteredCurveKeys(PassiveBase(*curve), market);
+            if (market.xccyMarket_) {
+                const auto routes = [&](const CurveBlock_& block) {
+                    Json_ routed = Json_::Object();
+                    for (const auto& [collateral, handle] : block.DiscountCurves())
+                        if (CurveReaches(handle.get(), target))
+                            routed.object_["discount:" + std::string(collateral.String())] = RegisteredCurveKeys(handle.get(), market);
+                    for (const auto& [tenor, handle] : block.ForwardCurves())
+                        if (CurveReaches(handle.get(), target))
+                            routed.object_["forward:" + std::string(tenor.String())] = RegisteredCurveKeys(handle.get(), market);
+                    return routed;
+                };
+                result.object_["xccyDomestic"] = routes(market.xccyMarket_->DomesticBlock());
+                result.object_["xccyForeign"] = routes(market.xccyMarket_->ForeignBlock());
+            }
+            return result;
+        }
+
+        Json_ JointRoutingJson(const RatePricingMarket_& market, const std::map<String_, String_>& bindings) {
+            Json_ result = Json_::Object();
+            for (const auto& [block, key] : bindings)
+                result.object_[std::string(key.data(), key.size())] = JointComponentRoutingJson(key, market);
+            return result;
+        }
+
+        RateQuoteRiskComponentState_ ComponentState(const String_& componentKey,
+                                                    const DiscountCurve_& curve,
+                                                    const RatePricingMarket_& market,
+                                                    const String_& scheme = RateQuoteRiskStateFingerprintScheme()) {
+            if (scheme == JOINT_STATE_SCHEME)
+                ValidateJointBaseChain(&curve);
             Json_ record = Json_::Object();
             record.object_["componentKey"] = Json_::String(componentKey);
             record.object_["curve"] = StorableJson(curve);
             record.object_["fixings"] = FixingsJson(market.fixings_);
             record.object_["resultCurrency"] = Json_::String(market.resultCurrency_.String());
-            record.object_["scheme"] = Json_::String(RateQuoteRiskStateFingerprintScheme());
+            record.object_["scheme"] = Json_::String(scheme);
+            if (scheme == JOINT_STATE_SCHEME)
+                record.object_["jointRouting"] = JointComponentRoutingJson(componentKey, market);
             record.object_["valuationTime"] = DateTimeJson(market.valuationTime_);
             record.object_["xccyMarket"] = XccyMarketJson(market);
             return {componentKey, Fingerprint(record)};
@@ -1928,10 +2187,63 @@ namespace Dal {
     }
 
     RateQuoteRiskComponentState_ CurrentRateQuoteRiskComponentState(const String_& componentKey, const RatePricingMarket_& market) {
+        return CurrentRateQuoteRiskComponentState(componentKey, market, RateQuoteRiskStateFingerprintScheme());
+    }
+
+    RateQuoteRiskComponentState_
+    CurrentRateQuoteRiskComponentState(const String_& componentKey, const RatePricingMarket_& market, const String_& scheme) {
+        REQUIRE(scheme == RateQuoteRiskStateFingerprintScheme() || scheme == JOINT_STATE_SCHEME, "QUOTE_RISK_STATE_SCHEME_NOT_SUPPORTED");
         const auto found = market.curveComponents_.find(componentKey);
         if (found == market.curveComponents_.end() || !found->second)
             return {componentKey, String_()};
-        return ComponentState(componentKey, *found->second, market);
+        if (scheme != JOINT_STATE_SCHEME)
+            return ComponentState(componentKey, *found->second, market, scheme);
+        try {
+            return ComponentState(componentKey, *found->second, market, scheme);
+        } catch (const std::exception&) {
+            // A malformed live v2 source is a provenance failure, before any trade
+            // price or sweep. Independent provenances still get their own checks.
+            return {componentKey, String_("INVALID")};
+        }
+    }
+
+    RateQuoteRiskProvenance_ BuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,
+                                                                     const JointMultiCurveCalibrationResult_& result,
+                                                                     const JointMultiCurveCalibrationOptions_& options,
+                                                                     const RatePricingMarket_& boundMarket,
+                                                                     const RateQuoteRiskProvenanceConfig_& config) {
+        const Json_ specRecord = GenericJointSpecJson(spec);
+        const auto axis = GenericJointAxis(spec, result);
+        ValidateGenericInverse(spec, result, options, axis);
+        ValidateGenericBindings(spec, result, boundMarket, config, axis);
+        const CurveBlock_ block("joint", spec.ccy_, result.discountCurves_, result.forwardCurves_, spec.liborBasis_);
+        for (const auto& declaration : spec.curves_)
+            REQUIRE(PassiveBase(JointSlotCurve(declaration, block)) == ExpectedJointSlotBase(declaration, block).get(),
+                    "QUOTE_RISK_BOUND_MARKET_COMPONENT_MISMATCH");
+
+        auto data = std::make_shared<RateQuoteRiskProvenance_::Data_>();
+        data->kind_ = "JOINT_MULTI_CURVE";
+        data->reason_ = AvailabilityReason(spec.solveMode_, options.computeEffJacobianInverse_, result.effJacobianInverse_);
+        if (options.computeEffJacobianInverse_ && result.effJacobianInverseAvailability_ == "not_available_for_mapping")
+            data->reason_ = "QUOTE_RISK_EFFECTIVE_MAPPING_INVALID";
+        data->available_ = data->reason_.empty();
+        data->calibrationId_ = config.calibrationId_;
+        data->bindings_ = config.componentKeyByParameterBlock_;
+        data->axis_ = axis;
+        data->state_.scheme_ = JOINT_STATE_SCHEME;
+        for (const auto& range : axis.parameterRanges_) {
+            const auto& key = data->bindings_.at(range.blockKey_);
+            data->state_.components_.push_back(ComponentState(key, *boundMarket.curveComponents_.at(key), boundMarket, JOINT_STATE_SCHEME));
+        }
+        data->tolerance_ = spec.tolerance_;
+        if (data->available_)
+            data->effectiveInverse_ = result.effJacobianInverse_;
+        Json_ state = StateRecord(data->kind_, axis, data->bindings_, boundMarket, GenericJointOptionsJson(options),
+                                  GenericJointResultJson(spec, result), data->reason_, specRecord, result.effJacobianInverse_, data->tolerance_);
+        state.object_["scheme"] = Json_::String(JOINT_STATE_SCHEME);
+        state.object_["jointRouting"] = JointRoutingJson(boundMarket, data->bindings_);
+        data->state_.fingerprint_ = Fingerprint(state);
+        return RateQuoteRiskProvenance_(data);
     }
 
     RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,

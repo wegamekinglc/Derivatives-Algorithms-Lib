@@ -10,11 +10,11 @@
 #include "__settingskeys.hpp"
 #include <algorithm>
 #include <cmath>
-#include <set>
 #include <dal-public/src/curvepricing.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <set>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
@@ -297,6 +297,25 @@ provenance is handle StorableRateQuoteRiskProvenance
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
+public JointMultiCurveQuoteRiskProvenance_New
+    Freeze v2 quote-risk provenance from an exact generic joint calibration result
+&inputs
+result is handle StorableJointMultiCurveCalibrationResult
+    The result returned by CALIBRATE.JOINTMULTICURVE with computeEffJacobianInverse enabled
+calibrationId is string
+    Non-empty identifier used to join and order quote-risk rows
+parameterBlockKeys is string[]
+    Ordered declaration keys: curve:0, curve:1, and so on
+componentKeys is string[]
+    Pricing-market component keys parallel to parameterBlockKeys
+market is handle StorableRatePricingMarket
+    The pricing market bound to all calibrated blocks, valuation time and fixings
+&outputs
+provenance is handle StorableRateQuoteRiskProvenance
+    Immutable generic joint provenance. The legacy RATEQUOTERISKPROVENANCE.NEW dispatcher retains its v1 exclusion.
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
 public JointXccyQuoteRiskProvenance_New
     Freeze quote-risk provenance from one joint XCCY calibration result
 &inputs
@@ -492,7 +511,8 @@ namespace Dal {
                 return;
             REQUIRE(std::isfinite(fxSpot) && fxSpot > 0.0, "An XCCY rate pricing market needs a positive FX spot");
             REQUIRE(!collateralCurrency.empty(), "An XCCY rate pricing market needs a collateral currency");
-            result->xccyMarket_ = BuildXccyMarket(domesticBlock, foreignBlock, fxSpot, collateralCurrency, basisCurve, market.valuationTime_, market.fixings_);
+            result->xccyMarket_ =
+                BuildXccyMarket(domesticBlock, foreignBlock, fxSpot, collateralCurrency, basisCurve, market.valuationTime_, market.fixings_);
         }
 
         // Long-form rows per batch cell: one row per node of an eligible cell (label = parameter
@@ -929,6 +949,18 @@ namespace Dal {
             result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
     }
 
+    void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
+                                                const String_& calibrationId,
+                                                const Vector_<String_>& parameterBlockKeys,
+                                                const Vector_<String_>& componentKeys,
+                                                const Handle_<StorableRatePricingMarket_>& market,
+                                                Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        REQUIRE(result, "Invalid generic joint calibration result handle");
+        REQUIRE(market, "Invalid rate pricing market handle");
+        provenance->reset(new StorableRateQuoteRiskProvenance_(BuildJointMultiCurveQuoteRiskProvenance(
+            result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
+    }
+
     void RateQuoteRiskProvenance_New(const Handle_<Storable_>& result,
                                      const String_& calibrationId,
                                      const Vector_<String_>& parameterBlockKeys,
@@ -1001,6 +1033,7 @@ namespace Dal {
 #include <dal-excel/auto/MG_RatePortfolioNodeRisk_Spill_public.inc>
 #include <dal-excel/auto/MG_SingleCurveQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_JointXccyQuoteRiskProvenance_New_public.inc>
+#include <dal-excel/auto/MG_JointMultiCurveQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_StagedXccyBasisQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_RateQuoteRiskProvenance_New_public.inc>
 #include <dal-excel/auto/MG_RatePortfolioQuoteRisk_Spill_public.inc>

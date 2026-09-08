@@ -87,8 +87,9 @@ namespace {
     // by value for the callers to marshal back under the GIL. Keeping the released section in a
     // plain function (no lambda captures, no Python objects inside) makes the GIL-free region
     // explicit and identical between the two entry points.
-    Vector_<RateTradeNodeSensitivityCell_>
-    RunRateTradeNodeSensitivitiesBatch(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys) {
+    Vector_<RateTradeNodeSensitivityCell_> RunRateTradeNodeSensitivitiesBatch(const std::vector<RateTradeDefinition_>& trades,
+                                                                              const RatePricingMarket_& market,
+                                                                              const Vector_<String_>& componentKeys) {
         const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
         Vector_<RateTradeNodeSensitivityCell_> cells;
         {
@@ -99,8 +100,9 @@ namespace {
         return cells;
     }
 
-    RatePortfolioNodeRisk_
-    RunAggregateRatePortfolioNodeRisk(const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const Vector_<String_>& componentKeys) {
+    RatePortfolioNodeRisk_ RunAggregateRatePortfolioNodeRisk(const std::vector<RateTradeDefinition_>& trades,
+                                                             const RatePricingMarket_& market,
+                                                             const Vector_<String_>& componentKeys) {
         const Vector_<RateTradeDefinition_> nativeTrades(trades.begin(), trades.end());
         RatePortfolioNodeRisk_ aggregate;
         {
@@ -125,6 +127,14 @@ namespace {
                                                                   const RatePricingMarket_& boundMarket,
                                                                   const RateQuoteRiskProvenanceConfig_& config) {
         return RunQuoteRiskWithReleasedGil([&]() { return BuildJointXccyQuoteRiskProvenance(spec, result, options, boundMarket, config); });
+    }
+
+    RateQuoteRiskProvenance_ RunBuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,
+                                                                        const JointMultiCurveCalibrationResult_& result,
+                                                                        const JointMultiCurveCalibrationOptions_& options,
+                                                                        const RatePricingMarket_& boundMarket,
+                                                                        const RateQuoteRiskProvenanceConfig_& config) {
+        return RunQuoteRiskWithReleasedGil([&]() { return BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, boundMarket, config); });
     }
 
     RateQuoteRiskProvenance_ RunBuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_& spec,
@@ -271,8 +281,8 @@ namespace {
         return result;
     }
 
-    std::vector<std::tuple<int, std::string, DateTime_>>
-    RequiredHistoricalRateTradeFixingsForPython(const std::vector<RateTradeDefinition_>& trades, const DateTime_& valuationTime) {
+    std::vector<std::tuple<int, std::string, DateTime_>> RequiredHistoricalRateTradeFixingsForPython(const std::vector<RateTradeDefinition_>& trades,
+                                                                                                     const DateTime_& valuationTime) {
         std::vector<std::tuple<int, std::string, DateTime_>> result;
         {
             py::gil_scoped_release release;
@@ -1043,14 +1053,8 @@ namespace {
             .def_readonly("pv", &RateTradeNodeSensitivityResult_::pv_)
             .def_property_readonly(
                 "gradient",
-                [](const RateTradeNodeSensitivityResult_& value) {
-                    return std::vector<double>(value.gradient_.begin(), value.gradient_.end());
-                })
-            .def_property_readonly(
-                "reason",
-                [](const RateTradeNodeSensitivityResult_& value) {
-                    return StdString(value.reason_);
-                });
+                [](const RateTradeNodeSensitivityResult_& value) { return std::vector<double>(value.gradient_.begin(), value.gradient_.end()); })
+            .def_property_readonly("reason", [](const RateTradeNodeSensitivityResult_& value) { return StdString(value.reason_); });
 
         m.def(
             "PriceRateTrades",
@@ -1092,12 +1096,14 @@ namespace {
             .def_property_readonly("component_key", [](const RatePortfolioNodeRiskMetaEntry_& value) { return StdString(value.componentKey_); })
             .def_readonly("eligible", &RatePortfolioNodeRiskMetaEntry_::eligible_)
             .def_property_readonly("reason", [](const RatePortfolioNodeRiskMetaEntry_& value) { return StdString(value.reason_); })
-            .def_property_readonly("actual_pv_ccy", [](const RatePortfolioNodeRiskMetaEntry_& value) { return std::string(value.actualPvCcy_.String()); })
+            .def_property_readonly("actual_pv_ccy",
+                                   [](const RatePortfolioNodeRiskMetaEntry_& value) { return std::string(value.actualPvCcy_.String()); })
             .def_readonly("pv", &RatePortfolioNodeRiskMetaEntry_::pv_);
 
         py::class_<RatePortfolioNodeRiskComponent_>(m, "RatePortfolioNodeRiskComponent_")
             .def_property_readonly("component_key", [](const RatePortfolioNodeRiskComponent_& value) { return StdString(value.componentKey_); })
-            .def_property_readonly("node_count", [](const RatePortfolioNodeRiskComponent_& value) { return value.values_ ? value.values_->Size("node") : 0; })
+            .def_property_readonly("node_count",
+                                   [](const RatePortfolioNodeRiskComponent_& value) { return value.values_ ? value.values_->Size("node") : 0; })
             .def_property_readonly("node_dates",
                                    [](const RatePortfolioNodeRiskComponent_& value) {
                                        py::tuple result(value.values_ ? value.values_->Size("node") : 0);
@@ -1118,48 +1124,42 @@ namespace {
                                            result[static_cast<size_t>(node)] = StdString(Cell::ToString(header.values_(node, 1)));
                                        return result;
                                    })
-            .def_property_readonly(
-                "values",
-                [](const RatePortfolioNodeRiskComponent_& value) {
-                    std::vector<double> result;
-                    if (!value.values_)
-                        return result;
-                    const int nodeCount = value.values_->Size("node");
-                    result.reserve(static_cast<size_t>(nodeCount));
-                    Report::Address_ address = value.values_->MakeAddress();
-                    for (int node = 0; node < nodeCount; ++node) {
-                        address["node"] = node;
-                        result.push_back((*value.values_)[address]);
-                    }
+            .def_property_readonly("values", [](const RatePortfolioNodeRiskComponent_& value) {
+                std::vector<double> result;
+                if (!value.values_)
                     return result;
-                });
+                const int nodeCount = value.values_->Size("node");
+                result.reserve(static_cast<size_t>(nodeCount));
+                Report::Address_ address = value.values_->MakeAddress();
+                for (int node = 0; node < nodeCount; ++node) {
+                    address["node"] = node;
+                    result.push_back((*value.values_)[address]);
+                }
+                return result;
+            });
 
         py::class_<RatePortfolioNodeRisk_>(m, "RatePortfolioNodeRisk_")
             .def_property_readonly("policy", [](const RatePortfolioNodeRisk_& value) { return StdString(value.policy_); })
-            .def_property_readonly(
-                "components",
-                [](const RatePortfolioNodeRisk_& value) {
-                    py::tuple result(value.components_.size());
-                    for (int index = 0; index < static_cast<int>(value.components_.size()); ++index)
-                        result[static_cast<size_t>(index)] = py::cast(value.components_[index]);
-                    return result;
-                })
-            .def_property_readonly(
-                "pv_by_actual_pv_ccy",
-                [](const RatePortfolioNodeRisk_& value) {
-                    py::dict result;
-                    for (const auto& [ccy, pv] : value.pvByActualPvCcy_)
-                        result[py::str(StdString(ccy))] = pv;
-                    return result;
-                })
-            .def_property_readonly(
-                "meta",
-                [](const RatePortfolioNodeRisk_& value) {
-                    py::tuple result(value.meta_.size());
-                    for (int index = 0; index < static_cast<int>(value.meta_.size()); ++index)
-                        result[static_cast<size_t>(index)] = py::cast(value.meta_[index]);
-                    return result;
-                });
+            .def_property_readonly("components",
+                                   [](const RatePortfolioNodeRisk_& value) {
+                                       py::tuple result(value.components_.size());
+                                       for (int index = 0; index < static_cast<int>(value.components_.size()); ++index)
+                                           result[static_cast<size_t>(index)] = py::cast(value.components_[index]);
+                                       return result;
+                                   })
+            .def_property_readonly("pv_by_actual_pv_ccy",
+                                   [](const RatePortfolioNodeRisk_& value) {
+                                       py::dict result;
+                                       for (const auto& [ccy, pv] : value.pvByActualPvCcy_)
+                                           result[py::str(StdString(ccy))] = pv;
+                                       return result;
+                                   })
+            .def_property_readonly("meta", [](const RatePortfolioNodeRisk_& value) {
+                py::tuple result(value.meta_.size());
+                for (int index = 0; index < static_cast<int>(value.meta_.size()); ++index)
+                    result[static_cast<size_t>(index)] = py::cast(value.meta_[index]);
+                return result;
+            });
 
         m.def(
             "RateTradeNodeSensitivitiesBatch",
@@ -1935,6 +1935,94 @@ namespace {
         AddMatrixSnakeCaseAliases(m);
     }
 
+    void init_bindings_curve_joint(py::module_& m) {
+        auto spec = py::class_<JointMultiCurveCalibrationSpec_>(m, "JointMultiCurveCalibrationSpec_");
+        spec.def(py::init<>());
+        DefReadWriteAliases(spec, "today_", "today", &JointMultiCurveCalibrationSpec_::today_);
+        DefStringAliases(spec, "ccy_", "ccy", &JointMultiCurveCalibrationSpec_::ccy_);
+        DefPropertyAliases(
+            spec, "curves_", "curves", [](const JointMultiCurveCalibrationSpec_& value) { return ValuesToList(value.curves_); },
+            [](JointMultiCurveCalibrationSpec_& value, const py::iterable& curves) {
+                value.curves_.clear();
+                for (const auto curve : curves)
+                    value.curves_.push_back(py::cast<JointCurveDeclaration_>(curve));
+            });
+        DefReadWriteAliases(spec, "liborBasis_", "libor_basis", &JointMultiCurveCalibrationSpec_::liborBasis_);
+        DefReadWriteAliases(spec, "tolerance_", "tolerance", &JointMultiCurveCalibrationSpec_::tolerance_);
+        DefReadWriteAliases(spec, "fitTolerance_", "fit_tolerance", &JointMultiCurveCalibrationSpec_::fitTolerance_);
+        DefReadWriteAliases(spec, "initialGuess_", "initial_guess", &JointMultiCurveCalibrationSpec_::initialGuess_);
+        DefReadWriteAliases(spec, "maxEvaluations_", "max_evaluations", &JointMultiCurveCalibrationSpec_::maxEvaluations_);
+        DefReadWriteAliases(spec, "maxRestarts_", "max_restarts", &JointMultiCurveCalibrationSpec_::maxRestarts_);
+        DefPropertyAliases(
+            spec, "solveMode_", "solve_mode", [](const JointMultiCurveCalibrationSpec_& value) { return value.solveMode_.Switch(); },
+            [](JointMultiCurveCalibrationSpec_& value, CurveSolveMode_::Value_ mode) { value.solveMode_ = CurveSolveMode_(mode); });
+
+        auto options = py::class_<JointMultiCurveCalibrationOptions_>(m, "JointMultiCurveCalibrationOptions_");
+        options.def(py::init<>());
+        DefPropertyAliases(
+            options, "jacobianMode_", "jacobian_mode", [](const JointMultiCurveCalibrationOptions_& value) { return value.jacobianMode_.Switch(); },
+            [](JointMultiCurveCalibrationOptions_& value, CurveJacobianMode_::Value_ mode) { value.jacobianMode_ = CurveJacobianMode_(mode); });
+        DefReadWriteAliases(options, "computeJacobianAtSolution_", "compute_jacobian_at_solution",
+                            &JointMultiCurveCalibrationOptions_::computeJacobianAtSolution_);
+        DefReadWriteAliases(options, "computeEffJacobianInverse_", "compute_eff_jacobian_inverse",
+                            &JointMultiCurveCalibrationOptions_::computeEffJacobianInverse_);
+
+        auto range = py::class_<JointCurveCalibrationRange_>(m, "JointCurveCalibrationRange_");
+        DefReadonlyAliases(range, "curveIndex_", "curve_index", [](const JointCurveCalibrationRange_& value) { return value.curveIndex_; });
+        DefReadonlyAliases(range, "offset_", "offset", [](const JointCurveCalibrationRange_& value) { return value.offset_; });
+        DefReadonlyAliases(range, "size_", "size", [](const JointCurveCalibrationRange_& value) { return value.size_; });
+
+        auto result = py::class_<JointMultiCurveCalibrationResult_>(m, "JointMultiCurveCalibrationResult_");
+        DefReadonlyAliases(result, "discountCurves_", "discount_curves", [](const JointMultiCurveCalibrationResult_& value) {
+            std::map<CollateralType_, std::shared_ptr<DiscountCurve_>> curves;
+            for (const auto& [key, curve] : value.discountCurves_)
+                curves[key] = MutableCurve(curve);
+            return curves;
+        });
+        DefReadonlyAliases(result, "forwardCurves_", "forward_curves", [](const JointMultiCurveCalibrationResult_& value) {
+            std::map<PeriodLength_, std::shared_ptr<DiscountCurve_>> curves;
+            for (const auto& [key, curve] : value.forwardCurves_)
+                curves[key] = MutableCurve(curve);
+            return curves;
+        });
+        DefReadonlyAliases(result, "diagnostics_", "diagnostics",
+                           [](const JointMultiCurveCalibrationResult_& value) { return ValuesToTuple(value.diagnostics_); });
+        DefReadonlyAliases(result, "converged_", "converged", [](const JointMultiCurveCalibrationResult_& value) { return value.converged_; });
+        DefReadonlyAliases(result, "solverEvaluations_", "solver_evaluations",
+                           [](const JointMultiCurveCalibrationResult_& value) { return value.solverEvaluations_; });
+        DefReadonlyAliases(result, "jointMaxAbsResidual_", "joint_max_abs_residual",
+                           [](const JointMultiCurveCalibrationResult_& value) { return value.jointMaxAbsResidual_; });
+        DefReadonlyAliases(result, "jointRmsResidual_", "joint_rms_residual",
+                           [](const JointMultiCurveCalibrationResult_& value) { return value.jointRmsResidual_; });
+        DefReadonlyAliases(result, "jacobianAtSolution_", "jacobian_at_solution",
+                           [](const JointMultiCurveCalibrationResult_& value) { return Matrix_<>(value.jacobianAtSolution_); });
+        DefReadonlyAliases(result, "effJacobianInverse_", "eff_jacobian_inverse",
+                           [](const JointMultiCurveCalibrationResult_& value) { return Matrix_<>(value.effJacobianInverse_); });
+        DefReadonlyAliases(result, "effJacobianInverseScaling_", "eff_jacobian_inverse_scaling",
+                           [](const JointMultiCurveCalibrationResult_& value) { return StdString(value.effJacobianInverseScaling_); });
+        DefReadonlyAliases(result, "effJacobianInverseAvailability_", "eff_jacobian_inverse_availability",
+                           [](const JointMultiCurveCalibrationResult_& value) { return StdString(value.effJacobianInverseAvailability_); });
+        DefReadonlyAliases(result, "effJacobianInverseMapping_", "eff_jacobian_inverse_mapping",
+                           [](const JointMultiCurveCalibrationResult_& value) { return StdString(value.effJacobianInverseMapping_); });
+        DefReadonlyAliases(result, "jacobianModeUsed_", "jacobian_mode_used",
+                           [](const JointMultiCurveCalibrationResult_& value) { return StdString(value.jacobianModeUsed_); });
+        DefReadonlyAliases(result, "parameterRanges_", "parameter_ranges",
+                           [](const JointMultiCurveCalibrationResult_& value) { return ValuesToTuple(value.parameterRanges_); });
+        DefReadonlyAliases(result, "residualRanges_", "residual_ranges",
+                           [](const JointMultiCurveCalibrationResult_& value) { return ValuesToTuple(value.residualRanges_); });
+        DefReadonlyAliases(result, "residualInstrumentOrdinals_", "residual_instrument_ordinals",
+                           [](const JointMultiCurveCalibrationResult_& value) { return ValuesToTuple(value.residualInstrumentOrdinals_); });
+
+        m.def(
+            "CalibrateJointMultiCurveBundle",
+            [](const JointMultiCurveCalibrationSpec_& input, const JointMultiCurveCalibrationOptions_& settings) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateJointMultiCurveBundle(input, settings);
+            },
+            py::arg("spec"), py::arg("options") = JointMultiCurveCalibrationOptions_());
+    }
+
     void init_bindings_curve_quote_risk(py::module_& m) {
         py::class_<RateQuoteRiskProvenanceConfig_>(m, "RateQuoteRiskProvenanceConfig_")
             .def(py::init([](const std::string& calibrationId, const std::map<std::string, std::string>& bindings) {
@@ -2060,6 +2148,8 @@ namespace {
               py::arg("options"), py::arg("bound_market"), py::arg("config"));
         m.def("BuildJointXccyQuoteRiskProvenance", &RunBuildJointXccyQuoteRiskProvenance, py::kw_only(), py::arg("spec"), py::arg("result"),
               py::arg("options"), py::arg("bound_market"), py::arg("config"));
+        m.def("BuildJointMultiCurveQuoteRiskProvenance", &RunBuildJointMultiCurveQuoteRiskProvenance, py::kw_only(), py::arg("spec"),
+              py::arg("result"), py::arg("options"), py::arg("bound_market"), py::arg("config"));
         m.def("BuildStagedXccyBasisQuoteRiskProvenance", &RunBuildStagedXccyBasisQuoteRiskProvenance, py::kw_only(), py::arg("spec"),
               py::arg("result"), py::arg("options"), py::arg("bound_market"), py::arg("config"));
         m.def("AggregateRatePortfolioQuoteRisk", &RunAggregateRatePortfolioQuoteRisk, py::kw_only(), py::arg("trades"), py::arg("market"),
@@ -2084,5 +2174,6 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_calibration_diagnostics(m);
     init_bindings_curve_calibration_results(m);
     init_bindings_curve_xccy(m);
+    init_bindings_curve_joint(m);
     init_bindings_curve_quote_risk(m);
 }

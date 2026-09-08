@@ -492,10 +492,12 @@ The calibration-time provenance freezes:
   `dal.quote-risk-state/1+jcs+sha256` fingerprints.
 
 The supported transform domains are exact single-curve calibration, simultaneous
-domestic/foreign/basis XCCY calibration, and staged XCCY basis calibration.
-Ordinary staged multi-curve chain rules and generic joint multi-curve calibration
-are excluded because their required chain rule or effective inverse is not
-published. The transform accepts either `ANALYTIC` or `BUMPED` inverse
+domestic/foreign/basis XCCY calibration, staged XCCY basis calibration, and
+[generic joint multi-curve calibration](generic_joint_quote_risk.md) with an
+explicit inverse request. The generic joint domain uses v2 fingerprints and
+defines its underdetermined mapping with a fixed initial-Jacobian affine chart;
+the three existing domains retain v1. Ordinary staged multi-curve chain rules
+are excluded. The transform accepts either `ANALYTIC` or `BUMPED` inverse
 construction; an approximate solve or unavailable inverse remains an explicit
 unavailable provenance.
 

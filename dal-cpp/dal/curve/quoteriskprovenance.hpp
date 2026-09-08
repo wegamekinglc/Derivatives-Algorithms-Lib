@@ -82,6 +82,11 @@ namespace Dal {
                                                                           const JointXccyCalibrationOptions_&,
                                                                           const RatePricingMarket_&,
                                                                           const RateQuoteRiskProvenanceConfig_&);
+        friend RateQuoteRiskProvenance_ BuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_&,
+                                                                                const JointMultiCurveCalibrationResult_&,
+                                                                                const JointMultiCurveCalibrationOptions_&,
+                                                                                const RatePricingMarket_&,
+                                                                                const RateQuoteRiskProvenanceConfig_&);
         friend RateQuoteRiskProvenance_ BuildStagedXccyBasisQuoteRiskProvenance(const CrossCurrencyCalibrationSpec_&,
                                                                                 const CrossCurrencyCalibrationResult_&,
                                                                                 const CrossCurrencyCalibrationOptions_&,
@@ -102,6 +107,12 @@ namespace Dal {
 
     [[nodiscard]] const String_& RateQuoteRiskAxisFingerprintScheme();
     [[nodiscard]] const String_& RateQuoteRiskStateFingerprintScheme();
+
+    RateQuoteRiskProvenance_ BuildJointMultiCurveQuoteRiskProvenance(const JointMultiCurveCalibrationSpec_& spec,
+                                                                     const JointMultiCurveCalibrationResult_& result,
+                                                                     const JointMultiCurveCalibrationOptions_& options,
+                                                                     const RatePricingMarket_& boundMarket,
+                                                                     const RateQuoteRiskProvenanceConfig_& config);
 
     RateQuoteRiskProvenance_ BuildSingleCurveQuoteRiskProvenance(const CurveCalibrationSpec_& spec,
                                                                  const CurveCalibrationResult_& result,

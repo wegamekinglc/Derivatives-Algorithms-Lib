@@ -422,10 +422,15 @@ const auto quoteRisk = Dal::AggregateRatePortfolioQuoteRisk(
 
 The supported provenance factories are
 `BuildSingleCurveQuoteRiskProvenance`, `BuildJointXccyQuoteRiskProvenance`,
-and `BuildStagedXccyBasisQuoteRiskProvenance`. They cover exact single-curve,
-simultaneous domestic/foreign/basis XCCY, and staged XCCY basis calibration,
-respectively. Ordinary staged multi-curve chain rules and generic joint
-multi-curve calibration do not have C++ provenance factories. Quote risk also
+`BuildStagedXccyBasisQuoteRiskProvenance`, and
+`BuildJointMultiCurveQuoteRiskProvenance`. They cover exact single-curve,
+simultaneous domestic/foreign/basis XCCY, staged XCCY basis, and generic
+same-currency joint calibration, respectively. The public
+`CalibrateJointMultiCurveBundle(spec, options)` facade exposes the generic
+joint result; its effective inverse request defaults to false. See the
+[generic joint mapping contract](methodology/generic_joint_quote_risk.md),
+including the explicit solution-selection semantics for underdetermined systems.
+Ordinary staged multi-curve chain rules do not have a provenance factory. Quote risk also
 requires an available effective inverse; unavailable results retain a stable
 reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
 `QUOTE_RISK_NOT_AVAILABLE_FOR_SOLVE_MODE`, or
@@ -433,7 +438,9 @@ reason such as `QUOTE_RISK_INVERSE_NOT_REQUESTED`,
 
 `RateQuoteRiskAxis_` publishes named parameter/residual ranges and ordered
 coordinates. Its scheme is `dal.quote-risk-axis/1+jcs+sha256`; the bound curve
-state uses `dal.quote-risk-state/1+jcs+sha256`. Fingerprint values begin with
+state uses `dal.quote-risk-state/1+jcs+sha256` for the three v1 domains.
+Generic joint provenance uses `/2+jcs+sha256` schemes; the v1 bytes and global
+scheme accessors remain unchanged. Fingerprint values begin with
 `sha256:`. Aggregation recomputes the component-state fingerprints and rejects a
 stale provenance atomically instead of mixing states.
 
@@ -594,7 +601,7 @@ deposit example covering the batch and aggregation calls is in the
 
 ### Python quote-space DV01
 
-Python exposes `RateQuoteRiskProvenanceConfig_`, all three supported provenance
+Python exposes `RateQuoteRiskProvenanceConfig_`, all four supported provenance
 builders, and `AggregateRatePortfolioQuoteRisk` as keyword-only calls. They
 release the GIL around native construction or aggregation and return read-only
 objects. The axis/state fingerprint schemes, stable availability reasons,
@@ -604,8 +611,10 @@ identical to C++.
 The runnable [single-curve quote-risk example](../dal-python/examples/009.quote_risk.py)
 prints both fingerprints, the policy, and every bucket. The
 [joint XCCY example](../dal-python/examples/007.xccy_joint_calibration.py) also
-constructs joint provenance. Staged multi-curve chain rules and generic joint
-multi-curve provenance remain outside the supported Python surface.
+constructs joint provenance. The [generic joint example](../dal-python/examples/010.generic_joint_quote_risk.py)
+uses constructible spec/options, `CalibrateJointMultiCurveBundle`, owning result
+curves, and `BuildJointMultiCurveQuoteRiskProvenance`. Ordinary staged
+multi-curve chain rules remain outside the supported Python surface.
 
 `Storable_` exposes read-only `name` and `type` properties, and the native
 `YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for archive
@@ -724,11 +733,14 @@ K1: =RATEPORTFOLIOQUOTERISK.SPILL(E1, G1, J1)
 
 `JOINTXCCYQUOTERISKPROVENANCE.NEW` and
 `STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover the other supported calibration
-domains. `RATEQUOTERISKPROVENANCE.NEW(result, calibrationId,
+domains. Generic joint calibration has the dedicated
+`JOINTMULTICURVEQUOTERISKPROVENANCE.NEW` factory and a
+[complete worksheet construction path](../dal-excel/examples/009.generic_joint_quote_risk.md).
+The legacy `RATEQUOTERISKPROVENANCE.NEW(result, calibrationId,
 parameterBlockKeys, componentKeys, market)` dispatches from a result handle;
 ordinary staged chains and generic joint calibration produce explicit rows with
 `QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE` and
-`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE` rather than an invented transform.
+`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE` under its unchanged v1 contract.
 
 The quote-risk spill columns are `calibration`, `axis_fingerprint`,
 `quote_key`, `quote_name`, `block`, `currency`, `quote_sensitivity`, `dv01`,

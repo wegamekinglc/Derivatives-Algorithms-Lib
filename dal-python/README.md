@@ -682,10 +682,11 @@ in the [public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms
 
 Freeze calibration provenance with
 `BuildSingleCurveQuoteRiskProvenance`,
-`BuildJointXccyQuoteRiskProvenance`, or
-`BuildStagedXccyBasisQuoteRiskProvenance`, then call
+`BuildJointXccyQuoteRiskProvenance`,
+`BuildStagedXccyBasisQuoteRiskProvenance`, or
+`BuildJointMultiCurveQuoteRiskProvenance`, then call
 `AggregateRatePortfolioQuoteRisk(trades=..., market=..., provenances=...)`.
-All four functions are keyword-only, release the GIL around native work, and
+All five functions are keyword-only, release the GIL around native work, and
 return read-only results.
 
 Each bucket contains its calibration/axis identity, ordered quote coordinate,
@@ -693,14 +694,22 @@ actual PV currency, `d_pv_d_decimal_quote`, and `dv01`. The former is price per
 `+1.0` decimal quote move; `dv01` is price per `+1 bp` and therefore equals the
 former times `1e-4`. Axis/state schemes are
 `dal.quote-risk-axis/1+jcs+sha256` and
-`dal.quote-risk-state/1+jcs+sha256`; fingerprint values begin with `sha256:`.
+`dal.quote-risk-state/1+jcs+sha256` for the three existing domains. Generic joint
+provenance uses the corresponding `/2+jcs+sha256` schemes; fingerprint values begin with `sha256:`.
 Aggregation verifies the current market state and performs neither quote bumps
 nor recalibration.
 
 The policy is `UnconvertedByActualPvCcy`: PV and quote-risk buckets remain
 separate by each trade's actual PV currency, without FX conversion. Ordinary
-staged multi-curve chain rules and generic joint multi-curve provenance are not
-supported. The runnable
+staged multi-curve chain rules are not supported. `JointMultiCurveCalibrationSpec_`,
+`JointMultiCurveCalibrationOptions_`, and `CalibrateJointMultiCurveBundle`
+provide a reachable generic joint calibration with read-only results and owning
+curve maps. Its inverse request defaults to false; enabling it for an
+underdetermined EXACT system selects a fixed initial-Jacobian subspace and can
+change the selected solution. See the
+[generic joint example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/010.generic_joint_quote_risk.py)
+and [mapping contract](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/generic_joint_quote_risk.md).
+The runnable
 [single-curve example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/009.quote_risk.py)
 prints the policy, both fingerprints, and all buckets; the
 [joint XCCY example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/007.xccy_joint_calibration.py)

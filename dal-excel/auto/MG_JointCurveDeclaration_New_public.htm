@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>JointCurveDeclaration_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>JointCurveDeclaration_New (in Excel: JOINTCURVEDECLARATION.NEW)</h1>
+Declare one curve in a generic same-currency joint calibration
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Display name; duplicate names are distinguished by declaration index</td></tr>
+<tr><td>instruments</td><td>vector of handles</td><td></td><td>Yield-curve calibration instrument handles</td></tr>
+<tr><td>knotDates</td><td>vector of dates</td><td></td><td>Native curve knot dates</td></tr>
+<tr><td>calibrateDiscountCurve</td><td>boolean</td><td></td><td>True for a discount slot, false for a forward tenor slot</td></tr>
+<tr><td>collateral</td><td>string</td><td></td><td>Discount collateral slot, including the base slot for layered forwards</td></tr>
+<tr><td>tenor</td><td>string</td><td></td><td>Forward tenor such as 3M; empty for discount declarations</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Keys: parameterization, logDfScheme, smoothingWeight, baseLayeredOverDiscount</td></tr>
+<tr><td>initialGuessPerNode</td><td>vector of numbers</td><td>yes</td><td>Optional initial guess in native parameter order</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>declaration</td><td>handle of type StorableJointCurveDeclaration</td><td>Declaration for JOINTMULTICURVECALIBRATIONSPEC.NEW</td></tr>
+</table>
+
+
+
+
+
+
