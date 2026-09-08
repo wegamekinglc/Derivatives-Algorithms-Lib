@@ -1993,6 +1993,28 @@ namespace Dal {
             return record;
         }
 
+        void ValidateGenericForwardJacobian(const JointMultiCurveCalibrationSpec_& spec,
+                                            const JointMultiCurveCalibrationResult_& result,
+                                            const JointMultiCurveCalibrationOptions_& options,
+                                            const RateQuoteRiskAxis_& axis) {
+            const bool expected =
+                options.computeJacobianAtSolution_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && result.jacobianModeUsed_ == "ANALYTIC";
+            REQUIRE(expected ? result.jacobianAtSolution_.Rows() == static_cast<int>(axis.quotes_.size()) &&
+                                   result.jacobianAtSolution_.Cols() == static_cast<int>(axis.parameters_.size())
+                             : result.jacobianAtSolution_.Empty(),
+                    "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+        }
+
+        String_ GenericInverseAvailability(const JointMultiCurveCalibrationSpec_& spec,
+                                           const JointMultiCurveCalibrationResult_& result,
+                                           const JointMultiCurveCalibrationOptions_& options) {
+            if (!options.computeEffJacobianInverse_)
+                return "not_requested";
+            if (spec.solveMode_ != CurveSolveMode_::Value_::EXACT)
+                return "not_available_for_mode";
+            return result.effJacobianInverse_.Empty() ? "not_available_for_mapping" : "available";
+        }
+
         void ValidateGenericInverse(const JointMultiCurveCalibrationSpec_& spec,
                                     const JointMultiCurveCalibrationResult_& result,
                                     const JointMultiCurveCalibrationOptions_& options,
@@ -2003,20 +2025,12 @@ namespace Dal {
             REQUIRE(result.jacobianModeUsed_ == "ANALYTIC" || result.jacobianModeUsed_ == "BUMPED", "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
             if (options.jacobianMode_ == CurveJacobianMode_::Value_::BUMPED)
                 REQUIRE(result.jacobianModeUsed_ == "BUMPED", "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
-            const bool forwardExpected =
-                options.computeJacobianAtSolution_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && result.jacobianModeUsed_ == "ANALYTIC";
-            REQUIRE(forwardExpected ? result.jacobianAtSolution_.Rows() == static_cast<int>(axis.quotes_.size()) &&
-                                          result.jacobianAtSolution_.Cols() == static_cast<int>(axis.parameters_.size())
-                                    : result.jacobianAtSolution_.Empty(),
-                    "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
+            ValidateGenericForwardJacobian(spec, result, options, axis);
             const bool chart = options.computeEffJacobianInverse_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT &&
                                axis.parameters_.size() > axis.quotes_.size();
             REQUIRE(result.effJacobianInverseMapping_ == (chart ? "initial_jacobian_chart" : "local_weighted"),
                     "QUOTE_RISK_EFFECTIVE_INVERSE_MAPPING_INVALID");
-            const String_ expected = !options.computeEffJacobianInverse_                 ? "not_requested"
-                                     : spec.solveMode_ != CurveSolveMode_::Value_::EXACT ? "not_available_for_mode"
-                                     : result.effJacobianInverse_.Empty()                ? "not_available_for_mapping"
-                                                                                         : "available";
+            const String_ expected = GenericInverseAvailability(spec, result, options);
             REQUIRE(result.effJacobianInverseAvailability_ == expected, "QUOTE_RISK_OPTIONS_RESULT_MISMATCH");
             ValidateEffectiveInverse(result.effJacobianInverse_, expected != "available", static_cast<int>(axis.parameters_.size()),
                                      static_cast<int>(axis.quotes_.size()));
@@ -2100,6 +2114,17 @@ namespace Dal {
             return false;
         }
 
+        Json_ JointBlockRoutingJson(const CurveBlock_& block, const DiscountCurve_* target, const RatePricingMarket_& market) {
+            Json_ routed = Json_::Object();
+            for (const auto& [collateral, handle] : block.DiscountCurves())
+                if (CurveReaches(handle.get(), target))
+                    routed.object_["discount:" + std::string(collateral.String())] = RegisteredCurveKeys(handle.get(), market);
+            for (const auto& [tenor, handle] : block.ForwardCurves())
+                if (CurveReaches(handle.get(), target))
+                    routed.object_["forward:" + std::string(tenor.String())] = RegisteredCurveKeys(handle.get(), market);
+            return routed;
+        }
+
         Json_ JointComponentRoutingJson(const String_& componentKey, const RatePricingMarket_& market) {
             Json_ result = Json_::Object();
             const auto* target = market.curveComponents_.at(componentKey).get();
@@ -2107,18 +2132,8 @@ namespace Dal {
                 if (curve && CurveReaches(curve.get(), target))
                     result.object_[std::string(key.data(), key.size())] = RegisteredCurveKeys(PassiveBase(*curve), market);
             if (market.xccyMarket_) {
-                const auto routes = [&](const CurveBlock_& block) {
-                    Json_ routed = Json_::Object();
-                    for (const auto& [collateral, handle] : block.DiscountCurves())
-                        if (CurveReaches(handle.get(), target))
-                            routed.object_["discount:" + std::string(collateral.String())] = RegisteredCurveKeys(handle.get(), market);
-                    for (const auto& [tenor, handle] : block.ForwardCurves())
-                        if (CurveReaches(handle.get(), target))
-                            routed.object_["forward:" + std::string(tenor.String())] = RegisteredCurveKeys(handle.get(), market);
-                    return routed;
-                };
-                result.object_["xccyDomestic"] = routes(market.xccyMarket_->DomesticBlock());
-                result.object_["xccyForeign"] = routes(market.xccyMarket_->ForeignBlock());
+                result.object_["xccyDomestic"] = JointBlockRoutingJson(market.xccyMarket_->DomesticBlock(), target, market);
+                result.object_["xccyForeign"] = JointBlockRoutingJson(market.xccyMarket_->ForeignBlock(), target, market);
             }
             return result;
         }

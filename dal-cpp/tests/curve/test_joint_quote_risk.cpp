@@ -111,6 +111,32 @@ namespace {
         return {"euro-xccy", RateInstrumentType_::Value_::XCCY, spec.today_, spec.today_, Date::AddMonths(spec.today_, 24), Ccy_("EUR"), terms};
     }
 
+    double OracleTarget(int width) { return width <= 5 ? 5.0e-6 : width <= 10 ? 1.0e-4 : 1.0e-3; }
+
+    void WriteOracleEvidence(const Dal::Vector_<Dal::String_>& metadata, const Dal::Vector_<>& numbers, const std::array<Observation_, 5>& prices) {
+        const char* path = std::getenv("DAL_JOINT_QUOTE_RISK_EVIDENCE_FILE");
+        if (!path)
+            return;
+        std::ofstream output(path, std::ios::app);
+        REQUIRE(output.is_open(), "Cannot open joint quote oracle evidence file");
+        if (output.tellp() == 0)
+            output << "fixture_id,blocks,width,mode,parameterization,layered,currency,quote_key,axis_fingerprint,price_scale,api_derivative,"
+                      "oracle_derivative,derivative_abs_error,derivative_rel_error,derivative_abs_threshold,derivative_rel_threshold,api_dv01,"
+                      "oracle_dv01,dv01_abs_error,dv01_rel_error,dv01_abs_threshold,dv01_rel_threshold,unit_error,unit_threshold,"
+                      "pv_base,pv_plus_h,pv_minus_h,pv_plus_b,pv_minus_b,gross_base,gross_plus_h,gross_minus_h,gross_plus_b,gross_minus_b\n";
+        output << std::setprecision(17);
+        for (int column = 0; column < static_cast<int>(metadata.size()); ++column)
+            output << (column ? "," : "") << metadata[column];
+        for (double number : numbers)
+            output << ',' << number;
+        for (const auto& price : prices)
+            output << ',' << price.pv_;
+        for (const auto& price : prices)
+            output << ',' << price.gross_;
+        output << '\n';
+        REQUIRE(output.good(), "Cannot write joint quote oracle evidence file");
+    }
+
     void AssertOracleBucket(const Dal::RateQuoteRiskBucket_& bucket,
                             const std::array<Observation_, 5>& prices,
                             const Dal::JointMultiCurveCalibrationSpec_& spec,
@@ -118,7 +144,7 @@ namespace {
                             int width,
                             bool writeEvidence = true) {
         constexpr double h = 1.0e-6, b = 1.0e-4;
-        const double target = width <= 5 ? 5.0e-6 : width <= 10 ? 1.0e-4 : 1.0e-3;
+        const double target = OracleTarget(width);
         double scale = 1.0;
         for (const auto& price : prices)
             scale = std::max(scale, price.gross_);
@@ -137,33 +163,34 @@ namespace {
                                      options.jacobianMode_.String() + "-" + parameterization.String() + (layered ? "-layered" : "-unlayered");
         SCOPED_TRACE(std::string(fixture.data(), fixture.size()));
         SCOPED_TRACE(std::string(bucket.quoteKey_.data(), bucket.quoteKey_.size()));
-        const char* path = writeEvidence ? std::getenv("DAL_JOINT_QUOTE_RISK_EVIDENCE_FILE") : nullptr;
-        if (path) {
-            std::ofstream output(path, std::ios::app);
-            REQUIRE(output.is_open(), "Cannot open joint quote oracle evidence file");
-            if (output.tellp() == 0)
-                output << "fixture_id,blocks,width,mode,parameterization,layered,currency,quote_key,axis_fingerprint,price_scale,api_derivative,"
-                          "oracle_derivative,derivative_abs_error,derivative_rel_error,derivative_abs_threshold,derivative_rel_threshold,api_dv01,"
-                          "oracle_dv01,dv01_abs_error,dv01_rel_error,dv01_abs_threshold,dv01_rel_threshold,unit_error,unit_threshold,"
-                          "pv_base,pv_plus_h,pv_minus_h,pv_plus_b,pv_minus_b,gross_base,gross_plus_h,gross_minus_h,gross_plus_b,gross_minus_b\n";
-            output << std::setprecision(17) << fixture << ',' << spec.curves_.size() << ',' << width << ',' << options.jacobianMode_.String() << ','
-                   << parameterization.String() << ',' << layered << ',' << bucket.actualPvCcy_.String() << ',' << bucket.quoteKey_ << ','
-                   << bucket.axisFingerprint_ << ',' << scale << ',' << bucket.dPvDDecimalQuote_ << ',' << derivative << ',' << derivativeError << ','
-                   << derivativeRelative << ',' << target * scale << ',' << target << ',' << bucket.dv01_ << ',' << dv01 << ',' << dv01Error << ','
-                   << dv01Relative << ',' << target * scale * b << ',' << target << ',' << unitError << ',' << unitThreshold;
-            for (const auto& price : prices)
-                output << ',' << price.pv_;
-            for (const auto& price : prices)
-                output << ',' << price.gross_;
-            output << '\n';
-            REQUIRE(output.good(), "Cannot write joint quote oracle evidence file");
-        }
+        if (writeEvidence)
+            WriteOracleEvidence({fixture, Dal::String::FromInt(static_cast<int>(spec.curves_.size())), Dal::String::FromInt(width),
+                                 options.jacobianMode_.String(), parameterization.String(), Dal::String::FromInt(layered),
+                                 bucket.actualPvCcy_.String(), bucket.quoteKey_, bucket.axisFingerprint_},
+                                {scale, bucket.dPvDDecimalQuote_, derivative, derivativeError, derivativeRelative, target * scale, target,
+                                 bucket.dv01_, dv01, dv01Error, dv01Relative, target * scale * b, target, unitError, unitThreshold},
+                                prices);
         ASSERT_TRUE(std::isfinite(bucket.dPvDDecimalQuote_) && std::isfinite(bucket.dv01_));
         ASSERT_LE(unitError, unitThreshold);
         ASSERT_TRUE(derivativeError <= target * scale || derivativeRelative <= target)
             << "API=" << bucket.dPvDDecimalQuote_ << " oracle=" << derivative << " abs=" << derivativeError << " rel=" << derivativeRelative;
         ASSERT_TRUE(dv01Error <= target * scale * b || dv01Relative <= target)
             << "API=" << bucket.dv01_ << " oracle=" << dv01 << " abs=" << dv01Error << " rel=" << dv01Relative;
+    }
+
+    Dal::Vector_<> PwlfNativeParameters(const Dal::JointMultiCurveCalibrationSpec_& spec, const Dal::JointMultiCurveCalibrationResult_& result) {
+        Dal::Vector_<> values;
+        const auto market = JointQuoteRiskFixtures::Market(spec, result);
+        for (int block = 0; block < 3; ++block) {
+            const auto& curve =
+                dynamic_cast<const Dal::Tape::DiscountPWLF_<double>&>(*market.curveComponents_.at(JointQuoteRiskFixtures::BlockKey(block)));
+            const auto left = curve.FLeft(), right = curve.FRight();
+            for (int index = 0; index < static_cast<int>(left.size()); ++index) {
+                values.push_back(left[index]);
+                values.push_back(right[index]);
+            }
+        }
+        return values;
     }
 
     void AssertSpecOracle(const Dal::JointMultiCurveCalibrationSpec_& spec,
@@ -322,19 +349,6 @@ TEST(JointQuoteRiskTest, TestUnderdeterminedInverseDifferentiatesEveryNativePara
             const auto options = InverseOptions(mode);
             const auto calibrated = Dal::CalibrateJointMultiCurve(spec, options);
             ASSERT_EQ(calibrated.effJacobianInverseMapping_, "initial_jacobian_chart");
-            const auto parameters = [&](const Dal::JointMultiCurveCalibrationResult_& result) {
-                Dal::Vector_<> values;
-                const auto market = Market(spec, result);
-                for (int block = 0; block < 3; ++block) {
-                    const auto& curve = dynamic_cast<const Dal::Tape::DiscountPWLF_<double>&>(*market.curveComponents_.at(BlockKey(block)));
-                    const auto left = curve.FLeft(), right = curve.FRight();
-                    for (int index = 0; index < static_cast<int>(left.size()); ++index) {
-                        values.push_back(left[index]);
-                        values.push_back(right[index]);
-                    }
-                }
-                return values;
-            };
             for (int block = 0; block < 3; ++block)
                 for (int quote = 0; quote < calibrated.residualRanges_[block].size_; ++quote) {
                     const auto shifted = [&](double bump) {
@@ -342,7 +356,7 @@ TEST(JointQuoteRiskTest, TestUnderdeterminedInverseDifferentiatesEveryNativePara
                         const auto& original = spec.curves_[block].instruments_[quote];
                         input.curves_[block].instruments_[quote] =
                             Instrument(spec.today_, original->TimeSpan().second, block, original->MarketRate() + bump);
-                        return parameters(Dal::CalibrateJointMultiCurve(input, options));
+                        return PwlfNativeParameters(spec, Dal::CalibrateJointMultiCurve(input, options));
                     };
                     const auto plus = shifted(1.0e-6), minus = shifted(-1.0e-6);
                     const int column = calibrated.residualRanges_[block].offset_ + quote;

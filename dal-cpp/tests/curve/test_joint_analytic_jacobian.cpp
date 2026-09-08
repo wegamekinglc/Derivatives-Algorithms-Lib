@@ -376,8 +376,10 @@ namespace {
         Handle_<YieldCurve_> empty;
         for (const auto& declaration : spec.curves_) {
             const auto instruments = OrderInstruments(declaration.instruments_);
-            for (const auto& instrument : instruments)
-                residuals.push_back((*instrument->Precompute(empty))(block)-instrument->MarketRate());
+            for (const auto& instrument : instruments) {
+                const double modelRate = (*instrument->Precompute(empty))(block);
+                residuals.push_back(modelRate - instrument->MarketRate());
+            }
         }
         return residuals;
     }
@@ -453,9 +455,10 @@ namespace {
             const auto instruments = OrderInstruments(declaration.instruments_);
             for (const auto& instrument : instruments) {
                 const RateIndexConvention_& convention = *FloatConventionOf(*instrument);
-                if (convention.useProjectionCurve_)
-                    result.push_back((*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block)-instrument->MarketRate());
-                else
+                if (convention.useProjectionCurve_) {
+                    const auto modelRate = (*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block);
+                    result.push_back(modelRate - instrument->MarketRate());
+                } else
                     result.push_back((*DiscountRateT(*instrument))(Tape::YCCtx_<AAD::Number_>(block.Discount(convention.collateral_))) -
                                      instrument->MarketRate());
             }

@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <dal/utilities/dictionary.hpp>
+#include <optional>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
@@ -129,6 +130,15 @@ namespace Dal {
             }
         }
 
+        void ApplyNumericSpecSetting(const String_& key, const Cell_& value, JointMultiCurveCalibrationSpec_* spec) {
+            if (key == "tolerance")
+                spec->tolerance_ = JointNumber(value);
+            else if (key == "fitTolerance")
+                spec->fitTolerance_ = JointNumber(value);
+            else
+                spec->initialGuess_ = JointNumber(value);
+        }
+
         void ApplySpecSettings(const Matrix_<Cell_>& cells, JointMultiCurveCalibrationSpec_* spec) {
             const auto settings =
                 JointSettings(cells, {"liborBasis", "tolerance", "fitTolerance", "initialGuess", "maxEvaluations", "maxRestarts", "solveMode"});
@@ -140,12 +150,8 @@ namespace Dal {
                 else if (key == "maxEvaluations" || key == "maxRestarts") {
                     REQUIRE(Cell::IsInt(value), "Joint evaluation limits must be integers");
                     (key == "maxEvaluations" ? spec->maxEvaluations_ : spec->maxRestarts_) = Cell::ToInt(value);
-                } else if (key == "tolerance")
-                    spec->tolerance_ = JointNumber(value);
-                else if (key == "fitTolerance")
-                    spec->fitTolerance_ = JointNumber(value);
-                else
-                    spec->initialGuess_ = JointNumber(value);
+                } else
+                    ApplyNumericSpecSetting(key, value, spec);
             }
         }
 
@@ -181,15 +187,7 @@ namespace Dal {
             return result;
         }
 
-        Cell_ JointScalar(const JointMultiCurveCalibrationResult_& result, const String_& attribute) {
-            if (attribute == "converged")
-                return Cell_(result.converged_);
-            if (attribute == "solverEvaluations")
-                return Cell_(static_cast<double>(result.solverEvaluations_));
-            if (attribute == "jointMaxAbsResidual")
-                return Cell_(result.jointMaxAbsResidual_);
-            if (attribute == "jointRmsResidual")
-                return Cell_(result.jointRmsResidual_);
+        Cell_ JointInverseMetadata(const JointMultiCurveCalibrationResult_& result, const String_& attribute) {
             if (attribute == "effJacobianInverseScaling")
                 return Cell_(result.effJacobianInverseScaling_);
             if (attribute == "effJacobianInverseAvailability")
@@ -199,6 +197,33 @@ namespace Dal {
             if (attribute == "jacobianModeUsed")
                 return Cell_(result.jacobianModeUsed_);
             THROW("Unknown generic joint result attribute: " + attribute);
+        }
+
+        Cell_ JointScalar(const JointMultiCurveCalibrationResult_& result, const String_& attribute) {
+            if (attribute == "converged")
+                return Cell_(result.converged_);
+            if (attribute == "solverEvaluations")
+                return Cell_(static_cast<double>(result.solverEvaluations_));
+            if (attribute == "jointMaxAbsResidual")
+                return Cell_(result.jointMaxAbsResidual_);
+            if (attribute == "jointRmsResidual")
+                return Cell_(result.jointRmsResidual_);
+            return JointInverseMetadata(result, attribute);
+        }
+
+        std::optional<Matrix_<Cell_>> JointDiagnosticColumn(const JointMultiCurveCalibrationResult_& result, const String_& attribute) {
+            using Member_ = Vector_<> JointCurveCalibrationDiagnostics_::*;
+            static const std::map<String_, Member_> members{{"marketRates", &JointCurveCalibrationDiagnostics_::marketRates_},
+                                                            {"modelRates", &JointCurveCalibrationDiagnostics_::modelRates_},
+                                                            {"residuals", &JointCurveCalibrationDiagnostics_::residuals_}};
+            const auto found = members.find(attribute);
+            if (found == members.end())
+                return std::nullopt;
+            Vector_<> numbers;
+            for (const auto& diagnostic : result.diagnostics_)
+                for (double number : diagnostic.*found->second)
+                    numbers.push_back(number);
+            return AsCellColumn(numbers);
         }
     } // namespace
 
@@ -277,17 +302,9 @@ namespace Dal {
         else if (attribute == "residualInstrumentOrdinals") {
             Vector_<> ordinals(result->val_.residualInstrumentOrdinals_.begin(), result->val_.residualInstrumentOrdinals_.end());
             *value = AsCellColumn(ordinals);
-        } else if (attribute == "marketRates" || attribute == "modelRates" || attribute == "residuals") {
-            Vector_<> numbers;
-            for (const auto& diagnostic : result->val_.diagnostics_) {
-                const auto& source = attribute == "marketRates"  ? diagnostic.marketRates_
-                                     : attribute == "modelRates" ? diagnostic.modelRates_
-                                                                 : diagnostic.residuals_;
-                for (double number : source)
-                    numbers.push_back(number);
-            }
-            *value = AsCellColumn(numbers);
-        } else {
+        } else if (const auto column = JointDiagnosticColumn(result->val_, attribute))
+            *value = *column;
+        else {
             value->Resize(1, 1);
             (*value)(0, 0) = JointScalar(result->val_, attribute);
         }

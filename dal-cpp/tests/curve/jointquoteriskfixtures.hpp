@@ -41,6 +41,35 @@ namespace JointQuoteRiskFixtures {
         return Dal::Handle_<Dal::YCInstrument_>(new Dal::Swap_(today, today, maturity, quote, Leg(6), Index(block), Leg(block == 2 ? 6 : 3)));
     }
 
+    inline Dal::JointCurveDeclaration_
+    Declaration(const Dal::Date_& today, int block, int count, Dal::CurveParameterization_ parameterization, bool layered) {
+        Dal::JointCurveDeclaration_ declaration;
+        declaration.curveName_ = "repeated_name";
+        declaration.calibrateDiscountCurve_ = block == 0;
+        declaration.targetTenor_ = block == 0 ? Dal::PeriodLength_() : Index(block).forecastTenor_;
+        declaration.baseLayeredOverDiscount_ = layered && block != 0;
+        declaration.parameterization_ = parameterization;
+        for (int ordinal = 0; ordinal < count; ++ordinal) {
+            const auto maturity = Dal::Date::AddMonths(today, 12 * (ordinal + 1));
+            declaration.knotDates_.push_back(Dal::Date::AddMonths(maturity, -6));
+            declaration.instruments_.push_back(Instrument(today, maturity, block, 0.0));
+        }
+        return declaration;
+    }
+
+    inline Dal::Vector_<> KnownParameters(const Dal::JointMultiCurveCalibrationSpec_& spec,
+                                          const std::vector<Dal::JointCalibrationInternal::CurveSlot_>& slots,
+                                          bool layered) {
+        Dal::Vector_<> known;
+        for (const auto& slot : slots) {
+            const double rate = slot.curveIndex_ == 0 ? 0.02 : (layered ? 0.014 : 0.034) + 0.004 * (slot.curveIndex_ - 1);
+            const auto parameters = Dal::JointCalibrationInternal::BuildGuessSlice(spec.curves_[slot.curveIndex_], slot.definition_, rate, "fixture");
+            for (double parameter : parameters)
+                known.push_back(parameter);
+        }
+        return known;
+    }
+
     inline Dal::JointMultiCurveCalibrationSpec_
     Spec(int quotes = 5,
          int blocks = 2,
@@ -56,19 +85,8 @@ namespace JointQuoteRiskFixtures {
         result.maxRestarts_ = 100;
         result.initialGuess_ = 0.025;
         for (int block = 0; block < blocks; ++block) {
-            Dal::JointCurveDeclaration_ declaration;
-            declaration.curveName_ = "repeated_name";
-            declaration.calibrateDiscountCurve_ = block == 0;
-            declaration.targetTenor_ = block == 0 ? Dal::PeriodLength_() : Index(block).forecastTenor_;
-            declaration.baseLayeredOverDiscount_ = layered && block != 0;
-            declaration.parameterization_ = parameterization;
             const int count = quotes / blocks + (block < quotes % blocks ? 1 : 0);
-            for (int ordinal = 0; ordinal < count; ++ordinal) {
-                const auto maturity = Dal::Date::AddMonths(result.today_, 12 * (ordinal + 1));
-                declaration.knotDates_.push_back(Dal::Date::AddMonths(maturity, -6));
-                declaration.instruments_.push_back(Instrument(result.today_, maturity, block, 0.0));
-            }
-            result.curves_.push_back(declaration);
+            result.curves_.push_back(Declaration(result.today_, block, count, parameterization, layered));
         }
         Dal::JointCalibrationInternal::CurveCollectionSpec_ collection;
         collection.today_ = result.today_;
@@ -76,15 +94,7 @@ namespace JointQuoteRiskFixtures {
         collection.liborBasis_ = result.liborBasis_;
         collection.curves_ = &result.curves_;
         const auto slots = Dal::JointCalibrationInternal::ValidateAndBuildSlots(collection);
-        Dal::Vector_<> known;
-        for (const auto& slot : slots) {
-            const double rate = slot.curveIndex_ == 0 ? 0.02 : (layered ? 0.014 : 0.034) + 0.004 * (slot.curveIndex_ - 1);
-            const auto parameters =
-                Dal::JointCalibrationInternal::BuildGuessSlice(result.curves_[slot.curveIndex_], slot.definition_, rate, "fixture");
-            for (double parameter : parameters)
-                known.push_back(parameter);
-        }
-        const auto market = Dal::JointCalibrationInternal::BuildCurveBlock(collection, slots, known);
+        const auto market = Dal::JointCalibrationInternal::BuildCurveBlock(collection, slots, KnownParameters(result, slots, layered));
         for (int block = 0; block < blocks; ++block)
             for (auto& instrument : result.curves_[block].instruments_) {
                 const double quote = (*instrument->Precompute(Dal::Handle_<Dal::YieldCurve_>()))(*market);

@@ -150,11 +150,11 @@ positions, full native parameter responses, and source/failure boundaries.
 Each original quote is recalibrated and repriced at ±1e-6 and ±1e-4; calibration
 failure, non-finite output, or loss of an eligible trade fails the test.
 
-| N | Derivative absolute limit | Relative limit | DV01 absolute limit |
-|---|---|---|---|
-| 5 | 5e-6 P | 5e-6 | 5e-10 P |
-| 10 | 1e-4 P | 1e-4 | 1e-8 P |
-| 16 | 1e-3 P | 1e-3 | 1e-7 P |
+| N  | Derivative absolute limit | Relative limit | DV01 absolute limit |
+|----|---------------------------|----------------|---------------------|
+| 5  | 5e-6 P                    | 5e-6           | 5e-10 P             |
+| 10 | 1e-4 P                    | 1e-4           | 1e-8 P              |
+| 16 | 1e-3 P                    | 1e-3           | 1e-7 P              |
 
 P is max(1, gross absolute PV at the base and four shocked states) for the
 currency and quote. Derivative and DV01 must each pass their absolute or

@@ -873,24 +873,29 @@ namespace Dal {
                 return jointDependencies_.emplace(key, std::move(result)).first->second;
             }
 
+            bool PrepareJointChain(const String_& key, const DiscountCurve_* curve) {
+                auto& result = jointPreparations_.at(key);
+                const auto* target = market_.curveComponents_.at(key).get();
+                while (curve && !result.count(curve)) {
+                    const auto* preparation = PreparationFor(curve, RateCashflowPricingInternal::ClassifyNodeSensitivityCurve(*curve));
+                    if (!preparation) {
+                        result.clear();
+                        return false;
+                    }
+                    result.emplace(curve, preparation);
+                    curve = curve == target ? nullptr : preparation->passiveBase_.get();
+                }
+                return true;
+            }
+
             const JointNodePreparations_* JointPreparationsForKey(const String_& key) {
                 const auto found = jointPreparations_.find(key);
                 if (found != jointPreparations_.end())
                     return found->second.empty() ? nullptr : &found->second;
                 auto& result = jointPreparations_[key];
-                const auto* target = market_.curveComponents_.at(key).get();
-                for (const auto& dependency : JointDependencyKeys(key)) {
-                    const auto* curve = market_.curveComponents_.at(dependency).get();
-                    while (curve && !result.count(curve)) {
-                        const auto* preparation = PreparationFor(curve, RateCashflowPricingInternal::ClassifyNodeSensitivityCurve(*curve));
-                        if (!preparation) {
-                            result.clear();
-                            return nullptr;
-                        }
-                        result.emplace(curve, preparation);
-                        curve = curve == target ? nullptr : preparation->passiveBase_.get();
-                    }
-                }
+                for (const auto& dependency : JointDependencyKeys(key))
+                    if (!PrepareJointChain(key, market_.curveComponents_.at(dependency).get()))
+                        return nullptr;
                 return result.empty() ? nullptr : &result;
             }
 
@@ -941,6 +946,27 @@ namespace Dal {
                 return passive.succeeded_ && std::isfinite(passive.pv_);
             }
 
+            String_ DependencyFailure(const Vector_<String_>& keys) {
+                for (const auto& key : keys) {
+                    const auto& gate = GateForKey(key);
+                    if (!gate.available_)
+                        return "CURVE_COMPONENT_UNAVAILABLE";
+                    if (!gate.representable_)
+                        return "CURVE_REPRESENTATION_NOT_AAD_ENABLED";
+                }
+                return {};
+            }
+
+            bool NeedsJointSweep(const String_& key, bool jointCoordinates) { return jointCoordinates && JointDependencyKeys(key).size() > 1; }
+
+            RateTradeNodeSensitivityResult_
+            SweepJoint(const RateTradeDefinition_& trade, const String_& key, const XccyNodeSensitivityHoist_* hoist = nullptr) {
+                const auto* preparations = JointPreparationsForKey(key);
+                if (!preparations)
+                    return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+                return RunJointNodeSensitivityStage(trade, market_, market_.curveComponents_.at(key).get(), *preparations, hoist);
+            }
+
             RateTradeNodeSensitivityResult_
             SweepSingleCurrency(const RateTradeDefinition_& trade, const String_& componentKey, bool jointCoordinates) {
                 using namespace RateCashflowPricingInternal;
@@ -950,24 +976,16 @@ namespace Dal {
 
                 // Availability and representation are gated for every component the trade depends
                 // on, in dependency order; only the requested target is prepared and registered.
-                for (const auto& key : dependencyKeys) {
-                    const auto& gate = GateForKey(key);
-                    if (!gate.available_)
-                        return NodeSensitivityFailure("CURVE_COMPONENT_UNAVAILABLE");
-                    if (!gate.representable_)
-                        return NodeSensitivityFailure("CURVE_REPRESENTATION_NOT_AAD_ENABLED");
-                }
+                const auto dependencyFailure = DependencyFailure(dependencyKeys);
+                if (!dependencyFailure.empty())
+                    return NodeSensitivityFailure(dependencyFailure);
                 if (!PassiveOk(trade))
                     return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
                 const NodeSensitivityPreparation_* target = PreparationForKey(componentKey);
                 if (!target)
                     return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                if (jointCoordinates && JointDependencyKeys(componentKey).size() > 1) {
-                    const auto* preparations = JointPreparationsForKey(componentKey);
-                    if (!preparations)
-                        return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                    return RunJointNodeSensitivityStage(trade, market_, market_.curveComponents_.at(componentKey).get(), *preparations);
-                }
+                if (NeedsJointSweep(componentKey, jointCoordinates))
+                    return SweepJoint(trade, componentKey);
                 return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target);
             }
 
@@ -1010,20 +1028,22 @@ namespace Dal {
                 return xccyHoists_.emplace(&trade, std::move(hoist)).first->second;
             }
 
+            RateTradeNodeSensitivityResult_ UnresolvedXccyFailure(const RateTradeDefinition_& trade) {
+                // Expired trades price to zero without resolving the market and keep the dependency token.
+                return RateCashflowPricingInternal::NodeSensitivityFailure(PassiveOk(trade) ? "TRADE_DOES_NOT_DEPEND_ON_COMPONENT"
+                                                                                            : "TRADE_VALIDATION_FAILED");
+            }
+
+            static bool XccyPreparationReady(const XccyNodeSensitivityHoist_& hoist) {
+                return hoist.preparationAttempted_ && hoist.preparationOk_ && hoist.plan_;
+            }
+
             RateTradeNodeSensitivityResult_
             SweepXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, const String_& componentKey, bool jointCoordinates) {
                 using namespace RateCashflowPricingInternal;
                 const XccyNodeSensitivityHoist_& hoist = HoistXccy(trade, terms);
-                if (!hoist.consumed_.resolved_) {
-                    // Unresolvable market structure (no XCCY market, or a block the config cannot
-                    // route): no key is addressable, but the honest token is the failure passive
-                    // pricing produces -- not "trade does not depend on component". An expired
-                    // trade prices to zero without touching the XCCY market, so it keeps the
-                    // dependency token.
-                    if (!PassiveOk(trade))
-                        return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
-                    return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
-                }
+                if (!hoist.consumed_.resolved_)
+                    return UnresolvedXccyFailure(trade);
                 if (!ConsumesComponent(hoist.dependencyKeys_, componentKey, jointCoordinates))
                     return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
                 REQUIRE(market_.xccyMarket_, "XCCY node sensitivity requires an immutable cross-currency market");
@@ -1033,14 +1053,10 @@ namespace Dal {
                                                                                                    : "AAD_EVALUATION_FAILED");
                 if (!PassiveOk(trade))
                     return NodeSensitivityFailure("TRADE_VALIDATION_FAILED");
-                if (!hoist.preparationAttempted_ || !hoist.preparationOk_ || !hoist.plan_)
+                if (!XccyPreparationReady(hoist))
                     return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                if (jointCoordinates && JointDependencyKeys(componentKey).size() > 1) {
-                    const auto* preparations = JointPreparationsForKey(componentKey);
-                    if (!preparations)
-                        return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                    return RunJointNodeSensitivityStage(trade, market_, targetCurve, *preparations, &hoist);
-                }
+                if (NeedsJointSweep(componentKey, jointCoordinates))
+                    return SweepJoint(trade, componentKey, &hoist);
                 return RunXccyNodeSensitivityStage(terms, market_, targetCurve, hoist);
             }
 
@@ -1516,6 +1532,20 @@ namespace Dal {
                 ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, result);
         }
 
+        bool ConsumesInvalidCurve(const String_& key, const RatePricingMarket_& market, const std::set<String_>& invalidKeys) {
+            if (invalidKeys.count(key))
+                return true;
+            const auto found = market.curveComponents_.find(key);
+            if (found == market.curveComponents_.end())
+                return false;
+            for (const auto& invalidKey : invalidKeys) {
+                const auto bad = market.curveComponents_.find(invalidKey);
+                if (bad != market.curveComponents_.end() && CurveDependsOn(found->second.get(), bad->second.get()))
+                    return true;
+            }
+            return false;
+        }
+
         std::optional<RatePricingTradeResult_>
         InvalidQuoteRiskSourcePrice(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const std::set<String_>& invalidKeys) {
             if (invalidKeys.empty())
@@ -1524,18 +1554,9 @@ namespace Dal {
             invalid.error_ = "QUOTE_RISK_CALIBRATION_STATE_MISMATCH";
             try {
                 invalid.dependencyComponentKeys_ = BuildRateCashflowPlan(trade, market).dependencyComponentKeys_;
-                for (const auto& key : invalid.dependencyComponentKeys_) {
-                    if (invalidKeys.count(key))
+                for (const auto& key : invalid.dependencyComponentKeys_)
+                    if (ConsumesInvalidCurve(key, market, invalidKeys))
                         return invalid;
-                    const auto found = market.curveComponents_.find(key);
-                    if (found == market.curveComponents_.end())
-                        continue;
-                    for (const auto& invalidKey : invalidKeys) {
-                        const auto bad = market.curveComponents_.find(invalidKey);
-                        if (bad != market.curveComponents_.end() && CurveDependsOn(found->second.get(), bad->second.get()))
-                            return invalid;
-                    }
-                }
             } catch (const std::exception&) {
                 return invalid;
             }
