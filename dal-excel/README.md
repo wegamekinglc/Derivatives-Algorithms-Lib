@@ -113,8 +113,10 @@ portfolio against that frozen axis and bound market state:
 
 `JOINTXCCYQUOTERISKPROVENANCE.NEW` and
 `STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover simultaneous XCCY and staged
-XCCY basis results. `RATEQUOTERISKPROVENANCE.NEW` dispatches from a result
-handle. Ordinary staged multi-curve chains and generic joint multi-curve results
+XCCY basis results. `JOINTMULTICURVEQUOTERISKPROVENANCE.NEW` supports generic
+joint results produced by the [joint construction recipe](examples/009.generic_joint_quote_risk.md).
+`RATEQUOTERISKPROVENANCE.NEW` retains its v1 dispatcher contract. Ordinary
+staged multi-curve chains and generic joint multi-curve results sent to that dispatcher
 emit explicit unavailable rows with
 `QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE` and
 `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`.

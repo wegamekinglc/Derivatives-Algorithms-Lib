@@ -54,4 +54,13 @@ namespace Dal {
 
     MultiCurveCalibrationResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec) { return CalibrateMultiCurve(spec); }
 
+    JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec) {
+        return CalibrateJointMultiCurveBundle(spec, JointMultiCurveCalibrationOptions_());
+    }
+
+    JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec,
+                                                                     const JointMultiCurveCalibrationOptions_& options) {
+        return CalibrateJointMultiCurve(spec, options);
+    }
+
 } // namespace Dal

@@ -143,10 +143,29 @@ namespace Dal {
         void Write(Archive::Store_&) const override {}
     };
 
+    struct StorableJointCurveDeclaration_ : public Storable_ {
+        JointCurveDeclaration_ val_;
+        explicit StorableJointCurveDeclaration_(const JointCurveDeclaration_& value) : Storable_("JointCurveDeclaration", String_()), val_(value) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableJointMultiCurveCalibrationSpec_ : public Storable_ {
+        JointMultiCurveCalibrationSpec_ val_;
+        explicit StorableJointMultiCurveCalibrationSpec_(const JointMultiCurveCalibrationSpec_& value)
+            : Storable_("JointMultiCurveCalibrationSpec", String_()), val_(value) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
     struct StorableJointMultiCurveCalibrationResult_ : public Storable_ {
         JointMultiCurveCalibrationResult_ val_;
+        JointMultiCurveCalibrationSpec_ spec_;
+        JointMultiCurveCalibrationOptions_ options_;
         explicit StorableJointMultiCurveCalibrationResult_(const JointMultiCurveCalibrationResult_& v)
             : Storable_("JointMultiCurveCalibrationResult", String_()), val_(v) {}
+        StorableJointMultiCurveCalibrationResult_(const JointMultiCurveCalibrationResult_& value,
+                                                  const JointMultiCurveCalibrationSpec_& spec,
+                                                  const JointMultiCurveCalibrationOptions_& options)
+            : Storable_("JointMultiCurveCalibrationResult", String_()), val_(value), spec_(spec), options_(options) {}
         void Write(Archive::Store_&) const override {}
     };
 

@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>JointMultiCurveCalibrationResult_Get_Curve</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>JointMultiCurveCalibrationResult_Get_Curve (in Excel: JOINTMULTICURVECALIBRATIONRESULT.GET.CURVE)</h1>
+Extract one calibrated discount or forward curve by declaration index
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableJointMultiCurveCalibrationResult</td><td></td><td>Generic joint calibration result</td></tr>
+<tr><td>curveIndex</td><td>integer</td><td></td><td>Zero-based declaration index, matching curve:0, curve:1, and so on</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>curve</td><td>handle of type StorableDiscountCurve</td><td>Owning curve handle usable by RATEPRICINGMARKET.NEW</td></tr>
+</table>
+
+
+
+
+
+

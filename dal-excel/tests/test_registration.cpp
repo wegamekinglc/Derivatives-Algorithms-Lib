@@ -52,32 +52,34 @@ namespace {
     }
 } // namespace
 
-TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) {
-    ASSERT_GE(RegisteredFunctionsForTest().size(), 67);
-}
+TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) { ASSERT_GE(RegisteredFunctionsForTest().size(), 67); }
 
 TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata) {
     const auto registrations = RegisteredFunctionsForTest();
     const Vector_<String_> cNames = {
         "xl_SingleCurveQuoteRiskProvenance_New",
         "xl_JointXccyQuoteRiskProvenance_New",
+        "xl_JointMultiCurveQuoteRiskProvenance_New",
+        "xl_JointCurveDeclaration_New",
+        "xl_JointMultiCurveCalibrationSpec_New",
+        "xl_Calibrate_JointMultiCurve",
+        "xl_JointMultiCurveCalibrationResult_Get_Curve",
+        "xl_JointMultiCurveCalibrationResult_Get",
         "xl_StagedXccyBasisQuoteRiskProvenance_New",
         "xl_RateQuoteRiskProvenance_New",
         "xl_RatePortfolioQuoteRisk_Spill",
     };
     for (const auto& cName : cNames) {
-        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& registration) {
-            return registration.cName_ == cName;
-        });
+        const auto found =
+            std::find_if(registrations.begin(), registrations.end(), [&](const auto& registration) { return registration.cName_ == cName; });
         ASSERT_NE(found, registrations.end()) << cName.c_str();
         ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(cName.substr(3)));
         ASSERT_FALSE(found->help_.empty());
         ASSERT_EQ(DeclaredArgCount(*found), found->argHelpCount_);
         ASSERT_LE(found->maxArgHelpLength_, 255);
     }
-    const auto staged = std::find_if(registrations.begin(), registrations.end(), [](const auto& registration) {
-        return registration.cName_ == "xl_StagedXccyBasisQuoteRiskProvenance_New";
-    });
+    const auto staged = std::find_if(registrations.begin(), registrations.end(),
+                                     [](const auto& registration) { return registration.cName_ == "xl_StagedXccyBasisQuoteRiskProvenance_New"; });
     ASSERT_NE(staged, registrations.end());
     ASSERT_EQ(staged->argNames_, String_("result,calibrationId,parameterBlockKeys,componentKeys,market"));
 }

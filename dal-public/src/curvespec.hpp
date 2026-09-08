@@ -7,6 +7,7 @@
 #include <map>
 
 #include <dal/curve/calibration.hpp>
+#include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/logdfscheme.hpp>
 #include <dal/platform/platform.hpp>
 
@@ -63,5 +64,8 @@ namespace Dal {
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, CurveJacobianMode_ jacobianMode);
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec);
+    JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec);
+    JointMultiCurveCalibrationResult_ CalibrateJointMultiCurveBundle(const JointMultiCurveCalibrationSpec_& spec,
+                                                                     const JointMultiCurveCalibrationOptions_& options);
 
 } // namespace Dal

@@ -12,6 +12,7 @@ chrome-libs/
 coverage.info
 coverage/
 *.csv
+!dal-public/tests/data/generic_joint_quote_risk_v2.csv
 dist
 build
 *.egg-info

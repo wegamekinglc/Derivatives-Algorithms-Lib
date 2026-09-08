@@ -70,7 +70,7 @@ def _single_quote_risk_inputs(*, compute_inverse=True):
     return spec, options, calibrated, fixings, market, config, provenance, trade
 
 
-def _run_with_quote_risk_gil_heartbeat(operation):
+def _run_with_quote_risk_gil_heartbeat(operation, *, barrier=None):
     import sys
     import time
     import threading
@@ -101,7 +101,8 @@ def _run_with_quote_risk_gil_heartbeat(operation):
         thread = threading.Thread(target=heartbeat)
         thread.start()
         assert ready.wait(timeout=5.0)  # nosec B101
-        dal._dal._QuoteRiskGilBarrier_EnableForTesting(75)
+        enable_barrier = barrier or dal._dal._QuoteRiskGilBarrier_EnableForTesting
+        enable_barrier(75)
         started.set()
         result = operation()
     finally:
@@ -119,6 +120,7 @@ def test_quote_risk_factories_and_aggregate_are_keyword_only():
     signatures = {
         "BuildSingleCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "BuildJointXccyQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
+        "BuildJointMultiCurveQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "BuildStagedXccyBasisQuoteRiskProvenance": ("spec", "result", "options", "bound_market", "config"),
         "AggregateRatePortfolioQuoteRisk": ("trades", "market", "provenances"),
     }
@@ -133,7 +135,6 @@ def test_quote_risk_factories_and_aggregate_are_keyword_only():
         assert positions == sorted(positions)  # nosec B101
 
     assert not hasattr(dal, "BuildMultiCurveQuoteRiskProvenance")  # nosec B101
-    assert not hasattr(dal, "BuildJointMultiCurveQuoteRiskProvenance")  # nosec B101
 
     with pytest.raises(TypeError):
         dal.RateQuoteRiskProvenanceConfig_("calibration", {"curve": "discount"})

@@ -6,7 +6,43 @@
 
 #include <type_traits>
 
+#include "jointquoteriskfixture.hpp"
 #include <dal-public/src/curvepricing.hpp>
+
+TEST(CurvePricingPublicTest, TestGenericJointCrossLanguageReference) {
+    const auto spec = JointQuoteRiskPublicFixture::Spec();
+    Dal::JointMultiCurveCalibrationOptions_ options;
+    options.computeEffJacobianInverse_ = true;
+    const auto result = Dal::CalibrateJointMultiCurveBundle(spec, options);
+    const auto market = JointQuoteRiskPublicFixture::Market(result);
+    const auto provenance = Dal::BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, market, JointQuoteRiskPublicFixture::Config());
+    const auto risk = Dal::AggregateRatePortfolioQuoteRisk({JointQuoteRiskPublicFixture::Trade()}, market, {provenance});
+    const auto reference = JointQuoteRiskPublicFixture::ParityRows();
+    ASSERT_EQ(risk.buckets_.size(), reference.size());
+    for (int row = 0; row < static_cast<int>(reference.size()); ++row) {
+        const auto& bucket = risk.buckets_[row];
+        ASSERT_EQ(bucket.axisFingerprint_, Dal::String_(reference[row][0]));
+        ASSERT_EQ(bucket.quoteKey_, Dal::String_(reference[row][1]));
+        ASSERT_STREQ(bucket.actualPvCcy_.String(), reference[row][2].c_str());
+        ASSERT_NEAR(bucket.dPvDDecimalQuote_, std::stod(reference[row][3]), 1.0e-5);
+        ASSERT_NEAR(bucket.dv01_, std::stod(reference[row][4]), 1.0e-9);
+    }
+}
+
+TEST(CurvePricingPublicTest, TestGenericJointFacadeAndLegacyAggregateInitialization) {
+    const Dal::JointMultiCurveCalibrationOptions_ oldOptions{Dal::CurveJacobianMode_::Value_::BUMPED, false};
+    ASSERT_FALSE(oldOptions.computeEffJacobianInverse_);
+    using calibrate_t =
+        Dal::JointMultiCurveCalibrationResult_ (*)(const Dal::JointMultiCurveCalibrationSpec_&, const Dal::JointMultiCurveCalibrationOptions_&);
+    const calibrate_t calibrate = &Dal::CalibrateJointMultiCurveBundle;
+    using provenance_t = Dal::RateQuoteRiskProvenance_ (*)(const Dal::JointMultiCurveCalibrationSpec_&, const Dal::JointMultiCurveCalibrationResult_&,
+                                                           const Dal::JointMultiCurveCalibrationOptions_&, const Dal::RatePricingMarket_&,
+                                                           const Dal::RateQuoteRiskProvenanceConfig_&);
+    const provenance_t provenance = &Dal::BuildJointMultiCurveQuoteRiskProvenance;
+    ASSERT_NE(calibrate, nullptr);
+    ASSERT_NE(provenance, nullptr);
+    ASSERT_THROW(calibrate(Dal::JointMultiCurveCalibrationSpec_(), oldOptions), Dal::Exception_);
+}
 
 TEST(CurvePricingPublicTest, TestClosedRegistryAndStructuredTerms) {
     const auto families = Dal::RateInstrumentTypeListAll();
@@ -74,9 +110,9 @@ TEST(CurvePricingPublicTest, TestBatchAndAggregationEntryPointsRemainCallableThr
     static_assert(std::is_aggregate_v<Dal::RatePortfolioNodeRiskComponent_>);
     static_assert(std::is_aggregate_v<Dal::RatePortfolioNodeRisk_>);
     using batch_t = Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&,
-                                                                        const Dal::RatePricingMarket_&,
-                                                                        const Dal::Vector_<Dal::String_>&);
-    using aggregate_t = Dal::RatePortfolioNodeRisk_ (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&, const Dal::RatePricingMarket_&, const Dal::Vector_<Dal::String_>&);
+                                                                         const Dal::RatePricingMarket_&, const Dal::Vector_<Dal::String_>&);
+    using aggregate_t = Dal::RatePortfolioNodeRisk_ (*)(const Dal::Vector_<Dal::RateTradeDefinition_>&, const Dal::RatePricingMarket_&,
+                                                        const Dal::Vector_<Dal::String_>&);
     const batch_t batch = &Dal::RateTradeNodeSensitivitiesBatch;
     const aggregate_t aggregate = &Dal::AggregateRatePortfolioNodeRisk;
     ASSERT_NE(batch, nullptr);

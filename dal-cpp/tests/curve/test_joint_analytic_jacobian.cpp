@@ -376,8 +376,10 @@ namespace {
         Handle_<YieldCurve_> empty;
         for (const auto& declaration : spec.curves_) {
             const auto instruments = OrderInstruments(declaration.instruments_);
-            for (const auto& instrument : instruments)
-                residuals.push_back((*instrument->Precompute(empty))(block) - instrument->MarketRate());
+            for (const auto& instrument : instruments) {
+                const double modelRate = (*instrument->Precompute(empty))(block);
+                residuals.push_back(modelRate - instrument->MarketRate());
+            }
         }
         return residuals;
     }
@@ -453,9 +455,10 @@ namespace {
             const auto instruments = OrderInstruments(declaration.instruments_);
             for (const auto& instrument : instruments) {
                 const RateIndexConvention_& convention = *FloatConventionOf(*instrument);
-                if (convention.useProjectionCurve_)
-                    result.push_back((*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block) - instrument->MarketRate());
-                else
+                if (convention.useProjectionCurve_) {
+                    const auto modelRate = (*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block);
+                    result.push_back(modelRate - instrument->MarketRate());
+                } else
                     result.push_back((*DiscountRateT(*instrument))(Tape::YCCtx_<AAD::Number_>(block.Discount(convention.collateral_))) -
                                      instrument->MarketRate());
             }
@@ -864,8 +867,8 @@ TEST(JointAnalyticJacobianTest, TestHomogeneousZeroRateParameterizationsMatchCen
     };
     for (const LogDfScheme_ scheme : schemes) {
         SCOPED_TRACE(scheme.String());
-        const JointMultiCurveCalibrationSpec_ spec = BuildParameterizationSpec(
-            today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::ZERO_RATE, scheme);
+        const JointMultiCurveCalibrationSpec_ spec =
+            BuildParameterizationSpec(today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::ZERO_RATE, scheme);
         ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(spec, String_("homogeneous ZERO_RATE ") + scheme.String()));
     }
 }
@@ -1036,4 +1039,68 @@ TEST(JointAnalyticJacobianTest, TestDefaultEngagesAnalyticOnEligibleSpec) {
     const JointMultiCurveCalibrationResult_ rDefault = CalibrateJointMultiCurve(spec);
     ASSERT_TRUE(rDefault.converged_);
     ASSERT_FALSE(rDefault.jacobianAtSolution_.Empty()); // default ANALYTIC engaged
+}
+
+TEST(JointAnalyticJacobianTest, TestRetainedEffectiveInverseHasSolverUnitsAndOrderedRanges) {
+    auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), true, DayBasis_("ACT_365F"));
+    // The existing forward-J fixture has two deposits before its first free slope and rank 9/10.
+    spec.curves_[0].knotDates_.front() = Date::AddMonths(spec.today_, 1);
+    for (const auto mode : {CurveJacobianMode_::Value_::ANALYTIC, CurveJacobianMode_::Value_::BUMPED}) {
+        JointMultiCurveCalibrationOptions_ options;
+        options.jacobianMode_ = mode;
+        options.computeEffJacobianInverse_ = true;
+        const int before = CurveCalibrationInvocationCount();
+        const auto result = CalibrateJointMultiCurve(spec, options);
+        ASSERT_EQ(CurveCalibrationInvocationCount(), before + 1);
+        ASSERT_EQ(result.effJacobianInverse_.Rows(), 32);
+        ASSERT_EQ(result.effJacobianInverse_.Cols(), 10);
+        ASSERT_EQ(result.effJacobianInverseScaling_, "solver_scaled");
+        ASSERT_EQ(result.effJacobianInverseAvailability_, "available");
+        ASSERT_EQ(result.jacobianModeUsed_, CurveJacobianMode_(mode).String());
+        ASSERT_EQ(result.parameterRanges_.size(), 2);
+        ASSERT_EQ(result.residualRanges_.size(), 2);
+        ASSERT_EQ(result.parameterRanges_[0].curveIndex_, 0);
+        ASSERT_EQ(result.parameterRanges_[1].offset_, 16);
+        ASSERT_EQ(result.residualRanges_[1].offset_, 6);
+        ASSERT_EQ(result.residualRanges_[1].size_, 4);
+        ASSERT_EQ(result.residualInstrumentOrdinals_.size(), 10);
+        if (mode == CurveJacobianMode_::Value_::ANALYTIC) {
+            for (int row = 0; row < 10; ++row)
+                for (int column = 0; column < 10; ++column) {
+                    double product = 0.0;
+                    for (int parameter = 0; parameter < 32; ++parameter)
+                        product += result.jacobianAtSolution_(row, parameter) * result.effJacobianInverse_(parameter, column) / spec.tolerance_;
+                    ASSERT_NEAR(product, row == column ? 1.0 : 0.0, 1.0e-7);
+                }
+        }
+        options.computeJacobianAtSolution_ = false;
+        const auto inverseOnly = CalibrateJointMultiCurve(spec, options);
+        ASSERT_TRUE(inverseOnly.jacobianAtSolution_.Empty());
+        ASSERT_EQ(inverseOnly.effJacobianInverse_.Rows(), 32);
+    }
+}
+
+TEST(JointAnalyticJacobianTest, TestEffectiveInverseIsOptInAndApproximateIsUnavailable) {
+    auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), false, DayBasis_("ACT_365F"));
+    const auto defaults = CalibrateJointMultiCurve(spec);
+    ASSERT_TRUE(defaults.effJacobianInverse_.Empty());
+    ASSERT_EQ(defaults.effJacobianInverseAvailability_, "not_requested");
+    ASSERT_EQ(defaults.parameterRanges_.size(), 2);
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    spec.fitTolerance_ = 1.0e-6;
+    JointMultiCurveCalibrationOptions_ options;
+    options.computeEffJacobianInverse_ = true;
+    const auto approximate = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(approximate.effJacobianInverse_.Empty());
+    ASSERT_EQ(approximate.effJacobianInverseAvailability_, "not_available_for_mode");
+}
+
+TEST(JointAnalyticJacobianTest, TestRankDeficientResidualQuotesDoNotPublishAnEffectiveInverse) {
+    const auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), true, DayBasis_("ACT_365F"));
+    JointMultiCurveCalibrationOptions_ options;
+    options.computeEffJacobianInverse_ = true;
+    const auto result = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(result.converged_);
+    ASSERT_TRUE(result.effJacobianInverse_.Empty());
+    ASSERT_EQ(result.effJacobianInverseAvailability_, "not_available_for_mapping");
 }
