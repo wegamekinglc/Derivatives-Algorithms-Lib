@@ -429,6 +429,27 @@ Tests are located in `tests/` and cover:
 - Resettable/MTM XCCY construction with immutable fixing snapshots
 - Joint domestic/foreign/basis XCCY calibration, including matrix and named-range contracts
 
+## Performance Benchmarks
+
+The [Python benchmark suite](benchmarks/README.md) provides 70 public-interface
+workloads mapped to the C++ benchmark inventory: RNG, script construction and MC,
+single-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
+It records raw samples, workload sizes, native-module identity, and a Markdown summary.
+
+From `dal-python/`, using a current installed wheel or editable build:
+
+```bash
+python benchmarks/run_benchmarks.py --smoke
+python benchmarks/run_benchmarks.py --samples 10 --warmups 2
+python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
+```
+
+The normal pytest suite checks every workload at smoke scale without a speed
+threshold. Linux CI also gates all 70 full-scale cases against independent base/head
+builds, using two rounds of ten interleaved processes and a strict 4% threshold in
+both rounds. The coverage map explicitly records unbound C++ kernels and fixture
+differences; Python timings include binding and result-conversion costs.
+
 ## Project Structure
 
 ```
@@ -441,6 +462,7 @@ dal-python/
 ├── run_tests.sh            # Standalone binding test helpers (POSIX and PowerShell)
 ├── run_tests.ps1
 ├── examples/               # Numbered end-to-end Python examples
+├── benchmarks/             # Public-interface performance runner and C++ coverage map
 ├── scripts/                # Release verification and installed-wheel smoke helpers
 ├── src/
 │   ├── bindings/
