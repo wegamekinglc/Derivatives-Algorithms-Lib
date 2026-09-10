@@ -17,6 +17,7 @@ SOURCE_ROOTS = (
     ROOT / "dal-python" / "tests",
     ROOT / "dal-python" / "scripts",
     ROOT / "dal-python" / "examples",
+    ROOT / "dal-python" / "benchmarks",
 )
 
 
