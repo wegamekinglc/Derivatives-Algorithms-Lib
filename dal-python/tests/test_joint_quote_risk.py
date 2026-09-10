@@ -11,7 +11,7 @@ import pytest
 from test_quote_risk import _run_with_quote_risk_gil_heartbeat
 
 
-def joint_inputs(*, layered=False, mode=None, inverse=True, bump=None):
+def joint_inputs(*, layered=False, mode=None, inverse=True, bump=None, strict=False):
     today = dal.Date_(2025, 1, 2)
     basis = dal.DayBasis_New("ACT_365F")
     collateral = dal.CollateralType_OIS()
@@ -23,6 +23,9 @@ def joint_inputs(*, layered=False, mode=None, inverse=True, bump=None):
     spec.today = today
     spec.ccy = "USD"
     spec.tolerance = 1e-11
+    if strict:
+        spec.tolerance = 1e-13
+        spec.fit_tolerance = 1e-12
     spec.initial_guess = 0.025
     spec.max_evaluations = 1000
     spec.max_restarts = 100
@@ -88,6 +91,102 @@ def provenance_from(inputs):
     return dal.BuildJointMultiCurveQuoteRiskProvenance(
         spec=spec, result=result, options=options, bound_market=market, config=config,
     )
+
+
+def unregistered_xccy_inputs(*, bump=None, register=False, opaque_leaf=None):
+    spec, options, result, market, config, _ = joint_inputs(bump=bump, strict=True)
+    today = spec.today
+    basis = dal.DayBasis_New("ACT_365F")
+    collateral = dal.CollateralType_OIS()
+    components = {"discount": next(iter(result.discount_curves.values())), "forward": next(iter(result.forward_curves.values()))}
+    valuation_time = dal.DateTime_(today, 0, 0)
+    fixings = dal.MarketFixingSnapshot_New({})
+    knots = [dal.Date_(2025, 7, 2), dal.Date_(2026, 7, 2), dal.Date_(2027, 7, 2)]
+
+    def flat(name, currency, rate, base=None):
+        return dal.DiscountPWC_New(name, currency, knots, [rate] * len(knots), base)
+
+    euro_discount = flat("eur-ois", "EUR", 0.017)
+    euro_forward = flat("eur-3m", "EUR", 0.019, opaque_leaf)
+    extra = flat("usd-6m", "USD", 0.015, components["discount"])
+    basis_curve = flat("basis", "EUR", 0.001)
+    domestic = dal.CurveBlock_New(
+        "EUR", "EUR", {collateral: euro_discount}, {dal.PeriodLength_New("3M"): euro_forward}, basis,
+    )
+    forwards = dict(result.forward_curves)
+    forwards[dal.PeriodLength_New("6M")] = extra
+    foreign = dal.CurveBlock_New("USD", "USD", result.discount_curves, forwards, basis)
+    xccy = dal.CrossCurrencyMarket_New(
+        domestic_block=domestic, foreign_block=foreign, fx_spot=0.9,
+        valuation_time=valuation_time, collateral_currency="EUR", fixings=fixings, basis_curve=basis_curve,
+    )
+    if register:
+        components["extra"] = extra
+    market = dal.RatePricingMarket_(
+        valuation_time=valuation_time, result_currency="USD", curve_components=components,
+        fixings=fixings, xccy_market=xccy,
+    )
+    convention = dal.CrossCurrencyConvention_()
+    for side, tenor in (("domestic", "3M"), ("foreign", "6M")):
+        period = dal.PeriodLength_New(tenor)
+        setattr(convention, f"{side}_index", dal.RateIndexConvention_New(period, basis, collateral, True))
+        setattr(convention, f"{side}_leg", dal.RateLegConvention_New(period, basis))
+    xccy_config = dal.CrossCurrencySwapConfig_()
+    xccy_config.pair = dal.CurrencyPair_New("EUR", "USD")
+    xccy_config.domestic_notional = 900_000.0
+    xccy_config.foreign_notional = 1_000_000.0
+    xccy_config.convention = convention
+    for side, name in (("domestic", "EUR-3M"), ("foreign", "USD-6M")):
+        identity = dal.FixingIdentity_()
+        identity.index_name = name
+        identity.fixing_hour = 11
+        identity.fixing_minute = 0
+        setattr(xccy_config, f"{side}_rate_fixing", identity)
+    terms = dal.XccyTradeTerms_(
+        position_count=1.0, contract_spread=0.0015, spread_on_foreign_leg=True,
+        receive_non_spread_pay_spread=True, config=xccy_config,
+    )
+    trade = dal.RateTradeDefinition_(
+        instrument_id="unregistered-xccy", instrument_type=dal.RateInstrumentType.XCCY,
+        trade_date=today, start_date=today, maturity_date=dal.Date_(2027, 1, 2), currency="EUR", terms=terms,
+    )
+    return spec, options, result, market, config, trade
+
+
+def test_unregistered_xccy_base_matches_recalibration_and_registration_control():
+    inputs = unregistered_xccy_inputs()
+    risk = dal.AggregateRatePortfolioQuoteRisk(trades=[inputs[-1]], market=inputs[3], provenances=[provenance_from(inputs)])
+    assert risk.meta[0].eligible and not risk.meta[0].structural_zero  # nosec B101
+    assert len(risk.buckets) == 5  # nosec B101
+    prices = []
+    for bump in (1e-6, -1e-6, 1e-4, -1e-4):
+        shifted = unregistered_xccy_inputs(bump=(0, 1, bump))
+        price = dal.PriceRateTrades(trades=[shifted[-1]], market=shifted[3])[0]
+        assert price.succeeded  # nosec B101
+        prices.append(price.pv)
+    bucket = risk.buckets[1]
+    assert bucket.d_pv_d_decimal_quote == pytest.approx((prices[0] - prices[1]) / 2e-6, abs=1e-3)  # nosec B101
+    assert bucket.dv01 == pytest.approx((prices[2] - prices[3]) / 2.0, abs=1e-5)  # nosec B101
+    assert bucket.actual_pv_ccy == "EUR"  # nosec B101
+    control = unregistered_xccy_inputs(register=True)
+    registered = dal.AggregateRatePortfolioQuoteRisk(trades=[control[-1]], market=control[3], provenances=[provenance_from(control)])
+    assert [b.d_pv_d_decimal_quote for b in registered.buckets] == [b.d_pv_d_decimal_quote for b in risk.buckets]  # nosec B101
+
+
+def test_native_opaque_joint_fixture_projects_existing_failure_metadata():
+    native_fixture = pytest.importorskip("_dal_quote_risk_test")
+    inputs = unregistered_xccy_inputs(opaque_leaf=native_fixture.opaque_curve(None, "EUR"))
+    provenance = provenance_from(inputs)
+    assert provenance.available  # nosec B101
+    risk = dal.AggregateRatePortfolioQuoteRisk(trades=[inputs[-1]], market=inputs[3], provenances=[provenance])
+    assert not risk.buckets  # nosec B101
+    assert len(risk.meta) == 1  # nosec B101
+    meta = risk.meta[0]
+    assert not meta.eligible and not meta.structural_zero  # nosec B101
+    assert meta.reason == "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE"  # nosec B101
+    assert meta.original_node_risk_reason == "AAD_EVALUATION_FAILED"  # nosec B101
+    assert meta.failing_component_key == "discount"  # nosec B101
+    assert meta.actual_pv_ccy == "EUR" and math.isfinite(meta.pv)  # nosec B101
 
 
 @pytest.mark.parametrize("layered", [False, True])

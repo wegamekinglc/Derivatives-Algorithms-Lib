@@ -235,6 +235,14 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
 
+    if(NOT DAL_PYTHON_IS_TOPLEVEL)
+        pybind11_add_module(_dal_quote_risk_test tests/native/jointquoterisk.cpp)
+        target_link_libraries(_dal_quote_risk_test PRIVATE ${DAL_PUBLIC_TARGET})
+        add_custom_command(TARGET _dal_quote_risk_test POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:_dal_quote_risk_test>" "${CMAKE_CURRENT_BINARY_DIR}/")
+    endif()
+
     file(COPY
         ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/__init__.py
         ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/api.py

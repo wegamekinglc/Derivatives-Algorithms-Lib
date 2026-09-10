@@ -5,9 +5,12 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from unittest import mock
 
@@ -48,6 +51,53 @@ def report(duration=100):
 
 
 class PythonBenchmarkRegressionTest(unittest.TestCase):
+    @unittest.skipIf(sys.platform == "win32", "Linux workflow requires bash")
+    def test_workload_verification_matches_regressions_to_each_native_revision(self):
+        workflow = (SCRIPTS.parent / "workflows/cmake-linux.yml").read_text()
+        step = workflow.split(
+            "- name: Verify Python workloads on both native builds", 1
+        )[1].split("      - name:", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        # Model a new regression that must fail on the old native library.
+        python_stub = """
+python3() {
+  printf '%s|%s|%s\\n' "$PWD" "$PYTHONPATH" "$3"
+  if [[ "$PWD" == "$GITHUB_WORKSPACE/benchmark-base/"* && "$3" == "$GITHUB_WORKSPACE/dal-python/tests" ]]; then
+    return 17
+  fi
+}
+"""
+        with tempfile.TemporaryDirectory(prefix="dal revisions ") as directory:
+            root = Path(directory).resolve()
+            base = root / "benchmark-base/build/benchmark-base/dal-python"
+            head = root / "build/benchmark-head/dal-python"
+            for package in (base, head):
+                package.mkdir(parents=True)
+            result = subprocess.run(
+                ["bash", "-e", "-c", python_stub + script],
+                cwd=root,
+                env={**os.environ, "GITHUB_WORKSPACE": str(root)},
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            calls = [line.split("|") for line in result.stdout.splitlines()]
+            shared = root / "dal-python/tests/test_benchmarks.py"
+            expected = (
+                (base, root / "benchmark-base/dal-python/tests"),
+                (base, shared),
+                (head, root / "dal-python/tests"),
+                (head, shared),
+            )
+            self.assertEqual(
+                calls,
+                [
+                    [str(package), str(package), str(tests)]
+                    for package, tests in expected
+                ],
+            )
+
     def test_threshold_requires_two_independent_best_of_ten_failures(self):
         base = [report()] * 20
         head = [report(105)] * 20

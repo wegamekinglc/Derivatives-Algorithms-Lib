@@ -16,6 +16,16 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-11
+
+- **Joint quote-risk base graphs and eligibility** — joint risk follows actual
+  consumed base paths, including unregistered XCCY forecast curves, with
+  historical native coordinates preserved. Necessary nodes must be exact
+  builtin curve types. This intentionally makes opaque unit-discount leaves
+  and builtin subclasses ineligible even when their previous numerical results
+  were correct; standalone node risk and v1 quote-risk semantics are unchanged.
+  See the [graph contract](docs/methodology/generic_joint_quote_risk.md#aggregation-and-failures).
+
 ## 2026-09-08
 
 - **Generic joint quote-space DV01** — exact same-currency joint calibration can
