@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 
 #include "jointxccyquoteriskfixtures.hpp"
@@ -82,6 +84,113 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(AssertBucketEqual(*found, bucket));
         }
     }
+
+    Handle_<DiscountCurve_> HistoricalExtraChain(const JointMultiCurveCalibrationSpec_& spec, const Handle_<DiscountCurve_>& base) {
+        const auto anchor = Date::AddMonths(spec.today_, -12);
+        const Vector_<Date_> knots{Date::AddMonths(spec.today_, -6), Date::AddMonths(spec.today_, 18)};
+        const Handle_<DiscountCurve_> pwc(NewDiscountPWC("pwc-middle", "USD", PiecewiseConstant_(knots, {0.003, 0.005}), base));
+        const Handle_<DiscountCurve_> log(NewDiscountLogDF("log-middle", "USD", {anchor, knots[0], knots[1]}, {0.0, -0.001, -0.008},
+                                                         DayBasis::Act365F(), LogDfScheme_("LOG_LINEAR"), pwc));
+        const Handle_<DiscountCurve_> zero(NewDiscountZeroRate("zero-middle", "USD", anchor, knots, {0.004, 0.006}, DayBasis::Act365F(),
+                                                              LogDfScheme_("LOG_LINEAR"), log));
+        return Handle_<DiscountCurve_>(new Tape::DiscountPWLF_<double>("usd-6m", "USD", knots, {0.009, 0.011}, {0.010, 0.012}, zero));
+    }
+
+    RatePricingMarket_ NativeChainMarket(const JointMultiCurveCalibrationSpec_& spec,
+                                         const JointMultiCurveCalibrationResult_& calibrated,
+                                         bool throughForward = true) {
+        return Market(spec, calibrated, false, [&](const auto&) {
+            return HistoricalExtraChain(spec, throughForward ? calibrated.forwardCurves_.at(PeriodLength_("3M"))
+                                                            : calibrated.discountCurves_.at(CollateralType_("OIS")));
+        });
+    }
+
+    Vector_<> NativeForwardParameters(const Handle_<DiscountCurve_>& curve) {
+        if (const auto* pwc = dynamic_cast<const Tape::DiscountPWC_<double>*>(curve.get()))
+            return pwc->FRight();
+        const auto& pwlf = dynamic_cast<const Tape::DiscountPWLF_<double>&>(*curve);
+        const auto left = pwlf.FLeft(), right = pwlf.FRight();
+        Vector_<> result;
+        for (int i = 0; i < static_cast<int>(left.size()); ++i) {
+            result.push_back(left[i]);
+            result.push_back(right[i]);
+        }
+        return result;
+    }
+
+    Handle_<DiscountCurve_> CloneNativeShift(const Handle_<DiscountCurve_>& curve,
+                                            const YCComponent_::substitutions_t& bases,
+                                            int coordinate,
+                                            double shift) {
+        auto clone = curve->Clone(curve->Name(), bases);
+        if (coordinate >= 0) {
+            auto& fit = dynamic_cast<FittableCurve_&>(*clone);
+            Vector_<> dx(fit.NX(), 0.0);
+            dx[coordinate] = shift;
+            fit.ApplyDX(dx.begin(), 1.0);
+        }
+        return handle_cast<DiscountCurve_>(Handle_<YCComponent_>(std::move(clone)));
+    }
+
+    JointMultiCurveCalibrationResult_ NativeBump(const JointMultiCurveCalibrationResult_& calibrated, int block, int coordinate, double shift) {
+        auto result = calibrated;
+        const auto& discount = calibrated.discountCurves_.at(CollateralType_("OIS"));
+        const auto& forward = calibrated.forwardCurves_.at(PeriodLength_("3M"));
+        YCComponent_::substitutions_t bases;
+        if (block == 0) {
+            const auto bumped = CloneNativeShift(discount, {}, coordinate, shift);
+            result.discountCurves_[CollateralType_("OIS")] = bumped;
+            bases.emplace(discount.get(), handle_cast<YCComponent_>(bumped));
+        }
+        result.forwardCurves_[PeriodLength_("3M")] = CloneNativeShift(forward, bases, block == 1 ? coordinate : -1, shift);
+        return result;
+    }
+
+    void AssertNativeBumpState(const RatePricingMarket_& actual, const RatePricingMarket_& original, int block, int coordinate, double shift) {
+        for (int index = 0; index < 2; ++index) {
+            const auto key = JointQuoteRiskFixtures::BlockKey(index);
+            const auto parameters = NativeForwardParameters(actual.curveComponents_.at(key));
+            auto expected = NativeForwardParameters(original.curveComponents_.at(key));
+            if (index == block)
+                expected[coordinate] += shift;
+            ASSERT_EQ(parameters, expected);
+        }
+        if (block == 1) {
+            ASSERT_EQ(actual.curveComponents_.at("curve:0"), original.curveComponents_.at("curve:0"));
+            ASSERT_EQ(RateCashflowPricingInternal::NodeSensitivityBase(*actual.curveComponents_.at("curve:1")),
+                      RateCashflowPricingInternal::NodeSensitivityBase(*original.curveComponents_.at("curve:1")));
+        }
+    }
+
+    void AssertNativeSlice(const JointMultiCurveCalibrationSpec_& spec,
+                           const JointMultiCurveCalibrationResult_& calibrated,
+                           const RatePricingMarket_& market,
+                           int block,
+                           const RateTradeNodeSensitivityCell_& cell,
+                           bool throughForward = true) {
+        const auto key = JointQuoteRiskFixtures::BlockKey(block);
+        const auto passive = PriceRateTrade(Trade(spec), market);
+        ASSERT_TRUE(passive.succeeded_);
+        ASSERT_EQ(cell.componentKey_, key);
+        ASSERT_TRUE(cell.result_.eligible_) << cell.result_.reason_;
+        ASSERT_TRUE(cell.result_.reason_.empty());
+        ASSERT_NEAR(cell.result_.pv_, passive.pv_, 1.0e-8);
+        ASSERT_EQ(cell.result_.gradient_.size(), NativeForwardParameters(market.curveComponents_.at(key)).size());
+        constexpr double bump = 1.0e-6;
+        for (int coordinate = 0; coordinate < static_cast<int>(cell.result_.gradient_.size()); ++coordinate) {
+            SCOPED_TRACE(coordinate);
+            std::array<double, 2> pv;
+            for (int side = 0; side < 2; ++side) {
+                const double shift = side == 0 ? -bump : bump;
+                const auto shifted = NativeChainMarket(spec, NativeBump(calibrated, block, coordinate, shift), throughForward);
+                ASSERT_NO_FATAL_FAILURE(AssertNativeBumpState(shifted, market, block, coordinate, shift));
+                const auto price = PriceRateTrade(Trade(spec), shifted);
+                ASSERT_TRUE(price.succeeded_) << price.error_;
+                pv[side] = price.pv_;
+            }
+            ASSERT_NEAR(cell.result_.gradient_[coordinate], (pv[1] - pv[0]) / (2.0 * bump), 1.0e-3);
+        }
+    }
 } // namespace
 
 TEST(JointQuoteRiskTest, TestXccyProvenanceOrderPreservesStandaloneAndJointResults) {
@@ -119,4 +228,41 @@ TEST(JointQuoteRiskTest, TestXccyProvenanceOrderPreservesStandaloneAndJointResul
         ASSERT_EQ(actual.pvByActualPvCcy_, jointOnly.pvByActualPvCcy_);
         ASSERT_EQ(RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount, 1);
     }
+}
+
+TEST(JointQuoteRiskTest, TestHistoricalMixedChainMatchesEveryNativeCoordinate) {
+    for (bool layered : {false, true})
+        for (auto layout : {CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD}) {
+            SCOPED_TRACE(layered);
+            SCOPED_TRACE(CurveParameterization_(layout).String());
+            const auto spec = JointQuoteRiskFixtures::Spec(5, 2, layout, layered);
+            const auto calibrated = CalibrateJointMultiCurve(spec, Options());
+            const auto market = NativeChainMarket(spec, calibrated);
+            const auto cells = RateCashflowPricingInternal::JointNodeSensitivitiesBatch({Trade(spec)}, market, {"curve:0", "curve:1"});
+            ASSERT_EQ(cells.size(), 2);
+            ASSERT_NO_FATAL_FAILURE(AssertNativeSlice(spec, calibrated, market, 0, cells[0]));
+            ASSERT_NO_FATAL_FAILURE(AssertNativeSlice(spec, calibrated, market, 1, cells[1]));
+        }
+}
+
+TEST(JointQuoteRiskTest, TestHistoricalMixedChainConsumesOnlyNativeDiscount) {
+    for (bool layered : {false, true})
+        for (auto layout : {CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD}) {
+            SCOPED_TRACE(layered);
+            SCOPED_TRACE(CurveParameterization_(layout).String());
+            const auto spec = JointQuoteRiskFixtures::Spec(5, 2, layout, layered);
+            const auto calibrated = CalibrateJointMultiCurve(spec, Options());
+            const auto market = NativeChainMarket(spec, calibrated, false);
+            const auto cells = RateCashflowPricingInternal::JointNodeSensitivitiesBatch({Trade(spec)}, market, {"curve:0", "curve:1"});
+            ASSERT_EQ(cells.size(), 2);
+            ASSERT_NO_FATAL_FAILURE(AssertNativeSlice(spec, calibrated, market, 0, cells[0], false));
+            ASSERT_FALSE(cells[1].result_.eligible_);
+            ASSERT_EQ(cells[1].result_.reason_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+            ASSERT_TRUE(cells[1].result_.gradient_.empty());
+            const auto provenance = BuildJointMultiCurveQuoteRiskProvenance(spec, calibrated, Options(), market, JointQuoteRiskFixtures::Config(2));
+            const auto risk = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
+            ASSERT_TRUE(risk.meta_[0].eligible_);
+            ASSERT_FALSE(risk.meta_[0].structuralZero_);
+            ASSERT_EQ(risk.buckets_.size(), 5);
+        }
 }
