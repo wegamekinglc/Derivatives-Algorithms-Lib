@@ -450,6 +450,13 @@ builds, using two rounds of ten interleaved processes and a strict 4% threshold 
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
+The Linux gate also requires five common workloads to run against DAL,
+QuantLib-Python and rateslib with matching numerical results. Its report shows
+discount-query, IRS pricing and parallel zero-curve DV01 timings and relative
+speeds. Third-party dependencies are pinned separately for benchmarks; they are
+not DAL runtime dependencies. See the
+[comparison methodology and commands](benchmarks/README.md#third-party-comparison).
+
 ## Project Structure
 
 ```

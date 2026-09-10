@@ -691,6 +691,28 @@ jobs:
             --confirmation-rounds 2 \
             --threshold-percent 4
 
+      - name: Install Python comparison dependencies
+        id: python-comparison-dependencies
+        if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
+        run: |
+          uv pip install --require-hashes \
+            -r dal-python/benchmarks/requirements-comparisons.txt
+
+      - name: Compare Python performance with QuantLib and rateslib
+        if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
+        env:
+          DAL_NUM_THREADS: 4
+          MPLCONFIGDIR: ${{ runner.temp }}/dal-comparison-matplotlib
+        run: |
+          PYTHONPATH="$PWD/build/benchmark-head/dal-python" \
+            python3 -m pytest dal-python/benchmarks/tests -q
+          python3 dal-python/benchmarks/run_comparisons.py \
+            --dal-package build/benchmark-head/dal-python \
+            --output-dir benchmark-results/python-third-party \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --rounds 2
+
       - name: Compare base and head performance
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
         env:
