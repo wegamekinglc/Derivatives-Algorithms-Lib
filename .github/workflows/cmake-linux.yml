@@ -627,12 +627,19 @@ jobs:
         env:
           DAL_NUM_THREADS: 4
         run: |
-          for build_root in "$GITHUB_WORKSPACE/benchmark-base/build/benchmark-base" "$GITHUB_WORKSPACE/build/benchmark-head"; do
+          verify_python_build() {
+            local source_root="$1"
+            local build_root="$2"
             (
               cd "$build_root/dal-python"
-              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$GITHUB_WORKSPACE/dal-python/tests" -q
+              # A new bug regression can intentionally fail on the base revision.
+              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              # Both native revisions must still satisfy the same head workloads.
+              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$GITHUB_WORKSPACE/dal-python/tests/test_benchmarks.py" -q
             )
-          done
+          }
+          verify_python_build "$GITHUB_WORKSPACE/benchmark-base" "$GITHUB_WORKSPACE/benchmark-base/build/benchmark-base"
+          verify_python_build "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/build/benchmark-head"
 
       - name: Run head benchmarks
         env:
