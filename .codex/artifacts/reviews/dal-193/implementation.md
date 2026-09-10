@@ -12,6 +12,7 @@ B1 now propagates joint quote risk through the actual consumed curve/base graph,
 - Initial verified code head: `9a847361081ebd3b5450cb9273a1c7597f369e10`.
 - First draft head: `fb01602a99dbe694ad68b1ea9eaf97d072eb4fd4`, adding this record only.
 - The CI repair below updates the same draft PR; its exact published head and single post-push CI snapshot are recorded in the follow-up evidence archive and Multica handoff comment.
+- The subsequent review repair and master integration are separate commits, mapped below. The final record-only head and its single CI snapshot are included in the review-repair handoff.
 
 Controlling inputs were the approved B1 specification, API note, and `Proceed with caveats` critique attached to DAL-193. Their attachment IDs are respectively `01a08bfd-6b19-74bf-afcf-6a80c73d5dd4`, `01a08c0e-1962-74dc-98bf-c139a7159b26`, and `01a08c1b-9290-7c4b-a8e5-68b2e4b777f8`. Q1 and B2 remain excluded.
 
@@ -194,6 +195,54 @@ build/Release-linux/dal-cpp/dal_cpp_tests \
 - The static comparison confirms that all original assertion expressions and test case names remain; only the helper failure-propagation assertion was added. Patch whitespace checks passed. No threshold, gate configuration, public contract, numeric assertion, or excluded Q1/B2 scope changed.
 
 Per the explicit follow-up instruction, this turn runs directed build/regression/static checks only. The initial 1552-test full native validation, Python/public/Excel results, independent oracle files, generated-source/docs/helper checks, and nine-target performance evidence above remain reusable prior-head evidence, not new-head full-suite claims. Actual MSVC builds, Windows Benchmarks, hosted Codacy, wheels, the full backend matrix, and final-head complete local/CI acceptance remain for the subsequent pipeline. One CI snapshot will be read after pushing this repair; this implementation phase does not wait for CI completion or merge.
+
+## Review repair of `908b2f0`
+
+Controlling review: attachment `01a08c86-2f03-78ab-9865-a9a71d42869f`, verdict `Request Changes` on `908b2f0ce8f7de7f04091563f6720feb76d572fd`. The tester had completed full native validation and both oracle audits on that head (attachment `01a08c7a-d5e2-77ff-a8b9-46341edd4cc2`); those results did not cover the mixed-source counterexample or the A3/F05 combinations. This follow-up addresses the three findings locally and awaits independent tester/reviewer acceptance.
+
+### P1: mixed v1/joint source order
+
+The new `TestXccyProvenanceOrderPreservesStandaloneAndJointResults` was first built and run with unchanged `908b2f0` production code. RED: one expected failure, with v1 ineligible and `AAD_EVALUATION_FAILED` for `[joint, single]`; `[single, joint]` and each independent source were successful. The test compares every meta field, every bucket field and numerical value, PV totals, and the single passive-pricing count against separate calls.
+
+The minimal fix keys XCCY hoists by both trade identity and coordinate mode, using two private maps. Standalone preparation and joint lazy/historical preparation remain separate; passive pricing stays shared per trade. GREEN: the same regression and three adjacent historical/standalone XCCY controls passed. No test assertion was weakened.
+
+### P2: A3/S03 native-coordinate oracle
+
+Two new tests rebuild `PWLF extra -> ZeroRate -> LogDF -> PWC middle -> H0/H1`, with historical knots and fixed extra-layer parameters. Both PWC/PWLF calibrated layouts and layered/unlayered forward declarations are covered, giving eight topology configurations. For every consumed native coordinate, the test clones passive curves, applies only that coordinate's native `ApplyDX` shift, rebuilds the full dependent chain, and compares the central PV difference with `JointNodeSensitivitiesBatch` using an absolute `1e-3` derivative tolerance. It performs no recalibration or quote-Jacobian projection in this oracle.
+
+The checks also compare all unchanged native parameters, assert the target forward's original base handle remains fixed when its own parameters are shifted, require active/passive PV agreement within `1e-8`, verify native widths, and verify the unused H1 slice and original five quote buckets in the H0-only topology. The four extra-layer representations are exact builtin types; their own parameters and geometry are reconstructed from unchanged fixture values. Both tests passed.
+
+### P2: F05 preparation failures
+
+The necessary private seam runs only after a joint preparation cache miss, inside the existing exception/failure-cache boundary. It throws for selected exact PWC intermediate handles; it does not reuse the early sweep or opaque-graph seams.
+
+The new test covers 12 contexts: H0-only failure, H1-only failure, and simultaneous failures, each with two deterministic relative-address orders and two extra-key orders. An owning array permits reversing which independent base path occupies the lower address, verified with `std::less`; this is not an allocator-order assumption. Bound keys deliberately have reverse lexical order (`z-discount`, `a-forward`). Each individual path is exercised before the dual-failure case. Single failures produce the corresponding complete G(K0)/G(K1); simultaneous failures always produce G(K0).
+
+For each context the test checks no failed-trade buckets, complete failure metadata, retained passive PV, and exact healthy-trade buckets. A repeated failed trade in the same aggregation triggers the failed-preparation cache: the affected preparation hook is attempted only once. H1-only failure proves an earlier H0 sweep occurred and was discarded. Healthy contributions and their sweeps remain intact; a later call without the seam reproduces the original successful result. All contexts passed.
+
+### Commit mapping and integration
+
+- P1 RED test: `78ed201d1dd839096ec45ae9ae5e6ef4c210a344`.
+- P1 minimum production fix / focused GREEN: `e356c0d784e6df03b8c317192ffe09702fef2cf5`.
+- A3/S03 direct tests / GREEN: `786bef6922eda84084400ae6c133859bbd973030`.
+- F05 private seam and direct tests / GREEN: `342dfa860ad1f9c8d0743393e1af199f04c419bf`.
+- Separate master merge: `603a2195700dae86386f7b02729d95c7338d2f1d`, parents `342dfa860ad1f9c8d0743393e1af199f04c419bf` and `3ee049462612611cf9b6563e69bf1ecc8bc68db9` (#345). The merge had no conflicts and did not change the repair's three C++ files.
+- The following delivery commit updates this record only. Its full head is recorded in the attachment manifest and issue comment.
+
+The self-authored source scope is the B1 hoist cache, its private preparation seam, and `dal-cpp/tests/curve/test_joint_quote_risk_preparation.cpp`. The separate merge imports #345's Python benchmarks and paired CI comparison unchanged. Linux Benchmarks now includes `check_python_benchmark_regressions.py` with 10 samples, two confirmation rounds, and the unchanged 4% threshold. No gate, public signature, numerical/compatibility contract, or Q1/B2 exclusion was changed.
+
+Integrated directed verification on `603a2195700dae86386f7b02729d95c7338d2f1d`:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp_tests --parallel 4
+build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='JointQuoteRiskTest.*:RateCashflowPricingTest.*:QuoteRiskAggregationTest.*' \
+  --gtest_output=xml:build/dal193-review-regressions.xml
+```
+
+Result: **148/148 passed** (36 joint, 87 pricing, 25 quote aggregation). Both affected C++ translation units passed GCC warning checks with the existing CI exclusions and Clang delayed-template syntax checks. Lizard reports all newly added functions/tests at complexity 6 or less; the existing `HoistXccy` remains 8 and `PreparationFor` remains at its pre-repair value of 9. Patch checks pass.
+
+As instructed, no full local suite, Python runtime suite, or paired performance gate was rerun in this turn. Prior complete results remain attributed to their prior heads. Final-head complete local/CI validation, the newly integrated Python paired gate, independent review, documentation, and approval/branch-protection acceptance remain required. The follow-up evidence archive contains the RED/GREEN logs, integrated XML and compiler/static evidence, separate repair/integration deltas, commit mapping, and exactly one post-push CI snapshot. DAL-193 stays `in_progress`; PR #346 remains unmerged.
 
 ## Handoff
 
