@@ -53,15 +53,15 @@ are errors, never silently skipped workloads.
 
 ## Workload alignment
 
-| Native target | Python cases | Full workload and timing boundary |
-|---|---:|---|
-| `rng_perf` | 4 | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation |
-| `script_perf` | 1 | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization |
-| `script_mc_perf` | 8 | Vanilla: 200,000 double / 20,000 AAD paths; weekly barrier: 100,000 / 10,000; tree and compiled evaluators; product/model creation and preprocessing included |
-| `curve_calibration_perf` | 21 | Same 23 annual swaps and 24 future knots; PWC, PWL, LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED × ANALYTIC/BUMPED × diagnostics/solve-only, plus LOG_LINEAR APPROXIMATE |
-| `xccy_perf` | 8 | Joint/staged × ANALYTIC/BUMPED × diagnostics/solve-only; adapted square fixture with five quotes per calibrated block |
-| `rate_risk_perf` | 19 | 120-IRS batch and 240 single-component calls; five-year OIS daily compounding; 24-XCCY × five-component batch; nine single/joint/staged quote portfolios; six generic-joint portfolios |
-| `quote_risk_perf` | 9 | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16 |
+| Native target            | Python cases | Full workload and timing boundary                                                                                                                                                      |
+|--------------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation                             |
+| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                                      |
+| `script_mc_perf`         | 8            | Vanilla: 200,000 double / 20,000 AAD paths; weekly barrier: 100,000 / 10,000; tree and compiled evaluators; product/model creation and preprocessing included                          |
+| `curve_calibration_perf` | 21           | Same 23 annual swaps and 24 future knots; PWC, PWL, LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED × ANALYTIC/BUMPED × diagnostics/solve-only, plus LOG_LINEAR APPROXIMATE                       |
+| `xccy_perf`              | 8            | Joint/staged × ANALYTIC/BUMPED × diagnostics/solve-only; adapted square fixture with five quotes per calibrated block                                                                  |
+| `rate_risk_perf`         | 19           | 120-IRS batch and 240 single-component calls; five-year OIS daily compounding; 24-XCCY × five-component batch; nine single/joint/staged quote portfolios; six generic-joint portfolios |
+| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                                             |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
@@ -91,10 +91,10 @@ are not exposed by Python and are not measured.
 Native targets without direct Python kernel timing are listed individually by
 `--coverage` and in every report:
 
-| Coverage | Native targets |
-|---|---|
+| Coverage                          | Native targets                                                                                                                             |
+|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | Indirect through another workload | `tape_perf`, `jacobian_perf`, `interp_perf`, `krylov_perf`, `specialfunctions_perf`, `ycinstrument_perf`, `threadpool_perf`, `stacks_perf` |
-| No corresponding bound operation | `matrix_perf`, `pde_perf`, `banded_perf`, `cholesky_perf`, `black_perf`, `iv_brent_perf` |
+| No corresponding bound operation  | `matrix_perf`, `pde_perf`, `banded_perf`, `cholesky_perf`, `black_perf`, `iv_brent_perf`                                                   |
 
 Additional gaps within covered families include isolated script preprocessing and
 parsing, direct BrownianBridge/IRN RNG fills, XCCY precompute/price/reset-aware and

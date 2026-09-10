@@ -249,7 +249,7 @@ def _node_cases(add, smoke, risk, xccy):
     )
 
 
-def _quote_cases(add, smoke, risk, xccy):
+def _provenance_cases(add, risk, xccy):
     for kind in ("single", "joint", "staged"):
         for width in (8, 16):
             factory = (
@@ -267,6 +267,10 @@ def _quote_cases(add, smoke, risk, xccy):
                 },
                 partial(risk.prepare_quote, factory, True),
             )
+
+
+def _quote_cases(add, smoke, risk, xccy):
+    _provenance_cases(add, risk, xccy)
     portfolio_shapes = [
         ("single", 2, "ANALYTIC", 1),
         ("joint", 2, "ANALYTIC", 1),

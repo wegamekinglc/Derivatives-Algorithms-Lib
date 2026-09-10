@@ -7,7 +7,8 @@ import json
 import os
 from pathlib import Path
 import platform
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 import time
 
@@ -24,9 +25,17 @@ def sha256(path):
 
 
 def git_value(root, *args):
+    if args not in (("rev-parse", "HEAD"), ("status", "--porcelain")):
+        raise ValueError("unsupported Git metadata query")
+    executable = shutil.which("git")
+    if executable is None:
+        return None
     try:
-        return subprocess.run(
-            ["git", "-C", str(root), *args],
+        # Resolve the fixed tool, allow only the two read-only queries above, and
+        # pass the checkout path literally without shell expansion.
+        return subprocess.run(  # nosec B603  # nosemgrep
+            [str(Path(executable).resolve()), "-C", str(root), *args],
+            shell=False,
             check=True,
             capture_output=True,
             text=True,
@@ -36,11 +45,7 @@ def git_value(root, *args):
         return None
 
 
-def environment():
-    import dal
-
-    root = Path(__file__).resolve().parents[3]
-    native = Path(dal._dal.__file__).resolve()
+def cmake_environment(native):
     cache = next(
         (
             parent / "CMakeCache.txt"
@@ -63,6 +68,10 @@ def environment():
             ):
                 key, value = line.split("=", 1)
                 cmake[key] = value
+    return str(cache) if cache else None, cmake
+
+
+def cpu_model():
     cpu = platform.processor()
     cpuinfo = Path("/proc/cpuinfo")
     if cpuinfo.is_file():
@@ -74,6 +83,15 @@ def environment():
             ),
             cpu,
         )
+    return cpu
+
+
+def environment():
+    import dal
+
+    root = Path(__file__).resolve().parents[3]
+    native = Path(dal._dal.__file__).resolve()
+    cache, cmake = cmake_environment(native)
     sources = {
         path.name: sha256(path) for path in sorted(Path(__file__).parent.glob("*.py"))
     }
@@ -83,13 +101,13 @@ def environment():
         "executable": sys.executable,
         "platform": platform.platform(),
         "machine": platform.machine(),
-        "cpu": cpu,
+        "cpu": cpu_model(),
         "cpu_count": os.cpu_count(),
         "dal_version": dal.__version__,
         "dal_package": str(Path(dal.__file__).resolve()),
         "native_module": str(native),
         "native_sha256": sha256(native),
-        "cmake_cache": str(cache) if cache else None,
+        "cmake_cache": cache,
         "cmake": cmake,
         "source_head": git_value(root, "rev-parse", "HEAD"),
         "source_status": git_value(root, "status", "--porcelain"),
@@ -204,31 +222,40 @@ def parser():
     return value
 
 
-def main(argv=None):
+def arguments(argv):
     cli = parser()
     args = cli.parse_args(argv)
-    if args.coverage:
-        print(json.dumps(CPP_COVERAGE, indent=2))
-        return 0
-    samples = args.samples if args.samples is not None else (1 if args.smoke else 10)
-    warmups = args.warmups if args.warmups is not None else (0 if args.smoke else 2)
-    if samples <= 0 or warmups < 0:
+    if args.samples is None:
+        args.samples = 1 if args.smoke else 10
+    if args.warmups is None:
+        args.warmups = 0 if args.smoke else 2
+    if args.samples <= 0 or args.warmups < 0:
         cli.error("--samples must be positive and --warmups nonnegative")
-    # Must precede the first DAL import, where the native pool is initialized.
-    os.environ.setdefault("DAL_NUM_THREADS", "4")
+    return cli, args
+
+
+def run_case(case, samples, warmups):
     try:
-        cases = select_cases(build_cases(args.smoke), args.group, args.filter)
-    except ValueError as error:
-        cli.error(str(error))
-    if args.list:
-        for case in cases:
-            print(json.dumps(case.description(), sort_keys=True))
-        return 0
+        result = measure(case, samples=samples, warmups=warmups)
+        print(f"{case.name}: {result['min_ns'] / 1e6:.6f} ms (min)", flush=True)
+        return result
+    except Exception as error:
+        print(f"{case.name}: FAILED: {error}", file=sys.stderr, flush=True)
+        return dict(
+            case.description(),
+            status="failed",
+            error=f"{type(error).__name__}: {error}",
+        )
+
+
+def run_cases(cases, args):
+    import dal
+
     report = {
         "schema": "dal.python-benchmarks/1",
         "profile": "smoke" if args.smoke else "full",
-        "samples": samples,
-        "warmups": warmups,
+        "samples": args.samples,
+        "warmups": args.warmups,
         "environment": environment(),
         "coverage": CPP_COVERAGE,
         "status": "running",
@@ -236,22 +263,10 @@ def main(argv=None):
     }
     # Invalidate any older success report before running the first workload.
     write_report(args.output_dir, report)
-    import dal
-
     original_date = dal.EvaluationDate_Get()
     try:
         for case in cases:
-            try:
-                result = measure(case, samples=samples, warmups=warmups)
-                print(f"{case.name}: {result['min_ns'] / 1e6:.6f} ms (min)", flush=True)
-            except Exception as error:
-                result = dict(
-                    case.description(),
-                    status="failed",
-                    error=f"{type(error).__name__}: {error}",
-                )
-                print(f"{case.name}: FAILED: {error}", file=sys.stderr, flush=True)
-            report["results"].append(result)
+            report["results"].append(run_case(case, args.samples, args.warmups))
             write_report(args.output_dir, report)
     finally:
         dal.EvaluationDate_Set(original_date)
@@ -262,3 +277,21 @@ def main(argv=None):
     )
     write_report(args.output_dir, report)
     return 0 if report["status"] == "passed" else 1
+
+
+def main(argv=None):
+    cli, args = arguments(argv)
+    if args.coverage:
+        print(json.dumps(CPP_COVERAGE, indent=2))
+        return 0
+    # Must precede the first DAL import, where the native pool is initialized.
+    os.environ.setdefault("DAL_NUM_THREADS", "4")
+    try:
+        cases = select_cases(build_cases(args.smoke), args.group, args.filter)
+    except ValueError as error:
+        cli.error(str(error))
+    if args.list:
+        for case in cases:
+            print(json.dumps(case.description(), sort_keys=True))
+        return 0
+    return run_cases(cases, args)

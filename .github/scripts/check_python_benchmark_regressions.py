@@ -21,6 +21,36 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def validate_case(row):
+    require(isinstance(row, dict), "benchmark case must be an object")
+    name = row["name"]
+    require(row.get("status") == "passed", f"failed case: {name}")
+    samples = row.get("samples_ns", [])
+    require(len(samples) == 1, f"incomplete samples: {name}")
+    value = samples[0]
+    require(
+        type(value) in (int, float) and math.isfinite(value) and value > 0,
+        f"invalid duration: {name}",
+    )
+    require(row.get("min_ns") == value, f"minimum differs from raw sample: {name}")
+    require(row["workload"].get("profile") == "full", f"non-full workload: {name}")
+    return value
+
+
+def validate_environment(environment):
+    require(isinstance(environment, dict), "benchmark environment must be an object")
+    require(
+        bool(environment.get("suite_sha256"))
+        and bool(environment.get("native_sha256")),
+        "missing source/module hashes",
+    )
+    require(
+        bool(environment.get("python"))
+        and bool(environment.get("thread_environment", {}).get("DAL_NUM_THREADS")),
+        "missing Python or native thread configuration",
+    )
+
+
 def validate_report(report):
     require(isinstance(report, dict), "benchmark report must be an object")
     require(
@@ -39,37 +69,14 @@ def validate_report(report):
     require(isinstance(rows, list) and bool(rows), "no Python benchmark cases")
     values, descriptions = {}, {}
     for row in rows:
-        require(isinstance(row, dict), "benchmark case must be an object")
+        value = validate_case(row)
         name = row["name"]
-        require(
-            name not in values and row.get("status") == "passed",
-            f"duplicate or failed case: {name}",
-        )
-        samples = row.get("samples_ns", [])
-        require(len(samples) == 1, f"incomplete samples: {name}")
-        value = samples[0]
-        require(
-            type(value) in (int, float) and math.isfinite(value) and value > 0,
-            f"invalid duration: {name}",
-        )
-        require(row.get("min_ns") == value, f"minimum differs from raw sample: {name}")
-        require(row["workload"].get("profile") == "full", f"non-full workload: {name}")
+        require(name not in values, f"duplicate case: {name}")
         values[name] = value
         descriptions[name] = {
             key: row[key] for key in ("name", "cpp_target", "workload")
         }
-    environment = report["environment"]
-    require(isinstance(environment, dict), "benchmark environment must be an object")
-    require(
-        bool(environment.get("suite_sha256"))
-        and bool(environment.get("native_sha256")),
-        "missing source/module hashes",
-    )
-    require(
-        bool(environment.get("python"))
-        and bool(environment.get("thread_environment", {}).get("DAL_NUM_THREADS")),
-        "missing Python or native thread configuration",
-    )
+    validate_environment(report["environment"])
     return values, descriptions
 
 
@@ -106,7 +113,9 @@ def run_worker(suite, package, output, inventory=False):
     environment["PYTHONNOUSERSITE"] = "1"
     environment.setdefault("DAL_NUM_THREADS", "4")
     try:
-        completed = subprocess.run(
+        # The interpreter and worker are fixed by this process; paths are separate
+        # arguments and no shell interprets them, as in the native benchmark gate.
+        completed = subprocess.run(  # nosemgrep
             command,
             cwd=output,
             env=environment,

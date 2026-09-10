@@ -46,6 +46,28 @@ def deposit(today, maturity, name, key="discount"):
     )
 
 
+def irs_terms(ordinal, discount, forward, generic):
+    identity = dal.FixingIdentity_()
+    identity.index_name = "USD-LIBOR" if generic else "USD-SOFR"
+    identity.fixing_hour = 11
+    identity.fixing_minute = 0
+    # The public trade validator requires positive notionals. Represent the native
+    # fixture's short positions by reversing payer direction with the same magnitude.
+    notional = (250_000 if ordinal % 3 == 0 else 1_000_000) if generic else 1_000_000
+    pay_fixed = ordinal % 3 != 0 if generic else ordinal % 2 == 0
+    return dal.FixedFloatTradeTerms_(
+        notional=notional,
+        contract_rate=0.03,
+        pay_fixed=pay_fixed,
+        fixed_leg=leg(6 if generic else 12, unadjusted=generic),
+        float_leg=leg(3 if generic else 12, unadjusted=generic),
+        float_index=index(projected=generic, unadjusted=generic),
+        fixing_identity=identity,
+        forecast_component_key=forward,
+        discount_component_key=discount,
+    )
+
+
 def irs(
     today,
     start,
@@ -57,25 +79,7 @@ def irs(
     ois=False,
     generic=False,
 ):
-    identity = dal.FixingIdentity_()
-    identity.index_name = "USD-LIBOR" if generic else "USD-SOFR"
-    identity.fixing_hour = 11
-    identity.fixing_minute = 0
-    # The public trade validator requires positive notionals. Represent the native
-    # fixture's short positions by reversing payer direction with the same magnitude.
-    notional = (250_000 if ordinal % 3 == 0 else 1_000_000) if generic else 1_000_000
-    pay_fixed = ordinal % 3 != 0 if generic else ordinal % 2 == 0
-    terms = dal.FixedFloatTradeTerms_(
-        notional=notional,
-        contract_rate=0.03,
-        pay_fixed=pay_fixed,
-        fixed_leg=leg(6 if generic else 12, unadjusted=generic),
-        float_leg=leg(3 if generic else 12, unadjusted=generic),
-        float_index=index(projected=generic, unadjusted=generic),
-        fixing_identity=identity,
-        forecast_component_key=forward,
-        discount_component_key=discount,
-    )
+    terms = irs_terms(ordinal, discount, forward, generic)
     return dal.RateTradeDefinition_(
         instrument_id=f"irs-{ordinal}",
         instrument_type=dal.RateInstrumentType.OIS
@@ -161,6 +165,36 @@ def flat_swap_quote(today, years, months, forward):
     return floating / annuity
 
 
+def generic_instrument(today, block, months, ordinal):
+    maturity = dal.Date_(2026 + ordinal, 1, 2)
+    if block == 0:
+        years = (maturity - today) / 365
+        quote = math.expm1(0.02 * years) / years
+        return dal.Deposit_New(today, today, maturity, quote, index())
+    quote = flat_swap_quote(today, ordinal + 1, months, 0.034 + 0.004 * (block - 1))
+    return dal.Swap_New(
+        today, today, maturity, quote, leg(6), index(True, months), leg(months)
+    )
+
+
+def generic_declaration(today, width, block):
+    size = width // 3 + (block < width % 3)
+    declaration = dal.JointCurveDeclaration_()
+    declaration.curve_name = "repeated_name"
+    declaration.parameterization = dal.CurveParameterization.PIECEWISE_CONSTANT_FWD
+    declaration.calibrate_discount_curve = block == 0
+    declaration.target_collateral = dal.CollateralType_OIS()
+    months = 6 if block == 2 else 3
+    if block:
+        declaration.target_tenor = dal.PeriodLength_New(f"{months}M")
+    declaration.base_layered_over_discount = block != 0
+    declaration.knot_dates = [dal.Date_(2025 + i, 7, 2) for i in range(size)]
+    declaration.instruments = [
+        generic_instrument(today, block, months, i) for i in range(size)
+    ]
+    return declaration
+
+
 def generic_fixture(width, count, mode="ANALYTIC"):
     """Three layered flat PWC curves and quotes from jointquoteriskfixtures.hpp."""
     today = dal.Date_(2025, 1, 2)
@@ -168,44 +202,7 @@ def generic_fixture(width, count, mode="ANALYTIC"):
     spec.today, spec.ccy = today, "USD"
     spec.tolerance, spec.fit_tolerance, spec.initial_guess = 1e-11, 1e-9, 0.025
     spec.max_evaluations, spec.max_restarts = 1000, 100
-    curves = []
-    for block in range(3):
-        size = width // 3 + (block < width % 3)
-        declaration = dal.JointCurveDeclaration_()
-        declaration.curve_name = "repeated_name"
-        declaration.parameterization = dal.CurveParameterization.PIECEWISE_CONSTANT_FWD
-        declaration.calibrate_discount_curve = block == 0
-        declaration.target_collateral = dal.CollateralType_OIS()
-        months = 6 if block == 2 else 3
-        if block:
-            declaration.target_tenor = dal.PeriodLength_New(f"{months}M")
-        declaration.base_layered_over_discount = block != 0
-        declaration.knot_dates = [dal.Date_(2025 + i, 7, 2) for i in range(size)]
-        instruments = []
-        for i in range(size):
-            maturity = dal.Date_(2026 + i, 1, 2)
-            years = (maturity - today) / 365
-            quote = (
-                math.expm1(0.02 * years) / years
-                if block == 0
-                else flat_swap_quote(today, i + 1, months, 0.034 + 0.004 * (block - 1))
-            )
-            instruments.append(
-                dal.Deposit_New(today, today, maturity, quote, index())
-                if block == 0
-                else dal.Swap_New(
-                    today,
-                    today,
-                    maturity,
-                    quote,
-                    leg(6),
-                    index(True, months),
-                    leg(months),
-                )
-            )
-        declaration.instruments = instruments
-        curves.append(declaration)
-    spec.curves = curves
+    spec.curves = [generic_declaration(today, width, block) for block in range(3)]
     options = dal.JointMultiCurveCalibrationOptions_()
     options.compute_eff_jacobian_inverse = True
     options.jacobian_mode = getattr(dal.CurveJacobianMode, mode)
@@ -303,7 +300,7 @@ def prepare_quote(fixture_factory, provenance_only=False):
     )
 
 
-def prepare_nodes(count, operation):
+def node_fixture(count, operation):
     today, start = dal.Date_(2026, 1, 15), dal.Date_(2026, 4, 15)
     knots = [dal.Date_(2026, 7, 15)] + [
         dal.Date_(year, 1, 15) for year in range(2027, 2034)
@@ -319,6 +316,11 @@ def prepare_nodes(count, operation):
         irs(today, start, maturity, i, ois=ois) for i in range(1 if ois else count)
     ]
     keys = ["forecast"] if ois else ["forecast", "discount"]
+    return market, trades, keys
+
+
+def prepare_nodes(count, operation):
+    market, trades, keys = node_fixture(count, operation)
     expected = [
         dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key=key)
         for trade in trades

@@ -202,3 +202,37 @@ def test_full_profile_preserves_native_path_and_portfolio_sizes():
     for width in (5, 10, 16):
         assert cases[f"quotes.generic.n{width}.t1000"]["trades"] == 1000
         assert cases[f"quotes.generic.n{width}.t1000"]["quotes"] == width
+
+
+def test_metadata_git_command_rejects_non_metadata_arguments(tmp_path, monkeypatch):
+    from dal_benchmarks import runner
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("unapproved Git operation reached subprocess")
+
+    monkeypatch.setattr(runner.subprocess, "run", unexpected)
+    with pytest.raises(ValueError, match="metadata"):
+        runner.git_value(tmp_path, "config", "user.name", "changed")
+
+
+def test_metadata_git_uses_resolved_tool_and_literal_arguments(tmp_path, monkeypatch):
+    from dal_benchmarks import runner
+    from types import SimpleNamespace
+
+    executable = str(tmp_path / "tools/git")
+    monkeypatch.setattr(runner.shutil, "which", lambda name: executable)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="commit\n")
+
+    monkeypatch.setattr(runner.subprocess, "run", run)
+    root = tmp_path / "repo with spaces; literal"
+    assert runner.git_value(root, "rev-parse", "HEAD") == "commit"
+    command, options = calls[0]
+    assert command == [executable, "-C", str(root), "rev-parse", "HEAD"]
+    assert options["shell"] is False
+    monkeypatch.setattr(runner.shutil, "which", lambda name: None)
+    assert runner.git_value(root, "status", "--porcelain") is None
+    assert len(calls) == 1
