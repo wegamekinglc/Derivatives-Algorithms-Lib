@@ -65,6 +65,31 @@ namespace {
         const auto passive = PriceRateTrade(trade, market);
         ASSERT_DOUBLE_EQ(meta.pv_, passive.succeeded_ ? passive.pv_ : 0.0);
     }
+
+    void AssertXccyOracleBuckets(const JointMultiCurveCalibrationSpec_& spec,
+                                 const JointMultiCurveCalibrationOptions_& options,
+                                 const Vector_<RatePortfolioQuoteRisk_>& risks) {
+        int global = 0;
+        for (int block = 0; block < 2; ++block)
+            for (int ordinal = 0; ordinal < static_cast<int>(spec.curves_[block].instruments_.size()); ++ordinal, ++global) {
+                const std::array<double, 5> prices{
+                    risks[0].meta_[0].pv_, Reprice(spec, options, block, ordinal, 1.0e-6), Reprice(spec, options, block, ordinal, -1.0e-6),
+                    Reprice(spec, options, block, ordinal, 1.0e-4), Reprice(spec, options, block, ordinal, -1.0e-4)};
+                double scale = 1.0;
+                for (double pv : prices)
+                    scale = std::max(scale, std::abs(pv));
+                const double derivative = (prices[1] - prices[2]) / 2.0e-6;
+                const double dv01 = (prices[3] - prices[4]) / 2.0;
+                for (const auto& risk : risks) {
+                    const auto& bucket = risk.buckets_[global];
+                    ASSERT_LE(std::abs(bucket.dPvDDecimalQuote_ - derivative), 5.0e-6 * std::max(scale, std::abs(derivative)));
+                    ASSERT_LE(std::abs(bucket.dv01_ - dv01), 5.0e-6 * std::max(scale * 1.0e-4, std::abs(dv01)));
+                    ASSERT_LE(std::abs(bucket.dv01_ - 1.0e-4 * bucket.dPvDDecimalQuote_),
+                              64.0 * std::numeric_limits<double>::epsilon() * std::max(scale * 1.0e-4, std::abs(bucket.dv01_)));
+                }
+                ASSERT_DOUBLE_EQ(risks[0].buckets_[global].dPvDDecimalQuote_, risks[1].buckets_[global].dPvDDecimalQuote_);
+            }
+    }
 } // namespace
 
 TEST(JointQuoteRiskTest, TestUnregisteredXccyBaseMatchesFullRecalibration) {
@@ -151,26 +176,7 @@ TEST(JointQuoteRiskTest, TestUnregisteredXccyOracleAcrossModesLayoutsLayersAndAl
                         ASSERT_EQ(RateCashflowPricingInternal::g_nodeSensitivitySweepCount, sweeps);
                     }
                 }
-                int global = 0;
-                for (int block = 0; block < 2; ++block)
-                    for (int ordinal = 0; ordinal < static_cast<int>(spec.curves_[block].instruments_.size()); ++ordinal, ++global) {
-                        const std::array<double, 5> prices{
-                            risks[0].meta_[0].pv_, Reprice(spec, options, block, ordinal, 1.0e-6), Reprice(spec, options, block, ordinal, -1.0e-6),
-                            Reprice(spec, options, block, ordinal, 1.0e-4), Reprice(spec, options, block, ordinal, -1.0e-4)};
-                        double scale = 1.0;
-                        for (double pv : prices)
-                            scale = std::max(scale, std::abs(pv));
-                        const double derivative = (prices[1] - prices[2]) / 2.0e-6;
-                        const double dv01 = (prices[3] - prices[4]) / 2.0;
-                        for (const auto& risk : risks) {
-                            const auto& bucket = risk.buckets_[global];
-                            ASSERT_LE(std::abs(bucket.dPvDDecimalQuote_ - derivative), 5.0e-6 * std::max(scale, std::abs(derivative)));
-                            ASSERT_LE(std::abs(bucket.dv01_ - dv01), 5.0e-6 * std::max(scale * 1.0e-4, std::abs(dv01)));
-                            ASSERT_LE(std::abs(bucket.dv01_ - 1.0e-4 * bucket.dPvDDecimalQuote_),
-                                      64.0 * std::numeric_limits<double>::epsilon() * std::max(scale * 1.0e-4, std::abs(bucket.dv01_)));
-                        }
-                        ASSERT_DOUBLE_EQ(risks[0].buckets_[global].dPvDDecimalQuote_, risks[1].buckets_[global].dPvDDecimalQuote_);
-                    }
+                ASSERT_NO_FATAL_FAILURE(AssertXccyOracleBuckets(spec, options, risks));
             }
 }
 

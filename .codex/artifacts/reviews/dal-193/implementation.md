@@ -9,8 +9,9 @@ B1 now propagates joint quote risk through the actual consumed curve/base graph,
 - RED: `a4bd9a41445e9d9ef22f2131d3022893a4f59a62`.
 - Initial GREEN: `060a411734fb5925e3dad685e4c1154ead5f480d`.
 - Source protection and surface verification: `129a69f8c1ad95a98543c5a7d86f0494d73f503a`.
-- Verified code head: `9a847361081ebd3b5450cb9273a1c7597f369e10`.
-- The delivery commit adds this record only; the exact published head is recorded on the draft PR and its Multica handoff comment.
+- Initial verified code head: `9a847361081ebd3b5450cb9273a1c7597f369e10`.
+- First draft head: `fb01602a99dbe694ad68b1ea9eaf97d072eb4fd4`, adding this record only.
+- The CI repair below updates the same draft PR; its exact published head and single post-push CI snapshot are recorded in the follow-up evidence archive and Multica handoff comment.
 
 Controlling inputs were the approved B1 specification, API note, and `Proceed with caveats` critique attached to DAL-193. Their attachment IDs are respectively `01a08bfd-6b19-74bf-afcf-6a80c73d5dd4`, `01a08c0e-1962-74dc-98bf-c139a7159b26`, and `01a08c1b-9290-7c4b-a8e5-68b2e4b777f8`. Q1 and B2 remain excluded.
 
@@ -55,7 +56,7 @@ For the original `curve:0:1` bucket, baseline returned `31228.07347268159` versu
 
 An additional RED case showed one attempted pricing call through a cyclic source reachable only through the unregistered XCCY path. After the protection change the attempted-call count is zero, with one `INVALID` provenance failure, no trade meta, no buckets, and no sweep. Its RED/GREEN logs are included.
 
-## Local validation
+## Initial local validation
 
 ```bash
 NUM_CORES=4 ADDITIONAL_CMAKE_FLAGS='-DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON' bash ./build_linux.sh --python 3.12
@@ -156,8 +157,46 @@ The benchmark's previous exact preparation count of three included the unused re
 
 The comparable benchmark portfolios already have complete economically relevant base paths on baseline. The old B1 missing-path calculation was not used as an equivalent-work performance baseline. The changed hot path maps to the existing `rate_risk_perf` target; no new benchmark target is introduced.
 
+## CI repair of the first draft
+
+The orchestrator returned `fb01602a99dbe694ad68b1ea9eaf97d072eb4fd4` to implementation for MSVC compilation and three new Codacy complexity findings. This follow-up changes only `dal-cpp/dal/curve/ratecashflowpricing.cpp`, `dal-cpp/tests/curve/test_joint_quote_risk_graph.cpp`, and this record.
+
+The downloaded failed `build (msvc, xad)` log from run `34507960051`, job `102974740264`, confirms C2065 on `typeid(curve)` inside the generic visitor and the following C2338 uniform-return diagnostic from `std::visit`. The log identifies MSVC 14.51.36231. The triggering comment reports the same compile failure in all three Windows builds and Windows Benchmarks; compilation failed before benchmark measurements.
+
+`IsExactJointCurve` now evaluates dynamic RTTI outside the generic lambda, captures the resulting `std::type_info` reference explicitly, and declares the visitor return type as `bool`. Each non-monostate alternative still compares that dynamic RTTI with its exact static curve type; opaque and derived curves keep the approved rejection behavior.
+
+The complexity repair extracts the consumed path preparation and XCCY preparation loops into private helpers. A consumed path stops at the addressed target; a constant XCCY root stops at itself, preserving the previous preparation set, order, cache reuse, and failure handling. The oracle test moves only its per-bucket recalibration assertions into a helper and calls it through `ASSERT_NO_FATAL_FAILURE`, preserving fail-fast propagation. All original assertions, tolerances, test cases, and mode/layout/layer/alias combinations remain present.
+
+Lizard 1.23.0 reproduces the three Codacy counts before repair and reports the following after repair, using the unchanged limit of 8:
+
+| Function                                                       | Before | After |
+|----------------------------------------------------------------|--------|-------|
+| `JointPreparations`                                            | 9      | 6     |
+| `HoistXccy`                                                    | 10     | 8     |
+| `TestUnregisteredXccyOracleAcrossModesLayoutsLayersAndAliases` | 10     | 6     |
+| `PrepareJointPath`                                             | new    | 5     |
+| `PrepareXccyConsumedCurves`                                    | new    | 3     |
+| `AssertXccyOracleBuckets`                                      | new    | 5     |
+
+The RED evidence for this repair is the actual published-head MSVC failure and the reproduced static threshold violations. The native GCC baseline already passed all 32 joint tests. The minimum portability change then passed a targeted native build and the same 32 tests before the complexity extraction; no artificial behavioral failure was introduced for this compiler-only repair.
+
+Final directed verification:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp_tests --parallel 4
+build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='JointQuoteRiskTest.*:RateCashflowPricingTest.*:QuoteRiskAggregationTest.*'
+```
+
+- Native Release target build passed; the final directed regression filter passed **144/144** tests (32 joint, 87 pricing, 25 quote aggregation), including exact-type C1–C4, historical knots, aliases/preparation counts, invalid source protection, tape rollback, and standalone XCCY behavior.
+- Both changed C++ translation units passed GCC `-Wall -Wextra -Wpedantic -Werror` syntax checks with exactly the repository CI's existing warning-category exclusions.
+- The production translation unit also passed Clang 21 syntax validation with `-fdelayed-template-parsing -fms-extensions`. This uses Linux headers and is supplementary portability evidence; it is not a real MSVC build result.
+- The static comparison confirms that all original assertion expressions and test case names remain; only the helper failure-propagation assertion was added. Patch whitespace checks passed. No threshold, gate configuration, public contract, numeric assertion, or excluded Q1/B2 scope changed.
+
+Per the explicit follow-up instruction, this turn runs directed build/regression/static checks only. The initial 1552-test full native validation, Python/public/Excel results, independent oracle files, generated-source/docs/helper checks, and nine-target performance evidence above remain reusable prior-head evidence, not new-head full-suite claims. Actual MSVC builds, Windows Benchmarks, hosted Codacy, wheels, the full backend matrix, and final-head complete local/CI acceptance remain for the subsequent pipeline. One CI snapshot will be read after pushing this repair; this implementation phase does not wait for CI completion or merge.
+
 ## Handoff
 
-The evidence archive contains RED/GREEN and full-test logs, the baseline C1–C4 characterization source, both final oracle CSVs and validators/manifests, generated/docs/helper/warning results, and complete benchmark environment/raw/summary results. Source changes are committed; generated logs and the earlier investigation materials are excluded from Git.
+The initial evidence archive contains RED/GREEN and full-test logs, the baseline C1–C4 characterization source, both final oracle CSVs and validators/manifests, generated/docs/helper/warning results, and complete benchmark environment/raw/summary results. The CI repair archive adds the actual MSVC failure log, directed build/regression/static evidence, the source delta, and a single post-push CI snapshot. Source changes are committed; generated logs and the earlier investigation materials are excluded from Git.
 
 Local verification covers native AADet on Linux/WSL2 and portable Excel. Windows XLL and the alternative AAD backend CI matrix have not been run locally. The orchestrator will arrange tester → reviewer → doc-writer and the final published-head CI/merge acceptance. Documentation review should explicitly preserve the C1/C3 compatibility qualification and the restriction to actual consumed exact builtin graphs.

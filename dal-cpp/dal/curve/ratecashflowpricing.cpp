@@ -10,6 +10,7 @@
 #include <optional>
 #include <set>
 #include <type_traits>
+#include <typeinfo>
 
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
@@ -704,12 +705,13 @@ namespace Dal {
         using ActiveCurveMap_ = std::map<const DiscountCurve_*, std::shared_ptr<Tape::DiscountCurve_<AAD::Number_>>>;
 
         bool IsExactJointCurve(const DiscountCurve_& curve) {
+            const std::type_info& actualType = typeid(curve);
             return std::visit(
-                [&](const auto& typed) {
+                [&actualType](const auto& typed) -> bool {
                     if constexpr (std::is_same_v<std::decay_t<decltype(typed)>, std::monostate>)
                         return false;
                     else
-                        return typeid(curve) == typeid(std::remove_pointer_t<std::decay_t<decltype(typed)>>);
+                        return actualType == typeid(std::remove_pointer_t<std::decay_t<decltype(typed)>>);
                 },
                 RateCashflowPricingInternal::ClassifyNodeSensitivityCurve(curve));
         }
@@ -922,20 +924,29 @@ namespace Dal {
                 return jointClosures_.emplace(&trade, BuildJointCurveClosure(roots)).first->second;
             }
 
+            bool PrepareJointPath(const JointCurveClosure_& closure,
+                                  const DiscountCurve_* root,
+                                  const DiscountCurve_* target,
+                                  JointNodePreparations_* preparations) {
+                for (const auto* curve = root; curve && !preparations->count(curve); curve = closure.bases_.at(curve)) {
+                    const auto* preparation = PreparationFor(curve, RateCashflowPricingInternal::ClassifyNodeSensitivityCurve(*curve), true);
+                    if (!preparation)
+                        return false;
+                    preparations->emplace(curve, preparation);
+                    if (curve == target)
+                        break;
+                }
+                return true;
+            }
+
             JointNodePreparations_ JointPreparations(const JointCurveClosure_& closure, const DiscountCurve_* target, bool xccy) {
                 JointNodePreparations_ result;
                 for (const auto* root : closure.roots_) {
                     const bool depends = CurveDependsOn(root, target);
                     if (!xccy && !depends)
                         continue;
-                    for (const auto* curve = root; curve && !result.count(curve); curve = closure.bases_.at(curve)) {
-                        const auto* preparation = PreparationFor(curve, RateCashflowPricingInternal::ClassifyNodeSensitivityCurve(*curve), true);
-                        if (!preparation)
-                            return {};
-                        result.emplace(curve, preparation);
-                        if (!depends || curve == target)
-                            break;
-                    }
+                    if (!PrepareJointPath(closure, root, depends ? target : root, &result))
+                        return {};
                 }
                 return result;
             }
@@ -1045,6 +1056,18 @@ namespace Dal {
                 return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target);
             }
 
+            void PrepareXccyConsumedCurves(XccyNodeSensitivityHoist_* hoist) {
+                for (const auto& [curve, classification] : hoist->classified_) {
+                    if (const NodeSensitivityPreparation_* preparation = PreparationFor(curve, classification))
+                        hoist->prepared_[curve] = *preparation;
+                    else {
+                        hoist->preparationOk_ = false;
+                        break;
+                    }
+                }
+                hoist->preparationAttempted_ = true;
+            }
+
             const XccyNodeSensitivityHoist_&
             HoistXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, bool jointCoordinates = false) {
                 const auto found = xccyHoists_.find(&trade);
@@ -1066,17 +1089,8 @@ namespace Dal {
                     }
                     hoist.classified_[curve] = classification;
                 }
-                if (!hoist.classificationFailureCurve_ && (!jointCoordinates || hoist.expired_)) {
-                    for (const auto& [curve, classification] : hoist.classified_) {
-                        if (const NodeSensitivityPreparation_* preparation = PreparationFor(curve, classification))
-                            hoist.prepared_[curve] = *preparation;
-                        else {
-                            hoist.preparationOk_ = false;
-                            break;
-                        }
-                    }
-                    hoist.preparationAttempted_ = true;
-                }
+                if (!hoist.classificationFailureCurve_ && (!jointCoordinates || hoist.expired_))
+                    PrepareXccyConsumedCurves(&hoist);
                 try {
                     hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
                 } catch (const std::exception&) {
