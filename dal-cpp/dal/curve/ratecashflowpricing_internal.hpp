@@ -84,6 +84,16 @@ namespace Dal::RateCashflowPricingInternal {
     // Test-only fault injection while the joint sweep still owns its recorded tape.
     inline std::atomic<void (*)(const DiscountCurve_*)> g_jointNodeSensitivityRecordedPvHook{nullptr};
 
+    // Test-only preparation fault, invoked only on a joint preparation cache miss.
+    inline std::atomic<void (*)(const DiscountCurve_*)> g_jointNodeSensitivityPreparationHook{nullptr};
+
+    inline void ObserveJointPreparationAttempt(const DiscountCurve_* curve, bool jointCoordinates) {
+        if (!jointCoordinates)
+            return;
+        if (const auto hook = g_jointNodeSensitivityPreparationHook.load(std::memory_order_relaxed))
+            hook(curve);
+    }
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,

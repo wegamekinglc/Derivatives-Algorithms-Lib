@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <optional>
+#include <set>
 
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 
@@ -191,6 +193,138 @@ namespace {
             ASSERT_NEAR(cell.result_.gradient_[coordinate], (pv[1] - pv[0]) / (2.0 * bump), 1.0e-3);
         }
     }
+
+    struct PreparationFailureInput_ {
+        RatePricingMarket_ market_;
+        RateTradeDefinition_ bad_, healthy_;
+        std::optional<RateQuoteRiskProvenance_> provenance_;
+        std::array<Handle_<DiscountCurve_>, 2> middle_;
+    };
+
+    PreparationFailureInput_ PreparationFailureInput(const JointMultiCurveCalibrationSpec_& spec,
+                                                      const JointMultiCurveCalibrationResult_& calibrated,
+                                                      bool reverseAllocation,
+                                                      bool reverseKeys) {
+        PreparationFailureInput_ result;
+        result.market_ = JointQuoteRiskFixtures::Market(spec, calibrated);
+        using Curve_ = Tape::DiscountPWC_<double>;
+        const auto middle = [&](int block) {
+            return Curve_("middle:" + String::FromInt(block), "USD", spec.curves_[block].knotDates_,
+                          Vector_<>(spec.curves_[block].knotDates_.size(), 0.004),
+                          result.market_.curveComponents_.at(JointQuoteRiskFixtures::BlockKey(block)));
+        };
+        // An array makes the relative addresses deterministic while swapping which base owns each position.
+        const std::shared_ptr<std::array<Curve_, 2>> storage(
+            new std::array<Curve_, 2>{middle(reverseAllocation ? 1 : 0), middle(reverseAllocation ? 0 : 1)});
+        const std::array<String_, 2> keys = reverseKeys ? std::array<String_, 2>{"z-extra", "a-extra"}
+                                                       : std::array<String_, 2>{"a-extra", "z-extra"};
+        for (int block = 0; block < 2; ++block) {
+            const int position = reverseAllocation ? 1 - block : block;
+            result.middle_[block] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(storage, &(*storage)[position]));
+            result.market_.curveComponents_[keys[block]] = Flat(spec, keys[block], "USD", 0.002, result.middle_[block]);
+        }
+        result.market_.curveComponents_["z-discount"] = result.market_.curveComponents_.at("curve:0");
+        result.market_.curveComponents_["a-forward"] = result.market_.curveComponents_.at("curve:1");
+        result.bad_ = JointQuoteRiskFixtures::Irs(spec);
+        auto& terms = std::get<IrsTradeTerms_>(result.bad_.terms_).value_;
+        terms.discountComponentKey_ = keys[0];
+        terms.forecastComponentKey_ = keys[1];
+        result.healthy_ = JointQuoteRiskFixtures::Irs(spec);
+        result.healthy_.instrumentId_ = "healthy";
+        result.provenance_ = BuildJointMultiCurveQuoteRiskProvenance(
+            spec, calibrated, Options(), result.market_, {"generic-joint", {{"curve:0", "z-discount"}, {"curve:1", "a-forward"}}});
+        return result;
+    }
+
+    thread_local std::set<const DiscountCurve_*> preparationFaults;
+    thread_local std::map<const DiscountCurve_*, int> preparationAttempts;
+
+    void FailSelectedPreparation(const DiscountCurve_* curve) {
+        ++preparationAttempts[curve];
+        if (preparationFaults.count(curve))
+            THROW("Test joint native preparation failure");
+    }
+
+    class PreparationFaultScope_ {
+    public:
+        PreparationFaultScope_(const PreparationFailureInput_& input, int mask) {
+            preparationFaults.clear();
+            preparationAttempts.clear();
+            for (int block = 0; block < 2; ++block)
+                if (mask & (1 << block))
+                    preparationFaults.insert(input.middle_[block].get());
+            RateCashflowPricingInternal::g_jointNodeSensitivityPreparationHook = FailSelectedPreparation;
+        }
+        ~PreparationFaultScope_() { RateCashflowPricingInternal::g_jointNodeSensitivityPreparationHook = nullptr; }
+        PreparationFaultScope_(const PreparationFaultScope_&) = delete;
+        PreparationFaultScope_& operator=(const PreparationFaultScope_&) = delete;
+    };
+
+    void AssertPreparationFailure(const RatePortfolioQuoteRiskMetaEntry_& actual,
+                                   const RateTradeDefinition_& trade,
+                                   const RatePricingMarket_& market,
+                                   const String_& key) {
+        const auto passive = PriceRateTrade(trade, market);
+        ASSERT_TRUE(passive.succeeded_);
+        const RatePortfolioQuoteRiskMetaEntry_ expected{trade.instrumentId_, "generic-joint", false, false,
+                                                       "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE", key, "AAD_EVALUATION_FAILED", Ccy_("USD"),
+                                                       passive.pv_};
+        ASSERT_NO_FATAL_FAILURE(AssertMetaEqual(actual, expected));
+    }
+
+    void AssertBucketsEqual(const RatePortfolioQuoteRisk_& actual, const RatePortfolioQuoteRisk_& expected) {
+        ASSERT_EQ(actual.buckets_.size(), expected.buckets_.size());
+        for (int index = 0; index < static_cast<int>(actual.buckets_.size()); ++index)
+            ASSERT_NO_FATAL_FAILURE(AssertBucketEqual(actual.buckets_[index], expected.buckets_[index]));
+    }
+
+    void AssertPreparationFaultCase(const PreparationFailureInput_& input, int mask) {
+        using namespace RateCashflowPricingInternal;
+        const String_ key = mask == 2 ? "a-forward" : "z-discount";
+        const auto healthyOnly = AggregateRatePortfolioQuoteRisk({input.healthy_}, input.market_, {*input.provenance_});
+        const auto noFault = AggregateRatePortfolioQuoteRisk({input.bad_, input.healthy_}, input.market_, {*input.provenance_});
+        ASSERT_EQ(healthyOnly.meta_.size(), 1);
+        ASSERT_TRUE(healthyOnly.meta_[0].eligible_);
+        ASSERT_EQ(healthyOnly.buckets_.size(), 5);
+        ASSERT_EQ(noFault.meta_.size(), 2);
+        ASSERT_TRUE(noFault.meta_[0].eligible_);
+        ASSERT_TRUE(noFault.meta_[1].eligible_);
+        {
+            PreparationFaultScope_ fault(input, mask);
+            g_nodeSensitivitySweepCount = 0;
+            const auto failed = AggregateRatePortfolioQuoteRisk({input.bad_}, input.market_, {*input.provenance_});
+            ASSERT_TRUE(failed.provenanceFailures_.empty());
+            ASSERT_TRUE(failed.buckets_.empty());
+            ASSERT_EQ(failed.meta_.size(), 1);
+            ASSERT_NO_FATAL_FAILURE(AssertPreparationFailure(failed.meta_[0], input.bad_, input.market_, key));
+            ASSERT_DOUBLE_EQ(failed.pvByActualPvCcy_.at("USD"), failed.meta_[0].pv_);
+            ASSERT_EQ(g_nodeSensitivitySweepCount, mask == 2 ? 1 : 0);
+            preparationAttempts.clear();
+            auto repeated = input.bad_;
+            repeated.instrumentId_ = "repeated-failure";
+            g_nodeSensitivitySweepCount = 0;
+            g_nodeSensitivityPassivePriceCount = 0;
+            const auto mixed = AggregateRatePortfolioQuoteRisk({input.bad_, repeated, input.healthy_}, input.market_, {*input.provenance_});
+            ASSERT_TRUE(mixed.provenanceFailures_.empty());
+            ASSERT_EQ(mixed.meta_.size(), 3);
+            ASSERT_NO_FATAL_FAILURE(AssertPreparationFailure(mixed.meta_[0], input.bad_, input.market_, key));
+            ASSERT_NO_FATAL_FAILURE(AssertPreparationFailure(mixed.meta_[1], repeated, input.market_, key));
+            ASSERT_NO_FATAL_FAILURE(AssertMetaEqual(mixed.meta_[2], healthyOnly.meta_[0]));
+            ASSERT_NO_FATAL_FAILURE(AssertBucketsEqual(mixed, healthyOnly));
+            ASSERT_DOUBLE_EQ(mixed.pvByActualPvCcy_.at("USD"), mixed.meta_[0].pv_ + mixed.meta_[1].pv_ + healthyOnly.meta_[0].pv_);
+            ASSERT_EQ(preparationAttempts[input.middle_[0].get()], 1);
+            ASSERT_EQ(preparationAttempts[input.middle_[1].get()], mask == 2 ? 1 : 0);
+            ASSERT_EQ(g_nodeSensitivitySweepCount, mask == 2 ? 4 : 2);
+            ASSERT_EQ(g_nodeSensitivityPassivePriceCount, 3);
+        }
+        const auto recovered = AggregateRatePortfolioQuoteRisk({input.bad_, input.healthy_}, input.market_, {*input.provenance_});
+        ASSERT_TRUE(recovered.provenanceFailures_.empty());
+        ASSERT_EQ(recovered.meta_.size(), 2);
+        ASSERT_TRUE(recovered.meta_[0].eligible_);
+        ASSERT_TRUE(recovered.meta_[1].eligible_);
+        ASSERT_EQ(recovered.pvByActualPvCcy_, noFault.pvByActualPvCcy_);
+        ASSERT_NO_FATAL_FAILURE(AssertBucketsEqual(recovered, noFault));
+    }
 } // namespace
 
 TEST(JointQuoteRiskTest, TestXccyProvenanceOrderPreservesStandaloneAndJointResults) {
@@ -264,5 +398,23 @@ TEST(JointQuoteRiskTest, TestHistoricalMixedChainConsumesOnlyNativeDiscount) {
             ASSERT_TRUE(risk.meta_[0].eligible_);
             ASSERT_FALSE(risk.meta_[0].structuralZero_);
             ASSERT_EQ(risk.buckets_.size(), 5);
+        }
+}
+
+TEST(JointQuoteRiskTest, TestPreparationFailuresFollowDeclarationOrderAndReuseFailureCache) {
+    const auto spec = JointQuoteRiskFixtures::Spec();
+    const auto calibrated = CalibrateJointMultiCurve(spec, Options());
+    for (bool reverseAllocation : {false, true})
+        for (bool reverseKeys : {false, true}) {
+            SCOPED_TRACE(reverseAllocation);
+            SCOPED_TRACE(reverseKeys);
+            const auto input = PreparationFailureInput(spec, calibrated, reverseAllocation, reverseKeys);
+            ASSERT_TRUE(input.provenance_.has_value());
+            ASSERT_TRUE(input.provenance_->Available());
+            ASSERT_EQ(std::less<const DiscountCurve_*>()(input.middle_[0].get(), input.middle_[1].get()), !reverseAllocation);
+            for (int mask : {1, 2, 3}) {
+                SCOPED_TRACE(mask);
+                ASSERT_NO_FATAL_FAILURE(AssertPreparationFaultCase(input, mask));
+            }
         }
 }

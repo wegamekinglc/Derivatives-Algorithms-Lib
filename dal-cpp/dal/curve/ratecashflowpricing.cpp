@@ -985,6 +985,7 @@ namespace Dal {
                 if (found != preparations.end())
                     return &found->second;
                 try {
+                    RateCashflowPricingInternal::ObserveJointPreparationAttempt(curve, jointCoordinates);
                     Date_ anchor = market_.valuationTime_.Date();
                     if (jointCoordinates)
                         std::visit(
