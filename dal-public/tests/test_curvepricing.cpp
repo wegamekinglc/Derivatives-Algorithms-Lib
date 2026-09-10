@@ -8,6 +8,21 @@
 
 #include "jointquoteriskfixture.hpp"
 #include <dal-public/src/curvepricing.hpp>
+#include <tests/curve/jointxccyquoteriskfixtures.hpp>
+
+TEST(CurvePricingPublicTest, TestJointUnregisteredXccyBaseRisk) {
+    using namespace JointXccyQuoteRiskFixtures;
+    const auto spec = JointQuoteRiskFixtures::Spec();
+    const auto calibrated = Dal::CalibrateJointMultiCurveBundle(spec, Options());
+    const auto market = Market(spec, calibrated);
+    const auto provenance = Dal::BuildJointMultiCurveQuoteRiskProvenance(spec, calibrated, Options(), market, JointQuoteRiskFixtures::Config(2));
+    const auto risk = Dal::AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
+    ASSERT_EQ(risk.buckets_.size(), 5);
+    ASSERT_TRUE(risk.meta_[0].eligible_);
+    const double derivative = (Reprice(spec, Options(), 0, 1, 1.0e-6) - Reprice(spec, Options(), 0, 1, -1.0e-6)) / 2.0e-6;
+    ASSERT_NEAR(risk.buckets_[1].dPvDDecimalQuote_, derivative, 1.0e-3);
+    ASSERT_EQ(risk.buckets_[1].actualPvCcy_, Dal::Ccy_("EUR"));
+}
 
 TEST(CurvePricingPublicTest, TestGenericJointCrossLanguageReference) {
     const auto spec = JointQuoteRiskPublicFixture::Spec();

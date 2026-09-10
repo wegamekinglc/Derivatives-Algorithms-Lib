@@ -23,12 +23,13 @@ namespace JointXccyQuoteRiskFixtures {
     }
 
     inline Dal::Handle_<Dal::DiscountCurve_> Flat(const Dal::JointMultiCurveCalibrationSpec_& spec,
-                                                 const Dal::String_& name,
-                                                 const Dal::String_& currency,
-                                                 double rate,
-                                                 const Dal::Handle_<Dal::DiscountCurve_>& base = {}) {
+                                                  const Dal::String_& name,
+                                                  const Dal::String_& currency,
+                                                  double rate,
+                                                  const Dal::Handle_<Dal::DiscountCurve_>& base = {}) {
         return Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC(
-            name, currency, Dal::PiecewiseConstant_(spec.curves_.front().knotDates_, Dal::Vector_<>(spec.curves_.front().knotDates_.size(), rate)), base));
+            name, currency, Dal::PiecewiseConstant_(spec.curves_.front().knotDates_, Dal::Vector_<>(spec.curves_.front().knotDates_.size(), rate)),
+            base));
     }
 
     inline Dal::RatePricingMarket_ Market(const Dal::JointMultiCurveCalibrationSpec_& spec,

@@ -4,6 +4,56 @@
 
 #include <dal-excel/src/__jointcalibration_test_api.hpp>
 #include <dal-public/tests/jointquoteriskfixture.hpp>
+#include <tests/curve/jointquoteriskopaque.hpp>
+#include <tests/curve/jointxccyquoteriskfixtures.hpp>
+
+TEST(ExcelJointCalibrationTest, TestUnregisteredXccyBaseQuoteRiskSpill) {
+    using namespace Dal;
+    namespace fixture = JointXccyQuoteRiskFixtures;
+    const auto spec = JointQuoteRiskFixtures::Spec();
+    const auto options = fixture::Options();
+    const auto calibrated = CalibrateJointMultiCurveBundle(spec, options);
+    const Handle_<StorableJointMultiCurveCalibrationResult_> bundle(new StorableJointMultiCurveCalibrationResult_(calibrated, spec, options));
+    const auto nativeMarket = fixture::Market(spec, calibrated);
+    const Handle_<StorableRatePricingMarket_> market(new StorableRatePricingMarket_(nativeMarket));
+    const Handle_<StorableRateTradeDefinition_> trade(new StorableRateTradeDefinition_(fixture::Trade(spec)));
+    Handle_<StorableRateQuoteRiskProvenance_> provenance;
+    JointMultiCurveQuoteRiskProvenance_New(bundle, "b1", {"curve:0", "curve:1"}, {"curve:0", "curve:1"}, market, &provenance);
+    Matrix_<Cell_> spill;
+    RatePortfolioQuoteRisk_Spill({Handle_<Storable_>(trade)}, market, {Handle_<Storable_>(provenance)}, &spill);
+    ASSERT_EQ(spill.Rows(), 5);
+    ASSERT_EQ(spill.Cols(), 10);
+    const double derivative = (fixture::Reprice(spec, options, 0, 1, 1.0e-6) - fixture::Reprice(spec, options, 0, 1, -1.0e-6)) / 2.0e-6;
+    ASSERT_NEAR(Cell::ToDouble(spill(1, 6)), derivative, 1.0e-3);
+    ASSERT_EQ(Cell::ToString(spill(1, 5)), "EUR");
+    ASSERT_EQ(Cell::ToString(spill(1, 8)), "available");
+    ASSERT_TRUE(Cell::IsEmpty(spill(1, 9)));
+}
+
+TEST(ExcelJointCalibrationTest, TestNativeOpaqueJointGraphKeepsFailureSpillShape) {
+    using namespace Dal;
+    namespace fixture = JointXccyQuoteRiskFixtures;
+    const auto spec = JointQuoteRiskFixtures::Spec();
+    const auto calibrated = CalibrateJointMultiCurveBundle(spec, fixture::Options());
+    const auto nativeMarket = fixture::Market(spec, calibrated, false, {}, [&](const auto&) {
+        return fixture::Flat(spec, "eur-3m", "EUR", 0.019, Handle_<DiscountCurve_>(new fixture::OpaqueCurve_({}, "EUR")));
+    });
+    const Handle_<StorableRatePricingMarket_> market(new StorableRatePricingMarket_(nativeMarket));
+    const Handle_<StorableJointMultiCurveCalibrationResult_> bundle(
+        new StorableJointMultiCurveCalibrationResult_(calibrated, spec, fixture::Options()));
+    const Handle_<StorableRateTradeDefinition_> trade(new StorableRateTradeDefinition_(fixture::Trade(spec)));
+    Handle_<StorableRateQuoteRiskProvenance_> provenance;
+    JointMultiCurveQuoteRiskProvenance_New(bundle, "b1", {"curve:0", "curve:1"}, {"curve:0", "curve:1"}, market, &provenance);
+    Matrix_<Cell_> spill;
+    RatePortfolioQuoteRisk_Spill({Handle_<Storable_>(trade)}, market, {Handle_<Storable_>(provenance)}, &spill);
+    ASSERT_EQ(spill.Rows(), 1);
+    ASSERT_EQ(spill.Cols(), 10);
+    ASSERT_TRUE(Cell::IsEmpty(spill(0, 6)));
+    ASSERT_TRUE(Cell::IsEmpty(spill(0, 7)));
+    ASSERT_EQ(Cell::ToString(spill(0, 8)), "unavailable");
+    ASSERT_EQ(Cell::ToString(spill(0, 3)), "AAD_EVALUATION_FAILED");
+    ASSERT_EQ(Cell::ToString(spill(0, 9)), "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+}
 
 namespace {
     using namespace Dal;

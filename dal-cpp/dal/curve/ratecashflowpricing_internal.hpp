@@ -77,6 +77,10 @@ namespace Dal::RateCashflowPricingInternal {
     // Test-only fault seam for proving quote-risk sibling-gradient atomicity.
     inline std::atomic<const String_*> g_quoteRiskForcedSweepFailureComponent{nullptr};
 
+    // Test-only fault injection after a real sweep, before the aggregate accepts its slice.
+    using QuoteRiskRecordedSweepHook_ = void (*)(const String_&, RateTradeNodeSensitivityResult_*);
+    inline std::atomic<QuoteRiskRecordedSweepHook_> g_quoteRiskRecordedSweepHook{nullptr};
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,

@@ -872,10 +872,8 @@ namespace Dal {
                 return SweepSingleCurrency(trade, componentKey, jointCoordinates);
             }
 
-            bool ConsumesComponent(const RateTradeDefinition_& trade,
-                                   const Vector_<String_>& dependencies,
-                                   const String_& key,
-                                   bool jointCoordinates) {
+            bool
+            ConsumesComponent(const RateTradeDefinition_& trade, const Vector_<String_>& dependencies, const String_& key, bool jointCoordinates) {
                 if (!jointCoordinates)
                     return std::find(dependencies.begin(), dependencies.end(), key) != dependencies.end();
                 const auto target = market_.curveComponents_.find(key);
@@ -1045,7 +1043,8 @@ namespace Dal {
                 return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target);
             }
 
-            const XccyNodeSensitivityHoist_& HoistXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, bool jointCoordinates = false) {
+            const XccyNodeSensitivityHoist_&
+            HoistXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, bool jointCoordinates = false) {
                 const auto found = xccyHoists_.find(&trade);
                 if (found != xccyHoists_.end())
                     return found->second;
@@ -1539,6 +1538,22 @@ namespace Dal {
 
         bool UsablePassivePrice(const RatePricingTradeResult_& passive) { return passive.succeeded_ && std::isfinite(passive.pv_); }
 
+        RateTradeNodeSensitivityResult_
+        QuoteRiskSweep(const RateTradeDefinition_& trade, const String_& key, int width, bool jointCoordinates, NodeSensitivitySweeper_* sweeper) {
+            using namespace RateCashflowPricingInternal;
+            try {
+                auto cell = sweeper->Sweep(trade, key, jointCoordinates);
+                if (!cell.eligible_)
+                    return cell;
+                if (jointCoordinates)
+                    if (const auto hook = g_quoteRiskRecordedSweepHook.load(std::memory_order_relaxed))
+                        hook(key, &cell);
+                return FinalizeNodeSensitivityCandidate({cell.pv_, std::move(cell.gradient_)}, width);
+            } catch (const std::exception&) {
+                return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
+            }
+        }
+
         void ProcessQuoteRiskTradeProvenance(const RateTradeDefinition_& trade,
                                              const RatePricingTradeResult_& passive,
                                              const PreparedQuoteRiskProvenance_& item,
@@ -1553,7 +1568,8 @@ namespace Dal {
             bool structuralZero = true;
             const bool jointCoordinates = item.provenance_->Kind() == "JOINT_MULTI_CURVE";
             for (const auto& block : item.blocks_) {
-                const bool consumesComponent = sweeper->ConsumesComponent(trade, passive.dependencyComponentKeys_, block.componentKey_, jointCoordinates);
+                const bool consumesComponent =
+                    sweeper->ConsumesComponent(trade, passive.dependencyComponentKeys_, block.componentKey_, jointCoordinates);
                 if (dependencyPlanAvailable && !consumesComponent)
                     continue;
                 structuralZero = false;
@@ -1569,13 +1585,9 @@ namespace Dal {
                                         failed.reason_.empty() ? String_("TRADE_VALIDATION_FAILED") : failed.reason_, result);
                     return;
                 }
-                const auto cell = sweeper->Sweep(trade, block.componentKey_, jointCoordinates);
+                const auto cell = QuoteRiskSweep(trade, block.componentKey_, block.parameterCount_, jointCoordinates, sweeper);
                 if (!cell.eligible_) {
                     AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, block.componentKey_, cell.reason_, result);
-                    return;
-                }
-                if (static_cast<int>(cell.gradient_.size()) != block.parameterCount_) {
-                    AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, false, block.componentKey_, "AAD_EVALUATION_FAILED", result);
                     return;
                 }
                 std::copy(cell.gradient_.begin(), cell.gradient_.end(), gradient.begin() + block.offset_);
@@ -1622,6 +1634,17 @@ namespace Dal {
                 for (const auto& key : invalid.dependencyComponentKeys_)
                     if (ConsumesInvalidCurve(key, market, invalidKeys))
                         return invalid;
+                if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                    const auto consumed = ResolveXccyConsumedCurves(*terms, market);
+                    const auto closure = BuildJointCurveClosure(consumed.curves_);
+                    if (!closure.complete_)
+                        return invalid;
+                    for (const auto& key : invalidKeys) {
+                        const auto found = market.curveComponents_.find(key);
+                        if (found != market.curveComponents_.end() && closure.bases_.count(found->second.get()))
+                            return invalid;
+                    }
+                }
             } catch (const std::exception&) {
                 return invalid;
             }
