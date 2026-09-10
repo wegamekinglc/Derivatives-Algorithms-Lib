@@ -81,6 +81,9 @@ namespace Dal::RateCashflowPricingInternal {
     using QuoteRiskRecordedSweepHook_ = void (*)(const String_&, RateTradeNodeSensitivityResult_*);
     inline std::atomic<QuoteRiskRecordedSweepHook_> g_quoteRiskRecordedSweepHook{nullptr};
 
+    // Test-only fault injection while the joint sweep still owns its recorded tape.
+    inline std::atomic<void (*)(const DiscountCurve_*)> g_jointNodeSensitivityRecordedPvHook{nullptr};
+
     using NodeSensitivityCurve_ = std::variant<std::monostate,
                                                const Tape::DiscountPWC_<double>*,
                                                const Tape::DiscountPWLF_<double>*,

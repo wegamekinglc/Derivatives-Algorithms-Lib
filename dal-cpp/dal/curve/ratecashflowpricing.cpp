@@ -813,6 +813,8 @@ namespace Dal {
                 for (const auto& [curve, preparation] : preparations)
                     BuildJointActiveCurve(curve, target, parameters, preparations, &active);
                 AAD::Number_ pv = PriceJointActive(trade, market, active, xccyHoist);
+                if (const auto hook = g_jointNodeSensitivityRecordedPvHook.load(std::memory_order_relaxed))
+                    hook(target);
                 AAD::Adjoint(pv) = 1.0;
                 AAD::PropagateToStart(*AAD::Tape());
                 NodeSensitivityCandidate_ candidate;
