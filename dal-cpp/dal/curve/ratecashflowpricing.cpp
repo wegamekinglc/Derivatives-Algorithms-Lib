@@ -6,6 +6,7 @@
 #include <dal/platform/strict.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include <set>
@@ -1070,8 +1071,9 @@ namespace Dal {
 
             const XccyNodeSensitivityHoist_&
             HoistXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, bool jointCoordinates = false) {
-                const auto found = xccyHoists_.find(&trade);
-                if (found != xccyHoists_.end())
+                auto& hoists = xccyHoists_[jointCoordinates];
+                const auto found = hoists.find(&trade);
+                if (found != hoists.end())
                     return found->second;
                 XccyNodeSensitivityHoist_ hoist;
                 hoist.expired_ = trade.maturityDate_ < market_.valuationTime_.Date();
@@ -1096,7 +1098,7 @@ namespace Dal {
                 } catch (const std::exception&) {
                     hoist.plan_.reset();
                 }
-                return xccyHoists_.emplace(&trade, std::move(hoist)).first->second;
+                return hoists.emplace(&trade, std::move(hoist)).first->second;
             }
 
             RateTradeNodeSensitivityResult_ UnresolvedXccyFailure(const RateTradeDefinition_& trade) {
@@ -1149,7 +1151,8 @@ namespace Dal {
             std::set<const DiscountCurve_*> preparationFailures_;
             std::map<const RateTradeDefinition_*, RatePricingTradeResult_> passivePrices_;
             std::map<const RateTradeDefinition_*, Vector_<String_>> dependencyKeys_;
-            std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_> xccyHoists_;
+            // Joint and standalone coordinates require different hoist preparation.
+            std::array<std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_>, 2> xccyHoists_;
             std::map<const RateTradeDefinition_*, JointCurveClosure_> jointClosures_;
             std::map<const DiscountCurve_*, NodeSensitivityPreparation_> jointPrepared_;
             std::set<const DiscountCurve_*> jointPreparationFailures_;
