@@ -113,11 +113,22 @@ def test_invalid_worker_evidence_fails(mutate):
         check_report(report, "dal", True, source_hashes())
 
 
-def test_full_mode_rejects_smoke_sized_sample_count():
+@pytest.mark.parametrize("option", ["--samples", "--rounds"])
+def test_full_mode_rejects_smoke_sized_sample_count(option):
     with pytest.raises(ValueError, match="10 samples"):
-        compare.arguments(
-            ["--dal-package", ".", "--output-dir", "unused", "--samples", "1"]
-        )
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", option, "1"])
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [["--samples", "1"], ["--rounds", "1"], ["--samples", "1", "--rounds", "1"]],
+)
+def test_smoke_accepts_explicit_reduced_sampling(overrides):
+    args = compare.arguments(
+        ["--dal-package", ".", "--output-dir", "unused", "--smoke", *overrides]
+    )
+    assert args.smoke
+    assert args.samples == args.rounds == 1
 
 
 def smoke_args(tmp_path):
@@ -166,6 +177,34 @@ def test_worker_cannot_reuse_old_output_or_succeed_without_report(
     (directory / "worker.json").write_text(json.dumps(worker_report()))
     with pytest.raises(FileExistsError):
         compare.invoke(args, "dal", directory, source_hashes())
+
+
+def test_worker_rejects_unknown_backend_before_starting_process(tmp_path, monkeypatch):
+    def unexpected_process(*_args, **_kwargs):
+        pytest.fail("invalid backend reached subprocess execution")
+
+    monkeypatch.setattr(compare.subprocess, "run", unexpected_process)
+    with pytest.raises(ValueError, match="unknown comparison backend"):
+        compare.invoke(smoke_args(tmp_path), "untrusted", tmp_path / "worker", {})
+
+
+def test_worker_passes_paths_literally_without_a_shell(tmp_path, monkeypatch):
+    directory = tmp_path / "worker $(literal); with spaces"
+    args = smoke_args(tmp_path)
+    args.dal_package = tmp_path / "package $(literal); with spaces"
+
+    def execute(command, **kwargs):
+        assert command[0] == sys.executable
+        assert command[command.index("--dal-package") + 1] == str(args.dal_package)
+        assert command[command.index("--output-dir") + 1] == str(directory)
+        assert kwargs["shell"] is False
+        assert kwargs["check"] is True
+        assert kwargs["timeout"] == args.timeout
+        (directory / "worker.json").write_text(json.dumps(worker_report()))
+
+    monkeypatch.setattr(compare.subprocess, "run", execute)
+    report = compare.invoke(args, "dal", directory, source_hashes())
+    assert report["status"] == "passed"
 
 
 def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(

@@ -25,13 +25,14 @@ def arguments(argv=None):
     parser.add_argument("--worker", choices=BACKENDS, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     require(args.timeout > 0, "timeout must be positive")
-    require(
-        args.samples >= 10 and args.rounds >= 2,
-        "full comparison needs >=10 samples and >=2 rounds; "
-        "use --smoke for a quick check",
-    )
     if args.smoke:
         args.samples, args.rounds = 1, 1
+    else:
+        require(
+            args.samples >= 10 and args.rounds >= 2,
+            "full comparison needs >=10 samples and >=2 rounds; "
+            "use --smoke for a quick check",
+        )
     args.dal_package = args.dal_package.resolve()
     args.output_dir = args.output_dir.resolve()
     return args
@@ -51,6 +52,7 @@ def worker_environment():
 
 
 def invoke(args, backend, directory, hashes):
+    require(backend in BACKENDS, f"unknown comparison backend: {backend}")
     directory.mkdir(parents=True, exist_ok=False)
     command = [
         sys.executable,
@@ -68,7 +70,7 @@ def invoke(args, backend, directory, hashes):
     # Fixed interpreter and local entry point; backend is from BACKENDS, paths
     # are literal arguments and never interpreted by a shell.
     with (directory / "worker.log").open("w", encoding="utf-8") as log:
-        subprocess.run(
+        subprocess.run(  # nosec B603  # nosemgrep
             command,
             shell=False,
             check=True,
@@ -77,7 +79,7 @@ def invoke(args, backend, directory, hashes):
             stdout=log,
             stderr=subprocess.STDOUT,
             timeout=args.timeout,
-        )  # nosec B603  # nosemgrep
+        )
     report = json.loads((directory / "worker.json").read_text(encoding="utf-8"))
     check_report(report, backend, args.smoke, hashes)
     return report
