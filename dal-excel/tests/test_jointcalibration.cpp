@@ -7,7 +7,7 @@
 #include <tests/curve/jointquoteriskopaque.hpp>
 #include <tests/curve/jointxccyquoteriskfixtures.hpp>
 
-TEST(ExcelJointCalibrationTest, TestUnregisteredXccyBaseQuoteRiskSpill) {
+TEST(JointCalibrationExcelTest, TestUnregisteredXccyBaseQuoteRiskSpill) {
     using namespace Dal;
     namespace fixture = JointXccyQuoteRiskFixtures;
     const auto spec = JointQuoteRiskFixtures::Spec();
@@ -30,7 +30,7 @@ TEST(ExcelJointCalibrationTest, TestUnregisteredXccyBaseQuoteRiskSpill) {
     ASSERT_TRUE(Cell::IsEmpty(spill(1, 9)));
 }
 
-TEST(ExcelJointCalibrationTest, TestNativeOpaqueJointGraphKeepsFailureSpillShape) {
+TEST(JointCalibrationExcelTest, TestNativeOpaqueJointGraphKeepsFailureSpillShape) {
     using namespace Dal;
     namespace fixture = JointXccyQuoteRiskFixtures;
     const auto spec = JointQuoteRiskFixtures::Spec();
