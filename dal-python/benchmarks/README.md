@@ -176,6 +176,13 @@ pairs: 20 processes per side, with 20 samples for every case on each side. A cas
 fails only when its head minimum exceeds its base minimum by strictly more than
 4% in both rounds. Exactly +4% passes.
 
+After a Python gate failure, CI also runs the complete suite twice as A/A controls:
+once with the baseline module on both sides and once with the head module on both
+sides. These run after all gated comparisons, use the same sampling rule, and retain
+their own module hashes and raw reports in `python-baseline-aa` and `python-head-aa`.
+They help diagnose timing variability on that runner; they never replace or clear
+the original base/head failure.
+
 The same head benchmark code and workload metadata must be used for both sides,
 including when the base predates this benchmark suite. All 72 cases are measured
 and gated against the base library. When a base suite exists, its inventory is

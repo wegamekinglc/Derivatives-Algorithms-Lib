@@ -683,6 +683,7 @@ jobs:
           exit "$benchmark_failure"
 
       - name: Compare base and head Python performance
+        id: python-performance
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
@@ -734,6 +735,33 @@ jobs:
             --samples 10 \
             --confirmation-rounds 2 \
             --threshold-percent 4
+
+      - name: Diagnose Python regression with baseline A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          # Diagnostics never replace the original base/head verdict. Run them
+          # after all comparisons so their workloads do not precede gated timings.
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source benchmark-base --head-source benchmark-base \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root benchmark-base/build/benchmark-base \
+            --output-dir benchmark-results/python-baseline-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
+
+      - name: Diagnose Python regression with head A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source . --head-source . \
+            --base-root build/benchmark-head --head-root build/benchmark-head \
+            --output-dir benchmark-results/python-head-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
 
       - name: Upload benchmark evidence
         if: always()
