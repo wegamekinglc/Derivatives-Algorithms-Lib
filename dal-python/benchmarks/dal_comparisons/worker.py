@@ -7,7 +7,7 @@ import sys
 
 from dal_benchmarks.harness import Case, Workload, measure, require
 from .evidence import SCHEMA, backend_files, package_versions, source_hashes, write_json
-from .scenarios import CONVENTIONS, cases
+from .scenarios import CONVENTIONS, cases, method
 from .suite import prepare
 
 
@@ -41,7 +41,7 @@ def measured_case(backend, case):
     wrapped = Workload(work.run, check)
     definition = Case(case["name"], "third-party", case, lambda: wrapped)
     result = measure(definition, samples=1, warmups=2)
-    return dict(result, values=last)
+    return dict(result, values=last, method=method(backend, case))
 
 
 def run(args):

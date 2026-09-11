@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from dal_comparisons.scenarios import cases, expected, validate
+from dal_comparisons.scenarios import cases, expected, method, validate
 from dal_comparisons.suite import prepare
 from dal_comparisons import compare
 from dal_comparisons.evidence import SCHEMA, check_report, source_hashes
@@ -35,6 +35,14 @@ def test_payer_receiver_and_central_difference_signs():
     values = expected(case)
     assert values[0] > 0
     assert values[1] < 0
+
+
+def test_node_risk_inventory_and_bucket_width():
+    inventory = {case["name"]: case for case in cases()}
+    for size in (32, 256):
+        case = inventory[f"irs_node_dv01_{size}"]
+        assert case["operation"] == "node_dv01"
+        assert len(expected(case)) == size * 21
 
 
 @pytest.mark.parametrize("bad", [[], [float("nan")], [float("inf")], [1e9]])
@@ -81,6 +89,7 @@ def worker_report(backend="dal", duration=100):
                 status="passed",
                 samples_ns=[duration],
                 values=expected(case),
+                method=method(backend, case),
             )
             for case in cases(smoke=True)
         ],
@@ -104,6 +113,7 @@ def worker_report(backend="dal", duration=100):
         lambda report: report["results"][0].update(samples_ns=[0]),
         lambda report: report["results"][0].update(samples_ns=[100, 100]),
         lambda report: report["results"][0].update(values=[1e9] * 4),
+        lambda report: report["results"][-1].update(method="central finite difference"),
     ],
 )
 def test_invalid_worker_evidence_fails(mutate):
@@ -237,6 +247,11 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     report = json.loads((args.output_dir / "results.json").read_text())
     row = report["rounds"][0]["cases"][0]
     assert row["third_party_over_dal"] == {"quantlib": 0.5, "rateslib": 0.25}
+    risk = report["rounds"][0]["cases"][-1]
+    assert risk["backends"]["dal"]["method"] == "reverse AAD"
+    assert risk["backends"]["rateslib"]["method"] == "forward AD (Dual)"
+    assert risk["backends"]["quantlib"]["method"] == "central finite difference"
+    assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
 
 
 def test_provenance_drift_fails_between_samples(tmp_path, monkeypatch):

@@ -7,9 +7,9 @@ from pathlib import Path
 import statistics
 
 from dal_benchmarks.harness import require
-from .scenarios import CONVENTIONS, cases, expected, validate
+from .scenarios import CONVENTIONS, cases, expected, method, tolerance, validate
 
-SCHEMA = "dal.python-comparisons/1"
+SCHEMA = "dal.python-comparisons/2"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -25,7 +25,7 @@ def source_hashes():
     paths = list((ROOT / "dal_comparisons").glob("*.py"))
     paths += list((ROOT / "dal_benchmarks").glob("*.py"))
     paths += [ROOT / "run_comparisons.py", ROOT / "requirements-comparisons.txt"]
-    return {str(path.relative_to(ROOT)): sha256(path) for path in sorted(paths)}
+    return {path.relative_to(ROOT).as_posix(): sha256(path) for path in sorted(paths)}
 
 
 def package_versions():
@@ -53,14 +53,16 @@ def backend_files(backend):
     return {str(path): sha256(path) for path in paths}
 
 
-def check_row(row, case):
+def check_row(row, case, backend):
     require(row["status"] == "passed", "worker case failed")
     require(row["workload"] == case, "comparison workload changed")
+    require(
+        row.get("method") == method(backend, case), "comparison risk method changed"
+    )
     durations = row["samples_ns"]
     require(len(durations) == 1, "worker must return one sample")
     require(type(durations[0]) is int and durations[0] > 0, "invalid timing sample")
-    tolerance = 2e-12 if case["operation"] == "discount" else 2e-7
-    validate(row["values"], expected(case), abs_tol=tolerance)
+    validate(row["values"], expected(case), abs_tol=tolerance(case))
 
 
 def check_report(report, backend, smoke, hashes):
@@ -79,7 +81,7 @@ def check_report(report, backend, smoke, hashes):
         "missing, duplicate or reordered comparison cases",
     )
     for row, case in zip(report["results"], inventory):
-        check_row(row, case)
+        check_row(row, case, backend)
 
 
 def timings(reports, name):
