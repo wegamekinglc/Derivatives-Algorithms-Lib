@@ -180,6 +180,8 @@ After a Python gate failure, CI also runs the complete suite twice as A/A contro
 once with the baseline module on both sides and once with the head module on both
 sides. These run after all gated comparisons, use the same sampling rule, and retain
 their own module hashes and raw reports in `python-baseline-aa` and `python-head-aa`.
+Each control copies the selected package and build configuration into a separate
+root, preserving the gate's directory checks; it is not an independent rebuild.
 They help diagnose timing variability on that runner; they never replace or clear
 the original base/head failure. The artifact also retains both built `dal` packages
 under `python-reproduction` for binary-level investigation. These packages use the
