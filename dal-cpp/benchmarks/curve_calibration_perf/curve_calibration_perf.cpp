@@ -25,6 +25,7 @@
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/string/strings.hpp>
@@ -114,12 +115,38 @@ namespace {
             sink += res.diagnostics_.jacobian_(0, 0);
         return sink;
     }
+
+    void RunPwlQueries(int nodeCount) {
+        const Date_ anchor(2022, 1, 1);
+        Vector_<Date_> knots;
+        Vector_<> left, right;
+        for (int i = 0; i < nodeCount; ++i) {
+            knots.push_back(anchor.AddDays(31 * i));
+            left.push_back(0.02 + 0.0001 * (i % 7));
+            right.push_back(0.021 + 0.0002 * (i % 5));
+        }
+        const Tape::DiscountPWLF_<double> curve("queries", "USD", knots, left, right);
+        Vector_<Date_> queries;
+        for (int i = 0; i < 4096; ++i)
+            queries.push_back(anchor.AddDays((17 * i) % (31 * nodeCount + 60) - 30));
+        double sink = 0.0;
+        const std::string name = "PWL DF queries (4096 x " + std::to_string(nodeCount) + " nodes)";
+        const auto result = Bench::Run(name.c_str(), [&]() {
+            for (const auto& date : queries)
+                sink += curve(anchor, date);
+        }, 1, 10);
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 int main() {
     RegisterAll_::Init();
     constexpr int kRepeats = 5;
     Bench::PrintHeader();
+
+    for (const int nodeCount : {8, 24, 64, 256})
+        RunPwlQueries(nodeCount);
 
     const auto optsAnalytic = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC);
     const auto optsAnalyticSolveOnly = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC, false, false);

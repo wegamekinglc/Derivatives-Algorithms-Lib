@@ -264,10 +264,12 @@ year-fraction weights (`dt`) and the knot abscissae themselves
 (`knotAbscissae_`, serial-day offsets from knot 0) stay `double` — they are
 functions of the knot positions only, computed once at construction and
 identical for any `T_`. `UpdateT()` recomputes `sofarT_` whenever the forward
-parameters change. The `double` specialization of the templated class is
-byte-for-byte identical in arithmetic to the non-templated `DiscountPWLF_` the
-bumped path uses, so the AAD-vs-bump agreement bar is defined against the same
-residual function.
+parameters change. The `double` specialization and `PiecewiseLinear_` share
+the same cumulative-integral and query arithmetic. Double discount-factor
+queries read the existing `sofarT_` without copying vectors or rebuilding the
+integral. Construction, parameter updates, cloning and archive restoration
+prepare the cumulative state before it is read. The original floating-point
+expression order is preserved for the bumped calibration residual function.
 
 The `Number_`-typed curve is constructed directly from tape-registered forward
 parameters — the `AnalyticJacobian` override registers `fLeftT_` / `fRightT_`
@@ -279,10 +281,10 @@ interpolator: the joint path is the only consumer of the templated curve, the
 parameters are always supplied at construction, and flat members minimise the
 surface the tape has to traverse.
 
-The baseless `double` specialisation
+The `double` specialisation
 `Tape::DiscountPWLF_<double, DiscountCurve_<double>>` is the only serializable
-form — its `Write()` override emits the v1 layout; every `Number_`-typed or
-base-layered specialisation has a `Write()` that throws. The bumped path and any
+form — its `Write()` override emits the v1 layout, including an optional double
+base curve; every `Number_`-typed specialisation has a `Write()` that throws. The bumped path and any
 persistent result curve use the serializable `double` specialisation; the
 `Number_`-typed curve exists only for the duration of one `Gradient` sweep and is
 discarded with the analytic-Jacobian frame.
