@@ -25,7 +25,7 @@ def source_hashes():
     paths = list((ROOT / "dal_comparisons").glob("*.py"))
     paths += list((ROOT / "dal_benchmarks").glob("*.py"))
     paths += [ROOT / "run_comparisons.py", ROOT / "requirements-comparisons.txt"]
-    return {str(path.relative_to(ROOT)): sha256(path) for path in sorted(paths)}
+    return {path.relative_to(ROOT).as_posix(): sha256(path) for path in sorted(paths)}
 
 
 def package_versions():

@@ -95,7 +95,9 @@ def environment():
     suite = Path(__file__).resolve().parent.parent
     paths = list((suite / "dal_benchmarks").glob("*.py"))
     paths += list((suite / "dal_comparisons").glob("*.py"))
-    sources = {str(path.relative_to(suite)): sha256(path) for path in sorted(paths)}
+    sources = {
+        path.relative_to(suite).as_posix(): sha256(path) for path in sorted(paths)
+    }
     return {
         "utc": datetime.now(timezone.utc).isoformat(),
         "python": sys.version,
