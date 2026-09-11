@@ -62,9 +62,13 @@ def node_risk_runner(portfolio):
         require(
             isinstance(value, rl.Dual), "rateslib risk lost automatic differentiation"
         )
+        derivatives = gradient(value, variables)
+        require(
+            len(derivatives) == len(scales),
+            "rateslib node-risk gradient width mismatch",
+        )
         return [
-            float(scale * derivative)
-            for scale, derivative in zip(scales, gradient(value, variables))
+            float(scale * derivative) for scale, derivative in zip(scales, derivatives)
         ]
 
     return lambda: [value for instrument in swaps for value in risk(instrument)]

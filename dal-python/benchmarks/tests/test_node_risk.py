@@ -127,6 +127,24 @@ def test_rateslib_requires_an_active_dual_result(monkeypatch):
         work.run()
 
 
+@pytest.mark.parametrize("extra", [False, True])
+def test_rateslib_rejects_incorrect_gradient_width_before_conversion(
+    monkeypatch, extra
+):
+    from dal_comparisons import rateslib_adapter as adapter
+
+    original = adapter.gradient
+
+    def incorrect(value, variables):
+        result = list(original(value, variables))
+        return result + [0.0] if extra else result[:-1]
+
+    monkeypatch.setattr(adapter, "gradient", incorrect)
+    work = prepare("rateslib", {"operation": "node_dv01", "size": 2})
+    with pytest.raises(ValueError, match="gradient width mismatch"):
+        work.run()
+
+
 def test_quantlib_reprices_all_node_shifts_each_time(monkeypatch):
     from dal_comparisons import quantlib_adapter as adapter
 
