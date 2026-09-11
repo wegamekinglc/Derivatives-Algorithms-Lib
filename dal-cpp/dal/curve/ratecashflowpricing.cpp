@@ -41,7 +41,7 @@ namespace Dal {
 
         Vector_<CouponPeriod_>
         BuildCouponPeriods(const Date_& start, const Date_& maturity, const RateLegConvention_& leg, int fixingLag, const Holidays_& fixingHolidays) {
-            RateCashflowPricingInternal::g_rateCashflowLegBuildCount.fetch_add(1, std::memory_order_relaxed);
+            RateCashflowPricingInternal::RecordRateCashflowLegBuild();
             return BuildLegPeriods<CouponPeriod_>(start, maturity, leg, fixingLag, fixingHolidays);
         }
 
@@ -71,6 +71,11 @@ namespace Dal {
                 THROW("Rate cashflow request exceeds the supported two-leg structure");
             }
         };
+
+        bool UsesCouponLegs(const RateTradeDefinition_& trade) {
+            return std::holds_alternative<IrsTradeTerms_>(trade.terms_) || std::holds_alternative<OisTradeTerms_>(trade.terms_) ||
+                   std::holds_alternative<BasisTradeTerms_>(trade.terms_);
+        }
 
         RatePricingTradeResult_
         PriceRateTradePrepared(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RequestCashflows_* cashflows);
@@ -945,11 +950,9 @@ namespace Dal {
             const RatePricingTradeResult_& PassivePrice(const RateTradeDefinition_& trade) {
                 const auto found = passivePrices_.find(&trade);
                 if (found != passivePrices_.end())
-                    return found->second.result_;
+                    return found->second;
                 ++RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount;
-                auto& entry = passivePrices_.try_emplace(&trade).first->second;
-                entry.result_ = PriceRateTradePrepared(trade, market_, &entry.cashflows_);
-                return entry.result_;
+                return passivePrices_.emplace(&trade, PriceRateTradePrepared(trade, market_, CashflowsFor(trade))).first->second;
             }
 
             // Axis source for aggregation: the preparation of a component key, or nullptr when the
@@ -962,6 +965,12 @@ namespace Dal {
             }
 
         private:
+            RequestCashflows_* CashflowsFor(const RateTradeDefinition_& trade) {
+                if (!UsesCouponLegs(trade))
+                    return nullptr;
+                return &cashflows_.try_emplace(&trade).first->second;
+            }
+
             const JointCurveClosure_& JointClosureFor(const RateTradeDefinition_& trade) {
                 const auto found = jointClosures_.find(&trade);
                 if (found != jointClosures_.end())
@@ -1086,7 +1095,7 @@ namespace Dal {
                 if (!preparations.count(target))
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
                 return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist,
-                                                    hoist ? nullptr : &passivePrices_.at(&trade).cashflows_);
+                                                    hoist ? nullptr : CashflowsFor(trade));
             }
 
             RateTradeNodeSensitivityResult_
@@ -1108,7 +1117,7 @@ namespace Dal {
                 const NodeSensitivityPreparation_* target = PreparationForKey(componentKey);
                 if (!target)
                     return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target, &passivePrices_.at(&trade).cashflows_);
+                return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target, CashflowsFor(trade));
             }
 
             void PrepareXccyConsumedCurves(XccyNodeSensitivityHoist_* hoist) {
@@ -1203,11 +1212,10 @@ namespace Dal {
             std::map<String_, ComponentGate_> gates_;
             std::map<const DiscountCurve_*, NodeSensitivityPreparation_> prepared_;
             std::set<const DiscountCurve_*> preparationFailures_;
-            struct PassivePrice_ {
-                RequestCashflows_ cashflows_;
-                RatePricingTradeResult_ result_;
-            };
-            std::map<const RateTradeDefinition_*, PassivePrice_> passivePrices_;
+            std::map<const RateTradeDefinition_*, RatePricingTradeResult_> passivePrices_;
+            // Keep the existing passive-result layout for single-period portfolios.
+            // Only trades that use coupon legs own an entry in this separate cache.
+            std::map<const RateTradeDefinition_*, RequestCashflows_> cashflows_;
             std::map<const RateTradeDefinition_*, Vector_<String_>> dependencyKeys_;
             // Joint and standalone coordinates require different hoist preparation.
             std::array<std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_>, 2> xccyHoists_;
@@ -1301,6 +1309,8 @@ namespace Dal {
     }
 
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
+        if (!UsesCouponLegs(trade))
+            return PriceRateTradePrepared(trade, market, nullptr);
         RequestCashflows_ cashflows;
         return PriceRateTradePrepared(trade, market, &cashflows);
     }

@@ -2901,7 +2901,47 @@ TEST(RateCashflowPricingTest, TestBatchHandlesEmptyListsAndDuplicateKeys) {
     AssertCanonicalFailure(cells[2].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
 }
 
+TEST(RateCashflowPricingTest, TestUnobservedPricingDoesNotCountLegBuilds) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto trade = Trade(Dal::RateInstrumentType_("IRS"), today, today.AddDays(1), maturity, Dal::IrsTradeTerms_{FixedFloatTerms()});
+    Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount = 0;
+    ASSERT_TRUE(Dal::PriceRateTrade(trade, Market(today, FlatCurve(maturity))).succeeded_);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 0);
+}
+
+TEST(RateCashflowPricingTest, TestCashflowLegObservationIsScopedAndConcurrent) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    internal::g_rateCashflowLegBuildCount = 0;
+    {
+        internal::CashflowLegBuildObservation_ observation;
+        ASSERT_THROW({ internal::CashflowLegBuildObservation_ duplicate; }, Dal::Exception_);
+        std::thread first([]() {
+            for (int i = 0; i < 100; ++i)
+                internal::RecordRateCashflowLegBuild();
+        });
+        std::thread second([]() {
+            for (int i = 0; i < 100; ++i)
+                internal::RecordRateCashflowLegBuild();
+        });
+        first.join();
+        second.join();
+        ASSERT_EQ(internal::g_rateCashflowLegBuildCount.load(), 200);
+    }
+    ASSERT_FALSE(internal::g_observeRateCashflowLegBuilds.load());
+    internal::RecordRateCashflowLegBuild();
+    ASSERT_EQ(internal::g_rateCashflowLegBuildCount.load(), 200);
+    ASSERT_THROW(
+        {
+            internal::CashflowLegBuildObservation_ observation;
+            throw std::runtime_error("injected observation failure");
+        },
+        std::runtime_error);
+    ASSERT_FALSE(internal::g_observeRateCashflowLegBuilds.load());
+}
+
 TEST(RateCashflowPricingTest, TestPricingAndNodeRiskPrepareEachSwapLegOncePerRequest) {
+    Dal::RateCashflowPricingInternal::CashflowLegBuildObservation_ observation;
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ start(2026, 10, 15);
     const Dal::Date_ maturity(2029, 1, 15);
@@ -2924,6 +2964,7 @@ TEST(RateCashflowPricingTest, TestPricingAndNodeRiskPrepareEachSwapLegOncePerReq
 }
 
 TEST(RateCashflowPricingTest, TestCashflowPreparationSeparatesTradesAndRefreshesAcrossRequests) {
+    Dal::RateCashflowPricingInternal::CashflowLegBuildObservation_ observation;
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ start(2026, 10, 15);
     const Dal::Date_ maturity(2029, 1, 15);
@@ -2960,6 +3001,59 @@ TEST(RateCashflowPricingTest, TestCashflowPreparationSeparatesTradesAndRefreshes
     ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 2);
     ASSERT_NE(refreshed.pv_, cells[1].result_.pv_);
     ASSERT_NEAR(refreshed.pv_, Dal::PriceRateTrade(trades[0], market).pv_, 1.0e-8);
+}
+
+TEST(RateCashflowPricingTest, TestJointNodeRiskReusesSwapLegsWithCoupledBaseCurves) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    internal::CashflowLegBuildObservation_ observation;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto buildMarket = [&](double baseRate, double spread) {
+        const auto base = FlatCurve(maturity, baseRate);
+        const Dal::Handle_<Dal::DiscountCurve_> forecast(
+            Dal::NewDiscountPWC("forecast-overlay", "USD", Dal::PiecewiseConstant_({maturity}, {spread}), base));
+        return ComponentMarket(today, forecast, base);
+    };
+    const auto market = buildMarket(0.03, 0.01);
+    auto fixedFloat = FixedFloatTerms();
+    fixedFloat.fixedLeg_.paymentFrequency_ = Dal::PeriodLength_("6M");
+    fixedFloat.floatLeg_.paymentFrequency_ = Dal::PeriodLength_("3M");
+    auto basis = BasisTerms();
+    basis.spreadLeg_.paymentFrequency_ = Dal::PeriodLength_("3M");
+    basis.referenceLeg_.paymentFrequency_ = Dal::PeriodLength_("6M");
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{fixedFloat}),
+        Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{fixedFloat}),
+        Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, basis),
+    };
+    internal::g_rateCashflowLegBuildCount = 0;
+    const auto cells = internal::JointNodeSensitivitiesBatch(trades, market, {"forecast", "discount", "forecast"});
+    ASSERT_EQ(internal::g_rateCashflowLegBuildCount.load(), 6);
+    ASSERT_EQ(cells.size(), 9);
+    // Daily OIS products amplify cancellation in the passive PV difference. A
+    // 1e-5 step resolves that difference while retaining the 1e-8 relative bound.
+    constexpr double bump = 1.0e-5;
+    for (int tradeIndex = 0; tradeIndex < trades.size(); ++tradeIndex) {
+        const auto passive = Dal::PriceRateTrade(trades[tradeIndex], market);
+        ASSERT_TRUE(passive.succeeded_);
+        for (int component = 0; component < 2; ++component) {
+            const auto& cell = cells[3 * tradeIndex + component];
+            ASSERT_TRUE(cell.result_.eligible_) << cell.result_.reason_;
+            ASSERT_EQ(cell.result_.gradient_.size(), 1);
+            ASSERT_NEAR(cell.result_.pv_, passive.pv_, 1.0e-8);
+            // Bumping the base rebuilds both the discount and its forecast overlay.
+            const auto plusMarket = buildMarket(0.03 + (component == 1 ? bump : 0.0), 0.01 + (component == 0 ? bump : 0.0));
+            const auto minusMarket = buildMarket(0.03 - (component == 1 ? bump : 0.0), 0.01 - (component == 0 ? bump : 0.0));
+            const auto plus = Dal::PriceRateTrade(trades[tradeIndex], plusMarket);
+            const auto minus = Dal::PriceRateTrade(trades[tradeIndex], minusMarket);
+            ASSERT_TRUE(plus.succeeded_);
+            ASSERT_TRUE(minus.succeeded_);
+            const double central = (plus.pv_ - minus.pv_) / (2.0 * bump);
+            ASSERT_NEAR(cell.result_.gradient_[0], central, 1.0e-6 + 1.0e-8 * std::abs(central));
+        }
+        ASSERT_EQ(cells[3 * tradeIndex].result_.gradient_, cells[3 * tradeIndex + 2].result_.gradient_);
+    }
 }
 
 TEST(RateCashflowPricingTest, TestBatchHoistsPassivePricingAndPerCurvePreparation) {

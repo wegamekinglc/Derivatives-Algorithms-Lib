@@ -65,10 +65,33 @@ namespace Dal::RateCashflowPricingInternal {
     // the hoisted per-trade passive prices and per-curve preparations actually performed. Atomic
     // for the same concurrent-caller reason.
     inline std::atomic<int> g_nodeSensitivityPassivePriceCount{0};
-    inline std::atomic<int> g_rateCashflowLegBuildCount{0};
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
     inline std::atomic<int> g_nodeSensitivitySweepCount{0};
     inline std::atomic<int> g_quoteRiskProvenancePreparationCount{0};
+
+    // Opt-in test observation. Registration/unregistration is serial and observed
+    // calls must finish before the scope ends. Ordinary pricing only reads the flag.
+    inline std::atomic<bool> g_observeRateCashflowLegBuilds{false};
+    inline std::atomic<int> g_rateCashflowLegBuildCount{0};
+
+    inline void RecordRateCashflowLegBuild() {
+        if (g_observeRateCashflowLegBuilds.load(std::memory_order_relaxed))
+            g_rateCashflowLegBuildCount.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    class CashflowLegBuildObservation_ {
+    public:
+        CashflowLegBuildObservation_() {
+            bool expected = false;
+            REQUIRE(g_observeRateCashflowLegBuilds.compare_exchange_strong(expected, true, std::memory_order_relaxed),
+                    "A cashflow leg-build observation is already active");
+        }
+
+        ~CashflowLegBuildObservation_() noexcept { g_observeRateCashflowLegBuilds.store(false, std::memory_order_relaxed); }
+
+        CashflowLegBuildObservation_(const CashflowLegBuildObservation_&) = delete;
+        CashflowLegBuildObservation_& operator=(const CashflowLegBuildObservation_&) = delete;
+    };
 
     // Internal reference path for the generic joint oracle and benchmarks. Preserves
     // trade-major native node cells, including base coupling, without quote metadata.

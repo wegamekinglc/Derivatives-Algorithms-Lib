@@ -257,9 +257,6 @@ int main() {
 
     Bench::PrintHeader();
 
-    for (const int tradeCount : {32, 256, 1024})
-        RunIrsScaleCase(tradeCount);
-
     {
         // The long batch: kBatchTrades trades x 2 components = 240 serial AAD sweeps, one passive
         // PV per trade and one preparation per component. Steady-state tape memory is bounded by
@@ -351,5 +348,8 @@ int main() {
     RunQuoteRiskCase("Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)", stagedAnalyticPortfolio);
     RunQuoteRiskCase("Quote risk portfolio staged BUMPED (24 XCCY x N=5)", stagedBumpedPortfolio);
     RateRiskPerf::RunGenericJointBenchmarks();
+    // Append new coverage so the existing cases retain their workload prefix.
+    for (const int tradeCount : {32, 256, 1024})
+        RunIrsScaleCase(tradeCount);
     return 0;
 }
