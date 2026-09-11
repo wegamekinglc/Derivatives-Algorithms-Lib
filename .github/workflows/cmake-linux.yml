@@ -763,6 +763,15 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 --confirmation-rounds 2 --threshold-percent 4
 
+      - name: Preserve Python binaries after a regression
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        run: |
+          mkdir -p benchmark-results/python-reproduction
+          tar -C benchmark-base/build/benchmark-base/dal-python \
+            -czf benchmark-results/python-reproduction/base-package.tar.gz dal
+          tar -C build/benchmark-head/dal-python \
+            -czf benchmark-results/python-reproduction/head-package.tar.gz dal
+
       - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

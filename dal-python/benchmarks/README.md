@@ -181,7 +181,10 @@ once with the baseline module on both sides and once with the head module on bot
 sides. These run after all gated comparisons, use the same sampling rule, and retain
 their own module hashes and raw reports in `python-baseline-aa` and `python-head-aa`.
 They help diagnose timing variability on that runner; they never replace or clear
-the original base/head failure.
+the original base/head failure. The artifact also retains both built `dal` packages
+under `python-reproduction` for binary-level investigation. These packages use the
+recorded CI interpreter, platform and native CPU flags; they are diagnostic build
+outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
 including when the base predates this benchmark suite. All 72 cases are measured
