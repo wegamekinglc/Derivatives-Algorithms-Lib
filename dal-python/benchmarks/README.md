@@ -60,7 +60,7 @@ are errors, never silently skipped workloads.
 | `script_mc_perf`         | 8            | Vanilla: 200,000 double / 20,000 AAD paths; weekly barrier: 100,000 / 10,000; tree and compiled evaluators; product/model creation and preprocessing included    |
 | `curve_calibration_perf` | 21           | Same 23 annual swaps and 24 future knots; PWC, PWL, LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED × ANALYTIC/BUMPED × diagnostics/solve-only, plus LOG_LINEAR APPROXIMATE |
 | `xccy_perf`              | 8            | Joint/staged × ANALYTIC/BUMPED × diagnostics/solve-only; adapted square fixture with five quotes per calibrated block                                            |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01. Native-only scale cases cover PV and two-component AAD at 32/256/1,024 IRS with fixed maturity distributions and eight-node curves. |
 | `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
 
 All these target mappings are marked `partial`: the timed boundary is the Python

@@ -65,6 +65,7 @@ namespace Dal::RateCashflowPricingInternal {
     // the hoisted per-trade passive prices and per-curve preparations actually performed. Atomic
     // for the same concurrent-caller reason.
     inline std::atomic<int> g_nodeSensitivityPassivePriceCount{0};
+    inline std::atomic<int> g_rateCashflowLegBuildCount{0};
     inline std::atomic<int> g_nodeSensitivityPreparationCount{0};
     inline std::atomic<int> g_nodeSensitivitySweepCount{0};
     inline std::atomic<int> g_quoteRiskProvenancePreparationCount{0};

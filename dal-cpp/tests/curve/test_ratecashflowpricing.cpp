@@ -2901,6 +2901,67 @@ TEST(RateCashflowPricingTest, TestBatchHandlesEmptyListsAndDuplicateKeys) {
     AssertCanonicalFailure(cells[2].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
 }
 
+TEST(RateCashflowPricingTest, TestPricingAndNodeRiskPrepareEachSwapLegOncePerRequest) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
+    for (const auto& family : {Dal::RateInstrumentType_("IRS"), Dal::RateInstrumentType_("OIS")}) {
+        const auto trade = Trade(family, today, start, maturity, AsFamilyTerms(family, FixedFloatTerms()));
+        Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount = 0;
+        const auto pv = Dal::PriceRateTrade(trade, market);
+        ASSERT_TRUE(pv.succeeded_) << pv.error_;
+        ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 2);
+        Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount = 0;
+        const auto cells = Dal::RateTradeNodeSensitivitiesBatch({trade}, market, {"forecast", "discount", "forecast"});
+        ASSERT_EQ(cells.size(), 3);
+        for (const auto& cell : cells) {
+            ASSERT_TRUE(cell.result_.eligible_) << cell.result_.reason_;
+            ASSERT_NEAR(cell.result_.pv_, pv.pv_, 1.0e-8);
+        }
+        ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 2);
+    }
+}
+
+TEST(RateCashflowPricingTest, TestCashflowPreparationSeparatesTradesAndRefreshesAcrossRequests) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    auto market = Market(today, FlatCurve(maturity));
+    auto swapTerms = FixedFloatTerms();
+    swapTerms.fixedLeg_.paymentFrequency_ = Dal::PeriodLength_("6M");
+    swapTerms.floatLeg_.paymentFrequency_ = Dal::PeriodLength_("3M");
+    auto basisTerms = BasisTerms();
+    basisTerms.spreadLeg_.paymentFrequency_ = Dal::PeriodLength_("3M");
+    basisTerms.referenceLeg_.paymentFrequency_ = Dal::PeriodLength_("6M");
+    Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{swapTerms}),
+        Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, basisTerms),
+    };
+    // Identical IDs do not imply identical terms or schedules.
+    Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount = 0;
+    const auto cells = Dal::RateTradeNodeSensitivitiesBatch(trades, market, {"forecast", "discount"});
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 4);
+    ASSERT_EQ(cells.size(), 4);
+    for (int i = 0; i < trades.size(); ++i) {
+        const auto pv = Dal::PriceRateTrade(trades[i], market);
+        ASSERT_TRUE(pv.succeeded_) << pv.error_;
+        ASSERT_TRUE(cells[2 * i].result_.eligible_);
+        ASSERT_TRUE(cells[2 * i + 1].result_.eligible_);
+        ASSERT_NEAR(cells[2 * i].result_.pv_, pv.pv_, 1.0e-8);
+        ASSERT_NEAR(cells[2 * i + 1].result_.pv_, pv.pv_, 1.0e-8);
+    }
+    trades[0].maturityDate_ = maturity.AddDays(137);
+    std::get<Dal::IrsTradeTerms_>(trades[0].terms_).value_.fixedLeg_.paymentFrequency_ = Dal::PeriodLength_("12M");
+    market.curveComponents_["discount"] = FlatCurve(trades[0].maturityDate_, 0.02);
+    Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount = 0;
+    const auto refreshed = Dal::RateTradeNodeSensitivities(trades[0], market, "discount");
+    ASSERT_TRUE(refreshed.eligible_);
+    ASSERT_EQ(Dal::RateCashflowPricingInternal::g_rateCashflowLegBuildCount.load(), 2);
+    ASSERT_NE(refreshed.pv_, cells[1].result_.pv_);
+    ASSERT_NEAR(refreshed.pv_, Dal::PriceRateTrade(trades[0], market).pv_, 1.0e-8);
+}
+
 TEST(RateCashflowPricingTest, TestBatchHoistsPassivePricingAndPerCurvePreparation) {
     namespace internal = Dal::RateCashflowPricingInternal;
     const Dal::Date_ today(2026, 1, 15);
