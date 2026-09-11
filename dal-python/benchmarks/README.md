@@ -60,7 +60,7 @@ are errors, never silently skipped workloads.
 | `script_mc_perf`         | 8            | Vanilla: 200,000 double / 20,000 AAD paths; weekly barrier: 100,000 / 10,000; tree and compiled evaluators; product/model creation and preprocessing included    |
 | `curve_calibration_perf` | 21           | Same 23 annual swaps and 24 future knots; PWC, PWL, LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED × ANALYTIC/BUMPED × diagnostics/solve-only, plus LOG_LINEAR APPROXIMATE |
 | `xccy_perf`              | 8            | Joint/staged × ANALYTIC/BUMPED × diagnostics/solve-only; adapted square fixture with five quotes per calibrated block                                            |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01. Native-only scale cases cover PV and two-component AAD at 32/256/1,024 IRS with fixed maturity distributions and eight-node curves. |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
 | `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
@@ -72,6 +72,9 @@ execute the native preprocessor/parser. Its indexing and serialization cost is
 also included. Python's MRG32 constructor fixes `precise=true`, while the native
 RNG benchmark selects `precise=false`; this policy difference is recorded rather
 than treated as equivalent timing. Sobol precision/polish flags match the native cases.
+
+Native-only scale cases in `rate_risk_perf` cover PV and two-component AAD at
+32/256/1,024 IRS with fixed maturity distributions and eight-node curves.
 
 The single-curve quote portfolios retain the native N=2/5/16 and 1/120-trade
 shapes. Joint XCCY uses five calibrated blocks (domestic discount/forward, foreign
