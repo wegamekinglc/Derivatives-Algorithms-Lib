@@ -1,0 +1,4 @@
+# CI comparison-only dependencies; never installed by the DAL wheel.
+QuantLib-Python==1.18
+QuantLib==1.43
+rateslib==2.7.1

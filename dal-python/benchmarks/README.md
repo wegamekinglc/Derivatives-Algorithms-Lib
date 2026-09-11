@@ -201,3 +201,83 @@ evidence inside the existing `benchmark-linux-*` artifact for 30 days, including
 failure. Python and native comparison steps can both report failures, and either
 failure blocks the existing `Linux CI gate`. Windows continues to run the Python
 correctness/smoke workloads through pytest; the paired performance gate is Linux-only.
+
+## Third-party comparison
+
+The Linux `Benchmarks` job also runs the same five common workloads against DAL,
+QuantLib-Python and rateslib. All three backends must execute every case and pass
+an independent cashflow oracle. Missing dependencies, incorrect results, incomplete
+reports, changed workloads/binaries or process timeouts fail the job and therefore
+the existing `Linux CI gate`. Relative speed is reported without an absolute
+competitor speed threshold; the separate base/head gate still enforces the 4% DAL
+regression rule.
+
+The comparison uses CPython 3.13 and a Release DAL build. Benchmark-only dependencies
+and their transitive dependencies are version/hash locked in
+[`requirements-comparisons.txt`](requirements-comparisons.txt). The
+[`QuantLib-Python` compatibility package](https://pypi.org/project/QuantLib-Python/)
+is pinned to 1.18, its actual `QuantLib` dependency to 1.43, and `rateslib` to 2.7.1.
+These packages are not added to DAL's wheel requirements. Rateslib has its own
+[licence terms](https://rateslib.com/licence), including commercial/evaluation
+licensing requirements; its licence notice remains visible in worker logs.
+
+Run from the repository root, with the same interpreter used to build DAL:
+
+```bash
+uv pip install --require-hashes -r dal-python/benchmarks/requirements-comparisons.txt
+PYTHONPATH="$PWD/build/Release-linux/dal-python" \
+  python -m pytest dal-python/benchmarks/tests -q
+python dal-python/benchmarks/run_comparisons.py \
+  --dal-package build/Release-linux/dal-python \
+  --output-dir benchmark-results/python-third-party \
+  --samples 10 --rounds 2
+```
+
+The output directory must be new, so an old successful report cannot satisfy a
+failed run. `--smoke` uses four queries/trades and one process per backend for
+local correctness checks; CI always uses full sizes and at least two rounds of ten
+fresh processes per backend. Backend order rotates for each sample and reverses
+on the second round. Each process performs a checked preflight, two warmups, then
+one measured invocation per case. Imports, fixture construction, reference values,
+validation and result destruction are outside timing. GC stays enabled, DAL uses
+four threads, and OMP/OpenBLAS/MKL use one thread.
+
+| Case               | Full workload                                                    |
+| ------------------ | ---------------------------------------------------------------- |
+| `discount_queries` | 4,096 distinct, permuted dates on a 22-node log-linear DF curve  |
+| `irs_pv_32`        | Price 32 forward-starting IRS, returning one PV per trade        |
+| `irs_pv_256`       | Price 256 forward-starting IRS, returning one PV per trade       |
+| `irs_dv01_32`      | Reprice 32 IRS on two prepared parallel-shifted zero curves      |
+| `irs_dv01_256`     | Reprice 256 IRS on two prepared parallel-shifted zero curves     |
+
+All cases use valuation date 2025-01-15, USD, ACT/365F, annual fixed and IBOR legs,
+unadjusted dates, no holidays, zero fixing/payment lag, and the same discount and
+forecast curve. Trades start in 2026, mature over 2028–2045, and alternate payer
+and receiver directions with varying positive notionals and coupons. The common
+oracle independently computes the fixed coupon annuity and telescoping floating
+leg from log-linear discount factors. Query tolerance is 2e-12 absolute; PV/DV01
+tolerance is 2e-7 USD absolute, both with 1e-10 relative tolerance.
+
+DV01 here is `(PV(zero + 1bp) - PV(zero - 1bp)) / 2`, with the same decimal-rate
+shift applied to both discounting and forecasting. It measures finite-difference
+parallel zero-curve risk, **not** calibrated quote-space risk or native AAD. Curve
+construction is excluded. The C++-aligned suite continues to measure DAL's native
+node/quote-risk APIs separately; no third-party coverage is claimed for calibration,
+MC, XCCY, or other unmatched operations.
+
+DAL uses `PriceRateTrades` batches; QuantLib and rateslib price instrument lists.
+All adapters return floats in input order, including conversion cost. QuantLib's
+`recalculate()` forces every NPV invocation to run its pricing engine. Rateslib's
+public `curve_caching` setting is disabled, so discount queries measure interpolation
+rather than cached date lookups, and `ad=0` selects passive pricing. QuantLib keeps
+its constructed schedules/coupons; DAL's public batch call owns its internal
+preparation. These are comparisons of the available Python APIs, not isolated
+identical native kernels.
+
+`results.json` (`dal.python-comparisons/1`) retains raw timings, minimum and median,
+per-round ratios, conventions and provenance. Each process also retains its checked
+output values, package versions, module paths/hashes, source and dependency-lock
+hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the
+Actions summary show per-round minima and `third_party / DAL` ratios (>1 means DAL
+took less time). Both successful and failed evidence is uploaded in the existing
+`benchmark-linux-*` artifact under `python-third-party/`.
