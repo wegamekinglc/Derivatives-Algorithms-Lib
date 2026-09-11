@@ -1,18 +1,21 @@
-"""Rateslib passive pricing with the same unadjusted annual IBOR conventions."""
+"""Rateslib passive pricing and forward AD risk for unadjusted annual IRS."""
 
 import rateslib as rl
+from rateslib.dual import gradient
 
-from .scenarios import NODES, node_dfs
+from dal_benchmarks.harness import require
+from .scenarios import BUMP, NODES, TIMES, node_dfs
 
 
-def curve(shift):
+def curve(shift, ad=0):
     # Public configuration: do not compare a date->DF cache hit with interpolation.
     rl.defaults.curve_caching = False
     return rl.Curve(
         nodes=dict(zip(NODES, node_dfs(shift))),
         interpolation="log_linear",
         convention="Act365F",
-        ad=0,
+        id="comparison",
+        ad=ad,
     )
 
 
@@ -46,3 +49,22 @@ def pricing_runner(portfolio, shift):
     source = curve(shift)
     swaps = [swap(value) for value in portfolio]
     return lambda: [float(instrument.npv(curves=source)) for instrument in swaps]
+
+
+def node_risk_runner(portfolio):
+    source = curve(0.0, ad=1)
+    swaps = [swap(value) for value in portfolio]
+    variables = [f"comparison{i}" for i in range(1, len(NODES))]
+    scales = [-t * BUMP * df for t, df in zip(TIMES[1:], node_dfs()[1:])]
+
+    def risk(instrument):
+        value = instrument.npv(curves=source)
+        require(
+            isinstance(value, rl.Dual), "rateslib risk lost automatic differentiation"
+        )
+        return [
+            float(scale * derivative)
+            for scale, derivative in zip(scales, gradient(value, variables))
+        ]
+
+    return lambda: [value for instrument in swaps for value in risk(instrument)]

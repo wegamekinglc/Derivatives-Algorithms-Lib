@@ -431,7 +431,7 @@ Tests are located in `tests/` and cover:
 
 ## Performance Benchmarks
 
-The [Python benchmark suite](benchmarks/README.md) provides 70 public-interface
+The [Python benchmark suite](benchmarks/README.md) provides 72 public-interface
 workloads mapped to the C++ benchmark inventory: RNG, script construction and MC,
 single-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
 It records raw samples, workload sizes, native-module identity, and a Markdown summary.
@@ -445,16 +445,17 @@ python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
 ```
 
 The normal pytest suite checks every workload at smoke scale without a speed
-threshold. Linux CI also gates all 70 full-scale cases against independent base/head
+threshold. Linux CI also gates all 72 full-scale cases against independent base/head
 builds, using two rounds of ten interleaved processes and a strict 4% threshold in
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
-The Linux gate also requires five common workloads to run against DAL,
+The Linux gate also requires seven common workloads to run against DAL,
 QuantLib-Python and rateslib with matching numerical results. Its report shows
-discount-query, IRS pricing and parallel zero-curve DV01 timings and relative
-speeds. Third-party dependencies are pinned separately for benchmarks; they are
-not DAL runtime dependencies. See the
+discount-query, IRS pricing, parallel zero-curve DV01 and full node DV01 timings.
+Node risk uses DAL reverse AAD, rateslib forward AD and QuantLib finite differences,
+with each algorithm identified in the evidence. Third-party dependencies are pinned
+separately for benchmarks; they are not DAL runtime dependencies. See the
 [comparison methodology and commands](benchmarks/README.md#third-party-comparison).
 
 ## Project Structure

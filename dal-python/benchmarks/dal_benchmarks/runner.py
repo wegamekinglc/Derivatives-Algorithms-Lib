@@ -92,9 +92,10 @@ def environment():
     root = Path(__file__).resolve().parents[3]
     native = Path(dal._dal.__file__).resolve()
     cache, cmake = cmake_environment(native)
-    sources = {
-        path.name: sha256(path) for path in sorted(Path(__file__).parent.glob("*.py"))
-    }
+    suite = Path(__file__).resolve().parent.parent
+    paths = list((suite / "dal_benchmarks").glob("*.py"))
+    paths += list((suite / "dal_comparisons").glob("*.py"))
+    sources = {str(path.relative_to(suite)): sha256(path) for path in sorted(paths)}
     return {
         "utc": datetime.now(timezone.utc).isoformat(),
         "python": sys.version,

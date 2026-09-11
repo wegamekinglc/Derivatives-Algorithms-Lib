@@ -2,7 +2,8 @@
 
 import dal
 
-from .scenarios import LOG_DFS, NODES, TIMES, TODAY
+from dal_benchmarks.harness import require
+from .scenarios import BUMP, LOG_DFS, NODES, TIMES, TODAY
 
 
 def date(value):
@@ -74,7 +75,7 @@ def discount_runner(dates):
     return lambda: [source(anchor, value) for value in native_dates]
 
 
-def pricing_runner(portfolio, shift):
+def pricing_inputs(portfolio, shift):
     source = curve(shift)
     market = dal.RatePricingMarket_(
         valuation_time=dal.DateTime_(date(TODAY), 9, 0),
@@ -83,10 +84,40 @@ def pricing_runner(portfolio, shift):
         fixings=dal.MarketFixingSnapshot_New({}),
     )
     native_trades = [swap(value, i) for i, value in enumerate(portfolio)]
+    return native_trades, market
+
+
+def pricing_runner(portfolio, shift):
+    native_trades, market = pricing_inputs(portfolio, shift)
 
     def run():
         rows = dal.PriceRateTrades(trades=native_trades, market=market)
         # Native failures are data; NaN makes the common out-of-timer validator fail.
         return [row.pv if row.succeeded else float("nan") for row in rows]
+
+    return run
+
+
+def node_values(cell, ordinal):
+    require(
+        cell.instrument_id == f"comparison-{ordinal}" and cell.component_key == "curve",
+        "AAD node-risk cell order changed",
+    )
+    row = cell.result
+    require(row.eligible, f"AAD node risk ineligible: {row.reason}")
+    gradient = row.gradient
+    require(len(gradient) == len(TIMES) - 1, "AAD node-risk gradient width mismatch")
+    return [-t * BUMP * value for t, value in zip(TIMES[1:], gradient)]
+
+
+def node_risk_runner(portfolio):
+    native_trades, market = pricing_inputs(portfolio, 0.0)
+
+    def run():
+        cells = dal.RateTradeNodeSensitivitiesBatch(
+            trades=native_trades, market=market, component_keys=["curve"]
+        )
+        require(len(cells) == len(native_trades), "AAD node-risk cell count mismatch")
+        return [value for i, cell in enumerate(cells) for value in node_values(cell, i)]
 
     return run

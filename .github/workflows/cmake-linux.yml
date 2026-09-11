@@ -687,6 +687,7 @@ jobs:
         env:
           DAL_NUM_THREADS: 4
         run: |
+          # The full inventory includes 32/256-IRS native AAD node-DV01 workloads.
           python3 .github/scripts/check_python_benchmark_regressions.py \
             --base-source benchmark-base \
             --head-source . \
@@ -705,7 +706,7 @@ jobs:
           uv pip install --require-hashes \
             -r dal-python/benchmarks/requirements-comparisons.txt
 
-      - name: Compare Python performance with QuantLib and rateslib
+      - name: Compare Python pricing and AAD risk with QuantLib and rateslib
         if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4

@@ -204,6 +204,43 @@ def test_full_profile_preserves_native_path_and_portfolio_sizes():
         assert cases[f"quotes.generic.n{width}.t1000"]["quotes"] == width
 
 
+def test_comparable_aad_risk_is_in_the_regression_inventory():
+    cases = {case.name: case for case in build_cases()}
+    for size in (32, 256):
+        case = cases[f"nodes.aad_dv01.t{size}"]
+        assert case.cpp_target == "rate_risk_perf"
+        assert case.workload["trades"] == size
+        assert case.workload["nodes"] == 21
+        assert case.workload["method"] == "reverse AAD"
+
+
+def test_aad_gate_needs_no_third_party_packages(monkeypatch):
+    import builtins
+
+    original = builtins.__import__
+
+    def without_third_parties(name, *args, **kwargs):
+        if name.split(".")[0] in {"QuantLib", "rateslib"}:
+            raise ImportError("third-party packages are not installed")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_third_parties)
+    for case in build_cases(smoke=True):
+        if case.name.startswith("nodes.aad_dv01."):
+            work = case.prepare()
+            work.validate(work.run())
+
+
+def test_suite_hashes_cover_shared_aad_implementation():
+    from dal_benchmarks.runner import environment, sha256
+
+    suite = Path(__file__).resolve().parents[1] / "benchmarks"
+    hashes = environment()["suite_sha256"]
+    for name in ("dal_adapter.py", "scenarios.py", "suite.py"):
+        key = f"dal_comparisons/{name}"
+        assert hashes[key] == sha256(suite / key)
+
+
 def test_metadata_git_command_rejects_non_metadata_arguments(tmp_path, monkeypatch):
     from dal_benchmarks import runner
 

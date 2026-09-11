@@ -9,7 +9,7 @@ import sys
 
 from dal_benchmarks.harness import require
 from .evidence import ROOT, SCHEMA, check_report, source_hashes, timings, write_json
-from .scenarios import CONVENTIONS, cases
+from .scenarios import CONVENTIONS, cases, method
 from .suite import BACKENDS
 
 
@@ -127,7 +127,10 @@ def aggregate(reports, smoke):
     rows = []
     for case in cases(smoke):
         measurements = {
-            backend: timings(reports[backend], case["name"]) for backend in BACKENDS
+            backend: dict(
+                timings(reports[backend], case["name"]), method=method(backend, case)
+            )
+            for backend in BACKENDS
         }
         dal_time = measurements["dal"]["min_ns"]
         ratios = {
@@ -148,6 +151,12 @@ def summary(report):
         "",
         "Correctness and complete execution are required. Timing ratios are "
         "informational; DAL base/head regression remains a separate 4% gate.",
+        "",
+        "Node DV01: DAL reverse AAD; rateslib forward AD (Dual); "
+        "QuantLib central finite difference (0.01bp step). "
+        "Each returns all 21 non-anchor buckets per trade, in USD/bp. "
+        "Curve construction is excluded; differentiation, conversion and "
+        "QuantLib relinking/repricing are timed.",
         "",
     ]
     if report["status"] != "passed":

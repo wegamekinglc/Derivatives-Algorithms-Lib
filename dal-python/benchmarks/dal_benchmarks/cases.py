@@ -29,7 +29,7 @@ CPP_COVERAGE = {
     },
     "rate_risk_perf": {
         "status": "partial",
-        "detail": "120-IRS batch/single, 5Y daily OIS, 24-XCCY batch, single/joint/staged quote portfolios and layered generic joint N=5/10/16 x 100/1000 IRS. XCCY market ladder adapted; internal counters and joint-node reference are unbound.",
+        "detail": "120-IRS batch/single, 5Y daily OIS, 24-XCCY batch, quote portfolios, generic joint N=5/10/16 x 100/1000 IRS and 32/256-IRS AAD node DV01. XCCY market ladder adapted; internal counters and joint-node reference are unbound.",
     },
     "quote_risk_perf": {
         "status": "partial",
@@ -114,9 +114,30 @@ def build_cases(smoke=False):
     _calibration_cases(add, calibration)
     _xccy_cases(add, xccy)
     _node_cases(add, smoke, risk, xccy)
+    _aad_comparison_cases(add, smoke)
     _quote_cases(add, smoke, risk, xccy)
     _generic_cases(add, smoke, risk)
     return cases
+
+
+def _aad_comparison_cases(add, smoke):
+    from dal_comparisons.scenarios import cases, RISK_METHODS, NODES
+    from dal_comparisons.suite import prepare
+
+    for case in cases(smoke):
+        if case["operation"] == "node_dv01":
+            size = case["name"].rsplit("_", 1)[1]
+            add(
+                f"nodes.aad_dv01.t{size}",
+                "rate_risk_perf",
+                {
+                    "trades": case["size"],
+                    "nodes": len(NODES) - 1,
+                    "method": RISK_METHODS["dal"],
+                    "risk": "dPV/dzero_i * 1bp",
+                },
+                partial(prepare, "dal", case),
+            )
 
 
 def _simulation_cases(add, smoke, simulation):
