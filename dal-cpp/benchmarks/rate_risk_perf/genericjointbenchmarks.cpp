@@ -94,7 +94,7 @@ namespace Dal::RateRiskPerf {
             const int sweeps = after.sweeps_ - before.sweeps_;
             REQUIRE(calibrations == 0 && preparations == (reference ? 0 : 1),
                     "Joint benchmark recalibration or provenance preparation count drifted");
-            REQUIRE(nodes == 3 && sweeps == 2 * trades, "Joint benchmark prepared or swept an unexpected number of native blocks");
+            REQUIRE(nodes == 2 && sweeps == 2 * trades, "Joint benchmark prepared an unused block or swept an unexpected number of native blocks");
             if (sample < 0)
                 return;
             if (const char* path = std::getenv("DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE")) {

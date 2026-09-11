@@ -15,6 +15,8 @@
 #include <string>
 #include <type_traits>
 
+#include "jointquoteriskopaque.hpp"
+#include "jointxccyquoteriskfixtures.hpp"
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -1895,4 +1897,30 @@ TEST(QuoteRiskProvenanceTest, TestNonFiniteFixingAndCyclicCurveGraphFailBeforeHa
         first->ClearBase();
         second->ClearBase();
     }
+}
+
+TEST(QuoteRiskAggregationTest, TestMalformedV1SourceKeepsCallLevelException) {
+    using namespace Dal;
+    namespace fixture = JointXccyQuoteRiskFixtures;
+    auto input = MakeSingleInput(CurveJacobianMode_::Value_::ANALYTIC);
+    const auto spec = JointQuoteRiskFixtures::Spec();
+    const auto calibrated = CalibrateJointMultiCurve(spec, fixture::Options());
+    const auto bound = input.market_.curveComponents_.at("discount");
+    input.market_ = fixture::Market(spec, calibrated, false, {}, [&](const auto&) {
+        return fixture::Flat(spec, "eur-3m", "EUR", 0.019, Handle_<DiscountCurve_>(new fixture::OpaqueCurve_({}, "EUR")));
+    });
+    input.market_.curveComponents_["discount"] = bound;
+    const auto provenance = BuildSingle(input);
+    const auto cyclic = std::make_shared<CyclicDiscountCurve_>("unrelated-invalid");
+    const Handle_<DiscountCurve_> handle(cyclic);
+    cyclic->SetBase(handle);
+    struct ClearCycle_ {
+        CyclicDiscountCurve_* curve_;
+        ~ClearCycle_() { curve_->ClearBase(); }
+    } clear{cyclic.get()};
+    input.market_.curveComponents_["discount"] = handle;
+    const auto trade = fixture::Trade(spec);
+    const auto passive = PriceRateTrade(trade, input.market_);
+    ASSERT_TRUE(passive.succeeded_);
+    ASSERT_THROW(AggregateRatePortfolioQuoteRisk({trade}, input.market_, {provenance}), Exception_);
 }

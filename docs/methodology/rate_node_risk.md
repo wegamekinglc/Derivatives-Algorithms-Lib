@@ -56,6 +56,12 @@ XCCY uses uniformly typed market/curve-block views. Consumed curves are
 active-typed, but only the selected component's parameters are registered as
 independent variables. Non-target parameters and FX spot stay constant.
 
+These fixed-base coordinates also serve v1 quote-risk provenance. Generic joint
+quote risk follows consumed base paths in separate joint sweeps, including
+paths through unregistered XCCY forecast roots; it does not change the public
+standalone node-risk coordinates. See the
+[joint graph and eligibility contract](generic_joint_quote_risk.md#aggregation-and-failures).
+
 Each sweep owns its thread's tape through `TapeGuard_`, registers inputs,
 records pricing, seeds the PV adjoint, propagates, and validates the finite
 gradient and its expected width. The guard rewinds on exit, including failure.

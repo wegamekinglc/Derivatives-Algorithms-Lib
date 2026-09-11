@@ -104,14 +104,47 @@ rejected before risk sweeps. A malformed live source is a provenance failure;
 trades consuming that source are not priced through it. Other trades and
 independent provenances continue.
 
-For joint native coordinates, a discount node also affects any consumed
-forward curve layered over that discount curve. Standalone node risk keeps its
-fixed-base semantics. A joint PV gradient includes these base paths before the
-complete g-transpose-E transform. Independent single-curve DV01s cannot be
-concatenated to reproduce this coupled response.
+Joint native coordinates follow each trade's actual consumed curve/base graph
+by handle identity. For XCCY trades, the roots are the selected domestic and
+foreign discount and forecast curves plus any basis curve. A selected forecast
+need not have its own key in `market.curveComponents_`: its base path still
+contributes to a bound calibrated component. Unused registered descendants do
+not enter preparation, and aliases do not duplicate a native sweep.
+
+Only the target's native parameters are independent variables in its sweep.
+Intermediate curve parameters stay constant while their base response remains
+active; the target's own base stays passive. Mixed PWC, PWLF, LogDF, and ZeroRate
+layers retain their original geometry, including historical PWC/PWLF knots and
+left/right values. Standalone node risk and v1 quote-risk sources keep their
+fixed-base semantics. Their preparation caches are separate from joint
+preparation, so mixing source kinds does not make results depend on source
+order. Passive pricing is shared once per trade.
+
+A joint PV gradient includes these base paths before the complete
+g-transpose-E transform. Independent single-curve DV01s cannot be concatenated
+to reproduce this coupled response.
+
+For live joint risk, every necessary graph node must be an exact builtin
+`Tape::DiscountPWC_<double>`, `Tape::DiscountPWLF_<double>`,
+`Tape::DiscountLogDF_<double>`, or `Tape::DiscountZeroRate_<double>` instance.
+Opaque nodes and subclasses, including an otherwise unchanged builtin
+subclass or an opaque unit-discount leaf, are outside this eligibility domain.
+Provenance factory acceptance alone does not establish trade-level graph
+eligibility. An incomplete graph cannot establish a structural zero. Existing
+family, routing, root-representation, passive-validation, and expired-XCCY
+gates retain their priority; a subsequent graph or preparation failure reports
+`AAD_EVALUATION_FAILED`.
 
 If one consumed block fails, the whole `(trade, provenance)` gradient is
-discarded. A non-consumed parameter block remains exactly zero without an AAD
+discarded, including slices from earlier successful sweeps. Exceptions,
+non-finite results, and incorrect gradient widths produce one
+`QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE` metadata entry with the failing bound
+key and original node-risk reason. Bound blocks are processed in declaration
+order. Successfully priced passive PV is retained once, and healthy trades and
+independent provenances continue. Invalid v2 sources are also checked along
+unregistered XCCY root/base paths before passive pricing.
+
+A non-consumed parameter block remains exactly zero without an AAD
 sweep; its quote buckets can still contain coupled risk through E. A trade
 consuming no bound components contributes structural-zero buckets. Numerical
 roundoff in the dense matrix is distinct from structural zeros in the native
@@ -147,6 +180,11 @@ The executable oracle covers 2/3 blocks, N=5/10/16, both modes, all four native
 parameterizations, and layered/unlayered curves (96 configurations, 992 buckets).
 Separate tests cover mixed parameterizations, reversed input order, signed
 positions, full native parameter responses, and source/failure boundaries.
+Unregistered XCCY base paths have full-recalibration and registration-invariance
+controls. Historical mixed chains also have central native-coordinate bump
+oracles that rebuild dependent layers without recalibration or quote mapping.
+Failure tests cover declaration order, preparation-cache reuse, mixed v1/joint
+source order, discarded partial slices, and tape recovery.
 Each original quote is recalibrated and repriced at ±1e-6 and ±1e-4; calibration
 failure, non-finite output, or loss of an eligible trade fails the test.
 
