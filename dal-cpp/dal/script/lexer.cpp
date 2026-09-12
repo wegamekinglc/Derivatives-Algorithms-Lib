@@ -87,6 +87,8 @@ namespace Dal::Script {
     }
 
     Vector_<std::pair<size_t, size_t>> IndexLiteralRanges(const String_& str) {
+        if (str.find('[') == String_::npos)
+            return {};
         Vector_<std::pair<size_t, size_t>> result;
         SourceLocation_ source;
         for (size_t pos = 0; pos < str.size();) {

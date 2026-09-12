@@ -15,6 +15,7 @@ namespace Dal::Script {
     class Parser_ {
         using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
+        String_ preparationError_;
 
         // Helpers
 
@@ -100,5 +101,6 @@ namespace Dal::Script {
         explicit Parser_(const std::map<String_, double>& constVariables = std::map<String_, double>()): constVariables_(constVariables) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins = {});
+        [[nodiscard]] const String_& PreparationError() const { return preparationError_; }
     };
 } // namespace Dal::Script

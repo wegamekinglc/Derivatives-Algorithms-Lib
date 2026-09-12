@@ -327,7 +327,10 @@ namespace Dal::Script {
         REQUIRE2(cur != end && cur->Text() == ")", "InvalidIndex: FIX requires one index and an optional date; " + functionSource.Describe(),
                  ScriptError_);
         ++cur;
-        return MakeNode<NodeFix_>(literal, index, fixingDate, source);
+        auto node = MakeNode<NodeFix_>(literal, index, fixingDate, source);
+        if (preparationError_.empty())
+            preparationError_ = node->PreparationError();
+        return node;
     }
 
     Date_ Parser_::ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback) {
@@ -419,6 +422,7 @@ namespace Dal::Script {
     }
 
     Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) {
+        preparationError_.clear();
         Event_ e;
         auto tokens = Lex(event, origins);
         Vector_<Token_>::const_iterator it = tokens.begin();

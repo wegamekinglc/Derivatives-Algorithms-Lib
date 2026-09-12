@@ -71,7 +71,11 @@ namespace Dal::Script {
         //  Set by PreProcess().
         bool preProcessed_ = false;
         String_ preparationError_;
-        void RequirePreparedFixings() const;
+        [[noreturn]] void ThrowPreparationError() const;
+        void RequirePreparedFixings() const {
+            if (!preparationError_.empty())
+                ThrowPreparationError();
+        }
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")

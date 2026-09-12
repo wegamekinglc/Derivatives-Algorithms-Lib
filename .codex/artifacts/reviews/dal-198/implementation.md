@@ -134,3 +134,52 @@ test binary built successfully with `cmake --build <build-dir> --target dal_cpp_
   No MSVC `cl`/Windows SDK build is available locally; Windows validation remains
   a remote CI requirement. The parent owns independent testing, the documentation
   decision, review, and publication of this scoped correction.
+
+Performance blocker repair, 2026-09-13, from PR #366 head
+`78e52ebac060dca513537b9b719313fa4df4321e`:
+
+- Retained CI RED shows `script.construct_and_parse` at +6.72% / +7.11%
+  against the unchanged +4% two-round gate. Its A/A controls are below 1%.
+  The tree case also failed (+5.15% / +8.00%), but its same-head A/A samples
+  are bimodal, so this repair does not attribute its exact cost to the guard.
+  Inputs: `dal-198-benchmark-failure/python-paired/summary.md` and the
+  independent `dal-198-performance-diagnosis.md`.
+- The parser now records the first FIX diagnostic while constructing its node,
+  resetting this metadata at the start of each Parse. ParseEvents consumes it
+  instead of recursively applying RTTI to every AST node. The product keeps
+  its first recorded diagnostic across later events and ParseEvents calls.
+  The complete NodeFix diagnostic, including raw spelling and source origins,
+  remains the single formatting source.
+- The product's preparation check now has an inline successful path and an
+  out-of-line throwing path. Every existing caller and direct visitor guard
+  remains in place, including past events, dead branches, tree/AAD/fuzzy
+  evaluation, preprocessing, compilation, and legacy JSON rejection.
+- IndexLiteralRanges returns an empty result immediately for text with no
+  opening bracket. Macro-generated literals are still rescanned on subsequent
+  replacements; bracketed text takes the unchanged validation/protection path.
+  No benchmark threshold, inventory, timing boundary, or CI policy changed.
+
+Correctness evidence:
+
+- Added tests for first-FIX diagnostic identity and per-Parse reset across FIX,
+  SPOT, another FIX with different origins, and empty input. A product test
+  preserves the original past/dead FIX through later events and another
+  ParseEvents call, then verifies a separate legacy product remains usable.
+  The test-first build failed on the absent parser metadata getter
+  (`dal-198-perf-red-build.log`); the performance RED above is the behavioral
+  regression motivating this behavior-preserving repair.
+- `cmake --build build/Release-linux --target dal_cpp_tests -j8`: exit 0
+  (`dal-198-perf-green-build.log`).
+- `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.TestParserPreparationDiagnosticReset:ScriptObservationTest.TestProductRetainsFirstPreparationDiagnostic'`:
+  2/2 passed (`dal-198-perf-focused-green.log`).
+- `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.*:ScriptLexerTest.*:ScriptPreprocessorTest.*:ScriptTest.*:IndexTest.*:IndexParseTest.*'`:
+  247/247 passed (`dal-198-perf-regression-green.log`).
+- Local Lizard measures ParseFix 8, IndexLiteralRanges 7, ParseEvents 4 and
+  Lex 4; all touched functions meet the limit of 8
+  (`dal-198-perf-complexity.log`). Existing unrelated complexity warnings
+  remain unchanged. Changed test lines are formatted and diff checks pass.
+
+No speedup or final benchmark acceptance is claimed at this handoff. The parent
+coordinates isolated paired performance validation, independent testing and
+review; this implementation stage ran no timing workload concurrently with
+builds and made no publication or platform changes.

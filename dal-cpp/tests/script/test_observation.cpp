@@ -186,6 +186,42 @@ TEST(ScriptObservationTest, TestSameDateSourceOriginsAfterMacroExpansion) {
     ASSERT_EQ(*fix->source_.eventDate_, date);
 }
 
+TEST(ScriptObservationTest, TestParserPreparationDiagnosticReset) {
+    Parser_ parser;
+    const Date_ date(2030, 9, 12);
+    const auto event = parser.Parse("IF 1 = 0 THEN x = FIX(eQ[First]) ELSE x = FIX(EQ[Second]) END", {{0, 3, date}});
+    const auto* first = FindUnpreparedFixing(*event[0]);
+    ASSERT_NE(first, nullptr);
+    ASSERT_EQ(parser.PreparationError(), first->PreparationError());
+    ASSERT_NE(parser.PreparationError().find("row=3"), String_::npos);
+
+    ASSERT_NO_THROW(parser.Parse("x = SPOT()"));
+    ASSERT_TRUE(parser.PreparationError().empty());
+    ASSERT_NO_THROW(parser.Parse("x = FIX(FX[EUR/USD])"));
+    ASSERT_NE(parser.PreparationError().find("FX[EUR/USD]"), String_::npos);
+    ASSERT_EQ(parser.PreparationError().find("row=3"), String_::npos);
+    ASSERT_NO_THROW(parser.Parse(""));
+    ASSERT_TRUE(parser.PreparationError().empty());
+}
+
+TEST(ScriptObservationTest, TestProductRetainsFirstPreparationDiagnostic) {
+    const Date_ past(2020, 9, 11);
+    const Date_ future(2030, 9, 11);
+    ScriptProduct_ product({Cell_(past), Cell_(future)}, {"IF 1 = 0 THEN x = FIX(eQ[First]) ELSE x = 1 END", "x = FIX(EQ[Second])"});
+    product.ParseEvents({{Cell_(future), "y = SPOT()"}});
+    try {
+        product.PreProcess(false, true);
+        FAIL() << "first FIX must survive later events and parsing";
+    } catch (const ScriptError_& error) {
+        const std::string message(error.what());
+        for (const auto* expected : {"PreparationRequired", "eQ[First]", "row=1", "event=2020-09-11"})
+            ASSERT_NE(message.find(expected), std::string::npos) << expected;
+        ASSERT_EQ(message.find("Second"), std::string::npos);
+    }
+    ScriptProduct_ legacy({Cell_(future)}, {"x = SPOT()"});
+    ASSERT_NO_THROW(legacy.PreProcess(false, true));
+}
+
 TEST(ScriptObservationTest, TestNullParserRetainsSourceContext) {
     Index::RegisterParser("SCRIPT_NULL_TEST", [](const String_&) -> std::unique_ptr<Index_> { return nullptr; });
     const Date_ date(2030, 9, 12);
