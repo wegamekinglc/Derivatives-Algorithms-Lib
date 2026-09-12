@@ -33,6 +33,16 @@ namespace Dal {
                 return defaultAssetNames_;
             }
 
+            void ValidateSampleOutputs(const SampleDef_& definition, String_* indexName) const {
+                REQUIRE(definition.indexNames_.size() <= 1, "UnsupportedModelObservation: one EQ output per sample");
+                for (const auto& name : definition.indexNames_) {
+                    const Handle_<Index_> index(Index::Parse(name));
+                    REQUIRE(index && SupportsIndex(*index), "UnsupportedModelObservation: " + name);
+                    REQUIRE(indexName->empty() || *indexName == index->Name(), "UnsupportedModelObservation: multiple future indices");
+                    *indexName = index->Name();
+                }
+            }
+
         public:
             [[nodiscard]] virtual bool SupportsIndex(const Index_& index) const { return false; }
 
@@ -42,13 +52,7 @@ namespace Dal {
                 for (size_t i = 0; i < timeline.size(); ++i) {
                     REQUIRE(std::isfinite(timeline[i]) && timeline[i] >= 0.0 && (i == 0 || timeline[i] > timeline[i - 1]),
                             "InvalidModelTimeline: times must be nonnegative, finite and strictly increasing");
-                    REQUIRE(definitions[i].indexNames_.size() <= 1, "UnsupportedModelObservation: one EQ output per sample");
-                    for (const auto& name : definitions[i].indexNames_) {
-                        const Handle_<Index_> index(Index::Parse(name));
-                        REQUIRE(index && SupportsIndex(*index), "UnsupportedModelObservation: " + name);
-                        REQUIRE(indexName.empty() || indexName == index->Name(), "UnsupportedModelObservation: multiple future indices");
-                        indexName = index->Name();
-                    }
+                    ValidateSampleOutputs(definitions[i], &indexName);
                 }
             }
 

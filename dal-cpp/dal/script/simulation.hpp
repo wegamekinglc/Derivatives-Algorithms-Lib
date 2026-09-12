@@ -186,6 +186,26 @@ namespace Dal::Script {
         }
     }
 
+    namespace Detail {
+        template <class S_, class E_, class F_>
+        double EvaluateDoubleBatch(
+            const AAD::Model_<double>& model, S_* state, E_* evaluator, const PathBatch_& batch, size_t payoffIndex, const F_& evaluate) {
+            if (state->random_)
+                state->random_->SkipTo(batch.firstPath_);
+            double sumValue = 0.0;
+            for (size_t i = 0; i < batch.pathCount_; ++i) {
+                if (state->random_)
+                    state->random_->FillNormal(&state->gauss_);
+                model.GeneratePath(state->gauss_, &state->path_);
+                ValidateSimulationPath(state->path_);
+                evaluate(state->path_, *evaluator);
+                REQUIRE2(std::isfinite(evaluator->VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
+                sumValue += evaluator->VarVals()[payoffIndex];
+            }
+            return sumValue;
+        }
+    } // namespace Detail
+
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
                              const Handle_<ModelData_>& modelData,
@@ -257,36 +277,19 @@ namespace Dal::Script {
 
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            const size_t firstPath = batch.firstPath_;
-            const size_t pathsInTask = batch.pathCount_;
             simResults.emplace_back(0.0);
-            tasks.Spawn([&, batchIndex, firstPath, pathsInTask]() {
+            tasks.Spawn([&, batchIndex, batch]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 auto& state = threadStates[threadNum];
                 if (!state)
                     state = std::make_unique<ThreadState_>(product, mdl->SimDim(), rsg, useBb);
-                Vector_<>& gaussVec = state->gauss_;
-                Scenario_<>& path = state->path_;
-                auto& random = state->random_;
-                if (random)
-                    random->SkipTo(firstPath);
-                double sumValue = 0.0;
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
-                    for (size_t i = 0; i < pathsInTask; ++i) {
-                        if (random)
-                            random->FillNormal(&gaussVec);
-                        mdl->GeneratePath(gaussVec, &path);
-                        ValidateSimulationPath(path);
-                        evaluate(path, evaluator);
-                        REQUIRE2(std::isfinite(evaluator.VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
-                        sumValue += evaluator.VarVals()[payoffIndex];
-                    }
+                    return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate);
                 };
                 if (useCompiled)
-                    runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); });
+                    simResults[batchIndex] = runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); });
                 else
-                    runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); });
-                simResults[batchIndex] = sumValue;
+                    simResults[batchIndex] = runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); });
                 return true;
             });
         }

@@ -178,6 +178,28 @@ namespace Dal::Script {
             return result;
         }
 
+        static void BindModelObservations(ObservationPlan_* plan,
+                                          const ScriptProduct_& product,
+                                          const Date_& evaluationDate,
+                                          const ScriptValuationSettings_& settings) {
+            const auto sampleId = [&](const Date_& date) {
+                return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
+            };
+            for (const auto& date : product.EventDates()) {
+                const auto id = sampleId(date);
+                plan->eventToSample_.push_back(id);
+                plan->defLine_[id].numeraire_ = true;
+            }
+            for (auto& request : plan->requests_) {
+                if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
+                    continue;
+                const auto id = sampleId(request.key_.fixingTime_.Date());
+                auto& outputs = plan->defLine_[id].indexNames_;
+                request.modelSlot_ = ModelObservation_{id, outputs.size()};
+                outputs.push_back(request.key_.canonicalIndex_);
+            }
+        }
+
         static void ModelPlan(ObservationPlan_* plan,
                               const ScriptProduct_& product,
                               const Date_& evaluationDate,
@@ -204,22 +226,7 @@ namespace Dal::Script {
                 def.numeraire_ = false;
                 plan->defLine_.push_back(def);
             }
-            const auto sampleId = [&](const Date_& date) {
-                return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
-            };
-            for (const auto& date : product.EventDates()) {
-                const auto id = sampleId(date);
-                plan->eventToSample_.push_back(id);
-                plan->defLine_[id].numeraire_ = true;
-            }
-            for (auto& request : plan->requests_) {
-                if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
-                    continue;
-                const auto id = sampleId(request.key_.fixingTime_.Date());
-                auto& outputs = plan->defLine_[id].indexNames_;
-                request.modelSlot_ = ModelObservation_{id, outputs.size()};
-                outputs.push_back(request.key_.canonicalIndex_);
-            }
+            BindModelObservations(plan, product, evaluationDate, settings);
         }
 
     public:
