@@ -346,7 +346,12 @@ Paths are divided with an effective batch size
 the planner rejects a zero thread count without performing division. This keeps
 multiple useful tasks for small simulations while capping large batches at
 `8192`. Each thread owns its own RNG, Gaussian vector, scenario
-(`Scenario_<T_>`), and evaluator state, so the per-path work is lock-free. An
+(`Scenario_<T_>`), and evaluator state, so the per-path work is lock-free. For
+value-only simulation, each worker constructs its buffers on first use and
+reuses them for subsequent batches in the same request. The caller's state is
+prepared before task submission, preserving input validation even for an empty
+native simulation. All states are destroyed after the request's tasks drain;
+they are never reused across valuation requests. An
 AAD task activates its thread-local tape and constructs its active model on that
 same thread; active numbers are never copied from the coordinator's tape into a
 worker tape. Compiled operand stacks are members of the task-owned `EvalState_`,

@@ -25,9 +25,15 @@ namespace {
         return ScriptProduct_(eventDates, events);
     }
 
-    Handle_<ModelData_> StandardBSModel() {
-        return Handle_<ModelData_>(new BSModelData_("bsmodel", 10.0, 0.20, 0.034, 0.021));
-    }
+    Handle_<ModelData_> StandardBSModel() { return Handle_<ModelData_>(new BSModelData_("bsmodel", 10.0, 0.20, 0.034, 0.021)); }
+
+    struct SimulationObservation_ {
+        double serialFirst_;
+        double serialSecond_;
+        double parallelFirst_;
+        double parallelSecond_;
+        double repeatedFirst_;
+    };
 } // namespace
 
 TEST(SimulationTest, TestDeterministicWithFixedSeed) {
@@ -52,6 +58,45 @@ TEST(SimulationTest, TestDeterministicWithMrg32) {
     const SimResults_ second = MCSimulation<double>(product, model, 4096, "mrg32", false, false);
 
     ASSERT_DOUBLE_EQ(first.aggregated_, second.aggregated_);
+}
+
+TEST(SimulationTest, TestParallelDoubleStateMatchesSerialAcrossRequests) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    auto firstProduct = VanillaCallProduct(Date_(2024, 6, 21), 11.0);
+    auto secondProduct = VanillaCallProduct(Date_(2024, 6, 21), 12.0);
+    firstProduct.PreProcess(false, false);
+    secondProduct.PreProcess(false, false);
+    const auto model = StandardBSModel();
+    const size_t paths = 8 * BATCH_SIZE + 17;
+    auto* pool = ThreadPool_::GetInstance();
+    const size_t originalThreads = pool->NumThreads();
+    Vector_<SimulationObservation_> observations;
+    try {
+        for (const auto* method : {"sobol", "mrg32"}) {
+            for (const bool compiled : {false, true}) {
+                const auto value = [&](const ScriptProduct_& product) {
+                    return MCSimulation<double>(product, model, paths, method, false, compiled).aggregated_;
+                };
+                pool->Start(1, true);
+                const double serialFirst = value(firstProduct);
+                const double serialSecond = value(secondProduct);
+                pool->Start(4, true);
+                observations.push_back({serialFirst, serialSecond, value(firstProduct), value(secondProduct), value(firstProduct)});
+            }
+        }
+    } catch (...) {
+        pool->Start(originalThreads, true);
+        pool->Stop();
+        throw;
+    }
+    pool->Start(originalThreads, true);
+    pool->Stop();
+    for (const auto& observed : observations) {
+        ASSERT_GT(observed.serialFirst_, observed.serialSecond_);
+        ASSERT_DOUBLE_EQ(observed.serialFirst_, observed.parallelFirst_);
+        ASSERT_DOUBLE_EQ(observed.serialSecond_, observed.parallelSecond_);
+        ASSERT_DOUBLE_EQ(observed.serialFirst_, observed.repeatedFirst_);
+    }
 }
 
 TEST(SimulationTest, TestAggregatesTowardsAnalyticBlackScholes) {

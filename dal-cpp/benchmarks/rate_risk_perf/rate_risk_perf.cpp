@@ -8,8 +8,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <memory>
+#include <string>
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/curve/calibration_internal.hpp>
@@ -85,6 +87,42 @@ namespace {
 
     RateTradeDefinition_ OisTrade(const Date_& today, const Date_& start, const Date_& maturity) {
         return {"ois", RateInstrumentType_(RateInstrumentType_::Value_::OIS), today, start, maturity, Ccy_("USD"), OisTradeTerms_{FixedFloatTerms()}};
+    }
+
+    void RunIrsScaleCase(int tradeCount) {
+        const Date_ today(2026, 1, 15);
+        const Date_ start(2026, 10, 15);
+        const auto market = Market(today, Date_(2033, 1, 15));
+        const Vector_<String_> keys{"forecast", "discount"};
+        Vector_<RateTradeDefinition_> trades;
+        for (int i = 0; i < tradeCount; ++i)
+            trades.push_back(IrsTrade(today, start, Date::AddMonths(start, 12 * (1 + i % 4)).AddDays(17), i % 2 == 0));
+
+        // Hold maturity distribution and eight-node curves fixed as the portfolio grows.
+        // The stub payment dates exercise queries between curve nodes.
+        for (const auto& price : PriceRateTrades(trades, market))
+            REQUIRE(price.succeeded_ && std::isfinite(price.pv_), "IRS scale benchmark passive preflight failed");
+        const auto probe = RateTradeNodeSensitivitiesBatch(trades, market, keys);
+        REQUIRE(probe.size() == 2 * tradeCount, "IRS scale benchmark cell count changed");
+        for (const auto& cell : probe) {
+            REQUIRE(cell.result_.eligible_ && std::isfinite(cell.result_.pv_) && cell.result_.gradient_.size() == 8,
+                    "IRS scale benchmark AAD preflight failed");
+            for (const auto value : cell.result_.gradient_)
+                REQUIRE(std::isfinite(value), "IRS scale benchmark gradient must be finite");
+        }
+        double sink = 0.0;
+        const std::string suffix = " (" + std::to_string(tradeCount) + " IRS x 8 nodes, fixed maturities)";
+        const auto pv = Bench::Run(("Rate PV" + suffix).c_str(), [&]() {
+            const auto prices = PriceRateTrades(trades, market);
+            sink += prices.front().pv_ + prices.back().pv_;
+        });
+        Bench::Print(pv);
+        const auto aad = Bench::Run(("Rate AAD 2 components" + suffix).c_str(), [&]() {
+            const auto cells = RateTradeNodeSensitivitiesBatch(trades, market, keys);
+            sink += cells.front().result_.pv_ + cells.back().result_.pv_;
+        });
+        Bench::Print(aad);
+        Bench::DoNotOptimize(&sink);
     }
 
     RateIndexConvention_ XccyIndex() {
@@ -310,5 +348,8 @@ int main() {
     RunQuoteRiskCase("Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)", stagedAnalyticPortfolio);
     RunQuoteRiskCase("Quote risk portfolio staged BUMPED (24 XCCY x N=5)", stagedBumpedPortfolio);
     RateRiskPerf::RunGenericJointBenchmarks();
+    // Append new coverage so the existing cases retain their workload prefix.
+    for (const int tradeCount : {32, 256, 1024})
+        RunIrsScaleCase(tradeCount);
     return 0;
 }

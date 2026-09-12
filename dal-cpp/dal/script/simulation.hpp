@@ -207,23 +207,25 @@ namespace Dal::Script {
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
 
-        Vector_<std::unique_ptr<Random_>> rngVector(nThreads);
-        for (auto& random : rngVector)
-            random = CreateRNG(rsg, mdl->SimDim(), useBb);
+        // Each worker constructs and reuses its own writable buffers. Keeping hot
+        // evaluator state in adjacent arrays made timing sensitive to allocation layout.
+        struct ThreadState_ {
+            std::unique_ptr<Random_> random_;
+            Vector_<> gauss_;
+            Scenario_<> path_;
+            Evaluator_<double> evaluator_;
+            EvalState_<double> compiledState_;
 
-        Vector_<Vector_<>> gaussVectors(nThreads);
-        Vector_<Scenario_<>> paths(nThreads);
-
-        for (auto& vec : gaussVectors)
-            vec.Resize(mdl->SimDim());
-
-        for (auto& path : paths) {
-            AllocatePath(product.DefLine(), path);
-            InitializePath(path);
-        }
-
-        Vector_ evalVector(nThreads, product.BuildEvaluator<double>());
-        Vector_ evalStateVector(nThreads, product.BuildEvalState<double>());
+            ThreadState_(const ScriptProduct_& product, size_t dimensions, const String_& rsg, bool useBb)
+                : random_(CreateRNG(rsg, dimensions, useBb)), gauss_(dimensions), evaluator_(product.BuildEvaluator<double>()),
+                  compiledState_(product.BuildEvalState<double>()) {
+                AllocatePath(product.DefLine(), path_);
+                InitializePath(path_);
+            }
+        };
+        Vector_<std::unique_ptr<ThreadState_>> threadStates(nThreads);
+        // Preserve caller-side input validation, including the zero-path case.
+        threadStates[0] = std::make_unique<ThreadState_>(product, mdl->SimDim(), rsg, useBb);
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
@@ -242,13 +244,16 @@ namespace Dal::Script {
             simResults.emplace_back(0.0);
             tasks.Spawn([&, batchIndex, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
-                Vector_<>& gaussVec = gaussVectors[threadNum];
-                Scenario_<>& path = paths[threadNum];
-                auto& random = rngVector[threadNum];
+                auto& state = threadStates[threadNum];
+                if (!state)
+                    state = std::make_unique<ThreadState_>(product, mdl->SimDim(), rsg, useBb);
+                Vector_<>& gaussVec = state->gauss_;
+                Scenario_<>& path = state->path_;
+                auto& random = state->random_;
                 random->SkipTo(firstPath);
                 double sumValue = 0.0;
                 if (useCompiled) {
-                    EvalState_<double>& evalState = evalStateVector[threadNum];
+                    EvalState_<double>& evalState = state->compiledState_;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
@@ -256,7 +261,7 @@ namespace Dal::Script {
                         sumValue += evalState.VarVals()[payoffIndex];
                     }
                 } else {
-                    Evaluator_<double>& eval = evalVector[threadNum];
+                    Evaluator_<double>& eval = state->evaluator_;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);

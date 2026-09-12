@@ -76,6 +76,9 @@ also included. Python's MRG32 constructor fixes `precise=true`, while the native
 RNG benchmark selects `precise=false`; this policy difference is recorded rather
 than treated as equivalent timing. Sobol precision/polish flags match the native cases.
 
+Native-only scale cases in `rate_risk_perf` cover PV and two-component AAD at
+32/256/1,024 IRS with fixed maturity distributions and eight-node curves.
+
 The single-curve quote portfolios retain the native N=2/5/16 and 1/120-trade
 shapes. Joint XCCY uses five calibrated blocks (domestic discount/forward, foreign
 discount/forward, basis), with N=2 or 10 quotes per block and 1/24 trades. Staged
@@ -175,6 +178,18 @@ order alternates on every process pair. Two confirmation rounds each contain ten
 pairs: 20 processes per side, with 20 samples for every case on each side. A case
 fails only when its head minimum exceeds its base minimum by strictly more than
 4% in both rounds. Exactly +4% passes.
+
+After a Python gate failure, CI also runs the complete suite twice as A/A controls:
+once with the baseline module on both sides and once with the head module on both
+sides. These run after all gated comparisons, use the same sampling rule, and retain
+their own module hashes and raw reports in `python-baseline-aa` and `python-head-aa`.
+Each control copies the selected package and build configuration into a separate
+root, preserving the gate's directory checks; it is not an independent rebuild.
+They help diagnose timing variability on that runner; they never replace or clear
+the original base/head failure. The artifact also retains both built `dal` packages
+under `python-reproduction` for binary-level investigation. These packages use the
+recorded CI interpreter, platform and native CPU flags; they are diagnostic build
+outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
 including when the base predates this benchmark suite. All 72 cases are measured

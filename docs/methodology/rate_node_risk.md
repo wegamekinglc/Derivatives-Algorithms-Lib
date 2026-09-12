@@ -92,6 +92,15 @@ instrument and component identifiers. Failed cells leave siblings available.
 The sweep engine caches passive pricing per trade and curve preparation per
 curve within the call.
 
+IRS, OIS and basis-swap requests also retain each leg's schedule and accrual
+geometry once. Fixing diagnostics, passive pricing and subsequent standalone
+or joint active sweeps read these same periods. Preparation occurs at the
+existing validation boundary for each leg, preserving error priority. Only
+date and accrual structure is reused: discount factors, projected rates, PVs
+and AAD values are evaluated for each sweep. The state belongs to the current
+request and is keyed by the trade object, so later calls rebuild it after
+changes to dates, conventions, calendars or market inputs.
+
 ## Aggregation and Currency
 
 The aggregate retains one dense `Report_` per successfully prepared component,

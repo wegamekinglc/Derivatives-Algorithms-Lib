@@ -443,7 +443,7 @@ jobs:
             slug: tsan
             sanitizers: thread
             flags: -O2 -g
-            core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable:RateCashflowPricingTest.TestNodeSensitivityTapeObservationIsScopedAndConcurrent:JointQuoteRiskTest.TestSharedPassiveProvenanceUsesIndependentCallerTapes
+            core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable:SimulationTest.TestParallelDoubleStateMatchesSerialAcrossRequests:RateCashflowPricingTest.TestNodeSensitivityTapeObservationIsScopedAndConcurrent:RateCashflowPricingTest.TestCashflowLegObservationIsScopedAndConcurrent:JointQuoteRiskTest.TestSharedPassiveProvenanceUsesIndependentCallerTapes
             public-filter: ""
 
     steps:
@@ -683,6 +683,7 @@ jobs:
           exit "$benchmark_failure"
 
       - name: Compare base and head Python performance
+        id: python-performance
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
@@ -734,6 +735,50 @@ jobs:
             --samples 10 \
             --confirmation-rounds 2 \
             --threshold-percent 4
+
+      - name: Diagnose Python regression with baseline A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          # Diagnostics never replace the original base/head verdict. Run them
+          # after all comparisons so their workloads do not precede gated timings.
+          # Keep the gate's distinct-root check: the control is an explicit copy
+          # of this binary and its configuration, not an independent rebuild.
+          mkdir -p benchmark-baseline-aa/dal-python
+          cp benchmark-base/build/benchmark-base/CMakeCache.txt benchmark-baseline-aa/
+          cp -a benchmark-base/build/benchmark-base/dal-python/dal benchmark-baseline-aa/dal-python/
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source benchmark-base --head-source benchmark-base \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root benchmark-baseline-aa \
+            --output-dir benchmark-results/python-baseline-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
+
+      - name: Diagnose Python regression with head A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          mkdir -p benchmark-head-aa/dal-python
+          cp build/benchmark-head/CMakeCache.txt benchmark-head-aa/
+          cp -a build/benchmark-head/dal-python/dal benchmark-head-aa/dal-python/
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source . --head-source . \
+            --base-root build/benchmark-head --head-root benchmark-head-aa \
+            --output-dir benchmark-results/python-head-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
+
+      - name: Preserve Python binaries after a regression
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        run: |
+          mkdir -p benchmark-results/python-reproduction
+          tar -C benchmark-base/build/benchmark-base/dal-python \
+            -czf benchmark-results/python-reproduction/base-package.tar.gz dal
+          tar -C build/benchmark-head/dal-python \
+            -czf benchmark-results/python-reproduction/head-package.tar.gz dal
 
       - name: Upload benchmark evidence
         if: always()

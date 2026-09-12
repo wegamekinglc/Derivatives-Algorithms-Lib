@@ -39,6 +39,47 @@ namespace Dal {
             AccrualPeriod_ accrual_;
         };
 
+        Vector_<CouponPeriod_>
+        BuildCouponPeriods(const Date_& start, const Date_& maturity, const RateLegConvention_& leg, int fixingLag, const Holidays_& fixingHolidays) {
+            RateCashflowPricingInternal::RecordRateCashflowLegBuild();
+            return BuildLegPeriods<CouponPeriod_>(start, maturity, leg, fixingLag, fixingHolidays);
+        }
+
+        // Owned by one valuation request. Each leg is prepared at its original validation
+        // boundary, then read unchanged by diagnostics, passive pricing and active sweeps.
+        // Only date/accrual geometry is retained; no curve values or tape objects are cached.
+        class RequestCashflows_ {
+            struct Leg_ {
+                const RateLegConvention_* convention_ = nullptr;
+                Vector_<CouponPeriod_> periods_;
+            };
+            std::array<Leg_, 2> legs_;
+
+        public:
+            const Vector_<CouponPeriod_>&
+            Leg(const RateTradeDefinition_& trade, const RateLegConvention_& convention, int fixingLag, const Holidays_& fixingHolidays) {
+                for (const auto& leg : legs_)
+                    if (leg.convention_ == &convention)
+                        return leg.periods_;
+                for (auto& leg : legs_) {
+                    if (!leg.convention_) {
+                        leg.periods_ = BuildCouponPeriods(trade.startDate_, trade.maturityDate_, convention, fixingLag, fixingHolidays);
+                        leg.convention_ = &convention;
+                        return leg.periods_;
+                    }
+                }
+                THROW("Rate cashflow request exceeds the supported two-leg structure");
+            }
+        };
+
+        bool UsesCouponLegs(const RateTradeDefinition_& trade) {
+            return std::holds_alternative<IrsTradeTerms_>(trade.terms_) || std::holds_alternative<OisTradeTerms_>(trade.terms_) ||
+                   std::holds_alternative<BasisTradeTerms_>(trade.terms_);
+        }
+
+        RatePricingTradeResult_
+        PriceRateTradePrepared(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RequestCashflows_* cashflows);
+
         Date_ FixingDate(const Date_& accrualStart, const RateIndexConvention_& index) {
             if (index.fixingLag_ == 0)
                 return accrualStart;
@@ -155,9 +196,9 @@ namespace Dal {
                              const RateIndexConvention_& index,
                              const FixingIdentity_& identity,
                              bool dailyObservations,
-                             RateCashflowPlan_* result) {
-            for (const auto& period :
-                 BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, leg, index.fixingLag_, index.fixingHolidays_)) {
+                             RateCashflowPlan_* result,
+                             RequestCashflows_* cashflows) {
+            for (const auto& period : cashflows->Leg(trade, leg, index.fixingLag_, index.fixingHolidays_)) {
                 if (period.schedule_.paymentDate_ < valuationTime.Date())
                     continue;
                 const auto addObservation = [&](const Date_& accrualStart) {
@@ -239,20 +280,20 @@ namespace Dal {
                            const FixedFloatTradeTerms_& terms,
                            bool overnight,
                            const RateMarketView_<T_>& view,
-                           RatePricingTradeResult_* result) {
+                           RatePricingTradeResult_* result,
+                           RequestCashflows_* cashflows) {
             REQUIRE(std::isfinite(terms.notional_) && terms.notional_ > 0.0, "Swap notional must be positive and finite");
             REQUIRE(std::isfinite(terms.contractRate_), "Swap contract rate must be finite");
             const auto& market = *view.market_;
             const auto discount = Curve(view, terms.discountComponentKey_);
             const auto forecast = Curve(view, terms.forecastComponentKey_);
             T_ fixedPv(0.0);
-            for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.fixedLeg_, 0, Holidays::None())) {
+            for (const auto& period : cashflows->Leg(trade, terms.fixedLeg_, 0, Holidays::None())) {
                 const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
                 fixedPv += terms.notional_ * terms.contractRate_ * period.accrual_.dcf_ * df;
             }
             T_ floatPv(0.0);
-            for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.floatLeg_,
-                                                                     terms.floatIndex_.fixingLag_, terms.floatIndex_.fixingHolidays_)) {
+            for (const auto& period : cashflows->Leg(trade, terms.floatLeg_, terms.floatIndex_.fixingLag_, terms.floatIndex_.fixingHolidays_)) {
                 const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
                 if (AAD::Value(df) == 0.0)
                     continue;
@@ -284,7 +325,8 @@ namespace Dal {
         T_ PriceBasis(const RateTradeDefinition_& trade,
                       const BasisTradeTerms_& terms,
                       const RateMarketView_<T_>& view,
-                      RatePricingTradeResult_* result) {
+                      RatePricingTradeResult_* result,
+                      RequestCashflows_* cashflows) {
             REQUIRE(std::isfinite(terms.notional_) && terms.notional_ > 0.0, "Basis swap notional must be positive and finite");
             REQUIRE(std::isfinite(terms.contractSpread_), "Basis swap contract spread must be finite");
             const auto& market = *view.market_;
@@ -292,8 +334,7 @@ namespace Dal {
             const auto spreadForecast = Curve(view, terms.spreadForecastComponentKey_);
             const auto referenceForecast = Curve(view, terms.referenceForecastComponentKey_);
             T_ spreadPv(0.0);
-            for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.spreadLeg_,
-                                                                     terms.spreadIndex_.fixingLag_, terms.spreadIndex_.fixingHolidays_)) {
+            for (const auto& period : cashflows->Leg(trade, terms.spreadLeg_, terms.spreadIndex_.fixingLag_, terms.spreadIndex_.fixingHolidays_)) {
                 const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
                 if (AAD::Value(df) == 0.0)
                     continue;
@@ -301,8 +342,8 @@ namespace Dal {
                 spreadPv += terms.notional_ * (rate + terms.contractSpread_) * period.accrual_.dcf_ * df;
             }
             T_ referencePv(0.0);
-            for (const auto& period : BuildLegPeriods<CouponPeriod_>(trade.startDate_, trade.maturityDate_, terms.referenceLeg_,
-                                                                     terms.referenceIndex_.fixingLag_, terms.referenceIndex_.fixingHolidays_)) {
+            for (const auto& period :
+                 cashflows->Leg(trade, terms.referenceLeg_, terms.referenceIndex_.fixingLag_, terms.referenceIndex_.fixingHolidays_)) {
                 const T_ df = Discount(discount, market.valuationTime_, period.schedule_.paymentDate_);
                 if (AAD::Value(df) == 0.0)
                     continue;
@@ -378,7 +419,8 @@ namespace Dal {
         }
 
         // #lizard forgives -- family-specific pricing branches preserve the audited formula mapping.
-        template <class T_> T_ Price(const RateTradeDefinition_& trade, const RateMarketView_<T_>& view, RatePricingTradeResult_* result) {
+        template <class T_>
+        T_ Price(const RateTradeDefinition_& trade, const RateMarketView_<T_>& view, RatePricingTradeResult_* result, RequestCashflows_* cashflows) {
             const auto& market = *view.market_;
             if (const auto* terms = std::get_if<DepositTradeTerms_>(&trade.terms_)) {
                 REQUIRE(std::isfinite(terms->notional_) && terms->notional_ > 0.0, "Deposit notional must be positive and finite");
@@ -436,20 +478,21 @@ namespace Dal {
                 return -pv;
             }
             if (const auto* terms = std::get_if<OisTradeTerms_>(&trade.terms_))
-                return PriceFixedFloat(trade, terms->value_, true, view, result);
+                return PriceFixedFloat(trade, terms->value_, true, view, result, cashflows);
             if (const auto* terms = std::get_if<IrsTradeTerms_>(&trade.terms_))
-                return PriceFixedFloat(trade, terms->value_, false, view, result);
+                return PriceFixedFloat(trade, terms->value_, false, view, result, cashflows);
             if (const auto* terms = std::get_if<BasisTradeTerms_>(&trade.terms_))
-                return PriceBasis(trade, *terms, view, result);
+                return PriceBasis(trade, *terms, view, result, cashflows);
             if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_))
                 return T_(PriceXccy(trade, *terms, market, result));
             THROW("Rate trade terms alternative is unsupported");
         }
 
         // Passive entry: every CurveRef_ resolves from the market's double curves.
-        double Price(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RatePricingTradeResult_* result) {
+        double
+        Price(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RatePricingTradeResult_* result, RequestCashflows_* cashflows) {
             const RateMarketView_<double> view{&market, nullptr, nullptr};
-            return Price(trade, view, result);
+            return Price(trade, view, result, cashflows);
         }
 
         // Explicit instantiations: every kernel compiles for the passive double path and the AAD path.
@@ -469,15 +512,24 @@ namespace Dal {
                                           const CurveRef_<AAD::Number_>&,
                                           const RatePricingMarket_&,
                                           RatePricingTradeResult_*);
-        template double
-        PriceFixedFloat(const RateTradeDefinition_&, const FixedFloatTradeTerms_&, bool, const RateMarketView_<double>&, RatePricingTradeResult_*);
-        template AAD::Number_ PriceFixedFloat(
-            const RateTradeDefinition_&, const FixedFloatTradeTerms_&, bool, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
-        template double PriceBasis(const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<double>&, RatePricingTradeResult_*);
-        template AAD::Number_
-        PriceBasis(const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
-        template double Price(const RateTradeDefinition_&, const RateMarketView_<double>&, RatePricingTradeResult_*);
-        template AAD::Number_ Price(const RateTradeDefinition_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*);
+        template double PriceFixedFloat(const RateTradeDefinition_&,
+                                        const FixedFloatTradeTerms_&,
+                                        bool,
+                                        const RateMarketView_<double>&,
+                                        RatePricingTradeResult_*,
+                                        RequestCashflows_*);
+        template AAD::Number_ PriceFixedFloat(const RateTradeDefinition_&,
+                                              const FixedFloatTradeTerms_&,
+                                              bool,
+                                              const RateMarketView_<AAD::Number_>&,
+                                              RatePricingTradeResult_*,
+                                              RequestCashflows_*);
+        template double PriceBasis(
+            const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<double>&, RatePricingTradeResult_*, RequestCashflows_*);
+        template AAD::Number_ PriceBasis(
+            const RateTradeDefinition_&, const BasisTradeTerms_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*, RequestCashflows_*);
+        template double Price(const RateTradeDefinition_&, const RateMarketView_<double>&, RatePricingTradeResult_*, RequestCashflows_*);
+        template AAD::Number_ Price(const RateTradeDefinition_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*, RequestCashflows_*);
 
         struct NodeSensitivityPreparation_ {
             CurveDefinition_ definition_;
@@ -601,7 +653,8 @@ namespace Dal {
         RateTradeNodeSensitivityResult_ RunSingleNodeSensitivityStage(const RateTradeDefinition_& trade,
                                                                       const RatePricingMarket_& market,
                                                                       const String_& componentKey,
-                                                                      const NodeSensitivityPreparation_& target) {
+                                                                      const NodeSensitivityPreparation_& target,
+                                                                      RequestCashflows_* cashflows) {
             using namespace RateCashflowPricingInternal;
             return RunNodeSensitivityAADStage(target.expectedParameterCount_, [&]() {
                 Vector_<AAD::Number_> parameters = RegisterCurveParameters(target.passiveParameters_);
@@ -610,7 +663,7 @@ namespace Dal {
                 // Fixing failures were already gated by the passive price; this diagnostics result is stage scratch.
                 RatePricingTradeResult_ activeDiagnostics;
                 const RateMarketView_<AAD::Number_> view{&market, &componentKey, activeCurve.get()};
-                AAD::Number_ pv = Price(trade, view, &activeDiagnostics);
+                AAD::Number_ pv = Price(trade, view, &activeDiagnostics, cashflows);
                 AAD::Adjoint(pv) = 1.0;
                 AAD::PropagateToStart(*AAD::Tape());
                 NodeSensitivityCandidate_ candidate;
@@ -780,7 +833,8 @@ namespace Dal {
         AAD::Number_ PriceJointActive(const RateTradeDefinition_& trade,
                                       const RatePricingMarket_& market,
                                       const ActiveCurveMap_& active,
-                                      const XccyNodeSensitivityHoist_* xccyHoist) {
+                                      const XccyNodeSensitivityHoist_* xccyHoist,
+                                      RequestCashflows_* cashflows) {
             if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
                 REQUIRE(xccyHoist && market.xccyMarket_, "Joint quote risk requires prepared XCCY pricing");
                 if (xccyHoist->expired_)
@@ -799,14 +853,15 @@ namespace Dal {
             }
             RatePricingTradeResult_ diagnostics;
             const RateMarketView_<AAD::Number_> view{&market, nullptr, nullptr, &active};
-            return Price(trade, view, &diagnostics);
+            return Price(trade, view, &diagnostics, cashflows);
         }
 
         RateTradeNodeSensitivityResult_ RunJointNodeSensitivityStage(const RateTradeDefinition_& trade,
                                                                      const RatePricingMarket_& market,
                                                                      const DiscountCurve_* target,
                                                                      const JointNodePreparations_& preparations,
-                                                                     const XccyNodeSensitivityHoist_* xccyHoist = nullptr) {
+                                                                     const XccyNodeSensitivityHoist_* xccyHoist,
+                                                                     RequestCashflows_* cashflows) {
             using namespace RateCashflowPricingInternal;
             const auto& prepared = *preparations.at(target);
             return RunNodeSensitivityAADStage(prepared.expectedParameterCount_, [&]() {
@@ -815,7 +870,7 @@ namespace Dal {
                 ActiveCurveMap_ active;
                 for (const auto& [curve, preparation] : preparations)
                     BuildJointActiveCurve(curve, target, parameters, preparations, &active);
-                AAD::Number_ pv = PriceJointActive(trade, market, active, xccyHoist);
+                AAD::Number_ pv = PriceJointActive(trade, market, active, xccyHoist, cashflows);
                 if (const auto hook = g_jointNodeSensitivityRecordedPvHook.load(std::memory_order_relaxed))
                     hook(target);
                 AAD::Adjoint(pv) = 1.0;
@@ -897,7 +952,7 @@ namespace Dal {
                 if (found != passivePrices_.end())
                     return found->second;
                 ++RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount;
-                return passivePrices_.emplace(&trade, PriceRateTrade(trade, market_)).first->second;
+                return passivePrices_.emplace(&trade, PriceRateTradePrepared(trade, market_, CashflowsFor(trade))).first->second;
             }
 
             // Axis source for aggregation: the preparation of a component key, or nullptr when the
@@ -910,6 +965,12 @@ namespace Dal {
             }
 
         private:
+            RequestCashflows_* CashflowsFor(const RateTradeDefinition_& trade) {
+                if (!UsesCouponLegs(trade))
+                    return nullptr;
+                return &cashflows_.try_emplace(&trade).first->second;
+            }
+
             const JointCurveClosure_& JointClosureFor(const RateTradeDefinition_& trade) {
                 const auto found = jointClosures_.find(&trade);
                 if (found != jointClosures_.end())
@@ -1033,7 +1094,8 @@ namespace Dal {
                 const auto preparations = JointPreparations(closure, target, hoist != nullptr);
                 if (!preparations.count(target))
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist);
+                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist,
+                                                    hoist ? nullptr : CashflowsFor(trade));
             }
 
             RateTradeNodeSensitivityResult_
@@ -1055,7 +1117,7 @@ namespace Dal {
                 const NodeSensitivityPreparation_* target = PreparationForKey(componentKey);
                 if (!target)
                     return NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target);
+                return RunSingleNodeSensitivityStage(trade, market_, componentKey, *target, CashflowsFor(trade));
             }
 
             void PrepareXccyConsumedCurves(XccyNodeSensitivityHoist_* hoist) {
@@ -1151,6 +1213,9 @@ namespace Dal {
             std::map<const DiscountCurve_*, NodeSensitivityPreparation_> prepared_;
             std::set<const DiscountCurve_*> preparationFailures_;
             std::map<const RateTradeDefinition_*, RatePricingTradeResult_> passivePrices_;
+            // Keep the existing passive-result layout for single-period portfolios.
+            // Only trades that use coupon legs own an entry in this separate cache.
+            std::map<const RateTradeDefinition_*, RequestCashflows_> cashflows_;
             std::map<const RateTradeDefinition_*, Vector_<String_>> dependencyKeys_;
             // Joint and standalone coordinates require different hoist preparation.
             std::array<std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_>, 2> xccyHoists_;
@@ -1158,74 +1223,96 @@ namespace Dal {
             std::map<const DiscountCurve_*, NodeSensitivityPreparation_> jointPrepared_;
             std::set<const DiscountCurve_*> jointPreparationFailures_;
         };
+        // #lizard forgives -- one plan builder keeps family-specific cashflow admission atomic.
+        RateCashflowPlan_
+        BuildRateCashflowPlanPrepared(const RateTradeDefinition_& trade, const DateTime_& valuationTime, RequestCashflows_* cashflows) {
+            ValidateTermMatch(trade);
+            REQUIRE(trade.tradeDate_.IsValid() && trade.startDate_.IsValid() && trade.maturityDate_.IsValid() &&
+                        trade.startDate_ < trade.maturityDate_,
+                    "Rate trade dates must be valid and start before maturity");
+            REQUIRE(valuationTime.IsValid(), "Rate cashflow plan requires a valid valuation time");
+            RateCashflowPlan_ result;
+            result.trade_ = trade;
+            AppendDependencyKeys(trade.terms_, &result.dependencyComponentKeys_);
+            std::visit(
+                [&](const auto& terms) {
+                    using terms_t = std::decay_t<decltype(terms)>;
+                    if constexpr (std::is_same_v<terms_t, DepositTradeTerms_>) {
+                        // No fixing requests: the single accrual span is pure discounting.
+                    } else if constexpr (std::is_same_v<terms_t, FraTradeTerms_>) {
+                        const auto period = SinglePeriod(trade, terms.index_);
+                        const Date_ payment = terms.settleAtStart_ ? period.accrualStart_ : period.accrualEnd_;
+                        const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
+                        if (payment >= valuationTime.Date() && fixingTime < valuationTime)
+                            AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
+                    } else if constexpr (std::is_same_v<terms_t, FutureTradeTerms_>) {
+                        const auto period = SinglePeriod(trade, terms.index_);
+                        const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
+                        if (trade.maturityDate_ >= valuationTime.Date() && fixingTime < valuationTime)
+                            AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
+                    } else if constexpr (std::is_same_v<terms_t, OisTradeTerms_> || std::is_same_v<terms_t, IrsTradeTerms_>) {
+                        AddFloatingPlan(trade, valuationTime, terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_,
+                                        std::is_same_v<terms_t, OisTradeTerms_>, &result, cashflows);
+                    } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
+                        AddFloatingPlan(trade, valuationTime, terms.spreadLeg_, terms.spreadIndex_, terms.spreadFixingIdentity_, false, &result,
+                                        cashflows);
+                        AddFloatingPlan(trade, valuationTime, terms.referenceLeg_, terms.referenceIndex_, terms.referenceFixingIdentity_, false,
+                                        &result, cashflows);
+                    } else if constexpr (std::is_same_v<terms_t, XccyTradeTerms_>) {
+                        const auto plan = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
+                        result.requiredHistoricalFixings_ = RequiredHistoricalFixings(plan, valuationTime);
+                    }
+                },
+                trade.terms_);
+            return result;
+        }
+
+        RateCashflowPlan_
+        BuildRateCashflowPlanPrepared(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RequestCashflows_* cashflows) {
+            RateCashflowPlan_ result = BuildRateCashflowPlanPrepared(trade, market.valuationTime_, cashflows);
+            if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                const auto consumed = ResolveXccyConsumedCurves(*terms, market);
+                for (const auto& key : DependencyKeysForConsumedCurves(consumed.curves_, market))
+                    AddUnique(key, &result.dependencyComponentKeys_);
+            }
+            return result;
+        }
+
+        RatePricingTradeResult_
+        PriceRateTradePrepared(const RateTradeDefinition_& trade, const RatePricingMarket_& market, RequestCashflows_* cashflows) {
+            RatePricingTradeResult_ result;
+            result.instrumentId_ = trade.instrumentId_;
+            result.instrumentType_ = trade.instrumentType_;
+            result.currency_ = market.resultCurrency_;
+            try {
+                const auto plan = BuildRateCashflowPlanPrepared(trade, market, cashflows);
+                result.requiredHistoricalFixings_ = plan.requiredHistoricalFixings_;
+                result.dependencyComponentKeys_ = plan.dependencyComponentKeys_;
+                result.pv_ = Price(trade, market, &result, cashflows);
+                REQUIRE(std::isfinite(result.pv_), "Rate trade PV must be finite");
+                result.succeeded_ = true;
+            } catch (const std::exception& exc) {
+                result.error_ = exc.what();
+            }
+            return result;
+        }
     } // namespace
 
-    // #lizard forgives -- one plan builder keeps family-specific cashflow admission atomic.
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime) {
-        ValidateTermMatch(trade);
-        REQUIRE(trade.tradeDate_.IsValid() && trade.startDate_.IsValid() && trade.maturityDate_.IsValid() && trade.startDate_ < trade.maturityDate_,
-                "Rate trade dates must be valid and start before maturity");
-        REQUIRE(valuationTime.IsValid(), "Rate cashflow plan requires a valid valuation time");
-        RateCashflowPlan_ result;
-        result.trade_ = trade;
-        AppendDependencyKeys(trade.terms_, &result.dependencyComponentKeys_);
-        std::visit(
-            [&](const auto& terms) {
-                using terms_t = std::decay_t<decltype(terms)>;
-                if constexpr (std::is_same_v<terms_t, DepositTradeTerms_>) {
-                    // No fixing requests: the single accrual span is pure discounting.
-                } else if constexpr (std::is_same_v<terms_t, FraTradeTerms_>) {
-                    const auto period = SinglePeriod(trade, terms.index_);
-                    const Date_ payment = terms.settleAtStart_ ? period.accrualStart_ : period.accrualEnd_;
-                    const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
-                    if (payment >= valuationTime.Date() && fixingTime < valuationTime)
-                        AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
-                } else if constexpr (std::is_same_v<terms_t, FutureTradeTerms_>) {
-                    const auto period = SinglePeriod(trade, terms.index_);
-                    const DateTime_ fixingTime = FixingTime(period.accrualStart_, terms.index_, terms.fixingIdentity_);
-                    if (trade.maturityDate_ >= valuationTime.Date() && fixingTime < valuationTime)
-                        AddUnique({terms.fixingIdentity_.indexName_, fixingTime}, &result.requiredHistoricalFixings_);
-                } else if constexpr (std::is_same_v<terms_t, OisTradeTerms_> || std::is_same_v<terms_t, IrsTradeTerms_>) {
-                    AddFloatingPlan(trade, valuationTime, terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_,
-                                    std::is_same_v<terms_t, OisTradeTerms_>, &result);
-                } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
-                    AddFloatingPlan(trade, valuationTime, terms.spreadLeg_, terms.spreadIndex_, terms.spreadFixingIdentity_, false, &result);
-                    AddFloatingPlan(trade, valuationTime, terms.referenceLeg_, terms.referenceIndex_, terms.referenceFixingIdentity_, false, &result);
-                } else if constexpr (std::is_same_v<terms_t, XccyTradeTerms_>) {
-                    const auto plan = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms.config_);
-                    result.requiredHistoricalFixings_ = RequiredHistoricalFixings(plan, valuationTime);
-                }
-            },
-            trade.terms_);
-        return result;
+        RequestCashflows_ cashflows;
+        return BuildRateCashflowPlanPrepared(trade, valuationTime, &cashflows);
     }
 
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
-        RateCashflowPlan_ result = BuildRateCashflowPlan(trade, market.valuationTime_);
-        if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
-            const auto consumed = ResolveXccyConsumedCurves(*terms, market);
-            for (const auto& key : DependencyKeysForConsumedCurves(consumed.curves_, market))
-                AddUnique(key, &result.dependencyComponentKeys_);
-        }
-        return result;
+        RequestCashflows_ cashflows;
+        return BuildRateCashflowPlanPrepared(trade, market, &cashflows);
     }
 
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
-        RatePricingTradeResult_ result;
-        result.instrumentId_ = trade.instrumentId_;
-        result.instrumentType_ = trade.instrumentType_;
-        result.currency_ = market.resultCurrency_;
-        try {
-            const auto plan = BuildRateCashflowPlan(trade, market);
-            result.requiredHistoricalFixings_ = plan.requiredHistoricalFixings_;
-            result.dependencyComponentKeys_ = plan.dependencyComponentKeys_;
-            result.pv_ = Price(trade, market, &result);
-            REQUIRE(std::isfinite(result.pv_), "Rate trade PV must be finite");
-            result.succeeded_ = true;
-        } catch (const std::exception& exc) {
-            result.error_ = exc.what();
-        }
-        return result;
+        if (!UsesCouponLegs(trade))
+            return PriceRateTradePrepared(trade, market, nullptr);
+        RequestCashflows_ cashflows;
+        return PriceRateTradePrepared(trade, market, &cashflows);
     }
 
     Vector_<RatePricingTradeResult_> PriceRateTrades(const Vector_<RateTradeDefinition_>& trades, const RatePricingMarket_& market) {
