@@ -1,10 +1,13 @@
 DAL-198 F1 independent tester handoff, 2026-09-12. This record controls the
 pending documentation and reviewer stages; retire it after delivery.
 
-F1 testing passes after the scoped bracket-content repair. Initial implementation
-was `899748dec20034e33a8375697018e8da92565218`; final production revision is
-`23ae973a50335bd32a1d66c311db1e3068242018`, tested with the test changes committed
-alongside this record. The orchestrator records the final delivery/PR SHA.
+F1 testing passes after the bracket-content and reviewer-directed debugger
+repairs. Initial implementation was `899748dec20034e33a8375697018e8da92565218`;
+the bracket repair at `23ae973a50335bd32a1d66c311db1e3068242018` was verified
+with tester changes committed at `cead11e0548d6fbffcb7c44339ccb0e4c505cfbf`.
+Latest independently tested production and test revision is
+`a3a9f9583ee4dcd7fbece0e61b167efa616630c7`. The orchestrator records the final
+delivery/PR SHA.
 
 Running existing tests:
 
@@ -54,7 +57,7 @@ Repairing failures:
   Exit 0, 2/2 passed; `../dal-198-tester-boundary-green.log`. Valid bracket
   punctuation passes while nested brackets, quotes and malformed syntax fail.
 
-Final verification:
+Verification before debugger review:
 
 - `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.*:IndexParseTest.*:IndexTest.*:ScriptLexerTest.*:ScriptPreprocessorTest.*:ScriptTest.*'`:
   exit 0, 241 tests from 6 suites passed; `../dal-198-tester-focused.log`.
@@ -66,7 +69,7 @@ Final verification:
   `NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1` after all source and
   test edits. Exit 0; authoritative summary:
   `100% tests passed, 0 tests failed out of 1586`; CTest time 8.39 seconds.
-  Final log is root `test_output.txt` and `../dal-198-tester-final-full-linux.log`.
+  Preserved log: `../dal-198-tester-final-full-linux.log`.
   The script configured, built all enabled targets, installed, and ran CTest.
 - Active configuration: Linux Release, native AADET AAD, public API enabled,
   portable Excel tests enabled. Benchmarks excluded by the standard workflow.
@@ -74,6 +77,34 @@ Final verification:
   placeholder was introduced. Named execution is rejected before evaluation;
   market preparation/binding and their numerical acceptance belong to later
   stages. `git diff --check` and the scoped staged whitespace check passed.
+
+Independent verification after reviewer P2 debugger repair:
+
+- Read `../dal-198-review.md`, the repair diff at
+  `a3a9f9583ee4dcd7fbece0e61b167efa616630c7`, implementation evidence and
+  existing debugger tests. The repair preserves FIX as a complete tree leaf and
+  rejects legacy product JSON /1 before writing anything. No production edits
+  or additional tests were necessary in this verification pass.
+- `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.*:*Debug*'`:
+  exit 0; 29 tests from 2 suites passed. Fresh log:
+  `../dal-198-tester-debug-focused.log`.
+- The new tree regression checks nested expressions, raw index spelling,
+  explicit/omitted fixing dates, EQ/FX and both EQ delivery forms with ASCII
+  and Unicode at narrow/wide widths. Human text output also retains FIX.
+  The JSON regression checks `DebugSchemaUnsupported`, the /1 schema name
+  and zero output bytes for past/future events and dead branches. Existing
+  exact SPOT tree, text and JSON snapshots still pass.
+- Removed root `test_output.txt` before rerunning
+  `NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1` on the repaired
+  revision. Exit 0; fresh authoritative summary:
+  `100% tests passed, 0 tests failed out of 1588`; CTest time 7.70 seconds.
+  Logs: root `test_output.txt` and
+  `../dal-198-tester-debug-full-linux.log`. Configuration remains Linux Release
+  with native AADET AAD, public API and portable Excel tests, benchmarks
+  excluded. This full run includes the two debugger regressions added by the
+  implementer. Whitespace and scoped staged checks passed.
+- No blocker remains from independent testing. Updated documentation and a
+  new independent review of the resulting head are still required.
 
 Limits: no Windows XLL, Python binding, alternate AAD backend, sanitizer or
 coverage run was performed. An attempted extra PastEvaluator_<AAD::Number_>
