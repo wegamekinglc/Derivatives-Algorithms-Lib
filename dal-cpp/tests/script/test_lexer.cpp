@@ -41,7 +41,7 @@ TEST(ScriptLexerTest, TestTokenizeScheduleColon) {
         ASSERT_EQ(tokens[i], expected[i]);
 }
 
-TEST(ScriptObservationTest, TestIndexLiteralTokens) {
+TEST(ScriptLexerTest, TestIndexLiteralTokens) {
     const auto tokens = Tokenize("x = FIX(FX[EUR/USD]) + FIX(EQ[Aapl]@2026-12-31, 2026-09-11)");
     ASSERT_EQ(tokens[4], "FX[EUR/USD]");
     ASSERT_EQ(tokens[9], "EQ[Aapl]@2026-12-31");

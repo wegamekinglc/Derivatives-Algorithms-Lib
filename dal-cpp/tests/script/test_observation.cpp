@@ -6,6 +6,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/indice/index.hpp>
+#include <dal/indice/indexparse.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/preprocessor.hpp>
@@ -27,6 +28,27 @@ TEST(ScriptObservationTest, TestIndexLiteral) {
     for (const auto* text : {"x = FIX(EQ[AAPL])", "x = FIX(FX[EUR/USD])", "x = FIX(EQ[AAPL]>3M)", "x = FIX(EQ[AAPL]@2026-12-31, 2026-09-11)"}) {
         SCOPED_TRACE(text);
         ASSERT_NO_THROW(parser.Parse(text));
+    }
+}
+
+TEST(ScriptObservationTest, TestBracketContentsPreserveIndiceIdentity) {
+    for (const auto* name : {"EQ[AAPL.O]", "EQ[BRK/B]", "EQ[AAPL,CLASS-A]", "EQ[AAPL(US)]", "EQ[AAPL)US(]", "EQ[PeriodBegin(),PeriodEnd]>3M&IMM"}) {
+        SCOPED_TRACE(name);
+        const auto index = Index::Parse(name);
+        ASSERT_NE(index, nullptr);
+        ASSERT_EQ(index->Name(), name);
+        Event_ event;
+        ASSERT_NO_THROW(event = Parser_().Parse("x = MAX(FIX(" + String_(name) + ", 2026-09-11), 0)"));
+        const auto* fix = dynamic_cast<const NodeFix_*>(event[0]->arguments_[1]->arguments_[0].get());
+        ASSERT_NE(fix, nullptr);
+        ASSERT_EQ(fix->index_->Name(), index->Name());
+        ASSERT_EQ(std::string(fix->literal_.raw_.begin(), fix->literal_.raw_.end()), name);
+        ASSERT_TRUE(fix->fixingDate_.has_value());
+        ASSERT_EQ(*fix->fixingDate_, Date_(2026, 9, 11));
+        const ObservationPreprocessor_ preprocessor;
+        ASSERT_EQ(preprocessor.ExpandMacros("FIX(" + String_(name) + ")", {{"AAPL", "CHANGED"}, {"US", "CHANGED"}}), "FIX(" + String_(name) + ")");
+        ASSERT_EQ(preprocessor.ExpandSchedulePlaceholders("FIX(" + String_(name) + ")", Date_(2026, 9, 11), Date_(2026, 9, 12)),
+                  "FIX(" + String_(name) + ")");
     }
 }
 
@@ -130,6 +152,39 @@ TEST(ScriptObservationTest, TestScheduleSourceContext) {
     }
 }
 
+TEST(ScriptObservationTest, TestSameDateSourceOriginsAfterMacroExpansion) {
+    const Date_ date(2030, 9, 12);
+    const auto processed = Preprocessor_().Process(
+        {{Cell_("ASSET"), "eQ[PeriodBegin]@2026-12-31"}, {Cell_(date), "x = SPOT()"}, {Cell_(date), "y = FIX(ASSET, 2026-09-11)"}});
+    const auto& statement = processed.events_.at(date);
+    auto event = Parser_().Parse(statement, processed.sources_.at(date));
+    ASSERT_EQ(event.size(), 2);
+    const auto* fix = dynamic_cast<const NodeFix_*>(event[1]->arguments_[1].get());
+    ASSERT_NE(fix, nullptr);
+    ASSERT_EQ(std::string(fix->literal_.raw_.begin(), fix->literal_.raw_.end()), "eQ[PeriodBegin]@2026-12-31");
+    ASSERT_EQ(fix->index_->Name(), "EQ[PeriodBegin]@2026-12-31");
+    ASSERT_EQ(fix->source_.row_, 3);
+    ASSERT_EQ(fix->source_.offset_, statement.find("eQ["));
+    ASSERT_EQ(fix->source_.line_, 2);
+    ASSERT_EQ(fix->source_.column_, 9);
+    ASSERT_TRUE(fix->source_.eventDate_.has_value());
+    ASSERT_EQ(*fix->source_.eventDate_, date);
+}
+
+TEST(ScriptObservationTest, TestNullParserRetainsSourceContext) {
+    Index::RegisterParser("SCRIPT_NULL_TEST", [](const String_&) -> std::unique_ptr<Index_> { return nullptr; });
+    const Date_ date(2030, 9, 12);
+    const auto processed = Preprocessor_().Process({{Cell_(date), "x = SPOT()"}, {Cell_(date), "y = FIX(SCRIPT_NULL_TEST[Asset])"}});
+    try {
+        Parser_().Parse(processed.events_.at(date), processed.sources_.at(date));
+        FAIL() << "a null index must fail with its originating source context";
+    } catch (const ScriptError_& error) {
+        const std::string message(error.what());
+        for (const auto* expected : {"InvalidIndex", "SCRIPT_NULL_TEST[Asset]", "row=2", "line=2", "column=9", "event=2030-09-12"})
+            ASSERT_NE(message.find(expected), std::string::npos) << expected;
+    }
+}
+
 TEST(ScriptObservationTest, TestPreparationRequiredBeforeLegacyProcessing) {
     for (const auto date : {Date_(2020, 9, 11), Date_(2030, 9, 11)}) {
         for (const bool skipDomain : {false, true}) {
@@ -158,7 +213,7 @@ namespace {
 
 TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
     auto event = Parser_().Parse("x = FIX(EQ[AAPL])");
-    const auto& node = *event[0]->arguments_[1];
+    auto& node = *event[0]->arguments_[1];
     Evaluator_<double> tree({});
     Evaluator_<AAD::Number_> aad({});
     PastEvaluator_<double> past({});
@@ -166,6 +221,8 @@ TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
     FuzzyEvaluator_<AAD::Number_> fuzzyAad({}, {}, 0, 0.1);
     Compiler_ compiler;
     Compiler_ fuzzyCompiler(true);
+    DomainProcessor_ domain(0, false);
+    DomainProcessor_ fuzzyDomain(0, true);
     AssertPreparationRequired([&] { node.Accept(tree); });
     AssertPreparationRequired([&] { node.Accept(aad); });
     AssertPreparationRequired([&] { node.Accept(past); });
@@ -173,6 +230,8 @@ TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
     AssertPreparationRequired([&] { node.Accept(fuzzyAad); });
     AssertPreparationRequired([&] { node.Accept(compiler); });
     AssertPreparationRequired([&] { node.Accept(fuzzyCompiler); });
+    AssertPreparationRequired([&] { node.Accept(domain); });
+    AssertPreparationRequired([&] { node.Accept(fuzzyDomain); });
 }
 
 TEST(ScriptObservationTest, TestPreparationRequiredProductEntryPoints) {
@@ -181,4 +240,11 @@ TEST(ScriptObservationTest, TestPreparationRequiredProductEntryPoints) {
     AssertPreparationRequired([&] { static_cast<void>(product.PastEvaluate()); });
     auto evaluator = product.BuildEvaluator<double>();
     AssertPreparationRequired([&] { product.Evaluate(Scenario_<double>{}, evaluator); });
+    auto aad = product.BuildEvaluator<AAD::Number_>();
+    auto fuzzy = product.BuildFuzzyEvaluator<double>(1, 0.1);
+    auto fuzzyAad = product.BuildFuzzyEvaluator<AAD::Number_>(1, 0.1);
+    AssertPreparationRequired([&] { product.Evaluate(Scenario_<AAD::Number_>{}, aad); });
+    AssertPreparationRequired([&] { product.Evaluate(Scenario_<double>{}, fuzzy); });
+    AssertPreparationRequired([&] { product.Evaluate(Scenario_<AAD::Number_>{}, fuzzyAad); });
+    AssertPreparationRequired([&] { static_cast<void>(product.Compile(true)); });
 }
