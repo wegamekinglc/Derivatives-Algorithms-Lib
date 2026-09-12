@@ -101,6 +101,34 @@ and AAD values are evaluated for each sweep. The state belongs to the current
 request and is keyed by the trade object, so later calls rebuild it after
 changes to dates, conventions, calendars or market inputs.
 
+## Repeated Pricing with Prepared Trades
+
+`PreparedRateTrades_` owns an immutable value snapshot of a trade vector and
+prepares IRS, OIS and basis-swap coupon geometry once. `Price(market)` and
+`NodeSensitivities(market, componentKeys)` return the same rows, ordering,
+diagnostics and complete gradients as the ordinary batch APIs. Mixed portfolios,
+duplicate IDs and keys, empty inputs and per-row failures remain supported.
+Deposit, FRA, future and XCCY entries use their ordinary pricing paths.
+Geometry errors are replayed when the original pricing path consumes that leg,
+preserving earlier market and fixing error priority.
+
+The snapshot stores no market, fixing values, projected rates, PV or AAD objects.
+Every call uses its supplied valuation time, immutable fixing snapshot and curve
+components; active curves and tapes belong to that call. Concurrent const calls
+may share prepared trades with independent immutable markets. Copies share the
+snapshot, and moved-from objects are empty. Changing source trade fields cannot
+change an existing snapshot: construct a new one to adopt different dates,
+notionals, conventions or calendar definitions.
+
+Python exposes keyword-only `PreparedRateTrades_New(trades=...)`,
+`PreparedRateTrades_Get_Prices(prepared=..., market=...)` and
+`PreparedRateTrades_Get_NodeSensitivities(prepared=..., market=..., component_keys=[...])`.
+Preparation and evaluation release the GIL during native work. The read-only
+`size` property reports the snapshot's trade count. See the
+[runnable IRS example](../../dal-python/examples/011.prepared_rate_pricing.py).
+This surface reports native node risk; quote-space risk continues through the
+provenance APIs.
+
 ## Aggregation and Currency
 
 The aggregate retains one dense `Report_` per successfully prepared component,

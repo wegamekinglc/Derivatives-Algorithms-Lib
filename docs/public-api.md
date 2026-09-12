@@ -288,6 +288,15 @@ calls. The batch hoists each trade's passive pricing (the
 classification and preparation to one preparation per curve, never per (trade,
 component) pair.
 
+`PreparedRateTrades_(trades)` owns an immutable portfolio snapshot and prepares
+IRS/OIS/basis coupon geometry once. Its const `Price(market)` and
+`NodeSensitivities(market, componentKeys)` methods preserve the ordinary batch
+result shapes and failure rules. Every call evaluates current curves, valuation
+time and fixing snapshots; trade changes require a new prepared object. Copies
+share immutable geometry and support concurrent const calls. See
+[prepared pricing](methodology/rate_node_risk.md#repeated-pricing-with-prepared-trades)
+for ownership, supported families and lifetime details.
+
 `AggregateRatePortfolioNodeRisk(trades, market, componentKeys)` runs the same
 sweep and returns the portfolio aggregate: one dense `Report_` per component over
 its node axis (the parameter count and order take
@@ -587,6 +596,9 @@ Python exports the seven-family enum, all family-specific terms classes,
 `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, and
 `AggregateRatePortfolioNodeRisk`. The pricing and sensitivity functions use
 keyword-only arguments and release the GIL around native work.
+Repeated pricing also exposes `PreparedRateTrades_New`,
+`PreparedRateTrades_Get_Prices` and `PreparedRateTrades_Get_NodeSensitivities`
+with keyword-only inputs and a read-only prepared `size` property.
 `component_keys` must be a Python `list` — a tuple is rejected with `TypeError`
 before any native work starts. The minimal single-trade call:
 

@@ -708,6 +708,25 @@ share this call pattern and differ only in their terms class. The per-family
 terms fields, the addressable components, and the C++ and Excel equivalents are
 in the [public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md#c-rate-cashflow-pricing).
 
+For repeated valuation, `PreparedRateTrades_New(trades=trades)` owns an immutable
+copy of the portfolio and prepares IRS/OIS/basis coupon geometry once. Pass the
+current market on every call:
+
+```python
+prepared = dal.PreparedRateTrades_New(trades=[trade])
+prices = dal.PreparedRateTrades_Get_Prices(prepared=prepared, market=market)
+cells = dal.PreparedRateTrades_Get_NodeSensitivities(
+    prepared=prepared, market=market, component_keys=["discount"])
+assert prepared.size == 1
+```
+
+The results and failure rules match the ordinary APIs. Market, fixing, PV and AAD
+values are recomputed; only trade geometry is retained. Create a new prepared
+object when trade terms or calendar definitions change. Concurrent calls may
+share a prepared object with independent immutable markets. The
+[prepared IRS example](examples/011.prepared_rate_pricing.py) changes market
+rates and checks every PV and node derivative against ordinary pricing.
+
 ## Quote-Space DV01
 
 Freeze calibration provenance with

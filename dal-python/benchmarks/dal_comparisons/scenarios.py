@@ -31,7 +31,13 @@ CONVENTIONS = {
     "node_risk_methods": RISK_METHODS,
     "node_risk_fd_step": NODE_BUMP,
     "node_risk_construction": "excluded; AD curve or 42 shifted curves prepared before timing",
-    "cache_policy": "QuantLib NPV forced recalculation; rateslib curve_caching=False",
+    "cache_policy": "QuantLib swap NPV forced recalculation; unchanged floating coupons may stay cached; rateslib curve_caching=False",
+    "pv_modes": {
+        "pv": "historical public pricing; DAL rebuilds geometry; third-party instruments reused",
+        "prepared_pv": "instruments/geometry prepared before timing; DAL recomputes rates; QuantLib floating coupons may stay cached",
+        "market_update_pv": "prepared instruments; +1bp then -1bp prebuilt curves; QuantLib relink and notifications timed; output: up vector then down vector",
+        "cold_pv": "construct and destroy instruments from raw terms inside timing; curves/market prepared before timing",
+    },
     "output": "one float per query/trade; node risk: 21 floats per trade, in node-date order",
     "node_dates": [date.isoformat() for date in NODES],
     "node_log_dfs": LOG_DFS,
@@ -40,7 +46,14 @@ CONVENTIONS = {
 
 def cases(smoke=False):
     result = [{"name": "discount_queries", "operation": "discount", "size": 4096}]
-    for operation in ("pv", "dv01", "node_dv01"):
+    for operation in (
+        "pv",
+        "dv01",
+        "node_dv01",
+        "prepared_pv",
+        "market_update_pv",
+        "cold_pv",
+    ):
         for size in (32, 256):
             result.append(
                 {
@@ -129,8 +142,16 @@ def tolerance(case):
 def expected(case):
     if case["operation"] == "discount":
         return [discount(date) for date in queries(case["size"])]
+    if case["operation"] == "market_update_pv":
+        return [
+            pv(trade, shift)
+            for shift in (BUMP, -BUMP)
+            for trade in trades(case["size"])
+        ]
     calculators = {
         "pv": lambda trade: [pv(trade)],
+        "prepared_pv": lambda trade: [pv(trade)],
+        "cold_pv": lambda trade: [pv(trade)],
         "dv01": lambda trade: [(pv(trade, BUMP) - pv(trade, -BUMP)) / 2],
         "node_dv01": node_dv01,
     }

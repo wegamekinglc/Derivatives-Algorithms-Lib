@@ -38,6 +38,30 @@ TEST(SchedulesTest, TestDateGenerate) {
     ASSERT_EQ(calculated, expected);
 }
 
+TEST(SchedulesTest, TestDayCountContextsSurviveScheduleDestructionAndCopies) {
+    const auto retainContexts = []() {
+        const auto periods =
+            MakeSchedulePeriods(Date_(2024, 1, 31), Date_(2025, 3, 17), PeriodLength_("3M"), Holidays_(""), 2, Holidays_(""), 2, Holidays_(""),
+                                DateGeneration_("Forward"), BizDayConvention_("ModifiedFollowing"), BizDayConvention_("ModifiedFollowing"), true);
+        Vector_<Handle_<DayBasis::Context_>> contexts;
+        for (const auto& period : periods)
+            contexts.push_back(period.dayCountContext_);
+        return contexts;
+    };
+    auto contexts = retainContexts();
+    ASSERT_EQ(contexts.size(), 5);
+    const auto first = contexts.front();
+    const auto last = contexts.back();
+    contexts.clear();
+    ASSERT_FALSE(first->isLast_);
+    ASSERT_EQ(first->nominalStart_, Date_(2024, 1, 31));
+    ASSERT_EQ(first->nominalEnd_, Date_(2024, 4, 30));
+    ASSERT_EQ(first->couponMonths_, 3);
+    ASSERT_TRUE(last->isLast_);
+    ASSERT_EQ(last->nominalEnd_, Date_(2025, 3, 17));
+    ASSERT_NEAR(DayBasis_("ACT_365L")(first->nominalStart_, first->nominalEnd_, first.get()), 90.0 / 366.0, 1.0e-10);
+}
+
 TEST(SchedulesTest, TestMakeScheduleWithHolidays) {
     Date_ start(2021, 10, 1);
     Cell_ maturity = Cell_(Date_(2022, 10, 1));

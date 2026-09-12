@@ -185,6 +185,21 @@ namespace Dal {
         Vector_<RatePortfolioNodeRiskMetaEntry_> meta_;
     };
 
+    // Immutable trade snapshot and coupon geometry; every call uses the supplied current market.
+    // Copies share the snapshot, moved-from objects are empty, and const calls may run concurrently.
+    // Invalid trade geometry remains a per-row pricing/risk failure, with ordinary error precedence.
+    class PreparedRateTrades_ {
+        struct Data_;
+        std::shared_ptr<const Data_> data_;
+
+    public:
+        explicit PreparedRateTrades_(Vector_<RateTradeDefinition_> trades);
+        [[nodiscard]] int Size() const;
+        [[nodiscard]] Vector_<RatePricingTradeResult_> Price(const RatePricingMarket_& market) const;
+        [[nodiscard]] Vector_<RateTradeNodeSensitivityCell_> NodeSensitivities(const RatePricingMarket_& market,
+                                                                               const Vector_<String_>& componentKeys) const;
+    };
+
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime);
     // Market-aware plan: identical to the (trade, valuationTime) form for single-currency families;
     // for XCCY it additionally emits the dependency keys of the curves the trade actually consumes,

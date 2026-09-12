@@ -93,11 +93,13 @@ namespace Dal {
     template <class PeriodT_>
     Vector_<PeriodT_> BuildLegPeriods(
         const Date_& start, const Date_& maturity, const RateLegConvention_& legConvention, int fixingLag, const Holidays_& fixingHolidays) {
+        const auto periods =
+            MakeSchedulePeriods(start, maturity, legConvention.paymentFrequency_, legConvention.accrualHolidays_, fixingLag, fixingHolidays,
+                                legConvention.paymentLag_, legConvention.paymentHolidays_, DateGeneration_("Forward"),
+                                legConvention.businessDayConvention_, legConvention.paymentConvention_, legConvention.endOfMonth_);
         Vector_<PeriodT_> retval;
-        for (const auto& period :
-             MakeSchedulePeriods(start, maturity, legConvention.paymentFrequency_, legConvention.accrualHolidays_, fixingLag, fixingHolidays,
-                                 legConvention.paymentLag_, legConvention.paymentHolidays_, DateGeneration_("Forward"),
-                                 legConvention.businessDayConvention_, legConvention.paymentConvention_, legConvention.endOfMonth_)) {
+        retval.reserve(periods.size());
+        for (const auto& period : periods) {
             retval.push_back({period, MakeAccrualPeriod(period, legConvention.dayBasis_)});
         }
         return retval;

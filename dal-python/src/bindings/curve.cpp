@@ -1173,6 +1173,44 @@ namespace {
             },
             py::kw_only(), py::arg("trades"), py::arg("market"), py::arg("component_keys"));
 
+        py::class_<PreparedRateTrades_, std::shared_ptr<PreparedRateTrades_>>(m, "PreparedRateTrades_")
+            .def_property_readonly("size", &PreparedRateTrades_::Size);
+
+        m.def(
+            "PreparedRateTrades_New",
+            [](const std::vector<RateTradeDefinition_>& trades) {
+                Vector_<RateTradeDefinition_> native(trades.begin(), trades.end());
+                py::gil_scoped_release release;
+                return std::make_shared<PreparedRateTrades_>(std::move(native));
+            },
+            py::kw_only(), py::arg("trades"));
+
+        m.def(
+            "PreparedRateTrades_Get_Prices",
+            [](const PreparedRateTrades_& prepared, const RatePricingMarket_& market) {
+                Vector_<RatePricingTradeResult_> rows;
+                {
+                    py::gil_scoped_release release;
+                    rows = prepared.Price(market);
+                }
+                return ValuesToList(rows);
+            },
+            py::kw_only(), py::arg("prepared"), py::arg("market"));
+
+        m.def(
+            "PreparedRateTrades_Get_NodeSensitivities",
+            [](const PreparedRateTrades_& prepared, const RatePricingMarket_& market, const py::list& componentKeys) {
+                const auto keys = NativeComponentKeys(componentKeys);
+                Vector_<RateTradeNodeSensitivityCell_> cells;
+                {
+                    py::gil_scoped_release release;
+                    RunRateRiskGilBarrierForTesting();
+                    cells = prepared.NodeSensitivities(market, keys);
+                }
+                return ValuesToList(cells);
+            },
+            py::kw_only(), py::arg("prepared"), py::arg("market"), py::arg("component_keys"));
+
         m.def(
             "AggregateRatePortfolioNodeRisk",
             [](const std::vector<RateTradeDefinition_>& trades, const RatePricingMarket_& market, const py::list& componentKeys) {

@@ -153,6 +153,8 @@ namespace Dal {
 
         Vector_<SchedulePeriod_> retVal;
         retVal.reserve(unadjusted.size() - 1);
+        const auto contexts = std::make_shared<std::vector<DayBasis::Context_>>();
+        contexts->reserve(unadjusted.size() - 1);
         for (int i = 1; i < static_cast<int>(unadjusted.size()); ++i) {
             SchedulePeriod_ period;
             period.unadjustedStart_ = unadjusted[i - 1];
@@ -165,8 +167,8 @@ namespace Dal {
                                                    paymentConvention);
             const int couponMonths = CouponMonths(period.unadjustedStart_, period.unadjustedEnd_);
             period.isStub_ = couponMonths != tenor.Months();
-            period.dayCountContext_.reset(
-                new DayBasis::Context_(i == static_cast<int>(unadjusted.size()) - 1, period.unadjustedStart_, period.unadjustedEnd_, couponMonths));
+            contexts->emplace_back(i == static_cast<int>(unadjusted.size()) - 1, period.unadjustedStart_, period.unadjustedEnd_, couponMonths);
+            period.dayCountContext_ = Handle_<DayBasis::Context_>(std::shared_ptr<const DayBasis::Context_>(contexts, &contexts->back()));
             retVal.push_back(period);
         }
         return retVal;

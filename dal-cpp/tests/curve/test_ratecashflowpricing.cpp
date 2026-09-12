@@ -270,6 +270,7 @@ namespace {
         const Dal::Date_ earlyStart(2026, 2, 15);
         const Dal::Date_ earlyMaturity(2026, 4, 15);
         const auto trade = Trade(family, today, start, maturity, terms);
+        const Dal::PreparedRateTrades_ prepared({trade});
         const auto market = assembleMarket(buildCurve(parameters));
         const auto aad = Dal::RateTradeNodeSensitivities(trade, market, componentKey);
         const auto passive = Dal::PriceRateTrade(trade, market);
@@ -278,6 +279,11 @@ namespace {
         ASSERT_EQ(static_cast<int>(aad.gradient_.size()), expectedParameterCount);
         ASSERT_TRUE(passive.succeeded_);
         ASSERT_DOUBLE_EQ(aad.pv_, passive.pv_);
+        const auto preparedRisk = prepared.NodeSensitivities(market, {componentKey});
+        ASSERT_EQ(preparedRisk.size(), 1);
+        ASSERT_TRUE(preparedRisk[0].result_.eligible_);
+        ASSERT_EQ(preparedRisk[0].result_.gradient_, aad.gradient_);
+        ASSERT_DOUBLE_EQ(prepared.Price(market)[0].pv_, passive.pv_);
         for (int column = 0; column < expectedParameterCount; ++column) {
             auto plusParameters = parameters;
             auto minusParameters = parameters;
@@ -287,6 +293,8 @@ namespace {
             const auto minus = Dal::PriceRateTrade(trade, assembleMarket(buildCurve(minusParameters)));
             ASSERT_TRUE(plus.succeeded_);
             ASSERT_TRUE(minus.succeeded_);
+            ASSERT_DOUBLE_EQ(prepared.Price(assembleMarket(buildCurve(plusParameters)))[0].pv_, plus.pv_);
+            ASSERT_DOUBLE_EQ(prepared.Price(assembleMarket(buildCurve(minusParameters)))[0].pv_, minus.pv_);
             const double finiteDifference = (plus.pv_ - minus.pv_) / (2.0 * bump);
             const double tolerance = absoluteTolerance + relativeTolerance * std::max(std::abs(aad.gradient_[column]), std::abs(finiteDifference));
             ASSERT_NEAR(aad.gradient_[column], finiteDifference, tolerance) << "raw native-parameter column " << column;
@@ -2899,6 +2907,228 @@ TEST(RateCashflowPricingTest, TestBatchHandlesEmptyListsAndDuplicateKeys) {
         ASSERT_EQ(cells[duplicate].result_.gradient_, single.gradient_);
     }
     AssertCanonicalFailure(cells[2].result_, "TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
+}
+
+TEST(RateCashflowPricingTest, TestPreparedTradesSnapshotAndReuseGeometryAcrossMarkets) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()}),
+        Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms()),
+    };
+    const auto original = trades;
+    internal::CashflowLegBuildObservation_ observation;
+    internal::g_rateCashflowLegBuildCount = 0;
+    const Dal::PreparedRateTrades_ prepared(trades);
+    ASSERT_EQ(prepared.Size(), 2);
+    ASSERT_EQ(internal::g_rateCashflowLegBuildCount.load(), 4);
+    trades[0].maturityDate_ = maturity.AddDays(180);
+    std::get<Dal::IrsTradeTerms_>(trades[0].terms_).value_.notional_ *= 3.0;
+    std::get<Dal::IrsTradeTerms_>(trades[0].terms_).value_.fixedLeg_.paymentFrequency_ = Dal::PeriodLength_("6M");
+    std::get<Dal::IrsTradeTerms_>(trades[0].terms_).value_.fixedLeg_.dayBasis_ = Dal::DayBasis_("ACT_360");
+    for (double rate : {0.03, 0.06, 0.03}) {
+        const auto market = Market(today, FlatCurve(maturity, rate));
+        const auto expected = Dal::PriceRateTrades(original, market);
+        const auto expectedRisk = Dal::RateTradeNodeSensitivitiesBatch(original, market, {"forecast", "discount", "forecast"});
+        internal::g_rateCashflowLegBuildCount = 0;
+        const auto actual = prepared.Price(market);
+        const auto risk = prepared.NodeSensitivities(market, {"forecast", "discount", "forecast"});
+        ASSERT_EQ(internal::g_rateCashflowLegBuildCount.load(), 0);
+        ASSERT_EQ(actual.size(), expected.size());
+        ASSERT_EQ(risk.size(), expectedRisk.size());
+        for (int i = 0; i < actual.size(); ++i) {
+            ASSERT_TRUE(actual[i].succeeded_) << actual[i].error_;
+            ASSERT_EQ(actual[i].instrumentId_, expected[i].instrumentId_);
+            ASSERT_DOUBLE_EQ(actual[i].pv_, expected[i].pv_);
+        }
+        for (int i = 0; i < risk.size(); ++i) {
+            ASSERT_TRUE(risk[i].result_.eligible_) << risk[i].result_.reason_;
+            ASSERT_EQ(risk[i].result_.gradient_, expectedRisk[i].result_.gradient_);
+            ASSERT_DOUBLE_EQ(risk[i].result_.pv_, expectedRisk[i].result_.pv_);
+        }
+    }
+}
+
+namespace {
+    void AssertPreparedParity(const Dal::PreparedRateTrades_& prepared,
+                              const Dal::Vector_<Dal::RateTradeDefinition_>& trades,
+                              const Dal::RatePricingMarket_& market,
+                              const Dal::Vector_<Dal::String_>& keys = {"forecast", "discount", "reference", "missing", "forecast"}) {
+        const auto expected = Dal::PriceRateTrades(trades, market);
+        const auto actual = prepared.Price(market);
+        ASSERT_EQ(actual.size(), expected.size());
+        for (int i = 0; i < actual.size(); ++i) {
+            ASSERT_EQ(actual[i].instrumentId_, expected[i].instrumentId_);
+            ASSERT_EQ(actual[i].instrumentType_, expected[i].instrumentType_);
+            ASSERT_EQ(actual[i].succeeded_, expected[i].succeeded_);
+            ASSERT_DOUBLE_EQ(actual[i].pv_, expected[i].pv_);
+            ASSERT_EQ(actual[i].currency_, expected[i].currency_);
+            ASSERT_EQ(actual[i].error_, expected[i].error_);
+            ASSERT_EQ(actual[i].dependencyComponentKeys_, expected[i].dependencyComponentKeys_);
+            for (const auto member :
+                 {&Dal::RatePricingTradeResult_::requiredHistoricalFixings_, &Dal::RatePricingTradeResult_::missingHistoricalFixings_}) {
+                const auto& left = actual[i].*member;
+                const auto& right = expected[i].*member;
+                ASSERT_EQ(left.size(), right.size());
+                for (int j = 0; j < left.size(); ++j)
+                    ASSERT_TRUE(Dal::SameFixingRequest(left[j], right[j]));
+            }
+        }
+        const auto expectedRisk = Dal::RateTradeNodeSensitivitiesBatch(trades, market, keys);
+        const auto risk = prepared.NodeSensitivities(market, keys);
+        ASSERT_EQ(risk.size(), expectedRisk.size());
+        for (int i = 0; i < risk.size(); ++i) {
+            ASSERT_EQ(risk[i].instrumentId_, expectedRisk[i].instrumentId_);
+            ASSERT_EQ(risk[i].componentKey_, expectedRisk[i].componentKey_);
+            ASSERT_EQ(risk[i].result_.eligible_, expectedRisk[i].result_.eligible_);
+            ASSERT_DOUBLE_EQ(risk[i].result_.pv_, expectedRisk[i].result_.pv_);
+            ASSERT_EQ(risk[i].result_.gradient_, expectedRisk[i].result_.gradient_);
+            ASSERT_EQ(risk[i].result_.reason_, expectedRisk[i].result_.reason_);
+        }
+    }
+} // namespace
+
+TEST(RateCashflowPricingTest, TestPreparedTradesRefreshFixingsAndValuationTime) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 3, 16);
+    const Dal::Date_ maturity(2026, 5, 15);
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()})};
+    const Dal::PreparedRateTrades_ prepared(trades);
+    auto market = Market(start, FlatCurve(maturity));
+    market.valuationTime_ = Dal::DateTime_(start, 11, 0);
+    AssertPreparedParity(prepared, trades, market);
+    const auto projected = prepared.Price(market);
+    ASSERT_TRUE(projected[0].succeeded_);
+    market.valuationTime_ = Dal::DateTime_(start, 11, 1);
+    AssertPreparedParity(prepared, trades, market);
+    ASSERT_FALSE(prepared.Price(market)[0].succeeded_);
+    double lastPv = projected[0].pv_;
+    for (double fixing : {0.0105, 0.08, 0.0105}) {
+        Dal::MarketFixingSnapshot_::values_t history;
+        history["USD-SOFR"][Dal::DateTime_(start, 11, 0)] = fixing;
+        market.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(history));
+        AssertPreparedParity(prepared, trades, market);
+        const auto rows = prepared.Price(market);
+        ASSERT_TRUE(rows[0].succeeded_);
+        ASSERT_NE(rows[0].pv_, lastPv);
+        lastPv = rows[0].pv_;
+        const auto risk = prepared.NodeSensitivities(market, {"forecast"});
+        ASSERT_TRUE(risk[0].result_.eligible_);
+        for (double gradient : risk[0].result_.gradient_)
+            ASSERT_DOUBLE_EQ(gradient, 0.0);
+    }
+    market.valuationTime_ = Dal::DateTime_(maturity.AddDays(5), 12, 0);
+    AssertPreparedParity(prepared, trades, market);
+    ASSERT_DOUBLE_EQ(prepared.Price(market)[0].pv_, 0.0);
+    market = Market(today, FlatCurve(maturity, 0.06));
+    AssertPreparedParity(prepared, trades, market);
+    ASSERT_NE(prepared.NodeSensitivities(market, {"forecast"})[0].result_.gradient_[0], 0.0);
+}
+
+TEST(RateCashflowPricingTest, TestPreparedTradesRefreshCurveRepresentation) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const Dal::Vector_<Dal::Date_> knots{Dal::Date_(2027, 1, 15), maturity};
+    const Dal::Vector_<> rates{0.02, 0.05};
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()}),
+        Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{FixedFloatTerms()}),
+        Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms()),
+    };
+    const Dal::PreparedRateTrades_ prepared(trades);
+    const Dal::Vector_<Dal::Handle_<Dal::DiscountCurve_>> curves{
+        FlatCurve(maturity),
+        Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWLF("pwl", "USD", Dal::PiecewiseLinear_(knots, rates, rates))),
+        Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountLogDF("logdf", "USD", {today, knots[0], maturity}, {0.0, -0.02, -0.15},
+                                                                Dal::DayBasis_("ACT_365F"), Dal::LogDfScheme_::Value_::LOG_LINEAR)),
+        Dal::Handle_<Dal::DiscountCurve_>(
+            Dal::NewDiscountZeroRate("zero", "USD", today, knots, rates, Dal::DayBasis_("ACT_365F"), Dal::LogDfScheme_::Value_::LOG_LINEAR)),
+        FlatCurve(maturity, 0.06),
+    };
+    for (const auto& curve : curves)
+        AssertPreparedParity(prepared, trades, Market(today, curve));
+}
+
+TEST(RateCashflowPricingTest, TestPreparedTradesPreserveFailuresMixedFamiliesAndMoves) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const auto valid = Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()});
+    auto badFixed = valid;
+    std::get<Dal::IrsTradeTerms_>(badFixed.terms_).value_.fixedLeg_.paymentFrequency_ = Dal::PeriodLength_();
+    auto badFloat = valid;
+    std::get<Dal::IrsTradeTerms_>(badFloat.terms_).value_.floatLeg_.paymentFrequency_ = Dal::PeriodLength_();
+    auto badDates = valid;
+    badDates.startDate_ = maturity;
+    auto badFamily = valid;
+    badFamily.terms_ = DepositTerms();
+    Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        badFixed,
+        valid,
+        badFloat,
+        badDates,
+        badFamily,
+        Trade(Dal::RateInstrumentType_("DEPOSIT"), today, start, maturity, DepositTerms()),
+        Trade(Dal::RateInstrumentType_("FRA"), today, start, maturity, FraTerms()),
+        Trade(Dal::RateInstrumentType_("FUTURE"), today, start, maturity, FutureTerms()),
+        Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, XccyTerms()),
+    };
+    const Dal::PreparedRateTrades_ prepared(trades);
+    auto market = Market(today, FlatCurve(maturity));
+    AssertPreparedParity(prepared, trades, market);
+    // A fixed-leg geometry error must not replace an earlier missing-curve error.
+    market.curveComponents_.erase("discount");
+    AssertPreparedParity(prepared, trades, market);
+    market = BuildXccyMarket(today, FlatXccySpec(maturity));
+    AssertPreparedParity(prepared, trades, market, {XCCY_DOM_OIS, XCCY_DOM_FWD_3M, XCCY_FOR_OIS, XCCY_FOR_FWD_3M, XCCY_BASIS});
+    auto copy = prepared;
+    auto moved = std::move(copy);
+    ASSERT_EQ(copy.Size(), 0);
+    ASSERT_TRUE(copy.Price(market).empty());
+    ASSERT_TRUE(copy.NodeSensitivities(market, {"discount"}).empty());
+    AssertPreparedParity(moved, trades, market);
+    ASSERT_TRUE(moved.NodeSensitivities(market, {}).empty());
+    AssertPreparedParity(Dal::PreparedRateTrades_({}), {}, market);
+}
+
+TEST(RateCashflowPricingTest, TestPreparedTradesConcurrentMarketsUseIndependentTapes) {
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+    const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+        Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()}),
+        Trade(Dal::RateInstrumentType_("OIS"), today, start, maturity, Dal::OisTradeTerms_{FixedFloatTerms()}),
+        Trade(Dal::RateInstrumentType_("BASIS_SWAP"), today, start, maturity, BasisTerms()),
+    };
+    const Dal::PreparedRateTrades_ prepared(trades);
+    const Dal::Vector_<Dal::String_> keys{"forecast", "discount"};
+    const auto run = [&](double rate) {
+        const auto market = Market(today, FlatCurve(maturity, rate));
+        const auto expected = Dal::RateTradeNodeSensitivitiesBatch(trades, market, keys);
+        const auto expectedPv = Dal::PriceRateTrades(trades, market);
+        for (int repeat = 0; repeat < 10; ++repeat) {
+            const auto actual = prepared.NodeSensitivities(market, keys);
+            const auto pv = prepared.Price(market);
+            if (actual.size() != expected.size() || pv.size() != expectedPv.size())
+                return false;
+            for (int i = 0; i < actual.size(); ++i)
+                if (!actual[i].result_.eligible_ || actual[i].result_.pv_ != expected[i].result_.pv_ ||
+                    actual[i].result_.gradient_ != expected[i].result_.gradient_)
+                    return false;
+            for (int i = 0; i < pv.size(); ++i)
+                if (!pv[i].succeeded_ || pv[i].pv_ != expectedPv[i].pv_)
+                    return false;
+        }
+        return true;
+    };
+    auto first = std::async(std::launch::async, run, 0.02);
+    auto second = std::async(std::launch::async, run, 0.06);
+    ASSERT_TRUE(first.get());
+    ASSERT_TRUE(second.get());
 }
 
 TEST(RateCashflowPricingTest, TestUnobservedPricingDoesNotCountLegBuilds) {
