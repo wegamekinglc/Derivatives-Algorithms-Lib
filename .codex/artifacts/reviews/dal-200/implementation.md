@@ -1,5 +1,97 @@
 # DAL-200 F3 implementation handoff
 
+## Codacy remediation handoff, 2026-09-13
+
+Before SHA: `5d578729386be2038552b73395ab14eef9e206e2`.
+After production SHA: `061db30b28618b9f2806970791d4d4309aecc574`.
+The following report-only commit records this verification without changing the
+tested production tree. DAL-216's final comment and attached publication record
+identify the exact delivered PR head. The branch remains
+`feature/dal-200-eq-observation-slots`, draft PR
+<https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>.
+
+GitHub check run `103626628207` reported exactly three new cyclomatic-complexity
+findings, at limit 8. The installed Lizard 1.23.0 reproduces all three original
+counts. After the cohesive helper extractions:
+
+- `dal-cpp/dal/model/base.hpp`: `Model_::ValidateTimeline` decreases **9 → 6**.
+  Private `ValidateSampleOutputs` is **4**. Each sample's time check still
+  precedes its output-count, parsed-index capability, and common-index checks,
+  before advancing to the next sample. The same canonical name is carried
+  between samples; all predicates and diagnostic messages are retained.
+- `dal-cpp/dal/script/preparation.cpp`: `PreparedScriptBuilder_::ModelPlan`
+  decreases **9 → 6**. Private `BindModelObservations` is **4**. Binding and
+  request validation still precede construction of the sorted union timeline,
+  payment-numeraire addresses, and retained fixing slots. Model Allocate/Init
+  still precede history capture. The plan and its storage keep their ownership.
+- `dal-cpp/dal/script/simulation.hpp`: `MCDoubleSimulation` decreases
+  **10 → 7**. Internal `Detail::EvaluateDoubleBatch` is **4**. It reuses the
+  existing worker state, seeks to the same first path, and keeps draw,
+  GeneratePath, path validation, evaluation, payoff validation and summation
+  in their original order. Capturing the existing `PathBatch_` by value replaces
+  captures of its two fields. Task-group declaration, lifetime and draining,
+  caller-side validation, expired fast return, zero-dimensional RNG behavior,
+  tree/compiled selection and historical replay are preserved.
+
+No behavioral RED is claimed for this pure refactor. The prior implementation's
+RED/GREEN record below remains intact; fresh existing regressions validate this
+repair. No tests, assertions, suppressions, complexity thresholds, analyzer/CI
+configuration, public projection or deferred capabilities changed. The only
+four changed files are the three production files above and this report.
+There is no design deviation from the authorized repair.
+
+### Commands and fresh results
+
+Commands ran from the repository root. Logs are in the evidence archive attached
+to DAL-216; native AADET, GCC 15.2.0, Release, public C++ and portable Excel
+contracts enabled. Examples remain disabled, as in the original handoff.
+All commands below exit 0.
+
+```bash
+gh api repos/wegamekinglc/Derivatives-Algorithms-Lib/check-runs/103626628207/annotations --paginate
+git submodule update --init --recursive dal-cpp/externals/googletest dal-cpp/externals/rapidjson dal-cpp/externals/machinist
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/Release-linux -j12
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationSimulationTest.*:ScriptFixingPreparationTest.*:ScriptObservationTest.*:ScriptTest.*:SimulationTest.*:ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*:PastEvaluatorTest.*:ModelTest.*'
+ctest --test-dir build/Release-linux --output-on-failure -j12
+cmake --build build/Release-linux --target dal_check_generated -j8
+lizard --version
+lizard dal-cpp/dal/model/base.hpp dal-cpp/dal/script/preparation.cpp dal-cpp/dal/script/simulation.hpp
+clang-format --dry-run --Werror --lines=36:57 dal-cpp/dal/model/base.hpp
+clang-format --dry-run --Werror --lines=181:230 dal-cpp/dal/script/preparation.cpp
+clang-format --dry-run --Werror --lines=189:208 --lines=278:296 dal-cpp/dal/script/simulation.hpp
+git diff 5d578729386be2038552b73395ab14eef9e206e2 --check
+git diff --cached --name-status
+git diff --cached --check
+```
+
+The initial full build and the incremental rebuild after formatting both pass.
+Focused verification passes **327/327** in nine suites (460 ms), adding all
+`ModelTest` cases to the prior 287-test filter. Full CTest passes
+**1,648/1,648**, 8.00 seconds. This includes retained-F/cancellation, history
+read counts, model/mode barriers, settled PAYS replay, today-only RNG/BB,
+legacy tree/compiled determinism across threads/requests, and task-draining
+regressions. Generated-source checking passes with zero generated files written
+and no submodule-pointer drift. Changed ranges are clang-formatted; whitespace
+checks pass. Existing Excel source `#pragma once` warnings remain in the clean
+build log; the build has no errors.
+
+`complexity-before.log` and `complexity-after.log` preserve all Lizard output;
+the six changed/new functions are each below limit 8. The unchanged AAD
+`MCSimulation<AAD::Number_>` still measures 13 and is outside these three
+reported findings and this repair's write scope. Lizard's default exit status
+alone is not a limit-8 assertion; the per-function counts above are the local
+evidence. No completed remote Codacy pass is inferred from it. Exactly one
+non-blocking CI snapshot is taken after push and delivered in the evidence
+archive; remote acceptance and independent F3 review remain outstanding.
+
+The original commit used Cheng Li's GitHub noreply identity. The fresh checkout
+had no Git author configured, so its first commit attempt failed without
+creating a commit; repository-local configuration restored that existing
+identity before the successful commit. No global Git configuration changed.
+
+## Original implementation handoff
+
 Implementation branch: `feature/dal-200-eq-observation-slots`, based on refreshed
 `origin/master` at F2 squash `ec8b0072fbf70dab814a543edc625c8e0bf77efa`.
 The containing commit is the implementation handoff. DAL-216's final comment
