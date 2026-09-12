@@ -480,7 +480,7 @@ jobs:
             -DDAL_USE_XAD_AAD=OFF \
             -DDAL_USE_CODIPACK_AAD=OFF \
             -DDAL_USE_ADEPT_AAD=OFF
-          targets=(dal_cpp_tests)
+          targets=(dal_cpp_tests dal_cpp_schedule_allocation_tests)
           if [ -n '${{ matrix.public-filter }}' ]; then
             targets+=(dal_public_tests)
           fi
@@ -496,6 +496,9 @@ jobs:
         run: |
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_tests" \
             --gtest_filter='${{ matrix.core-filter }}'
+          "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_schedule_allocation_tests" \
+            --gtest_filter='SchedulesTest.TestContextAllocationCountDoesNotGrowPerPeriod' \
+            --gtest_fail_if_no_test_selected
 
       - name: Run focused public tests
         if: matrix.public-filter != ''

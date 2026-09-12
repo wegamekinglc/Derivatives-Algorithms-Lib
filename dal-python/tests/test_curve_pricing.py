@@ -1,5 +1,8 @@
 """Typed native rate cashflow pricing surface."""
 
+import gc
+import weakref
+
 import dal
 import pytest
 
@@ -68,7 +71,11 @@ def test_prepared_pricing_owns_inputs_and_preserves_price_risk_failures():
     expected_risk = dal.RateTradeNodeSensitivitiesBatch(
         trades=trades, market=market, component_keys=["discount", "missing", "discount"]
     )
+    sources = (weakref.ref(valid), weakref.ref(invalid))
     trades.clear()
+    del trades, valid, invalid
+    gc.collect()
+    assert all(source() is None for source in sources)
     assert prepared.size == 3
     for _ in range(2):
         actual = dal.PreparedRateTrades_Get_Prices(prepared=prepared, market=market)
@@ -102,7 +109,7 @@ def test_prepared_pricing_owns_inputs_and_preserves_price_risk_failures():
             for c in expected_risk
         ]
     with pytest.raises(TypeError):
-        dal.PreparedRateTrades_New([valid])
+        dal.PreparedRateTrades_New([])
     with pytest.raises(TypeError):
         dal.PreparedRateTrades_Get_Prices(prepared, market)
     with pytest.raises(TypeError):
