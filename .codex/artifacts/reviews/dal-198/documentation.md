@@ -2,7 +2,7 @@ DAL-198 F1 documentation handoff, 2026-09-12. This record controls the pending
 independent review; retire it after delivery.
 
 Reconciled documentation against source and tests at
-`cead11e0548d6fbffcb7c44339ccb0e4c505cfbf`, the accepted F1 issue and frontend
+`9e5613fde2c171bf094ad868b5601c0689fb82e1`, the accepted F1 issue and frontend
 design/critique/API boundaries, and the implementation/testing evidence.
 
 Documentation changes are required:
@@ -11,7 +11,8 @@ Documentation changes are required:
   tokenizer and omitted FIX. It now describes positioned `Lex` tokens, the
   legacy string projection, complete index literals, preserved bracket content
   and delivery suffixes, protected macro/placeholder expansion, strict optional
-  fixing dates, reserved FIX names, NodeFix metadata, and source origins.
+  fixing dates, reserved FIX names, NodeFix metadata, and source origins. The
+  atom/precedence table includes `NodeFix_`.
 - The guide explicitly limits FIX to parsing and AST inspection. All product
   execution entries reject it with `PreparationRequired`, including dead
   branches; no fixing lookup, model binding or public named-pricing API is
@@ -27,23 +28,27 @@ Documentation changes are required:
   FIX and requires conflicting variables/definitions to be renamed. It also
   states the execution limit, without claiming the later preparation APIs.
 
-Non-trivial current debug limitation flagged to the orchestrator for review:
-`Debugger_::Visit(NodeFix_)` records a legacy label and structural kind only.
-The legacy text dump retains raw index/date, JSON emits kind `fix` without
-index/date fields, and `TreeInlineLeaf` has no FIX case so the tree omits the
-leaf. The guide states these actual limits. No source repair belongs to this
-documentation stage.
+The reviewer's P2 debug omission is resolved in source at
+`a3a9f9583ee4dcd7fbece0e61b167efa616630c7`. The guide now states the corrected
+behavior: legacy text and ASCII/Unicode trees retain complete FIX identity and
+optional fixing date at narrow/wide widths; product JSON `/1` rejects any FIX
+with `DebugSchemaUnsupported` before writing any output, including past events
+and dead branches. FIX is removed from the published JSON `/1` kind list. No
+`/2` schema or Describe API is documented as available. The existing changelog
+entry remains accurate and needs no additional entry for this scoped repair.
 
 Validation:
 
 - `python3 .github/scripts/check_docs.py`: passed for all Markdown files,
   checking local links, tables, whitespace, final newlines and documentation
   metadata/workflow rules.
-- `git diff --check` and `git diff --cached --check`: passed; staged scope
-  contains only the four published documentation/changelog files above and
-  this active evidence file.
+- `git diff --check` and `git diff --cached --check`: passed; the correction's
+  staged scope contains only `docs/methodology/script_engine.md` and this
+  active evidence file.
 - Reviewed the complete published-document diff against lexer/preprocessor/
   parser/node, indice EQ/FX parsers, event execution guards and debug renderers.
-  Existing focused 241/241 and full Linux 1586/1586 results are owned by the
-  independent tester; no C++ test rerun is needed for these documentation-only
-  edits. The orchestrator records the final documentation commit SHA.
+  Independent tester results on the repaired source are focused 29/29
+  (`ScriptObservationTest.*:*Debug*`) and fresh full Linux 1588/1588, including
+  the FIX debug regressions and exact legacy SPOT snapshots. No C++ test rerun
+  is needed for these documentation-only edits. The orchestrator records the
+  final documentation commit SHA; independent re-review is the next stage.

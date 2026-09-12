@@ -51,13 +51,13 @@ that the preprocessor protects from substitution.
 The parser implements expressions as a cascade of precedence levels, each
 delegating to the next tighter level:
 
-| Level | Operator class          | Produces                                                                                                           |
-|-------|-------------------------|--------------------------------------------------------------------------------------------------------------------|
-| L1    | `+`, `-` (binary)       | `NodeAdd_`, `NodeSub_`                                                                                             |
-| L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                           |
-| L3    | `^` (right-assoc)       | `NodePow_`                                                                                                         |
-| L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                        |
-| Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeSpot_`, `NodeLog_`, `NodeExp_`, `NodeSqrt_`, `NodeMin_`, `NodeMax_` |
+| Level | Operator class          | Produces                                                                                                                       |
+|-------|-------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| L1    | `+`, `-` (binary)       | `NodeAdd_`, `NodeSub_`                                                                                                         |
+| L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                                       |
+| L3    | `^` (right-assoc)       | `NodePow_`                                                                                                                     |
+| L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                                    |
+| Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeSpot_`, `NodeFix_`, `NodeLog_`, `NodeExp_`, `NodeSqrt_`, `NodeMin_`, `NodeMax_` |
 
 Parenthesised sub-expressions re-enter at the top level through a shared
 `ParseParentheses` helper. Conditions form a parallel cascade — `OR` (loosest)
@@ -645,14 +645,17 @@ include past events, tagged with their phase:
   has been through `IndexVariables`; every AST node becomes an object with a
   unique pre-order `id` and a stable snake_case `kind` (`add`, `sub`, `mul`,
   `div`, `pow`, `log`, `exp`, `sqrt`, `max`, `min`, `neg`, `uplus`, `eq0`,
-  `gt0`, `ge0`, `and`, `or`, `not`, `assign`, `pays`, `if`, `spot`, `fix`, `const`,
+  `gt0`, `ge0`, `and`, `or`, `not`, `assign`, `pays`, `if`, `spot`, `const`,
   `var`, `const_var`, `true`, `false`, `collect`). Structured kinds get
   structured fields — `condition`/`then`/`else` for `if`, `target`/`value`
   for `assign` and `pays`, `mode`/`eps` (continuous) or `mode`/`lb`/`rb`
   (discrete) for comparisons — and everything else uses `children`. Numbers
   use the shortest decimal form that round-trips; a continuous comparison
   reports the smoothing width in `eps`, where `-1` means the script did not
-  set one (the default smoothing factor applies).
+  set one (the default smoothing factor applies). Products containing any
+  `FIX` raise `DebugSchemaUnsupported` before writing any JSON, including FIX
+  in past events or dead branches, because schema `/1` cannot represent the
+  complete named observation.
 - **Tree** — `ScriptProduct_::DebugTree(ost, ascii, width)` writes a
   human-friendly rendering: statements collapse to inline math while they fit
   the width budget (`width` caps the line width, default 125), for example
@@ -663,11 +666,11 @@ include past events, tagged with their phase:
   every symbol to a pure-ASCII set for constrained consoles — Unicode output
   needs a UTF-8 terminal (on Windows, Windows Terminal or `chcp 65001`).
 
-For `NodeFix_`, the legacy text dump includes the raw index and optional fixing
-date in its `FIX[...]` label. JSON records only the structural `fix` kind for
-this leaf, without index/date fields, and the tree renderer omits the leaf.
-Use the legacy text dump to inspect the index and date; a successful debug dump
-does not establish that the product can be valued.
+For `NodeFix_`, the legacy text and ASCII/Unicode tree dumps preserve the raw
+index and optional fixing date as `FIX(index)` or `FIX(index, date)`, including
+inside nested expressions. The tree keeps the complete leaf even when it
+exceeds the requested width. These human-readable dumps inspect the contract;
+they do not establish that the product can be valued.
 
 The dal-public wrappers `DebugScriptProductJson` and
 `DebugScriptProductTree` run `IndexVariables` on a private copy before
