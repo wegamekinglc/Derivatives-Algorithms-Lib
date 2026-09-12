@@ -107,3 +107,51 @@ review, and performance gates are not claimed at this implementation handoff.
 The F9 path/thread/mode cross-product, model output valuation, historical AAD
 replay, model/compile fault injection across future prepared modes, and evaluator
 allocation-free observation reads remain later-stage integration requirements.
+
+## Public dump compatibility correction
+
+Reviewer P2 correction, based on `dfa40fbf90e8b5e9c3ec49caaa43d9b140787fba`.
+The production change is confined to `dal-public/src/script.hpp`.
+Every public dump now uses a fresh parsed copy, captures the evaluation date
+once before parsing, and explicitly partitions before rendering. JSON/tree
+still index variables and retain both phases and the `/1` schema. Legacy text
+still omits past events and skips indexing, preserving unresolved-variable
+formatting and its empty-live-description error.
+
+No `PreProcess`, AST folding, fixing lookup, model setup, or worker submission
+is added. Public signatures/defaults and FIX JSON rejection remain unchanged.
+The core parser stays independent of the global evaluation date. Published
+docs/changelog reconciliation and prerequisite repair integration remain owned
+by the orchestrator's following stages.
+
+RED: `ScriptTest.TestPublicDumpPastTodayAndFuturePhases` and
+`ScriptTest.TestLegacyDumpOmitsHistoricalEventsWithoutIndexing` both failed at
+the reviewed head: Sep 11 lacked the `past` JSON phase, and legacy text exposed
+Sep 11 even with D=Sep 12. The public test target built successfully before the
+test run. Logs: `build/dal-199-debug-red-build.log` and
+`build/dal-199-debug-red.log`. The same two tests pass after repair
+(`build/dal-199-debug-green.log`). The legacy formatting assertion checks that
+no variable-table header is added and that AST variable indices stay `-1`;
+matching the generic case-insensitive `Var[` prefix would also match the legacy
+AST's existing `VAR[name,index,...]` labels.
+
+Four public regressions cover past/today/future phases, live-only legacy text,
+refreshing all three dump formats after evaluation-date changes on the same
+product, round-trip repeatability, unoptimized constant-false branches, raw
+historical/dead-branch FIX inspection, and the unchanged `DebugSchemaUnsupported`
+error for FIX JSON. Throwing history/final-fixing/submission observers remain
+at zero calls. The FIX test initializes the public runtime before installing
+its observers, as required to register the actual index parsers.
+
+```bash
+cmake --build build/Release-linux --target dal_public_tests dal_cpp_tests -j12
+./build/Release-linux/dal-public/dal_public_tests --gtest_filter='ScriptTest.*'
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptFixingPreparationTest.*:ScriptObservationTest.*:ScriptTest.*:ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
+```
+
+Results: build succeeds; public 12/12 and core 249/249 pass. Logs:
+`build/dal-199-debug-final-build.log`, `build/dal-199-debug-public-green.log`,
+`build/dal-199-debug-core-green.log`. Changed ranges are clang-formatted;
+working and exact staged whitespace checks pass. `ProductForDump` complexity
+is 2. No full native/public suite, Windows, or integrated prerequisite validation
+is claimed by this bounded correction.
