@@ -194,6 +194,8 @@ namespace Dal::Script {
     }
 
     void ScriptProduct_::DebugJson(std::ostream& ost) const {
+        REQUIRE2(preparationError_.empty(),
+                 "DebugSchemaUnsupported: dal.script-product/1 does not support FIX; use DebugTree to inspect the contract", ScriptError_);
         ost << "{\"schema\":\"dal.script-product/1\"";
         if (!variables_.empty()) {
             ost << ",\"variables\":[";

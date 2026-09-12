@@ -303,6 +303,8 @@ namespace Dal::Script {
             out = node.name;
         else if (node.kind == "spot")
             out = String_("spot()");
+        else if (node.kind == "fix")
+            out = node.label;
         else if (node.kind == "true" || node.kind == "false")
             out = String_(node.kind == "true" ? st.trueS : st.falseS);
         else
@@ -652,10 +654,10 @@ namespace Dal::Script {
         void Visit(const NodePays_& node) { Debug(node, {"PAYS", "pays"}); }
         void Visit(const NodeSpot_& node) { Debug(node, {"SPOT", "spot"}); }
         void Visit(const NodeFix_& node) {
-            String_ label = "FIX[" + node.literal_.raw_;
+            String_ label = "FIX(" + node.literal_.raw_;
             if (node.fixingDate_)
-                label += "," + Date::ToString(*node.fixingDate_);
-            Debug(node, {label + "]", "fix"});
+                label += ", " + Date::ToString(*node.fixingDate_);
+            Debug(node, {label + ")", "fix"});
         }
 
         void Visit(const NodeIf_& node) {

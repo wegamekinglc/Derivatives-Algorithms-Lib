@@ -65,3 +65,24 @@ Tester-collected GREEN after the repair:
   punctuation, commas and unmatched parentheses within names while retaining
   malformed quote/nested-bracket rejection. No test files belong to this repair
   commit; the tester continues the independent expanded and full verification.
+
+Independent reviewer P2 repair: existing human tree rendering had no FIX leaf
+case, and legacy product JSON /1 silently emitted a `kind=fix` node without its
+identity/date. Human text and tree output now retain complete
+`FIX(index[, date])` syntax, including both delivery and fixing dates. The /1
+product JSON entry checks the product's captured FIX presence before writing and
+throws `DebugSchemaUnsupported`, including observations in past events and dead
+branches. No schema /2, new debug API, or I/O was added.
+
+- RED: `dal_cpp_tests --gtest_filter='ScriptObservationTest.TestDebugger*'`
+  failed both new regressions, reproducing the missing tree leaf and successful
+  incomplete /1 JSON; `dal-198-debug-red-tests.log`. The tests were subsequently
+  placed in the file's existing `ScriptTest` suite per repository convention.
+- GREEN: `cmake --build build/Release-linux --target dal_cpp_tests -j8`, followed
+  by `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.*:*Debug*'`:
+  build exit 0 and 29/29 tests passed; `dal-198-debug-green-build.log` and
+  `dal-198-debug-green-tests.log`. Tests cover nested FIX expressions, explicit
+  and omitted dates, FX/EQ/delivery names, ASCII/Unicode and narrow/wide tree
+  rendering, rejection before JSON output for past/future/dead-branch uses,
+  and existing exact SPOT debug snapshots. The documentation correction belongs
+  to dal-doc-writer; the parent coordinates independent retesting/review.
