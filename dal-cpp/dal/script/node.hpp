@@ -12,6 +12,7 @@
 #include <dal/script/nodebase.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     class Index_;

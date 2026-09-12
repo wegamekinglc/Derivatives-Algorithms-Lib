@@ -86,3 +86,51 @@ branches. No schema /2, new debug API, or I/O was added.
   rendering, rejection before JSON output for past/future/dead-branch uses,
   and existing exact SPOT debug snapshots. The documentation correction belongs
   to dal-doc-writer; the parent coordinates independent retesting/review.
+
+CI/review blocker repair, 2026-09-13, from PR #366 head
+`62b7a7bf694760df54c790560c6b11abb1683c96`:
+
+- Converted the lexer character predicates explicitly with `!= 0`, addressing
+  MSVC C4800 without changing recognized characters. Added the direct exception
+  header dependency to `node.hpp`, which previously relied on incidental AAD
+  backend includes. The CoDiPack compilation failure was reproduced locally
+  before the header repair (`dal-198-codi-red-build.log`).
+- Reproduced both Adept guard-test crashes in separate CTest processes. The
+  evaluator's `Stack_<adept::adouble>` allocates active values at construction;
+  Adept's active constructor dereferences its active stack, while DAL creates
+  that stack lazily in `Tape()`. The tests now call `Clear(*Tape())` before
+  evaluator construction and `NewRecording(*Tape())` before guard evaluation.
+  All rejection assertions and backend coverage remain enabled. Isolated RED
+  and GREEN are in `dal-198-adept-lifecycle-{red,green}.log` (two crashes, then
+  2/2 passes).
+- Added direct indice and script diagnostic regressions. Invalid delivery dates,
+  increments, and integer-overflow input must retain `InvalidIndex` and the full
+  original index; script errors must also retain the source column. Both tests
+  failed before repair and passed after normalizing both DAL `Exception_` and
+  standard `logic_error` through the shared equity diagnostic helper. Logs:
+  `dal-198-ci-diagnostic-{red,green}-{build,tests}.log`.
+- Extracted cohesive index-body/suffix, token, source-origin, equity-validation,
+  and fixing-date helpers without changing the accepted grammar. Local Lizard
+  reproduces the four reported baseline complexities, then measures
+  `IndexLiteralEnd` 18→4, `Lex` 14→4, `ParseFix` 13→7 and `EquityParser` 10→4.
+  Every new helper is at most 7, below the limit of 8. Unrelated existing
+  high-complexity functions and all analysis/CI policies are unchanged. Command:
+  `lizard dal-cpp/dal/script/lexer.cpp dal-cpp/dal/script/parser.cpp dal-cpp/dal/indice/parser/equity.cpp`;
+  logs `dal-198-complexity-{red,green}.log`.
+
+Verification uses the native `build/Release-linux` directory and separate
+`build/dal-198-adept` / `build/dal-198-codi` directories. Backend configuration:
+`cmake --preset=Release-linux -S . -B build/dal-198-adept -DDAL_USE_ADEPT_AAD=ON -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_BUILD_PUBLIC=OFF`,
+and the same command with `build/dal-198-codi` and
+`-DDAL_USE_CODIPACK_AAD=ON`. The preset leaves the other AAD flags off. Each core
+test binary built successfully with `cmake --build <build-dir> --target dal_cpp_tests -j4`.
+
+- Native: `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.*:ScriptLexerTest.*:ScriptPreprocessorTest.*:ScriptTest.*:IndexTest.*:IndexParseTest.*'`:
+  245/245 passed (`dal-198-ci-native-green-tests.log`).
+- Adept and CoDiPack: `ctest --test-dir <build-dir> -R '^(ScriptObservationTest|ScriptLexerTest|ScriptPreprocessorTest|IndexTest|IndexParseTest)\.|^ScriptTest\.TestDebugger' -j4 --output-on-failure`:
+  77/77 passed on each backend (`dal-198-{adept,codi}-focused-green.log`).
+  CTest isolates the two AAD lifecycle regressions from any preceding tape setup.
+- Changed ranges were formatted, and working/cached diff whitespace checks pass.
+  No MSVC `cl`/Windows SDK build is available locally; Windows validation remains
+  a remote CI requirement. The parent owns independent testing, the documentation
+  decision, review, and publication of this scoped correction.

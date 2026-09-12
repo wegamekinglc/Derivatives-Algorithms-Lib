@@ -322,30 +322,35 @@ namespace Dal::Script {
         std::optional<Date_> fixingDate;
         if (cur != end && cur->Text() == ",") {
             ++cur;
-            const auto dateSource = cur == end ? source : cur->source_;
-            String_ date;
-            size_t nextOffset = dateSource.offset_;
-            bool contiguous = true;
-            while (cur != end && cur->Text() != ")") {
-                contiguous = contiguous && cur->source_.offset_ == nextOffset;
-                date += cur->Text();
-                nextOffset = cur->source_.offset_ + cur->Text().size();
-                ++cur;
-            }
-            static const std::regex ISO_DATE("[0-9]{4}-[0-9]{2}-[0-9]{2}");
-            REQUIRE2(contiguous && std::regex_match(date, ISO_DATE),
-                     "InvalidFixingDate: FIX requires a strict YYYY-MM-DD date literal; input=" + date + "; " + dateSource.Describe(), ScriptError_);
-            try {
-                fixingDate = Date::FromString(date);
-                REQUIRE(fixingDate->IsValid(), "date is outside the supported range");
-            } catch (const Exception_& error) {
-                THROW2("InvalidFixingDate: " + date + "; " + dateSource.Describe() + "; " + String_(error.what()), ScriptError_);
-            }
+            fixingDate = ParseFixingDate(cur, end, source);
         }
         REQUIRE2(cur != end && cur->Text() == ")", "InvalidIndex: FIX requires one index and an optional date; " + functionSource.Describe(),
                  ScriptError_);
         ++cur;
         return MakeNode<NodeFix_>(literal, index, fixingDate, source);
+    }
+
+    Date_ Parser_::ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback) {
+        const auto dateSource = cur == end ? fallback : cur->source_;
+        String_ date;
+        size_t nextOffset = dateSource.offset_;
+        bool contiguous = true;
+        while (cur != end && cur->Text() != ")") {
+            contiguous = contiguous && cur->source_.offset_ == nextOffset;
+            date += cur->Text();
+            nextOffset = cur->source_.offset_ + cur->Text().size();
+            ++cur;
+        }
+        static const std::regex ISO_DATE("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+        REQUIRE2(contiguous && std::regex_match(date, ISO_DATE),
+                 "InvalidFixingDate: FIX requires a strict YYYY-MM-DD date literal; input=" + date + "; " + dateSource.Describe(), ScriptError_);
+        try {
+            const auto fixingDate = Date::FromString(date);
+            REQUIRE(fixingDate.IsValid(), "date is outside the supported range");
+            return fixingDate;
+        } catch (const Exception_& error) {
+            THROW2("InvalidFixingDate: " + date + "; " + dateSource.Describe() + "; " + String_(error.what()), ScriptError_);
+        }
     }
 
     Vector_<Expression_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {

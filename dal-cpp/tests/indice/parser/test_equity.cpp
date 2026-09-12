@@ -62,3 +62,16 @@ TEST(IndexTest, TestParserRejectsIncompleteCompoundDelivery) {
     }
     ASSERT_EQ(Index::EquityParser("EQ[IBM]>3M&IMM")->Name(), "EQ[IBM]>3M&IMM");
 }
+
+TEST(IndexTest, TestEquityDeliveryErrorsRetainIndexDiagnostic) {
+    for (const auto* name : {"EQ[IBM]@not-a-date", "EQ[IBM]@2026-02-30", "EQ[IBM]>invalid", "EQ[IBM]>999999999999999999999M"}) {
+        SCOPED_TRACE(name);
+        try {
+            static_cast<void>(Index::EquityParser(name));
+            FAIL() << "invalid delivery must fail";
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidIndex"), std::string::npos);
+            ASSERT_NE(std::string(error.what()).find(name), std::string::npos);
+        }
+    }
+}

@@ -10,8 +10,14 @@
 
 namespace Dal::Script {
     namespace {
-        bool IsWord(char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '.'; }
-        bool IsSpace(char c) { return std::isspace(static_cast<unsigned char>(c)); }
+        bool IsWord(char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_' || c == '.'; }
+        bool IsSpace(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
+
+        size_t WordEnd(const String_& str, size_t start) {
+            while (start < str.size() && IsWord(str[start]))
+                ++start;
+            return start;
+        }
 
         void AdvanceSource(const String_& str, size_t offset, SourceLocation_* source) {
             while (source->offset_ < offset) {
@@ -23,29 +29,51 @@ namespace Dal::Script {
             }
         }
 
+        String_ IndexContext(const String_& str, const SourceLocation_& source) {
+            return "; " + source.Describe() + "; input=" + str.substr(source.offset_);
+        }
+
+        size_t IndexBodyEnd(const String_& str, size_t start, const SourceLocation_& source) {
+            const auto close = str.find(']', start);
+            REQUIRE2(close != String_::npos, "InvalidIndex: missing closing ']'" + IndexContext(str, source), ScriptError_);
+            REQUIRE2(str.find_first_of("[\"'", start) >= close, "InvalidIndex: malformed index literal" + IndexContext(str, source), ScriptError_);
+            return close + 1;
+        }
+
+        size_t IndexSuffixEnd(const String_& str, size_t start, const SourceLocation_& source) {
+            auto end = str.find_first_of(",)", start);
+            if (end == String_::npos)
+                end = str.size();
+            REQUIRE2(str.find_first_of("[]\"'", start) >= end, "InvalidIndex: malformed index suffix" + IndexContext(str, source), ScriptError_);
+            while (end > start && IsSpace(str[end - 1]))
+                --end;
+            return end;
+        }
+
         size_t IndexLiteralEnd(const String_& str, size_t start, const SourceLocation_& source) {
-            size_t cur = start;
-            while (cur < str.size() && IsWord(str[cur]))
-                ++cur;
-            if (cur == start || cur == str.size() || str[cur] != '[')
+            const auto open = WordEnd(str, start);
+            if (open == start || open == str.size() || str[open] != '[')
                 return start;
-            const auto context = [&] { return "; " + source.Describe() + "; input=" + str.substr(start); };
-            ++cur;
-            while (cur < str.size() && str[cur] != ']') {
-                REQUIRE2(str[cur] != '[' && str[cur] != '\'' && str[cur] != '"',
-                         "InvalidIndex: malformed index literal" + context(), ScriptError_);
-                ++cur;
+            return IndexSuffixEnd(str, IndexBodyEnd(str, open + 1, source), source);
+        }
+
+        void ApplyOrigins(const Vector_<SourceOrigin_>& origins, size_t pos, size_t* origin, SourceLocation_* source) {
+            while (*origin < origins.size() && origins[*origin].offset_ <= pos) {
+                source->row_ = origins[*origin].row_;
+                source->eventDate_ = origins[*origin].eventDate_;
+                ++*origin;
             }
-            REQUIRE2(cur != str.size(), "InvalidIndex: missing closing ']'" + context(), ScriptError_);
-            ++cur;
-            while (cur < str.size() && str[cur] != ',' && str[cur] != ')') {
-                REQUIRE2(str[cur] != '[' && str[cur] != ']' && str[cur] != '\'' && str[cur] != '"',
-                         "InvalidIndex: malformed index suffix" + context(), ScriptError_);
-                ++cur;
-            }
-            while (cur > start && IsSpace(str[cur - 1]))
-                --cur;
-            return cur;
+        }
+
+        size_t ScriptTokenEnd(const String_& str, size_t pos, const SourceLocation_& source) {
+            if (IsWord(str[pos]))
+                return WordEnd(str, pos);
+            const size_t end = pos + 1;
+            if (String_("!<>").find(str[pos]) != String_::npos && end < str.size() && str[end] == '=')
+                return end + 1;
+            REQUIRE2(String_("/-,;:()+*^<>=").find(str[pos]) != String_::npos,
+                     "InvalidIndex: unexpected character '" + String_(1, str[pos]) + "'; " + source.Describe(), ScriptError_);
+            return end;
         }
     } // namespace
 
@@ -87,27 +115,14 @@ namespace Dal::Script {
                 continue;
             }
             AdvanceSource(str, pos, &source);
-            while (origin < origins.size() && origins[origin].offset_ <= pos) {
-                source.row_ = origins[origin].row_;
-                source.eventDate_ = origins[origin].eventDate_;
-                ++origin;
-            }
+            ApplyOrigins(origins, pos, &origin, &source);
             const auto literalEnd = IndexLiteralEnd(str, pos, source);
             if (literalEnd != pos) {
                 result.push_back({source, IndexLiteral_{str.substr(pos, literalEnd - pos)}});
                 pos = literalEnd;
                 continue;
             }
-            size_t end = pos + 1;
-            if (IsWord(str[pos])) {
-                while (end < str.size() && IsWord(str[end]))
-                    ++end;
-            } else if ((str[pos] == '!' || str[pos] == '<' || str[pos] == '>') && end < str.size() && str[end] == '=') {
-                ++end;
-            } else {
-                REQUIRE2(String_("/-,;:()+*^<>=").find(str[pos]) != String_::npos,
-                         "InvalidIndex: unexpected character '" + String_(1, str[pos]) + "'; " + source.Describe(), ScriptError_);
-            }
+            const auto end = ScriptTokenEnd(str, pos, source);
             result.push_back({source, String_(str.substr(pos, end - pos))});
             pos = end;
         }

@@ -95,6 +95,21 @@ TEST(ScriptObservationTest, TestInvalidSyntax) {
     ASSERT_NO_THROW(parser.Parse("x = SPOT()"));
 }
 
+TEST(ScriptObservationTest, TestInvalidDeliveryDiagnostic) {
+    for (const auto* name : {"EQ[AAPL]@not-a-date", "EQ[AAPL]@2026-02-30", "EQ[AAPL]>invalid"}) {
+        SCOPED_TRACE(name);
+        try {
+            static_cast<void>(Parser_().Parse("x = FIX(" + String_(name) + ")"));
+            FAIL() << "invalid delivery must fail";
+        } catch (const ScriptError_& error) {
+            const std::string message(error.what());
+            ASSERT_NE(message.find("InvalidIndex"), std::string::npos);
+            ASSERT_NE(message.find(name), std::string::npos);
+            ASSERT_NE(message.find("column=9"), std::string::npos);
+        }
+    }
+}
+
 TEST(ScriptObservationTest, TestReservedIdentifier) {
     for (const auto* statement : {"FIX = 1", "fix PAYS 2", "x = fix"}) {
         SCOPED_TRACE(statement);
@@ -212,6 +227,7 @@ namespace {
 } // namespace
 
 TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
+    AAD::Clear(*AAD::Tape());
     auto event = Parser_().Parse("x = FIX(EQ[AAPL])");
     auto& node = *event[0]->arguments_[1];
     Evaluator_<double> tree({});
@@ -223,6 +239,7 @@ TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
     Compiler_ fuzzyCompiler(true);
     DomainProcessor_ domain(0, false);
     DomainProcessor_ fuzzyDomain(0, true);
+    AAD::NewRecording(*AAD::Tape());
     AssertPreparationRequired([&] { node.Accept(tree); });
     AssertPreparationRequired([&] { node.Accept(aad); });
     AssertPreparationRequired([&] { node.Accept(past); });
@@ -235,6 +252,7 @@ TEST(ScriptObservationTest, TestPreparationRequiredVisitors) {
 }
 
 TEST(ScriptObservationTest, TestPreparationRequiredProductEntryPoints) {
+    AAD::Clear(*AAD::Tape());
     const ScriptProduct_ product({Cell_(Date_(2030, 9, 11))}, {"IF 1 = 0 THEN x = FIX(EQ[AAPL]) ELSE x = 1 END"});
     AssertPreparationRequired([&] { static_cast<void>(product.Compile()); });
     AssertPreparationRequired([&] { static_cast<void>(product.PastEvaluate()); });
@@ -243,6 +261,7 @@ TEST(ScriptObservationTest, TestPreparationRequiredProductEntryPoints) {
     auto aad = product.BuildEvaluator<AAD::Number_>();
     auto fuzzy = product.BuildFuzzyEvaluator<double>(1, 0.1);
     auto fuzzyAad = product.BuildFuzzyEvaluator<AAD::Number_>(1, 0.1);
+    AAD::NewRecording(*AAD::Tape());
     AssertPreparationRequired([&] { product.Evaluate(Scenario_<AAD::Number_>{}, aad); });
     AssertPreparationRequired([&] { product.Evaluate(Scenario_<double>{}, fuzzy); });
     AssertPreparationRequired([&] { product.Evaluate(Scenario_<AAD::Number_>{}, fuzzyAad); });

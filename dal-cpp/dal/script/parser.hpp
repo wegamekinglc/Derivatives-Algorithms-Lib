@@ -87,6 +87,7 @@ namespace Dal::Script {
         Vector_<Expression_> ParseFuncArg(TokIt_& cur, const TokIt_& end);
         double ParseDCF(TokIt_& cur, const TokIt_& end);
         Expression_ ParseFix(TokIt_& cur, const TokIt_& end);
+        Date_ ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
 
