@@ -10,10 +10,57 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dal_comparisons.scenarios import cases, unsupported_reason
 
 
-def test_discrete_barrier_oracle_converges_without_mc_sampling():
+@pytest.mark.parametrize(
+    "spot,vol,rate",
+    [
+        (100, 0.2, 0.03),
+        (99, 0.2, 0.03),
+        (101, 0.2, 0.03),
+        (100, 0.19, 0.03),
+        (100, 0.21, 0.03),
+        (100, 0.2, 0.02),
+        (100, 0.2, 0.04),
+    ],
+)
+def test_discrete_barrier_oracle_converges_without_mc_sampling(spot, vol, rate):
     from dal_comparisons.option_scenarios import barrier_price
 
-    assert barrier_price(nodes=256) == pytest.approx(barrier_price(nodes=384), abs=1e-8)
+    assert barrier_price(spot, vol, rate, nodes=256) == pytest.approx(
+        barrier_price(spot, vol, rate, nodes=384), abs=1e-8, rel=0
+    )
+
+
+@pytest.fixture
+def barrier_oracle():
+    from dal_comparisons import option_scenarios
+
+    option_scenarios.barrier_price.cache_clear()
+    yield option_scenarios
+    option_scenarios.barrier_price.cache_clear()
+
+
+def test_barrier_oracle_preserves_price_homogeneity(barrier_oracle, monkeypatch):
+    inputs = barrier_oracle
+    original = inputs.barrier_price(100, 0.2, 0.03)
+    monkeypatch.setattr(inputs, "STRIKE", 1.0)
+    monkeypatch.setattr(inputs, "BARRIER", 1.3)
+    inputs.barrier_price.cache_clear()
+    assert inputs.barrier_price(1.0, 0.2, 0.03) == pytest.approx(
+        original / 100, abs=1e-11, rel=0
+    )
+
+
+@pytest.mark.parametrize("name,value", [("SPOT", 10000), ("VOL", 0.001)])
+def test_explicit_barrier_inputs_do_not_depend_on_defaults(
+    barrier_oracle, monkeypatch, name, value
+):
+    inputs = barrier_oracle
+    original = inputs.barrier_price(80, 0.4, 0.03)
+    monkeypatch.setattr(inputs, name, value)
+    inputs.barrier_price.cache_clear()
+    assert inputs.barrier_price(80, 0.4, 0.03) == pytest.approx(
+        original, abs=1e-11, rel=0
+    )
 
 
 def test_new_families_preserve_historical_inventory_and_cover_both_sizes():

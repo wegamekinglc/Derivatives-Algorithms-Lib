@@ -62,7 +62,7 @@ def vanilla(spot=SPOT, vol=VOL, rate=RATE):
 def barrier_price(spot=SPOT, vol=VOL, rate=RATE, steps=52, nodes=256):
     import numpy as np
 
-    low, high = math.log(SPOT) - 10 * VOL * math.sqrt(YEARS), math.log(BARRIER)
+    low, high = math.log(spot) - 10 * vol * math.sqrt(YEARS), math.log(BARRIER)
     points, weights = np.polynomial.legendre.leggauss(nodes)
     points = low + (points + 1) * (high - low) / 2
     weights = weights * (high - low) / 2
