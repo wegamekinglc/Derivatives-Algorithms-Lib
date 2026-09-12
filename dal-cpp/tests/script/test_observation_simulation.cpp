@@ -787,3 +787,21 @@ TEST(ScriptObservationSimulationTest, TestInvalidStructureAndTodayRngSubmitNoWor
     ASSERT_EQ(reads.fixings_, 0);
     ASSERT_EQ(workers.submissions_, 0);
 }
+
+TEST(ScriptObservationSimulationTest, TestControlledSinglePathHistoricalOracles) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    for (const bool future : {false, true}) {
+        ControlledModel_ model;
+        ReadCounter_ reads;
+        const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+        const auto product =
+            Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], " + String_(future ? "2026-09-15)" : "2026-09-11)"));
+        const auto prepared = PrepareScript(product, &model, BoundSettings(), {}, snapshot);
+        ASSERT_EQ(reads.histories_, 0);
+        ASSERT_EQ(reads.fixings_, 1);
+        ASSERT_NEAR(MCDoubleSimulation(prepared, &model, 1, "sobol", false, false, true).aggregated_, future ? 200.0 : 160.0, 160.0e-12);
+        ASSERT_EQ(model.paths_->load(), 1);
+        ASSERT_EQ(reads.fixings_, 1);
+    }
+}
