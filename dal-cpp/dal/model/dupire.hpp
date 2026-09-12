@@ -57,6 +57,8 @@ namespace Dal {
             Vector_<String_> parameterLabels_;
 
         public:
+            [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
+
             template <class U_>
             Dupire_(const U_& spot,
                     const U_& r,
@@ -67,6 +69,21 @@ namespace Dal {
                     double maxDt = 1.0)
                 : spot_(spot), r_(r), q_(q), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
                   parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3), defLine_(nullptr) {
+                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
+                REQUIRE(std::isfinite(Value(r_)) && std::isfinite(Value(q_)), "InvalidModelParameter: rate and repo must be finite");
+                REQUIRE(std::isfinite(maxDt_) && maxDt_ > 0.0, "InvalidModelParameter: maxDt must be finite and positive");
+                REQUIRE(!spots_.empty() && !times_.empty() && vols_.Rows() == spots_.size() && vols_.Cols() == times_.size(),
+                        "InvalidModelParameter: Dupire grid shape");
+                for (size_t i = 0; i < spots_.size(); ++i)
+                    REQUIRE(std::isfinite(spots_[i]) && spots_[i] > 0.0 && (i == 0 || spots_[i] > spots_[i - 1]),
+                            "InvalidModelParameter: Dupire spots must be positive and strictly increasing");
+                for (size_t j = 0; j < times_.size(); ++j)
+                    REQUIRE(std::isfinite(times_[j]) && times_[j] >= 0.0 && (j == 0 || times_[j] > times_[j - 1]),
+                            "InvalidModelParameter: Dupire times must be nonnegative and strictly increasing");
+                for (size_t i = 0; i < vols_.Rows(); ++i)
+                    for (size_t j = 0; j < vols_.Cols(); ++j)
+                        REQUIRE(std::isfinite(Value(vols_(i, j))) && Value(vols_(i, j)) >= 0.0,
+                                "InvalidModelParameter: local volatility must be finite and nonnegative");
                 Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
                 parameterLabels_[0] = "spot";
                 parameterLabels_[1] = "rate";
@@ -103,6 +120,7 @@ namespace Dal {
 
             //  Initialize timeline
             void Allocate(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+                this->ValidateTimeline(productTimeline, defLine);
                 Vector_<> added(1, 0); // just to add 0
                 timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY_YF, added.begin(), added.end());
                 commonSteps_.Resize(timeLine_.size());
@@ -125,15 +143,20 @@ namespace Dal {
                     const double dt = timeLine_[i + 1] - timeLine_[i];
                     const double sqrtDt = Dal::sqrt(dt);
                     drifts_[i] = dt * (r_ - q_);
+                    REQUIRE(std::isfinite(Value(drifts_[i])), "InvalidModelParameter: non-finite Dupire drift");
                     for (size_t j = 0; j < m; ++j) {
                         interpVols_(i, j) = sqrtDt * InterpLinearImplX<T_>(times_, vols_.Row(j), T_(timeLine_[i]));
+                        REQUIRE(std::isfinite(Value(interpVols_(i, j))), "InvalidModelParameter: non-finite Dupire volatility step");
                     }
                 }
 
                 const size_t k = productTimeline.size();
                 for (size_t i = 0; i < k; ++i) {
-                    if (defLine[i].numeraire_)
+                    if (defLine[i].numeraire_) {
                         numeraires_[i] = Dal::exp(r_ * productTimeline[i]);
+                        REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
+                                "InvalidModelParameter: non-finite or zero Dupire numeraire");
+                    }
 
                     const size_t pDF = defLine[i].discountMats_.size();
                     for (size_t j = 0; j < pDF; ++j)
@@ -182,7 +205,9 @@ namespace Dal {
                 if (def.numeraire_)
                     scenario.numeraire_ = numeraires_[idx];
                 scenario.spot_ = spot;
-                std::fill(scenario.forwards_.front().begin(), scenario.forwards_.front().end(), spot);
+                std::fill(scenario.observations_.begin(), scenario.observations_.end(), spot);
+                for (auto& forwards : scenario.forwards_)
+                    std::fill(forwards.begin(), forwards.end(), spot);
                 Copy(discounts_[idx], &scenario.discounts_);
             }
         };

@@ -62,15 +62,22 @@ namespace Dal {
                 if (def.numeraire_)
                     scenario.numeraire_ = numeraires_[idx];
                 scenario.spot_ = spot;
+                std::fill(scenario.observations_.begin(), scenario.observations_.end(), spot);
             }
 
         public:
+            [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
+
             template <class U_>
             BlackScholes_(const U_& spot,
                           const U_& vol,
                           const U_& rate = U_(0.0),
                           const U_& div = U_(0.0))
                 : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(BlackScholesLabels()) {
+                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
+                REQUIRE(std::isfinite(Value(vol_)) && Value(vol_) >= 0.0, "InvalidModelParameter: vol must be finite and nonnegative");
+                REQUIRE(std::isfinite(Value(rate_)), "InvalidModelParameter: rate must be finite");
+                REQUIRE(std::isfinite(Value(div_)), "InvalidModelParameter: div must be finite");
                 SetParamPointers();
             }
 
@@ -93,6 +100,7 @@ namespace Dal {
             }
 
             void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
+                this->ValidateTimeline(productTimeLine, defLine);
                 REQUIRE(!productTimeLine.empty(), "BlackScholes_::Allocate: empty product timeline");
                 timeLine_.clear();
                 timeLine_.push_back(0);
@@ -121,12 +129,16 @@ namespace Dal {
                     stds_[i] = vol_ * Dal::sqrt(dt);
 
                     drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
+                    REQUIRE(std::isfinite(Value(stds_[i])) && std::isfinite(Value(drifts_[i])), "InvalidModelParameter: non-finite BS step");
                 }
 
                 const size_t m = productTimeline.size();
                 for (size_t i = 0; i < m; ++i)
-                    if (defLine[i].numeraire_)
+                    if (defLine[i].numeraire_) {
                         numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
+                        REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
+                                "InvalidModelParameter: non-finite or zero BS numeraire");
+                    }
             }
 
             [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
