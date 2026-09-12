@@ -8,11 +8,12 @@
 
 #include <cmath>
 
-#include <dal/platform/platform.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/model/blackscholes.hpp>
-#include <dal/storage/globals.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 using namespace Dal;
@@ -175,4 +176,30 @@ TEST(SimulationTest, TestEmptyScriptPaysNothing) {
 
     const SimResults_ results = MCSimulation<double>(product, model, 1024, "sobol", false, false);
     ASSERT_DOUBLE_EQ(results.aggregated_, 0.0);
+}
+
+TEST(SimulationTest, TestDupireAadCallerInitializationPreservesValueAndRisks) {
+    TapeGuard_ tapeGuard(AAD::Tape());
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2027, 9, 12))}, {"payoff PAYS SPOT()"});
+    const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));
+    const Handle_<ModelData_> blackScholes(new BSModelData_("", 100.0, 0.2, 0.03, 0.01));
+    const Handle_<ModelData_> dupire(
+        new DupireModelData_("", 100.0, 0.03, 0.01, {50.0, 150.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)));
+    const size_t paths = 257;
+    const auto expected = MCSimulation<AAD::Number_>(product, blackScholes, paths, "sobol", false, false, maxNestedIfs);
+    for (const bool compiled : {false, true}) {
+        const auto plain = MCSimulation<double>(product, dupire, paths, "sobol", false, compiled);
+        const auto actual = MCSimulation<AAD::Number_>(product, dupire, paths, "sobol", false, compiled, maxNestedIfs);
+        ASSERT_NEAR(plain.aggregated_ / paths, expected.aggregated_ / paths, 1.0e-10);
+        ASSERT_NEAR(actual.aggregated_ / paths, expected.aggregated_ / paths, 1.0e-10);
+        ASSERT_NEAR(actual["spot"], expected["spot"], 1.0e-10);
+        ASSERT_NEAR(actual["rate"], expected["rate"], 1.0e-10);
+        ASSERT_NEAR(actual["repo"], expected["div"], 1.0e-10);
+        ASSERT_EQ(actual.risks_.size(), 7);
+        double parallelVega = 0.0;
+        for (size_t i = 3; i < actual.risks_.size(); ++i)
+            parallelVega += actual.risks_[i];
+        ASSERT_NEAR(parallelVega, expected["vol"], 1.0e-10);
+    }
 }

@@ -15,6 +15,7 @@
 namespace Dal {
     class Ccy_;
     struct CurrencyPair_;
+    class Environment_;
 
     struct FixingRequest_ {
         String_ indexName_;
@@ -41,6 +42,8 @@ namespace Dal {
     };
 
     Handle_<MarketFixingSnapshot_> SnapshotGlobalFixings(const Vector_<FixingRequest_>& requests);
+    Vector_<FixingRequest_> HistoricalFixingDependencies(const Vector_<FixingRequest_>& requests);
+    Handle_<Environment_> SnapshotFixingEnvironment(const MarketFixingSnapshot_& snapshot, const Vector_<FixingRequest_>& requests);
     String_ FxIndexName(const Ccy_& domestic, const Ccy_& foreign);
     String_ FxIndexName(const CurrencyPair_& pair);
     String_ ReverseFxIndexName(const CurrencyPair_& pair);

@@ -109,13 +109,14 @@ expression; it does not accept named arguments.
 `Date_`, and `SourceLocation_`. An omitted fixing date remains unset in this
 node. Parsing performs no fixing lookup or model binding.
 
-**Execution limit:** `FIX` currently supports parsing and AST inspection only.
-There is no script fixing-preparation or named-pricing API. Products containing
-any `FIX` raise `PreparationRequired` from `PreProcess`, `Compile`,
-`PastEvaluate`, and `Evaluate`, including when the node is in a dead branch.
-Direct domain, compiler, and numeric evaluator visitors also reject `NodeFix_`.
-The simulation and evaluation pipeline described below therefore applies to
-scripts without `FIX`.
+`FIX` supports parsing, AST inspection, and the core
+[historical preparation](#historical-fixing-preparation) entry. Raw
+`ScriptProduct_` objects containing any `FIX` still raise `PreparationRequired`
+from `PreProcess`, `Compile`, `PastEvaluate`, `Evaluate`, and `MCSimulation`,
+including when the node is in a dead branch. Direct domain, compiler, and
+numeric evaluator visitors also reject `NodeFix_`. The simulation and evaluator
+pipeline below applies to scripts without `FIX`; preparing historical values
+does not enable nonexpired FIX valuation.
 
 ### Comparators and Smoothing Hints
 
@@ -149,12 +150,19 @@ literal tokens.
 
 ## Events and Schedules
 
-A script product is a sequence of dated events. `ScriptProduct_`
-(`dal-cpp/dal/script/event.hpp`) splits the preprocessed events into **past**
-events (dates before the evaluation date, evaluated once with the known fixings)
-and **future** events (dates on or after the evaluation date, evaluated per
-simulated path). Both halves share the same AST representation
-(`Event_ = Vector_<Statement_>`).
+A script product is a sequence of dated events. Parsing `ScriptProduct_`
+(`dal-cpp/dal/script/event.hpp`) retains every event in `Events()` and
+`EventDates()` without reading the global evaluation date. `ParsedEventDates()`
+retains the complete date list after partitioning too.
+
+`PartitionEvents(D)` separates **past** events (dates before `D`) from
+**future** events (dates on or after `D`). Both halves share the same AST
+representation (`Event_ = Vector_<Statement_>`). Partitioning is a one-time
+operation; appending events afterwards or partitioning again fails. For legacy
+scripts, `PreProcess` captures the global date if the product has not already
+been partitioned. It uses that same date for its timeline and rejects a second
+preprocessing call. Core `PrepareScript` captures the date before parsing a
+fresh product.
 
 ### From Events to a Timeline
 
@@ -181,6 +189,111 @@ variable a stable integer slot in the evaluator's variable vector. The product
 also records the slot of the variable named in its `payoff_` field
 (`payoffIdx_`, defaulting to the last variable); simulation harvests that slot
 as the path value.
+
+## Historical Fixing Preparation
+
+`PrepareScript(data, settings = {}, snapshot = {})` in
+`dal-cpp/dal/script/preparation.hpp` accepts `ScriptProductData_`, core
+`ScriptValuationSettings_`, and an optional `Handle_<MarketFixingSnapshot_>`.
+All script preparation types are in `Dal::Script`; `TodayFixingPolicy_` and
+the snapshot type are in `Dal`. Each call captures the global evaluation date
+once, reparses the original product data, collects observations before any
+condition folding, and returns a `PreparedScript_`. The result exposes const
+access to its product, date, settings, and `ObservationPlan_`.
+
+### Dates and Structural Validation
+
+Let `D` be the captured evaluation date, `E` the expanded event date, and `F`
+the fixing date. An omitted FIX date resolves to `E` during preparation;
+the AST's optional date remains unchanged. Every fixing key uses exact midnight
+`DateTime_(F, 0.0)`: a quote at another time on the same date cannot satisfy it.
+
+- `F < D` requires history.
+- `F = D` is a model request under the default `MODEL` policy. Setting
+  `settings.todayFixingPolicy_` to
+  `TodayFixingPolicy_::Value_::REQUIREHISTORICAL` requires history instead.
+- `F > D` remains a model request, regardless of snapshot contents.
+- `F > E` raises `LookAheadObservation`, including in a dead branch or a
+  wholly expired product.
+
+A model request has no historical value slot; preparation does not bind or
+evaluate it. Missing required history raises an error without model fallback.
+Historical requests accept the built-in `Index::Equity_` and `Index::Fx_`
+implementations only. EQ delivery identities remain distinct. IR, composite,
+third-party indices, and subclasses are not admitted as historical adapters.
+
+Preparation requires at least one dated event and a syntactic `PAYS` statement.
+Empty, definitions-only, and assignment-only products raise
+`InvalidScriptStructure`. When any event is on or after `D`, collection and
+historical resolution cover all syntax branches, including constant-false
+branches and the right-hand sides of past `PAYS` statements. A missing fixing
+therefore cannot disappear through branch pruning. If every event is before
+`D`, structural and observation validation still run, but all historical I/O
+is skipped and `KnownValues()` is empty.
+
+### Identity, Snapshot Reads, and Virtual Fixings
+
+`ObservationPlan_::Requests()` deduplicates FIX uses by `Index_::Name()` and
+exact timestamp, using DAL's case-insensitive name comparison. Different
+dates, EQ delivery identities, and the two FX directions remain distinct
+logical requests. Each request retains every source use and its
+event/statement/node identifiers; `historyValueId_` identifies its resolved
+entry in `KnownValues()` when history was read.
+
+Without an explicit snapshot, `SnapshotGlobalFixings` receives only historical
+requests. It copies each required global `History(name)` sequence at most once
+per preparation, even when several dates or logical requests depend on that
+sequence. FX dependencies include both direct and reverse sequence names. No
+historical requests means no snapshot construction or history-source access.
+These sequential sequence captures do not provide an atomic market snapshot.
+Concurrent fixing writes during capture are unsupported and must be excluded
+by the caller.
+
+An explicit snapshot is authoritative, including when empty: preparation never
+fills gaps from global history. `SnapshotFixingEnvironment` projects only the
+required names and exact timestamps from the snapshot's raw `Values()` into
+`Fixings_` records in a dedicated, non-null `FixingsAccess_` environment. Extra
+records, including future timestamps, do not become observation values. The
+bridge does not turn a reciprocal lookup from `snapshot.Find()` into a
+synthetic direct FX quote.
+
+Each unique historical request calls the retained index's virtual `Fixing`
+exactly once against that environment. `Fx_::Fixing` keeps direct-first lookup
+and reverse fallback: a reverse quote of `0.8` supplies a direct value of
+`1.25`. Direct and reverse quotes must be positive and, when both are supplied
+at a timestamp, their product must differ from one by at most `1e-10`.
+Snapshot quotes and final values must be finite; ordinary EQ fixings may be
+zero or negative. FX may perform two in-memory lookups inside its one virtual
+call; this is separate from the count of global sequence reads.
+
+Lookup errors report `MissingFixing`; invalid final values report
+`InvalidFixing`, and failure while capturing a global snapshot reports
+`InvalidFixingSnapshot`. Historical resolution failures include the canonical
+request, fixing timestamp, and source use. Preparation publishes no partial
+product or plan on failure and submits no workers.
+
+The finished plan owns passive `double` values and retains no fixing
+environment. Repeating preparation captures current global history in a new
+plan without changing an earlier plan. Supplying the same explicit snapshot
+can deliberately preserve the earlier market. Passive observations do not
+evaluate historical script state or rebuild parameter-dependent AAD state.
+
+### Prepared Execution Boundary
+
+The core `MCSimulation<T_>(prepared, modelData, ...)` overload supports only a
+structurally valid wholly expired product. It returns zero value and risks,
+constructing a model for parameter labels but doing no model `Allocate`,
+`GeneratePath`, or worker submission. Nonexpired prepared products raise
+`UnsupportedExecutionMode` before model access or submission, in both double
+and AAD modes with either value of the compiled flag. This also applies when
+every FIX request has a historical value.
+
+Future model binding, prepared AST/bytecode observation reads, historical
+state evaluation, and historical AAD reconstruction are unsupported.
+`SPOT()` continues through the legacy model path and is not collected as a
+named request. The dal-public `ValueByMonteCarlo` facade and Python/Excel
+`MonteCarlo_Value` bindings have no preparation settings or snapshot argument
+and still reject FIX products with `PreparationRequired`.
 
 ## Preprocessing Pipeline
 
@@ -622,21 +735,32 @@ ScriptProduct_ product(eventDates, events);
 The `BARRIER:0.1` suffix on each comparison sets the node's `eps_` field, which
 the fuzzy evaluator consumes as the smoothing width for that condition. Running
 `product.Debug(out)` after the constructor walks the AST and writes the dated,
-variable-indexed event listing that the visitor passes operate on; downstream
-valuation calls `IndexVariables` and `PreProcess` before evaluation or
-`Compile`. The Monte Carlo driver is the free function `MCSimulation<T_>` in
+parsed event listing; this example leaves variable indices unresolved.
+Downstream valuation calls `PreProcess`, which partitions and indexes the
+product, before evaluation or `Compile`. The Monte Carlo driver is the free
+function `MCSimulation<T_>` in
 `dal-cpp/dal/script/simulation.hpp`, templated on `double` for value-only runs
 and on `AAD::Number_` for pathwise-adjoint runs.
 
 ## Product Debug Outputs
 
-`ScriptProduct_::Debug` writes the legacy dump: the variable table followed by
+Each dal-public dump call captures the global evaluation date `D` once before
+parsing a fresh private product copy, then explicitly partitions it. Events
+before `D` are past; events on or after `D` are future. Repeating a dump after
+changing the evaluation date uses a new copy and the new date. Dumping does
+not call `PreProcess`, fold branches, read fixings, set up a model, or submit
+workers.
+
+`ScriptProduct_::Debug` writes the legacy dump: any indexed variable table followed by
 each future event's statements as indented s-expressions with labels like
 `MAX(`, `VAR[x,-1,0.000000]`, `IF[FIRSTELSE=-1]`.
 
 Two further dumps render the same AST for other consumers. All three are
-produced from the debug IR that `Debugger_` builds, and the two new ones also
-include past events, tagged with their phase:
+produced from the debug IR that `Debugger_` builds. JSON and tree dumps include
+both event containers, tagged with their phase. The lower-level core dump
+methods render the product's existing containers; direct core callers use
+`PartitionEvents(D)` when they need date-based phases. Public wrappers perform
+that partitioning automatically on their private copies.
 
 - **JSON** — `ScriptProduct_::DebugJson` writes a compact, deterministic
   document with schema `dal.script-product/1`, meant for machine consumption
@@ -672,12 +796,16 @@ inside nested expressions. The tree keeps the complete leaf even when it
 exceeds the requested width. These human-readable dumps inspect the contract;
 they do not establish that the product can be valued.
 
-The dal-public wrappers `DebugScriptProductJson` and
-`DebugScriptProductTree` run `IndexVariables` on a private copy before
-dumping, so indices, the variable table, and the payoff slot are resolved
-while the dumped AST still mirrors the script as written. The Python surface
-is `Product_DebugJson(product)` and
-`Product_DebugTree(product, ascii=False, width=125)`.
+`DebugScriptProduct` renders only the private copy's live events and skips
+variable indexing, preserving unresolved variable indices and omitting the
+variable-table header. It raises `empty script product description` when no
+live event remains. `DebugScriptProductJson` and `DebugScriptProductTree` run
+`IndexVariables` on their partitioned copies, so indices, variable/constant
+tables, and the payoff slot are resolved while both phases and raw branches
+remain inspectable. JSON keeps schema `/1` and its FIX rejection. The Python
+surface is `Product_Debug(product)`, `Product_DebugJson(product)`, and
+`Product_DebugTree(product, ascii=False, width=125)`; Excel's `PRODUCT.DEBUG`
+uses the legacy text wrapper.
 
 ## See Also
 

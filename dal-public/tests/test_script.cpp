@@ -4,7 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/indice/index.hpp>
+#include <dal/indice/indexparse.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/script/detail/simulationobserver.hpp>
 
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
@@ -15,14 +19,19 @@ using Dal::String_;
 using Dal::Vector_;
 
 namespace {
-    // events are parsed into the live (non-past) event list only when the
-    // evaluation date precedes them; DebugScriptProduct only dumps live events
+    // Legacy text dumps only live events at the current evaluation date.
     class ScopedEvaluationDate_ {
         Date_ previous_;
 
     public:
         explicit ScopedEvaluationDate_(const Date_& d) : previous_(Dal::GetEvaluationDate()) { Dal::SetEvaluationDate(d); }
         ~ScopedEvaluationDate_() { Dal::SetEvaluationDate(previous_); }
+    };
+
+    class DumpClockIndex_ : public Dal::Index_ {
+    public:
+        String_ Name() const override { return "DAL199_DUMP_CLOCK[X]"; }
+        double Fixing(const Dal::Environment_*, const Dal::DateTime_&) const override { THROW("dump must not resolve the clock probe"); }
     };
 } // namespace
 
@@ -119,4 +128,132 @@ TEST(ScriptTest, TestDebugTreeAsciiStyleAndWidth) {
 
     ASSERT_NE(tree.find(String_("`-- (1) call <= max(spot() - STRIKE, 0)")), String_::npos);
     ASSERT_NE(tree.find(String_("# 1 @ 2023-09-25 @ future")), String_::npos);
+}
+
+TEST(ScriptTest, TestPublicDumpPastTodayAndFuturePhases) {
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    const auto product = Dal::NewScriptProduct("dump_phases", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 12)), Cell_(Date_(2026, 9, 22))},
+                                               {"x = 80", "y = 1", "payoff PAYS x"});
+    const String_ json = Dal::DebugScriptProductJson(product);
+    ASSERT_NE(json.find("\"schema\":\"dal.script-product/1\""), String_::npos);
+    ASSERT_NE(json.find("\"date\":\"2026-09-11\",\"phase\":\"past\""), String_::npos);
+    ASSERT_NE(json.find("\"date\":\"2026-09-12\",\"phase\":\"future\""), String_::npos);
+    ASSERT_NE(json.find("\"date\":\"2026-09-22\",\"phase\":\"future\""), String_::npos);
+    const String_ tree = Dal::DebugScriptProductTree(product, true);
+    ASSERT_NE(tree.find("# 1 @ 2026-09-11 @ past"), String_::npos);
+    ASSERT_NE(tree.find("# 2 @ 2026-09-12 @ future"), String_::npos);
+    ASSERT_NE(tree.find("# 3 @ 2026-09-22 @ future"), String_::npos);
+}
+
+TEST(ScriptTest, TestLegacyDumpOmitsHistoricalEventsWithoutIndexing) {
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    const auto product = Dal::NewScriptProduct("dump_live_only", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))}, {"x = 80", "payoff PAYS x"});
+    const String_ legacy = Dal::DebugScriptProduct(product);
+    ASSERT_EQ(legacy.find("2026-09-11"), String_::npos);
+    ASSERT_NE(legacy.find("EventTime_: 2026-09-22\tEvent_: 1"), String_::npos);
+    ASSERT_EQ(legacy.find("Var[0] ="), String_::npos);
+    ASSERT_NE(legacy.find("VAR[payoff,-1,"), String_::npos);
+    const auto liveOnly = Dal::NewScriptProduct("dump_live_only_expected", {Cell_(Date_(2026, 9, 22))}, {"payoff PAYS x"});
+    ASSERT_EQ(legacy, Dal::DebugScriptProduct(liveOnly));
+}
+
+TEST(ScriptTest, TestPublicDumpsRefreshEvaluationDateOnSameProduct) {
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    const auto product =
+        Dal::NewScriptProduct("dump_repartition", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))}, {"x = 80", "payoff PAYS x"});
+    const String_ originalJson = Dal::DebugScriptProductJson(product);
+    const String_ originalTree = Dal::DebugScriptProductTree(product, true);
+    const String_ originalLegacy = Dal::DebugScriptProduct(product);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 10));
+    ASSERT_EQ(Dal::DebugScriptProductJson(product).find("\"phase\":\"past\""), String_::npos);
+    ASSERT_NE(Dal::DebugScriptProductTree(product, true).find("# 1 @ 2026-09-11 @ future"), String_::npos);
+    ASSERT_NE(Dal::DebugScriptProduct(product).find("EventTime_: 2026-09-11"), String_::npos);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 23));
+    ASSERT_EQ(Dal::DebugScriptProductJson(product).find("\"phase\":\"future\""), String_::npos);
+    ASSERT_NE(Dal::DebugScriptProductTree(product, true).find("# 2 @ 2026-09-22 @ past"), String_::npos);
+    ASSERT_THROW(Dal::DebugScriptProduct(product), Dal::ScriptError_);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 12));
+    ASSERT_EQ(Dal::DebugScriptProductJson(product), originalJson);
+    ASSERT_EQ(Dal::DebugScriptProductTree(product, true), originalTree);
+    ASSERT_EQ(Dal::DebugScriptProduct(product), originalLegacy);
+}
+
+TEST(ScriptTest, TestPublicDumpsPreserveRawBranchesAndFixRestrictionsWithoutHistory) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    struct RejectReads_ : Dal::Detail::FixingReadObserver_ {
+        size_t historyCalls_ = 0;
+        size_t fixingCalls_ = 0;
+        void BeforeHistory(const String_&) override {
+            ++historyCalls_;
+            THROW("debug must not read global history");
+        }
+        void BeforeFixing(const Dal::Index_&, const Dal::Environment_*, const Dal::DateTime_&) override {
+            ++fixingCalls_;
+            THROW("debug must not resolve a fixing");
+        }
+    } reads;
+    struct RejectWorkers_ : Dal::Script::Detail::SimulationObserver_ {
+        size_t calls_ = 0;
+        void AfterSubmission() override {
+            ++calls_;
+            THROW("debug must not submit workers");
+        }
+    } workers;
+    const Dal::Detail::ScopedFixingReadObserver_ observeReads(&reads);
+    const Dal::Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
+    const auto fixing = Dal::NewScriptProduct(
+        "dump_fix", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+        {"x = FIX(EQ[DAL199_DUMP_PAST])", "IF 1 = 0 THEN payoff PAYS FIX(EQ[DAL199_DUMP_DEAD], 2026-09-11) ELSE payoff PAYS 0 END"});
+    const String_ tree = Dal::DebugScriptProductTree(fixing, true);
+    ASSERT_NE(tree.find("# 1 @ 2026-09-11 @ past"), String_::npos);
+    ASSERT_NE(tree.find("FIX(EQ[DAL199_DUMP_PAST])"), String_::npos);
+    ASSERT_NE(tree.find("FIX(EQ[DAL199_DUMP_DEAD], 2026-09-11)"), String_::npos);
+    const String_ legacy = Dal::DebugScriptProduct(fixing);
+    ASSERT_EQ(legacy.find("DAL199_DUMP_PAST"), String_::npos);
+    ASSERT_NE(legacy.find("DAL199_DUMP_DEAD"), String_::npos);
+    try {
+        static_cast<void>(Dal::DebugScriptProductJson(fixing));
+        FAIL() << "schema /1 must keep rejecting FIX";
+    } catch (const Dal::ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("DebugSchemaUnsupported"), std::string::npos);
+    }
+
+    const auto ordinary = Dal::NewScriptProduct("dump_branches", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                                {"x = 80", "IF 1 = 0 THEN payoff PAYS 111 ELSE payoff PAYS 222 END"});
+    const String_ json = Dal::DebugScriptProductJson(ordinary);
+    ASSERT_NE(json.find("\"kind\":\"if\""), String_::npos);
+    ASSERT_NE(json.find("\"value\":111"), String_::npos);
+    ASSERT_NE(json.find("\"value\":222"), String_::npos);
+    ASSERT_EQ(reads.historyCalls_, 0);
+    ASSERT_EQ(reads.fixingCalls_, 0);
+    ASSERT_EQ(workers.calls_, 0);
+}
+
+TEST(ScriptTest, TestPublicDumpCapturesDateBeforeParsingIndex) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    Dal::Index::RegisterParser("DAL199_DUMP_CLOCK", [](const String_&) -> std::unique_ptr<Dal::Index_> {
+        Dal::SetEvaluationDate(Date_(2026, 9, 23));
+        return std::make_unique<DumpClockIndex_>();
+    });
+    const auto product = Dal::NewScriptProduct("dump_capture", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                               {"x = 80", "payoff PAYS FIX(DAL199_DUMP_CLOCK[X])"});
+    const String_ tree = Dal::DebugScriptProductTree(product, true);
+    ASSERT_EQ(Dal::GetEvaluationDate(), Date_(2026, 9, 23));
+    ASSERT_NE(tree.find("# 1 @ 2026-09-11 @ past"), String_::npos);
+    ASSERT_NE(tree.find("# 2 @ 2026-09-22 @ future"), String_::npos);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 12));
+    const String_ legacy = Dal::DebugScriptProduct(product);
+    ASSERT_EQ(Dal::GetEvaluationDate(), Date_(2026, 9, 23));
+    ASSERT_EQ(legacy.find("2026-09-11"), String_::npos);
+    ASSERT_NE(legacy.find("EventTime_: 2026-09-22"), String_::npos);
+    ASSERT_NE(legacy.find("VAR[payoff,-1,"), String_::npos);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 12));
+    ASSERT_EQ(Dal::DebugScriptProductTree(product, true), tree);
 }

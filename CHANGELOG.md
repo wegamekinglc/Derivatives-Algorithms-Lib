@@ -18,6 +18,20 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-13
 
+- **Script historical preparation** — added core `PrepareScript` with a
+  captured evaluation date, exact-midnight observation keys, and deduplicated
+  EQ/FX history resolved through virtual index fixings into immutable values.
+  Explicit snapshots are authoritative; sequential global capture is not
+  atomic and does not support concurrent fixing writes. Today defaults to
+  model, with an explicit historical policy. Prepared simulation supports the
+  wholly expired zero path; all nonexpired prepared execution remains gated
+  by `UnsupportedExecutionMode`. The public C++ facade, Python, and Excel
+  valuation entries still reject FIX. **Compatibility:** event partitioning
+  now occurs at preparation rather than core parsing. Public debug wrappers
+  explicitly partition fresh copies at one captured date, preserving JSON/tree
+  phases and live-only legacy text. See the
+  [preparation contract](docs/methodology/script_engine.md#historical-fixing-preparation).
+
 - **Fixing-history C++ identities** — renamed the map wrapper in
   `dal-cpp/dal/indice/fixings.hpp` from `Dal::FixHistory_` to
   `Dal::IndexFixHistory_`, removing a conflicting definition that could cause
@@ -39,9 +53,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - **Script FIX syntax** — added parsing for unquoted `FIX(index[,date])`,
   preserving complete EQ/FX names, delivery suffixes, and source context through
   macro and schedule expansion. **Breaking:** `FIX` is reserved; existing
-  variables or definitions with that name must be renamed. Named execution
-  currently raises `PreparationRequired`; no fixing lookup or named-pricing
-  API is available. See the [syntax and execution limit](docs/methodology/script_engine.md#named-fixing-syntax).
+  variables or definitions with that name must be renamed. At introduction,
+  named execution raised `PreparationRequired` and no fixing-preparation API
+  was available. See the [syntax and execution limit](docs/methodology/script_engine.md#named-fixing-syntax).
 
 - **Prepared rate-trade pricing** — C++ and Python can retain immutable IRS/OIS/basis
   coupon geometry across PV and AAD node-risk calls while evaluating current
