@@ -40,6 +40,24 @@ def make_trade():
     )
 
 
+def validate_prices(prices, expected):
+    if len(prices) != len(expected):
+        raise RuntimeError("Prepared and ordinary PV widths differ")
+    for actual, reference in zip(prices, expected):
+        if not actual.succeeded or actual.pv != reference.pv:
+            raise RuntimeError(f"Prepared PV differs: {actual.error}")
+
+
+def validate_risk(risk, expected):
+    if len(risk) != len(expected):
+        raise RuntimeError("Prepared and ordinary risk widths differ")
+    for actual, reference in zip(risk, expected):
+        if not actual.result.eligible:
+            raise RuntimeError(actual.result.reason)
+        if list(actual.result.gradient) != list(reference.result.gradient):
+            raise RuntimeError("Prepared gradient differs")
+
+
 def main():
     trades = [make_trade()]
     prepared = dal.PreparedRateTrades_New(trades=trades)
@@ -61,14 +79,8 @@ def main():
         )
         if len(prices) != len(trades) or len(risk) != len(trades):
             raise RuntimeError("Prepared result width changed")
-        for actual, expected in zip(prices, ordinary):
-            if not actual.succeeded or actual.pv != expected.pv:
-                raise RuntimeError(f"Prepared PV differs: {actual.error}")
-        for actual, expected in zip(risk, ordinary_risk):
-            if not actual.result.eligible:
-                raise RuntimeError(actual.result.reason)
-            if list(actual.result.gradient) != list(expected.result.gradient):
-                raise RuntimeError("Prepared gradient differs")
+        validate_prices(prices, ordinary)
+        validate_risk(risk, ordinary_risk)
         print(
             f"rate={rate:.2%}, PV={prices[0].pv:.6f}, dPV/dforward={list(risk[0].result.gradient)}"
         )
