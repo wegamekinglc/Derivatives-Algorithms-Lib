@@ -1,12 +1,12 @@
 DAL-198 F1 independent tester handoff, updated 2026-09-13. This record controls the
 pending documentation and reviewer stages; retire it after delivery.
 
-F1 local testing passes after the bracket-content, debugger and CI blocker
+F1 local testing passes after the bracket-content, debugger, CI and performance
 repairs. Initial implementation was `899748dec20034e33a8375697018e8da92565218`;
 the bracket repair at `23ae973a50335bd32a1d66c311db1e3068242018` was verified
 with tester changes committed at `cead11e0548d6fbffcb7c44339ccb0e4c505cfbf`.
 Latest independently tested production and test revision is
-`ce158d11115a1c6597540f0fa62eda6e54bcf645`. The orchestrator records the final
+`7d79eeb82b99f5a000a239c9477999dd51aa3479`. The orchestrator records the final
 delivery/PR SHA.
 
 Running existing tests:
@@ -120,7 +120,7 @@ Independent verification after CI blocker repair, 2026-09-13:
 - Removed root `test_output.txt`, then ran
   `NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1`.
   Exit 0: `100% tests passed, 0 tests failed out of 1590`;
-  CTest time 10.40 seconds. Logs: root `test_output.txt` and
+  CTest time 10.40 seconds. Preserved log:
   `../dal-198-tester-ci-native-full.log`. This includes configure, all-target
   build, install and full nonbenchmark CTest with native AADET, public API,
   portable Excel tests and examples enabled.
@@ -164,6 +164,47 @@ Independent verification after CI blocker repair, 2026-09-13:
 - Working and scoped staged whitespace checks pass. Local verification is
   complete; documentation decision, independent review and remote checks remain
   with the orchestrator's delivery route.
+
+Independent correctness verification after performance repair, 2026-09-13:
+
+- Inspected the complete diff from `78e52eba` to the clean implementation head
+  `7d79eeb82b99f5a000a239c9477999dd51aa3479`, current APIs, implementation
+  evidence and relevant tests. Parser-owned diagnostic state resets at each
+  Parse and is copied into the product before parser reuse. Existing product
+  and visitor guards remain in place. The no-opening-bracket shortcut leaves
+  macro-generated literals protected by subsequent replacement scans.
+- Existing new tests cover first-FIX raw spelling/source, per-Parse reset across
+  FIX/SPOT/FIX/empty input, and retaining the first past/dead-branch observation
+  across later events and another ParseEvents call. Existing tests cover
+  macro expansion, full identity, source origins, direct and product execution
+  guards, PreProcess with domain processing enabled/skipped, and legacy debug
+  rejection. No material missing coverage, test edits or production repairs
+  were identified during this pass.
+- Removed root `test_output.txt`, then ran
+  `NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1`.
+  Exit 0: `100% tests passed, 0 tests failed out of 1592`;
+  CTest time 17.08 seconds. Logs: root `test_output.txt` and
+  `../dal-198-tester-perf-native-full.log`. The native workflow configured,
+  built all enabled targets, installed and ran the complete nonbenchmark suite.
+- `cmake --build build/dal-198-adept -j4` and
+  `cmake --build build/dal-198-codi -j4` both exited 0, rebuilding all configured
+  targets. Logs: `../dal-198-tester-perf-{adept,codi}-build.log`.
+- `ctest --test-dir build/dal-198-adept --output-on-failure --parallel 4 -LE benchmark`:
+  exit 0, `100% tests passed, 0 tests failed out of 1584`, 15.69 seconds.
+  `ctest --test-dir build/dal-198-codi --output-on-failure --parallel 4 -LE benchmark`:
+  exit 0, `100% tests passed, 0 tests failed out of 1584`, 16.46 seconds.
+  Logs: `../dal-198-tester-perf-{adept,codi}-full-tests.log`.
+  Both new tests and all preparation-guard cases passed independently in CTest
+  processes on each of the three backends.
+- Caches retain the previous Linux Release/GCC 15.2.0 configuration: native
+  AADET with examples on; separate Adept and CoDiPack directories with examples
+  off; public API and portable Excel tests on in all three. No backend flags,
+  test exclusions or policy were changed. Working/staged whitespace checks pass.
+- All foreground builds and tests completed before notifying the orchestrator
+  that CPU work was finished. This pass ran no timing workload; the reported
+  CTest durations are correctness-run metadata under concurrent workloads and
+  establish no speedup or benchmark acceptance. Paired performance validation,
+  documentation decision, independent review and publication remain separate.
 
 Limits: no local MSVC/Windows XLL, Python binding, XAD backend, sanitizer or
 coverage run was performed. Adept and CoDiPack full configured suites are now
