@@ -18,15 +18,29 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-13
 
+- **Script core FIX valuation** — added model-aware double/tree valuation with
+  an explicit `spot` to one ordinary EQ binding in Black-Scholes or Dupire.
+  Fixings are retained across events, payments use their own numeraires, and
+  sealed historical values seed past state without adding settled payments.
+  Today-only zero-dimensional paths and wholly expired zero returns are
+  supported. Named AAD, compiled, fuzzy, and public-facade/Python/Excel
+  valuation remain unavailable. **Compatibility:** unbound historical
+  `SPOT()` now raises `UnboundHistoricalSpot` instead of using the placeholder
+  value 30; model-aware preparation accepts an explicit default index, shared
+  by matching SPOT/FIX requests. Legacy AAD rejects nonexpired products with
+  past events because historical AAD state reconstruction is unavailable.
+  Future-only legacy SPOT modes and defaults are preserved. See the
+  [core valuation contract](docs/methodology/script_engine.md#core-doubletree-fixing-valuation).
+
 - **Script historical preparation** — added core `PrepareScript` with a
   captured evaluation date, exact-midnight observation keys, and deduplicated
   EQ/FX history resolved through virtual index fixings into immutable values.
   Explicit snapshots are authoritative; sequential global capture is not
   atomic and does not support concurrent fixing writes. Today defaults to
-  model, with an explicit historical policy. Prepared simulation supports the
-  wholly expired zero path; all nonexpired prepared execution remains gated
-  by `UnsupportedExecutionMode`. The public C++ facade, Python, and Excel
-  valuation entries still reject FIX. **Compatibility:** event partitioning
+  model, with an explicit historical policy. At introduction, prepared
+  simulation supported only the wholly expired zero path; nonexpired execution
+  raised `UnsupportedExecutionMode`. The public C++ facade, Python, and Excel
+  valuation entries rejected FIX. **Compatibility:** event partitioning
   now occurs at preparation rather than core parsing. Public debug wrappers
   explicitly partition fresh copies at one captured date, preserving JSON/tree
   phases and live-only legacy text. See the

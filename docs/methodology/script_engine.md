@@ -109,14 +109,16 @@ expression; it does not accept named arguments.
 `Date_`, and `SourceLocation_`. An omitted fixing date remains unset in this
 node. Parsing performs no fixing lookup or model binding.
 
-`FIX` supports parsing, AST inspection, and the core
-[historical preparation](#historical-fixing-preparation) entry. Raw
-`ScriptProduct_` objects containing any `FIX` still raise `PreparationRequired`
+`FIX` supports parsing, AST inspection, immutable
+[historical preparation](#historical-fixing-preparation), and core
+[double/tree valuation](#core-doubletree-fixing-valuation) with model-aware
+preparation. Raw `ScriptProduct_` objects containing any `FIX` still raise `PreparationRequired`
 from `PreProcess`, `Compile`, `PastEvaluate`, `Evaluate`, and `MCSimulation`,
-including when the node is in a dead branch. Direct domain, compiler, and
-numeric evaluator visitors also reject `NodeFix_`. The simulation and evaluator
-pipeline below applies to scripts without `FIX`; preparing historical values
-does not enable nonexpired FIX valuation.
+including when the node is in a dead branch. Domain and compiler visitors also
+reject `NodeFix_`; numeric reads require a prepared observation ID and plan.
+Named AAD, compiled, and fuzzy evaluation are unsupported. The domain-folding,
+fuzzy, and compiled pipeline below describes legacy scripts without named
+observations.
 
 ### Comparators and Smoothing Hints
 
@@ -166,12 +168,13 @@ fresh product.
 
 ### From Events to a Timeline
 
-`PreProcess` builds the simulation timeline from the future event dates: each
-event date is converted to a year fraction from the evaluation date and paired
+For legacy scripts, `PreProcess` builds the simulation timeline from the future
+event dates: each is converted to a year fraction from the evaluation date and paired
 with an `AAD::SampleDef_` that requests the numeraire, a forward maturity at the
 event time, and a discount factor at the event time. The model consumes this
 `defLine_` to allocate the per-event scenario structure that evaluators read
-when they walk the AST.
+when they walk the AST. Model-aware FIX preparation instead builds the
+[union of event and observation dates](#retained-observations-and-payment-dates).
 
 ### Schedule Expansion
 
@@ -216,8 +219,9 @@ the AST's optional date remains unchanged. Every fixing key uses exact midnight
 - `F > E` raises `LookAheadObservation`, including in a dead branch or a
   wholly expired product.
 
-A model request has no historical value slot; preparation does not bind or
-evaluate it. Missing required history raises an error without model fallback.
+A model request has no historical value slot. The overload without a model
+leaves it unresolved; model-aware preparation binds it to a scenario output.
+Missing required history raises an error without model fallback.
 Historical requests accept the built-in `Index::Equity_` and `Index::Fx_`
 implementations only. EQ delivery identities remain distinct. IR, composite,
 third-party indices, and subclasses are not admitted as historical adapters.
@@ -245,7 +249,7 @@ requests. It copies each required global `History(name)` sequence at most once
 per preparation, even when several dates or logical requests depend on that
 sequence. FX dependencies include both direct and reverse sequence names. No
 historical requests means no snapshot construction or history-source access.
-These sequential sequence captures do not provide an atomic market snapshot.
+These sequential sequence captures do not provide an atomic joint market snapshot.
 Concurrent fixing writes during capture are unsupported and must be excluded
 by the caller.
 
@@ -278,22 +282,134 @@ plan without changing an earlier plan. Supplying the same explicit snapshot
 can deliberately preserve the earlier market. Passive observations do not
 evaluate historical script state or rebuild parameter-dependent AAD state.
 
-### Prepared Execution Boundary
+### Preparation Without a Model
 
-The core `MCSimulation<T_>(prepared, modelData, ...)` overload supports only a
-structurally valid wholly expired product. It returns zero value and risks,
-constructing a model for parameter labels but doing no model `Allocate`,
-`GeneratePath`, or worker submission. Nonexpired prepared products raise
-`UnsupportedExecutionMode` before model access or submission, in both double
-and AAD modes with either value of the compiled flag. This also applies when
-every FIX request has a historical value.
+`PrepareScript(data, settings, snapshot)` only prepares history. Its nonexpired
+result raises `UnsupportedExecutionMode` on simulation, even if every FIX
+already has a historical value. Use model-aware preparation for valuation:
+future payments still require model numeraires. A structurally valid wholly
+expired result supports the [zero-value path](#expired-and-today-only-products).
 
-Future model binding, prepared AST/bytecode observation reads, historical
-state evaluation, and historical AAD reconstruction are unsupported.
-`SPOT()` continues through the legacy model path and is not collected as a
-named request. The dal-public `ValueByMonteCarlo` facade and Python/Excel
-`MonteCarlo_Value` bindings have no preparation settings or snapshot argument
-and still reject FIX products with `PreparationRequired`.
+## Core Double/Tree Fixing Valuation
+
+The core overload in `dal-cpp/dal/script/simulation.hpp` is
+`MCSimulation<double>(data, modelData, nPaths, settings, simulation, snapshot, contract)`.
+It accepts `ScriptProductData_`, a `Handle_<ModelData_>`, and a positive path
+count. The required `settings` argument is `ScriptValuationSettings_`;
+The remaining simulation, snapshot, and contract arguments are optional.
+`MonteCarloSettings_` defaults to Sobol, no Brownian
+bridge, no AAD, smoothing width `0.01`, and an unset compiled flag (tree).
+`SimResults_::aggregated_` is the sum of path payoffs; divide by `nPaths` for PV.
+
+This entry creates the model and calls
+`PrepareScript(data, modelPointer, settings, simulation, snapshot, contract)`.
+The model-aware preparation overload requires both settings arguments and a
+non-null `AAD::Model_<double>*`. It validates all observation requests and
+model capabilities, builds the sample plan, and calls model `Allocate`/`Init`
+before resolving any history. History and past script state are ready before
+workers start. Low-level callers must retain the returned `PreparedScript_`
+while using that initialized model: the model may reference its sample
+definitions. Moving the prepared object preserves that storage.
+
+### Explicit EQ Binding and Legacy SPOT
+
+`ScriptValuationSettings_::modelBindings_` contains `Dal::ModelIndexBinding_`
+records with `assetName_` and `indexName_`. Black-Scholes and Dupire support
+one explicit `spot` to ordinary `EQ[AAPL]` binding for model-sourced FIX,
+including today under `MODEL`. The binding declares which equity the caller's
+model inputs describe; neither the model object's name nor the first observed
+index supplies an implicit identity. The library cannot verify that the
+caller supplied the intended equity's market data.
+
+A missing binding, second distinct future EQ, duplicate binding, unknown
+asset, or conflicting identity fails before history access or worker
+submission. Future FX, IR, composite, EQ delivery (`>` or `@`), and multi-asset
+outputs are unsupported. Historical EQ/FX observations need no model binding;
+several historical equities, delivery identities, and FX directions can coexist
+with one future ordinary EQ. Historical inverse-FX lookup does not imply a
+future FX model or a reciprocal projection of model spot.
+
+Zero-argument `SPOT()` retains the existing future-only legacy tree, compiled,
+and AAD paths and defaults. In model-aware preparation,
+`ScriptProductSettings_::defaultIndex_` gives SPOT an explicit named identity
+at its event date. Matching SPOT and FIX uses share one request and the same
+history value or model cell. A default index does not replace the required
+model binding for a model-sourced observation. Without a default, historical
+SPOT raises `UnboundHistoricalSpot`; mixing SPOT with FIX or model bindings
+raises `MissingDefaultIndex`. These checks include dead branches. SPOT takes
+no arguments, and `FIX()` is invalid.
+
+### Retained Observations and Payment Dates
+
+Model-aware preparation sorts and deduplicates all event dates on or after
+`D` together with all model-sourced fixing dates. Historical fixings add no
+simulation points. Sample times remain `(date - D) / DAYS_PER_YEAR`.
+`ObservationPlan_` records a `historyValueId_` or a model
+`(sampleId_, outputId_)` for each request, plus a separate `EventToSample()`
+mapping for payments. Sample definitions request only the needed index outputs
+and event numeraires; the adapters support samples with no forward arrays.
+
+The exact double evaluator reads those addresses without parsing names or
+accessing an index, environment, or fixing store on a path. The entire scenario
+remains available until that path finishes evaluation. A FIX observed on a day
+with no event is therefore retained for every later use: if its value is 120
+and payment-day spot is 999, later references still read 120. Two reads of the
+same request use the same cell. Generating a full path first does not relax
+`F <= E`; collection checks lookahead in all branches before valuation.
+
+`PAYS` divides its right-hand side by the numeraire at the payment event, not
+at the fixing sample. A known fixing of 80 paid at time `T` under a constant
+rate `r` contributes `80 * exp(-r*T)`. Even with no future FIX, future events
+retain their timeline and numeraire requests. There is no separate payment
+calendar, settlement lag, or currency conversion.
+
+Named double evaluation uses the collected AST without domain folding or
+constant-condition pruning. Past events replay once into the initial double
+variable state. Past `PAYS` evaluates and consumes its right-hand side without
+adding settled cash to payoff; historical assignments still affect future
+events. Each path starts from that initial state. Statements on the same date
+keep input/expansion order, and that day's model values are available when its
+events execute.
+
+### Expired and Today-Only Products
+
+If all events precede `D`, preparation still validates structure, names,
+lookahead, and ordinary settings. Simulation validates path count, RNG name,
+and model construction, then returns zero value and zero labelled risks. It
+does no history capture, past replay, model `Allocate`/`GeneratePath`, or worker
+submission, and needs no unused model-output capability. Empty tables,
+definitions-only tables, and products without a syntactic `PAYS` are errors,
+not expired products. Unbound historical SPOT remains an error.
+
+Today-only products have a valid `t=0` sample. When model dimension is zero,
+`CreateRNG` validates the method name and returns without constructing an RNG
+or Brownian bridge; paths use no random draws. Sobol, MRG32, and IRN names
+remain valid with either bridge setting. Today's FIX still follows the chosen
+`MODEL` or `REQUIREHISTORICAL` policy.
+
+Deterministic model inputs and initialization must be finite and within the
+adapter's domain before history is read. Non-finite generated spots,
+observations, or payoffs and nonpositive/non-finite numeraires cause path
+errors. The task group drains all accepted tasks before returning a worker
+failure; preparation does not claim to predict every random numerical failure.
+
+### Unsupported Execution and Public Surfaces
+
+Nonexpired prepared AAD and named compiled or fuzzy evaluation raise
+`UnsupportedExecutionMode`. This includes all-historical FIX with future
+payments and default-bound SPOT. Historical parameter-dependent AAD state
+reconstruction is unsupported. Legacy AAD also rejects nonexpired products
+containing any past events, even when they use no FIX. The expired zero-risk
+return is not AAD valuation support. Raw unprepared FIX continues to raise
+`PreparationRequired`.
+
+These settings and entry points are core C++ interfaces. The dal-public
+`ValueByMonteCarlo` facade and Python/Excel `MonteCarlo_Value` bindings have no
+named preparation settings, model-binding, default-index, or snapshot
+arguments. They still reject FIX products with `PreparationRequired`.
+Product archive projection of the default index is also unavailable. Text
+and tree debug support does not change these valuation limits; JSON schema
+`dal.script-product/1` still rejects FIX.
 
 ## Preprocessing Pipeline
 
@@ -483,7 +599,7 @@ discontinuous barrier) to carry a tighter or looser spread.
 
 ## Pipeline Ordering
 
-The visitors must run in a specific order:
+For legacy scripts without named observations, the visitors run in this order:
 
 1. **`DomainProcessor_`** — computes variable/expression domains and sets
    `alwaysTrue_`/`alwaysFalse_` flags (and `isDiscrete_` bounds if fuzzy).
@@ -501,7 +617,10 @@ and is deliberately separate.
 `MCSimulation<T_>` (`dal-cpp/dal/script/simulation.hpp`) drives Monte Carlo
 valuation of a `ScriptProduct_`. It has two instantiations: `T_ = double`
 (value-only) and `T_ = AAD::Number_` (pathwise-adjoint, see
-[Automatic Adjoint Differentiation](aad.md)).
+[Automatic Adjoint Differentiation](aad.md)). Named observations use the
+[core double/tree entry](#core-doubletree-fixing-valuation); the AAD and
+compiled paths in this section apply to legacy scripts. Nonexpired AAD
+valuation additionally requires that the product have no past events.
 
 ### RNG and Brownian Bridge
 
@@ -511,6 +630,8 @@ pseudo-random) — sized to the model's simulation dimension. When the Brownian
 bridge flag is set, the generator is wrapped in a `BrownianBridge_` so the draw
 order reconstructs the path from coarse to fine maturities rather than in
 chronological order; this often reduces variance for path-dependent payoffs.
+For a zero-dimensional model, the name is still validated but neither an RNG
+nor a bridge is constructed.
 
 ### Batching and Thread Pool
 
@@ -559,7 +680,7 @@ labelled by model parameter and constant variable.
 
 ### Tree-Walk and Compiled Evaluation
 
-The script engine has two execution modes. The tree-walk mode evaluates the
+Legacy scripts have two execution modes. The tree-walk mode evaluates the
 preprocessed AST directly with `Evaluator_<double>` for value-only paths and
 `FuzzyEvaluator_<AAD::Number_>` for AAD paths. The compiled mode first lowers
 the same AST into flat per-event streams and then evaluates those streams with
