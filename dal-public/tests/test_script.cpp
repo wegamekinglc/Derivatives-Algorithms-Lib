@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/indice/index.hpp>
+#include <dal/indice/indexparse.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 
@@ -24,6 +26,12 @@ namespace {
     public:
         explicit ScopedEvaluationDate_(const Date_& d) : previous_(Dal::GetEvaluationDate()) { Dal::SetEvaluationDate(d); }
         ~ScopedEvaluationDate_() { Dal::SetEvaluationDate(previous_); }
+    };
+
+    class DumpClockIndex_ : public Dal::Index_ {
+    public:
+        String_ Name() const override { return "DAL199_DUMP_CLOCK[X]"; }
+        double Fixing(const Dal::Environment_*, const Dal::DateTime_&) const override { THROW("dump must not resolve the clock probe"); }
     };
 } // namespace
 
@@ -223,4 +231,29 @@ TEST(ScriptTest, TestPublicDumpsPreserveRawBranchesAndFixRestrictionsWithoutHist
     ASSERT_EQ(reads.historyCalls_, 0);
     ASSERT_EQ(reads.fixingCalls_, 0);
     ASSERT_EQ(workers.calls_, 0);
+}
+
+TEST(ScriptTest, TestPublicDumpCapturesDateBeforeParsingIndex) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    Dal::Index::RegisterParser("DAL199_DUMP_CLOCK", [](const String_&) -> std::unique_ptr<Dal::Index_> {
+        Dal::SetEvaluationDate(Date_(2026, 9, 23));
+        return std::make_unique<DumpClockIndex_>();
+    });
+    const auto product = Dal::NewScriptProduct("dump_capture", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                               {"x = 80", "payoff PAYS FIX(DAL199_DUMP_CLOCK[X])"});
+    const String_ tree = Dal::DebugScriptProductTree(product, true);
+    ASSERT_EQ(Dal::GetEvaluationDate(), Date_(2026, 9, 23));
+    ASSERT_NE(tree.find("# 1 @ 2026-09-11 @ past"), String_::npos);
+    ASSERT_NE(tree.find("# 2 @ 2026-09-22 @ future"), String_::npos);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 12));
+    const String_ legacy = Dal::DebugScriptProduct(product);
+    ASSERT_EQ(Dal::GetEvaluationDate(), Date_(2026, 9, 23));
+    ASSERT_EQ(legacy.find("2026-09-11"), String_::npos);
+    ASSERT_NE(legacy.find("EventTime_: 2026-09-22"), String_::npos);
+    ASSERT_NE(legacy.find("VAR[payoff,-1,"), String_::npos);
+
+    Dal::SetEvaluationDate(Date_(2026, 9, 12));
+    ASSERT_EQ(Dal::DebugScriptProductTree(product, true), tree);
 }

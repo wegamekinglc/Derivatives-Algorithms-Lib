@@ -1,16 +1,28 @@
-DAL-199 F2 independent tester handoff, 2026-09-13. This is active evidence for
-the documentation and independent reviewer stages. Production handoff tested:
-`feb5b6fc1d6042dde801f2cc0fd66385add0493f`, based on F1 merge
-`65c6b87a088ba12cddfa57dcc111250c9bfae16a`. The containing test-only commit adds
-the coverage below; the orchestrator records the final PR head.
+DAL-199 F2 independent tester handoff, 2026-09-13. Latest production revision
+tested: integrated merge `e93c73877f4f2d18be247b8fe0e4890f22ad147c`, including
+the public dump correction `87edd0ac` and approved prerequisite repair
+`c121fa1d`. The containing test-only commit adds the parse-time clock regression
+and this updated evidence. The orchestrator records the final PR head.
 
-The executed F2 functional tests pass, but delivery is blocked by the inherited
-FixHistory_ layout collision. Root reports the independent reviewer reproduced
-an ASan heap-buffer-overflow at -O0 and classified it P1. Root is coordinating a
-separate prerequisite repair. All results here are pre-repair evidence and
-require proportional revalidation after integration.
+Fresh integrated native verification passes 1,625/1,625 tests and the integrated
+actual-header ASan reproducer passes both link orders. The earlier inherited P1
+is resolved. Fresh Adept passes 95 focused core and 13 public script tests;
+CoDiPack passes 94 focused core and 13 public script tests. Earlier native/backend
+counts below are retained only as historical provenance. See the final integrated
+verification section for current commands and results. Documentation
+reconciliation and final independent review remain separate delivery stages.
 
-## Running existing tests
+## Initial F2 verification before repairs
+
+Original production handoff: `feb5b6fc1d6042dde801f2cc0fd66385add0493f`, based
+on F1 merge `65c6b87a088ba12cddfa57dcc111250c9bfae16a`. Initial test additions
+were committed at `fef17a0af1e048d2863c74f74114da4cf039a20d`. At that stage,
+the functional suite passed but the independent reviewer confirmed an inherited
+P1 FixHistory_ layout collision with an ASan heap-buffer-overflow at -O0.
+Those results did not clear that blocker; the prerequisite and integrated
+verification below now supersede it.
+
+### Running existing tests
 
 - Read the complete issue acceptance and fixed design, the tester contract,
   run-tests/write-tests/unit-test-style guidance, production APIs, nearby tests,
@@ -28,7 +40,7 @@ require proportional revalidation after integration.
   Fresh log: `build/dal-199-tester-native-baseline-full.log`; initial configure
   failure: `build/dal-199-tester-native-initial-configure.log`.
 
-## Authoring coverage
+### Authoring coverage
 
 Added six tests to the existing `ScriptFixingPreparationTest` suite:
 
@@ -67,7 +79,7 @@ raw environment projection with no synthesized direct quote, unsupported/null
 indices, all syntax branches and historical PAYS, structural/expired rejection,
 source diagnostics, immutable value reads, and real accepted-task counters.
 
-## Repairing failures and inherited finding
+### Repairing failures and inherited finding
 
 - No F2 production behavior repair was required by the executed tests.
 - Test authoring initially lacked the complete Index_ declaration. Adding its
@@ -96,7 +108,7 @@ source diagnostics, immutable value reads, and real accepted-task counters.
   and is coordinating the prerequisite repair; tester made no production
   workaround.
 
-## Final native verification
+### Native verification before repairs
 
 - `cmake --build build/Release-linux --target dal_cpp_tests -j4`: exit 0 after
   the fixture correction, `build/dal-199-tester-fixture-build.log`.
@@ -114,7 +126,7 @@ source diagnostics, immutable value reads, and real accepted-task counters.
   allocation/boundary cases, 105 public cases, and 29 portable Excel cases;
   `build/dal-199-tester-native-discovery.log`.
 
-## Alternate AAD verification
+### Alternate AAD verification before repairs
 
 The changed simulation header warrants compiling the core and running focused
 AAD lifecycle, simulation, parity and preparation checks on Adept and CoDiPack.
@@ -146,7 +158,7 @@ The full backend/integration matrix remains F9 scope.
   before rethrow, and AAD failure followed by successful reuse. These are
   actual runtime results, not compile-only claims.
 
-## Scope limits
+### Limits of the initial pass
 
 F2 preparation is verified; future FIX valuation, historical state/AAD replay,
 prepared model/compile fault injection, allocation-free evaluator observation
@@ -162,3 +174,148 @@ claim is made. Sequential global fixing capture is not an atomic market
 snapshot, and concurrent writes during capture are outside the stated contract.
 Documentation decision, independent review (including the inherited finding),
 remote checks and publication remain with the orchestrator.
+
+## Final integrated verification
+
+Read the updated implementation handoff and both independent reviews before
+testing the clean integrated head. P2 requires the public dump wrappers to
+capture D before parsing each fresh private copy, explicitly partition, and
+preserve legacy unresolved-variable rendering. P1 requires unique map/vector
+identities and a clean rebuild. This pass changes only a public test and this
+report; no production, public docs, changelog, generated or build files changed.
+
+### Public dump and preparation coverage
+
+Added `ScriptTest.TestPublicDumpCapturesDateBeforeParsingIndex` in
+`dal-public/tests/test_script.cpp`. A unique registered index parser changes
+the global evaluation date from September 12 to September 23 while the private
+dump copy is being parsed. Public tree output still marks September 11 past
+and September 22 future; legacy output retains only September 22 and unresolved
+variable index -1. Resetting D and repeating the tree dump produces identical
+output from another fresh parse. Its index's Fixing method throws if called.
+The test passes on its first build; no production repair was needed.
+
+The implementer's four P2 regressions also pass. Together with existing public
+tests they cover JSON /1 past/today/future phases, tree phases, live-only legacy
+output, unchanged legacy variable formatting, changed D on the same stored
+product, empty-live legacy rejection, repeatability after resetting D, raw
+constant-false branches, inspectable past/dead-branch FIX tree/text, and the
+unchanged DebugSchemaUnsupported rejection for FIX JSON. Throwing history,
+final-fixing and submission observers record zero calls for dumping. Inspected
+ProductForDump is shared by all three wrappers and captures D once before
+Product(), then partitions; only JSON/tree index variables. None preprocesses,
+folds syntax, performs model setup, or submits work.
+
+The same integrated native run re-exercises every F2 preparation test: captured
+D and today policy, exact timestamps, canonical EQ/delivery/date identities,
+logical-versus-sequence FX counts and virtual inverse semantics, raw snapshot
+projection, explicit snapshot authority, invalid and finite values, fresh versus
+frozen plans, original branch/historical PAYS collection, source diagnostics,
+expired/structural paths, execution barriers, and actual task draining. The
+merged FixHistoryTest cases verify both header orders and preserved map/vector
+behavior in that same executable.
+
+### Clean native build and install
+
+Verified the following build directory did not exist before configuration;
+it and the install prefix are independent of every pre-repair directory. After
+deleting root test_output.txt, ran:
+
+```bash
+NUM_CORES=12 DAL_BUILD_DIR=build/dal-199-integrated-native DAL_INSTALL_DIR=build/stage/dal-199-integrated-native ADDITIONAL_CMAKE_FLAGS='-DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON' bash ./build_linux.sh > test_output.txt 2>&1
+```
+
+Exit 0 for fresh configure, all-target build, install and CTest:
+`100% tests passed, 0 tests failed out of 1625`, 12.23 seconds.
+Logs: root `test_output.txt` and `build/dal-199-integrated-native-full.log`.
+Linux Release/GCC 15.2.0/native AADET; public, portable Excel, core tests and
+examples enabled, Python/benchmarks off. Discovery: 1,482 main core cases,
+four allocation/boundary cases, 110 public cases and 29 portable Excel cases;
+`build/dal-199-integrated-native-discovery.log`. The new public regression and
+all four P2 regressions pass as separate CTest processes.
+
+### Integrated actual-header sanitizer and identity checks
+
+Fresh scratch: `build/dal-199-integrated-repro/`. Copied the earlier three-file
+reproducer and header-order sources but recompiled against this integrated
+checkout's actual headers, without linking a previously built DAL library.
+Both header orders pass `c++ -std=c++17 -I dal-cpp -fsyntax-only
+build/dal-199-integrated-repro/headers-map-first.cpp
+build/dal-199-integrated-repro/headers-vector-first.cpp` (exit 0, headers.log).
+From that scratch directory:
+
+```bash
+c++ -std=c++17 -O0 -g -fsanitize=address -fno-omit-frame-pointer -I ../../dal-cpp -c map.cpp vector.cpp main.cpp
+c++ -fsanitize=address map.o vector.o main.o -o map-first
+./map-first
+c++ -fsanitize=address vector.o map.o main.o -o vector-first
+./vector-first
+```
+
+Fresh compilation, both links and both executions exit 0 with no ASan
+diagnostics. Logs: compile.log, asan-map-first.log and asan-vector-first.log in
+that scratch directory. nm output in object-symbols.log and linked-symbols.log
+confirms that the map TU emits only IndexFixHistory_ destructor identity and
+the vector TU only FixHistory_, with distinct addresses in the executable.
+No compiler-specific object size is asserted. Source search confirms one
+definition per name and no compatibility alias. The fresh integrated core
+archive exports IndexFixHistory_::Find and no old FixHistory_::Find;
+`build/dal-199-integrated-native-symbols.log`.
+
+This is new integrated-source sanitizer evidence, superseding the initial
+pass's lack of sanitizer coverage and its P1 blocker. The approved core rename
+and mandatory clean-rebuild migration are now present in the merged changelog
+and index methodology; external callers must still avoid mixing old objects.
+
+### Fresh integrated alternate backends
+
+To establish integrated compatibility after both header/identity and public
+dump changes, created new Adept and CoDiPack build directories, each verified
+absent before configuration. No pre-repair backend object directory was reused.
+Configured with:
+
+```bash
+cmake --preset=Release-linux -S . -B build/dal-199-integrated-adept -DDAL_USE_ADEPT_AAD=ON -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON
+cmake --preset=Release-linux -S . -B build/dal-199-integrated-codi -DDAL_USE_CODIPACK_AAD=ON -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON
+cmake --build build/dal-199-integrated-adept --target dal_cpp_tests dal_public_tests -j6
+cmake --build build/dal-199-integrated-codi --target dal_cpp_tests dal_public_tests -j6
+```
+
+All four commands exit 0. These are fresh full core/public test executable
+builds in Linux Release/GCC 15.2.0. Exactly one alternate AAD backend is enabled
+per cache. Portable Excel remains configured but is not built/run in these
+targeted alternate checks; its full runtime evidence is native above.
+Configuration/build logs: `build/dal-199-integrated-{adept,codi}-{configure,build}.log`.
+
+For each backend, ran:
+
+```bash
+ctest --test-dir build/dal-199-integrated-<backend> --output-on-failure --parallel 6 -R '^(FixHistoryTest|ScriptFixingPreparationTest|FixingEnvironmentTest|FixingSnapshotTest|ScriptObservationTest|SimulationTest|ScriptCompiledParityTest|ScriptCompiledParityFuzzTest)\.|^ScriptTest\.Test(SimulationTaskGroup|AadSimulationPropagatesTaskFailure|CompiledAadOperandStacks)'
+./build/dal-199-integrated-<backend>/dal-public/dal_public_tests --gtest_filter='ScriptTest.*'
+```
+
+- Adept: CTest exits 0, `100% tests passed, 0 tests failed out of 95`
+  (0.30 seconds); public script tests exit 0, 13/13 pass.
+- CoDiPack: CTest exits 0, `100% tests passed, 0 tests failed out of 94`
+  (0.59 seconds); public script tests exit 0, 13/13 pass.
+- Logs: `build/dal-199-integrated-{adept,codi}-{focused,public}.log`.
+  The extra Adept case checks compiled operand-stack lifetime. These runs
+  include the three type-identity regressions, all preparation/history checks,
+  double/AAD tree/compiled simulation parity, actual task draining and AAD
+  failure/reuse, all P2 public regressions, and the added parse-time clock test.
+
+### Final testing disposition
+
+No integrated test/build/sanitizer failure occurred, and no production fix was
+needed from this testing pass. The new test strengthens the captured-date
+boundary; the public and preparation suites cover the repaired current behavior.
+Working and exact scoped staged whitespace checks pass. All foreground builds,
+tests and sanitizer runs completed before handoff.
+
+The prior P1 blocker is superseded by the reviewed prerequisite repair and the
+fresh integrated lifetime evidence above. The public dump P2 behavior now passes
+independent tests. The doc writer still needs to reconcile the knowingly stale
+F2 debug wording, then the reviewer must assess the final combined head. No local
+code-testing blocker remains. No Windows/XLL, Python runtime, XAD runtime,
+full-suite sanitizer, benchmark or completed F9 integration-matrix claim is made;
+future FIX execution/replay and the previously documented stage limits remain.
