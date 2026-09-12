@@ -12,6 +12,7 @@
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/storage/_repository.hpp>
 #include <dal/storage/globals.hpp>
 
 using namespace Dal;
@@ -128,8 +129,75 @@ namespace {
         String_ index_;
         FixHistory_ previous_;
         explicit HistoryRestore_(const String_& index) : index_(index), previous_(Global::Fixings_().History(index)) {}
-        ~HistoryRestore_() { XGLOBAL::StoreFixings(index_, previous_, false); }
+        ~HistoryRestore_() {
+            if (!previous_.vals_.empty()) {
+                XGLOBAL::StoreFixings(index_, previous_, false);
+                return;
+            }
+            // An absent history must stay absent: RepoStore_ rejects stored empty boxes.
+            for (const auto& object : ObjectAccess_::Find("##GLOBAL##FixingsFor:"))
+                if (object->Name() == "##GLOBAL##FixingsFor:" + index_)
+                    static_cast<void>(ObjectAccess_::Erase(*object));
+        }
     };
+
+    Vector_<Handle_<ModelData_>> ParityModels() {
+        return {Handle_<ModelData_>(new BSModelData_("", 120.0, 0.2, 0.05)),
+                Handle_<ModelData_>(new DupireModelData_("", 120.0, 0.05, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)))};
+    }
+
+    struct PathParityState_ {
+        Evaluator_<double> tree_;
+        EvalState_<double> compiled_;
+        size_t paths_ = 0;
+        Vector_<> sums_ = Vector_<>(3, 0.0);
+        Vector_<> maxErrors_ = Vector_<>(3, 0.0);
+        explicit PathParityState_(const ScriptProduct_& legacy)
+            : tree_(legacy.BuildEvaluator<double>()), compiled_(legacy.BuildEvalState<double>()) {}
+    };
+
+    struct SharedPathParity_ : PreparedScript_ {
+        const ScriptProduct_* legacy_;
+        ScriptCompiled_ compiled_;
+        Vector_<PathParityState_>* states_;
+        SharedPathParity_(PreparedScript_&& prepared, const ScriptProduct_* legacy, Vector_<PathParityState_>* states)
+            : PreparedScript_(std::move(prepared)), legacy_(legacy), compiled_(legacy->Compile()), states_(states) {}
+
+        void Evaluate(const AAD::Scenario_<double>& path, Evaluator_<double>& evaluator) const {
+            auto& state = (*states_)[ThreadPool_::ThreadNum()];
+            PreparedScript_::Evaluate(path, evaluator);
+            legacy_->Evaluate(path, state.tree_);
+            compiled_.Evaluate(path, state.compiled_);
+            const double expected = (80.0 + path[0].spot_) * std::exp(-0.05 * 10.0 / DAYS_PER_YEAR);
+            const double values[] = {evaluator.VarVals()[PayOffIdx()], state.tree_.VarVals()[legacy_->PayOffIdx()],
+                                     state.compiled_.VarVals()[legacy_->PayOffIdx()]};
+            for (size_t i = 0; i < 3; ++i) {
+                REQUIRE(std::isfinite(values[i]), "non-finite shared-path payoff");
+                state.sums_[i] += values[i];
+                state.maxErrors_[i] = std::max(state.maxErrors_[i], std::abs(values[i] - expected));
+            }
+            ++state.paths_;
+        }
+    };
+
+    void AssertSharedPathParity(double actual, const Vector_<PathParityState_>& states, size_t expectedPaths) {
+        const char* modes[] = {"named tree", "legacy tree", "legacy compiled"};
+        size_t paths = 0;
+        Vector_<> sums(3, 0.0);
+        for (size_t worker = 0; worker < states.size(); ++worker) {
+            SCOPED_TRACE(::testing::Message() << "worker=" << worker);
+            const auto& state = states[worker];
+            paths += state.paths_;
+            for (size_t i = 0; i < 3; ++i) {
+                SCOPED_TRACE(::testing::Message() << "mode=" << modes[i]);
+                ASSERT_NEAR(state.maxErrors_[i], 0.0, 1.0e-8);
+                sums[i] += state.sums_[i];
+            }
+        }
+        ASSERT_EQ(paths, expectedPaths);
+        for (const double sum : sums)
+            ASSERT_NEAR(actual, sum / static_cast<double>(expectedPaths), 1.0e-8);
+    }
 } // namespace
 
 TEST(ScriptObservationSimulationTest, TestFutureOnlyNoHistory) {
@@ -749,20 +817,51 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacyFixedPathParityAcrossAda
     const auto named = Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
     ScriptProduct_ legacy({Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))}, {"x = SPOT()", "pay PAYS 80 + x"});
     legacy.PreProcess(false, true);
-    for (const auto& model : {Handle_<ModelData_>(new BSModelData_("", 120.0, 0.2, 0.05)),
-                              Handle_<ModelData_>(new DupireModelData_("", 120.0, 0.05, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)))})
-        for (const size_t threads : {1, 4}) {
-            restorePool.pool_->Start(threads, true);
-            for (const String_ rng : {"sobol", "mrg32", "irn"})
+    for (const auto& model : ParityModels())
+        for (const String_ rng : {"sobol", "mrg32", "irn"}) {
+            // IRN SkipTo is a no-op: independent runs share samples only with one worker.
+            // Multi-worker IRN parity is checked on shared paths in the following test.
+            const Vector_<size_t> independentThreads = rng == "irn" ? Vector_<size_t>{1} : Vector_<size_t>{1, 4};
+            for (const size_t threads : independentThreads) {
+                restorePool.pool_->Start(threads, true);
                 for (const bool bb : {false, true}) {
                     MonteCarloSettings_ simulation;
                     simulation.rsg_ = rng;
                     simulation.useBb_ = bb;
+                    SCOPED_TRACE(::testing::Message() << "model=" << model->Type() << " threads=" << threads << " rng=" << rng << " bb=" << bb);
                     const double actual = MCSimulation<double>(named, model, 8193, BoundSettings(), simulation, snapshot).aggregated_ / 8193;
                     for (const bool compiled : {false, true}) {
+                        SCOPED_TRACE(::testing::Message() << "named=tree legacy=" << (compiled ? "compiled" : "tree"));
                         const double expected = MCSimulation<double>(legacy, model, 8193, rng, bb, compiled).aggregated_ / 8193;
                         ASSERT_NEAR(actual, expected, 1.0e-8);
                     }
+                }
+            }
+        }
+}
+
+TEST(ScriptObservationSimulationTest, TestNamedAndLegacySharedPathParityAcrossAdapters) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ restorePool;
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    const auto named = Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
+    ScriptProduct_ legacy({Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))}, {"x = SPOT()", "pay PAYS 80 + x"});
+    legacy.PreProcess(false, true);
+    for (const auto& modelData : ParityModels())
+        for (const size_t threads : {1, 4}) {
+            restorePool.pool_->Start(threads, true);
+            for (const String_ rng : {"sobol", "mrg32", "irn"})
+                for (const bool bb : {false, true}) {
+                    SCOPED_TRACE(::testing::Message() << "model=" << modelData->Type() << " threads=" << threads << " rng=" << rng << " bb=" << bb);
+                    auto model = CreateModel<double>(modelData);
+                    Vector_<PathParityState_> states(restorePool.pool_->NumThreads(), PathParityState_(legacy));
+                    const SharedPathParity_ prepared(PrepareScript(named, model.get(), BoundSettings(), {}, snapshot), &legacy, &states);
+                    ASSERT_EQ(prepared.TimeLine(), legacy.TimeLine());
+                    SubmissionCounter_ workers;
+                    const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+                    const double actual = MCDoubleSimulation(prepared, model.get(), 8193, rng, bb, false).aggregated_ / 8193;
+                    ASSERT_EQ(workers.submissions_, BatchPlan_(8193, restorePool.pool_->NumThreads()).BatchCount());
+                    ASSERT_NO_FATAL_FAILURE(AssertSharedPathParity(actual, states, 8193));
                 }
         }
 }
