@@ -2,7 +2,7 @@ DAL-198 F1 documentation handoff, updated 2026-09-13. This record controls the p
 independent review; retire it after delivery.
 
 Reconciled documentation against source and tests at
-`83e7f5a8ae2af3d1bc2930ac07ea9ffdcb0451a3`, the accepted F1 issue and frontend
+`76fed07e9f2f410966270fa49988e849c510c1b3`, the accepted F1 issue and frontend
 design/critique/API boundaries, and the implementation/testing evidence.
 
 Published documentation for F1:
@@ -51,21 +51,38 @@ than adding a capability, algorithm or public surface. Existing FIX reservation,
 protected expansion, strict dates, debug behavior and `PreparationRequired`
 limits remain accurate. No methodology file or index changes are needed.
 
+Performance repair documentation decision, production revision
+`7d79eeb82b99f5a000a239c9477999dd51aa3479`: no further published documentation
+or CHANGELOG edit is required. Read the complete delta from `78e52eba`,
+implementation evidence and independent correctness evidence. Parser metadata
+now records the first FIX diagnostic during node construction, resets per
+Parse, and supplies the product's retained diagnostic without a recursive AST
+scan. The successful preparation check is inline with a separate throwing
+path; text without an opening bracket skips index-range scanning. These
+implementation changes preserve the documented syntax, protected expansion,
+source context, first FIX identity and execution/debug rejection behavior.
+The existing methodology does not promise the removed scan or prescribe the
+guard's code layout. There is no new numerical method, supported pricing
+capability or compatibility change requiring a changelog entry. Independent
+paired performance validation remains pending; this documentation decision
+makes no speedup or benchmark acceptance claim.
+
 Validation:
 
 - `python3 .github/scripts/check_docs.py`: passed for all Markdown files,
   checking local links, tables, whitespace, final newlines and documentation
   metadata/workflow rules.
-- `git diff --check` and `git diff --cached --check`: passed; this CI repair
+- `git diff --check` and `git diff --cached --check`: passed; this performance repair
   documentation pass stages only this active evidence file.
 - Reviewed the complete published-document diff against lexer/preprocessor/
   parser/node, indice EQ/FX parsers, event execution guards and debug renderers.
-  The independent tester's latest results on the CI repair are native Linux
-  1590/1590, Adept 1582/1582 and CoDiPack 1582/1582, with public API and portable
-  Excel tests enabled. Local complexity verification reports 4/4/7/4 for the
-  four flagged functions; new helpers are at most 7. Commands, logs and backend
-  configuration are recorded in `testing.md` alongside this file. Remote
-  Windows/Codacy results remain pending on the pushed repair head; local
-  evidence does not establish those results. No C++ test rerun is needed for
-  this evidence-only edit. The orchestrator records the final documentation
-  commit SHA; independent re-review of that exact head is the next stage.
+  The independent tester's latest results on the performance repair are native
+  Linux 1592/1592, Adept 1584/1584 and CoDiPack 1584/1584, with public API and
+  portable Excel tests enabled. The new tests verify first-FIX origin,
+  parser reuse/reset and product diagnostic retention across later events.
+  Commands, logs and backend configuration are recorded in `testing.md`
+  alongside this file. No heavy tests or benchmarks were run in this
+  documentation pass. Correctness results do not establish performance or
+  remote CI acceptance. The orchestrator records the final documentation
+  commit SHA; independent re-review of that exact head and paired performance
+  validation remain required.
