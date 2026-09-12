@@ -67,6 +67,9 @@ All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
 of full native case parity.
 
+Native-only PWL query microbenchmarks additionally isolate integral reuse at
+8/24/64/256 knots in `curve_calibration_perf`.
+
 `Product_New` only stores events; the timed `Product_DebugJson` call is needed to
 execute the native preprocessor/parser. Its indexing and serialization cost is
 also included. Python's MRG32 constructor fixes `precise=true`, while the native
