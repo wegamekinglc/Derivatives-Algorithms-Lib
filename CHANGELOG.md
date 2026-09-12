@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-12
 
+- **Script FIX syntax** — added parsing for unquoted `FIX(index[,date])`,
+  preserving complete EQ/FX names, delivery suffixes, and source context through
+  macro and schedule expansion. **Breaking:** `FIX` is reserved; existing
+  variables or definitions with that name must be renamed. Named execution
+  currently raises `PreparationRequired`; no fixing lookup or named-pricing
+  API is available. See the [syntax and execution limit](docs/methodology/script_engine.md#named-fixing-syntax).
+
 - **Prepared rate-trade pricing** — C++ and Python can retain immutable IRS/OIS/basis
   coupon geometry across PV and AAD node-risk calls while evaluating current
   markets and fixings on every call. Third-party performance comparisons include

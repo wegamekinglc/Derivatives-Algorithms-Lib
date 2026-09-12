@@ -31,13 +31,20 @@ control flow all share one polymorphic hierarchy.
 
 ### Lexer
 
-`Tokenize` (`dal-cpp/dal/script/lexer.hpp`) is the single tokenization primitive
-in the engine. Both halves of the pipeline consume it: the preprocessor
-(`Preprocessor_`, the definition front-end) tokenizes directive values, and the
-parser (`Parser_`, the payoff back-end) tokenizes statement text. Housing it in
-its own translation unit — rather than inside either consumer — keeps the two
-halves decoupled and avoids a circular ownership relationship between the
-front-end that resolves schedules and the back-end that builds the AST.
+`Lex` (`dal-cpp/dal/script/lexer.hpp`) produces positioned `Token_` values for
+the parser. Each token holds either ordinary text or an `IndexLiteral_` with
+the complete raw index spelling. `SourceLocation_` carries the character offset
+and one-based line and column in the expanded event text; source origins from
+the preprocessor add the original one-based table row and expanded event date.
+`Tokenize` projects these tokens to strings for schedule parsing and existing
+callers that do not need type or position information.
+
+The lexer preserves bracket contents, FX slashes, and EQ delivery suffixes as
+one index literal. Commas and parentheses inside brackets remain name content;
+the index argument ends at a comma or closing parenthesis outside the brackets.
+Nested brackets, quotes, unmatched brackets, and unsupported script characters
+raise errors. The shared `IndexLiteralRanges` scan also identifies the regions
+that the preprocessor protects from substitution.
 
 ### Precedence Levels
 
@@ -60,12 +67,55 @@ binds over `AND`, which binds over comparison elements — producing `NodeOr_`,
 ### Reserved Keywords and Variables
 
 A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `PAYS`, `AND`, `OR`,
-`SPOT`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`) cannot be used as variable
+`SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`) cannot be used as variable
 names. Any other alphabetic token becomes either a `NodeVar_` (looked up in the
 preprocessor's constant-variable map and promoted to `NodeConstVar_` if it
 resolves there). Statements are either assignments (`=`, `NodeAssign_`), pays
 clauses (`PAYS`, `NodePays_`), or `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
 `firstElse_` indexing the else-branch within `arguments_`).
+
+`FIX` is also reserved for macro and constant-variable definitions. A conflicting
+definition or variable produces `ReservedIdentifier` with source context and a
+request to rename it. Keyword comparisons are case-insensitive.
+
+### Named Fixing Syntax
+
+`FIX(index)` and `FIX(index, date)` parse to a `NodeFix_` leaf. These are
+accepted expressions:
+
+```text
+FIX(EQ[AAPL])
+FIX(FX[EUR/USD])
+FIX(EQ[AAPL]>3M)
+FIX(EQ[AAPL]@2026-12-31, 2026-09-11)
+```
+
+The first argument must be a complete unquoted index literal. The parser passes
+its raw spelling to `Index::Parse` and retains the returned index handle; the
+full identity includes FX direction and any EQ delivery suffix. Index grammar
+and complete-input validation belong to [index parsing](index_parsing.md).
+Unknown names, malformed names, and parsers returning no index fail with script
+source context.
+
+The optional second argument must be a contiguous, valid `YYYY-MM-DD` calendar
+date. In the last example, `2026-12-31` belongs to the index's delivery identity,
+while `2026-09-11` is the fixing date. A schedule placeholder may supply the
+date only after preprocessing has expanded it to that literal. `FIX()` is
+invalid, as are quoted or runtime index arguments, runtime or arithmetic dates,
+timestamps, and extra arguments. `SPOT()` remains the zero-argument model-spot
+expression; it does not accept named arguments.
+
+`NodeFix_` retains the raw `IndexLiteral_`, immutable `Index_` handle, optional
+`Date_`, and `SourceLocation_`. An omitted fixing date remains unset in this
+node. Parsing performs no fixing lookup or model binding.
+
+**Execution limit:** `FIX` currently supports parsing and AST inspection only.
+There is no script fixing-preparation or named-pricing API. Products containing
+any `FIX` raise `PreparationRequired` from `PreProcess`, `Compile`,
+`PastEvaluate`, and `Evaluate`, including when the node is in a dead branch.
+Direct domain, compiler, and numeric evaluator visitors also reject `NodeFix_`.
+The simulation and evaluation pipeline described below therefore applies to
+scripts without `FIX`.
 
 ### Comparators and Smoothing Hints
 
@@ -137,6 +187,9 @@ as the path value.
 The `Preprocessor_` class in `dal-cpp/dal/script/preprocessor.hpp` resolves a raw
 `(Cell_, String_)` events table into `PreprocessedEvents_`: a map of constant
 variables (`String_ -> double`) and dated event descriptions (`Date_ -> String_`).
+It also records source origins for each event description. Statements sharing
+an event date are concatenated in input/expansion order while retaining their
+individual table rows for parser diagnostics.
 
 The class is built for extension: `Process` orchestrates a fixed pipeline while
 every meaningful decision delegates to a protected virtual method, so a derived
@@ -147,12 +200,20 @@ re-implementing the orchestration.
 |-----------------------------------|------------------------------------------------------------------|
 | `IsSchedule(desc)`                | True when a non-date directive description denotes a schedule    |
 | `IsConstVariable(value)`          | True when a non-date directive value defines a constant variable |
-| `ExpandMacros(stmt, macros)`      | Replace every registered macro name in a statement with its body |
-| `ExpandSchedulePlaceholders(...)` | Replace `PeriodBegin` / `PeriodEnd` placeholders for one period  |
+| `ExpandMacros(stmt, macros)`      | Replace macro names outside complete index literals              |
+| `ExpandSchedulePlaceholders(...)` | Replace period placeholders outside complete index literals      |
 
 The default implementation recognises simple textual macros and period-based
 schedule expansion; a derived preprocessor can override any of these to support
 domain-specific directive syntax without touching the orchestration logic.
+
+Macro and schedule-placeholder substitutions protect complete index literals,
+including delivery suffixes. For `FIX(EQ[PeriodBegin], PeriodBegin)`, only the
+second argument expands to a date. A macro may expand into a complete index
+literal; each subsequent substitution rescans the result so the new literal is
+protected too. Outside these regions, macros retain their case-insensitive
+regular-expression replacement in map order, followed by `PeriodBegin` and
+`PeriodEnd` expansion for schedules.
 
 ## Domain Processor
 
@@ -584,7 +645,7 @@ include past events, tagged with their phase:
   has been through `IndexVariables`; every AST node becomes an object with a
   unique pre-order `id` and a stable snake_case `kind` (`add`, `sub`, `mul`,
   `div`, `pow`, `log`, `exp`, `sqrt`, `max`, `min`, `neg`, `uplus`, `eq0`,
-  `gt0`, `ge0`, `and`, `or`, `not`, `assign`, `pays`, `if`, `spot`, `const`,
+  `gt0`, `ge0`, `and`, `or`, `not`, `assign`, `pays`, `if`, `spot`, `fix`, `const`,
   `var`, `const_var`, `true`, `false`, `collect`). Structured kinds get
   structured fields — `condition`/`then`/`else` for `if`, `target`/`value`
   for `assign` and `pays`, `mode`/`eps` (continuous) or `mode`/`lb`/`rb`
@@ -601,6 +662,12 @@ include past events, tagged with their phase:
   branches are marked `▶` (then) and `▷` (else). `ascii = true` switches
   every symbol to a pure-ASCII set for constrained consoles — Unicode output
   needs a UTF-8 terminal (on Windows, Windows Terminal or `chcp 65001`).
+
+For `NodeFix_`, the legacy text dump includes the raw index and optional fixing
+date in its `FIX[...]` label. JSON records only the structural `fix` kind for
+this leaf, without index/date fields, and the tree renderer omits the leaf.
+Use the legacy text dump to inspect the index and date; a successful debug dump
+does not establish that the product can be valued.
 
 The dal-public wrappers `DebugScriptProductJson` and
 `DebugScriptProductTree` run `IndexVariables` on a private copy before
