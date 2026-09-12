@@ -20,8 +20,8 @@ namespace Dal {
             return new Fixings_(name_, ZipToMap(fixing_times_, fixings_));
         }
     } // namespace
-    const FixHistory_& FixHistory::Empty() {
-        static const FixHistory_ RET_VAL((FixHistory_::vals_t()));
+    const IndexFixHistory_& FixHistory::Empty() {
+        static const IndexFixHistory_ RET_VAL((IndexFixHistory_::vals_t()));
         return RET_VAL;
     }
 
@@ -34,7 +34,7 @@ namespace Dal {
         return pf->second;
     }
 
-    double FixHistory_::Find(const DateTime_& fix_time, bool quiet) const { return LookupFixing(vals_, fix_time, quiet); }
+    double IndexFixHistory_::Find(const DateTime_& fix_time, bool quiet) const { return LookupFixing(vals_, fix_time, quiet); }
 
     void Fixings_::Write(Archive::Store_& dst) const {
         Fixings::XWrite(dst, name_, MapValues(vals_), Keys(vals_));
