@@ -23,7 +23,7 @@ namespace Dal {
                 return ParseSuperShot(name);
             const String_ ac = name.substr(0, stop);
             auto pp = TheIndexParsers().find(ac);
-            REQUIRE(pp != TheIndexParsers().end(), "no parser for '" + name + "'");
+            REQUIRE(pp != TheIndexParsers().end(), "UnknownIndex: no parser for '" + name + "'");
             return (*pp->second)(name);
         }
 
@@ -33,7 +33,9 @@ namespace Dal {
     std::unique_ptr<Index_> Index::Parse(const String_& name) {
         if (auto test = ParseComposite(name))
             return test;
-        return ParseSingle(name);
+        auto result = ParseSingle(name);
+        REQUIRE(result != nullptr, "InvalidIndex: no index parsed from '" + name + "'");
+        return result;
     }
 
     std::mutex TheParserMutex;

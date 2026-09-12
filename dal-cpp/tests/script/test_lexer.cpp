@@ -40,3 +40,14 @@ TEST(ScriptLexerTest, TestTokenizeScheduleColon) {
     for (size_t i = 0; i < expected.size(); ++i)
         ASSERT_EQ(tokens[i], expected[i]);
 }
+
+TEST(ScriptLexerTest, TestIndexLiteralTokens) {
+    const auto tokens = Tokenize("x = FIX(FX[EUR/USD]) + FIX(EQ[Aapl]@2026-12-31, 2026-09-11)");
+    ASSERT_EQ(tokens[4], "FX[EUR/USD]");
+    ASSERT_EQ(tokens[9], "EQ[Aapl]@2026-12-31");
+    const auto positioned = Lex("FIX(FX[EUR/USD])");
+    const auto* literal = std::get_if<IndexLiteral_>(&positioned[2].value_);
+    ASSERT_NE(literal, nullptr);
+    ASSERT_EQ(literal->raw_, "FX[EUR/USD]");
+    ASSERT_EQ(positioned[2].source_.offset_, 4);
+}

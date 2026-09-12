@@ -214,6 +214,7 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
         FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
+        void Visit(const NodeFix_& node) { node.RequirePreparation(); }
 
         FORCE_INLINE void Visit(const NodeCollect_& node) { this->VisitArguments(node); }
     };

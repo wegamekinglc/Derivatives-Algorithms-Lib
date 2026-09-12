@@ -5,10 +5,18 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <variant>
+
+#include <dal/script/lexer.hpp>
 #include <dal/script/nodebase.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/time/date.hpp>
+#include <dal/utilities/exceptions.hpp>
 
+namespace Dal {
+    class Index_;
+} // namespace Dal
 
 namespace Dal::Script {
     struct ExprNode_ : public Node_ {
@@ -69,6 +77,31 @@ namespace Dal::Script {
 
     //	Market access
     struct NodeSpot_ : public Visitable_<ExprNode_, NodeSpot_, VISITORS> {};
+
+    struct NodeFix_ : public Visitable_<ExprNode_, NodeFix_, VISITORS> {
+        IndexLiteral_ literal_;
+        Handle_<Index_> index_;
+        std::optional<Date_> fixingDate_;
+        SourceLocation_ source_;
+
+        NodeFix_(IndexLiteral_ literal, Handle_<Index_> index, std::optional<Date_> fixingDate, SourceLocation_ source)
+            : literal_(std::move(literal)), index_(std::move(index)), fixingDate_(fixingDate), source_(source) {}
+
+        [[nodiscard]] String_ PreparationError() const {
+            return "PreparationRequired: FIX requires a prepared observation; index=" + literal_.raw_ + "; " + source_.Describe();
+        }
+
+        [[noreturn]] void RequirePreparation() const { THROW2(PreparationError(), ScriptError_); }
+    };
+
+    inline const NodeFix_* FindUnpreparedFixing(const Node_& node) {
+        if (const auto* fix = dynamic_cast<const NodeFix_*>(&node))
+            return fix;
+        for (const auto& argument : node.arguments_)
+            if (const auto* fix = FindUnpreparedFixing(*argument))
+                return fix;
+        return nullptr;
+    }
 
     //  Const
     struct NodeConst_ : public Visitable_<ExprNode_, NodeConst_, VISITORS> {

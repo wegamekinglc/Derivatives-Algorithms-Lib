@@ -20,12 +20,15 @@ namespace Dal::Script {
         Parser_ parser(preprocessed.constVariables_);
         const auto eval_data = Global::Dates_::EvaluationDate();
         for (const auto &processedEvent: preprocessed.events_) {
+            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
+            if (preparationError_.empty())
+                preparationError_ = parser.PreparationError();
             if (processedEvent.first >= eval_data) {
                 eventDates_.push_back(processedEvent.first);
-                events_.push_back(parser.Parse(processedEvent.second));
+                events_.push_back(std::move(event));
             } else {
                 pastEventDates_.push_back(processedEvent.first);
-                pastEvents_.push_back(parser.Parse(processedEvent.second));
+                pastEvents_.push_back(std::move(event));
             }
         }
     }
@@ -47,6 +50,7 @@ namespace Dal::Script {
     }
 
     Vector_<> ScriptProduct_::PastEvaluate() const {
+        RequirePreparedFixings();
         PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_);
         Visit(pastEvaluator, true, false);
         return pastEvaluator.Variables();
@@ -77,6 +81,7 @@ namespace Dal::Script {
     }
 
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
+        RequirePreparedFixings();
         IndexVariables();
         variableValues_ = PastEvaluate();
 
@@ -105,6 +110,8 @@ namespace Dal::Script {
 
         return maxNestedIfs;
     }
+
+    void ScriptProduct_::ThrowPreparationError() const { THROW2(preparationError_, ScriptError_); }
 
     namespace {
         //  A fresh debugger per statement: the IR of previous statements would
@@ -183,6 +190,8 @@ namespace Dal::Script {
     }
 
     void ScriptProduct_::DebugJson(std::ostream& ost) const {
+        REQUIRE2(preparationError_.empty(),
+                 "DebugSchemaUnsupported: dal.script-product/1 does not support FIX; use DebugTree to inspect the contract", ScriptError_);
         ost << "{\"schema\":\"dal.script-product/1\"";
         if (!variables_.empty()) {
             ost << ",\"variables\":[";
@@ -244,6 +253,7 @@ namespace Dal::Script {
     }
 
     ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
+        RequirePreparedFixings();
         REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
         Vector_<Vector_<int>> nodeStreams;

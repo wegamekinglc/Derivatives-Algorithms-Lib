@@ -21,8 +21,10 @@ wraps a handle with its name so scenario containers can order indices.
 tries composite parsing, then single-index parsing. Single parsing splits the
 name at the first `:` or `[`: the prefix before the separator selects a
 parser from a process-wide registry, and the selected parser interprets the
-remainder of the string. A name with no separator currently matches nothing,
-and an unregistered prefix throws.
+complete string. A bare or empty name, or a registered parser returning a null
+result, throws `InvalidIndex`; an unregistered prefix throws `UnknownIndex`.
+The built-in EQ and FX parsers require the complete supported name and reject
+malformed brackets or trailing characters.
 
 Parsers self-register through `Index::RegisterParser(name, func)` under a
 mutex. The built-in registrations are installed once by
@@ -49,12 +51,27 @@ The equity grammar is `EQ[stock]` with an optional delivery suffix
 - `EQ[stock]>3M` — forward whose delivery is the fixing date stepped by a
   date increment (see [dates, calendars, and schedules](dates.md)).
 
+The stock name must be nonempty and cannot contain nested brackets, quotes, or
+line breaks. Other name content is retained, including punctuation such as
+`AAPL(US)` or `BRK/B`. An explicit delivery date must be valid, and a delivery
+increment must parse completely; compound increments cannot contain empty
+components such as the trailing component in `3M&`.
+
 ## FX names
 
 The FX grammar is `FX[fgn/dom]` (`dal-cpp/dal/indice/parser/fx.cpp`) — for
 example `FX[USD/JPY]` is one USD priced in JPY. `Index::Fx_::Fixing` first
 looks up `FX[fgn/dom]` in the environment's fixings and falls back to the
 reciprocal of `FX[dom/fgn]`.
+
+Both currency codes must be nonempty and valid. The grammar requires exactly
+one slash and a final closing bracket with no delivery suffix or trailing text.
+The two FX directions retain distinct names.
+
+The script [named fixing syntax](script_engine.md#named-fixing-syntax) passes
+these complete index literals to `Index::Parse`. Successful parsing establishes
+index identity only; script `FIX` execution currently raises
+`PreparationRequired`.
 
 ## IR indices are constructed, not parsed
 

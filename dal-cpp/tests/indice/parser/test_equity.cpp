@@ -54,3 +54,24 @@ TEST(IndexTest, TestParserDeliveryOfParsedForms) {
     ASSERT_TRUE(eq_with_delay != nullptr);
     ASSERT_EQ(eq_with_delay->Delivery(fixing_time), Date_(2022, 4, 22));
 }
+
+TEST(IndexTest, TestParserRejectsIncompleteCompoundDelivery) {
+    for (const auto* name : {"EQ[IBM]>3M&", "EQ[IBM]>&3M", "EQ[IBM]>3M&&6M"}) {
+        SCOPED_TRACE(name);
+        ASSERT_THROW(Index::EquityParser(name), Dal::Exception_);
+    }
+    ASSERT_EQ(Index::EquityParser("EQ[IBM]>3M&IMM")->Name(), "EQ[IBM]>3M&IMM");
+}
+
+TEST(IndexTest, TestEquityDeliveryErrorsRetainIndexDiagnostic) {
+    for (const auto* name : {"EQ[IBM]@not-a-date", "EQ[IBM]@2026-02-30", "EQ[IBM]>invalid", "EQ[IBM]>999999999999999999999M"}) {
+        SCOPED_TRACE(name);
+        try {
+            static_cast<void>(Index::EquityParser(name));
+            FAIL() << "invalid delivery must fail";
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidIndex"), std::string::npos);
+            ASSERT_NE(std::string(error.what()).find(name), std::string::npos);
+        }
+    }
+}

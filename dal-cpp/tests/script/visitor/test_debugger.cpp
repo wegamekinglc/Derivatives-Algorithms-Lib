@@ -315,3 +315,40 @@ TEST(ScriptTest, TestDebuggerEmptyProductJsonAndTree) {
     product.DebugTree(tree);
     ASSERT_EQ(tree.str(), "");
 }
+
+TEST(ScriptTest, TestDebuggerTreePreservesFixIdentityAndDate) {
+    for (const auto* observation : {"FIX(EQ[Aapl])", "FIX(FX[EUR/USD], 2026-09-11)", "FIX(EQ[AAPL]>3M)", "FIX(EQ[AAPL]@2026-12-31, 2026-09-11)"}) {
+        SCOPED_TRACE(observation);
+        const ScriptProduct_ product({Cell_(Date_(2030, 9, 22))}, {"x = 1 + " + String_(observation)});
+        for (const bool ascii : {false, true}) {
+            for (const int width : {20, 125}) {
+                std::ostringstream tree;
+                product.DebugTree(tree, ascii, width);
+                ASSERT_NE(tree.str().find(observation), std::string::npos);
+                ASSERT_NE(tree.str().find("1"), std::string::npos);
+            }
+        }
+        std::ostringstream text;
+        product.Debug(text);
+        ASSERT_NE(text.str().find(observation), std::string::npos);
+    }
+}
+
+TEST(ScriptTest, TestDebuggerLegacyJsonRejectsFixBeforeOutput) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    for (const auto date : {Date_(2026, 9, 11), Date_(2026, 9, 22)}) {
+        for (const auto* statement : {"x = 1 + FIX(EQ[AAPL], 2026-09-11)", "IF 1 = 0 THEN x = FIX(EQ[AAPL]@2026-12-31, 2026-09-11) ELSE x = 1 END"}) {
+            SCOPED_TRACE(statement);
+            const ScriptProduct_ product({Cell_(date)}, {statement});
+            std::ostringstream json;
+            try {
+                product.DebugJson(json);
+                FAIL() << "schema /1 cannot represent FIX observations";
+            } catch (const ScriptError_& error) {
+                ASSERT_NE(std::string(error.what()).find("DebugSchemaUnsupported"), std::string::npos);
+                ASSERT_NE(std::string(error.what()).find("dal.script-product/1"), std::string::npos);
+            }
+            ASSERT_TRUE(json.str().empty());
+        }
+    }
+}
