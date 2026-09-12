@@ -2,6 +2,8 @@
 // Created by Codex on 2026/9/13.
 //
 
+#include <typeinfo>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
@@ -10,7 +12,6 @@
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/index/fx.hpp>
 #include <dal/script/preparation.hpp>
-#include <typeinfo>
 
 namespace Dal::Script {
     namespace {

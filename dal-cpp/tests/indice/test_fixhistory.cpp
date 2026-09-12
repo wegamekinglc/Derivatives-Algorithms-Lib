@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
 #include <type_traits>
 
 #include <dal/platform/platform.hpp>

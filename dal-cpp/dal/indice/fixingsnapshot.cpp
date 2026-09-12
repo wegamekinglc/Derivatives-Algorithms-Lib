@@ -2,18 +2,19 @@
 // Created by dal-implementer on 2026/7/13.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-
 #include <cmath>
-#include <dal/indice/detail/fixingobserver.hpp>
-#include <dal/indice/detail/snapshoterror.hpp>
-#include <dal/indice/fixingsnapshot.hpp>
-#include <dal/storage/globals.hpp>
 #include <map>
 #include <optional>
 #include <set>
 #include <utility>
+
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+
+#include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/indice/detail/snapshoterror.hpp>
+#include <dal/indice/fixingsnapshot.hpp>
+#include <dal/storage/globals.hpp>
 
 namespace Dal {
     namespace {
