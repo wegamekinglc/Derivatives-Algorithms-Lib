@@ -32,7 +32,7 @@ namespace Dal::Script {
             const auto context = [&] { return "; " + source.Describe() + "; input=" + str.substr(start); };
             ++cur;
             while (cur < str.size() && str[cur] != ']') {
-                REQUIRE2(str[cur] != '[' && str[cur] != '\'' && str[cur] != '"' && str[cur] != '(' && str[cur] != ')',
+                REQUIRE2(str[cur] != '[' && str[cur] != '\'' && str[cur] != '"',
                          "InvalidIndex: malformed index literal" + context(), ScriptError_);
                 ++cur;
             }

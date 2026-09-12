@@ -49,3 +49,19 @@ Evidence logs are in the parent workdir under `dal-198-*-build.log` and
 `dal-198-*-tests.log`. Independent full Linux verification and review are owned by
 the following specialist stages. No published docs or changelog were changed;
 dal-doc-writer decides those changes. The orchestrator records the commit/PR SHA.
+
+Independent tester repair: the bracket scanner initially rejected parentheses
+inside an index name even though `Index::Parse("EQ[AAPL(US)]")` preserves that
+identity. Removed only that extra restriction: bracket content reaches indice
+unchanged, while nested brackets and quotes still fail. The tester owns the new
+regressions and confirmed RED in `dal-198-tester-boundary-red.log`.
+
+Tester-collected GREEN after the repair:
+
+- `cmake --build build/Release-linux --target dal_cpp_tests -j8`: exit 0;
+  `dal-198-tester-green-build.log`.
+- `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationTest.TestBracketContentsPreserveIndiceIdentity:ScriptObservationTest.TestInvalidSyntax'`:
+  exit 0, both tests passed; `dal-198-tester-boundary-green.log`. These exercise
+  punctuation, commas and unmatched parentheses within names while retaining
+  malformed quote/nested-bracket rejection. No test files belong to this repair
+  commit; the tester continues the independent expanded and full verification.
