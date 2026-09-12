@@ -11,7 +11,7 @@
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/discount.hpp>
-#include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/piecewiselinear_internal.hpp>
 #include <dal/curve/tapediscount.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
@@ -53,10 +53,8 @@ namespace Dal {
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::UpdateT() {
             if constexpr (std::is_same_v<T_, double>) {
-                // The double running integral delegates to PiecewiseLinear_::Sofar so the double
-                // curve's intermediate Jacobian/ApplyDX states stay bit-identical to the pre-dedup
-                // factory curve across compilers. The T_-typed accumulation below stays the AAD path.
-                sofarT_ = PiecewiseLinear_(knotDates_, fLeftT_, fRightT_).Sofar();
+                // Rebuild only when parameters change, using the historical double arithmetic.
+                sofarT_ = PiecewiseLinearInternal::Sofar(knotDates_, fLeftT_, fRightT_);
             } else {
                 const int n = static_cast<int>(knotDates_.size());
                 if (static_cast<int>(sofarT_.size()) != n)
@@ -97,12 +95,9 @@ namespace Dal {
         template <class T_, class B_>
         T_ DiscountPWLF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
             if constexpr (std::is_same_v<T_, double>) {
-                // The double curve reuses PiecewiseLinear_::IntegralTo so its DFs are bit-identical to
-                // the pre-dedup factory curve; combined with UpdateT delegating to PiecewiseLinear_::Sofar
-                // this keeps joint-vs-staged calibration drift stable across gcc/clang/msvc. The offset
-                // path below stays the AAD-tape recording path.
-                const PiecewiseLinear_ pwl(knotDates_, fLeftT_, fRightT_);
-                const double integral = pwl.IntegralTo(to) - pwl.IntegralTo(from);
+                // Share the historical integral algorithm without copying or rebuilding curve state.
+                const double integral = PiecewiseLinearInternal::IntegralTo(knotDates_, fLeftT_, fRightT_, sofarT_, to)
+                                      - PiecewiseLinearInternal::IntegralTo(knotDates_, fLeftT_, fRightT_, sofarT_, from);
                 return DiscountFromLogDf(-integral / DAYS_PER_YEAR, this->base_, from, to);
             } else {
                 const double fromT = static_cast<double>(from - knotDates_.front());
