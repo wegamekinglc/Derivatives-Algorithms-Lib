@@ -6,8 +6,10 @@
 
 #include <map>
 #include <utility>
+
 #include <dal/math/cell.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/script/lexer.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 
@@ -17,6 +19,7 @@ namespace Dal::Script {
     struct PreprocessedEvents_ {
         std::map<String_, double> constVariables_;
         std::map<Date_, String_> events_;
+        std::map<Date_, Vector_<SourceOrigin_>> sources_;
     };
 
     class Preprocessor_ {

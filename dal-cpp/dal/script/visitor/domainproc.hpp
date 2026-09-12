@@ -354,6 +354,7 @@ namespace Dal::Script {
 
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }
         void Visit(NodeConstVar_& node) { domStack_.Push(node.constVal_); }
+        void Visit(NodeFix_& node) { node.RequirePreparation(); }
 
         // Scenario
         void Visit(NodeSpot_&) {

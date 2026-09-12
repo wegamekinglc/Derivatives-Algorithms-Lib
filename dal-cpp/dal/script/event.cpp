@@ -20,12 +20,19 @@ namespace Dal::Script {
         Parser_ parser(preprocessed.constVariables_);
         const auto eval_data = Global::Dates_::EvaluationDate();
         for (const auto &processedEvent: preprocessed.events_) {
+            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
+            if (preparationError_.empty())
+                for (const auto& statement : event)
+                    if (const auto* fix = FindUnpreparedFixing(*statement)) {
+                        preparationError_ = fix->PreparationError();
+                        break;
+                    }
             if (processedEvent.first >= eval_data) {
                 eventDates_.push_back(processedEvent.first);
-                events_.push_back(parser.Parse(processedEvent.second));
+                events_.push_back(std::move(event));
             } else {
                 pastEventDates_.push_back(processedEvent.first);
-                pastEvents_.push_back(parser.Parse(processedEvent.second));
+                pastEvents_.push_back(std::move(event));
             }
         }
     }
@@ -47,6 +54,7 @@ namespace Dal::Script {
     }
 
     Vector_<> ScriptProduct_::PastEvaluate() const {
+        RequirePreparedFixings();
         PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_);
         Visit(pastEvaluator, true, false);
         return pastEvaluator.Variables();
@@ -77,6 +85,7 @@ namespace Dal::Script {
     }
 
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
+        RequirePreparedFixings();
         IndexVariables();
         variableValues_ = PastEvaluate();
 
@@ -105,6 +114,8 @@ namespace Dal::Script {
 
         return maxNestedIfs;
     }
+
+    void ScriptProduct_::RequirePreparedFixings() const { REQUIRE2(preparationError_.empty(), preparationError_, ScriptError_); }
 
     namespace {
         //  A fresh debugger per statement: the IR of previous statements would
@@ -244,6 +255,7 @@ namespace Dal::Script {
     }
 
     ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
+        RequirePreparedFixings();
         REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
         Vector_<Vector_<int>> nodeStreams;

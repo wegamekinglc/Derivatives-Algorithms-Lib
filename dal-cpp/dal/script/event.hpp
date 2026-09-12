@@ -70,6 +70,8 @@ namespace Dal::Script {
 
         //  Set by PreProcess().
         bool preProcessed_ = false;
+        String_ preparationError_;
+        void RequirePreparedFixings() const;
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
@@ -139,6 +141,7 @@ namespace Dal::Script {
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
+            RequirePreparedFixings();
             eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {

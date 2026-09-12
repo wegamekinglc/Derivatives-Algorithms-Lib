@@ -37,10 +37,20 @@ TEST(IndexParseTest, TestParseRejectsUnknownPrefix) {
     ASSERT_THROW((void)Index::Parse(String_("IR:USD,3M")), Dal::Exception_);
 }
 
-TEST(IndexParseTest, TestParseBareNameReturnsNull) {
-    // bare names route to the (not yet supported) supershot parser, which yields null
-    std::unique_ptr<Index_> index(Index::Parse(String_("IBM")));
-    ASSERT_TRUE(index == nullptr);
+TEST(IndexParseTest, TestParseRejectsBareNameAndNullParser) {
+    ASSERT_THROW(Index::Parse("IBM"), Dal::Exception_);
+    ASSERT_THROW(Index::Parse(""), Dal::Exception_);
+    Index::RegisterParser("NULL_TEST", [](const String_&) -> std::unique_ptr<Index_> { return nullptr; });
+    ASSERT_THROW(Index::Parse("NULL_TEST[ABC]"), Dal::Exception_);
+}
+
+TEST(IndexParseTest, TestParseRejectsMalformedAndTrailingInput) {
+    for (const auto* text : {"EQ[]", "EQ[AAPL", "EQ[[AAPL]]", "EQ[AAPL]]", "EQ[AAPL]junk", "EQ[AAPL]junk>3M", "EQ[AAPL]@2026-12-31junk", "EQ[AAPL]>",
+                             "EQ[AAPL]>3Mjunk", "EQ[AAPL]@", "EQ[\"AAPL\"]", "FX[EUR/USD]junk", "FX[[EUR/USD]]", "FX[EUR/USD]]", "FX[/USD]",
+                             "FX[EUR/]", "FX[EUR/USD/JPY]", "FX[EUR/USD]>3M"}) {
+        SCOPED_TRACE(text);
+        ASSERT_THROW(Index::Parse(text), Dal::Exception_);
+    }
 }
 
 TEST(IndexParseTest, TestCloneRoundTripsThroughName) {

@@ -266,6 +266,7 @@ namespace Dal::Script {
         void Visit(const NodeFalse_&) { nodeStream_.emplace_back(fuzzy_ ? FuzzyFalse : False); }
 
         void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
+        void Visit(const NodeFix_& node) { node.RequirePreparation(); }
 
         void Visit(const NodeCollect_& node) { VisitArguments(node); }
 

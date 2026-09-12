@@ -13,7 +13,7 @@
 namespace Dal::Script {
 
     class Parser_ {
-        using TokIt_ = Vector_<String_>::const_iterator;
+        using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
 
         // Helpers
@@ -26,7 +26,7 @@ namespace Dal::Script {
             unsigned opens = 1;
             ++cur;
             while (cur != end && opens > 0) {
-                opens += ((*cur)[0] == OpChar) - ((*cur)[0] == ClChar);
+                opens += (cur->Text()[0] == OpChar) - (cur->Text()[0] == ClChar);
                 ++cur;
             }
 
@@ -40,21 +40,22 @@ namespace Dal::Script {
 
         template <ParseFunc FuncOnMatch_, ParseFunc FuncOnNoMatch_>
         Expression_ ParseParentheses(TokIt_& cur, const TokIt_& end) {
+            REQUIRE2(cur != end, "unexpected end of expression", ScriptError_);
             Expression_ tree;
 
             // Do we have an opening "("?
-            if( *cur == "(") {
+            if (cur->Text() == "(") {
                 // Find match
                 auto closeIt = FindMatch<'(',')'>(cur, end);
 
                 // Parse the parentheses condition/expression, including nested parentheses,
                 // by recursively calling the parent parseCond/parseExpr
                 tree = (this->*FuncOnMatch_)(++cur, closeIt);
+                REQUIRE2(cur == closeIt, "unexpected trailing tokens in parentheses", ScriptError_);
 
                 // Advance cur after matching ")"
                 cur = ++closeIt;
-            }
-            else {
+            } else {
                 // No (, so leftmost we move one level up
                 tree = (this->*FuncOnNoMatch_)(cur, end);
             }
@@ -85,6 +86,7 @@ namespace Dal::Script {
         Expression_ ParseCondElem(TokIt_& cur, const TokIt_& end);
         Vector_<Expression_> ParseFuncArg(TokIt_& cur, const TokIt_& end);
         double ParseDCF(TokIt_& cur, const TokIt_& end);
+        Expression_ ParseFix(TokIt_& cur, const TokIt_& end);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
 
@@ -96,6 +98,6 @@ namespace Dal::Script {
     public:
         explicit Parser_(const std::map<String_, double>& constVariables = std::map<String_, double>()): constVariables_(constVariables) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
-        Event_ Parse(const String_& event);
+        Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins = {});
     };
 } // namespace Dal::Script

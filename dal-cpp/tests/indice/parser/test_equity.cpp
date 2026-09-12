@@ -54,3 +54,11 @@ TEST(IndexTest, TestParserDeliveryOfParsedForms) {
     ASSERT_TRUE(eq_with_delay != nullptr);
     ASSERT_EQ(eq_with_delay->Delivery(fixing_time), Date_(2022, 4, 22));
 }
+
+TEST(IndexTest, TestParserRejectsIncompleteCompoundDelivery) {
+    for (const auto* name : {"EQ[IBM]>3M&", "EQ[IBM]>&3M", "EQ[IBM]>3M&&6M"}) {
+        SCOPED_TRACE(name);
+        ASSERT_THROW(Index::EquityParser(name), Dal::Exception_);
+    }
+    ASSERT_EQ(Index::EquityParser("EQ[IBM]>3M&IMM")->Name(), "EQ[IBM]>3M&IMM");
+}

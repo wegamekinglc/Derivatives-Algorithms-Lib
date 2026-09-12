@@ -12,7 +12,10 @@ namespace Dal::Index {
         auto fx_start = name.find_first_of("[");
         auto fx_stop = name.find_first_of("]");
         auto fx_sep = name.find_first_of("/");
-        REQUIRE(fx_start != String_::npos && fx_stop != String_::npos && fx_sep != String_::npos, "fx index pattern is not good");
+        REQUIRE(name.substr(0, 3) == "FX[" && fx_start == 2 && fx_stop != String_::npos && fx_stop + 1 == name.size() && fx_sep != String_::npos &&
+                    fx_sep > fx_start + 1 && fx_sep + 1 < fx_stop && name.find('[', fx_start + 1) == String_::npos &&
+                    name.find('/', fx_sep + 1) == String_::npos,
+                "InvalidIndex: FX requires the complete FX[foreign/domestic] name");
 
         String_ fgn = name.substr(fx_start + 1, fx_sep - fx_start - 1);
         String_ dom = name.substr(fx_sep + 1, fx_stop - fx_sep - 1);
