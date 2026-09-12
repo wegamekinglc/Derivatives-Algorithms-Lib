@@ -16,7 +16,9 @@
 #include <dal/math/random/sobol.hpp>
 #include <dal/model/base.hpp>
 #include <dal/model/factory.hpp>
+#include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/preparation.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
 
@@ -142,6 +144,8 @@ namespace Dal::Script {
             REQUIRE(futures_.size() < taskCount_, "simulation task group submission count exceeds its reservation");
             TaskHandle_ future = pool_->SpawnTask(std::forward<C_>(task));
             futures_.push_back(std::move(future));
+            if (auto* observer = Detail::SimulationObserver())
+                observer->AfterSubmission();
         }
 
         void Complete() {
@@ -193,6 +197,7 @@ namespace Dal::Script {
                                             std::optional<bool> compiled,
                                             int maxNestedIfs,
                                             double eps) {
+        product.RequireExecutable();
         const bool useCompiled = compiled.value_or(false);
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -200,6 +205,8 @@ namespace Dal::Script {
             compiledProduct.emplace(product.Compile());
 
         auto mdl = CreateModel<double>(modelData);
+        if (product.EventDates().empty())
+            return SimResults_(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
         mdl->Init(product.TimeLine(), product.DefLine());
@@ -289,6 +296,7 @@ namespace Dal::Script {
                                                   std::optional<bool> compiled,
                                                   int maxNestedIfs,
                                                   double eps) {
+        product.RequireExecutable();
         const bool useCompiled = compiled.value_or(false);
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -296,6 +304,10 @@ namespace Dal::Script {
             compiledProduct.emplace(product.Compile(true));
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
+        if (product.EventDates().empty())
+            return SimResults_(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
+        metadataModel->Allocate(product.TimeLine(), product.DefLine());
+        metadataModel->Init(product.TimeLine(), product.DefLine());
         const auto nParams = metadataModel->Parameters().size();
         const auto nConstVars = product.ConstVarNames().size();
 
@@ -381,5 +393,18 @@ namespace Dal::Script {
                 rtn.risks_[j] += res.risks_[j];
         }
         return rtn;
+    }
+    template <class T_>
+    SimResults_ MCSimulation(const PreparedScript_& prepared,
+                             const Handle_<ModelData_>& modelData,
+                             size_t nPaths,
+                             const String_& rsg = "sobol",
+                             bool useBb = false,
+                             std::optional<bool> compiled = std::nullopt,
+                             int maxNestedIfs = -1,
+                             double eps = 0.01) {
+        REQUIRE2(prepared.AllExpired(), "UnsupportedExecutionMode: prepared FIX evaluation is not yet supported", ScriptError_);
+        const auto model = CreateModel<double>(modelData);
+        return SimResults_(Vector::Join(model->ParameterLabels(), prepared.Product().ConstVarNames()));
     }
 } // namespace Dal::Script

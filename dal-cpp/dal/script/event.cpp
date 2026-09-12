@@ -12,25 +12,36 @@
 
 namespace Dal::Script {
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
+        REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
         Preprocessor_ preprocessor;
         auto preprocessed = preprocessor.Process(events);
 
         // 2. Payoff back-end: parse the resolved event descriptions into AST.
         Parser_ parser(preprocessed.constVariables_);
-        const auto eval_data = Global::Dates_::EvaluationDate();
         for (const auto &processedEvent: preprocessed.events_) {
             auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
             if (preparationError_.empty())
                 preparationError_ = parser.PreparationError();
-            if (processedEvent.first >= eval_data) {
-                eventDates_.push_back(processedEvent.first);
-                events_.push_back(std::move(event));
-            } else {
-                pastEventDates_.push_back(processedEvent.first);
-                pastEvents_.push_back(std::move(event));
-            }
+            parsedEventDates_.push_back(processedEvent.first);
+            eventDates_.push_back(processedEvent.first);
+            events_.push_back(std::move(event));
         }
+    }
+
+    void ScriptProduct_::PartitionEvents(const Date_& evaluationDate) {
+        REQUIRE2(evaluationDate.IsValid(), "invalid script evaluation date", ScriptError_);
+        REQUIRE2(!evaluationDate_, "script events are already partitioned", ScriptError_);
+        Vector_<Date_> futureDates;
+        Vector_<Event_> futureEvents;
+        for (size_t i = 0; i < events_.size(); ++i) {
+            const bool past = eventDates_[i] < evaluationDate;
+            (past ? pastEventDates_ : futureDates).push_back(eventDates_[i]);
+            (past ? pastEvents_ : futureEvents).push_back(std::move(events_[i]));
+        }
+        eventDates_ = std::move(futureDates);
+        events_ = std::move(futureEvents);
+        evaluationDate_ = evaluationDate;
     }
 
     void ScriptProduct_::IndexVariables() {
@@ -82,7 +93,11 @@ namespace Dal::Script {
 
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         RequirePreparedFixings();
+        REQUIRE2(!preProcessed_, "script product is already pre-processed", ScriptError_);
+        if (!evaluationDate_)
+            PartitionEvents(Global::Dates_::EvaluationDate());
         IndexVariables();
+        REQUIRE2(!variables_.empty(), "InvalidScriptStructure: script has no payoff variable", ScriptError_);
         variableValues_ = PastEvaluate();
 
         size_t maxNestedIfs = 0;
@@ -93,7 +108,7 @@ namespace Dal::Script {
         }
 
         // TODO: more specific data settings
-        const auto evaluationDate = Global::Dates_::EvaluationDate();
+        const auto evaluationDate = *evaluationDate_;
         for (auto& date : eventDates_) {
             const double ttm = (date - evaluationDate) / DAYS_PER_YEAR;
             timeLine_.emplace_back(ttm);

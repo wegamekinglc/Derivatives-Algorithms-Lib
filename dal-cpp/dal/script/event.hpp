@@ -56,6 +56,8 @@ namespace Dal::Script {
         String_ payoff_;
         size_t payoffIdx_;
 
+        Vector_<Date_> parsedEventDates_;
+        std::optional<Date_> evaluationDate_;
         Vector_<Date_> pastEventDates_;
         Vector_<Event_> pastEvents_;
         Vector_<Date_> eventDates_;
@@ -86,6 +88,8 @@ namespace Dal::Script {
         }
 
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
+        [[nodiscard]] const Vector_<Date_>& ParsedEventDates() const { return parsedEventDates_; }
+        [[nodiscard]] const std::optional<Date_>& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<Event_>& Events() const { return events_; }
@@ -119,6 +123,11 @@ namespace Dal::Script {
         }
 
         void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events);
+        void PartitionEvents(const Date_& evaluationDate);
+        void RequireExecutable() const {
+            RequirePreparedFixings();
+            REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before simulation", ScriptError_);
+        }
 
         template <class V_> void Visit(Visitor_<V_>& v, bool past = true, bool future = true) {
             if (past)

@@ -7,6 +7,12 @@
 #include <dal/script/simulation.hpp>
 
 namespace Dal::Script {
+    namespace Detail {
+        SimulationObserver_*& SimulationObserver() {
+            static thread_local SimulationObserver_* observer = nullptr;
+            return observer;
+        }
+    } // namespace Detail
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb) {
         std::unique_ptr<Random_> rsg;

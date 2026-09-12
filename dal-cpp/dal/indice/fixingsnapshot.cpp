@@ -6,6 +6,8 @@
 #include <dal/platform/strict.hpp>
 
 #include <cmath>
+#include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/indice/detail/snapshoterror.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/storage/globals.hpp>
 #include <map>
@@ -33,34 +35,39 @@ namespace Dal {
             }
             return nullptr;
         }
+
+        void ValidateReciprocal(
+            const String_& name, const DateTime_& time, double value, const String_& reverse, const MarketFixingSnapshot_::values_t& values) {
+            const auto history = values.find(reverse);
+            if (history == values.end())
+                return;
+            const auto quote = history->second.find(time);
+            if (quote != history->second.end())
+                REQUIRE(std::fabs(value * quote->second - 1.0) <= 1.0e-10,
+                        "Inconsistent direct/reverse FX fixings for " + name + " at " + DateTime::ToString(time));
+        }
+
+        void ValidateQuote(const String_& name, const DateTime_& time, double value, const MarketFixingSnapshot_::values_t& values) {
+            try {
+                REQUIRE(time.IsValid(), "Market fixing snapshot requires valid fixing timestamps");
+                REQUIRE(std::isfinite(value), "Market fixing snapshot requires finite values for " + name + " at " + DateTime::ToString(time));
+                const auto reverse = ReverseCanonicalFxName(name);
+                if (reverse) {
+                    REQUIRE(value > 0.0, "Market fixing snapshot requires positive FX values for " + name + " at " + DateTime::ToString(time));
+                    ValidateReciprocal(name, time, value, *reverse, values);
+                }
+            } catch (const std::exception& error) {
+                throw Detail::SnapshotFixingError_(error, {name, time});
+            }
+        }
     } // namespace
 
     MarketFixingSnapshot_::MarketFixingSnapshot_(const values_t& values) : values_(values) {
         for (const auto& indexHistory : values_) {
             const String_& indexName = indexHistory.first;
             REQUIRE(!indexName.empty(), "Market fixing snapshot requires non-empty index names");
-            const std::optional<String_> reverseName = ReverseCanonicalFxName(indexName);
-            for (const auto& fixing : indexHistory.second) {
-                REQUIRE(fixing.first.IsValid(), "Market fixing snapshot requires valid fixing timestamps");
-                REQUIRE(std::isfinite(fixing.second),
-                        "Market fixing snapshot requires finite values for " + indexName + " at " + DateTime::ToString(fixing.first));
-                if (reverseName.has_value())
-                    REQUIRE(fixing.second > 0.0,
-                            "Market fixing snapshot requires positive FX values for " + indexName + " at " + DateTime::ToString(fixing.first));
-            }
-
-            if (!reverseName.has_value())
-                continue;
-            const auto reverseHistory = values_.find(*reverseName);
-            if (reverseHistory == values_.end())
-                continue;
-            for (const auto& direct : indexHistory.second) {
-                const auto reverse = reverseHistory->second.find(direct.first);
-                if (reverse == reverseHistory->second.end())
-                    continue;
-                REQUIRE(std::fabs(direct.second * reverse->second - 1.0) <= 1.0e-10,
-                        "Inconsistent direct/reverse FX fixings for " + indexName + " at " + DateTime::ToString(direct.first));
-            }
+            for (const auto& fixing : indexHistory.second)
+                ValidateQuote(indexName, fixing.first, fixing.second, values_);
         }
     }
 
@@ -90,34 +97,49 @@ namespace Dal {
         return *value;
     }
 
-    Handle_<MarketFixingSnapshot_> SnapshotGlobalFixings(const Vector_<FixingRequest_>& requests) {
+    Vector_<FixingRequest_> HistoricalFixingDependencies(const Vector_<FixingRequest_>& requests) {
         using request_key_t = std::pair<String_, DateTime_>;
         std::set<request_key_t> uniqueRequests;
-        for (const auto& request : requests)
+        for (const auto& request : requests) {
+            REQUIRE(!request.indexName_.empty(), "Market fixing snapshot request requires a non-empty index name");
+            REQUIRE(request.fixingTime_.IsValid(), "Market fixing snapshot request requires a valid fixing timestamp");
             uniqueRequests.emplace(request.indexName_, request.fixingTime_);
+            const auto reverse = ReverseCanonicalFxName(request.indexName_);
+            if (reverse)
+                uniqueRequests.emplace(*reverse, request.fixingTime_);
+        }
+        Vector_<FixingRequest_> result;
+        for (const auto& request : uniqueRequests)
+            result.push_back({request.first, request.second});
+        return result;
+    }
+
+    Handle_<MarketFixingSnapshot_> SnapshotGlobalFixings(const Vector_<FixingRequest_>& requests) {
+        const auto dependencies = HistoricalFixingDependencies(requests);
         std::map<String_, FixHistory_> histories;
         MarketFixingSnapshot_::values_t values;
 
         auto history = [&](const String_& indexName) -> const FixHistory_& {
             auto found = histories.find(indexName);
-            if (found == histories.end())
+            if (found == histories.end()) {
+                if (auto* observer = Detail::FixingReadObserver())
+                    observer->BeforeHistory(indexName);
                 found = histories.emplace(indexName, Global::Fixings_().History(indexName)).first;
+            }
             return found->second;
         };
         auto copyAt = [&](const String_& indexName, const DateTime_& fixingTime) {
-            const double* value = FindValue(history(indexName), fixingTime);
-            if (value)
-                values[indexName][fixingTime] = *value;
+            try {
+                const double* value = FindValue(history(indexName), fixingTime);
+                if (value)
+                    values[indexName][fixingTime] = *value;
+            } catch (const std::exception& error) {
+                throw Detail::SnapshotFixingError_(error, {indexName, fixingTime});
+            }
         };
 
-        for (const auto& request : uniqueRequests) {
-            REQUIRE(!request.first.empty(), "Market fixing snapshot request requires a non-empty index name");
-            REQUIRE(request.second.IsValid(), "Market fixing snapshot request requires a valid fixing timestamp");
-            copyAt(request.first, request.second);
-            const std::optional<String_> reverseName = ReverseCanonicalFxName(request.first);
-            if (reverseName.has_value())
-                copyAt(*reverseName, request.second);
-        }
+        for (const auto& request : dependencies)
+            copyAt(request.indexName_, request.fixingTime_);
         return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
     }
 } // namespace Dal
