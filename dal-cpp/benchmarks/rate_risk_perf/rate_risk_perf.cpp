@@ -125,6 +125,44 @@ namespace {
         Bench::DoNotOptimize(&sink);
     }
 
+    void RunPreparedIrsCase(int tradeCount) {
+        const Date_ today(2026, 1, 15);
+        const Date_ start(2026, 10, 15);
+        const auto market = Market(today, Date_(2033, 1, 15));
+        const Vector_<String_> keys{"forecast", "discount"};
+        Vector_<RateTradeDefinition_> trades;
+        for (int i = 0; i < tradeCount; ++i)
+            trades.push_back(IrsTrade(today, start, Date::AddMonths(start, 12 * (1 + i % 4)).AddDays(17), i % 2 == 0));
+        const PreparedRateTrades_ prepared(trades);
+        const auto expected = PriceRateTrades(trades, market);
+        const auto actual = prepared.Price(market);
+        REQUIRE(actual.size() == expected.size(), "Prepared IRS PV width changed");
+        for (int i = 0; i < actual.size(); ++i)
+            REQUIRE(actual[i].succeeded_ && actual[i].pv_ == expected[i].pv_, "Prepared IRS PV differs from ordinary pricing");
+        const auto expectedRisk = RateTradeNodeSensitivitiesBatch(trades, market, keys);
+        const auto actualRisk = prepared.NodeSensitivities(market, keys);
+        REQUIRE(actualRisk.size() == expectedRisk.size(), "Prepared IRS risk width changed");
+        for (int i = 0; i < actualRisk.size(); ++i)
+            REQUIRE(actualRisk[i].result_.eligible_ && actualRisk[i].result_.pv_ == expectedRisk[i].result_.pv_ &&
+                        actualRisk[i].result_.gradient_ == expectedRisk[i].result_.gradient_,
+                    "Prepared IRS full gradient differs from ordinary risk");
+        double sink = 0.0;
+        const std::string suffix = " (" + std::to_string(tradeCount) + " IRS x 8 nodes, fixed maturities)";
+        Bench::Print(Bench::Run(("Rate prepared PV" + suffix).c_str(), [&]() {
+            const auto prices = prepared.Price(market);
+            sink += prices.front().pv_ + prices.back().pv_;
+        }));
+        Bench::Print(Bench::Run(("Rate prepared AAD 2 components" + suffix).c_str(), [&]() {
+            const auto cells = prepared.NodeSensitivities(market, keys);
+            sink += cells.front().result_.pv_ + cells.back().result_.pv_;
+        }));
+        Bench::Print(Bench::Run(("Rate prepare geometry" + suffix).c_str(), [&]() {
+            const PreparedRateTrades_ snapshot(trades);
+            sink += snapshot.Size();
+        }));
+        Bench::DoNotOptimize(&sink);
+    }
+
     RateIndexConvention_ XccyIndex() {
         RateIndexConvention_ result = QuarterlyIndex();
         result.useProjectionCurve_ = true;
@@ -351,5 +389,7 @@ int main() {
     // Append new coverage so the existing cases retain their workload prefix.
     for (const int tradeCount : {32, 256, 1024})
         RunIrsScaleCase(tradeCount);
+    for (const int tradeCount : {32, 256})
+        RunPreparedIrsCase(tradeCount);
     return 0;
 }

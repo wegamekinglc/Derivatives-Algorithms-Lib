@@ -80,6 +80,11 @@ returns `SchedulePeriod_` records carrying unadjusted and accrual dates,
 fixing and payment dates with independent lags and calendars, a stub flag,
 and a `DayBasis::Context_` for coupon-aware day counts.
 
+Day-count contexts share one contiguous storage block per schedule. Each period
+holds an owning alias to its context, so copying a period or context handle
+preserves its lifetime after the schedule is destroyed. Retaining even one
+period's context retains that schedule's complete context block.
+
 `DayBasis_` (`dal-cpp/dal/time/daybasis.hpp`) is the extensible day-count
 enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, and `BOND`
 (30/360). Calling a basis with start and end dates, plus an optional coupon

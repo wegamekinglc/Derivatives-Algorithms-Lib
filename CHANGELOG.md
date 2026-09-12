@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-12
+
+- **Prepared rate-trade pricing** — C++ and Python can retain immutable IRS/OIS/basis
+  coupon geometry across PV and AAD node-risk calls while evaluating current
+  markets and fixings on every call. Third-party performance comparisons include
+  prepared, market-update and cold-construction PV cases. See the
+  [prepared pricing contract](docs/methodology/rate_node_risk.md#repeated-pricing-with-prepared-trades).
+
 ## 2026-09-11
 
 - **Joint quote-risk base graphs and eligibility** — joint risk follows actual

@@ -78,6 +78,10 @@ than treated as equivalent timing. Sobol precision/polish flags match the native
 
 Native-only scale cases in `rate_risk_perf` cover PV and two-component AAD at
 32/256/1,024 IRS with fixed maturity distributions and eight-node curves.
+Appended 32/256-IRS cases measure prepared PV, prepared AAD and geometry
+construction separately, with complete ordinary/prepared PV and gradient
+equality checked before timing. These new native rows are informational when
+the base revision lacks them; existing base rows remain gated.
 
 The single-curve quote portfolios retain the native N=2/5/16 and 1/120-trade
 shapes. Joint XCCY uses five calibrated blocks (domestic discount/forward, foreign
@@ -231,7 +235,7 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 
 ## Third-party comparison
 
-The Linux `Benchmarks` job also runs the same seven common workloads against DAL,
+The Linux `Benchmarks` job also runs thirteen common workloads against DAL,
 QuantLib-Python and rateslib. All three backends must execute every case and pass
 an independent cashflow oracle. Missing dependencies, incorrect results, incomplete
 reports, changed workloads/binaries or process timeouts fail the job and therefore
@@ -266,7 +270,8 @@ local correctness checks; CI always uses full sizes and at least two rounds of t
 fresh processes per backend. Backend order rotates for each sample and reverses
 on the second round. Each process performs a checked preflight, two warmups, then
 one measured invocation per case. Imports, fixture construction, reference values,
-validation and result destruction are outside timing. GC stays enabled, DAL uses
+validation and returned-float-list destruction are outside timing. Instrument
+construction/destruction is timed in the explicit cold cases. GC stays enabled, DAL uses
 four threads, and OMP/OpenBLAS/MKL use one thread.
 
 | Case                | Full workload                                                   |
@@ -278,6 +283,24 @@ four threads, and OMP/OpenBLAS/MKL use one thread.
 | `irs_dv01_256`      | Reprice 256 IRS on two prepared parallel-shifted zero curves    |
 | `irs_node_dv01_32`  | Compute 21 zero-rate node DV01 buckets for each of 32 IRS       |
 | `irs_node_dv01_256` | Compute 21 zero-rate node DV01 buckets for each of 256 IRS      |
+
+The seven cases above retain their original order and timing boundaries. Six
+additional cases at 32 and 256 trades distinguish repeated pricing costs:
+
+- `irs_prepared_pv_*`: instruments and DAL `PreparedRateTrades_` geometry are
+  prepared before timing; each invocation returns every trade PV.
+- `irs_market_update_pv_*`: reuse instruments, price prebuilt +1bp then -1bp
+  markets, and return the full up vector followed by the full down vector.
+  QuantLib relinking and observer notifications are inside timing; switching
+  curves invalidates floating-coupon caches on each leg of every invocation.
+- `irs_cold_pv_*`: construct and destroy native trades/instruments from the same
+  raw term dictionaries inside timing. Curves and markets are built before
+  timing for all backends. This includes DAL term conversion and schedule
+  construction as well as the equivalent third-party instrument construction.
+
+Update cases represent two portfolio valuations; divide by two only when
+reporting an explicitly labelled cost per valuation. All new cases check their
+complete returned vectors against the independent oracle on every invocation.
 
 All cases use valuation date 2025-01-15, USD, ACT/365F, annual fixed and IBOR legs,
 unadjusted dates, no holidays, zero fixing/payment lag, and the same discount and
@@ -321,8 +344,11 @@ All adapters return floats in input order, including conversion cost. QuantLib's
 public `curve_caching` setting is disabled, so discount queries measure interpolation
 rather than cached date lookups, and `ad=0` selects passive pricing outside the
 node-risk cases. QuantLib keeps its constructed schedules/coupons; DAL's public batch
-call owns its internal
-preparation. These are comparisons of the available Python APIs, not isolated
+call owns its internal preparation. On unchanged markets, QuantLib's floating
+coupons may retain cached rates even after the swap's `recalculate()`;
+DAL prepared pricing reevaluates rates and discount factors. The market-update
+case explicitly measures invalidation and fresh pricing. These are comparisons
+of the available Python APIs, not isolated
 identical native kernels.
 
 `results.json` (`dal.python-comparisons/2`) retains raw timings, minimum and median,

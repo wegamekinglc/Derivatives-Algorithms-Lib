@@ -72,3 +72,27 @@ def node_risk_runner(portfolio):
         ]
 
     return lambda: [value for instrument in swaps for value in risk(instrument)]
+
+
+def prepared_pricing_runner(portfolio):
+    return pricing_runner(portfolio, 0.0)
+
+
+def market_update_runner(portfolio):
+    sources = (curve(BUMP), curve(-BUMP))
+    swaps = [swap(value) for value in portfolio]
+    return lambda: [
+        float(instrument.npv(curves=source))
+        for source in sources
+        for instrument in swaps
+    ]
+
+
+def cold_pricing_runner(portfolio):
+    source = curve(0.0)
+
+    def run():
+        swaps = [swap(value) for value in portfolio]
+        return [float(instrument.npv(curves=source)) for instrument in swaps]
+
+    return run

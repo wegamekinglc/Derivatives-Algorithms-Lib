@@ -45,6 +45,30 @@ def test_node_risk_inventory_and_bucket_width():
         assert len(expected(case)) == size * 21
 
 
+def test_pricing_modes_preserve_historical_inventory_and_reject_stale_markets():
+    inventory = cases()
+    assert [case["name"] for case in inventory[:7]] == [
+        "discount_queries",
+        "irs_pv_32",
+        "irs_pv_256",
+        "irs_dv01_32",
+        "irs_dv01_256",
+        "irs_node_dv01_32",
+        "irs_node_dv01_256",
+    ]
+    assert [case["operation"] for case in inventory[7:]] == [
+        operation
+        for operation in ("prepared_pv", "market_update_pv", "cold_pv")
+        for _ in (32, 256)
+    ]
+    case = {"operation": "market_update_pv", "size": 4}
+    reference = expected(case)
+    assert len(reference) == 8
+    assert reference[:4] != reference[4:]
+    with pytest.raises(ValueError, match="mismatch"):
+        validate(reference[:4] * 2, reference)
+
+
 @pytest.mark.parametrize("bad", [[], [float("nan")], [float("inf")], [1e9]])
 def test_invalid_financial_outputs_fail(bad):
     with pytest.raises(ValueError):
@@ -113,7 +137,7 @@ def worker_report(backend="dal", duration=100):
         lambda report: report["results"][0].update(samples_ns=[0]),
         lambda report: report["results"][0].update(samples_ns=[100, 100]),
         lambda report: report["results"][0].update(values=[1e9] * 4),
-        lambda report: report["results"][-1].update(method="central finite difference"),
+        lambda report: report["results"][6].update(method="central finite difference"),
     ],
 )
 def test_invalid_worker_evidence_fails(mutate):
@@ -247,7 +271,7 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     report = json.loads((args.output_dir / "results.json").read_text())
     row = report["rounds"][0]["cases"][0]
     assert row["third_party_over_dal"] == {"quantlib": 0.5, "rateslib": 0.25}
-    risk = report["rounds"][0]["cases"][-1]
+    risk = report["rounds"][0]["cases"][6]
     assert risk["backends"]["dal"]["method"] == "reverse AAD"
     assert risk["backends"]["rateslib"]["method"] == "forward AD (Dual)"
     assert risk["backends"]["quantlib"]["method"] == "central finite difference"

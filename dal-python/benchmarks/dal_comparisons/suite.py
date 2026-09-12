@@ -24,8 +24,15 @@ def prepare(backend, case):
         def run():
             return [(a - b) / 2 for a, b in zip(up(), down())]
 
-    else:
+    elif case["operation"] == "node_dv01":
         run = adapter.node_risk_runner(trades(case["size"]))
+    else:
+        runners = {
+            "prepared_pv": adapter.prepared_pricing_runner,
+            "market_update_pv": adapter.market_update_runner,
+            "cold_pv": adapter.cold_pricing_runner,
+        }
+        run = runners[case["operation"]](trades(case["size"]))
 
     return Workload(
         run, lambda result: validate(result, reference, abs_tol=tolerance(case))

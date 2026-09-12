@@ -158,6 +158,14 @@ def summary(report):
         "Curve construction is excluded; differentiation, conversion and "
         "QuantLib relinking/repricing are timed.",
         "",
+        "PV timing boundaries: historical pv keeps each existing API path; "
+        "prepared_pv reuses instruments and DAL coupon geometry; "
+        "market_update_pv returns +1bp then -1bp PV vectors and includes "
+        "QuantLib relinking/notifications; cold_pv constructs and destroys "
+        "instruments inside timing. Curves/markets are built before timing. "
+        "On unchanged markets QuantLib floating coupons may remain cached "
+        "even with swap.recalculate(); DAL prepared pricing recomputes rates.",
+        "",
     ]
     if report["status"] != "passed":
         lines += [f"Error: {report['error']}", "See the retained worker logs.", ""]

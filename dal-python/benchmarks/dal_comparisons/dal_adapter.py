@@ -75,14 +75,18 @@ def discount_runner(dates):
     return lambda: [source(anchor, value) for value in native_dates]
 
 
-def pricing_inputs(portfolio, shift):
+def pricing_market(shift):
     source = curve(shift)
-    market = dal.RatePricingMarket_(
+    return dal.RatePricingMarket_(
         valuation_time=dal.DateTime_(date(TODAY), 9, 0),
         result_currency="USD",
         curve_components={"curve": source},
         fixings=dal.MarketFixingSnapshot_New({}),
     )
+
+
+def pricing_inputs(portfolio, shift):
+    market = pricing_market(shift)
     native_trades = [swap(value, i) for i, value in enumerate(portfolio)]
     return native_trades, market
 
@@ -93,6 +97,45 @@ def pricing_runner(portfolio, shift):
     def run():
         rows = dal.PriceRateTrades(trades=native_trades, market=market)
         # Native failures are data; NaN makes the common out-of-timer validator fail.
+        return [row.pv if row.succeeded else float("nan") for row in rows]
+
+    return run
+
+
+def prepared_pricing_runner(portfolio):
+    native_trades, market = pricing_inputs(portfolio, 0.0)
+    prepared = dal.PreparedRateTrades_New(trades=native_trades)
+
+    def run():
+        rows = dal.PreparedRateTrades_Get_Prices(prepared=prepared, market=market)
+        return [row.pv if row.succeeded else float("nan") for row in rows]
+
+    return run
+
+
+def market_update_runner(portfolio):
+    native_trades, up = pricing_inputs(portfolio, BUMP)
+    down = pricing_market(-BUMP)
+    prepared = dal.PreparedRateTrades_New(trades=native_trades)
+
+    def run():
+        return [
+            row.pv if row.succeeded else float("nan")
+            for market in (up, down)
+            for row in dal.PreparedRateTrades_Get_Prices(
+                prepared=prepared, market=market
+            )
+        ]
+
+    return run
+
+
+def cold_pricing_runner(portfolio):
+    market = pricing_market(0.0)
+
+    def run():
+        native_trades = [swap(value, i) for i, value in enumerate(portfolio)]
+        rows = dal.PriceRateTrades(trades=native_trades, market=market)
         return [row.pv if row.succeeded else float("nan") for row in rows]
 
     return run

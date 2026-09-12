@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <exception>
 #include <optional>
 #include <set>
 #include <type_traits>
@@ -45,6 +46,55 @@ namespace Dal {
             return BuildLegPeriods<CouponPeriod_>(start, maturity, leg, fixingLag, fixingHolidays);
         }
 
+        class PreparedCashflows_ {
+            struct Leg_ {
+                const RateLegConvention_* convention_ = nullptr;
+                Vector_<CouponPeriod_> periods_;
+                std::exception_ptr error_;
+            };
+            std::array<Leg_, 2> legs_;
+
+        public:
+            explicit PreparedCashflows_(const RateTradeDefinition_& trade) {
+                int index = 0;
+                const auto prepare = [&](const RateLegConvention_& convention, int fixingLag, const Holidays_& holidays) {
+                    auto& leg = legs_[index++];
+                    leg.convention_ = &convention;
+                    try {
+                        leg.periods_ = BuildCouponPeriods(trade.startDate_, trade.maturityDate_, convention, fixingLag, holidays);
+                    } catch (const std::exception&) {
+                        // Replay at the original leg-consumption boundary to retain failure precedence.
+                        leg.error_ = std::current_exception();
+                    }
+                };
+                std::visit(
+                    [&](const auto& terms) {
+                        using terms_t = std::decay_t<decltype(terms)>;
+                        if constexpr (std::is_same_v<terms_t, IrsTradeTerms_> || std::is_same_v<terms_t, OisTradeTerms_>) {
+                            prepare(terms.value_.floatLeg_, terms.value_.floatIndex_.fixingLag_, terms.value_.floatIndex_.fixingHolidays_);
+                            prepare(terms.value_.fixedLeg_, 0, Holidays::None());
+                        } else if constexpr (std::is_same_v<terms_t, BasisTradeTerms_>) {
+                            prepare(terms.spreadLeg_, terms.spreadIndex_.fixingLag_, terms.spreadIndex_.fixingHolidays_);
+                            prepare(terms.referenceLeg_, terms.referenceIndex_.fixingLag_, terms.referenceIndex_.fixingHolidays_);
+                        }
+                    },
+                    trade.terms_);
+            }
+
+            const Vector_<CouponPeriod_>& Leg(const RateLegConvention_& convention) const {
+                for (const auto& leg : legs_) {
+                    if (leg.convention_ != &convention)
+                        continue;
+                    if (leg.error_)
+                        std::rethrow_exception(leg.error_);
+                    return leg.periods_;
+                }
+                THROW("Prepared rate trade does not own the requested leg");
+            }
+        };
+
+        using PreparedCashflowMap_ = std::map<const RateTradeDefinition_*, PreparedCashflows_>;
+
         // Owned by one valuation request. Each leg is prepared at its original validation
         // boundary, then read unchanged by diagnostics, passive pricing and active sweeps.
         // Only date/accrual geometry is retained; no curve values or tape objects are cached.
@@ -54,10 +104,16 @@ namespace Dal {
                 Vector_<CouponPeriod_> periods_;
             };
             std::array<Leg_, 2> legs_;
+            const PreparedCashflows_* prepared_ = nullptr;
 
         public:
+            RequestCashflows_() = default;
+            explicit RequestCashflows_(const PreparedCashflows_* prepared) : prepared_(prepared) {}
+
             const Vector_<CouponPeriod_>&
             Leg(const RateTradeDefinition_& trade, const RateLegConvention_& convention, int fixingLag, const Holidays_& fixingHolidays) {
+                if (prepared_)
+                    return prepared_->Leg(convention);
                 for (const auto& leg : legs_)
                     if (leg.convention_ == &convention)
                         return leg.periods_;
@@ -921,7 +977,8 @@ namespace Dal {
         // contract 2; P0 stays serial — nothing here dispatches onto the thread pool).
         class NodeSensitivitySweeper_ {
         public:
-            explicit NodeSensitivitySweeper_(const RatePricingMarket_& market) : market_(market) {}
+            explicit NodeSensitivitySweeper_(const RatePricingMarket_& market, const PreparedCashflowMap_* preparedCashflows = nullptr)
+                : market_(market), preparedCashflows_(preparedCashflows) {}
 
             RateTradeNodeSensitivityResult_ Sweep(const RateTradeDefinition_& trade, const String_& componentKey, bool jointCoordinates = false) {
                 using namespace RateCashflowPricingInternal;
@@ -968,6 +1025,11 @@ namespace Dal {
             RequestCashflows_* CashflowsFor(const RateTradeDefinition_& trade) {
                 if (!UsesCouponLegs(trade))
                     return nullptr;
+                if (preparedCashflows_) {
+                    const auto prepared = preparedCashflows_->find(&trade);
+                    if (prepared != preparedCashflows_->end())
+                        return &cashflows_.try_emplace(&trade, &prepared->second).first->second;
+                }
                 return &cashflows_.try_emplace(&trade).first->second;
             }
 
@@ -1216,6 +1278,7 @@ namespace Dal {
             // Keep the existing passive-result layout for single-period portfolios.
             // Only trades that use coupon legs own an entry in this separate cache.
             std::map<const RateTradeDefinition_*, RequestCashflows_> cashflows_;
+            const PreparedCashflowMap_* preparedCashflows_ = nullptr;
             std::map<const RateTradeDefinition_*, Vector_<String_>> dependencyKeys_;
             // Joint and standalone coordinates require different hoist preparation.
             std::array<std::map<const RateTradeDefinition_*, XccyNodeSensitivityHoist_>, 2> xccyHoists_;
@@ -1297,6 +1360,35 @@ namespace Dal {
             return result;
         }
     } // namespace
+
+    struct PreparedRateTrades_::Data_ {
+        Vector_<RateTradeDefinition_> trades_;
+        PreparedCashflowMap_ cashflows_;
+
+        explicit Data_(Vector_<RateTradeDefinition_> trades) : trades_(std::move(trades)) {
+            for (const auto& trade : trades_)
+                if (UsesCouponLegs(trade) && TermsMatchFamily(trade) && trade.tradeDate_.IsValid() && trade.startDate_.IsValid() &&
+                    trade.maturityDate_.IsValid() && trade.startDate_ < trade.maturityDate_)
+                    cashflows_.try_emplace(&trade, trade);
+        }
+    };
+
+    PreparedRateTrades_::PreparedRateTrades_(Vector_<RateTradeDefinition_> trades) : data_(std::make_shared<Data_>(std::move(trades))) {}
+
+    int PreparedRateTrades_::Size() const { return data_ ? static_cast<int>(data_->trades_.size()) : 0; }
+
+    Vector_<RatePricingTradeResult_> PreparedRateTrades_::Price(const RatePricingMarket_& market) const {
+        Vector_<RatePricingTradeResult_> result;
+        if (!data_)
+            return result;
+        result.reserve(data_->trades_.size());
+        for (const auto& trade : data_->trades_) {
+            const auto prepared = data_->cashflows_.find(&trade);
+            RequestCashflows_ cashflows(prepared == data_->cashflows_.end() ? nullptr : &prepared->second);
+            result.push_back(PriceRateTradePrepared(trade, market, &cashflows));
+        }
+        return result;
+    }
 
     RateCashflowPlan_ BuildRateCashflowPlan(const RateTradeDefinition_& trade, const DateTime_& valuationTime) {
         RequestCashflows_ cashflows;
@@ -1429,6 +1521,14 @@ namespace Dal {
             return ordered;
         }
     } // namespace
+
+    Vector_<RateTradeNodeSensitivityCell_> PreparedRateTrades_::NodeSensitivities(const RatePricingMarket_& market,
+                                                                                  const Vector_<String_>& componentKeys) const {
+        if (!data_)
+            return {};
+        NodeSensitivitySweeper_ sweeper(market, &data_->cashflows_);
+        return SweepBatchCells(sweeper, data_->trades_, componentKeys);
+    }
 
     Vector_<RateTradeNodeSensitivityCell_> RateTradeNodeSensitivitiesBatch(const Vector_<RateTradeDefinition_>& trades,
                                                                            const RatePricingMarket_& market,

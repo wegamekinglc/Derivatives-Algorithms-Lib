@@ -59,6 +59,71 @@ def test_keyword_only_deposit_pricing_calls_native_cashflow_kernel():
     assert aad.reason == ""  # nosec B101
 
 
+def test_prepared_pricing_owns_inputs_and_preserves_price_risk_failures():
+    valid, market = _deposit_inputs()
+    invalid, _ = _deposit_inputs(notional=float("nan"))
+    trades = [valid, invalid, valid]
+    prepared = dal.PreparedRateTrades_New(trades=trades)
+    expected = dal.PriceRateTrades(trades=trades, market=market)
+    expected_risk = dal.RateTradeNodeSensitivitiesBatch(
+        trades=trades, market=market, component_keys=["discount", "missing", "discount"]
+    )
+    trades.clear()
+    assert prepared.size == 3
+    for _ in range(2):
+        actual = dal.PreparedRateTrades_Get_Prices(prepared=prepared, market=market)
+        risk = dal.PreparedRateTrades_Get_NodeSensitivities(
+            prepared=prepared,
+            market=market,
+            component_keys=["discount", "missing", "discount"],
+        )
+        assert [
+            (r.succeeded, r.pv, r.error, r.dependency_component_keys) for r in actual
+        ] == [
+            (r.succeeded, r.pv, r.error, r.dependency_component_keys) for r in expected
+        ]
+        assert [
+            (
+                c.component_key,
+                c.result.eligible,
+                c.result.pv,
+                c.result.gradient,
+                c.result.reason,
+            )
+            for c in risk
+        ] == [
+            (
+                c.component_key,
+                c.result.eligible,
+                c.result.pv,
+                c.result.gradient,
+                c.result.reason,
+            )
+            for c in expected_risk
+        ]
+    with pytest.raises(TypeError):
+        dal.PreparedRateTrades_New([valid])
+    with pytest.raises(TypeError):
+        dal.PreparedRateTrades_Get_Prices(prepared, market)
+    with pytest.raises(TypeError):
+        dal.PreparedRateTrades_Get_NodeSensitivities(prepared, market, ["discount"])
+    with pytest.raises(TypeError):
+        dal.PreparedRateTrades_Get_NodeSensitivities(
+            prepared=prepared, market=market, component_keys=("discount",)
+        )
+    with pytest.raises(AttributeError):
+        prepared.size = 0
+    empty = dal.PreparedRateTrades_New(trades=[])
+    assert empty.size == 0
+    assert dal.PreparedRateTrades_Get_Prices(prepared=empty, market=market) == []
+    assert (
+        dal.PreparedRateTrades_Get_NodeSensitivities(
+            prepared=empty, market=market, component_keys=["discount"]
+        )
+        == []
+    )
+
+
 def test_invalid_deposit_node_sensitivity_is_canonical_and_does_not_raise():
     trade, market = _deposit_inputs(notional=float("nan"))
 
@@ -249,7 +314,8 @@ def test_aggregate_portfolio_node_risk_binding_remains_keyword_only_and_read_onl
         aggregate.meta[0].eligible = False
 
 
-def test_rate_risk_batch_releases_gil_for_the_whole_native_execution():
+@pytest.mark.parametrize("use_prepared", [False, True])
+def test_rate_risk_batch_releases_gil_for_the_whole_native_execution(use_prepared):
     import sys
     import threading
 
@@ -265,6 +331,7 @@ def test_rate_risk_batch_releases_gil_for_the_whole_native_execution():
             heartbeat_count[0] += 1
 
     trade, market = _batch_inputs()
+    prepared = dal.PreparedRateTrades_New(trades=[trade]) if use_prepared else None
     previous_interval = sys.getswitchinterval()
     sys.setswitchinterval(1.0)
     try:
@@ -273,7 +340,14 @@ def test_rate_risk_batch_releases_gil_for_the_whole_native_execution():
         assert ready.wait(timeout=5.0)  # nosec B101
         dal._dal._RateRiskGilBarrier_EnableForTesting(75)
         started.set()
-        dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount"])
+        if use_prepared:
+            dal.PreparedRateTrades_Get_NodeSensitivities(
+                prepared=prepared, market=market, component_keys=["discount"]
+            )
+        else:
+            dal.RateTradeNodeSensitivitiesBatch(
+                trades=[trade], market=market, component_keys=["discount"]
+            )
         count_seen_on_return = heartbeat_count[0]
     finally:
         stopped.set()
@@ -287,7 +361,9 @@ def test_batch_partial_key_lists_stay_canonical_per_cell():
     """Key-list composition discrimination: existing-only, missing-only, mixed, and empty."""
     trade, market = _batch_inputs()
 
-    only_existing = dal.RateTradeNodeSensitivitiesBatch(trades=[trade], market=market, component_keys=["discount"])
+    only_existing = dal.RateTradeNodeSensitivitiesBatch(
+        trades=[trade], market=market, component_keys=["discount"]
+    )
     assert len(only_existing) == 1  # nosec B101
     assert only_existing[0].result.eligible is True  # nosec B101
 

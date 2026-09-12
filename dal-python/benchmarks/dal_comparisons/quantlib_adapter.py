@@ -105,3 +105,33 @@ def node_risk_runner(portfolio):
         return [value for row in zip(*buckets) for value in row]
 
     return run
+
+
+def prepared_pricing_runner(portfolio):
+    return pricing_runner(portfolio, 0.0)
+
+
+def market_update_runner(portfolio):
+    ql.Settings.instance().evaluationDate = date(TODAY)
+    up, down = curve(BUMP), curve(-BUMP)
+    handle = ql.RelinkableYieldTermStructureHandle(down)
+    swaps = [swap(value, handle) for value in portfolio]
+
+    def run():
+        handle.linkTo(up)
+        high = prices(swaps)
+        handle.linkTo(down)
+        return high + prices(swaps)
+
+    return run
+
+
+def cold_pricing_runner(portfolio):
+    ql.Settings.instance().evaluationDate = date(TODAY)
+    handle = ql.YieldTermStructureHandle(curve(0.0))
+
+    def run():
+        swaps = [swap(value, handle) for value in portfolio]
+        return prices(swaps)
+
+    return run
