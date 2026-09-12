@@ -176,6 +176,16 @@ namespace Dal::Script {
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
 
+    template <class T_> void ValidateSimulationPath(const Scenario_<T_>& path) {
+        for (const auto& sample : path) {
+            REQUIRE2(std::isfinite(Value(sample.spot_)), "InvalidModelPath: non-finite spot", ScriptError_);
+            REQUIRE2(std::isfinite(Value(sample.numeraire_)) && Value(sample.numeraire_) > 0.0,
+                     "InvalidModelPath: non-finite or nonpositive numeraire", ScriptError_);
+            for (const auto& observation : sample.observations_)
+                REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
+        }
+    }
+
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
                              const Handle_<ModelData_>& modelData,
@@ -188,28 +198,29 @@ namespace Dal::Script {
         THROW("not implemented");
     }
 
-    template <>
-    inline SimResults_ MCSimulation<double>(const ScriptProduct_& product,
-                                            const Handle_<ModelData_>& modelData,
-                                            size_t nPaths,
-                                            const String_& rsg,
-                                            bool useBb,
-                                            std::optional<bool> compiled,
-                                            int maxNestedIfs,
-                                            double eps) {
+    template <class P_>
+    SimResults_ MCDoubleSimulation(const P_& product,
+                                   AAD::Model_<double>* mdl,
+                                   size_t nPaths,
+                                   const String_& rsg,
+                                   bool useBb,
+                                   std::optional<bool> compiled,
+                                   bool initialized = false) {
         product.RequireExecutable();
+        ValidateRNG(rsg);
         const bool useCompiled = compiled.value_or(false);
+
+        if (product.EventDates().empty())
+            return SimResults_(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
             compiledProduct.emplace(product.Compile());
 
-        auto mdl = CreateModel<double>(modelData);
-        if (product.EventDates().empty())
-            return SimResults_(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
-
-        mdl->Allocate(product.TimeLine(), product.DefLine());
-        mdl->Init(product.TimeLine(), product.DefLine());
+        if (!initialized) {
+            mdl->Allocate(product.TimeLine(), product.DefLine());
+            mdl->Init(product.TimeLine(), product.DefLine());
+        }
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
@@ -223,9 +234,9 @@ namespace Dal::Script {
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
-            ThreadState_(const ScriptProduct_& product, size_t dimensions, const String_& rsg, bool useBb)
-                : random_(CreateRNG(rsg, dimensions, useBb)), gauss_(dimensions), evaluator_(product.BuildEvaluator<double>()),
-                  compiledState_(product.BuildEvalState<double>()) {
+            ThreadState_(const P_& product, size_t dimensions, const String_& rsg, bool useBb)
+                : random_(CreateRNG(rsg, dimensions, useBb)), gauss_(dimensions), evaluator_(product.template BuildEvaluator<double>()),
+                  compiledState_(product.template BuildEvalState<double>()) {
                 AllocatePath(product.DefLine(), path_);
                 InitializePath(path_);
             }
@@ -257,25 +268,24 @@ namespace Dal::Script {
                 Vector_<>& gaussVec = state->gauss_;
                 Scenario_<>& path = state->path_;
                 auto& random = state->random_;
-                random->SkipTo(firstPath);
+                if (random)
+                    random->SkipTo(firstPath);
                 double sumValue = 0.0;
-                if (useCompiled) {
-                    EvalState_<double>& evalState = state->compiledState_;
+                auto runPaths = [&](auto& evaluator, const auto& evaluate) {
                     for (size_t i = 0; i < pathsInTask; ++i) {
-                        random->FillNormal(&gaussVec);
+                        if (random)
+                            random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
-                        compiledProduct->Evaluate(path, evalState);
-                        sumValue += evalState.VarVals()[payoffIndex];
+                        ValidateSimulationPath(path);
+                        evaluate(path, evaluator);
+                        REQUIRE2(std::isfinite(evaluator.VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
+                        sumValue += evaluator.VarVals()[payoffIndex];
                     }
-                } else {
-                    Evaluator_<double>& eval = state->evaluator_;
-                    for (size_t i = 0; i < pathsInTask; ++i) {
-                        random->FillNormal(&gaussVec);
-                        mdl->GeneratePath(gaussVec, &path);
-                        product.Evaluate(path, eval);
-                        sumValue += eval.VarVals()[payoffIndex];
-                    }
-                }
+                };
+                if (useCompiled)
+                    runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); });
+                else
+                    runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); });
                 simResults[batchIndex] = sumValue;
                 return true;
             });
@@ -288,6 +298,20 @@ namespace Dal::Script {
     }
 
     template <>
+    inline SimResults_ MCSimulation<double>(const ScriptProduct_& product,
+                                            const Handle_<ModelData_>& modelData,
+                                            size_t nPaths,
+                                            const String_& rsg,
+                                            bool useBb,
+                                            std::optional<bool> compiled,
+                                            int maxNestedIfs,
+                                            double eps) {
+        product.RequireExecutable();
+        auto model = CreateModel<double>(modelData);
+        return MCDoubleSimulation(product, model.get(), nPaths, rsg, useBb, compiled);
+    }
+
+    template <>
     inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
                                                   const Handle_<ModelData_>& modelData,
                                                   size_t nPaths,
@@ -297,6 +321,8 @@ namespace Dal::Script {
                                                   int maxNestedIfs,
                                                   double eps) {
         product.RequireExecutable();
+        ValidateRNG(rsg);
+        REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(), "UnsupportedExecutionMode: historical AAD replay", ScriptError_);
         const bool useCompiled = compiled.value_or(false);
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -340,7 +366,8 @@ namespace Dal::Script {
                 Scenario_<AAD::Number_> path;
                 AllocatePath(product.DefLine(), path);
                 InitializePath(path);
-                random->SkipTo(firstPath);
+                if (random)
+                    random->SkipTo(firstPath);
 
                 double sumValue = 0.0;
                 auto& results = simResults(threadNum);
@@ -349,10 +376,13 @@ namespace Dal::Script {
                     InitModel4ParallelAAD(product, *model, path, evaluator);
                     for (size_t i = 0; i < pathsInTask; i++) {
                         AAD::RewindToMark(*AAD::Tape());
-                        random->FillNormal(&gVec);
+                        if (random)
+                            random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
+                        ValidateSimulationPath(path);
                         evaluate(path, evaluator);
                         AAD::Number_ res = evaluator.VarVals()[payoffIndex];
+                        REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
                         Adjoint(res) = 1.0;
                         AAD::PropagateToMark(*AAD::Tape());
                         sumValue += Value(res);
@@ -403,8 +433,30 @@ namespace Dal::Script {
                              std::optional<bool> compiled = std::nullopt,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
-        REQUIRE2(prepared.AllExpired(), "UnsupportedExecutionMode: prepared FIX evaluation is not yet supported", ScriptError_);
-        const auto model = CreateModel<double>(modelData);
-        return SimResults_(Vector::Join(model->ParameterLabels(), prepared.Product().ConstVarNames()));
+        prepared.RequireExecutable();
+        REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
+        ValidateRNG(rsg);
+        REQUIRE2((prepared.AllExpired() || std::is_same_v<T_, double>), "UnsupportedExecutionMode: prepared AAD evaluation", ScriptError_);
+        auto model = CreateModel<double>(modelData);
+        if (prepared.AllExpired())
+            return SimResults_(Vector::Join(model->ParameterLabels(), prepared.Product().ConstVarNames()));
+        return MCDoubleSimulation(prepared, model.get(), nPaths, rsg, useBb, compiled);
+    }
+
+    template <class T_>
+    SimResults_ MCSimulation(const ScriptProductData_& data,
+                             const Handle_<ModelData_>& modelData,
+                             size_t nPaths,
+                             const ScriptValuationSettings_& settings,
+                             const MonteCarloSettings_& simulation = {},
+                             const Handle_<MarketFixingSnapshot_>& snapshot = {},
+                             const ScriptProductSettings_& contract = {}) {
+        auto execution = simulation;
+        REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
+        ValidateRNG(execution.rsg_);
+        execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;
+        auto model = CreateModel<double>(modelData);
+        const auto prepared = PrepareScript(data, model.get(), settings, execution, snapshot, contract);
+        return MCDoubleSimulation(prepared, model.get(), nPaths, execution.rsg_, execution.useBb_, execution.compiled_, true);
     }
 } // namespace Dal::Script

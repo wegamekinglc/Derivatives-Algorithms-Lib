@@ -61,11 +61,7 @@ namespace {
     }
 } // namespace
 
-TEST(PastEvaluatorTest, TestSpotPushesPlaceholder) {
-    // Known limitation locked in: past evaluation prices spot() as 30.0.
-    const auto [statements, vals] = PastEvaluateSource("x = spot()");
-    ASSERT_DOUBLE_EQ(vals[0], 30.0);
-}
+TEST(PastEvaluatorTest, TestUnboundHistoricalSpotRejected) { ASSERT_THROW(PastEvaluateSource("x = spot()"), ScriptError_); }
 
 TEST(PastEvaluatorTest, TestPaysDoesNotAccumulate) {
     const auto [statements, vals] = PastEvaluateSource("call pays 5");

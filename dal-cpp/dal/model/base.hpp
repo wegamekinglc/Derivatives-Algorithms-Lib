@@ -4,15 +4,29 @@
 
 #pragma once
 
-#include <dal/storage/storable.hpp>
+#include <dal/indice/index/equity.hpp>
+#include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/storage/storable.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    class Index_;
+
+    struct ModelIndexBinding_ {
+        String_ assetName_;
+        String_ indexName_;
+    };
+
     namespace AAD {
+        inline bool IsPlainEquity(const Index_& index) {
+            const auto* equity = dynamic_cast<const Index::Equity_*>(&index);
+            return equity && typeid(index) == typeid(Index::Equity_) && equity->Name() == Index::Equity_(equity->eqName_).Name();
+        }
+
         template <class T_ = double> class Model_ {
             inline static const Vector_<String_>& DefaultAssetNames() {
                 static Vector_<String_> defaultAssetNames_ = {"spot"};
@@ -20,6 +34,24 @@ namespace Dal {
             }
 
         public:
+            [[nodiscard]] virtual bool SupportsIndex(const Index_& index) const { return false; }
+
+            void ValidateTimeline(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) const {
+                REQUIRE(!timeline.empty() && timeline.size() == definitions.size(), "InvalidModelTimeline: sample definitions must match dates");
+                String_ indexName;
+                for (size_t i = 0; i < timeline.size(); ++i) {
+                    REQUIRE(std::isfinite(timeline[i]) && timeline[i] >= 0.0 && (i == 0 || timeline[i] > timeline[i - 1]),
+                            "InvalidModelTimeline: times must be nonnegative, finite and strictly increasing");
+                    REQUIRE(definitions[i].indexNames_.size() <= 1, "UnsupportedModelObservation: one EQ output per sample");
+                    for (const auto& name : definitions[i].indexNames_) {
+                        const Handle_<Index_> index(Index::Parse(name));
+                        REQUIRE(index && SupportsIndex(*index), "UnsupportedModelObservation: " + name);
+                        REQUIRE(indexName.empty() || indexName == index->Name(), "UnsupportedModelObservation: multiple future indices");
+                        indexName = index->Name();
+                    }
+                }
+            }
+
             [[nodiscard]] virtual size_t NumAssets() const { return 1; }
 
             [[nodiscard]] virtual const Vector_<String_>& AssetNames() const { return DefaultAssetNames(); }

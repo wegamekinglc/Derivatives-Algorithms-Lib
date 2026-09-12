@@ -165,6 +165,7 @@ namespace Dal::Script {
         }
 
         void IndexVariables();
+        void InitializePastObservations(const ObservationPlan_& plan);
         [[nodiscard]] Vector_<> PastEvaluate() const;
         size_t IFProcess();
         void DomainProcess(bool fuzzy);
