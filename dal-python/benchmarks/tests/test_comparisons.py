@@ -10,7 +10,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from dal_comparisons.scenarios import cases, expected, method, validate
+from dal_comparisons.scenarios import (
+    cases,
+    expected,
+    method,
+    unsupported_reason,
+    validate,
+)
 from dal_comparisons.suite import prepare
 from dal_comparisons import compare
 from dal_comparisons.evidence import SCHEMA, check_report, source_hashes
@@ -20,6 +26,10 @@ from dal_comparisons.scenarios import CONVENTIONS
 @pytest.mark.parametrize("backend", ["dal", "quantlib", "rateslib"])
 @pytest.mark.parametrize("case", cases(smoke=True), ids=lambda case: case["name"])
 def test_backends_match_independent_cashflows(backend, case):
+    if unsupported_reason(backend, case):
+        with pytest.raises(ValueError, match=unsupported_reason(backend, case)):
+            prepare(backend, case)
+        return
     work = prepare(backend, case)
     first = work.run()
     work.validate(first)
@@ -56,7 +66,7 @@ def test_pricing_modes_preserve_historical_inventory_and_reject_stale_markets():
         "irs_node_dv01_32",
         "irs_node_dv01_256",
     ]
-    assert [case["operation"] for case in inventory[7:]] == [
+    assert [case["operation"] for case in inventory[7:13]] == [
         operation
         for operation in ("prepared_pv", "market_update_pv", "cold_pv")
         for _ in (32, 256)
@@ -90,6 +100,22 @@ def test_smoke_preserves_case_inventory_but_reduces_sizes():
     assert all(math.isfinite(value) for case in smoke for value in expected(case))
 
 
+def worker_row(backend, case, duration):
+    reason = unsupported_reason(backend, case)
+    if reason:
+        return dict(
+            name=case["name"], workload=case, status="unsupported", reason=reason
+        )
+    return dict(
+        name=case["name"],
+        workload=case,
+        status="passed",
+        samples_ns=[duration],
+        values=expected(case),
+        method=method(backend, case),
+    )
+
+
 def worker_report(backend="dal", duration=100):
     return {
         "schema": SCHEMA,
@@ -106,17 +132,7 @@ def worker_report(backend="dal", duration=100):
             "python": "3.13",
             "thread_environment": {},
         },
-        "results": [
-            dict(
-                name=case["name"],
-                workload=case,
-                status="passed",
-                samples_ns=[duration],
-                values=expected(case),
-                method=method(backend, case),
-            )
-            for case in cases(smoke=True)
-        ],
+        "results": [worker_row(backend, case, duration) for case in cases(smoke=True)],
     }
 
 
@@ -276,6 +292,21 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     assert risk["backends"]["rateslib"]["method"] == "forward AD (Dual)"
     assert risk["backends"]["quantlib"]["method"] == "central finite difference"
     assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
+
+
+def test_unsupported_capabilities_have_no_aggregate_timing_or_ratio():
+    reports = {backend: [worker_report(backend)] for backend in compare.BACKENDS}
+    rows = {row["workload"]["name"]: row for row in compare.aggregate(reports, True)}
+    for name, backend in (
+        ("mc_barrier_greeks_65536", "rateslib"),
+        ("calibration_xccy_joint_15", "quantlib"),
+    ):
+        row = rows[name]
+        assert row["backends"][backend] == {
+            "status": "unsupported",
+            "reason": unsupported_reason(backend, row["workload"]),
+        }
+        assert backend not in row["third_party_over_dal"]
 
 
 def test_provenance_drift_fails_between_samples(tmp_path, monkeypatch):

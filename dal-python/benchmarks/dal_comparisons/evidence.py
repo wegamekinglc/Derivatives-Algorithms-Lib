@@ -7,9 +7,17 @@ from pathlib import Path
 import statistics
 
 from dal_benchmarks.harness import require
-from .scenarios import CONVENTIONS, cases, expected, method, tolerance, validate
+from .scenarios import (
+    CONVENTIONS,
+    cases,
+    expected,
+    method,
+    tolerance,
+    unsupported_reason,
+    validate,
+)
 
-SCHEMA = "dal.python-comparisons/2"
+SCHEMA = "dal.python-comparisons/3"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -54,6 +62,16 @@ def backend_files(backend):
 
 
 def check_row(row, case, backend):
+    reason = unsupported_reason(backend, case)
+    if reason:
+        require(
+            row
+            == dict(
+                name=case["name"], workload=case, status="unsupported", reason=reason
+            ),
+            "invalid unsupported comparison evidence",
+        )
+        return
     require(row["status"] == "passed", "worker case failed")
     require(row["workload"] == case, "comparison workload changed")
     require(

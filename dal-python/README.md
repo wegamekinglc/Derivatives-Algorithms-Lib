@@ -431,9 +431,9 @@ Tests are located in `tests/` and cover:
 
 ## Performance Benchmarks
 
-The [Python benchmark suite](benchmarks/README.md) provides 72 public-interface
+The [Python benchmark suite](benchmarks/README.md) provides 90 public-interface
 workloads mapped to the C++ benchmark inventory: RNG, script construction and MC,
-single-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
+single/multi-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
 It records raw samples, workload sizes, native-module identity, and a Markdown summary.
 
 From `dal-python/`, using a current installed wheel or editable build:
@@ -445,14 +445,17 @@ python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
 ```
 
 The normal pytest suite checks every workload at smoke scale without a speed
-threshold. Linux CI also gates all 72 full-scale cases against independent base/head
+threshold. Linux CI also gates all 90 full-scale cases against independent base/head
 builds, using two rounds of ten interleaved processes and a strict 4% threshold in
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
-The Linux gate also requires seven common workloads to run against DAL,
-QuantLib-Python and rateslib with matching numerical results. Its report shows
-discount-query, IRS pricing, parallel zero-curve DV01 and full node DV01 timings.
+The Linux gate also checks 31 comparison workloads against DAL,
+QuantLib-Python and rateslib with independent numerical oracles. Its report covers
+discount queries, IRS PV and DV01, Monte Carlo vanilla/barrier prices and
+Delta/Vega/Rho, plus single, staged/joint multi-curve and XCCY calibration.
+Rateslib equity MC and QuantLib simultaneous joint calibration are explicitly
+unsupported; every other case must complete successfully.
 Node risk uses DAL reverse AAD, rateslib forward AD and QuantLib finite differences,
 with each algorithm identified in the evidence. Third-party dependencies are pinned
 separately for benchmarks; they are not DAL runtime dependencies. See the

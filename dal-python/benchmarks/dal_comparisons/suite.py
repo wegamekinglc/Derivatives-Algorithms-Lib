@@ -3,7 +3,15 @@
 from importlib import import_module
 
 from dal_benchmarks.harness import Workload
-from .scenarios import BUMP, expected, queries, tolerance, trades, validate
+from .scenarios import (
+    BUMP,
+    expected,
+    queries,
+    tolerance,
+    trades,
+    unsupported_reason,
+    validate,
+)
 
 BACKENDS = ("dal", "quantlib", "rateslib")
 
@@ -11,8 +19,23 @@ BACKENDS = ("dal", "quantlib", "rateslib")
 def prepare(backend, case):
     if backend not in BACKENDS:
         raise ValueError(f"unknown comparison backend: {backend}")
-    adapter = import_module(f"dal_comparisons.{backend}_adapter")
+    reason = unsupported_reason(backend, case)
+    if reason:
+        raise ValueError(reason)
     reference = expected(case)
+    if case["operation"].startswith("mc_") or case["operation"] == "calibration":
+        family = "calibration" if case["operation"] == "calibration" else "option"
+        adapter = import_module(f"dal_comparisons.{family}_{backend}")
+        run = adapter.runner(case)
+    else:
+        adapter = import_module(f"dal_comparisons.{backend}_adapter")
+        run = rate_runner(adapter, case)
+    return Workload(
+        run, lambda result: validate(result, reference, abs_tol=tolerance(case))
+    )
+
+
+def rate_runner(adapter, case):
     if case["operation"] == "discount":
         run = adapter.discount_runner(queries(case["size"]))
     elif case["operation"] == "pv":
@@ -34,6 +57,4 @@ def prepare(backend, case):
         }
         run = runners[case["operation"]](trades(case["size"]))
 
-    return Workload(
-        run, lambda result: validate(result, reference, abs_tol=tolerance(case))
-    )
+    return run

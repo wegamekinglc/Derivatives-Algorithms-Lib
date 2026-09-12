@@ -4,6 +4,8 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 import math
 
+from . import calibration_scenarios, option_scenarios
+
 TODAY = datetime(2025, 1, 15)
 NODES = [datetime(2025 + year, 1, 15) for year in range(22)]
 TIMES = [(date - TODAY).days / 365 for date in NODES]
@@ -41,6 +43,8 @@ CONVENTIONS = {
     "output": "one float per query/trade; node risk: 21 floats per trade, in node-date order",
     "node_dates": [date.isoformat() for date in NODES],
     "node_log_dfs": LOG_DFS,
+    "monte_carlo": option_scenarios.CONVENTIONS,
+    "calibration": calibration_scenarios.CONVENTIONS,
 }
 
 
@@ -63,8 +67,22 @@ def cases(smoke=False):
                 }
             )
     if smoke:
-        return [dict(case, size=4) for case in result]
-    return result
+        result = [dict(case, size=4) for case in result]
+    return result + option_scenarios.cases(smoke) + calibration_scenarios.cases(smoke)
+
+
+def unsupported_reason(backend, case):
+    if backend == "rateslib" and case["operation"].startswith("mc_"):
+        return "rateslib has no equity-option Monte Carlo engine"
+    if (
+        backend == "quantlib"
+        and case["operation"] == "calibration"
+        and case["kind"].endswith("joint")
+    ):
+        return (
+            "QuantLib Python has no matching simultaneous multi-curve calibration API"
+        )
+    return None
 
 
 def queries(size):
@@ -130,24 +148,36 @@ def node_dv01(trade):
 
 
 def method(backend, case):
+    if case["operation"].startswith("mc_"):
+        return option_scenarios.method(backend, case)
+    if case["operation"] == "calibration":
+        return calibration_scenarios.method(backend, case)
     if case["operation"] == "node_dv01":
         return RISK_METHODS[backend]
     return "central finite difference" if case["operation"] == "dv01" else "passive"
 
 
 def tolerance(case):
+    if case["operation"].startswith("mc_"):
+        return option_scenarios.tolerance(case)
+    if case["operation"] == "calibration":
+        return 2e-8
     return {"discount": 2e-12, "node_dv01": 2e-6}.get(case["operation"], 2e-7)
 
 
 def expected(case):
+    if case["operation"].startswith("mc_"):
+        return option_scenarios.expected(case)
+    if case["operation"] == "calibration":
+        return calibration_scenarios.expected(case)
+    return rate_expected(case)
+
+
+def rate_expected(case):
     if case["operation"] == "discount":
         return [discount(date) for date in queries(case["size"])]
     if case["operation"] == "market_update_pv":
-        return [
-            pv(trade, shift)
-            for shift in (BUMP, -BUMP)
-            for trade in trades(case["size"])
-        ]
+        return shifted_prices(case["size"])
     calculators = {
         "pv": lambda trade: [pv(trade)],
         "prepared_pv": lambda trade: [pv(trade)],
@@ -161,12 +191,21 @@ def expected(case):
     return [value for trade in trades(case["size"]) for value in calculate(trade)]
 
 
+def shifted_prices(size):
+    return [pv(trade, shift) for shift in (BUMP, -BUMP) for trade in trades(size)]
+
+
 def validate(values, reference, *, abs_tol=2e-7):
     if len(values) != len(reference):
         raise ValueError("comparison output width mismatch")
-    for i, (value, target) in enumerate(zip(values, reference)):
+    tolerances = (
+        abs_tol if isinstance(abs_tol, (list, tuple)) else [abs_tol] * len(reference)
+    )
+    if len(tolerances) != len(reference):
+        raise ValueError("comparison tolerance width mismatch")
+    for i, (value, target, bound) in enumerate(zip(values, reference, tolerances)):
         if not math.isfinite(value) or not math.isclose(
-            value, target, rel_tol=1e-10, abs_tol=abs_tol
+            value, target, rel_tol=1e-10, abs_tol=bound
         ):
             raise ValueError(
                 f"comparison numerical mismatch at {i}: {value} != {target}"
