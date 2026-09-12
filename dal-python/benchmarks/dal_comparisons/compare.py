@@ -9,7 +9,7 @@ import sys
 
 from dal_benchmarks.harness import require
 from .evidence import ROOT, SCHEMA, check_report, source_hashes, timings, write_json
-from .scenarios import CONVENTIONS, cases, method
+from .scenarios import CONVENTIONS, cases, method, unsupported_reason
 from .suite import BACKENDS
 
 
@@ -126,16 +126,22 @@ def collect_round(args, round_index, hashes, identities):
 def aggregate(reports, smoke):
     rows = []
     for case in cases(smoke):
-        measurements = {
-            backend: dict(
-                timings(reports[backend], case["name"]), method=method(backend, case)
+        measurements = {}
+        for backend in BACKENDS:
+            reason = unsupported_reason(backend, case)
+            measurements[backend] = (
+                dict(status="unsupported", reason=reason)
+                if reason
+                else dict(
+                    timings(reports[backend], case["name"]),
+                    method=method(backend, case),
+                )
             )
-            for backend in BACKENDS
-        }
         dal_time = measurements["dal"]["min_ns"]
         ratios = {
             backend: measurements[backend]["min_ns"] / dal_time
             for backend in BACKENDS[1:]
+            if not unsupported_reason(backend, case)
         }
         rows.append(
             {"workload": case, "backends": measurements, "third_party_over_dal": ratios}
@@ -166,6 +172,21 @@ def summary(report):
         "On unchanged markets QuantLib floating coupons may remain cached "
         "even with swap.recalculate(); DAL prepared pricing recomputes rates.",
         "",
+        "MC options: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
+        "weekly discrete barrier monitoring. DAL vanilla uses reverse AAD; "
+        "other MC Greeks use common-random-number central differences. "
+        "Analytic vanilla and deterministic Gaussian quadrature barrier oracles "
+        "validate every output with explicit MC tolerances.",
+        "",
+        "Calibration: fresh non-flat annual IRS/XCCY markets, log-linear DFs; "
+        "single, staged/joint multi-curve and staged/joint XCCY solves. "
+        "Every solved node and midpoint is checked. Raw quotes and oracles are "
+        "outside timing; instrument construction, solving and DF conversion are timed.",
+        "",
+        "N/A: declared unsupported capabilities only (rateslib equity MC; "
+        "QuantLib simultaneous joint calibration). Missing packages or failed "
+        "supported cases fail the comparison.",
+        "",
     ]
     if report["status"] != "passed":
         lines += [f"Error: {report['error']}", "See the retained worker logs.", ""]
@@ -182,12 +203,18 @@ def summary(report):
         for row in result["cases"]:
             values = row["backends"]
             times = " | ".join(
-                f"{values[backend]['min_ns'] / 1e6:.4f}" for backend in BACKENDS
+                f"{values[backend]['min_ns'] / 1e6:.4f}"
+                if "min_ns" in values[backend]
+                else "N/A"
+                for backend in BACKENDS
             )
             ratios = row["third_party_over_dal"]
+            ratio_text = " | ".join(
+                f"{ratios[backend]:.3f}" if backend in ratios else "N/A"
+                for backend in BACKENDS[1:]
+            )
             lines.append(
-                f"| {index} | {row['workload']['name']} | {times} "
-                f"| {ratios['quantlib']:.3f} | {ratios['rateslib']:.3f} |"
+                f"| {index} | {row['workload']['name']} | {times} | {ratio_text} |"
             )
     return "\n".join(lines) + "\n"
 

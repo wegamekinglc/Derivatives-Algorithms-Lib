@@ -7,7 +7,7 @@ import sys
 
 from dal_benchmarks.harness import Case, Workload, measure, require
 from .evidence import SCHEMA, backend_files, package_versions, source_hashes, write_json
-from .scenarios import CONVENTIONS, cases, method
+from .scenarios import CONVENTIONS, cases, method, unsupported_reason
 from .suite import prepare
 
 
@@ -31,6 +31,11 @@ def load_dal(package):
 
 
 def measured_case(backend, case):
+    reason = unsupported_reason(backend, case)
+    if reason:
+        return dict(
+            name=case["name"], workload=case, status="unsupported", reason=reason
+        )
     work = prepare(backend, case)
     last = []
 

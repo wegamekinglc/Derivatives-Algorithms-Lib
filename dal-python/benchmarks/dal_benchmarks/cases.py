@@ -17,15 +17,15 @@ CPP_COVERAGE = {
     },
     "script_mc_perf": {
         "status": "partial",
-        "detail": "All eight vanilla/barrier x double/AAD x tree/compiled cases; native path counts, dates and model. Includes public result conversion.",
+        "detail": "All eight native vanilla/barrier x double/AAD x tree/compiled cases, plus eight common third-party MC price/Delta/Vega/Rho workloads at 16K/64K paths. Includes public result conversion.",
     },
     "curve_calibration_perf": {
         "status": "partial",
-        "detail": "All 21 cases: five representations x analytic/bumped x diagnostics/solve, plus approximate. Same 23 swaps/24 future knots.",
+        "detail": "All 21 native-aligned cases plus six non-flat single/staged/joint multi-curve calibration comparisons at 5/15 quotes per block.",
     },
     "xccy_perf": {
         "status": "partial",
-        "detail": "Joint/staged analytic/bumped x diagnostics/solve using five quotes per block. Adapted square quote ladder; native 15-instrument/reset-aware/approximate and precompute pricing cases are not reproduced.",
+        "detail": "Joint/staged analytic/bumped x diagnostics/solve plus four non-flat staged/joint XCCY calibration comparisons at 5/15 quotes per block. Native reset-aware/approximate and precompute pricing cases are not reproduced.",
     },
     "rate_risk_perf": {
         "status": "partial",
@@ -117,7 +117,26 @@ def build_cases(smoke=False):
     _aad_comparison_cases(add, smoke)
     _quote_cases(add, smoke, risk, xccy)
     _generic_cases(add, smoke, risk)
+    _expanded_comparison_cases(add, smoke)
     return cases
+
+
+def _expanded_comparison_cases(add, smoke):
+    from dal_comparisons.scenarios import cases
+    from dal_comparisons.suite import prepare
+
+    for case in cases(smoke):
+        if case["operation"].startswith("mc_"):
+            target = "script_mc_perf"
+        elif case["operation"] == "calibration":
+            target = (
+                "xccy_perf"
+                if case["kind"].startswith("xccy_")
+                else "curve_calibration_perf"
+            )
+        else:
+            continue
+        add(f"comparison.{case['name']}", target, case, partial(prepare, "dal", case))
 
 
 def _aad_comparison_cases(add, smoke):

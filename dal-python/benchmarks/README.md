@@ -1,9 +1,10 @@
 # DAL Python interface benchmarks
 
-This suite runs 72 workloads through `import dal`, with a coverage entry for every
+This suite runs 90 workloads through `import dal`, with a coverage entry for every
 target in [the C++ benchmark inventory](../../dal-cpp/benchmarks/CMakeLists.txt).
 It requires a current DAL Python build and Python 3.9–3.13. The runner uses the
-standard library; pytest is needed only for its correctness tests.
+standard library and NumPy for the independent barrier-option integration oracle;
+pytest is needed only for its correctness tests.
 
 ## Running
 
@@ -57,9 +58,9 @@ are errors, never silently skipped workloads.
 |--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
 | `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
-| `script_mc_perf`         | 8            | Vanilla: 200,000 double / 20,000 AAD paths; weekly barrier: 100,000 / 10,000; tree and compiled evaluators; product/model creation and preprocessing included    |
-| `curve_calibration_perf` | 21           | Same 23 annual swaps and 24 future knots; PWC, PWL, LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED × ANALYTIC/BUMPED × diagnostics/solve-only, plus LOG_LINEAR APPROXIMATE |
-| `xccy_perf`              | 8            | Joint/staged × ANALYTIC/BUMPED × diagnostics/solve-only; adapted square fixture with five quotes per calibrated block                                            |
+| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                         |
+| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
+| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
 | `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
 | `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
 
@@ -121,8 +122,9 @@ or analytic Black/IV kernels.
 
 ## Measurement and correctness
 
-Fixture creation, calibration of risk markets, reference results, and validation
-run outside timing. Risk aggregation reuses immutable provenance and markets;
+Raw fixture data, calibration of risk markets, reference results, and validation
+run outside timing. Fresh MC product/model construction and calibration solves
+are inside their respective workloads. Risk aggregation reuses immutable provenance and markets;
 provenance construction has separate cases. Each case performs an untimed checked
 call, then warmups, then measured calls. Validation after every call checks output
 shapes, finite results, calibration residuals, matrix-retention policy, tree/compiled
@@ -138,7 +140,9 @@ timed by this runner. Native initialization occurs before measurements.
 Full mode defaults to ten samples and two warmups. Smoke mode uses one sample,
 zero warmups, 1,024 RNG paths, 2,048 MC paths, four comparable AAD-risk trades,
 and at most two trades in the other portfolio cases; calibration widths remain
-intact. Workload metadata records actual sizes, even
+intact for the original calibration cases. The additional comparable MC cases use
+4,096 paths in smoke mode, and comparable calibrations use two quotes per block.
+Workload metadata records actual sizes, even
 when a case's stable name contains its full-profile trade count. Smoke timings
 must not be compared with full timings. `DAL_NUM_THREADS` defaults to 4 when
 unset and must be set before DAL is imported.
@@ -196,7 +200,7 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 72 cases are measured
+including when the base predates this benchmark suite. All 90 cases are measured
 and gated against the base library. When a base suite exists, its inventory is
 also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
@@ -235,9 +239,12 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 
 ## Third-party comparison
 
-The Linux `Benchmarks` job also runs thirteen common workloads against DAL,
-QuantLib-Python and rateslib. All three backends must execute every case and pass
-an independent cashflow oracle. Missing dependencies, incorrect results, incomplete
+The Linux `Benchmarks` job also runs 31 workloads against DAL,
+QuantLib-Python and rateslib. Every supported backend/case pair must execute and pass
+its independent oracle. Only declared unsupported capabilities are reported as
+`unsupported` with a reason and no timings: rateslib equity MC, and QuantLib
+simultaneous joint calibration. This gives 31 DAL, 27 QuantLib and 23 rateslib
+measured cases. Missing dependencies, incorrect results, incomplete
 reports, changed workloads/binaries or process timeouts fail the job and therefore
 the existing `Linux CI gate`. Relative speed is reported without an absolute
 competitor speed threshold; the separate base/head gate still enforces the 4% DAL
@@ -265,13 +272,15 @@ python dal-python/benchmarks/run_comparisons.py \
 ```
 
 The output directory must be new, so an old successful report cannot satisfy a
-failed run. `--smoke` uses four queries/trades and one process per backend for
+failed run. `--smoke` uses four queries/trades, 4,096 MC paths, two calibration
+quotes per block and one process per backend for
 local correctness checks; CI always uses full sizes and at least two rounds of ten
 fresh processes per backend. Backend order rotates for each sample and reverses
 on the second round. Each process performs a checked preflight, two warmups, then
 one measured invocation per case. Imports, fixture construction, reference values,
 validation and returned-float-list destruction are outside timing. Instrument
-construction/destruction is timed in the explicit cold cases. GC stays enabled, DAL uses
+construction/destruction is timed in the explicit cold cases, MC option cases and
+calibration cases. GC stays enabled, DAL uses
 four threads, and OMP/OpenBLAS/MKL use one thread.
 
 | Case                | Full workload                                                   |
@@ -302,7 +311,7 @@ Update cases represent two portfolio valuations; divide by two only when
 reporting an explicitly labelled cost per valuation. All new cases check their
 complete returned vectors against the independent oracle on every invocation.
 
-All cases use valuation date 2025-01-15, USD, ACT/365F, annual fixed and IBOR legs,
+The thirteen discount/IRS cases use valuation date 2025-01-15, USD, ACT/365F, annual fixed and IBOR legs,
 unadjusted dates, no holidays, zero fixing/payment lag, and the same discount and
 forecast curve. Trades start in 2026, mature over 2028–2045, and alternate payer
 and receiver directions with varying positive notionals and coupons. The common
@@ -335,11 +344,80 @@ rateslib active pricing and gradient extraction, QuantLib relinking and repricin
 and bucket conversion are timed. Numeric oracle validation runs outside timing;
 shape, eligibility and AD-type guards during conversion reject unsupported results.
 Every invocation recalculates risk. The base/head 4% gate measures these DAL AAD
-workloads too. No third-party coverage is claimed for calibration, MC, XCCY,
-or other unmatched operations.
+workloads too.
 
-DAL uses `PriceRateTrades` batches; QuantLib and rateslib price instrument lists.
-All adapters return floats in input order, including conversion cost. QuantLib's
+### Monte Carlo options
+
+Eight `mc_{vanilla,barrier}_{price,greeks}_{16384,65536}` cases use native DAL and
+QuantLib Monte Carlo engines under Black-Scholes. Spot and strike are 100,
+volatility is 20%, the continuous rate is 3%, and dividend yield is 1%. Valuation
+is 2025-01-15 and maturity is 364 days later, with ACT/365F time. The up-and-out call
+has barrier 130, zero rebate and exactly 52 weekly observations including maturity.
+QuantLib's [`MCBarrierEngine`](https://github.com/lballabio/QuantLib/blob/master/ql/pricingengines/barrier/mcbarrierengine.hpp)
+uses `isBiased=True` to select discrete monitoring; its default continuous-barrier
+correction would price a different payoff.
+
+Both use Sobol with no Brownian bridge or antithetics. DAL restarts at initial
+point 0; QuantLib uses fixed seed 42, since seed 0 can randomize high-dimensional
+direction initialization. Streams need not coincide between libraries. Product,
+model and engine construction, preprocessing, simulation and conversion are timed
+on every invocation, preventing cached NPV or reuse of a completed simulation.
+
+Greek cases return `[PV, Delta, Vega, Rho]`, with sensitivities per unit spot,
+decimal volatility and decimal rate. DAL vanilla uses reverse AAD. QuantLib
+vanilla and both discrete-barrier engines use central differences with common
+random numbers, with bumps of 1 spot unit, 0.01 volatility and 0.01 rate. The
+barrier reference uses the same finite bumps. Hard barrier indicators are not
+treated as having a valid naive pathwise derivative. Gamma and Theta are not
+included in these first-order Greek workloads; the original DAL smoothed-AAD
+barrier cases remain separate.
+
+An analytic Black-Scholes oracle checks vanilla results. The discrete-barrier
+oracle integrates Gaussian log-price transitions at every observation and handles
+the final truncated call expectation analytically. Its 256/384-point convergence
+is tested independently of either MC implementation. At 16,384 paths, absolute
+`[PV, Delta, Vega, Rho]` tolerances are `[0.08, 0.01, 0.5, 0.5]` for vanilla and
+`[0.25, 0.05, 3, 4]` for the barrier, scaled by `sqrt(16384 / paths)`. These are
+explicit MC accuracy bounds, not deterministic equality or equal-error-cost
+comparisons. Full output widths, finite values and each Greek are checked. The
+JSON conventions and workload records retain path counts, bumps and methods.
+
+### Curve calibration
+
+Ten `calibration_{single,multi_staged,multi_joint,xccy_staged,xccy_joint}_{5,15}`
+cases calibrate non-flat markets at 5 or 15 annual quotes per block. Each curve has
+annual log-linear DF pillars and a fixed unit anchor. Synthetic quotes come from
+independent scalar annual IRS and fixed-notional USD/EUR XCCY cashflows, with
+ACT/365F, no holidays or adjustments, and zero fixing/payment/settlement lag.
+Each library constructs fresh instruments and initial curves, solves, and returns
+every solved annual node and midpoint DF inside timing. Raw quotes and the oracle
+are outside timing. The DF tolerance is 2e-8 absolute plus 1e-10 relative; a solver
+success flag alone cannot pass the comparison.
+
+- `single` solves a USD discount curve from annual fixed/float swaps.
+- `multi_staged` solves USD discount then forward curves, using the solved
+  discount curve in the second stage. DAL calls its public single-curve solver
+  twice with optional Jacobian/inverse retention disabled.
+- `multi_joint` solves both USD curves simultaneously, using DAL's joint API or
+  rateslib's AD [`Solver`](https://rateslib.com/py/en/latest/c_solver.html).
+- `xccy_staged` solves EUR discounting under USD collateral against fixed USD/EUR
+  domestic discount and forecast curves. XCCY swaps exchange both principals and
+  carry spread on the EUR leg, with USD per EUR spot 1.10. DAL's basis DF is
+  converted as `EUR domestic DF / basis DF` before comparison. Its piecewise
+  constant forward intervals reproduce the common log-linear DF curve exactly.
+- `xccy_joint` solves all five discount/forecast/cross-currency blocks together
+  using DAL's joint XCCY solver and rateslib's Solver/FXForwards/XCS APIs.
+
+QuantLib uses fresh log-linear discount bootstraps and constant-notional XCCY basis
+rate helpers for supported staged cases. Its Python API has no matching
+simultaneous joint solver, so those four rows are explicitly unsupported. DAL's
+optional final Jacobian and inverse retention is disabled; rateslib retains its
+public solver AD state and status output. These comparisons include differences
+between the available numerical methods. Supported solver failures remain errors.
+
+For the thirteen discount/IRS cases, DAL uses `PriceRateTrades` batches; QuantLib
+and rateslib price instrument lists. All adapters return floats in input order,
+including conversion cost. QuantLib's
 `recalculate()` forces every NPV invocation to run its pricing engine. Rateslib's
 public `curve_caching` setting is disabled, so discount queries measure interpolation
 rather than cached date lookups, and `ad=0` selects passive pricing outside the
@@ -351,10 +429,11 @@ case explicitly measures invalidation and fresh pricing. These are comparisons
 of the available Python APIs, not isolated
 identical native kernels.
 
-`results.json` (`dal.python-comparisons/2`) retains raw timings, minimum and median,
+`results.json` (`dal.python-comparisons/3`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
 hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the
 Actions summary show per-round minima and `third_party / DAL` ratios (>1 means DAL
-took less time). Both successful and failed evidence is uploaded in the existing
+took less time); unsupported cells show `N/A` and have no ratio or timing sample.
+Both successful and failed evidence is uploaded in the existing
 `benchmark-linux-*` artifact under `python-third-party/`.
