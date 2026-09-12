@@ -120,9 +120,10 @@ formatting and its empty-live-description error.
 
 No `PreProcess`, AST folding, fixing lookup, model setup, or worker submission
 is added. Public signatures/defaults and FIX JSON rejection remain unchanged.
-The core parser stays independent of the global evaluation date. Published
-docs/changelog reconciliation and prerequisite repair integration remain owned
-by the orchestrator's following stages.
+The core parser stays independent of the global evaluation date. Prerequisite
+repair integration and independent combined-head validation are complete;
+`testing.md` records the current evidence. Documentation is reconciled in the
+final documentation handoff; final review and CI/merge gates remain pending.
 
 RED: `ScriptTest.TestPublicDumpPastTodayAndFuturePhases` and
 `ScriptTest.TestLegacyDumpOmitsHistoricalEventsWithoutIndexing` both failed at

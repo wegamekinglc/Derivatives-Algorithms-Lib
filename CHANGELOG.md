@@ -27,8 +27,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   wholly expired zero path; all nonexpired prepared execution remains gated
   by `UnsupportedExecutionMode`. The public C++ facade, Python, and Excel
   valuation entries still reject FIX. **Compatibility:** event partitioning
-  now occurs at preparation rather than parsing; unpartitioned debug dumps
-  retain all event dates in the future container. See the
+  now occurs at preparation rather than core parsing. Public debug wrappers
+  explicitly partition fresh copies at one captured date, preserving JSON/tree
+  phases and live-only legacy text. See the
   [preparation contract](docs/methodology/script_engine.md#historical-fixing-preparation).
 
 - **Fixing-history C++ identities** — renamed the map wrapper in

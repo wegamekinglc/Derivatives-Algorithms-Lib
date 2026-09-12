@@ -735,23 +735,32 @@ ScriptProduct_ product(eventDates, events);
 The `BARRIER:0.1` suffix on each comparison sets the node's `eps_` field, which
 the fuzzy evaluator consumes as the smoothing width for that condition. Running
 `product.Debug(out)` after the constructor walks the AST and writes the dated,
-variable-indexed event listing that the visitor passes operate on; downstream
-valuation calls `IndexVariables` and `PreProcess` before evaluation or
-`Compile`. The Monte Carlo driver is the free function `MCSimulation<T_>` in
+parsed event listing; this example leaves variable indices unresolved.
+Downstream valuation calls `PreProcess`, which partitions and indexes the
+product, before evaluation or `Compile`. The Monte Carlo driver is the free
+function `MCSimulation<T_>` in
 `dal-cpp/dal/script/simulation.hpp`, templated on `double` for value-only runs
 and on `AAD::Number_` for pathwise-adjoint runs.
 
 ## Product Debug Outputs
 
-`ScriptProduct_::Debug` writes the legacy dump: the variable table followed by
+Each dal-public dump call captures the global evaluation date `D` once before
+parsing a fresh private product copy, then explicitly partitions it. Events
+before `D` are past; events on or after `D` are future. Repeating a dump after
+changing the evaluation date uses a new copy and the new date. Dumping does
+not call `PreProcess`, fold branches, read fixings, set up a model, or submit
+workers.
+
+`ScriptProduct_::Debug` writes the legacy dump: any indexed variable table followed by
 each future event's statements as indented s-expressions with labels like
 `MAX(`, `VAR[x,-1,0.000000]`, `IF[FIRSTELSE=-1]`.
 
 Two further dumps render the same AST for other consumers. All three are
 produced from the debug IR that `Debugger_` builds. JSON and tree dumps include
-both event containers, tagged with their phase. Before `PartitionEvents`, all
-parsed events are in the future container, even if their dates precede the
-global evaluation date; debug output does not perform partitioning itself.
+both event containers, tagged with their phase. The lower-level core dump
+methods render the product's existing containers; direct core callers use
+`PartitionEvents(D)` when they need date-based phases. Public wrappers perform
+that partitioning automatically on their private copies.
 
 - **JSON** — `ScriptProduct_::DebugJson` writes a compact, deterministic
   document with schema `dal.script-product/1`, meant for machine consumption
@@ -787,13 +796,16 @@ inside nested expressions. The tree keeps the complete leaf even when it
 exceeds the requested width. These human-readable dumps inspect the contract;
 they do not establish that the product can be valued.
 
-The dal-public wrappers `DebugScriptProductJson` and
-`DebugScriptProductTree` run `IndexVariables` on a private copy before
-dumping, so indices, the variable table, and the payoff slot are resolved
-while the dumped AST still mirrors the script as written. These wrappers do
-not partition that copy, so their phase labels do not classify events against
-the global evaluation date. The Python surface is `Product_DebugJson(product)` and
-`Product_DebugTree(product, ascii=False, width=125)`.
+`DebugScriptProduct` renders only the private copy's live events and skips
+variable indexing, preserving unresolved variable indices and omitting the
+variable-table header. It raises `empty script product description` when no
+live event remains. `DebugScriptProductJson` and `DebugScriptProductTree` run
+`IndexVariables` on their partitioned copies, so indices, variable/constant
+tables, and the payoff slot are resolved while both phases and raw branches
+remain inspectable. JSON keeps schema `/1` and its FIX rejection. The Python
+surface is `Product_Debug(product)`, `Product_DebugJson(product)`, and
+`Product_DebugTree(product, ascii=False, width=125)`; Excel's `PRODUCT.DEBUG`
+uses the legacy text wrapper.
 
 ## See Also
 
