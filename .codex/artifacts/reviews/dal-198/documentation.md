@@ -1,11 +1,11 @@
-DAL-198 F1 documentation handoff, 2026-09-12. This record controls the pending
+DAL-198 F1 documentation handoff, updated 2026-09-13. This record controls the pending
 independent review; retire it after delivery.
 
 Reconciled documentation against source and tests at
-`9e5613fde2c171bf094ad868b5601c0689fb82e1`, the accepted F1 issue and frontend
+`83e7f5a8ae2af3d1bc2930ac07ea9ffdcb0451a3`, the accepted F1 issue and frontend
 design/critique/API boundaries, and the implementation/testing evidence.
 
-Documentation changes are required:
+Published documentation for F1:
 
 - `docs/methodology/script_engine.md` described `Tokenize` as the sole string
   tokenizer and omitted FIX. It now describes positioned `Lex` tokens, the
@@ -37,18 +37,35 @@ and dead branches. FIX is removed from the published JSON `/1` kind list. No
 `/2` schema or Describe API is documented as available. The existing changelog
 entry remains accurate and needs no additional entry for this scoped repair.
 
+CI repair documentation decision, production revision
+`ce158d11115a1c6597540f0fa62eda6e54bcf645`: no further published documentation
+or CHANGELOG edit is required. Read the complete repair diff, direct indice
+and script diagnostic regressions, and current implementation/test evidence.
+The explicit character-predicate bool conversion and direct exception include
+repair compiler/backend portability; tape initialization repairs test setup.
+Extracted scanner, source-origin, equity-validation and fixing-date helpers
+preserve the accepted grammar and documented metadata. Normalizing both DAL
+and standard logic errors retains `InvalidIndex`, the full delivery input and
+script source context, fulfilling the existing validation contract rather
+than adding a capability, algorithm or public surface. Existing FIX reservation,
+protected expansion, strict dates, debug behavior and `PreparationRequired`
+limits remain accurate. No methodology file or index changes are needed.
+
 Validation:
 
 - `python3 .github/scripts/check_docs.py`: passed for all Markdown files,
   checking local links, tables, whitespace, final newlines and documentation
   metadata/workflow rules.
-- `git diff --check` and `git diff --cached --check`: passed; the correction's
-  staged scope contains only `docs/methodology/script_engine.md` and this
-  active evidence file.
+- `git diff --check` and `git diff --cached --check`: passed; this CI repair
+  documentation pass stages only this active evidence file.
 - Reviewed the complete published-document diff against lexer/preprocessor/
   parser/node, indice EQ/FX parsers, event execution guards and debug renderers.
-  Independent tester results on the repaired source are focused 29/29
-  (`ScriptObservationTest.*:*Debug*`) and fresh full Linux 1588/1588, including
-  the FIX debug regressions and exact legacy SPOT snapshots. No C++ test rerun
-  is needed for these documentation-only edits. The orchestrator records the
-  final documentation commit SHA; independent re-review is the next stage.
+  The independent tester's latest results on the CI repair are native Linux
+  1590/1590, Adept 1582/1582 and CoDiPack 1582/1582, with public API and portable
+  Excel tests enabled. Local complexity verification reports 4/4/7/4 for the
+  four flagged functions; new helpers are at most 7. Commands, logs and backend
+  configuration are recorded in `testing.md` alongside this file. Remote
+  Windows/Codacy results remain pending on the pushed repair head; local
+  evidence does not establish those results. No C++ test rerun is needed for
+  this evidence-only edit. The orchestrator records the final documentation
+  commit SHA; independent re-review of that exact head is the next stage.
