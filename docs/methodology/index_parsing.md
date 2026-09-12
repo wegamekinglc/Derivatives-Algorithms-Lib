@@ -15,6 +15,28 @@ exact `DateTime_` in its map. A missing record or time throws unless the
 caller passes the `quiet` flag, which returns $-\infty$ instead. `IndexKey_`
 wraps a handle with its name so scenario containers can order indices.
 
+## Fixing history containers
+
+These core fixing containers serve different roles:
+
+- `Dal::IndexFixHistory_` in `dal-cpp/dal/indice/fixings.hpp` owns a copy of
+  a `std::map<DateTime_, double>` (`vals_t`). `Find(time, quiet = false)`
+  performs exact timestamp lookup. `Dal::FixHistory::Empty()` returns a
+  reference to a process-lifetime const empty `IndexFixHistory_`.
+- `Dal::FixHistory_` in `dal-cpp/dal/storage/globals.hpp` is the global-store
+  aggregate with a public vector of timestamp/value pairs, `vals_`.
+  `Global::Fixings_::History(name)` returns it, and `XGLOBAL::StoreFixings`
+  accepts it. It has a separate C++ type identity from `IndexFixHistory_`.
+- `Dal::Fixings_` in `dal-cpp/dal/indice/fixings.hpp` is the named `Storable_`
+  with a const timestamp/value map. `FixingsAccess_` holds these records for
+  environment-based index lookup; it does not hold `IndexFixHistory_` objects.
+
+`IndexFixHistory_::Find` delegates to `LookupFixing`. A missing exact timestamp
+throws with `no fixings for that time`, or returns $-\infty$ when `quiet` is
+true. This lookup does not select nearby dates, validate quote values, parse
+index names, or invert FX quotes. Index-specific behavior belongs to the
+index's virtual `Fixing` implementation.
+
 ## Parse dispatch
 
 `Index::Parse(const String_&)` (`dal-cpp/dal/indice/indexparse.cpp`) first

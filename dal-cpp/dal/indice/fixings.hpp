@@ -22,7 +22,7 @@ fixing_times is datetime[]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    class FixHistory_ {
+    class IndexFixHistory_ {
     public:
         using vals_t = std::map<DateTime_, double>;
 
@@ -30,12 +30,12 @@ namespace Dal {
         vals_t vals_;
 
     public:
-        explicit FixHistory_(const vals_t& vals) : vals_(vals) {}
+        explicit IndexFixHistory_(const vals_t& vals) : vals_(vals) {}
         double Find(const DateTime_& fix_time, bool quiet = false) const;
     };
 
     namespace FixHistory {
-        const FixHistory_& Empty();
+        const IndexFixHistory_& Empty();
     } // namespace FixHistory
 
     double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fixTime, bool quiet = false);

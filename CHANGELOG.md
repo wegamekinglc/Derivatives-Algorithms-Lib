@@ -31,6 +31,22 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   retain all event dates in the future container. See the
   [preparation contract](docs/methodology/script_engine.md#historical-fixing-preparation).
 
+- **Fixing-history C++ identities** — renamed the map wrapper in
+  `dal-cpp/dal/indice/fixings.hpp` from `Dal::FixHistory_` to
+  `Dal::IndexFixHistory_`, removing a conflicting definition that could cause
+  cross-translation-unit destructor corruption. **Breaking source/ABI change
+  for direct core C++ consumers:** migrate map-wrapper type names and nested
+  `vals_t` references to `IndexFixHistory_`, including explicitly typed results
+  of `FixHistory::Empty()`; callers using `auto` for that result need no source
+  edit. The vector aggregate `Dal::FixHistory_` in
+  `dal-cpp/dal/storage/globals.hpp` retains its name and layout; there is no
+  compatibility alias for the map wrapper. Cleanly rebuild DAL and all
+  dependent C++ objects and binaries, including bindings and executables.
+  Do not mix objects built against the old conflicting definitions with
+  repaired objects. Lookup behavior, public-facade/Python/Excel signatures,
+  and serialized fixing records are unchanged. See the
+  [current container contract](docs/methodology/index_parsing.md#fixing-history-containers).
+
 ## 2026-09-12
 
 - **Script FIX syntax** — added parsing for unquoted `FIX(index[,date])`,
