@@ -70,8 +70,12 @@ The two FX directions retain distinct names.
 
 The script [named fixing syntax](script_engine.md#named-fixing-syntax) passes
 these complete index literals to `Index::Parse`. Successful parsing establishes
-index identity only; script `FIX` execution currently raises
-`PreparationRequired`.
+index identity only. Core [historical preparation](script_engine.md#historical-fixing-preparation)
+admits the built-in EQ and FX types and preserves their virtual `Fixing`
+behavior through a snapshot-backed environment. It does not admit arbitrary
+registered index types as historical adapters. Raw script `FIX` execution
+raises `PreparationRequired`; nonexpired prepared execution raises
+`UnsupportedExecutionMode`.
 
 ## IR indices are constructed, not parsed
 
