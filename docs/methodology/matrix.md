@@ -5,8 +5,9 @@ the storage conventions for dense and band-diagonal matrices, the direct solvers
 (Cholesky, tri-diagonal, band-Cholesky), and the iterative Krylov solvers
 (preconditioned conjugate-gradient and bi-conjugate-gradient). The focus is the
 mathematical definition of each scheme, the interface it satisfies, and when each is
-appropriate. All square matrices implement `Sparse::Square_`
-(`dal-cpp/dal/math/matrix/sparse.hpp`); all factorizations implement
+appropriate. Sparse square-matrix operators implement `Sparse::Square_`
+(`dal-cpp/dal/math/matrix/sparse.hpp`); the dense `SquareMatrix_` container is
+separate. The decomposition interfaces are
 `SquareMatrixDecomposition_` or its symmetric specialization
 (`dal-cpp/dal/math/matrix/decompositions.hpp`).
 
@@ -44,7 +45,7 @@ the column index is the **offset** $j - i$ shifted so that the diagonal sits at 
 $m_1$:
 
 $$
-\texttt{store}(i,\; m_1 + (j - i)) \;=\; A_{i,j}, \qquad |i - j| \le m_1 \text{ or } m_2.
+\texttt{store}(i,\; m_1 + (j - i)) \;=\; A_{i,j}, \qquad -m_1 \le j-i \le m_2.
 $$
 
 Entries outside the band are not stored and read as zero. The mapping is implemented by the
@@ -141,8 +142,8 @@ build the solution from the Krylov subspace $\mathcal{K}_k(A, r_0) = \text{span}
 ### Preconditioned Conjugate Gradient (CG)
 
 `Sparse::CGSolve` solves $A\,x = b$ for a **symmetric positive-definite** $A$. Each
-iteration builds a conjugate search direction $p_k$ and a corresponding residual $r_k$ that
-are $A$-orthogonal:
+iteration updates the residual $r_k$ along a search direction $p_k$. In exact
+arithmetic the search directions are mutually $A$-conjugate:
 
 $$
 \alpha_k = \frac{(r_{k-1}, z_{k-1})}{(p_k, A\,p_k)}, \quad
@@ -177,8 +178,8 @@ r_k = r_{k-1} - \alpha_k\,A\,p_k, \quad
 $$
 
 with a right-preconditioned shadow direction and the same $\beta$-ratio structure as CG.
-BCG does not minimise a norm and can exhibit irregular convergence, but it is the cheapest
-Krylov option when $A$ is genuinely non-symmetric and a transpose-product is available.
+BCG does not minimise a norm and can exhibit irregular convergence. It supports
+non-symmetric systems when both matrix and transpose products are available.
 
 ### When to Use Which
 
@@ -319,7 +320,7 @@ chol->Solve(b, &x);   // forward/backward substitution against L L^T
 When $A$ is available only through its matrix-vector products, the Krylov solvers
 take the matrix by its `Sparse::Square_` base and converge under the combined
 tolerance of the *When to Use Which* section. `CGSolve` is the right call for a
-symmetric positive-definite $A$ such as a Gauss-Newton normal-equations Hessian:
+symmetric positive-definite $A$, such as $J^{\top}J$ when $J$ has full column rank:
 
 ```cpp
 // from dal-cpp/dal/math/matrix/bcg.hpp

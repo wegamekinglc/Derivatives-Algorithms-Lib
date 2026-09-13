@@ -141,9 +141,9 @@ deterministic low-discrepancy sequence in `NDim()` dimensions.
 ### Direction Numbers
 
 For each dimension $d = 1, \ldots, 21201$, the generator holds 32 *direction
-numbers* $v_{d,1}, \ldots, v_{d,32}$, each a 32-bit integer. Bit $b$ of
-$v_{d,k}$ is the binary digit-$k$ contribution to coordinate $d$ of every
-point whose index has bit $b$ set. The library ships pre-computed direction
+numbers* $v_{d,1}, \ldots, v_{d,32}$, each a 32-bit integer. Direction number
+$v_{d,k}$ contributes to coordinate $d$ when bit $k-1$ of the point index's
+Gray code is set. The library ships pre-computed direction
 numbers for up to 21201 dimensions and 32 bits (`N_KNOWN` and `N_BITS`
 constants); requesting more dimensions than `N_KNOWN` throws, since no
 primitive polynomial is tabulated beyond that count. The `Directions(size)`
@@ -156,7 +156,7 @@ number.
 The defining property of a Sobol point is
 
 $$
-x_n = \bigoplus_{b :\, \text{bit } b \text{ of } n \text{ is set}} v_{\text{dim},\,b+1},
+x_n = \bigoplus_{b :\, \text{bit } b \text{ of } g(n) \text{ is set}} v_{\text{dim},\,b+1},
 $$
 
 where $\oplus$ is bitwise XOR. Computing this sum from scratch for each $n$
@@ -294,10 +294,11 @@ seeking surface.
 
 ## Selection Guidance
 
-- **Quasi-random + Brownian bridge** is the default for path-dependent Monte
-  Carlo on smooth payoffs: the bridge reorders Sobol points so the leading
-  dimensions hit the dominant Brownian modes, and the deterministic sequence
-  converges faster than pseudo-random sampling.
+- **Quasi-random + Brownian bridge** can improve path-dependent Monte Carlo
+  convergence on smooth payoffs: the bridge assigns the leading Sobol dimensions
+  to large-scale Brownian variation. The benefit depends on the payoff and time
+  grid. Script valuation defaults to Sobol with Brownian bridge disabled
+  (`use_bb=false`); enable it explicitly when comparing path constructions.
 - **Pseudo-random** is appropriate for discontinuous payoffs, for variance
   reduction techniques that rely on statistical independence (antithetic,
   control variates with estimated coefficients), and for regression-based

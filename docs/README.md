@@ -101,6 +101,11 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Seven-family AAD eligibility, native parameter coordinates, and tape isolation
   - Deterministic batch cells, failure isolation, component tensors, and PV currencies
 
+- **[generic_joint_quote_risk.md](methodology/generic_joint_quote_risk.md)** — Generic Joint Multi-Curve Quote DV01
+  - Explicit inverse retention and the fixed initial-Jacobian parameter subspace
+  - Coupled curve/base risk, immutable v2 provenance, and failure isolation
+  - Public C++, Python, and Excel construction and aggregation surfaces
+
 - **[script_engine.md](methodology/script_engine.md)** — Script Engine
   - Preprocessing pipeline (macros, schedules, constant variables)
   - Unquoted `FIX(index[,date])` parsing, protected index literals, and execution limits
