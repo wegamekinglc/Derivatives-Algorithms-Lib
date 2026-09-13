@@ -44,11 +44,8 @@ namespace Dal::Script {
 
         template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
             state.Init();
-            for (size_t i = 0; i < nodeStreams_.size(); ++i)
-                EvalCompiled(nodeStreams_[i],
-                             constStreams_[i],
-                             scenario[i],
-                             state);
+            Detail::EvalCompiledEvents(
+                nodeStreams_.size(), [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], scenario[i]}; }, &state);
         }
     };
 

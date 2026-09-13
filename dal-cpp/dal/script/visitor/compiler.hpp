@@ -332,6 +332,328 @@ namespace Dal::Script {
                              size_t last = 0,
                              bool reset = true);
 
+    namespace Detail {
+        template <class T_> struct CompiledEventView_ {
+            const Vector_<int>& nodeStream_;
+            const Vector_<double>& constStream_;
+            const AAD::Sample_<T_>& scenario_;
+            size_t first_ = 0;
+            size_t last_ = 0;
+            bool reset_ = true;
+        };
+
+        template <class T_, class E_> void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            StaticStack_<T_>& dStack = state.dStack_;
+            StaticStack_<bool>& bStack = state.bStack_;
+            for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex) {
+                const auto event = eventAt(eventIndex);
+                const auto& nodeStream = event.nodeStream_;
+                const auto& constStream = event.constStream_;
+                const auto& scenario = event.scenario_;
+                const size_t n = event.last_ ? event.last_ : nodeStream.size();
+                size_t i = event.first_;
+                if (event.reset_) {
+                    dStack.Reset();
+                    bStack.Reset();
+                }
+
+                while (i < n) {
+                    const int op = nodeStream[i];
+                    switch (op) {
+                    case Add:
+                        dStack[1] += dStack.Top();
+                        dStack.Pop();
+                        ++i;
+                        break;
+                    case AddConst:
+                        dStack.Top() += constStream[nodeStream[++i]];
+                        ++i;
+                        break;
+                    case Sub:
+                        dStack[1] -= dStack.Top();
+                        dStack.Pop();
+                        ++i;
+                        break;
+                    case SubConst:
+                        dStack.Top() -= constStream[nodeStream[++i]];
+                        ++i;
+                        break;
+                    case ConstSub:
+                        dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
+                        ++i;
+                        break;
+                    case Multi:
+                        dStack[1] *= dStack.Top();
+                        dStack.Pop();
+                        ++i;
+                        break;
+                    case MultiConst:
+                        dStack.Top() *= constStream[nodeStream[++i]];
+                        ++i;
+                        break;
+                    case Div:
+                        dStack[1] /= dStack.Top();
+                        dStack.Pop();
+                        ++i;
+                        break;
+                    case DivConst:
+                        dStack.Top() /= constStream[nodeStream[++i]];
+                        ++i;
+                        break;
+                    case ConstDiv:
+                        dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
+                        ++i;
+                        break;
+                    case Pow:
+                        dStack[1] = pow(dStack[1], dStack.Top());
+                        dStack.Pop();
+                        ++i;
+                        break;
+                    case PowConst:
+                        dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
+                        ++i;
+                        break;
+                    case ConstPow:
+                        dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
+                        ++i;
+                        break;
+                    case Max2: {
+                        const T_ y = dStack.TopAndPop();
+                        if (y > dStack[0])
+                            dStack[0] = y;
+                        ++i;
+                        break;
+                    }
+                    case Max2Const: {
+                        const T_ y(constStream[nodeStream[++i]]);
+                        if (y > dStack.Top())
+                            dStack.Top() = y;
+                        ++i;
+                        break;
+                    }
+                    case Min2: {
+                        const T_ y = dStack.TopAndPop();
+                        if (y < dStack[0])
+                            dStack[0] = y;
+                        ++i;
+                        break;
+                    }
+                    case Min2Const: {
+                        const T_ y(constStream[nodeStream[++i]]);
+                        if (y < dStack.Top())
+                            dStack.Top() = y;
+                        ++i;
+                        break;
+                    }
+                    case Spot:
+                        dStack.Push(scenario.spot_);
+                        ++i;
+                        break;
+                    case Var:
+                        dStack.Push(state.variables_[nodeStream[++i]]);
+                        ++i;
+                        break;
+                    case ConstVar:
+                        dStack.Push(state.constVariables_[nodeStream[++i]]);
+                        ++i;
+                        break;
+                    case Const:
+                        dStack.Push(constStream[nodeStream[++i]]);
+                        ++i;
+                        break;
+                    case Assign: {
+                        const size_t idx = nodeStream[++i];
+                        state.variables_[idx] = dStack.TopAndPop();
+                        ++i;
+                        break;
+                    }
+                    case AssignConst: {
+                        const double val = constStream[nodeStream[++i]];
+                        const size_t idx = nodeStream[++i];
+                        state.variables_[idx] = T_(val);
+                        ++i;
+                        break;
+                    }
+                    case Pays: {
+                        const size_t idx = nodeStream[++i];
+                        state.variables_[idx] += dStack.TopAndPop() / scenario.numeraire_;
+                        ++i;
+                        break;
+                    }
+                    case PaysConst: {
+                        const double val = constStream[nodeStream[++i]];
+                        const size_t idx = nodeStream[++i];
+                        state.variables_[idx] += T_(val) / scenario.numeraire_;
+                        ++i;
+                        break;
+                    }
+                    case If:
+                        if (bStack.Top()) {
+                            i += 2;
+                        } else {
+                            i = nodeStream[++i];
+                        }
+                        bStack.Pop();
+                        break;
+                    case IfElse:
+                        if (!bStack.Top()) {
+                            i = nodeStream[++i];
+                        } else {
+                            //  Preserve parent stacks while running the true branch.
+                            EvalCompiled(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
+                            i = nodeStream[i + 2];
+                        }
+                        bStack.Pop();
+                        break;
+                    case Equal:
+                        bStack.Push(dStack.TopAndPop() == 0);
+                        ++i;
+                        break;
+                    case Sup:
+                        bStack.Push(dStack.TopAndPop() > 0);
+                        ++i;
+                        break;
+                    case SupEqual:
+                        bStack.Push(dStack.TopAndPop() >= 0);
+                        ++i;
+                        break;
+                    case And:
+                        if (bStack[1])
+                            bStack[1] = bStack.Top();
+                        bStack.Pop();
+                        ++i;
+                        break;
+                    case Or:
+                        if (!bStack[1])
+                            bStack[1] = bStack.Top();
+                        bStack.Pop();
+                        ++i;
+                        break;
+                    case Sqrt:
+                        dStack.Top() = sqrt(dStack.Top());
+                        ++i;
+                        break;
+                    case Log:
+                        dStack.Top() = log(dStack.Top());
+                        ++i;
+                        break;
+                    case Exp:
+                        dStack.Top() = exp(dStack.Top());
+                        ++i;
+                        break;
+                    case Not:
+                        bStack.Top() = !bStack.Top();
+                        ++i;
+                        break;
+                    case UMinus:
+                        dStack.Top() = -dStack.Top();
+                        ++i;
+                        break;
+                    case True:
+                        bStack.Push(true);
+                        ++i;
+                        break;
+                    case False:
+                        bStack.Push(false);
+                        ++i;
+                        break;
+                    case FuzzyEqual: {
+                        const double eps = constStream[nodeStream[++i]];
+                        dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                        ++i;
+                        break;
+                    }
+                    case FuzzyEqualDiscrete: {
+                        const double lb = constStream[nodeStream[++i]];
+                        const double rb = constStream[nodeStream[++i]];
+                        dStack.Top() = BFly(dStack.Top(), lb, rb);
+                        ++i;
+                        break;
+                    }
+                    case FuzzyComp: {
+                        const double eps = constStream[nodeStream[++i]];
+                        dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                        ++i;
+                        break;
+                    }
+                    case FuzzyCompDiscrete: {
+                        const double lb = constStream[nodeStream[++i]];
+                        const double rb = constStream[nodeStream[++i]];
+                        dStack.Top() = CSpr(dStack.Top(), lb, rb);
+                        ++i;
+                        break;
+                    }
+                    case FuzzyAnd: {
+                        const T_ x = dStack.TopAndPop();
+                        dStack.Top() *= x;
+                        ++i;
+                        break;
+                    }
+                    case FuzzyOr: {
+                        const T_ x = dStack.TopAndPop();
+                        const T_ y = dStack.TopAndPop();
+                        dStack.Push(x + y - x * y);
+                        ++i;
+                        break;
+                    }
+                    case FuzzyNot:
+                        dStack.Top() = 1.0 - dStack.Top();
+                        ++i;
+                        break;
+                    case FuzzyTrue:
+                        dStack.Push(T_(1.0));
+                        ++i;
+                        break;
+                    case FuzzyFalse:
+                        dStack.Push(T_(0.0));
+                        ++i;
+                        break;
+                    case FuzzyIf: {
+                        //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
+                        const size_t lastTrue = nodeStream[i + 1];
+                        const size_t lastFalse = nodeStream[i + 2];
+                        const int nAff = nodeStream[i + 3];
+                        const size_t firstAff = i + 4;
+                        const size_t firstTrue = firstAff + nAff;
+
+                        const T_ t = dStack.TopAndPop();
+                        if (t > 1.0 - EPSILON) {
+                            EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                            i = lastFalse;
+                        } else if (t < EPSILON) {
+                            i = lastTrue;
+                        } else {
+                            REQUIRE(state.nestedIfLvl_ < state.varStore0_.size(), "compiled FuzzyIf nesting exceeds allocated var stores");
+                            const size_t lvl = state.nestedIfLvl_++;
+                            for (int k = 0; k < nAff; ++k) {
+                                const size_t idx = nodeStream[firstAff + k];
+                                state.varStore0_[lvl][idx] = state.variables_[idx];
+                            }
+                            EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                            for (int k = 0; k < nAff; ++k) {
+                                const size_t idx = nodeStream[firstAff + k];
+                                state.varStore1_[lvl][idx] = state.variables_[idx];
+                                state.variables_[idx] = state.varStore0_[lvl][idx];
+                            }
+                            EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
+                            for (int k = 0; k < nAff; ++k) {
+                                const size_t idx = nodeStream[firstAff + k];
+                                state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
+                            }
+                            --state.nestedIfLvl_;
+                            i = lastFalse;
+                        }
+                        break;
+                    }
+                    default:
+                        THROW("unknown compiled script opcode: " + std::to_string(op));
+                    }
+                }
+            }
+        }
+    } // namespace Detail
+
     template <class T_>
     inline void EvalCompiled(const Vector_<int>& nodeStream,
                              const Vector_<double>& constStream,
@@ -340,307 +662,7 @@ namespace Dal::Script {
                              size_t first,
                              size_t last,
                              bool reset) {
-        const size_t n = last ? last : nodeStream.size();
-        size_t i = first;
-
-        StaticStack_<T_>& dStack = state.dStack_;
-        if (reset)
-            dStack.Reset();
-        StaticStack_<bool>& bStack = state.bStack_;
-        if (reset)
-            bStack.Reset();
-
-        while (i < n) {
-            const int op = nodeStream[i];
-            switch (op) {
-            case Add:
-                dStack[1] += dStack.Top();
-                dStack.Pop();
-                ++i;
-                break;
-            case AddConst:
-                dStack.Top() += constStream[nodeStream[++i]];
-                ++i;
-                break;
-            case Sub:
-                dStack[1] -= dStack.Top();
-                dStack.Pop();
-                ++i;
-                break;
-            case SubConst:
-                dStack.Top() -= constStream[nodeStream[++i]];
-                ++i;
-                break;
-            case ConstSub:
-                dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
-                ++i;
-                break;
-            case Multi:
-                dStack[1] *= dStack.Top();
-                dStack.Pop();
-                ++i;
-                break;
-            case MultiConst:
-                dStack.Top() *= constStream[nodeStream[++i]];
-                ++i;
-                break;
-            case Div:
-                dStack[1] /= dStack.Top();
-                dStack.Pop();
-                ++i;
-                break;
-            case DivConst:
-                dStack.Top() /= constStream[nodeStream[++i]];
-                ++i;
-                break;
-            case ConstDiv:
-                dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
-                ++i;
-                break;
-            case Pow:
-                dStack[1] = pow(dStack[1], dStack.Top());
-                dStack.Pop();
-                ++i;
-                break;
-            case PowConst:
-                dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
-                ++i;
-                break;
-            case ConstPow:
-                dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
-                ++i;
-                break;
-            case Max2: {
-                const T_ y = dStack.TopAndPop();
-                if (y > dStack[0])
-                    dStack[0] = y;
-                ++i;
-                break;
-            }
-            case Max2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
-                if (y > dStack.Top())
-                    dStack.Top() = y;
-                ++i;
-                break;
-            }
-            case Min2: {
-                const T_ y = dStack.TopAndPop();
-                if (y < dStack[0])
-                    dStack[0] = y;
-                ++i;
-                break;
-            }
-            case Min2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
-                if (y < dStack.Top())
-                    dStack.Top() = y;
-                ++i;
-                break;
-            }
-            case Spot:
-                dStack.Push(scenario.spot_);
-                ++i;
-                break;
-            case Var:
-                dStack.Push(state.variables_[nodeStream[++i]]);
-                ++i;
-                break;
-            case ConstVar:
-                dStack.Push(state.constVariables_[nodeStream[++i]]);
-                ++i;
-                break;
-            case Const:
-                dStack.Push(constStream[nodeStream[++i]]);
-                ++i;
-                break;
-            case Assign: {
-                const size_t idx = nodeStream[++i];
-                state.variables_[idx] = dStack.TopAndPop();
-                ++i;
-                break;
-            }
-            case AssignConst: {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                state.variables_[idx] = T_(val);
-                ++i;
-                break;
-            }
-            case Pays: {
-                const size_t idx = nodeStream[++i];
-                state.variables_[idx] += dStack.TopAndPop() / scenario.numeraire_;
-                ++i;
-                break;
-            }
-            case PaysConst: {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                state.variables_[idx] += T_(val) / scenario.numeraire_;
-                ++i;
-                break;
-            }
-            case If:
-                if (bStack.Top()) {
-                    i += 2;
-                } else {
-                    i = nodeStream[++i];
-                }
-                bStack.Pop();
-                break;
-            case IfElse:
-                if (!bStack.Top()) {
-                    i = nodeStream[++i];
-                } else {
-                    //  Preserve parent stacks while running the true branch.
-                    EvalCompiled(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
-                    i = nodeStream[i + 2];
-                }
-                bStack.Pop();
-                break;
-            case Equal:
-                bStack.Push(dStack.TopAndPop() == 0);
-                ++i;
-                break;
-            case Sup:
-                bStack.Push(dStack.TopAndPop() > 0);
-                ++i;
-                break;
-            case SupEqual:
-                bStack.Push(dStack.TopAndPop() >= 0);
-                ++i;
-                break;
-            case And:
-                if (bStack[1])
-                    bStack[1] = bStack.Top();
-                bStack.Pop();
-                ++i;
-                break;
-            case Or:
-                if (!bStack[1])
-                    bStack[1] = bStack.Top();
-                bStack.Pop();
-                ++i;
-                break;
-            case Sqrt:
-                dStack.Top() = sqrt(dStack.Top());
-                ++i;
-                break;
-            case Log:
-                dStack.Top() = log(dStack.Top());
-                ++i;
-                break;
-            case Exp:
-                dStack.Top() = exp(dStack.Top());
-                ++i;
-                break;
-            case Not:
-                bStack.Top() = !bStack.Top();
-                ++i;
-                break;
-            case UMinus:
-                dStack.Top() = -dStack.Top();
-                ++i;
-                break;
-            case True:
-                bStack.Push(true);
-                ++i;
-                break;
-            case False:
-                bStack.Push(false);
-                ++i;
-                break;
-            case FuzzyEqual: {
-                const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps);
-                ++i;
-                break;
-            }
-            case FuzzyEqualDiscrete: {
-                const double lb = constStream[nodeStream[++i]];
-                const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), lb, rb);
-                ++i;
-                break;
-            }
-            case FuzzyComp: {
-                const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps);
-                ++i;
-                break;
-            }
-            case FuzzyCompDiscrete: {
-                const double lb = constStream[nodeStream[++i]];
-                const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), lb, rb);
-                ++i;
-                break;
-            }
-            case FuzzyAnd: {
-                const T_ x = dStack.TopAndPop();
-                dStack.Top() *= x;
-                ++i;
-                break;
-            }
-            case FuzzyOr: {
-                const T_ x = dStack.TopAndPop();
-                const T_ y = dStack.TopAndPop();
-                dStack.Push(x + y - x * y);
-                ++i;
-                break;
-            }
-            case FuzzyNot:
-                dStack.Top() = 1.0 - dStack.Top();
-                ++i;
-                break;
-            case FuzzyTrue:
-                dStack.Push(T_(1.0));
-                ++i;
-                break;
-            case FuzzyFalse:
-                dStack.Push(T_(0.0));
-                ++i;
-                break;
-            case FuzzyIf: {
-                //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
-                const size_t lastTrue = nodeStream[i + 1];
-                const size_t lastFalse = nodeStream[i + 2];
-                const int nAff = nodeStream[i + 3];
-                const size_t firstAff = i + 4;
-                const size_t firstTrue = firstAff + nAff;
-
-                const T_ t = dStack.TopAndPop();
-                if (t > 1.0 - EPSILON) {
-                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
-                    i = lastFalse;
-                } else if (t < EPSILON) {
-                    i = lastTrue;
-                } else {
-                    REQUIRE(state.nestedIfLvl_ < state.varStore0_.size(), "compiled FuzzyIf nesting exceeds allocated var stores");
-                    const size_t lvl = state.nestedIfLvl_++;
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.varStore0_[lvl][idx] = state.variables_[idx];
-                    }
-                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.varStore1_[lvl][idx] = state.variables_[idx];
-                        state.variables_[idx] = state.varStore0_[lvl][idx];
-                    }
-                    EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
-                    }
-                    --state.nestedIfLvl_;
-                    i = lastFalse;
-                }
-                break;
-            }
-            default:
-                THROW("unknown compiled script opcode: " + std::to_string(op));
-            }
-        }
+        Detail::EvalCompiledEvents(
+            1, [&](size_t) { return Detail::CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
     }
 } // namespace Dal::Script
