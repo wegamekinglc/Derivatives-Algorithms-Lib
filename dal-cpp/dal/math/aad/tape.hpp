@@ -78,6 +78,7 @@ namespace Dal::AAD {
 } // namespace Dal::AAD
 #elif defined(DAL_USE_ADEPT_AAD)
 #include <adept.h>
+#include <algorithm>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
@@ -105,9 +106,37 @@ namespace Dal::AAD {
             n_operations_ = nOperations;
         }
 
+        // Adept grows the gradient array only inside initialize_gradients(), while
+        // register_gradient() keeps handing out indices up to the all-time high-water
+        // mark max_gradient_. A later recording window can therefore reference gradient
+        // indices beyond the allocated array. Grow it on demand, preserving accumulated
+        // adjoints and zero-initializing the new tail.
+        void EnsureGradientCapacity() {
+            if (!gradients_are_initialized()) {
+                initialize_gradients();
+                return;
+            }
+#ifdef ADEPT_STACK_STORAGE_STL
+            if (gradient_.size() < max_gradient_)
+                gradient_.resize(max_gradient_ + 10, 0.0);
+#else
+            if (max_gradient_ <= n_allocated_gradients_)
+                return;
+            auto* grown = new adept::Real[max_gradient_];
+            if (n_allocated_gradients_ > 0)
+                std::copy(gradient_, gradient_ + n_allocated_gradients_, grown);
+            std::fill(grown + n_allocated_gradients_, grown + max_gradient_, 0.0);
+            delete[] gradient_;
+            gradient_ = grown;
+            n_allocated_gradients_ = max_gradient_;
+#endif
+        }
+
         void compute_adjoint(adept::uIndex fromStatement, adept::uIndex toStatement) {
             if (!gradients_are_initialized())
                 THROW("Adept gradients are not initialized");
+
+            EnsureGradientCapacity();
 
             for (adept::uIndex ist = fromStatement; ist > toStatement && ist > 1; --ist) {
                 const adept::uIndex statementIndex = ist - 1;
