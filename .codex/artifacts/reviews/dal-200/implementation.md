@@ -1,5 +1,54 @@
 # DAL-200 F3 implementation handoff
 
+## Adept gradient-array repair, 2026-09-13
+
+Repair commit: `63c134c0` on `feature/dal-200-eq-observation-slots`, directly on top of
+the recorded head `4c346c04`. It repairs the current-head Linux Adept abort listed as
+open in the summary above: all five Adept legs passed 1,669/1,670 CTest cases and then
+aborted `ScriptCompiledParityTest.TestParity_Number_NestedIf_Fuzzy` with a glibc
+`sysmalloc` allocator assertion.
+
+Root cause, reproduced with a CI-identical static Release build (intermittent, roughly
+5% per process at four threads) and pinpointed with an AddressSanitizer build: Adept's
+`Stack` grows its gradient array only inside `initialize_gradients()`, while
+`register_gradient()` keeps handing out indices up to the all-time high-water mark
+`max_gradient_`. DAL's custom `Tape_::compute_adjoint` (`dal-cpp/dal/math/aad/tape.hpp`)
+froze the array at a worker thread's first seed and never resized it. A later recording
+window with more simultaneously live variables — here a branchier fuzzy path in the
+compiled parity evaluation — then referenced gradient slots past the allocation. ASan
+reports the heap-buffer-overflow at `tape.hpp:119`, zero bytes after the 151-double
+array allocated at the first seed. The condition is latent on the base revision as well:
+the F2 tree reproduces the identical overrun, so this is not introduced by DAL-200; the
+restructured generation loop changed per-path registration patterns enough for CI to
+observe it.
+
+The repair is confined to the Adept backend facade: `Tape_::EnsureGradientCapacity()`
+grows the gradient array on demand, preserving accumulated adjoints and zeroing the new
+tail, and runs before every reverse sweep and every adjoint seed/read. Numerics are
+unchanged when capacity suffices, so the non-Adept backends and the native benchmark
+gate are unaffected by construction. The vendored Adept sources are not modified.
+
+Verification on the repair commit:
+
+- New backend-neutral regression `AADTapeTest.TestGradientCapacityGrowsAfterSeeding`:
+  deterministic heap corruption (`malloc(): invalid size`) on the unrepaired base,
+  exact adjoint accumulation (3.0 then 2083.0) after the repair.
+- CI-identical Adept static Release build, gcc-14: full CTest **1,671/1,671 pass**; the
+  previously aborting parity test ran 40 times at four threads with zero failures.
+- AddressSanitizer build: 169 focused tape/parity/observation/simulation/model tests
+  pass with zero sanitizer reports; the same build caught the overrun on its first run
+  before the repair.
+- gcc-15 Adept and native/xad/codipack focused parity/tape suites pass;
+  `dal_check_generated`, changed-range clang-format and whitespace checks pass.
+
+A separate artifact was observed only in address+undefined sanitizer builds: UBSan
+reports a null `adept::_stack_current_thread` load at the first tape touch. It
+reproduces identically on the F2 base, never occurs in Release or address-only builds,
+and is unrelated to this PR. The Python performance acceptance above remains open and
+is unchanged by this repair.
+
+---
+
 ## Correctness and performance remediation, 2026-09-13
 
 Incoming head: `9bc4f000554945199b8edda73b9a90b2508c65be`.
