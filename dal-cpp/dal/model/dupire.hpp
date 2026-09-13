@@ -69,8 +69,7 @@ namespace Dal {
                     double maxDt = 1.0)
                 : spot_(spot), r_(r), q_(q), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
                   parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3), defLine_(nullptr) {
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
-                REQUIRE(std::isfinite(Value(r_)) && std::isfinite(Value(q_)), "InvalidModelParameter: rate and repo must be finite");
+                ValidateScalarParameters();
                 REQUIRE(std::isfinite(maxDt_) && maxDt_ > 0.0, "InvalidModelParameter: maxDt must be finite and positive");
                 REQUIRE(!spots_.empty() && !times_.empty() && vols_.Rows() == spots_.size() && vols_.Cols() == times_.size(),
                         "InvalidModelParameter: Dupire grid shape");
@@ -80,10 +79,7 @@ namespace Dal {
                 for (size_t j = 0; j < times_.size(); ++j)
                     REQUIRE(std::isfinite(times_[j]) && times_[j] >= 0.0 && (j == 0 || times_[j] > times_[j - 1]),
                             "InvalidModelParameter: Dupire times must be nonnegative and strictly increasing");
-                for (size_t i = 0; i < vols_.Rows(); ++i)
-                    for (size_t j = 0; j < vols_.Cols(); ++j)
-                        REQUIRE(std::isfinite(Value(vols_(i, j))) && Value(vols_(i, j)) >= 0.0,
-                                "InvalidModelParameter: local volatility must be finite and nonnegative");
+                ValidateVolatilities();
                 Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
                 parameterLabels_[0] = "spot";
                 parameterLabels_[1] = "rate";
@@ -137,6 +133,8 @@ namespace Dal {
             }
 
             void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+                ValidateScalarParameters();
+                ValidateVolatilities();
                 const size_t n = timeLine_.size() - 1;
                 const size_t m = logSpots_.size();
                 for (size_t i = 0; i < n; ++i) {
@@ -187,6 +185,18 @@ namespace Dal {
             }
 
         private:
+            void ValidateScalarParameters() const {
+                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
+                REQUIRE(std::isfinite(Value(r_)) && std::isfinite(Value(q_)), "InvalidModelParameter: rate and repo must be finite");
+            }
+
+            void ValidateVolatilities() const {
+                for (size_t i = 0; i < vols_.Rows(); ++i)
+                    for (size_t j = 0; j < vols_.Cols(); ++j)
+                        REQUIRE(std::isfinite(Value(vols_(i, j))) && Value(vols_(i, j)) >= 0.0,
+                                "InvalidModelParameter: local volatility must be finite and nonnegative");
+            }
+
             void SetParameterPointers() {
                 parameters_[0] = &spot_;
                 parameters_[1] = &r_;

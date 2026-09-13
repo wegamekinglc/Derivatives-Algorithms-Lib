@@ -51,6 +51,13 @@ namespace Dal {
             Vector_<T_*> parameters_;
             Vector_<String_> parameterLabels_;
 
+            void ValidateParameters() const {
+                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
+                REQUIRE(std::isfinite(Value(vol_)) && Value(vol_) >= 0.0, "InvalidModelParameter: vol must be finite and nonnegative");
+                REQUIRE(std::isfinite(Value(rate_)), "InvalidModelParameter: rate must be finite");
+                REQUIRE(std::isfinite(Value(div_)), "InvalidModelParameter: div must be finite");
+            }
+
             void SetParamPointers() {
                 parameters_[0] = &spot_;
                 parameters_[1] = &vol_;
@@ -145,10 +152,7 @@ namespace Dal {
                           const U_& rate = U_(0.0),
                           const U_& div = U_(0.0))
                 : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(BlackScholesLabels()) {
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
-                REQUIRE(std::isfinite(Value(vol_)) && Value(vol_) >= 0.0, "InvalidModelParameter: vol must be finite and nonnegative");
-                REQUIRE(std::isfinite(Value(rate_)), "InvalidModelParameter: rate must be finite");
-                REQUIRE(std::isfinite(Value(div_)), "InvalidModelParameter: div must be finite");
+                ValidateParameters();
                 SetParamPointers();
             }
 
@@ -192,6 +196,7 @@ namespace Dal {
             }
 
             void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+                ValidateParameters();
                 const T_ mu = rate_ - div_;
                 const size_t n = timeLine_.size() - 1;
 

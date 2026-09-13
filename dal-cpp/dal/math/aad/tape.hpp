@@ -106,11 +106,7 @@ namespace Dal::AAD {
             n_operations_ = nOperations;
         }
 
-        // Adept grows the gradient array only inside initialize_gradients(), while
-        // register_gradient() keeps handing out indices up to the all-time high-water
-        // mark max_gradient_. A later recording window can therefore reference gradient
-        // indices beyond the allocated array. Grow it on demand, preserving accumulated
-        // adjoints and zero-initializing the new tail.
+        // Later recording windows can outgrow Adept's gradient storage while old adjoints must survive.
         void EnsureGradientCapacity() {
             if (!gradients_are_initialized()) {
                 initialize_gradients();

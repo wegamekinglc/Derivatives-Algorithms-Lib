@@ -57,6 +57,20 @@ namespace {
         }
     };
 
+    template <class T_> struct SetupCounterModel_ : T_ {
+        using T_::T_;
+        size_t allocations_ = 0;
+        size_t initializations_ = 0;
+        void Allocate(const Vector_<>& dates, const Vector_<AAD::SampleDef_>& defs) override {
+            ++allocations_;
+            T_::Allocate(dates, defs);
+        }
+        void Init(const Vector_<>& dates, const Vector_<AAD::SampleDef_>& defs) override {
+            ++initializations_;
+            T_::Init(dates, defs);
+        }
+    };
+
     ScriptValuationSettings_ BoundSettings() {
         ScriptValuationSettings_ result;
         result.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
@@ -187,6 +201,54 @@ namespace {
                     static_cast<void>(ObjectAccess_::Erase(*object));
         }
     };
+
+    void CheckInvalidLiveParameter(const AAD::Model_<double>& original, size_t parameter, double value) {
+        const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+        for (const auto date : {Date_(2026, 9, 12), Date_(2026, 9, 15)}) {
+            for (const bool explicitHistory : {false, true}) {
+                SCOPED_TRACE(::testing::Message() << "parameter=" << parameter << "; value=" << value << "; days=" << date - Date_(2026, 9, 12)
+                                                  << "; explicit history=" << explicitHistory);
+                auto model = original.Clone();
+                *model->Parameters()[parameter] = value;
+                ReadCounter_ reads;
+                SubmissionCounter_ workers;
+                const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+                const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+                std::string error;
+                try {
+                    static_cast<void>(PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST])", date), model.get(),
+                                                    BoundSettings(), {}, explicitHistory ? snapshot : Handle_<MarketFixingSnapshot_>()));
+                } catch (const Exception_& caught) {
+                    error = caught.what();
+                }
+                ASSERT_NE(error.find("InvalidModelParameter:"), std::string::npos);
+                ASSERT_EQ(reads.histories_, 0);
+                ASSERT_EQ(reads.fixings_, 0);
+                ASSERT_EQ(workers.submissions_, 0);
+            }
+        }
+    }
+
+    void CheckInvalidLiveParameters(const AAD::Model_<double>& model, const Vector_<size_t>& volatilityParameters) {
+        const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+        const HistoryRestore_ restoreHistory("EQ[DAL196_TEST]");
+        StoreHistory();
+        ASSERT_NO_FATAL_FAILURE(CheckInvalidLiveParameter(model, 0, -123.0));
+        ASSERT_NO_FATAL_FAILURE(CheckInvalidLiveParameter(model, 0, 0.0));
+        for (const size_t parameter : volatilityParameters)
+            ASSERT_NO_FATAL_FAILURE(CheckInvalidLiveParameter(model, parameter, -0.2));
+        for (size_t parameter = 0; parameter < model.Parameters().size(); ++parameter)
+            for (const double value :
+                 {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()})
+                ASSERT_NO_FATAL_FAILURE(CheckInvalidLiveParameter(model, parameter, value));
+    }
+
+    void SetZeroVolatilityParameters(AAD::Model_<double>* model, double rate, double carry) {
+        for (size_t i = 0; i < model->Parameters().size(); ++i) {
+            const auto& label = model->ParameterLabels()[i];
+            *model->Parameters()[i] = label == "spot" ? 124.0 : (label == "rate" ? rate : (label == "div" || label == "repo" ? carry : 0.0));
+        }
+    }
 
     Vector_<Handle_<ModelData_>> ParityModels() {
         return {Handle_<ModelData_>(new BSModelData_("", 120.0, 0.2, 0.05)),
@@ -412,11 +474,88 @@ TEST(ScriptObservationSimulationTest, TestInvalidModelBeforeHistory) {
     }
 }
 
+TEST(ScriptObservationSimulationTest, TestInvalidLiveBlackScholesSpotBeforeHistory) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    AAD::BlackScholes_<> model(123.0, 0.2);
+    *model.Parameters()[0] = -123.0;
+    ReadCounter_ reads;
+    SubmissionCounter_ workers;
+    const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+    const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+    std::string error;
+    try {
+        static_cast<void>(PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST])", Date_(2026, 9, 12)), &model,
+                                        BoundSettings(), {}, snapshot));
+    } catch (const Exception_& caught) {
+        error = caught.what();
+    }
+    ASSERT_NE(error.find("InvalidModelParameter: spot must be finite and positive"), std::string::npos);
+    ASSERT_EQ(reads.histories_, 0);
+    ASSERT_EQ(reads.fixings_, 0);
+    ASSERT_EQ(workers.submissions_, 0);
+}
+
 TEST(ScriptObservationSimulationTest, TestDupireOutputCapability) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     AAD::Dupire_<double> model(120.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0));
     const auto prepared = PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, BoundSettings(), {});
     ASSERT_NEAR(MCDoubleSimulation(prepared, &model, 1, "sobol", false, false, true).aggregated_, 120.0, 120.0e-12);
+}
+
+TEST(ScriptObservationSimulationTest, TestInvalidLiveBlackScholesParametersBeforeHistory) {
+    const AAD::BlackScholes_<> model(123.0, 0.2);
+    CheckInvalidLiveParameters(model, {1});
+}
+
+TEST(ScriptObservationSimulationTest, TestInvalidLiveDupireParametersBeforeHistory) {
+    const AAD::Dupire_<> model(123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2));
+    CheckInvalidLiveParameters(model, {3, 4, 5, 6});
+}
+
+TEST(ScriptObservationSimulationTest, TestValidLiveParametersUseCurrentValues) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    for (const auto& data : ParityModels()) {
+        auto model = CreateModel<double>(data);
+        for (const double rate : {0.0, -0.03}) {
+            const double carry = rate == 0.0 ? 0.0 : -0.01;
+            SetZeroVolatilityParameters(model.get(), rate, carry);
+            for (const auto date : {Date_(2026, 9, 12), Date_(2026, 9, 15)}) {
+                ReadCounter_ reads;
+                const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+                const auto prepared = PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST])", date), model.get(),
+                                                    BoundSettings(), {}, snapshot);
+                const double value = MCDoubleSimulation(prepared, model.get(), 1, "sobol", false, false, true).aggregated_;
+                const double time = (date - Date_(2026, 9, 12)) / DAYS_PER_YEAR;
+                const double expected = 80.0 * std::exp(-rate * time) + 124.0 * std::exp(-carry * time);
+                ASSERT_NEAR(value, expected, 204.0e-12);
+                ASSERT_EQ(reads.histories_, 0);
+                ASSERT_EQ(reads.fixings_, 1);
+            }
+        }
+    }
+}
+
+TEST(ScriptObservationSimulationTest, TestExpiredMutatedModelsSkipSetup) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    SetupCounterModel_<AAD::BlackScholes_<>> blackScholes(123.0, 0.2);
+    SetupCounterModel_<AAD::Dupire_<>> dupire(123.0, 0.0, 0.0, Vector_<>{80.0, 160.0}, Vector_<>{0.0, 1.0}, Matrix_<>(2, 2, 0.2));
+    SubmissionCounter_ workers;
+    const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+    RejectHistory_ reject;
+    const Dal::Detail::ScopedFixingReadObserver_ history(&reject);
+    for (AAD::Model_<double>* model : Vector_<AAD::Model_<double>*>{&blackScholes, &dupire}) {
+        *model->Parameters()[0] = -123.0;
+        const auto prepared = PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST])", Date_(2026, 9, 11)), model, {}, {});
+        ASSERT_TRUE(prepared.AllExpired());
+        ASSERT_EQ(MCDoubleSimulation(prepared, model, 8193, "sobol", false, false, true).aggregated_, 0.0);
+    }
+    ASSERT_EQ(blackScholes.allocations_, 0);
+    ASSERT_EQ(blackScholes.initializations_, 0);
+    ASSERT_EQ(dupire.allocations_, 0);
+    ASSERT_EQ(dupire.initializations_, 0);
+    ASSERT_EQ(workers.submissions_, 0);
 }
 
 TEST(ScriptObservationSimulationTest, TestModelBindingsBeforeHistory) {
