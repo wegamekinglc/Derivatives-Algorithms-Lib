@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include <dal/curve/tapeguard.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -36,6 +37,57 @@ namespace {
         double repeatedFirst_;
     };
 } // namespace
+
+TEST(SimulationTest, TestInvalidPathDiagnosticsAcrossSamples) {
+    AAD::Scenario_<double> path(3);
+    for (auto& sample : path) {
+        sample.Initialize();
+        sample.observations_ = {-2.0, 0.0, 3.0};
+    }
+    for (size_t i = 0; i < path.size(); ++i) {
+        auto& sample = path[i];
+        const Vector_<double*> fields{&sample.spot_, &sample.numeraire_, &sample.observations_[2]};
+        const Vector_<String_> messages{"InvalidModelPath: non-finite spot", "InvalidModelPath: non-finite or nonpositive numeraire",
+                                        "InvalidModelPath: non-finite observation"};
+        for (size_t field = 0; field < fields.size(); ++field) {
+            for (const double value :
+                 {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
+                SCOPED_TRACE(::testing::Message() << "sample=" << i << "; field=" << field << "; value=" << value);
+                const double original = *fields[field];
+                *fields[field] = value;
+                try {
+                    ValidateSimulationPath(path);
+                    FAIL() << "every generated field must be validated";
+                } catch (const ScriptError_& error) {
+                    ASSERT_NE(String_(error.what()).find(messages[field]), String_::npos);
+                }
+                *fields[field] = original;
+            }
+        }
+        for (const double numeraire : {0.0, -1.0}) {
+            sample.numeraire_ = numeraire;
+            ASSERT_THROW(ValidateSimulationPath(path), ScriptError_);
+        }
+        sample.numeraire_ = std::numeric_limits<double>::min();
+        sample.spot_ = -1.0;
+        ASSERT_NO_THROW(ValidateSimulationPath(path));
+        sample.numeraire_ = 1.0;
+    }
+}
+
+TEST(SimulationTest, TestInvalidPathPreservesFirstDiagnostic) {
+    AAD::Scenario_<double> path(2);
+    for (auto& sample : path)
+        sample.Initialize();
+    path[0].observations_ = {std::numeric_limits<double>::infinity()};
+    path[1].spot_ = std::numeric_limits<double>::quiet_NaN();
+    try {
+        ValidateSimulationPath(path);
+        FAIL() << "the first invalid sample must fail";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(String_(error.what()).find("InvalidModelPath: non-finite observation"), String_::npos);
+    }
+}
 
 TEST(SimulationTest, TestDeterministicWithFixedSeed) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));

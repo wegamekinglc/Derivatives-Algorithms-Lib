@@ -27,6 +27,18 @@ namespace Dal {
             return equity && typeid(index) == typeid(Index::Equity_) && equity->Name() == Index::Equity_(equity->eqName_).Name();
         }
 
+        template <class T_> bool IsValidModelPath(const Scenario_<T_>& path) {
+            bool valid = true;
+            for (const auto& sample : path) {
+                valid &= std::isfinite(Value(sample.spot_));
+                valid &= std::isfinite(Value(sample.numeraire_));
+                valid &= Value(sample.numeraire_) > 0.0;
+                for (const auto& observation : sample.observations_)
+                    valid &= std::isfinite(Value(observation));
+            }
+            return valid;
+        }
+
         template <class T_ = double> class Model_ {
             inline static const Vector_<String_>& DefaultAssetNames() {
                 static Vector_<String_> defaultAssetNames_ = {"spot"};

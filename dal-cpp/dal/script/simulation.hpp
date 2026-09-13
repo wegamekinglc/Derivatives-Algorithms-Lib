@@ -176,33 +176,68 @@ namespace Dal::Script {
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
 
-    template <class T_> void ValidateSimulationPath(const Scenario_<T_>& path) {
-        for (const auto& sample : path) {
-            REQUIRE2(std::isfinite(Value(sample.spot_)), "InvalidModelPath: non-finite spot", ScriptError_);
-            REQUIRE2(std::isfinite(Value(sample.numeraire_)) && Value(sample.numeraire_) > 0.0,
-                     "InvalidModelPath: non-finite or nonpositive numeraire", ScriptError_);
-            for (const auto& observation : sample.observations_)
-                REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
+    namespace Detail {
+        template <class T_> void DiagnoseInvalidSimulationPath(const Scenario_<T_>& path) {
+            for (const auto& sample : path) {
+                REQUIRE2(std::isfinite(Value(sample.spot_)), "InvalidModelPath: non-finite spot", ScriptError_);
+                REQUIRE2(std::isfinite(Value(sample.numeraire_)) && Value(sample.numeraire_) > 0.0,
+                         "InvalidModelPath: non-finite or nonpositive numeraire", ScriptError_);
+                for (const auto& observation : sample.observations_)
+                    REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
+            }
         }
+    } // namespace Detail
+
+    template <class T_> FORCE_INLINE void ValidateSimulationPath(const Scenario_<T_>& path) {
+        // Only invalid paths enter the diagnostic function and its exception setup.
+        if (!AAD::IsValidModelPath(path))
+            Detail::DiagnoseInvalidSimulationPath(path);
     }
 
     namespace Detail {
+        template <class T_, class F_> auto WithPathGenerator(const AAD::Model_<T_>& model, const F_& work) {
+            if (typeid(model) == typeid(AAD::BlackScholes_<T_>)) {
+                const auto& bs = static_cast<const AAD::BlackScholes_<T_>&>(model);
+                return work([&](const Vector_<>& gauss, Scenario_<T_>* path) {
+                    if (!bs.GeneratePathAndValidate(gauss, path))
+                        DiagnoseInvalidSimulationPath(*path);
+                });
+            }
+            return work([&](const Vector_<>& gauss, Scenario_<T_>* path) {
+                model.GeneratePath(gauss, path);
+                ValidateSimulationPath(*path);
+            });
+        }
+
         template <class S_, class E_, class F_>
         double EvaluateDoubleBatch(
             const AAD::Model_<double>& model, S_* state, E_* evaluator, const PathBatch_& batch, size_t payoffIndex, const F_& evaluate) {
             if (state->random_)
                 state->random_->SkipTo(batch.firstPath_);
-            double sumValue = 0.0;
-            for (size_t i = 0; i < batch.pathCount_; ++i) {
-                if (state->random_)
-                    state->random_->FillNormal(&state->gauss_);
-                model.GeneratePath(state->gauss_, &state->path_);
-                ValidateSimulationPath(state->path_);
-                evaluate(state->path_, *evaluator);
-                REQUIRE2(std::isfinite(evaluator->VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
-                sumValue += evaluator->VarVals()[payoffIndex];
+            auto run = [&](const auto& generate) {
+                double sumValue = 0.0;
+                for (size_t i = 0; i < batch.pathCount_; ++i) {
+                    if (state->random_)
+                        state->random_->FillNormal(&state->gauss_);
+                    evaluate(generate(state->gauss_), *evaluator);
+                    REQUIRE2(std::isfinite(evaluator->VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
+                    sumValue += evaluator->VarVals()[payoffIndex];
+                }
+                return sumValue;
+            };
+            if (state->bsPaths_) {
+                auto& paths = *state->bsPaths_;
+                return run([&](const Vector_<>& gauss) -> const Scenario_<>& {
+                    if (!paths.Generate(gauss))
+                        DiagnoseInvalidSimulationPath(paths.Path());
+                    return paths.Path();
+                });
             }
-            return sumValue;
+            return run([&](const Vector_<>& gauss) -> const Scenario_<>& {
+                model.GeneratePath(gauss, &state->path_);
+                ValidateSimulationPath(state->path_);
+                return state->path_;
+            });
         }
     } // namespace Detail
 
@@ -251,19 +286,24 @@ namespace Dal::Script {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
+            std::unique_ptr<AAD::BlackScholes_<double>::CheckedPaths_> bsPaths_;
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
-            ThreadState_(const P_& product, size_t dimensions, const String_& rsg, bool useBb)
-                : random_(CreateRNG(rsg, dimensions, useBb)), gauss_(dimensions), evaluator_(product.template BuildEvaluator<double>()),
+            ThreadState_(const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb)
+                : random_(CreateRNG(rsg, model.SimDim(), useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
                   compiledState_(product.template BuildEvalState<double>()) {
-                AllocatePath(product.DefLine(), path_);
-                InitializePath(path_);
+                if (typeid(model) == typeid(AAD::BlackScholes_<double>))
+                    bsPaths_ = std::make_unique<AAD::BlackScholes_<double>::CheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
+                else {
+                    AllocatePath(product.DefLine(), path_);
+                    InitializePath(path_);
+                }
             }
         };
         Vector_<std::unique_ptr<ThreadState_>> threadStates(nThreads);
         // Preserve caller-side input validation, including the zero-path case.
-        threadStates[0] = std::make_unique<ThreadState_>(product, mdl->SimDim(), rsg, useBb);
+        threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
@@ -282,7 +322,7 @@ namespace Dal::Script {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 auto& state = threadStates[threadNum];
                 if (!state)
-                    state = std::make_unique<ThreadState_>(product, mdl->SimDim(), rsg, useBb);
+                    state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
                     return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate);
                 };
@@ -377,19 +417,20 @@ namespace Dal::Script {
 
                 auto runPaths = [&](auto& evaluator, auto evaluate) {
                     InitModel4ParallelAAD(product, *model, path, evaluator);
-                    for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::RewindToMark(*AAD::Tape());
-                        if (random)
-                            random->FillNormal(&gVec);
-                        model->GeneratePath(gVec, &path);
-                        ValidateSimulationPath(path);
-                        evaluate(path, evaluator);
-                        AAD::Number_ res = evaluator.VarVals()[payoffIndex];
-                        REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
-                        Adjoint(res) = 1.0;
-                        AAD::PropagateToMark(*AAD::Tape());
-                        sumValue += Value(res);
-                    }
+                    Detail::WithPathGenerator(*model, [&](const auto& generate) {
+                        for (size_t i = 0; i < pathsInTask; i++) {
+                            AAD::RewindToMark(*AAD::Tape());
+                            if (random)
+                                random->FillNormal(&gVec);
+                            generate(gVec, &path);
+                            evaluate(path, evaluator);
+                            AAD::Number_ res = evaluator.VarVals()[payoffIndex];
+                            REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
+                            Adjoint(res) = 1.0;
+                            AAD::PropagateToMark(*AAD::Tape());
+                            sumValue += Value(res);
+                        }
+                    });
                 };
 
                 auto accumulateConstVarRisks = [&](const auto& constVarVals) {

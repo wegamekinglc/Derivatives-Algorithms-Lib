@@ -90,6 +90,53 @@ namespace {
         }
     };
 
+    struct LegacySampleModel_ : AAD::BlackScholes_<double> {
+        LegacySampleModel_() : AAD::BlackScholes_<double>(10.0, 0.0) {}
+        void GeneratePath(const Vector_<>&, AAD::Scenario_<double>* path) const override {
+            const Vector_<> spots{10.0, 20.0, 40.0};
+            const Vector_<> numeraires{2.0, 4.0, 8.0};
+            for (size_t i = 0; i < path->size(); ++i) {
+                (*path)[i].spot_ = spots[i];
+                (*path)[i].numeraire_ = numeraires[i];
+            }
+        }
+    };
+
+    void CheckLegacyPreparedDates(const Vector_<Cell_>& dates, size_t samples, double expected) {
+        const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+        RejectHistory_ reject;
+        const Dal::Detail::ScopedFixingReadObserver_ observe(&reject);
+        const ScriptProductData_ data("", dates, {"x = SPOT() pay PAYS x", "x = 2 * x + SPOT() pay PAYS x", "pay PAYS x + SPOT()"});
+        for (const bool compiled : {false, true}) {
+            SCOPED_TRACE(compiled);
+            LegacySampleModel_ model;
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            const auto prepared = PrepareScript(data, &model, {}, simulation);
+            ASSERT_EQ(prepared.EventDates().size(), samples);
+            ASSERT_EQ(prepared.Plan().SampleDates().size(), samples);
+            ASSERT_TRUE(prepared.Plan().Requests().empty());
+            for (size_t i = 0; i < samples; ++i)
+                ASSERT_EQ(prepared.Plan().EventToSample()[i], i);
+            AAD::Scenario_<double> path;
+            AAD::AllocatePath(prepared.DefLine(), path);
+            AAD::InitializePath(path);
+            model.GeneratePath({}, &path);
+            if (compiled) {
+                auto state = prepared.BuildEvalState<double>();
+                const auto artifact = prepared.Compile();
+                ASSERT_EQ(artifact.NodeStreams().size(), samples);
+                artifact.Evaluate(path, state);
+                ASSERT_EQ(state.VarVals()[prepared.PayOffIdx()], expected);
+            } else {
+                auto state = prepared.BuildEvaluator<double>();
+                prepared.Evaluate(path, state);
+                ASSERT_EQ(state.VarVals()[prepared.PayOffIdx()], expected);
+            }
+            ASSERT_EQ(MCDoubleSimulation(prepared, &model, 257, "sobol", false, compiled, true).aggregated_, 257.0 * expected);
+        }
+    }
+
     struct SetupFailureModel_ : ControlledModel_ {
         bool failAllocate_ = false;
         size_t initializations_ = 0;
@@ -216,6 +263,18 @@ TEST(ScriptObservationSimulationTest, TestFutureOnlyNoHistory) {
         const auto prepared = PrepareScript(product, &controlled, settings, {}, snapshot);
         ASSERT_EQ(MCDoubleSimulation(prepared, &controlled, 1, "sobol", false, false, true).aggregated_, 123.0);
     }
+}
+
+TEST(ScriptObservationSimulationTest, TestLegacyPreparedDuplicateDates) {
+    CheckLegacyPreparedDates({Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))}, 2, 32.5);
+}
+
+TEST(ScriptObservationSimulationTest, TestLegacyPreparedSameDate) {
+    CheckLegacyPreparedDates({Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 15))}, 1, 40.0);
+}
+
+TEST(ScriptObservationSimulationTest, TestLegacyPreparedDistinctDates) {
+    CheckLegacyPreparedDates({Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 23))}, 3, 25.0);
 }
 
 TEST(ScriptObservationSimulationTest, TestMixedAndRepeatedHistory) {
