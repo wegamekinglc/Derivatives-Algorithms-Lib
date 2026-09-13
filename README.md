@@ -134,9 +134,10 @@ Quote-space DV01 examples:
 - [C++ single-curve quote risk](dal-cpp/examples/quote_risk/)
 - [Python single-curve quote risk](dal-python/examples/009.quote_risk.py)
 - [Excel worksheet recipe](dal-excel/examples/008.quote_risk.md)
+- [Generic joint multi-curve worksheet recipe](dal-excel/examples/009.generic_joint_quote_risk.md)
 
-The quote-risk workflow freezes exact single-curve, joint-XCCY, or staged-XCCY-
-basis calibration provenance and aggregates true portfolio price-per-decimal
+The quote-risk workflow freezes exact single-curve, generic joint multi-curve,
+joint-XCCY, or staged-XCCY-basis calibration provenance and aggregates portfolio price-per-decimal
 quote sensitivity plus DV01. Fingerprints reject stale curve state, and results
 remain separated by actual PV currency without FX conversion.
 

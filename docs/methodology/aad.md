@@ -467,10 +467,9 @@ const double vega  = Adjoint(volAad);   // dP/dVol
 // numeraire, strike, and expiry adjoints are read the same way
 ```
 
-For the pathwise Monte Carlo estimator of the *Pathwise Adjoints in Monte Carlo*
-section, the same program wraps the forward evaluation and reverse sweep in a
-`Rewind`-bounded loop so the tape is reused per path while the parameter
-adjoints accumulate across paths:
+The same program benchmarks repeated evaluation of this deterministic Black
+formula. Its timing loop reuses the tape and divides accumulated adjoints by
+the repetition count:
 
 ```cpp
 // from dal-cpp/examples/aad/aad.cpp
@@ -481,8 +480,11 @@ for (int i = 0; i < nRounds; ++i) {
     Adjoint(priceAad) = 1.0;
     AAD::PropagateToStart(*AAD::Tape());
 }
-const double delta = Adjoint(fwdAad) / nRounds;   // averaged pathwise estimator
+const double delta = Adjoint(fwdAad) / nRounds;   // benchmark repetition average
 ```
+
+This loop does not simulate Monte Carlo paths. The production pathwise estimator
+uses the mark/rewind discipline described above in `dal-cpp/dal/script/simulation.hpp`.
 
 The example also benchmarks the same payoff with the XAD, CoDiPack, and Adept
 backends side by side; only the recording and zeroing calls differ, as described

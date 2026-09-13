@@ -277,9 +277,9 @@ as independents and passes them straight to the `Tape::DiscountPWLF_<T_, B_>`
 constructor. `ApplyDX` is never invoked on the AAD path (it would overwrite a
 tape leaf with a non-typed `double` increment and break the recording). This is
 why the class holds flat `Vector_<T_>` members rather than a templated
-interpolator: the joint path is the only consumer of the templated curve, the
-parameters are always supplied at construction, and flat members minimise the
-surface the tape has to traverse.
+interpolator: active parameters are supplied at construction, and flat members
+keep the tape traversal tied to those native coordinates. Single-curve calibration
+and trade-PV node risk also use these typed curves.
 
 The `double` specialisation
 `Tape::DiscountPWLF_<double, DiscountCurve_<double>>` is the only serializable
@@ -630,10 +630,14 @@ If a result exceeds the current threshold before that review, it fails.
 
 The example also times `CurveJacobianMode_::{BUMPED,ANALYTIC}` calibrations on
 the same EXACT solve. Both modes run the identical Newton solve; the only
-difference is how the forward Jacobian is obtained — $n$ serial finite-difference
-re-calibrations for `BUMPED` versus one AAD reverse sweep per residual row for
+difference is how a refreshed forward Jacobian is obtained — finite-difference
+residual evaluations for each of $n$ parameter columns for `BUMPED`, versus one
+recording and one AAD reverse sweep per residual row for
 `ANALYTIC`. Each `CalibrateYieldCurve` call resets its own tape internally, so
 repeated calls are independent and safe to time.
+The bumped Jacobian reprices residuals at perturbed parameters; it does not run a
+complete calibration for each column. Both modes can use Broyden updates between
+Jacobian refreshes.
 
 The comparison is not pure like-for-like unless diagnostics are disabled. The `ANALYTIC` time includes the
 single at-solution forward-Jacobian evaluation the solver makes on its
