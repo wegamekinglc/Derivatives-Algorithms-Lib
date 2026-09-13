@@ -1,5 +1,213 @@
 # DAL-200 F3 implementation handoff
 
+## Opcode decomposition and bounded tree experiments, 2026-09-13
+
+This is the current DAL-216 implementation handoff. The older sections below are
+retained historical evidence. This attempt addresses the concrete interpreter
+size/complexity findings locally; two tree optimizations failed to demonstrate
+a repeatable improvement and remain unpublished. This is an implementation
+attempt awaiting independent acceptance, not F3 completion.
+
+### Source, authority and scope
+
+- Starting published SHA/tree: `e3a92c1df6a6d87294916e5e777eaafbbe332ff8` /
+  `22295a412d86a1912ce9f9bdb42f30b6f17ddd21`.
+- Explicit F2 comparison baseline: `ec8b0072fbf70dab814a543edc625c8e0bf77efa`.
+- Tested production SHA/tree: `c0ac441ea851d96d70b694c3c7f4e5aae7996f1c` /
+  `e3ba5b4a1c0e735646b555064b8360897548b9bf`.
+- Publication adds only this implementation report. The attachment preface,
+  publication identity JSON and final issue comment identify that complete
+  successor SHA/tree without claiming it is a newly tested production change.
+- Existing draft PR: <https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>;
+  publish branch `feature/dal-200-eq-observation-slots`. F2, every earlier
+  correctness repair, and DAL-218's `fb071974877ebf12c1aa7c5faf252b5798e23691`
+  documentation successor remain ancestors.
+
+The current DAL-216 description, parent fixed F3 semantics/matrix, original
+Codacy annotations and retained DAL-222/E3 evidence control this attempt.
+Repository role/style/test/performance/publication guidance, relevant API note,
+independent critique/testing record, script/AAD methodology, interpreter/tree
+source and nearby opcode/parity/fuzz tests were read before implementation.
+No new spec/API/critic stage or public-design deviation was needed.
+
+Published production scope is only `dal-cpp/dal/script/visitor/compiler.hpp`.
+The report is the only other repository change. Experiments touched
+`dal-cpp/dal/script/visitor/evaluator.hpp` in an isolated worktree; it is restored
+byte-for-byte. No sample/evaluator member layout, virtual interface, public
+signature/default/error string, opcode value, model/RNG/batch/thread behavior,
+dependency, generated source, benchmark inventory/workload/threshold, build/CI
+policy or published docs/CHANGELOG changes.
+
+### Implementation and static RED/GREEN
+
+The interpreter keeps one outer call across all event streams per path. Small
+forced-inline internal helpers separate arithmetic, load/store, hard control,
+unary and fuzzy operations and return the next event-local instruction position.
+The event driver resets both operand stacks once for each top-level event;
+recursive branches still call the unchanged single-event `EvalCompiled` entry
+with `reset=false`. Variable initialization, persistent path state, branch
+bounds, fuzzy blends and default epsilon behavior are preserved. Min/max share
+the same comparator/update helper without changing equality or NaN comparisons.
+
+Original exact-head check `103711581879` reports 306 lines (limit 200) and CCN69
+(limit 8). The authenticated GitHub annotations are retained. Lizard **1.23.0**
+reproduces **306 NLOC / CCN69** on that original driver, with 310 physical lines.
+The final event driver is **13 lines / CCN5**; all new helpers are at most
+**45 physical lines / CCN8**. The whole changed header passes the requested
+limits. This is local metric evidence, not a claim that successor Codacy ran.
+
+```text
+lizard -C 8 -L 200 -w experiments/original-compiler.hpp
+  RED: exit 1, EvalCompiledEvents 306 NLOC / CCN69
+lizard -C 8 -L 200 -w perf-candidate/dal-cpp/dal/script/visitor/compiler.hpp
+  GREEN: exit 0, no findings at those limits
+python3 experiments/run.py build candidate
+python3 experiments/run.py test candidate
+  initial candidate: exit 0, 425/425 semantic controls
+```
+
+This is a behavior-preserving optimization/refactor, so the authorized static
+and unchanged performance failures serve as RED. No artificial functional
+failure, new assertion mirroring implementation or weakened test was introduced.
+All arithmetic/opcode, model validation, finite-output/payoff, owned snapshot,
+custom virtual generation, task draining, live-parameter-before-history,
+retained FIX/payment/no-lookahead and lifetime controls remain unchanged.
+
+### Causal experiments and retained negatives
+
+`hypotheses.md` records the prediction, mechanism, invariants and decision rule
+before each edit. `diagnostic-summary.md/json` lists all **37 comparisons / 1,480
+fresh processes**, including every same-case control. Every process exited 0
+and passed the original workload validation. Each pair uses two rounds of ten
+alternating samples, reduced by each round's minimum. Isolated and unchanged
+suite-prefix histories are distinct; neither replaces the full gate.
+
+- **E1, compiler decomposition:** isolated versus independently rebuilt current
+  **+3.6755/+3.7859%**, versus F2 **-6.8544/-8.4952%**. Prefix versus current
+  **+1.2578/+7.4616%**, versus F2 **-8.8339/-14.0652%**. It preserves an
+  F2-relative compiled gain, with a measurable dispatch cost versus current.
+  Prefix F2 A/A **+10.6088/-2.9098%** is retained; current A/A is
+  **-0.5311/+0.9512%**, candidate A/A **+3.6172/-0.8726%**. No unchanged
+  noisy full gate was rerun to obtain a preferred outcome.
+- **E2, plan-pointer-first SPOT predicate:** all 425 controls pass. Isolated
+  versus E1 **+1.3873/-1.2697%**, prefix **-3.7890/+2.6560%**. No repeatable
+  effect beyond controls; rejected and retained as `e2-tree.patch`.
+- **E3, one checked push for both SPOT branches:** original predicate order;
+  all 425 controls pass. Isolated versus current **+0.5812/+0.1150%**, prefix
+  **+0.3005/+0.6284%**. Prefix versus F2 fails **+8.2099/+5.3098%**, with its
+  own A/A **-0.7703/-2.9853%**. Sub-percent differences versus E1 are smaller
+  than controls; rejected and retained as `e3-tree.patch`.
+
+The tree regression is history-sensitive: a fresh isolated F2/current pair is
+**-0.4106/-0.2699%**, while the rejected E3 prefix pair reproduces a failure.
+That contrast does not waive the earlier full gate. The final source is E1
+alone. The prior selected-worker-state, owned-snapshot and core-specialization
+negative experiments were read and not repeated.
+
+### Fresh correctness and inventory correction
+
+- Canonical `NUM_CORES=12 DAL_NUM_THREADS=4 bash ./build_linux.sh`: exit 0,
+  **1,693/1,693** CTest tests. Canonical compiler is GCC **15.2.0**.
+- Final focused unique coverage: **426 native, 421 Adept, 420 CoDiPack**.
+  Native is the main 425 plus the one distinct clone/live-risk control;
+  the alternative-backend selections explicitly include all three direct
+  model tests in one filter. Existing 1e-8 IRN shared-path oracles are unchanged.
+- Native Clang **21.1.8** address+undefined sanitizer with
+  `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1` and
+  `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`: **426/426**, exit 0.
+  All **296 built translation units** have both sanitizer compile flags;
+  the test link and library instrumentation symbols are verified. Adept and
+  CoDiPack have Release coverage, not new sanitizer clearance.
+- Independently built F2 and final Python packages: **402/402 each**, exit 0,
+  including the optional native quote-risk test fixture.
+- `dal_check_generated`, `check_docs.py`, changed-line clang-format **22.1.5**
+  (zero replacements), whitespace, ancestor and scope checks pass.
+
+**Correction to the preceding report:** 428/423/422/428 was the sum of main and
+supplemental executions, not the unique union. `*Domain*` already matched
+`ModelTest.TestConstructorParameterDomains` and
+`ModelTest.TestAadLiveParameterDomains`; only
+`ModelTest.TestAadValidLiveParametersAndCloneRisks` was additional. Reconciliation
+of the actual predecessor RUN records gives **426/421/420/426 unique tests**.
+`predecessor-inventory-correction.json` preserves counts and overlaps. Coverage
+is retained; no test is removed or claimed as a new case twice.
+
+Exact commands, filters, exits and raw logs are in `commands.jsonl`,
+`run.py`, `verify_final.py`, and the verification logs. The final benchmark
+build main filter and the one additional native control have separate logs.
+
+### Complete final-source performance gates
+
+`python3 experiments/full_gates.py` collected every nested result once using
+**10 samples per round, two rounds and +4%**. Its driver continues after failed
+gates so that all controls are retained; the nested exits below are authoritative.
+
+- **Python F2-to-final: exit 1, 89/90.** Compiled barrier improves
+  **-13.2564/-13.2849%**, 25.228538→21.884134 ms and
+  26.086587→22.620999 ms. Tree barrier fails **+4.1893/+8.9971%**,
+  34.855458→36.315643 ms and 33.771036→36.809436 ms.
+- **F2 complete A/A: exit 1, 89/90.** The unrelated
+  `mc.vanilla.double.compiled` fails **+4.07/+4.88%**. Barrier compiled
+  controls are **-2.5158/-0.3509%**, tree **-0.1668/+1.0432%**.
+- **Final complete A/A: exit 0, 90/90.** Barrier compiled
+  **-1.5083/+1.8573%**, tree **-0.5093/-0.8197%**.
+- **Nine-target native gate: exit 0, 63/63.** Sobol precise-opt-in/fast
+  ratio is **8.42x**, below its unchanged 10x cap.
+- Informational `script_mc_perf`: exit 0; it is not a tenth native gate target.
+
+The tree failure remains a failed acceptance gate. The unrelated F2 A/A
+failure does not waive it, and the smaller same-case barrier controls support
+the much larger compiled improvement. The evidence retains **10,800 full
+Python observations**, **360 native gate process outputs**, every one of the
+90 Python cases with its own controls in `full-gate-ledger.md/json`, and every
+native case in the unchanged gate report. Earlier failures remain visible.
+
+
+All timing builds are separate Release/static/native-AADET worktrees/build
+roots with GCC/G++ **14.3.0**, CMake **4.2.3**, CPython **3.13.9**, benchmarks
+explicitly ON and the same Python interpreter. Actual compile databases retain
+the existing core `-ffp-contract=fast -march=native`, public `value.cpp`
+`-O3 -DNDEBUG -std=c++17 -fPIC` and Python binding LTO differences identically
+on both sides. There are no compiler-policy changes.
+
+Timing preserves the actual Python product/model construction, preprocessing,
+simulation and result-conversion boundary, 100,000 paths for the barrier case,
+four DAL threads, affinity 0/2/4/6, correctness invocation and two warmups,
+unchanged full workloads, one thread in numerical helper libraries and fixed
+Python hash seed. No build/test overlaps timing. WSL2/i9-13900HX remains a noisy
+host; software timings and the retained predecessor instruction profiles do not
+establish native hardware cycle/cache/stall attribution.
+
+`final-identity` and `verification-identities` retain immutable source/submodule,
+actual compile command/object, library/test/package and tool/environment
+identities. The compact archive contains raw text/JSON, patches and source
+snapshots; it deliberately omits large binary packages. Rebuild instructions
+and exact revisions remain explicit.
+
+### Remaining work and delivery limits
+
+No tree performance repair earned publication. The next concrete tree
+experiment is to isolate the named observation read and checked push in an
+internal helper, inspect whether the compiler shrinks the legacy virtual thunk
+without a layout change, then use the same controlled timing protocol. It was
+not executed in this bounded attempt. Lack of PMU was not the stopping reason;
+the attempted source changes failed their publication criteria.
+
+Earlier full Python failures (including e3a92c1d 89/90, tree
++7.5199/+5.6684%), controls and rejected experiments remain historical evidence.
+Original GCC TLS sanitizer failures and their no-DAL/no-Adept attribution are
+not erased by current Clang results. No Windows/XAD, Python-sanitizer or
+alternative-backend-sanitizer acceptance is claimed.
+
+PR #369 stays draft and unmerged; DAL-216 is delivered in review for the
+attempt/report. Parent coordinates existing DAL-217 independent verification,
+DAL-218 successor documentation applicability and mandatory DAL-219 review.
+There is no F3/#357 closure or F4 activation. Published documentation is
+byte-identical to the starting head; successor applicability remains the
+documentation specialist's decision. Online successor checks are captured once
+after push and reported with their actual pending/failing status.
+
+
 ## Compiled interpreter performance repair attempt, 2026-09-13
 
 This is the current DAL-216 handoff. The following sections retain earlier
