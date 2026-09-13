@@ -65,17 +65,15 @@ namespace Dal::Script {
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     (*current_)->arguments_.push_back(std::move(args[i]));
                 VisitArgsSetCurrent(**current_);
-            }
-            else if (node.alwaysFalse_) {
+            } else if (node.alwaysFalse_) {
+                const size_t firstElse = node.HasElse() ? static_cast<size_t>(node.firstElse_) : node.arguments_.size();
                 Vector_<ExprTree_> args = std::move(node.arguments_);
                 *current_ = std::unique_ptr<Node_>(new NodeCollect_);
 
-                if (node.HasElse())
-                    for (size_t i = static_cast<size_t>(node.firstElse_); i < args.size(); ++i)
-                        (*current_)->arguments_.push_back(std::move(args[i]));
+                for (size_t i = firstElse; i < args.size(); ++i)
+                    (*current_)->arguments_.push_back(std::move(args[i]));
                 VisitArgsSetCurrent(**current_);
-            }
-            else
+            } else
                 VisitArgsSetCurrent(node);
         }
     };

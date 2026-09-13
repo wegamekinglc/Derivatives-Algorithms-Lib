@@ -3,10 +3,12 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <dal/platform/platform.hpp>
-#include <dal/script/visitor/all.hpp>
-#include <dal/script/parser.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/parser.hpp>
+#include <dal/script/visitor/all.hpp>
+#include <dal/script/visitor/evaluator.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -129,4 +131,67 @@ TEST(ScriptTest, TestConstCondNonConstIfUnchanged) {
     auto res = ParseAndConstCondProcess(event);
 
     ASSERT_NE(dynamic_cast<const NodeIf_*>(res[0].get()), nullptr);
+}
+
+TEST(ScriptTest, TestConstCondNestedFalseElsePreservesStatementOrder) {
+    const auto res = ParseAndConstCondProcess(R"(
+        IF 2 < 1 THEN
+            x = 90
+            x = 99
+        ELSE
+            x = 1
+            IF 3 < 2 THEN
+                x = 80
+                x = 88
+            ELSE
+                x = 10 * x + 2
+                x = 10 * x + 3
+            END
+            x = 10 * x + 4
+        END
+        x = 10 * x + 5
+    )");
+
+    ASSERT_EQ(res.size(), 2u);
+    const auto* outer = dynamic_cast<const NodeCollect_*>(res[0].get());
+    ASSERT_NE(outer, nullptr);
+    ASSERT_EQ(outer->arguments_.size(), 3u);
+    ASSERT_NE(dynamic_cast<const NodeCollect_*>(outer->arguments_[1].get()), nullptr);
+
+    Evaluator_<double> eval(Vector_<>({0.0}));
+    for (const auto& stat : res)
+        stat->Accept(eval);
+    ASSERT_DOUBLE_EQ(eval.VarVals()[0], 12345.0);
+}
+
+TEST(ScriptTest, TestConstCondNestedFalseNoElsePreservesStatementOrder) {
+    const auto res = ParseAndConstCondProcess(R"(
+        x = 1
+        IF 2 > 1 THEN
+            x = 10 * x + 2
+            IF 3 < 2 THEN
+                x = 80
+                x = 88
+            END
+            x = 10 * x + 3
+        END
+        IF 2 < 1 THEN
+            x = 90
+            x = 99
+        END
+        x = 10 * x + 4
+    )");
+
+    ASSERT_EQ(res.size(), 4u);
+    const auto* outer = dynamic_cast<const NodeCollect_*>(res[1].get());
+    ASSERT_NE(outer, nullptr);
+    ASSERT_EQ(outer->arguments_.size(), 3u);
+    const auto* nested = dynamic_cast<const NodeCollect_*>(outer->arguments_[1].get());
+    ASSERT_NE(nested, nullptr);
+    ASSERT_TRUE(nested->arguments_.empty());
+
+    Evaluator_<double> eval(Vector_<>({0.0}));
+    for (const auto& stat : res)
+        stat->Accept(eval);
+    ASSERT_DOUBLE_EQ(eval.VarVals()[0], 1234.0);
 }
