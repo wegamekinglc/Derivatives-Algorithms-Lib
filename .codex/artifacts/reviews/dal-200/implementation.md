@@ -1,8 +1,199 @@
 # DAL-200 F3 implementation handoff
 
+## Compiled interpreter performance repair attempt, 2026-09-13
+
+This is the current DAL-216 handoff. The following sections retain earlier
+repairs and their original limitations. The current candidate substantially
+improves the compiled-barrier case locally; **complete F3 performance acceptance
+remains open** because the fresh Python gate still fails tree-barrier pricing.
+
+### Source and implementation
+
+- Start: `fb071974877ebf12c1aa7c5faf252b5798e23691`, preserving DAL-218's
+  nine-line `docs/methodology/aad.md` successor and every preceding correctness fix.
+- F2 baseline: `ec8b0072fbf70dab814a543edc625c8e0bf77efa`.
+- First tested candidate: `76dcdb043b5d5e2677b288074f15ff93bd61f261`, tree
+  `a9207fddd4238dc6f1f3b69ade55853354e3f1b5`. Isolated and prefix comparisons
+  used these source bytes, initially recorded as the start SHA plus the E2 patch.
+- Final tested code: `6d7ae4f05a0975cf5b7b05ebb7e6635a982a7180`, tree
+  `280a9f3c78ec09490c9eb0f49e65781080d5ca00`. This successor adds exactly one
+  required clang-format line break, with identical tokens. Final canonical,
+  backend/sanitizer, Python and complete performance evidence is reconciled to it.
+- Publication adds this report only. The final issue comment and attached
+  publication identity record the complete published successor SHA/tree.
+
+The production change is confined to `dal-cpp/dal/script/event.hpp` and
+`dal-cpp/dal/script/visitor/compiler.hpp`. `ScriptCompiled_::Evaluate` passes
+the event streams to one internal interpreter call per path. Previously it
+entered the large interpreter separately for every event; DAL-222 measured
+5.4 million such entries for the 100,000-path compiled-barrier workload.
+
+An internal `CompiledEventView_` lets the multi-event driver and the existing
+single-event `EvalCompiled` API share one switch. Each top-level event still
+resets both operand stacks, recursive branches preserve them, jump positions
+remain event-local, and variables initialize once per path. The 289-line
+opcode body is identical after indentation normalization (SHA256
+`70d39014d659c405ec6b7a19816f8e5558066b65e21acbe4b7ca618fcba8221a`). Most of
+the diff is indentation. Lizard reports complexity 69 before and after, with
+complexity 1 for the compatibility wrapper.
+
+No public signature/default/error message, opcode, sample layout, path count,
+RNG sequence, thread/batch policy, dependency, binding, generated source,
+benchmark workload/threshold, or published documentation/CHANGELOG changes.
+All model/path/payoff checks, owned snapshots, custom virtual generators,
+task draining, historical/FIX/payment semantics, named-mode rejections and
+the AAD/preprocessor/exception lifetime repairs remain in place. The only
+other published file is this active implementation report.
+
+### Hypotheses, RED and candidate evidence
+
+The issue explicitly uses the unchanged performance case as RED for this
+behavior-preserving work; no artificial functional failure or relaxed oracle
+was introduced. Fresh F2-to-current compiled-barrier timing reproduces
+**+6.2499/+5.7951%**, exceeding the unchanged +4% rule in both rounds.
+
+Each experiment had a written prediction, isolated source edit, invariant list
+and decision criterion before execution; `experiments/hypotheses.md` retains
+the ledger and `experiments/commands.jsonl` the build/test commands and exits.
+
+| Experiment/comparison                                     | Round 1   | Round 2   | Outcome  |
+|-----------------------------------------------------------|-----------|-----------|----------|
+| E1 selected evaluator state, current to candidate         | +2.9560%  | +4.1255%  | Reject   |
+| E1 selected evaluator state, F2 to candidate              | +7.5777%  | +9.4642%  | Reject   |
+| E2 event-loop interpreter, current to candidate, isolated | -14.2017% | -17.5122% | Continue |
+| E2 event-loop interpreter, F2 to candidate, isolated      | -10.3358% | -10.8531% | Continue |
+| E2 current to candidate, unchanged suite prefix           | -15.4198% | -17.1235% | Continue |
+| E2 F2 to candidate, unchanged suite prefix                | -16.2723% | -13.8955% | Continue |
+
+E1 replaces the two worker evaluator members with one variant in an isolated
+`simulation.hpp`; its 425 functional controls pass, but timing gets worse.
+It remains an unpublished patch and is excluded from E2. Reducing worker
+storage alone did not repair this case. The earlier owned-snapshot and
+explicit-specialization experiments were read and were not repeated.
+
+All 600 initial diagnostic processes pass the original workload validation.
+Each comparison/control uses two rounds of ten fresh processes per side,
+alternating order and reducing to each round's minimum. Prefix mode replays
+the ten preceding full-size cases with the unchanged harness. Current and
+E2 same-case controls are smaller than the improvement. F2 prefix A/A has a
+retained one-round +6.0398% excursion (+2.7867% in round two); this WSL host
+is noisy, and no precise hardware cache/stall attribution is claimed.
+
+### Correctness and final-source verification
+
+- Fresh canonical `NUM_CORES=12 DAL_NUM_THREADS=4 bash ./build_linux.sh`:
+  **1,693/1,693**, repeated successfully after the formatting successor.
+- Main focused selection: native **425/425**, Adept **420/420**, CoDiPack
+  **419/419**, including compiled opcode/parity/fuzz, F3/legacy/IRN, model
+  snapshots/invalid outputs, submission/path-failure draining, AAD tape and
+  exception controls. Existing numerical tolerances remain unchanged.
+- Fresh Clang address+undefined with `detect_leaks=1:halt_on_error=1` and
+  `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`: **425/425** in that
+  selection. All 296 built translation units have both sanitizer compile
+  flags; library symbols confirm instrumentation. This is native-backend
+  sanitizer coverage; Adept and CoDiPack have Release coverage in this run.
+- Three additional direct model-domain/valid-mutation/clone-risk controls
+  are recorded separately because their names are outside the main filter.
+  They pass **3/3** on native, Adept, CoDiPack and the combined sanitizer
+  build, covering all eight prior live-parameter repair tests. The union of
+  the two focused selections is **428 native, 423 Adept, 422 CoDiPack and
+  428 sanitizer tests**, all passing. The canonical full run also includes them.
+- Both isolated Python builds pass **402/402**, including the unchanged
+  benchmark workload tests. The optional native quote-risk fixture was built.
+- Generated-source, repository documentation, changed-line clang-format,
+  whitespace and source-scope checks pass. Generated files and submodule
+  pointers are unchanged. The first formatting check identified one line
+  break; the final check reports zero replacements in both changed files.
+
+Exact filters, outputs, object/source/library hashes, compile databases and
+CMake caches are attached. The initial name-based selections on F2/current
+were 341/408 tests; their 17 compiler controls were subsequently run separately.
+These inventories are explicit and are not represented as the independently
+reported DAL-217 inventory merely because some counts coincide.
+
+### Complete performance gates
+
+All performance builds are isolated Release/static/native-AADET builds with
+GCC/G++ 14.3.0, CMake 4.2.3 and CPython 3.13.9. Every configured translation
+unit's actual flags are retained and comparable across revisions. Core uses
+`-ffp-contract=fast -march=native`; public `value.cpp` uses `-O3 -DNDEBUG
+-std=c++17 -fPIC` without those core flags; Python binding units use LTO.
+This existing difference was preserved. Benchmark and Python options are ON.
+
+Measurements retain the actual Python construction/preprocessing/simulation/
+result-conversion boundary, 100,000 paths for the failing case, four DAL
+threads, affinity 0/2/4/6 and the original correctness invocation plus two
+warmups. Numerical helper libraries use one thread and Python hash seed is
+fixed. No timing loop overlaps a build or test. WSL2/i9-13900HX hardware
+counters were not used; software timings are not hardware stall measurements.
+
+Final-source commands are supplied by `experiments/full_gates.py`; it invokes
+the unchanged repository scripts with **10 samples, two rounds, +4%** and
+uses their unchanged collection/evaluation functions for complete A/A controls.
+
+- **Python paired gate: exit 1, 89/90.** Compiled barrier improves
+  **-15.0785/-16.1249%** versus F2: 28.252112 to 23.992119 ms and 27.375592
+  to 22.961305 ms. Barrier comparison Greeks at 65,536 paths improve
+  **-11.2684/-16.1243%**.
+- Remaining failure: `mc.barrier.double.tree`, **+7.5199/+5.6684%**:
+  37.253277 to 40.054682 ms and 35.556332 to 37.571823 ms. This failed
+  full gate remains failed regardless of the follow-up attribution experiment.
+- **F2 full A/A: exit 0, 90/90.** Compiled barrier +0.8155/-1.2616%; tree
+  barrier -0.1426/+1.1676%.
+- **Candidate full A/A: exit 1, 89/90.** The failing control is unrelated
+  `provenance.generic.n10`, +5.7591/+5.4533%, retained as host instability.
+  Compiled barrier +3.5548/-3.3340%; tree barrier +1.8643/+2.1779%. An
+  unrelated control cannot waive the tree failure or invalidate the much
+  larger compiled improvement by itself.
+- **Nine-target native gate: exit 0, 63/63** with the unchanged policy.
+  Informational `script_mc_perf` also exits 0 and is not a tenth gate target.
+
+`experiments/full-gate-ledger.md` lists every one of the 90 Python cases with
+both rounds and its own controls; the native gate's original summary lists
+all 63 cases. Raw reports retain 10,800 full-suite Python observations and
+360 native process outputs, plus the focused diagnostic evidence.
+
+The remaining tree case received one bounded, source-unchanged comparison of
+F2/current/candidate with its original suite prefix (E3). Unmodified current
+already regresses **+7.2982/+6.7962%** versus F2. Candidate versus current
+is **-4.1131/-6.2820%**; current A/A is -1.8911/+1.6585% and candidate A/A
++2.4502/+0.7019%. All 160 processes pass validation. This supports an inherited
+F3 tree cost rather than a new candidate regression in this experiment; it does
+not establish a tree-code repair or waive the failed complete gate. There are
+**760 total new diagnostic processes** across E1/E2/E3; no unchanged full gate
+was retried. The next concrete performance work is independent verification
+of this successor and focused attribution of the remaining legacy tree-SPOT
+observation dispatch, routed by the parent because `evaluator.hpp` is outside
+this repair's production scope.
+
+### Delivery limits and continuation
+
+This is a measured compiled-path repair candidate with an honestly unresolved
+full performance gate, not F3 acceptance. PR #369 stays draft. Parent routes
+the successor through DAL-217 independent correctness/performance checks,
+DAL-218's documentation decision and mandatory DAL-219 re-review. No merge,
+F3/#357 closure, F4 activation or independent-review waiver is authorized here.
+
+Earlier CI c59ae919 remains 63/63 native and 89/90 Python, with compiled
+barrier +4.4929/+4.5110%; earlier local full Python remains 86/90
+failed/inconclusive. DAL-222 profiles and DAL-217's 1f2cefd4 correctness
+results are inherited evidence, not new candidate tests. Original GCC TLS
+sanitizer failures remain recorded; current Clang success does not clear them.
+No new XAD, Windows/XLL or Python-sanitizer acceptance is claimed.
+
+The archive includes rejected E1 and original E2 patches, all raw evidence,
+source/compile/object identities and final build-tree packages/binaries.
+The pre-format E2 module was rebuilt for the formatting successor; its original
+hash/source/raw timings are retained, while the packaged E2 binary is the final
+one used by the complete gates. Publication identities are recorded separately
+so a report-only successor is not confused with a new tested implementation.
+
+---
+
+
 ## Live-parameter validation repair, 2026-09-13
 
-This section is the current DAL-216 handoff. All following repair sections are
+This section records the preceding DAL-216 handoff. All following repair sections are
 historical evidence. The current correction restores the approved model-domain
 contract before historical I/O; it does not resolve the independent performance
 gate or accept F3.
