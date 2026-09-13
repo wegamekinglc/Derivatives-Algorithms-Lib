@@ -1,5 +1,228 @@
 # DAL-200 F3 implementation handoff
 
+## Correctness and performance remediation, 2026-09-13
+
+Incoming head: `9bc4f000554945199b8edda73b9a90b2508c65be`.
+Tested production successor: `fe12a75041f6f3a9db042847a4bb76b6f952a3d1`.
+F2 baseline: `ec8b0072fbf70dab814a543edc625c8e0bf77efa`.
+The verification successor and final DAL-216 comment identify the delivered PR head; it adds a finite-extremes test and this report without changing production code.
+Draft PR: <https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>.
+
+### Duplicate-date result and justified deviation
+
+The reported prepared legacy `t,t,T` event/sample mismatch does **not** reproduce
+on the incoming production tree. The new three-date regression passed before
+production edits; no behavioral RED or mapping repair is claimed for that report.
+`AppendEvent` in `dal-cpp/dal/script/preprocessor.cpp` coalesces rows
+in a date-keyed map and concatenates their statements in input order.
+`ScriptProduct_::ParseEvents` parses each map entry once.
+`ScriptProductData_::Product()` in `dal-cpp/dal/script/event.hpp` constructs a fresh
+product, and `PreparedScriptBuilder_` always obtains the product through it.
+Consequently `t,t,T` produces two event streams and two samples, with an identity
+`EventToSample`; all-same-date produces one, and distinct dates produce three.
+Repeated raw `ParseEvents` calls are a different route, excluded after preparation;
+a duplicate raw model timeline also fails allocation before workers. No new
+compiled restriction or nonidentity mapping API is introduced.
+
+`TestLegacyPreparedDuplicateDates`, `TestLegacyPreparedSameDate`, and
+`TestLegacyPreparedDistinctDates` exercise both tree and compiled settings through
+preparation, direct evaluation of an exactly sized path, and 257 simulated paths.
+Controlled sample spots are 10/20/40 and numeraires 2/4/8. Ordered statements set
+`x=SPOT()`, then `x=2*x+SPOT()`, paying at each event and finally paying `x+SPOT()`.
+The respective exact per-path values are 32.5, 40, and 25. Tests assert event,
+compiled-stream and sample counts, identity mapping, and reject all history reads.
+The independent tester must confirm this source-based disposition before the
+parent resolves `PRRT_kwDOBtahP86h0kcB`.
+
+### Production repair and scope
+
+The full path validation traversal was measurable overhead. Exact Black-Scholes
+double simulation now uses `BlackScholes_::CheckedPaths_`, an owned worker-local
+snapshot of spot/log-spot, drifts, standard deviations, numeraires and scenario
+storage. It initializes and validates fixed numeraires once, chooses observation
+filling once for each generated path, and checks every emitted spot. Observations
+are copies of that checked spot. Its public path access is const; it retains no
+caller-owned model/definition storage. Worker reuse removes the redundant generic
+scenario and avoids allocating snapshots for each batch. Construction rejects
+unallocated, inconsistent and derived models.
+
+The shared generation loop retains Gaussian draw order and Black-Scholes arithmetic.
+For AAD, `GeneratePathAndValidate` checks actual emitted spots and numeraires during
+generation, including numeraires not requested by a definition. It performs no
+AAD caching across rewind marks. Exact type selection occurs outside the path
+loop. Derived/custom generators still execute their virtual override once and
+receive full validation of the resulting shape, including appended samples and
+observations. Dupire uses that generic route.
+
+Validation completes generation before diagnosing any invalid sample. The cold
+ordered scan retains the first offending field, existing `InvalidModelPath`
+messages, and `ScriptError_`. Negative finite spots, positive subnormal numeraires,
+zero spot from finite underflow, NaN/Inf rejection, intermediate overflow followed
+by later recovery, pre-evaluation failure, payoff checks and accepted-task draining
+are covered. No correctness check is removed or made debug-only. The numerical
+snapshot is double-only, so the AAD mark/rewind/propagation lifetime remains intact.
+The shared helper computes initial log-spot before copying today's sample instead
+of after; both consume the same parameter node and the native AAD regressions pass.
+Other AAD backends require the independent tester's successor verification.
+
+Changed files are `dal-cpp/dal/model/base.hpp`,
+`dal-cpp/dal/model/blackscholes.hpp`, `dal-cpp/dal/script/simulation.hpp`,
+`dal-cpp/tests/model/test_blackscholes.cpp`,
+`dal-cpp/tests/script/test_observation_simulation.cpp`,
+`dal-cpp/tests/script/test_simulation.cpp`, and this report.
+Independent tests/tolerances, compiled bytecode, published documentation/CHANGELOG,
+public/Python/Excel surfaces, dependencies, generated files, CI policy, RNG defaults
+and benchmark inventory remain unchanged. Named compiled/AAD/fuzzy execution stays
+rejected; prior retained-fixing and frozen-history coverage remains green.
+
+### RED, GREEN and correctness verification
+
+- Checked generation RED: building the new focused model regression failed because
+  `GeneratePathAndValidate` did not exist (`red-checked-generation.log`). Minimum
+  implementation GREEN passed the focused test (`green-checked-generation.log`).
+- Owned snapshot RED: `cmake --build build/Release-linux --target dal_cpp_tests -j8`
+  exited 2 because `CheckedPaths_` did not exist (`red-owned-paths.log`). GREEN
+  `--gtest_filter=ModelTest.TestBlackScholesOwned*` passed the initial snapshot test.
+- Allocation guard RED: the new
+  `ModelTest.TestBlackScholesOwnedPathsRequireConsistentAllocation` exited 139 on
+  an unallocated model (`red-owned-allocation.log`). After adding the guard, the
+  same command exited 0; expanded/shrunk definition storage also throws.
+- Final Release build exits 0. Focused script/preparation/observation/model,
+  legacy double/AAD, tree/compiled and task-draining suites pass **357/357**.
+  Full CTest passes **1678/1678** (core, public and portable Excel contracts).
+- GCC ASan+UBSan build and run pass **75/75** model, simulation and observation
+  cases, including all three duplicate-date regressions. The three test translation
+  units and relevant inline generation/evaluation/simulation code are instrumented;
+  the linked static DAL library and GoogleTest are the regular Release build.
+  This is focused memory-safety evidence, not a fully instrumented library claim.
+- Fresh isolated Python tests pass **402/402** on F2 and **402/402** on the final
+  candidate. The current head benchmark smoke tests also pass **109/109** on F2.
+- `dal_check_generated` writes zero files and passes. Changed-range clang-format,
+  whitespace and submodule-scope checks pass. Lizard 1.23 reports new/changed
+  helpers at complexity 1–6, `MCDoubleSimulation` at 8; the existing AAD entry point
+  remains 13. No suppressions or policy changes.
+
+Final native commands (from the repository root):
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/Release-linux -j8
+DAL_NUM_THREADS=4 build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationSimulationTest.*:ScriptFixingPreparationTest.*:ScriptObservationTest.*:ScriptTest.*:SimulationTest.*:ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*:PastEvaluatorTest.*:ModelTest.*'
+DAL_NUM_THREADS=4 ctest --test-dir build/Release-linux --output-on-failure -j8
+cmake --build build/Release-linux --target dal_check_generated -j8
+```
+
+Sanitizer command:
+
+```bash
+g++ -std=c++17 -O1 -g -DNDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include dal-cpp/tests/script/test_observation_simulation.cpp dal-cpp/tests/script/test_simulation.cpp dal-cpp/tests/model/test_blackscholes.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -lpthread -o ../remediation-evidence/final-paths-asan
+DAL_NUM_THREADS=4 ASAN_OPTIONS=detect_leaks=0 ../remediation-evidence/final-paths-asan --gtest_filter='ScriptObservationSimulationTest.*:SimulationTest.*:ModelTest.*'
+```
+
+### Performance attribution and reproducibility
+
+The CI synthetic merge `e635be54e5c3cad432295a18c6767d2588ad8bd8` has F2 and the
+incoming head as parents. GitHub's commit API verifies its tree
+`ad91a695a9a79e7a157d240a874f527e5e74d6f4` equals the incoming head tree; the retained
+CI data therefore measures that production content. It fails **13/90 total cases**,
+all among the **16 MC cases**, not 90 MC cases. Barrier comparison Greeks use
+repeated compiled double bumps. All 74 non-MC CI cases pass. Retained CI A/A
+vanilla-tree instability does not explain every paired MC regression.
+
+Local builds use isolated F2, incoming and candidate worktrees; GCC/G++ 14,
+Release, native architecture ON, native AADET, external AAD backends OFF,
+CPython 3.13 and identical interpreter/configuration, DAL_NUM_THREADS=4.
+The host is WSL2 on an Intel Core i9-13900HX and is a noisy environment; timing
+controls and both positive and negative excursions must be retained. Correctness
+builds use GCC 15.2. Final manifests record full compiler/Python/CMake versions,
+SHA/blob/SHA256 identities, pinned submodules and every native module identity.
+The existing public/core compile-flag difference is preserved on both sides.
+No installed or remotely archived binaries were executed.
+
+Initial local reproduction fails 5/90: barrier comparison Greeks 16384
++7.33/+7.91%, Greeks 65536 +10.72/+9.80%, barrier compiled double +22.52/+15.42%,
+barrier tree double +15.04/+9.85%, vanilla compiled double +8.39/+9.78%.
+A fast validity accumulator and separated diagnostics alone did not consistently
+improve MC performance. A **diagnostic-only** omission of validation in the isolated
+candidate (never the published tree) improved compiled barrier by 7.99/10.38%
+against incoming code, establishing traversal cost; vanilla effects were mixed.
+The patch is retained with its unsafe diagnostic label, not proposed as a fix.
+
+Fusing checks alone left four full-gate failures. Moving the checked double method
+into a core explicit specialization did not remove the barrier regression and was
+abandoned. Owned snapshots improved the controlled compiled-barrier comparison to
++3.98/−0.17% versus F2 and vanilla to −12.35/−11.33%. The first full owned-snapshot
+comparison passed all long barrier gates but failed short vanilla price 16384
+(+12.06/+9.71%). The final version reuses the snapshot in worker state and removes
+the redundant scenario allocation. These are distinct recorded source changes,
+not blind reruns of unchanged binaries. All diagnostic patches, raw results and
+failed setup/build attempts are retained. One early comparison stopped at zero
+cases because compiler cache spellings differed; both were normalized to the same
+G++ 14 compiler before further measurement.
+
+Every acceptance run uses the unchanged current complete inventory, ten samples per
+side, two alternating rounds, best-of-ten minima and the strict +4% rule in both
+rounds. Diagnostic subsets are labeled and never substituted for final coverage.
+`final-verification-commands.json` records exact executed commands and exit codes.
+`final-source-identity.json` and the gate manifests identify the clean production
+SHA `fe12a75041f6f3a9db042847a4bb76b6f952a3d1` and actual build/module hashes.
+Raw logs, reports, controls and source patches are delivered in the attached
+remediation archive. Runtime-local paths in the logs are provenance, not links to
+delivered files.
+
+The later bitwise finite-value reduction was also rejected: its isolated
+compiled-barrier comparison regressed +9.74/+8.55% versus F2. The first subset
+launch overlapped a finishing native test build and is explicitly excluded in
+`bit-reduction-overlap-note.md`; the isolated result, not that confounded run,
+is used for the decision. No bitwise or floating-sum validation is published.
+
+The owned-generator core specialization was also abandoned: its isolated
+compiled-barrier deltas (+10.24/+3.73%) did not demonstrate a repeatable improvement.
+The saved disassembly confirms native FMA generation, but this is not sufficient
+performance evidence to justify changing the linked implementation. The measured
+`fe12a750` source was restored; all nine native executable hashes still match the
+successful native gate. The final additional finite-exponent regression passes on
+that unchanged production code, including ordinary 1/4/16 spots and valid spots
+near the maximum finite double. No behavioral RED is claimed for that extra
+positive coverage or for the discarded performance-only ablations.
+
+### Final measured outcome: performance acceptance remains open
+
+The final complete F2-to-`fe12a750` Python gate exits **1**: **88/90 pass**.
+These two workloads still fail the unchanged rule:
+
+| Remaining workload                 | Round 1 | Round 2 |
+|------------------------------------|---------|---------|
+| comparison.mc_barrier_greeks_65536 | +4.35%  | +5.91%  |
+| mc.barrier.double.tree             | +4.17%  | +4.70%  |
+
+The other 14 MC cases and all 74 non-MC cases pass. Compiled barrier double is
+−0.39/−3.47%; barrier Greeks 16384 is +1.86/+2.06%. These results improve on the
+reproduced incoming hot-path failures, but they do **not** meet complete Python
+performance acceptance. No green or resolved-performance claim is made.
+
+Final same-binary Python A/A passes 90/90, but remains noisy in both directions:
+barrier Greeks 65536 is −5.10/+1.21%; barrier double/tree is +2.47/+0.57%; barrier
+Greeks 16384 is +9.81/+1.76%; short vanilla price is +25.43/+3.45%. The baseline A/A
+fails vanilla compiled double at +4.06/+4.16%, and has other one-round excursions.
+These controls limit precision and prohibit crediting the approximately 50%
+vanilla-tree speedup to this repair. They do not erase the two failed paired cases.
+
+The unchanged nine-target native gate exits **0**, with no failures at 10 samples
+per side × 2 rounds and +4%. The informational `script_mc_perf` run also exits 0;
+it is not counted as a tenth native gate target.
+
+The implementer delivers the validated source repair and unresolved performance
+measurements for the existing independent tester, documentation reconciliation
+where needed, and independent reviewer. Repeat the complete comparison and controls
+on a second controlled host at the successor production blobs; determine whether
+the two residual cases are stable before accepting this requirement or routing
+further production repair. The draft PR and duplicate-date review thread remain
+open. No F3 acceptance, thread resolution, required-CI success, merge or deferred
+F4 capability is claimed.
+
+---
+
 ## Codacy remediation handoff, 2026-09-13
 
 Before SHA: `5d578729386be2038552b73395ab14eef9e206e2`.

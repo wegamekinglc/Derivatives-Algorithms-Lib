@@ -388,3 +388,21 @@ TEST(ModelTest, TestBlackScholesOwnedPathsRequireConsistentAllocation) {
     definitions.Resize(0);
     ASSERT_THROW(AAD::BlackScholes_<>::CheckedPaths_{model}, Exception_);
 }
+
+TEST(ModelTest, TestBlackScholesOwnedPathsRetainFiniteExponentExtremes) {
+    for (const double spot : {1.0, std::numeric_limits<double>::max() / 2.0}) {
+        SCOPED_TRACE(spot);
+        AAD::BlackScholes_<> model(spot, 0.0, spot == 1.0 ? std::log(4.0) : 0.0);
+        const Vector_<> timeline{0.0, 1.0, 2.0};
+        const Vector_<AAD::SampleDef_> definitions(3);
+        model.Allocate(timeline, definitions);
+        model.Init(timeline, definitions);
+        AAD::BlackScholes_<>::CheckedPaths_ paths(model);
+        ASSERT_TRUE(paths.Generate({0.0, 0.0}));
+        ASSERT_TRUE(AAD::IsValidModelPath(paths.Path()));
+        if (spot == 1.0) {
+            ASSERT_EQ(paths.Path()[0].spot_, 1.0);
+            ASSERT_EQ(paths.Path()[1].spot_, 4.0);
+        }
+    }
+}
