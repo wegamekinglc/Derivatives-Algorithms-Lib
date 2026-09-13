@@ -1,5 +1,167 @@
 # DAL-200 F3 implementation handoff
 
+## Constant-condition lifetime repair, 2026-09-13
+
+The bounded DAL-216 repair is complete and ready for independent successor
+acceptance. Constant-false IF preprocessing now retains the ELSE range before
+replacing the owning IF node. Nested selected statements remain in order and
+are recursively folded. All older sections below are historical evidence;
+their acceptance statements do not approve this successor.
+
+Starting published SHA: `a21ff62b5a50f809c392e8701cb4352bc98f700f`, tree
+`c7297e29cd591d0ea96a461ecb980b918da746eb`.
+Tested repair SHA: `15ae4fd086f6f51dea135e30fdf2f3864915b53d`, tree
+`374ebf6d6c31d3c3006b205b50d8d62e530d8303`.
+The publication adds only this report to that repair; the final DAL-216 comment
+records the delivered report-commit SHA. Existing draft PR:
+<https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>, publish
+branch `feature/dal-200-eq-observation-slots`.
+
+### Authority, cause and scope
+
+The current DAL-216 description, parent DAL-200 F3 contract, independent DAL-217
+diagnostic/report, repository implementer/style/test/publication references,
+and script-engine methodology control this repair. The dedicated clean checkout
+matched the live PR head and retained F2 ancestor
+`ec8b0072fbf70dab814a543edc625c8e0bf77efa` and published Adept repair
+`63c134c096f2f3d2fd9865cbe5c52cfd5bb8e2dd`. Historical unpublished work and
+recovery patches were not modified or applied.
+
+In the original `ConstCondProcessor_::Visit(NodeIf_&)`, replacing `*current_`
+destroys the IF still referenced by `node`, then the false branch calls
+`node.HasElse()` and reads `node.firstElse_`. Both ELSE-present and ELSE-absent
+scripts therefore read freed storage. The minimum correction captures one
+range start while the node is alive: the ELSE index when present, otherwise
+the original argument count. After moving the arguments and replacing the
+owner, the existing ordered move loop uses that saved value and visits the
+retained collection. No subsequent access uses the destroyed node.
+
+Changed files:
+
+- `dal-cpp/dal/script/visitor/constcondprocessor.hpp`: the lifetime correction
+  and formatting of the touched conditional.
+- `dal-cpp/tests/script/test_constcondprocessor.cpp`: two nested regressions
+  and the evaluator include, with existing six assertions preserved.
+- `.codex/artifacts/reviews/dal-200/implementation.md`: this current handoff.
+
+The ELSE test discards multi-statement true branches, retains a nested false
+ELSE, and evaluates ordered decimal accumulation to exactly **12345**. The
+no-ELSE test folds a nested false branch inside a retained true branch, discards
+another top-level false block, and evaluates to exactly **1234**. Collection
+checks establish recursive folding, while evaluated results detect statement
+loss, reordering, and execution of discarded statements. No nearby integration
+file or other production surface needed editing. There is no design deviation.
+
+### RED, GREEN and full verification
+
+Fresh unchanged-source RED used the independent tester's inspected
+`reproduce_constcond.py` driver. Its six isolated executions produced **4 passes
+and 2 ASan heap-use-after-free failures**, both exit 1:
+`ScriptTest.TestConstCondAlwaysFalseIfReplacedByElse` and
+`ScriptTest.TestConstCondAlwaysFalseNoElseEmptyCollection`. The failing logs
+identify the invalid read in `NodeIf_::HasElse()` after owner replacement.
+The added ELSE regression was then compiled and run before production edits:
+the same ASan failure, exit 1. The no-ELSE regression was added next and also
+failed before the fix. These are observed RED results, independent of the
+misnamed historical `green-constcond.log`. F2 was not rerun in this repair turn;
+its separate identical failure remains the independent tester's evidence.
+
+Fresh repaired-source GREEN rebuilt the DAL library and runner in a new
+directory: **6/6 existing cases pass**, and the combined filter passes **8/8**,
+including both added cases. After formatting, affected production objects and
+the runner were rebuilt and the same 6/6 and 8/8 results confirmed against the
+final code bytes. The native address-only configuration is Clang **21.1.8**,
+C++17, AADET, Debug `-O1 -g`, static DAL, `-fsanitize=address`, frame pointers,
+and `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`. Audits verify all **130 DAL
+production translation units** and Google Test were actually built with those
+flags. The two narrow runner translation units use the same instrumentation.
+No sanitizer suppression was supplied; system/compiler runtime libraries were
+not rebuilt.
+
+Final-code compatibility verification:
+
+- **366/366** native script/model cases: preprocessing, constant/domain/IF
+  processing, tree/compiled/fuzzy parity, F3 preparation and observations,
+  simulation, and BS/Dupire behavior.
+- Canonical `build_linux.sh`, GNU C++ **15.2.0**, Release/native AADET:
+  **100% tests passed, 0 tests failed out of 1681**. This is fresh discovered
+  CTest output, including core, public and portable Excel targets, with the
+  script's unchanged benchmark exclusion.
+- Clang **21.1.8**, Adept, Debug `-O1 -g`, address-only sanitizer:
+  **43/43** focused tape/compiled parity/fuzzy/constant-condition cases pass.
+  `AADTapeTest.TestGradientCapacityGrowsAfterSeeding` retains its exact
+  accumulated-adjoint assertions **3 then 2083**. The formerly failing
+  `ScriptCompiledParityTest.TestParity_Number_NestedIf_Fuzzy` also passes
+  **10/10** additional repetitions. All 130 DAL, 16 Adept and four Google
+  Test/Mock translation units were instrumented; the five selected test/runner
+  translation units were compiled from the CMake database with the same flags.
+- `dal_check_generated`, full changed-test clang-format, touched-header-range
+  clang-format, and Git whitespace/scope checks pass. No generated files drifted.
+
+The first canonical configure stopped because the fresh checkout lacked the
+pinned XAD source used by an existing example target. Initializing that submodule
+allowed the unchanged build workflow to pass. The first auxiliary Adept link
+also stopped because the selected build targets omitted Google Mock/main static
+libraries referenced by its CMake link line; building those existing targets
+resolved it. Both setup logs are retained. Neither failure led to a production,
+dependency-pin, test, or build-policy change.
+
+### Reproduction and evidence
+
+Commands run from the workspace unless noted. The attached drivers and each
+output directory's `commands.json` preserve expanded configure/build/compile/
+link/test commands and exit codes.
+
+```bash
+python3 evidence/dal217/dal-217-constcond-diagnostic/reproduce_constcond.py Derivatives-Algorithms-Lib evidence/build-red-asan evidence/red-existing
+# Before the fix, compile the updated test source with the RED link command,
+# changing only the runner output, and run each new filter separately:
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 evidence/red-added-else/constcond-asan --gtest_filter=ScriptTest.TestConstCondNestedFalseElsePreservesStatementOrder --gtest_fail_if_no_test_selected
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 evidence/red-added-noelse/constcond-asan --gtest_filter=ScriptTest.TestConstCondNestedFalseNoElsePreservesStatementOrder --gtest_fail_if_no_test_selected
+python3 evidence/dal217/dal-217-constcond-diagnostic/reproduce_constcond.py Derivatives-Algorithms-Lib evidence/build-green-asan evidence/green-existing
+python3 evidence/dal217/dal-217-constcond-diagnostic/reproduce_constcond.py Derivatives-Algorithms-Lib evidence/build-green-asan evidence/green-final
+python3 evidence/repair/run_checks.py green-added
+# From Derivatives-Algorithms-Lib, with no stale test_output.txt:
+NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1
+# Back in the workspace:
+python3 evidence/repair/run_checks.py native-focused
+python3 evidence/repair/run_checks.py adept-asan
+python3 evidence/repair/audit_instrumentation.py evidence/build-red-asan evidence/red-existing
+python3 evidence/repair/audit_instrumentation.py evidence/build-green-asan evidence/green-final
+python3 evidence/repair/audit_instrumentation.py evidence/build-adept-asan evidence/adept-asan
+```
+
+Final native ASan runner SHA256:
+`993b0e5e60ba063e15ba47326bbc1800250e62ee1f4a0f08a212dafce62f9243`.
+Final Adept ASan runner SHA256:
+`a8a60b7a7865e21993e9a9ebd342c1dd361e4b270fac243f2e55f8e6fdeee7b7`.
+The raw attachment includes library/source/object hashes, actual-object
+instrumentation audits, compile databases, CMake caches, source patch, RED/GREEN
+logs, the canonical full log, and the drivers. Source and binary identities
+distinguish the pre-fix, pre-format GREEN and final GREEN results.
+
+### Remaining limits and serial handoff
+
+This repair changes no numerical path generation, finite-output diagnostics,
+frozen history, observation/payment addressing, duplicate-date handling,
+normalized shared-path MC tolerance **1e-8**, or supported execution mode.
+No new named AAD/compiled/fuzzy capability, public/Python/Excel API, dependency
+pin, documentation/CHANGELOG, benchmark inventory, or threshold is introduced.
+
+Independent DAL-217 full successor acceptance is still required, including
+the integrated Adept repair. This turn does not claim full Adept CTest, UBSan,
+CoDiPack, XAD backend, Windows, or Python runtime acceptance. The native build
+uses XAD only for its existing comparison example.
+The prior Python performance gate remains **88/90, two failures**, and
+duplicate-date thread `PRRT_kwDOBtahP86h0kcB` remains unresolved. No expensive
+performance gate was repeated or inferred from noisy controls. DAL-218's
+documentation decision, DAL-219's independent successor review, and required
+current-head CI remain parent-owned gates. The PR stays draft with no F3
+closing lines or merge. DAL-216 goes to `in_review` for this bounded repair,
+followed by the authorized parent active-run/rerun check.
+
+---
+
 ## Adept gradient-array repair, 2026-09-13
 
 Repair commit: `63c134c0` on `feature/dal-200-eq-observation-slots`, directly on top of
