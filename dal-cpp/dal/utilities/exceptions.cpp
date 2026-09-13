@@ -2,12 +2,14 @@
 // Created by wegamekinglc on 18-1-15.
 //
 
+#include <memory>
 #include <sstream>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_StackInfoType_enum.inc>
@@ -51,16 +53,15 @@ namespace Dal {
         }
 
         namespace {
-            // thread_local avoids a boost link dependency.
-            Vector_<XStackInfo_>* XTheStack(bool free_if_empty = false) {
-                thread_local static Vector_<XStackInfo_>* INSTANCE = nullptr;
-                if (!INSTANCE)
-                    INSTANCE = new Vector_<XStackInfo_>;
-                else if (free_if_empty && INSTANCE->empty()) {
-                    delete INSTANCE;
-                    return INSTANCE = nullptr;
+            // Own the stack through thread exit, including throws without a context guard.
+            Vector_<XStackInfo_>* XTheStack(bool freeIfEmpty = false) {
+                thread_local static std::unique_ptr<Vector_<XStackInfo_>> instance;
+                if (!instance) {
+                    instance = std::make_unique<Vector_<XStackInfo_>>();
+                } else if (freeIfEmpty && instance->empty()) {
+                    instance.reset();
                 }
-                return INSTANCE;
+                return instance.get();
             }
 
             Vector_<XStackInfo_>& TheStack() { return *XTheStack(); }
