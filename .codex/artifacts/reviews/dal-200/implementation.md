@@ -1,5 +1,214 @@
 # DAL-200 F3 implementation handoff
 
+## Live-parameter validation repair, 2026-09-13
+
+This section is the current DAL-216 handoff. All following repair sections are
+historical evidence. The current correction restores the approved model-domain
+contract before historical I/O; it does not resolve the independent performance
+gate or accept F3.
+
+Starting head/tree: `c59ae9198daa944414458692cdf0a2a66ad36feb` /
+`bda0567046b8ab34376319ef9e35a43a31a33154`.
+Tested production/test commit: `ef3ac954e4fd0e7ca305e5c111feda0a4c1adde5`, tree
+`4541a502fcbb8eb02d0ee957ebca588d794e69c4`.
+Publication adds only this implementation report. The final DAL-216 comment and
+attached published identity record the complete delivered SHA/tree. The existing
+draft PR is <https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>;
+the publish branch remains `feature/dal-200-eq-observation-slots`.
+
+### Authority, scope and implementation
+
+The active DAL-216 assignment, parent DAL-200 fixed F3 design/matrix and continuing
+publication authorization, DAL-219 current review and unchanged reproduction
+driver, existing API/implementation notes, script-engine/AAD methodology, and
+repository implementation/style/test/Git guidance control this repair. No new
+spec/API/critic stage is required by the handoff. The dedicated checkout and live
+PR were clean and matched the starting identity. F2 ancestry is retained; no
+unrelated recovery work was applied or discarded.
+
+Exactly six repository files change from the starting head:
+
+- `dal-cpp/dal/model/blackscholes.hpp`: a private `ValidateParameters()` shares
+  the existing constructor checks with the beginning of `Init()`.
+- `dal-cpp/dal/model/dupire.hpp`: private scalar and volatility validators share
+  existing checks between construction and `Init()`. Keeping them separate
+  preserves constructor ordering around immutable grid checks.
+- `dal-cpp/dal/math/aad/tape.hpp`: only the explanatory comment above
+  `EnsureGradientCapacity()` is shortened; no AAD executable code changes.
+- `dal-cpp/tests/script/test_observation_simulation.cpp`: five new tests and
+  private helpers; every existing test and assertion remains unchanged.
+- `dal-cpp/tests/model/test_live_parameters.cpp`: three new constructor,
+  mutable AAD parameter and clone-risk tests.
+- `.codex/artifacts/reviews/dal-200/implementation.md`: this handoff.
+
+Current finite positive spot, finite nonnegative BS/local volatility, and finite
+rate/dividend/repo domains are checked on every model initialization. Existing
+`InvalidModelParameter` text, public signatures, parameter pointers, clone
+behavior, defaults and supported modes are preserved. No data member or virtual
+surface changes. The existing `Allocate`/`Init` calls already precede
+`ResolveHistory`, so preparation/simulation do not need edits. There is no new
+per-path parameter scan. Immutable grids are still validated at construction.
+Finite negative rates/carry and zero volatility remain valid. Finite input that
+later generates a non-finite random path retains the checked-path diagnostic.
+
+The existing all-expired return still precedes allocation/initialization and
+history. Directly supplied mutated models do not force unused setup on that
+path. Owned BS snapshots, derived/custom generators, payoff validation, task
+draining and previous AAD/preprocessor/exception lifetime repairs remain intact.
+There is no design deviation or expansion beyond the assigned scope.
+
+### Regression coverage
+
+The original reviewer fixture is retained: D=2026-09-12, H=2026-09-11 midnight,
+H=80, explicit `spot -> EQ[DAL196_TEST]`, payment H+current FIX. A direct negative
+BS spot test checks the full intended spot diagnostic from `PrepareScript`.
+The two adapter tables additionally execute **168** rejection cases: **60 BS**
+and **108 Dupire**, crossing today/future payment dates with global/explicit
+history. They cover spot zero/negative, negative BS volatility, each of four
+local-volatility ordinates, and NaN/+Inf/-Inf in every writable parameter.
+Each catches `InvalidModelParameter` specifically and asserts zero global
+history reads, zero virtual fixing reads and zero submitted workers. Mutation
+through cloned models also exercises the existing parameter-pointer rebinding.
+
+Eight deterministic price controls use both adapters, today/future payments,
+zero volatility and zero/negative finite rate/carry. The today oracle is
+H80+spot124=204 at N=1; the future oracle is
+`80*exp(-r*T)+124*exp(-q*T)`. Both adapters also retain the all-expired no-history,
+no-allocation, no-initialization and no-worker behavior despite a mutated invalid
+spot. Existing expired path/risk tests remain in the compatibility run.
+
+Model tests check 30 invalid constructor combinations and valid zero-volatility,
+negative-rate controls. They check **84** mutable AAD domain cases at t=0/t=1,
+with no requested numeraire so incidental step/output checks cannot substitute
+for the input-domain check. A separate valid nonzero-volatility mutation/clone
+test checks independent parameter addresses and values, deterministic price,
+delta, rate cancellation, dividend/repo risk and parallel vega on both adapters.
+All eight new tests execute on native, Adept and CoDiPack. Existing MC tolerance
+**1e-8** and all prior RNG/bridge/thread/path combinations are unchanged.
+
+### RED, GREEN and final commands
+
+Commands below run from the repository root unless stated otherwise. The raw
+archive includes `run.py`, JSON argument/working-directory/return-code records
+and complete stdout/stderr logs. Command names beginning `red-dupire-build`
+include a corrected test-only compile error: `Date_` has no stream insertion,
+so the trace now prints relative days. The earlier `red-dupire.log` accidentally
+ran the stale one-test binary after that failed build and is **not** Dupire RED
+evidence. `red-dupire-current.log` is the correctly rebuilt three-test execution.
+
+```bash
+cmake --preset=Release-linux -S . -B build/red -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build/red --target dal_cpp_tests -j12
+DAL_NUM_THREADS=4 build/red/dal-cpp/dal_cpp_tests --gtest_filter=ScriptObservationSimulationTest.TestInvalidLiveBlackScholesSpotBeforeHistory --gtest_fail_if_no_test_selected
+DAL_NUM_THREADS=4 build/red/dal-cpp/dal_cpp_tests '--gtest_filter=ScriptObservationSimulationTest.TestInvalidLive*' --gtest_fail_if_no_test_selected
+```
+
+- **BS RED:** one new test against unchanged production, exit **1**, no expected
+  `InvalidModelParameter` exception. After sharing BS validation, the same test
+  passes **1/1**, exit **0**.
+- **Dupire RED:** after adding the tables but before modifying Dupire, the rebuilt
+  three-test selection passes the two BS tests and fails Dupire's negative spot
+  setup case, exit **1**. After sharing Dupire validation, **3/3**, exit **0**.
+- **Controls/refactor:** the expanded model/observation/legacy-AAD selection
+  passes **100/100**. Two test-only helper extractions then reduce new test
+  complexity without removing assertions; final verification below includes
+  their rebuilt sources.
+
+The unchanged reviewer driver SHA256 is
+`05e42a7392ac4f0f1ce95bf530b70a976de377994e144e5324bf15b3f4b8497d`.
+It was read before executing. From the repository root it was compiled with:
+
+```bash
+g++-15 -std=c++17 -O2 -I dal-cpp ../evidence/dal219/evidence/reviewer/mutated_model_probe.cpp build/red/dal-cpp/libdal_cpp.a -pthread -o ../evidence/live-parameters/probe-red
+```
+
+The GREEN compile uses identical arguments with output `probe-green` after the
+library rebuild. From the workspace root, each executable is run separately
+with `DAL_NUM_THREADS=4` and arguments `bs-spot`, `bs-vol`, `dupire-spot`,
+`dupire-vol`, `positive`. RED exit codes are **1,1,2,1,0**: invalid models reach
+history, with BS spot returning -43; the positive control returns 204. GREEN
+exit codes are **0,0,0,0,0**: all four invalid cases report the appropriate
+`InvalidModelParameter` with zero fixing reads, and the control retains 204
+and one read. Repository assertions establish the specific error independently
+of this probe's broad catch branch.
+
+```bash
+NUM_CORES=12 DAL_NUM_THREADS=4 bash ./build_linux.sh
+cmake --preset=Release-linux -S . -B build/adept-live -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DDAL_USE_ADEPT_AAD=ON -DDAL_CPP_BUILD_EXAMPLES=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build/adept-live --target dal_cpp_tests -j8
+cmake --preset=Release-linux -S . -B build/codi-live -DDAL_USE_CODIPACK_AAD=ON -DDAL_CPP_BUILD_EXAMPLES=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build/codi-live --target dal_cpp_tests -j8
+```
+
+The same focused filter runs with `DAL_NUM_THREADS=4` and
+`--gtest_fail_if_no_test_selected` on each core binary:
+
+```text
+*Script*:*Domain*:*IFProcessor*:*Fuzzy*:*BlackScholes*:*Dupire*:*Observation*:*ModelBinding*:ModelTest.*:SimulationTest.*:PastEvaluatorTest.*:AADTapeTest.*:ExceptionTest.*:ThreadPoolTest.*
+```
+
+- Fresh canonical GNU C++ **15.2.0** native Release build: **1,693/1,693 CTest**,
+  exit **0**, core/public/portable-Excel tests and normal examples. The canonical
+  benchmark exclusion remains unchanged. There was no root `test_output.txt`;
+  raw output is kept separately. After the test helper refactor the canonical
+  script rebuilds the affected tests and again passes **1,693/1,693**, exit **0**.
+- Final native focused run: **425/425**, 19 suites, exit **0**.
+- Fresh Clang **21.1.8** Adept Release core build, followed by final affected-test
+  rebuild: **420/420** focused tests, 19 suites, exit **0**.
+- Fresh GNU C++ **15.2.0** CoDiPack Release core build, followed by final
+  affected-test rebuild: **419/419** focused tests, 19 suites, exit **0**.
+- Backend inventories and compile commands are attached; count differences
+  reflect existing conditional tests, not a narrowed filter. Pinned dependency
+  commits remain unchanged. All configurations use C++17, static DAL,
+  native-architecture tuning off and no sanitizer instrumentation.
+
+```bash
+cmake --build build/Release-linux --target dal_check_generated -j8
+python3 .github/scripts/check_docs.py
+git clang-format --diff c59ae919 -- dal-cpp/dal/model/blackscholes.hpp dal-cpp/dal/model/dupire.hpp dal-cpp/dal/math/aad/tape.hpp dal-cpp/tests/script/test_observation_simulation.cpp
+clang-format --dry-run --Werror dal-cpp/tests/model/test_live_parameters.cpp
+git diff --check
+```
+
+All pass: generated files written **0**, docs **64** checked, no formatting or
+whitespace drift. Lizard records new private validators at complexity **3/3/4**;
+all new test/helper functions are at most 8. The existing Dupire constructor's
+complexity is reduced to 15; no unrelated immutable-grid refactor is claimed.
+Evidence captures final source, library and executable SHA256 hashes, source
+tree/commit, dependency identities, test inventories, CMake caches and compile
+commands. Final publication changes only this report from the tested commit.
+
+### Documentation handoff and residual limits
+
+The full explanation removed from the Adept source comment is preserved here
+for DAL-218: Adept grows its gradient array inside `initialize_gradients()` while
+`register_gradient()` can continue assigning indices up to `max_gradient_`.
+A later recording window can therefore reference indices beyond allocated
+storage. Growth must preserve accumulated adjoints and initialize the added tail
+to zero. The source keeps a one-line rationale. Published methodology and
+CHANGELOG decisions remain the doc writer's responsibility; neither is edited.
+
+This repair has no new sanitizer run, Python build, Windows XLL execution, full
+alternative-backend suite or XAD execution claim. The prior independent GCC TLS
+sanitizer reduction still fails without DAL/Adept while matching Clang passes;
+all original failed runs remain failures. The previous Clang sanitizer evidence
+is historical, not a sanitizer clearance for this successor.
+
+Performance remains independently unresolved: CI run **34742964925**, artifact
+**10313730794**, passes nine C++ targets but Python **89/90**; compiled-barrier
+**+4.4929/+4.5110%** exceeds the unchanged **+4%** threshold despite same-case A/A
+controls within 1%. The local full gate **86/90** remains failed/inconclusive.
+DAL-222 established no safe minimum repair. The required retained-package
+isolated/suite-prefix experiment needs native Linux cycle/cache/branch events;
+the available WSL daemon has no CPU event source. No repeat performance run,
+threshold/inventory change, suppression or performance closure is claimed.
+
+The PR remains draft. Current-head required checks, baseline reconciliation and
+acceptance remain parent-owned. A single post-push CI snapshot is attached at
+delivery; it is not a merge gate clearance. Parent must reconcile the successor
+and route DAL-217 independent retesting, DAL-218 documentation/CHANGELOG decision,
+then DAL-219 independent re-review. No merge, closing lines or F4 dispatch.
+
 ## Exception-stack ownership repair, 2026-09-13
 
 The bounded DAL-216 utility repair is delivered for independent acceptance.
