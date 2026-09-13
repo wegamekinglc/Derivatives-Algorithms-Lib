@@ -1,5 +1,176 @@
 # DAL-200 F3 implementation handoff
 
+## Exception-stack ownership repair, 2026-09-13
+
+The bounded DAL-216 utility repair is delivered for independent acceptance.
+Ordinary exception formatting now releases its per-thread diagnostic storage
+at thread exit even when there was no NOTE/NOTICE guard to pop. Exact message
+formatting, context order, scope cleanup, thread isolation and explicit
+push/pop behavior are preserved. All sections after this repair are historical
+records and do not establish acceptance of this successor.
+
+Starting published SHA: `254af2bad4bdc3b3af9d0e65b340de45b010c270`, tree
+`5b8f6d8fd468ba73074ad5cd6f669d5a6e22d1e1`.
+Tested production/test SHA: `d7d3e692115d91a7d8b9597b8e4f078d50d472e5`, tree
+`4ddc0208a304cf865f9ad0a9c4a899e2ac0cfc09`.
+Publication adds only this report to that tested commit. The final DAL-216
+comment and attached publication identity record the exact delivered SHA.
+Existing PR: <https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/369>;
+publish branch: `feature/dal-200-eq-observation-slots`, without force-push.
+
+### Authority, design and changed files
+
+The current DAL-216 exception-lifetime assignment supersedes the earlier
+constant-condition assignment. The complete parent F3 design/matrix,
+independent DAL-217 diagnostic critique and attachments, existing API/implementation
+notes, script-engine methodology and repository role/style/test/publication
+references were read before editing. The parent explicitly skips repeated
+spec/API/critic roles because this repair preserves their contract. No business
+question or new public design was needed.
+
+The clean dedicated checkout and live PR initially matched the starting SHA.
+Both published repairs, performance work and F2 ancestry remain intact:
+`15ae4fd086f6f51dea135e30fdf2f3864915b53d`,
+`63c134c096f2f3d2fd9865cbe5c52cfd5bb8e2dd`, and
+`ec8b0072fbf70dab814a543edc625c8e0bf77efa`.
+Historical unpublished recovery work was neither applied nor discarded.
+
+Exactly three repository files change relative to the starting head:
+
+- `dal-cpp/dal/utilities/exceptions.cpp`: replace the raw thread-local owner
+  with `std::unique_ptr<Vector_<XStackInfo_>>`. Retain lazy allocation and
+  reset when a pop empties the stack. Its thread-local destructor handles the
+  previously unpaired allocation. Include grouping and the private helper
+  parameter spelling follow repository style.
+- `dal-cpp/tests/utilities/test_exceptions.cpp`: four focused regressions;
+  all eight existing tests and assertions remain intact.
+- `.codex/artifacts/reviews/dal-200/implementation.md`: this handoff.
+
+Keeping the existing allocation/reset path avoids changing when an emptied
+stack releases its capacity. Message construction and XStackInfo_ payload
+formatting are untouched. No public header, signature, caller, simulation,
+AAD adapter, dependency, generated source or build policy changed. There is
+no design deviation, error-surface redesign or new execution-mode support.
+
+The new tests cover an ordinary throw/catch followed by worker join; exact
+outer/NOTICE/inner order; normal scope exit and exception unwinding; a bare
+thread while both parent and another worker hold distinct live contexts; and
+empty pop, manual push/pop and subsequent scoped reuse. Promise synchronization
+keeps the isolation contexts overlapping. Assertions run after all workers join.
+Expected complete messages explicitly preserve the existing GNU and MSVC
+format branches; only the GNU branch was executed here.
+
+### RED and GREEN evidence
+
+Fresh native Clang ASan built unchanged production for the independent
+one-thread probe. It exited **1** with **24 bytes in one allocation** at
+XTheStack after the worker joined. No simulation or AAD backend was involved.
+The newly added TestThrowOnJoinedThread was then compiled against that same
+identified library before the production fix: its assertion passed, but
+LeakSanitizer reported the same 24-byte leak and process exit **1**.
+
+After the minimum ownership fix, a separate fresh native ASan build passed the
+added test and exited **0**. Context/reuse tests and a small shared throwing
+helper were then added while green. The final twelve utility tests were also
+linked against the frozen, unchanged pre-repair library: **12/12 assertions
+passed**, but **96 bytes in four allocations** leaked and the process exited
+**1**. That control compiles current test sources only; it does not rebuild or
+misidentify repaired production as the baseline. The original library hash is
+checked against its earlier manifest in frozen-library-attribution.json.
+
+With final repaired source, **12/12 utility tests pass and exit 0**. The same
+standalone probe prints `exception caught=1; worker joined` and exits **0**.
+Every sanitizer execution retains
+`ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`. Assertion success is reported
+separately from process-level sanitizer success throughout the raw logs.
+F2 attribution remains the independent tester's established result; no
+unnecessary F2 rebuild was performed in this turn.
+
+### Full verification and actual instrumentation
+
+- Canonical fresh `bash ./build_linux.sh`: GNU C++ **15.2.0**, native AADET,
+  static Release, core/public/portable-Excel tests and normal examples;
+  **1,685/1,685 CTest pass**, exit **0**, CTest 8.98 seconds. There was no
+  existing root test_output.txt. The complete fresh log is attached.
+- Focused native utility/script/domain/model/F3/AAD regressions:
+  **401/401**, 19 suites, exit **0**. Shared-path MC assertions remain **1e-8**.
+- Fresh Clang **21.1.8** Adept AddressSanitizer: the independent tester's
+  exact unchanged **129-case inventory**, filter `*`, passes and exits **0**.
+  Inventory comparison verifies identical names and order. It includes all
+  eight constant-condition cases, gradient growth (3 to 2083), nested fuzzy,
+  simulation errors, BS/Dupire and F3 observation cases.
+- The same Adept binary's isolated
+  `ScriptObservationSimulationTest.TestDeadBranchPathAndPayoffFailuresDrainEveryBatch`
+  passes **1/1**, process exit **0**, with leak detection enabled.
+- Native and Adept sanitizer audits verify all **130 DAL** and **four
+  Google Test/Mock** objects were actually built with address instrumentation
+  and contain ASan symbols. Adept additionally verifies **16 Adept** objects.
+  Final native utility runner: **two** instrumented translation units;
+  standalone probe: **one**; exact Adept selection: **nine**. Both builds use
+  C++17, Debug `-O1 -g`, static DAL and frame pointers; native-architecture
+  tuning is off. Compile/link commands, source/library/runner SHA256 identities
+  and object audits are retained. Objects in unused static libraries need not
+  execute; compiler/system libraries were not rebuilt.
+- `dal_check_generated` passes and writes **zero files**; `git diff --check`,
+  staged scope checks and `git clang-format --diff` pass.
+
+The intermediate native build was fresh after the production change. Final
+include grouping and private parameter spelling rebuilt exceptions.cpp in
+that native build; final runner sources were freshly compiled. The final
+probe and utility runner link the same final native library. The Adept and
+canonical Release builds start from empty build directories at the tested
+commit. runner-instrumentation.json, final-source-identity.json and the build
+manifests distinguish intermediate, final and frozen-baseline identities.
+
+### Reproduction commands and raw evidence
+
+Commands below run from the workspace root; the attached `leak/` directory
+contains the inspected/adapted diagnostic driver, original standalone probe,
+command records, full logs and identity audits. `--reuse-library` means a
+frozen pre-repair library control, explicitly skipping configure/build.
+
+```bash
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/red-probe --probe evidence/leak/exception_thread_probe.cpp --files test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/red-added --build evidence/leak/red-probe/build --filter ExceptionTest.TestThrowOnJoinedThread --files utilities/test_exceptions.cpp test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/green-added --filter ExceptionTest.TestThrowOnJoinedThread --files utilities/test_exceptions.cpp test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/red-final-utilities --reuse-library --build evidence/leak/red-probe/build --filter 'ExceptionTest.*' --files utilities/test_exceptions.cpp test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/green-native --build evidence/leak/green-added/build --filter 'ExceptionTest.*' --files utilities/test_exceptions.cpp test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/green-probe --build evidence/leak/green-added/build --probe evidence/leak/exception_thread_probe.cpp --files test_main.cpp
+python3 evidence/leak/verify_sanitizer.py Derivatives-Algorithms-Lib evidence/leak/green-adept --backend adept --filter '*' --files math/aad/test_tape.cpp script/test_compile_parity.cpp script/visitor/test_fuzzy.cpp script/test_constcondprocessor.cpp script/test_simulation.cpp script/test_observation_simulation.cpp model/test_blackscholes.cpp model/test_dupire.cpp test_main.cpp
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 DAL_NUM_THREADS=4 python3 evidence/leak/run.py adept-narrow-draining . evidence/leak/green-adept/focused-tests --gtest_filter=ScriptObservationSimulationTest.TestDeadBranchPathAndPayoffFailuresDrainEveryBatch --gtest_fail_if_no_test_selected
+NUM_CORES=8 DAL_NUM_THREADS=4 python3 evidence/leak/run.py native-canonical Derivatives-Algorithms-Lib bash -c 'bash ./build_linux.sh > test_output.txt 2>&1'
+DAL_NUM_THREADS=4 python3 evidence/leak/run.py native-focused Derivatives-Algorithms-Lib build/Release-linux/dal-cpp/dal_cpp_tests '--gtest_filter=*Script*:*Domain*:*IFProcessor*:*Fuzzy*:*BlackScholes*:*Dupire*:*Observation*:*ModelBinding*:SimulationTest.*:PastEvaluatorTest.*:AADTapeTest.*:ExceptionTest.*:ThreadPoolTest.*' --gtest_fail_if_no_test_selected
+python3 evidence/leak/run.py generated-check Derivatives-Algorithms-Lib cmake --build build/Release-linux --target dal_check_generated -j 8
+python3 evidence/leak/audit_evidence.py
+```
+
+The first commit attempt found no author identity in this fresh checkout.
+Repository-local identity was set to the existing implementer commit identity;
+no global Git setting changed. Intermittent read-only Multica requests were
+retried successfully. No verification failure was hidden or test weakened.
+
+### Limits and continuation
+
+This repair clears the reproduced leak in the measured processes. It is not
+complete F3 acceptance or a blanket memory-safety claim. DAL-217 owns
+independent successor testing, the unchanged historical Python performance
+**2/90 failures** and the separate Adept first-tape UBSan disposition.
+No performance loops or UBSan run were undertaken in this utility repair.
+Full alternative-backend Release suites, Windows/XLL, Python and XAD-backend
+execution were not repeated; earlier three-backend passes remain attributed
+tester evidence at the starting SHA.
+
+The duplicate-date thread `PRRT_kwDOBtahP86h0kcB` was already resolved by the
+parent on independent 32.5/40/25 oracles and source confirmation. That finding
+is not reopened and no compiled restriction is introduced. DAL-218's
+documentation/CHANGELOG decision and mandatory DAL-219 successor review remain
+pending. The prior review at 9bc4f000 is not successor approval. The PR must
+remain draft; no merge, F3 closing lines, F4 activation or downstream role
+dispatch belongs to this handoff. The final comment records one post-push CI
+snapshot and the parent active-run/rerun continuation.
+
+---
+
 ## Constant-condition lifetime repair, 2026-09-13
 
 The bounded DAL-216 repair is complete and ready for independent successor
