@@ -1,11 +1,272 @@
 # DAL-201 / F4 implementation handoff
 
-Implemented by DAL-224 on 2026-09-14. The complexity remediation below supersedes
-the initial implementer handoff. DAL-225 completed independent testing on the
-preceding code; its revalidation of this refactor, documentation (DAL-226), and
-review (DAL-227) remain required before the parent accepts F4.
+## Current master integration and targeted regression repair
 
-## Complexity remediation after independent testing
+This section supersedes the historical implementation and complexity reports below.
+DAL-224 resumed the existing F4 branch on 2026-09-14 after F3 #369 was merged.
+The previous DAL-227 approval covers the old head only; DAL-225, DAL-226 and
+DAL-227 must independently accept this new revision.
+
+### Revisions and merge
+
+- Starting published F4: `5c954ca2fdded2ca35ad15c7fef44d90a002007d`,
+  tree `2ad4c408e84bb6323528ac3e9b2f66bb77e40ce0`.
+- Integrated master/F3 squash: `8ee1b09dcaf531add9695d466941026da87a4942`.
+- Merge commit: `c02d7545e6c7d91a29503db627c933340d611a4a`,
+  tree `d03a769bdff3a638681e98ac233a0d6d99c44378`.
+- Final tested code: `6725ae209d1f9a434b273e30ef161246f71ea1da`,
+  tree `78acb71d71dbb142329a85b131134f92a121b8f0`.
+- Published branch: `feature/dal-201-historical-aad-state`; existing
+  https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371 targets master.
+  The publication commit changes this report only. Attached `publication.json`
+  and the final DAL-224 comment record the exact published SHA/tree, which cannot
+  be embedded self-referentially in the commit that contains this file.
+
+Both the old F4 head and current master remain ancestors. No shared history was
+rewritten, no F3/F5 branch was changed, and no second PR was created. The observed
+F5 branch remained at `3b7b1accc2b09fc2aec282ed623d796ba6add68c` before publication.
+Initial F4 family reads showed only this writer active; later DAL-229 compilation
+in a separate workdir was observed and accounted for in timing evidence.
+
+The production sources and tests in master were byte-identical to the old F3
+baseline `e8943ee2a399229cf36be412accb92ea1872b10e`. Squash ancestry caused
+conflicts in preparation, simulation, evaluator and observation tests; retaining
+the F4 versions preserved all approved behavior and tester assertions.
+Documentation conflicts retain F4 capability descriptions plus master's
+unconflicted revisions. The F3 implementation report takes master's version;
+master's retired-artifact removals are preserved. The merge itself changes no
+production source or test versus the starting F4 head, so no behavior RED is
+claimed for integration. Full patches are `integration.diff`,
+`repair-final.diff`, and `full-f4.diff` in the evidence archive.
+
+### Actual inherited failure and attribution
+
+Downloaded the original job log with:
+
+```bash
+gh api repos/wegamekinglc/Derivatives-Algorithms-Lib/actions/jobs/103891510913/logs
+gh api repos/wegamekinglc/Derivatives-Algorithms-Lib/actions/artifacts/10337278750/zip
+```
+
+The archived Python gate ran 90 cases and failed five, not all 90:
+`comparison.mc_vanilla_greeks_16384` (+6.27%, +8.84%),
+`comparison.mc_vanilla_greeks_65536` (+8.40%, +12.15%),
+`mc.vanilla.aad.compiled` (+7.45%, +8.27%),
+`mc.vanilla.aad.tree` (+4.83%, +4.54%), and
+`mc.vanilla.double.tree` (+30.74%, +31.69%).
+C++ paired and the two Python A/A results do not replace this base/head failure.
+
+Archive head `6f20d47721e9cb44d8d001589b13af4b1f225dc4` was GitHub's synthetic
+merge of e8943ee2 and 5c954ca2. GitHub's commit API confirmed its tree equals the
+published F4 tree `2ad4c408...`. Raw log, zip, source identities, summaries,
+per-process samples and package reproductions are retained.
+
+### Production changes and design
+
+Only these product/test files change beyond the mechanical integration:
+
+- `dal-cpp/dal/math/aad/aad.hpp`: native `PayoffRoot` reuses the payoff only
+  when it is the terminal tape node and the recording has a nonempty suffix
+  after the mark. Otherwise it retains the registered-zero root. Thus direct
+  historical seeds cannot overwrite accumulated adjoints and empty suffixes
+  remain safe. Adept/CoDiPack/XAD keep the original root expression.
+- `dal-cpp/dal/script/visitor/evalstate.hpp`: typed historical-seed storage
+  belongs to active scalar state. An empty double specialization restores
+  the original double state layout and initialization loop. Double seed setting
+  writes its passive initial-value vector; production historical AAD replay
+  still owns and restores its typed seed on each worker recording.
+- `dal-cpp/tests/math/aad/test_payoff_root.cpp`: focused native regression
+  requires zero extra tape nodes for an existing terminal path payoff, while
+  checking value 480 and accumulated SCALE sensitivity 240 across 257 rewinds.
+- This implementation report records integration, exact revisions and evidence.
+
+There are no public valuation signature/default/error changes, no simulation
+validation-order changes, and no new execution modes. Historical hard and future
+fuzzy behavior, typed worker seeds, task draining, one risk normalization, RNG
+ordering and prepared/named compiled rejection are retained. All existing tester
+tests and tolerances remain byte-identical. No CI, benchmark script, threshold,
+skip, suppression, branch protection or submodule revision changed. The final
+implementation does not restore the rejected RTTI experiment.
+
+The new root behavior needs a DAL-226 documentation decision: the AAD/script
+methodology currently says every payoff adds the registered zero. Native terminal
+post-mark payoffs can now reuse that existing path-local node. Other backends and
+the fallback retain the documented addition. No methodology semantics were
+edited by this implementation repair.
+
+### RED, GREEN and refactor evidence
+
+The focused resource/lifecycle regression was added before changing the root:
+
+```bash
+g++-14 -std=c++17 -O3 -DNDEBUG -I dal-cpp \
+  -I dal-cpp/externals/googletest/googletest/include \
+  dal-cpp/tests/math/aad/test_payoff_root.cpp \
+  build/Release-linux/dal-cpp/libdal_cpp.a \
+  build/Release-linux/lib/libgtest_main.a build/Release-linux/lib/libgtest.a \
+  -pthread -o ../evidence/payoff-root-test
+../evidence/payoff-root-test
+```
+
+RED exit 1: `Tape()->nodes_.End() == end` was false because the old helper
+always records another node. GREEN exit 0 after terminal-node reuse: 1/1 passed,
+including all 257 paths and the analytic sensitivity. See `red-root.log`,
+`green-root.log`, and their build logs. The final full native suite includes
+the same regression.
+
+The unmodified integrated code's full local paired gate was the performance RED:
+the original five vanilla cases failed again; double/compiled and construction
+also failed on this host. Initial root/copy refinement at c5e228be passed all
+four original AAD failures but retained double/tree (+90.07%, +85.19%) and
+reported barrier/AAD compiled (+8.52%, +6.95%). This was not accepted as complete.
+The final refactor reserves typed seed storage for active numbers and restores
+the double fast path structurally. A probe using the old header reports double
+state size/stack offsets `1264 / 96 / 1128`; both final code and master report
+`1240 / 72 / 1104`. Probe source and outputs are attached; it is diagnostic
+layout evidence, not a timing substitute.
+
+An early comparison with mismatched pybind11 versions was stopped and excluded.
+The later field-reordering candidate at 1a5b0818 was stopped after discovering
+concurrent DAL-229 CoDiPack/XAD builds; `paired-fix2/INCONCLUSIVE.txt` and the
+process snapshot explain why those incomplete samples are not a verdict.
+Neither interrupted run is represented as a successful test.
+
+### Final correctness and static verification
+
+Fresh final-code checks use Linux x86_64 (WSL2), Intel i9-13900HX, GCC 14.3.0,
+CMake 4.2.3, C++17, and the pinned submodule revisions.
+
+```bash
+cmake --preset=Release-linux -S . -B build/NativeTests \
+  -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
+  -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/NativeTests -j6
+DAL_NUM_THREADS=4 ctest --test-dir build/NativeTests --output-on-failure -j4
+```
+
+Native default configuration: **1716/1716 passed**, zero failures, 18.20 seconds.
+This includes core/public/portable Excel and the new native root test.
+Final Python native-tuned binding: **402 passed**, 23.43 seconds:
+
+```bash
+PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=4 \
+  ../bench-venv/bin/python -m pytest dal-python/tests -q
+```
+
+Each alternate backend was configured with the same Release preset, explicit
+GCC 14 compilers, examples OFF, and its one backend option ON:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Adept -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_ADEPT_AAD=ON
+cmake --preset=Release-linux -S . -B build/CoDiPack -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_CODIPACK_AAD=ON
+cmake --preset=Release-linux -S . -B build/XAD -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_XAD_AAD=ON
+```
+
+For each backend, `cmake --build build/<backend> --target dal_cpp_tests -j4`,
+then `DAL_NUM_THREADS=4 ./build/<backend>/dal-cpp/dal_cpp_tests` with filter:
+
+```text
+Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*
+```
+
+Adept (pinned 1e29edc6): **425/425**; CoDiPack 3.1.0 (86b94d3f):
+**425/425**; XAD 2.1.0-dev (ca014606): **424/424**.
+No selected test failed or skipped. `f4-coverage.json` verifies the same
+**16 F4 tests** ran in all four backends, preserving threads 1/2/4, paths
+1/257/8193, the 8193-path per-recording oracle, and 16385-path exception recovery.
+
+Lizard 1.23.0, `lizard -C 8` on the two changed headers and new test, exits 0
+with no threshold violations. Formatting and whitespace checks pass.
+Documentation checking passes for 55 Markdown files. Hosted Codacy remains a
+separate result; local Lizard is not its equivalent.
+
+### Pre-existing native-tuning failures
+
+The extra native-CPU-tuned full run at c5e228be had 4 failures among 1718
+CTest entries, all in unchanged rate-cashflow tests: future forecast PWC,
+passive-curve gradient exclusion, FRA/future active/passive bitwise PV, and
+projected/supplied/missing future fixings. No script or AAD lifecycle test failed.
+
+Linked the same unchanged native-tuned test-main and rate-cashflow test objects
+against the independently built master library. All four failures reproduced
+with exactly the same values, including 1142.6304840269083 versus
+1142.6304840269095, and the 3.637978807091713e-06 gradient partition residual.
+This is a focused master-library reproduction, not a claimed full master CTest
+run. Sources, test objects and library identities are recorded; the two test
+source files and all curve sources have an empty master diff. See
+`master-nativearch-rate-failures.log` and `ctest-fix1.log`.
+These failures are outside the F4 repair scope and are handed to DAL-201 for
+routing. No test tolerance or compilation policy was changed to hide them;
+the required default-preset full suite above passes.
+
+### Final paired Python performance result and remaining gate
+
+The unchanged full gate at final code 6725ae20 exits **1: 89 passed, 1 failed**.
+All five cases that failed in the original hosted run pass locally:
+
+| Case | Final round changes | Result |
+|---|---|---|
+| comparison.mc_vanilla_greeks_16384 | -2.44%, +3.22% | pass |
+| comparison.mc_vanilla_greeks_65536 | +5.39%, -2.32% | pass |
+| mc.vanilla.aad.compiled | +6.49%, +0.84% | pass |
+| mc.vanilla.aad.tree | +1.94%, -2.71% | pass |
+| mc.vanilla.double.tree | -1.59%, -1.71% | pass |
+| mc.barrier.aad.compiled | **+8.21%, +10.05%** | **FAIL** |
+
+A case fails when both confirmation rounds exceed +4%; a passing row does not
+claim that each individual round is faster. Remaining compiled barrier AAD
+minima are 9.173498 ms base and 10.095170 ms head. This case also failed both
+rounds at c5e228be (+8.52%, +6.95%); the integrated unmodified F4 run was
++3.12%, +8.38%. Its causal attribution is unresolved. It is not waived as
+DAL-223, labeled pre-existing, or replaced with an A/A result. Further disposition
+belongs to the parent; this candidate is not ready for unconditional acceptance.
+
+Both sides use master 8ee1b09d / code 6725ae20, the head's unmodified suite,
+GCC 14.3.0, CPython **3.13.13**, pybind11 **3.0.4**, Release and native-CPU tuning
+ON, with DAL_NUM_THREADS=4. These are matched locally, but not an exact recreation
+of hosted GCC 14.2.0 / CPython 3.13.15 / AMD EPYC hardware. The requested 3.13.15
+download was unavailable; its failed install log is retained. No hosted-version
+equivalence or cross-host percentage comparison is claimed.
+
+Both source roots were configured with the Release-linux preset plus explicit
+GCC 14 compilers, examples OFF, DAL_BUILD_PYTHON=ON, DAL_ENABLE_NATIVE_ARCH=ON,
+and the same absolute Python_EXECUTABLE and Python3_EXECUTABLE in bench-venv.
+The configure/build logs and CMake cache identities are retained. From the F4
+repository, the gate command was:
+
+```bash
+DAL_NUM_THREADS=4 ../bench-venv/bin/python .github/scripts/check_python_benchmark_regressions.py \
+  --base-source ../benchmark-base --head-source . \
+  --base-root ../benchmark-base/build/Release-linux --head-root build/Release-linux \
+  --output-dir ../evidence/paired-final \
+  --samples 10 --confirmation-rounds 2 --threshold-percent 4
+```
+
+Each complete run measured all 90 cases using 20 interleaved processes per side.
+The complete before, first repair and final raw reports are attached; all
+interrupted candidates are explicitly excluded. No further sampling was done
+after the final verdict to seek a favorable result.
+
+### Handoff and verification limits
+
+The report-only publication commit has identical production/test trees to the
+tested code above. Its exact SHA/tree, existing PR's base/head, and one post-push
+CI snapshot are in the accompanying publication evidence. No CI watch, retry or
+merge was performed. All run-owned builds and tests completed before delivery.
+
+Default native correctness, Python tests and selected alternative regressions
+pass. The final local Python performance gate remains failed as detailed above.
+The four separately reproduced native-tuning rate-test failures need parent
+routing. No final C++ paired benchmark rerun, Windows XLL, sanitizers, full
+alternative public/Excel suites, installation or examples are claimed.
+
+DAL-201 should evaluate the remaining performance evidence and then resume the
+existing DAL-225 independent tests, DAL-226 documentation decision and DAL-227
+review against the actual published revision. Their old approval does not cover
+this revision. F4 remains unmerged and unaccepted; no follow-on role or F5 work
+was started by this implementer.
+
+## Complexity remediation after independent testing (historical)
 
 Starting published head: `5b199ca0917d5c8cacb544114668d0e919137e53`, tree
 `441dd13639b702e04822309b8af3e35753af71b2`. Tester commit
