@@ -1,5 +1,156 @@
 # DAL-201 / F4 implementation handoff
 
+## Caller snapshot allocation repair; complete acceptance remains open
+
+This round identifies and repairs a specific cross-worker allocation collision.
+The fresh complete paired gate passes both previously failing vanilla-double
+cases, but finishes **87/90**, so **F4 and the full performance gate are not
+accepted**. Baseline A/A and head A/A each finish **89/90**. Their failures are
+retained rather than treated as exemptions. This section supersedes the previous
+unresolved-object diagnosis; all earlier results remain below.
+
+Starting SHA/tree: `41db438898a054b91df48e333bb2a96b4cd8de08` /
+`cd89c6b292b6471eaebed76e86d2e5f3487e11a1`. The prior product code is
+`b332fea5f0d9bc9810847ecedcc63e1ac854a9f7`; fixed master baseline is
+`8ee1b09dcaf531add9695d466941026da87a4942`. Tested code commit/tree:
+`1f9a8b91871365f247297be8fe24a3d535a5beda` / `a38785b9ca91523eda0685e8d768b5318682c6ae`. Publication SHA/tree, binary and source
+hashes are attached in `publication.json` and the evidence manifest. The existing
+draft PR remains https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371,
+base master, on `feature/dal-201-historical-aad-state`; history is preserved.
+
+### Object, ownership and causal intervention
+
+The responsible object is caller state zero's 104-byte
+`BlackScholes_<double>::CheckedPaths_`. State zero is constructed on the caller;
+states 1-3 are constructed by their worker. All four states are destroyed on
+the caller after draining. Traces show caller allocations reusing addresses in
+regions previously occupied by worker allocations. Allocator-arena ownership
+itself is not inferred solely from an address region.
+
+One measured original in `trace-panel/lllllllllllllllllllllllll/prefix/01-base`
+has caller metadata at `0x7fbdf4002600` and worker 1's `Sample_::spot_` at
+`0x7fbdf4002670`. The metadata's path-vector fields and flags at offsets 72-97
+share the 64-byte line beginning `0x7fbdf4002640` with that writable spot.
+Generated code reads metadata flags at offsets `0x60` and `0x61`; the diagnostic
+disassembly is retained. The relevant model and sample definitions are in
+`dal-cpp/dal/model/blackscholes.hpp` and `dal-cpp/dal/math/aad/sample.hpp`, while
+the owning allocation is in the permitted private runner in
+`dal-cpp/dal/script/simulation.hpp`.
+
+The full trace records actual addresses, byte extents, creator thread/TID,
+constructor-completion and destruction boundaries, and batch owners/timestamps.
+It covers caller/worker evaluators, Gaussian buffers, compiled streams, RNG
+object/state/directions, CheckedPaths metadata/drifts/stds and samples. The
+shared original model is not read by the selected CheckedPaths hot loop.
+Constructor timestamps bound observed lifetimes; they are not malloc timestamps.
+Records use fixed per-thread static buffers and are written to CSV at process
+exit. No trace allocation or logging is added inside the per-path loop. Tracing
+still changes code layout and adds boundary overhead; no hardware coherence
+counter measurement or exclusive-host claim is made.
+
+A single runtime switch in one diagnostic binary isolates **only caller zero's
+CheckedPaths allocation**, with both its address and extent rounded to 64 bytes.
+Original / isolated / withdrawn measurements retain the same first-seven suite
+prefix, workloads, validators, warmups and interleaved 20 fresh processes each.
+The targeted overlap occurs in **18/20 / 0/20 / 12/20** measured calls; compiled
+medians are **2.351830 / 1.896406 / 2.325133 ms**. This supports a causal
+cache-line sharing mechanism, rather than address proximity alone. Minimum
+reductions remain in the raw reports; withdrawal has fast samples and is not a
+clean two-round minimum-based regression. One isolated run exposes a separate
+possible caller RNG-object/worker Gaussian overlap; no RNG fix is claimed.
+
+The exact old short-path-slower result did not reproduce after relocation:
+short/long compiled deltas were -0.69%/-1.20% with an input symlink and
++0.54%/+2.61% after using direct package paths. Later identical-head controls
+alongside the full trace reproduce the reversed direction, with long paths
++14.32%/+4.33% slower. Direction is context dependent; changing paths is never
+the product fix. Full tracing can remove a minimum-based RED even while many
+individual calls still collide, so observations and interventions are reported
+separately from gate acceptance.
+
+### Minimum production change and uninstrumented validation
+
+The only product diff is **6 added / 2 removed lines** in
+`dal-cpp/dal/script/simulation.hpp`: a local `alignas(64)` CheckedPaths-derived
+type gives each snapshot its own complete cache lines, and the existing owning
+`unique_ptr` allocates that type. On this host, extent becomes 128 bytes instead
+of 104. C++17 aligned new/delete supplies matching allocation and destruction.
+There is no global allocator, pool, benchmark, default, parameter or error change.
+No alignment is imposed on public types. This targets observed sharing on the
+64-byte-line test host; it is not a universal performance guarantee for every
+architecture. Historical typed seeds, native roots, task draining and all risk
+oracles remain unchanged.
+
+An uninstrumented same-toolchain original / candidate / withdrawal panel gives
+compiled minima **2.1698/2.1377**, **1.7598/1.7718**, and **1.7457/1.8731 ms**;
+medians are **2.3311**, **1.8233**, and **2.3094 ms**. Tree candidate minima differ
+from original by less than 1%. An earlier two-line embedded-optional candidate
+improved compiled median but worsened tree median to **4.2703 ms** versus
+**2.1737 ms**; it is rejected and is not in the product diff. Merely aligning
+the address without rounding the extent also retained the collision and is
+preserved as an unsuccessful diagnostic intervention.
+
+RED/GREEN evidence is the allocation/performance regression, not an invented
+functional pricing failure: `diagnosis/causal.py` establishes the single-object
+intervention and withdrawal; `diagnosis/candidate_panel.py line` validates the
+uninstrumented candidate. Existing semantic assertions are unchanged. No new
+unit test merely mirrors a private type's alignment. All **560 diagnostic
+processes** exit zero with unchanged workload validators; all samples survive.
+The initial partial trace missed weak template bodies selected from an existing
+binding object. It is retained and labeled incomplete; later isolated builds
+use distinct diagnostic template names and capture all state/batch records.
+Uninstrumented builds recompile both public and Python value translation units.
+
+### Clean builds, full gate, and remaining failures
+
+Final production validation uses clean builds from this checkout with GCC
+14.3.0, CMake 4.2.3, CPython 3.13.13, pybind11 3.0.4 and the pinned submodules.
+Correctness uses default-architecture Release; Python performance uses the
+original Release/native tuning and four threads. Build jobs finish before the
+full performance runs. `verification/correctness.py`, its execution manifest
+and logs preserve every literal command and result.
+
+- Native full CTest: **1716/1716**, zero failures (11.27 s).
+- Python: **402/402**, zero skips (8.31 s), including the rebuilt test fixture.
+- Adept: **425/425**; CoDiPack: **425/425**; XAD: **424/424** script/AAD regressions.
+- All **16 F4 cases** are present in each backend's successful complete/regression
+  log; `f4-coverage.json` checks the exact required names. A separate focused
+  native run passes 13 historical replay cases plus the 257-rewind root test.
+- Range formatting with clang-format 22.1.5 and whitespace checks pass.
+  Documentation checks pass; report changes are checked again before publication.
+
+The unchanged 90-case gate uses `--samples 10 --confirmation-rounds 2
+--threshold-percent 4`. `verification/run_gates.py` runs both exact-copy A/A
+controls; `gate-execution.json` also records the final paired command. The first
+paired preflight fails because CMake canonicalized `g++-14` to
+`/usr/bin/g++-14`. Reconfiguring the spelling preserves the compiler and binary;
+the failed preflight and both caches/logs are retained. No measured paired run
+was discarded or repeated to obtain green.
+
+| Case                              | Round 1 | Round 2 | Result |
+|-----------------------------------|---------|---------|--------|
+| Vanilla double compiled           | +0.07%  | +0.17%  | pass   |
+| Vanilla double tree               | -0.83%  | -2.46%  | pass   |
+| Barrier AAD compiled              | -2.53%  | -1.00%  | pass   |
+| comparison.mc_barrier_price_16384 | +38.82% | +17.61% | FAIL   |
+| mc.vanilla.aad.tree               | +4.04%  | +5.43%  | FAIL   |
+| xccy.joint.BUMPED.solve           | +5.69%  | +4.37%  | FAIL   |
+
+Baseline A/A fails `comparison.mc_barrier_price_16384` at **+56.79%/+52.87%**;
+head A/A fails `rng.sobol_uniform` at **+5.69%/+4.04%**. These are limitations,
+not proof that any paired failure is unrelated to F4. The old 88/90 failures and
+same-value native-tuning rate failures remain preserved as historical evidence.
+The targeted vanilla allocation fix does not explain or waive the three fresh
+paired failures. No full C++ benchmark gate, sanitizer, Windows XLL or full
+alternative-backend public/Excel run is claimed.
+
+Parent DAL-201 must route the remaining failures and accept this scoped handoff
+before resuming DAL-225 independent testing, DAL-226 documentation/CHANGELOG
+decision and DAL-227 independent review. A potential RNG-level allocation fix
+would require extending scope to `dal-cpp/dal/math/random/sobol.cpp`; this turn
+makes no such product edit. The patch remains a candidate in the existing draft
+PR, without merging, closing F4, launching F5, or changing any gate policy.
+
 ## Suite-prefix diagnosis: allocation-sensitive vanilla double timings
 
 This diagnostic handoff supersedes the unresolved-context discussion below;
