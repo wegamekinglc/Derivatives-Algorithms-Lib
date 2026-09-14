@@ -14,11 +14,11 @@ namespace Dal::Script {
     template <class T_> struct EvalStateCore_ {
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
-        Vector_<T_> historicalSeed_;
         Vector_<T_> constVariables_;
 
         StaticStack_<T_> dStack_;
         StaticStack_<bool> bStack_;
+        Vector_<T_> historicalSeed_;
 
         explicit EvalStateCore_(const Vector_<>& variables, const Vector_<T_>& constVariables = Vector_<T_>())
             : variablesInit_(variables), constVariables_(constVariables) {
