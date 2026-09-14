@@ -107,6 +107,43 @@ TEST(AADTapeTest, TestGradientCapacityGrowsAfterSeeding) {
 }
 
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+namespace {
+    void ExhaustAllocationStream(Tape_* tape, int stream) {
+        if (stream == 0) {
+            for (size_t i = 0; i < Dal::AAD::BLOCK_SIZE; ++i)
+                tape->nodes_.EmplaceBack(0);
+        } else if (stream == 1) {
+            tape->ders_.EmplaceBackMulti<Dal::AAD::DATA_SIZE - 2>();
+        } else if (stream == 2) {
+            tape->argPtrs_.EmplaceBackMulti<Dal::AAD::DATA_SIZE - 2>();
+        } else {
+            tape->adjointsMulti_.EmplaceBackMulti<Dal::AAD::ADJ_SIZE - 2>();
+        }
+    }
+
+    void CheckThreeInputAllocation(Tape_* tape) {
+        auto* node = tape->RecordNode<3>();
+        double gradients[3][3] = {};
+        auto derivatives = std::prev(tape->ders_.End(), 3);
+        auto pointers = std::prev(tape->argPtrs_.End(), 3);
+        for (int input = 0; input != 3; ++input) {
+            *derivatives = input + 2.0;
+            *pointers = gradients[input];
+            ++derivatives;
+            ++pointers;
+            ASSERT_DOUBLE_EQ(node->Adjoint(input), 0.0);
+            node->Adjoint(input) = input + 1.0;
+        }
+        node->PropagateAll(3);
+        for (int input = 0; input != 3; ++input) {
+            ASSERT_DOUBLE_EQ(node->Adjoint(input), 0.0);
+            for (int result = 0; result != 3; ++result)
+                ASSERT_DOUBLE_EQ(gradients[input][result], (input + 2.0) * (result + 1.0));
+        }
+        node->Adjoint(2) = 99.0;
+    }
+} // namespace
+
 TEST(AADTapeTest, TestThreeInputMultipleResultsAndAliasedOperands) {
     auto* tape = Dal::AAD::Tape();
     Clear(*tape);
@@ -164,35 +201,8 @@ TEST(AADTapeTest, TestThreeInputIndependentAllocationRolloverAndReuse) {
         for (int cycle = 0; cycle != 3; ++cycle) {
             RewindToMark(tape);
             // Exhaust one storage stream at a time without coupling the other cursors.
-            if (stream == 0) {
-                for (size_t i = 0; i < Dal::AAD::BLOCK_SIZE; ++i)
-                    tape.nodes_.EmplaceBack(0);
-            } else if (stream == 1) {
-                tape.ders_.EmplaceBackMulti<Dal::AAD::DATA_SIZE - 2>();
-            } else if (stream == 2) {
-                tape.argPtrs_.EmplaceBackMulti<Dal::AAD::DATA_SIZE - 2>();
-            } else {
-                tape.adjointsMulti_.EmplaceBackMulti<Dal::AAD::ADJ_SIZE - 2>();
-            }
-            auto* node = tape.RecordNode<3>();
-            double gradients[3][3] = {};
-            auto derivatives = std::prev(tape.ders_.End(), 3);
-            auto pointers = std::prev(tape.argPtrs_.End(), 3);
-            for (int input = 0; input != 3; ++input) {
-                *derivatives = input + 2.0;
-                *pointers = gradients[input];
-                ++derivatives;
-                ++pointers;
-                ASSERT_DOUBLE_EQ(node->Adjoint(input), 0.0);
-                node->Adjoint(input) = input + 1.0;
-            }
-            node->PropagateAll(3);
-            for (int input = 0; input != 3; ++input) {
-                ASSERT_DOUBLE_EQ(node->Adjoint(input), 0.0);
-                for (int result = 0; result != 3; ++result)
-                    ASSERT_DOUBLE_EQ(gradients[input][result], (input + 2.0) * (result + 1.0));
-            }
-            node->Adjoint(2) = 99.0;
+            ExhaustAllocationStream(&tape, stream);
+            ASSERT_NO_FATAL_FAILURE(CheckThreeInputAllocation(&tape));
         }
         Rewind(tape);
         NewRecording(tape);
