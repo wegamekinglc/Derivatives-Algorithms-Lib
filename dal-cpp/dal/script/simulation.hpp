@@ -288,11 +288,15 @@ namespace Dal::Script {
 
         // Each worker constructs and reuses its own writable buffers. Keeping hot
         // evaluator state in adjacent arrays made timing sensitive to allocation layout.
+        // Isolate snapshot metadata from another worker's adjacent writable sample.
+        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
+            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
+        };
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
-            std::unique_ptr<AAD::BlackScholes_<double>::CheckedPaths_> bsPaths_;
+            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
@@ -300,7 +304,7 @@ namespace Dal::Script {
                 : random_(CreateRNG(rsg, model.SimDim(), useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
                   compiledState_(product.template BuildEvalState<double>()) {
                 if (typeid(model) == typeid(AAD::BlackScholes_<double>))
-                    bsPaths_ = std::make_unique<AAD::BlackScholes_<double>::CheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
+                    bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
                 else {
                     AllocatePath(product.DefLine(), path_);
                     InitializePath(path_);
