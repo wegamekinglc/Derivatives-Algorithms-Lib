@@ -360,6 +360,95 @@ namespace Dal::Script {
         return MCDoubleSimulation(product, model.get(), nPaths, rsg, useBb, compiled);
     }
 
+    namespace Detail {
+        struct AADBatchSettings_ {
+            const String_& rsg_;
+            bool useBb_;
+            int maxNestedIfs_;
+            double eps_;
+            size_t nPaths_;
+            size_t nParams_;
+            size_t nConstVars_;
+            size_t payoffIndex_;
+        };
+
+        template <class P_>
+        void EvaluateAADBatch(const P_& product,
+                              const Handle_<ModelData_>& modelData,
+                              const AADBatchSettings_& settings,
+                              const std::optional<ScriptCompiled_>& compiledProduct,
+                              const PathBatch_& batch,
+                              SimResults_* results) {
+            AAD::Activate(*AAD::Tape());
+            AAD::Rewind(*AAD::Tape());
+            std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
+            model->Allocate(product.TimeLine(), product.DefLine());
+
+            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, model->SimDim(), settings.useBb_);
+            Vector_<> gVec(model->SimDim());
+
+            Scenario_<AAD::Number_> path;
+            AllocatePath(product.DefLine(), path);
+            InitializePath(path);
+            if (random)
+                random->SkipTo(batch.firstPath_);
+
+            double sumValue = 0.0;
+
+            auto runPaths = [&](auto& evaluator, auto evaluate) {
+                AAD::Number_ payoffZero = 0.0;
+                InitModel4ParallelAAD(product, *model, path, evaluator, &payoffZero);
+                WithPathGenerator(*model, [&](const auto& generate) {
+                    for (size_t i = 0; i < batch.pathCount_; i++) {
+                        AAD::RewindToMark(*AAD::Tape());
+                        if (random)
+                            random->FillNormal(&gVec);
+                        generate(gVec, &path);
+                        evaluate(path, evaluator);
+                        AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[settings.payoffIndex_], payoffZero);
+                        REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
+                        Adjoint(res) = 1.0;
+                        AAD::PropagateToMark(*AAD::Tape());
+                        sumValue += Value(res);
+                    }
+                });
+            };
+
+            auto accumulateConstVarRisks = [&](const auto& constVarVals) {
+                for (size_t j = 0; j < settings.nConstVars_; ++j)
+                    results->risks_[j + settings.nParams_] += Adjoint(constVarVals[j]) / static_cast<double>(settings.nPaths_);
+            };
+
+            if (compiledProduct) {
+                EvalState_<AAD::Number_> evalState =
+                    product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
+                runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
+                AAD::PropagateMarkToStart(*AAD::Tape());
+                accumulateConstVarRisks(evalState.ConstVarVals());
+            } else {
+                FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(settings.maxNestedIfs_, settings.eps_);
+                runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
+                AAD::PropagateMarkToStart(*AAD::Tape());
+                accumulateConstVarRisks(eval.ConstVarVals());
+            }
+
+            for (size_t j = 0; j < settings.nParams_; ++j)
+                results->risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(settings.nPaths_);
+
+            results->aggregated_ += sumValue;
+        }
+
+        inline SimResults_ AggregateAADResults(const Vector_<String_>& names, const Vector_<SimResults_>& simResults) {
+            SimResults_ rtn(names);
+            for (const auto& res : simResults) {
+                rtn.aggregated_ += res.aggregated_;
+                for (size_t j = 0; j < rtn.risks_.size(); ++j)
+                    rtn.risks_[j] += res.risks_[j];
+            }
+            return rtn;
+        }
+    } // namespace Detail
+
     template <class P_>
     SimResults_ MCAADSimulation(const P_& product,
                                 const Handle_<ModelData_>& modelData,
@@ -401,86 +490,22 @@ namespace Dal::Script {
 
         SimResults_ values(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         Vector_<SimResults_> simResults(nThreads, values);
+        const Detail::AADBatchSettings_ settings{rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex};
         // Keep this after every task-captured local so it drains first on unwind.
         SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
 
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            const size_t firstPath = batch.firstPath_;
-            const size_t pathsInTask = batch.pathCount_;
-            tasks.Spawn([&, firstPath, pathsInTask]() {
+            tasks.Spawn([&, batch]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
-                AAD::Activate(*AAD::Tape());
-                AAD::Rewind(*AAD::Tape());
-                std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
-                model->Allocate(product.TimeLine(), product.DefLine());
-
-                std::unique_ptr<Random_> random = CreateRNG(rsg, model->SimDim(), useBb);
-                Vector_<> gVec(model->SimDim());
-
-                Scenario_<AAD::Number_> path;
-                AllocatePath(product.DefLine(), path);
-                InitializePath(path);
-                if (random)
-                    random->SkipTo(firstPath);
-
-                double sumValue = 0.0;
-                auto& results = simResults(threadNum);
-
-                auto runPaths = [&](auto& evaluator, auto evaluate) {
-                    AAD::Number_ payoffZero = 0.0;
-                    InitModel4ParallelAAD(product, *model, path, evaluator, &payoffZero);
-                    Detail::WithPathGenerator(*model, [&](const auto& generate) {
-                        for (size_t i = 0; i < pathsInTask; i++) {
-                            AAD::RewindToMark(*AAD::Tape());
-                            if (random)
-                                random->FillNormal(&gVec);
-                            generate(gVec, &path);
-                            evaluate(path, evaluator);
-                            AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[payoffIndex], payoffZero);
-                            REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
-                            Adjoint(res) = 1.0;
-                            AAD::PropagateToMark(*AAD::Tape());
-                            sumValue += Value(res);
-                        }
-                    });
-                };
-
-                auto accumulateConstVarRisks = [&](const auto& constVarVals) {
-                    for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] += Adjoint(constVarVals[j]) / static_cast<double>(nPaths);
-                };
-
-                if (useCompiled) {
-                    EvalState_<AAD::Number_> evalState =
-                        product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(maxNestedIfs, 0)), eps);
-                    runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
-                    AAD::PropagateMarkToStart(*AAD::Tape());
-                    accumulateConstVarRisks(evalState.ConstVarVals());
-                } else {
-                    FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(maxNestedIfs, eps);
-                    runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
-                    AAD::PropagateMarkToStart(*AAD::Tape());
-                    accumulateConstVarRisks(eval.ConstVarVals());
-                }
-
-                for (size_t j = 0; j < nParams; ++j)
-                    results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
-
-                results.aggregated_ += sumValue;
+                Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum));
                 return true;
             });
         }
 
         tasks.Complete();
 
-        SimResults_ rtn(Dal::Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
-        for (auto& res : simResults) {
-            rtn.aggregated_ += res.aggregated_;
-            for (size_t j = 0; j < rtn.risks_.size(); ++j)
-                rtn.risks_[j] += res.risks_[j];
-        }
-        return rtn;
+        return Detail::AggregateAADResults(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()), simResults);
     }
 
     template <>
