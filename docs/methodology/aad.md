@@ -189,7 +189,7 @@ This is the **pathwise adjoint** estimator. The algorithm is:
    the parameter adjoints by the total simulation path count $P$. Sum batch
    contributions without a second normalization.
 
-In the [prepared script tree](script_engine.md#historical-state-and-recording-lifetime),
+In [prepared script evaluation](script_engine.md#historical-state-and-recording-lifetime),
 historical fixings are sealed doubles, but script expressions using them can
 depend on active parameters. Each recording replays those expressions locally
 before the mark and each path restores the resulting typed seed. Adding a
@@ -197,7 +197,13 @@ registered zero to the payoff creates a path-local root even when the payoff
 is a pre-mark seed or a passive constant. This preserves accumulated seed
 adjoints and provides a valid post-mark reverse range. Historical decisions
 use hard branches; fuzzy smoothing applies to future events, including future
-conditions on known fixings.
+conditions on known fixings. Tree and compiled execution share this recording
+contract: compiled history is hard bytecode with settled payments discarded,
+and observation loads use the same sealed plan. Parameter-dependent historical
+state remains typed rather than being inlined as its current double value.
+Future fuzzy weights remain live through optimization; compare AAD primal
+values with fuzzy double using the same epsilon, not exact double at a future
+discontinuity.
 
 The result is the full gradient of the Monte Carlo price — every Greek for every
 parameter — for the cost of roughly one extra simulation, regardless of how many
