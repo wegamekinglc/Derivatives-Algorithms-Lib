@@ -157,8 +157,9 @@ namespace Dal::Script {
         }
     };
 
-    template <class E_>
-    void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator) {
+    template <class P_, class E_>
+    void
+    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero) {
         AAD::Rewind(*AAD::Tape());
         for (AAD::Number_* param : model.Parameters())
             PutOnTape(*param);
@@ -166,10 +167,15 @@ namespace Dal::Script {
         for (AAD::Number_& param : evaluator.ConstVarVals())
             PutOnTape(param);
 
+        PutOnTape(*payoffZero);
+
         AAD::NewRecording(*AAD::Tape());
 
         model.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
+
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+            prd.InitializeHistoricalState(&evaluator);
 
         AAD::Mark(*AAD::Tape());
     }
@@ -354,27 +360,33 @@ namespace Dal::Script {
         return MCDoubleSimulation(product, model.get(), nPaths, rsg, useBb, compiled);
     }
 
-    template <>
-    inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
-                                                  const Handle_<ModelData_>& modelData,
-                                                  size_t nPaths,
-                                                  const String_& rsg,
-                                                  bool useBb,
-                                                  std::optional<bool> compiled,
-                                                  int maxNestedIfs,
-                                                  double eps) {
+    template <class P_>
+    SimResults_ MCAADSimulation(const P_& product,
+                                const Handle_<ModelData_>& modelData,
+                                size_t nPaths,
+                                const String_& rsg,
+                                bool useBb,
+                                std::optional<bool> compiled,
+                                int maxNestedIfs,
+                                double eps) {
         product.RequireExecutable();
         ValidateRNG(rsg);
-        REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(), "UnsupportedExecutionMode: historical AAD replay", ScriptError_);
+        if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
+            REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
+                     "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
         const bool useCompiled = compiled.value_or(false);
+
+        const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
+        if (product.EventDates().empty())
+            return SimResults_(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+            REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_,
+                     "UnsupportedExecutionMode: AAD mode or smoothing differs from preparation", ScriptError_);
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
             compiledProduct.emplace(product.Compile(true));
 
-        const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
-        if (product.EventDates().empty())
-            return SimResults_(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         metadataModel->Allocate(product.TimeLine(), product.DefLine());
         metadataModel->Init(product.TimeLine(), product.DefLine());
         const auto nParams = metadataModel->Parameters().size();
@@ -416,7 +428,8 @@ namespace Dal::Script {
                 auto& results = simResults(threadNum);
 
                 auto runPaths = [&](auto& evaluator, auto evaluate) {
-                    InitModel4ParallelAAD(product, *model, path, evaluator);
+                    AAD::Number_ payoffZero = 0.0;
+                    InitModel4ParallelAAD(product, *model, path, evaluator, &payoffZero);
                     Detail::WithPathGenerator(*model, [&](const auto& generate) {
                         for (size_t i = 0; i < pathsInTask; i++) {
                             AAD::RewindToMark(*AAD::Tape());
@@ -424,7 +437,7 @@ namespace Dal::Script {
                                 random->FillNormal(&gVec);
                             generate(gVec, &path);
                             evaluate(path, evaluator);
-                            AAD::Number_ res = evaluator.VarVals()[payoffIndex];
+                            AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[payoffIndex], payoffZero);
                             REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
                             Adjoint(res) = 1.0;
                             AAD::PropagateToMark(*AAD::Tape());
@@ -439,12 +452,13 @@ namespace Dal::Script {
                 };
 
                 if (useCompiled) {
-                    EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(maxNestedIfs, 0)), eps);
+                    EvalState_<AAD::Number_> evalState =
+                        product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(maxNestedIfs, 0)), eps);
                     runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     accumulateConstVarRisks(evalState.ConstVarVals());
                 } else {
-                    FuzzyEvaluator_<AAD::Number_> eval = product.BuildFuzzyEvaluator<AAD::Number_>(maxNestedIfs, eps);
+                    FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(maxNestedIfs, eps);
                     runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     accumulateConstVarRisks(eval.ConstVarVals());
@@ -468,6 +482,18 @@ namespace Dal::Script {
         }
         return rtn;
     }
+
+    template <>
+    inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
+                                                  const Handle_<ModelData_>& modelData,
+                                                  size_t nPaths,
+                                                  const String_& rsg,
+                                                  bool useBb,
+                                                  std::optional<bool> compiled,
+                                                  int maxNestedIfs,
+                                                  double eps) {
+        return MCAADSimulation(product, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps);
+    }
     template <class T_>
     SimResults_ MCSimulation(const PreparedScript_& prepared,
                              const Handle_<ModelData_>& modelData,
@@ -480,7 +506,10 @@ namespace Dal::Script {
         prepared.RequireExecutable();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(rsg);
-        REQUIRE2((prepared.AllExpired() || std::is_same_v<T_, double>), "UnsupportedExecutionMode: prepared AAD evaluation", ScriptError_);
+        REQUIRE2((prepared.AllExpired() || prepared.Simulation().enableAad_ == !std::is_same_v<T_, double>),
+                 "UnsupportedExecutionMode: evaluation mode differs from preparation", ScriptError_);
+        if constexpr (!std::is_same_v<T_, double>)
+            return MCAADSimulation(prepared, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps);
         auto model = CreateModel<double>(modelData);
         if (prepared.AllExpired())
             return SimResults_(Vector::Join(model->ParameterLabels(), prepared.Product().ConstVarNames()));
@@ -499,8 +528,11 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(execution.rsg_);
         execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;
+        REQUIRE2((!std::is_same_v<T_, double> || !execution.enableAad_), "UnsupportedExecutionMode: double simulation requested AAD", ScriptError_);
         auto model = CreateModel<double>(modelData);
         const auto prepared = PrepareScript(data, model.get(), settings, execution, snapshot, contract);
+        if constexpr (!std::is_same_v<T_, double>)
+            return MCAADSimulation(prepared, modelData, nPaths, execution.rsg_, execution.useBb_, execution.compiled_, -1, execution.smooth_);
         return MCDoubleSimulation(prepared, model.get(), nPaths, execution.rsg_, execution.useBb_, execution.compiled_, true);
     }
 } // namespace Dal::Script

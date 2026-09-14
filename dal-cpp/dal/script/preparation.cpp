@@ -256,19 +256,20 @@ namespace Dal::Script {
             if (result.AllExpired())
                 return result;
             if (model) {
-                REQUIRE2(!simulation.enableAad_, "UnsupportedExecutionMode: prepared AAD evaluation", ScriptError_);
-                REQUIRE2(!simulation.compiled_.value_or(false) || result.Plan().Requests().empty(),
-                         "UnsupportedExecutionMode: named compiled evaluation", ScriptError_);
+                REQUIRE2(!simulation.compiled_.value_or(false) || (result.Plan().Requests().empty() && !simulation.enableAad_),
+                         "UnsupportedExecutionMode: named or prepared AAD compiled evaluation", ScriptError_);
                 ModelPlan(result.plan_.get(), result.Product(), evaluationDate, settings, *model, boundIndex);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
             result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, evaluationDate, settings, snapshot);
             if (model) {
-                if (result.Plan().Requests().empty())
+                if (result.Plan().Requests().empty() && !simulation.enableAad_)
                     writable->PreProcess(false, true);
-                else
+                else {
                     writable->InitializePastObservations(result.Plan());
+                    result.maxNestedIfs_ = writable->IFProcess();
+                }
                 result.executable_ = true;
             }
             return result;

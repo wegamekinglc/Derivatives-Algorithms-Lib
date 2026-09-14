@@ -129,3 +129,8 @@ namespace Dal::AAD {
 
 } // namespace Dal::AAD
 #endif
+
+namespace Dal::AAD {
+    // A registered zero input forces a fresh root even for passive constant payoffs.
+    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) { return payoff + activeZero; }
+} // namespace Dal::AAD

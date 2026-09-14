@@ -12,6 +12,7 @@ namespace Dal::Script {
     template <class T_> struct EvalStateCore_ {
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
+        Vector_<T_> historicalSeed_;
         Vector_<T_> constVariables_;
 
         StaticStack_<T_> dStack_;
@@ -32,8 +33,14 @@ namespace Dal::Script {
         Vector_<T_>& ConstVarVals() { return constVariables_; }
         const Vector_<T_>& ConstVarVals() const { return constVariables_; }
 
+        void SetHistoricalSeed(Vector_<T_> seed) { historicalSeed_ = std::move(seed); }
+
     private:
         void InitVariables() {
+            if (!historicalSeed_.empty()) {
+                variables_ = historicalSeed_;
+                return;
+            }
             variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);

@@ -35,6 +35,7 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
         using StateCore_::ConstVarVals;
         using StateCore_::Init;
+        using StateCore_::SetHistoricalSeed;
         using StateCore_::VarVals;
 
         EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
@@ -63,11 +64,7 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
-        FORCE_INLINE void SetObservations(const ObservationPlan_* observations) {
-            REQUIRE2((!observations || (std::is_same_v<T_, double> && !std::is_same_v<EVAL_<T_>, FuzzyEvaluator_<T_>>)),
-                     "UnsupportedExecutionMode: named AAD/fuzzy evaluation", ScriptError_);
-            observations_ = observations;
-        }
+        FORCE_INLINE void SetObservations(const ObservationPlan_* observations) { observations_ = observations; }
 
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
