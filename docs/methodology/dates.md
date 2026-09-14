@@ -7,17 +7,20 @@ schedule generation, and day-count bases.
 ## Dates
 
 `Date_` (`dal-cpp/dal/time/date.hpp`) is a value type wrapping a `uint16_t`
-serial day count. Construction from year, month, and day validates each field
-and accepts years in [1900, 2199]; a default-constructed `Date_` is invalid
-(`IsValid()` returns false). Comparisons and `operator-` (a day difference)
-work directly on the serial, and `AddDays`, `++`, and `--` shift by whole
-days.
+serial day count. Construction from year, month, and day checks calendar fields
+and requires a year in [1900, 2199], but that field check is wider than the
+representable range. Valid dates have Excel serials 25569 through 91103; a
+calendar-valid date outside that range produces an invalid value. A
+default-constructed `Date_` is also invalid (`IsValid()` returns false).
+Comparisons and `operator-` (a day difference) work directly on the serial.
+`AddDays`, `++`, and `--` shift by whole days without checking for overflow;
+callers must keep arithmetic within the valid range.
 
 Free functions in `namespace Dal::Date` cover component access (`Year`,
 `Month`, `Day`, `DayOfWeek`), month arithmetic (`AddMonths` with optional
 end-of-month preservation, `EndOfMonth`), and Excel interop: `FromExcel` /
-`ToExcel` convert to and from the Excel 1900 date system, and
-`NumericValueOf` exposes the Excel serial as a `double` for storage and
+`ToExcel` convert to and from the Excel 1900 date system.
+`Dal::NumericValueOf` exposes the Excel serial as a `double` for storage and
 interpolation coordinates. `Date::FromString`
 (`dal-cpp/dal/time/dateutils.cpp`) recognizes `mm/dd/yyyy` (two-digit years
 map to 20xx) and `yyyy-mm-dd`; `Date::IsDateString` predicts whether a string
@@ -100,6 +103,9 @@ the typical call sequence. Every symbol matches the current signatures in
 
 ```cpp
 // Inline snippet drawn from the public headers in dal-cpp/dal/time/.
+#include <dal/platform/platform.hpp>
+#include <dal/platform/initall.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/datetime.hpp>
@@ -109,27 +115,30 @@ the typical call sequence. Every symbol matches the current signatures in
 
 using namespace Dal;
 
-// Date_ wraps a validated serial day count; years span [1900, 2199] and a
-// default-constructed Date_ fails IsValid().
+// Inside main, initialize the process-wide calendars before using TARGET.
+RegisterAll_::Init();
+
+// Date_ wraps a serial day count; a default-constructed Date_ fails IsValid().
 const Date_ today(2026, 4, 30);
+Global::Dates_::SetEvaluationDate(today);
 const int excelSerial = Date::ToExcel(today);
-const Date_ naiveSpot = Date::AddMonths(today, 2);   // T+2 spot, naive month roll
+const Date_ unadjustedStart = Date::AddMonths(today, 2);   // two-month start date
 
 // Holidays_ unions named centers; the empty string means no holidays. The
 // free functions in namespace Holidays roll and adjust against a calendar.
 const Holidays_ target("TARGET");
-const Date_ spot    = Holidays::Adjust(target, naiveSpot, BizDayConvention_("ModifiedFollowing"));
-const bool  isBizDay = Holidays::IsBusinessDay(target, spot);
+const Date_ start = Holidays::Adjust(target, unadjustedStart, BizDayConvention_("ModifiedFollowing"));
+const bool isBizDay = Holidays::IsBusinessDay(target, start);
 
 // Date::Increment_ is the step interface; ParseIncrement covers tenors ('3M',
 // '10Y', '2W'), business-day counts with a calendar suffix ('5BD;CN.IB'), and
 // special-day names ('IMM', 'EOM'). operator+ applies FwdFrom.
 const Handle_<Date::Increment_> tenor = Date::ParseIncrement("3M");
-const Date_ maturity                   = spot + *tenor;
+const Date_ maturity                   = start + *tenor;
 
 // DateTime_ pairs a Date_ with a sub-day fraction; the (hour, minute) ctor is
 // used for fixing timestamps.
-const DateTime_ fixingTime(spot, 11, 0);
+const DateTime_ fixingTime(start, 11, 0);
 
 // Schedule generation and year fractions. MakeSchedule lays out an adjusted
 // strip; a DayBasis_ called as a functor returns the accrual fraction.

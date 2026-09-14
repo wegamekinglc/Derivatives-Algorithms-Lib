@@ -74,8 +74,12 @@ symmetric positive-definite (for full-rank $J$) and is solved by Cholesky
 factorisation. The mapping $W^{-1} J^{\mathsf T}(JW^{-1}J^{\mathsf T})^{-1}$ is the
 **$W$-weighted pseudoinverse** of $J$ — among all steps satisfying the linearised
 equations it returns the one of minimum $W$-norm. The same weighted pseudoinverse,
-evaluated at the solution, is the **effective Jacobian inverse** that maps
-instrument bumps to parameter changes and is retained for risk.
+evaluated at the solution, is retained as the **effective Jacobian inverse** for
+the local weighted response. This local mapping does not generally differentiate
+the solution selected by a nonlinear solve from a fixed initial guess. Generic
+joint quote risk therefore uses an explicitly requested fixed initial-Jacobian
+subspace for underdetermined systems; see
+[the selected-solution contract](generic_joint_quote_risk.md#calibration-and-the-selected-solution).
 
 ## Exact Fit: Iteration
 
@@ -286,9 +290,9 @@ $W$ encodes which solutions are preferred when many fit the data:
 
 For parameters indexed along a time axis (curve knots), a **tridiagonal** weight
 penalising differences between adjacent knots acts as a discrete smoothness
-(roughness) penalty. Among all parameter vectors that reprice the instruments, the
-solver then selects the smoothest — the least oscillatory curve consistent with the
-market.
+(roughness) penalty on local steps. This preference influences the fitted curve,
+but the exact iteration does not guarantee a global minimum of total parameter
+displacement or a unique smoothest nonlinear solution.
 
 ## Implementation Details
 
@@ -435,7 +439,7 @@ Vector_<Date_> knotDates = {
 
 // The system is underdetermined: with the default piecewise-linear-forward
 // parameterization there are two parameters per knot, so n > m and the
-// tridiagonal smoothing weight W picks the least-rough solution
+// tridiagonal smoothing weight W penalizes rough local parameter steps
 std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
 ```
 

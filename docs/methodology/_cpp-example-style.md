@@ -10,11 +10,9 @@ and the same rules about what may be invented.
 
 ## Scope
 
-Apply this guide to every C++ snippet added to every file under `docs/methodology/`:
-
-`aad.md`, `black_scholes.md`, `dates.md`, `dupire.md`, `index_parsing.md`, `interpolation.md`,
-`log_discount_curve.md`, `matrix.md`, `pde.md`, `quadrature.md`, `random.md`, `script_engine.md`,
-`underdetermined_search.md`, `xccy_calibration.md`, `yield_curve.md`, `yield_curve_jacobian.md`.
+Apply this guide to every C++ snippet under `docs/methodology/`, including
+node-risk and generic joint quote-risk examples. The current methodology inventory
+is maintained in [the documentation index](../README.md#methodology-methodology).
 
 ## Source of truth
 
@@ -68,7 +66,7 @@ Follow `.claude/rules/code-style.md` exactly. The rows that matter most for snip
 | Functions/Methods | PascalCase                | `CalibrateYieldCurve()`, `NewSobol()`, `Date::AddMonths()`      |
 | Local variables   | camelCase                 | `numPaths`, `knotDates`, `today`                                |
 | Template params   | single letter + `_`       | `T_`, `E_`                                                      |
-| Constants/Macros  | UPPER_SNAKE_CASE          | `M_SQRT_2`, `THROW_REQUIRE`                                     |
+| Constants/Macros  | UPPER_SNAKE_CASE          | `M_SQRT_2`, `REQUIRE`                                           |
 
 Enum access uses the generated-class form, never a bare `enum class` literal:
 
@@ -174,32 +172,26 @@ std::cout << "PV = " << pv << "\n";
 
 Use exactly these paths. Every directory was verified against `dal-cpp/examples/` on this branch.
 
-| Methodology doc             | Example program(s)                                                                                                                                                                |
-|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `aad.md`                    | `dal-cpp/examples/aad/`                                                                                                                                                           |
-| `black_scholes.md`          | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
-| `dupire.md`                 | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
-| `yield_curve.md`            | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
-| `log_discount_curve.md`     | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
-| `interpolation.md`          | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
-| `yield_curve_jacobian.md`   | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
-| `random.md`                 | `dal-cpp/examples/sobol/`                                                                                                                                                         |
-| `script_engine.md`          | `dal-cpp/examples/script/`                                                                                                                                                        |
-| `underdetermined_search.md` | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
-| `xccy_calibration.md`       | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
-| `pde.md`                    | no new program needed; verify the existing C++ blocks stay consistent with this guide                                                                                             |
-| `matrix.md`                 | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
-| `dates.md`                  | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
-| `index_parsing.md`          | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
-| `quadrature.md`             | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
-
-Corrections to the mapping that was circulated during planning (later agents: use the table above,
-not the earlier draft):
-
-- The cross-currency mark-to-market example is `dal-cpp/examples/xccy_mtm_calibration/` (MTM =
-  mark-to-market), not `xccy_mitm_calibration/`.
-- Example sources are `<name>/<name>.cpp`, for example `dal-cpp/examples/aad/aad.cpp`. Earlier
-  drafts referenced a `main.cpp` that does not exist in this tree.
+| Methodology doc               | Example program(s)                                                                                                                                                                |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `aad.md`                      | `dal-cpp/examples/aad/`                                                                                                                                                           |
+| `black_scholes.md`            | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
+| `dupire.md`                   | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
+| `yield_curve.md`              | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
+| `log_discount_curve.md`       | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
+| `interpolation.md`            | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
+| `yield_curve_jacobian.md`     | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
+| `random.md`                   | `dal-cpp/examples/sobol/`                                                                                                                                                         |
+| `script_engine.md`            | `dal-cpp/examples/script/`                                                                                                                                                        |
+| `underdetermined_search.md`   | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
+| `xccy_calibration.md`         | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
+| `pde.md`                      | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
+| `rate_node_risk.md`           | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
+| `generic_joint_quote_risk.md` | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
+| `matrix.md`                   | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
+| `dates.md`                    | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
+| `index_parsing.md`            | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
+| `quadrature.md`               | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
 
 ## Docs-lint notes for doc-writers
 
