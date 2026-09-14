@@ -869,7 +869,7 @@ namespace Dal::Script {
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_> FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op == LoadObservation) {
                 REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
@@ -880,6 +880,11 @@ namespace Dal::Script {
                 statePtr->dStack_.Pop();
                 return i + 1;
             }
+            ThrowUnknownCompiledOpcode(op);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
             if (op <= PaysConst)
@@ -890,7 +895,9 @@ namespace Dal::Script {
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
-            return EvalCompiledFuzzyControl(event, i, statePtr);
+            if (op <= FuzzyIf)
+                return EvalCompiledFuzzyControl(event, i, statePtr);
+            return EvalCompiledPrepared(event, i, statePtr);
         }
 
         template <class T_, class E_> void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
