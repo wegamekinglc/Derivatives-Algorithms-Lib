@@ -76,13 +76,16 @@ namespace Dal::Script {
     struct NodeNot_ : public Visitable_<BoolNode_, NodeNot_, VISITORS> {};
 
     //	Market access
-    struct NodeSpot_ : public Visitable_<ExprNode_, NodeSpot_, VISITORS> {};
+    struct NodeSpot_ : public Visitable_<ExprNode_, NodeSpot_, VISITORS> {
+        std::optional<size_t> observationId_;
+    };
 
     struct NodeFix_ : public Visitable_<ExprNode_, NodeFix_, VISITORS> {
         IndexLiteral_ literal_;
         Handle_<Index_> index_;
         std::optional<Date_> fixingDate_;
         SourceLocation_ source_;
+        std::optional<size_t> observationId_;
 
         NodeFix_(IndexLiteral_ literal, Handle_<Index_> index, std::optional<Date_> fixingDate, SourceLocation_ source)
             : literal_(std::move(literal)), index_(std::move(index)), fixingDate_(fixingDate), source_(source) {}

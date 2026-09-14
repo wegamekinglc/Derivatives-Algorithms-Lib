@@ -4,13 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <utility>
 
+#include <dal/curve/tapeguard.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/script/visitor/all.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/script/visitor/all.hpp>
 #include <dal/storage/globals.hpp>
 
 using namespace Dal;
@@ -426,4 +429,106 @@ TEST(CompilerTest, TestEvalStateInitRestoresCoreState) {
     ASSERT_EQ(state.nestedIfLvl_, 0u);
     ASSERT_TRUE(state.dStack_.IsEmpty());
     ASSERT_TRUE(state.bStack_.IsEmpty());
+}
+
+TEST(CompilerTest, TestDirectExtremaPreserveNanAndSignedZeroOrder) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const AAD::Sample_<double> sample{};
+    for (const int op : {Max2, Min2, Max2Const, Min2Const}) {
+        const bool constant = op == Max2Const || op == Min2Const;
+        const Vector_<int> stream = constant ? Vector_<int>{Const, 0, op, 1, Assign, 0} : Vector_<int>{Const, 0, Const, 1, op, Assign, 0};
+        for (const auto& values : {Vector_<>{nan, 2.0}, Vector_<>{2.0, nan}, Vector_<>{-0.0, 0.0}, Vector_<>{0.0, -0.0}}) {
+            SCOPED_TRACE(op);
+            EvalState_<double> state(Vector_<>{0.0});
+            EvalCompiled(stream, values, sample, state);
+            if (std::isnan(values[0]))
+                ASSERT_TRUE(std::isnan(state.VarVals()[0]));
+            else {
+                ASSERT_DOUBLE_EQ(state.VarVals()[0], values[0]);
+                ASSERT_EQ(std::signbit(state.VarVals()[0]), std::signbit(values[0]));
+            }
+            ASSERT_TRUE(state.dStack_.IsEmpty());
+        }
+    }
+}
+
+TEST(CompilerTest, TestDirectAadExtremaKeepFirstOperandAtEquality) {
+    for (const int op : {Max2, Min2, Max2Const, Min2Const}) {
+        SCOPED_TRACE(op);
+        auto* tape = AAD::Tape();
+        TapeGuard_ guard(tape);
+        AAD::Number_ first = 2.0;
+        AAD::Number_ second = 2.0;
+        AAD::PutOnTape(first);
+        AAD::PutOnTape(second);
+        AAD::NewRecording(*tape);
+        const AAD::Sample_<AAD::Number_> sample{};
+        EvalState_<AAD::Number_> state(Vector_<>{0.0}, Vector_<AAD::Number_>{first, second});
+        const bool constant = op == Max2Const || op == Min2Const;
+        const Vector_<int> stream = constant ? Vector_<int>{ConstVar, 0, op, 0, Assign, 0} : Vector_<int>{ConstVar, 0, ConstVar, 1, op, Assign, 0};
+        EvalCompiled(stream, Vector_<>{2.0}, sample, state);
+        AAD::ZeroAdjoints(*tape);
+        AAD::Adjoint(state.variables_[0]) = 1.0;
+        AAD::PropagateToStart(*tape);
+        ASSERT_DOUBLE_EQ(AAD::Value(state.VarVals()[0]), 2.0);
+        ASSERT_NEAR(AAD::Adjoint(first), 1.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(second), 0.0, 1e-10);
+    }
+}
+
+TEST(CompilerTest, TestDirectSlicePreservesStacksAndVariablesWithoutReset) {
+    EvalState_<double> state(Vector_<>{3.0});
+    state.dStack_.Push(5.0);
+    state.bStack_.Push(true);
+    const Vector_<int> stream{999, Const, 0, Add, Assign, 0, 999};
+    const AAD::Sample_<double> sample{};
+    EvalCompiled(stream, Vector_<>{7.0}, sample, state, 1, 6, false);
+    ASSERT_DOUBLE_EQ(state.VarVals()[0], 12.0);
+    ASSERT_TRUE(state.dStack_.IsEmpty());
+    ASSERT_EQ(state.bStack_.Size(), 1u);
+    ASSERT_TRUE(state.bStack_.Top());
+    EvalCompiled(Vector_<int>{Var, 0, AddConst, 0, Assign, 0}, Vector_<>{1.0}, sample, state);
+    ASSERT_DOUBLE_EQ(state.VarVals()[0], 13.0);
+    ASSERT_TRUE(state.bStack_.IsEmpty());
+}
+
+TEST(CompilerTest, TestCompiledEventsResetStacksAndPreservePathVariables) {
+    Vector_<int> first{Var, 0, AddConst, 0, Assign, 0};
+    for (size_t i = 0; i < 128; ++i) {
+        first.push_back(Spot);
+        first.push_back(True);
+    }
+    ScriptCompiled_ compiled(Vector_<Vector_<int>>{first, {Var, 0, AddConst, 0, Assign, 0}}, Vector_<Vector_<>>{{7.0}, {1.0}});
+    Scenario_<double> scenario(2);
+    scenario[0].spot_ = 2.0;
+    EvalState_<double> state(Vector_<>{3.0});
+    for (int path = 0; path < 2; ++path) {
+        compiled.Evaluate(scenario, state);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], 11.0);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+        ASSERT_TRUE(state.bStack_.IsEmpty());
+    }
+}
+
+TEST(CompilerTest, TestDirectOperandStackBoundsThrow) {
+    const AAD::Sample_<double> sample{};
+    for (const auto& stream : {Vector_<int>{Add}, Vector_<int>{Spot, Max2}, Vector_<int>{True, And}, Vector_<int>{Assign, 0}, Vector_<int>(129, Spot),
+                               Vector_<int>(129, True)}) {
+        EvalState_<double> state(Vector_<>{0.0});
+        ASSERT_THROW(EvalCompiled(stream, Vector_<>{}, sample, state), Dal::Exception_);
+    }
+}
+
+TEST(CompilerTest, TestDirectFuzzyComparisonUsesDefaultEpsilon) {
+    AAD::Sample_<double> sample;
+    sample.spot_ = 0.25;
+    for (const int op : {FuzzyEqual, FuzzyComp}) {
+        EvalState_<double> state(Vector_<>{0.0}, Vector_<>{}, 0, 2.0);
+        const Vector_<int> stream{Spot, op, 0, Assign, 0};
+        EvalCompiled(stream, Vector_<>{-1.0}, sample, state);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], op == FuzzyEqual ? 0.75 : 0.625);
+        EvalCompiled(stream, Vector_<>{1.0}, sample, state);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], op == FuzzyEqual ? 0.5 : 0.75);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+    }
 }

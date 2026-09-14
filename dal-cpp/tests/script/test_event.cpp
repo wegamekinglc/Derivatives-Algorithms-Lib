@@ -134,10 +134,7 @@ TEST(ScriptTest, TestEventWithPastDate) {
     events.push_back("x = spot()");
 
     Script::ScriptProduct_ product(dates, events);
-    product.PreProcess(false, false);
-
-    ASSERT_EQ(product.VarValues().size(), 1);
-    ASSERT_NEAR(product.VarValues()[0], 30.0, 1e-6);
+    ASSERT_THROW(product.PreProcess(false, false), ScriptError_);
 }
 
 TEST(ScriptTest, TestScriptProductWithPastDate) {
@@ -177,9 +174,7 @@ TEST(ScriptTest, TestScriptProductWithPastDate) {
         Global::Dates_::SetEvaluationDate(Date_(2023, 8, 28));
         Script::ScriptProduct_ product(dates, events, "call");
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
-        int max_nested = product.PreProcess(false, false);
-        SimResults_ results = MCSimulation<double>(product, model_data, num_paths, rsg);
-        ASSERT_NEAR(results.aggregated_, 0.0, 1e-8);
+        ASSERT_THROW(product.PreProcess(false, false), ScriptError_);
     }
 
     {

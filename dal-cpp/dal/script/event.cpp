@@ -11,6 +11,14 @@
 #include <dal/script/preprocessor.hpp>
 
 namespace Dal::Script {
+    namespace {
+        void RequireBoundPastSpots(const Node_& node) {
+            REQUIRE2(!dynamic_cast<const NodeSpot_*>(&node), "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
+            for (const auto& child : node.arguments_)
+                RequireBoundPastSpots(*child);
+        }
+    } // namespace
+
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
         REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
@@ -67,6 +75,13 @@ namespace Dal::Script {
         return pastEvaluator.Variables();
     }
 
+    void ScriptProduct_::InitializePastObservations(const ObservationPlan_& plan) {
+        PastEvaluator_<double> evaluator(Vector_<>(variables_.size(), 0.0), consVariablesValues_);
+        evaluator.SetObservations(&plan);
+        Visit(evaluator, true, false);
+        variableValues_ = evaluator.VarVals();
+    }
+
     size_t ScriptProduct_::IFProcess() {
         IFProcessor_ ifProc;
         Visit(ifProc);
@@ -96,6 +111,9 @@ namespace Dal::Script {
         REQUIRE2(!preProcessed_, "script product is already pre-processed", ScriptError_);
         if (!evaluationDate_)
             PartitionEvents(Global::Dates_::EvaluationDate());
+        for (const auto& event : pastEvents_)
+            for (const auto& statement : event)
+                RequireBoundPastSpots(*statement);
         IndexVariables();
         REQUIRE2(!variables_.empty(), "InvalidScriptStructure: script has no payoff variable", ScriptError_);
         variableValues_ = PastEvaluate();

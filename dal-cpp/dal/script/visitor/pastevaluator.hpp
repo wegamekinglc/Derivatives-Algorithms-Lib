@@ -24,11 +24,12 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodePays_& node) {
             //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
+            dStack_.Pop();
         }
 
-        FORCE_INLINE void Visit(const NodeSpot_&) {
-            // known limitation: placeholder spot value 30.0
-            dStack_.Push(30.0);
+        FORCE_INLINE void Visit(const NodeSpot_& node) {
+            REQUIRE2(node.observationId_ && this->observations_, "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
+            Base::Visit(node);
         }
 
         [[nodiscard]] FORCE_INLINE const Vector_<>& Variables() const {

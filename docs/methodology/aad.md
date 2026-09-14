@@ -406,6 +406,15 @@ Each step has a backend-specific reason to be in this position:
   routes to `ZeroGradientArray` on this backend, so callers that use the facade
   are safe; callers that bypass it must replicate the semantics.
 
+  Gradient capacity can also grow after seeding: later recording windows may
+  register more simultaneously live variables than the initialized array holds.
+  `Tape_::EnsureGradientCapacity` in `dal-cpp/dal/math/aad/tape.hpp` ensures
+  sufficient storage before DAL adjoint reads, writes, and reverse sweeps.
+  Growth preserves accumulated adjoints and zeroes only the added storage;
+  reinitializing the whole array would erase contributions from earlier paths.
+  The explicit `ZeroAdjoints` call between independent output rows remains
+  necessary.
+
 - **XAD.** `registerInput` must run *before* `NewRecording` opens the recording
   window: registering an input after `NewRecording` silently drops it and
   yields an all-zero Jacobian column. The `RegisterIndependent` facade asserts

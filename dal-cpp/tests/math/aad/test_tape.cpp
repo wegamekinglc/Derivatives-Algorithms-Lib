@@ -73,6 +73,39 @@ TEST(AADTapeTest, TestRepeatedClearAndRecord) {
     }
 }
 
+TEST(AADTapeTest, TestGradientCapacityGrowsAfterSeeding) {
+    auto* tape = Dal::AAD::Tape();
+    Clear(*tape);
+
+    Number_ x0 = 2.0;
+    PutOnTape(x0);
+    Mark(*tape);
+
+    // The first sweep seeds with few live variables, sizing backend gradient storage.
+    Number_ y0 = x0 * 3.0;
+    Adjoint(y0) = 1.0;
+    PropagateToMark(*tape);
+    ASSERT_NEAR(Adjoint(x0), 3.0, 1e-10);
+
+    RewindToMark(*tape);
+
+    // A later window with many more simultaneously live variables must still
+    // accumulate every adjoint instead of overrunning the frozen storage.
+    const size_t n = 64;
+    Number_ vars[n];
+    for (size_t j = 0; j < n; ++j)
+        vars[j] = x0 * static_cast<double>(j + 1);
+    Number_ y1 = vars[0];
+    for (size_t j = 1; j < n; ++j)
+        y1 = y1 + vars[j];
+    Adjoint(y1) = 1.0;
+    PropagateToMark(*tape);
+
+    ASSERT_NEAR(Adjoint(x0), 3.0 + 2080.0, 1e-10);
+
+    Clear(*tape);
+}
+
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADTapeTest, TestMultiModePropagateToStartFillsAllResultSlots) {
     auto* tape = Dal::AAD::Tape();

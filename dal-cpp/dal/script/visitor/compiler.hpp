@@ -332,163 +332,272 @@ namespace Dal::Script {
                              size_t last = 0,
                              bool reset = true);
 
-    template <class T_>
-    inline void EvalCompiled(const Vector_<int>& nodeStream,
-                             const Vector_<double>& constStream,
-                             const AAD::Sample_<T_>& scenario,
-                             EvalState_<T_>& state,
-                             size_t first,
-                             size_t last,
-                             bool reset) {
-        const size_t n = last ? last : nodeStream.size();
-        size_t i = first;
+    namespace Detail {
+        template <class T_> struct CompiledEventView_ {
+            const Vector_<int>& nodeStream_;
+            const Vector_<double>& constStream_;
+            const AAD::Sample_<T_>& scenario_;
+            size_t first_ = 0;
+            size_t last_ = 0;
+            bool reset_ = true;
+        };
 
-        StaticStack_<T_>& dStack = state.dStack_;
-        if (reset)
-            dStack.Reset();
-        StaticStack_<bool>& bStack = state.bStack_;
-        if (reset)
-            bStack.Reset();
+        [[noreturn]] inline void ThrowUnknownCompiledOpcode(int op) { THROW("unknown compiled script opcode: " + std::to_string(op)); }
 
-        while (i < n) {
-            const int op = nodeStream[i];
+        template <class T_, class C_> FORCE_INLINE void UpdateCompiledExtremum(T_* value, const T_& other, C_ compare) {
+            if (compare(other, *value))
+                *value = other;
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledSum(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
             switch (op) {
-            case Add:
+            case Add: {
                 dStack[1] += dStack.Top();
                 dStack.Pop();
                 ++i;
-                break;
-            case AddConst:
+                return i;
+            }
+            case AddConst: {
                 dStack.Top() += constStream[nodeStream[++i]];
                 ++i;
-                break;
-            case Sub:
+                return i;
+            }
+            case Sub: {
                 dStack[1] -= dStack.Top();
                 dStack.Pop();
                 ++i;
-                break;
-            case SubConst:
+                return i;
+            }
+            case SubConst: {
                 dStack.Top() -= constStream[nodeStream[++i]];
                 ++i;
-                break;
-            case ConstSub:
+                return i;
+            }
+            case ConstSub: {
                 dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
                 ++i;
-                break;
-            case Multi:
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledProduct(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case Multi: {
                 dStack[1] *= dStack.Top();
                 dStack.Pop();
                 ++i;
-                break;
-            case MultiConst:
+                return i;
+            }
+            case MultiConst: {
                 dStack.Top() *= constStream[nodeStream[++i]];
                 ++i;
-                break;
-            case Div:
+                return i;
+            }
+            case Div: {
                 dStack[1] /= dStack.Top();
                 dStack.Pop();
                 ++i;
-                break;
-            case DivConst:
+                return i;
+            }
+            case DivConst: {
                 dStack.Top() /= constStream[nodeStream[++i]];
                 ++i;
-                break;
-            case ConstDiv:
+                return i;
+            }
+            case ConstDiv: {
                 dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
                 ++i;
-                break;
-            case Pow:
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledPower(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case Pow: {
                 dStack[1] = pow(dStack[1], dStack.Top());
                 dStack.Pop();
                 ++i;
-                break;
-            case PowConst:
+                return i;
+            }
+            case PowConst: {
                 dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
                 ++i;
-                break;
-            case ConstPow:
+                return i;
+            }
+            case ConstPow: {
                 dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
                 ++i;
-                break;
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledExtremum(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
             case Max2: {
                 const T_ y = dStack.TopAndPop();
-                if (y > dStack[0])
-                    dStack[0] = y;
+                UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
                 ++i;
-                break;
+                return i;
             }
             case Max2Const: {
                 const T_ y(constStream[nodeStream[++i]]);
-                if (y > dStack.Top())
-                    dStack.Top() = y;
+                UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
                 ++i;
-                break;
+                return i;
             }
             case Min2: {
                 const T_ y = dStack.TopAndPop();
-                if (y < dStack[0])
-                    dStack[0] = y;
+                UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
                 ++i;
-                break;
+                return i;
             }
             case Min2Const: {
                 const T_ y(constStream[nodeStream[++i]]);
-                if (y < dStack.Top())
-                    dStack.Top() = y;
+                UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
                 ++i;
-                break;
+                return i;
             }
-            case Spot:
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledArithmetic(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
+            if (op <= ConstSub)
+                return EvalCompiledSum(event, i, statePtr);
+            if (op <= ConstDiv)
+                return EvalCompiledProduct(event, i, statePtr);
+            if (op <= ConstPow)
+                return EvalCompiledPower(event, i, statePtr);
+            return EvalCompiledExtremum(event, i, statePtr);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledLoad(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            auto& scenario = event.scenario_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case Spot: {
                 dStack.Push(scenario.spot_);
                 ++i;
-                break;
-            case Var:
+                return i;
+            }
+            case Var: {
                 dStack.Push(state.variables_[nodeStream[++i]]);
                 ++i;
-                break;
-            case ConstVar:
-                dStack.Push(state.constVariables_[nodeStream[++i]]);
-                ++i;
-                break;
-            case Const:
+                return i;
+            }
+            case Const: {
                 dStack.Push(constStream[nodeStream[++i]]);
                 ++i;
-                break;
+                return i;
+            }
+            case ConstVar: {
+                dStack.Push(state.constVariables_[nodeStream[++i]]);
+                ++i;
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledStore(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            auto& scenario = event.scenario_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
             case Assign: {
                 const size_t idx = nodeStream[++i];
                 state.variables_[idx] = dStack.TopAndPop();
                 ++i;
-                break;
+                return i;
             }
             case AssignConst: {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
                 state.variables_[idx] = T_(val);
                 ++i;
-                break;
+                return i;
             }
             case Pays: {
                 const size_t idx = nodeStream[++i];
                 state.variables_[idx] += dStack.TopAndPop() / scenario.numeraire_;
                 ++i;
-                break;
+                return i;
             }
             case PaysConst: {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
                 state.variables_[idx] += T_(val) / scenario.numeraire_;
                 ++i;
-                break;
+                return i;
             }
-            case If:
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledData(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            if (event.nodeStream_[i] <= Const)
+                return EvalCompiledLoad(event, i, statePtr);
+            return EvalCompiledStore(event, i, statePtr);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& bStack = state.bStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            auto& scenario = event.scenario_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case If: {
                 if (bStack.Top()) {
                     i += 2;
                 } else {
                     i = nodeStream[++i];
                 }
                 bStack.Pop();
-                break;
-            case IfElse:
+                return i;
+            }
+            case IfElse: {
                 if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
@@ -497,150 +606,275 @@ namespace Dal::Script {
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
-                break;
-            case Equal:
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledBoolean(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& bStack = state.bStack_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case Equal: {
                 bStack.Push(dStack.TopAndPop() == 0);
                 ++i;
-                break;
-            case Sup:
+                return i;
+            }
+            case Sup: {
                 bStack.Push(dStack.TopAndPop() > 0);
                 ++i;
-                break;
-            case SupEqual:
+                return i;
+            }
+            case SupEqual: {
                 bStack.Push(dStack.TopAndPop() >= 0);
                 ++i;
-                break;
-            case And:
+                return i;
+            }
+            case And: {
                 if (bStack[1])
                     bStack[1] = bStack.Top();
                 bStack.Pop();
                 ++i;
-                break;
-            case Or:
+                return i;
+            }
+            case Or: {
                 if (!bStack[1])
                     bStack[1] = bStack.Top();
                 bStack.Pop();
                 ++i;
-                break;
-            case Sqrt:
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            if (event.nodeStream_[i] <= IfElse)
+                return EvalCompiledBranch(event, i, statePtr);
+            return EvalCompiledBoolean(event, i, statePtr);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledUnary(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& bStack = state.bStack_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
+            case Sqrt: {
                 dStack.Top() = sqrt(dStack.Top());
                 ++i;
-                break;
-            case Log:
+                return i;
+            }
+            case Log: {
                 dStack.Top() = log(dStack.Top());
                 ++i;
-                break;
-            case Exp:
+                return i;
+            }
+            case Exp: {
                 dStack.Top() = exp(dStack.Top());
                 ++i;
-                break;
-            case Not:
+                return i;
+            }
+            case Not: {
                 bStack.Top() = !bStack.Top();
                 ++i;
-                break;
-            case UMinus:
+                return i;
+            }
+            case UMinus: {
                 dStack.Top() = -dStack.Top();
                 ++i;
-                break;
-            case True:
+                return i;
+            }
+            case True: {
                 bStack.Push(true);
                 ++i;
-                break;
-            case False:
+                return i;
+            }
+            case False: {
                 bStack.Push(false);
                 ++i;
-                break;
+                return i;
+            }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledScalar(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            if (event.nodeStream_[i] == ConstVar)
+                return EvalCompiledLoad(event, i, statePtr);
+            return EvalCompiledUnary(event, i, statePtr);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyComparison(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
             case FuzzyEqual: {
                 const double eps = constStream[nodeStream[++i]];
                 dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps);
                 ++i;
-                break;
+                return i;
             }
             case FuzzyEqualDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
                 dStack.Top() = BFly(dStack.Top(), lb, rb);
                 ++i;
-                break;
+                return i;
             }
             case FuzzyComp: {
                 const double eps = constStream[nodeStream[++i]];
                 dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps);
                 ++i;
-                break;
+                return i;
             }
             case FuzzyCompDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
                 dStack.Top() = CSpr(dStack.Top(), lb, rb);
                 ++i;
-                break;
+                return i;
             }
+            default:
+                ThrowUnknownCompiledOpcode(op);
+            }
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyBoolean(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            const int op = event.nodeStream_[i];
+            switch (op) {
             case FuzzyAnd: {
                 const T_ x = dStack.TopAndPop();
                 dStack.Top() *= x;
                 ++i;
-                break;
+                return i;
             }
             case FuzzyOr: {
                 const T_ x = dStack.TopAndPop();
                 const T_ y = dStack.TopAndPop();
                 dStack.Push(x + y - x * y);
                 ++i;
-                break;
+                return i;
             }
-            case FuzzyNot:
+            case FuzzyNot: {
                 dStack.Top() = 1.0 - dStack.Top();
                 ++i;
-                break;
-            case FuzzyTrue:
+                return i;
+            }
+            case FuzzyTrue: {
                 dStack.Push(T_(1.0));
                 ++i;
-                break;
-            case FuzzyFalse:
+                return i;
+            }
+            case FuzzyFalse: {
                 dStack.Push(T_(0.0));
                 ++i;
-                break;
-            case FuzzyIf: {
-                //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
-                const size_t lastTrue = nodeStream[i + 1];
-                const size_t lastFalse = nodeStream[i + 2];
-                const int nAff = nodeStream[i + 3];
-                const size_t firstAff = i + 4;
-                const size_t firstTrue = firstAff + nAff;
-
-                const T_ t = dStack.TopAndPop();
-                if (t > 1.0 - EPSILON) {
-                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
-                    i = lastFalse;
-                } else if (t < EPSILON) {
-                    i = lastTrue;
-                } else {
-                    REQUIRE(state.nestedIfLvl_ < state.varStore0_.size(), "compiled FuzzyIf nesting exceeds allocated var stores");
-                    const size_t lvl = state.nestedIfLvl_++;
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.varStore0_[lvl][idx] = state.variables_[idx];
-                    }
-                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.varStore1_[lvl][idx] = state.variables_[idx];
-                        state.variables_[idx] = state.varStore0_[lvl][idx];
-                    }
-                    EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
-                    for (int k = 0; k < nAff; ++k) {
-                        const size_t idx = nodeStream[firstAff + k];
-                        state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
-                    }
-                    --state.nestedIfLvl_;
-                    i = lastFalse;
-                }
-                break;
+                return i;
             }
             default:
-                THROW("unknown compiled script opcode: " + std::to_string(op));
+                ThrowUnknownCompiledOpcode(op);
             }
         }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            auto& scenario = event.scenario_;
+            //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
+            const size_t lastTrue = nodeStream[i + 1];
+            const size_t lastFalse = nodeStream[i + 2];
+            const int nAff = nodeStream[i + 3];
+            const size_t firstAff = i + 4;
+            const size_t firstTrue = firstAff + nAff;
+
+            const T_ t = dStack.TopAndPop();
+            if (t > 1.0 - EPSILON) {
+                EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                i = lastFalse;
+            } else if (t < EPSILON) {
+                i = lastTrue;
+            } else {
+                REQUIRE(state.nestedIfLvl_ < state.varStore0_.size(), "compiled FuzzyIf nesting exceeds allocated var stores");
+                const size_t lvl = state.nestedIfLvl_++;
+                for (int k = 0; k < nAff; ++k) {
+                    const size_t idx = nodeStream[firstAff + k];
+                    state.varStore0_[lvl][idx] = state.variables_[idx];
+                }
+                EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                for (int k = 0; k < nAff; ++k) {
+                    const size_t idx = nodeStream[firstAff + k];
+                    state.varStore1_[lvl][idx] = state.variables_[idx];
+                    state.variables_[idx] = state.varStore0_[lvl][idx];
+                }
+                EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
+                for (int k = 0; k < nAff; ++k) {
+                    const size_t idx = nodeStream[firstAff + k];
+                    state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
+                }
+                --state.nestedIfLvl_;
+                i = lastFalse;
+            }
+            return i;
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            if (event.nodeStream_[i] == FuzzyIf)
+                return EvalCompiledFuzzyBranch(event, i, statePtr);
+            return EvalCompiledFuzzyBoolean(event, i, statePtr);
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
+            if (op <= Min2Const)
+                return EvalCompiledArithmetic(event, i, statePtr);
+            if (op <= PaysConst)
+                return EvalCompiledData(event, i, statePtr);
+            if (op <= Or)
+                return EvalCompiledControl(event, i, statePtr);
+            if (op <= ConstVar)
+                return EvalCompiledScalar(event, i, statePtr);
+            if (op <= FuzzyCompDiscrete)
+                return EvalCompiledFuzzyComparison(event, i, statePtr);
+            return EvalCompiledFuzzyControl(event, i, statePtr);
+        }
+
+        template <class T_, class E_> void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
+            for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex) {
+                const auto event = eventAt(eventIndex);
+                const size_t n = event.last_ ? event.last_ : event.nodeStream_.size();
+                if (event.reset_) {
+                    statePtr->dStack_.Reset();
+                    statePtr->bStack_.Reset();
+                }
+                size_t i = event.first_;
+                while (i < n)
+                    i = EvalCompiledInstruction(event, i, statePtr);
+            }
+        }
+    } // namespace Detail
+
+    template <class T_>
+    inline void EvalCompiled(const Vector_<int>& nodeStream,
+                             const Vector_<double>& constStream,
+                             const AAD::Sample_<T_>& scenario,
+                             EvalState_<T_>& state,
+                             size_t first,
+                             size_t last,
+                             bool reset) {
+        Detail::EvalCompiledEvents(
+            1, [&](size_t) { return Detail::CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
     }
 } // namespace Dal::Script

@@ -15,6 +15,9 @@ namespace Dal::Script {
     } // namespace Detail
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb) {
+        ValidateRNG(method);
+        if (nDim == 0)
+            return nullptr;
         std::unique_ptr<Random_> rsg;
         if (method == "sobol")
             rsg = NewSobol(static_cast<int>(nDim), 2048);

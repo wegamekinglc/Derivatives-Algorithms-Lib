@@ -9,6 +9,7 @@
 #include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
 
@@ -25,6 +26,7 @@ namespace Dal::Script {
         using StateCore_::variablesInit_;
 
         const AAD::Scenario_<T_>* scenario_;
+        const ObservationPlan_* observations_ = nullptr;
 
         size_t curEvt_;
 
@@ -38,25 +40,34 @@ namespace Dal::Script {
         EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
             : StateCore_(variables, constVariables), scenario_(nullptr), curEvt_(-1) {}
 
-        EvaluatorBase_(const EvaluatorBase_& rhs) : StateCore_(rhs), scenario_(rhs.scenario_), curEvt_(rhs.curEvt_) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs)
+            : StateCore_(rhs), scenario_(rhs.scenario_), observations_(rhs.observations_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
             StateCore_::operator=(rhs);
             scenario_ = rhs.scenario_;
+            observations_ = rhs.observations_;
             curEvt_ = rhs.curEvt_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : StateCore_(std::move(rhs)), scenario_(rhs.scenario_), curEvt_(rhs.curEvt_) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept
+            : StateCore_(std::move(rhs)), scenario_(rhs.scenario_), observations_(rhs.observations_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             StateCore_::operator=(std::move(rhs));
             scenario_ = rhs.scenario_;
+            observations_ = rhs.observations_;
             curEvt_ = rhs.curEvt_;
             return *this;
         }
 
         FORCE_INLINE void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
+        FORCE_INLINE void SetObservations(const ObservationPlan_* observations) {
+            REQUIRE2((!observations || (std::is_same_v<T_, double> && !std::is_same_v<EVAL_<T_>, FuzzyEvaluator_<T_>>)),
+                     "UnsupportedExecutionMode: named AAD/fuzzy evaluation", ScriptError_);
+            observations_ = observations;
+        }
 
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
@@ -213,8 +224,17 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeTrue_& node) { bStack_.Push(true); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
-        FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
-        void Visit(const NodeFix_& node) { node.RequirePreparation(); }
+        FORCE_INLINE void Visit(const NodeSpot_& node) {
+            if (node.observationId_ && observations_)
+                dStack_.Push(observations_->Read(*node.observationId_, scenario_));
+            else
+                dStack_.Push((*scenario_)[curEvt_].spot_);
+        }
+        void Visit(const NodeFix_& node) {
+            if (!node.observationId_ || !observations_)
+                node.RequirePreparation();
+            dStack_.Push(observations_->Read(*node.observationId_, scenario_));
+        }
 
         FORCE_INLINE void Visit(const NodeCollect_& node) { this->VisitArguments(node); }
     };

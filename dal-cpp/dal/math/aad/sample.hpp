@@ -22,6 +22,7 @@ namespace Dal::AAD {
         };
 
         bool numeraire_ = true;
+        Vector_<String_> indexNames_;
         Vector_<> discountMats_;
         Vector_<RateDef_> liborDefs_;
         Vector_<Vector_<>> forwardMats_;
@@ -30,11 +31,13 @@ namespace Dal::AAD {
     template <class T_ = double> struct Sample_ {
         T_ spot_;
         T_ numeraire_;
+        Vector_<T_> observations_;
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
         Vector_<Vector_<T_>> forwards_;
 
         void Allocate(const SampleDef_& data) {
+            observations_.Resize(data.indexNames_.size());
             discounts_.Resize(data.discountMats_.size());
             libors_.Resize(data.liborDefs_.size());
             forwards_.Resize(data.forwardMats_.size());
@@ -45,6 +48,7 @@ namespace Dal::AAD {
         void Initialize() {
             spot_ = T_(0.0);
             numeraire_ = T_(1.0);
+            std::fill(observations_.begin(), observations_.end(), T_(0.0));
             std::fill(discounts_.begin(), discounts_.end(), T_(1.0));
             std::fill(libors_.begin(), libors_.end(), T_(1.0));
             for (auto& forward : forwards_)

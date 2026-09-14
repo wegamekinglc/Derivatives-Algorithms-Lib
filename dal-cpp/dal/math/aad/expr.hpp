@@ -609,16 +609,19 @@ namespace Dal::AAD {
         explicit Adjoint_(Number_& num) : num_(num) {}
 
         FORCE_INLINE Adjoint_& operator=(double adjoint) {
+            Tape()->EnsureGradientCapacity();
             num_.set_gradient(adjoint);
             return *this;
         }
 
         FORCE_INLINE operator double() const {
+            Tape()->EnsureGradientCapacity();
             return num_.get_gradient();
         }
     };
 
     FORCE_INLINE double Adjoint(const Number_& num) {
+        Tape()->EnsureGradientCapacity();
         return num.get_gradient();
     }
 
