@@ -1103,6 +1103,38 @@ TEST(ScriptObservationSimulationTest, TestControlledSinglePathHistoricalOracles)
     }
 }
 
+TEST(ScriptObservationSimulationTest, TestAadRepricingRefreshesGlobalHistoryAndModelInputs) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const HistoryRestore_ restoreHistory("EQ[DAL196_TEST]");
+    PoolRestore_ pool;
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                     {"2", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"});
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (double fixing : {80.0, 90.0, 80.0}) {
+            FixHistory_ history;
+            history.vals_ = {{DateTime_(Date_(2026, 9, 11), 0.0), fixing}};
+            XGLOBAL::StoreFixings("EQ[DAL196_TEST]", history, false);
+            for (double rate : {0.03, 0.07, 0.03}) {
+                SCOPED_TRACE(::testing::Message() << "threads=" << threads << " fixing=" << fixing << " rate=" << rate);
+                ReadCounter_ reads;
+                const Dal::Detail::ScopedFixingReadObserver_ observer(&reads);
+                const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, rate, 0.01));
+                const auto result = MCSimulation<AAD::Number_>(product, model, 8193, ScriptValuationSettings_());
+                const double t = 10.0 / DAYS_PER_YEAR;
+                const double discount = exp(-rate * t);
+                ASSERT_NEAR(result.aggregated_ / 8193, 2.0 * fixing * discount, 2.0 * fixing * discount * 1.0e-12);
+                ASSERT_NEAR(result["SCALE"], fixing * discount, 1.0e-10);
+                ASSERT_NEAR(result["rate"], -t * 2.0 * fixing * discount, 1.0e-10);
+                ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+                ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+                ASSERT_EQ(reads.histories_, 1u);
+                ASSERT_EQ(reads.fixings_, 1u);
+            }
+        }
+    }
+}
+
 namespace {
     struct AuditedPrepared_ : PreparedScript_ {
         std::atomic<size_t>* evaluations_;

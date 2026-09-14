@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+
 #include <dal/curve/tapeguard.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 
@@ -31,6 +34,26 @@ namespace {
             pool_->Start(threads_, true);
             if (!active_)
                 pool_->Stop();
+        }
+    };
+
+    struct SeedAudit_ {
+        std::atomic<size_t> seeds_{0};
+        std::atomic<size_t> paths_{0};
+        bool fail_ = false;
+    };
+
+    struct SeedAuditedPrepared_ : PreparedScript_ {
+        SeedAudit_* audit_;
+        SeedAuditedPrepared_(PreparedScript_&& prepared, SeedAudit_* audit) : PreparedScript_(std::move(prepared)), audit_(audit) {}
+        template <class E_> void InitializeHistoricalState(E_* evaluator) const {
+            PreparedScript_::InitializeHistoricalState(evaluator);
+            ++audit_->seeds_;
+            REQUIRE(!audit_->fail_, "injected failure after recording historical seed");
+        }
+        template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& path, E_& evaluator) const {
+            PreparedScript_::Evaluate(path, evaluator);
+            ++audit_->paths_;
         }
     };
 
@@ -241,4 +264,137 @@ TEST(ScriptPastReplayTest, TestPreparedAadRejectsChangedSmoothing) {
     auto model = CreateModel<double>(Model());
     const auto prepared = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
     ASSERT_THROW(MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, false, 0, 0.2), ScriptError_);
+}
+
+TEST(ScriptPastReplayTest, TestNonlinearHistoryAndParameterRepricing) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (size_t paths : {1, 257, 8193})
+            for (const String_ scaleText : {"2", "3", "2"})
+                for (const String_ strikeText : {"159.95", "160", "160.05"}) {
+                    SCOPED_TRACE(::testing::Message()
+                                 << "threads=" << threads << " paths=" << paths << " scale=" << scaleText << " strike=" << strikeText);
+                    const ScriptProductData_ product(
+                        "",
+                        {Cell_("SCALE"), Cell_("SHIFT"), Cell_("K"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+                        {scaleText, "0.5", strikeText,
+                         "x = SCALE * FIX(EQ[DAL196_TEST]) IF x > K:0.2 THEN x = x * x / 100 + SHIFT * x ELSE x = SHIFT * x END", "x = x + SCALE",
+                         "pay PAYS x"});
+                    const double scale = scaleText == "2" ? 2.0 : 3.0;
+                    const double seed = 80.0 * scale;
+                    const bool selected = scale == 3.0 || strikeText == "159.95";
+                    const double payoff = 0.5 * seed + scale + (selected ? seed * seed / 100.0 : 0.0);
+                    const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+                    const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+                    ASSERT_NEAR(result.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
+                    ASSERT_NEAR(price.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
+                    ASSERT_NEAR(result["SCALE"], (41.0 + (selected ? 1.6 * seed : 0.0)) * discount, 1.0e-10);
+                    ASSERT_NEAR(result["SHIFT"], seed * discount, 1.0e-10);
+                    ASSERT_NEAR(result["K"], 0.0, 1.0e-10);
+                    ASSERT_NEAR(result["rate"], -t * payoff * discount, 1.0e-10);
+                    ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+                    ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+                    ASSERT_NEAR(result["div"], 0.0, 1.0e-10);
+                    ASSERT_EQ(result.names_.size(), 7u);
+                }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestTodayPolicyPreservesHistoricalAndModelRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 12)), Cell_(Date_(2026, 9, 22))},
+                                     {"2", "x = SCALE * FIX(EQ[DAL196_TEST])", "x = x + SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"});
+    const Handle_<MarketFixingSnapshot_> snapshot(
+        new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}, {DateTime_(Date_(2026, 9, 12), 0.0), 90.0}}}}));
+    const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (bool historicalToday : {false, true})
+            for (const String_ rng : {"sobol", "mrg32", "irn"})
+                for (bool bridge : {false, true}) {
+                    SCOPED_TRACE(::testing::Message()
+                                 << "threads=" << threads << " historicalToday=" << historicalToday << " rng=" << rng << " bridge=" << bridge);
+                    ScriptValuationSettings_ settings;
+                    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
+                    if (historicalToday)
+                        settings.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+                    MonteCarloSettings_ simulation;
+                    simulation.rsg_ = rng;
+                    simulation.useBb_ = bridge;
+                    const auto result = MCSimulation<AAD::Number_>(product, Model(), 257, settings, simulation, snapshot);
+                    const double fixingSum = 80.0 + (historicalToday ? 90.0 : 100.0);
+                    ASSERT_NEAR(result.aggregated_ / 257, 2.0 * fixingSum * discount, 2.0 * fixingSum * discount * 1.0e-12);
+                    ASSERT_NEAR(result["SCALE"], fixingSum * discount, 1.0e-10);
+                    ASSERT_NEAR(result["spot"], historicalToday ? 0.0 : 2.0 * discount, 1.0e-10);
+                    ASSERT_NEAR(result["rate"], -t * 2.0 * fixingSum * discount, 1.0e-10);
+                    ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+                    ASSERT_NEAR(result["div"], 0.0, 1.0e-10);
+                    ASSERT_EQ(result.names_.size(), 5u);
+                }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestEveryPathRebuildAcrossBatchBoundary) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const ScriptProductData_ product(
+        "", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+        {"2", "x = SCALE * SCALE * FIX(EQ[DAL196_TEST])", "x = x + SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x * x / 1000"});
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    ScriptValuationSettings_ settings;
+    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
+    Vector_<Handle_<ModelData_>> models{Model()};
+    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    for (const auto& data : models) {
+        auto model = CreateModel<double>(data);
+        const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());
+        const auto oracle = RebuildEveryPath(prepared, data, 8193);
+        for (size_t threads : {1, 2, 4}) {
+            SCOPED_TRACE(::testing::Message() << "model=" << data->Type() << " threads=" << threads);
+            pool.pool_->Start(threads, true);
+            const auto result = MCSimulation<AAD::Number_>(prepared, data, 8193);
+            ASSERT_NEAR(result.aggregated_ / 8193, oracle.aggregated_ / 8193, 1.0e-8);
+            ASSERT_EQ(result.names_, oracle.names_);
+            for (size_t j = 0; j < result.risks_.size(); ++j) {
+                SCOPED_TRACE(result.names_[j]);
+                ASSERT_NEAR(result.risks_[j], oracle.risks_[j], 1.0e-8);
+            }
+        }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        auto model = CreateModel<double>(Model());
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        SeedAudit_ audit;
+        const SeedAuditedPrepared_ prepared(PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History()), &audit);
+        const size_t batches = BatchPlan_(16385, pool.pool_->NumThreads()).BatchCount();
+        audit.fail_ = true;
+        ASSERT_THROW(MCAADSimulation(prepared, Model(), 16385, "sobol", false, false, 0, 0.01), Exception_);
+        ASSERT_EQ(audit.seeds_.load(), batches);
+        ASSERT_EQ(audit.paths_.load(), 0u);
+        audit.fail_ = false;
+        for (size_t repeat = 1; repeat <= 2; ++repeat) {
+            SCOPED_TRACE(::testing::Message() << "threads=" << threads << " repeat=" << repeat);
+            const auto result = MCAADSimulation(prepared, Model(), 16385, "sobol", false, false, 0, 0.01);
+            const double discount = exp(-0.03 * 10.0 / DAYS_PER_YEAR);
+            ASSERT_NEAR(result.aggregated_ / 16385, 160.0 * discount, 160.0 * discount * 1.0e-12);
+            ASSERT_NEAR(result["SCALE"], 80.0 * discount, 1.0e-10);
+            ASSERT_NEAR(result["rate"], -10.0 / DAYS_PER_YEAR * 160.0 * discount, 1.0e-10);
+            ASSERT_EQ(audit.seeds_.load(), (repeat + 1) * batches);
+            ASSERT_EQ(audit.paths_.load(), repeat * 16385);
+        }
+    }
 }
