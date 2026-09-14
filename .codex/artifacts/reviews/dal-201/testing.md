@@ -1,96 +1,119 @@
-# DAL-201 / F4 independent testing
+# DAL-201 / F4 independent revalidation
 
-DAL-225, 2026-09-14. Runtime correctness checks pass on all four AAD backends.
-Five additional tests are delivered. F4 acceptance still needs the coordinator
-to resolve the Codacy finding below, obtain the documentation decision, and
-complete independent review. This report does not approve merge.
+DAL-225, 2026-09-14. Fresh independent verification of the production batch
+refactor passes on all four AAD backends. The hosted test-complexity finding
+has a focused test-only repair, passing local static analysis. Hosted Codacy
+success is not established by those local results. Documentation, independent
+review and coordinator acceptance remain outstanding; this is not merge approval.
 
-## Revisions and delivery
+## Revisions and scope
 
-- Starting published head: `260de4cca02db9cf28f4bfabaa4b60f60722d744`.
-- Starting tree: `5c7a9f7936f0927df8df22220556f4efa386bf67`.
-- Tested code commit: `203114eebf6303c7ea7513ed32516d8689fb3f33`.
-- Tested code tree: `8b412be73a936339725555aae34346541f3fd71c`.
-- Branch: `feature/dal-201-historical-aad-state`.
+- Starting published head: `9165369ed9313414f530d1c29f95cd5e00670e4e`.
+- Starting tree: `68400c5dd25da463dd1e47ac76c18589deb3fcc6`.
+- Final tested code: `bbaad1f646eb521eeb84806058c9e4685875d97b`.
+- Tested tree: `53f38bd7b0b875ced047155f72f8c7608c15320c`.
+- Published branch: `feature/dal-201-historical-aad-state`.
 - Existing draft PR: https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371.
-- Base: `feature/dal-200-eq-observation-slots`; dependency PR #369.
-- The subsequent publication commit adds only this report. Its exact published
-  SHA/tree, remote/GitHub verification, and single CI snapshot are recorded in
-  the final DAL-225 comment and attached `publication.json`; they cannot be
-  embedded in the commit that defines them.
+- Base: `feature/dal-200-eq-observation-slots`; dependency #369.
 
-The supplied implementation archive was downloaded through Multica and its
-SHA256 verified as `0a6902a106a3d0b735048fd008446594ed97a4950e7aba21965e299aac18e8a5`.
-Those upstream results were not substituted for the independent runs below.
+The publication commit changes only this report after the tested code. Its exact
+SHA/tree, remote and GitHub checks, and the single post-push CI snapshot are in
+the attached `publication.json`. A commit cannot contain its own final SHA.
+The only source change is `dal-cpp/tests/script/test_past_replay.cpp`.
+No production, implementation report, docs/CHANGELOG, CI, benchmark policy,
+submodule pointer, ignore rule or threshold changed.
+
+Prior results from `260de4cc`, `203114ee`, `5b199ca0` and the implementer's
+`5db67056` remain historical evidence in Git and prior issue attachments.
+None are substituted for the fresh independent executions below.
+All five earlier tester additions remain present.
 
 ## Running existing tests
 
-Clean checkout, Linux x86_64, GCC 15.2.0, CMake 4.2.3, C++17. Dependencies
-were initialized using `git submodule update --init --recursive`.
+Clean starting checkout, Linux x86_64, GCC 15.2.0, CMake 4.2.3, C++17.
+Repository-pinned dependencies initialized with:
 
-On the unmodified starting head:
+```bash
+git submodule update --init --recursive
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_cpp_tests -j8
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptPastReplayTest.TestNonlinearHistoryAndParameterRepricing'
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptPastReplayTest.*:ScriptFixingPreparationTest.TestAad*:ScriptObservationSimulationTest.TestAad*'
+```
+
+On the unchanged starting head, the narrow test passed **1/1** (68 ms) and
+the F4 baseline passed **16/16** (391 ms). Logs are
+`native-baseline-narrow.log` and `native-baseline-f4.log`.
+The pre-edit failure is static analysis; no behavior RED is claimed.
+
+## Repairing the static failure
+
+Captured the original hosted evidence without changing analyzer settings:
+
+```bash
+gh api repos/wegamekinglc/Derivatives-Algorithms-Lib/check-runs/103884485541/annotations
+gh api repos/wegamekinglc/Derivatives-Algorithms-Lib/check-runs/103884485541
+lizard -C 8 dal-cpp/tests/script/test_past_replay.cpp
+```
+
+At starting head, Codacy check `103884485541` is completed/action_required.
+Its sole annotation identifies `test_past_replay.cpp:269`: method TEST has
+cyclomatic complexity **9**, limit **8**. The previous production-function
+finding is absent from this annotation; that absence does not mean the entire
+Codacy check passed. Original JSON is included in the evidence.
+
+Lizard **1.23.0**, using the identical command before and after the edit:
+
+- Before: exit **1**, one warning; the nonlinear repricing test CCN **9**.
+- After: exit **0**, no warnings; test CCN **5**, helper
+  `CheckNonlinearHistoryRepricing` CCN **5**.
+- Logs: `lizard-before.log`, `lizard-after.log`.
+
+The helper contains the existing per-scenario script, analytic oracle and
+all ten assertions. The TEST retains its date/pool RAII, trace and ordered
+threads {1,2,4}, paths {1,257,8193}, SCALE {2,3,2}, K {159.95,160,160.05}
+loops: **81 scenarios**, both double and AAD in each.
+`ASSERT_NO_FATAL_FAILURE` propagates a helper assertion failure to the TEST,
+preserving fail-fast behavior and scoped cleanup. Exception behavior is unchanged.
+
+The preservation audit verifies all **59** existing assertion statements in the
+file, all test names and all loop headers/order remain unchanged; only the
+fatal-failure wrapper is added. Formatting adjusts line wrapping only.
+Deterministic PV, analytic risks and pathwise comparison tolerances are retained
+exactly. Narrow post-refactor execution passes **1/1** (69 ms).
+
+Lizard's local parser/version is not asserted to match hosted Codacy's analyzer
+environment. Local static GREEN is not hosted Codacy GREEN.
+
+## Authoring new tests
+
+No new cases were necessary for this behavior-preserving test refactor.
+No cases were deleted, renamed or split. Existing coverage remains 16 F4 cases,
+including the five independent additions from the earlier tester delivery.
+
+## Final verification
+
+The final source is the tested code/tree above. No source changed during final
+verification. Initial alternative builds overlapped the edit; each backend was
+rebuilt after the final commit before its regression run.
+
+Native full build/install/core/public/portable-Excel verification:
 
 ```bash
 NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1
 ```
 
-Result: **100% tests passed, 0 tests failed out of 1710**, 12.72 seconds of
-CTest execution. The fresh output was moved to `native-starting-full.log`
-before the next full run, leaving no old root `test_output.txt`.
+There was no old root `test_output.txt` before invocation. Fresh captured output,
+also delivered as `native-final-full.log`, ends with:
 
-## Authoring tests
-
-Only two existing test files changed; production, public bindings,
-docs/CHANGELOG, benchmark policy, CI, and submodule pointers did not change.
-
-`dal-cpp/tests/script/test_past_replay.cpp` adds:
-
-- `TestNonlinearHistoryAndParameterRepricing`: historical parameter-dependent
-  hard selection around K=160, including equality, nonlinear selected arithmetic,
-  future state mutation, SCALE=2/3/2 repricing, threads 1/2/4 and paths 1/257/8193.
-  Independent formulas assert PV and all seven model/script risks, including
-  zero switching-parameter risk under hard branch semantics.
-- `TestTodayPolicyPreservesHistoricalAndModelRisk`: H=80 combined with today's
-  model spot=100 or required historical fixing=90. Checks spot, SCALE, rate,
-  vol and div risks across threads 1/2/4, Sobol/MRG32/IRN and both bridge settings.
-- `TestEveryPathRebuildAcrossBatchBoundary`: nonlinear historical seed and
-  future EQ observations, BS and Dupire, 8193 fixed Sobol paths, threads 1/2/4.
-  Reuses the existing `RebuildEveryPath` helper, which creates a fresh model,
-  evaluator, historical replay and recording for every path and propagates
-  directly to the start without the optimized runner's mark or PayoffRoot.
-  Compares every labelled risk and normalized PV at absolute 1e-8. The separate
-  analytic tests avoid relying exclusively on shared visitor behavior.
-- `TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch`: injects failure after
-  recording historical state but before the mark, checks every expected batch
-  finished replay and zero paths ran, then values the same prepared object twice
-  successfully. At 16385 paths and threads 1/2/4, seed counts equal batch counts,
-  path counts equal requested paths, and PV/SCALE/rate risks remain analytic.
-
-`dal-cpp/tests/script/test_observation_simulation.cpp` adds:
-
-- `TestAadRepricingRefreshesGlobalHistoryAndModelInputs`: reuses product data
-  through global fixing 80/90/80 and rate 0.03/0.07/0.03, 8193 paths and threads
-  1/2/4. Each valuation performs exactly one History and one final Fixing read
-  and matches fresh analytic PV and risks. Existing RAII guards restore global
-  history, evaluation date, and thread-pool state.
-
-Initial targeted runs passed 4/4 and 1/1. No runtime failure needed repair;
-these are additional coverage tests, not a claimed RED-to-GREEN production fix.
-The final runs below include tightened deterministic PV tolerances of exactly
-1e-12 times the positive expected value; analytic risk tolerance is 1e-10.
-
-## Final verification on tested code
-
-Native full build, install, core/public/portable Excel CTest pass:
-
-```bash
-NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1
+```text
+100% tests passed, 0 tests failed out of 1715
+Total Test time (real) = 9.01 sec
 ```
 
-**100% tests passed, 0 tests failed out of 1715**, 8.60 seconds CTest time.
-The script excludes benchmark-labelled tests by its normal policy.
+The build script excludes the benchmark label under its unchanged normal policy.
 
-Alternative configurations (all initialized repository-pinned submodules):
+Alternative configurations and exact final commands:
 
 ```bash
 cmake --preset=Release-linux -S . -B build/Adept -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_ADEPT_AAD=ON
@@ -105,69 +128,95 @@ cmake --build build/XAD --target dal_cpp_tests -j4
 ```
 
 - Adept fork, CMake version 4.1.1, commit
-  `1e29edc6e16f969e99145f0cbff34ff0de5fe699`: **425 passed**, 1221 ms.
-- CoDiPack 3.1.0, commit `86b94d3f3c3b6659a36f8e640945a7ebe1884a4a`:
-  **425 passed**, 1628 ms.
-- XAD 2.1.0-dev, commit `ca0146061726745870aac71f3108c7d14129d1b3`:
-  **424 passed**, 2990 ms.
+  `1e29edc6e16f969e99145f0cbff34ff0de5fe699`: **425/425**, 1131 ms.
+- CoDiPack 3.1.0, commit
+  `86b94d3f3c3b6659a36f8e640945a7ebe1884a4a`: **425/425**, 1277 ms.
+- XAD 2.1.0-dev, commit
+  `ca0146061726745870aac71f3108c7d14129d1b3`: **424/424**, 2923 ms.
 
-No failed or skipped cases in the selected runs. All five added tests and all
-eleven implementation-stage F4 tests ran on every backend. Counts differ due
-to backend-specific tests. Initial alternative builds overlapped test authoring;
-all three were rebuilt after the exact tested commit before these final runs.
-All foreground build/test processes completed before handoff.
+All commands passed, with no failed/skipped cases. Counts differ because of
+backend-specific tests. The final regression logs, configure/build logs,
+compiler/CMake/Lizard versions and pinned submodule SHAs are attached.
+`f4-coverage-audit.json` confirms each of the same 16 F4 test names passed in
+all four final logs, rather than inferring coverage from aggregate counts.
 
-Formatting: `git clang-format` reported no changes; `git diff --check` and
-`git diff --cached --check` passed. No coverage percentage is claimed.
+## All 16 F4 cases and acceptance mapping
 
-## F4 acceptance mapping and limits
+The first thirteen cases are in `ScriptPastReplayTest`:
 
-- T03/T32: independently ran the 100-node, three-event unique-history test in
-  both modes over all requested path/thread combinations, plus rejecting
-  worker-side history/fixing observer seams. Existing audits check observation
-  vector address/size stability; they are not a general allocator profiler.
-- T18: analytic discounted history PV, SCALE/rate risks, zero spot/vol risk,
-  and model/script-only risk labels. Added nonlinear and today-policy oracles.
-- T19: direct historical seed payoff risk=80, passive constant payoff,
-  zero-dimensional/today suffix and explicit repeated PayoffRoot propagation.
-- T20: `>`, `>=`, `=` on both sides and at equality use hard history selection.
-  The added parameter-dependent branch also has zero K risk. Compiled history
-  parity remains F5, explicitly unsupported in current F4 scope.
-- T23: threads 1/2/4, paths 1/257/8193, repeated pricing and batches, two-model
-  per-path oracle, plus 16385-path recording failure and recovery checks.
-- T31: preparation failures submit zero tasks; invalid path/payoff tests drain
-  submitted batches. Added failures during worker historical seed recording
-  also drain and recover, without reusing old adjoints.
-- Future known-fixing fuzzy primal and K/SCALE risk tests independently passed;
-  the implementation's analytic and fuzzy-double comparisons remain intact.
+1. `TestParameterRisk`: T18 analytic discounted PV, SCALE/rate sensitivities,
+   zero spot/vol risk, model/script-only risk count.
+2. `TestDirectSeedPayoff`: T19 mark-before-payoff seed, d_SCALE=80 over 8193 paths.
+3. `TestConstantPayoffAndEmptySuffix`: T19 constant payoff and zero-dimensional
+   suffix, threads 1/2/4, direct repeated seed/constant PayoffRoot propagation.
+4. `TestHardPastDecision`: T20 >, >=, = on both sides and at equality; hard
+   historical choice and selected arithmetic risk.
+5. `TestAadBatchLifetime`: T23 paths 1/257/8193, threads 1/2/4, fixing 80/90/80,
+   repeated pricing, direct seed and discounted risk.
+6. `TestEveryPathRebuildOracle`: T23 BS/Dupire independent recording per path
+   versus mark reuse, 257 fixed paths and every labelled risk.
+7. `TestFutureKnownFixingKeepsFuzzyRisk`: future fuzzy primal/K/SCALE risk
+   compared with analytic values and fuzzy-double evaluation.
+8. `TestExpiredAadSkipsExecutionModeAndHistory`: expired zero result/risks
+   with either compiled request.
+9. `TestPreparedAadRejectsChangedSmoothing`: prepared AAD smoothing mismatch
+   explicitly rejects.
+10. `TestNonlinearHistoryAndParameterRepricing`: refactored case, all 81
+    scenarios and ten assertions retained, including zero hard-switch K risk.
+11. `TestTodayPolicyPreservesHistoricalAndModelRisk`: historical H plus today's
+    Model/RequireHistorical choice, threads 1/2/4, three RNGs and both bridges.
+12. `TestEveryPathRebuildAcrossBatchBoundary`: nonlinear seed/future/payoff,
+    BS and Dupire, 8193 fixed paths, threads 1/2/4, every risk/PV within 1e-8.
+13. `TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch`: failure after
+    historical replay and before mark, 16385 paths, all batches drained,
+    zero paths on failure, then two successful valuations at threads 1/2/4.
 
-No Windows XLL, Python, sanitizers, full alternative-backend public/Excel suites,
-performance measurements, or F5 compiled parity were run. No general proof of
-absence of cross-thread active values is claimed: evidence consists of source
-inspection of worker-local construction and the multithread/backend lifecycle
-tests. F3 performance remains separately deferred in DAL-223.
+The remaining cases are:
 
-## Findings for coordinator handoff
+14. `ScriptObservationSimulationTest.TestAadRepricingRefreshesGlobalHistoryAndModelInputs`:
+    global history 80/90/80 and rate 0.03/0.07/0.03, threads 1/2/4, 8193 paths,
+    exactly one History and one Fixing read on every fresh valuation.
+15. `ScriptFixingPreparationTest.TestAadUniqueHistoryAndNoHotPathLookup`:
+    T03/T32, 100 historical uses over three events, both modes and every
+    requested path/thread combination. Worker history/fixing observer seams
+    throw if accessed; observation address/size stays stable.
+16. `ScriptFixingPreparationTest.TestAadPreparationFailureAndPathDrain`:
+    T31, preparation/history/model/compiled failures submit zero workers;
+    path failures drain all batches and subsequent valuation recovers.
 
-1. **Codacy finding on F4 production code remains unresolved.** At starting head,
-   check run `103877652329` concludes `action_required`, with one annotation:
-   `dal-cpp/dal/script/simulation.hpp:364`, method `MCAADSimulation` has
-   cyclomatic complexity 16, limit 8. This is the function introduced by F4's
-   generalization of the prior AAD specialization; much of its body is inherited,
-   but the current F4 diff owns the reported method and adds dispatch branches.
-   Captured exact check and annotation JSON are attached. Route production/static
-   analysis remediation to the existing DAL-224 implementer, then reverify the
-   changed code. No production refactor or gate weakening was performed here.
-2. **Documentation correction required.**
-   `.codex/artifacts/reviews/dal-201/implementation.md:64` incorrectly says
-   prepared AAD remains rejected. Model-aware prepared AAD tree execution is
-   supported with matching AAD mode and smoothing; named/prepared AAD compiled
-   execution remains rejected. The positive tests above verify this boundary.
-   `docs/methodology/script_engine.md:119` and its unsupported-execution section
-   also retain F3-era rejection statements. Route report correction and current
-   method documentation to the coordinator/DAL-226; do not restart supported
-   AAD implementation based on the stale prose.
+The broader regression also covers raw historical AAD rejection, named compiled
+rejection before model setup/history, legacy tree/compiled dispatch, invalid
+model-before-history order, last-history failure, path diagnostic order and
+16385-path numerical-error drains. Legacy double zero-path and BatchPlan tests
+pass. Prepared/named positive-path guards and prepared AAD mode guards remain
+unchanged by direct source comparison; no additional exhaustive error-order
+matrix or new zero-path AAD case is claimed.
 
-Local correctness is green; these findings and the remaining roles prevent an
-unconditional F4 acceptance or merge conclusion. DAL-225 delivers its testing
-report in_review and returns control to the parent coordinator.
+## Production refactor inspection and remaining limits
+
+Compared the original and extracted runner, including full helper bodies:
+validation order and error literals are retained; optional compiled engagement
+matches the old dispatch; active model/evaluator/seed/zero stay in the worker.
+Input registration and NewRecording precede model initialization/history replay,
+then Mark. Each path rewinds, generates/evaluates, constructs its payoff root and
+propagates to Mark. Mark-to-start propagation precedes risk harvesting; risks
+are divided by total paths once. The task group drains before captured settings,
+prepared state and result storage are destroyed. Batch offsets and reduction
+order are unchanged. The independent analytic/per-path/backend tests above
+found no changed result or lifecycle behavior.
+
+Model-aware prepared AAD tree supports matching AAD mode and smoothing.
+Named/prepared AAD compiled remains explicitly rejected; compiled historical
+parity belongs to F5. The implementation report has corrected this distinction.
+`docs/methodology/script_engine.md:119` and the unsupported-execution section
+still carry obsolete blanket rejection language; DAL-226 owns that correction.
+
+No Python, Windows XLL, sanitizer, performance, full alternative-backend
+public/Excel, or F5 compiled-parity runs are claimed. No coverage percentage,
+general allocation profiler result or proof of absence of cross-thread active
+values is claimed. Runtime evidence and source inspection are the stated limits.
+F3 performance remains deferred under DAL-223.
+
+The final issue attachments record the single post-push CI snapshot without
+watching or polling. Hosted Codacy/required checks, DAL-226 and DAL-227 remain
+separate acceptance steps. DAL-225 hands this revalidation back in_review.
