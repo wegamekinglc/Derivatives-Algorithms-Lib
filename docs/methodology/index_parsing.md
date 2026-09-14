@@ -96,13 +96,16 @@ index identity only. Core [historical preparation](script_engine.md#historical-f
 admits the built-in EQ and FX types and preserves their virtual `Fixing`
 behavior through a snapshot-backed environment. It does not admit arbitrary
 registered index types as historical adapters. Core
-[double/tree FIX valuation](script_engine.md#core-doubletree-fixing-valuation)
-supports model-aware preparation with an explicit `spot` to one ordinary EQ
+[double/tree](script_engine.md#core-doubletree-fixing-valuation) and
+[AAD/tree FIX valuation](script_engine.md#core-aadtree-fixing-valuation)
+support model-aware preparation with an explicit `spot` to one ordinary EQ
 binding in Black-Scholes or Dupire. Model-sourced FX and EQ delivery are
 unsupported; historical inverse-FX lookup supplies no future FX capability.
 Raw unprepared FIX raises `PreparationRequired`, and preparation without a
-model cannot value a nonexpired product. Named AAD, compiled, fuzzy, and
-public-facade/Python/Excel valuation remain unavailable.
+model cannot value a nonexpired product. Prepared AAD tree replay preserves
+parameter risk through historical expressions, with hard past and fuzzy future
+conditions. Named compiled and public-facade/Python/Excel valuation remain
+unavailable.
 
 ## IR indices are constructed, not parsed
 
