@@ -1,6 +1,294 @@
 # DAL-201 / F4 implementation handoff
 
-## Current master integration and targeted regression repair
+## Remaining compiled barrier regression: native root inlining
+
+This section supersedes the previous unresolved-barrier handoff below. DAL-224
+resumed at published `8b21cfa3260e42912eab37150fabbcb33dd6777d`, tree
+`d2365d406c000697cfaa15c879fb03ed052f6c89`. The code under test is
+`b332fea5f0d9bc9810847ecedcc63e1ac854a9f7`, tree
+`fef5bfae1961cc2bd39ad7f09b55f6d314ec4075`. Publication adds only this report;
+the accompanying publication manifest records its exact SHA/tree.
+
+The existing branch remains `feature/dal-201-historical-aad-state`, and
+https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371 remains a
+draft targeting master. The fixed baseline is
+`8ee1b09dcaf531add9695d466941026da87a4942`, tree
+`6c7d19beee7efebf43d537a6842fb3268a3d6fc6`. No additional merge, rewritten
+history, second PR, F3/F5 change, or downstream role execution was performed.
+
+### Causal isolation and minimal change
+
+The only production change is `dal-cpp/dal/math/aad/aad.hpp`: native `PayoffRoot`
+uses ordinary `inline` instead of `FORCE_INLINE`. It remains defined in the
+header; the compiler can choose whether to inline it. Its terminal-node check,
+mark check, and registered-zero fallback are unchanged. Adept, CoDiPack and XAD
+retain their original forced-inline root expression. Public valuation
+signatures, defaults, errors and mode support do not change. Historical seeds,
+visitor state, simulation runners, tests, tolerances, benchmarks, CI configuration
+and documentation are unchanged in this repair.
+
+The diagnosis used the existing Python `prepare_mc` workload with its full
+10,000-path compiled AAD barrier input. `evidence/narrow.py` runs 20 interleaved
+processes per side, two warmups and one measured sample per process, taking each
+round's minimum of ten. It calls the existing workload's correctness validator;
+it is a diagnostic harness, not a replacement or alteration of the complete gate.
+Every sample and PV/risk result is retained in the corresponding JSON.
+
+| Controlled comparison                                | Round 1 | Round 2 | Interpretation                                  |
+|------------------------------------------------------|---------|---------|-------------------------------------------------|
+| Starting published binary versus master              | +8.30%  | +8.46%  | Reproduced RED                                  |
+| Fresh starting-code build versus master              | +8.23%  | +5.98%  | Reproduced after rebuilding                     |
+| Seed moved behind working state versus starting code | +0.74%  | +0.57%  | No improvement; discarded                       |
+| Root bypass versus starting code                     | -7.19%  | -8.79%  | Isolates root call cost; unsafe diagnostic only |
+| Root moved to implementation file versus master      | -1.01%  | -2.75%  | Barrier improved; candidate later rejected      |
+| Ordinary inline root versus starting code            | -8.71%  | -6.56%  | Selected candidate's barrier GREEN              |
+
+The layout and bypass patches were never committed and are absent from the final
+diff. Root bypass is explicitly unsuitable for historical/constant payoffs and
+was measured only on this legacy barrier input. A separate native probe executes
+the same 10,000 paths and finds **10,000 terminal payoffs**, so this slowdown is
+not caused by additional fallback nodes on that workload. The final fix keeps
+all safety checks rather than adopting the bypass.
+
+Moving the native routine into `aad.cpp` first passed the narrow barrier check,
+but its complete gate was **86/90**, including a newly regressed double compiled
+vanilla. A direct comparison against the fresh starting build reproduced that
+side effect at **+12.41% / +13.60%**. That candidate was rejected; its local-only
+commit `6fa16533` was replaced before publication, preserving the published
+ancestor `8b21cfa3`. Its patch, tests, original gate and both A/A controls are
+retained as diagnostic evidence, not final acceptance. Baseline A/A passed 90/90;
+head A/A failed a separate vanilla-price case (+23.67% / +9.31%). This variability
+does not waive the original base/head failures.
+
+The smaller ordinary-inline candidate was compared directly with the starting
+build on those four flagged cases and the original barrier, using the same two
+rounds of ten interleaved processes. Calibration changed -1.82% / -0.27%; barrier
+price -10.12% / +1.05%; double compiled vanilla +13.16% / -1.28%; double tree
+vanilla -2.20% / -2.36%; AAD compiled barrier -8.71% / -6.56%. All five pass the
+existing rule that both rounds must exceed +4% to fail. This does not claim that
+each individual round improved. `narrow-ordinary-inline-vs-start.json` retains
+every sample, and the complete gate remains a separate required result.
+
+The generated path-loop helper sizes in the public valuation object shrink from
+3442–3651 bytes to 2137–2437 bytes; the outer batch function remains 7798 bytes.
+GCC emits the ordinary-inline root as a separate 821-byte callable function in
+the public valuation object. The controlled call-site change and measurements
+support a code-generation cost from forced inlining. No hardware-counter claim about a particular cache or
+branch-prediction mechanism is made. Maximum PV/risk differences across diagnostic
+samples are `3.552713678800501e-15`, below the unchanged `1e-8` MC tolerance.
+
+No new failing behavior test is invented for this behavior-preserving relocation:
+the actual performance RED above precedes the production change. The existing
+`AADTest.TestPayoffRootReusesTerminalPathNode` passes against the new library,
+preserving zero extra nodes and SCALE sensitivity 240 over 257 rewinds. The
+complete native suite also exercises historical direct roots, constants and empty
+suffixes. Formatting, whitespace and Lizard's unchanged complexity limit 8 pass.
+
+### Verification environment and reproducibility
+
+All new builds use GCC 14.3.0, CMake 4.2.3, C++17, Linux/WSL2 and the repository's
+pinned submodules. Python timing uses the same CPython 3.13.13 interpreter,
+pybind11 3.0.4, Release configuration, native CPU tuning and `DAL_NUM_THREADS=4`
+on both sides. Compiler, Python/header paths and CMake identities are captured in
+`environment-final.json`, `build-identities.json` and `configuration-matched.json`. This Intel i9-13900HX host does not
+reproduce hosted GCC 14.2.0 / CPython 3.13.15 / AMD hardware exactly.
+
+The benchmark base is the preserved independently built master checkout from the
+previous delivery; its source is clean at the fixed SHA above. The head Python
+library is freshly built. Each diagnostic version has its own preserved package
+and hash. Local build jobs finished before each paired timing run; compilation
+overlapped correctness work and the informational smoke run. Process snapshots record observed load, without claiming
+exclusive control over the shared machine or pinning CPU frequency/affinity.
+
+Native correctness uses a separate default-architecture build:
+
+```bash
+cmake --preset=Release-linux -S . -B build/NativeTests \
+  -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
+  -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/NativeTests -j6
+DAL_NUM_THREADS=4 ctest --test-dir build/NativeTests --output-on-failure -j4
+```
+
+The earlier implementation-file candidate's native full CTest passed
+**1716/1716**, zero failures, 21.66 seconds. The additional focused run covered
+the sixteen F4 cases plus the terminal-root regression. Fresh verification for
+the selected ordinary-inline candidate is recorded separately below.
+No new native-CPU-tuned full rate-suite pass is claimed. The prior four rate
+failures and identical master-library reproduction remain preserved in
+`ctest-fix1.log` and `master-nativearch-rate-failures.log`; that reproduction is
+not a full master CTest run, and rate changes remain outside this task.
+
+The earlier candidate's Python run passed **402/402**, zero skips, 21.46 seconds. An initial run had
+401 passes and one skip because the test-only `_dal_quote_risk_test` module had
+not been built by the `_dal` target. Building that existing fixture and rerunning
+the suite resolves the skip; both logs are preserved. No test was changed.
+
+```bash
+cmake --build build/Release-linux --target _dal _dal_quote_risk_test -j4
+PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=4 \
+  "$PYTHON" -m pytest dal-python/tests -q -rs
+```
+
+`PYTHON` denotes the shared CPython 3.13.13 bench-venv interpreter whose absolute
+path is recorded in `environment.json` and the gate execution manifest. Python
+configuration enables `DAL_BUILD_PYTHON=ON`, `DAL_ENABLE_NATIVE_ARCH=ON`, uses
+explicit GCC 14 compilers, and sets `Python3_EXECUTABLE` to that interpreter.
+
+Alternative builds use the same Release preset, GCC 14 compilers,
+examples OFF and the selected backend option ON:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Adept -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_ADEPT_AAD=ON
+cmake --preset=Release-linux -S . -B build/CoDiPack -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_CODIPACK_AAD=ON
+cmake --preset=Release-linux -S . -B build/XAD -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_XAD_AAD=ON
+```
+
+Each uses `cmake --build build/<backend> --target dal_cpp_tests -j3` followed by
+`DAL_NUM_THREADS=4 ./build/<backend>/dal-cpp/dal_cpp_tests` with the unchanged filter:
+
+```text
+Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*
+```
+
+The earlier candidate's runs were:
+
+- Adept fork 4.1.1, pin `1e29edc6e16f969e99145f0cbff34ff0de5fe699`:
+  **425/425**, 1988 ms.
+- CoDiPack 3.1.0, pin `86b94d3f3c3b6659a36f8e640945a7ebe1884a4a`:
+  **425/425**, 1866 ms.
+- XAD 2.1.0-dev, pin `ca0146061726745870aac71f3108c7d14129d1b3`:
+  **424/424**, 3507 ms.
+
+No selected backend test failed or skipped. `f4-coverage.json` mechanically
+confirms the same sixteen F4 tests executed on all four backends, retaining
+threads 1/2/4, paths 1/257/8193, direct and constant roots, the independent
+8193-path recording oracle, and 16385-path exception drain/recovery. The existing
+`script_mc_perf` target was also built and smoke-run successfully with four
+threads; its timings are informational and do not replace the paired gate.
+
+The full gate first rejected a cache spelling mismatch (`g++-14` versus
+`/usr/bin/g++-14`) before measuring any case. The dependent A/A run was stopped
+and retained as incomplete under `preflight-aborted`. Reconfiguring the head with
+the same compiler option spelling makes the gate's configurations exactly equal;
+the head library SHA256 is unchanged. No cache was edited manually, no gate
+validation changed, and no completed timing verdict was rerun. The corrected
+configuration proof is `configuration-matched.json`.
+
+### Fresh verification of selected code b332fea5
+
+The selected code was rebuilt after replacing the rejected implementation-file
+candidate. All following results are fresh runs of `b332fea5`, not reused counts:
+
+- Native default full CTest: **1716/1716**, zero failures, **11.89 seconds**.
+  Command: `cmake --build build/NativeTests -j4`, then the full CTest command
+  above. Logs: `build-final-native.log`, `ctest-final-native.log`.
+- Focused native: **17/17** (all sixteen F4 cases plus the terminal-root test).
+  Log: `f4-final-native.log`. The standalone root regression also passes;
+  log: `green-root-final.log`.
+- Python: **402/402**, zero skips, **21.18 seconds**, after rebuilding the
+  test fixture. Log: `pytest-final.log`.
+- Adept: **425/425**, 1944 ms; CoDiPack: **425/425**, 1816 ms;
+  XAD: **424/424**, 3682 ms. Builds use `-j3` and the same filter above.
+  Logs: `build-final-<backend>.log`, `regression-final-<backend>.log`.
+- `f4-coverage-final.json` confirms sixteen required F4 tests on every backend.
+  The final `script_mc_perf` build and smoke run also completed successfully.
+- Final formatting, whitespace, Lizard limit 8, and documentation checks pass.
+  The empty `preserved-scope.diff` and ancestry checks prove tester assertions,
+  tests, docs, CI/benchmark policy and the integrated master remain preserved.
+
+The only amended commit was the unpushed rejected candidate. The final branch
+is a descendant of the original published head; no remote history was rewritten.
+`final-code.diff` is the complete six-line production diff. The implementation
+file, evaluator state and runner are byte-identical to the starting version.
+No production-scope or public-contract deviation was required.
+
+### Final complete gate: 88/90, not accepted
+
+The unchanged complete gate on **b332fea5** exits **1: 88 passes / 2 failures**.
+The originally assigned compiled AAD barrier passes both rounds, but this does
+not establish overall performance acceptance:
+
+| Case                       | Round 1 | Round 2 | Verdict |
+|----------------------------|---------|---------|---------|
+| mc.barrier.aad.compiled    | +1.72%  | +2.04%  | pass    |
+| mc.vanilla.double.compiled | +19.21% | +19.70% | FAIL    |
+| mc.vanilla.double.tree     | +14.63% | +14.10% | FAIL    |
+
+The final baseline A/A control exits 1, **89/90**: its separate
+`comparison.mc_vanilla_greeks_16384` case is +7.83% / +6.11%. The final head A/A
+control exits 0, **90/90**. Controls use exact package copies and the unchanged
+gate, not independently rebuilt substitutes. A/A variability is recorded as a
+measurement limitation; neither control replaces or waives the two base/head
+failures. All three complete runs and all raw samples are delivered.
+
+From the repository, the complete gate command is:
+
+```bash
+DAL_NUM_THREADS=4 "$PYTHON" .github/scripts/check_python_benchmark_regressions.py \
+  --base-source "$BASE_SOURCE" --head-source . \
+  --base-root "$BASE_SOURCE/build/Release-linux" --head-root build/Release-linux \
+  --output-dir ../evidence/paired-final \
+  --samples 10 --confirmation-rounds 2 --threshold-percent 4
+```
+
+`BASE_SOURCE` is the preserved master checkout at the fixed SHA above.
+`gate-execution.json` records the exact absolute interpreter/source/build paths,
+all three original commands, exit codes and durations. `run-gates.py` only
+orchestrates those commands and creates distinct A/A copies as in CI; it changes
+no benchmark implementation or policy. The source revisions, suite hashes,
+module hashes, environments and complete results are also in each gate report.
+
+The narrow RED and final-candidate commands, run from the enclosing workdir, are:
+
+```bash
+"$PYTHON" evidence/narrow.py Derivatives-Algorithms-Lib/dal-python/benchmarks \
+  "$BASE_SOURCE/build/Release-linux/dal-python" evidence/package-start \
+  evidence/narrow-fresh.json
+"$PYTHON" evidence/narrow-cases.py Derivatives-Algorithms-Lib/dal-python/benchmarks \
+  evidence/package-start evidence/package-ordinary-inline \
+  evidence/narrow-ordinary-inline-vs-start.json
+```
+
+After the complete gate, two additional bounded diagnostic comparisons tested
+the unchanged starting code, without rerunning the full gate. Fresh starting
+code versus master gave double compiled +6.41% / -4.13%, double tree +0.68% /
++3.48%, and the original AAD barrier +6.92% / +7.74%. Fresh versus previously
+published starting binaries gave double compiled -3.04% / +20.66%, double tree
++1.97% / +4.37%, and AAD barrier -0.37% / +1.20%. The narrow double cases pass
+the existing two-round rule, including the final candidate's comparison against
+starting code; the complete final suite still fails both. These results narrow
+the open question to full-suite execution context/build effects, but do not
+prove a particular allocator, layout, scheduler or source-level cause.
+
+**Remaining work:** reproduce the two double vanilla failures with the original
+suite prefix and matched immutable binaries, then isolate worker allocation/layout
+and code-generation effects before changing a double runner. The current repair
+does not modify that runner, the state layout, RNG, or any double valuation
+source. If diagnosis needs production changes outside the authorized F4 root/
+state/private-runner boundary, DAL-201 must route that scope with these samples.
+No further full-gate sampling was performed to seek a favorable verdict. The
+two failures remain unresolved; **this is a candidate handoff, not acceptance**.
+
+### Publication and limits
+
+Published SHA/tree and the sole post-push CI snapshot are in `publication.json`
+and the DAL-224 final comment. The PR stays draft and unmerged. No rejected
+diagnostic code is included in the published branch's new commits; rejected
+variants remain only in the attached evidence. The original hosted benchmark
+job log request returned HTTP 404 while that run was unfinished, so its actual
+executed base could not be verified from raw logs. The new push targets the
+already-retargeted master PR; no old-base result or pending check is called green,
+and no CI watch or polling loop is used.
+
+The unchanged historical CPU-tuning rate failures are retained for separate
+parent routing. No new full master CTest, native C++ paired gate, Windows XLL,
+sanitizer or full alternative public/Excel suite is claimed. Independent DAL-225
+testing, DAL-226's existing native-root documentation decision and DAL-227 review
+still require the parent's serial handoff. Prior approval does not cover this
+candidate, and neither F4 nor the PR is closed by this implementation report.
+
+## Previous master integration and targeted regression repair (historical)
 
 This section supersedes the historical implementation and complexity reports below.
 DAL-224 resumed the existing F4 branch on 2026-09-14 after F3 #369 was merged.
