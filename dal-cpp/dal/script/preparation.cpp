@@ -230,6 +230,18 @@ namespace Dal::Script {
             BindModelObservations(plan, product, evaluationDate, settings);
         }
 
+        static void ProcessFuzzyDomains(ScriptProduct_* product, const ConstProcessor_& constants, const ObservationPlan_* plan) {
+            Vector_<Domain_> initialDomains;
+            for (size_t i = 0; i < product->VarNames().size(); ++i)
+                initialDomains.push_back(constants.VarConstants()[i]
+                                             ? Domain_(constants.VarConstantValues()[i])
+                                             : Domain_(Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_))));
+            product->IFProcess();
+            DomainProcessor_ domains(std::move(initialDomains), true, plan);
+            product->Visit(domains, false, true);
+            product->ConstCondProcess();
+        }
+
     public:
         static PreparedScript_ Prepare(const ScriptProductData_& data,
                                        const ScriptValuationSettings_& settings,
@@ -266,15 +278,9 @@ namespace Dal::Script {
                 writable->InitializePastObservations(result.Plan());
                 ConstProcessor_ constants(writable->VarNames().size(), result.plan_.get(), true);
                 writable->Visit(constants, true, false);
-                Vector_<Domain_> initialDomains;
-                for (size_t i = 0; i < writable->VarNames().size(); ++i)
-                    initialDomains.push_back(constants.VarConstants()[i]
-                                                 ? Domain_(constants.VarConstantValues()[i])
-                                                 : Domain_(Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_))));
-                writable->IFProcess();
-                DomainProcessor_ domains(std::move(initialDomains), simulation.enableAad_, result.plan_.get());
-                writable->Visit(domains, false, true);
-                writable->ConstCondProcess();
+                // Tolerance-based domains cannot prove exact floating-point branch decisions.
+                if (simulation.enableAad_)
+                    ProcessFuzzyDomains(writable, constants, result.plan_.get());
                 result.maxNestedIfs_ = writable->IFProcess();
                 constants.StartFuture();
                 writable->Visit(constants, false, true);

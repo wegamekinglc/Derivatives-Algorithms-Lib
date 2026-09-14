@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <atomic>
 
 #include <dal/curve/tapeguard.hpp>
@@ -25,6 +26,26 @@ namespace {
     }
 
     Handle_<ModelData_> Model() { return Handle_<ModelData_>(new BSModelData_("", 100.0, 0.2, 0.03, 0.01)); }
+
+    struct CompiledRootCase_ {
+        ScriptProductData_ product_;
+        double payoff_;
+        double scaleRisk_;
+        double rateRisk_;
+    };
+
+    void CheckCompiledRoot(const CompiledRootCase_& scenario, double fixing) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        const auto result = MCSimulation<AAD::Number_>(scenario.product_, Model(), 8193, {}, simulation, History(fixing));
+        const auto price = MCSimulation<double>(scenario.product_, Model(), 8193, {}, simulation, History(fixing));
+        ASSERT_NEAR(result.aggregated_ / 8193, scenario.payoff_, scenario.payoff_ * 1.0e-12);
+        ASSERT_NEAR(price.aggregated_ / 8193, scenario.payoff_, scenario.payoff_ * 1.0e-12);
+        ASSERT_NEAR(result["SCALE"], scenario.scaleRisk_, 1.0e-10);
+        ASSERT_NEAR(result["rate"], scenario.rateRisk_, 1.0e-10);
+        ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+        ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+    }
 
     struct PoolRestore_ {
         ThreadPool_* pool_ = ThreadPool_::GetInstance();
@@ -158,29 +179,20 @@ TEST(ScriptPastReplayTest, TestCompiledParameterRisk) {
 TEST(ScriptPastReplayTest, TestCompiledBatchLifetimeAndDirectRoots) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     PoolRestore_ pool;
-    MonteCarloSettings_ simulation;
-    simulation.compiled_ = true;
     const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
     for (size_t threads : {1, 2, 4}) {
         pool.pool_->Start(threads, true);
-        for (double fixing : {80.0, 90.0, 80.0})
-            for (int kind : {0, 1, 2}) {
+        for (double fixing : {80.0, 90.0, 80.0}) {
+            const std::array<CompiledRootCase_, 3> scenarios{
+                {{HistoricalProduct(), 2.0 * fixing * discount, fixing * discount, -t * 2.0 * fixing * discount},
+                 {HistoricalProduct("unused PAYS 0 x = SCALE * FIX(EQ[DAL196_TEST])", "unused = 7"), 2.0 * fixing, fixing, 0.0},
+                 {HistoricalProduct("unused PAYS SCALE x = 17", "unused = 7"), 17.0, 0.0, 0.0}}};
+            for (size_t kind = 0; kind < scenarios.size(); ++kind) {
                 SCOPED_TRACE(::testing::Message() << "threads=" << threads << " fixing=" << fixing << " kind=" << kind);
-                const auto product =
-                    kind == 0
-                        ? HistoricalProduct()
-                        : HistoricalProduct(kind == 1 ? "unused PAYS 0 x = SCALE * FIX(EQ[DAL196_TEST])" : "unused PAYS SCALE x = 17", "unused = 7");
-                const auto result = MCSimulation<AAD::Number_>(product, Model(), 8193, {}, simulation, History(fixing));
-                const auto price = MCSimulation<double>(product, Model(), 8193, {}, simulation, History(fixing));
-                const double discount = kind == 0 ? exp(-0.03 * t) : 1.0;
-                const double payoff = kind == 2 ? 17.0 : 2.0 * fixing * discount;
-                ASSERT_NEAR(result.aggregated_ / 8193, payoff, payoff * 1.0e-12);
-                ASSERT_NEAR(price.aggregated_ / 8193, payoff, payoff * 1.0e-12);
-                ASSERT_NEAR(result["SCALE"], kind == 2 ? 0.0 : fixing * discount, 1.0e-10);
-                ASSERT_NEAR(result["rate"], kind == 0 ? -t * payoff : 0.0, 1.0e-10);
-                ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
-                ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+                ASSERT_NO_FATAL_FAILURE(CheckCompiledRoot(scenarios[kind], fixing));
             }
+        }
     }
 }
 
