@@ -1,112 +1,93 @@
-# DAL-201 / F4 documentation decision
+# DAL-201 payoff-root documentation correction
 
-DAL-226, 2026-09-14. Documentation is aligned with model-aware prepared AAD
-tree valuation. A CHANGELOG entry is required and added for the significant
-capability and methodology change: parameter-dependent historical state now
-participates in each worker recording. Independent review and coordinator
-acceptance remain outstanding; this report is not merge approval.
+DAL-226, 2026-09-15. The two payoff-root review comments are addressed in
+the local documentation candidate. Native terminal-node reuse and the
+registered-zero fallback now agree with the source. This replaces the prior
+documentation handoff; independent review and coordinator publication remain
+outstanding.
 
-## Revisions and publication
+## Revisions and scope
 
-- Starting published head: `4e964a88ee9d79182dd8a037c1787cf025b5294a`.
-- Starting tree: `5904bf9ca38c89d0dc1053c56b8c1c4dc7d05733`.
-- Documentation commit: `597301463b3c3c6374c147e3c34cad699fadb6e5`.
-- Documentation tree: `63d7432acce3a6da0ccab7ff34a2584e9cc5cded`.
-- Independent tester's code: `bbaad1f646eb521eeb84806058c9e4685875d97b`;
-  tree `53f38bd7b0b875ced047155f72f8c7608c15320c`.
-- Branch: `feature/dal-201-historical-aad-state`.
-- Existing draft PR: https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371.
-- Base: `feature/dal-200-eq-observation-slots`; dependency #369.
+- Starting published commit: `12353bb773ad16de37405f6e37a312867c918acd`.
+- Starting tree: `466d55a4ed7e215ca79877679173022aceee47e8`.
+- Local branch: `fix/dal-226-payoff-root-docs`.
+- Product branch: `feature/dal-201-historical-aad-state`, base `master`.
+- Existing [PR #371](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371)
+  was OPEN and non-draft when read; GitHub head matched the clean starting checkout.
+- The attached `documentation-local.json` records the final local commit/tree,
+  starting commit/tree, three changed-file SHA256 hashes, patch hash, and
+  reconstruction result. It is outside the commit to avoid self-referential hashes.
+- `documentation.patch` is the complete portable diff from the starting commit:
+  only the two methodology guides and this role's report. No push, PR-head
+  mutation, review-thread resolution, or merge is part of this handoff.
 
-The starting checkout was clean, and local HEAD, remote branch, and GitHub PR
-head matched. Publication adds only this report after the documentation commit.
-The attached `documentation-publication.json` records the final published
-SHA/tree, remote/GitHub verification, file scope, and one CI snapshot. It is
-external to the commit because a report cannot contain its own final SHA.
+## Review-thread mapping and discrepancies
 
-## Non-trivial discrepancies corrected
+- `PRRT_kwDOBtahP86iL2IX`,
+  [AAD algorithm comment](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371#discussion_r4007127736):
+  `docs/methodology/aad.md` described a fresh root on every path. The algorithm
+  now creates or reuses a path-local root; the following paragraph states both
+  native reuse conditions and the registered-zero fallback on other cases and
+  alternative backends.
+- `PRRT_kwDOBtahP86iL2I-`,
+  [script lifetime comment](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371#discussion_r4007127792):
+  `docs/methodology/script_engine.md` unconditionally described adding zero.
+  The lifetime section now requires a nonempty post-mark range and an exactly
+  terminal payoff for native reuse; otherwise it records `payoff + activeZero`.
+  Adept, XAD, and CoDiPack always use that addition. The later value/AAD
+  algorithm repeated the fresh-root claim and now agrees with this section.
 
-- `docs/methodology/script_engine.md` rejected named AAD/fuzzy execution in
-  its syntax overview and unsupported-execution section, and restricted all
-  nonexpired AAD to products without past events. Those restrictions now
-  distinguish supported prepared AAD tree from raw historical AAD, named
-  compiled, and prepared AAD compiled execution.
-- The same guide described passive preparation without explaining the separate
-  active replay. It now documents matching prepared mode/smoothing, retained
-  plan versus fresh data-entry valuation, sealed historical doubles, typed
-  seed reconstruction before Mark, same-recording path restore, new roots,
-  hard historical/fuzzy future conditions, and risk normalization exactly once.
-  It gives the 80/SCALE=2 discounted-payment oracle and direct-seed sensitivity.
-- `docs/methodology/aad.md` omitted shared historical state and fresh roots in
-  its Monte Carlo algorithm. Its batch/mark description and cross-link now
-  explain those dependencies and total-path normalization.
-- `docs/methodology/index_parsing.md` independently repeated the obsolete
-  named AAD/fuzzy rejection. Its valuation summary now agrees with the script
-  guide while retaining future-index and public-surface restrictions.
+Both guides retain historical seed-adjoint accumulation, passive-constant and
+empty-suffix safety, hard historical/fuzzy future behavior, and normalization
+once by total paths. A nonterminal post-mark payoff also takes the fallback;
+being recorded after the mark alone does not qualify it for reuse.
 
-## Ground truth
+## Ground truth and documentation decisions
 
-Read the target methodology documents and changelog, the registered role and
-repository conventions, active implementation/testing reports, and current
-source. The key contracts were reconciled against:
+Read both target guides in full, the prior documentation report, role and Git
+contracts, current `dal-cpp/dal/math/aad/aad.hpp` and
+`dal-cpp/dal/script/simulation.hpp`, and both relevant test files in full:
+`dal-cpp/tests/math/aad/test_payoff_root.cpp` and
+`dal-cpp/tests/script/test_past_replay.cpp`. Reconciled the root optimization
+section of the active implementation report and the historical test inventory.
+Read the two GitHub review comments directly and the current parent handoff.
 
-- `dal-cpp/dal/script/preparation.hpp` and `preparation.cpp`: executable versus
-  history-only plans, mode capture, compiled rejection, passive history,
-  double replay, IF analysis, and worker historical-state construction.
-- `dal-cpp/dal/script/simulation.hpp`: both data/prepared overloads, mode and
-  smoothing guards, batch-local active model/evaluator/zero, input registration,
-  NewRecording, historical replay, Mark, root propagation, reduction, task drain.
-- `dal-cpp/dal/script/visitor/evalstate.hpp`, `evaluator.hpp`, `pastevaluator.hpp`,
-  and `fuzzy.hpp`, plus `event.hpp`/`event.cpp`: typed seed precedence, passive
-  observation reads, hard past comparisons and settled PAYS, future blending.
-- `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp` and the full historical
-  replay/observation simulation test files: direct and constant roots, analytic
-  and nonlinear risks, 8193-path rebuild oracles, 16385-path recovery,
-  threads 1/2/4, repeated inputs, history read barriers, and rejection cases.
-- Public `value.hpp`/`value.cpp`, Python script/value bindings, Excel script/value
-  wrappers, and the script example: named preparation options are still absent
-  from facade valuation; existing example and debug capabilities do not imply
-  those options are exposed.
+`PayoffRoot` checks `End() != Mark()` and payoff/terminal adjoint identity on
+native; all other cases return `payoff + activeZero`. `EvaluateAADBatch`
+registers the zero through `InitModel4ParallelAAD`, calls the helper after
+evaluation, seeds the returned root, and propagates to the mark. Batch-end
+propagation and risk reduction retain their existing accumulation semantics.
+The native root test asserts no extra node over 257 paths; historical tests
+cover direct seeds, constants, empty suffixes and batch boundaries. These were
+read as source evidence, not rerun or newly certified by this documentation task.
 
-No public contract or implementation change was needed. Published docs contain
-current capability descriptions, with no F5-F8 delivery promise or history.
-The new dated CHANGELOG entry records the capability; prior dated entries
-remain historical evidence. No methodology document was added, removed, or
-renamed, so `docs/README.md` and the `CLAUDE.md` methodology list need no change.
-The existing implementation and testing reports are untouched.
+**CHANGELOG: no change.** This is a correction of implementation wording,
+with no new capability, algorithm, public API, deprecation, or significant
+methodology shift. The existing dated historical-AAD entry remains a delivery
+record; its fresh-root statement for direct seeds and constants still describes
+the fallback. No guide was added, removed, or renamed, so `docs/README.md` and
+the `CLAUDE.md` methodology list need no update. Other role artifacts and all
+product, test, binding, build, benchmark, and diagnostic files are unchanged.
 
-## Validation
+## Validation and delivery limits
 
-Commands and results are retained in attached `documentation-checks.log`:
+Attached `documentation-checks.log` records commands, outputs, and exit codes;
+the attached `validate-documentation.py` reproduces the additional inspection.
 
-```text
-python3 .github/scripts/check_docs.py
-git diff --check
-git diff --cached --name-status
-git diff --cached --check
-git diff --name-only 4e964a88ee9d79182dd8a037c1787cf025b5294a HEAD
-git ls-remote origin refs/heads/feature/dal-201-historical-aad-state
-```
+- `python3 .github/scripts/check_docs.py`: 55 Markdown files pass, including
+  local links/anchors, table structure, whitespace, and documentation contracts.
+- Additional inspection: all five target-guide tables have exact column padding
+  and separator widths; all three changed Markdown files have final newlines
+  and no trailing whitespace. No unconditional fresh-root wording remains in
+  the target guides.
+- `git diff --check`, staged scope/whitespace checks, and final diff scope pass.
+- Portable patch application to a temporary Git index initialized from the
+  starting commit reproduces the delivered local tree; the working tree is clean.
 
-The repository checker passed for 66 Markdown files after the four published
-doc edits, then for 67 with this active report. It checks local links/anchors,
-table structure, whitespace, math macros, stale commands, and repository
-documentation contracts. An additional Python inspection confirmed exact
-column padding and separator widths in all six tables in the three changed
-methodology notes, and final newlines in all changed Markdown files. Both
-unstaged and staged whitespace checks passed; only the four documentation
-files and this report are in the publication scope.
-
-The first commit attempt found no configured Git identity and created no
-commit. Retried with command-local `Codex <codex@openai.com>`, matching prior
-commits on this branch; no global Git configuration changed.
-
-No runtime tests were rerun for documentation-only changes. The independent
-tester's report on the unchanged code records native 1715/1715, Adept 425/425,
-CoDiPack 425/425, and XAD 424/424, with the same 16 F4 cases on each backend.
-These are inherited test results, not executions by this documentation role.
-Python, Windows XLL, sanitizer, performance, and full alternative-backend
-public/Excel coverage remain unclaimed. Local Lizard success is not hosted
-Codacy success. CI is captured once after publication, without polling or
-waiting; required checks and DAL-227 review remain separate acceptance gates.
-DAL-223 performance deferral remains in force.
+No product backend tests or benchmarks were rerun for these documentation-only
+changes. No new CI was triggered or awaited, and no performance acceptance is
+claimed. The parent handoff's hosted paired 87/90 failure and performance
+thread `PRRT_kwDOBtahP86iL2H4` remain outside this scope; DAL-223 remains deferred.
+The separate hosted diagnostic candidate is untouched. The coordinator must
+arrange independent documentation review and publication; this local correction
+does not complete or approve the F4 merge.
