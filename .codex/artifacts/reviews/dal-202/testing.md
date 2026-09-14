@@ -1,119 +1,173 @@
-# DAL-202 F5 independent testing
+# DAL-202 F5 independent repair verification
 
-Independent Linux verification passed. No actionable production defect was
-reproduced. This report awaits parent acceptance; it does not authorize master
-delivery, merging the stacked draft, or starting the next expert stage.
+Fresh independent Linux verification passes on the repaired production code.
+No actionable production defect was reproduced. This report supersedes the
+earlier testing report for repair acceptance; parent acceptance, documentation
+correction and independent re-review remain required.
 
-## Revisions and scope
+## Revision and scope
 
-- Input head: `a67de449715d028a4fa623cf3a7610d47d67d74b`.
-- Input tree: `5a8c08ad675dd1c93a7492ac0887c28e68f19b61`.
-- Test commit: `50ba5c8a84f94a40be4a0abd7fa81c07f300c287`.
-- Tested tree: `df31524ca93970a78d2b5a4cf91b20e2e19ac414`.
-- Branch: `feature/dal-202-compiled-observations`.
-- Draft PR: https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/372.
-- Fixed F4 base: `5c954ca2fdded2ca35ad15c7fef44d90a002007d`, tree
-  `2ad4c408e84bb6323528ac3e9b2f66bb77e40ce0`; dependencies #371/#369 unchanged.
+- Input head: `4e90369d7fcb9db9a24483d4741e3fb166c91a6e`.
+- Input tree: `a4d86d608672b30003a4196fc31b8e5279d92c91`.
+- Tested test commit: `cd33eb794925eea9bc46a202069a3355fb48f994`.
+- Tested tree: `3e56d8cfa49de06aad5b1512cec13ca45b8d9b72`.
+- Existing [draft PR #372](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/372):
+  `feature/dal-202-compiled-observations`, base
+  `feature/dal-201-historical-aad-state`, dependencies #371/#369.
+- Fixed F4 ancestor: `5c954ca2fdded2ca35ad15c7fef44d90a002007d`.
 
-The publication commit adds only this report. The attached `publication.json`
-records the resulting exact head/tree and remote PR head, avoiding a self-referential
-commit hash in this file. Production files are identical to the input revision.
+The input checkout and GitHub PR agreed on head identity. Publication adds only
+this report after the tested test commit. Exact published SHA/tree and GitHub
+identity are recorded in the attached `publication.json`, avoiding a
+self-referential commit hash here. All production files and dependency pointers
+are unchanged from the input. Only these files change in this tester delivery:
 
-Only these tests/fixtures and this report changed:
+- `dal-cpp/tests/script/test_exact_folding.cpp`: one test and its helper.
+- `.codex/artifacts/reviews/dal-202/testing.md`: this replacement report.
 
-- `dal-cpp/tests/script/test_compiled_observations.cpp`
-- `dal-cpp/tests/script/test_past_replay.cpp`
-- `dal-cpp/tests/script/test_observation_simulation.cpp`
-- `dal-cpp/test-support/test_script_observation_allocations.cpp`
+Read current DAL-229/DAL-202 descriptions and bounded comment history, DAL-228's
+repair thread, repository tester/test/style/publication contracts, relevant
+script/AAD methodology, production APIs and nearby tests. Downloaded repair
+attachments through the authenticated CLI. Archive SHA256
+`811e3f9891c4cf83dd1a5d919af27d1eabad098b404df2f818358d953d1c8647`
+and all 60 internal entries verified. The original-preparation source used below
+also matches Git at `2dc4d43a913ed60779920e1392d1411f16fb23b6`.
 
-Read the current DAL-229 and DAL-202 descriptions and comment scans, the parent
-handoff thread, repository tester/test/style/publication contracts, approved
-spec/API/critique attachments, script/AAD methodology, production preparation,
-observation, evaluator/bytecode code, and nearby tests. No dependency branch,
-production code, public interface, tolerance, gate, or benchmark changed.
+## Running existing tests
 
-## Existing tests run
+Inherited implementer counts were full native 1737, native/Adept/CoDiPack 447,
+XAD 446, allocation 2, docs 70. Those results are historical inputs only.
+The following results were captured afresh with GCC 15.2.0, CMake 4.2.3,
+Release configuration and pinned submodules:
 
-Inherited evidence is the DAL-228 implementation report: native CTest 1730,
-native/Adept/CoDiPack 440 each, XAD 439. Those logs were not reused as independent
-results. All results below were captured afresh in this workspace on Linux,
-GCC 15.2.0 and CMake 4.2.3, using pinned submodules.
+- Full native Linux configure/build/install/CTest: **1738/1738**,
+  `full-linux.log`.
+- Native targeted script/simulation/AAD/compiler/visitor: **448/448**,
+  `targeted-native.log`.
+- Adept targeted: **448/448**, `targeted-Adept.log`.
+- CoDiPack targeted: **448/448**, `targeted-CoDiPack.log`.
+- XAD targeted: **447/447**, `targeted-XAD.log`.
+- Focused eight exact regressions plus compiled lifetime test: **9/9**,
+  `focused-repair.log`.
+- Unchanged reviewer standalone reproduction: **4/4**,
+  `reviewer-green.log`.
+- Legacy ScriptCompiledParity/ScriptCompiledParityFuzz: **33/33**,
+  `legacy.log`.
+- Isolated allocation fixture: **2/2**, `allocation.log`.
+- Documentation checker: **70 Markdown files**, `docs-check.log`.
+- Changed-line clang-format and patch checks: pass. Lizard 1.23.0 output is
+  `complexity.log`; no threshold or gate was changed.
 
-| Fresh run                       | Passed | Failed | Log                              |
-| ------------------------------- | ------ | ------ | -------------------------------- |
-| Original head full Linux script | 1730   | 0      | `full-linux-original.log`        |
-| Original head native targeted   | 440    | 0      | `targeted-native-original.log`   |
-| Original legacy parity/fuzz     | 33     | 0      | `legacy-original.log`            |
-| Expanded tests full Linux       | 1730   | 0      | `full-linux-expanded.log`        |
-| Expanded native targeted        | 440    | 0      | `targeted-native.log`            |
-| Expanded Adept targeted         | 440    | 0      | `targeted-Adept.log`             |
-| Expanded CoDiPack targeted      | 440    | 0      | `targeted-CoDiPack.log`          |
-| Expanded XAD targeted           | 439    | 0      | `targeted-XAD.log`               |
-| Expanded legacy parity/fuzz     | 33     | 0      | `legacy.log`                     |
-| Focused strengthened tests      | 3      | 0      | `focused-expanded.log`          |
-| Isolated native allocation      | 2      | 0      | `allocation.log`                |
+The full-workflow summary is freshly captured:
+`100% tests passed, 0 tests failed out of 1738` (14.79 seconds of CTest).
+It includes core/public/portable Excel contracts and builds/installs examples;
+benchmarks and Python are disabled. The targeted filter matches 18 suites.
+Per-backend case inventories verify that XAD's only omission is the existing
+`AADTest.TestDefaultNumberAdjointRequiresTapeNode`; no F5 case is omitted.
+The standalone reviewer and allocation fixtures are outside the CTest count.
 
-The full script configured and built core/public/examples, installed them and
-ran CTest with benchmarks excluded, including portable Excel contracts. Its
-fresh final summary is `100% tests passed, 0 tests failed out of 1730` (9.62 s).
-The original run took 9.91 s. Timings are execution records, not benchmarks.
-The targeted filter matches 17 suites. XAD alone excludes
-`AADTest.TestDefaultNumberAdjointRequiresTapeNode`; no F5 test is skipped.
-The isolated fixture is outside CTest and is not included in the 1730 count.
+## Authoring coverage and characterizing the old failure
 
-## Tests authored or strengthened
+Added `ScriptExactFoldingTest.TestNestedFutureStateAcrossEventsRetainsSignedRisks`.
+A first future event assigns `x=SCALE*H`; a later event nests `x>0` inside
+`x!=0`, assigns `x*x` on the positive branch or `3*x` on the negative
+branch, and pays the result. Eight signed factor combinations use
+H=±1e-14/SCALE=±1e14 and H=±1e14/SCALE=±1e-14. Every combination checks tree and
+compiled double/AAD pricing over 257 paths with nonzero rate 0.03.
 
-- Expanded `TestKnownFixingFuzzyBandAndFiniteDifference` from one strike to
-  K={79.93,79.95,80,80.03,80.07}, in both compiled and tree modes. For width
-  0.2, independently calculate `w=(80-K+0.1)/0.2`, discounted PV `160*w`,
-  SCALE risk `80*w`, K risk `-800`, and rate risk `-T*PV`. Spot/vol risks are
-  zero. Compare each AAD primal to same-epsilon fuzzy double and K risk to
-  central differences with h=0.0001. K=80 is smooth for this spread kernel;
-  no derivative is claimed at its endpoints or a hard historical switch.
-- Extended nonlinear historical parameter repricing to compiled execution.
-  Both execution modes now cover threads {1,2,4}, paths {1,257,8193}, SCALE
-  {2,3,2}, and historical strikes {159.95,160,160.05}; each repricing rebuilds
-  preparation. Independent polynomial/discount formulas check all seven risks.
-- Strengthened compiler-failure injection for double and AAD public core
-  pricing entry points. Verify one historical fixing read, exact injected
-  error text, one `BeforeCompilation` callback, zero submitted workers, then
-  successful 8193-path repricing after removing the observer.
-- Added an isolated allocation fixture using the repository's existing global
-  allocation probe. Its positive control detects ordinary and aligned temporary
-  allocations even when freed before measurement ends. Exact/fuzzy tree and
-  compiled double evaluation each perform 8193 repeats with zero C++ allocation
-  requests, correct independent payoffs (140 exact, 105 fuzzy), and throwing
-  history/index read seams. State and scenario allocation occur before the
-  measured region; the first evaluation is included without warm-up.
+The independent oracle is
+`g(x)=x*x` for positive x and `g(x)=3*x` for negative x.
+PV is `g(x)*exp(-r*T)`; SCALE risk is `g'(x)*H*exp(-r*T)`;
+rate risk is `-T*PV`, T=10/DAYS_PER_YEAR. Spot/vol/div risks are zero,
+and exactly five risk labels must exist. Branch inputs are ±1, outside the
+fuzzy bands. The new test checks retained cross-event state, nested IF metadata,
+live parameter inputs and both nonzero branch sensitivities, rather than relying
+on tree/compiled agreement.
 
-These are coverage improvements against already working behavior, so their
-first functional runs were green. No failing production test was repaired and
-no red-to-green production-fix claim is made. The only tooling interruption was
-missing local Git author metadata; the commit used the repository's existing
-Codex author identity. Formatting and `git diff --check` pass.
+The narrow standalone run linked the original preparation definitions before
+the repaired static library. It failed with actual PV **6.994248939115905**
+against expected **-2.997535259621102** for H=-1e-14 and SCALE=1e14
+(`red-new-test.log`). The original source incorrectly selected the zero arm.
+The same new test passes against repaired preparation (`green-new-test.log`)
+and in all four backend suites.
 
-## Acceptance evidence
+The same source-substitution characterization makes **all eight** exact tests
+fail with original preparation (`red-all-exact.log`); all eight pass with the
+repair. This is supplemental regression sensitivity evidence on a completed
+implementation, not a claim that this tester authored the production repair.
+No production fixes or failing-test repairs were made. No existing assertion,
+tolerance, epsilon, gate or performance threshold was weakened. The only local
+setup corrections were using the extracted archive directory for its manifest
+check and supplying the repository's existing Codex identity for the commit.
 
-| IDs                 | Independently run evidence and oracle |
-| ------------------- | ------------------------------------- |
-| T06/T09/T10/T21      | `TestIndexFixingsSamePathAndArtifactLifetime` supplies F=120 and unrelated samples=999 for mixed, duplicate, retained and historical-state cases; checks 200/160/120/160 and artifact ownership after prepared destruction. `TestIndexFixingsAnalyticPathRisks` checks all spot/vol/rate/div/SCALE risks against discounted lognormal zero-Gaussian formulas for all four cases, not just evaluator parity. |
-| T18                 | `TestParameterRisk` and `TestCompiledParameterRisk`: PV=160*exp(-r*T), SCALE=80*exp(-r*T), rate=-T*PV, T=10/DAYS_PER_YEAR; zero model spot/vol risk and no extra fixing risk label. |
-| T19/T20             | Direct-seed and constant roots, compiled batch lifetime, strict/non-strict/equality historical decisions around H=80, and 100 discarded historical PAYS pass. The added nonlinear repricing checks preserve branch arithmetic risks after parameter changes. |
-| T22                 | Five-point analytic fuzzy weights and all stated risks, same-epsilon fuzzy-double primal and central differences pass. Legacy live-parameter and literal-fuzzy regressions remain enabled. |
-| T23                 | Compiled and tree lifetime tests run repeated 8193-path batches on threads 1/2/4. BS and Dupire full-recording-per-path references check primal and every risk against mark/rewind simulation. No active Number is deliberately transferred across threads. |
-| T16/T27             | Strict missing-history prefetch across exact/fuzzy and tree/compiled, eager AND/OR evaluation, shared bound SPOT/FIX requests, unbound/mixed SPOT errors and legacy parity/fuzz regressions pass. |
-| T31                 | Last-history and model-setup failures precede submission; strengthened compiler observer checks both numeric entry points and recovery. Tree/AAD/compiled path-failure tests collect all submitted batches before returning. |
-| T32                 | Existing worker-local throwing read seams and storage tests pass; isolated allocation counters strengthen the address-only evidence. Source inspection confirms `ObservationPlan_::Read` uses a bounds-checked request and either historical-value or scenario-slot indexing, with no index I/O, loops, or observation-container allocation. |
+## F5 acceptance evidence
 
-Deterministic primal tolerances remain relative 1e-12, analytic risks 1e-10,
-normalized same-path MC comparisons 1e-8. Existing finite-difference tolerance
-1e-5 is retained; no epsilon, assertion, or numerical tolerance was weakened.
+- **Exact boundary soundness:** existing hard-reference tests parse/index/seal
+  through model-free preparation and directly evaluate the unoptimized hard tree,
+  independently of the repaired model-aware optimization. All six operators at
+  80 and its two adjacent floats, plus signed zero, signed minimum subnormals
+  and ±1e-14 around zero, give **54 comparison cases**. Signed nonzero parameter
+  factors, selected arithmetic risks and the small future-state divisor pass.
+  This adds hard-tree and analytic oracles to evaluator parity.
+- **T06/T09/T10/T21:** `TestIndexFixingsSamePathAndArtifactLifetime` supplies
+  F=120 and unrelated samples=999, checks mixed/repeated/retained/state outcomes
+  200/160/120/160, and verifies artifact lifetime after prepared destruction.
+  `TestIndexFixingsAnalyticPathRisks` independently checks all five risks with
+  zero-Gaussian lognormal/discount formulas. Named/legacy shared-path adapter
+  tests and repeated thread/batch scenarios also pass.
+- **T18:** parameter replay tests check PV=160*exp(-r*T),
+  SCALE=80*exp(-r*T), rate=-T*PV and zero spot/vol; label counts exclude a fixing
+  risk. Both tree and compiled paths run.
+- **T19/T20:** direct-seed and constant roots pass; hard historical decisions
+  below/at/above 80 preserve branch arithmetic, including compiled replay and
+  100 discarded past PAYS. Nonlinear historical repricing changes SCALE and
+  strike and checks analytic risks after rebuilding preparation.
+- **T22:** five strikes {79.93,79.95,80,80.03,80.07}, each tree/compiled at 8193
+  paths, retain `w=(80-K+0.1)/0.2`. Primal, SCALE, K and rate risks match
+  independent formulas; AAD primal matches same-epsilon fuzzy double, and
+  central differences at h=0.0001 verify K risk. No hard-switch derivative is
+  claimed. Existing literal-fuzzy and live-parameter regressions also pass.
+- **T23/P2:** inspected the complete lifetime refactor against its predecessor.
+  All **27** combinations of threads {1,2,4}, fixing sequence {80,90,80},
+  and discounted/direct/constant roots remain, each with 8193 paths, both
+  double/AAD prices and SCALE/rate/spot/vol assertions. Fresh Lizard reports
+  complexity **4**, helper **1**. Separate BS/Dupire full-recording-per-path
+  references compare primal and every risk with mark/rewind across 8193 paths,
+  threads 1/2/4 and repeated calls. This does not establish remote Codacy status.
+- **T16/T27:** nonexpired constant-dead-branch history failures remain strict
+  across exact/fuzzy and tree/compiled. Eager AND/OR is challenged with missing
+  runtime observation storage even when the left operand determines truth.
+  Bound SPOT/FIX deduplication, mixed/unbound SPOT errors, today policy and all
+  33 legacy parity/fuzz cases pass.
+- **T31:** last-history/model/compilation failures submit zero workers.
+  Compilation injection exercises both double and AAD entry points and recovery.
+  Path-failure tests drain accepted batches before returning an error.
+- **T32:** worker-local throwing history/index seams and stable storage pass.
+  The isolated probe detects temporary ordinary/aligned allocations in its
+  positive control. Each exact/fuzzy tree/compiled double evaluator completes
+  8193 evaluations, including the first, with zero C++ allocation requests and
+  independent expected payoffs. Source inspection of `ObservationPlan_::Read`
+  confirms bounds checks and direct history/scenario indexing without lookup or
+  an observation allocation.
 
-## Reproduction
+Read-only inspection confirms exact preparation omits DomainProcessor_ and
+ConstCondProcessor_, while the fuzzy helper retains the prior processing body.
+Syntax-wide collection/prefetch occurs first; hard historical replay, live
+ConstVar inputs, constant arithmetic, final IF metadata and compilation remain
+before workers. Existing constant-processor/compiler arithmetic and opcode tests
+pass. Prepared mode/epsilon mismatch tests remain enabled.
 
-Commands run from the repository root. An original `test_output.txt` was absent
-in this fresh checkout; it was created by the first run, copied into the evidence,
-then freshly overwritten by the second full workflow.
+Existing deterministic primal tolerance is relative 1e-12, ordinary analytic
+risk tolerance 1e-10, and normalized same-path MC tolerance 1e-8. Small/large
+factor risks use magnitude-relative 1e-12 (including the new test), detecting
+loss of tiny nonzero sensitivities. The existing fuzzy finite-difference
+tolerance remains 1e-5.
+
+## Reproducible commands
+
+Run from the repository root with `../evidence` created. The fresh checkout
+had no old `test_output.txt`; the full workflow created it and it was copied
+to `full-linux.log`.
 
 ```bash
 git submodule update --init --recursive
@@ -121,53 +175,52 @@ NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1
 cmake --preset=Release-linux -S . -B build/Adept -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_ADEPT_AAD=ON
 cmake --preset=Release-linux -S . -B build/CoDiPack -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_CODIPACK_AAD=ON
 cmake --preset=Release-linux -S . -B build/XAD -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_USE_XAD_AAD=ON
-cmake --build build/Adept --target dal_cpp_tests -j4
-cmake --build build/CoDiPack --target dal_cpp_tests -j4
-cmake --build build/XAD --target dal_cpp_tests -j4
-```
-
-Each native/Adept/CoDiPack/XAD binary was run with this exact filter:
-
-```bash
+cmake --build build/Adept --target dal_cpp_tests -j6
+cmake --build build/CoDiPack --target dal_cpp_tests -j6
+cmake --build build/XAD --target dal_cpp_tests -j6
 ./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*'
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptExactFoldingTest.*:ScriptPastReplayTest.TestCompiledBatchLifetimeAndDirectRoots'
 ./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
-./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptObservationSimulationTest.TestCompilationFailureBeforeWorkers:ScriptPastReplayTest.TestNonlinearHistoryAndParameterRepricing:ScriptCompiledParityTest.TestKnownFixingFuzzyBandAndFiniteDifference'
 ```
 
-The first command was also executed with `Release-linux` replaced by `Adept`,
-`CoDiPack`, and `XAD`. Backend build/configure logs are included. Builds were
-refreshed after the test edits; the complete native workflow was repeated.
+The first filter was also run with Release-linux replaced by Adept, CoDiPack
+and XAD. Logs and exact matched case lists are attached.
 
-Isolated allocation fixture, deliberately avoiding a global allocation override
-in the ordinary test executable (substitute any local output path if desired):
+Standalone commands, using the source files included in the evidence archive:
 
 ```bash
-c++ -O3 -DNDEBUG -std=c++17 -fPIE -pie -ffp-contract=fast -Idal-cpp -Idal-cpp/externals/googletest/googletest/include dal-cpp/test-support/test_script_observation_allocations.cpp dal-cpp/test-support/bcg_allocation_probe.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o ../evidence/script_observation_allocations
-../evidence/script_observation_allocations
+c++ -O3 -DNDEBUG -std=c++17 -fPIE -pie -Idal-cpp -Idal-cpp/externals/googletest/googletest/include ../evidence/preparation-before.cpp dal-cpp/tests/script/test_exact_folding.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o ../evidence/exact-before
+../evidence/exact-before --gtest_filter='ScriptExactFoldingTest.TestNestedFutureStateAcrossEventsRetainsSignedRisks'
+../evidence/exact-before --gtest_filter='ScriptExactFoldingTest.*'
+c++ -O3 -DNDEBUG -std=c++17 -fPIE -pie -Idal-cpp -Idal-cpp/externals/googletest/googletest/include dal-cpp/tests/script/test_exact_folding.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o ../evidence/exact-after
+../evidence/exact-after --gtest_filter='ScriptExactFoldingTest.TestNestedFutureStateAcrossEventsRetainsSignedRisks'
+c++ -O3 -DNDEBUG -std=c++17 -fPIE -pie -Idal-cpp -Idal-cpp/externals/googletest/googletest/include ../evidence/repro_exact_boundaries.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o ../evidence/reviewer-repro
+../evidence/reviewer-repro
+c++ -O3 -DNDEBUG -std=c++17 -fPIE -pie -ffp-contract=fast -Idal-cpp -Idal-cpp/externals/googletest/googletest/include dal-cpp/test-support/test_script_observation_allocations.cpp dal-cpp/test-support/bcg_allocation_probe.cpp dal-cpp/tests/test_main.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o ../evidence/allocations
+../evidence/allocations
+python3 -m lizard dal-cpp/tests/script/test_past_replay.cpp dal-cpp/tests/script/test_exact_folding.cpp
+python3 .github/scripts/check_docs.py
+git clang-format --diff 4e90369d -- dal-cpp/tests/script/test_exact_folding.cpp
 git diff --check
-git clang-format --diff a67de449 -- dal-cpp/tests/script/test_compiled_observations.cpp dal-cpp/tests/script/test_past_replay.cpp dal-cpp/tests/script/test_observation_simulation.cpp dal-cpp/test-support/test_script_observation_allocations.cpp
 ```
 
 ## Limits and handoff
 
-T32 allocation measurement covers the native double exact/fuzzy evaluators;
-it does not count AAD backend tape allocations, arbitrary C malloc calls, or
-every possible expression shape. The constant-time read conclusion is source
-inspection, not a dynamically instrumented count of every observation load.
-Worker I/O rejection uses thread-local observers installed on the executing
-thread; coordinator-only observer counts are not presented as worker proof.
-The compiler seam injects immediately before bytecode construction, not inside
-an arbitrary compiler opcode; it remains an internal default no-op observer.
+No Windows XLL, Python, sanitizer, full alternate-backend public/Excel suite or
+performance run is claimed. Linux examples were built/installed, not exhaustively
+executed. T32 measures native double C++ allocations, not AAD tape allocations,
+arbitrary malloc calls, or dynamic counts of every observation load. The compiler
+failure seam injects immediately before bytecode construction, not within every
+possible failing opcode.
 
-No Windows XLL, Python, sanitizer, alternative-backend full public/Excel suite,
-or benchmark run is claimed. This Linux run did build/install examples but did
-not execute every example. No benchmark or DAL-223 performance experiment ran.
-The isolated allocation fixture requires the explicit command above and is not
-registered in CTest because build infrastructure is outside this test-only scope.
+Retaining exact branches has unmeasured execution cost; DAL-223 stays deferred.
+Public methodology still describes exact domain pruning and must be revisited
+by DAL-230, along with its CHANGELOG decision. No documentation/production/API
+or configuration change is made here.
 
-The parent's inherited CI snapshot reported Codacy failure. Publication captures
-one new CI snapshot in `ci-snapshot.json`; unresolved CI remains the coordinator's
-integration work, and checks are not weakened or polled. Doc-writer and reviewer
-remain parked pending parent acceptance. No closing intent or merge is added.
-Fresh logs, submodule pins, selected CMake settings, tested source hashes,
-publication metadata and this report are attached as an archive with SHA256.
+The evidence archive includes fresh logs, source/revision hashes, the test patch,
+inherited-input verification, per-backend inventories and publication metadata.
+One published-head CI snapshot is captured without watching or polling; it is
+not remote-gate acceptance. DAL-229 is delivered for parent acceptance, followed
+sequentially by documentation and DAL-231 re-review. No merge, close intent,
+dependency update, peer start or F6 start is part of this delivery.
