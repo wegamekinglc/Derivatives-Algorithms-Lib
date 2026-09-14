@@ -48,7 +48,7 @@ namespace Dal::Script {
 
         // Conditions — one handler for all boolean nodes
         void VisitBool(BoolNode_& node) {
-            if (HasEagerBoolean(node)) {
+            if ((node.alwaysTrue_ || node.alwaysFalse_) && HasEagerBoolean(node)) {
                 VisitArgsSetCurrent(node);
                 return;
             }
@@ -69,7 +69,7 @@ namespace Dal::Script {
 
         // If
         void Visit(NodeIf_& node) {
-            if (HasEagerBoolean(*node.arguments_[0])) {
+            if ((node.alwaysTrue_ || node.alwaysFalse_) && HasEagerBoolean(*node.arguments_[0])) {
                 VisitArgsSetCurrent(node);
                 return;
             }
