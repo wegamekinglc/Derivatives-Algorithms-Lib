@@ -1,98 +1,146 @@
-# DAL-202 / F5: execution boundary investigation
+# DAL-202 / F5: native allocation repair and remaining performance gaps
 
-An isolated intervention now explains the model-recording regression: GCC expands native three-input tape allocation into the model time-step loop and repeats TLS resolution. Outlining that allocation restores model-phase cost close to master. Compiled evaluation has a separate placement effect, with a material residual. The combined diagnostic remains slower than master. **The original complete Python gate remains RED, 83/90.**
+The authorized native three-input allocation boundary preserves one shared allocation algorithm and restores the model phase close to master. Returning compiled AAD evaluation to the existing caller-side template reduces a separate evaluator cost. Fresh correctness passes across native, all three alternative AAD backends, Python, Clang sanitizers and static/shared/LTO consumers. This remains a partial performance repair, not F5 acceptance.
 
-This publication changes only `.codex/artifacts/reviews/dal-202/implementation.md`. No diagnostic code is shipped. The supported allocation intervention touches the native AAD backend, outside approved F5 product scope, and is returned to parent DAL-202 for an expert scope decision. PR #372 remains open against master in the owner's ready-for-review state; no semantic acceptance, merge or F6 advancement is claimed.
+**The fresh complete C++ gate is RED, 61/63, and Python is RED, 87/90.** Two tape clear/rewind cases newly fail; compiled barrier AAD, mixed-calibration diagnostics and a quote-risk case fail in Python. The supported allocation boundary therefore does not yet satisfy the complete performance contract.
 
-## Revisions and financial contract
+PR #372 remains open against master in its owner-set ready-for-review state. No closing lines, merge or F6 advancement is included. Parent DAL-202 owns acceptance and the serial DAL-229 tester, DAL-230 documentation/CHANGELOG decision and mandatory DAL-231 review. Earlier reports and the scope preflight do not approve this code.
+
+## Scope and revisions
 
 - Baseline: merged F4 master `b4e8b56135b5cfcbbe2ddd8d753921dd40d6caa2`, tree `f531d1858b881d3cf352c05c4e461e34f4263502`.
-- Starting published revision: `b1b3c719333d6bb53004a06f1663a277895ed65e`, tree `8ea892af2b3a9b101a369750d367714069cfd8a0`.
-- Unchanged product and retained performance build: `dad5e6ae417a47bade877230d8f0383287d68e1d`, tree `a7097403da513f35389ad248c8761bb9c6222466`. All 1,150 source hashes match this checkout; both retained binary inventories were verified before reuse.
-- The new report-only publication SHA/tree is in `investigation/published-identity.json` and the delivery comment. A report cannot contain its own commit hash.
+- Starting published head: `622ac82efa9185896093015ed3e2432653080fbc`, tree `4aca497271e642aecabf3aa1daceeb35c588ade0`; retained stock product `dad5e6ae417a47bade877230d8f0383287d68e1d`, tree `a7097403da513f35389ad248c8761bb9c6222466`.
+- Freshly tested product: `0a7455c24afc77ef61e074bc0a06acd7a6323e14`, tree `da47d7954f67339183df6adf739745a09013bccd`.
+- This report is the only subsequent repository change. The published SHA/tree and equality with tested code are recorded in `repair/published-identity.json` and the delivery comment. A report cannot contain its own commit hash.
 
-All fixed F4/F5 semantics remain unchanged: conservative folding guards, exact adjacent-float comparisons and tiny fuzzy divisors, historical hard replay/PAYS discard, typed seeds/terminal roots, fractional future weights, eager operands, syntax-wide prefetch, zero-worker preparation errors, exception drain, LocalCheckedPaths, allocation and lifetime contracts. No binding/API/model/backend product change, benchmark, CI, threshold, skip, curve, RNG or threadpool change is published.
+Exactly four source/test files change from the starting head:
 
-## Concrete instruction evidence
+| File                                  | Change                                                |
+|---------------------------------------|-------------------------------------------------------|
+| `dal-cpp/dal/math/aad/tape.hpp`         | Shared private allocator and three-input call boundary. |
+| `dal-cpp/dal/script/event.hpp`         | Remove compiled AAD specialization; retain tree entry. |
+| `dal-cpp/dal/script/evaluation.cpp`    | Remove corresponding compiled wrapper definition.     |
+| `dal-cpp/tests/math/aad/test_tape.cpp` | Add three focused native tape semantic regressions.   |
 
-The selected binding-emitted worker calls `BlackScholes_<Number_>::GeneratePathAndValidate`. Its valid exact-model route records the existing three-input expression `logSpot += drift + std * gauss` and an exponential per time step. Financial expressions and tape node counts are unchanged.
+The fifth changed file is this report. All 1,150 inherited non-artifact tracked file hashes were recomputed; only these four source/test files differ. No enum regeneration is needed. There are no changes to bindings/API/model formulas, alternate backend adapters, curves, RNG, threadpool, benchmarks, thresholds, skips or CI. Diagnostic PR #373 was not imported.
 
-The baseline's unchanged unstripped relink calls `Tape_::RecordNode<3>()` at `0x37f61f`; this allocator receives an already resolved tape pointer. In inherited F5, allocation is inlined into the loop. Extra TLS calls at `0x381492`, `0x3814bd`, `0x381512` and `0x381584` reload the tape while allocating the node, derivatives and adjoint-pointer slots. There are four extra TLS resolutions (eight versus four) on the ordinary validated time-step path. The fresh current relink retains this pattern at relocated addresses.
+The F4/F5 contracts remain: conservative folding, exact adjacent-float comparisons and tiny signed fuzzy divisors, hard historical replay/PAYS discard, typed seeds and terminal roots, fractional future weights, eager booleans and syntax-wide prefetch, zero-worker preparation errors, exception drain, LocalCheckedPaths and tape lifetimes. The native internal extension was explicitly authorized by the parent before implementation. No public contract or semantic design deviation is proposed.
 
-`base-model.asm`, `candidate-model.asm`, per-overlay `selected-model.asm`, link maps and module hashes retain these exact bodies. Whole-function static TLS site counts are baseline 15 / current 20 / record3-outline 15; those totals include fallback and initialization branches and are not dynamic counts. `hot-loop-tls.json` retains the four/eight call-site ledger. The validated-loop comparison, together with the controlled intervention below, is the evidence for the per-step cost. It does not assign an exact nanosecond cost to each lookup or exclude associated spills/layout effects.
+## Allocation design and actual emitted effect
 
-Removing only the compiled AAD entry-point specialization returns its existing generic implementation to callers while leaving the tree specialization in core. The selected binding/LTO interpreter routes arithmetic recording through outlined `Number_::FromExpr` helpers. Direct TLS sites disappear from the dispatcher itself, moving into helpers; TLS use is not eliminated. The interpreter's static instruction count changes from 5,850 to 1,653, partly because exception/recording code moves out. Size alone is not the causal claim: actual financial workloads and phase timings establish the effect.
+`Tape_::RecordNode<N>()` delegates to one private `AllocateNode<N>()` containing the original body. Node creation, multi-adjoint reservation/initialization, compile-time derivative/pointer reservations and their order are unchanged. `N=0` retains its no-derivative/no-pointer-allocation path. Positive arities retain compile-time capacity checks. Member layout, public signatures, caller-owned tapes, node counts and expression wiring remain unchanged.
 
-## Interventions and results
+An inline explicit `RecordNode<3>()` specialization appears immediately after the class, before consumers can instantiate it, and delegates to the shared body. It is ODR-safe across translation units. Compiler controls use guarded MSVC `__declspec(noinline)`, GCC 9+ `__attribute__((noipa))`, Clang/older GCC `__attribute__((noinline))`, and a plain inline fallback otherwise. The shared body uses the repository's existing `FORCE_INLINE`. No new macro, public helper, global flag, runtime reservation, `noexcept`, `cold` annotation or TLS cache is introduced. Other arities are not marked non-inline.
 
-All variants use current F5 sources and preserve the financial work:
+The initial supported noinline version restored the model phase alone, but GCC LTO cloned its allocator when combined with caller-side compiled placement. The `.constprop` clone reintroduced TLS access inside allocation. The GCC noipa boundary prevents this cloning; forced inlining of the shared body avoids an additional generic helper boundary. One shared algorithm remains.
 
-- `control`: unchanged relink, also compared with the original `stock` module.
-- `caller`: remove only the compiled AAD specialization declaration/body from `event.hpp`/`evaluation.cpp`. All prepared bytecode and generic execution remain.
-- `model`: add a core `GenerateCheckedPath<Number_>` helper at the script path-generator boundary, delegating to the unchanged model. Rejected as slower.
-- `record3`: diagnostic native `Tape_::RecordNode<3>()` explicit specialization with `noinline` and the existing allocation body; no layout/graph change.
-- `caller-record3`: combine the relevant boundaries to test interactions.
+The actual final CMake Python module was relinked unstripped from its own objects and original flags. Its `.text` matches exactly: SHA256 `11a6884b7dbbc72a46d70bcdbfa0198a8b9eafb188cc675f091e2f3c5af4413c`. The actual module SHA256 is `6ba4aabf2051d819b702be794c0b87fb128f1e9f5bb2b5aab95038a048d7a398`. The selected three-input allocator is unique, has no clone and performs no TLS lookup. The model calls it with the resolved tape pointer, restoring the four ordinary per-step TLS resolutions seen in master, versus eight in inherited F5. Whole-function site counts include initialization/fallback branches and are not dynamic counts. The intervention supports an allocation/inlining cause, without assigning precise per-lookup cost or excluding spill/layout effects.
 
-Allocator variants rebuild all 64 affected core/public/binding translation units; caller-only rebuilds all 9 and model-only all 3. Tracing likewise rebuilds every affected TU, including the binding value TU that emits the selected worker templates. Dependency inventories, commands, link maps and selected bodies are retained. No incompatible baseline object is transplanted into a current module. The GNU attribute and duplicated specialization body are diagnostic devices, not a portable production design.
+`allocation-clone-ledger.json`, `noipa-emitted.json`, `final-emitted.json`, selected disassembly and maps retain the bodies. Allocation overlays rebuilt all 64 affected core/public/binding translation units, including the binding value TU that emits workers, followed by full final CMake builds. No baseline objects were transplanted into current modules.
 
-Four-thread uninstrumented minima in milliseconds, ten alternating process samples per variant, allocation matrix:
+## Evaluator investigation
 
-| Workload                        | Master  | Control | Caller  | Record3 | Combined |
-|---------------------------------|---------|---------|---------|---------|----------|
-| Barrier AAD compiled            | 8.8006  | 11.1710 | 10.8960 | 11.1014 | 9.6999   |
-| Barrier AAD tree                | 10.7172 | 11.3740 | 11.5631 | 10.3616 | 10.5311  |
-| Vanilla AAD compiled            | 0.7904  | 0.9487  | 0.9138  | 0.8883  | 0.8275   |
-| Comparison vanilla greeks 65536 | 2.3733  | 2.8279  | 2.7752  | 2.5928  | 2.4096   |
+The shipped evaluator change removes only the compiled AAD specialization; its existing generic header implementation remains available and the tree specialization stays in core. The selected binding/LTO compiled interpreter calls outlined `Number_::FromExpr` arithmetic helpers. Zero direct TLS sites in the dispatcher do not mean zero TLS use: recording helpers still resolve their tapes.
 
-The first separate matrix rejects the core model helper: barrier compiled 12.3591 ms versus control 11.3714 ms. Original stock 11.3747 ms shows that an unchanged relink does not explain the failure. Caller-only is 10.4647 ms in that first matrix and 10.8960 ms in the second; both sets remain. Cross-matrix differences are not acceptance results. The combined allocation matrix still exceeds master by 10.2% for compiled barrier and 4.7% for native compiled vanilla.
+Fresh untimed actual-module capture compared event opcode streams and exact hexadecimal constant-pool values for 100 prepared valuations. Streams, event lengths and constants match master (`pool-comparison.json`). This rules out those prepared-work differences for the measured cases, not every possible graph/metadata difference.
 
-One-thread every-path phase measurements, nanoseconds/path, taken from each variant's minimum end-to-end sample (not independently minimized phases):
+Five fresh matrices retain 3,840 sampled case comparisons with identical native arguments, path counts, PVs and all risk keys/values (relative 1e-10 / absolute 1e-9). They retain the original 16 canonical script MC financial cases, validators and two warmups. Native barrier/vanilla AAD use 10,000/20,000 paths; comparison cases use 16,384/65,536. Comparison barrier greeks are seven bumped double valuations; comparison vanilla greeks use AAD. Unchanged relink/stock controls remain. Each matrix uses ten alternating process samples per variant; these are diagnostic subsets, not complete acceptance gates.
 
-| Variant      | Barrier compiled model | Barrier compiled evaluation | Barrier tree model | Barrier tree evaluation |
-|--------------|------------------------|-----------------------------|--------------------|-------------------------|
-| Master       | 1433.7                 | 1272.4                      | 1412.3             | 1910.3                  |
-| Control      | 1753.0                 | 1905.7                      | 1751.4             | 1927.6                  |
-| Caller       | 1807.9                 | 1541.5                      | 1810.3             | 1919.2                  |
-| Model helper | 2157.5                 | 1895.7                      | 2179.0             | 1897.8                  |
-| Record3      | 1414.6                 | 2025.4                      | 1416.3             | 1912.4                  |
-| Combined     | 1401.7                 | 1553.2                      | 1415.4             | 1877.0                  |
+Four-thread uninstrumented minima in milliseconds from `matrix4-boundary`:
 
-Reverse propagation remains roughly 277–291 ns/path. Allocation outlining restores the model phase; caller placement reduces compiled evaluation but leaves about 281 ns/path versus master in the combined variant. Allocation alone also changes evaluation adversely, demonstrating non-additive compiler/linkage interactions. The matching model TLS patterns persist in traced and uninstrumented modules. Equal financial work and earlier equal node counts do not prove all graph layouts identical.
+| Workload                        | Master  | Stock relink | Allocation only | Combined |
+|---------------------------------|---------|--------------|-----------------|----------|
+| Barrier AAD compiled            | 9.0182  | 11.5820      | 10.8331         | 9.5964   |
+| Barrier AAD tree                | 10.9077 | 11.5387      | 10.6257         | 10.5606  |
+| Vanilla AAD compiled            | 0.8192  | 0.9303       | 0.8888          | 0.7949   |
+| Comparison vanilla greeks 65536 | 2.4278  | 2.7895       | 2.6160          | 2.3469   |
 
-The separate one-thread overhead control records current compiled barrier at 41.2616 ms uninstrumented, 41.3292 ms with batch tracing but no per-path clocks, and 42.5344 ms with every-path clocks. Compiled vanilla is 3.1117 / 3.2034 / 5.3154 ms respectively. Thus clocks materially perturb small workloads; instrumented totals are not acceptance timings. All 4,160 sampled case results across the four matrices have matching PV/all-risk maps and native arguments. Full 16-case inventories, every raw sample and overhead variants are retained in each matrix's summary and raw records.
+Allocation-only is the initial supported plain-noinline version; combined adds forced shared-body inlining, GCC noipa and caller compiled placement. Individual variants and all raw data remain in the seven-variant matrix; effects are not assumed additive. A separate capture experiment measured master/combined barrier compiled at 8.9101/9.6553 ms. Both matrices remain, without selecting a best result across matrices.
 
-A final untimed actual-module audit compares the opcode streams emitted after the real public preparation call. All 100 compiled valuations produce identical streams on master/current, and canonical validators pass. `bytecode.py`, its two isolated public-TU overlays and `bytecode-comparison.json` retain the records. This rules out a changed opcode sequence in these workloads; constant-pool contents were not inspected. The extra diagnostic compilation is not part of any timing sample.
+One-thread phases, ns/path, from `matrix1-capture`, using phases from each minimum end-to-end sample:
 
-All 16 canonical script MC cases retain original arguments, validators, two warmups, PVs and every risk map. Native barrier/vanilla AAD use 10,000/20,000 paths; comparison cases use 16,384/65,536. Comparison barrier greeks are seven bumped double valuations, while comparison vanilla greeks use AAD. Every sampled case result and native call is compared, including identical risk keys, at relative 1e-10 / absolute 1e-9. No public numeric result is replaced with diagnostic data.
+| Variant      | Compiled model | Compiled evaluation | Tree model | Tree evaluation |
+|--------------|----------------|---------------------|------------|-----------------|
+| Master       | 1420.2         | 1262.1              | 1408.1     | 1901.0          |
+| Combined     | 1410.1         | 1574.7              | 1418.5     | 1893.9          |
+| Capture copy | 1415.1         | 1567.1              | 1412.1     | 1887.6          |
 
-## Verification and acceptance boundary
+The model phase is close to master; compiled evaluation retains about 313 ns/path. Inherited overhead controls showed material clock perturbation for small workloads. Instrumented totals are not acceptance timings; phases are not independently minimized.
 
-This is a diagnostic/report delivery with no production behavior change. The controlling RED is inherited Python 83/90; diagnostic gains are not GREEN acceptance. No artificial failing unit test was introduced and unchanged full gates were not rerun to seek green.
+Bounded evaluator interventions were rejected:
 
-Inherited product correctness is native 1744/1744, focused native/Adept/CoDiPack/XAD 454/453/453/452, Python 402/402 on correctness and both performance builds, exact 4 / tiny 6 / allocation 2, including all 27 lifetime combinations and 33 legacy/parity/fuzz cases. These source-matched results are retained evidence, not fresh full tests of the backend overlay. The original C++ gate 63/63, Python 83/90 and candidate A/A 90/90 retain every raw sample, inventory, two rounds of ten interleaved samples, minimum reduction and strict 4% rule. The seven Python failures remain barrier greeks 16384; vanilla greeks 16384/65536; vanilla price 16384; barrier AAD compiled/tree; vanilla AAD compiled.
+- Relaxing forced inlining of the arithmetic group outlined an extra helper without improving the target financial cost (`caller-supported-arithmetic`).
+- Copying the small sample accessor capture removed the intended reference indirection, but did not materially improve phase/total cost. Four-thread compiled barrier was 9.8093 versus 9.6553 ms for its control (`caller-supported-forcebody-noipa-flatcapture`). This change is not shipped.
+- GNU flatten on the sum dispatcher did not remove selected add/sub `FromExpr` call boundaries. `flattensum-no-effect.json` records that the intended intervention failed. It was not timed and does not disprove a successful arithmetic-inlining intervention.
 
-Main reconstruction commands, using the recorded retained source/build identities:
+The evaluator residual is unresolved. Earlier rejected model helper, root outlining, tape caching, extern and LTO/semantic-interposition experiments remain inherited and were not repeated. Further work should target actual selected compiled arithmetic/dispatch bodies with a verified intervention while preserving the established allocation control. A universal cause for all timing failures is not claimed.
+
+After the complete C++ gate exposed the static tape-chain cost, one final allocation diagnostic replaced GCC noipa with noinline,noclone. This preserves the inlining/cloning constraints while allowing other IPA analyses. All 64 affected core/public/binding TUs and the original static tape benchmark TU were rebuilt. The selected Python allocator/model and static allocator/BuildChain retain identical instruction sequences after removing relocation addresses; registers, constants and branch offsets remain compared (`noclone-instruction-comparison.json`). The intended register-analysis improvement did not occur. No additional timing or full-gate rerun was used, and this diagnostic is not shipped. The static clear/rewind regression remains an explicit unresolved tradeoff of the current boundary.
+
+## RED, GREEN and fresh verification
+
+Timing-only TDD follows the parent's explicit adaptation: the inherited complete Python RED is 83/90, with original commands/raw samples retained. No semantic failure was fabricated. Before production edits, all three new tests and existing tape tests passed 13/13 under `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=AADTapeTest.*` (`semantics-before.json/log/xml`). These protect uncovered semantics while performance supplies the RED oracle.
+
+New tests exercise three-input expressions with multiple results, aliasing and compound self-assignment; independent node/derivative/pointer/multi-adjoint block rollover; mark/rewind/re-recording and stale-adjoint reset; and caller-owned arities 0/1/3/5. They use existing interfaces and analytic derivatives, without new hooks. Final native and sanitizer suites include them.
+
+| Fresh final-revision verification                 | Result                                  |
+|--------------------------------------------------|-----------------------------------------|
+| Native Release CTest                              | 1748/1748, including Python CTest entry  |
+| Python within native CTest                        | 402/402                                 |
+| Adept / CoDiPack / XAD full CTest                  | 1735/1735, 1735/1735, 1734/1734           |
+| Clang 21 ASan/UBSan AAD/script/MC                  | 400/400                                 |
+| Shared Python                                    | 401 passed, one missing fixture covered next |
+| Rebuilt private shared fixture, quote-risk module | 8/8, including previously skipped case   |
+| Unchanged independent exact/tiny/allocation       | 4/4, 6/6, 2/2                            |
+| GCC static/shared LTO and Clang sanitizer LTO users| All builds and executions pass           |
+| Documentation/whitespace                          | 58 Markdown files and whitespace pass                              |
+
+Native CTest comprises 1,747 non-Python entries plus the Python entry. Shared Python initially skipped one test because `_dal_quote_risk_test` was not built; after building it, all eight tests in that module passed. All 402 unique shared cases were therefore exercised without modifying skips. All 27 lifetime combinations (threads 1/2/4, 8,193 paths, fixings 80/90/80), 33 legacy/parity/fuzz cases and fixed F4/F5 financial/error oracles remain covered by fresh suites.
+
+GCC 14 Release correctness uses native-architecture OFF. Performance retains ON and original binding LTO/visibility. Four ON curve failures were previously reproduced identically on master; curves are unchanged. Clang ASan enables leak detection, UBSan halts on error. Two-TU consumers use GCC LTO against static/shared core and Clang LTO plus sanitizers. Baseline/current size 368, alignment 8 and member offsets 0/8/16/88/160/232/304 match. Windows/MSVC is unavailable locally; guarded spelling and hosted Windows consumer/benchmark checks still require validation.
+
+Commands, cwd, exit status and elapsed time are retained in corresponding `repair/*.json`. Principal GREEN commands after final source edits:
 
 ```sh
-python3 investigation/build_matrix.py control caller model
-python3 investigation/collect.py matrix4-valid base,stock,control,caller,model 10 4 0
-python3 investigation/build_matrix.py control-trace caller-trace model-trace record3 caller-record3
-python3 investigation/build_matrix.py base-control-trace record3-trace caller-record3-trace
-python3 investigation/collect.py matrix4-recording base,control,caller,record3,caller-record3 10 4 0
-python3 investigation/collect.py matrix1-phases base-control-trace,control-trace,caller-trace,model-trace,record3-trace,caller-record3-trace 10 1 1
-python3 investigation/collect.py matrix1-overhead base,control,caller,record3,caller-record3,base-control-trace,control-trace,caller-trace,record3-trace,caller-record3-trace 10 1 0
-python3 investigation/summarize_matrix.py matrix4-valid matrix4-recording matrix1-phases matrix1-overhead
-python3 investigation/bytecode.py
+cmake --build build/Release-linux -j 8
+ctest --test-dir build/Release-linux --output-on-failure -j 4
+python3 repair/verify_backends.py
+cmake --build build/clang-sanitized --target dal_cpp_tests -j 6
+env ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/clang-sanitized/dal-cpp/dal_cpp_tests '--gtest_filter=AAD*:Script*:MonteCarlo*:MCSimulation*'
+env PYTHONPATH=build/shared/dal-python DAL_NUM_THREADS=4 python3 -m pytest dal-python/tests -q
+cmake --build build/shared --target _dal_quote_risk_test -j 6
+env PYTHONPATH=build/shared/dal-python DAL_NUM_THREADS=4 python3 -m pytest dal-python/tests/test_joint_quote_risk.py -q
+python3 repair/verify_oracles.py
+python3 repair/verify_consumers.py
+python3 repair/inspect_final.py
+python3 .github/scripts/check_docs.py
 ```
 
-Two diagnostic setup failures were corrected before sampling: `inspect.py` shadowed Python's standard library and aborted the first matrix before workloads (renamed `inspect_assembly.py`); a specialization insertion anchor matched four backend declarations (now restricted to native). Failed first-matrix output is retained. Neither is a product failure or completed timing sample. Measurements ran sequentially after own builds ended. GCC 14 / CMake 4.2 Release, native-architecture-ON performance flags and original binding LTO/visibility settings remain. External WSL2 host load, clock instrumentation and unavailable hardware perf counters limit attribution. Windows, sanitizer and full alternative-backend overlay validation are not claimed.
+Evidence scripts run from the evidence root; repository commands run in the checkout. Configuration records retain all options/compiler paths. Diagnostic setup failures remain in `diagnostic-setup-notes.md`: a Clang core-only configuration initially retained portable Excel, and a trace transformation relied on a moving allocator spelling. Both were corrected before affected testing/sampling; the harness now pins `supported-tape.hpp` to commit `31ad288`. Neither was a product failure or completed timing result.
 
-## Parent decision and remaining work
+## Original performance gates and provenance
 
-The supported next repair boundary is **`dal-cpp/dal/math/aad/tape.hpp`, native `Tape_::RecordNode<3>()` allocation/inlining**. No binding API or model-formula change is needed for this experiment. Parent should authorize an AAD-backend expert to select a portable minimal boundary without duplicated production logic and validate single/multiple adjoints, block rollover and backend compatibility. The diagnostic GNU specialization is not ready for publication as product code.
+Both original gates use final product binaries after local builds/tests finished, sequentially with `DAL_NUM_THREADS=4`. They retain the full inventories, two rounds, ten alternating samples per side, minimum reduction and strict 4% rule, including all samples/per-round results. No unchanged completed gate was rerun to seek green.
 
-Caller-side compiled placement is supported partial attribution, not a complete standalone repair. Preserve the model allocation control while isolating the remaining actual-module compiled arithmetic/dispatch cost. Do not require the seven failures to share one mechanism. Earlier root outlining, tape-pointer caching, extern instantiation, LTO/no-semantic-interposition failures and full gate/control samples remain inherited; they were not rerun as new hypotheses.
+```sh
+env DAL_NUM_THREADS=4 python3 .github/scripts/check_benchmark_regressions.py --base-root BASE/build/performance --head-root build/performance --output-dir EVIDENCE/repair/full-cpp --samples 10 --confirmation-rounds 2 --threshold-percent 4
+env DAL_NUM_THREADS=4 python3 .github/scripts/check_python_benchmark_regressions.py --base-root BASE/build/performance --head-root build/performance --base-source BASE --head-source . --output-dir EVIDENCE/repair/full-python-canonical --samples 10 --confirmation-rounds 2 --threshold-percent 4
+```
 
-After an approved product repair, fresh native/supported-backend/Python correctness and both complete original gates remain required, followed by serial DAL-229 testing, DAL-230 documentation/CHANGELOG decision and mandatory DAL-231 review on exact revisions. Older done reports do not approve new code.
+`BASE` is the verified F4 checkout, `EVIDENCE` this working directory. Exact commands/paths are in `gate-cpp-final.json` and `gate-python-canonical.json`. The first Python invocation stopped before sampling because CMake stored four false booleans as `off` instead of baseline `OFF`; its case-sensitive configuration guard rejected them. Canonicalizing those unchanged false values fixed setup without changing flags/binaries or the gate. The failed zero-case invocation is retained in `full-python` and `python-config-mismatch.json`.
 
-The archive retains current commands, overlays, selected disassembly, link maps, raw financial/timing/phase data, hashes and this matching report. It nests the previous archive unchanged, SHA256 `643f12959c87308ff24a8d8e54eff47b9af615f7c89eeb7ac6c099e697cce45d`; all 1,560 manifest entries and report equality were verified. Generated binaries/objects/full-module disassemblies are excluded with hashes and reconstruction commands. Absolute build paths are provenance, not deliverable links. Publication records one CI snapshot; no watch/poll or acceptance is claimed.
+All 63 C++ and 90 Python cases completed. Failures exceed 4% in both confirmation rounds:
+
+| Gate/case                              | Round 1 | Round 2 |
+|----------------------------------------|---------|---------|
+| C++ Clear + re-record, 100K nodes        | +5.33%  | +4.91%  |
+| C++ Rewind + re-record, 100K nodes       | +7.60%  | +7.71%  |
+| Python calibration.MIXED.BUMPED.diagnostics | +4.47% | +5.60% |
+| Python mc.barrier.aad.compiled          | +14.58% | +9.63%  |
+| Python quotes.single.n5.ANALYTIC.t120    | +5.07%  | +4.88%  |
+
+The six other historically failing Python cases pass this fresh complete gate, but that does not waive these three failures or establish their cause. The new calibration/quote-risk failures are retained without attributing them to noise or expanding product scope. The actual static tape-chain loop allocates inline on master and calls the selected three-input allocator on this candidate; this exposes a cost of the same boundary that helps the Python model. The complete C++ result is a regression from inherited63/63 and must be resolved before acceptance.
+
+`final-build-identity.json` retains source/binary hashes, compiler flags, link commands and environment. All 23 retained binary inventory entries per baseline/stock were freshly verified before reuse. WSL2 host load and unavailable hardware counters limit attribution. Inherited C++63/63, Python83/90 and A/A90/90 remain intact; A/A does not waive baseline regression. New local results do not replace required hosted checks or independent review.
+
+The attachment retains commands, source overlays, selected instructions, maps, raw financial/phase/gate data, identities, reconstruction scripts and this matching report. Generated binaries/objects/full-module disassemblies are excluded with hashes/rebuild commands. It nests the preceding archive unchanged, SHA256 `03adfb403e9ed6119b2d5ee12f091c9e03b757b1be160c2414856fe71cf181ad`; all 1,603 outer manifest entries were freshly verified. The nested phase archive remains `643f12959c87308ff24a8d8e54eff47b9af615f7c89eeb7ac6c099e697cce45d`; its 1,560 entries were parent-verified, not freshly reverified here. The new manifest/checksum covers this delivery. Publication records one CI snapshot without watch/polling.
