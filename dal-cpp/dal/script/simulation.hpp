@@ -479,7 +479,7 @@ namespace Dal::Script {
         if constexpr (std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
                          useCompiled == product.Simulation().compiled_.value_or(false),
-                     "UnsupportedExecutionMode: AAD mode or smoothing differs from preparation", ScriptError_);
+                     "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)

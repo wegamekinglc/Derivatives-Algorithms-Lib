@@ -27,6 +27,17 @@ namespace {
 
     Handle_<ModelData_> Model() { return Handle_<ModelData_>(new BSModelData_("", 100.0, 0.2, 0.03, 0.01)); }
 
+    template <class F_> void CheckPreparedModeFailure(const F_& simulate) {
+        try {
+            simulate();
+            FAIL() << "preparation accepted incompatible execution settings";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(std::string(error.what()).find(
+                          "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation"),
+                      std::string::npos);
+        }
+    }
+
     struct CompiledRootCase_ {
         ScriptProductData_ product_;
         double payoff_;
@@ -249,12 +260,56 @@ TEST(ScriptPastReplayTest, TestPreparedCompiledModeCannotChange) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     MonteCarloSettings_ simulation;
     simulation.enableAad_ = true;
+    auto model = CreateModel<double>(Model());
+    for (bool compiled : {false, true}) {
+        SCOPED_TRACE(compiled);
+        simulation.compiled_ = compiled;
+        const auto prepared = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+        ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure(
+            [&] { MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, !compiled); }));
+        const auto result = MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, compiled);
+        ASSERT_NEAR(result.aggregated_ / 257, 160.0 * exp(-0.03 * 10.0 / DAYS_PER_YEAR), 1.0e-10);
+        ASSERT_THROW(prepared.BuildFuzzyEvaluator<double>(0, 0.2), ScriptError_);
+        ASSERT_THROW(prepared.BuildEvalState<double>(0, 0.2), ScriptError_);
+    }
+}
+
+TEST(ScriptPastReplayTest, TestPreparedDefaultCompiledModeResolvesToTree) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
     simulation.compiled_ = true;
     auto model = CreateModel<double>(Model());
-    const auto prepared = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
-    ASSERT_THROW(MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, false), ScriptError_);
-    ASSERT_THROW(prepared.BuildFuzzyEvaluator<double>(0, 0.2), ScriptError_);
-    ASSERT_THROW(prepared.BuildEvalState<double>(0, 0.2), ScriptError_);
+    const auto compiled = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(compiled, Model(), 257); }));
+    simulation.compiled_ = std::nullopt;
+    const auto tree = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(tree, Model(), 257, "sobol", false, true); }));
+    const auto result = MCSimulation<AAD::Number_>(tree, Model(), 257);
+    ASSERT_NEAR(result.aggregated_ / 257, 160.0 * exp(-0.03 * 10.0 / DAYS_PER_YEAR), 1.0e-10);
+}
+
+TEST(ScriptPastReplayTest, TestPreparedAadAndSmoothingMismatchDiagnostic) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    auto model = CreateModel<double>(Model());
+    MonteCarloSettings_ simulation;
+    const auto passive = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCAADSimulation(passive, Model(), 257, "sobol", false, false, -1, 0.01); }));
+    simulation.enableAad_ = true;
+    const auto active = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure(
+        [&] { MCSimulation<AAD::Number_>(active, Model(), 257, "sobol", false, false, -1, 0.2); }));
+}
+
+TEST(ScriptPastReplayTest, TestExpiredPreparationSkipsAadModeMismatch) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 23));
+    auto model = CreateModel<double>(Model());
+    const auto expired = PrepareScript(HistoricalProduct(), model.get(), {}, {});
+    const auto result = MCAADSimulation(expired, Model(), 257, "sobol", false, true, -1, 0.2);
+    ASSERT_DOUBLE_EQ(result.aggregated_, 0.0);
+    ASSERT_FALSE(result.risks_.empty());
+    for (double risk : result.risks_)
+        ASSERT_DOUBLE_EQ(risk, 0.0);
 }
 
 TEST(ScriptPastReplayTest, TestDirectSeedPayoff) {
