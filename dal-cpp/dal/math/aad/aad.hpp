@@ -129,3 +129,17 @@ namespace Dal::AAD {
 
 } // namespace Dal::AAD
 #endif
+
+namespace Dal::AAD {
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+    inline Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
+        auto end = Tape()->nodes_.End();
+        // Only a terminal node recorded after the mark is already a path-local root.
+        if (end != Tape()->nodes_.Mark() && &Adjoint(payoff) == &std::prev(end)->Adjoint())
+            return payoff;
+        return payoff + activeZero;
+    }
+#else
+    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) { return payoff + activeZero; }
+#endif
+} // namespace Dal::AAD

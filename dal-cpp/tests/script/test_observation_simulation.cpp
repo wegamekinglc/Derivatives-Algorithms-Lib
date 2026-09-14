@@ -988,18 +988,18 @@ TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresDrainEv
     }
 }
 
-TEST(ScriptObservationSimulationTest, TestNamedFuzzyAndCompiledRejectBeforeModelSetup) {
+TEST(ScriptObservationSimulationTest, TestNamedCompiledRejectsBeforeModelSetup) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto product = Product("IF 1 = 0 THEN pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) ELSE pay PAYS 7 END");
     ReadCounter_ reads;
     SubmissionCounter_ workers;
     const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
-    for (const bool compiled : {false, true}) {
+    for (const bool aad : {false, true}) {
         ControlledModel_ model;
         MonteCarloSettings_ simulation;
-        simulation.enableAad_ = !compiled;
-        simulation.compiled_ = compiled;
+        simulation.enableAad_ = aad;
+        simulation.compiled_ = true;
         ASSERT_THROW(PrepareScript(product, &model, BoundSettings(), simulation), ScriptError_);
         ASSERT_EQ(model.allocations_, 0);
         ASSERT_EQ(reads.histories_, 0);
@@ -1101,4 +1101,135 @@ TEST(ScriptObservationSimulationTest, TestControlledSinglePathHistoricalOracles)
         ASSERT_EQ(model.paths_->load(), 1);
         ASSERT_EQ(reads.fixings_, 1);
     }
+}
+
+TEST(ScriptObservationSimulationTest, TestAadRepricingRefreshesGlobalHistoryAndModelInputs) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const HistoryRestore_ restoreHistory("EQ[DAL196_TEST]");
+    PoolRestore_ pool;
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                     {"2", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"});
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (double fixing : {80.0, 90.0, 80.0}) {
+            FixHistory_ history;
+            history.vals_ = {{DateTime_(Date_(2026, 9, 11), 0.0), fixing}};
+            XGLOBAL::StoreFixings("EQ[DAL196_TEST]", history, false);
+            for (double rate : {0.03, 0.07, 0.03}) {
+                SCOPED_TRACE(::testing::Message() << "threads=" << threads << " fixing=" << fixing << " rate=" << rate);
+                ReadCounter_ reads;
+                const Dal::Detail::ScopedFixingReadObserver_ observer(&reads);
+                const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, rate, 0.01));
+                const auto result = MCSimulation<AAD::Number_>(product, model, 8193, ScriptValuationSettings_());
+                const double t = 10.0 / DAYS_PER_YEAR;
+                const double discount = exp(-rate * t);
+                ASSERT_NEAR(result.aggregated_ / 8193, 2.0 * fixing * discount, 2.0 * fixing * discount * 1.0e-12);
+                ASSERT_NEAR(result["SCALE"], fixing * discount, 1.0e-10);
+                ASSERT_NEAR(result["rate"], -t * 2.0 * fixing * discount, 1.0e-10);
+                ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+                ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+                ASSERT_EQ(reads.histories_, 1u);
+                ASSERT_EQ(reads.fixings_, 1u);
+            }
+        }
+    }
+}
+
+namespace {
+    struct AuditedPrepared_ : PreparedScript_ {
+        std::atomic<size_t>* evaluations_;
+        AuditedPrepared_(PreparedScript_&& prepared, std::atomic<size_t>* evaluations)
+            : PreparedScript_(std::move(prepared)), evaluations_(evaluations) {}
+        template <class E_> void InitializeHistoricalState(E_* evaluator) const {
+            RejectHistory_ reject;
+            const Dal::Detail::ScopedFixingReadObserver_ guard(&reject);
+            PreparedScript_::InitializeHistoricalState(evaluator);
+        }
+        template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& path, E_& evaluator) const {
+            RejectHistory_ reject;
+            const Dal::Detail::ScopedFixingReadObserver_ guard(&reject);
+            const size_t count = path.front().observations_.size();
+            const auto* observations = count ? &path.front().observations_.front() : nullptr;
+            PreparedScript_::Evaluate(path, evaluator);
+            REQUIRE(path.front().observations_.size() == count && (!count || &path.front().observations_.front() == observations),
+                    "observation storage changed during evaluation");
+            ++*evaluations_;
+        }
+    };
+} // namespace
+
+TEST(ScriptFixingPreparationTest, TestAadUniqueHistoryAndNoHotPathLookup) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const HistoryRestore_ restoreHistory("EQ[DAL196_TEST]");
+    StoreHistory();
+    PoolRestore_ pool;
+    String_ repeated;
+    for (size_t i = 0; i < 33; ++i)
+        repeated += (i ? " + " : "") + String_("FIX(EQ[DAL196_TEST], 2026-09-11)");
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+                                     {"2", "x = SCALE * (" + repeated + " + FIX(EQ[DAL196_TEST]))",
+                                      "x = x + " + repeated + " + 0 * FIX(EQ[DAL196_TEST])", "pay PAYS x + " + repeated});
+    const Handle_<ModelData_> data(new BSModelData_("", 100.0, 0.2, 0.03, 0.01));
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (size_t paths : {1, 257, 8193})
+            for (bool aad : {false, true}) {
+                SCOPED_TRACE(::testing::Message() << "threads=" << threads << " paths=" << paths << " aad=" << aad);
+                ReadCounter_ reads;
+                SubmissionCounter_ workers;
+                const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+                const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+                auto model = CreateModel<double>(data);
+                MonteCarloSettings_ simulation;
+                simulation.enableAad_ = aad;
+                std::atomic<size_t> evaluations{0};
+                const AuditedPrepared_ prepared(PrepareScript(product, model.get(), BoundSettings(), simulation), &evaluations);
+                ASSERT_EQ(prepared.Plan().Requests()[0].uses_.size(), 100u);
+                ASSERT_EQ(reads.histories_, 1u);
+                ASSERT_EQ(reads.fixings_, 1u);
+                const auto result = aad ? MCAADSimulation(prepared, data, paths, "sobol", false, false, 0, 0.01)
+                                        : MCDoubleSimulation(prepared, model.get(), paths, "sobol", false, false, true);
+                const double discount = exp(-0.03 * 10.0 / DAYS_PER_YEAR);
+                ASSERT_NEAR(result.aggregated_ / paths, 134.0 * 80.0 * discount, 134.0 * 80.0e-12);
+                if (aad)
+                    ASSERT_NEAR(result["SCALE"], 34.0 * 80.0 * discount, 1.0e-10);
+                ASSERT_EQ(reads.histories_, 1u);
+                ASSERT_EQ(reads.fixings_, 1u);
+                ASSERT_EQ(workers.submissions_, BatchPlan_(paths, pool.pool_->NumThreads()).BatchCount());
+                ASSERT_EQ(evaluations.load(), paths);
+            }
+    }
+}
+
+TEST(ScriptFixingPreparationTest, TestAadPreparationFailureAndPathDrain) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    pool.pool_->Start(4, true);
+    const auto product = Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-10)");
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    const Handle_<ModelData_> data(new BSModelData_("", 100.0, 0.2));
+    SubmissionCounter_ workers;
+    const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, data, 8193, BoundSettings(), {}, snapshot), ScriptError_);
+    ASSERT_EQ(workers.submissions_, 0u);
+    const Handle_<ModelData_> badModel(new BSModelData_("", -100.0, 0.2));
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, badModel, 8193, BoundSettings(), {}, snapshot), Exception_);
+    ASSERT_EQ(workers.submissions_, 0u);
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, data, 8193, BoundSettings(), simulation, snapshot), ScriptError_);
+    ASSERT_EQ(workers.submissions_, 0u);
+    simulation.compiled_ = false;
+    auto model = CreateModel<double>(data);
+    std::atomic<size_t> evaluations{0};
+    const AuditedPrepared_ prepared(
+        PrepareScript(Product("pay PAYS LOG(-1) + FIX(EQ[DAL196_TEST], 2026-09-11)"), model.get(), {}, simulation, snapshot), &evaluations);
+    ASSERT_THROW(MCAADSimulation(prepared, data, 8193, "sobol", false, false, 0, 0.01), ScriptError_);
+    ASSERT_EQ(workers.submissions_, BatchPlan_(8193, pool.pool_->NumThreads()).BatchCount());
+    ASSERT_EQ(evaluations.load(), workers.submissions_);
+    const auto recovered = MCSimulation<AAD::Number_>(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11)"), data, 257, BoundSettings(), {}, snapshot);
+    ASSERT_DOUBLE_EQ(recovered.aggregated_ / 257, 80.0);
+    for (double risk : recovered.risks_)
+        ASSERT_TRUE(std::isfinite(risk));
 }

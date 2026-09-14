@@ -26,9 +26,9 @@ namespace Dal::Script {
 #define MODIFY_VISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_
 
 //  Const visitors
-#define CONST_VISITORS                                                                                                 \
-    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_<double>, Compiler_, FuzzyEvaluator_<double>,                       \
-        FuzzyEvaluator_<AAD::Number_>
+#define CONST_VISITORS                                                                                                                               \
+    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_<double>, Compiler_, FuzzyEvaluator_<double>,                             \
+        FuzzyEvaluator_<AAD::Number_>, PastEvaluator_<AAD::Number_>
 
 //  All visitors
 #define VISITORS MODIFY_VISITORS, CONST_VISITORS

@@ -178,12 +178,29 @@ $$
 
 This is the **pathwise adjoint** estimator. The algorithm is:
 
-1. Place the parameters $\theta$ on the tape once and mark.
+1. For each batch recording, place the parameters $\theta$ on the worker's
+   tape, record shared model initialization and any parameter-dependent
+   historical state, then mark.
 2. For each path: rewind to the mark, simulate the path and evaluate the payoff
-   (forward pass), seed the payoff adjoint to $1$, and run the reverse pass to the
-   mark. Parameter adjoints **accumulate** across paths automatically.
-3. After all paths: propagate from the mark to the start and divide the parameter
-   adjoints by $P$.
+   (forward pass), create or reuse a path-local payoff root, seed its adjoint
+   to $1$, and run the reverse pass to the mark. Adjoints before the mark
+   **accumulate** across paths automatically.
+3. After the batch's paths: propagate from the mark to the start and divide
+   the parameter adjoints by the total simulation path count $P$. Sum batch
+   contributions without a second normalization.
+
+In the [prepared script tree](script_engine.md#historical-state-and-recording-lifetime),
+historical fixings are sealed doubles, but script expressions using them can
+depend on active parameters. Each recording replays those expressions locally
+before the mark and each path restores the resulting typed seed. The native
+backend reuses the payoff as the path-local root only when the post-mark range
+is nonempty and the payoff is its current terminal node. Otherwise it adds a
+registered zero to the payoff; alternative backends always use this addition.
+The fallback creates a path-local root even for a pre-mark seed or a passive
+constant, preserving accumulated seed adjoints and providing a valid reverse
+range when the post-mark recording would otherwise be empty. Historical
+decisions use hard branches; fuzzy smoothing applies to future events,
+including future conditions on known fixings.
 
 The result is the full gradient of the Monte Carlo price — every Greek for every
 parameter — for the cost of roughly one extra simulation, regardless of how many

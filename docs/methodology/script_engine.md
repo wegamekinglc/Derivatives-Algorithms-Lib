@@ -111,14 +111,16 @@ node. Parsing performs no fixing lookup or model binding.
 
 `FIX` supports parsing, AST inspection, immutable
 [historical preparation](#historical-fixing-preparation), and core
-[double/tree valuation](#core-doubletree-fixing-valuation) with model-aware
+[double/tree valuation](#core-doubletree-fixing-valuation) and
+[AAD/tree valuation](#core-aadtree-fixing-valuation) with model-aware
 preparation. Raw `ScriptProduct_` objects containing any `FIX` still raise `PreparationRequired`
 from `PreProcess`, `Compile`, `PastEvaluate`, `Evaluate`, and `MCSimulation`,
 including when the node is in a dead branch. Domain and compiler visitors also
 reject `NodeFix_`; numeric reads require a prepared observation ID and plan.
-Named AAD, compiled, and fuzzy evaluation are unsupported. The domain-folding,
-fuzzy, and compiled pipeline below describes legacy scripts without named
-observations.
+Named compiled evaluation remains unsupported. Prepared tree evaluation uses
+hard historical replay and exact double or fuzzy AAD future events, without
+domain or constant-condition folding. The domain-folding and compiled pipeline
+below describes legacy scripts without named observations.
 
 ### Comparators and Smoothing Hints
 
@@ -279,8 +281,10 @@ product or plan on failure and submits no workers.
 The finished plan owns passive `double` values and retains no fixing
 environment. Repeating preparation captures current global history in a new
 plan without changing an earlier plan. Supplying the same explicit snapshot
-can deliberately preserve the earlier market. Passive observations do not
-evaluate historical script state or rebuild parameter-dependent AAD state.
+can deliberately preserve the earlier market. Historical values themselves
+carry no fixing risk. Model-aware preparation also replays past events into
+double state; AAD simulation separately rebuilds parameter-dependent state on
+each worker recording, as described under [historical AAD state](#historical-state-and-recording-lifetime).
 
 ### Preparation Without a Model
 
@@ -395,13 +399,15 @@ failure; preparation does not claim to predict every random numerical failure.
 
 ### Unsupported Execution and Public Surfaces
 
-Nonexpired prepared AAD and named compiled or fuzzy evaluation raise
-`UnsupportedExecutionMode`. This includes all-historical FIX with future
-payments and default-bound SPOT. Historical parameter-dependent AAD state
-reconstruction is unsupported. Legacy AAD also rejects nonexpired products
-containing any past events, even when they use no FIX. The expired zero-risk
-return is not AAD valuation support. Raw unprepared FIX continues to raise
-`PreparationRequired`.
+For nonexpired products, named compiled evaluation and all prepared AAD
+compiled evaluation raise `UnsupportedExecutionMode`. Model-aware prepared AAD tree evaluation
+supports all-historical FIX with future payments and default-bound SPOT, with
+matching AAD mode and smoothing. History-only preparation remains
+nonexecutable for nonexpired products. Legacy AAD through a raw `ScriptProduct_` rejects nonexpired
+products containing any past events, even when they use no FIX; use the
+model-aware prepared tree path for historical AAD replay. The expired zero-risk
+return does not imply support for an otherwise rejected execution mode. Raw
+unprepared FIX continues to raise `PreparationRequired`.
 
 These settings and entry points are core C++ interfaces. The dal-public
 `ValueByMonteCarlo` facade and Python/Excel `MonteCarlo_Value` bindings have no
@@ -410,6 +416,89 @@ arguments. They still reject FIX products with `PreparationRequired`.
 Product archive projection of the default index is also unavailable. Text
 and tree debug support does not change these valuation limits; JSON schema
 `dal.script-product/1` still rejects FIX.
+
+## Core AAD/Tree Fixing Valuation
+
+`MCSimulation<AAD::Number_>(data, modelData, nPaths, settings, simulation, snapshot, contract)`
+uses the same model-aware observation plan, date policies, explicit EQ binding,
+and payment numeraires as the double entry. The data overload enables AAD
+automatically; `simulation.smooth_` selects the default future-condition width
+and `compiled_` must be unset or false for a nonexpired product. Each call
+prepares a fresh product and historical plan from the supplied inputs.
+Historical EQ/FX values remain passive, while model observations and script
+constant variables participate in differentiation.
+
+To simulate a retained `PreparedScript_`, prepare it with a double model and
+`simulation.enableAad_ = true`, then call
+`MCSimulation<AAD::Number_>(prepared, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps)`.
+For a nonexpired product, the requested type must match the prepared AAD mode,
+and `eps` must equal the preparation's `smooth_`; a mismatch raises
+`UnsupportedExecutionMode`. The prepared product supplies the required IF
+nesting depth. Retaining it retains its captured date, script parameters, and
+sealed history; prepare again when those inputs change. Each simulation still
+constructs fresh active models and historical seeds.
+
+### Historical State and Recording Lifetime
+
+Preparation resolves historical I/O before any worker starts and retains only
+passive values and the historical program. Its double replay provides the
+initial value state, but converting that state to active numbers would lose
+the dependence of `x = SCALE * FIX(index, date)` on `SCALE`.
+
+Each AAD batch therefore activates its worker's tape and constructs its own
+model, constant variables, evaluator, and registered zero input. After rewind,
+input registration, and `NewRecording`, it initializes the model and replays
+past events with `PastEvaluator_<AAD::Number_>` using the sealed doubles.
+`SetHistoricalSeed` retains the resulting typed variable state before `Mark`.
+Every path rewinds to that mark and restores the seed's live node references;
+it does not restore parameter-dependent variables from `variablesInit_` doubles.
+Historical replay reads no index, fixing store, or environment on the worker.
+The next batch rebuilds the seed even when it runs on the same thread; active
+numbers and seeds never cross threads or recordings.
+
+After future evaluation, `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp`
+reuses the native payoff node only when the post-mark range is nonempty and
+the payoff is its current terminal node. Otherwise it records
+`payoff + activeZero`, using the registered zero input to create a path-local
+root. Adept, XAD, and CoDiPack always use this addition. Seeding the resulting
+root and propagating to the mark accumulates contributions without overwriting
+a historical seed's adjoint. The fallback also handles a pre-mark payoff,
+a passive constant, or an otherwise empty post-mark recording, ensuring a
+valid reverse range.
+After all paths in a batch, propagation from mark to start carries the
+accumulated seed risk into script and model inputs. Each batch's risks are
+divided by the total simulation path count once; summing worker results does
+not normalize them again. `SimResults_::risks_` therefore contains mean-price
+sensitivities, while `aggregated_` remains the unnormalized payoff sum.
+
+For example, let the evaluation date be 2026-09-12, the 2026-09-11 fixing of
+`EQ[DAL196_TEST]` be 80, and `SCALE` be 2. A past event
+`x = SCALE * FIX(EQ[DAL196_TEST], 2026-09-11)` followed by
+`pay PAYS x` on 2026-09-22 gives, for `T = 10 / DAYS_PER_YEAR`,
+`PV = 160 * exp(-r*T)`, `d_SCALE = 80 * exp(-r*T)`, and
+`d_rate = -T * PV`. Spot and volatility risks are zero, and no fixing risk key
+is emitted. If the selected payoff slot directly retains `x` without a future
+payment, its value is 160 and its SCALE sensitivity is 80, independent of path
+count; no payment discount is introduced implicitly.
+
+### Hard Historical and Fuzzy Future Conditions
+
+Events before the evaluation date use hard comparisons in both double and AAD
+replay, including at equality and when a comparison carries a smoothing hint.
+The selected branch's arithmetic remains differentiable; there is no risk
+through the hard branch decision itself. Past `PAYS` consumes its right-hand
+side without adding settled cash. Repricing with changed script parameters
+requires fresh preparation and reselects the historical branch.
+
+Events on or after the evaluation date use exact comparisons in double mode
+and the existing fuzzy kernels in AAD mode. A future condition on an already
+known historical fixing can still have fractional truth and parameter risk
+inside its smoothing band. Prepared tree execution retains the collected AST
+and runs IF analysis for variable stores, without domain or constant-condition
+folding that could collapse such a condition. Exact-double and fuzzy-AAD PVs
+can consequently differ near future discontinuities; compare the AAD primal
+with `FuzzyEvaluator_<double>` using the same widths and paths. Historical
+switching points do not have a smooth derivative across branches.
 
 ## Preprocessing Pipeline
 
@@ -618,9 +707,10 @@ and is deliberately separate.
 valuation of a `ScriptProduct_`. It has two instantiations: `T_ = double`
 (value-only) and `T_ = AAD::Number_` (pathwise-adjoint, see
 [Automatic Adjoint Differentiation](aad.md)). Named observations use the
-[core double/tree entry](#core-doubletree-fixing-valuation); the AAD and
-compiled paths in this section apply to legacy scripts. Nonexpired AAD
-valuation additionally requires that the product have no past events.
+[core double/tree entry](#core-doubletree-fixing-valuation) or the
+[core AAD/tree entry](#core-aadtree-fixing-valuation). Compiled named valuation
+is unsupported. Nonexpired AAD through a raw `ScriptProduct_` requires no past
+events; model-aware preparation supplies historical replay for the AAD tree.
 
 ### RNG and Brownian Bridge
 
@@ -667,13 +757,18 @@ compiled mode, an `EvalState_<double>` over the pre-compiled node/const
 streams) and accumulates the payoff slot across paths. The
 `AAD::Number_` instantiation additionally:
 
-1. Activates the tape and registers model parameters and constant variables on
-   it (`InitModel4ParallelAAD`), then marks.
-2. Per path: rewinds to the mark, generates the path, evaluates the AST with a
-   `FuzzyEvaluator_<AAD::Number_>` (or compiled `EvalState_<AAD::Number_>`),
-   seeds the payoff adjoint to $1$, and propagates back to the mark.
+1. Activates the worker's tape and registers model parameters, constant
+   variables, and a zero input (`InitModel4ParallelAAD`). It starts a recording,
+   initializes the model, rebuilds any prepared historical seed, then marks.
+2. Per path: rewinds to the mark, generates the path, restores initial state
+   (the typed seed for prepared AAD), and evaluates the AST with a
+   `FuzzyEvaluator_<AAD::Number_>` (or legacy compiled `EvalState_<AAD::Number_>`).
+   It creates or reuses a path-local payoff root via `AAD::PayoffRoot`, as
+   described under [recording lifetime](#historical-state-and-recording-lifetime),
+   seeds its adjoint to $1$, and propagates back to the mark.
 3. After the batch: propagates from mark to start, harvests per-parameter
-   adjoints, and divides by `nPaths`.
+   adjoints, and divides by total `nPaths` once. Worker reduction sums these
+   normalized contributions without a second division.
 
 The result is a `SimResults_` carrying the aggregated payoff and a risk vector
 labelled by model parameter and constant variable.

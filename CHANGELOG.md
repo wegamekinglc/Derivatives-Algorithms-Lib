@@ -16,6 +16,18 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-14
+
+- **Script historical AAD state** — added model-aware prepared AAD tree
+  valuation that preserves script-parameter risk through historical fixing
+  expressions. Each worker recording rebuilds a typed historical seed from
+  sealed doubles, with hard historical decisions and fuzzy future conditions.
+  Fresh path-local payoff roots preserve accumulated risk for direct seed and
+  constant payoffs; batch contributions are normalized once by total paths.
+  Named compiled and prepared AAD compiled valuation remain unsupported, as
+  do named valuation settings in the public C++ facade, Python, and Excel.
+  See the [AAD tree contract](docs/methodology/script_engine.md#core-aadtree-fixing-valuation).
+
 ## 2026-09-13
 
 - **Script core FIX valuation** — added model-aware double/tree valuation with

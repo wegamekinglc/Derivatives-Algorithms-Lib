@@ -17,6 +17,7 @@ namespace Dal::Script {
         std::unique_ptr<ObservationPlan_> plan_;
         MonteCarloSettings_ simulation_;
         bool executable_ = false;
+        size_t maxNestedIfs_ = 0;
 
         PreparedScript_(std::unique_ptr<ScriptProduct_>&& product,
                         const Date_& evaluationDate,
@@ -42,12 +43,23 @@ namespace Dal::Script {
             REQUIRE2(executable_ || AllExpired(), "UnsupportedExecutionMode: history-only preparation has no model plan", ScriptError_);
         }
         template <class T_> Evaluator_<T_> BuildEvaluator() const { return product_->BuildEvaluator<T_>(); }
-        template <class T_> EvalState_<T_> BuildEvalState() const { return product_->BuildEvalState<T_>(); }
-        [[nodiscard]] ScriptCompiled_ Compile() const {
-            REQUIRE2(plan_->Requests().empty(), "UnsupportedExecutionMode: named compiled evaluation", ScriptError_);
-            return product_->Compile();
+        template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double eps = 0.0) const {
+            return product_->BuildEvalState<T_>(maxNestedIfs, eps);
         }
-        void Evaluate(const AAD::Scenario_<double>& scenario, Evaluator_<double>& eval) const {
+        template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int, double eps) const {
+            return product_->BuildFuzzyEvaluator<T_>(static_cast<int>(maxNestedIfs_), eps);
+        }
+        template <class E_> void InitializeHistoricalState(E_* evaluator) const {
+            PastEvaluator_<AAD::Number_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals());
+            past.SetObservations(plan_.get());
+            product_->Visit(past, true, false);
+            evaluator->SetHistoricalSeed(past.VarVals());
+        }
+        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
+            REQUIRE2(plan_->Requests().empty() && !fuzzy, "UnsupportedExecutionMode: named or prepared AAD compiled evaluation", ScriptError_);
+            return product_->Compile(fuzzy);
+        }
+        template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& scenario, E_& eval) const {
             RequireExecutable();
             eval.SetScenario(&scenario);
             eval.SetObservations(plan_.get());
