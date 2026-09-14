@@ -71,6 +71,11 @@ namespace Dal::Script {
         }
 
         template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
+            EvaluateImpl(scenario, state);
+        }
+
+    private:
+        template <class T_> void EvaluateImpl(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
             state.Init();
             state.observations_ = observations_.get();
             state.scenario_ = &scenario;
@@ -189,6 +194,11 @@ namespace Dal::Script {
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
+            EvaluateImpl(scenario, eval);
+        }
+
+    private:
+        template <class T_, class E_> void EvaluateImpl(const Scenario_<T_>& scenario, E_& eval) const {
             RequirePreparedFixings();
             eval.SetScenario(&scenario);
             eval.Init();
@@ -199,6 +209,7 @@ namespace Dal::Script {
             }
         }
 
+    public:
         void IndexVariables();
         void InitializePastObservations(const ObservationPlan_& plan);
         [[nodiscard]] Vector_<> PastEvaluate() const;
@@ -228,4 +239,11 @@ namespace Dal::Script {
         void Write(Archive::Store_& dst) const override;
         [[nodiscard]] ScriptProduct_ Product() const { return {eventDates_, eventDesc_, ""}; }
     };
+
+    // Keep standard AAD execution in core to avoid expanding recording loops in public callers.
+    template <>
+    void ScriptCompiled_::Evaluate<AAD::Number_>(const Scenario_<AAD::Number_>& scenario, EvalState_<AAD::Number_>& state) const;
+    template <>
+    void ScriptProduct_::Evaluate<AAD::Number_, FuzzyEvaluator_<AAD::Number_>>(const Scenario_<AAD::Number_>& scenario,
+                                                                           FuzzyEvaluator_<AAD::Number_>& eval) const;
 } // namespace Dal::Script
