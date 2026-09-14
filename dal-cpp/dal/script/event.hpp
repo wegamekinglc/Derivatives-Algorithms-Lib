@@ -240,9 +240,7 @@ namespace Dal::Script {
         [[nodiscard]] ScriptProduct_ Product() const { return {eventDates_, eventDesc_, ""}; }
     };
 
-    // Keep standard AAD execution in core to avoid expanding recording loops in public callers.
-    template <>
-    void ScriptCompiled_::Evaluate<AAD::Number_>(const Scenario_<AAD::Number_>& scenario, EvalState_<AAD::Number_>& state) const;
+    // Keep tree AAD execution in core to avoid expanding recording loops in public callers.
     template <>
     void ScriptProduct_::Evaluate<AAD::Number_, FuzzyEvaluator_<AAD::Number_>>(const Scenario_<AAD::Number_>& scenario,
                                                                            FuzzyEvaluator_<AAD::Number_>& eval) const;

@@ -52,7 +52,7 @@ namespace Dal::AAD {
         template <size_t N_> TapNode_* RecordNode() { return AllocateNode<N_>(); }
 
     private:
-        template <size_t N_> TapNode_* AllocateNode() {
+        template <size_t N_> FORCE_INLINE TapNode_* AllocateNode() {
             TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
                 node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(numAdj_);
@@ -72,6 +72,8 @@ namespace Dal::AAD {
     template <>
 #if defined(_MSC_VER)
     __declspec(noinline)
+#elif defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 9
+    __attribute__((noipa))
 #elif defined(__GNUC__) || defined(__clang__)
     __attribute__((noinline))
 #endif
