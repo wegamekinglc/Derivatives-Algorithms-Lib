@@ -1,5 +1,180 @@
 # DAL-201 / F4 implementation handoff
 
+## Suite-prefix diagnosis: allocation-sensitive vanilla double timings
+
+This diagnostic handoff supersedes the unresolved-context discussion below;
+it does **not** replace the original complete gate or establish acceptance.
+DAL-224 resumed at published `ea5f982e4d27e4599ce6fda1c43da4bedc275a20`,
+tree `97b175c3a77b5f2703ab7f213fb0c9f72e14ef31`. This round changes only this
+report. Production, tests, docs, benchmark/CI scripts, tolerances and submodule
+pointers are unchanged. The publication manifest attached to DAL-224 records
+the resulting report-only commit/tree. The existing draft PR remains
+https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/371, base master.
+
+### Fixed inputs and original failure
+
+The prior evidence attachment `01a09fed-5b50-795b-8d6e-aadc41f6da4b` was
+downloaded with the authenticated Multica CLI. Its SHA256 is
+`1e494258379c20cf3b18a4c0c4b247d65f4fd8142bba907f1e4e4038a2ad8079`.
+All diagnostic timing uses its immutable Python packages, without rebuilding:
+
+- Base: master `8ee1b09dcaf531add9695d466941026da87a4942`, tree
+  `6c7d19beee7efebf43d537a6842fb3268a3d6fc6`; native module SHA256
+  `02b98cec1d79657fd12bb6b442e40d4bab1139d09ca922abb47da5fb81eef258`.
+- Head: code `b332fea5f0d9bc9810847ecedcc63e1ac854a9f7`, tree
+  `fef5bfae1961cc2bd39ad7f09b55f6d314ec4075`; native module SHA256
+  `0450825e53382ae28699b8861990c03ecc858d435805973323d008bfb334cf04`.
+
+`input-identity.json` verifies both native hashes against the original full
+gate and checks every benchmark-suite source hash. The same existing CPython
+3.13.13 interpreter is used. Original build provenance remains GCC 14.3.0,
+pybind11 3.0.4, Release/native tuning. Default runs use `DAL_NUM_THREADS=4`,
+the same thread environment, and the unchanged full-size workloads. The host
+is the same WSL2 Intel i9-13900HX machine; this is not hosted-hardware parity.
+
+The original full gate remains **88/90**: compiled vanilla double
+**+19.21% / +19.70%**, tree vanilla double **+14.63% / +14.10%**. The original
+baseline A/A 89/90 and head A/A 90/90 are preserved, not used as exemptions.
+No new full gate or A/A was run: this turn diagnoses the requested state
+dependency, and no causal product fix was available to validate with those gates.
+
+### Unmodified workloads with controlled prefixes
+
+The diagnostic harness calls the repository's existing `build_cases(False)`
+and `runner.run_cases`/`measure`, including its validation run, two warmups,
+one measured sample, correctness validators and report writes. Every comparison
+uses 20 fresh processes per side, alternating base/head order, divided into two
+groups of ten with the original minimum reduction. Scenario order is reversed
+on alternating samples. All measured prefix samples are retained as well.
+These are diagnostic comparisons, not substitutes for the 90-case gate.
+
+The original prefix contains exactly the first seven cases, in suite order:
+four 100,000-by-10 RNG workloads, `script.construct_and_parse`, then vanilla
+double tree and compiled, each with 200,000 paths. The narrow scenario contains
+only the two vanilla cases in that same order. The prior narrow scenario
+recreates the five named workloads and order from the preceding handoff's
+`narrow-cases.py`, including its calibration and barrier preconditioning.
+
+| Diagnostic context             | Tree, rounds 1 / 2 | Compiled, rounds 1 / 2 |
+|--------------------------------|--------------------|-----------------------|
+| Two vanilla cases only         | +1.05% / -14.36%    | +1.17% / +2.14%       |
+| Original first-seven prefix     | +0.84% / +0.18%     | +29.35% / +24.13%     |
+| Four RNG cases then vanilla     | -1.63% / +0.49%     | +1.99% / +1.70%       |
+| Parse case then vanilla         | +1.18% / -0.81%     | +18.43% / +0.51%      |
+| Previous five-case narrow order | +1.41% / -0.23%     | +1.04% / +1.49%       |
+
+This supplies a real compiled RED after the original prefix with unchanged
+binaries. It does not reproduce the original tree failure. Absolute minima and
+all raw reports are in `initial/` and `prefix-components/`.
+
+An additional controlled panel compared the full prefix, the same prefix with
+glibc tcache disabled, and a diagnostic single-thread variant. The unchanged
+control itself became -1.47% / +0.60% for compiled vanilla, so that panel cannot
+attribute an improvement to either intervention. Neither tcache disabling nor
+one thread is presented as a fix. The complete inconclusive panel is retained
+under `allocator-thread-controls/`.
+
+### Path and allocator intervention on the same binaries
+
+The changed control motivated a predeclared two-by-two comparison: short versus
+long report/current-working-directory paths, using the default allocator versus
+the existing system jemalloc through `LD_PRELOAD`. Both sides have equal-length
+package paths; changing the report-directory component from 7 to 25 characters
+changes each worker's output/cwd path by 18 characters. Commands otherwise use
+the same worker mode, suite, interpreter, package, sizes, warmups and threads.
+The parent interleaves all four scenarios, 20 processes per side each.
+
+| Allocator and output/cwd path | Tree, rounds 1 / 2 | Compiled, rounds 1 / 2 |
+|------------------------------|--------------------|-----------------------|
+| Default, short               | -1.86% / -0.27%     | +10.42% / +26.68%     |
+| Default, long                | -0.19% / -0.96%     | -0.27% / +2.57%       |
+| jemalloc, short              | +0.21% / -0.03%     | -3.20% / +0.30%       |
+| jemalloc, long               | -1.05% / +1.66%     | -0.03% / +0.55%       |
+
+Within the **same head binary**, compiled short-path minima are **+9.30% /
++25.46%** slower than long-path minima. The same base-binary comparison is
+**-1.28% / +1.58%**. This is direct evidence of context sensitivity without a
+source, binary or workload change. The allocator intervention supports an
+allocation-layout explanation. It does not identify which live allocations
+are responsible, prove false sharing/cache conflicts, or prove F4 is innocent.
+Changing the report directory or allocator is **not** a proposed repository/CI
+fix, and these outcomes do not turn the original gate green.
+
+The parent sampled `/proc/<pid>/task/*/stat`, load, and process mappings every
+10 ms, and captured `/proc/stat` around each of the 160 processes. Every process
+reached exactly four observed threads and retained the same four IDs across
+all four-thread samples. Aggregate host CPU utilization was approximately
+3.2%-4.7% across those process intervals; process snapshots show no concurrent
+compiler job. CPU migration is recorded, not controlled. These coarse samples
+cannot resolve individual 2 ms MC calls, prove zero worker lifecycle events
+between samples, or observe host activity hidden from WSL. No hardware-counter
+or exclusive-host claim is made. `analysis.json` retains the calculation and
+per-process paths; each raw `process.json` includes the underlying data.
+
+Source inspection confirms the pool implementation and legacy double runner
+are unchanged against master. Worker-owned `ThreadState_` objects are recreated
+per valuation and reused across batches; state zero is allocated by the caller,
+other states by their workers. Both selected evaluators and their backing
+vectors are still allocated, even when only one evaluator mode is used.
+The double historical-seed specialization stores no extra vector. None of this
+alone establishes absence of allocator-dependent interactions.
+
+The preserved base/head `value.cpp.o` files were also compared: 19 of 21 selected
+double-related text sections have identical pre-relocation bytes, including
+the worker-state constructor and task machinery. One 1,834-byte path helper
+differs only in an exception-source-line immediate (223 versus 229). The outer
+double simulation section differs (5,596 versus 5,782 bytes). Relocations and
+linked addresses differ, so this is **not** whole-binary or linked-code
+equivalence. Section bytes, disassemblies and hashes are delivered under
+`object-comparison/`. This evidence does not justify random inline/layout edits.
+
+### Delivery, verification limits and next discriminating step
+
+No behavior RED test was invented and no product GREEN is claimed. The actual
+RED is the preserved complete gate plus the reproduced compiled prefix
+slowdown. This round ran **480 fresh diagnostic workers**, all exiting zero
+with their existing workload validators passing. No failed or slow sample was
+discarded. The initial 80, component 120, allocator/thread 120, and final path
+panel 160 workers are all retained. There were no new native, Python test-suite,
+alternative-backend, sanitizer or full performance-gate runs; unchanged source
+does not warrant repeating the previous full builds. The earlier 1716 native,
+402 Python (zero skips), 425 Adept, 425 CoDiPack and 424 XAD results remain
+historical evidence for the identical product/test source, not new executions.
+All sixteen F4 tests, 257 root rewinds, 8193-path oracle and 16385-path exception
+drain assertions remain untouched. Existing native-tuning rate failures remain
+preserved for parent routing.
+
+Reproduction, from the task workdir after extracting the original attachment
+into `evidence-input/` and placing this checkout at `Derivatives-Algorithms-Lib/`:
+
+```bash
+"$PYTHON" diagnosis/suite_state.py --output diagnosis/initial
+"$PYTHON" diagnosis/suite_state.py --modes rng,parse,prior --output diagnosis/prefix-components
+"$PYTHON" diagnosis/suite_state.py --modes prefix,prefix-notcache,prefix-single --output diagnosis/allocator-thread-controls
+"$PYTHON" diagnosis/path_control.py
+```
+
+The attached scripts and execution manifests record literal commands and paths.
+`PYTHON` is the existing CPython 3.13.13 bench-venv interpreter recorded there.
+The path-control test deliberately depends on path length; relocation to another
+workdir is a new environment and may change the outcome. Final script versions
+include all scenario selectors; worker timing logic uses the unchanged suite.
+
+The next discriminating experiment is allocation-address tracing on the fixed
+short/long **head** pair, distinguishing caller-state-zero mutable buffers from
+shared read-only product/model buffers and worker-arena buffers. Establish
+whether live objects share cache lines, then intervene only on the implicated
+allocation while preserving suite order. A pool restart after the tree case
+can separately distinguish retained worker-arena state from caller-arena state.
+Such instrumentation must be reported as perturbing the measurement; a resulting
+minimal production candidate must reproduce the effect without instrumentation
+and pass the original complete gate/A-A and correctness matrix before acceptance.
+Current data do not justify a specific allocation or runner patch, or exemption
+as a proven non-F4 problem. The unresolved tree result also remains an explicit
+limit. Parent review must decide the next bounded investigation; no later role,
+F5, merge, issue closure, benchmark policy change or allocator deployment was
+started by this diagnostic task.
+
 ## Remaining compiled barrier regression: native root inlining
 
 This section supersedes the previous unresolved-barrier handoff below. DAL-224
