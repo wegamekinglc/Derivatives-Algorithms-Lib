@@ -79,6 +79,33 @@ namespace {
             ASSERT_NEAR(result["SCALE"], scale * fixing > 0.0 ? fixing : 0.0, std::abs(fixing) * 1.0e-12);
         }
     }
+
+    void CheckNestedFutureState(double fixing, const String_& scaleText, double scale) {
+        const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+                                         {scaleText, "x = SCALE * FIX(EQ[DAL196_TEST], 2026-09-11)",
+                                          "IF x != 0 THEN IF x > 0 THEN x = x * x ELSE x = 3 * x END ELSE x = 7 END pay PAYS x"});
+        const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, 0.03, 0.01));
+        const double x = scale * fixing;
+        const double payoff = x > 0.0 ? x * x : 3.0 * x;
+        const double derivative = x > 0.0 ? 2.0 * x * fixing : 3.0 * fixing;
+        const double t = 10.0 / DAYS_PER_YEAR;
+        const double discount = std::exp(-0.03 * t);
+        for (bool compiled : {false, true}) {
+            SCOPED_TRACE(::testing::Message() << "compiled=" << compiled << " fixing=" << fixing << " scale=" << scale);
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            const auto price = MCSimulation<double>(product, model, 257, {}, simulation, History(fixing));
+            const auto risk = MCSimulation<AAD::Number_>(product, model, 257, {}, simulation, History(fixing));
+            ASSERT_NEAR(price.aggregated_ / 257, payoff * discount, std::abs(payoff) * 1.0e-12);
+            ASSERT_NEAR(risk.aggregated_ / 257, payoff * discount, std::abs(payoff) * 1.0e-12);
+            ASSERT_NEAR(risk["SCALE"], derivative * discount, std::abs(derivative) * 1.0e-12);
+            ASSERT_NEAR(risk["rate"], -t * payoff * discount, 1.0e-10);
+            ASSERT_NEAR(risk["spot"], 0.0, 1.0e-10);
+            ASSERT_NEAR(risk["vol"], 0.0, 1.0e-10);
+            ASSERT_NEAR(risk["div"], 0.0, 1.0e-10);
+            ASSERT_EQ(risk.names_.size(), 5u);
+        }
+    }
 } // namespace
 
 TEST(ScriptExactFoldingTest, TestStrictPositiveUlp) {
@@ -138,4 +165,16 @@ TEST(ScriptExactFoldingTest, TestSmallNonzeroDivisorInFutureState) {
                                      {"x = FIX(EQ[DAL196_TEST], 2026-09-11) / 0.00000000000001 IF x > 0 THEN pay PAYS 160 ELSE pay PAYS 0 END"});
     ASSERT_NO_FATAL_FAILURE(CheckExactProduct(product, 1.0e-14, 160.0));
     ASSERT_NO_FATAL_FAILURE(CheckExactProduct(product, -1.0e-14, 0.0));
+}
+
+TEST(ScriptExactFoldingTest, TestNestedFutureStateAcrossEventsRetainsSignedRisks) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    for (double fixing : {-1.0e-14, 1.0e-14}) {
+        ASSERT_NO_FATAL_FAILURE(CheckNestedFutureState(fixing, "100000000000000", 1.0e14));
+        ASSERT_NO_FATAL_FAILURE(CheckNestedFutureState(fixing, "-100000000000000", -1.0e14));
+    }
+    for (double fixing : {-1.0e14, 1.0e14}) {
+        ASSERT_NO_FATAL_FAILURE(CheckNestedFutureState(fixing, "0.00000000000001", 1.0e-14));
+        ASSERT_NO_FATAL_FAILURE(CheckNestedFutureState(fixing, "-0.00000000000001", -1.0e-14));
+    }
 }
