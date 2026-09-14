@@ -28,9 +28,9 @@ regions previously occupied by worker allocations. Allocator-arena ownership
 itself is not inferred solely from an address region.
 
 One measured original in `trace-panel/lllllllllllllllllllllllll/prefix/01-base`
-has caller metadata at `0x7fbdf4002600` and worker 1's `Sample_::spot_` at
-`0x7fbdf4002670`. The metadata's path-vector fields and flags at offsets 72-97
-share the 64-byte line beginning `0x7fbdf4002640` with that writable spot.
+has caller metadata at `0x7fa188002600` and worker 1's `Sample_::spot_` at
+`0x7fa188002670`. The metadata's path-vector fields and flags at offsets 72-97
+share the 64-byte line beginning `0x7fa188002640` with that writable spot.
 Generated code reads metadata flags at offsets `0x60` and `0x61`; the diagnostic
 disassembly is retained. The relevant model and sample definitions are in
 `dal-cpp/dal/model/blackscholes.hpp` and `dal-cpp/dal/math/aad/sample.hpp`, while
