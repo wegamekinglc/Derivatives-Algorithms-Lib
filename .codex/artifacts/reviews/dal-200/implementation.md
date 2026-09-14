@@ -1,5 +1,118 @@
 # DAL-200 F3 implementation handoff
 
+## Current integration handoff, 2026-09-14
+
+Integrated master documentation PR #370 into the existing F3 branch through a
+normal merge commit. The integration changes documentation only; F3 runtime,
+test sources, public behavior, generated files, build/CI configuration and
+submodule pointers are unchanged. Performance is **deferred to DAL-223**, not
+passed. This delivery awaits the existing independent tester, doc-writer and
+mandatory reviewer under that deferral. PR #369 remains draft and open.
+
+### Authority and protected history
+
+The current DAL-216 assignment replaces the earlier performance experiments.
+Read the issue and bounded comment roots, the latest RTTI result thread, parent
+F3 fixed semantics/matrix, relevant API note, DAL-219 critique, F3 testing and
+documentation reports, script methodology and source/test boundaries. Followed
+AGENTS.md, the implementer contract, both style references, dal-git-pr and its
+Git/publish guides. No new design/API/critic/performance/simplifier stage is
+needed for this merge; there is no behavior change requiring RED/GREEN tests.
+
+Publication uses a new clean checkout, initially on
+`agent/dal-implementer/390c8e5ad80e`, then switched to
+`feature/dal-200-eq-observation-slots`. Existing DAL-216 checkouts, dirty reports,
+private worktrees, rejected patches and archives remain isolated and untouched.
+The attached private-state inventory records their heads, working states,
+worktree registrations and report/patch/archive SHA-256 values before and after.
+Nothing was reset, cleaned, force-pushed or copied from a rejected experiment.
+
+The latest earlier attachment is the **rejected private RTTI experiment** report
+from comment `01a09e15-9654-7578-afc6-def366ccd22b`, attachment
+`01a09e13-b857-7c0a-bb74-ea1c96d04513`, SHA-256
+`cd5b131083de13b3cfcb0e6267afe2b306fc321ae36cc167ee69b5d7e9ffdd83`.
+Its 436 native / 402 Python candidate passes and no-offset failure describe
+unpublished experiment sources, not this integration. The older committed
+report below is also historical; neither is presented as a new F3 repair.
+
+### Revision and merge proof
+
+- Starting F3: `e8943ee2a399229cf36be412accb92ea1872b10e`, tree
+  `ab062df7c6897dd594b3b444fc01f5b8172977f4`.
+- Fetched master: `321e2dce1dd5e08ef77eae2825c094ae23396126`.
+- Merge commit: `2c80ed2126eb311e4750f8e6b8b18ce7ede9d660`; first parent is
+  the starting F3 SHA, second parent is the fetched master SHA.
+- Merge tree: `daa89ac85e317d6a79fd660d19ffc35074e82ce8`, exactly equal to
+  the parent's trial tree and the freshly recomputed merge-tree result.
+- A subsequent report-only commit contains this handoff. The attachment's
+  publication preface records its final full SHA/tree and post-push CI snapshot;
+  that receipt is kept outside its own commit to avoid a self-referential SHA.
+
+The automatic merge had no conflicts or manual resolutions. Upstream CLAUDE.md
+and shared methodology corrections are accepted as part of #370. F3 script and
+index methodology and CHANGELOG are byte-identical to the starting F3 revision;
+the additive upstream AAD prose correction preserves F3's existing content.
+
+### Changed files and proportional validation
+
+The merge has exactly 30 Markdown paths: 13 retired historical artifacts, the
+upstream DAL-220 review README, CLAUDE.md, root README.md, dal-public/README.md,
+dal-excel/README.md, docs/README.md, the experimental PTIRDS note and ten existing
+methodology pages. The report adds one path to that delta, for 31 total. The
+attached `merge-scope.stdout` and final scope JSON list every exact path.
+
+Fresh checks pass:
+
+- `python3 .github/scripts/check_docs.py`: exit 0, **52 Markdown files**. This
+  is the checker's own selection, not a claim to validate every tracked file.
+- `git diff --cached --name-status` and `git diff --cached --check`: exit 0;
+  exact staged scope is the supported documentation integration.
+- `git write-tree`: exit 0, exact parent trial tree before the report edit.
+- `git diff --cached --exit-code -- dal-cpp dal-public dal-python dal-excel
+  ':(exclude,icase)**/README.md'`: exit 0, no source/test changes.
+- `git diff --cached --exit-code -- dal-cpp/externals`: exit 0.
+- Attached `verify_scope.py`: exit 0; object identities agree for **1,114**
+  component paths excluding READMEs and all **seven** submodule pointers. The
+  final tree differs from the parent trial only at this report. Original F3
+  and master ancestry are checked with `git merge-base --is-ancestor`.
+
+Commands, stdout/stderr and exit codes are retained in `commands.jsonl` and
+the named logs. The initial merge attempt exited 128 before changing files
+because the new checkout lacked committer identity. Local agent identity was
+configured and the same merge succeeded. No result from the failed setup is
+counted as a successful check.
+
+No new C++/Python behavioral tests, backend builds, sanitizer runs or benchmarks
+were performed for this documentation-only merge. RED/GREEN is not applicable.
+Inherited published-head correctness evidence is 1,699 CTest, 432 native / 427
+Adept / 426 CoDiPack focused, 432 native Clang sanitizer and 402 Python passes;
+these are attributed earlier specialist results, not fresh executions here.
+
+### Outstanding acceptance
+
+Performance work remains in backlog/unassigned DAL-223. Historical local Python
+gate 89/90 (tree barrier +4.1893/+8.9971%) and CI run 34757241156 Python 89/90
+(vanilla AAD tree +5.626819/+5.488914%) remain failures at the unchanged +4%
+threshold. Native 63/63 and compiled improvements do not erase them. Rejected
+private candidates and their diagnostic evidence remain historical only.
+
+The specialist Request Changes verdict is not converted to unconditional
+approval. Before this integration, Benchmarks and Linux CI gate were failed;
+master requires Linux CI gate and Windows CI gate with strict branch protection.
+One new-head CI read follows publication, without watching, polling or rerunning.
+Required checks, merge readiness and fresh independent acceptance remain real
+gates. No merge, review-thread resolution, new closing intent or F3 closure is
+part of this delivery. F4/F5 branches are untouched.
+
+Parent DAL-200 must route DAL-217, then DAL-218, then DAL-219 against the final
+published head under the performance deferral. DAL-216 is delivered in_review;
+the parent active-run/rerun handoff follows the single final issue comment.
+
+## Historical implementation evidence
+
+The remaining sections preserve the earlier committed report verbatim. Their
+references to current/fresh apply to their original delivery dates and sources.
+
 ## Opcode decomposition and bounded tree experiments, 2026-09-13
 
 This is the current DAL-216 implementation handoff. The older sections below are

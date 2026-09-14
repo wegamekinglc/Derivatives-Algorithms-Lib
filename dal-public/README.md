@@ -43,7 +43,10 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.
 
-Quote-space risk freezes single-curve, joint-XCCY, or staged-XCCY-basis
+`dal-public/src/curvespec.hpp` exposes generic joint multi-curve calibration
+through `CalibrateJointMultiCurveBundle`.
+
+Quote-space risk freezes single-curve, generic joint multi-curve, joint-XCCY, or staged-XCCY-basis
 calibration provenance, verifies bound component fingerprints, and aggregates
 portfolio price-per-decimal quote sensitivities plus DV01 without recalibration.
 See the [quote-space DV01 contract](../docs/public-api.md#c-quote-space-dv01).

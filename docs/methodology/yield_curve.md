@@ -67,8 +67,8 @@ Before the first knot the rate is held flat at $f_1$.
 
 ### Piecewise-Linear Forwards
 
-$f(t)$ is continuous and linear between knots, with separate left- and
-right-limit values at each knot to allow controlled kinks. This uses $2K$
+$f(t)$ is linear between knots, with separate left- and right-limit values
+at each knot. The forward rate can jump at a knot unless those limits agree. This uses $2K$
 parameters. Within $[t_i, t_{i+1}]$ the rate interpolates linearly,
 
 $$
@@ -83,9 +83,9 @@ $$
 
 Outside the knot range $f$ is held flat at the nearest endpoint value.
 
-Piecewise-linear forwards give a smoother, more realistic curve (continuous
-forwards) at the price of twice as many parameters; piecewise-constant forwards
-are simpler and more robust. The calibration layer can use either.
+Piecewise-linear forwards allow slopes between knots at the price of twice as
+many parameters. Continuity at knots depends on the fitted left/right values;
+the representation alone does not enforce it. The calibration layer can use either form.
 
 ### Log-Discount Factors
 
@@ -222,27 +222,31 @@ analytically via AAD.
 ### Underdetermination and Smoothness
 
 A piecewise-linear curve carries $2K$ parameters but the market often quotes fewer
-than $2K$ instruments, so the system is **underdetermined**: infinitely many
-curves reprice the data. A unique, well-behaved solution is selected by preferring
-the *smoothest* curve — the one that minimises a weighted norm of parameter
-movements:
+than $2K$ instruments, so the system is **underdetermined**: multiple curves can
+reprice the data. The exact solver prefers small weighted parameter movements
+at each local linearisation. For a full-row-rank Jacobian $J(x)$, its Newton
+direction solves
 
 $$
-\min_x \; \tfrac{1}{2}\,(x - x_0)^{\mathsf T} W\, (x - x_0)
-\quad \text{subject to} \quad r(x) = 0,
+\min_s \; \tfrac{1}{2}\,s^{\mathsf T} W s
+\quad \text{subject to} \quad J(x)s = -r(x),
 $$
 
 with $W$ a symmetric positive-definite weight matrix. Choosing $W$ to penalise
 differences between neighbouring knots (a tridiagonal smoothing operator)
 suppresses spurious oscillation between instrument maturities. The mechanics of
-this constrained minimisation — and the approximate-fit variant for inconsistent
-quotes — are covered in [Underdetermined search](underdetermined_search.md).
+this local direction, backtracking, and the approximate-fit variant for inconsistent
+quotes are covered in [Underdetermined search](underdetermined_search.md).
+This step rule does not guarantee a unique nonlinear solution or a global minimum
+of the total displacement from the initial guess. Generic joint calibration with
+an explicitly requested inverse uses the distinct fixed-subspace selection described
+in [Generic joint quote DV01](generic_joint_quote_risk.md#calibration-and-the-selected-solution).
 
 Because the smoothing penalty is evaluated in the parameter vector's native space,
 `ZERO_RATE` (penalising curvature in $z$) and `LOG_DISCOUNT` (penalising curvature
-in $\ell = -z\tau$) generally select different smoothest curves from the same
+in $\ell = -z\tau$) generally select different fitted curves from the same
 instruments and smoothing weight — the two are alternative coordinates with
-distinct optimal solutions, not a re-expression of a single curve.
+distinct solution paths, not a re-expression of a single curve.
 
 `APPROXIMATE` stops when the residual norm reaches `fitTolerance_`; it does not
 continue to a unique, Jacobian-independent curve inside that feasible region. Consequently,
@@ -254,9 +258,9 @@ separately require analytic and bumped curves to agree.
 
 ### Bootstrapping Order
 
-Instruments are ordered by maturity so that the curve is built outwards in time:
-short-dated instruments pin the near end of the curve, longer-dated instruments
-extend it. Knots can be supplied by the caller, taken from the instrument
+Instruments are ordered by maturity, but the calibration solves all residuals
+together rather than fixing successive pillars in separate solves. Knots can be
+supplied by the caller, taken from the instrument
 maturities, or formed from the union of both. After the solve, repricing residuals
 (RMS and maximum absolute error) quantify the fit quality, and the effective
 (weighted) Jacobian inverse is retained so that risk sensitivities can be obtained
@@ -336,7 +340,7 @@ nominal maturity.
 
 **Forward Jacobian at the solution.** The solver's convergence branch can capture
 an unscaled forward Jacobian $J$ at the solved $x^\star$ by calling
-`func.Gradient(x, f, &fwdJacobian)` once at the solution. This is requested only
+`func.Gradient(x, f)` once at the solution and copying the returned Jacobian. This is requested only
 when `jacobianMode_ == ANALYTIC AND solveMode_ == EXACT AND eligible`; callers
 pass `nullptr` otherwise so the solver leaves the output empty. The output appears
 on `CurveCalibrationDiagnostics_::jacobian_` (shape $m \times n_{\mathrm{params}}$), unscaled
@@ -350,7 +354,7 @@ it to `false` skips this at-solution sweep and leaves `jacobian_` empty.
 market instruments (deposits, STIR, swaps)
         │  define residuals r_j(x) = model_j(x) − market_j
         ▼
-underdetermined solver  (min ½‖x−x₀‖²_W  s.t. r(x)=0)
+underdetermined solver  (local min ½‖s‖²_W  s.t. J(x)s=−r(x))
         │  Jacobian via AAD; smoothness via weight matrix W
         ▼
 curve parameters x   (PWC: K, PWL: 2K, log DF / zero rate: K future nodes)
@@ -438,8 +442,10 @@ satisfies:
 
 Joint declarations always use strictly-future knot dates. ZERO_RATE may be used for a
 discount declaration, a forward declaration, or both, and may be mixed with the other
-representations. The core joint API is not currently exposed as a dedicated Python or
-Excel joint-calibration function.
+representations. Public C++ and Python expose `CalibrateJointMultiCurveBundle`;
+Excel exposes `CALIBRATE.JOINTMULTICURVE`. The
+[generic joint quote-risk guide](generic_joint_quote_risk.md) describes construction,
+inverse retention, and provenance on those surfaces.
 
 Each failing condition emits a one-time `NOTICE` naming the declaration index
 and the condition; the solver then dense-bumps unchanged. The verdict is
@@ -459,9 +465,17 @@ $d(\text{residual}_i) / d(\text{param}_j)$ at the solved point, shape
 `jacobianMode_ == ANALYTIC` AND the spec is eligible AND
 `solveMode_ == EXACT` AND `computeJacobianAtSolution_ == true`; empty otherwise.
 `computeJacobianAtSolution_` defaults to `true` to preserve the existing
-diagnostics surface. The Jacobian is stored in a shared
-`XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) -- the same dense
-subclass used by the single-curve AAD path.
+diagnostics surface. The result owns a passive `Matrix_<>`. Internally, the
+analytic gradient provider returns an `XCurveJacobian_`
+(`dal-cpp/dal/curve/curvejacobian.hpp`), the same dense subclass used by the
+single-curve AAD path.
+
+`computeEffJacobianInverse_` is a separate opt-in, defaulting to `false`.
+For an exact underdetermined solve it selects the initial-Jacobian subspace;
+for a square solve it retains the local weighted mapping. The result reports
+inverse availability, mapping, actual Jacobian mode, and the declaration ranges.
+See [Generic joint quote DV01](generic_joint_quote_risk.md) for the scaling and
+recalibration contract.
 
 **Backend coverage.** The analytic path compiles and produces a correct
 Jacobian under all four AAD backends (native, Adept, XAD, CoDiPack), verified

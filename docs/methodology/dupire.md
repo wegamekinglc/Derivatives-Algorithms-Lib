@@ -67,10 +67,11 @@ $r$ and $q$ inverts back to the same flat local volatility.
 
 The strike bump is scaled by $K$ and the maturity bump by $T$ (rather than being
 absolute constants) so the relative perturbation is uniform across the grid:
-$\Delta_K / K = \Delta_T / T = 10^{-4}$. That keeps the central-difference
-truncation error ($O(\Delta^2)$) and the round-off floor ($\varepsilon/\Delta$)
-roughly constant across strikes and maturities, instead of degrading on long
-maturities or deep OTM strikes.
+$\Delta_K / K = \Delta_T / T = 10^{-4}$. Central differences have $O(\Delta^2)$
+truncation error for sufficiently smooth calls. Cancellation amplifies price
+evaluation error by roughly $1/\Delta$ for first derivatives and
+$1/\Delta_K^2$ for the strike second derivative. Relative bumps do not guarantee
+uniform error across the surface, especially where $c_{KK}$ is small.
 
 The method is generic over the scalar type `T_`, so the same inversion feeds a
 bumped-IV Jacobian (via a `RiskView_<T_>` volatility-bump grid) as well as the
@@ -132,8 +133,8 @@ well-conditioned.
 get an inverted local volatility at all; they are filled by flat extrapolation
 from the nearest in-band value. This makes the calibrated surface constant in
 the tails, which is the standard pragmatic choice for a Monte Carlo local-vol
-pricer: it avoids both the noise of an ill-conditioned inversion and an
-unbounded terminal distribution.
+pricer: it avoids extrapolating the noise of an ill-conditioned inversion.
+Constant tail volatility does not bound the terminal spot distribution.
 
 ### Maturity and strike fill density
 
@@ -153,9 +154,9 @@ filled by one call to `DupireCalibMaturity`, which applies the 2.5-$\Sigma$
 cutoff and flat-extrapolation policy described above. The result is returned as
 a struct of (`spots_`, `times_`, `lVols_`) with `lVols_` indexed
 `[strike_index, time_index]` — the matrix is built time-major during the slice
-loop and transposed once at the end so that downstream consumers (e.g. the
-`Dupire_<T_>` model, which interpolates on log-spot against the strike axis per
-simulation step) read the strike axis as a contiguous row.
+loop and transposed once at the end. Each returned row contains times for one
+strike. `Dupire_<T_>` first interpolates those rows in time into a separate
+step-by-strike matrix, whose rows support log-spot interpolation during simulation.
 
 ## Examples
 
