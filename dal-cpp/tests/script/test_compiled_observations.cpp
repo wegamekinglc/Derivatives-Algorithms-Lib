@@ -188,14 +188,23 @@ TEST(ScriptCompiledParityTest, TestKnownFixingFuzzyBandAndFiniteDifference) {
     const double discount = exp(-0.03 * 10.0 / Dal::DAYS_PER_YEAR);
     const Handle_<Dal::ModelData_> model(new Dal::BSModelData_("", 100.0, 0.2, 0.03, 0.01));
     for (bool compiled : {false, true}) {
-        MonteCarloSettings_ simulation;
-        simulation.compiled_ = compiled;
-        const auto result = Dal::Script::MCSimulation<AAD::Number_>(FuzzyObservationProduct(79.95), model, 8193, {}, simulation, CompiledHistory());
-        ASSERT_NEAR(result.aggregated_ / 8193, 120.0 * discount, 120.0e-12);
-        ASSERT_NEAR(result["SCALE"], 60.0 * discount, 1.0e-10);
-        ASSERT_NEAR(result["K"], -800.0 * discount, 1.0e-10);
-        ASSERT_NEAR(FuzzyObservationPrice(79.95, compiled), result.aggregated_ / 8193, 120.0e-12);
-        const double derivative = (FuzzyObservationPrice(79.9501, compiled) - FuzzyObservationPrice(79.9499, compiled)) / 0.0002;
-        ASSERT_NEAR(derivative, result["K"], 1.0e-5);
+        for (double strike : {79.93, 79.95, 80.0, 80.03, 80.07}) {
+            SCOPED_TRACE(::testing::Message() << "compiled=" << compiled << " strike=" << strike);
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            const auto result =
+                Dal::Script::MCSimulation<AAD::Number_>(FuzzyObservationProduct(strike), model, 8193, {}, simulation, CompiledHistory());
+            const double weight = (80.0 - strike + 0.1) / 0.2;
+            const double expected = 160.0 * weight * discount;
+            ASSERT_NEAR(result.aggregated_ / 8193, expected, expected * 1.0e-12);
+            ASSERT_NEAR(result["SCALE"], 80.0 * weight * discount, 1.0e-10);
+            ASSERT_NEAR(result["K"], -800.0 * discount, 1.0e-10);
+            ASSERT_NEAR(result["rate"], -10.0 / Dal::DAYS_PER_YEAR * expected, 1.0e-10);
+            ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+            ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+            ASSERT_NEAR(FuzzyObservationPrice(strike, compiled), result.aggregated_ / 8193, expected * 1.0e-12);
+            const double derivative = (FuzzyObservationPrice(strike + 0.0001, compiled) - FuzzyObservationPrice(strike - 0.0001, compiled)) / 0.0002;
+            ASSERT_NEAR(derivative, result["K"], 1.0e-5);
+        }
     }
 }

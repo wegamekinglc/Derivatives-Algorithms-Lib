@@ -1027,14 +1027,35 @@ namespace {
 
 TEST(ScriptObservationSimulationTest, TestCompilationFailureBeforeWorkers) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    CompilationFailure_ observer;
-    const Dal::Script::Detail::ScopedSimulationObserver_ audit(&observer);
     MonteCarloSettings_ simulation;
     simulation.compiled_ = true;
     const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
-    ASSERT_THROW(MCSimulation<double>(Product("pay PAYS FIX(EQ[DAL196_TEST])"), model, 8193, BoundSettings(), simulation), Exception_);
-    ASSERT_EQ(observer.compilations_, 1u);
-    ASSERT_EQ(observer.submissions_, 0u);
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    const auto product = Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11)");
+    for (bool aad : {false, true}) {
+        SCOPED_TRACE(aad);
+        {
+            CompilationFailure_ observer;
+            ReadCounter_ reads;
+            const Dal::Script::Detail::ScopedSimulationObserver_ audit(&observer);
+            const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+            try {
+                if (aad)
+                    static_cast<void>(MCSimulation<AAD::Number_>(product, model, 8193, {}, simulation, snapshot));
+                else
+                    static_cast<void>(MCSimulation<double>(product, model, 8193, {}, simulation, snapshot));
+                FAIL() << "compilation failure did not reach caller";
+            } catch (const Exception_& error) {
+                ASSERT_NE(std::string(error.what()).find("injected compiler failure"), std::string::npos);
+            }
+            ASSERT_EQ(reads.fixings_, 1u);
+            ASSERT_EQ(observer.compilations_, 1u);
+            ASSERT_EQ(observer.submissions_, 0u);
+        }
+        const auto recovered = aad ? MCSimulation<AAD::Number_>(product, model, 8193, {}, simulation, snapshot)
+                                   : MCSimulation<double>(product, model, 8193, {}, simulation, snapshot);
+        ASSERT_DOUBLE_EQ(recovered.aggregated_ / 8193, 80.0);
+    }
 }
 
 TEST(ScriptObservationSimulationTest, TestCompiledEagerBooleans) {

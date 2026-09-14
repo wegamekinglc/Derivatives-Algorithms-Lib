@@ -99,7 +99,7 @@ namespace {
         return result;
     }
 
-    void CheckNonlinearHistoryRepricing(size_t paths, const String_& scaleText, const String_& strikeText) {
+    void CheckNonlinearHistoryRepricing(size_t paths, const String_& scaleText, const String_& strikeText, bool compiled) {
         const double t = 10.0 / DAYS_PER_YEAR;
         const double discount = exp(-0.03 * t);
         const ScriptProductData_ product(
@@ -110,8 +110,10 @@ namespace {
         const double seed = 80.0 * scale;
         const bool selected = scale == 3.0 || strikeText == "159.95";
         const double payoff = 0.5 * seed + scale + (selected ? seed * seed / 100.0 : 0.0);
-        const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
-        const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), simulation, History());
+        const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), simulation, History());
         ASSERT_NEAR(result.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
         ASSERT_NEAR(price.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
         ASSERT_NEAR(result["SCALE"], (41.0 + (selected ? 1.6 * seed : 0.0)) * discount, 1.0e-10);
@@ -406,7 +408,10 @@ TEST(ScriptPastReplayTest, TestNonlinearHistoryAndParameterRepricing) {
                 for (const String_ strikeText : {"159.95", "160", "160.05"}) {
                     SCOPED_TRACE(::testing::Message()
                                  << "threads=" << threads << " paths=" << paths << " scale=" << scaleText << " strike=" << strikeText);
-                    ASSERT_NO_FATAL_FAILURE(CheckNonlinearHistoryRepricing(paths, scaleText, strikeText));
+                    for (bool compiled : {false, true}) {
+                        SCOPED_TRACE(compiled);
+                        ASSERT_NO_FATAL_FAILURE(CheckNonlinearHistoryRepricing(paths, scaleText, strikeText, compiled));
+                    }
                 }
     }
 }
