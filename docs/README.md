@@ -108,8 +108,8 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Core tree/compiled FIX valuation: explicit BS/Dupire EQ binding, shared observations, and payment numeraires
   - Typed historical AAD state, hard past decisions, and fuzzy future conditions
   - Legacy SPOT compatibility and public facade/binding valuation limits
-  - Strict history prefetch, exact branch retention, and dependency-aware constant arithmetic
-  - Prepared fuzzy domain processing and legacy condition folding
+  - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
+  - Prepared continuous fuzzy kernels and legacy domain/condition folding
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
   - Product debug outputs (legacy text, versioned JSON, Unicode/ASCII tree)
 

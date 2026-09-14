@@ -367,8 +367,8 @@ rate `r` contributes `80 * exp(-r*T)`. Even with no future FIX, future events
 retain their timeline and numeraire requests. There is no separate payment
 calendar, settlement lag, or currency conversion.
 
-Named exact-double preparation retains future branches in the AST and its
-compiled streams: it skips domain analysis and constant-condition pruning.
+Model-aware exact and fuzzy preparation retain future branches in the AST and
+compiled streams, skipping domain analysis and constant-condition pruning.
 Dependency-aware constant arithmetic can still be folded during compilation.
 Past events replay once into the initial double variable state. Past `PAYS`
 evaluates and consumes its right-hand side without adding settled cash to
@@ -500,10 +500,11 @@ requires fresh preparation and reselects the historical branch.
 Events on or after the evaluation date use exact comparisons in double mode
 and the existing fuzzy kernels in AAD mode. A future condition on an already
 known historical fixing can still have fractional truth and parameter risk
-inside its smoothing band. Prepared fuzzy domain analysis conservatively keeps
-comparison kernels and their runtime widths instead of using hard truth flags
-or discrete domain endpoints to prune them. Tree and compiled evaluation use
-the same kernel. Exact-double and fuzzy-AAD PVs
+inside its smoothing band. Prepared fuzzy evaluation keeps parsed continuous
+comparison kernels and their default or explicit runtime widths. Preparation
+skips domain analysis and condition pruning, preserving arithmetic and
+fractional branch weights across nested IFs and later events. Tree and compiled
+evaluation use the same kernel. Exact-double and fuzzy-AAD PVs
 can consequently differ near future discontinuities; compare the AAD primal
 with `FuzzyEvaluator_<double>` using the same widths and paths. Historical
 switching points do not have a smooth derivative across branches.
@@ -550,17 +551,20 @@ regular-expression replacement in map order, followed by `PeriodBegin` and
 
 ## Domain Processor
 
-Exact model-aware preparation does not run `DomainProcessor_` or
+Neither exact nor fuzzy model-aware preparation runs `DomainProcessor_` or
 `ConstCondProcessor_`. The tolerance-based `Domain_` operations cannot prove
 exact floating-point branch decisions: adjacent values may compare equal in
 the domain model, and a small nonzero factor may collapse a parameter's range
-to zero. Exact preparation therefore retains future branches, including those
-depending only on known fixings. This policy also applies to model-aware
-preparation of default-bound SPOT. Its execution cost is unmeasured.
+to zero. Domain interval inversion can also treat a finite signed tiny
+nonzero divisor as zero and reject valid fuzzy arithmetic. Model-aware
+preparation therefore retains parsed future arithmetic and branches, including
+those depending only on known fixings, and preserves continuous fuzzy kernels
+with default or explicit epsilon. This policy also applies to model-aware
+preparation of default-bound SPOT. The execution cost of retained branches is
+unmeasured.
 
-The passes below apply to legacy preprocessing when domain processing is
-enabled, and to model-aware fuzzy preparation through `ProcessFuzzyDomains`.
-Prepared fuzzy comparisons retain their runtime kernels as described below.
+The domain passes below apply to legacy `ScriptProduct_::PreProcess` when
+domain processing is enabled. Model-aware preparation does not invoke them.
 
 `DomainProcessor_` in `dal-cpp/dal/script/visitor/domainproc.hpp` determines the
 domains (value ranges) of all script variables and expressions. Its purposes are:
@@ -574,13 +578,13 @@ domains (value ranges) of all script variables and expressions. Its purposes are
 
 **Domain stack.** The processor maintains a stack of `Domain_` objects that
 represent the runtime value range of each sub-expression. The legacy constructor
-starts variable domains at the singleton $\{0\}$; model-aware fuzzy preparation
-supplies domains from historical dependency analysis. Proven historical
-constants have singleton domains, while parameter-dependent state, script
-constant variables, and model observations have unrestricted real domains.
-A parameter's current numeric value is not its domain. As the walker descends
-through arithmetic operations, domains are combined (pushed/popped) on the stack. A boolean condition
-stack (`DomainCondProp_` values: `AlwaysTrue`, `AlwaysFalse`, `TrueOrFalse`)
+starts variable domains at the singleton $\{0\}$; script constant variables
+and unbound model SPOT expressions have unrestricted real domains.
+A parameter's current numeric value is not its domain. Model-aware historical
+dependencies instead feed constant metadata without constructing domains.
+As the walker descends through arithmetic operations, domains are combined
+(pushed/popped) on the stack. A boolean condition stack (`DomainCondProp_`
+values: `AlwaysTrue`, `AlwaysFalse`, `TrueOrFalse`)
 tracks the outcome of evaluated conditions.
 
 **Legacy domain condition flags.** For `NodeEqual_` (expr $= 0$), if the domain of the
@@ -602,20 +606,17 @@ constant-condition processor's job possible: once
 `alwaysTrue_`/`alwaysFalse_` flags are set, the next pass can collapse dead
 branches.
 
-**Fuzzy interpolation bounds.** Prepared fuzzy comparisons retain continuous
-runtime kernels with the node's `eps_` or the evaluator default; no comparison
-is hard-folded from its domain. This accounts for state blended between fuzzy
-branches, whose values need not be either branch endpoint. Legacy singleton
-domains also retain the runtime kernel. For other legacy fuzzy expressions,
-domain analysis may set `isDiscrete_` and the `lb_`/`rb_` endpoints around zero;
+**Fuzzy interpolation bounds.** Legacy singleton domains retain the runtime
+kernel with the node's `eps_` or the evaluator default. For other legacy fuzzy
+expressions, domain analysis may set `isDiscrete_` and the `lb_`/`rb_` endpoints around zero;
 continuous conditions use the runtime smoothing width.
 
 ## Constant Condition Processor
 
 `ConstCondProcessor_` in `dal-cpp/dal/script/visitor/constcondprocessor.hpp`
 mutates the AST by collapsing always-true and always-false condition and if
-nodes into their concrete outcomes. Exact model-aware preparation skips this
-visitor; legacy preprocessing and the prepared fuzzy helper invoke it after
+nodes into their concrete outcomes. Both exact and fuzzy model-aware
+preparation skip this visitor; legacy preprocessing invokes it after enabled
 domain processing:
 
 - An `alwaysTrue_` boolean condition node is replaced by a `NodeTrue_` leaf.
@@ -630,9 +631,10 @@ properly set. Because this visitor *mutates* the tree structure (replacing nodes
 in place), it must be invoked from the root via `ProcessFromTop(std::unique_ptr<Node_>& top)`,
 which passes a reference to the owning `unique_ptr` so the replacement is safe.
 Conditions containing eager `AND` or `OR`, and their enclosing IF nodes, are
-retained so folding cannot remove the required operand evaluation. Historical
-prefetch precedes this pass, so even a subsequently pruned branch must supply
-every required fixing in a nonexpired product.
+retained so folding cannot remove the required operand evaluation. Model-aware
+preparation collects and resolves history across all syntax branches before
+constant metadata or compilation; every required fixing in a nonexpired
+product must be supplied even if its branch will not execute.
 
 Constant arithmetic metadata belongs to the separate `ConstProcessor_` pass,
 which runs in both exact and
@@ -680,7 +682,7 @@ $$
 $$
 
 When the condition node carries explicit domain-derived left and right bounds
-(`lb_`, `rb_`) — set by `DomainProcessor_` for discrete sub-expressions — the
+(`lb_`, `rb_`) — set by legacy `DomainProcessor_` for discrete sub-expressions — the
 two-argument overloads use the subdomain endpoints instead of a symmetric
 $\pm\varepsilon/2$ band:
 
@@ -746,13 +748,11 @@ selection before optimization. Its order is:
    any branch pruning. Wholly expired products take the separate zero path.
 3. Replay hard history once into double initial state. `ConstProcessor_`
    separately tracks historical constants and parameter dependencies, ignoring
-   settled `PAYS` accumulation, to seed future constant metadata and, in fuzzy
-   mode, initial variable domains.
-4. In exact mode, retain future branches and skip `DomainProcessor_` and
-   `ConstCondProcessor_`. In fuzzy mode, `ProcessFuzzyDomains` analyzes IF
-   structure and runs those future passes with continuous runtime comparison
-   kernels retained. In both modes, compute IF nesting and affected-variable
-   metadata on the final control flow.
+   settled `PAYS` accumulation, to seed future constant metadata.
+4. In both exact and fuzzy modes, retain parsed future arithmetic and branches
+   and skip `DomainProcessor_` and `ConstCondProcessor_`. Parsed fuzzy
+   comparisons keep continuous kernels with their default or explicit widths.
+   Compute IF nesting and affected-variable metadata on the final control flow.
 5. Finalize future constant metadata from the historical dependency state.
    Literal/history-only arithmetic may fold; `SCALE * H` remains active when
    SCALE is a script parameter, even though both current values are known.
@@ -908,6 +908,8 @@ In AAD mode (`fuzzy = true`), compiled evaluation mirrors
 `FuzzyEvaluator_<T>`:
 
 - comparisons emit `FuzzyEqual`, `FuzzyComp`, or their discrete-bound variants;
+  model-aware preparation uses the continuous forms, while legacy domain
+  preprocessing can select discrete bounds;
 - the smoothing kernels are shared with tree-walk (`BFly` for equality,
   `CSpr` for inequalities);
 - a negative per-node `eps_` falls back to the evaluator default `defEps_`;
@@ -933,6 +935,7 @@ behavior, and opcode reachability. The benchmark target
 parser front-end.
 
 Named coverage in `dal-cpp/tests/script/test_exact_folding.cpp`,
+`dal-cpp/tests/script/test_fuzzy_arithmetic.cpp`,
 `dal-cpp/tests/script/test_compiled_observations.cpp`,
 `dal-cpp/tests/script/test_past_replay.cpp`, and
 `dal-cpp/tests/script/test_observation_simulation.cpp` also checks independent
@@ -940,7 +943,11 @@ analytic path values and risks, retained fixing samples, typed batch lifetimes,
 smooth-point finite differences, strict prefetch, and preparation failures.
 Exact regressions cover adjacent floating-point comparisons, signed small
 factors, and nested future state across events with independent price/risk
-oracles.
+oracles. Fuzzy arithmetic regressions cover finite signed tiny literal, known
+and computed divisors, live parameter denominators, and nested fractional
+state across events with default and explicit smoothing widths. Analytic
+values and risks and unoptimized fuzzy-double central differences provide
+references independent of shared preparation optimizations.
 The isolated `dal-cpp/test-support/test_script_observation_allocations.cpp`
 fixture measures C++ allocation requests during repeated native-double exact
 and fuzzy tree/compiled evaluation after state/scenario construction. It does

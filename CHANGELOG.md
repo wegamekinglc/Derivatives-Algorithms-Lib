@@ -22,8 +22,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   valuation using the same sealed observation plan as tree execution. Hard
   historical bytecode preserves typed parameter-dependent state and discards
   settled payments; future optimization retains live parameters and fractional
-  fuzzy weights. Exact model-aware preparation retains future branches without
-  tolerance-domain pruning; constant arithmetic can still fold. Preparation
+  fuzzy weights. Exact and fuzzy model-aware preparation retain future branches
+  and valid tiny-divisor arithmetic without tolerance-domain processing;
+  literal/history constant arithmetic can still fold. Preparation
   fixes execution mode and smoothing, prefetches history before optimization,
   and builds requested bytecode before workers start.
   Named valuation settings remain core-only; public C++ facade, Python, Excel,
