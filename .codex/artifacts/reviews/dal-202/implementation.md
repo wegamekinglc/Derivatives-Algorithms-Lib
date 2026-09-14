@@ -1,193 +1,222 @@
-# DAL-202 F5 compiled execution repair
+# DAL-202 F5 AAD execution repair
 
-DAL-228 specializes compiler-produced legacy execution to remove prepared
-sample selection and opcode handling from its event loops. Prepared programs
-retain the full observation interpreter. This supersedes the integration
-report, whose failures and controls remain in the attached inherited archive.
-Independent acceptance remains with DAL-202.
+DAL-228 moves the standard AAD script evaluator entry points into core while
+sharing their existing generic bodies. Isolated shared-library measurements
+support a partial reduction in Monte Carlo cost. The complete gates below
+control acceptance; diagnostic improvement alone does not complete F5.
 
-## Revisions and scope
+## Revisions and changed files
 
-- Master baseline: `b4e8b56135b5cfcbbe2ddd8d753921dd40d6caa2`,
+- Baseline master: `b4e8b56135b5cfcbbe2ddd8d753921dd40d6caa2`,
   tree `f531d1858b881d3cf352c05c4e461e34f4263502`.
-- Starting publication: `b21d4e1aede59672f39eaa2fb49e8a8ff1e81b87`,
-  tree `d31dafb0a11b2d206864637d475d8db5f2112892`.
-- Tested repair: `a0ffbd9a825ed10f678b94f803b659beac8f99fe`,
+- Starting publication: `0fffdc143ed9da1b631115fd28a9b64638ad5372`,
+  tree `5d2bca5433506cc0e4a771a4c848353ced2afac2`.
+- Previous tested code used in diagnostics: `a0ffbd9a825ed10f678b94f803b659beac8f99fe`,
   tree `600c60447c1127e191b77aa367aa438338eab5f2`.
-- Publication adds only this report. Evidence `publication.json` records its
-  exact SHA/tree and verification against 1149 tested source hashes.
+- Freshly tested repair: `5395b75e31789d733ff879aa948faf2d6a86d4ac`,
+  tree `0ba8901fc1628503ac62740914a3248210828962`.
+- Publication adds only this report. Attached `publication.json` records the
+  published SHA/tree and equivalence of all 1150 tested source files.
 - Existing [PR #372](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/372)
-  stays open on `feature/dal-202-compiled-observations`, targeting master.
-  The owner's ready-for-review state is preserved.
+  remains open on `feature/dal-202-compiled-observations`, targeting master,
+  with the owner's ready-for-review state preserved.
 
-Only `dal-cpp/dal/script/event.hpp` and
-`dal-cpp/dal/script/visitor/compiler.hpp` change product code this turn;
-the third changed file is this report. F4 terminal roots, LocalCheckedPaths,
-double seed storage and every F5 correctness fix are retained. No test,
-benchmark, CI, threshold, skip, public contract, binding, default, error,
-example, curve, RNG or threadpool change is introduced.
+Product changes are limited to `dal-cpp/dal/script/event.hpp` and new
+`dal-cpp/dal/script/evaluation.cpp`: 37 added lines. The header shares each
+existing body through private EvaluateImpl and declares two explicit standard
+AAD specializations. The core definitions call those same bodies. Generic
+types retain their existing evaluator behavior. The third changed file is
+this report. No public signature, arithmetic, preparation, observation,
+exception, payoff-root, typed-state or batch-lifetime rule changes.
+
+F4 terminal roots, LocalCheckedPaths, double seeds and all previous F5 fixes,
+including legacy sample/recursive-dispatch specialization, are retained.
+Tests, benchmarks, thresholds, skips, CI, bindings, defaults, curves, RNG and
+threadpool code are unchanged. No Machinist enum changes require regeneration.
 
 ## Cause evidence and design
 
-The controlling RED is the prior complete Python **82/90** result on
-`337ee079`, including repeated compiled and bumped barrier failures.
-The previous two-comparison reorder was already present and did not
-satisfy the gate.
+The controlling timing RED is inherited Python **81/90** on `a0ffbd9a`:
+nine repeated failures across AAD, vanilla and one cross-currency case.
+That complete gate is not rerun unchanged. Its samples, earlier failures and
+A/A controls remain in the inherited archive.
 
-The preparation hypothesis was rejected. The affected public entry uses
-legacy preprocessing, and a standalone barrier probe emits identical bytecode
-on master and the original F5 candidate. It evaluates 54 events on identical
-predetermined scenarios 200000 times, checking analytic payoff sum 2300000.
-Timing excludes preparation, Python, model generation and worker scheduling.
-Ten process samples per variant are interleaved with alternating order.
+Fixed scenarios isolate recording and propagation from preparation, Python,
+path generation and scheduling. Each process evaluates 200000 one-event vanilla
+or 54-event barrier paths, with one barrier observation inside the fractional
+band. Analytic PV and every spot, numeraire and parameter risk are checked.
+MC probes add 65536 Sobol paths and four threads and compare all model risks.
+Every comparison retains ten interleaved process samples per variant with
+alternating order and minimum reduction.
 
-Source and assembly identify historical/plan sample selection inside every
-event and prepared opcode handling in outer and recursive interpreter loops.
-Both are unnecessary for compiler-produced legacy programs. The original
-outer loop is 0x58f5 bytes versus master's 0x5091. Bounded diagnostics:
+Native executable probes do not reproduce the full shared-library cost.
+Public code uses GCC14 -O3 -fPIC without core's native tuning; shared libraries
+also retain dynamic TLS resolution that executables can relax. Shared probes
+reproduce the compiled recording regression: for fixed barrier paths, previous
+recording minimum is 0.416912 s versus master 0.317871 s; reverse propagation
+is approximately 0.022 s for both. Analytic values and risks confirm equivalent financial outputs;
+instruction and tape-node counts are not measured.
 
-| Variant                                  | Base minimum (s) | Original minimum (s) | Variant minimum (s) |
-|------------------------------------------|------------------|----------------------|---------------------|
-| Outline prepared handler                 | 0.066631         | 0.080570             | 0.091497            |
-| Select direct samples outside event loop | 0.063966         | 0.079915             | 0.073355            |
-| Also specialize outer dispatch           | 0.062908         | 0.081114             | 0.074818            |
-| Also specialize recursive dispatch       | 0.064776         | 0.083297             | 0.074780            |
+Assembly identifies changed inlining around payoff roots and compiled
+arithmetic. Outlining root handling, caching a batch-local tape pointer, and
+extern template instantiation were each tested and rejected as complete fixes:
+none improves all affected MC paths consistently. In particular, extern
+instantiation still permits caller expansion. Their source overlays, assembly
+and every sample are retained; none is imported into product code.
 
-Outlining is rejected. Invariant sample selection and recursive specialization
-produce a partial isolated improvement of about 10.2%, still trailing master
-by about 15.4% in that comparison. This supports a related product cause,
-not complete timing acceptance. Raw samples, overlays and assembly are retained.
+Actual explicit specialization prevents standard AAD entry-point expansion in
+public callers and uses core compilation. The supported intervention is
+execution placement, not a claim that TLS or one instruction explains all cost.
 
-The implementation records a private legacy flag only when Build compiles
-without a plan or historical replay. Directly constructed bytecode retains the
-general interpreter and its existing errors. EvaluateSamples shares event-view
-construction; specialization propagates through hard and fuzzy recursion.
-Arithmetic, eager booleans, stacks, branch ranges, smoothing, observation
-addresses and payment numeraires remain shared. Public EvalCompiled keeps
-its signature and behavior; specialized helpers are internal. Final standalone
-legacy outer/range functions occupy 0x5091/0x5010 bytes, matching master.
-Size equality alone does not establish performance. Maximum changed
-interpreter complexity is 8; event evaluation complexity is at most 4.
+| Shared MC probe | Master minimum (s) | Previous minimum (s) | Repair minimum (s) |
+|-----------------|--------------------|----------------------|--------------------|
+| Vanilla tree | 0.004183300 | 0.004689529 | 0.003844925 |
+| Vanilla compiled | 0.004167731 | 0.004569020 | 0.003917615 |
+| Barrier tree | 0.074567038 | 0.079499663 | 0.072131751 |
+| Barrier compiled | 0.067459232 | 0.083418874 | 0.073617393 |
+
+These reductions against previous code are 18.01%, 14.26%, 9.27% and 11.75%.
+Limits are material: repaired barrier compiled MC still trails master by
+9.13%; fixed barrier compiled total improves 4.19% but still trails master
+by 23.52%. Fixed vanilla compiled does not improve. The intervention explains
+a partial benefit, not the remaining attribution or the complete timing result.
 
 ## RED/GREEN and fresh correctness
 
-This is timing-only work. The justified TDD adaptation uses the genuine failed
-timing contract rather than inventing a failing value assertion or testing
-template structure. Existing independent correctness oracles are unmodified.
-Initial native focused **454/454** and post-change **454/454** pass; shared
-helpers avoid duplicated semantics. No public-contract deviation is introduced.
+The authorized timing-only TDD adaptation uses a genuine failed timing
+contract rather than inventing a failing value assertion. Existing independent
+correctness tests are unchanged. Fresh before-change native 1744/1744 and
+focused 454/454 pass; after the minimum change, focused 454/454 passes and
+shared bodies avoid duplicated semantics. No design-contract deviation is made.
 
-Fresh verification on `a0ffbd9a`:
+Fresh verification on `5395b75e`:
 
-- GCC 14 Release build/install and full native CTest: **1744/1744**.
+- GCC14 Release build/install and full native CTest: **1744/1744**.
 - Focused native/Adept/CoDiPack/XAD: **454/453/453/452**, all passing.
-- All **33** legacy parity/fuzz cases pass on every backend.
-- Unchanged exact-boundary reproductions: **4/4**; signed tiny-divisor
-  reproductions: **6/6**; isolated double allocation fixture: **2/2**.
-- Python: **402/402** on both the new performance build and retained baseline.
-- Documentation structure: **58** Markdown files; whitespace checks pass.
+- Each backend passes **30 legacy parity/fuzz cases** plus **3 observation
+  parity cases**. This clarifies the prior report's combined count of 33.
+- Unchanged exact-boundary reproductions: **4/4**; signed tiny divisors: **6/6**;
+  isolated double allocation fixture: **2/2**.
+- Python: **402/402** on both candidate and verified baseline.
+- Eight script_mc_perf smoke cases complete; they are informational and do
+  not replace or extend the original nine-target C++ gate.
+- Documentation checker and whitespace checks pass.
 
-The suites retain analytic/unoptimized T06/T09/T10/T18 oracles and all risks;
-hard history and settled PAYS discard; live parameter seeds; same-epsilon
-fuzzy double and smooth finite differences; exact boundaries and signed tiny/
-computed divisors; nested/cross-event fractional state; final IF metadata;
-compile failure before zero worker submissions; eager AND/OR; syntax-wide
-history reads; exception drain; and direct/constant/empty-suffix roots.
-All 27 compiled lifetime combinations retain threads 1/2/4, 8193 paths and
-fixing sequence 80/90/80.
+Existing tests retain analytic/unoptimized PV and all-risk oracles, hard history,
+settled PAYS discard, live parameter seeds, same-epsilon fuzzy double and smooth
+finite differences, exact boundaries, signed tiny/computed divisors,
+nested/cross-event fractional state, final IF metadata, compile failure before
+worker submission, eager booleans, syntax-wide reads, exception drain and
+direct/constant/empty-suffix roots. The 27 compiled lifetime combinations retain
+threads 1/2/4, 8193 paths and fixing sequence 80/90/80.
 
-Allocation measurement covers C++ allocation requests after evaluator/scenario
-construction over 8193 exact/fuzzy tree/compiled paths, including a positive
-control and rejecting history/index seams. It excludes AAD tape allocation
-and arbitrary malloc. Integer-addressed loads are source-inspected, not
-dynamically counted. Compiler failure injection precedes bytecode construction.
+Allocation measurement covers C++ allocation requests after construction over
+8193 exact/fuzzy tree/compiled paths, including a positive control and rejecting
+history/index seams. It excludes AAD tape allocation and arbitrary malloc.
+Integer addressing is source-inspected; reads are not dynamically counted.
+Initial setup failures from absent submodules and incomplete diagnostic build
+dependencies are retained in logs; after initialization all required builds pass.
 
 ## Complete performance gates
 
-C++: **PASS, 63/63**, with Sobol precise/fast ratio **8.35x** against
-the unchanged 10x ceiling. Python: **FAIL, 81/90**. The nine failures are:
+C++: **PASS, 63/63**, including Sobol precise/fast ratio **8.39x**
+against the unchanged 10x ceiling. Python: **FAIL, 81/90**.
 
-| Case                               | Round 1 | Round 2 |
-|------------------------------------|---------|---------|
-| comparison.mc_vanilla_greeks_16384 | +16.22% | +12.83% |
-| comparison.mc_vanilla_greeks_65536 | +22.40% | +17.40% |
-| comparison.mc_vanilla_price_16384  | +9.32%  | +34.89% |
-| mc.barrier.aad.compiled            | +23.85% | +25.50% |
-| mc.barrier.aad.tree                | +10.42% | +10.59% |
-| mc.vanilla.aad.compiled            | +12.39% | +16.92% |
-| mc.vanilla.aad.tree                | +9.49%  | +8.89%  |
-| mc.vanilla.double.compiled         | +5.26%  | +8.21%  |
-| xccy.joint.BUMPED.solve            | +4.34%  | +5.48%  |
+| Python case | Round 1 | Round 2 |
+|-------------|---------|---------|
+| comparison.mc_barrier_greeks_16384 | +11.89% | +10.54% |
+| comparison.mc_barrier_greeks_65536 | +4.25% | +4.64% |
+| comparison.mc_vanilla_greeks_16384 | +20.91% | +23.08% |
+| comparison.mc_vanilla_greeks_65536 | +18.24% | +22.43% |
+| comparison.mc_vanilla_price_16384 | +12.24% | +4.12% |
+| mc.barrier.aad.compiled | +29.13% | +30.98% |
+| mc.barrier.aad.tree | +9.03% | +6.72% |
+| mc.barrier.double.compiled | +6.98% | +6.85% |
+| mc.vanilla.aad.compiled | +14.69% | +13.58% |
 
-The previously repeated double/bumped barrier cases pass under the original
-rule: barrier Greeks 16384 **+5.83/-0.24%**, Greeks 65536 **+5.48/-0.89%**,
-price 16384 **+3.09/+4.87%**, price 65536 **+0.49/-2.39%**, and barrier
-double compiled **+4.42/+3.49%**. Passing does not mean both rounds are below
-4%. These observations do not establish a completed repair: AAD and vanilla
-failures remain, including tree paths not executed by the specialization.
+Vanilla AAD tree now passes (+0.56/+2.39%), as do vanilla double compiled
+(+2.36/+3.71%) and cross-currency BUMPED solve (-1.17/-1.46%). Three
+previously passing double/bumped barrier cases fail this run. Results from
+different gate runs do not establish a direct before/after speedup. The
+complete gate does not validate the isolated diagnostic improvement.
 
-The performance RED has no complete GREEN. Overall verdict: **regression
-found by the required gate; unresolved attribution outside the isolated
-legacy execution benefit**. No unsupported additional optimization or
-unrelated product edit is made. Parent acceptance remains blocked by the
-Python contract, regardless of functional correctness.
+The built Python module exports both new evaluator specializations; this
+confirms that the tested artifact includes the change. The 65536-path
+diagnostic excludes public product/model construction and preprocessing,
+while actual native Python AAD cases use 20000 vanilla/10000 barrier paths
+and time the full public boundary. Link context and workload differences
+remain unresolved attribution limits.
 
-Fresh candidate A/A control: **FAIL, 89/90**, on byte-identical native modules
-and an unchanged copied CMake cache. Only comparison.calibration_single_5
-fails, at **+7.74/+4.65%**. This confirms some local timing instability but
-is distinct from all nine candidate failures; it does not exonerate them.
-Both A/A native-module hashes and all raw samples are retained. There is no
-second paired run or control rerun.
+Fresh byte-identical candidate A/A: **FAIL, 88/90**.
+Both native-module hashes and the copied CMake cache match. It uses the
+same full inventory and original two-round/ten-sample/4% rule.
 
-Both original complete gates use two rounds of ten interleaved samples per
-side, minimum reduction and strict 4%. Builds/tests finish before sampling.
-Both sides use GCC 14, Release, native AAD/CPU tuning, Python 3.13.9,
-pybind11 3.0.4 and DAL_NUM_THREADS=4. The candidate has a detached source and
-separate build. Baseline reuse follows verification of clean revision/tree
-and all 23 binary hashes; fresh baseline Python tests pass. The baseline is
-not modified.
+| A/A case | Round 1 | Round 2 |
+|----------|---------|---------|
+| comparison.calibration_single_15 | +4.02% | +4.67% |
+| comparison.mc_vanilla_price_16384 | +13.76% | +6.71% |
 
-The host is local WSL2. No other CPU-heavy Linux process appeared at the
-recorded pre-sampling snapshot; Windows-host load is uncontrolled.
-Local timing does not replace hosted required checks.
+The control does not waive any master/candidate failure. There is one
+paired gate and one A/A control on this candidate, with every sample kept.
 
-Inherited integration **81/90**, previous final **82/90**, C++ **63/63**,
-and byte-identical A/A master **88/90**, integration **90/90**, previous final
-**87/90** remain in the nested original archive. Its SHA256 is
-`f873433b1d09c6fb0cec0e6f680f110d4cc09772a921ee2fe841b972194d326f`;
-all 1662 internal manifest entries were verified. These are historical
-results, not approval of this repair. No unchanged paired gate is rerun to
-seek green.
+**Overall: the required Python gate finds regressions; timing GREEN is
+not achieved.** Functional correctness and a partial isolated benefit do
+not satisfy performance acceptance.
+
+Both original complete gates use **two rounds of ten interleaved samples per
+side, minimum reduction, strict 4%**. No benchmark inventory, aggregation,
+threshold or environment-validation rule changes. No unchanged paired gate is
+rerun to seek green. All builds and correctness checks finish before sampling;
+the Python and C++ gates run sequentially.
+
+Both sides use GCC14 Release, native AAD/CPU tuning, Python 3.13.9, pybind11
+3.0.4 and DAL_NUM_THREADS=4. Candidate source/build are isolated and detached
+at the tested code revision. Baseline reuse verifies its clean commit/tree and
+all 23 retained binary hashes, with fresh Python correctness. Source equivalence,
+submodule revisions, CMake caches, core/public/Python flags and binary hashes
+are attached. This WSL2 host has uncontrolled Windows load. Local results do
+not replace hosted required checks; host uncertainty does not waive failures.
+
+The inherited timing archive SHA256 is
+`ad2c2eef08c6397adf960a35dc696a87bbd1b7610bd2811fb854ade9ef28ecf9`.
+It retains previous Python 81/90, C++ 63/63, distinct candidate A/A 89/90,
+and nested integration evidence SHA256
+`f873433b1d09c6fb0cec0e6f680f110d4cc09772a921ee2fe841b972194d326f`.
+These are historical evidence, not current acceptance.
 
 ## Reproduction and handoff
 
-Evidence includes commands.md, command JSON with exact argv/cwd/timestamp/
-exit/duration, logs, source/binary hashes, diagnostic source/overlays/assembly,
-complete raw gate samples/reports, publication and CI snapshots, and a SHA256
-manifest. Principal commands:
+Evidence includes exact command argv/cwd/UTC/exit/duration, logs, source/binary
+identities, diagnostic sources and rejected overlays, assembly, all raw complete
+gate samples, publication/CI snapshots and SHA256 manifests. Principal commands:
 
 ```sh
 cmake --preset=Release-linux -S . -B build/Release-linux -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
 cmake --build build/Release-linux -j8
 DAL_NUM_THREADS=4 ctest --test-dir build/Release-linux --output-on-failure -j4
 DAL_NUM_THREADS=4 ./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*'
+python3 .github/scripts/check_python_benchmark_regressions.py --base-source BASE_SOURCE --head-source CANDIDATE_SOURCE --base-root BASE_BUILD --head-root CANDIDATE_BUILD --output-dir python-paired --samples 10 --confirmation-rounds 2 --threshold-percent 4
+python3 .github/scripts/check_benchmark_regressions.py --base-root BASE_BUILD --head-root CANDIDATE_BUILD --output-dir cpp-paired --samples 10 --confirmation-rounds 2 --threshold-percent 4
 ```
 
-Alternate builds enable exactly one backend and disable examples. Full gate
-commands and resolved source/build roots are recorded in commands.md.
-No installed benchmark binaries are used.
+The inherited archive records the RED command and failed results. Attached
+commands.md resolves all placeholders and records the fresh GREEN correctness
+and current complete gate commands. Alternate builds enable exactly one backend.
+No installed benchmark executable is used.
 
-One CI snapshot follows publication. Missing/pending checks are reported for
-that exact head; old runs cannot satisfy current Linux/Windows CI gates.
-No CI watch/retry polling, merge, close intent, new specialist chain, F6 work
-or diagnostic PR #373 import is performed. DAL-223 remains deferred.
+One CI snapshot follows publication. Pending/missing checks are reported for
+that exact published head; prior runs cannot approve it. No CI watch/poll,
+merge, close intent, new specialist chain, PR #373 import or F6 work occurs.
+DAL-223 remains deferred. No Windows XLL, sanitizer or full alternate-backend
+public/Excel verification is claimed.
 
 DAL-228 returns to in_review for parent report acceptance. DAL-202 owns serial
 DAL-229 independent testing, DAL-230 documentation/CHANGELOG decision and
-mandatory DAL-231 review. No Windows XLL, sanitizer or full alternate-backend
-public/Excel verification is claimed. Old approvals do not approve this repair.
-
-The unresolved work is to establish a supported cause for remaining AAD/vanilla
-timing failures and satisfy both complete gates after a justified product
-change. The isolated legacy benefit and this report do not complete that work
-or approve advancement past performance acceptance.
+mandatory DAL-231 review. Earlier approvals do not cover this change.
+The remaining evidence needed is phase attribution on the actual linked Python
+module and exact failing workloads, separating public preparation, recording,
+propagation and result conversion with matching path/batch counts. Compiled
+AAD recording is a supported focus, but these probes do not prove the complete
+cause. No curve/RNG/threadpool or benchmark-policy change is justified. Parent
+must decide the next bounded investigation before performance acceptance or
+advancement; this report does not approve either.
