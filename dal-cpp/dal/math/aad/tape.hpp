@@ -49,7 +49,10 @@ namespace Dal::AAD {
         friend void PropagateToStart(Tape_& tape);
         friend void PropagateToMark(Tape_& tape);
 
-        template <size_t N_> TapNode_* RecordNode() {
+        template <size_t N_> TapNode_* RecordNode() { return AllocateNode<N_>(); }
+
+    private:
+        template <size_t N_> TapNode_* AllocateNode() {
             TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
                 node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(numAdj_);
@@ -64,6 +67,17 @@ namespace Dal::AAD {
         }
 
     };
+
+    // Keep three-input allocation out of model loops without duplicating the allocator.
+    template <>
+#if defined(_MSC_VER)
+    __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+    __attribute__((noinline))
+#endif
+    inline TapNode_* Tape_::RecordNode<3>() {
+        return AllocateNode<3>();
+    }
 
     void Clear(Tape_& tape);
     void Mark(Tape_& tape);
