@@ -98,6 +98,31 @@ namespace {
         }
         return result;
     }
+
+    void CheckNonlinearHistoryRepricing(size_t paths, const String_& scaleText, const String_& strikeText) {
+        const double t = 10.0 / DAYS_PER_YEAR;
+        const double discount = exp(-0.03 * t);
+        const ScriptProductData_ product(
+            "", {Cell_("SCALE"), Cell_("SHIFT"), Cell_("K"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+            {scaleText, "0.5", strikeText, "x = SCALE * FIX(EQ[DAL196_TEST]) IF x > K:0.2 THEN x = x * x / 100 + SHIFT * x ELSE x = SHIFT * x END",
+             "x = x + SCALE", "pay PAYS x"});
+        const double scale = scaleText == "2" ? 2.0 : 3.0;
+        const double seed = 80.0 * scale;
+        const bool selected = scale == 3.0 || strikeText == "159.95";
+        const double payoff = 0.5 * seed + scale + (selected ? seed * seed / 100.0 : 0.0);
+        const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+        const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+        ASSERT_NEAR(result.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
+        ASSERT_NEAR(price.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
+        ASSERT_NEAR(result["SCALE"], (41.0 + (selected ? 1.6 * seed : 0.0)) * discount, 1.0e-10);
+        ASSERT_NEAR(result["SHIFT"], seed * discount, 1.0e-10);
+        ASSERT_NEAR(result["K"], 0.0, 1.0e-10);
+        ASSERT_NEAR(result["rate"], -t * payoff * discount, 1.0e-10);
+        ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+        ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+        ASSERT_NEAR(result["div"], 0.0, 1.0e-10);
+        ASSERT_EQ(result.names_.size(), 7u);
+    }
 } // namespace
 
 TEST(ScriptPastReplayTest, TestParameterRisk) {
@@ -269,8 +294,6 @@ TEST(ScriptPastReplayTest, TestPreparedAadRejectsChangedSmoothing) {
 TEST(ScriptPastReplayTest, TestNonlinearHistoryAndParameterRepricing) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     PoolRestore_ pool;
-    const double t = 10.0 / DAYS_PER_YEAR;
-    const double discount = exp(-0.03 * t);
     for (size_t threads : {1, 2, 4}) {
         pool.pool_->Start(threads, true);
         for (size_t paths : {1, 257, 8193})
@@ -278,28 +301,7 @@ TEST(ScriptPastReplayTest, TestNonlinearHistoryAndParameterRepricing) {
                 for (const String_ strikeText : {"159.95", "160", "160.05"}) {
                     SCOPED_TRACE(::testing::Message()
                                  << "threads=" << threads << " paths=" << paths << " scale=" << scaleText << " strike=" << strikeText);
-                    const ScriptProductData_ product(
-                        "",
-                        {Cell_("SCALE"), Cell_("SHIFT"), Cell_("K"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
-                        {scaleText, "0.5", strikeText,
-                         "x = SCALE * FIX(EQ[DAL196_TEST]) IF x > K:0.2 THEN x = x * x / 100 + SHIFT * x ELSE x = SHIFT * x END", "x = x + SCALE",
-                         "pay PAYS x"});
-                    const double scale = scaleText == "2" ? 2.0 : 3.0;
-                    const double seed = 80.0 * scale;
-                    const bool selected = scale == 3.0 || strikeText == "159.95";
-                    const double payoff = 0.5 * seed + scale + (selected ? seed * seed / 100.0 : 0.0);
-                    const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
-                    const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
-                    ASSERT_NEAR(result.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
-                    ASSERT_NEAR(price.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
-                    ASSERT_NEAR(result["SCALE"], (41.0 + (selected ? 1.6 * seed : 0.0)) * discount, 1.0e-10);
-                    ASSERT_NEAR(result["SHIFT"], seed * discount, 1.0e-10);
-                    ASSERT_NEAR(result["K"], 0.0, 1.0e-10);
-                    ASSERT_NEAR(result["rate"], -t * payoff * discount, 1.0e-10);
-                    ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
-                    ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
-                    ASSERT_NEAR(result["div"], 0.0, 1.0e-10);
-                    ASSERT_EQ(result.names_.size(), 7u);
+                    ASSERT_NO_FATAL_FAILURE(CheckNonlinearHistoryRepricing(paths, scaleText, strikeText));
                 }
     }
 }
