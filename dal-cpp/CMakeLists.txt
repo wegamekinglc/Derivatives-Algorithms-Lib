@@ -303,6 +303,14 @@ if(DAL_CPP_BUILD_TESTS)
     dal_apply_platform_options(dal_cpp_schedule_allocation_tests)
     gtest_discover_tests(dal_cpp_schedule_allocation_tests TEST_PREFIX "schedule_allocation::")
 
+    add_executable(dal_cpp_script_observation_allocation_tests
+        "${PROJECT_SOURCE_DIR}/test-support/test_script_observation_allocations.cpp"
+        "${PROJECT_SOURCE_DIR}/test-support/bcg_allocation_probe.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
+    target_link_libraries(dal_cpp_script_observation_allocation_tests PRIVATE dal_cpp gtest)
+    dal_apply_platform_options(dal_cpp_script_observation_allocation_tests)
+    gtest_discover_tests(dal_cpp_script_observation_allocation_tests TEST_PREFIX "script_observation_allocation::")
+
     add_executable(dal_cpp_bcg_workspace_boundary_tests
         ${DAL_CPP_BCG_WORKSPACE_BOUNDARY_TEST_SOURCES})
     target_compile_definitions(dal_cpp_bcg_workspace_boundary_tests PRIVATE DAL_BCG_WORKSPACE_BOUNDARY_TEST_SEAM)
