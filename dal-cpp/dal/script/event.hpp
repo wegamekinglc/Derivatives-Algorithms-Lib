@@ -35,6 +35,13 @@ namespace Dal::Script {
         Vector_<Vector_<>> constStreams_;
         std::shared_ptr<const ObservationPlan_> observations_;
         bool historical_ = false;
+        bool legacy_ = false;
+
+        template <bool Prepared_, class T_, class S_> void EvaluateSamples(const S_& sampleAt, EvalState_<T_>* state) const {
+            Detail::EvalCompiledEvents<Prepared_>(
+                nodeStreams_.size(),
+                [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sampleAt(i)}; }, state);
+        }
 
     public:
         ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
@@ -58,6 +65,8 @@ namespace Dal::Script {
             ScriptCompiled_ result(std::move(nodes), std::move(constants));
             result.observations_ = std::move(observations);
             result.historical_ = historical;
+            // Only compiler-produced legacy streams are known to exclude prepared opcodes.
+            result.legacy_ = !result.observations_ && !historical;
             return result;
         }
 
@@ -65,12 +74,14 @@ namespace Dal::Script {
             state.Init();
             state.observations_ = observations_.get();
             state.scenario_ = &scenario;
+            if (legacy_) {
+                EvaluateSamples<false>([&](size_t i) -> const auto& { return scenario[i]; }, &state);
+                return;
+            }
             const AAD::Sample_<T_> pastSample{};
-            Detail::EvalCompiledEvents(
-                nodeStreams_.size(),
-                [&](size_t i) {
-                    const auto& sample = historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i];
-                    return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sample};
+            EvaluateSamples<true>(
+                [&](size_t i) -> const auto& {
+                    return historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i];
                 },
                 &state);
         }
