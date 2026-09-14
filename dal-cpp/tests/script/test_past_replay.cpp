@@ -138,6 +138,111 @@ TEST(ScriptPastReplayTest, TestParameterRisk) {
     ASSERT_EQ(result.risks_.size(), 5u);
 }
 
+TEST(ScriptPastReplayTest, TestCompiledParameterRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ settings;
+    settings.compiled_ = true;
+    const auto result = MCSimulation<AAD::Number_>(HistoricalProduct(), Model(), 257, ScriptValuationSettings_(), settings, History());
+    const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
+    ASSERT_NEAR(result.aggregated_ / 257, 160.0 * discount, 160.0e-12);
+    ASSERT_NEAR(result["SCALE"], 80.0 * discount, 1.0e-10);
+    ASSERT_NEAR(result["rate"], -t * 160.0 * discount, 1.0e-10);
+    ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+    ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+    ASSERT_EQ(result.risks_.size(), 5u);
+}
+
+TEST(ScriptPastReplayTest, TestCompiledBatchLifetimeAndDirectRoots) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    MonteCarloSettings_ simulation;
+    simulation.compiled_ = true;
+    const double t = 10.0 / DAYS_PER_YEAR;
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (double fixing : {80.0, 90.0, 80.0})
+            for (int kind : {0, 1, 2}) {
+                SCOPED_TRACE(::testing::Message() << "threads=" << threads << " fixing=" << fixing << " kind=" << kind);
+                const auto product =
+                    kind == 0
+                        ? HistoricalProduct()
+                        : HistoricalProduct(kind == 1 ? "unused PAYS 0 x = SCALE * FIX(EQ[DAL196_TEST])" : "unused PAYS SCALE x = 17", "unused = 7");
+                const auto result = MCSimulation<AAD::Number_>(product, Model(), 8193, {}, simulation, History(fixing));
+                const auto price = MCSimulation<double>(product, Model(), 8193, {}, simulation, History(fixing));
+                const double discount = kind == 0 ? exp(-0.03 * t) : 1.0;
+                const double payoff = kind == 2 ? 17.0 : 2.0 * fixing * discount;
+                ASSERT_NEAR(result.aggregated_ / 8193, payoff, payoff * 1.0e-12);
+                ASSERT_NEAR(price.aggregated_ / 8193, payoff, payoff * 1.0e-12);
+                ASSERT_NEAR(result["SCALE"], kind == 2 ? 0.0 : fixing * discount, 1.0e-10);
+                ASSERT_NEAR(result["rate"], kind == 0 ? -t * payoff : 0.0, 1.0e-10);
+                ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+                ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+            }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestCompiledHardPastDecisionAndPaysDiscard) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    String_ settled = "x = 0 ";
+    for (size_t i = 0; i < 100; ++i)
+        settled += "pay PAYS SCALE * FIX(EQ[DAL196_TEST]) ";
+    for (const String_ comparison : {">", ">=", "="})
+        for (double fixing : {79.95, 80.0, 80.05}) {
+            const auto product = HistoricalProduct(settled + "IF FIX(EQ[DAL196_TEST]) " + comparison +
+                                                   " 80:0.2 THEN x = SCALE * FIX(EQ[DAL196_TEST]) ELSE x = 3 * SCALE * FIX(EQ[DAL196_TEST]) END");
+            const bool selected = comparison == ">" ? fixing > 80.0 : (comparison == ">=" ? fixing >= 80.0 : fixing == 80.0);
+            const double derivative = (selected ? 1.0 : 3.0) * fixing * exp(-0.03 * 10.0 / DAYS_PER_YEAR);
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = true;
+            const auto result = MCSimulation<AAD::Number_>(product, Model(), 257, {}, simulation, History(fixing));
+            const auto price = MCSimulation<double>(product, Model(), 257, {}, simulation, History(fixing));
+            ASSERT_NEAR(result.aggregated_ / 257, 2.0 * derivative, 2.0 * derivative * 1.0e-12);
+            ASSERT_NEAR(price.aggregated_ / 257, 2.0 * derivative, 2.0 * derivative * 1.0e-12);
+            ASSERT_NEAR(result["SCALE"], derivative, 1.0e-10);
+        }
+}
+
+TEST(ScriptPastReplayTest, TestCompiledEveryPathRebuildAcrossBatches) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const auto product = HistoricalProduct("x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x + SCALE * FIX(EQ[DAL196_TEST], 2026-09-15)");
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    ScriptValuationSettings_ settings;
+    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
+    Vector_<Handle_<ModelData_>> models{Model()};
+    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    for (const auto& data : models) {
+        auto model = CreateModel<double>(data);
+        const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());
+        const auto oracle = RebuildEveryPath(prepared, data, 8193);
+        for (size_t threads : {1, 2, 4}) {
+            pool.pool_->Start(threads, true);
+            for (size_t repeat = 0; repeat < 2; ++repeat) {
+                const auto result = MCSimulation<AAD::Number_>(prepared, data, 8193, "sobol", false, true);
+                ASSERT_NEAR(result.aggregated_ / 8193, oracle.aggregated_ / 8193, 1.0e-8);
+                ASSERT_EQ(result.names_, oracle.names_);
+                for (size_t j = 0; j < result.risks_.size(); ++j)
+                    ASSERT_NEAR(result.risks_[j], oracle.risks_[j], 1.0e-8);
+            }
+        }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestPreparedCompiledModeCannotChange) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    auto model = CreateModel<double>(Model());
+    const auto prepared = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_THROW(MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, false), ScriptError_);
+    ASSERT_THROW(prepared.BuildFuzzyEvaluator<double>(0, 0.2), ScriptError_);
+    ASSERT_THROW(prepared.BuildEvalState<double>(0, 0.2), ScriptError_);
+}
+
 TEST(ScriptPastReplayTest, TestDirectSeedPayoff) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto product = HistoricalProduct("unused PAYS 0 x = SCALE * FIX(EQ[DAL196_TEST], 2026-09-11)", "unused = 7");

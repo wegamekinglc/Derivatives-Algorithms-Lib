@@ -21,6 +21,29 @@ using namespace Dal;
 using namespace Dal::AAD;
 using namespace Dal::Script;
 
+TEST(ScriptCompiledParityTest, TestParameterConditionRemainsLive) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_("K"), Cell_(Date_(2026, 9, 22))}, {"1", "IF K > 0 THEN pay PAYS K ELSE pay PAYS 2 * K END"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    auto state = product.BuildEvalState<double>();
+    state.ConstVarVals()[0] = -2.0;
+    product.Compile().Evaluate(path, state);
+    ASSERT_DOUBLE_EQ(state.VarVals()[product.PayOffIdx()], -4.0);
+}
+
+TEST(ScriptCompiledParityTest, TestLiteralFuzzyBandRemainsFractional) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"IF 80 > 79.95:0.2 THEN pay PAYS 160 ELSE pay PAYS 0 END"});
+    const auto depth = product.PreProcess(true, false);
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    auto state = product.BuildEvalState<double>(depth, 0.01);
+    product.Compile(true).Evaluate(path, state);
+    ASSERT_NEAR(state.VarVals()[product.PayOffIdx()], 120.0, 120.0e-12);
+}
+
 namespace {
     struct VanillaProduct_ {
         Date_ exerciseDate;
@@ -700,6 +723,10 @@ namespace {
         const ScriptCompiled_ compiled = product.Compile(true);
         for (const auto& stream : compiled.NodeStreams())
             CollectOpcodes(stream, out);
+        Compiler_ literals(true);
+        NodeTrue_().Accept(literals);
+        NodeFalse_().Accept(literals);
+        CollectOpcodes(literals.NodeStream(), out);
     }
 } // namespace
 
@@ -770,7 +797,7 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
 
     MergeFuzzyProductOpcodes(&seen);
 
-    const std::set<int> unreachable = {Const, 31};
+    const std::set<int> unreachable = {31};
     for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)

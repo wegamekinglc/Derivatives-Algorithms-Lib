@@ -15,6 +15,15 @@ namespace Dal::Script {
     class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
         ExprTree_* current_;
 
+        static bool HasEagerBoolean(const Node_& node) {
+            if (dynamic_cast<const NodeAnd_*>(&node) || dynamic_cast<const NodeOr_*>(&node))
+                return true;
+            for (const auto& argument : node.arguments_)
+                if (HasEagerBoolean(*argument))
+                    return true;
+            return false;
+        }
+
         void VisitArgsSetCurrent(Node_& node) {
             for (auto& arg : node.arguments_) {
                 current_ = &arg;
@@ -39,6 +48,10 @@ namespace Dal::Script {
 
         // Conditions — one handler for all boolean nodes
         void VisitBool(BoolNode_& node) {
+            if (HasEagerBoolean(node)) {
+                VisitArgsSetCurrent(node);
+                return;
+            }
             if (node.alwaysTrue_)
                 *current_ = std::unique_ptr<Node_>(new NodeTrue_);
             else if (node.alwaysFalse_)
@@ -56,6 +69,10 @@ namespace Dal::Script {
 
         // If
         void Visit(NodeIf_& node) {
+            if (HasEagerBoolean(*node.arguments_[0])) {
+                VisitArgsSetCurrent(node);
+                return;
+            }
             if (node.alwaysTrue_) {
                 size_t lastTrueStat = node.LastTrueIndex();
 

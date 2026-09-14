@@ -123,6 +123,7 @@ namespace Dal::Script {
             maxNestedIfs = IFProcess();
             DomainProcess(fuzzy);
             ConstCondProcess();
+            maxNestedIfs = IFProcess();
         }
 
         // TODO: more specific data settings
@@ -289,23 +290,7 @@ namespace Dal::Script {
         RequirePreparedFixings();
         REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
-        Vector_<Vector_<int>> nodeStreams;
-        Vector_<Vector_<>> constStreams;
-
-        nodeStreams.reserve(events_.size());
-        constStreams.reserve(events_.size());
-
-        for (const auto& evt : events_) {
-            Compiler_ comp(fuzzy);
-
-            for (const auto& stat : evt)
-                stat->Accept(comp);
-
-            nodeStreams.push_back(comp.NodeStream());
-            constStreams.push_back(comp.ConstStream());
-        }
-
-        return {std::move(nodeStreams), std::move(constStreams)};
+        return ScriptCompiled_::Build(events_, fuzzy);
     }
 
 

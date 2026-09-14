@@ -988,23 +988,146 @@ TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresDrainEv
     }
 }
 
-TEST(ScriptObservationSimulationTest, TestNamedCompiledRejectsBeforeModelSetup) {
+TEST(ScriptObservationSimulationTest, TestCompiledBranchPrefetchBeforeWorkers) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto product = Product("IF 1 = 0 THEN pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) ELSE pay PAYS 7 END");
-    ReadCounter_ reads;
     SubmissionCounter_ workers;
-    const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
-    for (const bool aad : {false, true}) {
+    const Handle_<MarketFixingSnapshot_> empty(new MarketFixingSnapshot_({}));
+    for (const bool aad : {false, true})
+        for (const bool compiled : {false, true}) {
+            ReadCounter_ reads;
+            const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
+            ControlledModel_ model;
+            MonteCarloSettings_ simulation;
+            simulation.enableAad_ = aad;
+            simulation.compiled_ = compiled;
+            try {
+                const auto prepared = PrepareScript(product, &model, BoundSettings(), simulation, empty);
+                FAIL() << "missing history was removed with the dead branch";
+            } catch (const ScriptError_& error) {
+                ASSERT_NE(std::string(error.what()).find("MissingFixing"), std::string::npos);
+            }
+            ASSERT_EQ(model.allocations_, 1);
+            ASSERT_EQ(reads.histories_, 0);
+            ASSERT_EQ(reads.fixings_, 1);
+            ASSERT_EQ(workers.submissions_, 0);
+        }
+}
+
+namespace {
+    struct CompilationFailure_ : SubmissionCounter_ {
+        size_t compilations_ = 0;
+        void BeforeCompilation() override {
+            ++compilations_;
+            THROW("injected compiler failure");
+        }
+    };
+} // namespace
+
+TEST(ScriptObservationSimulationTest, TestCompilationFailureBeforeWorkers) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    CompilationFailure_ observer;
+    const Dal::Script::Detail::ScopedSimulationObserver_ audit(&observer);
+    MonteCarloSettings_ simulation;
+    simulation.compiled_ = true;
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    ASSERT_THROW(MCSimulation<double>(Product("pay PAYS FIX(EQ[DAL196_TEST])"), model, 8193, BoundSettings(), simulation), Exception_);
+    ASSERT_EQ(observer.compilations_, 1u);
+    ASSERT_EQ(observer.submissions_, 0u);
+}
+
+TEST(ScriptObservationSimulationTest, TestCompiledEagerBooleans) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    for (bool fuzzy : {false, true})
+        for (const String_& condition : {String_("1 = 0 AND"), String_("1 = 1 OR")}) {
+            ControlledModel_ model;
+            MonteCarloSettings_ simulation;
+            simulation.enableAad_ = fuzzy;
+            simulation.compiled_ = true;
+            const auto prepared = PrepareScript(Product("IF " + condition + " FIX(EQ[DAL196_TEST]) > 0 THEN pay PAYS 1 ELSE pay PAYS 2 END"), &model,
+                                                BoundSettings(), simulation);
+            AAD::Scenario_<double> path;
+            AAD::AllocatePath(prepared.DefLine(), path);
+            AAD::InitializePath(path);
+            path.front().observations_.clear();
+            auto compiled = prepared.BuildEvalState<double>();
+            ASSERT_THROW(prepared.Compile(fuzzy).Evaluate(path, compiled), ScriptError_);
+            if (fuzzy) {
+                auto tree = prepared.BuildFuzzyEvaluator<double>(0, simulation.smooth_);
+                ASSERT_THROW(prepared.Evaluate(path, tree), ScriptError_);
+            } else {
+                auto tree = prepared.BuildEvaluator<double>();
+                ASSERT_THROW(prepared.Evaluate(path, tree), ScriptError_);
+            }
+        }
+}
+
+TEST(ScriptObservationSimulationTest, TestCompiledNoHotPathLookupAndStableStorage) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    ControlledModel_ model;
+    MonteCarloSettings_ simulation;
+    simulation.compiled_ = true;
+    const auto prepared = PrepareScript(Product("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)"), &model,
+                                        BoundSettings(), simulation, snapshot);
+    const auto artifact = prepared.Compile();
+    auto evaluator = prepared.BuildEvalState<double>();
+    AAD::Scenario_<double> path;
+    AAD::AllocatePath(prepared.DefLine(), path);
+    AAD::InitializePath(path);
+    model.GeneratePath(Vector_<>(model.SimDim(), 0.0), &path);
+    const auto* observations = &path.front().observations_.front();
+    const auto* variables = &evaluator.variables_.front();
+    RejectHistory_ reject;
+    const Dal::Detail::ScopedFixingReadObserver_ guard(&reject);
+    for (size_t repeat = 0; repeat < 8193; ++repeat) {
+        artifact.Evaluate(path, evaluator);
+        ASSERT_DOUBLE_EQ(evaluator.VarVals()[prepared.PayOffIdx()], 200.0);
+        ASSERT_EQ(&path.front().observations_.front(), observations);
+        ASSERT_EQ(path.front().observations_.size(), 1u);
+        ASSERT_EQ(&evaluator.variables_.front(), variables);
+    }
+}
+
+TEST(ScriptObservationSimulationTest, TestCompiledPathFailureDrainsEveryBatch) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    pool.pool_->Start(4, true);
+    SubmissionCounter_ observer;
+    const Dal::Script::Detail::ScopedSimulationObserver_ audit(&observer);
+    ControlledModel_ model;
+    MonteCarloSettings_ simulation;
+    simulation.compiled_ = true;
+    const auto prepared = PrepareScript(Product("pay PAYS LOG(-1) + FIX(EQ[DAL196_TEST])"), &model, BoundSettings(), simulation);
+    ASSERT_THROW(MCDoubleSimulation(prepared, &model, 8193, "sobol", false, true, true), ScriptError_);
+    ASSERT_EQ(observer.submissions_, BatchPlan_(8193, pool.pool_->NumThreads()).BatchCount());
+    ASSERT_EQ(model.paths_->load(), observer.submissions_);
+}
+
+TEST(ScriptObservationSimulationTest, TestCompiledBoundSpotSharesFixingRequests) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
+    const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                     {"x = SPOT() + FIX(EQ[DAL196_TEST])", "pay PAYS x + SPOT() + FIX(EQ[DAL196_TEST])"});
+    for (bool fuzzy : {false, true}) {
         ControlledModel_ model;
         MonteCarloSettings_ simulation;
-        simulation.enableAad_ = aad;
         simulation.compiled_ = true;
-        ASSERT_THROW(PrepareScript(product, &model, BoundSettings(), simulation), ScriptError_);
-        ASSERT_EQ(model.allocations_, 0);
-        ASSERT_EQ(reads.histories_, 0);
-        ASSERT_EQ(reads.fixings_, 0);
-        ASSERT_EQ(workers.submissions_, 0);
+        simulation.enableAad_ = fuzzy;
+        ScriptProductSettings_ contract;
+        contract.defaultIndex_ = "EQ[DAL196_TEST]";
+        const auto prepared = PrepareScript(product, &model, BoundSettings(), simulation, snapshot, contract);
+        ASSERT_EQ(prepared.Plan().Requests().size(), 2u);
+        for (const auto& request : prepared.Plan().Requests())
+            ASSERT_EQ(request.uses_.size(), 2u);
+        AAD::Scenario_<double> path;
+        AAD::AllocatePath(prepared.DefLine(), path);
+        AAD::InitializePath(path);
+        model.GeneratePath(Vector_<>(model.SimDim(), 0.0), &path);
+        auto evaluator = prepared.BuildEvalState<double>();
+        prepared.Compile(fuzzy).Evaluate(path, evaluator);
+        ASSERT_DOUBLE_EQ(evaluator.VarVals()[prepared.PayOffIdx()], 160.0 + 2.0 * 999.0);
     }
 }
 

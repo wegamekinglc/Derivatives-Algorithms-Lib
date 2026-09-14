@@ -33,6 +33,8 @@ namespace Dal::Script {
     class ScriptCompiled_ {
         Vector_<Vector_<int>> nodeStreams_;
         Vector_<Vector_<>> constStreams_;
+        std::shared_ptr<const ObservationPlan_> observations_;
+        bool historical_ = false;
 
     public:
         ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
@@ -42,10 +44,34 @@ namespace Dal::Script {
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
 
+        static ScriptCompiled_
+        Build(const Vector_<Event_>& events, bool fuzzy, std::shared_ptr<const ObservationPlan_> observations = {}, bool historical = false) {
+            Vector_<Vector_<int>> nodes;
+            Vector_<Vector_<>> constants;
+            for (const auto& event : events) {
+                Compiler_ compiler(fuzzy, observations.get(), historical);
+                for (const auto& statement : event)
+                    statement->Accept(compiler);
+                nodes.push_back(compiler.NodeStream());
+                constants.push_back(compiler.ConstStream());
+            }
+            ScriptCompiled_ result(std::move(nodes), std::move(constants));
+            result.observations_ = std::move(observations);
+            result.historical_ = historical;
+            return result;
+        }
+
         template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
             state.Init();
+            state.observations_ = observations_.get();
+            state.scenario_ = &scenario;
+            const AAD::Sample_<T_> pastSample{};
             Detail::EvalCompiledEvents(
-                nodeStreams_.size(), [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], scenario[i]}; },
+                nodeStreams_.size(),
+                [&](size_t i) {
+                    const auto& sample = historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i];
+                    return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sample};
+                },
                 &state);
         }
     };

@@ -23,6 +23,7 @@ As long as this comment is preserved at the Top of the file
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
 #include <dal/script/visitor/smoothing.hpp>
@@ -37,6 +38,8 @@ namespace Dal::Script {
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
+        const ObservationPlan_* observations_ = nullptr;
+        const AAD::Scenario_<T_>* scenario_ = nullptr;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
@@ -104,16 +107,21 @@ namespace Dal::Script {
         FuzzyNot = 46,
         FuzzyTrue = 47,
         FuzzyFalse = 48,
-        FuzzyIf = 49 //  operands: lastTrue, lastFalse, nAff, aff...
+        FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff...
+        LoadObservation = 50,
+        Discard = 51
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
         Vector_<int> nodeStream_;
         Vector_<double> constStream_;
         const bool fuzzy_;
+        const ObservationPlan_* observations_;
+        const bool historical_;
 
     public:
-        explicit Compiler_(bool fuzzy = false) : fuzzy_(fuzzy) {}
+        explicit Compiler_(bool fuzzy = false, const ObservationPlan_* observations = nullptr, bool historical = false)
+            : fuzzy_(fuzzy && !historical), observations_(observations), historical_(historical) {}
 
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
@@ -243,7 +251,13 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAssign_& node) { VisitAssignLike<Assign, AssignConst>(node); }
-        void Visit(const NodePays_& node) { VisitAssignLike<Pays, PaysConst>(node); }
+        void Visit(const NodePays_& node) {
+            if (historical_) {
+                node.arguments_[1]->Accept(*this);
+                nodeStream_.emplace_back(Discard);
+            } else
+                VisitAssignLike<Pays, PaysConst>(node);
+        }
 
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
@@ -265,8 +279,27 @@ namespace Dal::Script {
 
         void Visit(const NodeFalse_&) { nodeStream_.emplace_back(fuzzy_ ? FuzzyFalse : False); }
 
-        void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
-        void Visit(const NodeFix_& node) { node.RequirePreparation(); }
+        void LoadPreparedObservation(size_t id) {
+            REQUIRE2(observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
+            const auto& request = observations_->Request(id);
+            REQUIRE2(request.historyValueId_ || (!historical_ && request.modelSlot_), "UnresolvedModelObservation", ScriptError_);
+            nodeStream_.emplace_back(LoadObservation);
+            nodeStream_.emplace_back(static_cast<int>(id));
+        }
+
+        void Visit(const NodeSpot_& node) {
+            if (node.observationId_)
+                LoadPreparedObservation(*node.observationId_);
+            else {
+                REQUIRE2(!historical_, "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
+                nodeStream_.emplace_back(Spot);
+            }
+        }
+        void Visit(const NodeFix_& node) {
+            if (!node.observationId_)
+                node.RequirePreparation();
+            LoadPreparedObservation(*node.observationId_);
+        }
 
         void Visit(const NodeCollect_& node) { VisitArguments(node); }
 
@@ -838,6 +871,15 @@ namespace Dal::Script {
 
         template <class T_> FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
+            if (op == LoadObservation) {
+                REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
+                statePtr->dStack_.Push(statePtr->observations_->Read(event.nodeStream_[i + 1], statePtr->scenario_));
+                return i + 2;
+            }
+            if (op == Discard) {
+                statePtr->dStack_.Pop();
+                return i + 1;
+            }
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
             if (op <= PaysConst)

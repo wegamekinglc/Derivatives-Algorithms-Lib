@@ -12,6 +12,7 @@
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/index/fx.hpp>
 #include <dal/indice/indexparse.hpp>
+#include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/preparation.hpp>
 
 namespace Dal::Script {
@@ -256,19 +257,32 @@ namespace Dal::Script {
             if (result.AllExpired())
                 return result;
             if (model) {
-                REQUIRE2(!simulation.compiled_.value_or(false) || (result.Plan().Requests().empty() && !simulation.enableAad_),
-                         "UnsupportedExecutionMode: named or prepared AAD compiled evaluation", ScriptError_);
                 ModelPlan(result.plan_.get(), result.Product(), evaluationDate, settings, *model, boundIndex);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
             result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, evaluationDate, settings, snapshot);
             if (model) {
-                if (result.Plan().Requests().empty() && !simulation.enableAad_)
-                    writable->PreProcess(false, true);
-                else {
-                    writable->InitializePastObservations(result.Plan());
-                    result.maxNestedIfs_ = writable->IFProcess();
+                writable->InitializePastObservations(result.Plan());
+                ConstProcessor_ constants(writable->VarNames().size(), result.plan_.get(), true);
+                writable->Visit(constants, true, false);
+                Vector_<Domain_> initialDomains;
+                for (size_t i = 0; i < writable->VarNames().size(); ++i)
+                    initialDomains.push_back(constants.VarConstants()[i]
+                                                 ? Domain_(constants.VarConstantValues()[i])
+                                                 : Domain_(Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_))));
+                writable->IFProcess();
+                DomainProcessor_ domains(std::move(initialDomains), simulation.enableAad_, result.plan_.get());
+                writable->Visit(domains, false, true);
+                writable->ConstCondProcess();
+                result.maxNestedIfs_ = writable->IFProcess();
+                constants.StartFuture();
+                writable->Visit(constants, false, true);
+                if (simulation.compiled_.value_or(false)) {
+                    if (auto* observer = Detail::SimulationObserver())
+                        observer->BeforeCompilation();
+                    result.pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result.plan_, true);
+                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_);
                 }
                 result.executable_ = true;
             }

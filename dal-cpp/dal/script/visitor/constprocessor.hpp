@@ -21,6 +21,7 @@ As long as this comment is preserved at the Top of the file
 
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 
 
@@ -35,6 +36,8 @@ namespace Dal::Script {
 
         // Inside an if?
         bool isInConditional_;
+        const ObservationPlan_* observations_;
+        bool historical_;
 
         // Is this node a IsConstant?
         // Note the argument must be of ExprNode_ type
@@ -53,14 +56,19 @@ namespace Dal::Script {
     public:
         using Visitor_<ConstProcessor_>::Visit;
 
-        explicit ConstProcessor_(const size_t nVar)
-            : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
+        explicit ConstProcessor_(const size_t nVar, const ObservationPlan_* observations = nullptr, bool historical = false)
+            : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false), observations_(observations), historical_(historical) {}
+
+        [[nodiscard]] const Vector_<char>& VarConstants() const { return varConst_; }
+        [[nodiscard]] const Vector_<>& VarConstantValues() const { return varConstVal_; }
+        void StartFuture() { historical_ = false; }
 
         // Visitors
         // Expressions
         // Binaries
         template <class OP_> void VisitBinary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
+            node.isConst_ = false;
             if (ConstArgs(node)) {
                 node.isConst_ = true;
                 const double lhs = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
@@ -94,6 +102,7 @@ namespace Dal::Script {
         // Unary
         template <class OP_> void VisitUnary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
+            node.isConst_ = false;
             if (ConstArgs(node)) {
                 node.isConst_ = true;
                 const auto arg = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
@@ -161,7 +170,8 @@ namespace Dal::Script {
         void Visit(NodePays_& node) {
             // A payment is always non IsConstant because it is normalized by a possibly stochastic numeraire
             const size_t varIndex = Downcast<const NodeVar_>(node.arguments_[0])->index_;
-            varConst_[varIndex] = false;
+            if (!historical_)
+                varConst_[varIndex] = false;
 
             // Visit RHS
             node.arguments_[1]->Accept(*this);
@@ -176,7 +186,19 @@ namespace Dal::Script {
                 node.isConst_ = false;
         }
 
-        // We don't Visit IsBoolean nodes, that is best left to fuzzy logic
-        // We don't Visit constants (which are always const) or spots (which are never const)
+        void VisitObservation(ExprNode_& node, const std::optional<size_t>& id) {
+            node.isConst_ = false;
+            if (id && observations_) {
+                const auto& request = observations_->Request(*id);
+                if (request.historyValueId_) {
+                    node.isConst_ = true;
+                    node.constVal_ = observations_->KnownValue(*request.historyValueId_);
+                }
+            }
+        }
+
+        void Visit(NodeFix_& node) { VisitObservation(node, node.observationId_); }
+        void Visit(NodeSpot_& node) { VisitObservation(node, node.observationId_); }
+        void Visit(NodeConstVar_& node) { node.isConst_ = false; }
     };
 } // namespace Dal::Script
