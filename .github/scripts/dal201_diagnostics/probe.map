@@ -1,0 +1,10 @@
+{
+  global:
+    Dal201Install;
+    Dal201Tag;
+    Dal201Dump;
+    _ZN3Dal23RegisterCurveParametersERKNS_7Vector_IdEE;
+    _ZN3Dal20HarvestCurveJacobianERNS_3AAD5Tape_ERNS_7Vector_INS0_7Number_EEES6_RKNS3_IiEE;
+    _ZN3Dal3AAD12NewRecordingERNS0_5Tape_E;
+  local: *;
+};

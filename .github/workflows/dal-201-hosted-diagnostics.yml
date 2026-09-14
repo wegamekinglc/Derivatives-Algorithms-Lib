@@ -1,0 +1,76 @@
+name: DAL-201 isolated hosted diagnostics
+
+on:
+  push:
+    branches:
+      - fix/dal-201-hosted-phase-diagnostics
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: dal-201-hosted-phase-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/fix/dal-201-hosted-phase-diagnostics'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Initialize evidence
+        run: |
+          mkdir -p dal201-evidence
+          git rev-parse HEAD > dal201-evidence/diagnostic-commit.txt
+          git rev-parse 'HEAD^{tree}' > dal201-evidence/diagnostic-tree.txt
+          lscpu > dal201-evidence/runner-cpu.txt
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 12353bb773ad16de37405f6e37a312867c918acd
+          path: product-source
+          persist-credentials: false
+
+      - name: Fetch fixed original artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/dal201_diagnostics/fetch_artifact.py --output dal201-evidence
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+
+      - name: Prepare matching Python ABI and diagnostic compiler
+        run: |
+          uv venv .dal201-venv --python 3.13.15
+          uv pip install --python .dal201-venv/bin/python numpy==2.4.6 PyYAML==6.0.3
+          sudo apt-get update > dal201-evidence/apt-update.txt 2>&1
+          sudo apt-get install -y g++-14 binutils > dal201-evidence/apt-install.txt 2>&1
+          g++-14 --version > dal201-evidence/compiler.txt
+          .dal201-venv/bin/python --version > dal201-evidence/python.txt
+          uv pip freeze --python .dal201-venv/bin/python > dal201-evidence/python-packages.txt
+
+      - name: Validate harness
+        run: .dal201-venv/bin/python -m unittest discover -s .github/scripts/dal201_diagnostics -v > dal201-evidence/harness-tests.txt 2>&1
+
+      - name: Replay archived binaries and collect diagnostic phases
+        env:
+          DAL_NUM_THREADS: '4'
+        run: |
+          .dal201-venv/bin/python .github/scripts/dal201_diagnostics/diagnostics.py \
+            --artifact dal201-evidence/original \
+            --source product-source \
+            --output dal201-evidence/replay
+
+      - name: Upload all diagnostic evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dal201-hosted-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dal201-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

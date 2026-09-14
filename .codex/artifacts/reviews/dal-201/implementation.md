@@ -1,5 +1,60 @@
 # DAL-201 / F4 implementation handoff
 
+## Current handoff: diagnostic cancellation repair, local only
+
+The DAL-227 P2 finding is repaired in the isolated diagnostic candidate; see
+[hosted-diagnostics.md](hosted-diagnostics.md) for the design, lifecycle contract,
+RED/GREEN commands, full validation and retained execution limitations.
+SIGINT/SIGTERM, direct exceptions, timeouts and normal worker exit now collect
+the worker group and reap the direct child before final process records,
+summary and manifest. Repeated cancellation cannot bypass cleanup. Cancellation
+during final hashing also produces interrupted status and consistent hashes.
+
+Changed relative to the rejected diagnostic tree: only
+`.github/scripts/dal201_diagnostics/diagnostics.py`, its new direct regression
+file `test_cancellation.py`, and these two active reports. CPython 3.13.15 runs
+**22/22 tests**, preserving all original 14 tests unchanged. Parent SIGINT,
+SIGTERM and normal-exit leaks were RED before repair; cancellation during
+manifest finalization was separately RED then GREEN. Actionlint 1.7.12,
+shell/YAML checks, all 56 documentation checks and diff whitespace checks pass.
+
+The portable prior patch reconstructs the rejected tree
+`4aea255d32293d53bc1155440845692d6a52d70a` exactly; local starting commit is
+`2d9be658aa166dde3552f862da3a885c8425e18e`. The final publication attachment
+records the corrected commit/tree and full portable patch from published product
+head `12353bb773ad16de37405f6e37a312867c918acd`, with a minimal repair delta.
+No push, Actions trigger, product rebuild, benchmark rerun or workflow change
+occurred. DAL-201 must arrange DAL-227 independent review of the new exact tree.
+Original hosted **87/90** remains failed; both A/A **90/90** do not waive it.
+This is not F4 acceptance. Fixed execution budgets and the PayoffRoot boundary,
+CPU/perf/upload limitations remain in force. No public documentation or
+CHANGELOG decision is needed for this isolated harness repair.
+
+## Prior handoff: isolated hosted diagnostic package, not pushed
+
+The current DAL-224 deliverable is the local review candidate described in
+[hosted-diagnostics.md](hosted-diagnostics.md). It adds only an isolated workflow
+and its self-contained harness on `fix/dal-201-hosted-phase-diagnostics`, starting
+at published `12353bb773ad16de37405f6e37a312867c918acd`, tree
+`466d55a4ed7e215ca79877679173022aceee47e8`. No product code, existing CI or gate
+is changed; no push or Actions execution is authorized for this turn.
+
+Fourteen harness tests, the original artifact download/digest, source/suite
+identities, and four explicitly local base/head functional-validation processes
+pass. Original-binary preflight fails explicitly for this machine's missing
+AVX-512. The package collects verified recording/harvest/Gradient boundaries;
+the archived binaries lack a separately named PayoffRoot symbol, so precise root
+attribution remains an explicit gap. No guessed root address or root timing is
+reported. The original hosted paired result remains **87/90 failed**, with both
+hosted A/A groups **90/90**; the earlier local failures below remain retained.
+
+Latest prior hosted attribution: DAL-224 report attachment
+`01a0a071-83ec-715b-9d86-71413bd2fd92`, evidence archive
+`01a0a073-e882-7dde-9413-71447418d219`. The current final comment supplies the
+portable patch, local commit/tree identity, report and validation evidence.
+DAL-201 must arrange DAL-227 independent review before the single branch push.
+This handoff is not F4 acceptance, a merge, or a new optimization candidate.
+
 ## Caller snapshot allocation repair; complete acceptance remains open
 
 This round identifies and repairs a specific cross-worker allocation collision.
