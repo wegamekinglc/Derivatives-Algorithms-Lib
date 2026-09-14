@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 
@@ -37,6 +39,10 @@ namespace Dal::Script {
 
     private:
         void InitVariables() {
+            if constexpr (std::is_same_v<T_, double>) {
+                variables_ = historicalSeed_.empty() ? variablesInit_ : historicalSeed_;
+                return;
+            }
             if (!historicalSeed_.empty()) {
                 variables_ = historicalSeed_;
                 return;

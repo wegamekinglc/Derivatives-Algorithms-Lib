@@ -131,6 +131,13 @@ namespace Dal::AAD {
 #endif
 
 namespace Dal::AAD {
-    // A registered zero input forces a fresh root even for passive constant payoffs.
-    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) { return payoff + activeZero; }
+    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        auto end = Tape()->nodes_.End();
+        // Only a terminal node recorded after the mark is already a path-local root.
+        if (end != Tape()->nodes_.Mark() && &Adjoint(payoff) == &std::prev(end)->Adjoint())
+            return payoff;
+#endif
+        return payoff + activeZero;
+    }
 } // namespace Dal::AAD
