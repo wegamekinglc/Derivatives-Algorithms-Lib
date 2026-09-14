@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include <dal/model/blackscholes.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 
@@ -18,27 +19,32 @@ namespace {
         return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), fixing}}}}));
     }
 
-    double UnoptimizedFuzzyPrice(const ScriptProductData_& product, double fixing) {
+    double UnoptimizedFuzzyPrice(const ScriptProductData_& product, double fixing, double smooth = 0.01) {
         const auto raw = PrepareScript(product, ScriptValuationSettings_(), ArithmeticHistory(fixing));
         IFProcessor_ ifs;
-        for (const auto& statement : raw.Product().Events()[0])
-            statement->Accept(ifs);
+        for (const auto& event : raw.Product().Events())
+            for (const auto& statement : event)
+                statement->Accept(ifs);
         FuzzyEvaluator_<double> reference(Vector_<>(raw.Product().VarNames().size(), 0.0), raw.Product().BuildEvaluator<double>().ConstVarVals(),
-                                          ifs.MaxNestedIFs(), 0.01);
-        AAD::Scenario_<double> path(1);
-        path[0].numeraire_ = 1.0;
+                                          ifs.MaxNestedIFs(), smooth);
+        AAD::Scenario_<double> path(raw.Product().Events().size());
+        for (auto& sample : path)
+            sample.numeraire_ = 1.0;
         reference.SetScenario(&path);
         reference.SetObservations(&raw.Plan());
-        reference.SetCurEvt(0);
-        for (const auto& statement : raw.Product().Events()[0])
-            statement->Accept(reference);
+        for (size_t event = 0; event < raw.Product().Events().size(); ++event) {
+            reference.SetCurEvt(event);
+            for (const auto& statement : raw.Product().Events()[event])
+                statement->Accept(reference);
+        }
         return reference.VarVals()[raw.PayOffIdx()];
     }
 
-    double PreparedFuzzyPrice(const ScriptProductData_& product, double fixing, bool compiled) {
+    double PreparedFuzzyPrice(const ScriptProductData_& product, double fixing, bool compiled, double smooth = 0.01) {
         MonteCarloSettings_ settings;
         settings.enableAad_ = true;
         settings.compiled_ = compiled;
+        settings.smooth_ = smooth;
         AAD::BlackScholes_<double> model(100.0, 0.2, 0.0, 0.0);
         const auto prepared = PrepareScript(product, &model, {}, settings, ArithmeticHistory(fixing));
         AAD::Scenario_<double> path;
@@ -74,6 +80,44 @@ namespace {
             ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
         }
     }
+
+    void CheckNestedArithmetic(const String_& width, double smooth, double sign) {
+        const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+        const double epsilon = width.empty() ? smooth : 0.2;
+        const double fixing = sign * epsilon * 1.25e-15;
+        const String_ divisor = sign > 0.0 ? "0.00000000000001" : "(-0.00000000000001)";
+        const auto product = [&](const String_& scale) {
+            return ScriptProductData_("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
+                                      {scale,
+                                       "x = SCALE * FIX(EQ[DAL196_TEST], 2026-09-11) / " + divisor + " IF x > 0" + width + " THEN IF x > 0" + width +
+                                           " THEN y = x ELSE y = 2*x END ELSE y = 3*x END",
+                                       "pay PAYS y"});
+        };
+        // w=0.75: y=x*(3-w-w*w), dy/dx=3-w-w*w-x*(1+2*w)/epsilon.
+        const double expected = epsilon * 0.421875;
+        const double derivative = epsilon * 0.1328125;
+        const auto script = product("2");
+        ASSERT_NEAR(UnoptimizedFuzzyPrice(script, fixing, smooth), expected, 1.0e-12);
+        const double difference =
+            (UnoptimizedFuzzyPrice(product("2.0001"), fixing, smooth) - UnoptimizedFuzzyPrice(product("1.9999"), fixing, smooth)) / 0.0002;
+        ASSERT_NEAR(difference, derivative, 1.0e-10);
+        const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, 0.0, 0.0));
+        for (bool compiled : {false, true}) {
+            SCOPED_TRACE(::testing::Message() << "compiled=" << compiled << " width=" << width << " smooth=" << smooth << " sign=" << sign);
+            ASSERT_NEAR(PreparedFuzzyPrice(script, fixing, compiled, smooth), expected, 1.0e-12);
+            MonteCarloSettings_ settings;
+            settings.compiled_ = compiled;
+            settings.smooth_ = smooth;
+            const auto result = MCSimulation<AAD::Number_>(script, model, 257, {}, settings, ArithmeticHistory(fixing));
+            ASSERT_NEAR(result.aggregated_ / 257, expected, 1.0e-12);
+            ASSERT_NEAR(result["SCALE"], derivative, 1.0e-10);
+            ASSERT_NEAR(result["rate"], -10.0 / DAYS_PER_YEAR * expected, 1.0e-10);
+            ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+            ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+            ASSERT_NEAR(result["div"], 0.0, 1.0e-10);
+            ASSERT_EQ(result.names_.size(), 5u);
+        }
+    }
 } // namespace
 
 TEST(ScriptFuzzyArithmeticTest, TestSignedSmallNonzeroDivisors) {
@@ -107,4 +151,12 @@ TEST(ScriptFuzzyArithmeticTest, TestSmallDivisorsInsideSmoothingBand) {
     // x=0.05, weight=0.75, d(x*weight)/d_SCALE=(0.5+2*x/0.2)*0.025.
     ASSERT_NO_FATAL_FAILURE(CheckFuzzyArithmetic("SCALE * FIX(EQ[DAL196_TEST], 2026-09-11) / 0.00000000000001", 2.5e-16, 0.0375, 0.025));
     ASSERT_NO_FATAL_FAILURE(CheckFuzzyArithmetic("SCALE * FIX(EQ[DAL196_TEST], 2026-09-11) / (-0.00000000000001)", -2.5e-16, 0.0375, 0.025));
+}
+
+TEST(ScriptFuzzyArithmeticTest, TestNestedFractionalStateAcrossEventsAndWidths) {
+    for (double sign : {-1.0, 1.0}) {
+        ASSERT_NO_FATAL_FAILURE(CheckNestedArithmetic("", 0.01, sign));
+        ASSERT_NO_FATAL_FAILURE(CheckNestedArithmetic("", 0.2, sign));
+        ASSERT_NO_FATAL_FAILURE(CheckNestedArithmetic(":0.2", 0.01, sign));
+    }
 }
