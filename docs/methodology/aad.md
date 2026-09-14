@@ -182,9 +182,9 @@ This is the **pathwise adjoint** estimator. The algorithm is:
    tape, record shared model initialization and any parameter-dependent
    historical state, then mark.
 2. For each path: rewind to the mark, simulate the path and evaluate the payoff
-   (forward pass), create a fresh payoff root, seed its adjoint to $1$, and run
-   the reverse pass to the mark. Adjoints before the mark **accumulate** across
-   paths automatically.
+   (forward pass), create or reuse a path-local payoff root, seed its adjoint
+   to $1$, and run the reverse pass to the mark. Adjoints before the mark
+   **accumulate** across paths automatically.
 3. After the batch's paths: propagate from the mark to the start and divide
    the parameter adjoints by the total simulation path count $P$. Sum batch
    contributions without a second normalization.
@@ -192,16 +192,19 @@ This is the **pathwise adjoint** estimator. The algorithm is:
 In [prepared script evaluation](script_engine.md#historical-state-and-recording-lifetime),
 historical fixings are sealed doubles, but script expressions using them can
 depend on active parameters. Each recording replays those expressions locally
-before the mark and each path restores the resulting typed seed. Adding a
-registered zero to the payoff creates a path-local root even when the payoff
-is a pre-mark seed or a passive constant. This preserves accumulated seed
-adjoints and provides a valid post-mark reverse range. Historical decisions
-use hard branches; fuzzy smoothing applies to future events, including future
-conditions on known fixings. Tree and compiled execution share this recording
-contract: compiled history is hard bytecode with settled payments discarded,
-and observation loads use the same sealed plan. Parameter-dependent historical
-state remains typed rather than being inlined as its current double value.
-Future fuzzy weights remain live through optimization; compare AAD primal
+before the mark and each path restores the resulting typed seed. The native
+backend reuses the payoff as the path-local root only when the post-mark range
+is nonempty and the payoff is its current terminal node. Otherwise it adds a
+registered zero to the payoff; alternative backends always use this addition.
+The fallback creates a path-local root even for a pre-mark seed or a passive
+constant, preserving accumulated seed adjoints and providing a valid reverse
+range when the post-mark recording would otherwise be empty. Historical
+decisions use hard branches; fuzzy smoothing applies to future events,
+including future conditions on known fixings. Tree and compiled execution share
+this recording contract: compiled history is hard bytecode with settled payments
+discarded, and observation loads use the same sealed plan. Parameter-dependent
+historical state remains typed rather than being inlined as its current double
+value. Future fuzzy weights remain live through optimization; compare AAD primal
 values with fuzzy double using the same epsilon, not exact double at a future
 discontinuity.
 
@@ -496,10 +499,9 @@ const double vega  = Adjoint(volAad);   // dP/dVol
 // numeraire, strike, and expiry adjoints are read the same way
 ```
 
-For the pathwise Monte Carlo estimator of the *Pathwise Adjoints in Monte Carlo*
-section, the same program wraps the forward evaluation and reverse sweep in a
-`Rewind`-bounded loop so the tape is reused per path while the parameter
-adjoints accumulate across paths:
+The same program benchmarks repeated evaluation of this deterministic Black
+formula. Its timing loop reuses the tape and divides accumulated adjoints by
+the repetition count:
 
 ```cpp
 // from dal-cpp/examples/aad/aad.cpp
@@ -510,8 +512,11 @@ for (int i = 0; i < nRounds; ++i) {
     Adjoint(priceAad) = 1.0;
     AAD::PropagateToStart(*AAD::Tape());
 }
-const double delta = Adjoint(fwdAad) / nRounds;   // averaged pathwise estimator
+const double delta = Adjoint(fwdAad) / nRounds;   // benchmark repetition average
 ```
+
+This loop does not simulate Monte Carlo paths. The production pathwise estimator
+uses the mark/rewind discipline described above in `dal-cpp/dal/script/simulation.hpp`.
 
 The example also benchmarks the same payoff with the XAD, CoDiPack, and Adept
 backends side by side; only the recording and zeroing calls differ, as described

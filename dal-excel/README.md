@@ -125,9 +125,10 @@ The spill has ten columns: `calibration`, `axis_fingerprint`, `quote_key`,
 `quote_name`, `block`, `currency`, `quote_sensitivity`, `dv01`,
 `availability`, and `reason`. Quote sensitivity is price per decimal quote;
 DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
-`UnconvertedByActualPvCcy`; no FX conversion is applied. Provenance fingerprints
-use `dal.quote-risk-axis/1+jcs+sha256` and
-`dal.quote-risk-state/1+jcs+sha256`, with `sha256:` values. See the
+`UnconvertedByActualPvCcy`; no FX conversion is applied. Single-curve and XCCY
+provenance fingerprints use `dal.quote-risk-axis/1+jcs+sha256` and
+`dal.quote-risk-state/1+jcs+sha256`. Generic joint multi-curve provenance uses
+the corresponding `/2+jcs+sha256` schemes. Both versions use `sha256:` values. See the
 [paste-ready worksheet recipe](examples/008.quote_risk.md).
 
 ## Layout and Generated Registration

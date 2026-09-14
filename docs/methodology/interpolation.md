@@ -115,10 +115,11 @@ selects which derivative is pinned at the boundary:
 `Boundary_(2, 0.0)` on both ends gives the classic natural spline (zero end curvature).
 
 Factory: `Interp::NewCubic(name, x, f, lhs, rhs)` (`dal-cpp/dal/math/interp/interpcubic.hpp`).
-Requires $N > 2$ and strictly increasing $x$. `IsInBounds` forbids extrapolation.
-The curve-specific natural-cubic weight geometry uses the same polynomial definition but
-allows first- and last-segment polynomial extrapolation as part of the log-DF curve's
-explicit boundary policy.
+Supply $N > 2$ and strictly increasing $x$. `IsInBounds` reports whether a query
+lies in the knot range; it does not guard evaluation. Outside that range,
+`operator()` extends the first or last cubic segment. The curve-specific
+natural-cubic weight geometry uses the same polynomial definition. Log-DF curves
+apply their own explicit boundary policy; see [Log-discount curve](log_discount_curve.md).
 
 ## Mixed Log-DF
 

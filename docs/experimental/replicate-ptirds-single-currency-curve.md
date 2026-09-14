@@ -83,8 +83,8 @@ Par rates `s` (percent): `[1.0, 1.05, 1.12, 1.16, 1.21, 1.27, 1.45, 1.68, 1.92,
 | 11 | 7y swap             | 2022-01-01 | 2029-01-01  | 2.20    |
 | 12 | 10y swap            | 2022-01-01 | 2032-01-01  | 2.07    |
 
-> Note: the exact termination of the 1-business-day swap and the precise IMM roll
-> dates are taken from the reference's schedule generation; see Open Questions (§7).
+The DAL fixture fixes these effective and termination dates explicitly, including
+the short swap's January 3 termination; see the reproduction limits in §7.
 
 ### 2.4 Interpolation schemes
 
@@ -134,14 +134,12 @@ Authoritative reference: [rateslib Table 6.2](https://rateslib.com/py/en/2.7.x/z
 | 2029-01-01 | 0.857395   | 0.857430  | 0.857422 |
 | 2032-01-01 | 0.814369   | 0.814470  | 0.814460 |
 
-**Structural note:** the `mixed` column matches the `log-linear` column **exactly**
-for nodes 0-10 (through `2025-01-01`) and diverges only at `2027-01-01`,
-`2029-01-01`, and `2032-01-01` — i.e. only on the long-end knots where the mixed
-scheme switches to the natural cubic. The `log-cubic` column, by contrast, diverges
-from `log-linear` **throughout** the curve (by ~`1.2e-5` even at the short end,
-`2022-03-15`). This exact-match-vs-log-linear-through-node-10 invariant is what the
-acceptance test relies on to distinguish a correctly-wired `mixed` scheme from a
-mis-wired one.
+**Structural note:** the displayed `mixed` and `log-linear` columns agree to six
+decimal places through `2027-01-01`; they visibly differ at `2029-01-01` and
+`2032-01-01`. Rounded table agreement does not establish bitwise equality of the
+solved curves or locate the interpolation cutoff. The `log-cubic` column also
+differs at short-end nodes (about `1.2e-5` at `2022-03-15`). The acceptance test
+compares each solve with its own reference column, using the tolerance below.
 
 **Acceptance tolerance:** solved DFs must match the **per-scheme** column within
 `1e-6`, **and** repricing residuals must be `< 1e-8` per instrument. The schemes must
@@ -161,9 +159,9 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   returns a discount factor (`dal-cpp/dal/curve/discount.hpp`).
 - Concrete builders:
   - `NewDiscountPWLF` — piecewise-**linear forward** over knot dates
-    (`dal-cpp/dal/curve/ycimp.hpp`), backed by `PiecewiseLinear_`
-    (`dal-cpp/dal/curve/piecewiselinear.hpp`, which integrates a forward rate
-    to produce `log(DF)`).
+    (`dal-cpp/dal/curve/ycimp.hpp`), implemented by the typed `DiscountPWLF_`
+    curve in `dal-cpp/dal/curve/ycpwlf.hpp`. Its integrated-forward arithmetic
+    is shared with `PiecewiseLinear_` in `dal-cpp/dal/curve/piecewiselinear.hpp`.
   - `NewDiscountPWC` — piecewise-**constant forward** (`dal-cpp/dal/curve/ycconst.hpp`).
   - `NewDiscountLogDF` — the DF-node parameterization this exercise needs: a curve
     defined by explicit node dates + `log(DF)` values with a pluggable
@@ -185,8 +183,8 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
     (`dal-cpp/dal/math/interp/interploglinear.cpp`). With `f = DF` this *is*
     log-linear-on-DF and matches scheme 1.
   - **Cubic spline** — `Cubic1_` (Numerical Recipes `splint`) with first/second/third
-    boundary orders (`dal-cpp/dal/math/interp/interpcubic.cpp`); extrapolation
-    is forbidden (`IsInBounds`).
+    boundary orders (`dal-cpp/dal/math/interp/interpcubic.cpp`). `IsInBounds`
+    reports the knot range; evaluation outside it extends an endpoint segment.
 - **On-curve schemes.** The `LogDfScheme_` enumeration
   (`dal-cpp/dal/curve/logdfscheme.hpp`) selects how `DiscountLogDF_` interpolates
   between node `log(DF)` values, covering all three reference schemes:
@@ -359,9 +357,7 @@ numerical validation lives in the core C++ test suite.
 - Solved node DFs are compared against the **per-scheme** column of the §2.5 table
   within `1e-6` (each scheme validated against its own rateslib Table 6.2 column,
   **not** against the other two schemes), with repricing residuals `< 1e-8` per
-  instrument. The three schemes **deliberately differ** at the nodes (log-cubic
-  diverges from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly
-  through `2025-01-01` and diverges only at `2027/2029/2032`), so cross-scheme
+  instrument. Interpolation changes the calibrated solution; cross-scheme
   agreement is not a valid acceptance criterion.
 
 ### 6. AAD analytic Jacobian
@@ -392,9 +388,8 @@ numerical validation lives in the core C++ test suite.
     `log-linear` column of rateslib Table 6.2);
   - solved node DFs match §2.5 within `1e-6` for `log_cubic` and `mixed` (each
     validated against its **own** rateslib Table 6.2 column — **not** against
-    `log_linear`); the three schemes deliberately differ at the nodes (log-cubic
-    diverges from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly
-    through `2025-01-01` and diverges only at `2027/2029/2032`);
+    `log_linear`); rounded agreement between some reference entries does not
+    impose exact cross-scheme equality;
   - each calibrated curve reprices all 13 instruments within the solver tolerance
     (residual `< 1e-8`).
 - **Related examples:** the general C++ calibration examples under
@@ -402,17 +397,16 @@ numerical validation lives in the core C++ test suite.
   in `dal-python/README.md` show the supported entry points. The PTIRDS-specific
   numerical oracle remains the test above.
 
-## 7. Risks / Open Questions
+## 7. Reproduction Limits
 
-- **Convention ambiguity.** The reference itself notes several conventions are
-  *assumed*. The exact roll/stub rule for the IMM dates, the 1-business-day swap's
-  termination, and whether the fixed and float legs share the annual schedule must be
-  pinned to reproduce the table to 6 dp.
+- **Convention scope.** This replication fixes the dates and annual leg conventions
+  listed above. It validates that fixture, not automatic equivalence of every
+  rateslib calendar, roll, and stub rule.
 - **Solver equivalence.** DAL's underdetermined least-change EXACT mode is not
   literally Levenberg-Marquardt. For the square 13×13 case it converges to the same
-  root, but the smoothing-weight metric (`smoothingWeight_`,
-  `BuildCurveCalibrationWeights`, `dal-cpp/dal/curve/calibration.cpp`) must be neutral so it
-  does not bias an exactly-determined solve.
+  root. With a nonsingular square Jacobian, the exact Newton direction is unique;
+  the smoothing metric does not introduce additional quote constraints. Different
+  solver trajectories and stopping rules still need not agree bitwise.
 
 The shipped `LOG_DISCOUNT` contract fixes the natural-cubic end conditions, pins
 the anchor at $\ell_0 = 0$, and selects a parameterization-specific initial seed;

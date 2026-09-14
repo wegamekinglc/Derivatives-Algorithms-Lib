@@ -467,11 +467,15 @@ Historical replay reads no index, fixing store, or environment on the worker.
 The next batch rebuilds the seed even when it runs on the same thread; active
 numbers and seeds never cross threads or recordings.
 
-After future evaluation, `AAD::PayoffRoot` adds the registered zero to the
-payoff, creating a fresh root for that path. Seeding this root and propagating
-to the mark accumulates contributions without overwriting a historical seed's
-adjoint. This also handles a payoff that is already a pre-mark variable, a
-completely constant payoff, or an otherwise empty post-mark recording.
+After future evaluation, `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp`
+reuses the native payoff node only when the post-mark range is nonempty and
+the payoff is its current terminal node. Otherwise it records
+`payoff + activeZero`, using the registered zero input to create a path-local
+root. Adept, XAD, and CoDiPack always use this addition. Seeding the resulting
+root and propagating to the mark accumulates contributions without overwriting
+a historical seed's adjoint. The fallback also handles a pre-mark payoff,
+a passive constant, or an otherwise empty post-mark recording, ensuring a
+valid reverse range.
 After all paths in a batch, propagation from mark to start carries the
 accumulated seed risk into script and model inputs. Each batch's risks are
 divided by the total simulation path count once; summing worker results does
@@ -836,8 +840,9 @@ streams) and accumulates the payoff slot across paths. The
 2. Per path: rewinds to the mark, generates the path, restores initial state
    (the typed seed for prepared AAD), and evaluates the AST with a
    `FuzzyEvaluator_<AAD::Number_>` (or compiled `EvalState_<AAD::Number_>`).
-   It creates a fresh path-local payoff root, seeds its adjoint to $1$, and
-   propagates back to the mark.
+   It creates or reuses a path-local payoff root via `AAD::PayoffRoot`, as
+   described under [recording lifetime](#historical-state-and-recording-lifetime),
+   seeds its adjoint to $1$, and propagates back to the mark.
 3. After the batch: propagates from mark to start, harvests per-parameter
    adjoints, and divides by total `nPaths` once. Worker reduction sums these
    normalized contributions without a second division.

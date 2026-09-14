@@ -4,15 +4,23 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 
 namespace Dal::Script {
+    template <class T_> struct HistoricalSeedStorage_ {
+        Vector_<T_> historicalSeed_;
+    };
+
+    // Double state already has a passive initial-value vector.
+    template <> struct HistoricalSeedStorage_<double> {};
+
     //  Variable/stack state shared by the tree-walking evaluators and the compiled-script evaluator.
-    template <class T_> struct EvalStateCore_ {
+    template <class T_> struct EvalStateCore_ : HistoricalSeedStorage_<T_> {
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
-        Vector_<T_> historicalSeed_;
         Vector_<T_> constVariables_;
 
         StaticStack_<T_> dStack_;
@@ -33,13 +41,20 @@ namespace Dal::Script {
         Vector_<T_>& ConstVarVals() { return constVariables_; }
         const Vector_<T_>& ConstVarVals() const { return constVariables_; }
 
-        void SetHistoricalSeed(Vector_<T_> seed) { historicalSeed_ = std::move(seed); }
+        void SetHistoricalSeed(Vector_<T_> seed) {
+            if constexpr (std::is_same_v<T_, double>)
+                variablesInit_ = std::move(seed);
+            else
+                this->historicalSeed_ = std::move(seed);
+        }
 
     private:
         void InitVariables() {
-            if (!historicalSeed_.empty()) {
-                variables_ = historicalSeed_;
-                return;
+            if constexpr (!std::is_same_v<T_, double>) {
+                if (!this->historicalSeed_.empty()) {
+                    variables_ = this->historicalSeed_;
+                    return;
+                }
             }
             variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
