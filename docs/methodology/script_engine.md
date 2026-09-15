@@ -126,11 +126,13 @@ double or fuzzy AAD future semantics, and dependency-aware optimization.
 
 `SPOT()` is the retained zero-argument compatibility form for the model spot
 at the event date; `FIX(index[, date])` is the named-observation form,
-expressing both historical and future fixings. `SPOT` takes no arguments — an
-observation's named identity is spelled only as the unquoted literal inside
-`FIX` — and `FIX()` is invalid. The forms differ in where an observation
-takes its identity and what each fixing-date relation requires. For `SPOT()`,
-the fixing date is always the event date:
+expressing both historical and future fixings. `SPOT` takes no
+arguments — within script text, an observation's named identity is spelled
+only as the unquoted literal inside `FIX`; the product `defaultIndex_`
+supplies a default-bound `SPOT()` identity outside script text — and `FIX()`
+is invalid. The forms differ in where an observation takes its identity and
+what each fixing-date relation requires. For `SPOT()`, the fixing date is
+always the event date:
 
 | Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                       |
 |------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|-----------------------------------------------|
@@ -145,8 +147,8 @@ The compatibility rules are:
   tree/compiled and AAD paths.
 - A product `defaultIndex_` only names `SPOT()`; it does not change `FIX`
   literals, bind a model, or supply market data.
-- Mixing unbound `SPOT()` with `FIX` or model bindings fails with
-  `MissingDefaultIndex`; these checks include dead branches.
+- Mixing a future-only unbound `SPOT()` with `FIX` or model bindings fails
+  with `MissingDefaultIndex`; these checks include dead branches.
 - Missing required history is always an error, never a model or placeholder
   value, whichever form the observation uses.
 - An omitted `FIX` date resolves to the event date during preparation;
@@ -480,9 +482,9 @@ and AAD paths and defaults. In model-aware preparation,
 at its event date. Matching SPOT and FIX uses share one request and the same
 history value or model cell. A default index does not replace the required
 model binding for a model-sourced observation. Without a default, historical
-SPOT raises `UnboundHistoricalSpot`; mixing SPOT with FIX or model bindings
-raises `MissingDefaultIndex`. These checks include dead branches. SPOT takes
-no arguments, and `FIX()` is invalid.
+SPOT raises `UnboundHistoricalSpot`; mixing future-only SPOT with FIX or
+model bindings raises `MissingDefaultIndex`. These checks include dead
+branches. SPOT takes no arguments, and `FIX()` is invalid.
 
 ### Retained Observations and Payment Dates
 

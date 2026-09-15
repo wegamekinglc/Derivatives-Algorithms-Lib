@@ -171,9 +171,9 @@ the intended equity.
 `SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
 for named observations in new worksheets. Future-only unbound `SPOT()` remains
 compatible. Historical unbound SPOT fails
-with `UnboundHistoricalSpot`; mixing unbound SPOT with FIX or bindings fails
-with `MissingDefaultIndex`. Matching default-bound SPOT and FIX share one
-request. `FIX()` and named/argument-taking SPOT are invalid. See the
+with `UnboundHistoricalSpot`; mixing a future-only unbound SPOT with FIX or
+bindings fails with `MissingDefaultIndex`. Matching default-bound SPOT and FIX
+share one request. `FIX()` and named/argument-taking SPOT are invalid. See the
 [script-engine rules](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
 for retained observations, separate payment numeraires, hard historical replay,
 fuzzy AAD future conditions, and wholly expired products.
