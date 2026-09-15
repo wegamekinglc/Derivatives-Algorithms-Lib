@@ -122,6 +122,39 @@ require a prepared observation ID and plan to process `NodeFix_`.
 Prepared tree and compiled evaluation share hard historical replay, exact
 double or fuzzy AAD future semantics, and dependency-aware optimization.
 
+### SPOT() Compatibility and the FIX Boundary
+
+`SPOT()` is the retained zero-argument compatibility form for the model spot
+at the event date; `FIX(index[, date])` is the named-observation form,
+expressing both historical and future fixings. `SPOT` takes no arguments — an
+observation's named identity is spelled only as the unquoted literal inside
+`FIX` — and `FIX()` is invalid. The forms differ in where an observation
+takes its identity and what each fixing-date relation requires. For `SPOT()`,
+the fixing date is always the event date:
+
+| Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                       |
+|------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|-----------------------------------------------|
+| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model via the explicit `spot` to EQ binding   |
+| Unbound `SPOT()`       | Model spot at event date | `UnboundHistoricalSpot`                    | Model, or `UnboundHistoricalSpot` under `REQUIREHISTORICAL` | Legacy model path; no binding                 |
+| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; needs the same `spot` binding as `FIX` |
+
+The compatibility rules are:
+
+- New scripts name observations with `FIX`. Existing future-only `SPOT()`
+  scripts need no change and keep their entry points, defaults, and
+  tree/compiled and AAD paths.
+- A product `defaultIndex_` only names `SPOT()`; it does not change `FIX`
+  literals, bind a model, or supply market data.
+- Mixing unbound `SPOT()` with `FIX` or model bindings fails with
+  `MissingDefaultIndex`; these checks include dead branches.
+- Missing required history is always an error, never a model or placeholder
+  value, whichever form the observation uses.
+- An omitted `FIX` date resolves to the event date during preparation;
+  `F > E` fails with `LookAheadObservation`, including in a dead branch.
+
+Valuation-level detail lives under
+[Explicit EQ Binding and Legacy SPOT](#explicit-eq-binding-and-legacy-spot).
+
 ### Comparators and Smoothing Hints
 
 `ParseCondElem` lowers every comparison to a subtraction wrapped in the
@@ -1218,8 +1251,12 @@ events.emplace_back(
 ScriptProduct_ product(eventDates, events);
 ```
 
-The `BARRIER:0.1` suffix on each comparison sets the node's `eps_` field, which
-the fuzzy evaluator consumes as the smoothing width for that condition. Running
+This product observes the model spot through the legacy zero-argument
+`SPOT()` form, which remains compatible unchanged for future-only observations
+like this one; the [named form](#spot-compatibility-and-the-fix-boundary) is
+`FIX(index)`. The `BARRIER:0.1` suffix on each comparison sets the node's
+`eps_` field, which the fuzzy evaluator consumes as the smoothing width for
+that condition. Running
 `product.Debug(out)` after the constructor walks the AST and writes the dated,
 parsed event listing; this example leaves variable indices unresolved.
 Downstream valuation calls `PreProcess`, which partitions and indexes the

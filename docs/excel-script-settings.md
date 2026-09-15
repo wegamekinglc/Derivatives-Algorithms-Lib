@@ -168,7 +168,9 @@ need no model binding and may contain multiple identities. A product default
 and a model binding do not supply market data: the model inputs must describe
 the intended equity.
 
-Future-only unbound `SPOT()` remains compatible. Historical unbound SPOT fails
+`SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
+for named observations in new worksheets. Future-only unbound `SPOT()` remains
+compatible. Historical unbound SPOT fails
 with `UnboundHistoricalSpot`; mixing unbound SPOT with FIX or bindings fails
 with `MissingDefaultIndex`. Matching default-bound SPOT and FIX share one
 request. `FIX()` and named/argument-taking SPOT are invalid. See the
