@@ -1,124 +1,67 @@
-# DAL-202 / F5: review fixes and unresolved allocation tradeoff
+# DAL-202 / F5: performance reports are advisory
 
-The prepared-mode diagnostic, supported allocation-test registration and tape-test complexity finding are repaired. The final report tables are aligned. No new performance implementation is accepted: six timed compiler/allocation candidates failed to repair the combined native/Python tradeoff, and a seventh produced identical selected instructions and was not timed.
+Cheng Li's DAL-228 comment `01a0a25d-9f60-770c-8e14-43eae4184b7f` removes DAL CI performance gates. The implementation applies that decision to both required CI gates and the reporting workflow. Performance findings remain visible reference evidence; they no longer block CI, merging, or F5 delivery.
 
-**The last complete acceptance gates remain RED: C++ 61/63 and Python 87/90.** Those are inherited results on product `0a7455c24afc77ef61e074bc0a06acd7a6323e14`, not fresh gates on this review-fix revision. No unchanged complete gate was rerun to seek green. The next proposed allocation boundary requires one additional AAD file; the concrete scope request appears below.
+PR #372 remains open against master in its owner-set ready-for-review state. Parent DAL-202 still owns the existing DAL-229 independent testing → DAL-230 documentation/CHANGELOG decision → DAL-231 mandatory review sequence and eventual protected merge. This report does not claim independent F5 approval.
 
-PR #372 remains open against master in its owner-set ready-for-review state. Parent DAL-202 owns acceptance and the serial DAL-229 independent tester, DAL-230 documentation/CHANGELOG decision and mandatory DAL-231 review. This partial handoff does not approve F5 or advance F6.
-
-## Revisions and shipped scope
+## Revisions and scope
 
 - Baseline F4 master: `b4e8b56135b5cfcbbe2ddd8d753921dd40d6caa2`, tree `f531d1858b881d3cf352c05c4e461e34f4263502`.
-- Starting published head: `4998cf30c10ad8e3f9f3381da2c1787f487e53fd`, tree `e0a46296647b40345ea0d4e144ddbad6e10fc446`.
-- Freshly tested product: `3de188ba0d2d5dc2778a20c22052c614f8d71cba`, tree `54fed4f31fcbbdd040dffd993c85f67c7418a8ee`.
-- The subsequent repository change is this report only. `repair/published-identity.json` and the delivery comment record the published SHA/tree and equality with tested source.
+- Starting F5 head: `ad3480c05006df5e65dec5f0f674c361b3c1ecd4`, tree `8f84d0528bc6451a620128d83598236ce2f96fa9`.
+- Tested policy commit: `49b58e8b9804c43de2b2cb158b78bc22dfeb7031`, tree `8a8d60f06e4fa08411efea2e4865a4cd46bb4465`.
+- Only this report changes after the tested policy commit. The final published SHA/tree is recorded in `repair/published-identity.json` and the delivery comment.
 
-Four source/test files change from the starting head:
+Twelve files implement the policy:
 
-| File                                        | Change                                                                      |
-| ------------------------------------------- | --------------------------------------------------------------------------- |
-| `dal-cpp/dal/script/simulation.hpp`         | Apply the exact approved mismatch diagnostic.                               |
-| `dal-cpp/tests/script/test_past_replay.cpp` | Cover both mode directions, defaults, AAD/smoothing and expired behavior.   |
-| `dal-cpp/CMakeLists.txt`                    | Register the dedicated script observation allocation executable with CTest. |
-| `dal-cpp/tests/math/aad/test_tape.cpp`      | Extract meaningful rollover/allocation assertion helpers.                   |
+- `.github/workflows/cmake-linux.yml` and `.github/workflows/cmake-windows.yml`: remove `benchmark` from required aggregate-gate dependencies, environment inputs and success assertions. Linux's native/Python comparisons and both A/A diagnostic steps use `continue-on-error: true`.
+- `.github/scripts/check_benchmark_regressions.py` and `.github/scripts/check_python_benchmark_regressions.py`: label their summaries advisory; calculations, exit codes, JSON schemas and evidence validation are unchanged.
+- `.github/scripts/tests/test_classify_ci_changes.py` and `.github/scripts/tests/test_python_benchmark_regressions.py`: enforce the new dependency/step policy and retain checks for required correctness jobs, sampling, diagnostic triggers and artifact uploads.
+- `.codex/references/benchmark-workflow.md`, `README.md`, `dal-python/benchmarks/README.md`, and the generic-joint-quote-risk, rate-node-risk and XCCY methodology notes: describe performance reporting as advisory.
 
-The fifth file is this report. No enum regeneration is needed. The prior shared tape allocation algorithm and three-input noipa boundary remain unchanged. There are no new model, curve/calibration, backend, binding/signature, benchmark, threshold, skip, required-check or global compiler-flag changes. All experimental overlays are outside the product tree.
+This report is the thirteenth changed file. No C++ product, public API, binding, backend, executable benchmark workload, sample count, numerical validator or threshold changes. The earlier prepared-mode diagnostic and allocation-test registration remain intact.
 
-## Review fixes and RED/GREEN evidence
+## Behavior and design
 
-The public diagnostic follows the parent's completed API decision exactly:
+Both stable required gate names remain unchanged. GitHub master protection currently requires only `Linux CI gate` and `Windows CI gate`, with strict base freshness; no rulesets add separate performance checks. The captured protection/ruleset records are in the evidence. No branch-protection mutation was necessary.
 
-`UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation`
+The aggregate gates still require their previous build, correctness, documentation and sanitizer dependencies. They no longer wait for the optional benchmark jobs. Benchmark build or data-validation errors may still fail an optional benchmark job and stay visible.
 
-The predicate, validation order and ScriptError_/UnsupportedExecutionMode contract are unchanged. Focused coverage checks compiled-to-tree and tree-to-compiled rejection, nullopt resolving to tree in preparation and execution, direct MCAADSimulation with AAD-disabled preparation, changed smoothing, matching analytic PV and the pre-existing all-expired zero-PV/zero-risk fast path. Earlier wrapper diagnostics remain separate.
+Performance comparison findings keep their original nonzero command result and failed report status. Step-level continuation makes those findings nonblocking. Python diagnostics and package preservation still test `steps.python-performance.outcome == 'failure'`, which retains the original outcome despite continuation. Both platforms retain evidence uploads, including failed runs, for 30 days.
 
-`diagnostic-red` ran the strengthened `ScriptPastReplayTest.TestPreparedCompiledModeCannotChange` against the old production string: exit 1 because the expected compiled/tree wording was absent. The minimum string replacement then passed the same command (`diagnostic-green`, exit 0). Additional edge cases preserve existing behavior rather than inventing semantic failures.
+The two-round, ten-alternating-samples-per-side, minimum-reduction and strict 4% rule remains a reporting reference. Existing failures were not relabelled as passes.
 
-The existing allocation fixture is now a dedicated `dal_cpp_script_observation_allocation_tests` target with `bcg_allocation_probe.cpp`, test main, dal_cpp/gtest, platform options and `gtest_discover_tests`. Its global allocator replacement is isolated from ordinary dal_cpp_tests. The pre-change discovery command failed with exit 8, No tests found (`allocation-discovery-red`). A clean supported build now discovers and runs both unchanged assertions, 2/2 (`test-allocation-clean`).
+## RED → GREEN and verification
 
-The tape test was green before extraction, 13/13. `ExhaustAllocationStream` and `CheckThreeInputAllocation` preserve all four independently exhausted streams, three reuse cycles, multi-adjoint propagation/reset, mark/rewind/new-recording checks and existing alias/self-assignment tests. Fatal helper assertions propagate through ASSERT_NO_FATAL_FAILURE. Local lizard measurement reduces the flagged test from complexity 11 to 4; helpers are 5 and 4. This is local evidence, not a claimed fresh Codacy acceptance.
+1. Added `test_performance_reports_do_not_block_required_gates`. RED: both platform subcases failed because their gates still depended on Benchmarks. GREEN: remove only that dependency, input and assertion; all 14 CI-path tests pass.
+2. Updated the advisory-report contract while retaining sampling and evidence checks. RED: all four comparison/diagnostic steps lacked continuation. GREEN: add continuation to those four steps; all 14 Python comparison tests pass.
+3. Full CI-tool suite: **161 tests run, 155 passed, 6 existing Windows PowerShell/.NET cases skipped**.
+4. YAML parsing and actual Bash execution: **25 scenarios pass**. Both workflow dependency sets equal their prior sets minus Benchmarks. Success, failure, cancellation, skip and running benchmark outcomes do not block either gate; every required result still rejects failure; docs-only classifier behavior remains intact.
+5. Documentation validation: **58 Markdown files pass**. Staged scope and whitespace checks pass.
 
-Principal commands (repository cwd unless the command starts with repair/):
+Commands (repository cwd, except the evidence harness):
 
 ```sh
-build/Release-linux/dal-cpp/dal_cpp_tests '--gtest_filter=ScriptPastReplayTest.TestPreparedCompiledModeCannotChange'
-ctest --test-dir build/Release-linux -R ScriptObservationAllocationTest --no-tests=error --output-on-failure
-cmake --build build/allocation-clean --target dal_cpp_script_observation_allocation_tests -j 8
-ctest --test-dir build/allocation-clean -R ScriptObservationAllocationTest --no-tests=error --output-on-failure
-cmake --build build/Release-linux -j 12
-ctest --test-dir build/Release-linux --output-on-failure -j 4
-python3 repair/verify_backends.py
-python3 repair/verify_sanitizers.py
-python3 repair/verify_oracles.py
+python3 -m unittest discover -s .github/scripts/tests -p test_classify_ci_changes.py -k test_performance_reports_do_not_block_required_gates -v
+python3 -m unittest discover -s .github/scripts/tests -p test_classify_ci_changes.py -v
+python3 -m unittest discover -s .github/scripts/tests -p test_python_benchmark_regressions.py -k test_linux_advisory_benchmark_job -v
+python3 -m unittest discover -s .github/scripts/tests -p test_python_benchmark_regressions.py -v
+python3 -m unittest discover -s .github/scripts/tests -v
 python3 .github/scripts/check_docs.py
+git diff --check
+# Workspace cwd:
+python3 repair/validate_ci_policy.py
 ```
 
-## Fresh applicable correctness
+The corresponding `repair/ci-gates-{red,green}`, `ci-reports-{red,green}`, `ci-tools-full`, `ci-policy-scenarios` and `docs-policy` JSON/log records retain commands, exit codes and output. A publication snapshot records hosted CI once; no CI polling or watching is used.
 
-| Verification                                        | Result                                       |
-| --------------------------------------------------- | -------------------------------------------- |
-| Native GCC 14 Release CTest                         | 1753/1753, including the Python entry.       |
-| Python within native CTest                          | 402/402.                                     |
-| Focused review-fix/tape CTest                       | 19/19.                                       |
-| Clean supported allocation CTest                    | 2/2.                                         |
-| Full Adept / CoDiPack / XAD CTest                   | 1740/1740, 1740/1740, 1739/1739.             |
-| Clang 21 ASan/UBSan AAD/script/MC                   | 403/403.                                     |
-| Clang isolated allocation CTest                     | 2/2.                                         |
-| Unchanged independent exact/tiny/allocation oracles | 4/4, 6/6, 2/2.                               |
-| Documentation and whitespace                        | 58 Markdown files and git diff --check pass. |
+## Preserved F5 evidence and deferred experiment
 
-Fresh native coverage includes all 27 lifetime combinations (threads 1/2/4, 8193 paths, fixings 80/90/80), all 33 legacy/parity/fuzz cases, fixed F4/F5 financial/error oracles, history prefetch, zero-worker preparation failure and task-group exception drain. Exact-boundary and tiny-divisor oracles were rebuilt unchanged against current core. GCC correctness uses native-architecture OFF; experiments retain original ON performance flags and binding LTO/visibility. Clang uses leak detection and UBSan halt-on-error.
+The earlier review-repair archive was downloaded through Multica and verified: SHA256 `686f1d6621ea595551ed218fde2887e19a33ba2b217debfa743b32be34fc1197`, all **1,927** internal entries valid. It remains attached to DAL-228 thread `01a0a250-4d12-7bde-9b64-e2d83d8d475c`. Its report and prior failed candidates are historical evidence, not a current performance-gate requirement.
 
-Shared Python and separate static/shared/LTO consumer results from the previous product remain inherited, not freshly claimed here: this turn ships no AAD implementation/layout/linkage change. Windows/MSVC is unavailable locally. Hosted checks and independent review remain required. Every executed verification retains command, cwd, exit status and elapsed time. Initial missing-submodule configuration, the makefile-regeneration target lookup and the diagnostic serializer setup failure are retained as setup failures and were corrected before their successful runs.
+Before the new user instruction, this run prepared two private NextBlock overlays and a block-boundary test draft, and completed a clean stock native/Python performance build. The overlays and new boundary tests were **not compiled, tested, timed or selected**. They are preserved under `repair/variants/` and `repair/deferred-block-boundary-tests.patch`; no experimental AAD change ships. The performance-only investigation is deferred under the user's new policy. No full timing rerun was performed to obtain a pass.
 
-## Bounded performance experiments
+Inherited complete comparisons on `0a7455c24afc77ef61e074bc0a06acd7a6323e14` remain **C++61/63 and Python87/90**: clear/rewind recording, compiled barrier AAD, mixed calibration diagnostics and quote-risk n5 analytic t120 exceeded the reference threshold. Attribution remains unresolved; these are advisory findings.
 
-The starting stock binaries are those of product 0a7455; all 23 retained stock hashes were verified. The baseline checkout is clean at F4 master. Stock Python module SHA256 is `6ba4aabf2051d819b702be794c0b87fb128f1e9f5bb2b5aab95038a048d7a398`; tape_perf is `01bcd0e5a23a51a579bea89c1b8a3410e903a5455ef192199c2c5bcf04856839`.
+Inherited product correctness on `3de188ba0d2d5dc2778a20c22052c614f8d71cba`: native1753/1753 including Python402, Adept1740, CoDiPack1740, XAD1739; Clang ASan/UBSan403 plus allocation2; exact4/tiny6/allocation2; 27 lifetime combinations and33 legacy/parity/fuzz cases. Product source is unchanged by this policy revision. These are explicitly inherited results, not fresh C++/backend/sanitizer runs. Windows/MSVC execution remains hosted; the six local PowerShell skips are retained.
 
-Each overlay rebuilds every affected core/public/binding translation unit identified by original dependency files, including the binding value TU, then relinks the actual Python module and static tape benchmark with the original flags. Rebuilt object inventories, selected instructions, maps and hashes are retained. No baseline objects are transplanted into current modules. These are reconstructed diagnostic binaries, not the final review-fix correctness build.
-
-All four completed matrices retain ten alternating process samples per variant, original canonical workload arguments/path counts, validators and two warmups. They run sequentially with DAL_NUM_THREADS=4 and no competing builds/tests. Each contains the original 16 script MC cases plus the two calibration/quote failures, and the five unchanged tape cases. Numeric comparison covers PV and every risk key/value plus calibration rates/Jacobians/inverses and quote buckets. All 151050 numeric comparisons pass at relative 1e-10 / absolute 1e-9. These diagnostic subsets do not replace the two-round complete gates.
-
-| Candidate             | Actual intervention                                                        | Outcome versus its same-matrix baseline                                                                                    |
-| --------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| multi-outline         | Inline recording; outline multi-adjoint allocation across arities.         | Clear +0.19%, rewind -0.32%; compiled barrier AAD +43.49%. Rejected.                                                       |
-| multi-outline-record3 | Keep RecordNode<3> noipa; outline multi-adjoint allocation across arities. | Clear +5.57%, rewind +4.67%; compiled barrier AAD +31.67%. Rejected.                                                       |
-| multi3-outline        | Outline only the three-input multi-adjoint body.                           | Clear +2.88%, rewind +4.71%; compiled barrier AAD +12.17%, stock +7.93%. Rejected.                                         |
-| multi3-noclone        | Retune noipa after reducing the three-input body.                          | Selected chain/allocator/model instructions identical to multi3-outline; not timed or shipped.                             |
-| flatten-events        | Flatten the actual emitted compiled event dispatcher.                      | Removes arithmetic calls but expands 1653 to 74883 instructions; compiled barrier AAD +41.94%. Rejected.                   |
-| flatten-bounded       | Flatten events while bounding recursive range calls.                       | Dispatcher 15168 instructions; compiled barrier AAD +7.28%, stock +8.41%; native rewind +7.73%. Insufficient, rejected.    |
-| flatten-sum-call      | Outline and flatten only the sum dispatcher.                               | Arithmetic recording calls 26 to 21; compiled barrier AAD +9.78%, stock +8.41%; double compiled barrier +22.22%. Rejected. |
-
-The multi3-outline static allocator drops from roughly 270 instructions to 141 and loses its stack canary; the Python allocator has 143 instructions. The selected model retains 10 whole-function TLS lookup sites, versus 14 when multi-adjoint work is outlined across all arities. Site counts include initialization/fallback branches and are not dynamic per-step counts. Removing only exception-related frame overhead improved native recording but did not resolve both clients.
-
-The copied stock-control binaries in matrix-targeted have identical hashes to stock. All control samples are retained. Earlier rejected interventions, prepared opcode/hex-constant equality for 100 valuations and phase measurements remain inherited and were not repeated. No best result is selected across matrices and no universal cause is claimed.
-
-### Calibration and quote-risk failures
-
-182 relevant curve/public/Python Git blobs are unchanged between baseline and current product; checkout verification accounts only for repository CRLF normalization. Unchanged source does not prove identical generated code under changed shared headers or LTO. Build flags, module identities, measured inputs and financial outputs remain recorded.
-
-Stock calibration deltas across the four matrices are +1.58%, +8.62%, -2.66%, -3.49%; quote deltas are +0.63%, +1.78%, -2.00%, +9.69%. Same-binary stock/control measurements also vary. This establishes unresolved attribution and motivates narrower binary investigation; it does not dismiss the original two-round failures as noise or authorize curve changes.
-
-## Concrete scope request to parent
-
-Authorize a bounded experiment at the existing private `BlockList_::NextBlock` in `dal-cpp/dal/math/aad/blocklist.hpp`, alongside the already allowed tape.hpp allocation boundary. Current permitted tape-only outlining either leaves the unconditional three-input call cost in native clients or restores inline recording while increasing Python TLS/dispatch cost. Selected RecordNode<3> instructions still include the inlined node/derivative/pointer block-growth paths. Those paths are the next specific boundary to isolate.
-
-Proposed intervention: apply guarded existing compiler spellings to prevent inlining of that private block transition, keeping its existing single growth/reuse algorithm unchanged, then test whether the smaller recording body permits removing or retuning the unconditional three-input boundary. Preserve all cursor updates, reserve order, node counts, pointer wiring, errors, N=0 behavior, signatures and layout. No new public helper/macro, runtime reservation, TLS cache, cold/noexcept annotation, global flag or other AAD/model/backend file is proposed. This is a hypothesis, not an established performance fix, and it has not been implemented.
-
-Acceptance for that experiment: verify the intended actual-module and static-chain instruction changes first; rerun existing independent stream rollover, alias, mark/reuse and multi-adjoint checks; measure both native recording cases and all canonical Python controls sequentially. Only a supported candidate that improves the combined tradeoff proceeds to fresh full native/backend/sanitizer/static/shared/LTO/Python checks and both original complete performance gates. Parent approval of this exact additional file boundary is the next dependency; the current authorization explicitly confines native AAD changes to tape.hpp/tape.cpp.
-
-## Inherited complete gates and delivery provenance
-
-The original gates on 0a7455 retain all 63 C++ and 90 Python cases, two rounds, ten alternating samples per side per round, minimum reduction and strict 4%. The parent independently recomputed all results from raw samples. Failures remain:
-
-| Gate/case                                   | Round 1 | Round 2 |
-| ------------------------------------------- | ------- | ------- |
-| C++ Clear + re-record, 100K nodes           | +5.33%  | +4.91%  |
-| C++ Rewind + re-record, 100K nodes          | +7.60%  | +7.71%  |
-| Python mc.barrier.aad.compiled              | +14.58% | +9.63%  |
-| Python calibration.MIXED.BUMPED.diagnostics | +4.47%  | +5.60%  |
-| Python quotes.single.n5.ANALYTIC.t120       | +5.07%  | +4.88%  |
-
-The inherited archive SHA256 is `8900540f6d99dd383d67c71b10b355c11d9a595b5d142b64c295e554c455b92c`, attached in five parts to DAL-228 thread `01a0a221-2564-7e6b-a5af-f5531de64066`. Parent verified its 3637 entries and 1150 source hashes. It retains earlier gates, failed zero-case off/OFF setup, all old samples/controls and nested lineage. This delivery references that immutable archive without repacking it or presenting its tests as fresh.
-
-The new attachment includes this matching report, fresh verification logs, scripts, raw matrix samples, overlays, selected disassembly/maps, source and binary/build identities, publication record and an internal SHA256 manifest. Generated binaries/objects and full-module disassembly are excluded with hashes and reconstruction commands retained. Publication records one CI snapshot; pending or failed checks do not imply acceptance. No merge or closing intent is included.
+The current evidence archive contains this matching report, fresh policy validation, source/publication identities, protection records and the deferred experimental drafts. It references the immutable prior archive without repacking its logs or presenting them as fresh. Independent testing, documentation and review remain outstanding; F6 is not advanced.
