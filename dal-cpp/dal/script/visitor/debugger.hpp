@@ -10,26 +10,36 @@
 #include <sstream>
 #include <utility>
 
-#include <dal/platform/platform.hpp>
+#include <dal/indice/index.hpp>
 #include <dal/math/stacks.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
 
 namespace Dal::Script {
+    struct DebugObservation_ {
+        String_ original_;
+        String_ canonical_;
+        std::optional<Date_> fixingDate_;
+        SourceLocation_ source_;
+        size_t statementId_ = 0;
+    };
+
     //  Debug IR: one entry per AST node, produced by Debugger_.  The legacy
     //  s-expression label feeds the text renderer; kind and the structured
     //  fields feed the JSON and tree renderers.
     struct DebugNode_ {
         String_ label;
         String_ kind;
-        String_ name;          //  var, const_var
-        int index = -1;        //  var, const_var
-        int firstElse = -1;    //  if
-        double number = 0.0;   //  const / const_var value, comparison eps
-        double lb = 0.0;       //  discrete comparison bounds
+        String_ name;        //  var, const_var
+        int index = -1;      //  var, const_var
+        int firstElse = -1;  //  if
+        double number = 0.0; //  const / const_var value, comparison eps
+        double lb = 0.0;     //  discrete comparison bounds
         double rb = 0.0;
         bool discrete = false; //  comparison mode
         Vector_<DebugNode_> children;
+        std::optional<DebugObservation_> observation;
     };
 
     //  Shortest decimal representation that round-trips.
@@ -75,11 +85,21 @@ namespace Dal::Script {
         for (const char raw : src) {
             const auto byte = static_cast<unsigned char>(raw);
             switch (byte) {
-            case '"': ost << "\\\""; break;
-            case '\\': ost << "\\\\"; break;
-            case '\n': ost << "\\n"; break;
-            case '\r': ost << "\\r"; break;
-            case '\t': ost << "\\t"; break;
+            case '"':
+                ost << "\\\"";
+                break;
+            case '\\':
+                ost << "\\\\";
+                break;
+            case '\n':
+                ost << "\\n";
+                break;
+            case '\r':
+                ost << "\\r";
+                break;
+            case '\t':
+                ost << "\\t";
+                break;
             default:
                 //  Bytes from 0x20 up pass through: JSON strings are UTF-8, so
                 //  multi-byte sequences must not be \u-escaped byte by byte
@@ -94,6 +114,52 @@ namespace Dal::Script {
     }
 
     inline void DebugNodeJson(const DebugNode_& node, size_t& id, std::ostream& ost);
+
+    inline void JsonWriteSource(const SourceLocation_& source, std::ostream& ost) {
+        ost << "{\"row\":" << source.row_ << ",\"offset\":" << source.offset_ << ",\"line\":" << source.line_ << ",\"column\":" << source.column_
+            << ",\"event_date\":";
+        if (source.eventDate_)
+            JsonWriteString(Date::ToString(*source.eventDate_), ost);
+        else
+            ost << "null";
+        ost << '}';
+    }
+
+    inline void JsonWriteFixingDate(const std::optional<Date_>& date, std::ostream& ost) {
+        ost << ",\"fixing_date_mode\":\"" << (date ? "Explicit" : "EventDate") << "\",\"fixing_date_literal\":";
+        if (date)
+            JsonWriteString(Date::ToString(*date), ost);
+        else
+            ost << "null";
+    }
+
+    inline void JsonWriteObservation(const DebugObservation_& observation, const String_& kind, size_t nodeId, std::ostream& ost) {
+        const auto& source = observation.source_;
+        REQUIRE2(source.eventDate_, "InvalidFixingDate: observation source has no event date", ScriptError_);
+        const Date_ fixingDate = observation.fixingDate_.value_or(*source.eventDate_);
+        REQUIRE2(fixingDate <= *source.eventDate_,
+                 "LookAheadObservation: original=" + observation.original_ + "; canonical=" + observation.canonical_ +
+                     "; fixing=" + DateTime::ToString(DateTime_(fixingDate, 0.0)) + "; expected fixing <= event; " + source.Describe() +
+                     "; statement=" + String_(std::to_string(observation.statementId_)) + "; node=n" + String_(std::to_string(nodeId)),
+                 ScriptError_);
+        ost << ",\"type\":\"" << (kind == "fix" ? "Fix" : "Spot") << "\",\"index_original\":";
+        if (observation.original_.empty())
+            ost << "null";
+        else
+            JsonWriteString(observation.original_, ost);
+        ost << ",\"index_canonical\":";
+        if (observation.canonical_.empty())
+            ost << "null";
+        else
+            JsonWriteString(observation.canonical_, ost);
+        JsonWriteFixingDate(observation.fixingDate_, ost);
+        ost << ",\"fixing_date\":";
+        JsonWriteString(Date::ToString(fixingDate), ost);
+        ost << ",\"fixing_time\":";
+        JsonWriteString(DateTime::ToString(DateTime_(fixingDate, 0.0)), ost);
+        ost << ",\"source\":";
+        JsonWriteSource(source, ost);
+    }
 
     inline void JsonWriteChildren(const DebugNode_& node, size_t& id, std::ostream& ost) {
         ost << ",\"children\":[";
@@ -142,8 +208,7 @@ namespace Dal::Script {
             return false;
         ost << ",\"name\":";
         JsonWriteString(node.name, ost);
-        ost << ",\"index\":" << node.index << (node.kind == "var" ? ",\"const_value\":" : ",\"value\":")
-            << DebugNumber(node.number);
+        ost << ",\"index\":" << node.index << (node.kind == "var" ? ",\"const_value\":" : ",\"value\":") << DebugNumber(node.number);
         return true;
     }
 
@@ -167,14 +232,16 @@ namespace Dal::Script {
 
     //  Writes the kind-specific fields; false when the kind takes only children
     inline bool JsonWriteFields(const DebugNode_& node, size_t& id, std::ostream& ost) {
-        return JsonWriteIf(node, id, ost) || JsonWriteAssign(node, id, ost) || JsonWriteNamed(node, id, ost) ||
-               JsonWriteConst(node, id, ost) || JsonWriteCompare(node, id, ost);
+        return JsonWriteIf(node, id, ost) || JsonWriteAssign(node, id, ost) || JsonWriteNamed(node, id, ost) || JsonWriteConst(node, id, ost) ||
+               JsonWriteCompare(node, id, ost);
     }
 
     //  Machine-friendly JSON; ids are pre-order and unique per dump.
     inline void DebugNodeJson(const DebugNode_& node, size_t& id, std::ostream& ost) {
         ost << "{\"id\":\"n" << id++ << "\",\"kind\":";
         JsonWriteString(node.kind, ost);
+        if (node.observation)
+            JsonWriteObservation(*node.observation, node.kind, id - 1, ost);
         if (!JsonWriteFields(node, id, ost) && !node.children.empty())
             JsonWriteChildren(node, id, ost);
         ost << '}';
@@ -219,12 +286,10 @@ namespace Dal::Script {
 
     inline const TreeStyle_& TreeStyle(bool ascii) {
         struct Styles_ {
-            TreeStyle_ unicode{"├── ", "└── ", "│   ", "    ", "+",  "−", "×", "÷", "^",  "−",  "ln",   "exp", "√",
-                               "max", "min", "=",   ">",   "≥",  "∧", "∨", "¬", "⊤", "⊥",  "←",   "⇐",   "▶ ",
-                               "▷ ",  "? ",  "📅",  "·",   "⟨",  "⟩", "ε"};
-            TreeStyle_ ascii{"|-- ", "`-- ", "|   ", "    ", "+", "-", "*", "/", "^", "-", "ln", "exp", "sqrt",
-                             "max", "min", "=", ">", ">=", "and", "or", "not", "true", "false", "<-", "<=", "> ",
-                             ". ", "? ", "#", "@", "<", ">", "eps"};
+            TreeStyle_ unicode{"├── ", "└── ", "│   ", "    ", "+", "−", "×", "÷", "^",  "−",  "ln", "exp", "√", "max", "min", "=", ">",
+                               "≥",    "∧",    "∨",    "¬",    "⊤", "⊥", "←", "⇐", "▶ ", "▷ ", "? ", "📅",  "·", "⟨",   "⟩",   "ε"};
+            TreeStyle_ ascii{"|-- ", "`-- ", "|   ", "    ", "+",    "-",     "*",  "/",  "^",  "-",  "ln", "exp", "sqrt", "max", "min", "=",  ">",
+                             ">=",   "and",  "or",   "not",  "true", "false", "<-", "<=", "> ", ". ", "? ", "#",   "@",    "<",   ">",   "eps"};
         };
         static const Styles_ styles;
         return ascii ? styles.ascii : styles.unicode;
@@ -232,9 +297,8 @@ namespace Dal::Script {
 
     //  UTF-8 aware display width, doubling the CJK and emoji ranges.
     inline bool IsWideCodePoint(unsigned codePoint) {
-        static const std::pair<unsigned, unsigned> WIDE[] = {{0x1100, 0x115F}, {0x2E80, 0xA4CF}, {0xAC00, 0xD7A3},
-                                                             {0xF900, 0xFAFF}, {0xFE30, 0xFE6F}, {0xFF00, 0xFF60},
-                                                             {0x1F300, 0x1F64F}, {0x1F900, 0x1F9FF}};
+        static const std::pair<unsigned, unsigned> WIDE[] = {{0x1100, 0x115F}, {0x2E80, 0xA4CF}, {0xAC00, 0xD7A3},   {0xF900, 0xFAFF},
+                                                             {0xFE30, 0xFE6F}, {0xFF00, 0xFF60}, {0x1F300, 0x1F64F}, {0x1F900, 0x1F9FF}};
         for (const auto& range : WIDE)
             if (codePoint >= range.first && codePoint <= range.second)
                 return true;
@@ -269,10 +333,9 @@ namespace Dal::Script {
     }
 
     inline int TreePrec(const String_& kind) {
-        static const std::map<String_, int> PRECEDENCE = {
-            {"assign", 0}, {"pays", 0},     {"if", 0},      {"collect", 0}, {"or", 1},   {"and", 2},
-            {"eq0", 3},    {"gt0", 3},      {"ge0", 3},     {"add", 4},     {"sub", 4},  {"mul", 5},
-            {"div", 5},    {"not", 6},      {"neg", 6},     {"uplus", 6},   {"pow", 7}};
+        static const std::map<String_, int> PRECEDENCE = {{"assign", 0}, {"pays", 0}, {"if", 0},  {"collect", 0}, {"or", 1},  {"and", 2},
+                                                          {"eq0", 3},    {"gt0", 3},  {"ge0", 3}, {"add", 4},     {"sub", 4}, {"mul", 5},
+                                                          {"div", 5},    {"not", 6},  {"neg", 6}, {"uplus", 6},   {"pow", 7}};
         const auto found = PRECEDENCE.find(kind);
         return found == PRECEDENCE.end() ? 8 : found->second;
     }
@@ -372,8 +435,7 @@ namespace Dal::Script {
         const int prec = TreePrec(k);
         //  Context bumps keep a − (b − c), a ÷ (b ÷ c) and (a ^ b) ^ c unambiguous
         const int leftContext = k == "pow" ? 8 : prec;
-        out = TreeParen(node.children[0], st, leftContext) + " " + BinarySymbol(k, st) + " " +
-              TreeParen(node.children[1], st, prec + 1);
+        out = TreeParen(node.children[0], st, leftContext) + " " + BinarySymbol(k, st) + " " + TreeParen(node.children[1], st, prec + 1);
         return true;
     }
 
@@ -420,8 +482,7 @@ namespace Dal::Script {
     inline String_ TreeInlineStatement(const DebugNode_& node, const TreeStyle_& st) {
         const String_& k = node.kind;
         if (k == "assign" || k == "pays")
-            return TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS) + " " +
-                   TreeInline(node.children[1], st);
+            return TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS) + " " + TreeInline(node.children[1], st);
         if (k == "if")
             return TreeInlineIf(node, st);
         //  collect
@@ -437,8 +498,8 @@ namespace Dal::Script {
     //  Best-effort single-line form; parens follow minimal-precedence rules.
     inline String_ TreeInline(const DebugNode_& node, const TreeStyle_& st) {
         String_ out;
-        if (TreeInlineLeaf(node, st, out) || TreeInlineUnary(node, st, out) || TreeInlineCall(node, st, out) ||
-            TreeInlineBinary(node, st, out) || TreeInlineLogical(node, st, out) || TreeInlineCompare(node, st, out))
+        if (TreeInlineLeaf(node, st, out) || TreeInlineUnary(node, st, out) || TreeInlineCall(node, st, out) || TreeInlineBinary(node, st, out) ||
+            TreeInlineLogical(node, st, out) || TreeInlineCompare(node, st, out))
             return out;
         return TreeInlineStatement(node, st);
     }
@@ -450,8 +511,8 @@ namespace Dal::Script {
         bool connected;
     };
 
-    inline void TreeBranchIf(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width,
-                             String_& header, Vector_<TreeBranch_>& branches) {
+    inline void
+    TreeBranchIf(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width, String_& header, Vector_<TreeBranch_>& branches) {
         const size_t firstElse = node.firstElse < 0 ? node.children.size() : static_cast<size_t>(node.firstElse);
         const String_ condInline = TreeInline(node.children[0], st);
         if (DisplayWidth(first + "if " + condInline + " then") <= width)
@@ -467,8 +528,8 @@ namespace Dal::Script {
     }
 
     //  Fills the statement-family header (assign, pays, if); false for other kinds
-    inline bool TreeBranchStatement(const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width,
-                                    String_& header, Vector_<TreeBranch_>& branches) {
+    inline bool TreeBranchStatement(
+        const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width, String_& header, Vector_<TreeBranch_>& branches) {
         const String_& k = node.kind;
         if (k == "assign" || k == "pays") {
             header = first + TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS);
@@ -503,8 +564,8 @@ namespace Dal::Script {
         branches.push_back(TreeBranch_{&node.children[0], String_(), true});
     }
 
-    inline bool TreeBranchCompare(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
-                                  Vector_<TreeBranch_>& branches) {
+    inline bool
+    TreeBranchCompare(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header, Vector_<TreeBranch_>& branches) {
         if (node.kind != "eq0" && node.kind != "gt0" && node.kind != "ge0")
             return false;
         header = first + CompareSymbol(node.kind, st) + FuzzySuffix(node, st);
@@ -512,10 +573,9 @@ namespace Dal::Script {
         return true;
     }
 
-    inline bool TreeBranchUnaryHeader(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
-                                      Vector_<TreeBranch_>& branches) {
-        if (node.kind != "not" && node.kind != "neg" && node.kind != "uplus" && node.kind != "log" &&
-            node.kind != "exp" && node.kind != "sqrt")
+    inline bool
+    TreeBranchUnaryHeader(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header, Vector_<TreeBranch_>& branches) {
+        if (node.kind != "not" && node.kind != "neg" && node.kind != "uplus" && node.kind != "log" && node.kind != "exp" && node.kind != "sqrt")
             return false;
         header = first + UnarySymbol(node.kind, st);
         PushOperand(node, branches);
@@ -536,33 +596,30 @@ namespace Dal::Script {
         return String_(BinarySymbol(kind, st));
     }
 
-    inline void TreeBranchOperators(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header,
-                                    Vector_<TreeBranch_>& branches) {
+    inline void
+    TreeBranchOperators(const DebugNode_& node, const String_& first, const TreeStyle_& st, String_& header, Vector_<TreeBranch_>& branches) {
         header = first + OperatorHeader(node.kind, st);
         for (const auto& child : node.children)
             branches.push_back(TreeBranch_{&child, String_(), true});
     }
 
-    inline void DebugNodeTree(const DebugNode_& node, const String_& first, const String_& cont, const TreeStyle_& st,
-                              size_t width, Vector_<String_>& out);
+    inline void
+    DebugNodeTree(const DebugNode_& node, const String_& first, const String_& cont, const TreeStyle_& st, size_t width, Vector_<String_>& out);
 
-    inline void EmitBranches(const Vector_<TreeBranch_>& branches, const String_& cont, const TreeStyle_& st,
-                             size_t width, Vector_<String_>& out) {
+    inline void EmitBranches(const Vector_<TreeBranch_>& branches, const String_& cont, const TreeStyle_& st, size_t width, Vector_<String_>& out) {
         for (size_t i = 0; i < branches.size(); ++i) {
             const bool last = i + 1 == branches.size();
             const TreeBranch_& branch = branches[i];
-            const String_ branchFirst =
-                branch.connected ? cont + (last ? st.elbow : st.tee) + branch.marker : cont + branch.marker;
-            const String_ branchCont =
-                branch.connected ? cont + (last ? st.blank : st.pipe) : cont + String_(DisplayWidth(branch.marker), ' ');
+            const String_ branchFirst = branch.connected ? cont + (last ? st.elbow : st.tee) + branch.marker : cont + branch.marker;
+            const String_ branchCont = branch.connected ? cont + (last ? st.blank : st.pipe) : cont + String_(DisplayWidth(branch.marker), ' ');
             DebugNodeTree(*branch.node, branchFirst, branchCont, st, width, out);
         }
     }
 
     //  Human-friendly tree block: inline while it fits the width budget, branches below otherwise.
     //  `first` prefixes the node's own line, `cont` prefixes every continuation line.
-    inline void DebugNodeTree(const DebugNode_& node, const String_& first, const String_& cont, const TreeStyle_& st,
-                              size_t width, Vector_<String_>& out) {
+    inline void
+    DebugNodeTree(const DebugNode_& node, const String_& first, const String_& cont, const TreeStyle_& st, size_t width, Vector_<String_>& out) {
         const String_ whole = first + TreeInline(node, st);
         //  Inline when it fits; an oversized leaf has nothing to branch on
         if (DisplayWidth(whole) <= width || node.children.empty()) {
@@ -572,8 +629,8 @@ namespace Dal::Script {
 
         String_ header = first;
         Vector_<TreeBranch_> branches;
-        if (!TreeBranchStatement(node, first, st, width, header, branches) &&
-            !TreeBranchCompare(node, first, st, header, branches) && !TreeBranchUnaryHeader(node, first, st, header, branches))
+        if (!TreeBranchStatement(node, first, st, width, header, branches) && !TreeBranchCompare(node, first, st, header, branches) &&
+            !TreeBranchUnaryHeader(node, first, st, header, branches))
             TreeBranchOperators(node, first, st, header, branches);
 
         out.push_back(header);
@@ -582,6 +639,10 @@ namespace Dal::Script {
 
     class Debugger_ : public ConstVisitor_<Debugger_> {
         Stack_<DebugNode_> stack_;
+        bool describe_ = false;
+        String_ defaultOriginal_;
+        Handle_<Index_> defaultIndex_;
+        size_t statementId_ = 0;
 
         // The main function call from every node visitor
         void Debug(const Node_& node, DebugNode_ ir) {
@@ -613,6 +674,9 @@ namespace Dal::Script {
 
     public:
         using ConstVisitor_::Visit;
+        Debugger_() = default;
+        Debugger_(const String_& defaultOriginal, const Handle_<Index_>& defaultIndex, size_t statementId)
+            : describe_(true), defaultOriginal_(defaultOriginal), defaultIndex_(defaultIndex), statementId_(statementId) {}
 
         //  IR of the last accepted statement
         [[nodiscard]] const DebugNode_& Top() const { return stack_.Top(); }
@@ -652,12 +716,21 @@ namespace Dal::Script {
         void Visit(const NodeOr_& node) { Debug(node, {"OR", "or"}); }
         void Visit(const NodeAssign_& node) { Debug(node, {"ASSIGN", "assign"}); }
         void Visit(const NodePays_& node) { Debug(node, {"PAYS", "pays"}); }
-        void Visit(const NodeSpot_& node) { Debug(node, {"SPOT", "spot"}); }
+        void Visit(const NodeSpot_& node) {
+            DebugNode_ ir{"SPOT", "spot"};
+            if (describe_)
+                ir.observation =
+                    DebugObservation_{defaultOriginal_, defaultIndex_ ? defaultIndex_->Name() : String_(), {}, node.source_, statementId_};
+            Debug(node, std::move(ir));
+        }
         void Visit(const NodeFix_& node) {
             String_ label = "FIX(" + node.literal_.raw_;
             if (node.fixingDate_)
                 label += ", " + Date::ToString(*node.fixingDate_);
-            Debug(node, {label + ")", "fix"});
+            DebugNode_ ir{label + ")", "fix"};
+            if (describe_)
+                ir.observation = DebugObservation_{node.literal_.raw_, node.index_->Name(), node.fixingDate_, node.source_, statementId_};
+            Debug(node, std::move(ir));
         }
 
         void Visit(const NodeIf_& node) {
@@ -681,8 +754,8 @@ namespace Dal::Script {
 
         void Visit(const NodeVar_& node) {
             DebugNode_ ir;
-            ir.label = String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' +
-                       String_(String::FromDouble(node.constVal_)) + ']';
+            ir.label =
+                String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' + String_(String::FromDouble(node.constVal_)) + ']';
             ir.kind = "var";
             ir.name = node.name_;
             ir.index = node.index_;

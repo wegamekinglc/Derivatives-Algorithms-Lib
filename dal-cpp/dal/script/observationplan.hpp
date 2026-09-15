@@ -27,6 +27,9 @@ namespace Dal {
             size_t eventId_;
             size_t statementId_;
             size_t nodeId_;
+            String_ indexOriginal_;
+            std::optional<Date_> fixingDate_;
+            bool legacySpot_ = false;
         };
 
         struct ModelObservation_ {
@@ -40,6 +43,7 @@ namespace Dal {
             Vector_<ObservationUse_> uses_;
             std::optional<size_t> historyValueId_;
             std::optional<ModelObservation_> modelSlot_;
+            bool historical_ = false;
         };
 
         class ObservationPlan_ {
@@ -49,6 +53,8 @@ namespace Dal {
             Vector_<> timeLine_;
             Vector_<AAD::SampleDef_> defLine_;
             Vector_<size_t> eventToSample_;
+            Vector_<size_t> liveEventIds_;
+            Vector_<String_> modelBindingNames_;
 
             friend class PreparedScript_;
             friend class PreparedScriptBuilder_;
@@ -62,6 +68,8 @@ namespace Dal {
             [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
             [[nodiscard]] const Vector_<AAD::SampleDef_>& DefLine() const { return defLine_; }
             [[nodiscard]] const Vector_<size_t>& EventToSample() const { return eventToSample_; }
+            [[nodiscard]] const Vector_<size_t>& LiveEventIds() const { return liveEventIds_; }
+            [[nodiscard]] const Vector_<String_>& ModelBindingNames() const { return modelBindingNames_; }
 
             template <class T_> T_ Read(size_t requestId, const AAD::Scenario_<T_>* scenario) const {
                 const auto& request = Request(requestId);

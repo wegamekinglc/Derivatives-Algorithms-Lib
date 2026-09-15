@@ -61,8 +61,8 @@ namespace Dal::Script {
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL4(cur, end);
             auto top = op == '+' ? MakeBaseNode<NodeUPlus_>() : MakeBaseNode<NodeUMinus_>();
-            top->arguments_.Resize( 1);
-            top->arguments_[0] = std::move( rhs);
+            top->arguments_.Resize(1);
+            top->arguments_[0] = std::move(rhs);
             return top;
         }
         return ParseParentheses<&Parser_::ParseExpr, &Parser_::ParseVarConstFunc>(cur, end);
@@ -79,7 +79,9 @@ namespace Dal::Script {
         bool empty = true;
         unsigned minArg, maxArg;
         if (cur->Text() == "SPOT") {
-            top = MakeBaseNode<NodeSpot_>();
+            auto spot = MakeNode<NodeSpot_>();
+            spot->source_ = cur->source_;
+            top = std::move(spot);
             minArg = maxArg = 0;
         } else if (cur->Text() == "LOG") {
             top = MakeBaseNode<NodeLog_>();
@@ -110,8 +112,7 @@ namespace Dal::Script {
 
             if (func == "DCF") {
                 dynamic_cast<NodeConst_*>(top.get())->constVal_ = ParseDCF(cur, end);
-            }
-            else {
+            } else {
                 //	Matched a function, parse its arguments_ and check
                 top->arguments_ = ParseFuncArg(cur, end);
                 if (top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
@@ -245,7 +246,6 @@ namespace Dal::Script {
             return BuildSupEqual(lhs, rhs, eps);
         else
             THROW2("elementary condition has no valid comparator", ScriptError_);
-
     }
 
     void Parser_::ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps) {

@@ -5,10 +5,10 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
-#include <dal/script/visitor/debugger.hpp>
-#include <dal/storage/globals.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/preprocessor.hpp>
+#include <dal/script/visitor/debugger.hpp>
+#include <dal/storage/globals.hpp>
 
 namespace Dal::Script {
     namespace {
@@ -17,9 +17,18 @@ namespace Dal::Script {
             for (const auto& child : node.arguments_)
                 RequireBoundPastSpots(*child);
         }
+
+        bool ContainsPayoff(const Node_& node) {
+            if (dynamic_cast<const NodePays_*>(&node))
+                return true;
+            for (const auto& child : node.arguments_)
+                if (ContainsPayoff(*child))
+                    return true;
+            return false;
+        }
     } // namespace
 
-    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
         REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
         Preprocessor_ preprocessor;
@@ -27,14 +36,28 @@ namespace Dal::Script {
 
         // 2. Payoff back-end: parse the resolved event descriptions into AST.
         Parser_ parser(preprocessed.constVariables_);
-        for (const auto &processedEvent: preprocessed.events_) {
+        for (const auto& processedEvent : preprocessed.events_) {
+            REQUIRE2(processedEvent.first.IsValid(),
+                     "InvalidFixingDate: dates/events; row=" + String_(std::to_string(preprocessed.sources_.at(processedEvent.first).front().row_)) +
+                         "; expected a valid event date",
+                     ScriptError_);
             auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
             if (preparationError_.empty())
                 preparationError_ = parser.PreparationError();
             parsedEventDates_.push_back(processedEvent.first);
+            parsedEventSources_.push_back(preprocessed.sources_.at(processedEvent.first));
             eventDates_.push_back(processedEvent.first);
             events_.push_back(std::move(event));
         }
+    }
+
+    bool ScriptProduct_::HasPayoff() const {
+        for (const auto* events : {&pastEvents_, &events_})
+            for (const auto& event : *events)
+                for (const auto& statement : event)
+                    if (ContainsPayoff(*statement))
+                        return true;
+        return false;
     }
 
     void ScriptProduct_::PartitionEvents(const Date_& evaluationDate) {
@@ -64,7 +87,7 @@ namespace Dal::Script {
                 payoffIdx_ = i;
                 break;
             }
-        if (payoffIdx_ == -1)
+        if (payoffIdx_ == -1 && !variables_.empty())
             payoffIdx_ = variables_.size() - 1;
     }
 
@@ -161,8 +184,8 @@ namespace Dal::Script {
                 if (!firstEvent)
                     ost << ',';
                 firstEvent = false;
-                ost << "{\"index\":" << eventId++ << ",\"date\":\"" << Date::ToString(dates[i])
-                    << "\",\"phase\":\"" << phase << "\",\"statements\":[";
+                ost << "{\"index\":" << eventId++ << ",\"date\":\"" << Date::ToString(dates[i]) << "\",\"phase\":\"" << phase
+                    << "\",\"statements\":[";
                 for (size_t s = 0; s < events[i].size(); ++s) {
                     if (s)
                         ost << ',';
@@ -179,8 +202,7 @@ namespace Dal::Script {
                 Debugger_ d;
                 statements[s]->Accept(d);
                 Vector_<String_> lines;
-                const String_ first =
-                    String_(s + 1 == statements.size() ? st.elbow : st.tee) + "(" + String_(std::to_string(s + 1)) + ") ";
+                const String_ first = String_(s + 1 == statements.size() ? st.elbow : st.tee) + "(" + String_(std::to_string(s + 1)) + ") ";
                 const String_ cont = String_(s + 1 == statements.size() ? st.blank : st.pipe);
                 DebugNodeTree(d.Top(), first, cont, st, width, lines);
                 for (const auto& line : lines)
@@ -196,8 +218,7 @@ namespace Dal::Script {
                             int width,
                             std::ostream& ost) {
             for (size_t i = 0; i < events.size(); ++i) {
-                ost << st.eventS << ' ' << ++eventId << ' ' << st.dotS << ' ' << Date::ToString(dates[i]) << ' '
-                    << st.dotS << ' ' << phase << '\n';
+                ost << st.eventS << ' ' << ++eventId << ' ' << st.dotS << ' ' << Date::ToString(dates[i]) << ' ' << st.dotS << ' ' << phase << '\n';
                 DumpStatementTree(events[i], st, width, ost);
                 ost << '\n';
             }
@@ -225,7 +246,7 @@ namespace Dal::Script {
 
     void ScriptProduct_::DebugJson(std::ostream& ost) const {
         REQUIRE2(preparationError_.empty(),
-                 "DebugSchemaUnsupported: dal.script-product/1 does not support FIX; use DebugTree to inspect the contract", ScriptError_);
+                 "DebugSchemaUnsupported: dal.script-product/1 does not support FIX; use DescribeScriptProduct (dal.script-product/2)", ScriptError_);
         ost << "{\"schema\":\"dal.script-product/1\"";
         if (!variables_.empty()) {
             ost << ",\"variables\":[";
@@ -293,11 +314,15 @@ namespace Dal::Script {
         return ScriptCompiled_::Build(events_, fuzzy);
     }
 
-
 #include <dal/auto/MG_ScriptProductData_v1_Read.inc>
-#include <dal/auto/MG_ScriptProductData_v1_Write.inc>
+#include <dal/auto/MG_ScriptProductData_v2_Read.inc>
+#include <dal/auto/MG_ScriptProductData_v2_Write.inc>
+
+    Storable_* ScriptProductData_v2::Reader_::Build() const {
+        return new ScriptProductData_(name_, dates_, events_, ScriptProductSettings_{default_index_});
+    }
 
     void ScriptProductData_::Write(Archive::Store_& dst) const {
-        ScriptProductData_v1::XWrite(dst, name_, eventDates_, eventDesc_);
+        ScriptProductData_v2::XWrite(dst, name_, eventDates_, eventDesc_, settings_.defaultIndex_);
     }
 } // namespace Dal::Script

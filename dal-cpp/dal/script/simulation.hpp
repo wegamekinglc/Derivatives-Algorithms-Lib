@@ -559,14 +559,16 @@ namespace Dal::Script {
                              const Handle_<MarketFixingSnapshot_>& snapshot = {},
                              const ScriptProductSettings_& contract = {}) {
         auto execution = simulation;
+        const auto valuation = ResolveValuationSettings(settings, snapshot);
+        const auto modelCopy = modelData;
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(execution.rsg_);
         execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;
         REQUIRE2((!std::is_same_v<T_, double> || !execution.enableAad_), "UnsupportedExecutionMode: double simulation requested AAD", ScriptError_);
-        auto model = CreateModel<double>(modelData);
-        const auto prepared = PrepareScript(data, model.get(), settings, execution, snapshot, contract);
+        auto model = CreateModel<double>(modelCopy);
+        const auto prepared = PrepareScript(data, model.get(), valuation, execution, {}, contract);
         if constexpr (!std::is_same_v<T_, double>)
-            return MCAADSimulation(prepared, modelData, nPaths, execution.rsg_, execution.useBb_, execution.compiled_, -1, execution.smooth_);
+            return MCAADSimulation(prepared, modelCopy, nPaths, execution.rsg_, execution.useBb_, execution.compiled_, -1, execution.smooth_);
         return MCDoubleSimulation(prepared, model.get(), nPaths, execution.rsg_, execution.useBb_, execution.compiled_, true);
     }
 } // namespace Dal::Script

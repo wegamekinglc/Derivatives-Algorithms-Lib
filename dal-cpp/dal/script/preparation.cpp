@@ -17,9 +17,25 @@
 
 namespace Dal::Script {
     namespace {
+        ScriptProductSettings_ ResolveContract(const ScriptProductSettings_& product, const ScriptProductSettings_& legacy) {
+            if (legacy.defaultIndex_.empty())
+                return product;
+            if (product.defaultIndex_.empty())
+                return legacy;
+            const auto original = ParseSettingIndex(product.defaultIndex_, "product.defaultIndex_");
+            const auto overrideIndex = ParseSettingIndex(legacy.defaultIndex_, "contract.defaultIndex_");
+            REQUIRE2(original->Name() == overrideIndex->Name(),
+                     "InvalidSetting: product.defaultIndex_=" + product.defaultIndex_ + "; contract.defaultIndex_=" + legacy.defaultIndex_ +
+                         "; expected the same canonical identity",
+                     ScriptError_);
+            return product;
+        }
+
         String_ Context(const ObservationRequest_& request) {
+            const auto& use = request.uses_[0];
             return "; index=" + request.key_.canonicalIndex_ + "; fixing=" + DateTime::ToString(request.key_.fixingTime_) + "; " +
-                   request.uses_[0].source_.Describe();
+                   use.source_.Describe() + "; original=" + use.indexOriginal_ + "; canonical=" + request.key_.canonicalIndex_ +
+                   "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" + String_(std::to_string(use.nodeId_));
         }
 
         bool IsHistorical(const Date_& fixingDate, const Date_& evaluationDate, const ScriptValuationSettings_& settings) {
@@ -42,34 +58,36 @@ namespace Dal::Script {
             std::map<ObservationKey_, size_t> ids_;
             size_t nodeId_ = 0;
             Handle_<Index_> defaultIndex_;
-            Vector_<Date_> unboundSpotDates_;
+            String_ defaultOriginal_;
+            Vector_<ObservationUse_> unboundSpots_;
 
             void Add(NodeFix_& node, const Date_& eventDate, const ObservationUse_& use) {
                 const Date_ fixingDate = node.fixingDate_.value_or(eventDate);
-                REQUIRE2(fixingDate <= eventDate, "LookAheadObservation: " + node.literal_.raw_ + "; " + node.source_.Describe(), ScriptError_);
+                REQUIRE2(fixingDate <= eventDate,
+                         "LookAheadObservation: original=" + node.literal_.raw_ + "; canonical=" + node.index_->Name() +
+                             "; fixing=" + DateTime::ToString(DateTime_(fixingDate, 0.0)) + "; expected fixing <= event; " + node.source_.Describe() +
+                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" + String_(std::to_string(use.nodeId_)),
+                         ScriptError_);
                 ValidateIndex(node, IsHistorical(fixingDate, evaluationDate_, settings_));
                 const ObservationKey_ key{node.index_->Name(), DateTime_(fixingDate, 0.0)};
                 auto inserted = ids_.emplace(key, requests_.size());
                 if (inserted.second)
-                    requests_.push_back({node.index_, key, {}, std::nullopt});
+                    requests_.push_back({node.index_, key, {}, std::nullopt, std::nullopt, IsHistorical(fixingDate, evaluationDate_, settings_)});
                 requests_[inserted.first->second].uses_.push_back(use);
                 node.observationId_ = inserted.first->second;
             }
 
             void Collect(Node_& node, const Date_& date, size_t eventId, size_t statementId) {
                 const size_t nodeId = nodeId_++;
-                hasPayoff_ = hasPayoff_ || dynamic_cast<const NodePays_*>(&node);
                 if (auto* fix = dynamic_cast<NodeFix_*>(&node))
-                    Add(*fix, date, {fix->source_, eventId, statementId, nodeId});
+                    Add(*fix, date, {fix->source_, eventId, statementId, nodeId, fix->literal_.raw_, fix->fixingDate_, false});
                 if (auto* spot = dynamic_cast<NodeSpot_*>(&node)) {
                     if (defaultIndex_) {
-                        SourceLocation_ source;
-                        source.eventDate_ = date;
-                        NodeFix_ fix(IndexLiteral_{defaultIndex_->Name()}, defaultIndex_, date, source);
-                        Add(fix, date, {source, eventId, statementId, nodeId});
+                        NodeFix_ fix(IndexLiteral_{defaultOriginal_}, defaultIndex_, {}, spot->source_);
+                        Add(fix, date, {spot->source_, eventId, statementId, nodeId, defaultOriginal_, {}, true});
                         spot->observationId_ = fix.observationId_;
                     } else {
-                        unboundSpotDates_.push_back(date);
+                        unboundSpots_.push_back({spot->source_, eventId, statementId, nodeId, "SPOT()", {}, true});
                     }
                 }
                 for (const auto& child : node.arguments_)
@@ -78,12 +96,10 @@ namespace Dal::Script {
 
         public:
             Vector_<ObservationRequest_> requests_;
-            bool hasPayoff_ = false;
             Collector_(const Date_& evaluationDate, const ScriptValuationSettings_& settings, const ScriptProductSettings_& contract)
-                : evaluationDate_(evaluationDate), settings_(settings) {
+                : evaluationDate_(evaluationDate), settings_(settings), defaultOriginal_(contract.defaultIndex_) {
                 if (!contract.defaultIndex_.empty()) {
-                    defaultIndex_ = Handle_<Index_>(Index::Parse(contract.defaultIndex_));
-                    REQUIRE2(defaultIndex_, "InvalidIndex: default index", ScriptError_);
+                    defaultIndex_ = ParseSettingIndex(contract.defaultIndex_, "product.defaultIndex_");
                 }
             }
 
@@ -91,10 +107,12 @@ namespace Dal::Script {
                 for (size_t event = 0; event < product.Events().size(); ++event)
                     for (size_t statement = 0; statement < product.Events()[event].size(); ++statement)
                         Collect(*product.Events()[event][statement], product.EventDates()[event], event, statement);
-                for (const auto& date : unboundSpotDates_) {
-                    REQUIRE2(!IsHistorical(date, evaluationDate_, settings_), "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
-                    REQUIRE2(requests_.empty() && settings_.modelBindings_.empty(), "MissingDefaultIndex: SPOT() requires a default index",
-                             ScriptError_);
+                for (const auto& use : unboundSpots_) {
+                    const String_ context = ": SPOT(); product.defaultIndex_=empty; expected a default index; " + use.source_.Describe() +
+                                            "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" +
+                                            String_(std::to_string(use.nodeId_));
+                    REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
+                    REQUIRE2(requests_.empty() && settings_.modelBindings_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }
             }
         };
@@ -124,14 +142,16 @@ namespace Dal::Script {
             return context;
         }
 
-        double Resolve(const ObservationRequest_& request, const Environment_* environment) {
+        double Resolve(const ObservationRequest_& request, const Environment_* environment, const ScriptValuationSettings_& settings) {
             double value;
             try {
                 if (auto* observer = Dal::Detail::FixingReadObserver())
                     observer->BeforeFixing(*request.index_, environment, request.key_.fixingTime_);
                 value = request.index_->Fixing(environment, request.key_.fixingTime_);
             } catch (const std::exception& error) {
-                THROW2("MissingFixing: " + String_(error.what()) + Context(request), ScriptError_);
+                THROW2("MissingFixing: " + String_(error.what()) + Context(request) + "; source=" + FixingSourceKind(settings) +
+                           "; exact historical fixing required; no model fallback",
+                       ScriptError_);
             }
             REQUIRE2(std::isfinite(value), "InvalidFixing: expected a finite fixing" + Context(request), ScriptError_);
             if (dynamic_cast<const Index::Fx_*>(request.index_.get()))
@@ -160,21 +180,25 @@ namespace Dal::Script {
                 if (!IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
                     continue;
                 request.historyValueId_ = values.size();
-                values.push_back(Resolve(request, environment.get()));
+                values.push_back(Resolve(request, environment.get(), settings));
             }
             return values;
         }
     } // namespace
 
     class PreparedScriptBuilder_ {
-        static String_ ValidateBindings(const ScriptValuationSettings_& settings) {
-            String_ result;
-            for (const auto& binding : settings.modelBindings_) {
-                REQUIRE2(binding.assetName_ == "spot", "UnknownModelAsset: " + binding.assetName_, ScriptError_);
-                REQUIRE2(result.empty(), "DuplicateModelBinding: spot", ScriptError_);
-                const Handle_<Index_> index(Index::Parse(binding.indexName_));
-                REQUIRE2(index, "InvalidIndex: model binding", ScriptError_);
-                result = index->Name();
+        static Handle_<Index_> ValidateBindings(const ScriptValuationSettings_& settings) {
+            Handle_<Index_> result;
+            for (size_t i = 0; i < settings.modelBindings_.size(); ++i) {
+                const auto& binding = settings.modelBindings_[i];
+                const String_ field = "valuation.modelBindings_[" + String_(std::to_string(i)) + "]";
+                REQUIRE2(binding.assetName_ == "spot", "UnknownModelAsset: " + field + ".assetName_=" + binding.assetName_ + "; expected spot",
+                         ScriptError_);
+                REQUIRE2(!result,
+                         "DuplicateModelBinding: " + field + ".assetName_=" + binding.assetName_ +
+                             "; duplicates valuation.modelBindings_[0]; expected unique asset names",
+                         ScriptError_);
+                result = ParseSettingIndex(binding.indexName_, field + ".indexName_");
             }
             return result;
         }
@@ -191,6 +215,9 @@ namespace Dal::Script {
                 plan->eventToSample_.push_back(id);
                 plan->defLine_[id].numeraire_ = true;
             }
+            for (size_t event = 0; event < product.ParsedEventDates().size(); ++event)
+                if (product.ParsedEventDates()[event] >= evaluationDate)
+                    plan->liveEventIds_.push_back(event);
             for (auto& request : plan->requests_) {
                 if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
                     continue;
@@ -206,18 +233,24 @@ namespace Dal::Script {
                               const Date_& evaluationDate,
                               const ScriptValuationSettings_& settings,
                               const AAD::Model_<double>& model,
-                              const String_& boundIndex) {
-            for (const auto& binding : settings.modelBindings_) {
-                const Handle_<Index_> index(Index::Parse(binding.indexName_));
-                REQUIRE2(index && model.SupportsIndex(*index), "UnsupportedModelObservation: " + binding.indexName_, ScriptError_);
-            }
+                              const Handle_<Index_>& boundIndex) {
+            if (boundIndex)
+                REQUIRE2(model.SupportsIndex(*boundIndex),
+                         "UnsupportedModelObservation: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
+                             "; canonical=" + boundIndex->Name() + "; expected one plain EQ supported by the model",
+                         ScriptError_);
             std::set<Date_> dates(product.EventDates().begin(), product.EventDates().end());
             for (const auto& request : plan->requests_) {
                 if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
                     continue;
-                REQUIRE2(model.SupportsIndex(*request.index_), "UnsupportedModelObservation" + Context(request), ScriptError_);
-                REQUIRE2(!boundIndex.empty(), "MissingModelBinding" + Context(request), ScriptError_);
-                REQUIRE2(boundIndex == request.key_.canonicalIndex_, "ConflictingModelBinding" + Context(request), ScriptError_);
+                REQUIRE2(model.SupportsIndex(*request.index_),
+                         "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
+                REQUIRE2(boundIndex, "MissingModelBinding: valuation.modelBindings_; expected spot -> requested index" + Context(request),
+                         ScriptError_);
+                REQUIRE2(boundIndex->Name() == request.key_.canonicalIndex_,
+                         "ConflictingModelBinding: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
+                             "; bound canonical=" + boundIndex->Name() + "; expected requested identity" + Context(request),
+                         ScriptError_);
                 dates.insert(request.key_.fixingTime_.Date());
             }
             for (const auto& date : dates) {
@@ -232,25 +265,27 @@ namespace Dal::Script {
 
     public:
         static PreparedScript_ Prepare(const ScriptProductData_& data,
-                                       const ScriptValuationSettings_& settings,
+                                       const ScriptValuationSettings_& valuation,
                                        const Handle_<MarketFixingSnapshot_>& snapshot,
                                        AAD::Model_<double>* model,
-                                       const MonteCarloSettings_& simulation,
-                                       const ScriptProductSettings_& contract) {
-            const Date_ evaluationDate = CaptureScriptEvaluationDate();
-            REQUIRE2(settings.todayFixingPolicy_ == TodayFixingPolicy_::Value_::MODEL ||
-                         settings.todayFixingPolicy_ == TodayFixingPolicy_::Value_::REQUIREHISTORICAL,
-                     "InvalidTodayFixingPolicy", ScriptError_);
+                                       const MonteCarloSettings_& requestedSimulation,
+                                       const ScriptProductSettings_& legacyContract) {
+            const auto simulation = requestedSimulation;
+            const auto settings = ResolveValuationSettings(valuation, snapshot);
+            const Date_ evaluationDate = *settings.evaluationDate_;
+            const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
             Collector_ collector(evaluationDate, settings, contract);
             collector.Collect(*product);
-            REQUIRE2(collector.hasPayoff_, "InvalidScriptStructure: script has no PAYS payoff", ScriptError_);
+            REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
             product->IndexVariables();
-            const String_ boundIndex = ValidateBindings(settings);
+            const auto boundIndex = ValidateBindings(settings);
             ValidateSimulationSettings(simulation);
             ObservationPlan_ plan(std::move(collector.requests_), {});
+            if (boundIndex)
+                plan.modelBindingNames_.push_back(boundIndex->Name());
             auto* writable = product.get();
             PreparedScript_ result(std::move(product), evaluationDate, settings, std::move(plan));
             result.simulation_ = simulation;
@@ -261,7 +296,7 @@ namespace Dal::Script {
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
-            result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, evaluationDate, settings, snapshot);
+            result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, evaluationDate, settings, settings.fixings_);
             if (model) {
                 writable->InitializePastObservations(result.Plan());
                 ConstProcessor_ constants(writable->VarNames().size(), result.plan_.get(), true);

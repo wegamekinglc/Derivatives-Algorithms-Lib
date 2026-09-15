@@ -5,6 +5,7 @@
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/script/diagnostics.hpp>
 #include <dal/storage/globals.hpp>
 
 #include <dal-public/src/value.hpp>
@@ -15,7 +16,30 @@ namespace Dal {
 
     namespace {
         const std::set<String_> MODEL_STORE = {"BSModelData_", "DupireModelData_"};
+
+        ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
+                                                  const Handle_<ModelData_>& modelData,
+                                                  const ScriptValuationSettings_& valuation) {
+            REQUIRE2(product, "InvalidSetting: product=null; expected a non-null product", ScriptError_);
+            REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
+            const auto modelType = modelData->Type();
+            REQUIRE2(MODEL_STORE.find(modelType) != MODEL_STORE.end(),
+                     "InvalidSetting: modelData.Type=" + modelType + "; expected BSModelData_ or DupireModelData_", ScriptError_);
+            return Script::ResolveValuationSettings(valuation);
+        }
     } // namespace
+
+    String_ ExplainScriptValuation(const Handle_<ScriptProductData_>& product,
+                                   const Handle_<ModelData_>& modelData,
+                                   const ScriptValuationSettings_& valuation) {
+        XGLOBAL::ValuationMutationGuard_ valuationGuard;
+        const auto productCopy = product;
+        const auto modelCopy = modelData;
+        const auto settings = CheckedValuation(productCopy, modelCopy, valuation);
+        auto model = CreateModel<double>(modelCopy);
+        const auto prepared = Script::PrepareScript(*productCopy, model.get(), settings, MonteCarloSettings_());
+        return Script::ExplainPreparedScript(prepared);
+    }
 
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
@@ -25,25 +49,33 @@ namespace Dal {
                                                 bool enableAad,
                                                 double smooth,
                                                 std::optional<bool> compiled) {
-        REQUIRE(nPaths > 0, "number of Monte Carlo paths must be positive");
+        return ValueByMonteCarlo(product, modelData, nPaths, ScriptValuationSettings_(),
+                                 MonteCarloSettings_{rsg, useBb, enableAad, smooth, compiled});
+    }
+
+    std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
+                                                const Handle_<ModelData_>& modelData,
+                                                int nPaths,
+                                                const ScriptValuationSettings_& valuation,
+                                                const MonteCarloSettings_& simulation) {
         XGLOBAL::ValuationMutationGuard_ valuationGuard;
+        REQUIRE2(nPaths > 0,
+                 "InvalidPathCount: number of Monte Carlo paths must be positive; numPath=" + String_(std::to_string(nPaths)) +
+                     "; expected a positive integer",
+                 ScriptError_);
+        const auto productCopy = product;
+        const auto modelCopy = modelData;
+        const auto execution = simulation;
+        const auto settings = CheckedValuation(productCopy, modelCopy, valuation);
+        Script::ValidateSimulationSettings(execution);
         const size_t numPaths = static_cast<size_t>(nPaths);
-        const auto modelType = modelData->Type();
-        REQUIRE(MODEL_STORE.find(modelType) != MODEL_STORE.end(), "only support Black-Scholes and Dupire model now");
-        auto prd = product->Product();
+        const auto results = execution.enableAad_ ? Script::MCSimulation<AAD::Number_>(*productCopy, modelCopy, numPaths, settings, execution)
+                                                  : Script::MCSimulation<double>(*productCopy, modelCopy, numPaths, settings, execution);
         std::map<String_, double> res;
-        if (enableAad) {
-            int maxNestedIfs = prd.PreProcess(true, true);
-            SimResults_ results = Script::MCSimulation<AAD::Number_>(prd, modelData, numPaths, rsg, useBb, compiled, maxNestedIfs, smooth);
-            res["PV"] = results.aggregated_ / static_cast<double>(numPaths);
+        res["PV"] = results.aggregated_ / static_cast<double>(numPaths);
+        if (execution.enableAad_)
             for (const auto& n : results.names_)
                 res["d_" + n] = results[n];
-        } else {
-            prd.PreProcess(false, false);
-            SimResults_ results = Script::MCSimulation<double>(prd, modelData, numPaths, rsg, useBb, compiled);
-            res["PV"] = results.aggregated_ / static_cast<double>(numPaths);
-            return res;
-        }
         return res;
     }
 } // namespace Dal

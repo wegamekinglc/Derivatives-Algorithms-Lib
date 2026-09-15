@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <dal/storage/globals.hpp>
+#include <limits>
 #include <memory>
 
 #include <dal-public/src/global.hpp>
@@ -38,9 +40,7 @@ namespace {
         return Dal::NewScriptProduct(String_(name), dates, events);
     }
 
-    Handle_<Dal::ModelData_> MakeBSModel(const char* name) {
-        return Dal::NewBSModelData(String_(name), 100.0, 0.2, 0.05, 0.02);
-    }
+    Handle_<Dal::ModelData_> MakeBSModel(const char* name) { return Dal::NewBSModelData(String_(name), 100.0, 0.2, 0.05, 0.02); }
 
     double NormalCdf(double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); }
 
@@ -65,6 +65,16 @@ namespace {
         explicit ScopedEvaluationDate_(const Date_& d) : previous_(Dal::GetEvaluationDate()) { Dal::SetEvaluationDate(d); }
         ~ScopedEvaluationDate_() { Dal::SetEvaluationDate(previous_); }
     };
+
+    template <class F_> void AssertFields(F_ action, std::initializer_list<const char*> fields) {
+        try {
+            action();
+            FAIL() << "expected a field error";
+        } catch (const Dal::Exception_& error) {
+            for (const auto* field : fields)
+                ASSERT_NE(std::string(error.what()).find(field), std::string::npos) << error.what();
+        }
+    }
 } // namespace
 
 TEST(ValueTest, TestEuropeanCallMatchesBlackScholes) {
@@ -151,4 +161,144 @@ TEST(ValueTest, TestRejectsUnknownRngMethod) {
     const auto model = MakeBSModel("value_bad_rsg_model");
 
     ASSERT_THROW(Dal::ValueByMonteCarlo(product, model, 16, String_("not_a_rng")), Dal::Exception_);
+}
+
+TEST(ScriptApiTest, TestLegacyEntryPreparesHistoricalParameterRisk) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    Dal::FixHistory_ history;
+    history.vals_ = {{Dal::DateTime_(Date_(2026, 9, 11), 0.0), 80.0}};
+    Dal::XGLOBAL::StoreFixings("EQ[DAL196_TEST]", history, false);
+    const auto product = Dal::NewScriptProduct("historical-risk", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                               {"2.0", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"});
+    const auto model = Dal::NewBSModelData("model", 100.0, 0.0, 0.05, 0.0);
+    const double time = 10.0 / Dal::DAYS_PER_YEAR;
+    const double expected = 160.0 * std::exp(-0.05 * time);
+    for (const bool compiled : {false, true}) {
+        const auto result = Dal::ValueByMonteCarlo(product, model, 257, "sobol", false, true, 0.01, compiled);
+        ASSERT_NEAR(result.at("PV"), expected, 1.0e-12 * expected);
+        ASSERT_NEAR(result.at("d_SCALE"), expected / 2.0, 1.0e-10);
+        ASSERT_NEAR(result.at("d_rate"), -time * expected, 1.0e-10);
+        ASSERT_DOUBLE_EQ(result.at("d_spot"), 0.0);
+        ASSERT_DOUBLE_EQ(result.at("d_vol"), 0.0);
+        ASSERT_EQ(result.size(), 6);
+    }
+}
+
+TEST(ScriptApiTest, TestSettingsExplicitDateAndCopiedContract) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 23));
+    Dal::ScriptProductSettings_ contract;
+    contract.defaultIndex_ = "eq[DAL196_TEST]";
+    const auto product = Dal::NewScriptProduct("settings", {Cell_(Date_(2026, 9, 12))}, {"pay PAYS SPOT()"}, contract);
+    contract.defaultIndex_ = "EQ[CHANGED]";
+    ASSERT_EQ(product->Settings().defaultIndex_, String_("eq[DAL196_TEST]"));
+    Dal::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 9, 12);
+    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
+    Dal::MarketFixingSnapshot_::values_t values{{"EQ[DAL196_TEST]", {{Dal::DateTime_(Date_(2026, 9, 12), 0.0), 80.0}}}};
+    valuation.fixings_ = Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(values));
+    values.clear();
+    const auto model = Dal::NewBSModelData("model", 100.0, 0.0, 0.0, 0.0);
+    ASSERT_DOUBLE_EQ(Dal::ValueByMonteCarlo(product, model, 1, valuation).at("PV"), 100.0);
+    valuation.todayFixingPolicy_ = Dal::TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+    ASSERT_DOUBLE_EQ(Dal::ValueByMonteCarlo(product, model, 1, valuation).at("PV"), 80.0);
+    ASSERT_EQ(Dal::GetEvaluationDate(), Date_(2026, 9, 23));
+}
+
+TEST(ScriptApiTest, TestSettingErrorsHaveFieldValueAndConstraint) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    const auto product = Dal::NewScriptProduct("settings", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS 1"});
+    const auto model = MakeBSModel("model");
+    Dal::ScriptValuationSettings_ valuation;
+    Dal::MonteCarloSettings_ simulation;
+    simulation.smooth_ = 0.0;
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation, simulation); },
+                                         {"InvalidSetting", "InvalidSmoothing", "simulation.smooth_=0", "finite", "positive"}));
+    simulation.smooth_ = 0.01;
+    simulation.rsg_ = "bad_rng";
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation, simulation); },
+                                         {"InvalidSetting", "simulation.rsg_=bad_rng", "sobol", "mrg32", "irn"}));
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 0); }, {"InvalidPathCount", "numPath=0", "positive"}));
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo({}, model, 1); }, {"InvalidSetting", "product=null", "non-null"}));
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, {}, 1); }, {"InvalidSetting", "modelData=null", "non-null"}));
+    valuation.modelBindings_ = {{"spot", "EQ[A]"}, {"spot", "EQ[B]"}};
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"DuplicateModelBinding", "modelBindings_[1].assetName_=spot", "modelBindings_[0]", "unique"}));
+    valuation.modelBindings_ = {{"wrong", "EQ[A]"}};
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"UnknownModelAsset", "modelBindings_[0].assetName_=wrong", "spot"}));
+    valuation.modelBindings_ = {{"spot", ""}};
+    ASSERT_NO_FATAL_FAILURE(
+        AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); }, {"InvalidIndex", "modelBindings_[0].indexName_=", "non-empty"}));
+}
+
+TEST(ScriptApiTest, TestNativeTailArgumentsRejectConflictingSettings) {
+    Dal::InitGlobalData(1);
+    const auto product = Dal::NewScriptProduct("native", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS 1"}, Dal::ScriptProductSettings_{"eq[DAL196_TEST]"});
+    Dal::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 9, 12);
+    auto model = Dal::CreateModel<double>(MakeBSModel("model"));
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::Script::PrepareScript(*product, model.get(), valuation, {}, {}, {"EQ[OTHER]"}); },
+                                         {"InvalidSetting", "product.defaultIndex_", "contract.defaultIndex_", "same canonical"}));
+    valuation.fixings_ = Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_());
+    const Handle_<Dal::MarketFixingSnapshot_> other(new Dal::MarketFixingSnapshot_());
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::Script::PrepareScript(*product, model.get(), valuation, {}, other); },
+                                         {"InvalidSetting", "valuation.fixings_", "snapshot", "one explicit"}));
+    const auto prepared = Dal::Script::PrepareScript(*product, model.get(), valuation, {}, valuation.fixings_, {"EQ[dal196_test]"});
+    ASSERT_EQ(prepared.Settings().fixings_, valuation.fixings_);
+    ASSERT_EQ(prepared.EvaluationDate(), Date_(2026, 9, 12));
+    ASSERT_EQ(std::string(product->Settings().defaultIndex_.c_str()), "eq[DAL196_TEST]");
+}
+
+TEST(ScriptApiTest, TestObservationErrorsIncludeSourceAndConstraints) {
+    Dal::InitGlobalData(1);
+    Dal::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 9, 12);
+    const auto model = MakeBSModel("model");
+    auto product = Dal::NewScriptProduct("lookahead", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS FIX(eq[FIELD], 2026-09-23)"});
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"LookAheadObservation", "fixing=2026-09-23", "event=2026-09-22", "original=eq[FIELD]",
+                                          "canonical=EQ[FIELD]", "row=1", "statement=0", "node=n2", "expected"}));
+    product = Dal::NewScriptProduct("binding", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS FIX(EQ[FIELD])"});
+    valuation.modelBindings_ = {{"spot", "EQ[OTHER]"}};
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"ConflictingModelBinding", "EQ[FIELD]", "EQ[OTHER]", "modelBindings_", "expected"}));
+    valuation.modelBindings_.clear();
+    product = Dal::NewScriptProduct("spot", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))}, {"x = SPOT()", "pay PAYS x"});
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"UnboundHistoricalSpot", "product.defaultIndex_", "row=1", "column=5", "event=2026-09-11", "expected"}));
+    product = Dal::NewScriptProduct("date", {Cell_(Date_())}, {"pay PAYS 1"});
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                                         {"InvalidFixingDate", "dates/events", "row=1", "expected a valid event date"}));
+}
+
+TEST(ScriptApiTest, TestInvalidSettingsOnExpiredProduct) {
+    Dal::InitGlobalData(1);
+    const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
+    const auto product = Dal::NewScriptProduct("expired", {Cell_(Date_(2026, 9, 11))}, {"pay PAYS 1"});
+    const auto model = MakeBSModel("model");
+    Dal::ScriptValuationSettings_ valuation;
+    for (const double smooth :
+         {0.0, -1.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
+        for (const bool aad : {false, true}) {
+            const Dal::MonteCarloSettings_ simulation{"sobol", false, aad, smooth, std::nullopt};
+            ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation, simulation); },
+                                                 {"InvalidSetting", "simulation.smooth_", "finite positive"}));
+            ASSERT_THROW(Dal::ValueByMonteCarlo(product, model, 1, "sobol", false, aad, smooth), Dal::ScriptError_);
+        }
+    }
+    valuation.evaluationDate_ = Date_();
+    ASSERT_NO_FATAL_FAILURE(
+        AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); }, {"InvalidSetting", "valuation.evaluationDate_", "valid date"}));
+    valuation.evaluationDate_.reset();
+    for (const int invalid : {-1, 127}) {
+        valuation.todayFixingPolicy_.val_ = static_cast<Dal::TodayFixingPolicy_::Value_>(invalid);
+        ASSERT_NO_FATAL_FAILURE(
+            AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
+                         {"InvalidSetting", "InvalidTodayFixingPolicy", "valuation.todayFixingPolicy_", "Model or RequireHistorical"}));
+    }
+    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::NewScriptProduct("length", {Cell_(Date_(2026, 9, 11))}, {}); },
+                                         {"InvalidSetting", "dates.size=1", "events.size=0", "equal lengths"}));
 }

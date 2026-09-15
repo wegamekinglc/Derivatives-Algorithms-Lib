@@ -2,10 +2,12 @@ if(NOT DEFINED DAL_REPOSITORY_ROOT)
     message(FATAL_ERROR "DAL_REPOSITORY_ROOT is required")
 endif()
 
-# Machinist's legacy Enumeration template emits trailing whitespace on an
+# Machinist's legacy templates emit trailing whitespace on an
 # otherwise-empty branch and more than one final newline. Keep this manifest
 # explicit so unrelated legacy generated output is never discovered broadly.
 set(DAL_CALIBRATION_GENERATED_PATHS
+    "dal-cpp/dal/auto/MG_ScriptProductData_v2_Read.inc"
+    "dal-cpp/dal/auto/MG_ScriptProductData_v2_Write.inc"
     "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.hpp"
     "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.inc"
     "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.hpp"
