@@ -38,6 +38,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 
 - **[aad.md](methodology/aad.md)** — Automatic Adjoint Differentiation (AAD)
   - Expression templates, tape management, reverse-mode propagation
+  - Native block storage, allocation boundaries, and mark/rewind reuse
   - Backend architecture (native, XAD, CoDiPack, Adept)
   - Parallel AAD for Monte Carlo simulations
   - Tape-layer curve calibration primitives (`DiscountPWLF_`, `JointCurveBlock_`, `JointRate_`)
@@ -110,10 +111,11 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Preprocessing pipeline (macros, schedules, constant variables)
   - Unquoted `FIX(index[,date])` parsing, protected index literals, and execution limits
   - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
-  - Core double/tree FIX valuation: explicit BS/Dupire EQ binding, retained observations, and payment numeraires
-  - Legacy SPOT compatibility; named AAD, compiled, fuzzy, and public valuation limits
-  - Domain processor (variable range analysis, always-true/false flags)
-  - Constant condition processor (dead-branch pruning)
+  - Core tree/compiled FIX valuation: explicit BS/Dupire EQ binding, shared observations, and payment numeraires
+  - Typed historical AAD state, hard past decisions, and fuzzy future conditions
+  - Legacy SPOT compatibility and public facade/binding valuation limits
+  - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
+  - Prepared continuous fuzzy kernels and legacy domain/condition folding
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
   - Product debug outputs (legacy text, versioned JSON, Unicode/ASCII tree)
 

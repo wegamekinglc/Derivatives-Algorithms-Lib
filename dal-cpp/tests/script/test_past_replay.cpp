@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <atomic>
 
 #include <dal/curve/tapeguard.hpp>
@@ -25,6 +26,37 @@ namespace {
     }
 
     Handle_<ModelData_> Model() { return Handle_<ModelData_>(new BSModelData_("", 100.0, 0.2, 0.03, 0.01)); }
+
+    template <class F_> void CheckPreparedModeFailure(const F_& simulate) {
+        try {
+            simulate();
+            FAIL() << "preparation accepted incompatible execution settings";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(std::string(error.what()).find(
+                          "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation"),
+                      std::string::npos);
+        }
+    }
+
+    struct CompiledRootCase_ {
+        ScriptProductData_ product_;
+        double payoff_;
+        double scaleRisk_;
+        double rateRisk_;
+    };
+
+    void CheckCompiledRoot(const CompiledRootCase_& scenario, double fixing) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        const auto result = MCSimulation<AAD::Number_>(scenario.product_, Model(), 8193, {}, simulation, History(fixing));
+        const auto price = MCSimulation<double>(scenario.product_, Model(), 8193, {}, simulation, History(fixing));
+        ASSERT_NEAR(result.aggregated_ / 8193, scenario.payoff_, scenario.payoff_ * 1.0e-12);
+        ASSERT_NEAR(price.aggregated_ / 8193, scenario.payoff_, scenario.payoff_ * 1.0e-12);
+        ASSERT_NEAR(result["SCALE"], scenario.scaleRisk_, 1.0e-10);
+        ASSERT_NEAR(result["rate"], scenario.rateRisk_, 1.0e-10);
+        ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+        ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+    }
 
     struct PoolRestore_ {
         ThreadPool_* pool_ = ThreadPool_::GetInstance();
@@ -99,7 +131,7 @@ namespace {
         return result;
     }
 
-    void CheckNonlinearHistoryRepricing(size_t paths, const String_& scaleText, const String_& strikeText) {
+    void CheckNonlinearHistoryRepricing(size_t paths, const String_& scaleText, const String_& strikeText, bool compiled) {
         const double t = 10.0 / DAYS_PER_YEAR;
         const double discount = exp(-0.03 * t);
         const ScriptProductData_ product(
@@ -110,8 +142,10 @@ namespace {
         const double seed = 80.0 * scale;
         const bool selected = scale == 3.0 || strikeText == "159.95";
         const double payoff = 0.5 * seed + scale + (selected ? seed * seed / 100.0 : 0.0);
-        const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
-        const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), {}, History());
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        const auto result = MCSimulation<AAD::Number_>(product, Model(), paths, ScriptValuationSettings_(), simulation, History());
+        const auto price = MCSimulation<double>(product, Model(), paths, ScriptValuationSettings_(), simulation, History());
         ASSERT_NEAR(result.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
         ASSERT_NEAR(price.aggregated_ / paths, payoff * discount, payoff * discount * 1.0e-12);
         ASSERT_NEAR(result["SCALE"], (41.0 + (selected ? 1.6 * seed : 0.0)) * discount, 1.0e-10);
@@ -136,6 +170,146 @@ TEST(ScriptPastReplayTest, TestParameterRisk) {
     ASSERT_NEAR(result.risks_[1], 0.0, 1.0e-10);
     ASSERT_NEAR(result.risks_[2], -t * 160.0 * discount, 1.0e-10);
     ASSERT_EQ(result.risks_.size(), 5u);
+}
+
+TEST(ScriptPastReplayTest, TestCompiledParameterRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ settings;
+    settings.compiled_ = true;
+    const auto result = MCSimulation<AAD::Number_>(HistoricalProduct(), Model(), 257, ScriptValuationSettings_(), settings, History());
+    const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
+    ASSERT_NEAR(result.aggregated_ / 257, 160.0 * discount, 160.0e-12);
+    ASSERT_NEAR(result["SCALE"], 80.0 * discount, 1.0e-10);
+    ASSERT_NEAR(result["rate"], -t * 160.0 * discount, 1.0e-10);
+    ASSERT_NEAR(result["spot"], 0.0, 1.0e-10);
+    ASSERT_NEAR(result["vol"], 0.0, 1.0e-10);
+    ASSERT_EQ(result.risks_.size(), 5u);
+}
+
+TEST(ScriptPastReplayTest, TestCompiledBatchLifetimeAndDirectRoots) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const double t = 10.0 / DAYS_PER_YEAR;
+    const double discount = exp(-0.03 * t);
+    for (size_t threads : {1, 2, 4}) {
+        pool.pool_->Start(threads, true);
+        for (double fixing : {80.0, 90.0, 80.0}) {
+            const std::array<CompiledRootCase_, 3> scenarios{
+                {{HistoricalProduct(), 2.0 * fixing * discount, fixing * discount, -t * 2.0 * fixing * discount},
+                 {HistoricalProduct("unused PAYS 0 x = SCALE * FIX(EQ[DAL196_TEST])", "unused = 7"), 2.0 * fixing, fixing, 0.0},
+                 {HistoricalProduct("unused PAYS SCALE x = 17", "unused = 7"), 17.0, 0.0, 0.0}}};
+            for (size_t kind = 0; kind < scenarios.size(); ++kind) {
+                SCOPED_TRACE(::testing::Message() << "threads=" << threads << " fixing=" << fixing << " kind=" << kind);
+                ASSERT_NO_FATAL_FAILURE(CheckCompiledRoot(scenarios[kind], fixing));
+            }
+        }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestCompiledHardPastDecisionAndPaysDiscard) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    String_ settled = "x = 0 ";
+    for (size_t i = 0; i < 100; ++i)
+        settled += "pay PAYS SCALE * FIX(EQ[DAL196_TEST]) ";
+    for (const String_ comparison : {">", ">=", "="})
+        for (double fixing : {79.95, 80.0, 80.05}) {
+            const auto product = HistoricalProduct(settled + "IF FIX(EQ[DAL196_TEST]) " + comparison +
+                                                   " 80:0.2 THEN x = SCALE * FIX(EQ[DAL196_TEST]) ELSE x = 3 * SCALE * FIX(EQ[DAL196_TEST]) END");
+            const bool selected = comparison == ">" ? fixing > 80.0 : (comparison == ">=" ? fixing >= 80.0 : fixing == 80.0);
+            const double derivative = (selected ? 1.0 : 3.0) * fixing * exp(-0.03 * 10.0 / DAYS_PER_YEAR);
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = true;
+            const auto result = MCSimulation<AAD::Number_>(product, Model(), 257, {}, simulation, History(fixing));
+            const auto price = MCSimulation<double>(product, Model(), 257, {}, simulation, History(fixing));
+            ASSERT_NEAR(result.aggregated_ / 257, 2.0 * derivative, 2.0 * derivative * 1.0e-12);
+            ASSERT_NEAR(price.aggregated_ / 257, 2.0 * derivative, 2.0 * derivative * 1.0e-12);
+            ASSERT_NEAR(result["SCALE"], derivative, 1.0e-10);
+        }
+}
+
+TEST(ScriptPastReplayTest, TestCompiledEveryPathRebuildAcrossBatches) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    PoolRestore_ pool;
+    const auto product = HistoricalProduct("x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x + SCALE * FIX(EQ[DAL196_TEST], 2026-09-15)");
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    ScriptValuationSettings_ settings;
+    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
+    Vector_<Handle_<ModelData_>> models{Model()};
+    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    for (const auto& data : models) {
+        auto model = CreateModel<double>(data);
+        const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());
+        const auto oracle = RebuildEveryPath(prepared, data, 8193);
+        for (size_t threads : {1, 2, 4}) {
+            pool.pool_->Start(threads, true);
+            for (size_t repeat = 0; repeat < 2; ++repeat) {
+                const auto result = MCSimulation<AAD::Number_>(prepared, data, 8193, "sobol", false, true);
+                ASSERT_NEAR(result.aggregated_ / 8193, oracle.aggregated_ / 8193, 1.0e-8);
+                ASSERT_EQ(result.names_, oracle.names_);
+                for (size_t j = 0; j < result.risks_.size(); ++j)
+                    ASSERT_NEAR(result.risks_[j], oracle.risks_[j], 1.0e-8);
+            }
+        }
+    }
+}
+
+TEST(ScriptPastReplayTest, TestPreparedCompiledModeCannotChange) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    auto model = CreateModel<double>(Model());
+    for (bool compiled : {false, true}) {
+        SCOPED_TRACE(compiled);
+        simulation.compiled_ = compiled;
+        const auto prepared = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+        ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure(
+            [&] { MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, !compiled); }));
+        const auto result = MCSimulation<AAD::Number_>(prepared, Model(), 257, "sobol", false, compiled);
+        ASSERT_NEAR(result.aggregated_ / 257, 160.0 * exp(-0.03 * 10.0 / DAYS_PER_YEAR), 1.0e-10);
+        ASSERT_THROW(prepared.BuildFuzzyEvaluator<double>(0, 0.2), ScriptError_);
+        ASSERT_THROW(prepared.BuildEvalState<double>(0, 0.2), ScriptError_);
+    }
+}
+
+TEST(ScriptPastReplayTest, TestPreparedDefaultCompiledModeResolvesToTree) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    auto model = CreateModel<double>(Model());
+    const auto compiled = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(compiled, Model(), 257); }));
+    simulation.compiled_ = std::nullopt;
+    const auto tree = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(tree, Model(), 257, "sobol", false, true); }));
+    const auto result = MCSimulation<AAD::Number_>(tree, Model(), 257);
+    ASSERT_NEAR(result.aggregated_ / 257, 160.0 * exp(-0.03 * 10.0 / DAYS_PER_YEAR), 1.0e-10);
+}
+
+TEST(ScriptPastReplayTest, TestPreparedAadAndSmoothingMismatchDiagnostic) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    auto model = CreateModel<double>(Model());
+    MonteCarloSettings_ simulation;
+    const auto passive = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCAADSimulation(passive, Model(), 257, "sobol", false, false, -1, 0.01); }));
+    simulation.enableAad_ = true;
+    const auto active = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure(
+        [&] { MCSimulation<AAD::Number_>(active, Model(), 257, "sobol", false, false, -1, 0.2); }));
+}
+
+TEST(ScriptPastReplayTest, TestExpiredPreparationSkipsAadModeMismatch) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 23));
+    auto model = CreateModel<double>(Model());
+    const auto expired = PrepareScript(HistoricalProduct(), model.get(), {}, {});
+    const auto result = MCAADSimulation(expired, Model(), 257, "sobol", false, true, -1, 0.2);
+    ASSERT_DOUBLE_EQ(result.aggregated_, 0.0);
+    ASSERT_FALSE(result.risks_.empty());
+    for (double risk : result.risks_)
+        ASSERT_DOUBLE_EQ(risk, 0.0);
 }
 
 TEST(ScriptPastReplayTest, TestDirectSeedPayoff) {
@@ -301,7 +475,10 @@ TEST(ScriptPastReplayTest, TestNonlinearHistoryAndParameterRepricing) {
                 for (const String_ strikeText : {"159.95", "160", "160.05"}) {
                     SCOPED_TRACE(::testing::Message()
                                  << "threads=" << threads << " paths=" << paths << " scale=" << scaleText << " strike=" << strikeText);
-                    ASSERT_NO_FATAL_FAILURE(CheckNonlinearHistoryRepricing(paths, scaleText, strikeText));
+                    for (bool compiled : {false, true}) {
+                        SCOPED_TRACE(compiled);
+                        ASSERT_NO_FATAL_FAILURE(CheckNonlinearHistoryRepricing(paths, scaleText, strikeText, compiled));
+                    }
                 }
     }
 }

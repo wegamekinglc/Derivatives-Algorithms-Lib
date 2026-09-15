@@ -9,6 +9,7 @@
 namespace Dal::Script::Detail {
     struct SimulationObserver_ {
         virtual ~SimulationObserver_() = default;
+        virtual void BeforeCompilation() {}
         virtual void AfterSubmission() = 0;
     };
 

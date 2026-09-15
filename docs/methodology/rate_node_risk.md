@@ -186,4 +186,4 @@ already-summed component tensors. See
 - `dal-python/tests/test_curve_pricing.py` and
   `dal-excel/tests/test_curvepricing.cpp`: binding contracts.
 - `dal-cpp/benchmarks/rate_risk_perf/rate_risk_perf.cpp`: rate-pricing,
-  node-risk, and quote-risk workloads in the paired regression gate.
+  node-risk, and quote-risk workloads in the advisory paired performance report.

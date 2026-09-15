@@ -161,6 +161,24 @@ and then rewind, so the tape size is bounded by the work of a *single* repetitio
 rather than the whole simulation. Propagation can therefore be partitioned into
 ranges: from the end to the mark, and from the mark to the start.
 
+### Native Tape Storage
+
+The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists
+for nodes, local derivatives, operand-adjoint pointers, and multi-result
+adjoints. `RecordNode<N_>` reserves one node and, for nonzero `N_`, `N_`
+derivative and pointer entries. Multi-result mode also reserves and zeroes the
+node's result-adjoint slots. These allocations use the receiving tape object,
+including for a caller-owned tape.
+
+All arities share the same allocator. The three-input specialization uses
+compiler-specific attributes to prevent inlining the allocation call; it
+does not change the storage or recording rules. A block list
+advances when the next reservation does not fit, reuses an existing next block
+after rewind, and allocates a block when needed. Mark and rewind therefore
+support storage reuse without promising allocation-free AAD evaluation.
+`dal-cpp/tests/math/aad/test_tape.cpp` covers independent stream rollover,
+reuse, aliased operands, multiple results, and caller-owned tapes.
+
 ## Pathwise Adjoints in Monte Carlo
 
 A Monte Carlo price is an average over $P$ simulated paths,
@@ -189,7 +207,7 @@ This is the **pathwise adjoint** estimator. The algorithm is:
    the parameter adjoints by the total simulation path count $P$. Sum batch
    contributions without a second normalization.
 
-In the [prepared script tree](script_engine.md#historical-state-and-recording-lifetime),
+In [prepared script evaluation](script_engine.md#historical-state-and-recording-lifetime),
 historical fixings are sealed doubles, but script expressions using them can
 depend on active parameters. Each recording replays those expressions locally
 before the mark and each path restores the resulting typed seed. The native
@@ -200,7 +218,13 @@ The fallback creates a path-local root even for a pre-mark seed or a passive
 constant, preserving accumulated seed adjoints and providing a valid reverse
 range when the post-mark recording would otherwise be empty. Historical
 decisions use hard branches; fuzzy smoothing applies to future events,
-including future conditions on known fixings.
+including future conditions on known fixings. Tree and compiled execution share
+this recording contract: compiled history is hard bytecode with settled payments
+discarded, and observation loads use the same sealed plan. Parameter-dependent
+historical state remains typed rather than being inlined as its current double
+value. Future fuzzy weights remain live through optimization; compare AAD primal
+values with fuzzy double using the same epsilon, not exact double at a future
+discontinuity.
 
 The result is the full gradient of the Monte Carlo price — every Greek for every
 parameter — for the cost of roughly one extra simulation, regardless of how many

@@ -23,6 +23,7 @@ As long as this comment is preserved at the Top of the file
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
 #include <dal/script/visitor/smoothing.hpp>
@@ -37,6 +38,8 @@ namespace Dal::Script {
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
+        const ObservationPlan_* observations_ = nullptr;
+        const AAD::Scenario_<T_>* scenario_ = nullptr;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
@@ -104,16 +107,21 @@ namespace Dal::Script {
         FuzzyNot = 46,
         FuzzyTrue = 47,
         FuzzyFalse = 48,
-        FuzzyIf = 49 //  operands: lastTrue, lastFalse, nAff, aff...
+        FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff...
+        LoadObservation = 50,
+        Discard = 51
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
         Vector_<int> nodeStream_;
         Vector_<double> constStream_;
         const bool fuzzy_;
+        const ObservationPlan_* observations_;
+        const bool historical_;
 
     public:
-        explicit Compiler_(bool fuzzy = false) : fuzzy_(fuzzy) {}
+        explicit Compiler_(bool fuzzy = false, const ObservationPlan_* observations = nullptr, bool historical = false)
+            : fuzzy_(fuzzy && !historical), observations_(observations), historical_(historical) {}
 
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
@@ -243,7 +251,13 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAssign_& node) { VisitAssignLike<Assign, AssignConst>(node); }
-        void Visit(const NodePays_& node) { VisitAssignLike<Pays, PaysConst>(node); }
+        void Visit(const NodePays_& node) {
+            if (historical_) {
+                node.arguments_[1]->Accept(*this);
+                nodeStream_.emplace_back(Discard);
+            } else
+                VisitAssignLike<Pays, PaysConst>(node);
+        }
 
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
@@ -265,8 +279,27 @@ namespace Dal::Script {
 
         void Visit(const NodeFalse_&) { nodeStream_.emplace_back(fuzzy_ ? FuzzyFalse : False); }
 
-        void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
-        void Visit(const NodeFix_& node) { node.RequirePreparation(); }
+        void LoadPreparedObservation(size_t id) {
+            REQUIRE2(observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
+            const auto& request = observations_->Request(id);
+            REQUIRE2(request.historyValueId_ || (!historical_ && request.modelSlot_), "UnresolvedModelObservation", ScriptError_);
+            nodeStream_.emplace_back(LoadObservation);
+            nodeStream_.emplace_back(static_cast<int>(id));
+        }
+
+        void Visit(const NodeSpot_& node) {
+            if (node.observationId_)
+                LoadPreparedObservation(*node.observationId_);
+            else {
+                REQUIRE2(!historical_, "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
+                nodeStream_.emplace_back(Spot);
+            }
+        }
+        void Visit(const NodeFix_& node) {
+            if (!node.observationId_)
+                node.RequirePreparation();
+            LoadPreparedObservation(*node.observationId_);
+        }
 
         void Visit(const NodeCollect_& node) { VisitArguments(node); }
 
@@ -333,6 +366,15 @@ namespace Dal::Script {
                              bool reset = true);
 
     namespace Detail {
+        template <bool Prepared_, class T_>
+        inline void EvalCompiledRange(const Vector_<int>& nodeStream,
+                                      const Vector_<double>& constStream,
+                                      const AAD::Sample_<T_>& scenario,
+                                      EvalState_<T_>& state,
+                                      size_t first,
+                                      size_t last,
+                                      bool reset);
+
         template <class T_> struct CompiledEventView_ {
             const Vector_<int>& nodeStream_;
             const Vector_<double>& constStream_;
@@ -580,7 +622,8 @@ namespace Dal::Script {
             return EvalCompiledStore(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, class T_>
+        FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& bStack = state.bStack_;
             auto& nodeStream = event.nodeStream_;
@@ -602,7 +645,7 @@ namespace Dal::Script {
                     i = nodeStream[++i];
                 } else {
                     //  Preserve parent stacks while running the true branch.
-                    EvalCompiled(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
+                    EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
@@ -653,9 +696,10 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, class T_>
+        FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] <= IfElse)
-                return EvalCompiledBranch(event, i, statePtr);
+                return EvalCompiledBranch<Prepared_>(event, i, statePtr);
             return EvalCompiledBoolean(event, i, statePtr);
         }
 
@@ -787,7 +831,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, class T_>
+        FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -802,7 +847,7 @@ namespace Dal::Script {
 
             const T_ t = dStack.TopAndPop();
             if (t > 1.0 - EPSILON) {
-                EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                 i = lastFalse;
             } else if (t < EPSILON) {
                 i = lastTrue;
@@ -813,13 +858,13 @@ namespace Dal::Script {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore0_[lvl][idx] = state.variables_[idx];
                 }
-                EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore1_[lvl][idx] = state.variables_[idx];
                     state.variables_[idx] = state.varStore0_[lvl][idx];
                 }
-                EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
+                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
@@ -830,28 +875,49 @@ namespace Dal::Script {
             return i;
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, class T_>
+        FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] == FuzzyIf)
-                return EvalCompiledFuzzyBranch(event, i, statePtr);
+                return EvalCompiledFuzzyBranch<Prepared_>(event, i, statePtr);
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_> FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
+            if (op == LoadObservation) {
+                REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
+                statePtr->dStack_.Push(statePtr->observations_->Read(event.nodeStream_[i + 1], statePtr->scenario_));
+                return i + 2;
+            }
+            if (op == Discard) {
+                statePtr->dStack_.Pop();
+                return i + 1;
+            }
+            ThrowUnknownCompiledOpcode(op);
+        }
+
+        template <bool Prepared_, class T_>
+        FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
             if (op <= PaysConst)
                 return EvalCompiledData(event, i, statePtr);
             if (op <= Or)
-                return EvalCompiledControl(event, i, statePtr);
+                return EvalCompiledControl<Prepared_>(event, i, statePtr);
             if (op <= ConstVar)
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
-            return EvalCompiledFuzzyControl(event, i, statePtr);
+            if constexpr (Prepared_) {
+                if (op > FuzzyIf)
+                    return EvalCompiledPrepared(event, i, statePtr);
+            }
+            return EvalCompiledFuzzyControl<Prepared_>(event, i, statePtr);
         }
 
-        template <class T_, class E_> void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
+        template <bool Prepared_ = true, class T_, class E_>
+        void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
             for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex) {
                 const auto event = eventAt(eventIndex);
                 const size_t n = event.last_ ? event.last_ : event.nodeStream_.size();
@@ -861,8 +927,20 @@ namespace Dal::Script {
                 }
                 size_t i = event.first_;
                 while (i < n)
-                    i = EvalCompiledInstruction(event, i, statePtr);
+                    i = EvalCompiledInstruction<Prepared_>(event, i, statePtr);
             }
+        }
+
+        template <bool Prepared_, class T_>
+        inline void EvalCompiledRange(const Vector_<int>& nodeStream,
+                                      const Vector_<double>& constStream,
+                                      const AAD::Sample_<T_>& scenario,
+                                      EvalState_<T_>& state,
+                                      size_t first,
+                                      size_t last,
+                                      bool reset) {
+            EvalCompiledEvents<Prepared_>(
+                1, [&](size_t) { return CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
         }
     } // namespace Detail
 
@@ -874,7 +952,6 @@ namespace Dal::Script {
                              size_t first,
                              size_t last,
                              bool reset) {
-        Detail::EvalCompiledEvents(
-            1, [&](size_t) { return Detail::CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
+        Detail::EvalCompiledRange<true>(nodeStream, constStream, scenario, state, first, last, reset);
     }
 } // namespace Dal::Script

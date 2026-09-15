@@ -14,17 +14,19 @@ namespace Dal::Script {
         std::unique_ptr<const ScriptProduct_> product_;
         Date_ evaluationDate_;
         ScriptValuationSettings_ settings_;
-        std::unique_ptr<ObservationPlan_> plan_;
+        std::shared_ptr<ObservationPlan_> plan_;
         MonteCarloSettings_ simulation_;
         bool executable_ = false;
         size_t maxNestedIfs_ = 0;
+        std::optional<ScriptCompiled_> compiled_;
+        std::optional<ScriptCompiled_> pastCompiled_;
 
         PreparedScript_(std::unique_ptr<ScriptProduct_>&& product,
                         const Date_& evaluationDate,
                         const ScriptValuationSettings_& settings,
                         ObservationPlan_&& plan)
             : product_(std::move(product)), evaluationDate_(evaluationDate), settings_(settings),
-              plan_(std::make_unique<ObservationPlan_>(std::move(plan))) {}
+              plan_(std::make_shared<ObservationPlan_>(std::move(plan))) {}
         friend class PreparedScriptBuilder_;
 
     public:
@@ -43,10 +45,13 @@ namespace Dal::Script {
             REQUIRE2(executable_ || AllExpired(), "UnsupportedExecutionMode: history-only preparation has no model plan", ScriptError_);
         }
         template <class T_> Evaluator_<T_> BuildEvaluator() const { return product_->BuildEvaluator<T_>(); }
-        template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double eps = 0.0) const {
-            return product_->BuildEvalState<T_>(maxNestedIfs, eps);
+        template <class T_> EvalState_<T_> BuildEvalState(size_t = 0, double eps = 0.0) const {
+            REQUIRE2(eps == 0.0 || eps == simulation_.smooth_, "UnsupportedExecutionMode: smoothing differs from preparation", ScriptError_);
+            return product_->BuildEvalState<T_>(maxNestedIfs_, eps == 0.0 ? simulation_.smooth_ : eps);
         }
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int, double eps) const {
+            REQUIRE2(simulation_.enableAad_ && eps == simulation_.smooth_, "UnsupportedExecutionMode: smoothing differs from preparation",
+                     ScriptError_);
             return product_->BuildFuzzyEvaluator<T_>(static_cast<int>(maxNestedIfs_), eps);
         }
         template <class E_> void InitializeHistoricalState(E_* evaluator) const {
@@ -55,9 +60,15 @@ namespace Dal::Script {
             product_->Visit(past, true, false);
             evaluator->SetHistoricalSeed(past.VarVals());
         }
+        template <class T_> void InitializeHistoricalState(EvalState_<T_>* evaluator) const {
+            REQUIRE2(pastCompiled_, "PreparationRequired: historical bytecode is not prepared", ScriptError_);
+            EvalState_<T_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals());
+            pastCompiled_->Evaluate(AAD::Scenario_<T_>(), past);
+            evaluator->SetHistoricalSeed(past.VarVals());
+        }
         [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
-            REQUIRE2(plan_->Requests().empty() && !fuzzy, "UnsupportedExecutionMode: named or prepared AAD compiled evaluation", ScriptError_);
-            return product_->Compile(fuzzy);
+            REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
+            return *compiled_;
         }
         template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& scenario, E_& eval) const {
             RequireExecutable();

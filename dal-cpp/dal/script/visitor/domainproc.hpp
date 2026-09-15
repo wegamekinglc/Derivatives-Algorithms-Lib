@@ -5,13 +5,14 @@
 #pragma once
 
 #include <cmath>
-#include <dal/platform/platform.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/domain.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration DomainCondProp
@@ -38,6 +39,20 @@ namespace Dal::Script {
 
         bool isLhsVar_;
         size_t lhsVarIdx_;
+        const ObservationPlan_* observations_ = nullptr;
+
+        static Domain_ RealDomain() { return Domain_(Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_))); }
+
+        bool RetainFuzzyCondition(CompNode_& node, const Domain_& domain) {
+            if (!fuzzy_ || (!observations_ && !domain.IsConstant()))
+                return false;
+            // Prepared fuzzy states can interpolate between domain endpoints.
+            node.isDiscrete_ = false;
+            node.alwaysTrue_ = node.alwaysFalse_ = false;
+            condStack_.Push(Value_::TrueOrFalse);
+            domStack_.Pop();
+            return true;
+        }
 
     public:
         using Visitor_<DomainProcessor_>::Visit;
@@ -45,6 +60,12 @@ namespace Dal::Script {
         // All variable domains start as the singleton {0}
         DomainProcessor_(const size_t nVars, bool fuzzy)
             : fuzzy_(fuzzy), varDomains_(nVars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1), condStack_() {}
+
+        DomainProcessor_(Vector_<Domain_> initialDomains, bool fuzzy, const ObservationPlan_* observations)
+            : DomainProcessor_(initialDomains.size(), fuzzy) {
+            varDomains_ = std::move(initialDomains);
+            observations_ = observations;
+        }
 
         [[nodiscard]] const Vector_<Domain_>& VarDomains() const {
             return varDomains_;
@@ -128,6 +149,8 @@ namespace Dal::Script {
             VisitArguments(node);
 
             Domain_& dom = domStack_.Top();
+            if (RetainFuzzyCondition(node, dom))
+                return;
 
             // Always true / false?
             if (!dom.CanBeZero()) {
@@ -185,6 +208,8 @@ namespace Dal::Script {
             VisitArguments(node);
 
             const Domain_& dom = domStack_.Top();
+            if (RetainFuzzyCondition(node, dom))
+                return;
 
             // Always true / false?
             if (!dom.CanBePositive(Strict_)) {
@@ -353,14 +378,25 @@ namespace Dal::Script {
         }
 
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }
-        void Visit(NodeConstVar_& node) { domStack_.Push(node.constVal_); }
-        void Visit(NodeFix_& node) { node.RequirePreparation(); }
+        void Visit(NodeConstVar_&) { domStack_.Push(RealDomain()); }
+        void VisitObservation(const std::optional<size_t>& id) {
+            if (id && observations_) {
+                const auto& request = observations_->Request(*id);
+                if (request.historyValueId_) {
+                    domStack_.Push(observations_->KnownValue(*request.historyValueId_));
+                    return;
+                }
+            }
+            domStack_.Push(RealDomain());
+        }
+
+        void Visit(NodeFix_& node) {
+            if (!node.observationId_ || !observations_)
+                node.RequirePreparation();
+            VisitObservation(node.observationId_);
+        }
 
         // Scenario
-        void Visit(NodeSpot_&) {
-            static auto interval = Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_));
-            static const Domain_ realDom(interval);
-            domStack_.Push(realDom);
-        }
+        void Visit(NodeSpot_& node) { VisitObservation(node.observationId_); }
     };
 } // namespace Dal::Script

@@ -405,9 +405,9 @@ dimensions, named ranges, and FX forwards.
 `xccy_perf` emits 24 unique timing rows. They cover four pricing cases (future
 fixed, resettable, and MTM plus started MTM), staged calibration including the
 reset-aware analytic case, and joint calibration. Linux and Windows CI execute
-the benchmark to completion, but it is not in the paired base/head regression
-allowlist; this target is execution-smoke and reporting coverage rather than a
-regression threshold gate.
+the benchmark to completion as optional reporting coverage. It is outside the
+paired base/head comparison inventory. Performance reports do not block the
+required CI gates.
 
 ## See Also
 

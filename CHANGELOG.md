@@ -18,6 +18,19 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-14
 
+- **Script compiled observations** — added named compiled double and fuzzy AAD
+  valuation using the same sealed observation plan as tree execution. Hard
+  historical bytecode preserves typed parameter-dependent state and discards
+  settled payments; future optimization retains live parameters and fractional
+  fuzzy weights. Exact and fuzzy model-aware preparation retain future branches
+  and valid tiny-divisor arithmetic without tolerance-domain processing;
+  literal/history constant arithmetic can still fold. Preparation
+  fixes execution mode and smoothing, prefetches history before optimization,
+  and builds requested bytecode before workers start.
+  Named valuation settings remain core-only; public C++ facade, Python, Excel,
+  archive, and JSON debug projections are not extended. See the
+  [compiled evaluation contract](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation).
+
 - **Script historical AAD state** — added model-aware prepared AAD tree
   valuation that preserves script-parameter risk through historical fixing
   expressions. Each worker recording rebuilds a typed historical seed from

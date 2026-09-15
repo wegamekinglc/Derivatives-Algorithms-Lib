@@ -33,6 +33,15 @@ namespace Dal::Script {
     class ScriptCompiled_ {
         Vector_<Vector_<int>> nodeStreams_;
         Vector_<Vector_<>> constStreams_;
+        std::shared_ptr<const ObservationPlan_> observations_;
+        bool historical_ = false;
+        bool legacy_ = false;
+
+        template <bool Prepared_, class T_, class S_> void EvaluateSamples(const S_& sampleAt, EvalState_<T_>* state) const {
+            Detail::EvalCompiledEvents<Prepared_>(
+                nodeStreams_.size(),
+                [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sampleAt(i)}; }, state);
+        }
 
     public:
         ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
@@ -42,10 +51,43 @@ namespace Dal::Script {
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
 
+        static ScriptCompiled_
+        Build(const Vector_<Event_>& events, bool fuzzy, std::shared_ptr<const ObservationPlan_> observations = {}, bool historical = false) {
+            Vector_<Vector_<int>> nodes;
+            Vector_<Vector_<>> constants;
+            for (const auto& event : events) {
+                Compiler_ compiler(fuzzy, observations.get(), historical);
+                for (const auto& statement : event)
+                    statement->Accept(compiler);
+                nodes.push_back(compiler.NodeStream());
+                constants.push_back(compiler.ConstStream());
+            }
+            ScriptCompiled_ result(std::move(nodes), std::move(constants));
+            result.observations_ = std::move(observations);
+            result.historical_ = historical;
+            // Only compiler-produced legacy streams are known to exclude prepared opcodes.
+            result.legacy_ = !result.observations_ && !historical;
+            return result;
+        }
+
         template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
+            EvaluateImpl(scenario, state);
+        }
+
+    private:
+        template <class T_> void EvaluateImpl(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
             state.Init();
-            Detail::EvalCompiledEvents(
-                nodeStreams_.size(), [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], scenario[i]}; },
+            state.observations_ = observations_.get();
+            state.scenario_ = &scenario;
+            if (legacy_) {
+                EvaluateSamples<false>([&](size_t i) -> const auto& { return scenario[i]; }, &state);
+                return;
+            }
+            const AAD::Sample_<T_> pastSample{};
+            EvaluateSamples<true>(
+                [&](size_t i) -> const auto& {
+                    return historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i];
+                },
                 &state);
         }
     };
@@ -152,6 +194,11 @@ namespace Dal::Script {
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
+            EvaluateImpl(scenario, eval);
+        }
+
+    private:
+        template <class T_, class E_> void EvaluateImpl(const Scenario_<T_>& scenario, E_& eval) const {
             RequirePreparedFixings();
             eval.SetScenario(&scenario);
             eval.Init();
@@ -162,6 +209,7 @@ namespace Dal::Script {
             }
         }
 
+    public:
         void IndexVariables();
         void InitializePastObservations(const ObservationPlan_& plan);
         [[nodiscard]] Vector_<> PastEvaluate() const;
@@ -191,4 +239,9 @@ namespace Dal::Script {
         void Write(Archive::Store_& dst) const override;
         [[nodiscard]] ScriptProduct_ Product() const { return {eventDates_, eventDesc_, ""}; }
     };
+
+    // Keep tree AAD execution in core to avoid expanding recording loops in public callers.
+    template <>
+    void ScriptProduct_::Evaluate<AAD::Number_, FuzzyEvaluator_<AAD::Number_>>(const Scenario_<AAD::Number_>& scenario,
+                                                                           FuzzyEvaluator_<AAD::Number_>& eval) const;
 } // namespace Dal::Script

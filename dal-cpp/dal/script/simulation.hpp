@@ -274,6 +274,10 @@ namespace Dal::Script {
         if (product.EventDates().empty())
             return SimResults_(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+            REQUIRE2(!product.Simulation().enableAad_ && useCompiled == product.Simulation().compiled_.value_or(false),
+                     "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
+
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
             compiledProduct.emplace(product.Compile());
@@ -473,8 +477,9 @@ namespace Dal::Script {
         if (product.EventDates().empty())
             return SimResults_(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_,
-                     "UnsupportedExecutionMode: AAD mode or smoothing differs from preparation", ScriptError_);
+            REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
+                         useCompiled == product.Simulation().compiled_.value_or(false),
+                     "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
