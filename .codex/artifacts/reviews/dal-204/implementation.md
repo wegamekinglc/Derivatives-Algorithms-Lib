@@ -2,11 +2,50 @@
 
 S2 implementation is ready for independent testing. Draft PR: [#375](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/375). No merge or final closing intent has been added. DAL-240 testing, DAL-241 documentation/CHANGELOG and DAL-242 review remain the parent's serial stages.
 
+## 2026-09-15 example validation correction
+
+The resumed DAL-239 scope is limited to `dal-python/examples/009.fix_settings.py` and this report. The five original Codacy annotations on check run `104279592641`, at head `88f218b1557e83913bdda4f34ed87c1b38844fb7`, were fetched in full and confirmed to flag the five assertions removed by optimized Python. `original-codacy-annotations.log` preserves that historical failure; the final delivery records one new-head CI snapshot after push.
+
+The example now uses explicit conditions and field-specific `RuntimeError` messages containing the expected and actual values. All five constraints are preserved: PV260 with `rel_tol=0.0, abs_tol=2.6e-10`, d_SCALE80 with `rel_tol=0.0, abs_tol=1e-10`, only PV/d_ result keys, `dal.script-product/2` and `dal.script-valuation/1`. There is no suppression or tolerance change. No refactoring beyond these five guards was needed.
+
+- Example fix commit: `44e46349eedf34f4bd3b133f355df99999a4c5ff`, tree `adc4eeea15d17e1e187ce8c183144459118a26c8`. It contains exactly the example change. The subsequent commit updates only this report; the final comment and evidence identify the final head/tree.
+- Tested example SHA256: `f88259a2542b10a95c03b4fe3116894f01e680be2ff131975ea8c9c9a55488d2`.
+- Reused the existing F7 native AADET extension built from `fd9c42d07b54506366652f6559ddf1e0fff093e8`. Its SHA256 still equals `37d08004c8699811763f8842bcb0ae939a9d3638e6985e8514b684d3cabcc3c4`. Both checkouts initially matched the handed-off head/tree and were clean. The old checkout remains unchanged; binding/core/public/build source has no diff from the build's source commit, and the loaded Python helper matches current source bytes.
+- Fresh identity logs record absolute `dal.__file__`, `dal._dal.__file__`, Python executable/version, pybind11 version, extension hash/ldd, source diff and example hash. The module is the prior task's `build/Release-linux/dal-python/dal/_dal.cpython-313-x86_64-linux-gnu.so`, loaded by an explicit absolute PYTHONPATH. Runtime remains Python3.13.9/pybind11 3.0.4, Linux/WSL2; the reused build is GCC15.2/AADET.
+
+### Fresh RED/GREEN and smoke evidence
+
+Local `probe_example.py` calls the real binding, corrupts one returned field, then executes the full example with `runpy`. It fails unless the expected field-specific RuntimeError is raised. The probe itself uses no assertions, so optimization cannot disable its expectation. It and `run_check.py` are delivered only in the evidence attachment, outside repository tests.
+
+Below, `F7_PYTHONPATH` is the existing native build's absolute Python package directory recorded verbatim in every log. Commands run from the current repository:
+
+```bash
+env PYTHONPATH="$F7_PYTHONPATH" python -O ../probe_example.py dal-python/examples/009.fix_settings.py pv
+env PYTHONPATH="$F7_PYTHONPATH" python -O ../probe_example.py dal-python/examples/009.fix_settings.py risk
+env PYTHONPATH="$F7_PYTHONPATH" python -O ../probe_example.py dal-python/examples/009.fix_settings.py keys
+env PYTHONPATH="$F7_PYTHONPATH" python -O ../probe_example.py dal-python/examples/009.fix_settings.py product-schema
+env PYTHONPATH="$F7_PYTHONPATH" python -O ../probe_example.py dal-python/examples/009.fix_settings.py valuation-schema
+env PYTHONPATH="$F7_PYTHONPATH" python dal-python/examples/009.fix_settings.py
+env PYTHONPATH="$F7_PYTHONPATH" python -O dal-python/examples/009.fix_settings.py
+python -m black --check --target-version py39 dal-python/examples/009.fix_settings.py
+git diff --check
+```
+
+- RED: `red-pv.log` exits1 because `PV=260+3e-10` was accepted under `-O`. After fixing only its guard, `green-pv.log` exits0. The remaining four RED probes then each exit1 because `d_SCALE=80+2e-10`, an extra `unexpected` key, product schema `/1`, or valuation schema `/2` was accepted. Each numeric mutation is outside the required absolute tolerance while still catching accidental default relative tolerance.
+- GREEN: after the remaining guards, all five unchanged probes exit0 and show their corresponding RuntimeError messages (`green-*.log`). They test the actual example's rejection behavior, not a duplicate validation implementation.
+- Full normal and optimized smoke both exit0 with PV `260.00000000000006` and d_SCALE `80.0` (`smoke-normal.log`, `smoke-optimized.log`). All real pricing and both diagnostic calls run. Black and diff checks also exit0.
+
+No bindings/core/public, other tests, API note, public docs/CHANGELOG, CI/Codacy settings, or ignore rules changed. No substantive API deviation was introduced. No native build, full pytest/CTest, alternate backend or sanitizer suite was rerun for this example-only correction. The original evidence below is **inherited from the initial S2 run at `fd9c42d07b54506366652f6559ddf1e0fff093e8`**, including native1778/Python597/CoDi597/sanitizer255 and consumer2; references to fresh results or "this run" below describe that original run. Its report attachment is `01a0a3ca-aa84-77ec-8208-1c95fe568548`; evidence attachment `01a0a3ca-b6f3-791f-be39-9b2b51139497` has SHA256 `85521c457a904adedaa1ff3ca322446873698c2c4023bf042bbc3d6b1386fef3`.
+
+Independent DAL-240 testing must rebuild at the final new head and cover the wheel's pinned pybind11 2.11.1 on supported Python. That compatibility remains unverified here. The parent's serial acceptance/testing/docs/review sequence is unchanged; F8 and performance sidecars were not started.
+
+## Original S2 evidence (inherited)
+
 ## Source identity and scope
 
 - Branch: `feature/dal-204-python-fix-settings`.
 - Baseline: `a98bf9b07e9bd0fee23faa4cc9edca737f709654`, tree `4bc1d06508fef4d918f587ce189b4c7899731176`.
-- Tested implementation: `fd9c42d07b54506366652f6559ddf1e0fff093e8`, tree `8918bf9be0f70c41662e3edb242654878f1e8e7e`. Builds/tests used these exact source bytes before this commit was recorded; post-commit identity captures show a clean tree. The subsequent commit adds only this report. The final delivery comment and evidence record the resulting PR head/tree.
+- Original tested implementation: `fd9c42d07b54506366652f6559ddf1e0fff093e8`, tree `8918bf9be0f70c41662e3edb242654878f1e8e7e`. Builds/tests used these exact source bytes before this commit was recorded; post-commit identity captures show a clean tree. The initial report-only commit was `88f218b1557e83913bdda4f34ed87c1b38844fb7`, tree `d28b97dca2d22f378839ad6393fbe3556bce373f`. The example correction above supersedes that initial delivery head.
 - Accepted F7 note copied byte for byte to `.codex/artifacts/api-notes/dal-204-python-fix-settings.md`; SHA256 `d158902e5fae1def90ae844ab1e70eaec0a9d62b80499a06c135f11c6f21b605`.
 - `source-files.json` records SHA256 and staged Git blob identities for 1,278 source files/gitlinks at the implementation commit. Submodule identities are separately captured; no submodule pointer changed.
 
