@@ -526,16 +526,29 @@ for tree/compiled price and AAD valuation. Product archive v2 persists the
 default index, and [Describe and Explain](#product-archive-and-diagnostics)
 provide separate contract and valuation JSON.
 
-Python and Excel retain their existing product/valuation signatures. They do
-not expose the script settings types, explicit valuation date, default-index
-construction, model bindings, script snapshot argument, Describe, or Explain.
-Their old valuation wrappers call the legacy public overload and therefore
-use default preparation: historical FIX can use global history, while a
-model-sourced named FIX fails without the required binding. The Python
-`Product_Describe` / `ScriptValuation_Explain` and corresponding Excel settings
-and diagnostic projections are not implemented. Python exposes its existing
-optional `compiled` argument; Excel `MONTECARLO.VALUE` has seven inputs and
-does not expose compiled selection.
+Python exposes the same preparation through
+`MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)`
+and the three native settings types. `Product_New(events_dates, events, *, settings=None)`
+accepts a product default; valuation settings supply an explicit date, today's
+policy, a `spot` to EQ binding dictionary and an immutable fixing snapshot.
+Legacy product calls and three-to-eight-argument `MonteCarlo_Value` remain
+available. Both Value entries validate integer paths and use fresh preparation.
+The [Python settings reference](../../dal-python/README.md#script-settings-and-copies)
+covers exact policy strings, property copies, conversion errors and GIL ownership.
+
+Python `Product_Describe` and `ScriptValuation_Explain` return dictionaries;
+their low-level bindings return the unchanged C++ JSON strings. Describe is
+pure contract inspection; Explain always uses independent default exact/tree
+price preparation, even after compiled/AAD valuation. Neither diagnostic is a
+Python product archive. The complete
+[Python FIX example](../../dal-python/examples/009.fix_settings.py) checks a
+historical SCALE payment plus a retained future observation, with an explicit
+date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`.
+
+Excel retains its legacy default preparation: historical FIX can use global
+history, while model-sourced named FIX lacks a binding argument. Excel has no
+script settings constructors or Describe/Explain projection; its seven-input
+`MONTECARLO.VALUE` also has no compiled selection.
 
 ## Core AAD/Tree Fixing Valuation
 
@@ -1397,6 +1410,8 @@ uses the legacy text wrapper.
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
 - [Public C++ settings example](../../dal-public/examples/script_settings.cpp)
   — historical fixing, explicit date/snapshot, compiled AAD, Describe, and Explain.
+- [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
+  — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
 - [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.

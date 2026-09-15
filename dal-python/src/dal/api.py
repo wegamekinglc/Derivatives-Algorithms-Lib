@@ -1,9 +1,32 @@
+import json as _json
+
 from . import dal as _bindings
 
 
-def Product_New(events_dates: list, events: list[str]):
-    wrapped = [d if isinstance(d, _bindings.Cell_) else _bindings.Cell_(d) for d in events_dates]
-    return _bindings.Product_New(wrapped, events)
+def Product_New(events_dates: list, events: list[str], *, settings=None):
+    wrapped = []
+    for row, value in enumerate(events_dates, 1):
+        if isinstance(value, str) and "\0" in value:
+            raise RuntimeError(
+                f"InvalidSetting: Product_New; events_dates / dates/events row={row}; "
+                f"value={value!r}; expected text without NUL"
+            )
+        try:
+            wrapped.append(value if isinstance(value, _bindings.Cell_) else _bindings.Cell_(value))
+        except TypeError as error:
+            raise TypeError(
+                f"InvalidSetting: Product_New; events_dates / dates/events row={row}; "
+                f"type={type(value).__name__}; expected Cell_ or a Cell_-convertible value"
+            ) from error
+    return _bindings.Product_New(wrapped, events, settings=settings)
+
+
+def Product_Describe(product):
+    return _json.loads(_bindings.Product_Describe(product))
+
+
+def ScriptValuation_Explain(product, modelData, *, valuation=None):
+    return _json.loads(_bindings.ScriptValuation_Explain(product, modelData, valuation=valuation))
 
 
 # Settings whose target fields expect DAL value types — plain Python str

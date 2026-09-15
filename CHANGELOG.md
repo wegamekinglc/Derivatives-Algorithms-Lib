@@ -18,6 +18,19 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-15
 
+- **Python FIX settings and diagnostics** — added keyword-only product settings,
+  `MonteCarlo_ValueWithSettings`, and three native settings classes with validated
+  properties and copy/deepcopy support. Explicit dates, exact today policies,
+  model-binding dictionaries and immutable snapshots feed common C++ preparation.
+  High-level `Product_Describe` / `ScriptValuation_Explain` return dictionaries;
+  low-level bindings return the corresponding JSON strings. Explain performs
+  independent default price preparation without workers or a subsequent Value
+  cache. Valid legacy product and three-to-eight-argument valuation calls remain
+  compatible. **Input validation:** both Python valuation entries require an
+  integer path count in `1..2147483647`, excluding bool/enums, and finite positive
+  smoothing; invalid inputs retain field/constraint errors. See the
+  [Python FIX reference](dal-python/README.md#historical-and-future-fix).
+
 - **Public C++ script settings and diagnostics** — exposed named FIX valuation
   with typed contract/valuation/simulation settings, explicit dates and immutable
   snapshots, while preserving valid product-three and valuation-three-to-eight

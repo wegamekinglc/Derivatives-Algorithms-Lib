@@ -528,9 +528,10 @@ import dal
 | Workflow                | Python entry points                                                                                                                                                                                                                                |
 |-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                                                                        |
-| Script products         | `Product_New`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                                           |
+| Script products         | `Product_New`, `Product_Describe`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                       |
 | Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                                                                           |
-| Valuation               | `MonteCarlo_Value`                                                                                                                                                                                                                                 |
+| Valuation               | `MonteCarlo_Value`, `MonteCarlo_ValueWithSettings`, `ScriptValuation_Explain`                                                                                                                                                                      |
+| Script settings         | `ScriptProductSettings_`, `ScriptValuationSettings_`, `MonteCarloSettings_`, `TodayFixingPolicy_`                                                                                                                                                  |
 | Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                                                                                   |
 | Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                                                                     |
 | Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`                                                     |
@@ -552,18 +553,12 @@ model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
 result = dal.MonteCarlo_Value(product, model, 2**16, enable_aad=True)
 ```
 
-`MonteCarlo_Value` requires `num_path > 0`. The binding releases the Python GIL
-around native valuation, and `EvaluationDate_Get` / `EvaluationDate_Set` release
-it before waiting on native synchronization. A setter waits for an in-progress
-valuation; a getter can read the stable current date while valuation runs.
-
-Python retains `Product_New(events_dates, events)` and the existing
-three-to-eight-argument `MonteCarlo_Value` with `modelData`, `num_path`,
-`method`, `use_bb`, `enable_aad`, `smooth`, and `compiled` keywords. Script
-settings, `Product_Describe`, and `ScriptValuation_Explain` are not bound.
-The old wrapper uses default native preparation: historical FIX can use global
-history, but model-sourced named FIX requires a binding the wrapper cannot
-supply. `Product_DebugJson` remains schema /1 and rejects FIX/nonempty defaults.
+Both Python Value entries require an integer or valid `__index__` path count
+in `1..2147483647`, excluding bool and enums; floats such as `1.0` are rejected.
+The bindings copy settings and native handles before releasing the GIL for
+valuation. `EvaluationDate_Get` / `EvaluationDate_Set` also release it before
+native synchronization. A setter waits for an in-progress valuation; a getter
+can read the stable current date while valuation runs.
 
 For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
 
@@ -571,6 +566,71 @@ For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
 rsg = dal.SobolRSG_New(i_path=0, ndim=3, precise=True, polish=True)
 normals = dal.SobolRSG_Get_Normal(rsg, 1024)
 ```
+
+### Python FIX settings and diagnostics
+
+The settings entry points are:
+
+```text
+Product_New(events_dates, events, *, settings=None)
+MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)
+Product_Describe(product)
+ScriptValuation_Explain(product, modelData, *, valuation=None)
+```
+
+`settings`, `valuation`, and `simulation` take `ScriptProductSettings_`,
+`ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
+for fresh defaults. Their constructors use keyword-only fields. Product settings
+provide `default_index`; valuation settings provide `evaluation_date`,
+`today_fixing`, `model_bindings` and `fixings`; simulation settings provide
+`method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
+
+`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact
+`Model` / `RequireHistorical` strings. The three settings fields `default_index`,
+`method`, and `today_fixing` reject foreign enums, including string-derived enum
+members, with `TypeError` on construction or assignment. Ordinary string
+subclasses, DAL `String_`, and the native today-policy members remain supported.
+Bindings accept a dictionary with string keys and values, such as
+`{"spot": "EQ[AAPL]"}`; event text and binding keys/values also accept
+string-derived enum members. Dates require a valid DAL
+`Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
+`fixings=None` captures current global history; an explicit empty snapshot
+never falls back to it. Global capture is sequential, not atomic across
+sequences, and requires callers to exclude concurrent fixing writes.
+
+The [FIX source rules](methodology/script_engine.md#dates-and-structural-validation)
+and [explicit model binding](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
+apply unchanged: past history, today's selected policy, future model, and no
+fixing after its event. The complete
+[Python example](../dal-python/examples/009.fix_settings.py) supplies a legal
+BS model and checks `PV=260` / `d_SCALE=80` for historical SCALE state plus a
+retained future fixing. See the
+[Python settings reference](../dal-python/README.md#script-settings-and-copies)
+for defaults, strict field types, setters, detached property copies and
+copy/deepcopy semantics. Snapshot handles share immutable data; workers use
+native copies without Python callbacks or mutable dictionaries.
+
+High-level Describe returns a `dal.script-product/2` dictionary without market
+I/O, global-date access or valuation phase. High-level Explain returns a
+`dal.script-valuation/1` dictionary from one independent default exact/tree
+price preparation. It may read history and initialize a model, but generates
+no paths or workers and accepts no simulation settings. It neither describes
+a preceding compiled/AAD call nor caches the next Value. Low-level `dal._dal`
+and `dal.dal` diagnostics return raw JSON strings with the same schemas.
+Diagnostics are not loadable archives; Python has no public script-product
+serializer. Value results contain only already-normalized `PV` and optional
+`d_` parameter risks, with no fixing-risk or diagnostic keys.
+
+Existing three-to-eight-argument `MonteCarlo_Value` retains its original
+keywords/defaults and valid flag/float conversions. It cannot take the new
+settings, and the settings entry cannot take flat simulation options. The
+high-level product date keyword is `events_dates`; low-level `Product_New`
+uses `dates` and requires `Cell_` elements. High-level conversion leaves existing
+cells intact. Unknown keywords, wrong types or extra positional settings raise
+`TypeError`; unknown attributes raise `AttributeError`; invalid values and native
+failures raise `RuntimeError` with field/constraint and source context.
+`Product_DebugJson` remains a JSON string with schema /1 and rejects FIX or
+nonempty defaults with `DebugSchemaUnsupported`.
 
 ### Matrix and Dupire surface input
 
