@@ -6,10 +6,12 @@
 
 #ifdef _WIN32
 #define NOMINMAX
-#include <Windows.h>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
+
+// Parse DAL's VOID enum before Windows.h defines its VOID macro.
+#include <Windows.h>
 
 using namespace Dal;
 
