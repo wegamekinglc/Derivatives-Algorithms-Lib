@@ -1,5 +1,77 @@
 # DAL-203 F6 implementation handoff
 
+## Build repair handoff — 2026-09-15
+
+The reported public-test build failure and the separately diagnosed Codacy finding are repaired and locally verified. This supersedes the readiness statement of the original handoff below; parent acceptance, independent testing, documentation and mandatory review remain outstanding. PR #374 stays draft on `feature/dal-203-public-settings`, base `master`, without closing intent or merge.
+
+- Repair input: `eb62b4abed2215f4f9e0079afc5858c82faf713e`, tree `8f00a775ed7aae0045d13b1b5314642ce20eb35d`.
+- **Final tested repair commit:** `ab111ad6ca5bcef003f27f96da8e39ad78b7c037`.
+- **Final tested repair tree:** `bc3f543279fa18a1c70ef4c2323512e19be6ffdf`.
+- First repair commit `a1c39dedd6cd9b62c6721f4f719b1a7be4ebaa7d` adds the RapidJSON dependency and diagnostics extraction. The second adds the shared fixture dependency discovered by the full standalone build.
+- The following commit changes only this report. Its published SHA/tree, remote equality and the single new-head CI snapshot are recorded in the final DAL-234 comment and attached `publication.json`. No new-head CI result is inferred from local success.
+
+### Changes and dependency contract
+
+`dal-public/CMakeLists.txt` now locates RapidJSON with `DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR` and adds it only to `dal_public_tests` with PRIVATE visibility. The source checkout supplies the pinned `dal-cpp/externals/rapidjson/include` by default. A standalone source bundle can provide the header directory explicitly or supply a RapidJSON prefix through ordinary CMake discovery. Lookup occurs only when `DAL_PUBLIC_BUILD_TESTS=ON`; unavailable test headers produce a configure error.
+
+The complete standalone suite also exposed an existing dependency in `dal-public/tests/test_curvepricing.cpp`: it included a core curve fixture through the core source root, which is unavailable through an installed DAL::cpp. That dependency predates F6 (commit `22343eee`, PR #346). The repair adds `DAL_PUBLIC_TEST_FIXTURE_DIR`, defaulting to `dal-cpp/tests/curve`, and updates the include to `jointxccyquoteriskfixtures.hpp`. Only the fixture directory is added privately, so installed core headers remain the source of DAL declarations. A detached public source bundle must provide the matching shared fixture directory as well as GTest and RapidJSON to build its tests. This is a necessary test-dependency registration adjustment within the authorized standalone-build scope.
+
+`dal-cpp/dal/script/diagnostics.cpp` extracts request rendering into the internal `WriteObservationRequest` helper. The same stream operations, fields, nulls, ordering and plan values are retained. Lizard reports complexity 8 for `ExplainPreparedScript` and 7 for the helper, meeting the existing limit of 8. The real archive and diagnostic JSON tests remain unchanged and run before and after extraction.
+
+Those three files are the entire repair code diff from `eb62b4ab`; this report is the fourth changed file in the publication. DAL::cpp/DAL::public export metadata, installed headers, public signatures, Python/Excel source, CI rules, performance policy and submodule revisions are unchanged. Installed consumer target-property assertions confirm no RapidJSON, GTest or shared-fixture dependency escapes into either library interface.
+
+### CI diagnosis at the old head
+
+One targeted capture read all failed-check annotations and downloaded all 26 failed job logs. **25 build jobs** independently report missing `rapidjson/document.h`, including Clang 18–20, GCC 13–15, MSVC, ASan/UBSan, CoDiPack isolation and the extended Python build. The remaining Windows gate fails because `BUILD_RESULT=failure`; its build-script check succeeds. The preserved snapshot also contains 11 successes, one skipped check and seven running checks; their unknown outcomes were not relabeled.
+
+Codacy is a real code finding, not an external permission/configuration failure: check `104243929830` annotates `diagnostics.cpp:107` with complexity 14, limit 8. `lizard -C 8 -w dal-cpp/dal/script/diagnostics.cpp` independently reproduced exit 1 with CCN 14 before extraction and returns exit 0 afterward. The rule and its threshold are unchanged. Raw evidence is in `old-checks.json`, `old-failure-diagnosis.json`, per-job logs and annotations. The new-head snapshot is captured once after push and delivered separately.
+
+### Fresh RED, GREEN and isolation evidence
+
+The host has `/usr/local/include/rapidjson/document.h`; no copy exists in `/usr/include`. With the original generated test flags, both JSON translation units compile using that host header. `old-system-fallback.log` records the actual `-H` resolution. This explains why prior local passes did not prove a clean CI build.
+
+All repair build/test validations below hide that directory in a process-local mount namespace:
+
+```sh
+bwrap --bind / / --proc /proc --dev-bind /dev /dev \
+  --tmpfs /usr/local/include/rapidjson -- <command>
+```
+
+`isolation.log` proves both system locations lack the header inside that namespace. No system installation or global include flags were changed; CPATH, CPLUS_INCLUDE_PATH and CXXFLAGS are unset. Vendored/source or explicitly supplied test dependencies remain visible. An initial namespace attempt omitted the proc/dev mounts and failed CMake compiler setup; the corrected invocation above is the one used for the actual RED/GREEN evidence.
+
+The added evidence probe `compile_json_tests.py` loads the actual CMake compilation database, selects both existing JSON test files, and retains their complete target flags while replacing object output with `-fsyntax-only -v -H`. It asserts both files are present and requires both compiles to succeed. This exercises the real parser assertions without adding a duplicate behavioral unit test.
+
+```sh
+cmake --preset=Release-linux -S . -B build/Release-linux
+python3 ../repair-evidence/compile_json_tests.py build/Release-linux/compile_commands.json
+cmake --build build/Release-linux --target dal_public_tests --parallel 8
+build/Release-linux/dal-public/dal_public_tests --gtest_filter='Script*:ValueTest.*'
+```
+
+- RED: `red-json-compile-proc.log`, exit 1, both files fail at line 6 with missing RapidJSON. The copied old standalone CMake configuration also reproduces that exact failure (`standalone-red-json.log`).
+- GREEN: `green-json-compile.log`, exit 0; both `-H` traces resolve the pinned vendored header. `green-public-build.log` builds the real target; `green-public-before-refactor.log` and `green-public-after-refactor.log` each pass 40 tests.
+- Final fresh configuration: `final-fresh-configure.log` and `final-fresh-json.log`, exit 0, generated independently in `build/repair-fresh` with both declared private dependencies.
+- Standalone fixture RED: `standalone-vendored-build.log`, missing `tests/curve/jointxccyquoteriskfixtures.hpp`. Final GREEN: `standalone-final-vendored-build.log` and `standalone-final-vendored-tests.log`, full target and 132 tests pass.
+- Missing RapidJSON and missing fixture directories fail clearly at configure time. Tests disabled builds successfully without either dependency. `final-missing-fixture-corrected.log` is the valid fixture-negative probe; the first attempt used relative package prefixes and failed earlier at DAL package discovery, and is retained as setup evidence only.
+
+Every command has a matching JSON receipt with cwd, full arguments, timestamps and exit status. `commands.md` indexes them. Original source/test files, final compile databases, include traces, XML and package-interface evidence are included in the attachment.
+
+### Final verification and limits
+
+- **1,775/1,775 CTests**, including **402 Python tests**, portable Excel contracts, examples and public consumers: `final-native.log`, using the canonical `NUM_CORES=8 bash ./build_linux.sh --python 3.13` inside the namespace. `native-ctest-last.log` retains the Python result.
+- **413 core + 40 public** focused tests: final native XML/logs. Core filter is `Script*:AAD*:MonteCarlo*:MCSimulation*:FixingSnapshot*`; public filter is `Script*:ValueTest.*`.
+- **Clang ASan/UBSan: 413 core + 40 public + consumer**, all pass with `ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1`. Fresh build uses `-O1 -gline-tables-only -DNDEBUG`, sanitizers `address;undefined`, and no system RapidJSON. No sanitizer report.
+- **CoDiPack: 404 core + 40 public + consumer**, all pass. The nine-test difference remains the compile-time native-backend-only coverage described in the original report.
+- **Standalone with installed DAL::cpp and vendored test dependencies: 132/132**. **Detached dal-public source with installed DAL::cpp, GTest and explicitly supplied RapidJSON/fixture directories: 132/132**. The detached case uses only installed DAL headers and copied test dependencies; no core source root is on its compile path. Prefix-based RapidJSON discovery also compiles both JSON test files.
+- **Installed package consumer 1/1; installed script consumer/example 2/2**, with no test dependencies on the library interfaces and system RapidJSON hidden.
+- Patch integrity and source identity checks pass. The accepted API note remains byte-identical. No Machinist input/output changed in this repair, so its earlier valid regeneration evidence is retained rather than represented as a new run.
+
+The initial native full pass predates the final fixture-only adjustment; `final-native.log` and the final backend rebuild/test logs verify the completed tree. Sanitizer/backend checks were rerun because this repair also touches production diagnostic rendering. Earlier evidence remains available as `prior-implementation-evidence.tar.gz`, byte-identical to attachment `01a0a328-f2c3-72c5-8224-99051f8f5f55`, SHA256 `a90a3dbe57c3b0eff04dc2d975bea714f3c3b1c8be860a91cf3deef305e8928f`.
+
+Toolchain: Linux x86_64/WSL2, GCC 15.2.0, Clang 21.1.8, CMake 4.2.3, Python 3.13.9, GTest 1.16.0, Lizard 1.23.0, bubblewrap 0.11.1; full versions are attached. Local Clang still emits existing REQUIRE2/dangling-else warnings. No local MSVC/XLL, Clang 18–20, GCC 13/14, XAD/Adept runtime, TSAN or performance run is claimed. Remote CI and Codacy acceptance remain as captured after publication. The parent must accept this repair before advancing the existing DAL-235 → DAL-236 → DAL-237 chain.
+
+## Original implementation handoff — prior-head evidence
+
 ## Outcome and source identity
 
 Implemented the approved public C++ settings, archive v2, contract Describe and valuation Explain scope. The implementation is ready for the parent's independent tester stage. This report does not accept the entire F6 expert chain or authorize merge.
