@@ -34,22 +34,22 @@ product, workflow, documentation, benchmark, threshold or protection file.
 
 All results below were executed in this run, rather than copied from DAL-228.
 
-| Configuration / check | Fresh result |
-|---|---:|
-| GCC 14 Release native full configure/build/install/CTest | 1753/1753 |
-| Python 3.13 pytest, within one of those CTest entries | 402/402 |
-| Native focused script/simulation/AAD/compiler/visitor | 457/457 |
-| Adept / CoDiPack / XAD focused suite | 456/456; 456/456; 455/455 |
-| Separate `AADTapeTest.*`, native / Adept / CoDiPack / XAD | 12/12; 4/4; 4/4; 4/4 |
-| Clang 21 ASan/UBSan, `AAD*:Script*:MonteCarlo*:MCSimulation*` | 403/403 |
-| Registered isolated allocation cases under ASan/UBSan | 2/2 |
-| Original exact-boundary / signed tiny-divisor probes | 4/4; 6/6 |
-| Independently rebuilt isolated allocation probe | 2/2 |
-| Installed-package consumer | 1/1 |
-| GCC static, GCC shared, Clang sanitized static consumers with LTO | 3/3 |
-| Existing CI-tool suite before new tests | 161 run; 155 pass, 6 skips |
-| Final CI-tool suite | 163 run; 157 pass, 6 skips |
-| Documentation structure validation | 58 Markdown files |
+| Configuration / check                                             | Fresh result               |
+|-------------------------------------------------------------------|---------------------------:|
+| GCC 14 Release native full configure/build/install/CTest          | 1753/1753                  |
+| Python 3.13 pytest, within one of those CTest entries             | 402/402                    |
+| Native focused script/simulation/AAD/compiler/visitor             | 457/457                    |
+| Adept / CoDiPack / XAD focused suite                              | 456/456; 456/456; 455/455  |
+| Separate `AADTapeTest.*`, native / Adept / CoDiPack / XAD         | 12/12; 4/4; 4/4; 4/4       |
+| Clang 21 ASan/UBSan, `AAD*:Script*:MonteCarlo*:MCSimulation*`     | 403/403                    |
+| Registered isolated allocation cases under ASan/UBSan             | 2/2                        |
+| Original exact-boundary / signed tiny-divisor probes              | 4/4; 6/6                   |
+| Independently rebuilt isolated allocation probe                   | 2/2                        |
+| Installed-package consumer                                        | 1/1                        |
+| GCC static, GCC shared, Clang sanitized static consumers with LTO | 3/3                        |
+| Existing CI-tool suite before new tests                           | 161 run; 155 pass, 6 skips |
+| Final CI-tool suite                                               | 163 run; 157 pass, 6 skips |
+| Documentation structure validation                                | 58 Markdown files          |
 
 Fresh full-workflow summary:
 
@@ -87,16 +87,16 @@ backends. The unchanged lifetime test executes all **27** combinations of
 threads `{1,2,4}`, history sequence `{80,90,80}`, three payoff roots and **8193
 paths**. These are internal scenarios, not 27 separately discovered Google Tests.
 
-| Contract | Oracle and fresh coverage |
-|---|---|
-| T06/T09/T10/T21 | Retained F=120 and unrelated sample=999 yield independent 200/160/120/160 path payoffs. Discounted zero-Gaussian formulas check every model/parameter risk and artifact lifetime. |
-| T18 | Historical SCALE*H gives PV=160*exp(-r*T), SCALE risk=80*exp(-r*T), rate risk=-T*PV, T=10/DAYS_PER_YEAR; zero model risks and no fixing risk key. |
-| T19/T20 | Direct historical seeds, constant roots and terminal path roots retain correct risks. Past barriers use hard comparisons below/at/above thresholds; past PAYS is evaluated/discarded. Nonlinear history repricing rebuilds preparation. |
-| T22 | Five smooth strikes and both paths retain w=(80-K+0.1)/0.2, PV=160*w*discount and K risk=-800*discount. Same-epsilon fuzzy double agrees with AAD; central differences use strike +/-0.0001 with tolerance 1e-5. |
-| T23 | All 27 lifetime scenarios pass. Separate BS/Dupire references rebuild and record every path, checking risks across batches and repeated calls. Tape/root tests challenge stale adjoints and allocation rollover. |
-| T16/T27 | Nonexpired dead-branch missing history fails across exact/fuzzy tree/compiled modes. Eager AND/OR, legacy SPOT, FIX/default binding, deduplication and today policies remain covered. |
-| T31 | Last-history, model and compilation failures submit zero workers. Compiler seams recover; path/numerical failures drain accepted tasks before returning. |
-| T32 | Throwing history/index seams after preparation and stable observation/evaluator storage pass. Allocation instrumentation detects ordinary/aligned positive controls, then zero C++ allocations over 8193 exact/fuzzy tree/compiled double evaluations, including the first. |
+| Contract        | Oracle and fresh coverage                                                                                                                                                                                                                                                   |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| T06/T09/T10/T21 | Retained F=120 and unrelated sample=999 yield independent 200/160/120/160 path payoffs. Discounted zero-Gaussian formulas check every model/parameter risk and artifact lifetime.                                                                                           |
+| T18             | Historical SCALE*H gives PV=160*exp(-r*T), SCALE risk=80*exp(-r*T), rate risk=-T*PV, T=10/DAYS_PER_YEAR; zero model risks and no fixing risk key.                                                                                                                           |
+| T19/T20         | Direct historical seeds, constant roots and terminal path roots retain correct risks. Past barriers use hard comparisons below/at/above thresholds; past PAYS is evaluated/discarded. Nonlinear history repricing rebuilds preparation.                                     |
+| T22             | Five smooth strikes and both paths retain w=(80-K+0.1)/0.2, PV=160*w*discount and K risk=-800*discount. Same-epsilon fuzzy double agrees with AAD; central differences use strike +/-0.0001 with tolerance 1e-5.                                                            |
+| T23             | All 27 lifetime scenarios pass. Separate BS/Dupire references rebuild and record every path, checking risks across batches and repeated calls. Tape/root tests challenge stale adjoints and allocation rollover.                                                            |
+| T16/T27         | Nonexpired dead-branch missing history fails across exact/fuzzy tree/compiled modes. Eager AND/OR, legacy SPOT, FIX/default binding, deduplication and today policies remain covered.                                                                                       |
+| T31             | Last-history, model and compilation failures submit zero workers. Compiler seams recover; path/numerical failures drain accepted tasks before returning.                                                                                                                    |
+| T32             | Throwing history/index seams after preparation and stable observation/evaluator storage pass. Allocation instrumentation detects ordinary/aligned positive controls, then zero C++ allocations over 8193 exact/fuzzy tree/compiled double evaluations, including the first. |
 
 Exact arithmetic retains adjacent floats around 80, six comparisons, signed
 zero/subnormal values and live `1e14*1e-14` parameter dependencies. The original
