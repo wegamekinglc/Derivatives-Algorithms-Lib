@@ -37,21 +37,21 @@ on other toolchains.
 
 ### Public facade headers
 
-| Header                                 | Main entry points                                                                                   |
-|----------------------------------------|-----------------------------------------------------------------------------------------------------|
-| `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                          |
-| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree`        |
-| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                              |
-| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`                                                                                 |
-| `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                           |
-| `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders |
-| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders  |
-| `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                       |
-| `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                 |
-| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                        |
-| `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                  |
-| `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                        |
-| `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                          |
+| Header                                 | Main entry points                                                                                                     |
+|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
+| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                                                |
+| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`                                                                         |
+| `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
+| `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
+| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
+| `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                                         |
+| `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                                   |
+| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                                          |
+| `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                                    |
+| `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                                          |
+| `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                                            |
 
 The installed include path intentionally retains `dal-public/src/`. The facade
 also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
@@ -100,22 +100,71 @@ const auto model = Dal::NewBSModelData(Dal::String_("bs"), 100.0, 0.2, 0.05, 0.0
 const auto result = Dal::ValueByMonteCarlo(product, model, 1 << 16);
 ```
 
-`ValueByMonteCarlo` requires `numPath > 0`. Its optional arguments select the
-random generator, Brownian bridge, AAD risks, fuzzy smoothing, and compiled
-script evaluator. The evaluation date is process-wide. Native Monte Carlo
-valuation holds the valuation/mutation barrier for its full date-dependent
-interval, so evaluation-date setters wait until valuation finishes while
-getters remain available through the store lock. Monte Carlo valuations are
-serialized within one process; callers that require independent concurrent
-dates should use isolated processes.
+`ValueByMonteCarlo` requires non-null product/model handles, a BS or Dupire
+model, and a positive `int` path count. The original three-to-eight-argument
+overload retains random-generator, Brownian-bridge, AAD, smoothing, and compiled
+arguments and defaults. It forwards to the same preparation used by
+`ValueByMonteCarlo(product, modelData, numPath, valuation, simulation)`.
+The typed fourth argument is required; simulation settings are optional.
+Write an explicit `ScriptValuationSettings_`, since a bare fourth-argument
+`{}` is ambiguous. Results contain only `PV` and optional `d_` parameter risks.
 
-Script products dump three ways: `DebugScriptProduct` returns the legacy
-indented s-expression listing, `DebugScriptProductJson` a compact versioned
-JSON AST (schema `dal.script-product/1`, past events included, variable and
-constant tables resolved), and `DebugScriptProductTree(product, ascii, width)`
-a width-aware Unicode tree with a pure-ASCII fallback. See the
-[script engine methodology](methodology/script_engine.md#product-debug-outputs)
-for the formats and the dump grammar.
+`NewScriptProduct(name, dates, events, contract)` accepts
+`ScriptProductSettings_`; the three-argument form uses an empty default index.
+`contract.defaultIndex_` gives legacy `SPOT()` an identity. Script expressions
+use unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`. Historical EQ/FX
+requests resolve at exact midnight; model-sourced requests require an explicit
+`valuation.modelBindings_` mapping from `spot` to one ordinary EQ. A product
+default does not create that model binding or supply model market data.
+
+`valuation.evaluationDate_` is optional: when supplied it causes zero global
+evaluation-date reads/writes; otherwise the entry captures the global date
+once. `valuation.todayFixingPolicy_` defaults to
+`TodayFixingPolicy_::Value_::MODEL`; `REQUIREHISTORICAL` requires today's
+history instead. Earlier fixings always require history, later fixings use the
+model, and a fixing after its event date fails. A null `valuation.fixings_`
+captures required global history for this call. A non-null snapshot, including
+an empty one, is authoritative and never falls back to global history.
+
+`MonteCarloSettings_` defaults to Sobol, no bridge/AAD, `smooth_=0.01`, and
+`compiled_=std::nullopt` (false). Smoothing must be finite and strictly positive
+in all modes. Tree/compiled selection preserves observation policies; AAD
+rebuilds historical parameter state and uses fuzzy future comparisons. Full
+field, validation, and numerical contracts are in
+[public C++ settings](methodology/script_engine.md#public-c-settings).
+
+Product construction copies the original table/settings without market access;
+valuation copies settings and prepares afresh. Snapshot handles share immutable
+data. Callers must prevent concurrent input mutation and fixing writes during
+global capture, which is sequential rather than an atomic cross-series snapshot.
+Native Value and Explain retain the valuation/mutation barrier, so public calls
+serialize even with explicit dates. Global date setters wait for them; getters
+remain available. The executable
+[settings example](../dal-public/examples/script_settings.cpp) checks historical
+compiled-AAD `PV=160` and `d_SCALE=80` with an explicit date/snapshot and zero rates.
+
+`DescribeScriptProduct(product)` returns `dal.script-product/2`: original and
+canonical identities, all dated syntax, default/explicit fixing dates, and
+source locations, with zero history, model, or global-date access. It has no
+valuation-dependent phase and does not establish pricing readiness.
+`ExplainScriptValuation(product, modelData, valuation=ScriptValuationSettings_())`
+returns `dal.script-valuation/1` from default price preparation. It can read
+history and initialize a model, but generates no paths and submits no workers.
+It reports actual requests/uses, historical values, bindings, event-to-sample
+and numeraire mappings. Every Explain and Value prepares independently; use
+the same explicit date/snapshot to compare the same market.
+
+Product archives write v2 with optional `default_index` and retain the v1
+reader. They preserve contract text/identity and exclude runtime market data.
+There is no public v1 export or promise that old binaries can read v2; build
+consumers and bindings against matching headers/libraries.
+
+The legacy text and width-aware tree dumps remain available.
+`DebugScriptProductJson` retains `dal.script-product/1` and its date-based
+phases, but rejects FIX or any nonempty default with `DebugSchemaUnsupported`
+and a Describe /2 hint. See the
+[archive and diagnostic contracts](methodology/script_engine.md#product-archive-and-diagnostics)
+and [legacy dumps](methodology/script_engine.md#product-debug-outputs).
 
 ### C++ curve calibration
 
@@ -508,6 +557,14 @@ around native valuation, and `EvaluationDate_Get` / `EvaluationDate_Set` release
 it before waiting on native synchronization. A setter waits for an in-progress
 valuation; a getter can read the stable current date while valuation runs.
 
+Python retains `Product_New(events_dates, events)` and the existing
+three-to-eight-argument `MonteCarlo_Value` with `modelData`, `num_path`,
+`method`, `use_bb`, `enable_aad`, `smooth`, and `compiled` keywords. Script
+settings, `Product_Describe`, and `ScriptValuation_Explain` are not bound.
+The old wrapper uses default native preparation: historical FIX can use global
+history, but model-sourced named FIX requires a binding the wrapper cannot
+supply. `Product_DebugJson` remains schema /1 and rejects FIX/nonempty defaults.
+
 For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
 
 ```python
@@ -654,6 +711,11 @@ For a local-volatility model, use
 `DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
 range must be a rectangular spots-by-times matrix. `MONTECARLO.VALUE` requires a
 strictly positive path count.
+
+The seven-input `MONTECARLO.VALUE` has no compiled or script-settings argument.
+Excel has no script default-index/settings constructors or Describe/Explain
+projection. Its legacy wrapper uses default native preparation, with global
+history for historical FIX and no binding for model-sourced named FIX.
 
 `SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton

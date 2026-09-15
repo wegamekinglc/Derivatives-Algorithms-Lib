@@ -110,7 +110,8 @@ expression; it does not accept named arguments.
 node. Parsing performs no fixing lookup or model binding.
 
 `FIX` supports parsing, AST inspection, immutable
-[historical preparation](#historical-fixing-preparation), and core
+[historical preparation](#historical-fixing-preparation),
+[public C++ valuation](#public-c-settings), and core
 [double/tree valuation](#core-doubletree-fixing-valuation) and
 [AAD/tree valuation](#core-aadtree-fixing-valuation), both also available in
 compiled mode with model-aware preparation. Raw `ScriptProduct_` objects
@@ -164,8 +165,8 @@ representation (`Event_ = Vector_<Statement_>`). Partitioning is a one-time
 operation; appending events afterwards or partitioning again fails. For legacy
 scripts, `PreProcess` captures the global date if the product has not already
 been partitioned. It uses that same date for its timeline and rejects a second
-preprocessing call. Core `PrepareScript` captures the date before parsing a
-fresh product.
+preprocessing call. `PrepareScript` resolves an explicit valuation date or
+captures the global date once before parsing a fresh product.
 
 ### From Events to a Timeline
 
@@ -194,16 +195,123 @@ also records the slot of the variable named in its `payoff_` field
 (`payoffIdx_`, defaulting to the last variable); simulation harvests that slot
 as the path value.
 
+## Public C++ Settings
+
+Include `dal-public/src/script.hpp` for product construction and description,
+and `dal-public/src/value.hpp` for valuation and explanation. The public
+`Dal::ScriptProductSettings_`, `Dal::ScriptValuationSettings_`, and
+`Dal::MonteCarloSettings_` names expose the core types defined in
+`dal-cpp/dal/script/settings.hpp` under `Dal::Script`. `ModelIndexBinding_`,
+`TodayFixingPolicy_`, and `MarketFixingSnapshot_` belong to `Dal`.
+
+The supported call shapes are:
+
+| Entry                        | Arguments and defaults                                                                                       |
+|------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `NewScriptProduct`           | `name, dates, events` or `name, dates, events, contract`                                                     |
+| Legacy `ValueByMonteCarlo`   | `product, modelData, numPath, rsg="sobol", useBb=false, enableAad=false, smooth=0.01, compiled=std::nullopt` |
+| Settings `ValueByMonteCarlo` | `product, modelData, numPath, valuation, simulation=MonteCarloSettings_()`                                   |
+| `DescribeScriptProduct`      | `product`                                                                                                    |
+| `ExplainScriptValuation`     | `product, modelData, valuation=ScriptValuationSettings_()`                                                   |
+
+The product settings overload requires its fourth argument. Three-argument
+valuation selects the legacy overload, which maps its optional arguments to
+settings and forwards through the same preparation as the settings overload.
+All original valid three-to-eight-argument calls retain their interpretation.
+Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
+`ValueByMonteCarlo(product, model, numPath, {})` is ambiguous.
+
+### Fields and Defaults
+
+| Settings type              | Field                | Default                             | Contract                                                                                                           |
+|----------------------------|----------------------|-------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `ScriptProductSettings_`   | `defaultIndex_`      | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                  |
+| `ScriptValuationSettings_` | `todayFixingPolicy_` | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                          |
+| `ScriptValuationSettings_` | `modelBindings_`     | Empty vector                        | Records have `assetName_` and `indexName_`; model observations require one explicit `spot` to ordinary EQ binding. |
+| `ScriptValuationSettings_` | `evaluationDate_`    | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                        |
+| `ScriptValuationSettings_` | `fixings_`           | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.              |
+| `MonteCarloSettings_`      | `rsg_`               | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                               |
+| `MonteCarloSettings_`      | `useBb_`             | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                |
+| `MonteCarloSettings_`      | `enableAad_`         | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                       |
+| `MonteCarloSettings_`      | `smooth_`            | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                            |
+| `MonteCarloSettings_`      | `compiled_`          | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                     |
+
+The valuation settings initialize the policy to `MODEL`; assigning a separately
+default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
+use-history-if-available policy. The product default supplies identity only;
+it neither binds a model nor changes model spot/volatility inputs. Explicit
+`FIX(index)` obtains its identity from the script and needs no product default.
+
+`NewScriptProduct` checks equal date/event lengths and copies the input table
+and contract settings. It performs no parsing or market access. Full script
+and index validation occurs in description or preparation; pricing additionally
+requires dated events and a syntactic `PAYS`. Product and model handles must
+be non-null, the model must be BS or Dupire, and `numPath` must be a positive
+`int`. C++ cannot detect fractional values already converted to `int` before
+entry, and these typed settings have no string-key dictionary interface.
+
+Errors retain a stable identifier, the offending field/value and its constraint,
+with the throwing function in DAL exception context. Examples include
+`InvalidPathCount` (`numPath`), `InvalidSetting` with `InvalidSmoothing`
+(`simulation.smooth_`), `InvalidTodayFixingPolicy`
+(`valuation.todayFixingPolicy_`), `DuplicateModelBinding`, `UnknownModelAsset`,
+`InvalidIndex`, `MissingModelBinding`, and `ConflictingModelBinding`.
+Observation failures additionally identify original/canonical index names,
+exact fixing timestamp, event, source row and expanded position, statement,
+and node. `MissingFixing` reports the selected source and the exact-history
+requirement. Exceptions are not converted to a successful zero price.
+
+### Copies, Dates, and Concurrency
+
+Valuation and simulation settings are copied at entry. An explicit
+`evaluationDate_` causes zero global evaluation-date reads or writes; otherwise
+the entry captures the global date once and carries it through preparation and
+simulation. Neither path changes the caller's settings or global date.
+`ValueByMonteCarlo` and `ExplainScriptValuation` still hold the native
+valuation/mutation barrier, so these public calls serialize within a process
+even with explicit dates. See [runtime ownership](../architecture.md#evaluation-date-synchronization).
+
+Snapshot construction copies the input map; `Handle_<MarketFixingSnapshot_>`
+shares const data. A null handle selects `GlobalSnapshot`. A handle to
+`new MarketFixingSnapshot_()` selects an empty `ExplicitSnapshot`: required
+history fails rather than falling back to the global store. No historical
+requests means no global history capture. Global sequences are copied
+sequentially, without an atomic cross-sequence market snapshot; callers must
+exclude concurrent fixing writes during capture. Callers must also prevent
+concurrent mutation of input tables, settings, handles, or model data while
+an operation reads them. Entry copies do not make unsynchronized writes safe.
+
+Each valuation creates fresh preparation. Its worker reads use only the sealed
+plan and scenario; historical AAD state is rebuilt on the worker's own recording.
+The returned map contains `PV` and, with AAD, `d_<model parameter>` and
+`d_<script constant parameter>` only. PV is a path mean; risks are already
+normalized. There are no fixing-risk, preparation, or diagnostic result keys.
+
+The executable [settings example](../../dal-public/examples/script_settings.cpp)
+uses an explicit date and snapshot, historical `SCALE * FIX(EQ[DAL196_TEST])`,
+and compiled AAD. With history 80, SCALE 2 and zero rates, it checks `PV=160`
+and `d_SCALE=80`, then prints Describe and Explain. The
+[signature consumer](../../dal-public/test-consumer/script.cpp) exercises old
+three-to-eight-argument calls and typed settings.
+
 ## Historical Fixing Preparation
 
 `PrepareScript(data, settings = {}, snapshot = {})` in
 `dal-cpp/dal/script/preparation.hpp` accepts `ScriptProductData_`, core
 `ScriptValuationSettings_`, and an optional `Handle_<MarketFixingSnapshot_>`.
 All script preparation types are in `Dal::Script`; `TodayFixingPolicy_` and
-the snapshot type are in `Dal`. Each call captures the global evaluation date
-once, reparses the original product data, collects observations before any
+the snapshot type are in `Dal`. Each call resolves `settings.evaluationDate_`
+(capturing the global date once only when omitted), reparses the original
+product data, collects observations before any
 condition folding, and returns a `PreparedScript_`. The result exposes const
 access to its product, date, settings, and `ObservationPlan_`.
+
+The optional core snapshot tail argument and `settings.fixings_` are normalized
+to one source. A non-null tail fills an omitted setting; if both are non-null
+they must refer to the same object. Different handles raise `InvalidSetting`.
+The optional model-aware core contract tail uses the product's stored settings
+when its default is empty. Nonempty defaults on both inputs must parse to the
+same canonical identity; the stored product spelling is preserved.
 
 ### Dates and Structural Validation
 
@@ -413,13 +521,21 @@ model-aware prepared path for historical AAD replay. The expired zero-risk
 return does not imply support for an otherwise rejected execution mode. Raw
 unprepared FIX continues to raise `PreparationRequired`.
 
-These settings and entry points are core C++ interfaces. The dal-public
-`ValueByMonteCarlo` facade and Python/Excel `MonteCarlo_Value` bindings have no
-named preparation settings, model-binding, default-index, or snapshot
-arguments. They still reject FIX products with `PreparationRequired`.
-Product archive projection of the default index is also unavailable. Text
-and tree debug support does not change these valuation limits; JSON schema
-`dal.script-product/1` still rejects FIX.
+The [public C++ settings overload](#public-c-settings) exposes this preparation
+for tree/compiled price and AAD valuation. Product archive v2 persists the
+default index, and [Describe and Explain](#product-archive-and-diagnostics)
+provide separate contract and valuation JSON.
+
+Python and Excel retain their existing product/valuation signatures. They do
+not expose the script settings types, explicit valuation date, default-index
+construction, model bindings, script snapshot argument, Describe, or Explain.
+Their old valuation wrappers call the legacy public overload and therefore
+use default preparation: historical FIX can use global history, while a
+model-sourced named FIX fails without the required binding. The Python
+`Product_Describe` / `ScriptValuation_Explain` and corresponding Excel settings
+and diagnostic projections are not implemented. Python exposes its existing
+optional `compiled` argument; Excel `MONTECARLO.VALUE` has seven inputs and
+does not expose compiled selection.
 
 ## Core AAD/Tree Fixing Valuation
 
@@ -1091,9 +1207,124 @@ function `MCSimulation<T_>` in
 `dal-cpp/dal/script/simulation.hpp`, templated on `double` for value-only runs
 and on `AAD::Number_` for pathwise-adjoint runs.
 
+## Product Archive and Diagnostics
+
+Product archives, contract descriptions, and valuation explanations are
+independently versioned formats:
+
+| Format                   | Entry or archive type                                   | Meaning                                                                 |
+|--------------------------|---------------------------------------------------------|-------------------------------------------------------------------------|
+| Archive v1 reader        | `ScriptProductData_v1`                                  | Read name/dates/events with an empty default index.                     |
+| Archive v2 reader/writer | `ScriptProductData_v2`                                  | Persist the contract with optional `default_index`.                     |
+| Contract JSON /2         | `DescribeScriptProduct(product)`                        | Describe all parsed syntax without market or valuation-date access.     |
+| Valuation JSON /1        | `ExplainScriptValuation(product, modelData, valuation)` | Prepare once with default price settings and report the resulting plan. |
+| Legacy debug JSON /1     | `DebugScriptProductJson(product)`                       | Date-partitioned legacy AST; reject FIX and nonempty defaults.          |
+
+### Contract Archive
+
+The default writer emits `ScriptProductData_v2`. Its fields are `name`,
+`dates`, `events`, and optional `default_index`, alongside the archive type
+tag. Omitted or empty `default_index` means an unbound product. The v1 reader
+remains available; reading v1 and writing it again produces v2. No public v1
+export is provided.
+
+Archive roundtrips preserve the original product name, event cells, unexpanded
+script text, default-index spelling, and unquoted FIX literals, including FX
+direction and EQ delivery identity. They do not rewrite script text to
+canonical names. The archive contains no valuation date, fixing values or
+sources, model bindings, slots, sample/observation plan, prepared AST, bytecode,
+or AAD seed. Explaining or repricing a product does not change its archive.
+
+The v1 reader does not imply that an old binary can read v2 or execute FIX
+text. Source-call compatibility also provides no ABI guarantee: rebuild
+consumers and bindings against matching core/public headers and libraries.
+
+### Describe: Pure Contract Syntax
+
+`DescribeScriptProduct` emits `dal.script-product/2`. It parses a fresh copy
+of the original table, indexes variables, and validates index identities and
+the date constraint `F <= E`. It reads no historical data or global evaluation
+date, constructs no model, and submits no workers. It retains all dated events
+and syntax branches without a `phase` or `evaluation_date` field. A successful
+description does not establish historical availability, model support, or
+pricing validity: empty, definitions-only, and no-PAYS products can be
+described, but cannot be valued or explained.
+
+The JSON includes:
+
+- `name`, `default_index` with `original` and `canonical`, and `input_rows`
+  containing the original `row`, `date_or_definition`, and `text`.
+- `variables`, `constants`, and `payoff_index` (null when no payoff exists).
+- `events` with `event_id`, `date`, preprocessing `origins`, and AST
+  `statements`; node IDs `n0`, `n1`, … follow preorder over all events.
+- Observation leaves with `kind:"fix"` / `type:"Fix"` or
+  `kind:"spot"` / `type:"Spot"`, `index_original`, `index_canonical`,
+  `fixing_date_mode` (`Explicit` or `EventDate`), `fixing_date_literal`,
+  resolved `fixing_date`, exact-midnight `fixing_time`, and `source`.
+
+An omitted FIX date has a null `fixing_date_literal` and resolves to the event
+date for display; the AST retains the omission. Bound SPOT uses the product
+default identity; unbound SPOT has null index fields. An empty product default
+has `original:""` and `canonical:null`. JSON strings use standard quotes and
+escaping even though index literals inside the script have no quotes.
+
+`source` carries `row`, `offset`, `line`, `column`, and `event_date`. Rows refer
+to the original input table; offsets and line/column positions refer to the
+expanded event text. Rows, lines, and columns are one-based; offsets and
+event/statement IDs are zero-based. FIX positions identify the index literal;
+SPOT positions identify the function token. Event `origins` connect expanded
+statements to their input rows and offsets. Identity and source fields come
+from parser/preprocessor metadata, including macro and schedule expansion.
+
+### Explain: One Valuation Preparation
+
+`ExplainScriptValuation` emits `dal.script-valuation/1` using the same input,
+date, model, and historical preparation as pricing. Its optional valuation
+settings default exactly as in [public C++ settings](#fields-and-defaults).
+Simulation settings are fixed to default price semantics: Sobol, no bridge,
+no AAD, smoothing `0.01`, and tree execution. There is no path-count or
+simulation-settings argument. Explain can construct, allocate, and initialize
+a model, resolve history, and replay hard past state; it generates no paths,
+starts no workers, and creates no active AAD recording.
+
+The JSON reports `evaluation_date`, `today_fixing` (`Model` or
+`RequireHistorical`), `source_kind` (`GlobalSnapshot` or `ExplicitSnapshot`),
+effective `simulation`, `all_expired`, `observation_mode`, and validated
+`model_bindings`. The source kind describes the selected historical input,
+even if no history is needed; each request separately has source `Historical`
+or `Model`.
+
+`requests` retain plan order and zero-based `request_id`. Every request has its
+canonical identity, exact timestamp, resolution, and all `uses`, including
+original index spelling, fixing-date mode/literal, observation type, source,
+event/statement IDs, and the matching Describe node ID. A historical request's
+`history_value_id` selects its final virtual-index fixing value; it need not
+equal the request ID. Its `model_slot` is null. A model request has
+`model_slot:{sample_id,output_id}`, with null history ID and value; Explain
+does not invent a simulated fixing.
+
+`sample_dates`, `timeline`, `sample_definitions`, `event_to_sample`,
+`live_events`, and `numeraire_requests` come from the actual prepared plan.
+`live_events` maps all-event IDs to future-event indices before indexing
+`event_to_sample`. Payment numeraires use payment-event samples, independently
+of observation samples. These are requests, not generated numeraire values.
+Legacy unbound SPOT can have no named requests and uses `observation_mode:Legacy`.
+Wholly expired requests have `resolution:SkippedExpired` and null values/slots.
+They perform no historical I/O; sample and numeraire arrays are empty. Missing live history
+throws a preparation error rather than producing a successful null value.
+
+Every Explain and Value call prepares independently; Explain supplies no
+implicit cache or reusable public prepared handle. To compare the same market,
+pass the same explicit date and snapshot and preserve product/model inputs.
+With global history, an update between calls can change Value after Explain.
+Explain describes default price preparation, not AAD branch behavior or a
+caller-selected compiled plan. It neither returns a price nor adds diagnostic
+keys to Value's numeric map.
+
 ## Product Debug Outputs
 
-Each dal-public dump call captures the global evaluation date `D` once before
+For supported inputs, the legacy text, JSON /1, and tree wrappers capture the
+global evaluation date `D` once before
 parsing a fresh private product copy, then explicitly partitions it. Events
 before `D` are past; events on or after `D` are future. Repeating a dump after
 changing the evaluation date uses a new copy and the new date. Dumping does
@@ -1128,7 +1359,8 @@ that partitioning automatically on their private copies.
   set one (the default smoothing factor applies). Products containing any
   `FIX` raise `DebugSchemaUnsupported` before writing any JSON, including FIX
   in past events or dead branches, because schema `/1` cannot represent the
-  complete named observation.
+  complete named observation. The error directs callers to
+  `DescribeScriptProduct` and `dal.script-product/2`.
 - **Tree** — `ScriptProduct_::DebugTree(ost, ascii, width)` writes a
   human-friendly rendering: statements collapse to inline math while they fit
   the width budget (`width` caps the line width, default 125), for example
@@ -1151,7 +1383,10 @@ variable-table header. It raises `empty script product description` when no
 live event remains. `DebugScriptProductJson` and `DebugScriptProductTree` run
 `IndexVariables` on their partitioned copies, so indices, variable/constant
 tables, and the payoff slot are resolved while both phases and raw branches
-remain inspectable. JSON keeps schema `/1` and its FIX rejection. The Python
+remain inspectable. Public JSON keeps schema `/1` and rejects any FIX or
+nonempty product default index, even an unused default on an empty product,
+with `DebugSchemaUnsupported` and a Describe /2 migration hint. Archive v1
+and debug /1 are independent versions. The Python
 surface is `Product_Debug(product)`, `Product_DebugJson(product)`, and
 `Product_DebugTree(product, ascii=False, width=125)`; Excel's `PRODUCT.DEBUG`
 uses the legacy text wrapper.
@@ -1160,6 +1395,8 @@ uses the legacy text wrapper.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
+- [Public C++ settings example](../../dal-public/examples/script_settings.cpp)
+  — historical fixing, explicit date/snapshot, compiled AAD, Describe, and Explain.
 - [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.

@@ -43,6 +43,25 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.
 
+Script product and valuation settings expose named `FIX(index[,date])`
+pricing in tree/compiled and price/AAD modes. `NewScriptProduct` keeps its
+three-argument form and accepts a typed contract as a fourth argument;
+`ValueByMonteCarlo` keeps its old three-to-eight-argument calls and adds a
+required typed valuation argument with optional simulation settings.
+Explicit dates avoid global date access, and non-null fixing snapshots are
+authoritative even when empty. Product defaults identify legacy `SPOT()`;
+model-sourced named fixings still require an explicit `spot` to ordinary EQ
+binding. See the [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
+and executable [settings example](examples/script_settings.cpp).
+
+`DescribeScriptProduct` provides contract JSON /2 without historical, model,
+or global-date access. `ExplainScriptValuation` provides valuation JSON /1
+using default price preparation with history access but no workers; every
+call prepares independently. Product archive v2 preserves the original
+contract/default index and retains a v1 reader. Legacy debug JSON /1 rejects
+FIX/nonempty defaults with a Describe /2 migration hint. See
+[archives and diagnostics](../docs/methodology/script_engine.md#product-archive-and-diagnostics).
+
 `dal-public/src/curvespec.hpp` exposes generic joint multi-curve calibration
 through `CalibrateJointMultiCurveBundle`.
 
@@ -70,10 +89,20 @@ build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 The repository also carries an installed-package consumer under
 `tests/installed-consumer/`.
 
+The existing `ScriptApiConsumer` and `ScriptSettingsExample` CTests exercise
+legacy/typed calls and the settings example. Standalone public tests against
+installed core require Google Test, RapidJSON, and matching core curve-fixture
+headers; these dependencies are private to tests and omitted when tests are
+disabled. See [standalone setup](../docs/installation.md#standalone-public-facade-and-test-dependencies).
+
 ## Bindings
 
 `dal-python` and `dal-excel` build on this facade. They may use core types needed
 to bind the exposed signatures, so a public-facade change should be checked across
 C++, Python, and Excel surfaces together.
+
+The bindings retain their legacy script signatures; script-settings types and
+Describe/Explain projections are not exposed in Python or Excel. Their old
+valuation wrappers use default preparation through the public facade.
 
 DAL is distributed under the repository [MIT license](../LICENSE).
