@@ -115,7 +115,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
   - Core tree/compiled FIX valuation: explicit BS/Dupire EQ binding, shared observations, and payment numeraires
   - Typed historical AAD state, hard past decisions, and fuzzy future conditions
-  - Legacy SPOT compatibility and C++/Python/Excel settings and diagnostics
+  - Legacy SPOT compatibility boundary and C++/Python/Excel settings and diagnostics
   - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
   - Prepared continuous fuzzy kernels and legacy domain/condition folding
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)

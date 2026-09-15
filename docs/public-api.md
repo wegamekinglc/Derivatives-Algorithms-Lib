@@ -111,11 +111,17 @@ Write an explicit `ScriptValuationSettings_`, since a bare fourth-argument
 
 `NewScriptProduct(name, dates, events, contract)` accepts
 `ScriptProductSettings_`; the three-argument form uses an empty default index.
-`contract.defaultIndex_` gives legacy `SPOT()` an identity. Script expressions
-use unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`. Historical EQ/FX
-requests resolve at exact midnight; model-sourced requests require an explicit
+`contract.defaultIndex_` gives legacy `SPOT()` an identity. The example above
+uses `SPOT()`, the retained zero-argument compatibility form for model spot at
+the event date; unbound future-only scripts need no change. The named form for
+new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
+Historical EQ/FX
+requests resolve at exact midnight, and a missing required fixing is an error,
+never a model or placeholder fallback. Model-sourced requests require an explicit
 `valuation.modelBindings_` mapping from `spot` to one ordinary EQ. A product
-default does not create that model binding or supply model market data.
+default does not create that model binding or supply model market data. The
+per-form, per-date rules are in the
+[SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
 
 `valuation.evaluationDate_` is optional: when supplied it causes zero global
 evaluation-date reads/writes; otherwise the entry captures the global date
