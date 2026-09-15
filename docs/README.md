@@ -38,6 +38,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 
 - **[aad.md](methodology/aad.md)** — Automatic Adjoint Differentiation (AAD)
   - Expression templates, tape management, reverse-mode propagation
+  - Native block storage, allocation boundaries, and mark/rewind reuse
   - Backend architecture (native, XAD, CoDiPack, Adept)
   - Parallel AAD for Monte Carlo simulations
   - Tape-layer curve calibration primitives (`DiscountPWLF_`, `JointCurveBlock_`, `JointRate_`)

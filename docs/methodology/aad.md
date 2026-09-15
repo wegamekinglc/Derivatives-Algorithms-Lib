@@ -161,6 +161,24 @@ and then rewind, so the tape size is bounded by the work of a *single* repetitio
 rather than the whole simulation. Propagation can therefore be partitioned into
 ranges: from the end to the mark, and from the mark to the start.
 
+### Native Tape Storage
+
+The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists
+for nodes, local derivatives, operand-adjoint pointers, and multi-result
+adjoints. `RecordNode<N_>` reserves one node and, for nonzero `N_`, `N_`
+derivative and pointer entries. Multi-result mode also reserves and zeroes the
+node's result-adjoint slots. These allocations use the receiving tape object,
+including for a caller-owned tape.
+
+All arities share the same allocator. The three-input specialization uses
+compiler-specific attributes to prevent inlining the allocation call; it
+does not change the storage or recording rules. A block list
+advances when the next reservation does not fit, reuses an existing next block
+after rewind, and allocates a block when needed. Mark and rewind therefore
+support storage reuse without promising allocation-free AAD evaluation.
+`dal-cpp/tests/math/aad/test_tape.cpp` covers independent stream rollover,
+reuse, aliased operands, multiple results, and caller-owned tapes.
+
 ## Pathwise Adjoints in Monte Carlo
 
 A Monte Carlo price is an average over $P$ simulated paths,

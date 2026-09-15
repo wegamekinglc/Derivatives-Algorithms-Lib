@@ -437,7 +437,12 @@ To simulate a retained `PreparedScript_`, prepare it with a double model and
 `MCSimulation<AAD::Number_>(prepared, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps)`.
 For a nonexpired product, the requested type and effective `compiled` flag
 must match preparation, and `eps` must equal its `smooth_`; a mismatch raises
-`UnsupportedExecutionMode`. The prepared product supplies the required IF
+`UnsupportedExecutionMode`. In the AAD simulation driver the diagnostic is
+`UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation`.
+The outer prepared overload checks the scalar type first and reports
+`UnsupportedExecutionMode: evaluation mode differs from preparation` for that
+mismatch. An omitted `compiled` argument resolves to tree; it does not inherit
+the prepared selection. The prepared product supplies the required IF
 nesting depth. Retaining it retains its captured date, script parameters, and
 sealed history; prepare again when those inputs change. Each simulation still
 constructs fresh active models and historical seeds.
@@ -875,6 +880,13 @@ evaluation after compilation. `MCSimulation` compiles once per valuation on the
 main thread before dispatching path batches; a missing `PreProcess` is therefore
 reported as a normal exception rather than being hidden inside worker tasks.
 
+Artifacts built by the compiler without an observation plan or historical
+mode use the legacy instruction dispatcher and address scenario samples by
+event index. Prepared artifacts use the dispatcher that supports
+`LoadObservation` and `Discard`. Directly constructed opcode streams also use
+that dispatcher: constructing a stream does not certify it as legacy, and an
+observation load without a plan still raises `PreparationRequired`.
+
 For named observations, use `PreparedScript_::Compile(fuzzy)` after requesting
 compiled model-aware preparation. It returns the already built future artifact
 and rejects a different fuzzy mode. The prepared object also retains a hard
@@ -956,7 +968,12 @@ references independent of shared preparation optimizations.
 The isolated `dal-cpp/test-support/test_script_observation_allocations.cpp`
 fixture measures C++ allocation requests during repeated native-double exact
 and fuzzy tree/compiled evaluation after state/scenario construction. It does
-not measure AAD tape allocations. `ObservationPlan_::Read` uses fixed indexed
+so over 8193 evaluations, including the first, with ordinary and aligned
+allocation positive controls. Both fixture cases are registered with CTest.
+Double evaluator state restores its existing passive initial-value vector;
+active evaluator state retains a separate typed historical seed. The probe
+does not measure AAD tape allocations or arbitrary `malloc` calls.
+`ObservationPlan_::Read` uses fixed indexed
 access; this complexity property is established by source inspection rather
 than a dynamic count of every load. These checks are not runtime benchmarks.
 

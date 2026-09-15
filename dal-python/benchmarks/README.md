@@ -54,15 +54,15 @@ are errors, never silently skipped workloads.
 
 ## Workload alignment
 
-| Native target            | Python cases | Full workload and timing boundary                                                                                                                                |
-|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
-| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
-| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                         |
-| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
-| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
-| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
+| Native target            | Python cases | Full workload and timing boundary                                                                                                                          |
+|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation |
+| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization          |
+| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                  |
+| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block      |
+| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01  |
+| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                 |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
@@ -171,9 +171,9 @@ repository's Python 3.9 syntax gate includes benchmark sources.
 
 ## CI performance reports
 
-Performance reports are advisory. Neither `Linux CI gate` nor `Windows CI gate`
-depends on the `Benchmarks` job, so benchmark results do not block merging.
-The required build, correctness and sanitizer checks remain separate.
+Performance reports are advisory and do not block CI, merging, or delivery.
+Neither `Linux CI gate` nor `Windows CI gate` depends on the `Benchmarks` job.
+Required build, correctness, documentation and sanitizer checks still apply.
 
 The Linux `Benchmarks` job builds both the PR base (or pre-push commit on `master`)
 and the tested revision as independent Release builds with Python bindings enabled.
