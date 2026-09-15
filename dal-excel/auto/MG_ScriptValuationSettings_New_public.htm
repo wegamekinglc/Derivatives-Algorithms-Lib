@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>ScriptValuationSettings_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>ScriptValuationSettings_New (in Excel: SCRIPTVALUATIONSETTINGS.NEW)</h1>
+Create immutable valuation settings; no date capture or preparation
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: evaluation_date (integer serial), today_fixing (Model or RequireHistorical). Blank uses defaults.</td></tr>
+<tr><td>model_bindings</td><td>matrix of cells</td><td>yes</td><td>Two columns asset/index. Future FIX requires explicit spot to one plain EQ. Blank means no bindings.</td></tr>
+<tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Snapshot handle; blank uses global history per call. Explicit empty snapshot never falls back.</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>valuation</td><td>handle of type StorableScriptValuationSettings</td><td>Immutable valuation settings</td></tr>
+</table>
+
+
+
+
+
+

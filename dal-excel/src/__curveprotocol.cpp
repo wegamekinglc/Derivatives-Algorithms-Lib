@@ -119,15 +119,16 @@ resetConvention is handle StorableFxResetConvention
 public MarketFixingSnapshot_New
     Create an immutable market fixing snapshot from parallel input arrays
 &inputs
+&optional
 indexNames is string[]
-    Index names for the fixing observations
+    Index names; all three arrays blank constructs an explicit empty snapshot
 fixingTimes is cell[]
-    Fixing timestamps as Excel date-time cells
+    Exact fixing timestamps; serial fractions retain intraday time
 values is number[]
-    Positive finite fixing values
+    Finite fixing values; FX must be positive; EQ may be zero or negative
 &outputs
 snapshot is handle StorableMarketFixingSnapshot
-    The immutable market fixing snapshot
+    Immutable snapshot, including an explicit empty snapshot
 -IF-------------------------------------------------------------------------*/
 
 // clang-format on

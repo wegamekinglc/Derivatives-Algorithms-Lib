@@ -23,6 +23,8 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
 - **[Public C++ facade](../dal-public/README.md)** — convenience API and compatibility contract
 - **[Python bindings](../dal-python/README.md)** — package usage and Python API
 - **[Excel add-in](../dal-excel/README.md)** — Windows XLL and worksheet functions
+- **[Excel FIX settings](excel-script-settings.md)** — settings matrices and handles,
+  date/snapshot rules, JSON diagnostics, and the executable workbook
 
 ## Installation
 
@@ -113,7 +115,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
   - Core tree/compiled FIX valuation: explicit BS/Dupire EQ binding, shared observations, and payment numeraires
   - Typed historical AAD state, hard past decisions, and fuzzy future conditions
-  - Legacy SPOT compatibility and public facade/binding valuation limits
+  - Legacy SPOT compatibility and C++/Python/Excel settings and diagnostics
   - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
   - Prepared continuous fuzzy kernels and legacy domain/condition folding
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)

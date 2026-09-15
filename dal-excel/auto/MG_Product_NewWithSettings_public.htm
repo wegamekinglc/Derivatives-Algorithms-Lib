@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Product_NewWithSettings</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Product_NewWithSettings (in Excel: PRODUCT.NEWWITHSETTINGS)</h1>
+Create a script product using contract settings
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>dates</td><td>vector of cells</td><td></td><td>Event dates or definition labels; same conversion as PRODUCT.NEW</td></tr>
+<tr><td>events</td><td>vector of strings</td><td></td><td>Event script text; use FIX(EQ[AAPL]) without index quotes</td></tr>
+<tr><td>settings</td><td>handle of type StorableScriptProductSettings</td><td></td><td>Required SCRIPTPRODUCTSETTINGS.NEW handle</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>product</td><td>handle of type ScriptProductData</td><td>Script product</td></tr>
+</table>
+
+
+
+
+
+

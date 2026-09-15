@@ -54,6 +54,36 @@ namespace {
 
 TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) { ASSERT_GE(RegisteredFunctionsForTest().size(), 67); }
 
+TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
+    struct Contract_ {
+        const char* name_;
+        const char* arguments_;
+        const char* types_;
+    };
+    const Contract_ contracts[] = {{"ScriptProductSettings_New", "name,[settings]", "QQQ"},
+                                   {"Product_NewWithSettings", "name,dates,events,settings", "QQQQQ"},
+                                   {"ScriptValuationSettings_New", "name,[settings],[model_bindings],[fixings]", "QQQQQ"},
+                                   {"MonteCarloSettings_New", "name,[settings]", "QQQ"},
+                                   {"MonteCarlo_ValueWithSettings", "product,modelData,n_paths,[valuation],[simulation]", "QQQQQQ"},
+                                   {"Product_Describe", "product", "QQ"},
+                                   {"ScriptValuation_Explain", "product,modelData,[valuation]", "QQQQ"},
+                                   {"Product_New", "name,dates,events", "QQQQ"},
+                                   {"MonteCarlo_Value", "product,modelData,n_paths,rsg,use_bb,enable_aad,smooth", "QQQQQQQQ"},
+                                   {"MarketFixingSnapshot_New", "[indexNames],[fixingTimes],[values]", "QQQQ"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.name_;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.name_;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.name_));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.arguments_);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), contract.types_);
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata) {
     const auto registrations = RegisteredFunctionsForTest();
     const Vector_<String_> cNames = {

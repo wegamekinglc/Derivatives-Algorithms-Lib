@@ -10,11 +10,11 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("MarketFixingSnapshot_New");        
         argName = "indexNames (input #1)";
-        const Vector_<String_> indexNames = Excel::ToStringVector(xl_indexNames);
+        const Vector_<String_> indexNames = Excel::ToStringVector(xl_indexNames, true);
         argName = "fixingTimes (input #2)";
-        const Vector_<Cell_> fixingTimes = Excel::ToCellVector(xl_fixingTimes);
+        const Vector_<Cell_> fixingTimes = Excel::ToCellVector(xl_fixingTimes, true);
         argName = "values (input #3)";
-        const Vector_<double> values = Excel::ToDoubleVector(xl_values);
+        const Vector_<double> values = Excel::ToDoubleVector(xl_values, true);
         argName = 0;
 		Handle_<StorableMarketFixingSnapshot_> snapshot;
         MarketFixingSnapshot_New(indexNames, fixingTimes, values, &snapshot);
@@ -37,10 +37,10 @@ struct XlRegister_MarketFixingSnapshot_New_
     XlRegister_MarketFixingSnapshot_New_()
     {
         Vector_<String_> argHelp;        
-        argHelp.push_back("Index names for the fixing observations");
-        argHelp.push_back("Fixing timestamps as Excel date-time cells");
-        argHelp.push_back("Positive finite fixing values");
-        Excel::Register("Base", "xl_MarketFixingSnapshot_New", "MARKETFIXINGSNAPSHOT.NEW", "Create an immutable market fixing snapshot from parallel input arrays", "QQQQ", "indexNames,fixingTimes,values", argHelp, false);
+        argHelp.push_back("Index names; all three arrays blank constructs an explicit empty snapshot");
+        argHelp.push_back("Exact fixing timestamps; serial fractions retain intraday time");
+        argHelp.push_back("Finite fixing values; FX must be positive; EQ may be zero or negative");
+        Excel::Register("Base", "xl_MarketFixingSnapshot_New", "MARKETFIXINGSNAPSHOT.NEW", "Create an immutable market fixing snapshot from parallel input arrays", "QQQQ", "[indexNames],[fixingTimes],[values]", argHelp, false);
     }
 };
 static XlRegister_MarketFixingSnapshot_New_ The_MarketFixingSnapshot_New_XlRegisterer;

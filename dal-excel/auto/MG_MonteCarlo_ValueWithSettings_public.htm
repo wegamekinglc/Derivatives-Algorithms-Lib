@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>MonteCarlo_ValueWithSettings</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>MonteCarlo_ValueWithSettings (in Excel: MONTECARLO.VALUEWITHSETTINGS)</h1>
+Value a script product with valuation and simulation settings
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>product</td><td>handle of type ScriptProductData</td><td></td><td>Script product handle</td></tr>
+<tr><td>modelData</td><td>handle of type ModelData</td><td></td><td>BS or Dupire model data handle</td></tr>
+<tr><td>n_paths</td><td>number</td><td></td><td>Finite integer from 1 to INT_MAX</td></tr>
+<tr><td>valuation</td><td>handle of type StorableScriptValuationSettings</td><td>yes</td><td>Valuation settings handle; blank captures the global date and required history for this call</td></tr>
+<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>yes</td><td>Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>values</td><td>matrix of cells</td><td>Two columns: PV and optional d_ parameter keys, then numeric values; no header</td></tr>
+</table>
+
+
+
+
+
+

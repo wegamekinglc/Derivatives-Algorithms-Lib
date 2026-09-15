@@ -545,10 +545,18 @@ Python product archive. The complete
 historical SCALE payment plus a retained future observation, with an explicit
 date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`.
 
-Excel retains its legacy default preparation: historical FIX can use global
-history, while model-sourced named FIX lacks a binding argument. Excel has no
-script settings constructors or Describe/Explain projection; its seven-input
-`MONTECARLO.VALUE` also has no compiled selection.
+Excel exposes the same preparation through `MONTECARLO.VALUEWITHSETTINGS`
+and immutable product, valuation, and simulation settings handles. Two-column
+settings/binding ranges supply a default for legacy SPOT, an explicit date,
+today policy, `spot` to ordinary EQ binding, snapshot, and compiled/AAD options.
+Omitted handles use defaults; an explicit empty snapshot never falls back to
+global history. `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` project the
+native schemas as headerless JSON text columns, concatenated without separators.
+Each Value/Explain call prepares afresh; the functions are nonvolatile, so global
+state changes require explicit recalculation. The seven-input `MONTECARLO.VALUE`
+retains default valuation settings and has no compiled argument. See the
+[Excel FIX guide](../excel-script-settings.md) for exact worksheet inputs,
+date/time rules, and the executable workbook.
 
 ## Core AAD/Tree Fixing Valuation
 
@@ -1412,6 +1420,8 @@ uses the legacy text wrapper.
   — historical fixing, explicit date/snapshot, compiled AAD, Describe, and Explain.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
+- [Excel FIX settings](../excel-script-settings.md)
+  — immutable handles, two-column ranges, JSON chunks, and the runnable workbook.
 - [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
