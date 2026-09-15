@@ -132,6 +132,12 @@ if(DAL_PUBLIC_BUILD_TESTS)
     endif()
     target_link_libraries(dal_public_tests PRIVATE dal_public)
 
+    find_path(DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR rapidjson/document.h
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/externals/rapidjson/include"
+        DOC "RapidJSON headers for dal-public tests"
+        REQUIRED)
+    target_include_directories(dal_public_tests PRIVATE "${DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR}")
+
     if(TARGET gtest_main)
         target_link_libraries(dal_public_tests PRIVATE gtest gtest_main)
     else()

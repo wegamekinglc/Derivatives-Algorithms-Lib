@@ -39,6 +39,41 @@ namespace Dal::Script {
                     JsonWriteString("", out);
             });
         }
+
+        void
+        WriteObservationRequest(std::ostream& out, const ObservationPlan_& plan, const ObservationRequest_& request, size_t id, bool allExpired) {
+            out << "{\"request_id\":" << id << ",\"index_canonical\":";
+            JsonWriteString(request.key_.canonicalIndex_, out);
+            out << ",\"fixing_time\":";
+            JsonWriteString(DateTime::ToString(request.key_.fixingTime_), out);
+            out << ",\"source\":\"" << (request.historical_ ? "Historical" : "Model") << "\",\"resolution\":\""
+                << (allExpired ? "SkippedExpired" : "Resolved") << "\",\"uses\":";
+            WriteArray(out, request.uses_, [&](const auto& use, size_t) {
+                out << "{\"event_id\":" << use.eventId_ << ",\"statement_id\":" << use.statementId_ << ",\"node_id\":\"n" << use.nodeId_
+                    << "\",\"source\":";
+                JsonWriteSource(use.source_, out);
+                out << ",\"index_original\":";
+                JsonWriteString(use.indexOriginal_, out);
+                JsonWriteFixingDate(use.fixingDate_, out);
+                out << ",\"observation_type\":\"" << (use.legacySpot_ ? "Spot" : "Fix") << "\"}";
+            });
+            out << ",\"history_value_id\":";
+            if (request.historyValueId_)
+                out << *request.historyValueId_;
+            else
+                out << "null";
+            out << ",\"value\":";
+            if (request.historyValueId_)
+                out << DebugNumber(plan.KnownValue(*request.historyValueId_));
+            else
+                out << "null";
+            out << ",\"model_slot\":";
+            if (request.modelSlot_)
+                out << "{\"sample_id\":" << request.modelSlot_->sampleId_ << ",\"output_id\":" << request.modelSlot_->outputId_ << '}';
+            else
+                out << "null";
+            out << '}';
+        }
     } // namespace
 
     String_ DescribeScriptProductData(const ScriptProductData_& data) {
@@ -129,39 +164,8 @@ namespace Dal::Script {
             out << '}';
         });
         out << ",\"requests\":";
-        WriteArray(out, plan.Requests(), [&](const auto& request, size_t id) {
-            out << "{\"request_id\":" << id << ",\"index_canonical\":";
-            JsonWriteString(request.key_.canonicalIndex_, out);
-            out << ",\"fixing_time\":";
-            JsonWriteString(DateTime::ToString(request.key_.fixingTime_), out);
-            out << ",\"source\":\"" << (request.historical_ ? "Historical" : "Model") << "\",\"resolution\":\""
-                << (prepared.AllExpired() ? "SkippedExpired" : "Resolved") << "\",\"uses\":";
-            WriteArray(out, request.uses_, [&](const auto& use, size_t) {
-                out << "{\"event_id\":" << use.eventId_ << ",\"statement_id\":" << use.statementId_ << ",\"node_id\":\"n" << use.nodeId_
-                    << "\",\"source\":";
-                JsonWriteSource(use.source_, out);
-                out << ",\"index_original\":";
-                JsonWriteString(use.indexOriginal_, out);
-                JsonWriteFixingDate(use.fixingDate_, out);
-                out << ",\"observation_type\":\"" << (use.legacySpot_ ? "Spot" : "Fix") << "\"}";
-            });
-            out << ",\"history_value_id\":";
-            if (request.historyValueId_)
-                out << *request.historyValueId_;
-            else
-                out << "null";
-            out << ",\"value\":";
-            if (request.historyValueId_)
-                out << DebugNumber(plan.KnownValue(*request.historyValueId_));
-            else
-                out << "null";
-            out << ",\"model_slot\":";
-            if (request.modelSlot_)
-                out << "{\"sample_id\":" << request.modelSlot_->sampleId_ << ",\"output_id\":" << request.modelSlot_->outputId_ << '}';
-            else
-                out << "null";
-            out << '}';
-        });
+        WriteArray(out, plan.Requests(),
+                   [&](const auto& request, size_t id) { WriteObservationRequest(out, plan, request, id, prepared.AllExpired()); });
         out << ",\"sample_dates\":";
         WriteArray(out, plan.SampleDates(), [&](const auto& date, size_t) { JsonWriteString(Date::ToString(date), out); });
         out << ",\"timeline\":";
