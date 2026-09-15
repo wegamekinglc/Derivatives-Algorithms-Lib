@@ -102,10 +102,13 @@ support model-aware preparation with an explicit `spot` to one ordinary EQ
 binding in Black-Scholes or Dupire. Model-sourced FX and EQ delivery are
 unsupported; historical inverse-FX lookup supplies no future FX capability.
 Raw unprepared FIX raises `PreparationRequired`, and preparation without a
-model cannot value a nonexpired product. Prepared AAD tree replay preserves
+model cannot value a nonexpired product. Prepared AAD replay preserves
 parameter risk through historical expressions, with hard past and fuzzy future
-conditions. Named compiled and public-facade/Python/Excel valuation remain
-unavailable.
+conditions in both tree and compiled modes. The
+[public C++ settings overload](script_engine.md#public-c-settings) exposes the
+same preparation, explicit dates, bindings, and snapshots. Python/Excel retain
+legacy signatures without these settings or the Describe/Explain projections;
+their default preparation cannot supply a named model binding.
 
 ## IR indices are constructed, not parsed
 

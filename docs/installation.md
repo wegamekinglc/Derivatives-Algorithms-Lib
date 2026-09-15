@@ -243,6 +243,53 @@ cmake \
 For a generator that must be selected explicitly, add
 `-DDAL_GENERATOR=Ninja` (or the required local generator).
 
+### Standalone Public Facade and Test Dependencies
+
+`dal-public` can build separately against an installed `DAL::cpp`. The installed
+core and the public sources must be from compatible revisions and use matching
+compiler/runtime settings. The public facade exposes core types and does not
+isolate their ABI.
+
+From a full checkout with the core staged under `build/stage/core-dev` and an
+installed Google Test package:
+
+```bash
+cmake -S dal-public -B build/public-standalone \
+  "-DCMAKE_PREFIX_PATH=$PWD/build/stage/core-dev;/path/to/gtest/install" \
+  -DDAL_PUBLIC_BUILD_TESTS=ON -DDAL_CPP_BUILD_EXAMPLES=ON
+cmake --build build/public-standalone --parallel
+ctest --test-dir build/public-standalone --output-on-failure
+```
+
+Replace the Google Test prefix with a compatible local installation. Public
+tests use `GTest::gtest_main` from that package unless the workspace already
+provides Google Test targets. They also require two private include locations:
+
+| CMake variable                          | Required content                                           | Full-checkout hint                    |
+|-----------------------------------------|------------------------------------------------------------|---------------------------------------|
+| `DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR` | `rapidjson/document.h`                                     | `dal-cpp/externals/rapidjson/include` |
+| `DAL_PUBLIC_TEST_FIXTURE_DIR`           | `jointxccyquoteriskfixtures.hpp` and its companion headers | `dal-cpp/tests/curve`                 |
+
+In a detached public-source build, supply these as explicit `-D...=/path/...`
+arguments using RapidJSON headers and the matching core curve-test fixture
+directory. They are test sources, not part of the installed DAL headers.
+Configuration fails with the relevant variable when a required include
+location is missing. Public test include directories and Google Test linkage
+are private to `dal_public_tests`; `DAL::cpp` and `DAL::public` exports do not
+require them. With `DAL_PUBLIC_BUILD_TESTS=OFF`, these test dependencies are
+neither discovered nor required.
+
+`DAL_CPP_BUILD_EXAMPLES=ON` also builds `dal_script_settings_example` from
+`dal-public/examples/script_settings.cpp`. With public tests enabled, CTest
+registers `ScriptSettingsExample` and the legacy/typed-signature consumer
+`ScriptApiConsumer`. After a normal core profile build, run just these existing
+programs with:
+
+```bash
+ctest --test-dir build/core-dev \
+  -R '^(ScriptApiConsumer|ScriptSettingsExample)$' --output-on-failure
+```
+
 ## Python Bindings
 
 To build and test Python as part of the workspace:

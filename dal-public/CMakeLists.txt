@@ -132,6 +132,18 @@ if(DAL_PUBLIC_BUILD_TESTS)
     endif()
     target_link_libraries(dal_public_tests PRIVATE dal_public)
 
+    find_path(DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR rapidjson/document.h
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/externals/rapidjson/include"
+        DOC "RapidJSON headers for dal-public tests"
+        REQUIRED)
+    find_path(DAL_PUBLIC_TEST_FIXTURE_DIR jointxccyquoteriskfixtures.hpp
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/tests/curve"
+        DOC "Shared dal-cpp curve fixtures for dal-public tests"
+        REQUIRED)
+    target_include_directories(dal_public_tests PRIVATE
+        "${DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR}"
+        "${DAL_PUBLIC_TEST_FIXTURE_DIR}")
+
     if(TARGET gtest_main)
         target_link_libraries(dal_public_tests PRIVATE gtest gtest_main)
     else()
@@ -139,4 +151,22 @@ if(DAL_PUBLIC_BUILD_TESTS)
     endif()
 
     gtest_discover_tests(dal_public_tests)
+
+    add_executable(dal_script_api_consumer test-consumer/script.cpp)
+    target_link_libraries(dal_script_api_consumer PRIVATE DAL::public)
+    if(DAL_PUBLIC_USES_INSTALLED_CPP)
+        dal_cpp_apply_msvc_runtime(dal_script_api_consumer)
+    endif()
+    add_test(NAME ScriptApiConsumer COMMAND dal_script_api_consumer)
+endif()
+
+if(DAL_CPP_BUILD_EXAMPLES)
+    add_executable(dal_script_settings_example examples/script_settings.cpp)
+    target_link_libraries(dal_script_settings_example PRIVATE DAL::public)
+    if(DAL_PUBLIC_USES_INSTALLED_CPP)
+        dal_cpp_apply_msvc_runtime(dal_script_settings_example)
+    endif()
+    if(DAL_PUBLIC_BUILD_TESTS)
+        add_test(NAME ScriptSettingsExample COMMAND dal_script_settings_example)
+    endif()
 endif()

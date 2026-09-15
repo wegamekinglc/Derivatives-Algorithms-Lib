@@ -157,10 +157,23 @@ bash ./build_linux.sh --benchmarks
 
 ### Script Product Debug Dumps
 
-Script products dump three ways: the legacy s-expression listing
+Public C++ supports typed product and valuation settings for unquoted
+`FIX(index[,date])`, explicit dates/snapshots, and BS/Dupire EQ bindings while
+preserving old call signatures. See the
+[settings contract](docs/methodology/script_engine.md#public-c-settings) and
+[runnable C++ example](dal-public/examples/script_settings.cpp).
+
+`DescribeScriptProduct` returns contract JSON `dal.script-product/2` with no
+history/model/global-date access. `ExplainScriptValuation` returns
+`dal.script-valuation/1` from one default price preparation: it may read history,
+submits no workers, and does not cache the next valuation. These diagnostic
+and settings projections are not exposed in Python or Excel.
+
+Legacy script dumps include the s-expression listing
 (`DebugScriptProduct` in C++, `Product_Debug` in Python), a versioned JSON AST
 for machine consumers (`DebugScriptProductJson` / `Product_DebugJson`, schema
-`dal.script-product/1`), and a width-aware Unicode tree with an ASCII fallback
+`dal.script-product/1`, rejecting FIX or nonempty default indices), and a
+width-aware Unicode tree with an ASCII fallback
 (`DebugScriptProductTree` / `Product_DebugTree`). See
 [Product Debug Outputs](docs/methodology/script_engine.md#product-debug-outputs)
 for the formats.

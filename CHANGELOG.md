@@ -16,6 +16,24 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-15
+
+- **Public C++ script settings and diagnostics** — exposed named FIX valuation
+  with typed contract/valuation/simulation settings, explicit dates and immutable
+  snapshots, while preserving valid product-three and valuation-three-to-eight
+  argument calls. Both valuation overloads use fresh common preparation;
+  `smooth` must be finite and strictly positive. Archive v2 preserves original
+  contract text and optional default-index identity, retains the v1 reader, and
+  excludes runtime market state. Describe /2 inspects syntax without history,
+  model, or valuation-date access; Explain /1 performs default price preparation
+  without workers or a cache for subsequent Value. Legacy debug /1 rejects FIX
+  and nonempty defaults with a Describe migration hint. Rebuild consumers and
+  bindings against matching core/public libraries; old binaries are not promised
+  v2 compatibility. Python/Excel retain legacy signatures without the new
+  settings or diagnostic projections. See the
+  [public settings](docs/methodology/script_engine.md#public-c-settings) and
+  [archive/diagnostic contracts](docs/methodology/script_engine.md#product-archive-and-diagnostics).
+
 ## 2026-09-14
 
 - **Script compiled observations** — added named compiled double and fuzzy AAD

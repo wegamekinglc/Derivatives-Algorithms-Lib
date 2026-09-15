@@ -4,26 +4,27 @@
 
 #pragma once
 
-#include <regex>
-#include <utility>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/settings.hpp>
 #include <dal/script/visitor/all.hpp>
 #include <dal/storage/archive.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
-
-
+#include <regex>
+#include <utility>
 
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData
    data for script product from an events table
-version 1
+version 2
+manual
 &members
 name is ?string
 dates is cell[]
 events is string[]
+default_index is ?string
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal::Script {
@@ -39,15 +40,12 @@ namespace Dal::Script {
 
         template <bool Prepared_, class T_, class S_> void EvaluateSamples(const S_& sampleAt, EvalState_<T_>* state) const {
             Detail::EvalCompiledEvents<Prepared_>(
-                nodeStreams_.size(),
-                [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sampleAt(i)}; }, state);
+                nodeStreams_.size(), [&](size_t i) { return Detail::CompiledEventView_<T_>{nodeStreams_[i], constStreams_[i], sampleAt(i)}; }, state);
         }
 
     public:
-        ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
-                        Vector_<Vector_<>>&& constStreams)
-            : nodeStreams_(std::move(nodeStreams)),
-              constStreams_(std::move(constStreams)) {}
+        ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams, Vector_<Vector_<>>&& constStreams)
+            : nodeStreams_(std::move(nodeStreams)), constStreams_(std::move(constStreams)) {}
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
 
@@ -70,9 +68,7 @@ namespace Dal::Script {
             return result;
         }
 
-        template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
-            EvaluateImpl(scenario, state);
-        }
+        template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const { EvaluateImpl(scenario, state); }
 
     private:
         template <class T_> void EvaluateImpl(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
@@ -85,9 +81,7 @@ namespace Dal::Script {
             }
             const AAD::Sample_<T_> pastSample{};
             EvaluateSamples<true>(
-                [&](size_t i) -> const auto& {
-                    return historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i];
-                },
+                [&](size_t i) -> const auto& { return historical_ ? pastSample : scenario[observations_ ? observations_->EventToSample()[i] : i]; },
                 &state);
         }
     };
@@ -97,6 +91,7 @@ namespace Dal::Script {
         size_t payoffIdx_;
 
         Vector_<Date_> parsedEventDates_;
+        Vector_<Vector_<SourceOrigin_>> parsedEventSources_;
         std::optional<Date_> evaluationDate_;
         Vector_<Date_> pastEventDates_;
         Vector_<Event_> pastEvents_;
@@ -121,7 +116,7 @@ namespace Dal::Script {
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
-        : payoff_(std::move(payoff)), payoffIdx_(-1) {
+            : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
             auto dateEvents = Zip(dates, events);
             ParseEvents(dateEvents);
@@ -129,6 +124,8 @@ namespace Dal::Script {
 
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
         [[nodiscard]] const Vector_<Date_>& ParsedEventDates() const { return parsedEventDates_; }
+        [[nodiscard]] const Vector_<Vector_<SourceOrigin_>>& ParsedEventSources() const { return parsedEventSources_; }
+        [[nodiscard]] bool HasPayoff() const;
         [[nodiscard]] const std::optional<Date_>& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
@@ -136,26 +133,20 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<String_>& VarNames() const { return variables_; }
         [[nodiscard]] const Vector_<>& VarValues() const { return variableValues_; }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return consVariables_; }
+        [[nodiscard]] const Vector_<>& ConstVarValues() const { return consVariablesValues_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
-            return Evaluator_<T_>(variableValues_,
-                                  Apply([](double x) {return T_(x);}, consVariablesValues_));
+            return Evaluator_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_));
         }
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return FuzzyEvaluator_<T_>(variableValues_,
-                                       Apply([](double x) {return T_(x);}, consVariablesValues_),
-                                       maxNestedIfs,
-                                       defEps);
+            return FuzzyEvaluator_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double defEps = 0.0) const {
-            return EvalState_<T_>(variableValues_,
-                                  Apply([](double x) {return T_(x);}, consVariablesValues_),
-                                  maxNestedIfs,
-                                  defEps);
+            return EvalState_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps);
         }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -193,9 +184,7 @@ namespace Dal::Script {
                         stat->Accept(static_cast<V_&>(v));
         }
 
-        template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
-            EvaluateImpl(scenario, eval);
-        }
+        template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const { EvaluateImpl(scenario, eval); }
 
     private:
         template <class T_, class E_> void EvaluateImpl(const Scenario_<T_>& scenario, E_& eval) const {
@@ -232,16 +221,27 @@ namespace Dal::Script {
     class ScriptProductData_ : public Storable_ {
         Vector_<Cell_> eventDates_;
         Vector_<String_> eventDesc_;
+        ScriptProductSettings_ settings_;
 
     public:
         ScriptProductData_(const String_& name, const Vector_<Cell_>& dates, const Vector_<String_>& events)
-            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events) {}
+            : ScriptProductData_(name, dates, events, {}) {}
+        ScriptProductData_(const String_& name, const Vector_<Cell_>& dates, const Vector_<String_>& events, const ScriptProductSettings_& settings)
+            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events), settings_(settings) {
+            REQUIRE2(dates.size() == events.size(),
+                     "InvalidSetting: dates.size=" + String_(std::to_string(dates.size())) +
+                         "; events.size=" + String_(std::to_string(events.size())) + "; expected equal lengths",
+                     ScriptError_);
+        }
         void Write(Archive::Store_& dst) const override;
+        [[nodiscard]] const ScriptProductSettings_& Settings() const { return settings_; }
+        [[nodiscard]] const Vector_<Cell_>& Dates() const { return eventDates_; }
+        [[nodiscard]] const Vector_<String_>& EventTexts() const { return eventDesc_; }
         [[nodiscard]] ScriptProduct_ Product() const { return {eventDates_, eventDesc_, ""}; }
     };
 
     // Keep tree AAD execution in core to avoid expanding recording loops in public callers.
     template <>
     void ScriptProduct_::Evaluate<AAD::Number_, FuzzyEvaluator_<AAD::Number_>>(const Scenario_<AAD::Number_>& scenario,
-                                                                           FuzzyEvaluator_<AAD::Number_>& eval) const;
+                                                                               FuzzyEvaluator_<AAD::Number_>& eval) const;
 } // namespace Dal::Script

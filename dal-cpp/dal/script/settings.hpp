@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/indice/fixingsnapshot.hpp>
 #include <optional>
 
 #include <dal/model/base.hpp>
@@ -39,9 +40,17 @@ namespace Dal {
         struct ScriptValuationSettings_ {
             TodayFixingPolicy_ todayFixingPolicy_ = TodayFixingPolicy_::Value_::MODEL;
             Vector_<ModelIndexBinding_> modelBindings_;
+            std::optional<Date_> evaluationDate_;
+            Handle_<MarketFixingSnapshot_> fixings_;
         };
 
         Date_ CaptureScriptEvaluationDate();
+        inline const char* FixingSourceKind(const ScriptValuationSettings_& settings) {
+            return settings.fixings_ ? "ExplicitSnapshot" : "GlobalSnapshot";
+        }
+        Handle_<Index_> ParseSettingIndex(const String_& name, const String_& field);
+        ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings,
+                                                          const Handle_<MarketFixingSnapshot_>& snapshot = {});
         void ValidateRNG(const String_& method);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script

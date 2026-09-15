@@ -8,7 +8,7 @@
 
 #include "jointquoteriskfixture.hpp"
 #include <dal-public/src/curvepricing.hpp>
-#include <tests/curve/jointxccyquoteriskfixtures.hpp>
+#include <jointxccyquoteriskfixtures.hpp>
 
 TEST(CurvePricingPublicTest, TestJointUnregisteredXccyBaseRisk) {
     using namespace JointXccyQuoteRiskFixtures;

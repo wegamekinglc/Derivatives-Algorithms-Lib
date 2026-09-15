@@ -55,7 +55,7 @@ namespace Dal::Script {
     struct CompNode_ : public BoolNode_ {
         // Fuzzying stuff
         bool isDiscrete_ = false; // Continuous or isDiscrete_
-        double eps_ = 0.0; //	Continuous eps
+        double eps_ = 0.0;        //	Continuous eps
         // Discrete butterfly bounds
         double lb_ = 0.0;
         double rb_ = 0.0;
@@ -78,6 +78,7 @@ namespace Dal::Script {
     //	Market access
     struct NodeSpot_ : public Visitable_<ExprNode_, NodeSpot_, VISITORS> {
         std::optional<size_t> observationId_;
+        SourceLocation_ source_;
     };
 
     struct NodeFix_ : public Visitable_<ExprNode_, NodeFix_, VISITORS> {
@@ -133,7 +134,7 @@ namespace Dal::Script {
         int index_;
     };
 
-    struct NodeConstVar_: public Visitable_<ExprNode_, NodeConstVar_, VISITORS> {
+    struct NodeConstVar_ : public Visitable_<ExprNode_, NodeConstVar_, VISITORS> {
         explicit NodeConstVar_(String_ name, double val) : name_(std::move(name)), index_(-1) {
             //  NOT isConst_: the node must stay live so the compiled stream
             //  reads state.constVariables_[index_] (AAD const-var greeks,
@@ -163,9 +164,7 @@ namespace Dal::Script {
         bool alwaysFalse_ = false;
 
         [[nodiscard]] bool HasElse() const { return firstElse_ != -1; }
-        [[nodiscard]] size_t LastTrueIndex() const {
-            return HasElse() ? static_cast<size_t>(firstElse_) - 1 : arguments_.size() - 1;
-        }
+        [[nodiscard]] size_t LastTrueIndex() const { return HasElse() ? static_cast<size_t>(firstElse_) - 1 : arguments_.size() - 1; }
     };
 
     //	Collection of statements
@@ -179,9 +178,7 @@ namespace Dal::Script {
         return static_cast<const Concrete_*>(node.get());
     }
 
-    template <class Concrete_> FORCE_INLINE Concrete_* Downcast(std::unique_ptr<Node_>& node) {
-        return static_cast<Concrete_*>(node.get());
-    }
+    template <class Concrete_> FORCE_INLINE Concrete_* Downcast(std::unique_ptr<Node_>& node) { return static_cast<Concrete_*>(node.get()); }
 
     //  Factories
 

@@ -89,10 +89,13 @@ valuation/mutation barrier -> global-store mutex
 ```
 
 The valuation/mutation barrier is re-entrant. `ValueByMonteCarlo` holds it from
-before product construction and preprocessing until all simulation work and
-aggregation have completed or unwound. Evaluation-date setters acquire the same
-barrier and then the store mutex, so a setter cannot change the date during a
-valuation.
+input/settings validation through preparation until all simulation work and
+aggregation have completed or unwound. `ExplainScriptValuation` holds the same
+barrier through preparation and diagnostic rendering. Both public operations
+serialize even with an explicit `evaluationDate_`. An explicit date causes no
+global date reads or writes; an omitted date is captured once into the settings
+copy. Evaluation-date setters acquire the same barrier and then the store mutex,
+so a setter cannot change the global date during either operation.
 
 Evaluation-date getters acquire only the store mutex. They can therefore run on
 worker or caller threads while a valuation owns the barrier and return the
@@ -143,9 +146,11 @@ exception unwind.
 C++ / Python / Excel caller
   -> product and model builders
   -> ValueByMonteCarlo / MonteCarlo_Value / MONTECARLO.VALUE
-  -> script preprocessing and parsing
-  -> model factory
+  -> copy settings and resolve one explicit or global valuation date
   -> MCSimulation<double> or MCSimulation<AAD::Number_>
+  -> model factory
+  -> prepare: parse, collect observations, validate, allocate/init model,
+       seal history, replay past state, optionally compile
   -> path batches on the DAL thread pool
   -> tree-walk or compiled evaluator
   -> PV and optional AAD risks
@@ -155,6 +160,14 @@ C++ / Python / Excel caller
 tree-walk evaluator is the default; the compiled evaluator is an opt-in execution
 mode with the same payoff/risk contract. AAD simulations use a separate recording
 for each worker's path batch.
+
+Public C++ settings select the script default index, model binding, date/policy,
+and immutable fixing snapshot. Python/Excel expose their legacy signatures and
+default native preparation. Each Value and Explain call prepares independently;
+Describe inspects contract syntax without date, model, or history access.
+Script archive v2 stores original contract text/default identity and retains the
+v1 reader; no runtime market or prepared state is persisted. See
+[script settings and diagnostics](methodology/script_engine.md#public-c-settings).
 
 ## Curve Calibration Flow
 
