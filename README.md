@@ -31,7 +31,7 @@ one status badge per workflow; open a workflow run for per-job results.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
 - Separate Linux jobs cover CoDiPack thread isolation, Python bindings with
   generated-source verification, documentation integrity, a warning-clean
-  build, ASan/UBSan/TSan spot tests, and benchmark regression gating.
+  build, ASan/UBSan/TSan spot tests, and advisory benchmark reports.
 
 ## Quick Start
 

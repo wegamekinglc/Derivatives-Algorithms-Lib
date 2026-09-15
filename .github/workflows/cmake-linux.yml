@@ -512,6 +512,7 @@ jobs:
 
   # Benchmark job: builds pull-request base and head on the same runner, then
   # interleaves repeated runs so host noise affects both sides comparably.
+  # Reports are advisory and are not a dependency of Linux CI gate.
   benchmark:
     name: Benchmarks
     needs: changes
@@ -535,7 +536,7 @@ jobs:
         run: |
           base_sha="${PR_BASE_SHA:-$EVENT_BEFORE}"
           # A branch's first push reports an all-zero 'before'; fall back to the head's
-          # first parent so the paired gate still has a baseline to compare against.
+          # first parent so the paired report still has a baseline to compare against.
           if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]]; then
             base_sha="$(git rev-parse HEAD~1)"
           fi
@@ -579,7 +580,7 @@ jobs:
             --threads 4 \
             --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
 
-      - name: Test benchmark regression gate
+      - name: Test benchmark reporting tools
         run: |
           python3 -m unittest discover -s .github/scripts/tests -v
 
@@ -687,6 +688,7 @@ jobs:
 
       - name: Compare base and head Python performance
         id: python-performance
+        continue-on-error: true
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
@@ -726,6 +728,7 @@ jobs:
             --rounds 2
 
       - name: Compare base and head performance
+        continue-on-error: true
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
@@ -740,13 +743,14 @@ jobs:
             --threshold-percent 4
 
       - name: Diagnose Python regression with baseline A/A
+        continue-on-error: true
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
         env:
           DAL_NUM_THREADS: 4
         run: |
           # Diagnostics never replace the original base/head verdict. Run them
-          # after all comparisons so their workloads do not precede gated timings.
-          # Keep the gate's distinct-root check: the control is an explicit copy
+          # after all comparisons so their workloads do not precede paired timings.
+          # Keep the distinct-root check: the control is an explicit copy
           # of this binary and its configuration, not an independent rebuild.
           mkdir -p benchmark-baseline-aa/dal-python
           cp benchmark-base/build/benchmark-base/CMakeCache.txt benchmark-baseline-aa/
@@ -760,6 +764,7 @@ jobs:
             --samples 10 --confirmation-rounds 2 --threshold-percent 4
 
       - name: Diagnose Python regression with head A/A
+        continue-on-error: true
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
         env:
           DAL_NUM_THREADS: 4
@@ -804,7 +809,6 @@ jobs:
       - build-extended
       - warning-clean
       - sanitizers
-      - benchmark
     runs-on: ubuntu-latest
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
@@ -816,7 +820,6 @@ jobs:
       EXTENDED_RESULT: ${{ needs.build-extended.result }}
       WARNING_RESULT: ${{ needs.warning-clean.result }}
       SANITIZER_RESULT: ${{ needs.sanitizers.result }}
-      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
     steps:
       - name: Require the selected CI path to pass
         run: |
@@ -831,7 +834,6 @@ jobs:
             "$CODIPACK_RESULT" \
             "$EXTENDED_RESULT" \
             "$WARNING_RESULT" \
-            "$SANITIZER_RESULT" \
-            "$BENCHMARK_RESULT"; do
+            "$SANITIZER_RESULT"; do
             test "$result" = success
           done

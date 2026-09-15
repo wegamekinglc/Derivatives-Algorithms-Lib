@@ -208,6 +208,6 @@ digest manifest. `rate_risk_perf` measures 100/1,000 trades at each width agains
 equivalent joint node risk plus a dense transform, with a ≤20% steady-state
 overhead target and passive operation counters. Set
 `DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE` to retain all interleaved samples.
-The existing nine-executable paired regression gate retains its two rounds of
-ten samples and 4% confirmation rule; new cases become comparable when a
+The advisory nine-executable paired performance report uses two rounds of
+ten samples and a 4% reference threshold; new cases become comparable when a
 baseline includes them.

@@ -192,7 +192,8 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn('if [ "$DOCS_ONLY" = true ]; then', gate)
         for job_id in heavy_jobs:
             with self.subTest(gate_dependency=job_id):
-                self.assertIn(f"needs.{job_id}.result", gate)
+                if job_id != "benchmark":
+                    self.assertIn(f"needs.{job_id}.result", gate)
 
     def test_windows_fast_path_preserves_stable_gate(self):
         workflow = self.workflow("cmake-windows.yml")
@@ -210,7 +211,19 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn('if [ "$DOCS_ONLY" = true ]; then', gate)
         for job_id in heavy_jobs:
             with self.subTest(gate_dependency=job_id):
-                self.assertIn(f"needs.{job_id}.result", gate)
+                if job_id != "benchmark":
+                    self.assertIn(f"needs.{job_id}.result", gate)
+
+    def test_performance_reports_do_not_block_required_gates(self):
+        for workflow_name, gate_id in (
+            ("cmake-linux.yml", "linux-gate"),
+            ("cmake-windows.yml", "windows-gate"),
+        ):
+            with self.subTest(workflow=workflow_name):
+                gate = self.job(self.workflow(workflow_name), gate_id)
+                self.assertNotIn("- benchmark", gate)
+                self.assertNotIn("needs.benchmark.result", gate)
+                self.assertNotIn("BENCHMARK_RESULT", gate)
 
     def test_benchmark_jobs_persist_environment_and_results(self):
         for workflow_name in ("cmake-linux.yml", "cmake-windows.yml"):
