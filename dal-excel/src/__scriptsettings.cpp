@@ -98,8 +98,24 @@ namespace Dal {
             return date;
         }
 
-        template <class F_> void ReadRows(const Matrix_<Cell_>& input, const String_& function, const String_& argument, F_ read) {
-            if ((input.Rows() == 0 && input.Cols() == 0) || (input.Rows() == 1 && input.Cols() == 1 && Cell::IsEmpty(input(0, 0))))
+        String_ MethodValue(const Cell_& cell, const String_& context) {
+            const auto method = TextValue(cell, context);
+            REQUIRE(method == "sobol" || method == "mrg32" || method == "irn", context + "expected sobol, mrg32 or irn; received " + method);
+            return method;
+        }
+
+        double SmoothingValue(const Cell_& cell, const String_& context) {
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && *number > 0.0, context + "InvalidSmoothing: expected finite positive number");
+            return *number;
+        }
+
+        bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
+            return (input.Rows() == 0 && input.Cols() == 0) || (input.Rows() == 1 && input.Cols() == 1 && Cell::IsEmpty(input(0, 0)));
+        }
+
+        template <class F_> void ReadRows(const Matrix_<Cell_>& input, const String_& function, const String_& argument, F_ applyRow) {
+            if (IsDefaultSettingsInput(input))
                 return;
             REQUIRE(input.Cols() == 2, ScriptSettingLocation(function, argument, 1, input.Cols() < 2 ? input.Cols() + 1 : 3) +
                                            "expected 2 columns; rows=" + String_(std::to_string(input.Rows())) +
@@ -118,7 +134,7 @@ namespace Dal {
                 const auto inserted = seen.emplace(key, row + 1);
                 REQUIRE(inserted.second, keyContext + (argument == "model_bindings" ? "DuplicateModelBinding: duplicate asset " : "duplicate key ") +
                                              key + "; first row=" + String_(std::to_string(inserted.first->second)) + "; expected each key once");
-                read(key, value, keyContext, valueContext);
+                applyRow(key, value, keyContext, valueContext);
             }
         }
     } // namespace
@@ -171,15 +187,9 @@ namespace Dal {
         ReadRows(settings, "MonteCarloSettings_New", "settings",
                  [&](const String_& key, const Cell_& cell, const String_& keyContext, const String_& valueContext) {
                      if (key == "method") {
-                         const auto method = TextValue(cell, valueContext);
-                         REQUIRE(method == "sobol" || method == "mrg32" || method == "irn",
-                                 valueContext + "expected sobol, mrg32 or irn; received " + method);
-                         value.rsg_ = method;
+                         value.rsg_ = MethodValue(cell, valueContext);
                      } else if (key == "smooth") {
-                         const auto* number = std::get_if<double>(&cell.val_);
-                         REQUIRE(number && std::isfinite(*number) && *number > 0.0,
-                                 valueContext + "InvalidSmoothing: expected finite positive number");
-                         value.smooth_ = *number;
+                         value.smooth_ = SmoothingValue(cell, valueContext);
                      } else {
                          REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
                                  keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth or compiled");

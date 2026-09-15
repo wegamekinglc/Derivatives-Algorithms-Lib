@@ -1,5 +1,55 @@
 # DAL-205 / F8 Excel implementation — DAL-244 S2
 
+## Current handoff: Codacy repair after S3 (2026-09-15)
+
+The seven findings on draft PR [#376](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/376) have been addressed by a behavior-preserving refactor. This section supersedes the historical S2 execution counts below. The existing branch is `feature/dal-205-excel-fix-settings`; base remains `master`. Independent re-verification, documentation and mandatory review remain parent-owned.
+
+Input HEAD `ae2f7d523ae78c8f99a5f84977a6e5e706ba8fc0`, tree `ffe8263c738f4199d98bd3efb548e2fd9e1c56c2`, matches GitHub and contains the S3 tester commit and F7. The three authenticated S3 attachments match their supplied SHA256 values; all 95 evidence-manifest entries verify. No S3 result is counted as fresh execution here. Final committed HEAD/tree and exact-source replay are recorded in the attached report appendix, final source audit and workbook results because this committed report cannot contain its own commit hash.
+
+### Seven dispositions and design
+
+1. `dal-excel/src/__scriptdiagnostics.cpp`: separate UTF-8 lead-byte classification, checked decoding and Unicode escaping from chunk assembly. `ScriptDiagnosticChunks` complexity **19 → 4**; new helpers are at most 7. Decoding checks the remaining byte count before continuation access, rejects overlong encodings, surrogates, invalid continuations and values above U+10FFFF. ASCII, surrogate-pair spelling and 30,000-character chunk boundaries remain identical.
+2. `dal-excel/src/__scriptinput.hpp`: extract `IsScriptSettingCell`; `ValidateScriptSettingsRange` complexity **10 → 7**. Preserve raw blank/scalar handling, two-column validation and physical row/column error locations.
+3. `dal-excel/src/__scriptsettings.cpp`: extract the omitted/default matrix predicate; `ReadRows` complexity **11 → 7**. Row traversal, first/duplicate row identity, duplicate asset/key labels, half-empty rejection and callback order remain intact.
+4. In the same function rename callable parameter `read` to `applyRow`. Flawfinder 2.0.20 reproduces its name-based `read` rule at both declaration and invocation before the change, and reports zero hits afterwards. This parameter is a C++ callback, not POSIX `read`: it receives a key, a const cell and two context strings, not a buffer/count. Column 0/1 accesses follow `Cols()==2`; rows satisfy `0 <= row < Rows()`. No buffer overflow was reproduced and no suppression or boundary check was removed.
+5. In the same source extract `MethodValue` and `SmoothingValue`; `MonteCarloSettings_New` complexity **11 → 7**. Keep accepted RNG names, exact bool/0/1 rules, finite-positive smoothing and nullable compiled defaults.
+6. `dal-excel/tests/test_script_valuation.cpp`: split `TestTodayPolicyExactTimestampAndExplicitEmpty` (complexity 9) into `TestTodayPolicyAcrossExecutionModes` (7) and `TestExactTimestampAndExplicitEmpty` (3). The first retains all **2 models × 2 compiled modes × 2 AAD modes × 2 today policies = 16** combinations. The second retains the global-history positive control, midnight/11:00 rejection, explicit-empty no-fallback checks and missing-today error. Assertions and combinations are preserved. Portable **45 → 46**, Windows **59 → 60**, CTest **1794 → 1795** reflect this one split.
+7. `dal-excel/tests/windows/run-script-fix-settings.ps1`: rename `Release-Com` and every call to `Remove-ComReference`, using PowerShell's approved `Remove` verb. COM release, workbook assertions and own-process cleanup are otherwise byte-identical.
+
+The write domain is exactly those five files and this report. All three S3 added test bodies are byte-identical; its fixture, native/Python consumers, zero-rate oracle and testing report are unchanged. Four legacy generated registration/help files remain byte-identical to F7. No core/public/Python contract, global converter, markup, generated output, analyzer configuration or formal documentation changed.
+
+### RED, GREEN and fresh verification
+
+For this behavior-preserving repair, RED is the reproduced analyzer rejection rather than an invented product failure. Existing behavioral tests remain green; no assertion was weakened to obtain RED or GREEN. This is the justified deviation from adding a failing behavioral regression for a product defect. The attached `run-static.py` is a focused executable check against the original Git blobs and current files.
+
+- **RED:** `python3 evidence/run-static.py red` replays Lizard 1.23.0 (`lizard -C 8 -w` on all four scoped C++ files), Flawfinder 2.0.20 (`--minlevel=0 --error-level=1` on settings), and the PowerShell AST/`Get-Verb` check. Underlying exits are **1/1/1**, with the exact five complexity findings, two `read` hits and one unapproved verb. Original GitHub check-run annotations `104367440846` are attached.
+- **GREEN:** `python3 evidence/run-static.py green`: underlying exits **0/0/0**; no complexity above 8 in any of the four files, no settings Flawfinder hits and all hyphenated function verbs approved. PSScriptAnalyzer is absent locally; the PowerShell check uses the actual host parser and `Get-Verb`, not a claim that the full Codacy service ran locally.
+- Focused portable settings-row/scalar, Unicode and split-policy tests: **5/5**; all portable tests: **46/46**. Direct binaries produce XML and complete logs. An explicit `<utility>` include was added after the initial full build; both complete portable binaries were rebuilt and rerun after this include-only change.
+- Full fresh Linux configure/build/generate/install/CTest: `NUM_CORES=8 ADDITIONAL_CMAKE_FLAGS='-DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON -DDAL_EXCEL_BUILD_TESTS=ON' bash ./build_linux.sh --python 3.13 --generate`: **1795/1795**, 24.33 seconds. Includes 1607 core, 133 public, 46 portable, six allocation/boundary entries, two public consumer/example entries and one Python-suite entry.
+- Fresh CPython 3.13 module: `PYTHONPATH=build/Release-linux/dal-python dal-python/.venv/bin/python -m pytest dal-python/tests -q --junitxml=../evidence/pytest.xml`: **641 passed**, 9.28 seconds. This overlaps the CTest Python entry. `009.fix_settings.py` passes normally and under `-O`.
+- `dal_generate` runs in the full build; separate `cmake --build build/Release-linux --target dal_check_generated` passes with no drift. Installed package consumer configure/build/test: **1/1**. The installed workbook fixture C++ consumer and Python comparison pass all four scenarios.
+- Fresh Clang 21.1.8 Release `-O1 -gline-tables-only -DNDEBUG`, `DAL_ENABLE_SANITIZERS=address;undefined`, leak detection and UBSan halt-on-error: **46/46**, no sanitizer findings. Full configure/build/run commands and caches are attached.
+- Additional ASan/UBSan decoder probe compiles the actual changed source and original Git source under distinct symbols. All **1,111,936 non-ASCII Unicode scalars** match Python's independent JSON encoder and produce **433 identical chunks**. All **65,792 one/two-byte inputs** match Python UTF-8 acceptance and the original decoder; ten invalid multi-byte boundaries also reject. No 31GB maximum-output allocation is claimed.
+- Fresh Windows x64 XLL configure/build and all raw/typed/registration/export tests: **60/60**. Actual Excel workbook: **283 assertions / 47 captured output blocks**, registration true, saved workbook and own-process cleanup verified.
+- C++/Python/Excel: **57 independent analytic PV/AAD checks**, **121 saved workbook cells** and **four complete diagnostic JSON comparisons** pass. Long JSON lengths remain 281617 and 127403 characters. Poisoned native NaN/Infinity controls fail as intended. The zero-rate historical PV160/d_SCALE80 oracle remains included.
+- Hand-written clang-format, diff whitespace and documentation checks pass. Source/mirror and legacy-registration checks are attached. Performance remains advisory; no benchmark gate was introduced.
+
+### Build identity, reuse and limitations
+
+Linux uses GCC 15.2.0, CMake 4.2.3, Python 3.13.9, Git 2.53.0, Clang 21.1.8, clang-format 22.1.5 and native AADET. Linux release/sanitizer build directories and virtual environment were created for this run. Pinned submodules were initialized in this checkout; no prior wheel or compiled library was reused.
+
+Windows uses a **new** mirror `C:\dal-build\dal244-codacy`, initially compared across all **3680** tracked files including pinned submodules. It reuses the installed VS/Office/CMake/Ninja environment; source and build directories are new. S3's verification driver/audit source was adapted to this run's paths; no old result is reused. The final report-only commit replay may use this run's already-built XLL when the build confirms unchanged product sources.
+
+Windows 10.0.26200.0; PowerShell 5.1.26100.9444; Excel 16.0.20326.20144, PE0x8664/x64; VS2022 Community, MSVC19.44.35228/tools14.44.35207; CMake3.27.6; Ninja1.13.1. Release AADET with static MSVC runtime. Office paths remain the three explicit paths in the historical section below and are captured in this run's driver/cache. Rebuilt XLL SHA256: `AE7D8A5A3692FA03231E6994CE1FB08F224B794928EA275D6F79F8BA80ADDA66`.
+
+Known GCC Debug sanitizer `Index::Composite_` typeinfo link failure was not retried or reported as passed; the fresh Clang configuration passed. General Unicode worksheet input remains limited by the existing byte-oriented converter; the workbook transports UTF-8 bytes to test the approved output contract. The maximum-row guard is inspected, not stress-tested with a roughly 31GB string. Full Windows core/public tests and alternate AAD backends were not run; Windows verification covers the complete XLL test binary, and full core/public verification ran on Linux.
+
+This is a repair handoff for parent acceptance and independent S3 re-verification. Keep the existing PR draft; no closing keywords, merge, F9, tester/documentation/reviewer dispatch or performance gate. The final attachment records the one post-push CI snapshot; pending Codacy/CI is not a completed result. Only the parent is recalled if idle.
+
+## Historical original S2 record
+
+Everything below records the earlier S2 implementation, not this repair's execution results.
+
 ## Delivered behavior
 
 The seven approved functions expose immutable product, valuation and simulation settings, typed product construction/valuation, and native Describe/Explain JSON. Legacy PRODUCT.NEW and the seven-input MONTECARLO.VALUE registrations and date conversion remain intact. MARKETFIXINGSNAPSHOT.NEW now accepts three omitted arrays and returns a non-null empty snapshot; its conversion body is unchanged, including fractional intraday timestamps.

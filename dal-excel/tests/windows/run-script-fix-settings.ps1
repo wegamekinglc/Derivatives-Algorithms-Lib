@@ -32,7 +32,7 @@ function Check([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
     $script:results.assertions++
 }
-function Release-Com($Object) {
+function Remove-ComReference($Object) {
     if ($null -ne $Object -and [Runtime.InteropServices.Marshal]::IsComObject($Object)) {
         [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($Object)
     }
@@ -46,11 +46,11 @@ function Put([string]$Sheet, [string]$Address, $Value) {
             $range.NumberFormat = '@'
             $range.Value2 = $Value
         } else { $range.Value2 = [double]$Value }
-    } finally { Release-Com $range }
+    } finally { Remove-ComReference $range }
 }
 function Calculate([string]$Sheet, [string]$Address) {
     $range = $script:sheets[$Sheet].Range($Address)
-    try { $range.Calculate() } finally { Release-Com $range }
+    try { $range.Calculate() } finally { Remove-ComReference $range }
 }
 function Output([string]$Sheet, [string]$Address) {
     $range = $script:sheets[$Sheet].Range($Address)
@@ -70,7 +70,7 @@ function Output([string]$Sheet, [string]$Address) {
         $out = [ordered]@{rows=$rows; columns=$cols; values=$data}
         $script:results.outputs["$Sheet!$Address"] = $out
         return $out
-    } finally { Release-Com $spill; Release-Com $range }
+    } finally { Remove-ComReference $spill; Remove-ComReference $range }
 }
 function Price([string]$Address) {
     $out = Output 'Values' $Address
@@ -132,7 +132,7 @@ try {
         $control = Output 'Control' $address
         Check ($control.values[0][0] -is [bool] -or $control.values[0][0] -is [double]) "Control $address failed"
         $range = $sheets['Control'].Range($address)
-        try { $range.Value2 = [double]$control.values[0][0] } finally { Release-Com $range }
+        try { $range.Value2 = [double]$control.values[0][0] } finally { Remove-ComReference $range }
     }
     foreach ($cell in $fixture.sheets.Handles.PSObject.Properties) {
         Calculate 'Handles' $cell.Name
@@ -222,8 +222,8 @@ try {
         $book.Close($false)
     }
     if ($ownPid -ne 0) { $excel.Quit() }
-    foreach ($sheet in $sheets.Values) { Release-Com $sheet }
-    Release-Com $book; Release-Com $excel
+    foreach ($sheet in $sheets.Values) { Remove-ComReference $sheet }
+    Remove-ComReference $book; Remove-ComReference $excel
     [GC]::Collect(); [GC]::WaitForPendingFinalizers()
     if ($ownPid -ne 0) {
         $process = Get-Process -Id $ownPid -ErrorAction SilentlyContinue

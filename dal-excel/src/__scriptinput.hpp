@@ -69,6 +69,10 @@ namespace Dal::Excel {
         return input->xltype == xltypeMissing || input->xltype == xltypeNil || (input->xltype == xltypeStr && input->val.str[0] == 0);
     }
 
+    inline bool IsScriptSettingCell(const OPER_& cell) {
+        return ScriptInputBlank(&cell) || cell.xltype == xltypeStr || cell.xltype == xltypeNum || cell.xltype == xltypeBool;
+    }
+
     inline void ValidateScriptSettingsRange(const OPER_* input, const String_& function, const String_& argument) {
         if (ScriptInputBlank(ScriptScalarInput(input)))
             return;
@@ -79,9 +83,8 @@ namespace Dal::Excel {
         for (int row = 0; row < rows; ++row)
             for (int col = 0; col < cols; ++col) {
                 const auto& cell = input->val.array.lparray[row * cols + col];
-                REQUIRE(ScriptInputBlank(&cell) || cell.xltype == xltypeStr || cell.xltype == xltypeNum || cell.xltype == xltypeBool,
-                        ScriptSettingLocation(function, argument, row + 1, col + 1) + "received Excel type=" + String_(std::to_string(cell.xltype)) +
-                            "; expected blank, string, number or boolean cell");
+                REQUIRE(IsScriptSettingCell(cell), ScriptSettingLocation(function, argument, row + 1, col + 1) + "received Excel type=" +
+                                                       String_(std::to_string(cell.xltype)) + "; expected blank, string, number or boolean cell");
             }
     }
 #endif

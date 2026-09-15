@@ -155,7 +155,7 @@ TEST(ScriptExcelContractTest, TestHistoricalPriceAndAadOracle) {
             }
 }
 
-TEST(ScriptExcelContractTest, TestTodayPolicyExactTimestampAndExplicitEmpty) {
+TEST(ScriptExcelContractTest, TestTodayPolicyAcrossExecutionModes) {
     Excel::ScriptTestInitialize(1);
     const DateScope_ restore(D);
     FixHistory_ history;
@@ -185,9 +185,22 @@ TEST(ScriptExcelContractTest, TestTodayPolicyExactTimestampAndExplicitEmpty) {
                     ASSERT_EQ(reads.fixings_, require ? 1 : 0);
                     ASSERT_EQ(reads.histories_, 0);
                 }
+}
+
+TEST(ScriptExcelContractTest, TestExactTimestampAndExplicitEmpty) {
+    Excel::ScriptTestInitialize(1);
+    const DateScope_ restore(D);
+    FixHistory_ history;
+    history.vals_ = {{DateTime_(H, 0.0), 80.}, {DateTime_(D, 0.0), 80.}};
+    Excel::ScriptTestStoreFixings("EQ[AAPL]", history);
+    Reads_ reads;
+    const ObserverScope_ observe(&reads);
+    const Handle_<ModelData_> model(new BSModelData_("bs", 100., 0., 0., 0.));
+    Handle_<ScriptProductData_> today;
+    Product_New("today", {Cell_(double(Date::ToExcel(D)))}, {"pay PAYS FIX(EQ[AAPL])"}, &today);
     Matrix_<Cell_> cells;
     reads.histories_ = reads.fixings_ = 0;
-    MonteCarlo_ValueWithSettings(Product(), models[0], 1, Valuation({}), {}, &cells);
+    MonteCarlo_ValueWithSettings(Product(), model, 1, Valuation({}), {}, &cells);
     ASSERT_DOUBLE_EQ(Result(cells).at("PV"), 160.);
     ASSERT_EQ(reads.histories_, 1);
     ASSERT_EQ(reads.fixings_, 1);
@@ -198,11 +211,11 @@ TEST(ScriptExcelContractTest, TestTodayPolicyExactTimestampAndExplicitEmpty) {
     ASSERT_FALSE(intraday->val_->Find("EQ[AAPL]", DateTime_(H, 0.0)));
     for (const auto& snapshot : {empty, intraday}) {
         reads.histories_ = 0;
-        Error([&] { MonteCarlo_ValueWithSettings(Product(), models[0], 1, Valuation(snapshot), {}, &cells); },
+        Error([&] { MonteCarlo_ValueWithSettings(Product(), model, 1, Valuation(snapshot), {}, &cells); },
               {"MissingFixing", "ExplicitSnapshot", "2026-09-11 00:00:00"});
         ASSERT_EQ(reads.histories_, 0);
     }
-    Error([&] { MonteCarlo_ValueWithSettings(today, models[0], 1, Valuation(empty, true), {}, &cells); }, {"MissingFixing"});
+    Error([&] { MonteCarlo_ValueWithSettings(today, model, 1, Valuation(empty, true), {}, &cells); }, {"MissingFixing"});
 }
 
 TEST(ScriptExcelContractTest, TestLegacyDefaultsAndRetainedFutureOracle) {
