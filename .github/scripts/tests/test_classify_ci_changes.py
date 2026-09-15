@@ -1,7 +1,13 @@
 """Tests for the CI change classifier and workflow fast-path contract."""
 
 import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -242,6 +248,53 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         linux_benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
         self.assertIn("/usr/bin/time --verbose", linux_benchmark)
         self.assertIn('resource_file="benchmark-results/${bench}.resources.txt"', linux_benchmark)
+
+    def run_gate(self, platform, results, docs_only=False):
+        gate = self.job(self.workflow(f"cmake-{platform}.yml"), f"{platform}-gate")
+        bindings = re.findall(r"^      (\w+): \$\{\{ needs\.([\w-]+)\.result \}\}$", gate, re.MULTILINE)
+        environment = {"PATH": os.environ.get("PATH", ""), "DOCS_ONLY": str(docs_only).lower()}
+        environment.update({name: results.get(job, "") for name, job in bindings})
+        script = textwrap.dedent(gate.split("        run: |\n", 1)[1])
+        return subprocess.run(
+            ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+
+    @unittest.skipIf(sys.platform == "win32" or not shutil.which("bash"), "CI gates execute on Linux with bash")
+    def test_gate_shell_requires_success_for_every_correctness_job(self):
+        required_jobs = {
+            "linux": ("changes", "documentation", "define-matrix", "build",
+                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers"),
+            "windows": ("changes", "build", "build-script"),
+        }
+        for platform, jobs in required_jobs.items():
+            success = dict.fromkeys(jobs, "success")
+            for benchmark in ("success", "failure", "cancelled", "skipped", "running", ""):
+                with self.subTest(platform=platform, benchmark=benchmark):
+                    self.assertEqual(self.run_gate(platform, {**success, "benchmark": benchmark}), 0)
+            for job in jobs:
+                for result in ("failure", "cancelled", "skipped", "running", ""):
+                    with self.subTest(platform=platform, job=job, result=result):
+                        self.assertNotEqual(self.run_gate(platform, {**success, job: result}), 0)
+
+    @unittest.skipIf(sys.platform == "win32" or not shutil.which("bash"), "CI gates execute on Linux with bash")
+    def test_gate_shell_docs_only_accepts_skipped_builds_and_checks_documentation(self):
+        for platform in ("linux", "windows"):
+            results = dict.fromkeys(("define-matrix", "build", "codipack-thread-isolation",
+                                     "build-extended", "warning-clean", "sanitizers",
+                                     "build-script", "benchmark"), "skipped")
+            required = ("changes", "documentation") if platform == "linux" else ("changes",)
+            results.update(dict.fromkeys(required, "success"))
+            with self.subTest(platform=platform):
+                self.assertEqual(self.run_gate(platform, results, docs_only=True), 0)
+                self.assertNotEqual(self.run_gate(platform, results), 0)
+            for job in required:
+                for result in ("failure", "cancelled", "skipped", "running", ""):
+                    with self.subTest(platform=platform, job=job, result=result):
+                        self.assertNotEqual(self.run_gate(platform, {**results, job: result}, docs_only=True), 0)
 
     def test_linux_benchmark_pairs_pull_requests_and_master_pushes(self):
         benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
