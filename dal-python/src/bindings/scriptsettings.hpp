@@ -48,6 +48,12 @@ namespace Dal::Python {
         return result;
     }
 
+    inline String_ SettingStringInput(const py::handle& value, const std::string& field, const std::string& identifier = "InvalidSetting") {
+        if (IsEnum(value))
+            throw py::type_error(InputContext(value, field, "non-enum str or DAL String_ without NUL", identifier));
+        return StringInput(value, field, identifier);
+    }
+
     template <class T_> T_ SettingsInput(const py::handle& value, const std::string& field, const char* typeName) {
         if (value.is_none())
             return T_();

@@ -20,13 +20,13 @@ using namespace Dal::Python;
 void init_bindings_script(py::module_& m) {
     WithCopies(py::class_<ScriptProductSettings_>(m, "ScriptProductSettings_"))
         .def(py::init([](const py::object& defaultIndex) {
-                 return ScriptProductSettings_{StringInput(defaultIndex, "ScriptProductSettings_; default_index / product.defaultIndex_")};
+                 return ScriptProductSettings_{SettingStringInput(defaultIndex, "ScriptProductSettings_; default_index / product.defaultIndex_")};
              }),
              py::kw_only(), py::arg("default_index") = "")
         .def_property(
             "default_index", [](const ScriptProductSettings_& settings) { return Text(settings.defaultIndex_); },
             [](ScriptProductSettings_* settings, const py::object& value) {
-                settings->defaultIndex_ = StringInput(value, "ScriptProductSettings_; default_index / product.defaultIndex_");
+                settings->defaultIndex_ = SettingStringInput(value, "ScriptProductSettings_; default_index / product.defaultIndex_");
             });
 
     m.def(

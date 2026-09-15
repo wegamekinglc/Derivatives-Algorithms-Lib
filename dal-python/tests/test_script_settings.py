@@ -140,6 +140,127 @@ class IntChoice(enum.IntEnum):
     ONE = 1
 
 
+class ForeignSetting(str, enum.Enum):
+    MODEL = "Model"
+    HISTORY = "RequireHistorical"
+    INDEX = "EQ[A]"
+    METHOD = "sobol"
+    ASSET = "spot"
+    EVENT = "pay PAYS FIX(EQ[A])"
+
+
+class SettingText(str):
+    pass
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize(
+    "class_name,field,bad,previous",
+    [
+        (
+            "ScriptValuationSettings_",
+            "today_fixing",
+            ForeignSetting.MODEL,
+            dal.TodayFixingPolicy_.REQUIREHISTORICAL,
+        ),
+        (
+            "ScriptValuationSettings_",
+            "today_fixing",
+            ForeignSetting.HISTORY,
+            dal.TodayFixingPolicy_.MODEL,
+        ),
+        ("ScriptProductSettings_", "default_index", ForeignSetting.INDEX, "EQ[OLD]"),
+        ("MonteCarloSettings_", "method", ForeignSetting.METHOD, "mrg32"),
+    ],
+)
+def test_settings_reject_foreign_string_enums(
+    class_name, field, bad, previous, construct
+):
+    cls = getattr(dal, class_name)
+    settings = cls(**{field: previous})
+    with pytest.raises(TypeError) as error:
+        if construct:
+            cls(**{field: bad})
+        else:
+            setattr(settings, field, bad)
+    assert getattr(settings, field) == previous
+    message = str(error.value)
+    assert all(
+        part in message
+        for part in ("InvalidSetting", class_name, field, bad.value, "expected")
+    )
+    if field == "today_fixing":
+        assert all(
+            part in message
+            for part in ("InvalidTodayFixingPolicy", "Model", "RequireHistorical")
+        )
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize("text_type", [str, SettingText, dal.String_])
+@pytest.mark.parametrize(
+    "class_name,field,text,expected",
+    [
+        (
+            "ScriptValuationSettings_",
+            "today_fixing",
+            "Model",
+            dal.TodayFixingPolicy_.MODEL,
+        ),
+        (
+            "ScriptValuationSettings_",
+            "today_fixing",
+            "RequireHistorical",
+            dal.TodayFixingPolicy_.REQUIREHISTORICAL,
+        ),
+        ("ScriptProductSettings_", "default_index", "eq[A]", "eq[A]"),
+        ("MonteCarloSettings_", "method", "SoBoL", "SoBoL"),
+    ],
+)
+def test_settings_accept_supported_text(
+    class_name, field, text, expected, text_type, construct
+):
+    cls = getattr(dal, class_name)
+    settings = cls()
+    if construct:
+        settings = cls(**{field: text_type(text)})
+    else:
+        setattr(settings, field, text_type(text))
+    assert getattr(settings, field) == expected
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize(
+    "policy",
+    [dal.TodayFixingPolicy_.MODEL, dal.TodayFixingPolicy_.REQUIREHISTORICAL],
+)
+def test_settings_accept_native_today_policy(policy, construct):
+    settings = dal.ScriptValuationSettings_()
+    if construct:
+        settings = dal.ScriptValuationSettings_(today_fixing=policy)
+    else:
+        settings.today_fixing = policy
+    assert settings.today_fixing == policy
+
+
+@pytest.mark.parametrize("layer", [dal, native])
+@pytest.mark.parametrize("text_type", [str, SettingText, dal.String_, ForeignSetting])
+def test_event_and_model_binding_text_remains_compatible(layer, text_type):
+    today = dal.Date_(2026, 9, 12)
+    bindings = {text_type("spot"): text_type("EQ[A]")}
+    valuation = layer.ScriptValuationSettings_(
+        evaluation_date=today, model_bindings=bindings
+    )
+    assert valuation.model_bindings == {"spot": "EQ[A]"}
+    valuation.model_bindings = None
+    valuation.model_bindings = bindings
+    assert valuation.model_bindings == {"spot": "EQ[A]"}
+    product = layer.Product_New([dal.Cell_(today)], [text_type("pay PAYS FIX(EQ[A])")])
+    model = dal.BSModelData_New(100.0, 0.0, 0.0, 0.0)
+    result = layer.MonteCarlo_ValueWithSettings(product, model, 1, valuation=valuation)
+    assert result == {"PV": 100.0}
+
+
 class IndexCount:
     def __index__(self):
         return 1
