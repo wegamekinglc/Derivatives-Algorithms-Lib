@@ -1,192 +1,211 @@
-# DAL-202 F5 independent fuzzy arithmetic verification
+# DAL-202 / F5 independent verification after master integration
 
-Fresh independent verification of the fuzzy arithmetic correction passes.
-No actionable production defect was reproduced. This report supersedes the
-preceding testing report; parent acceptance, documentation correction and
-mandatory independent re-review remain required.
+Fresh independent Linux verification passes. No actionable product defect was
+reproduced. This report covers accumulated F4 integration, legacy execution,
+preparation, native tape allocation and advisory CI policy changes. Earlier
+DAL-229 reports are historical evidence and do not approve this revision.
 
-## Revisions and scope
+Performance findings are advisory under Cheng Li's DAL-228 instruction
+`01a0a25d-9f60-770c-8e14-43eae4184b7f`. Historical C++ **61/63** and Python
+**87/90** comparisons remain failed reference measurements. They are neither
+relabeled as passes nor treated as CI, merge or F5 acceptance blockers. No full
+timing rerun, calibration optimization or private NextBlock experiment was run.
 
-- Input head: `73658a5ffe8d57f009c9d6d5aba1abe4e80435cf`.
-- Input tree: `03eaa35a8dcd91a5d7354102f8b00c707a4e63ee`.
-- Tested test commit: `1e1e04a7cfdff126db330a2292f38bc3f93954dc`.
-- Tested tree: `0cff8c9308c0205d83494d3c86165718aa7fca6a`.
-- Production implementation: `f2e6cc353b0ae1f10cf24eb226f92d6a21645ba5`.
-- Existing [draft PR #372](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/372),
-  branch `feature/dal-202-compiled-observations`, base
-  `feature/dal-201-historical-aad-state`, dependencies #371/#369.
-- Fixed F4 ancestor: `5c954ca2fdded2ca35ad15c7fef44d90a002007d`.
+## Revisions and changed scope
 
-Initial checkout was clean and matched the requested head/tree and GitHub PR.
-Authenticated implementation archive SHA256:
-`f1d3ded23bde9782688cfcbb8c60c96f6c2c165a5f4c67b449d70e0942268bb8`.
-All 73 internal hashes, six supplied tested-source hashes, and attached
-implementation report equality with Git were independently verified. Those
-predecessor logs establish provenance only, not the fresh results below.
+- Starting head: `ea8d5a26e6ecde0f95fe972aab4d20e81064f0a6`, tree
+  `fd7e157b57381fb79cd16126e55ea4d78d20ea01`.
+- Verified working tree recorded by test commit:
+  `3bacea1f1671deaccb09617b60300820b5ab4711`, tree
+  `d9fa401afaf0da665aa8c6b67c82cbc3319eb956`.
+- F4 squash `b4e8b56135b5cfcbbe2ddd8d753921dd40d6caa2` is an ancestor.
+- Product/public/binding sources equal correctness baseline `3de188ba`.
+  The test commit changes only `.github/scripts/tests/test_classify_ci_changes.py`.
+  This report is the only subsequent tracked change. Final published SHA/tree,
+  clean status and the single CI snapshot are in the attached publication record
+  and DAL-229 delivery comment.
 
-This tester changes only `dal-cpp/tests/script/test_fuzzy_arithmetic.cpp` and
-this report. Publication adds only this report after the tested test commit.
-Attached `publication.json` records exact published SHA/tree, source equality,
-clean status and PR identity, avoiding a self-referential commit hash here.
-No production, public documentation, configuration, dependency, tolerance, gate
-or performance change is included.
+Publication uses existing `feature/dal-202-compiled-observations` and
+[PR #372](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/372),
+base master. Its owner-set ready state is preserved. This tester changes no
+product, workflow, documentation, benchmark, threshold or protection file.
 
 ## Running existing tests
 
-Fresh GCC 15.2.0/CMake 4.2.3 Release results, including the new test:
+All results below were executed in this run, rather than copied from DAL-228.
 
-- Full native Linux configure/build/install/CTest: **1743/1743**, `full-linux.log`.
-- Native targeted script/simulation/AAD/compiler/visitor: **453/453**.
-- Adept targeted: **453/453**.
-- CoDiPack targeted: **453/453**.
-- XAD targeted: **452/452**, retaining its existing backend exclusion.
-- All **33 ScriptCompiledParity/ScriptCompiledParityFuzz cases** pass on each
-  backend: 30 legacy-source cases and 3 F5 observation cases.
-- Unchanged fuzzy-divisor reviewer reproduction: **6/6**, `reviewer-fuzzy.log`.
-- Unchanged exact-boundary reviewer reproduction: **4/4**, `reviewer-exact.log`.
-- Isolated native-double allocation fixture: **2/2**, `allocation.log`.
-- Documentation structure checker: **70 Markdown files**, `docs-check.log`.
-- Changed-file clang-format and patch whitespace checks: pass.
+| Configuration / check | Fresh result |
+|---|---:|
+| GCC 14 Release native full configure/build/install/CTest | 1753/1753 |
+| Python 3.13 pytest, within one of those CTest entries | 402/402 |
+| Native focused script/simulation/AAD/compiler/visitor | 457/457 |
+| Adept / CoDiPack / XAD focused suite | 456/456; 456/456; 455/455 |
+| Separate `AADTapeTest.*`, native / Adept / CoDiPack / XAD | 12/12; 4/4; 4/4; 4/4 |
+| Clang 21 ASan/UBSan, `AAD*:Script*:MonteCarlo*:MCSimulation*` | 403/403 |
+| Registered isolated allocation cases under ASan/UBSan | 2/2 |
+| Original exact-boundary / signed tiny-divisor probes | 4/4; 6/6 |
+| Independently rebuilt isolated allocation probe | 2/2 |
+| Installed-package consumer | 1/1 |
+| GCC static, GCC shared, Clang sanitized static consumers with LTO | 3/3 |
+| Existing CI-tool suite before new tests | 161 run; 155 pass, 6 skips |
+| Final CI-tool suite | 163 run; 157 pass, 6 skips |
+| Documentation structure validation | 58 Markdown files |
 
 Fresh full-workflow summary:
-`100% tests passed, 0 tests failed out of 1743`, with 14.50 seconds of CTest.
-Core/public/portable Excel contracts run; examples build/install. Python and
-benchmarks are disabled. Targeted inventories/XML retain every matched case;
-All alternate inventories omit native-only
-`AADTest.TestDefaultNumberAdjointRequiresTapeNode`. Adept additionally runs
-`ScriptTest.TestCompiledAadOperandStacksHaveEvaluationStateLifetime`; CoDiPack
-additionally runs `AADTest.TestCoDiPackTapeIsPerThreadAcrossThreadLifetimes`.
-XAD has no additional case. These are existing conditional tests; no F5 case
-is omitted. The attached suite audit records the exact differences.
-Standalone reviewer/allocation fixtures are outside the CTest count.
 
-## Authoring coverage and regression sensitivity
+```text
+100% tests passed, 0 tests failed out of 1753
+Total Test time (real) = 26.87 sec
+```
 
-Added one test,
-`ScriptFuzzyArithmeticTest.TestNestedFractionalStateAcrossEventsAndWidths`.
-Six fixtures combine two signed tiny divisors with three epsilon settings:
-omitted width/default smooth=0.01, omitted width/smooth=0.2, and explicit
-width=0.2 overriding smooth=0.01. A first future event computes x through the
-tiny divisor, nests two fractional IFs, and carries y to a later payment event.
+The full workflow includes public API and portable Excel contracts, Python, and
+building/installing examples. Benchmarks are disabled. Python's 402 is not added
+to the CTest count. No previous root `test_output.txt` existed; attached
+`full-linux.log` and `full-ctest-cases.log` come from this fresh build.
 
-Both conditions have w=0.75 at x=epsilon/4. The nested true arm assigns x or
-2*x; the outer false arm assigns 3*x. Independently,
-`y=x*(3-w-w*w)`, hence `PV=0.421875*epsilon` and
-`d_SCALE=0.1328125*epsilon` at SCALE=2. Rate risk is
-`-10/DAYS_PER_YEAR*PV`; spot/vol/div risks are zero, with exactly five labels.
-Both prepared fuzzy-double paths and both AAD paths must match those formulas.
-AAD runs 257 paths. Central differences of the unoptimized reference at
-SCALE=2 +/- 0.0001 check the analytic SCALE derivative to 1e-10.
+The historical focused filter excludes `AADTapeTest`, so it is explicitly run
+separately on every backend. Native coverage includes three-input allocation,
+rollover/reuse, aliased operands, multiple adjoints and caller-owned tapes.
+Native-only root/default-Number tests account for two focused cases; Adept adds
+its operand-stack lifetime test and CoDiPack its thread-lifetime isolation test.
+XAD adds neither. Eight further tape tests are native-only. No selected C++ test
+is skipped. XML and `suite-summary.json` record actual inventories/differences.
 
-The reference helper now visits all future events and accepts the selected
-smoothing width. It uses model-free PrepareScript for parsing, indexing and
-sealed observations, then IFProcessor solely for nesting/affected-variable
-metadata. It performs no domain/constant optimization. Analytic checks precede
-prepared evaluation, so shared optimized tree/compiled agreement cannot hide
-a wrong branch weight or reference metadata error.
+The verified original consumer sources are freshly compiled. A shared consumer
+allocates three-input nodes through the public tape header; its caller mixes
+local/external allocation and checks node, derivative, pointer and multi-adjoint
+counts. All three builds report identical layout:
+`368 8 0 8 16 88 160 232 304`. LTO applies to consumer translation units; DAL
+libraries are separately built Release/static/shared/sanitized libraries.
+The installed-package consumer independently resolves installed CMake targets.
+ASan enables leak detection and UBSan halts on error. No sanitizer finding.
 
-The inherited four tests and 25 signed literal/known/computed fixtures retain
-all assertions, including adjacent floats around 2e-14, tiny products,
-fractional PV=0.0375/d_SCALE=0.025, and live denominator derivative=-0.5.
+## F5 matrix and independent oracles
 
-Independent RED links original `preparation.cpp` from `00e96f9a` before the
-repaired library. The new narrow test passes its raw analytic/finite-difference
-checks, then fails with `Division by {0}` (`red-nested.log`). All five final
-arithmetic tests fail against original preparation (`red-all-fuzzy.log`).
-The new test and full suite pass on repaired native/Adept/CoDiPack/XAD.
-This characterizes regression sensitivity of an already implemented repair;
-the tester did not author the production fix.
+All **33** ScriptCompiledParity/ScriptCompiledParityFuzz cases pass on all four
+backends. The unchanged lifetime test executes all **27** combinations of
+threads `{1,2,4}`, history sequence `{80,90,80}`, three payoff roots and **8193
+paths**. These are internal scenarios, not 27 separately discovered Google Tests.
+
+| Contract | Oracle and fresh coverage |
+|---|---|
+| T06/T09/T10/T21 | Retained F=120 and unrelated sample=999 yield independent 200/160/120/160 path payoffs. Discounted zero-Gaussian formulas check every model/parameter risk and artifact lifetime. |
+| T18 | Historical SCALE*H gives PV=160*exp(-r*T), SCALE risk=80*exp(-r*T), rate risk=-T*PV, T=10/DAYS_PER_YEAR; zero model risks and no fixing risk key. |
+| T19/T20 | Direct historical seeds, constant roots and terminal path roots retain correct risks. Past barriers use hard comparisons below/at/above thresholds; past PAYS is evaluated/discarded. Nonlinear history repricing rebuilds preparation. |
+| T22 | Five smooth strikes and both paths retain w=(80-K+0.1)/0.2, PV=160*w*discount and K risk=-800*discount. Same-epsilon fuzzy double agrees with AAD; central differences use strike +/-0.0001 with tolerance 1e-5. |
+| T23 | All 27 lifetime scenarios pass. Separate BS/Dupire references rebuild and record every path, checking risks across batches and repeated calls. Tape/root tests challenge stale adjoints and allocation rollover. |
+| T16/T27 | Nonexpired dead-branch missing history fails across exact/fuzzy tree/compiled modes. Eager AND/OR, legacy SPOT, FIX/default binding, deduplication and today policies remain covered. |
+| T31 | Last-history, model and compilation failures submit zero workers. Compiler seams recover; path/numerical failures drain accepted tasks before returning. |
+| T32 | Throwing history/index seams after preparation and stable observation/evaluator storage pass. Allocation instrumentation detects ordinary/aligned positive controls, then zero C++ allocations over 8193 exact/fuzzy tree/compiled double evaluations, including the first. |
+
+Exact arithmetic retains adjacent floats around 80, six comparisons, signed
+zero/subnormal values and live `1e14*1e-14` parameter dependencies. The original
+unoptimized exact probe passes independently of tree/compiled agreement.
+
+Signed tiny fuzzy divisors retain analytic PV/SCALE risk, including computed
+denominators, fractional weights and nested cross-event state. Existing nested
+oracles use `y=x*(3-w-w*w)` and check primal, SCALE/rate risk and smooth central
+differences across explicit/default epsilon settings. Oracles and tolerances
+are unchanged: deterministic price relative 1e-12, analytic risks 1e-10,
+normalized same-path MC 1e-8. No derivative is claimed at a hard switch.
+
+Prepared-mode tests still assert the full AAD/smoothing/compiled-tree diagnostic,
+both directions, nullopt defaults, matching execution and expired behavior.
+The allocation fixture remains registered in CTest. Inspected production code
+retains syntax-wide collection and sealed history before workers, hard local
+AAD replay before the tape mark, live ConstVar inputs, final IF metadata before
+compilation and path-local terminal-root reuse.
+
+## Authoring tests and challenging the CI evidence
+
+Added two tests to `CiWorkflowFastPathTest`:
+
+- `test_gate_shell_requires_success_for_every_correctness_job`
+- `test_gate_shell_docs_only_accepts_skipped_builds_and_checks_documentation`
+
+These execute both workflows' actual Bash gate bodies and actual environment
+bindings, using independent expected correctness job lists. **86 scenarios pass**:
+success/failure/cancelled/skipped/running/empty benchmark states; every
+nonsuccess required result; docs-only with heavy jobs really skipped;
+classifier/documentation failures on that path; and rejection of skipped builds
+on the code path. Both gates run on Ubuntu. The new tests skip Windows hosts or
+missing Bash. The six local skips are existing PowerShell/.NET tests.
+
+The previous 25-scenario harness left heavy jobs successful in its docs-only
+checks and tested required failures only as `failure`. New coverage closes
+those gaps. Independent evidence also compares both complete YAML documents
+against parent `ad3480c0`, permitting only the specified advisory changes.
+Other jobs/dependencies/step settings match. Four continuation steps, original
+`outcome`-based diagnostic/package conditions, always-run uploads and 30-day
+retention remain intact.
+
+Regression sensitivity is recorded using temporary workflow copies:
+
+- Original parent: **10 expected failures** for nonsuccess benchmark outcomes.
+- Current revision: **86 scenarios pass**.
+- Three variants removing Linux classifier, Windows classifier, or Linux
+  documentation checks: **10 expected failures each**.
+
+All **430 executions** and RED/GREEN logs are retained. Comparing complete Python
+ASTs after only explicitly reviewed display-string substitutions confirms
+unchanged numerical validators, calculations, schemas and command exit codes
+in both comparison tools. The full CI-tool suite exercises failed/nonfinite/
+incomplete evidence, strict 4% reference thresholds, sample counts and retained
+failure reports. No full benchmark workload is run for this policy verification.
 
 ## Repairing failures
 
-No production defect or failing-test repair was needed. Expected RED failures
-remain in evidence; they are not failures of the delivered revision. Existing
-oracles/tolerances were not weakened. An initial archive verification attempt
-used nonexistent `manifest.sha256`; verification succeeded using its actual
-`SHA256SUMS`. There was no previous root `test_output.txt` to remove.
+No production repair or failing-test repair was needed. Intentional RED/mutation
+failures characterize regression sensitivity, not delivered-code failures.
+The evidence-only YAML harness initially assumed every step had a name;
+unnamed checkout steps exposed that harness error, corrected before successful
+comparison. Existing Clang dangling-else warnings remain in raw logs; this
+sanitizer build does not claim warning-clean verification.
 
-## F5 acceptance evidence
+## Commands and provenance
 
-- **Exact boundary repair:** eight committed exact-folding tests and four
-  original reproductions pass. Unoptimized hard-tree/analytic oracles retain
-  six operators at 80 and adjacent floats, signed zero/subnormals and +/-1e-14,
-  signed factor risks, tiny future divisors and nested cross-event state.
-- **T06/T09/T10/T21:** same-path observation cases assert 200/160/120/160 with
-  retained F=120 and unrelated samples=999. Artifact lifetime survives prepared
-  destruction. Zero-Gaussian discounted formulas check primal and every risk.
-  Named/legacy shared-path adapters remain covered.
-- **T18:** historical SCALE*H checks PV=160*exp(-r*T), SCALE=80*exp(-r*T),
-  rate=-T*PV, zero model risks and no fixing-risk key.
-- **T19/T20:** direct seed/constant roots pass; hard historical decisions
-  below/at/above thresholds retain selected arithmetic risks. Past PAYS are
-  evaluated/discarded. Nonlinear historical parameter repricing and rebuilt
-  preparation retain independent analytic oracles.
-- **T22:** five strikes in the 0.2 band, both execution paths and 8193 paths
-  each, retain analytic weights and SCALE/K/rate risks. AAD primal matches
-  same-epsilon fuzzy double; smooth K central differences pass. The new test
-  adds default/explicit widths and nested cross-event fractional metadata.
-- **T23:** all 27 combinations remain: threads {1,2,4}, H sequence {80,90,80},
-  discounted/direct/constant roots and 8193 paths. Double/AAD price and
-  SCALE/rate/spot/vol assertions are unchanged. Fresh Lizard gives complexity
-  **4** at test lines 179-197 and **1** for CheckCompiledRoot at lines 37-48.
-  Separate BS/Dupire full-recording-per-path oracles retain all risks across
-  batches and repeated calls. No remote Codacy acceptance is claimed.
-- **T16/T27:** nonexpired dead-branch missing history fails across exact/fuzzy
-  tree/compiled preparation. Eager AND/OR is challenged with absent runtime
-  observation storage. SPOT/FIX binding, deduplication, today policy and legacy
-  compatibility cases pass.
-- **T31:** history/model/compilation failures submit zero workers; double and
-  AAD compiler-failure entry points recover. Path-failure tests drain accepted
-  batches before returning errors.
-- **T32:** throwing history/index seams and stable evaluator/observation storage
-  pass. Isolated allocation instrumentation detects ordinary/aligned positive
-  controls, then measures zero C++ allocations during 8193 exact/fuzzy
-  tree/compiled double evaluations, including the first. Source inspection
-  confirms checked direct history/scenario indexing in ObservationPlan_::Read.
-
-Production inspection confirms syntax-wide collection/prefetch precedes
-execution. Both prepared exact and fuzzy paths retain parsed branches.
-The removed ProcessFuzzyDomains pass is unnecessary for parsed continuous
-kernels/default-or-explicit epsilon. Hard history, ConstVar inputs, ordinary
-constant arithmetic, final IF metadata and compilation remain in preparation.
-Original smoothing kernels and legacy domain preprocessing are unchanged.
-
-Existing deterministic tolerance remains relative 1e-12, analytic risks 1e-10,
-and normalized same-path MC comparisons 1e-8. Existing fuzzy K finite
-differences retain 1e-5. New bounded small-price checks use absolute 1e-12 and
-risk/central-difference 1e-10; no hard-switch derivative is claimed.
-
-## Reproduction and evidence
-
-Run from the repository root:
+From the repository root:
 
 ```bash
 git submodule update --init --recursive
-NUM_CORES=8 bash ./build_linux.sh > test_output.txt 2>&1
-./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptFuzzyArithmeticTest.*'
-./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*'
+NUM_CORES=12 ADDITIONAL_CMAKE_FLAGS='-DCMAKE_CXX_COMPILER=g++-14 -DCMAKE_C_COMPILER=gcc-14 -DDAL_BUILD_EXCEL_PORTABLE_TESTS=ON -DDAL_EXCEL_BUILD_TESTS=ON' bash ./build_linux.sh --python 3.13 > test_output.txt 2>&1
+build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='Script*:*Simulation*:*AADTest*:*Compiler*:*DomainProc*:*IFProcessor*:*PastEvaluator*:*Smoothing*:*VarIndexer*'
+build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='AADTapeTest.*'
+python3 -m unittest discover -s .github/scripts/tests -v
+python3 .github/scripts/check_docs.py
+git diff --check
 ```
 
-Alternate builds use Release-linux with `-DDAL_USE_ADEPT_AAD=ON`,
-`-DDAL_USE_CODIPACK_AAD=ON` or `-DDAL_USE_XAD_AAD=ON`, examples disabled,
-target dal_cpp_tests and the identical filter. Attached `commands.md` and
-`run-targeted.sh` contain exact configure/build/test, standalone reviewer,
-allocation, RED and publication commands. Evidence includes fresh logs,
-XML/inventories, source/binary hashes, caches, revision metadata, the test patch
-and SHA256SUMS. Archive and checksum are attached to DAL-229.
+Workspace scripts `evidence/run_checks.py`, `verify_oracles_consumers.py` and
+`verify_policy.py`, plus `commands.md` and per-command JSON, retain exact backend
+configure/build/test commands, compiler/link arguments, directories, environment,
+exits and filters. Attachments contain raw logs, XML, 837 source hashes,
+binary hashes, caches and compile commands. Final test source/report are
+checked against Git; publication identity is separate to avoid a circular SHA.
+
+Both inherited report/archive/checksum sets were downloaded through Multica:
+
+- Policy SHA256 `0b0bfd1759f4944e03066fde6e7b7354df45fec40b6aafb6006af5bcd421b5ef`;
+  **49 internal hashes verified**.
+- Product SHA256 `686f1d6621ea595551ed218fde2887e19a33ba2b217debfa743b32be34fc1197`;
+  **1927 internal hashes verified**.
+
+Original oracle/consumer bytes are reused unchanged and freshly compiled/run.
+Prior full alternate-backend counts 1740/1740/1739 and timing measurements remain
+inherited evidence. This run claims focused alternate-backend execution only.
 
 ## Limits and handoff
 
-No Windows XLL, Python, sanitizer, full alternate-backend public/Excel suite or
-performance run is claimed. Linux examples were built/installed, not exhaustively
-executed. Native-double C++ allocation instrumentation does not measure AAD tape
-allocations, arbitrary malloc or every dynamic observation-load count. The
-compiler-failure seam injects immediately before bytecode construction.
+No local Windows/MSVC/XLL or PowerShell/.NET execution. Executing the Windows
+workflow's Ubuntu gate is not Windows product verification. Alternate-backend
+public/Python/Excel full suites and complete timings were not run. Examples
+were built/installed, not exhaustively executed. Allocation instrumentation
+counts C++ allocations during double evaluation, not arbitrary malloc or all
+AAD tape allocation behavior. The compiler-failure seam injects immediately
+before bytecode construction.
 
-DAL-223 performance remains deferred. DAL-230 owns stale ProcessFuzzyDomains
-and domain-analysis descriptions in `docs/methodology/script_engine.md`, plus
-the CHANGELOG decision. Documentation checking validates structure only.
-One post-push CI snapshot is evidence of that moment, not final gate acceptance;
-no watch/poll, merge, close intent or dependency rewrite is performed.
-DAL-229 returns in_review for parent acceptance, then sequential documentation
-and mandatory DAL-231 re-review. No peer or F6 is started by this tester.
+DAL-229 returns **in_review** for parent acceptance. DAL-230 owns the current
+documentation/CHANGELOG decision; mandatory DAL-231 review and protected merge
+remain outstanding. A single post-push CI snapshot records that moment, not
+final required-check acceptance. No watch/poll, merge, closing intent, issue
+closure, replacement peer chain or F6 advancement is performed here.
