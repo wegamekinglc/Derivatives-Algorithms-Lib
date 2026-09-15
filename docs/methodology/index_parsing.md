@@ -106,9 +106,11 @@ model cannot value a nonexpired product. Prepared AAD replay preserves
 parameter risk through historical expressions, with hard past and fuzzy future
 conditions in both tree and compiled modes. The
 [public C++ settings overload](script_engine.md#public-c-settings) exposes the
-same preparation, explicit dates, bindings, and snapshots. Python/Excel retain
-legacy signatures without these settings or the Describe/Explain projections;
-their default preparation cannot supply a named model binding.
+same preparation, explicit dates, bindings, and snapshots. Python and Excel
+project the same settings and the Describe/Explain diagnostics in their own
+forms — Python keyword-only settings with a `model_bindings` dictionary, Excel
+settings handles with a `model_bindings` range — so either binding can supply
+the named `spot` model binding.
 
 ## IR indices are constructed, not parsed
 

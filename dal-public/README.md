@@ -101,8 +101,12 @@ disabled. See [standalone setup](../docs/installation.md#standalone-public-facad
 to bind the exposed signatures, so a public-facade change should be checked across
 C++, Python, and Excel surfaces together.
 
-The bindings retain their legacy script signatures; script-settings types and
-Describe/Explain projections are not exposed in Python or Excel. Their old
-valuation wrappers use default preparation through the public facade.
+Both bindings retain their legacy script signatures, and their old valuation
+wrappers use default preparation through the public facade. Each binding also
+projects the script settings and Describe/Explain diagnostics in its own form:
+Python exposes keyword-only settings classes, `MonteCarlo_ValueWithSettings`,
+`Product_Describe`, and `ScriptValuation_Explain`; Excel exposes immutable
+settings handles, `PRODUCT.NEWWITHSETTINGS`, `MONTECARLO.VALUEWITHSETTINGS`,
+`PRODUCT.DESCRIBE`, and `SCRIPTVALUATION.EXPLAIN`.
 
 DAL is distributed under the repository [MIT license](../LICENSE).

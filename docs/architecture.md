@@ -162,8 +162,10 @@ mode with the same payoff/risk contract. AAD simulations use a separate recordin
 for each worker's path batch.
 
 Public C++ settings select the script default index, model binding, date/policy,
-and immutable fixing snapshot. Python/Excel expose their legacy signatures and
-default native preparation. Each Value and Explain call prepares independently;
+and immutable fixing snapshot. Python projects these settings through
+keyword-only native classes, and Excel through immutable settings handles;
+both bindings retain their legacy signatures with default native preparation.
+Each Value and Explain call prepares independently;
 Describe inspects contract syntax without date, model, or history access.
 Script archive v2 stores original contract text/default identity and retains the
 v1 reader; no runtime market or prepared state is persisted. See
