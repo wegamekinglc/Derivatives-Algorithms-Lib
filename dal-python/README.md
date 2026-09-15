@@ -8,6 +8,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
+- **Named FIX valuation** — explicit dates, immutable history snapshots, model bindings, and contract/valuation diagnostics
 - **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians
 - **Rate cashflow pricing** — typed planning, batch PV, and AAD node sensitivities for deposit, FRA, future, OIS, IRS, basis-swap, and cross-currency trades
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
@@ -284,6 +285,58 @@ PV: 9.223019
   d_vol: 37.873346
 ```
 
+### Historical and Future FIX
+
+The complete [FIX settings example](examples/009.fix_settings.py) constructs a
+zero-volatility Black-Scholes model, an explicit valuation date and a midnight
+history snapshot. Run it from the repository root with the current `dal` package:
+
+```bash
+python dal-python/examples/009.fix_settings.py
+```
+
+Its script first assigns `x = SCALE * FIX(EQ[DAL196_TEST])` on 2026-09-11,
+then pays `x + FIX(EQ[DAL196_TEST], 2026-09-15)` on 2026-09-22. With valuation
+date 2026-09-12, SCALE 2, history 80, model spot 100 and zero rates, the result
+is `PV=260` and `d_SCALE=80`. The example checks both numbers, the result keys,
+and both diagnostic schemas, including under optimized Python.
+
+The index inside `FIX(index[,date])` is unquoted script syntax; the containing
+Python string still uses quotes. The optional date is a literal `YYYY-MM-DD`;
+omitting it uses the event date. With valuation date `D`, event date `E`, and
+fixing date `F`:
+
+- `F < D` requires exact history; a missing fixing raises `MissingFixing`.
+- `F = D` uses the model by default; `RequireHistorical` requires today's history.
+- `F > D` uses the model, regardless of future values in the snapshot.
+- `F > E` raises `LookAheadObservation`, including in an unused branch.
+
+Wholly expired products still validate syntax, dates and settings, but skip
+history reads and return zero. Empty or no-PAYS products fail valuation.
+
+Historical EQ/FX observations can coexist. Model-sourced FIX, including today
+under `Model`, requires an explicit `model_bindings={"spot": "EQ[DAL196_TEST]"}`
+for one ordinary equity in a BS or Dupire model. Future FX, IR, composite,
+delivery-suffixed EQ, and multiple future equities are unsupported.
+`default_index` gives legacy `SPOT()` an identity; it does not supply a model
+binding. Unbound future-only `SPOT()` remains supported. Historical SPOT requires
+a default, and mixing SPOT with FIX requires one too. `SPOT(index)` and `FIX()`
+are invalid.
+
+Snapshot keys are native `DateTime_` values. Use `dal.DateTime_(date, 0)` for
+midnight; a quote at 11:00 cannot satisfy a daily FIX. Python `datetime` objects
+are not automatically converted. Snapshot construction copies the nested input
+dictionary, and the resulting native handle is immutable.
+
+`fixings=None` captures required global history afresh on each call.
+`dal.MarketFixingSnapshot_New({})` is an explicit empty snapshot: missing history
+fails even if the global store contains it. Global capture copies sequences
+one by one and is not an atomic snapshot across sequences; exclude concurrent
+fixing writes during capture. Reusing an explicit snapshot can retain history
+80 after global history changes to 90. It fixes historical input only; every
+Value or Explain prepares again with its current date and model inputs, without
+caching future prices.
+
 ### Working with Dates
 
 ```python
@@ -356,23 +409,26 @@ dupire_model = dal.DupireModelData_New(
 
 ### Products
 
-- `dal.Product_New(dates, events)` — Create a script product from event dates and payoff definitions
+- `dal.Product_New(events_dates, events, *, settings=None)` — Create a script product; `settings` is a `ScriptProductSettings_` or `None`
+- `dal.Product_Describe(product)` — Return a contract dictionary with schema `dal.script-product/2`
 - `dal.Product_Debug(product)` — Return the legacy human-readable product structure as a string
-- `dal.Product_DebugJson(product)` — Versioned JSON dump of the product AST (schema `dal.script-product/1`)
+- `dal.Product_DebugJson(product)` — Legacy JSON string (schema `dal.script-product/1`); rejects FIX and nonempty defaults with `DebugSchemaUnsupported`
 - `dal.Product_DebugTree(product, ascii=False, width=125)` — Width-aware Unicode (or ASCII) product tree
 
 ### Valuation
 
 - `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01, compiled=None)` — Monte Carlo pricing with optional AAD Greeks
+- `dal.MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)` — Price with `ScriptValuationSettings_` and `MonteCarloSettings_`
+- `dal.ScriptValuation_Explain(product, modelData, *, valuation=None)` — Return a dictionary describing one default price preparation
 
 **Parameters:**
 - `product` — Script product (from `Product_New`)
 - `modelData` — Model data (from `BSModelData_New` or `DupireModelData_New`)
-- `num_path` — Positive number of simulation paths (powers of 2 are customary for Sobol)
-- `method` — Random generator: `"sobol"` (default) or `"mrg32"`
+- `num_path` — Integer or valid `__index__` value in `1..2147483647`, excluding booleans and enums; floats such as `1.0` are rejected in both Value entries
+- `method` — Random generator: `"sobol"` (default), `"mrg32"`, or `"irn"`
 - `use_bb` — Use Brownian bridge construction (default `False`)
 - `enable_aad` — Enable AAD for pathwise Greeks (default `False`)
-- `smooth` — Fuzzy logic smoothing parameter for discontinuous payoffs (default `0.01`)
+- `smooth` — Finite, strictly positive fuzzy smoothing width (default `0.01`), validated even without AAD
 - `compiled` — `True` selects the compiled evaluator; `None`/`False` uses tree-walk
 
 **Returns:** Dictionary with keys:
@@ -380,6 +436,120 @@ dupire_model = dal.DupireModelData_New(
 - `"d_spot"`, `"d_vol"`, `"d_rate"`, `"d_div"` — Black-Scholes model AAD Greeks (only if `enable_aad=True`)
 - `"d_<name>"` — AAD sensitivity to a named product constant, such as `"d_STRIKE"`
   when the product declares a `STRIKE` constant
+
+Both Value entries return `dict[str, float]` containing only `PV` and optional
+`d_` parameter risks. PV is a path mean and risks are already normalized;
+neither should be divided by the path count again. Historical fixing values
+carry no fixing-risk keys. AAD preserves historical parameter dependencies,
+uses hard historical decisions, and smooths future comparisons. Its PV can
+differ from exact non-AAD pricing near a future discontinuity; `compiled` only
+selects the evaluator implementation.
+
+### Script Settings and Copies
+
+The constructor signatures are below (`*` makes every field keyword-only).
+Default construction followed by assignment to the same snake_case properties
+is also supported.
+
+```text
+ScriptProductSettings_(*, default_index="")
+ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
+                         model_bindings=None, fixings=None)
+MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
+                   smooth=0.01, compiled=None)
+```
+
+| Field                  | Accepted input / default                                                         | Property result                     |
+|------------------------|----------------------------------------------------------------------------------|-------------------------------------|
+| `default_index`        | `str` or `String_`; empty means unbound                                          | `str`, preserving spelling          |
+| `evaluation_date`      | Valid DAL `Date_`, or `None` to capture global date at each call                 | A date copy or `None`               |
+| `today_fixing`         | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`       | `TodayFixingPolicy_` member         |
+| `model_bindings`       | `dict` with `str` / `String_` keys and values, or `None` for empty               | Independent `dict[str, str]`        |
+| `fixings`              | `MarketFixingSnapshot_`, or `None` for global capture                            | Immutable snapshot handle or `None` |
+| `method`               | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`   | `str`, preserving spelling          |
+| `use_bb`, `enable_aad` | Python `bool` only; default `False`                                              | `bool`                              |
+| `smooth`               | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01` | `float`                             |
+| `compiled`             | Python `bool` or `None`; default `None` selects tree                             | `bool` or `None`                    |
+
+The policy enum members are `dal.TodayFixingPolicy_.MODEL` and
+`dal.TodayFixingPolicy_.REQUIREHISTORICAL`. Policy strings also accept DAL
+`String_`, but must match the exact spelling and case with no extra whitespace.
+Unknown names list the two allowed policies. `evaluation_date` does not accept
+date strings, numeric serials, Python `datetime`, `DateTime_`, or `Cell_`.
+An explicit date neither reads nor changes the global date.
+
+Settings parameters accept their corresponding native settings object or `None`
+(fresh defaults), not an entire settings dictionary. Binding dictionaries are
+copied in insertion order. Python has already discarded repeated identical
+dictionary keys before DAL sees them; case-distinct `spot` / `SPOT` keys remain
+observable and are rejected as `DuplicateModelBinding` during preparation.
+Unknown assets, malformed/empty indices, conflicts, and unsupported model
+observations are also rejected during Value/Explain preparation, after basic
+dictionary/string conversion in the constructor or setter.
+
+`copy.copy` and `copy.deepcopy` create independent settings values; both share
+the immutable snapshot handle. Ordinary Python assignment aliases the object.
+Changing a returned `model_bindings` dictionary or date copy does not update
+settings: assign the property to replace it. Failed setters preserve the old
+value. Product construction copies the table and settings; Value and Explain
+copy settings and native handles while holding the GIL, then release it for
+native work. Workers use native data and never call Python callbacks or read
+mutable Python dictionaries. Avoid modifying inputs during their conversion.
+Native valuations still serialize through DAL's valuation/mutation barrier.
+
+### Script Compatibility and Errors
+
+The high-level product keyword remains `events_dates`; the low-level
+`dal._dal.Product_New` keyword is `dates` and its date-table elements must
+already be `Cell_`. The high-level wrapper preserves existing cells and wraps
+only non-Cell values. Use DAL dates for event rows and strings for definitions
+or schedules; numeric cells do not gain an Excel-date interpretation.
+Event text accepts `str` or `String_`. Text with embedded NUL is rejected.
+
+Legacy `MonteCarlo_Value` retains all valid three-to-eight positional calls
+and the original keywords/defaults. Its valid flag and float conversions are
+preserved. New settings cannot be mixed into that call; flat `method`,
+`compiled`, and other simulation options belong inside `MonteCarloSettings_`
+when using `MonteCarlo_ValueWithSettings`.
+
+Unknown/duplicate keywords, extra positional arguments, wrong settings types,
+and invalid input types raise `TypeError`; unknown settings attributes raise
+`AttributeError`. Invalid values and native failures raise `RuntimeError`, with
+identifiers such as `InvalidPathCount`, `InvalidSetting`, `InvalidSmoothing`,
+`InvalidTodayFixingPolicy`, `InvalidFixingDate`, and `MissingFixing`, plus field
+and constraint context. Script errors retain source row/position and index/date
+details. Validation may occur at construction/assignment (types, policy, date,
+smoothing), description (syntax/default index), or preparation (bindings/history).
+Empty or no-PAYS products can be described but Value/Explain reject them with
+`InvalidScriptStructure`. Valid wholly expired products return zero only after
+validation; errors never become successful `PV=0` results.
+
+### Script Diagnostics
+
+High-level `dal.Product_Describe` and `dal.ScriptValuation_Explain` return ordinary
+dictionaries. Their low-level counterparts in `dal._dal` (also re-exported by
+`dal.dal`) return the C++ JSON as `str`; the high-level wrappers apply `json.loads`
+without renaming keys or converting date strings into DAL dates.
+
+- **Describe**, schema `dal.script-product/2`, parses all contract syntax with
+  original/canonical identities, input rows, events, source positions and nodes.
+  It has no market I/O, model, global-date read or valuation phase. Success does
+  not establish that the product can be priced.
+- **Explain**, schema `dal.script-valuation/1`, prepares independently on every
+  call. It may read history, initialize a model and replay past state, but starts
+  no workers and generates no paths. Its fixed simulation is exact non-AAD,
+  Sobol, no bridge, smoothing `0.01`, tree. It accepts no path count or simulation
+  settings and does not describe a preceding compiled/AAD call or cache the next
+  Value. Its requests/uses, history IDs, model slots, live-event/sample mappings
+  and numeraire requests come from that preparation.
+
+JSON null/bool/array/object values become Python None/bool/list/dict. Date strings,
+policy/source names, and schema versions retain the
+[C++ diagnostic contract](../docs/methodology/script_engine.md#product-archive-and-diagnostics).
+`request_id` and `history_value_id` address different arrays; use `live_events`
+to map all-event IDs to future-event indices. Diagnostics are not loadable
+product archives. Python provides no public script-product serializer or pickle
+API; `Product_DebugJson` remains the separate legacy JSON-string interface.
 
 ### Random Generators
 
