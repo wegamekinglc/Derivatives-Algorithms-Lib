@@ -1,6 +1,49 @@
 # DAL-205 / F8 Excel implementation — DAL-244 S2
 
-## Current handoff: Codacy repair after S3 (2026-09-15)
+## Current handoff: PowerShell ShouldProcess repair (2026-09-15)
+
+This continuation fixes the single warning on input HEAD `4fad01864b1ac66d857f25584cb1d7d34592982b`, tree `ee98827beedcb08cdd7be7f7d133365c35e89d7b`, in the existing draft PR [#376](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/376). The final commit/tree and committed-source replay appear in the delivered appendix and identity JSON; a committed report cannot contain its own hash. Everything under the historical headings below describes earlier runs, including their then-current limitations and execution counts.
+
+### Minimal design and changed files
+
+- `dal-excel/tests/windows/run-script-fix-settings.ps1`: retain `Remove-ComReference`, declare `SupportsShouldProcess`, and guard the actual `FinalReleaseComObject` call with `ShouldProcess`. Null and non-COM inputs remain no-ops. All eight existing cleanup calls explicitly pass `-Confirm:$false -WhatIf:$false`, so disposing runner-owned references cannot inherit a confirmation prompt or dry-run preference. Workbook assertions, saving, Excel ownership/PID guards, Quit and process cleanup are unchanged.
+- `dal-excel/tests/windows/test-script-fix-cleanup.ps1`: parse and load only the real helper, use a live `Scripting.Dictionary` COM object to verify `WhatIf`, verify null/non-COM behavior, and execute every real cleanup call under inherited `ConfirmPreference=Low` and `WhatIfPreference=true`. Each call must disconnect the COM wrapper without prompting. The test creates no Excel instance and does not run the workbook body.
+- This report records the repair. No C++, Python, generated files, fixture, existing S3 regression, tester report, analyzer configuration or formal documentation changed.
+
+The implementation follows PowerShell's actual [ShouldProcess contract](https://learn.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-shouldprocess): a declared capability is paired with a check immediately around the state-changing operation. Mandatory internal cleanup passes explicit preference overrides. This is a targeted lifecycle change, with no public DAL API or pricing design deviation.
+
+### Actual analyzer RED and GREEN
+
+Downloaded the official [PSScriptAnalyzer 1.25.0 release](https://github.com/PowerShell/PSScriptAnalyzer/releases/tag/1.25.0), unpacked it into a task-local directory and imported its manifest in Windows PowerShell 5.1.26100.9444. Package SHA256: `14e634c828eb98efb9f40b2918ba90f139ed5eccdf663a2a747736d996995d60`. No global installation or analyzer configuration change was needed.
+
+- Remote input: paginated annotations from check run `104377448015` contain exactly one warning, `PSUseShouldProcessForStateChangingFunctions`, at runner line 35. Its complete text is saved in `codacy-before.json`.
+- Local RED: `Invoke-ScriptAnalyzer -Path <runner-before.ps1>` with the full default rule set reproduces that exact warning. It also reports **30 Information-level** `PSAvoidUsingPositionalParameters` messages. The initial capture driver exits 1 for any diagnostic, and its complete output is retained as `analyzer-red.log`.
+- Local GREEN: `python3 evidence/run-ps.py evidence/analyzer-compare.ps1` exits 0. It runs the full default rules independently on the original runner, fixed runner and new test. The fixed runner has **zero Warning/Error diagnostics**, with the same 30 informational rule/message pairs; the new test has zero diagnostics. No rule is excluded or suppressed. This is not a claim of zero informational messages or of completed remote Codacy analysis.
+- The same comparison parses all three complete scripts and checks every hyphenated function against the host's `Get-Verb` list. Both checks pass and are explicitly separate from PSScriptAnalyzer.
+
+### Behavioral RED, GREEN and fresh verification
+
+Commands below run from the workspace; the evidence package contains the exact paths, command arrays, logs and drivers.
+
+1. **RED:** `python3 evidence/run-ps.py Derivatives-Algorithms-Lib/dal-excel/tests/windows/test-script-fix-cleanup.ps1 'C:\dal-build\dal244-shouldprocess-tools\runner-before.ps1'` exits 1: the old helper releases a live COM reference despite `-WhatIf`, and the subsequent access raises `InvalidComObjectException`.
+2. **GREEN:** the same regression against `runner-fixed.ps1` exits 0. Expanded checks preserve the first assertion and verify four null/non-COM cases and all eight cleanup sites. Negative controls independently removing each explicit override fail as intended: missing `Confirm` raises the noninteractive confirmation error; missing `WhatIf` leaves the COM reference alive. The production implementation passes unchanged. No test assertion or price tolerance was weakened.
+3. `python3 evidence/replay.py precommit`: **283 Excel assertions / 47 output blocks**, registration and `cleanedOwnProcess=true`, saved workbook without `saveError`. This executes the original manifest, new and legacy formulas, actual `FIX(EQ[AAPL])`, null/empty settings, midnight/11:00 cases, both historical-rate oracles and long JSON spills.
+4. The same driver freshly runs the existing native fixture executable and current `verify-script-fix-consumer.py` using the prior CPython build. The preserved verification assertions pass **57 independent C++/Python/Excel PV/AAD checks**, **121 cached workbook cells**, and **four complete JSON comparisons**. Long JSON lengths remain 281617 and 127403. The zero-rate PV160/d_SCALE80 oracle is unchanged.
+5. After commit, `python3 evidence/replay.py final` repeats the workbook and consumer audit with exact committed SHA/tree. Its results and actual workbook are delivered in the final appendix/package. Full source/staged whitespace and documentation/artifact checks are recorded with publication evidence.
+
+### Binary reuse and verification limits
+
+The prior three authenticated attachments match their supplied hashes; all **120** package entries verify. Before synchronizing the runner, all **3680** prior Windows mirror files, including pinned dependency sources, match the prior source manifest. Every prior Linux build-source file is also rechecked before consumer execution. The scoped Git diff leaves native, generated and build inputs unchanged. The current runner and regression script are copied to `C:\dal-build\dal244-codacy` and hashed before execution.
+
+The XLL is **reused**, not rebuilt: native build source HEAD `4fad01864b1ac66d857f25584cb1d7d34592982b`, tree `ee98827beedcb08cdd7be7f7d133365c35e89d7b`; XLL SHA256 `AE7D8A5A3692FA03231E6994CE1FB08F224B794928EA275D6F79F8BA80ADDA66`. The final workbook's `sourceSha/sourceTree` identify this runner revision; `identity-final.json` separately identifies the native build source and records `nativeRebuilt=false`. Native consumer and actual imported Python extension are likewise reused and hashed. The prior binary inventory's `python_extension` entry named a quote-risk test module; this run explicitly hashes the actual imported `dal/_dal.cpython-313-x86_64-linux-gnu.so` instead of misidentifying it.
+
+Fresh environment probe: Windows 10.0.26200.0, PowerShell 5.1.26100.9444, Excel **16.0.20326.20144 x64** (PE `0x8664`), VS2022 Community 17.14.37411.7, compiler 19.44.35228/tools14.44.35207, CMake 3.27.6, Ninja 1.13.1. Tool versions are probed, not represented as a fresh native compilation.
+
+Full Linux **1795**, Python suite **641**, portable **46**, Clang sanitizer **46**, and Windows XLL suite **60** results belong to the previous repair. Those full suites, generation and native builds were not rerun for this PowerShell-only change, as authorized. The known GCC Debug sanitizer typeinfo issue and byte-oriented Unicode input limitation remain. Current fresh coverage is analyzer/parser, COM cleanup behavior, real Excel execution, native/Python consumer execution and the complete numerical/JSON/saved-cell comparison.
+
+Keep PR #376 draft, with no merge or closing keywords. Take one nonblocking post-push CI snapshot and report pending checks as pending. Parent DAL-205 owns acceptance and the existing independent tester, documentation and mandatory review stages; only recall that parent if idle after posting this issue's final comment.
+
+## Historical first Codacy repair after S3 (2026-09-15)
 
 The seven findings on draft PR [#376](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/376) have been addressed by a behavior-preserving refactor. This section supersedes the historical S2 execution counts below. The existing branch is `feature/dal-205-excel-fix-settings`; base remains `master`. Independent re-verification, documentation and mandatory review remain parent-owned.
 

@@ -32,8 +32,12 @@ function Check([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
     $script:results.assertions++
 }
-function Remove-ComReference($Object) {
-    if ($null -ne $Object -and [Runtime.InteropServices.Marshal]::IsComObject($Object)) {
+function Remove-ComReference {
+    [CmdletBinding(SupportsShouldProcess)]
+    param($Object)
+
+    if ($null -ne $Object -and [Runtime.InteropServices.Marshal]::IsComObject($Object) -and
+        $PSCmdlet.ShouldProcess('COM reference', 'FinalReleaseComObject')) {
         [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($Object)
     }
 }
@@ -46,11 +50,11 @@ function Put([string]$Sheet, [string]$Address, $Value) {
             $range.NumberFormat = '@'
             $range.Value2 = $Value
         } else { $range.Value2 = [double]$Value }
-    } finally { Remove-ComReference $range }
+    } finally { Remove-ComReference $range -Confirm:$false -WhatIf:$false }
 }
 function Calculate([string]$Sheet, [string]$Address) {
     $range = $script:sheets[$Sheet].Range($Address)
-    try { $range.Calculate() } finally { Remove-ComReference $range }
+    try { $range.Calculate() } finally { Remove-ComReference $range -Confirm:$false -WhatIf:$false }
 }
 function Output([string]$Sheet, [string]$Address) {
     $range = $script:sheets[$Sheet].Range($Address)
@@ -70,7 +74,10 @@ function Output([string]$Sheet, [string]$Address) {
         $out = [ordered]@{rows=$rows; columns=$cols; values=$data}
         $script:results.outputs["$Sheet!$Address"] = $out
         return $out
-    } finally { Remove-ComReference $spill; Remove-ComReference $range }
+    } finally {
+        Remove-ComReference $spill -Confirm:$false -WhatIf:$false
+        Remove-ComReference $range -Confirm:$false -WhatIf:$false
+    }
 }
 function Price([string]$Address) {
     $out = Output 'Values' $Address
@@ -132,7 +139,7 @@ try {
         $control = Output 'Control' $address
         Check ($control.values[0][0] -is [bool] -or $control.values[0][0] -is [double]) "Control $address failed"
         $range = $sheets['Control'].Range($address)
-        try { $range.Value2 = [double]$control.values[0][0] } finally { Remove-ComReference $range }
+        try { $range.Value2 = [double]$control.values[0][0] } finally { Remove-ComReference $range -Confirm:$false -WhatIf:$false }
     }
     foreach ($cell in $fixture.sheets.Handles.PSObject.Properties) {
         Calculate 'Handles' $cell.Name
@@ -222,8 +229,9 @@ try {
         $book.Close($false)
     }
     if ($ownPid -ne 0) { $excel.Quit() }
-    foreach ($sheet in $sheets.Values) { Remove-ComReference $sheet }
-    Remove-ComReference $book; Remove-ComReference $excel
+    foreach ($sheet in $sheets.Values) { Remove-ComReference $sheet -Confirm:$false -WhatIf:$false }
+    Remove-ComReference $book -Confirm:$false -WhatIf:$false
+    Remove-ComReference $excel -Confirm:$false -WhatIf:$false
     [GC]::Collect(); [GC]::WaitForPendingFinalizers()
     if ($ownPid -ne 0) {
         $process = Get-Process -Id $ownPid -ErrorAction SilentlyContinue
