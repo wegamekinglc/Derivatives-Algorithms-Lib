@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>MonteCarloSettings_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>MonteCarloSettings_New (in Excel: MONTECARLOSETTINGS.NEW)</h1>
+Create immutable Monte Carlo execution settings
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: method, use_bb, enable_aad, smooth, compiled. Boolean cells or numeric 0/1; smooth finite and positive.</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>Immutable Monte Carlo settings</td></tr>
+</table>
+
+
+
+
+
+

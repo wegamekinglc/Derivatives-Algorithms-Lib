@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(dal-excel-fixture-consumer LANGUAGES CXX)
+find_package(dal-public 1.0 CONFIG REQUIRED)
+add_executable(dal_excel_fixture_consumer main.cxx)
+dal_cpp_apply_msvc_runtime(dal_excel_fixture_consumer)
+target_link_libraries(dal_excel_fixture_consumer PRIVATE DAL::public)

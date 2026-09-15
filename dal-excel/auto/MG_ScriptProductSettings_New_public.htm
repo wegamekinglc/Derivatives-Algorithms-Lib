@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>ScriptProductSettings_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>ScriptProductSettings_New (in Excel: SCRIPTPRODUCTSETTINGS.NEW)</h1>
+Create immutable script contract settings; no market reads
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns key/value: default_index. Blank selects no default index.</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>productSettings</td><td>handle of type StorableScriptProductSettings</td><td>Immutable script product settings</td></tr>
+</table>
+
+
+
+
+
+
