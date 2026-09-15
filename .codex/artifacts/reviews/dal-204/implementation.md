@@ -1,6 +1,96 @@
 # DAL-204 F7 implementation
 
-S2 implementation is ready for independent testing. Draft PR: [#375](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/375). No merge or final closing intent has been added. DAL-240 testing, DAL-241 documentation/CHANGELOG and DAL-242 review remain the parent's serial stages.
+Current status: the approved R1 correction passes a fresh pybind11 2.11.1 binding build and the full Python suite. Draft PR: [#375](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/375). Ready for parent acceptance and the existing independent tester, documentation decision, and mandatory reviewer sequence. Earlier results and the initial R1 scope request below remain historical evidence. No merge or final closing intent has been added.
+
+## 2026-09-15 R1 correction after approved scope expansion
+
+### Change and source identity
+
+Foreign `str, enum.Enum` values now raise contextual TypeError in the constructor and setter paths for `today_fixing`, `default_index`, and `method`. A failed setter retains its previous valid value. The policy errors include both `Model` and `RequireHistorical`; all errors include the class, field, offending value, identifier, and non-enum string constraint.
+
+- Product/test commit: `27de3544d4497a77ee2c6d67743f147bbeb65d53`; tree `23d36a169849f8cd5144b0c87ab0ded94f9392a3`.
+- Base: `f2125ea96b668fc32b66061241cec67213d0ea28`; tree `c635e713783d3c7116cad22d356ad43ab8875429`. The subsequent report commit changes only this file; its final SHA/tree is in the delivery comment and `delivery-identity.json`.
+- Continued `feature/dal-204-python-fix-settings` and PR #375. The old working tree's test/report diff matched the authenticated recovery patch byte for byte. It was preserved, and that patch was restored into the new clean checkout before production edits.
+- Downloaded scope evidence SHA256 `2fb93b48d2acd772084caffb69cbf3cfac2c8bcfd402278d3a3d2dc2b65b0021` and production proposal SHA256 `7f1327774757b00ac2f4c9c2045f564667c6b76562e82062d5c88b7b62c4f75b` matched the approved handoff. The proposal was implemented with `apply_patch`, with only directly necessary indentation adjustment.
+
+Changed files are exactly the approved five:
+
+- `dal-python/src/bindings/scriptsettings.hpp`: private `SettingStringInput` rejects enums, then delegates to the existing text/NUL converter.
+- `dal-python/src/bindings/script.cpp`: only the default-index constructor/setter use that helper.
+- `dal-python/src/bindings/value.cpp`: today-policy text and method use that helper; the actual native policy branch remains first.
+- `dal-python/tests/test_script_settings.py`: preserves the eight original R1 regressions; adds 28 legal constructor/setter controls and eight high/low shared-text pricing cases, for 161 settings tests total.
+- This implementation report: current R1 result and retained history.
+
+All `StringInput` callers were reviewed. Event text and model-binding keys/values continue to use the unchanged generic helper. Their `str`, ordinary str subclass, DAL String_, and foreign string-enum conversions produce independent expected PV100 in both layers. Existing NUL, case, numeric/date, unknown-keyword, legacy Value, and GIL/native-copy behavior remain covered. Conversion completes before any field assignment. No API/core/public/Excel/generated/build/CI/docs/CHANGELOG changes were needed. No substantive design deviation or further scope expansion was introduced.
+
+### Fresh RED, GREEN, and verification
+
+The eight restored regressions were rerun before the production patch: **8 failed / 117 deselected**, exit 1, all `DID NOT RAISE TypeError`. This fresh RED used the verified S5 module; its hash is `0b03aaf10280ff4b810510f06c9f421cffc92ef68a1d26e42d6fd9e3d4285c9e`. Original prior-run RED logs/XML and the recovery patch are also retained separately in the evidence input archive.
+
+After all nine binding translation units were freshly compiled, the same focused tests were **8 passed / 117 deselected**, exit 0. Legal/compatibility controls were then added while green; no production refactor or test weakening was needed. The new extension hash is `b310233dc9f9e2bc7ade8f6591c8d4f3fd67cd8a4a102b5b58982eaa10a1cdc9`.
+
+Actual commands are captured as argv with cwd, UTC start/end, stdout/stderr and return code in the attached `r1-evidence`. In the abbreviated commands below, `PY` is the S3 `evidence/venv313/bin/python`, `S5_BUILD` is its reviewer's `review-evidence/build-python`, `STAGE` is the S3 `build/stage/Release-linux`, and `PYBIND` is that interpreter's `pybind11/share/cmake/pybind11`. Every expanded absolute path is retained in the corresponding JSON record.
+
+```bash
+env PYTHONPATH="$S5_BUILD" "$PY" -m pytest dal-python/tests/test_script_settings.py -k foreign_string_enums -q --junitxml=../r1-evidence/focused-red.xml
+cmake -S dal-python -B ../r1-build-python -DCMAKE_BUILD_TYPE=Release -DDAL_INSTALL_PREFIX="$STAGE" -DPython3_EXECUTABLE="$PY" -Dpybind11_DIR="$PYBIND"
+cmake --build ../r1-build-python -j 4
+"$PY" ../r1-evidence/run_python.py pytest dal-python/tests/test_script_settings.py -k foreign_string_enums -q --junitxml=../r1-evidence/focused-green.xml
+"$PY" ../r1-evidence/run_python.py pytest dal-python/tests/test_script_settings.py -q --junitxml=../r1-evidence/settings-green.xml
+"$PY" ../r1-evidence/run_python.py pytest dal-python/tests -q --junitxml=../r1-evidence/python-full.xml
+"$PY" ../r1-evidence/run_python.py probe ../r1-review/dal-242-review-evidence/probe_foreign_enums.py
+"$PY" ../r1-evidence/run_python.py probe ../r1-evidence/probe_strenum.py
+"$PY" ../r1-evidence/run_python.py example
+"$PY" -O ../r1-evidence/run_python.py example
+cmake --build ../r1-build-consumer -j 2
+ctest --test-dir ../r1-build-consumer --output-on-failure --output-junit ../r1-evidence/consumer-tests.xml
+```
+
+- Full Python: **640 passed / 1 skipped**, 9.04 seconds. The skip is the unpublished `_dal_quote_risk_test` fixture in `test_joint_quote_risk`; no skipped R1 case. This is 239 F7 cases, including all 44 added R1/control cases.
+- The same full run includes **299 related cases**: settings161, FIX valuation78, script13, value21, API8, curve pricing14, resettable/snapshot4. These counts are derived from the full-run XML, not an additional test invocation.
+- The unchanged reviewer probe rejects all **8** foreign enums and passes its **6** legal controls. A supplemental replay with Python 3.13 `enum.StrEnum` also rejects all eight and passes six controls. Repository tests retain Python-3.9-compatible syntax.
+- The complete FIX example succeeds in both ordinary and optimized Python: PV `260.00000000000006`, d_SCALE `80.0`, original key/schema constraints active. Both runs load the fresh extension and verify identities using explicit exceptions under `-O`.
+- Native proportional verification: two freshly compiled installed-package consumers pass **2/2**, covering legacy/typed public signatures and historical compiled AAD PV160/d_SCALE80. They link the verified unchanged S3 libraries. Full native CTests were not repeated for this Python-only conversion change.
+- C++ clang-format, Black targeting Python3.9, and patch whitespace checks pass. Initial Black checking requested two call-layout changes, which were applied; initial commit failed for missing local Git identity, then succeeded with the same dal-implementer identity used by the earlier implementation. Neither failure was a product test failure.
+
+### Build provenance, inherited coverage, and handoff
+
+Fresh binding environment: Linux/WSL2 x86_64, kernel5.15.167.4, glibc2.43; GCC15.2.0, CMake4.2.3, Unix Makefiles, Release/C++17, native AADET, Python3.13.9, **pybind112.11.1**. Module: `../r1-build-python/dal/_dal.cpython-313-x86_64-linux-gnu.so`. Python's distribution reports GCC11.2 for the interpreter itself; the extension compiler is GCC15.2.
+
+Before restoration, all 771 inherited S3/S5 source/test/build-input hashes matched the reviewed baseline. Subsequent verification confirms that only the four authorized product/test inputs differ. All 266 installed headers match current native sources. Both installed and build-tree static libraries match the S3 recorded hashes: core `b32de330ef6adbf8b90a93c49c169e83a1377a7d806b8643e8e547176f39d35e`, public `cbd032efe1dce67c5cf3d5c888cdd60a2cd788bcc5c335b0cafed20c6315ee8f`. All 31 installed pybind11 headers match pinned commit `8a099e44b3d5f85b20f05828d919d2332a8de841`. The same-process runner checks the fresh module path/hash, all 771 current input hashes, and the two Python helper files before each GREEN/probe/example invocation. Evidence includes compile/link flags and library dependencies.
+
+S3 at `607584aaeba0596edf8e384a8137e5e518a3ddaa` remains inherited evidence for native1778, sanitizer255, and Python3.9.25/3.13.9 wheels (each596/1skip). S5 at the base above remains inherited evidence for its Python596/1skip and prior review findings. S2 CoDiPack597 at `fd9c42d07b54506366652f6559ddf1e0fff093e8` used pybind113.0.4. None of those runs is relabeled as current R1 verification. This run did not rebuild core, wheels or sanitizer modules, run alternate AAD, Windows/XLL, macOS, Python3.9–3.12, manylinux repair, or performance benchmarks. The old sanitizer run disabled host-Python leak detection.
+
+The final handoff updates the same draft PR, records final SHA/tree and a single post-push CI snapshot, and attaches this report with fresh evidence. Independent DAL-240 testing, DAL-241 documentation/CHANGELOG decision, and DAL-242 review remain for parent-controlled serial acceptance. No final Closes, merge, successor launch, F8, or sidecar is part of this delivery.
+
+## Historical R1 scope request: shared-helper compatibility requires two script call sites
+
+The current DAL-239 R1 contract permits only `scriptsettings.hpp`, necessary `value.cpp`, `test_script_settings.py`, and this report. It also requires preserving existing conversions and escalating any necessary scope expansion to the parent. The safe implementation needs **two call-site substitutions in `dal-python/src/bindings/script.cpp`**, which is absent from that write scope. No production file has been edited, committed, or pushed during this run.
+
+### Reproduction and proposed design
+
+All `StringInput` callers were inspected. In addition to the three constrained settings fields, it converts `model_bindings` keys/values in `value.cpp` and event text in `script.cpp`. The frozen API explicitly excludes enums for `default_index`, `today_fixing`, and `method`; it describes the other text inputs as str/String_ without that exclusion.
+
+Fresh execution against the hash-verified S5 module confirms both high and low layers currently accept `class Foreign(str, enum.Enum)` event text and model-binding keys/values. Constructor and setter binding conversion produce `{"spot": "EQ[A]"}`, and the resulting same-day FIX product prices at exactly PV=100. Ordinary str, a normal str subclass, and DAL String_ controls also produce PV=100 in both layers. A global `IsEnum` rejection in `StringInput` would reject those existing event/binding inputs as well. That collateral change is unnecessary for R1.
+
+The proposed patch leaves `StringInput` unchanged and adds `SettingStringInput`, which rejects enums with field/identifier/constraint context before delegating to the existing full-length text and NUL checks. Only default-index constructor/setter, today-policy text, and method conversion use it. The dedicated valid native today-policy branch remains first. All settings continue to finish conversion before assignment, preserving their prior values on failure. No GIL/native-copy boundary, numeric/date check, legacy Value conversion, core, generated file, or public API changes are proposed.
+
+The attached `proposed-production.patch` contains the complete proposed production change and passes `git apply --check`. It is a reviewable proposal, **not an applied or compiled fix**. The only additional write permission needed is the two default-index calls in `script.cpp`; event text stays on `StringInput`.
+
+### Fresh RED and evidence identity
+
+- Reviewed/source HEAD remains `f2125ea96b668fc32b66061241cec67213d0ea28`; tree `c635e713783d3c7116cad22d356ad43ab8875429`. Target remains `feature/dal-204-python-fix-settings` and draft PR #375. Multica created the local checkout branch `agent/dal-implementer/4154535fddff` at that exact revision; no remote branch was created.
+- Downloaded S5 report and evidence hashes match the assigned `0f7b8737bede1be2ca04cbd600e3d36d82e831743fec1d87bf83a2ee8f4c47ab` and `a0a541cd7d6cc6a2e211fd3f0ecc4cb9fbe4b157d07ee2e0d4dddf4569c40ca3`. The report was read in full.
+- Before adding the regression, all 771 recorded S3 source/test/build-input hashes matched this checkout. Both executing Python helper files matched it. The reused S5 extension SHA256 is `0b03aaf10280ff4b810510f06c9f421cffc92ef68a1d26e42d6fd9e3d4285c9e`; its exact module path, interpreter, platform, and hash are in `probe.stdout`.
+- Runtime: Python 3.13.9, pybind11 2.11.1, Linux/WSL2; S5 build provenance is GCC 15.2, Release, AADET. This run **reuses** that S5 extension; it does not claim a fresh binding/core build or a GREEN result.
+- `probe.py` freshly repeats the eight reviewer constructor/setter inputs: all eight are wrongly accepted, including MODEL-to-REQUIREHISTORICAL assignment. The six reviewer positive controls pass. Its intentional RED exit is 1. The additional eight high/low compatibility scenarios above all pass before the probe signals R1.
+- Added `test_settings_reject_foreign_string_enums` to the allowed test file, with eight independently collected cases. Each requires contextual TypeError; setter cases start from a different valid value and require it to remain unchanged. The class uses Python-3.9-compatible `str, enum.Enum` syntax.
+- Focused RED command: `env PYTHONPATH=<verified S5 build-python> <S3 venv313>/bin/python -m pytest dal-python/tests/test_script_settings.py -k foreign_string_enums -q --junitxml=../r1-scope-evidence/focused-red.xml`. Exact expanded command, timestamps, stderr/stdout, and exit code are in `focused-red.json`. Result: **8 failed, 117 deselected, exit 1**, each failing at `DID NOT RAISE TypeError`.
+- `python3 -m black --check --target-version py39 dal-python/tests/test_script_settings.py`, `git diff --check`, and `git apply --check ../r1-scope-evidence/proposed-production.patch` pass.
+
+Only the regression file and this report are locally modified. `work-in-progress.patch` in the attachment preserves both for the next run. They are intentionally not pushed as a completed fix while the regression is RED. No full pytest, example smoke, sanitizer, native tests, wheel, or new CI run was performed; all previously reported counts retain their original source identities.
+
+Next action belongs to the parent: add those two `script.cpp` calls to this same task's R1 write scope and resume DAL-239. Then apply the scoped fix, rebuild the real binding, collect GREEN/compatibility/full-Python/example evidence, and publish to the existing draft PR before the unchanged independent testing → documentation decision → mandatory review chain. This is a source-write coordination boundary, not a user-facing API decision.
 
 ## 2026-09-15 example validation correction
 
