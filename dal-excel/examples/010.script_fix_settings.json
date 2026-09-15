@@ -113,6 +113,7 @@
       "D20": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B16,Handles!B6,1,Handles!B17,)",
       "G20": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B18,Handles!B20,257,Handles!B4,Handles!B5)",
       "J20": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B19,Handles!B20,257,Handles!B4,Handles!B5)",
+      "M20": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B18,Handles!B6,257,Handles!B4,Handles!B5)",
       "A40": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B7,Handles!B6,1,Handles!B13,)",
       "D40": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B7,Handles!B6,1,Handles!B15,)",
       "G40": "=SCRIPTVALUATIONSETTINGS.NEW(\"bad-duplicate\",Inputs!D23:E24)",

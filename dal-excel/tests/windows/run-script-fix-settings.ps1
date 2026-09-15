@@ -166,6 +166,12 @@ try {
     Near $historical.d_SCALE ($pv/2) 1e-10 'historical scale'
     Near $historical.d_rate (-$tp*$pv) 1e-10 'historical rate'
     foreach ($key in @('d_spot','d_vol','d_div')) { Near $historical[$key] 0 1e-10 "historical $key" }
+    $historicalZero = Price 'M20'
+    Check ($historicalZero.Count -eq 6) 'Expected zero-rate historical PV and five AAD risks'
+    Near $historicalZero.PV 160 1.6e-10 'zero-rate historical PV'
+    Near $historicalZero.d_SCALE 80 1e-10 'zero-rate historical scale'
+    Near $historicalZero.d_rate (-$tp*160) 1e-10 'zero-rate historical rate'
+    foreach ($key in @('d_spot','d_vol','d_div')) { Near $historicalZero[$key] 0 1e-10 "zero-rate historical $key" }
     $future = Price 'J20'; $pv = 100 * [Math]::Exp(.03*$tf-.05*$tp)
     Near $future.PV $pv (1e-12*$pv) 'retained PV'
     Near $future.d_spot ($pv/100) 1e-10 'retained spot'

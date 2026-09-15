@@ -23,29 +23,41 @@ history = dal.Product_New(["SCALE", H, P], ["2.0", "x = SCALE * FIX(EQ[AAPL])", 
 mixed = dal.Product_New(["SCALE", H, P], ["2.0", "x = SCALE * FIX(EQ[AAPL])", "pay PAYS x + FIX(EQ[AAPL], 2026-09-15)"], settings=contract)
 future = dal.Product_New([P], ["pay PAYS FIX(EQ[AAPL], 2026-09-15)"])
 results = {name: dal.MonteCarlo_ValueWithSettings(product, market, 257, valuation=valuation, simulation=simulation)
-           for name, product, market in (("historical", history, model), ("mixed", mixed, zero), ("future", future, model))}
+           for name, product, market in (("historical", history, model), ("historical_zero", history, zero),
+                                        ("mixed", mixed, zero), ("future", future, model))}
 tp, tf = 10./365., 3./365.
 hpv, fpv = 160.*math.exp(-.05*tp), 100.*math.exp(.03*tf-.05*tp)
 oracles = {
     "historical": {"PV": hpv, "d_SCALE": hpv/2., "d_rate": -tp*hpv, "d_spot": 0., "d_vol": 0., "d_div": 0.},
+    "historical_zero": {"PV": 160., "d_SCALE": 80., "d_rate": -tp*160., "d_spot": 0., "d_vol": 0., "d_div": 0.},
     "mixed": {"PV": 260., "d_SCALE": 80., "d_spot": 1.},
     "future": {"PV": fpv, "d_spot": fpv/100., "d_rate": (tf-tp)*fpv, "d_div": -tf*fpv},
 }
 for name, expected in oracles.items():
     for key, value in expected.items():
         tolerance = 1e-12*max(1., abs(value)) if key == "PV" else 1e-10
-        if abs(results[name][key]-value) > tolerance:
+        if not math.isfinite(results[name][key]) or abs(results[name][key]-value) > tolerance:
             raise AssertionError((name, key, results[name][key], value, tolerance))
+if args.native_diagnostics:
+    native_prices = json.loads((args.native_diagnostics / "prices.json").read_text(encoding="utf-8"))
+    if set(native_prices) != set(results):
+        raise AssertionError("different native scenario names")
+    for name, actual in native_prices.items():
+        if set(actual) != set(results[name]):
+            raise AssertionError((name, "different native result keys"))
+        for key, value in actual.items():
+            if not math.isfinite(value) or not math.isfinite(results[name][key]) or abs(value-results[name][key]) > 1e-8:
+                raise AssertionError((name, key, value, results[name][key]))
 if args.excel_results:
     excel = json.loads(args.excel_results.read_text(encoding="utf-8-sig"))
     if not excel["passed"]:
         raise AssertionError("Excel runner did not pass")
-    for name, cell in (("historical", "G20"), ("mixed", "A2"), ("future", "J20")):
+    for name, cell in (("historical", "G20"), ("historical_zero", "M20"), ("mixed", "A2"), ("future", "J20")):
         rows = dict(excel["outputs"][f"Values!{cell}"]["values"])
         if set(rows) != set(results[name]):
             raise AssertionError((name, "different result keys"))
         for key, value in results[name].items():
-            if abs(rows[key]-value) > 1e-8:
+            if not math.isfinite(rows[key]) or not math.isfinite(value) or abs(rows[key]-value) > 1e-8:
                 raise AssertionError((name, key, rows[key], value))
     if args.native_diagnostics:
         for address in ("A2", "D2", "G2", "J2"):

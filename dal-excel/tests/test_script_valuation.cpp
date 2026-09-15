@@ -47,6 +47,12 @@ namespace {
         void AfterSubmission() override { ++count_; }
     };
 
+    struct FixingCleanup_ {
+        const String_ index_;
+        explicit FixingCleanup_(const String_& index) : index_(index) {}
+        ~FixingCleanup_() { Excel::ScriptTestStoreFixings(index_, {}); }
+    };
+
     Matrix_<Cell_> Setting(const char* key, const Cell_& value) {
         Matrix_<Cell_> result(1, 2);
         result(0, 0) = key;
@@ -311,4 +317,106 @@ TEST(ScriptExcelContractTest, TestLongDiagnosticUnicodeAndInvalidEncoding) {
     ASSERT_TRUE(result == native);
     for (const auto* bad : {"\xc0\x80", "\xed\xa0\x80", "\xf4\x90\x80\x80", "\xe2\x82", "\x80"})
         Error([&] { Excel::ScriptDiagnosticChunks(String_(bad), "Product_Describe"); }, {"DiagnosticEncoding", "Product_Describe"});
+}
+
+TEST(ScriptExcelContractTest, TestDefaultValuationCapturesDateAtEachCall) {
+    Excel::ScriptTestInitialize(1);
+    const DateScope_ restore(H);
+    Reads_ reads;
+    Workers_ workers;
+    const ObserverScope_ observe(&reads, &workers);
+    Handle_<StorableScriptValuationSettings_> valuation;
+    ScriptValuationSettings_New("floating-date", {}, Setting("spot", Cell_("EQ[AAPL]")), Snapshot(), &valuation);
+    ASSERT_FALSE(valuation->val_.evaluationDate_);
+    ASSERT_EQ(reads.histories_, 0);
+    ASSERT_EQ(reads.fixings_, 0);
+    Handle_<ScriptProductData_> product;
+    Product_New("date-reuse", {Cell_(P)}, {"pay PAYS FIX(EQ[AAPL], 2026-09-12)"}, &product);
+    const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
+    for (int offset : {0, 1}) {
+        const DateScope_ date(D.AddDays(offset));
+        reads.fixings_ = workers.count_ = 0;
+        Vector_<String_> chunks;
+        ScriptValuation_Explain(product, model, valuation, &chunks);
+        const auto explanation = Json(chunks);
+        ASSERT_STREQ(explanation["evaluation_date"].GetString(), offset == 0 ? "2026-09-12" : "2026-09-13");
+        ASSERT_EQ(reads.fixings_, offset);
+        ASSERT_EQ(reads.histories_, 0);
+        ASSERT_EQ(workers.count_, 0);
+        Matrix_<Cell_> values;
+        MonteCarlo_ValueWithSettings(product, model, 1, valuation, {}, &values);
+        ASSERT_DOUBLE_EQ(Result(values).at("PV"), offset == 0 ? 100. : 80.);
+        ASSERT_EQ(reads.fixings_, 2 * offset);
+        ASSERT_GT(workers.count_, 0);
+    }
+    ASSERT_FALSE(valuation->val_.evaluationDate_);
+}
+
+TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExplicitSnapshot) {
+    Excel::ScriptTestInitialize(1);
+    const DateScope_ restore(D);
+    const String_ index = "EQ[DAL245_REPRICE]";
+    const FixingCleanup_ cleanup(index);
+    Handle_<ScriptProductData_> product;
+    Product_New("history-reuse", {Cell_("SCALE"), Cell_(H), Cell_(P)}, {"2", "x = SCALE * FIX(EQ[DAL245_REPRICE])", "pay PAYS x"}, &product);
+    Handle_<StorableMarketFixingSnapshot_> snapshot;
+    MarketFixingSnapshot_New({index}, {Cell_(DateTime_(H, 0.))}, {80.}, &snapshot);
+    Handle_<StorableScriptValuationSettings_> global, explicitSnapshot;
+    ScriptValuationSettings_New("global", Setting("evaluation_date", Cell_(D)), {}, {}, &global);
+    ScriptValuationSettings_New("fixed", Setting("evaluation_date", Cell_(D)), {}, snapshot, &explicitSnapshot);
+    const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
+    Reads_ reads;
+    Workers_ workers;
+    const ObserverScope_ observe(&reads, &workers);
+    Vector_<String_> original;
+    Product_Describe(product, &original);
+    for (double fixing : {80., 90.}) {
+        FixHistory_ history;
+        history.vals_ = {{DateTime_(H, 0.), fixing}};
+        Excel::ScriptTestStoreFixings(index, history);
+        for (const auto& valuation : {global, explicitSnapshot}) {
+            const bool isGlobal = valuation == global;
+            const double expected = isGlobal ? fixing : 80.;
+            reads.histories_ = reads.fixings_ = workers.count_ = 0;
+            Vector_<String_> description;
+            Product_Describe(product, &description);
+            ASSERT_EQ(description, original);
+            ASSERT_EQ(reads.histories_, 0);
+            ASSERT_EQ(reads.fixings_, 0);
+            for (int call = 1; call <= 2; ++call) {
+                Vector_<String_> chunks;
+                ScriptValuation_Explain(product, model, valuation, &chunks);
+                const auto explanation = Json(chunks);
+                ASSERT_STREQ(explanation["source_kind"].GetString(), isGlobal ? "GlobalSnapshot" : "ExplicitSnapshot");
+                ASSERT_DOUBLE_EQ(explanation["requests"][0]["value"].GetDouble(), expected);
+                ASSERT_EQ(reads.histories_, isGlobal ? call : 0);
+                ASSERT_EQ(reads.fixings_, call);
+                ASSERT_EQ(workers.count_, 0);
+            }
+            Matrix_<Cell_> values;
+            MonteCarlo_ValueWithSettings(product, model, 257, valuation, {}, &values);
+            ASSERT_DOUBLE_EQ(Result(values).at("PV"), 2. * expected);
+            ASSERT_GT(workers.count_, 0);
+        }
+    }
+}
+
+TEST(ScriptExcelContractTest, TestLegacyAndTypedAadTablesAgree) {
+    Excel::ScriptTestInitialize(1);
+    const DateScope_ restore(D);
+    const Handle_<ModelData_> model(new BSModelData_("carry", 100., .2, .05, .02));
+    Handle_<ScriptProductData_> product;
+    Product_New("legacy-aad", {Cell_(P)}, {"pay PAYS SPOT()"}, &product);
+    Handle_<StorableMonteCarloSettings_> simulation;
+    MonteCarloSettings_New("aad", Setting("enable_aad", Cell_(true)), &simulation);
+    Matrix_<Cell_> oldCells, newCells;
+    MonteCarlo_Value(product, model, 257, "sobol", false, true, .01, &oldCells);
+    MonteCarlo_ValueWithSettings(product, model, 257, {}, simulation, &newCells);
+    const auto legacy = Result(oldCells), typed = Result(newCells);
+    ASSERT_EQ(legacy.size(), 5u);
+    ASSERT_EQ(typed.size(), legacy.size());
+    for (const auto& entry : legacy) {
+        ASSERT_NE(typed.find(entry.first), typed.end());
+        ASSERT_NEAR(typed.at(entry.first), entry.second, 1e-8);
+    }
 }
