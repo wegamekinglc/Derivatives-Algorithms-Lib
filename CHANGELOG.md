@@ -52,8 +52,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   without workers or a cache for subsequent Value. Legacy debug /1 rejects FIX
   and nonempty defaults with a Describe migration hint. Rebuild consumers and
   bindings against matching core/public libraries; old binaries are not promised
-  v2 compatibility. Python/Excel retain legacy signatures without the new
-  settings or diagnostic projections. See the
+  v2 compatibility. Python and Excel project these settings and diagnostics as
+  described in the two binding entries above. See the
   [public settings](docs/methodology/script_engine.md#public-c-settings) and
   [archive/diagnostic contracts](docs/methodology/script_engine.md#product-archive-and-diagnostics).
 
