@@ -49,6 +49,29 @@ joint XCCY as described below. The
 [public API guide](../docs/public-api.md#excel) lists the primary worksheet
 families.
 
+## Script FIX Settings and Diagnostics
+
+`SCRIPTPRODUCTSETTINGS.NEW`, `SCRIPTVALUATIONSETTINGS.NEW`, and
+`MONTECARLOSETTINGS.NEW` create immutable settings handles from two-column
+ranges. `PRODUCT.NEWWITHSETTINGS` accepts a product settings handle;
+`MONTECARLO.VALUEWITHSETTINGS` accepts optional valuation and simulation handles
+after product, model, and path count. The original `PRODUCT.NEW` and seven-input
+`MONTECARLO.VALUE` remain available with the same two-column PV/risk result.
+
+Use unquoted `FIX(EQ[AAPL])` in script text. Valuation settings provide an
+explicit date, today policy, `spot` to ordinary EQ binding, and snapshot;
+simulation settings select compiled execution and AAD.
+`PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` return complete native JSON
+in one column of text chunks. Concatenate all rows without separators before
+parsing. These functions are nonvolatile; each actual Value/Explain call
+prepares independently, so explicitly recalculate after global-state changes.
+
+The [Excel FIX guide](../docs/excel-script-settings.md) covers exact signatures,
+defaults, physical row/column errors, immutable ownership, date/time boundaries,
+and the [workbook manifest](examples/010.script_fix_settings.json).
+Its [Windows runner](tests/windows/run-script-fix-settings.ps1) creates,
+executes, checks, and saves the workbook with independent PV/AAD expectations.
+
 ## Resettable and Joint XCCY Functions
 
 `XCCYRESETCONVENTION.NEW` creates the business-day and timestamp convention for
@@ -60,7 +83,11 @@ domestic and foreign rate-fixing identities. Pass that handle to
 `MARKETFIXINGSNAPSHOT.NEW` takes parallel index-name, fixing-time, and value
 ranges and returns one immutable snapshot handle. The arrays must have equal
 length, timestamps must be valid, and observations must be finite. Canonical FX
-observations must also be positive; rate fixings may be zero or negative.
+observations must also be positive; rate and ordinary equity fixings may be zero
+or negative. Fractional Excel serials retain their exact intraday timestamp.
+Omitting all three arrays with `MARKETFIXINGSNAPSHOT.NEW(,,)` constructs a
+non-null empty snapshot; script valuation treats it as authoritative, with no
+global-history fallback. The parallel arrays stop at their first blank cell.
 Repeated `(index name, timestamp)` rows are rejected. The canonical name for a
 domestic/foreign pair is `FX[foreign/domestic]`, for example `FX[EUR/USD]` for
 USD/EUR. Lookup uses the requested direction when present and otherwise uses

@@ -18,6 +18,16 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-15
 
+- **Excel FIX settings and diagnostics** — added immutable product, valuation,
+  and simulation settings handles, `PRODUCT.NEWWITHSETTINGS`, and
+  `MONTECARLO.VALUEWITHSETTINGS` for explicit dates, today policy, model
+  bindings, snapshots, and compiled/AAD execution. Strict two-column ranges
+  retain row/column errors; `MARKETFIXINGSNAPSHOT.NEW(,,)` creates an
+  authoritative empty snapshot. `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN`
+  return complete native JSON in text-column chunks. Existing product and
+  seven-input Value formulas keep their signatures and two-column PV/risk
+  output. See the [Excel FIX guide](docs/excel-script-settings.md).
+
 - **Python FIX settings and diagnostics** — added keyword-only product settings,
   `MonteCarlo_ValueWithSettings`, and three native settings classes with validated
   properties and copy/deepcopy support. Explicit dates, exact today policies,

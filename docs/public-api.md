@@ -769,13 +769,38 @@ functions rather than attempting to unpack native objects in cells.
 
 For a local-volatility model, use
 `DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
-range must be a rectangular spots-by-times matrix. `MONTECARLO.VALUE` requires a
-strictly positive path count.
+range must be a rectangular spots-by-times matrix. Both Excel Value functions
+require a finite integer path count in `1..2147483647`.
 
-The seven-input `MONTECARLO.VALUE` has no compiled or script-settings argument.
-Excel has no script default-index/settings constructors or Describe/Explain
-projection. Its legacy wrapper uses default native preparation, with global
-history for historical FIX and no binding for model-sourced named FIX.
+The seven-input `MONTECARLO.VALUE` retains its argument order and has no
+compiled or script-settings argument. For explicit FIX settings, construct
+`SCRIPTPRODUCTSETTINGS.NEW(name, [settings])`,
+`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [model_bindings], [fixings])`,
+and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings and bindings
+are strict two-column ranges with physical row/column errors. Use
+`PRODUCT.NEWWITHSETTINGS(name, dates, events, settings)` for a product default,
+then `MONTECARLO.VALUEWITHSETTINGS(product, modelData, n_paths, [valuation], [simulation])`.
+Square brackets mark optional arguments; omitted valuation/simulation handles
+select fresh native defaults. The product settings handle is required by
+`PRODUCT.NEWWITHSETTINGS`; `PRODUCT.NEW` remains available without it.
+
+Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX requires
+an explicit `spot` to ordinary EQ binding; a product default only gives legacy
+`SPOT()` an identity. Valuation settings accept an integral evaluation date,
+`Model` or `RequireHistorical` today policy, and an immutable snapshot.
+`MARKETFIXINGSNAPSHOT.NEW(,,)` creates an explicit empty snapshot, which never
+falls back to global history. Snapshot timestamps retain intraday fractions;
+daily FIX requires exact midnight. Old and new Value return the same headerless
+N×2 `PV`/`d_` key/value table, with already-normalized risks.
+
+`PRODUCT.DESCRIBE(product)` inspects contract syntax without history or date
+access. `SCRIPTVALUATION.EXPLAIN(product, modelData, [valuation])` performs
+fresh default price preparation without paths, workers, or a subsequent Value
+cache. Their `dal.script-product/2` and `dal.script-valuation/1` JSON is returned
+as one column of text chunks: concatenate in order without separators before
+parsing. Functions are nonvolatile; explicitly recalculate after global-state
+changes. See the [Excel FIX guide](excel-script-settings.md) for exact defaults,
+matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracles.
 
 `SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
