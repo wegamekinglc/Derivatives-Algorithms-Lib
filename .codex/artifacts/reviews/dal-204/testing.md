@@ -1,5 +1,96 @@
 # DAL-204 F7 independent testing
 
+## Current result: R1 independent verification, 2026-09-15
+
+**PASS for the tested Linux scope at HEAD `3b57a10c23a9d68f95c3edd3888a4f477f12bb04`, tree `a8e2bfdb09648ee481e44508ba6d61745d13e67d`.** The eight foreign string-enum failures reproduce on both old modules and become eight contextual TypeError rejections on both independently rebuilt wheels. Failed setters retain different previous valid values. Legal settings and shared event/model-binding text remain compatible. No actionable product failure remains in this verification scope.
+
+Draft [PR #375](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/375), branch `feature/dal-204-python-fix-settings`, remains open at that exact head. Product/test commit: `27de3544d4497a77ee2c6d67743f147bbeb65d53`. This report awaits parent acceptance, the documentation decision, and mandatory re-review; it is not merge approval.
+
+### Scope and provenance
+
+**Running existing tests:** the accepted regression suites ran without modifications. **Authoring tests:** no repository tests added; the authenticated reviewer probe was replayed unchanged, with a local StrEnum variant and existing assertion-free example/numeric probes. **Repairing failures:** no product or test repair. One initial probe command had an extra repository prefix and exited 127 before Python started; the corrected invocation and both expected RED runs are preserved separately.
+
+Only this report changes in the repository. No commit, push, PR update, or other repository file change is needed. The parent can incorporate the attached report in the existing serial workflow. The complete previous S3 report is preserved below as history; its earlier PASS did not detect R1 and is superseded by this section.
+
+Authenticated implementation report/evidence hashes match the current issue contract: `6d5de94f7ec4c6c5ef69e1de1405d813335c226e3737109d4cb8cc01b23b4ba0` and `20cca69ae651fee775ea631765066c9182f41d3cc35378602b13bc77a0f61cfd`. All 115 implementation evidence manifest entries were verified. The embedded reviewer evidence matches `a0a541cd7d6cc6a2e211fd3f0ecc4cb9fbe4b157d07ee2e0d4dddf4569c40ca3`; its original probe is the RED/GREEN input. These inherited results are not counted as independent tests.
+
+`input-identity.json` and `source-sha256.json` verify 771 source/test/build inputs against the prior independent S3 inventory. Exactly four inputs differ: `scriptsettings.hpp`, `script.cpp`, `value.cpp`, and `test_script_settings.py`. Core/public sources, CMake inputs, gitlinks, Python wrappers, and the example are unchanged. All **266 installed headers** match current source. Both installed Release static libraries match the original S3 hashes; both sanitizer static libraries are unchanged before/after the binding rebuild. Build caches, flags, link commands, source compilation lists, and final binary hashes are attached.
+
+The RED wheels were originally built at `607584aaeba0596edf8e384a8137e5e518a3ddaa`; their production inputs are byte-identical to the reviewed `f2125ea96b668fc32b66061241cec67213d0ea28`. Their hashes are `42bc9389441fd440d42c5b85b3d49128a12845b6c7a6e378471370e249181965` (cp39) and `cd0bac5e72a36ced892d81e3135d24e182bcb8c7551d251ce2f7e80c7227ce24` (cp313). Logs explicitly identify these old binaries even though the checkout already contains the new regression tests.
+
+### Fresh builds and runtime identity
+
+Linux x86_64 / WSL2, glibc 2.43, GCC **15.2.0**, CMake **4.2.3**, C++17, **AADET**. The existing isolated Python **3.9.25** and **3.13.9** environments both use actual **pybind11 2.11.1**. Each environment's 31 headers match upstream gitlink `8a099e44b3d5f85b20f05828d919d2332a8de841`. NumPy/pytest versions remain 2.0.2/8.4.2 and 2.5.3/9.1.1 respectively; host dependencies were untouched.
+
+Both standalone wheels compile all nine binding translation units in fresh build directories against the verified installed DAL public package, then install into the isolated environments. Release uses `-O3 -DNDEBUG` and LTO. The sanitizer rebuild compiles the two changed translation units and relinks against the existing instrumented core/public libraries, with `-O1 -g0 -DNDEBUG`, address+undefined instrumentation, and IPO disabled.
+
+| Fresh tested module | SHA256 |
+| --- | --- |
+| Installed cp39 wheel, `dal-python/.venv/lib/python3.9/site-packages/dal/_dal.cpython-39-x86_64-linux-gnu.so` | `638bb810d7a3a469b638ac95631d5e1c13f1b8b4343f03e4238a9b23318f917c` |
+| Installed cp313 wheel, task `evidence/venv313/lib/python3.13/site-packages/dal/_dal.cpython-313-x86_64-linux-gnu.so` | `7b62ad3284ffad876c96b29d8fe596fa42a8358763a0361214e76868fb61f426` |
+| Sanitized cp39, `build/s3-asan/dal-python/dal/_dal.cpython-39-x86_64-linux-gnu.so` | `f5ee59514118c34773e615f85c26385b85b0b7523dec1324216f007b9e15210f` |
+
+`run_python.py` validates the loaded module directory, exact pybind version, all current source hashes, and loaded Python helper bytes before invoking pytest/probes in the same process. It records module hash, source SHA/tree, versions, and `ldd`. Guards remain active under `python -O`. Installed extension hashes also match their actual wheel members; wheel metadata/member hashes are in `summary.json`.
+
+### Fresh results
+
+All GREEN commands exited **0**. The expected old reviewer probes and eight-test RED run exited **1**. Each operation has exact argv, cwd, UTC timestamp, duration, exit code, and raw output in its JSON/log; XML records every executed test name.
+
+| Verification | Actual result | Evidence |
+| --- | --- | --- |
+| Original reviewer probe, old cp39 and cp313 | Eight erroneous acceptances each; six legal controls each | `old-reviewer39-replay`, `old-reviewer313` |
+| Narrow eight-test regression, old/new cp39 | **8 failed → 8 passed**, all RED failures are DID NOT RAISE TypeError | `old-focused39`, `focused39` |
+| Original reviewer probe, new cp39 and cp313 | Eight TypeError rejections and six legal controls each | `reviewer39`, `reviewer313` |
+| Python 3.13 StrEnum variant | Eight rejections and six legal controls | `strenum313` |
+| Installed cp39 complete Python suite | **640 passed / 1 skipped**, 19.21 s | `python39-full` |
+| Installed cp313 complete Python suite | **640 passed / 1 skipped**, 19.15 s | `python313-full` |
+| ASan+UBSan related Python suite | **299 passed**, 4.39 s, no sanitizer diagnostics | `sanitizer-related` |
+| Public script/archive contracts, unchanged verified S3 executable | **23/23 freshly executed**, 0.22 s | `public-script-tests` |
+| Fresh installed C++ consumer builds | **2/2**, legacy/typed and historical AAD | `consumer-configure`, `consumer-build`, `consumer-tests` |
+| Complete FIX example, cp39/cp313, normal and optimized | Four passes, PV `260.00000000000006`, d_SCALE `80.0` | `example39-*`, `example313-*` |
+| Five corrupted example outputs under cp39 `-O` | All rejected: PV, risk, extra key, product schema, valuation schema | `example39-negative-*` |
+| NumPy integer seam, invalid aliases, independent historical oracle and C++ comparison | Passed on cp39/cp313; PV160 and d_SCALE80 | `supplementary39`, `supplementary313` |
+
+Each complete suite collects **641** tests, including **161 settings**, **78 FIX valuation**, **239 F7**, and **299 related** cases. The eight event/model-bindings scenarios are included in both full suites and the sanitizer suite: high/low API × plain str/normal str subclass/DAL String_/foreign string enum. Each scenario checks constructor and setter binding conversion, event conversion, and the independent **PV100** oracle. The other new legal controls cover 24 text constructor/setter cases and four genuine policy cases. These are included counts, not extra tests to add to the totals.
+
+The only skip in each wheel is `test_joint_quote_risk.py:177`, because standalone wheels do not ship the private `_dal_quote_risk_test` fixture. No F7 or related case skips. The fixture's prior monorepo pass is historical evidence, not a current wheel pass.
+
+### Boundary audit and original F7 matrix
+
+All helper call sites were inspected. `SettingStringInput` serves only default_index constructor/setter (`script.cpp:23,29`), today policy (`value.cpp:64`), and method (`value.cpp:102`). Genuine `TodayFixingPolicy_` remains accepted before the string guard. Generic `StringInput` remains unchanged for events (`script.cpp:49`) and model-binding keys/values (`value.cpp:79,80`). NUL rejection, original case, legacy Value conversion, native settings copies, and GIL release boundaries are unchanged and covered by the passing existing tests.
+
+The eight regression cases use different prior values: the opposite valid today policy, `EQ[OLD]`, and `mrg32`. They verify setter preservation and error class/field/value/identifier; the reviewer output audit additionally requires the exact non-enum string/NUL constraint, and both policy names plus `InvalidTodayFixingPolicy` for today errors.
+
+The existing F7 oracle matrix was re-executed on both wheels and under sanitizer: T07's 48 combinations (BS/Dupire, three RNGs, BB, tree/compiled, double/AAD), T15's explicit 80→90→80 snapshot repricing, T18 historical PV/rate/SCALE derivatives across 1/257/8193 paths, future observation/payment dates, exact/fuzzy independent PV160/PV120 and derivatives, hard history, T27 legacy/alias/default deduplication, T28 conversion/copy/errors, and T29 diagnostic schemas/request IDs. Native public tests freshly re-execute the global-history/no-cache, explicit-empty snapshot, archive v1/v2, no-I/O and no-worker cases that Python does not expose. The detailed original mapping below remains valid; native core-only test results outside those 23 are inherited.
+
+### Reproduction and limits
+
+The attached `README.md`, capture JSON files, scripts, source inventory, and build metadata give complete commands. From the repository, representative commands are:
+
+```bash
+env PYTHONPATH= dal-python/.venv/bin/python ../evidence-r1/run_python.py \
+  dal-python/.venv/lib/python3.9/site-packages dal-python/tests -q -rs \
+  --junitxml=../evidence-r1/python39-full.xml
+cmake --build build/s3-asan --target _dal -j 2
+env PYTHONPATH=build/s3-asan/dal-python \
+  LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/15/libasan.so:/usr/lib/gcc/x86_64-linux-gnu/15/libstdc++.so \
+  ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  dal-python/.venv/bin/python ../evidence-r1/run_python.py build/s3-asan/dal-python \
+  dal-python/tests/test_script_settings.py dal-python/tests/test_fix_valuation.py \
+  dal-python/tests/test_script.py dal-python/tests/test_value.py dal-python/tests/test_api.py \
+  dal-python/tests/test_xccy_resettable.py dal-python/tests/test_curve_pricing.py -q
+```
+
+No full core rebuild/full canonical Linux CTest run was repeated: its inputs and native libraries are unchanged and verified. Prior native1778, old sanitizer255, old wheel597-collection and S2 CoDi597 results remain historical. This run freshly builds both wheels, the changed sanitized binding and consumers, and freshly executes the results above. Leak detection is disabled for the unsanitized Python host; address/undefined diagnostics remain enabled. Windows/XLL, macOS, manylinux repair/portability, Python3.10–3.12, alternate AAD backends, and release upload were not independently executed.
+
+The sole CI snapshot at **08:52:54 UTC** matches the exact tested head: **47 checks, 45 successful, one skipped, one running, zero failures**. It is an external snapshot, not independently reproduced platform coverage. No watch/poll, merge, final Closes, or successor/F8 dispatch occurred.
+
+---
+
+## Historical S3 report — tested at 607584aa, before R1
+
+The following original report is preserved verbatim. Its references to “fresh,” “this run,” 195 F7 cases, and the earlier PASS describe only the previous S3 run and do not override the current R1 result above.
+
 ## Result
 
 **PASS for the independently tested Linux scope. No actionable product failures found.** The final implementation builds and loads with the actual wheel pin, pybind11 **2.11.1**, on Python **3.9.25** and **3.13.9**. Both standalone wheels pass all 195 F7 cases and all other available Python tests. Native regression, installed C++ consumers, the complete example, and focused ASan/UBSan checks also pass.

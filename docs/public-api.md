@@ -586,8 +586,13 @@ provide `default_index`; valuation settings provide `evaluation_date`,
 `method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact
-`Model` / `RequireHistorical` strings. Bindings accept a dictionary with string
-keys and values, such as `{"spot": "EQ[AAPL]"}`. Dates require a valid DAL
+`Model` / `RequireHistorical` strings. The three settings fields `default_index`,
+`method`, and `today_fixing` reject foreign enums, including string-derived enum
+members, with `TypeError` on construction or assignment. Ordinary string
+subclasses, DAL `String_`, and the native today-policy members remain supported.
+Bindings accept a dictionary with string keys and values, such as
+`{"spot": "EQ[AAPL]"}`; event text and binding keys/values also accept
+string-derived enum members. Dates require a valid DAL
 `Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
 `fixings=None` captures current global history; an explicit empty snapshot
 never falls back to it. Global capture is sequential, not atomic across

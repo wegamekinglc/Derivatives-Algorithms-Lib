@@ -478,6 +478,13 @@ Unknown names list the two allowed policies. `evaluation_date` does not accept
 date strings, numeric serials, Python `datetime`, `DateTime_`, or `Cell_`.
 An explicit date neither reads nor changes the global date.
 
+For `default_index`, `method`, and the string form of `today_fixing`, ordinary
+`str` subclasses and DAL `String_` are accepted. Python enum values, including
+`str, enum.Enum` and `enum.StrEnum` members, raise `TypeError` in constructors
+and setters; the native `TodayFixingPolicy_` members above remain valid policies.
+Event text and `model_bindings` keys/values accept string-derived enum members
+under their usual text validation rules.
+
 Settings parameters accept their corresponding native settings object or `None`
 (fresh defaults), not an entire settings dictionary. Binding dictionaries are
 copied in insertion order. Python has already discarded repeated identical
