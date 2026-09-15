@@ -34,11 +34,20 @@ result = dal.MonteCarlo_ValueWithSettings(
     valuation=valuation,
     simulation=dal.MonteCarloSettings_(enable_aad=True, compiled=True),
 )
-assert math.isclose(result["PV"], 260.0, rel_tol=0.0, abs_tol=2.6e-10)
-assert math.isclose(result["d_SCALE"], 80.0, rel_tol=0.0, abs_tol=1e-10)
-assert all(key == "PV" or key.startswith("d_") for key in result)
+if not math.isclose(result["PV"], 260.0, rel_tol=0.0, abs_tol=2.6e-10):
+    raise RuntimeError(f"Expected PV=260.0 within 2.6e-10; got {result['PV']!r}")
+if not math.isclose(result["d_SCALE"], 80.0, rel_tol=0.0, abs_tol=1e-10):
+    raise RuntimeError(f"Expected d_SCALE=80.0 within 1e-10; got {result['d_SCALE']!r}")
+if not all(key == "PV" or key.startswith("d_") for key in result):
+    raise RuntimeError(f"Expected only PV/d_ result keys; got {list(result)!r}")
 description = dal.Product_Describe(product)
 explanation = dal.ScriptValuation_Explain(product, model, valuation=valuation)
-assert description["schema"] == "dal.script-product/2"
-assert explanation["schema"] == "dal.script-valuation/1"
+if description["schema"] != "dal.script-product/2":
+    raise RuntimeError(
+        f"Expected Product_Describe schema dal.script-product/2; got {description['schema']!r}"
+    )
+if explanation["schema"] != "dal.script-valuation/1":
+    raise RuntimeError(
+        f"Expected ScriptValuation_Explain schema dal.script-valuation/1; got {explanation['schema']!r}"
+    )
 print(result)
