@@ -13,18 +13,12 @@
 namespace Dal::Script {
     namespace {
         void RequireBoundPastSpots(const Node_& node) {
-            REQUIRE2(!dynamic_cast<const NodeSpot_*>(&node), "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
-            for (const auto& child : node.arguments_)
-                RequireBoundPastSpots(*child);
+            REQUIRE2(!FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeSpot_*>(&visited) != nullptr; }),
+                     "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
         }
 
         bool ContainsPayoff(const Node_& node) {
-            if (dynamic_cast<const NodePays_*>(&node))
-                return true;
-            for (const auto& child : node.arguments_)
-                if (ContainsPayoff(*child))
-                    return true;
-            return false;
+            return FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodePays_*>(&visited) != nullptr; }) != nullptr;
         }
     } // namespace
 

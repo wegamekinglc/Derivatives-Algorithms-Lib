@@ -98,13 +98,18 @@ namespace Dal::Script {
         [[noreturn]] void RequirePreparation() const { THROW2(PreparationError(), ScriptError_); }
     };
 
-    inline const NodeFix_* FindUnpreparedFixing(const Node_& node) {
-        if (const auto* fix = dynamic_cast<const NodeFix_*>(&node))
-            return fix;
+    //  First node (pre-order) satisfying predicate, else nullptr
+    template <class P_> const Node_* FindNode(const Node_& node, const P_& predicate) {
+        if (predicate(node))
+            return &node;
         for (const auto& argument : node.arguments_)
-            if (const auto* fix = FindUnpreparedFixing(*argument))
-                return fix;
+            if (const Node_* found = FindNode(*argument, predicate))
+                return found;
         return nullptr;
+    }
+
+    inline const NodeFix_* FindUnpreparedFixing(const Node_& node) {
+        return dynamic_cast<const NodeFix_*>(FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeFix_*>(&visited) != nullptr; }));
     }
 
     //  Const

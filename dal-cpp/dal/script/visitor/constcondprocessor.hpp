@@ -16,12 +16,9 @@ namespace Dal::Script {
         ExprTree_* current_;
 
         static bool HasEagerBoolean(const Node_& node) {
-            if (dynamic_cast<const NodeAnd_*>(&node) || dynamic_cast<const NodeOr_*>(&node))
-                return true;
-            for (const auto& argument : node.arguments_)
-                if (HasEagerBoolean(*argument))
-                    return true;
-            return false;
+            return FindNode(node, [](const Node_& visited) {
+                       return dynamic_cast<const NodeAnd_*>(&visited) != nullptr || dynamic_cast<const NodeOr_*>(&visited) != nullptr;
+                   }) != nullptr;
         }
 
         void VisitArgsSetCurrent(Node_& node) {
