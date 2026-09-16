@@ -78,8 +78,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   sealed doubles, with hard historical decisions and fuzzy future conditions.
   Fresh path-local payoff roots preserve accumulated risk for direct seed and
   constant payoffs; batch contributions are normalized once by total paths.
-  Named compiled and prepared AAD compiled valuation remain unsupported, as
-  do named valuation settings in the public C++ facade, Python, and Excel.
+  At introduction, named compiled and prepared AAD compiled valuation remain
+  unsupported, as do named valuation settings in the public C++ facade,
+  Python, and Excel.
   See the [AAD tree contract](docs/methodology/script_engine.md#core-aadtree-fixing-valuation).
 
 ## 2026-09-13
@@ -89,8 +90,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   Fixings are retained across events, payments use their own numeraires, and
   sealed historical values seed past state without adding settled payments.
   Today-only zero-dimensional paths and wholly expired zero returns are
-  supported. Named AAD, compiled, fuzzy, and public-facade/Python/Excel
-  valuation remain unavailable. **Compatibility:** unbound historical
+  supported. At introduction, named AAD, compiled, fuzzy, and
+  public-facade/Python/Excel valuation remain unavailable.
+  **Compatibility:** unbound historical
   `SPOT()` now raises `UnboundHistoricalSpot` instead of using the placeholder
   value 30; model-aware preparation accepts an explicit default index, shared
   by matching SPOT/FIX requests. Legacy AAD rejects nonexpired products with
