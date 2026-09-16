@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <tuple>
+
 #include <dal/math/aad/sample.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/lexer.hpp>
