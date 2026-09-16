@@ -167,6 +167,7 @@ namespace Dal {
                          value.evaluationDate_ = EvaluationDate(cell, valueContext);
                      } else if (key == "today_fixing") {
                          const auto text = TextValue(cell, valueContext);
+                         //  Deliberately case-sensitive: values must read Model/RequireHistorical exactly, unlike the case-insensitive keys
                          const std::string policy(text.data(), text.size());
                          REQUIRE(policy == "Model" || policy == "RequireHistorical",
                                  valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
