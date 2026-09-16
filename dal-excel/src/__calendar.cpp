@@ -2,8 +2,6 @@
 // Created by wegam on 2026/6/20.
 //
 
-#pragma once
-
 #include "__platform.hpp"
 #include <dal/time/date.hpp>
 #include <dal/time/holidays.hpp>

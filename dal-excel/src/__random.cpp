@@ -2,8 +2,6 @@
 // Created by wegam on 2022/9/24.
 //
 
-#pragma once
-
 #include "__platform.hpp"
 #include <dal-public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>

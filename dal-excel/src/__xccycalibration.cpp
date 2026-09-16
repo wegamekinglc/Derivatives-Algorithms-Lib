@@ -2,8 +2,6 @@
 // Created by wegam on 2026/6/20.
 //
 
-#pragma once
-
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
 #include "__settingskeys.hpp"
