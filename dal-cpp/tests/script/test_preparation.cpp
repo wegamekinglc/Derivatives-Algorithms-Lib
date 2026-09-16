@@ -15,31 +15,14 @@
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 
+#include "script_test_observers.hpp"
+
 using namespace Dal;
 using namespace Dal::Script;
+using namespace Dal::Script::TestSupport;
 
 namespace {
-    struct ReadCounter_ : Dal::Detail::FixingReadObserver_ {
-        std::map<String_, size_t> histories_;
-        size_t finalFixings_ = 0;
-        void BeforeHistory(const String_& name) override { ++histories_[name]; }
-        void BeforeFixing(const Index_&, const Environment_*, const DateTime_&) override { ++finalFixings_; }
-    };
-
-    struct SubmissionCounter_ : Dal::Script::Detail::SimulationObserver_ {
-        size_t submissions_ = 0;
-        void AfterSubmission() override { ++submissions_; }
-    };
-
-    ScriptProductData_ Product(const String_& text, const Date_& date = Date_(2026, 9, 22)) { return {"", {Cell_(date)}, {text}}; }
-
-    void Store(const String_& name, double value, const DateTime_& time = DateTime_(Date_(2026, 9, 11), 0.0)) {
-        FixHistory_ history;
-        history.vals_ = {{time, value}};
-        XGLOBAL::StoreFixings(name, history, false);
-    }
-
-    void ClearHistory(const String_& name) { Store(name, 1.0, DateTime_(Date_(2000, 1, 1), 0.0)); }
+    void ClearHistory(const String_& name) { StoreScriptTestFixing(name, 1.0, DateTime_(Date_(2000, 1, 1), 0.0)); }
 
     template <class F_> void AssertError(F_ action, const std::string& expected) {
         try {
@@ -91,14 +74,14 @@ TEST(ScriptFixingPreparationTest, TestUniqueHistoryCount) {
         expression += (i ? "+" : "") + String_("FIX(EQ[DAL199_COUNT], 2026-09-11)");
     const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 15)), Cell_(Date_(2026, 9, 22))},
                                      {expression, expression, expression});
-    ReadCounter_ counter;
+    NamedFixingReadCounter_ counter;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&counter);
     const auto prepared = PrepareScript(product);
     ASSERT_EQ(prepared.Plan().Requests().size(), 1);
     ASSERT_EQ(prepared.Plan().Requests()[0].uses_.size(), 300);
     ASSERT_EQ(prepared.Plan().KnownValues().size(), 1);
     ASSERT_DOUBLE_EQ(prepared.Plan().KnownValue(0), 80.0);
-    ASSERT_EQ(counter.finalFixings_, 1);
+    ASSERT_EQ(counter.fixings_, 1);
     ASSERT_EQ(counter.histories_.at("EQ[DAL199_COUNT]"), 1);
     ASSERT_EQ(prepared.Product().ParsedEventDates().size(), 3);
     ASSERT_EQ(prepared.Product().PastEventDates().size(), 1);
@@ -111,19 +94,19 @@ TEST(ScriptFixingPreparationTest, TestCanonicalKey) {
     FixHistory_ history;
     history.vals_ = {{DateTime_(Date_(2026, 9, 10), 0.0), 70.0}, {h, 80.0}};
     XGLOBAL::StoreFixings("EQ[DAL199_KEYS]", history, false);
-    Store("EQ[DAL199_KEYS]>3M", 81.0);
-    Store("EQ[DAL199_KEYS]@2026-12-31", 82.0);
-    Store("FX[AUD/CAD]", 1.25);
+    StoreScriptTestFixing("EQ[DAL199_KEYS]>3M", 81.0);
+    StoreScriptTestFixing("EQ[DAL199_KEYS]@2026-12-31", 82.0);
+    StoreScriptTestFixing("FX[AUD/CAD]", 1.25);
     ClearHistory("FX[CAD/AUD]");
-    ReadCounter_ counter;
+    NamedFixingReadCounter_ counter;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&counter);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_KEYS], 2026-09-11) + FIX(eq[dal199_keys], 2026-09-11)"
-                                                " + FIX(EQ[DAL199_KEYS], 2026-09-10) + FIX(EQ[DAL199_KEYS]>3M, 2026-09-11)"
-                                                " + FIX(EQ[DAL199_KEYS]@2026-12-31, 2026-09-11)"
-                                                " + FIX(FX[AUD/CAD], 2026-09-11) + FIX(FX[CAD/AUD], 2026-09-11)"));
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_KEYS], 2026-09-11) + FIX(eq[dal199_keys], 2026-09-11)"
+                                                          " + FIX(EQ[DAL199_KEYS], 2026-09-10) + FIX(EQ[DAL199_KEYS]>3M, 2026-09-11)"
+                                                          " + FIX(EQ[DAL199_KEYS]@2026-12-31, 2026-09-11)"
+                                                          " + FIX(FX[AUD/CAD], 2026-09-11) + FIX(FX[CAD/AUD], 2026-09-11)"));
     ASSERT_EQ(prepared.Plan().Requests().size(), 6);
     ASSERT_EQ(prepared.Plan().Request(0).uses_.size(), 2);
-    ASSERT_EQ(counter.finalFixings_, 6);
+    ASSERT_EQ(counter.fixings_, 6);
     ASSERT_EQ(counter.histories_.size(), 5);
     for (const auto& historyCount : counter.histories_)
         ASSERT_EQ(historyCount.second, 1);
@@ -135,23 +118,23 @@ TEST(ScriptFixingPreparationTest, TestCanonicalKey) {
 
 TEST(ScriptFixingPreparationTest, TestTodayPolicyAndFutureOnly) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_TODAY]", 80.0, DateTime_(Date_(2026, 9, 12), 0.0));
-    const auto product = Product("payoff PAYS FIX(EQ[DAL199_TODAY])", Date_(2026, 9, 12));
-    ReadCounter_ counter;
+    StoreScriptTestFixing("EQ[DAL199_TODAY]", 80.0, DateTime_(Date_(2026, 9, 12), 0.0));
+    const auto product = ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_TODAY])", Date_(2026, 9, 12));
+    NamedFixingReadCounter_ counter;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&counter);
     const auto modelToday = PrepareScript(product);
     ASSERT_EQ(modelToday.Plan().Requests().size(), 1);
     ASSERT_TRUE(modelToday.Plan().KnownValues().empty());
     ASSERT_FALSE(modelToday.Plan().Request(0).historyValueId_);
-    const auto future = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_TODAY], 2026-09-15)"));
+    const auto future = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_TODAY], 2026-09-15)"));
     ASSERT_TRUE(future.Plan().KnownValues().empty());
     ASSERT_TRUE(counter.histories_.empty());
-    ASSERT_EQ(counter.finalFixings_, 0);
+    ASSERT_EQ(counter.fixings_, 0);
     ScriptValuationSettings_ settings;
     settings.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
     const auto historicalToday = PrepareScript(product, settings);
     ASSERT_DOUBLE_EQ(historicalToday.Plan().KnownValue(0), 80.0);
-    ASSERT_EQ(counter.finalFixings_, 1);
+    ASSERT_EQ(counter.fixings_, 1);
     ASSERT_EQ(counter.histories_.size(), 1);
     const Handle_<MarketFixingSnapshot_> empty(new MarketFixingSnapshot_());
     AssertError([&] { PrepareScript(product, settings, empty); }, "MissingFixing");
@@ -162,66 +145,66 @@ TEST(ScriptFixingPreparationTest, TestTodayPolicyAndFutureOnly) {
 TEST(ScriptFixingPreparationTest, TestExactTimestamp) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     for (const auto time : {DateTime_(Date_(2026, 9, 11), 11, 0), DateTime_(Date_(2026, 9, 10), 0.0)}) {
-        Store("EQ[DAL199_TIME]", 80.0, time);
-        AssertError([&] { PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_TIME], 2026-09-11)")); }, "MissingFixing");
+        StoreScriptTestFixing("EQ[DAL199_TIME]", 80.0, time);
+        AssertError([&] { PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_TIME], 2026-09-11)")); }, "MissingFixing");
     }
     for (const auto* time : {"2026-09-11+1", "2026-09-11T00:00:00", "H"})
-        ASSERT_THROW(PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_TIME], " + String_(time) + ")")), ScriptError_);
+        ASSERT_THROW(PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_TIME], " + String_(time) + ")")), ScriptError_);
 }
 
 TEST(ScriptFixingPreparationTest, TestIndexVirtualFx) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    const auto product = Product("payoff PAYS FIX(FX[CHF/JPY], 2026-09-11)");
+    const auto product = ScriptTestProduct("payoff PAYS FIX(FX[CHF/JPY], 2026-09-11)");
     ClearHistory("FX[CHF/JPY]");
-    Store("FX[JPY/CHF]", 0.8);
+    StoreScriptTestFixing("FX[JPY/CHF]", 0.8);
     ASSERT_NEAR(PrepareScript(product).Plan().KnownValue(0), 1.25, 1.0e-12);
-    Store("FX[CHF/JPY]", 1.25);
+    StoreScriptTestFixing("FX[CHF/JPY]", 1.25);
     ASSERT_NEAR(PrepareScript(product).Plan().KnownValue(0), 1.25, 1.0e-12);
-    Store("FX[CHF/JPY]", 1.3);
+    StoreScriptTestFixing("FX[CHF/JPY]", 1.3);
     AssertError([&] { PrepareScript(product); }, "Inconsistent direct/reverse");
     ClearHistory("FX[JPY/CHF]");
     for (const double value : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
-        Store("FX[CHF/JPY]", value);
+        StoreScriptTestFixing("FX[CHF/JPY]", value);
         ASSERT_THROW(PrepareScript(product), ScriptError_);
     }
     ClearHistory("FX[CHF/JPY]");
-    Store("FX[JPY/CHF]", std::numeric_limits<double>::denorm_min());
+    StoreScriptTestFixing("FX[JPY/CHF]", std::numeric_limits<double>::denorm_min());
     AssertError([&] { PrepareScript(product); }, "InvalidFixing");
 }
 
 TEST(ScriptFixingPreparationTest, TestMissingAndFinite) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    const auto product = Product("payoff PAYS FIX(EQ[DAL199_FINITE], 2026-09-11)");
+    const auto product = ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_FINITE], 2026-09-11)");
     ClearHistory("EQ[DAL199_FINITE]");
     AssertError([&] { PrepareScript(product); }, "MissingFixing");
     for (const double value : {0.0, -80.0}) {
-        Store("EQ[DAL199_FINITE]", value);
+        StoreScriptTestFixing("EQ[DAL199_FINITE]", value);
         ASSERT_DOUBLE_EQ(PrepareScript(product).Plan().KnownValue(0), value);
     }
     for (const double value :
          {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
-        Store("EQ[DAL199_FINITE]", value);
+        StoreScriptTestFixing("EQ[DAL199_FINITE]", value);
         AssertError([&] { PrepareScript(product); }, "finite");
     }
-    ASSERT_THROW(PrepareScript(Product("payoff PAYS FIX(UNREGISTERED_DAL199[X], 2026-09-11)")), ScriptError_);
+    ASSERT_THROW(PrepareScript(ScriptTestProduct("payoff PAYS FIX(UNREGISTERED_DAL199[X], 2026-09-11)")), ScriptError_);
 }
 
 TEST(ScriptFixingPreparationTest, TestRepricing) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const DateTime_ h(Date_(2026, 9, 11), 0.0);
-    const auto product = Product("payoff PAYS FIX(EQ[DAL199_REPRICE], 2026-09-11)");
-    Store("EQ[DAL199_REPRICE]", 80.0);
+    const auto product = ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_REPRICE], 2026-09-11)");
+    StoreScriptTestFixing("EQ[DAL199_REPRICE]", 80.0);
     const auto snapshot = SnapshotGlobalFixings({{"EQ[DAL199_REPRICE]", h}});
     const auto first = PrepareScript(product);
-    Store("EQ[DAL199_REPRICE]", 90.0);
+    StoreScriptTestFixing("EQ[DAL199_REPRICE]", 90.0);
     const auto second = PrepareScript(product);
-    ReadCounter_ counter;
+    NamedFixingReadCounter_ counter;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&counter);
     const auto third = PrepareScript(product, {}, snapshot);
     ASSERT_DOUBLE_EQ(first.Plan().KnownValue(0), 80.0);
     ASSERT_DOUBLE_EQ(second.Plan().KnownValue(0), 90.0);
     ASSERT_DOUBLE_EQ(third.Plan().KnownValue(0), 80.0);
-    ASSERT_EQ(counter.finalFixings_, 1);
+    ASSERT_EQ(counter.fixings_, 1);
     ASSERT_TRUE(counter.histories_.empty());
 }
 
@@ -229,12 +212,12 @@ TEST(ScriptFixingPreparationTest, TestBranchPrefetchAndSourceUses) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const String_ dead = "IF 1 = 0 THEN payoff PAYS FIX(EQ[DAL199_DEAD], 2026-09-11) ELSE payoff PAYS 0 END";
     ClearHistory("EQ[DAL199_DEAD]");
-    const auto product = Product(dead);
+    const auto product = ScriptTestProduct(dead);
     AssertError([&] { PrepareScript(product); }, "row=1");
     const ScriptProductData_ pastPayoff("", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
                                         {"payoff PAYS FIX(EQ[DAL199_DEAD])", "payoff PAYS 0"});
     ASSERT_THROW(PrepareScript(pastPayoff), ScriptError_);
-    Store("EQ[DAL199_DEAD]", 80.0);
+    StoreScriptTestFixing("EQ[DAL199_DEAD]", 80.0);
     const auto prepared = PrepareScript(pastPayoff);
     const auto& use = prepared.Plan().Request(0).uses_[0];
     ASSERT_EQ(use.source_.row_, 1);
@@ -249,15 +232,15 @@ TEST(ScriptFixingPreparationTest, TestBranchPrefetchAndSourceUses) {
 
 TEST(ScriptFixingPreparationTest, TestNoLookAheadAndExpiredStructure) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    ReadCounter_ counter;
+    NamedFixingReadCounter_ counter;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&counter);
     for (const auto event : {Date_(2026, 9, 10), Date_(2026, 9, 14)}) {
-        const auto product = Product("IF 1 = 0 THEN payoff PAYS FIX(EQ[DAL199_LOOK], 2026-09-15) ELSE payoff PAYS 0 END", event);
+        const auto product = ScriptTestProduct("IF 1 = 0 THEN payoff PAYS FIX(EQ[DAL199_LOOK], 2026-09-15) ELSE payoff PAYS 0 END", event);
         AssertError([&] { PrepareScript(product); }, "LookAheadObservation");
     }
-    const auto equal = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_LOOK], 2026-09-15)", Date_(2026, 9, 15)));
+    const auto equal = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_LOOK], 2026-09-15)", Date_(2026, 9, 15)));
     ASSERT_TRUE(equal.Plan().KnownValues().empty());
-    const auto expired = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_LOOK])", Date_(2026, 9, 11)));
+    const auto expired = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_LOOK])", Date_(2026, 9, 11)));
     ASSERT_TRUE(expired.AllExpired());
     ASSERT_TRUE(expired.Plan().KnownValues().empty());
     ASSERT_EQ(expired.Plan().Requests().size(), 1);
@@ -266,35 +249,33 @@ TEST(ScriptFixingPreparationTest, TestNoLookAheadAndExpiredStructure) {
     for (const auto* invalid : {&empty, &definitions})
         AssertError([&] { PrepareScript(*invalid); }, "InvalidScriptStructure");
     for (const auto event : {Date_(2026, 9, 11), Date_(2026, 9, 22)})
-        AssertError([&] { PrepareScript(Product("x = 1", event)); }, "no PAYS payoff");
+        AssertError([&] { PrepareScript(ScriptTestProduct("x = 1", event)); }, "no PAYS payoff");
     ASSERT_TRUE(counter.histories_.empty());
-    ASSERT_EQ(counter.finalFixings_, 0);
+    ASSERT_EQ(counter.fixings_, 0);
 }
 
 TEST(ScriptFixingPreparationTest, TestPreparationFailurePublishesNoPlanOrWorkers) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_FIRST]", 80.0);
+    StoreScriptTestFixing("EQ[DAL199_FIRST]", 80.0);
     ClearHistory("EQ[DAL199_LAST]");
-    ReadCounter_ reads;
+    NamedFixingReadCounter_ reads;
     SubmissionCounter_ workers;
     const Dal::Detail::ScopedFixingReadObserver_ readObserve(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ workerObserve(&workers);
     std::optional<PreparedScript_> result;
-    AssertError([&] { result.emplace(PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_FIRST], 2026-09-11) + FIX(EQ[DAL199_LAST], 2026-09-11)"))); },
-                "EQ[DAL199_LAST]");
+    AssertError(
+        [&] { result.emplace(PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_FIRST], 2026-09-11) + FIX(EQ[DAL199_LAST], 2026-09-11)"))); },
+        "EQ[DAL199_LAST]");
     ASSERT_FALSE(result.has_value());
-    ASSERT_EQ(reads.finalFixings_, 2);
+    ASSERT_EQ(reads.fixings_, 2);
     ASSERT_EQ(workers.submissions_, 0);
 }
 
 TEST(ScriptFixingPreparationTest, TestFrozenReadsNeedNoHistoryAccess) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_FROZEN]", 80.0);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_FROZEN], 2026-09-11)"));
-    struct RejectReads_ : Dal::Detail::FixingReadObserver_ {
-        void BeforeHistory(const String_&) override { THROW("unexpected history read"); }
-        void BeforeFixing(const Index_&, const Environment_*, const DateTime_&) override { THROW("unexpected fixing call"); }
-    } reject;
+    StoreScriptTestFixing("EQ[DAL199_FROZEN]", 80.0);
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_FROZEN], 2026-09-11)"));
+    RejectFixingReads_ reject;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reject);
     for (size_t path = 0; path < 8193; ++path)
         ASSERT_DOUBLE_EQ(prepared.Plan().KnownValue(*prepared.Plan().Request(0).historyValueId_), 80.0);
@@ -302,7 +283,7 @@ TEST(ScriptFixingPreparationTest, TestFrozenReadsNeedNoHistoryAccess) {
 
 TEST(ScriptFixingPreparationTest, TestExpiredSimulationAndSubmissionSeam) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    const auto expired = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_EXPIRED])", Date_(2026, 9, 11)));
+    const auto expired = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_EXPIRED])", Date_(2026, 9, 11)));
     const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
     SubmissionCounter_ workers;
     const Dal::Script::Detail::ScopedSimulationObserver_ observe(&workers);
@@ -327,8 +308,8 @@ TEST(ScriptFixingPreparationTest, TestExpiredSimulationAndSubmissionSeam) {
 
 TEST(ScriptFixingPreparationTest, TestSnapshotFailureNamesFailingUse) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_SOURCE_A]", 80.0);
-    Store("EQ[DAL199_SOURCE_B]", std::numeric_limits<double>::quiet_NaN());
+    StoreScriptTestFixing("EQ[DAL199_SOURCE_A]", 80.0);
+    StoreScriptTestFixing("EQ[DAL199_SOURCE_B]", std::numeric_limits<double>::quiet_NaN());
     const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 22))},
                                      {"payoff PAYS FIX(EQ[DAL199_SOURCE_A], 2026-09-11)", "payoff PAYS FIX(EQ[DAL199_SOURCE_B], 2026-09-11)"});
     AssertError([&] { PrepareScript(product); }, "row=2");
@@ -336,16 +317,16 @@ TEST(ScriptFixingPreparationTest, TestSnapshotFailureNamesFailingUse) {
 
 TEST(ScriptFixingPreparationTest, TestEvaluationDateDoesNotChangeDuringCapture) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_CAPTURE]", 80.0);
-    struct ChangeDate_ : ReadCounter_ {
+    StoreScriptTestFixing("EQ[DAL199_CAPTURE]", 80.0);
+    struct ChangeDate_ : NamedFixingReadCounter_ {
         void BeforeHistory(const String_& name) override {
-            ReadCounter_::BeforeHistory(name);
+            NamedFixingReadCounter_::BeforeHistory(name);
             XGLOBAL::SetEvaluationDate(Date_(2026, 9, 16));
         }
     } reads;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reads);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_CAPTURE], 2026-09-11)"
-                                                " + FIX(EQ[DAL199_CAPTURE], 2026-09-12) + FIX(EQ[DAL199_CAPTURE], 2026-09-15)"));
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_CAPTURE], 2026-09-11)"
+                                                          " + FIX(EQ[DAL199_CAPTURE], 2026-09-12) + FIX(EQ[DAL199_CAPTURE], 2026-09-15)"));
     ASSERT_EQ(prepared.EvaluationDate(), Date_(2026, 9, 12));
     ASSERT_EQ(prepared.Plan().Requests().size(), 3);
     ASSERT_EQ(prepared.Plan().KnownValues().size(), 1);
@@ -353,7 +334,7 @@ TEST(ScriptFixingPreparationTest, TestEvaluationDateDoesNotChangeDuringCapture) 
     ASSERT_FALSE(prepared.Plan().Request(1).historyValueId_);
     ASSERT_FALSE(prepared.Plan().Request(2).historyValueId_);
     ASSERT_EQ(reads.histories_.at("EQ[DAL199_CAPTURE]"), 1);
-    ASSERT_EQ(reads.finalFixings_, 1);
+    ASSERT_EQ(reads.fixings_, 1);
 }
 
 TEST(ScriptFixingPreparationTest, TestMixedTemporalRequestsAssignOnlyHistoricalSlots) {
@@ -362,10 +343,10 @@ TEST(ScriptFixingPreparationTest, TestMixedTemporalRequestsAssignOnlyHistoricalS
     const DateTime_ today(Date_(2026, 9, 12), 0.0);
     const DateTime_ future(Date_(2026, 9, 15), 0.0);
     const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL199_MIXED]", {{h, 80.0}, {today, 90.0}, {future, 100.0}}}}));
-    ReadCounter_ reads;
+    NamedFixingReadCounter_ reads;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reads);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_MIXED], 2026-09-15) + FIX(EQ[DAL199_MIXED], 2026-09-11)"
-                                                " + FIX(EQ[DAL199_MIXED], 2026-09-12) + FIX(eq[dal199_mixed], 2026-09-11)"),
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_MIXED], 2026-09-15) + FIX(EQ[DAL199_MIXED], 2026-09-11)"
+                                                          " + FIX(EQ[DAL199_MIXED], 2026-09-12) + FIX(eq[dal199_mixed], 2026-09-11)"),
                                         {}, snapshot);
     static_assert(std::is_same_v<decltype(prepared.Plan().Requests()), const Vector_<ObservationRequest_>&>);
     static_assert(std::is_same_v<decltype(prepared.Plan().KnownValues()), const Vector_<>&>);
@@ -378,21 +359,21 @@ TEST(ScriptFixingPreparationTest, TestMixedTemporalRequestsAssignOnlyHistoricalS
     ASSERT_EQ(prepared.Plan().Request(1).uses_.size(), 2);
     ASSERT_FALSE(prepared.Plan().Request(2).historyValueId_);
     ASSERT_TRUE(reads.histories_.empty());
-    ASSERT_EQ(reads.finalFixings_, 1);
+    ASSERT_EQ(reads.fixings_, 1);
 }
 
 TEST(ScriptFixingPreparationTest, TestExplicitSnapshotNeverFallsBackToPresentGlobalHistory) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_NO_FALLBACK]", 80.0);
+    StoreScriptTestFixing("EQ[DAL199_NO_FALLBACK]", 80.0);
     const Handle_<MarketFixingSnapshot_> empty(new MarketFixingSnapshot_());
-    ReadCounter_ reads;
+    NamedFixingReadCounter_ reads;
     SubmissionCounter_ workers;
     const Dal::Detail::ScopedFixingReadObserver_ observeReads(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
-    const auto product = Product("payoff PAYS FIX(EQ[DAL199_NO_FALLBACK], 2026-09-11)");
+    const auto product = ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_NO_FALLBACK], 2026-09-11)");
     AssertError([&] { PrepareScript(product, {}, empty); }, "MissingFixing");
     ASSERT_TRUE(reads.histories_.empty());
-    ASSERT_EQ(reads.finalFixings_, 1);
+    ASSERT_EQ(reads.fixings_, 1);
     ASSERT_EQ(workers.submissions_, 0);
 }
 
@@ -404,12 +385,12 @@ TEST(ScriptFixingPreparationTest, TestInverseFxMultipleDatesReadEachSequenceOnce
     FixHistory_ history;
     history.vals_ = {{older, 0.5}, {h, 0.8}};
     XGLOBAL::StoreFixings("FX[CAD/GBP]", history, false);
-    ReadCounter_ reads;
+    NamedFixingReadCounter_ reads;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reads);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(FX[GBP/CAD], 2026-09-11) + FIX(FX[CAD/GBP], 2026-09-11)"
-                                                " + FIX(FX[GBP/CAD], 2026-09-10) + FIX(FX[CAD/GBP], 2026-09-10)"));
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(FX[GBP/CAD], 2026-09-11) + FIX(FX[CAD/GBP], 2026-09-11)"
+                                                          " + FIX(FX[GBP/CAD], 2026-09-10) + FIX(FX[CAD/GBP], 2026-09-10)"));
     ASSERT_EQ(prepared.Plan().Requests().size(), 4);
-    ASSERT_EQ(reads.finalFixings_, 4);
+    ASSERT_EQ(reads.fixings_, 4);
     ASSERT_EQ(reads.histories_.size(), 2);
     ASSERT_EQ(reads.histories_.at("FX[GBP/CAD]"), 1);
     ASSERT_EQ(reads.histories_.at("FX[CAD/GBP]"), 1);
@@ -438,9 +419,9 @@ TEST(ScriptFixingPreparationTest, TestSnapshotFailureUsesInverseDependencyAndExa
 
 TEST(ScriptFixingPreparationTest, TestNonExpiredPreparedExecutionRejectsBeforeModelOrWorkers) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    Store("EQ[DAL199_INTERMEDIATE]", 80.0);
-    const auto prepared = PrepareScript(Product("payoff PAYS FIX(EQ[DAL199_INTERMEDIATE], 2026-09-11)"));
-    ReadCounter_ reads;
+    StoreScriptTestFixing("EQ[DAL199_INTERMEDIATE]", 80.0);
+    const auto prepared = PrepareScript(ScriptTestProduct("payoff PAYS FIX(EQ[DAL199_INTERMEDIATE], 2026-09-11)"));
+    NamedFixingReadCounter_ reads;
     SubmissionCounter_ workers;
     const Dal::Detail::ScopedFixingReadObserver_ observeReads(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
@@ -449,6 +430,6 @@ TEST(ScriptFixingPreparationTest, TestNonExpiredPreparedExecutionRejectsBeforeMo
         AssertError([&] { MCSimulation<AAD::Number_>(prepared, {}, 8193, "sobol", false, compiled); }, "UnsupportedExecutionMode");
     }
     ASSERT_TRUE(reads.histories_.empty());
-    ASSERT_EQ(reads.finalFixings_, 0);
+    ASSERT_EQ(reads.fixings_, 0);
     ASSERT_EQ(workers.submissions_, 0);
 }

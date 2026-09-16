@@ -11,6 +11,7 @@
 #include <dal/storage/globals.hpp>
 
 #include "bcg_allocation_probe.hpp"
+#include "script_test_observers.hpp"
 
 using Dal::Cell_;
 using Dal::Date_;
@@ -21,11 +22,6 @@ using Dal::Vector_;
 namespace Probe = Dal::BcgAllocationProbePrivate_;
 
 namespace {
-    struct RejectReads_ : Dal::Detail::FixingReadObserver_ {
-        void BeforeHistory(const Dal::String_&) override { THROW("history read after preparation"); }
-        void BeforeFixing(const Dal::Index_&, const Dal::Environment_*, const DateTime_&) override { THROW("index read after preparation"); }
-    };
-
     template <class E_, class F_> void CheckAllocations(E_* state, const F_& evaluate, size_t payoff, double expected) {
         Probe::Reset_();
         double total = 0.0;
@@ -81,7 +77,7 @@ TEST(ScriptObservationAllocationTest, TestExactAndFuzzyRepeatedPathsAllocateNoth
             for (auto& observation : sample.observations_)
                 observation = 120.0;
         }
-        RejectReads_ reject;
+        Dal::Script::TestSupport::RejectFixingReads_ reject("history read after preparation", "index read after preparation");
         const Dal::Detail::ScopedFixingReadObserver_ guard(&reject);
         const double expected = fuzzy ? 105.0 : 140.0;
         ASSERT_NO_FATAL_FAILURE(

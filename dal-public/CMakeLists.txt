@@ -140,9 +140,14 @@ if(DAL_PUBLIC_BUILD_TESTS)
         HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/tests/curve"
         DOC "Shared dal-cpp curve fixtures for dal-public tests"
         REQUIRED)
+    find_path(DAL_PUBLIC_TEST_SUPPORT_DIR script_test_observers.hpp
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/test-support"
+        DOC "Shared dal-cpp script observer fixtures for dal-public tests"
+        REQUIRED)
     target_include_directories(dal_public_tests PRIVATE
         "${DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR}"
-        "${DAL_PUBLIC_TEST_FIXTURE_DIR}")
+        "${DAL_PUBLIC_TEST_FIXTURE_DIR}"
+        "${DAL_PUBLIC_TEST_SUPPORT_DIR}")
 
     if(TARGET gtest_main)
         target_link_libraries(dal_public_tests PRIVATE gtest gtest_main)

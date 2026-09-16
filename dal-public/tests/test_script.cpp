@@ -13,6 +13,8 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
 
+#include "script_test_observers.hpp"
+
 using Dal::Cell_;
 using Dal::Date_;
 using Dal::String_;
@@ -184,25 +186,8 @@ TEST(ScriptTest, TestPublicDumpsRefreshEvaluationDateOnSameProduct) {
 TEST(ScriptTest, TestPublicDumpsPreserveRawBranchesAndFixRestrictionsWithoutHistory) {
     Dal::InitGlobalData(1);
     const ScopedEvaluationDate_ evalDate(Date_(2026, 9, 12));
-    struct RejectReads_ : Dal::Detail::FixingReadObserver_ {
-        size_t historyCalls_ = 0;
-        size_t fixingCalls_ = 0;
-        void BeforeHistory(const String_&) override {
-            ++historyCalls_;
-            THROW("debug must not read global history");
-        }
-        void BeforeFixing(const Dal::Index_&, const Dal::Environment_*, const Dal::DateTime_&) override {
-            ++fixingCalls_;
-            THROW("debug must not resolve a fixing");
-        }
-    } reads;
-    struct RejectWorkers_ : Dal::Script::Detail::SimulationObserver_ {
-        size_t calls_ = 0;
-        void AfterSubmission() override {
-            ++calls_;
-            THROW("debug must not submit workers");
-        }
-    } workers;
+    Dal::Script::TestSupport::RejectFixingReads_ reads("debug must not read global history", "debug must not resolve a fixing");
+    Dal::Script::TestSupport::RejectSubmissions_ workers("debug must not submit workers");
     const Dal::Detail::ScopedFixingReadObserver_ observeReads(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
     const auto fixing = Dal::NewScriptProduct(

@@ -12,6 +12,8 @@
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/storage/globals.hpp>
 
+#include "script_test_observers.hpp"
+
 using namespace Dal;
 
 namespace {
@@ -37,15 +39,8 @@ namespace {
         }
     };
 
-    struct Reads_ : Detail::FixingReadObserver_ {
-        int histories_ = 0, fixings_ = 0;
-        void BeforeHistory(const String_&) override { ++histories_; }
-        void BeforeFixing(const Index_&, const Environment_*, const DateTime_&) override { ++fixings_; }
-    };
-    struct Workers_ : Script::Detail::SimulationObserver_ {
-        int count_ = 0;
-        void AfterSubmission() override { ++count_; }
-    };
+    using Script::TestSupport::FixingReadCounter_;
+    using Script::TestSupport::SubmissionCounter_;
 
     struct FixingCleanup_ {
         const String_ index_;
@@ -161,7 +156,7 @@ TEST(ScriptExcelContractTest, TestTodayPolicyAcrossExecutionModes) {
     FixHistory_ history;
     history.vals_ = {{DateTime_(H, 0.0), 80.}, {DateTime_(D, 0.0), 80.}};
     Excel::ScriptTestStoreFixings("EQ[AAPL]", history);
-    Reads_ reads;
+    FixingReadCounter_ reads;
     const ObserverScope_ observe(&reads);
     Vector_<Handle_<ModelData_>> models = {
         Handle_<ModelData_>(new BSModelData_("bs", 100., 0., 0., 0.)),
@@ -193,7 +188,7 @@ TEST(ScriptExcelContractTest, TestExactTimestampAndExplicitEmpty) {
     FixHistory_ history;
     history.vals_ = {{DateTime_(H, 0.0), 80.}, {DateTime_(D, 0.0), 80.}};
     Excel::ScriptTestStoreFixings("EQ[AAPL]", history);
-    Reads_ reads;
+    FixingReadCounter_ reads;
     const ObserverScope_ observe(&reads);
     const Handle_<ModelData_> model(new BSModelData_("bs", 100., 0., 0., 0.));
     Handle_<ScriptProductData_> today;
@@ -252,15 +247,15 @@ TEST(ScriptExcelContractTest, TestDiagnosticsHaveNoCacheOrWorkersAndPreserveJson
     const DateScope_ restore(D);
     const auto product = Product("pay PAYS x + FIX(EQ[AAPL], 2026-09-15)");
     const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
-    Reads_ reads;
-    Workers_ workers;
+    FixingReadCounter_ reads;
+    SubmissionCounter_ workers;
     const ObserverScope_ observe(&reads, &workers);
     Vector_<String_> chunks;
     Product_Describe(product, &chunks);
     auto describe = Json(chunks);
     ASSERT_EQ(reads.histories_, 0);
     ASSERT_EQ(reads.fixings_, 0);
-    ASSERT_EQ(workers.count_, 0);
+    ASSERT_EQ(workers.submissions_, 0);
     ASSERT_STREQ(describe["schema"].GetString(), "dal.script-product/2");
     ASSERT_EQ(describe["events"].Size(), 2u);
     {
@@ -274,7 +269,7 @@ TEST(ScriptExcelContractTest, TestDiagnosticsHaveNoCacheOrWorkersAndPreserveJson
         auto explain = Json(chunks);
         ASSERT_EQ(reads.fixings_, 2 * i - 1);
         ASSERT_EQ(reads.histories_, 0);
-        ASSERT_EQ(workers.count_, 0);
+        ASSERT_EQ(workers.submissions_, 0);
         ASSERT_STREQ(explain["schema"].GetString(), "dal.script-valuation/1");
         ASSERT_EQ(explain["requests"].Size(), 2u);
         ASSERT_EQ(explain["event_to_sample"][0].GetUint(), 1u);
@@ -288,7 +283,7 @@ TEST(ScriptExcelContractTest, TestDiagnosticsHaveNoCacheOrWorkersAndPreserveJson
     Matrix_<Cell_> values;
     MonteCarlo_ValueWithSettings(product, model, 257, valuation, {}, &values);
     ASSERT_DOUBLE_EQ(Result(values).at("PV"), 260.);
-    ASSERT_GT(workers.count_, 0);
+    ASSERT_GT(workers.submissions_, 0);
 }
 
 TEST(ScriptExcelContractTest, TestLegacyObservationErrorsAndRequestSharing) {
@@ -335,8 +330,8 @@ TEST(ScriptExcelContractTest, TestLongDiagnosticUnicodeAndInvalidEncoding) {
 TEST(ScriptExcelContractTest, TestDefaultValuationCapturesDateAtEachCall) {
     Excel::ScriptTestInitialize(1);
     const DateScope_ restore(H);
-    Reads_ reads;
-    Workers_ workers;
+    FixingReadCounter_ reads;
+    SubmissionCounter_ workers;
     const ObserverScope_ observe(&reads, &workers);
     Handle_<StorableScriptValuationSettings_> valuation;
     ScriptValuationSettings_New("floating-date", {}, Setting("spot", Cell_("EQ[AAPL]")), Snapshot(), &valuation);
@@ -348,19 +343,19 @@ TEST(ScriptExcelContractTest, TestDefaultValuationCapturesDateAtEachCall) {
     const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
     for (int offset : {0, 1}) {
         const DateScope_ date(D.AddDays(offset));
-        reads.fixings_ = workers.count_ = 0;
+        reads.fixings_ = workers.submissions_ = 0;
         Vector_<String_> chunks;
         ScriptValuation_Explain(product, model, valuation, &chunks);
         const auto explanation = Json(chunks);
         ASSERT_STREQ(explanation["evaluation_date"].GetString(), offset == 0 ? "2026-09-12" : "2026-09-13");
         ASSERT_EQ(reads.fixings_, offset);
         ASSERT_EQ(reads.histories_, 0);
-        ASSERT_EQ(workers.count_, 0);
+        ASSERT_EQ(workers.submissions_, 0);
         Matrix_<Cell_> values;
         MonteCarlo_ValueWithSettings(product, model, 1, valuation, {}, &values);
         ASSERT_DOUBLE_EQ(Result(values).at("PV"), offset == 0 ? 100. : 80.);
         ASSERT_EQ(reads.fixings_, 2 * offset);
-        ASSERT_GT(workers.count_, 0);
+        ASSERT_GT(workers.submissions_, 0);
     }
     ASSERT_FALSE(valuation->val_.evaluationDate_);
 }
@@ -378,8 +373,8 @@ TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExpli
     ScriptValuationSettings_New("global", Setting("evaluation_date", Cell_(D)), {}, {}, &global);
     ScriptValuationSettings_New("fixed", Setting("evaluation_date", Cell_(D)), {}, snapshot, &explicitSnapshot);
     const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
-    Reads_ reads;
-    Workers_ workers;
+    FixingReadCounter_ reads;
+    SubmissionCounter_ workers;
     const ObserverScope_ observe(&reads, &workers);
     Vector_<String_> original;
     Product_Describe(product, &original);
@@ -390,7 +385,7 @@ TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExpli
         for (const auto& valuation : {global, explicitSnapshot}) {
             const bool isGlobal = valuation == global;
             const double expected = isGlobal ? fixing : 80.;
-            reads.histories_ = reads.fixings_ = workers.count_ = 0;
+            reads.histories_ = reads.fixings_ = workers.submissions_ = 0;
             Vector_<String_> description;
             Product_Describe(product, &description);
             ASSERT_EQ(description, original);
@@ -404,12 +399,12 @@ TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExpli
                 ASSERT_DOUBLE_EQ(explanation["requests"][0]["value"].GetDouble(), expected);
                 ASSERT_EQ(reads.histories_, isGlobal ? call : 0);
                 ASSERT_EQ(reads.fixings_, call);
-                ASSERT_EQ(workers.count_, 0);
+                ASSERT_EQ(workers.submissions_, 0);
             }
             Matrix_<Cell_> values;
             MonteCarlo_ValueWithSettings(product, model, 257, valuation, {}, &values);
             ASSERT_DOUBLE_EQ(Result(values).at("PV"), 2. * expected);
-            ASSERT_GT(workers.count_, 0);
+            ASSERT_GT(workers.submissions_, 0);
         }
     }
 }
