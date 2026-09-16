@@ -137,7 +137,7 @@ namespace Dal::Script {
 
         size_t maxNestedIfs = 0;
         if (fuzzy || !skip_domain) {
-            maxNestedIfs = IFProcess();
+            IFProcess(); //  Populates NodeIf_::affectedVars_ for DomainProcessor_; the count is only meaningful after folding
             DomainProcess(fuzzy);
             ConstCondProcess();
             maxNestedIfs = IFProcess();
