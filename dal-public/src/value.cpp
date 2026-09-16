@@ -33,8 +33,8 @@ namespace Dal {
                                    const Handle_<ModelData_>& modelData,
                                    const ScriptValuationSettings_& valuation) {
         XGLOBAL::ValuationMutationGuard_ valuationGuard;
-        const auto productCopy = product;
-        const auto modelCopy = modelData;
+        const auto& productCopy = product;
+        const auto& modelCopy = modelData;
         const auto settings = CheckedValuation(productCopy, modelCopy, valuation);
         auto model = CreateModel<double>(modelCopy);
         const auto prepared = Script::PrepareScript(*productCopy, model.get(), settings, MonteCarloSettings_());
@@ -63,8 +63,9 @@ namespace Dal {
                  "InvalidPathCount: number of Monte Carlo paths must be positive; numPath=" + String_(std::to_string(nPaths)) +
                      "; expected a positive integer",
                  ScriptError_);
-        const auto productCopy = product;
-        const auto modelCopy = modelData;
+        const auto& productCopy = product;
+        const auto& modelCopy = modelData;
+        //  Snapshot: date-capture callbacks inside CheckedValuation can mutate the caller's settings object
         const auto execution = simulation;
         const auto settings = CheckedValuation(productCopy, modelCopy, valuation);
         Script::ValidateSimulationSettings(execution);

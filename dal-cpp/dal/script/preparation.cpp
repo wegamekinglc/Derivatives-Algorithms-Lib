@@ -263,6 +263,7 @@ namespace Dal::Script {
                                        AAD::Model_<double>* model,
                                        const MonteCarloSettings_& requestedSimulation,
                                        const ScriptProductSettings_& legacyContract) {
+            //  Snapshot: observer callbacks during history resolution can mutate the caller's settings object
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
