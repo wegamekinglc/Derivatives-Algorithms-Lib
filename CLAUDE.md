@@ -169,7 +169,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Rate-Trade Node Risk and Portfolio Aggregation** — [Node-risk methodology](docs/methodology/rate_node_risk.md)
 - **Generic Joint Multi-Curve Quote DV01** — [Joint quote-risk methodology](docs/methodology/generic_joint_quote_risk.md)
-- **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, product debug dumps, and benchmarks
+- **Script Engine** — [Script engine](docs/methodology/script_engine.md), including named FIX observations with historical preparation, valuation settings and Describe/Explain diagnostics, tree-walk, fuzzy AAD, compiled evaluation, parity coverage, product debug dumps, and benchmarks
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
