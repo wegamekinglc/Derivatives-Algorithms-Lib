@@ -139,45 +139,37 @@ int main() {
 
         double eps = 0.001;
         Handle_<ModelData_> modelDataDown(new BSModelData_("bsmodel", spot * (1 - eps), vol, rate, div));
-        product.PreProcess(false, false);
         SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         Handle_<ModelData_> modelDataUp(new BSModelData_("bsmodel", spot * (1 + eps), vol, rate, div));
-        product.PreProcess(false, false);
         SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
 
         modelDataDown.reset(new BSModelData_("bsmodel", spot , vol * (1 - eps), rate, div));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot , vol * (1 + eps), rate, div));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dVol = (calculatedUp - calculatedDown) / (2 * vol * eps);
 
         modelDataDown.reset(new BSModelData_("bsmodel", spot , vol, rate - eps, div));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot , vol, rate + eps, div));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dRate = (calculatedUp - calculatedDown) / (2 * eps);
 
         modelDataDown.reset(new BSModelData_("bsmodel", spot , vol, rate, div - eps));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot , vol, rate, div + eps));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dDiv = (calculatedUp - calculatedDown) / (2 * eps);
