@@ -65,11 +65,12 @@ namespace Dal::Script {
                 REQUIRE2(fixingDate <= eventDate,
                          LookAheadObservationError(node.literal_.raw_, node.index_->Name(), fixingDate, node.source_, use.statementId_, use.nodeId_),
                          ScriptError_);
-                ValidateIndex(node, IsHistorical(fixingDate, evaluationDate_, settings_));
+                const bool historical = IsHistorical(fixingDate, evaluationDate_, settings_);
+                ValidateIndex(node, historical);
                 const ObservationKey_ key{node.index_->Name(), DateTime_(fixingDate, 0.0)};
                 auto inserted = ids_.emplace(key, requests_.size());
                 if (inserted.second)
-                    requests_.push_back({node.index_, key, {}, std::nullopt, std::nullopt, IsHistorical(fixingDate, evaluationDate_, settings_)});
+                    requests_.push_back({node.index_, key, {}, std::nullopt, std::nullopt, historical});
                 requests_[inserted.first->second].uses_.push_back(use);
                 node.observationId_ = inserted.first->second;
             }
@@ -114,11 +115,10 @@ namespace Dal::Script {
             }
         };
 
-        Vector_<FixingRequest_>
-        HistoricalRequests(const Vector_<ObservationRequest_>& requests, const Date_& evaluationDate, const ScriptValuationSettings_& settings) {
+        Vector_<FixingRequest_> HistoricalRequests(const Vector_<ObservationRequest_>& requests) {
             Vector_<FixingRequest_> result;
             for (const auto& request : requests)
-                if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
+                if (request.historical_)
                     result.push_back({request.key_.canonicalIndex_, request.key_.fixingTime_});
             return result;
         }
@@ -157,10 +157,9 @@ namespace Dal::Script {
         }
 
         Vector_<> ResolveHistory(Vector_<ObservationRequest_>* requests,
-                                 const Date_& evaluationDate,
                                  const ScriptValuationSettings_& settings,
                                  const Handle_<MarketFixingSnapshot_>& explicitSnapshot) {
-            const auto historical = HistoricalRequests(*requests, evaluationDate, settings);
+            const auto historical = HistoricalRequests(*requests);
             if (historical.empty())
                 return {};
             Handle_<MarketFixingSnapshot_> snapshot = explicitSnapshot;
@@ -174,7 +173,7 @@ namespace Dal::Script {
             const auto environment = SnapshotFixingEnvironment(*snapshot, historical);
             Vector_<> values;
             for (auto& request : *requests) {
-                if (!IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
+                if (!request.historical_)
                     continue;
                 request.historyValueId_ = values.size();
                 values.push_back(Resolve(request, environment.get(), settings));
@@ -200,10 +199,7 @@ namespace Dal::Script {
             return result;
         }
 
-        static void BindModelObservations(ObservationPlan_* plan,
-                                          const ScriptProduct_& product,
-                                          const Date_& evaluationDate,
-                                          const ScriptValuationSettings_& settings) {
+        static void BindModelObservations(ObservationPlan_* plan, const ScriptProduct_& product, const Date_& evaluationDate) {
             const auto sampleId = [&](const Date_& date) {
                 return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
             };
@@ -216,7 +212,7 @@ namespace Dal::Script {
                 if (product.ParsedEventDates()[event] >= evaluationDate)
                     plan->liveEventIds_.push_back(event);
             for (auto& request : plan->requests_) {
-                if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
+                if (request.historical_)
                     continue;
                 const auto id = sampleId(request.key_.fixingTime_.Date());
                 auto& outputs = plan->defLine_[id].indexNames_;
@@ -238,7 +234,7 @@ namespace Dal::Script {
                          ScriptError_);
             std::set<Date_> dates(product.EventDates().begin(), product.EventDates().end());
             for (const auto& request : plan->requests_) {
-                if (IsHistorical(request.key_.fixingTime_.Date(), evaluationDate, settings))
+                if (request.historical_)
                     continue;
                 REQUIRE2(model.SupportsIndex(*request.index_),
                          "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
@@ -257,7 +253,7 @@ namespace Dal::Script {
                 def.numeraire_ = false;
                 plan->defLine_.push_back(def);
             }
-            BindModelObservations(plan, product, evaluationDate, settings);
+            BindModelObservations(plan, product, evaluationDate);
         }
 
     public:
@@ -293,7 +289,7 @@ namespace Dal::Script {
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
-            result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, evaluationDate, settings, settings.fixings_);
+            result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, settings, settings.fixings_);
             if (model) {
                 writable->InitializePastObservations(result.Plan());
                 ConstProcessor_ constants(writable->VarNames().size(), result.plan_.get(), true);
