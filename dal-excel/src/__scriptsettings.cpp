@@ -5,6 +5,8 @@
 #include <cmath>
 #include <limits>
 
+#include <dal/script/settings.hpp>
+
 #include "__curve_storable.hpp"
 #include "__platform.hpp"
 #include "__script_test_api.hpp"
@@ -100,7 +102,11 @@ namespace Dal {
 
         String_ MethodValue(const Cell_& cell, const String_& context) {
             const auto method = TextValue(cell, context);
-            REQUIRE(method == "sobol" || method == "mrg32" || method == "irn", context + "expected sobol, mrg32 or irn; received " + method);
+            try {
+                Script::ValidateRNG(method);
+            } catch (const Exception_& error) {
+                THROW(context + String_(error.what()));
+            }
             return method;
         }
 
