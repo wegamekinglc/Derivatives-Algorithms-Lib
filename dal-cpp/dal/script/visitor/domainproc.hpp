@@ -380,13 +380,11 @@ namespace Dal::Script {
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }
         void Visit(NodeConstVar_&) { domStack_.Push(RealDomain()); }
         void VisitObservation(const std::optional<size_t>& id) {
-            if (id && observations_) {
-                const auto& request = observations_->Request(*id);
-                if (request.historyValueId_) {
-                    domStack_.Push(observations_->KnownValue(*request.historyValueId_));
+            if (id && observations_)
+                if (const auto known = observations_->TryKnownValue(*id)) {
+                    domStack_.Push(*known);
                     return;
                 }
-            }
             domStack_.Push(RealDomain());
         }
 

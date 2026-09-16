@@ -560,7 +560,7 @@ namespace Dal::Script {
                              const ScriptProductSettings_& contract = {}) {
         auto execution = simulation;
         const auto valuation = ResolveValuationSettings(settings, snapshot);
-        const auto modelCopy = modelData;
+        const auto& modelCopy = modelData;
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(execution.rsg_);
         execution.enableAad_ = !std::is_same_v<T_, double> || execution.enableAad_;

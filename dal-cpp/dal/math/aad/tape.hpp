@@ -123,6 +123,7 @@ namespace Dal::AAD {
         }
 
         // Later recording windows can outgrow Adept's gradient storage while old adjoints must survive.
+        // Reaches into adept::Stack protected internals; pinned to the fork wegamekinglc/Adept-2 (submodule, 1e29edc).
         void EnsureGradientCapacity() {
             if (!gradients_are_initialized()) {
                 initialize_gradients();

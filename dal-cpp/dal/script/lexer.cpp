@@ -2,7 +2,6 @@
 // Created by wegam on 2026/5/30.
 //
 
-#include <cctype>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/lexer.hpp>
@@ -10,8 +9,12 @@
 
 namespace Dal::Script {
     namespace {
-        bool IsWord(char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_' || c == '.'; }
-        bool IsSpace(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
+        //  Explicit ASCII ranges: the replaced regex \w was ASCII-only, so bytes >= 0x80 must never lex as word chars
+        bool IsWord(char c) {
+            const auto byte = static_cast<unsigned char>(c);
+            return (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') || c == '_' || c == '.';
+        }
+        bool IsSpace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v'; }
 
         size_t WordEnd(const String_& str, size_t start) {
             while (start < str.size() && IsWord(str[start]))
@@ -72,7 +75,7 @@ namespace Dal::Script {
             if (String_("!<>").find(str[pos]) != String_::npos && end < str.size() && str[end] == '=')
                 return end + 1;
             REQUIRE2(String_("/-,;:()+*^<>=").find(str[pos]) != String_::npos,
-                     "InvalidIndex: unexpected character '" + String_(1, str[pos]) + "'; " + source.Describe(), ScriptError_);
+                     "InvalidScript: unexpected character '" + String_(1, str[pos]) + "'; " + source.Describe(), ScriptError_);
             return end;
         }
     } // namespace

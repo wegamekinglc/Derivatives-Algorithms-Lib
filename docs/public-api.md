@@ -591,8 +591,8 @@ provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing`, `model_bindings` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
 
-`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact
-`Model` / `RequireHistorical` strings. The three settings fields `default_index`,
+`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
+case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,
 `method`, and `today_fixing` reject foreign enums, including string-derived enum
 members, with `TypeError` on construction or assignment. Ordinary string
 subclasses, DAL `String_`, and the native today-policy members remain supported.
@@ -608,7 +608,7 @@ The [FIX source rules](methodology/script_engine.md#dates-and-structural-validat
 and [explicit model binding](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
 apply unchanged: past history, today's selected policy, future model, and no
 fixing after its event. The complete
-[Python example](../dal-python/examples/009.fix_settings.py) supplies a legal
+[Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
 BS model and checks `PV=260` / `d_SCALE=80` for historical SCALE state plus a
 retained future fixing. See the
 [Python settings reference](../dal-python/README.md#script-settings-and-copies)
@@ -793,7 +793,8 @@ select fresh native defaults. The product settings handle is required by
 Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX requires
 an explicit `spot` to ordinary EQ binding; a product default only gives legacy
 `SPOT()` an identity. Valuation settings accept an integral evaluation date,
-`Model` or `RequireHistorical` today policy, and an immutable snapshot.
+case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
+match case-insensitively), and an immutable snapshot.
 `MARKETFIXINGSNAPSHOT.NEW(,,)` creates an explicit empty snapshot, which never
 falls back to global history. Snapshot timestamps retain intraday fractions;
 daily FIX requires exact midnight. Old and new Value return the same headerless

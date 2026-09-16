@@ -2,9 +2,10 @@
 // Created by Codex on 2026/9/13.
 //
 
+#include <dal/platform/platform.hpp>
+
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/indice/index.hpp>
-#include <dal/platform/platform.hpp>
 
 namespace Dal {
     Handle_<Environment_> SnapshotFixingEnvironment(const MarketFixingSnapshot_& snapshot, const Vector_<FixingRequest_>& requests) {

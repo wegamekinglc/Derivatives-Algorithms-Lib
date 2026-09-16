@@ -7,6 +7,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/utilities/detail/scopedthreadobserver.hpp>
 
 namespace Dal {
     class Index_;
@@ -21,12 +22,6 @@ namespace Dal {
 
         FixingReadObserver_*& FixingReadObserver();
 
-        class ScopedFixingReadObserver_ : noncopyable {
-            FixingReadObserver_* previous_;
-
-        public:
-            explicit ScopedFixingReadObserver_(FixingReadObserver_* observer) : previous_(FixingReadObserver()) { FixingReadObserver() = observer; }
-            ~ScopedFixingReadObserver_() { FixingReadObserver() = previous_; }
-        };
+        using ScopedFixingReadObserver_ = ScopedThreadObserver_<FixingReadObserver_, &FixingReadObserver>;
     } // namespace Detail
 } // namespace Dal

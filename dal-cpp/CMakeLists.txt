@@ -282,6 +282,7 @@ if(DAL_CPP_BUILD_TESTS)
 
     add_executable(dal_cpp_tests ${TEST_FILES})
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
+    target_include_directories(dal_cpp_tests PRIVATE "${PROJECT_SOURCE_DIR}/test-support")
     dal_apply_platform_options(dal_cpp_tests)
 
     gtest_discover_tests(dal_cpp_tests)
@@ -308,6 +309,7 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/test-support/bcg_allocation_probe.cpp"
         "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
     target_link_libraries(dal_cpp_script_observation_allocation_tests PRIVATE dal_cpp gtest)
+    target_include_directories(dal_cpp_script_observation_allocation_tests PRIVATE "${PROJECT_SOURCE_DIR}/test-support")
     dal_apply_platform_options(dal_cpp_script_observation_allocation_tests)
     gtest_discover_tests(dal_cpp_script_observation_allocation_tests TEST_PREFIX "script_observation_allocation::")
 

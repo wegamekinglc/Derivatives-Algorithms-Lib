@@ -204,6 +204,9 @@ Reference files:
 - **Status / check functions**: start with `Is_` followed by the condition being tested in PascalCase.
   - `Is_BizDay` — returns a boolean indicating whether a date is a business day.
   - Use this prefix for any public function whose primary purpose is to answer a yes/no question about its inputs.
+- **Settings-taking variants**: the `*WithSettings` suffix marks the overload that takes explicit immutable settings handles in place of the defaults.
+  - `Product_NewWithSettings`, `MonteCarlo_ValueWithSettings`
+  - These names deliberately fall outside the `_New` factory and `<Type>_Get_<Result>` getter patterns: the base name keeps the operation recognizable, and the suffix signals the settings-accepting form.
 
 ## Key Macros
 

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
+#include <dal/utilities/detail/scopedthreadobserver.hpp>
 
 namespace Dal::Script::Detail {
     struct SimulationObserver_ {
@@ -15,11 +16,5 @@ namespace Dal::Script::Detail {
 
     SimulationObserver_*& SimulationObserver();
 
-    class ScopedSimulationObserver_ : noncopyable {
-        SimulationObserver_* previous_;
-
-    public:
-        explicit ScopedSimulationObserver_(SimulationObserver_* observer) : previous_(SimulationObserver()) { SimulationObserver() = observer; }
-        ~ScopedSimulationObserver_() { SimulationObserver() = previous_; }
-    };
+    using ScopedSimulationObserver_ = Dal::Detail::ScopedThreadObserver_<SimulationObserver_, &SimulationObserver>;
 } // namespace Dal::Script::Detail

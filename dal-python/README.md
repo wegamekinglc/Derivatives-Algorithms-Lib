@@ -287,12 +287,12 @@ PV: 9.223019
 
 ### Historical and Future FIX
 
-The complete [FIX settings example](examples/009.fix_settings.py) constructs a
+The complete [FIX settings example](examples/012.fix_settings.py) constructs a
 zero-volatility Black-Scholes model, an explicit valuation date and a midnight
 history snapshot. Run it from the repository root with the current `dal` package:
 
 ```bash
-python dal-python/examples/009.fix_settings.py
+python dal-python/examples/012.fix_settings.py
 ```
 
 Its script first assigns `x = SCALE * FIX(EQ[DAL196_TEST])` on 2026-09-11,

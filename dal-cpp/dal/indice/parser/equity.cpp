@@ -51,6 +51,7 @@ namespace Dal::Index {
             return std::make_unique<Equity_>(eq_name, nullptr, &delay_increment);
         }
         THROW("unexpected trailing equity index characters");
+        // catch only parse-related types; a wider std::exception catch would mask resource/system errors as InvalidIndex
     } catch (const Exception_& error) {
         InvalidEquity(name, error);
     } catch (const std::logic_error& error) {

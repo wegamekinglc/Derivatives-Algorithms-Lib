@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <tuple>
+
 #include <dal/math/aad/sample.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/lexer.hpp>
@@ -36,6 +38,27 @@ namespace Dal {
             size_t sampleId_;
             size_t outputId_;
         };
+
+        //  Shared field context for observation errors; order is pinned by substring-matching tests
+        [[nodiscard]] inline String_ ObservationErrorContext(const String_& original,
+                                                             const String_& canonical,
+                                                             const DateTime_& fixingTime,
+                                                             const SourceLocation_& source,
+                                                             size_t statementId,
+                                                             size_t nodeId) {
+            return "; index=" + canonical + "; fixing=" + DateTime::ToString(fixingTime) + "; " + source.Describe() + "; original=" + original +
+                   "; canonical=" + canonical + "; statement=" + String_(std::to_string(statementId)) + "; node=n" + String_(std::to_string(nodeId));
+        }
+
+        [[nodiscard]] inline String_ LookAheadObservationError(const String_& original,
+                                                               const String_& canonical,
+                                                               const Date_& fixingDate,
+                                                               const SourceLocation_& source,
+                                                               size_t statementId,
+                                                               size_t nodeId) {
+            return "LookAheadObservation: expected fixing <= event" +
+                   ObservationErrorContext(original, canonical, DateTime_(fixingDate, 0.0), source, statementId, nodeId);
+        }
 
         struct ObservationRequest_ {
             Handle_<Index_> index_;
@@ -88,6 +111,13 @@ namespace Dal {
             [[nodiscard]] double KnownValue(size_t valueId) const {
                 REQUIRE2(valueId < knownValues_.size(), "HistoryValueIdOutOfRange", ScriptError_);
                 return knownValues_[valueId];
+            }
+            //  Resolved historical value for a request, when one was frozen at preparation
+            [[nodiscard]] std::optional<double> TryKnownValue(size_t requestId) const {
+                const auto& request = Request(requestId);
+                if (!request.historyValueId_)
+                    return std::nullopt;
+                return KnownValue(*request.historyValueId_);
             }
         };
     } // namespace Script

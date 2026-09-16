@@ -14,6 +14,7 @@
 #include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 
 namespace Dal::Script {
@@ -138,9 +139,7 @@ namespace Dal::Script {
         REQUIRE2(source.eventDate_, "InvalidFixingDate: observation source has no event date", ScriptError_);
         const Date_ fixingDate = observation.fixingDate_.value_or(*source.eventDate_);
         REQUIRE2(fixingDate <= *source.eventDate_,
-                 "LookAheadObservation: original=" + observation.original_ + "; canonical=" + observation.canonical_ +
-                     "; fixing=" + DateTime::ToString(DateTime_(fixingDate, 0.0)) + "; expected fixing <= event; " + source.Describe() +
-                     "; statement=" + String_(std::to_string(observation.statementId_)) + "; node=n" + String_(std::to_string(nodeId)),
+                 LookAheadObservationError(observation.original_, observation.canonical_, fixingDate, source, observation.statementId_, nodeId),
                  ScriptError_);
         ost << ",\"type\":\"" << (kind == "fix" ? "Fix" : "Spot") << "\",\"index_original\":";
         if (observation.original_.empty())

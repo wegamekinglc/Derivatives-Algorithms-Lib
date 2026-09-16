@@ -188,13 +188,11 @@ namespace Dal::Script {
 
         void VisitObservation(ExprNode_& node, const std::optional<size_t>& id) {
             node.isConst_ = false;
-            if (id && observations_) {
-                const auto& request = observations_->Request(*id);
-                if (request.historyValueId_) {
+            if (id && observations_)
+                if (const auto known = observations_->TryKnownValue(*id)) {
                     node.isConst_ = true;
-                    node.constVal_ = observations_->KnownValue(*request.historyValueId_);
+                    node.constVal_ = *known;
                 }
-            }
         }
 
         void Visit(NodeFix_& node) { VisitObservation(node, node.observationId_); }
