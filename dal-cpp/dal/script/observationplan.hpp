@@ -112,6 +112,13 @@ namespace Dal {
                 REQUIRE2(valueId < knownValues_.size(), "HistoryValueIdOutOfRange", ScriptError_);
                 return knownValues_[valueId];
             }
+            //  Resolved historical value for a request, when one was frozen at preparation
+            [[nodiscard]] std::optional<double> TryKnownValue(size_t requestId) const {
+                const auto& request = Request(requestId);
+                if (!request.historyValueId_)
+                    return std::nullopt;
+                return KnownValue(*request.historyValueId_);
+            }
         };
     } // namespace Script
 } // namespace Dal
