@@ -2,10 +2,11 @@
 // Created by wegam on 2022/11/19.
 //
 
-#include <dal-public/src/script.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/diagnostics.hpp>
+
+#include <dal-public/src/script.hpp>
 
 namespace Dal {
     String_ DescribeScriptProduct(const Handle_<ScriptProductData_>& product) {

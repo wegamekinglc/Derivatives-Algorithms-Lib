@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <dal/indice/fixingsnapshot.hpp>
 #include <optional>
 
+#include <dal/indice/fixingsnapshot.hpp>
 #include <dal/model/base.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>

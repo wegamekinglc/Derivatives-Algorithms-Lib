@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <dal/script/simulation.hpp>
 #include <optional>
+
+#include <dal/script/simulation.hpp>
 
 namespace Dal {
 
