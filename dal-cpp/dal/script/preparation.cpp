@@ -33,9 +33,8 @@ namespace Dal::Script {
 
         String_ Context(const ObservationRequest_& request) {
             const auto& use = request.uses_[0];
-            return "; index=" + request.key_.canonicalIndex_ + "; fixing=" + DateTime::ToString(request.key_.fixingTime_) + "; " +
-                   use.source_.Describe() + "; original=" + use.indexOriginal_ + "; canonical=" + request.key_.canonicalIndex_ +
-                   "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" + String_(std::to_string(use.nodeId_));
+            return ObservationErrorContext(use.indexOriginal_, request.key_.canonicalIndex_, request.key_.fixingTime_, use.source_, use.statementId_,
+                                           use.nodeId_);
         }
 
         bool IsHistorical(const Date_& fixingDate, const Date_& evaluationDate, const ScriptValuationSettings_& settings) {
@@ -64,9 +63,7 @@ namespace Dal::Script {
             void Add(NodeFix_& node, const Date_& eventDate, const ObservationUse_& use) {
                 const Date_ fixingDate = node.fixingDate_.value_or(eventDate);
                 REQUIRE2(fixingDate <= eventDate,
-                         "LookAheadObservation: original=" + node.literal_.raw_ + "; canonical=" + node.index_->Name() +
-                             "; fixing=" + DateTime::ToString(DateTime_(fixingDate, 0.0)) + "; expected fixing <= event; " + node.source_.Describe() +
-                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" + String_(std::to_string(use.nodeId_)),
+                         LookAheadObservationError(node.literal_.raw_, node.index_->Name(), fixingDate, node.source_, use.statementId_, use.nodeId_),
                          ScriptError_);
                 ValidateIndex(node, IsHistorical(fixingDate, evaluationDate_, settings_));
                 const ObservationKey_ key{node.index_->Name(), DateTime_(fixingDate, 0.0)};

@@ -39,6 +39,27 @@ namespace Dal {
             size_t outputId_;
         };
 
+        //  Shared field context for observation errors; order is pinned by substring-matching tests
+        [[nodiscard]] inline String_ ObservationErrorContext(const String_& original,
+                                                             const String_& canonical,
+                                                             const DateTime_& fixingTime,
+                                                             const SourceLocation_& source,
+                                                             size_t statementId,
+                                                             size_t nodeId) {
+            return "; index=" + canonical + "; fixing=" + DateTime::ToString(fixingTime) + "; " + source.Describe() + "; original=" + original +
+                   "; canonical=" + canonical + "; statement=" + String_(std::to_string(statementId)) + "; node=n" + String_(std::to_string(nodeId));
+        }
+
+        [[nodiscard]] inline String_ LookAheadObservationError(const String_& original,
+                                                               const String_& canonical,
+                                                               const Date_& fixingDate,
+                                                               const SourceLocation_& source,
+                                                               size_t statementId,
+                                                               size_t nodeId) {
+            return "LookAheadObservation: expected fixing <= event" +
+                   ObservationErrorContext(original, canonical, DateTime_(fixingDate, 0.0), source, statementId, nodeId);
+        }
+
         struct ObservationRequest_ {
             Handle_<Index_> index_;
             ObservationKey_ key_;
