@@ -591,8 +591,8 @@ provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing`, `model_bindings` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
 
-`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact
-`Model` / `RequireHistorical` strings. The three settings fields `default_index`,
+`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
+case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,
 `method`, and `today_fixing` reject foreign enums, including string-derived enum
 members, with `TypeError` on construction or assignment. Ordinary string
 subclasses, DAL `String_`, and the native today-policy members remain supported.
@@ -793,7 +793,8 @@ select fresh native defaults. The product settings handle is required by
 Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX requires
 an explicit `spot` to ordinary EQ binding; a product default only gives legacy
 `SPOT()` an identity. Valuation settings accept an integral evaluation date,
-`Model` or `RequireHistorical` today policy, and an immutable snapshot.
+case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
+match case-insensitively), and an immutable snapshot.
 `MARKETFIXINGSNAPSHOT.NEW(,,)` creates an explicit empty snapshot, which never
 falls back to global history. Snapshot timestamps retain intraday fractions;
 daily FIX requires exact midnight. Old and new Value return the same headerless
