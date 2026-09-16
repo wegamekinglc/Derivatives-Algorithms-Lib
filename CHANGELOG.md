@@ -57,8 +57,6 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   [public settings](docs/methodology/script_engine.md#public-c-settings) and
   [archive/diagnostic contracts](docs/methodology/script_engine.md#product-archive-and-diagnostics).
 
-## 2026-09-14
-
 - **Script compiled observations** — added named compiled double and fuzzy AAD
   valuation using the same sealed observation plan as tree execution. Hard
   historical bytecode preserves typed parameter-dependent state and discards
@@ -72,6 +70,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   archive, and JSON debug projections are not extended. See the
   [compiled evaluation contract](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation).
 
+## 2026-09-14
+
 - **Script historical AAD state** — added model-aware prepared AAD tree
   valuation that preserves script-parameter risk through historical fixing
   expressions. Each worker recording rebuilds a typed historical seed from
@@ -82,8 +82,6 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   unsupported, as do named valuation settings in the public C++ facade,
   Python, and Excel.
   See the [AAD tree contract](docs/methodology/script_engine.md#core-aadtree-fixing-valuation).
-
-## 2026-09-13
 
 - **Script core FIX valuation** — added model-aware double/tree valuation with
   an explicit `spot` to one ordinary EQ binding in Black-Scholes or Dupire.
@@ -99,6 +97,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   past events because historical AAD state reconstruction is unavailable.
   Future-only legacy SPOT modes and defaults are preserved. See the
   [core valuation contract](docs/methodology/script_engine.md#core-doubletree-fixing-valuation).
+
+## 2026-09-13
 
 - **Script historical preparation** — added core `PrepareScript` with a
   captured evaluation date, exact-midnight observation keys, and deduplicated
