@@ -167,48 +167,40 @@ int main() {
 
         double eps = 0.0001;
         Handle_<ModelData_> modelDataDown(new BSModelData_("bsmodel", spot * (1 - eps), vol, rate, div));
-        product.PreProcess(false, false);
         SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         Handle_<ModelData_> modelDataUp(new BSModelData_("bsmodel", spot * (1 + eps), vol, rate, div));
-        product.PreProcess(false, false);
         SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
 
         double epsVol = eps;
         modelDataDown.reset(new BSModelData_("bsmodel", spot, vol - epsVol, rate, div));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot, vol + epsVol, rate, div));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dVol = (calculatedUp - calculatedDown) / (2 * epsVol);
 
         double epsRate = std::abs(rate) > 0 ? abs(rate) * eps : eps;
         modelDataDown.reset(new BSModelData_("bsmodel", spot, vol, rate - epsRate, div));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot, vol, rate + epsRate, div));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dRate = (calculatedUp - calculatedDown) / (2 * epsRate);
 
         double epsDiv = std::abs(div) > 0 ? abs(div) * eps : eps;
         modelDataDown.reset(new BSModelData_("bsmodel", spot, vol, rate, div - epsDiv));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
         modelDataUp.reset(new BSModelData_("bsmodel", spot, vol, rate, div + epsDiv));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dDiv = (calculatedUp - calculatedDown) / (2 * epsDiv);

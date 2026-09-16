@@ -159,7 +159,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
@@ -170,7 +169,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
@@ -183,7 +181,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
@@ -194,7 +191,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dRate = (calculatedUp - calculatedDown) / (2 * epsRate);
@@ -207,7 +203,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
         calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
@@ -218,7 +213,6 @@ int main() {
                                                                       spots,
                                                                       times,
                                                                       Matrix_<double>(spots.size(),times.size(), vol)));
-        product.PreProcess(false, false);
         results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
         calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
         auto dDiv = (calculatedUp - calculatedDown) / (2 * epsDiv);
