@@ -155,7 +155,7 @@ bash ./build_linux.sh --benchmarks
 ./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
-### Script Product Debug Dumps
+### Script FIX Settings and Diagnostics
 
 Public C++ supports typed product and valuation settings for unquoted
 `FIX(index[,date])`, explicit dates/snapshots, and BS/Dupire EQ bindings while
@@ -174,6 +174,8 @@ Excel exposes settings handles with `PRODUCT.NEWWITHSETTINGS` /
 `MONTECARLO.VALUEWITHSETTINGS` plus the chunk-valued `PRODUCT.DESCRIBE` /
 `SCRIPTVALUATION.EXPLAIN` — see
 [Excel FIX Settings and Diagnostics](docs/excel-script-settings.md).
+
+### Script Product Debug Dumps
 
 Legacy script dumps include the s-expression listing
 (`DebugScriptProduct` in C++, `Product_Debug` in Python), a versioned JSON AST
