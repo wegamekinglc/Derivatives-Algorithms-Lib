@@ -51,9 +51,7 @@ namespace Dal::Index {
             return std::make_unique<Equity_>(eq_name, nullptr, &delay_increment);
         }
         THROW("unexpected trailing equity index characters");
-    } catch (const Exception_& error) {
-        InvalidEquity(name, error);
-    } catch (const std::logic_error& error) {
+    } catch (const std::exception& error) {
         InvalidEquity(name, error);
     }
 } // namespace Dal::Index
