@@ -576,7 +576,7 @@ their low-level bindings return the unchanged C++ JSON strings. Describe is
 pure contract inspection; Explain always uses independent default exact/tree
 price preparation, even after compiled/AAD valuation. Neither diagnostic is a
 Python product archive. The complete
-[Python FIX example](../../dal-python/examples/009.fix_settings.py) checks a
+[Python FIX example](../../dal-python/examples/012.fix_settings.py) checks a
 historical SCALE payment plus a retained future observation, with an explicit
 date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`.
 

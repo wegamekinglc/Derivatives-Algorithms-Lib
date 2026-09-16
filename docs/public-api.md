@@ -608,7 +608,7 @@ The [FIX source rules](methodology/script_engine.md#dates-and-structural-validat
 and [explicit model binding](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
 apply unchanged: past history, today's selected policy, future model, and no
 fixing after its event. The complete
-[Python example](../dal-python/examples/009.fix_settings.py) supplies a legal
+[Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
 BS model and checks `PV=260` / `d_SCALE=80` for historical SCALE state plus a
 retained future fixing. See the
 [Python settings reference](../dal-python/README.md#script-settings-and-copies)
