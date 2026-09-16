@@ -2,8 +2,6 @@
 // Created by wegam on 2022/4/3.
 //
 
-#pragma once
-
 #include "__platform.hpp"
 #include <dal-public/src/interp.hpp>
 #include <dal/math/interp/interplinear.hpp>

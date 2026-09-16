@@ -2,8 +2,6 @@
 // Created by wegam on 2022/11/20.
 //
 
-#pragma once
-
 #include "__value.hpp"
 #include "__platform.hpp"
 #include "__script_test_api.hpp"

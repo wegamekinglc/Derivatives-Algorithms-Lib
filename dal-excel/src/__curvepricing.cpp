@@ -2,8 +2,6 @@
 // Created by dal-implementer on 2026/8/24.
 //
 
-#pragma once
-
 #include "__curve_storable.hpp"
 #include "__curvepricing_test_api.hpp"
 #include "__platform.hpp"

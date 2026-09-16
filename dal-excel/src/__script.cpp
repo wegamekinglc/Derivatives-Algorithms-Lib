@@ -2,8 +2,6 @@
 // Created by wegam on 2022/11/19.
 //
 
-#pragma once
-
 #include "__platform.hpp"
 #include "__script_test_api.hpp"
 #include <dal-public/src/script.hpp>
