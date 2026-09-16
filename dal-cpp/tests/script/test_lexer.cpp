@@ -3,11 +3,34 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <locale>
+
 #include <dal/platform/platform.hpp>
 #include <dal/script/lexer.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
+
+namespace {
+    void AssertNonAsciiRejected() {
+        std::string text("x = ");
+        text += static_cast<char>(0xE9); //  Non-ASCII byte: e.g. e-acute in Latin-1
+        try {
+            static_cast<void>(Tokenize(String_(text)));
+            FAIL() << "bytes >= 0x80 must not lex as word characters";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidScript: unexpected character"), std::string::npos) << error.what();
+        }
+    }
+
+    struct LocaleScope_ {
+        const std::locale previous_;
+        explicit LocaleScope_(const char* name) : previous_(std::locale::global(std::locale(name))) {}
+        ~LocaleScope_() { std::locale::global(previous_); }
+    };
+} // namespace
 
 TEST(ScriptLexerTest, TestTokenizeAssignment) {
     auto tokens = Tokenize("x = 2");
@@ -50,4 +73,17 @@ TEST(ScriptLexerTest, TestIndexLiteralTokens) {
     ASSERT_NE(literal, nullptr);
     ASSERT_EQ(literal->raw_, "FX[EUR/USD]");
     ASSERT_EQ(positioned[2].source_.offset_, 4);
+}
+
+TEST(ScriptLexerTest, TestNonAsciiBytesAreNotWordCharacters) {
+    AssertNonAsciiRejected();
+    //  In a Latin-1 locale std::isalnum(0xE9) is true; explicit ASCII ranges must hold anyway
+    for (const auto* name : {"en_US.ISO8859-1", "en_US.iso88591", "fr_FR.ISO8859-1", "de_DE.ISO8859-1"}) {
+        try {
+            const LocaleScope_ extended(name);
+            AssertNonAsciiRejected();
+        } catch (const std::runtime_error&) {
+            //  Locale not installed on this host; the default-locale check above still pins the behavior
+        }
+    }
 }
