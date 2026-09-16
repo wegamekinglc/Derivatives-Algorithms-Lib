@@ -45,10 +45,12 @@ namespace Dal::Script {
             REQUIRE2(executable_ || AllExpired(), "UnsupportedExecutionMode: history-only preparation has no model plan", ScriptError_);
         }
         template <class T_> Evaluator_<T_> BuildEvaluator() const { return product_->BuildEvaluator<T_>(); }
+        //  The ignored first parameter keeps generic call sites (shared with ScriptProduct_) compiling; preparation's maxNestedIfs_ is used
         template <class T_> EvalState_<T_> BuildEvalState(size_t = 0, double eps = 0.0) const {
             REQUIRE2(eps == 0.0 || eps == simulation_.smooth_, "UnsupportedExecutionMode: smoothing differs from preparation", ScriptError_);
             return product_->BuildEvalState<T_>(maxNestedIfs_, eps == 0.0 ? simulation_.smooth_ : eps);
         }
+        //  Same: the ignored int keeps generic call sites compiling; preparation's maxNestedIfs_ is authoritative
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int, double eps) const {
             REQUIRE2(simulation_.enableAad_ && eps == simulation_.smooth_, "UnsupportedExecutionMode: smoothing differs from preparation",
                      ScriptError_);
