@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare the complete Python suite; CI treats performance results as advisory."""
+"""Gate the complete Python suite against independent base/head DAL builds."""
 
 import argparse
 import hashlib
@@ -276,9 +276,7 @@ def write_report(output, result, summary_file=None):
         json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
     lines = [
-        "## Python interface performance report",
-        "",
-        "Advisory results: performance findings do not block CI or merging.",
+        "## Python interface performance regression gate",
         "",
         f"Status: **{result['status']}**.",
         "",
@@ -418,7 +416,7 @@ def main(argv=None):
         result["failures"].append(f"{type(error).__name__}: {error}")
     write_report(args.output_dir, result, args.summary_file)
     print(
-        f"Python performance report: {result['status']}; {len(result['comparisons'])} cases; {args.output_dir}"
+        f"Python performance gate: {result['status']}; {len(result['comparisons'])} cases; {args.output_dir}"
     )
     for failure in result["failures"]:
         print(failure, file=sys.stderr)
