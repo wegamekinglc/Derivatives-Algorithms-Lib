@@ -52,6 +52,20 @@ namespace Dal {
             AccrualPeriod_ accrual_;
         };
 
+        // Fixed/float coupon-period pair shared by the three Swap_ factories.
+        pair<Vector_<CouponPeriod_>, Vector_<CouponPeriod_>> BuildFixedAndFloatPeriods(const Date_& start,
+                                                                                       const Date_& maturity,
+                                                                                       const RateLegConvention_& fixedLegConvention,
+                                                                                       const RateLegConvention_& floatLegConvention,
+                                                                                       const RateIndexConvention_& floatIndexConvention) {
+            return {BuildLegPeriods<CouponPeriod_>(start, maturity, fixedLegConvention, 0, Holidays::None()),
+                    BuildLegPeriods<CouponPeriod_>(start,
+                                                   maturity,
+                                                   floatLegConvention,
+                                                   floatIndexConvention.fixingLag_,
+                                                   floatIndexConvention.fixingHolidays_)};
+        }
+
         class DepositRate_ : public YCInstrument_::Rate_ {
             Date_ start_;
             Date_ maturity_;
@@ -184,8 +198,33 @@ namespace Dal {
     } // namespace
 
     namespace Tape {
+        // Curve-source policies for the templated rates: where the forecast and discount curves come
+        // from. The single-curve source reads forecast == discount == ctx.curve_ (Phase A, guaranteed
+        // by EligibleForAnalyticJacobian); the joint-block source routes through the projection block.
         template <class T_>
-        class DepositRate_ : public Rate_<T_> {
+        struct YCCtxSource_ {
+            using ctx_t = YCCtx_<T_>;
+            using base_t = Rate_<T_>;
+
+            static const DiscountCurve_<T_>& Discount(const YCCtx_<T_>& ctx, const RateIndexConvention_&) { return ctx.curve_; }
+            static const DiscountCurve_<T_>& Forecast(const YCCtx_<T_>& ctx, const RateIndexConvention_&) { return ctx.curve_; }
+        };
+
+        template <class T_>
+        struct JointBlockSource_ {
+            using ctx_t = JointCurveBlock_<T_>;
+            using base_t = JointRate_<T_>;
+
+            static const DiscountCurve_<T_>& Discount(const JointCurveBlock_<T_>& block, const RateIndexConvention_& convention) {
+                return block.Discount(convention.collateral_);
+            }
+            static const DiscountCurve_<T_>& Forecast(const JointCurveBlock_<T_>& block, const RateIndexConvention_& convention) {
+                return ForecastCurve(block, convention);
+            }
+        };
+
+        template <class T_, class Src_>
+        class DepositRate_ : public Src_::base_t {
             Date_ start_;
             Date_ maturity_;
             RateIndexConvention_ convention_;
@@ -193,14 +232,14 @@ namespace Dal {
             DepositRate_(const Date_& start, const Date_& maturity, const RateIndexConvention_& convention)
                 : start_(start), maturity_(maturity), convention_(convention) {}
 
-            T_ operator()(const YCCtx_<T_>& ctx) const override {
+            T_ operator()(const typename Src_::ctx_t& ctx) const override {
                 const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
-                return DepositRateFromCurves(ctx.curve_, period, convention_.dayBasis_);
+                return DepositRateFromCurves(Src_::Forecast(ctx, convention_), period, convention_.dayBasis_);
             }
         };
 
-        template <class T_>
-        class ForwardRate_ : public Rate_<T_> {
+        template <class T_, class Src_>
+        class ForwardRate_ : public Src_::base_t {
             Date_ start_;
             Date_ maturity_;
             double convexityAdjustment_;
@@ -212,15 +251,15 @@ namespace Dal {
                           const RateIndexConvention_& convention)
                 : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
 
-            T_ operator()(const YCCtx_<T_>& ctx) const override {
+            T_ operator()(const typename Src_::ctx_t& ctx) const override {
                 const SchedulePeriod_ period =
                     BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
-                return ForwardRateFromCurves(ctx.curve_, period, convention_.dayBasis_, convexityAdjustment_);
+                return ForwardRateFromCurves(Src_::Forecast(ctx, convention_), period, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 
-        template <class T_>
-        class SwapRate_ : public Rate_<T_> {
+        template <class T_, class Src_>
+        class SwapRate_ : public Src_::base_t {
             Date_ tradeDate_;
             Vector_<CouponPeriod_> fixedPeriods_;
             Vector_<CouponPeriod_> floatPeriods_;
@@ -235,10 +274,9 @@ namespace Dal {
                   floatPeriods_(floatPeriods),
                   floatIndexConvention_(floatIndexConvention) {}
 
-            T_ operator()(const YCCtx_<T_>& ctx) const override {
-                // Phase A: forecast == discount == ctx.curve_ (guaranteed by EligibleForAnalyticJacobian).
-                return SwapRateFromCurves(ctx.curve_,
-                                          ctx.curve_,
+            T_ operator()(const typename Src_::ctx_t& ctx) const override {
+                return SwapRateFromCurves(Src_::Discount(ctx, floatIndexConvention_),
+                                          Src_::Forecast(ctx, floatIndexConvention_),
                                           tradeDate_,
                                           fixedPeriods_,
                                           floatPeriods_,
@@ -246,71 +284,9 @@ namespace Dal {
             }
         };
 
-        template <class T_>
-        class DepositRateProj_ : public JointRate_<T_> {
-            Date_ start_;
-            Date_ maturity_;
-            RateIndexConvention_ convention_;
-        public:
-            DepositRateProj_(const Date_& start, const Date_& maturity, const RateIndexConvention_& convention)
-                : start_(start), maturity_(maturity), convention_(convention) {}
-
-            T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                const DiscountCurve_<T_>& forecast = ForecastCurve(block, convention_);
-                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
-                return DepositRateFromCurves(forecast, period, convention_.dayBasis_);
-            }
-        };
-
-        template <class T_>
-        class ForwardRateProj_ : public JointRate_<T_> {
-            Date_ start_;
-            Date_ maturity_;
-            double convexityAdjustment_;
-            RateIndexConvention_ convention_;
-        public:
-            ForwardRateProj_(const Date_& start,
-                              const Date_& maturity,
-                              double convexityAdjustment,
-                              const RateIndexConvention_& convention)
-                : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
-
-            T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                const DiscountCurve_<T_>& forecast = ForecastCurve(block, convention_);
-                const SchedulePeriod_ period =
-                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
-                return ForwardRateFromCurves(forecast, period, convention_.dayBasis_, convexityAdjustment_);
-            }
-        };
-
-        template <class T_>
-        class SwapRateProj_ : public JointRate_<T_> {
-            Date_ tradeDate_;
-            Vector_<CouponPeriod_> fixedPeriods_;
-            Vector_<CouponPeriod_> floatPeriods_;
-            RateIndexConvention_ floatIndexConvention_;
-        public:
-            SwapRateProj_(const Date_& tradeDate,
-                           const Vector_<CouponPeriod_>& fixedPeriods,
-                           const Vector_<CouponPeriod_>& floatPeriods,
-                           const RateIndexConvention_& floatIndexConvention)
-                : tradeDate_(tradeDate),
-                  fixedPeriods_(fixedPeriods),
-                  floatPeriods_(floatPeriods),
-                  floatIndexConvention_(floatIndexConvention) {}
-
-            T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                // Forecast and discount are distinct: forecast via ForecastCurve, discount via block.Discount.
-                const DiscountCurve_<T_>& discount = block.Discount(floatIndexConvention_.collateral_);
-                const DiscountCurve_<T_>& forecast = ForecastCurve(block, floatIndexConvention_);
-                return SwapRateFromCurves(discount,
-                                          forecast,
-                                          tradeDate_,
-                                          fixedPeriods_,
-                                          floatPeriods_,
-                                          floatIndexConvention_.dayBasis_);
-            }
-        };
+        template <class T_> using DepositRateProj_ = DepositRate_<T_, JointBlockSource_<T_>>;
+        template <class T_> using ForwardRateProj_ = ForwardRate_<T_, JointBlockSource_<T_>>;
+        template <class T_> using SwapRateProj_ = SwapRate_<T_, JointBlockSource_<T_>>;
     } // namespace Tape
 
     Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
@@ -334,7 +310,7 @@ namespace Dal {
     }
 
     template <class T_> Handle_<Tape::Rate_<T_>> Deposit_::PrecomputeT() const {
-        return Handle_<Tape::Rate_<T_>>(new Tape::DepositRate_<T_>(start_, maturity_, convention_));
+        return Handle_<Tape::Rate_<T_>>(new Tape::DepositRate_<T_, Tape::YCCtxSource_<T_>>(start_, maturity_, convention_));
     }
 
     template <class T_> Handle_<Tape::JointRate_<T_>> Deposit_::PrecomputeProjectionT() const {
@@ -359,7 +335,7 @@ namespace Dal {
     }
 
     template <class T_> Handle_<Tape::Rate_<T_>> FRA_::PrecomputeT() const {
-        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, 0.0, convention_));
+        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_, Tape::YCCtxSource_<T_>>(start_, maturity_, 0.0, convention_));
     }
 
     template <class T_> Handle_<Tape::JointRate_<T_>> FRA_::PrecomputeProjectionT() const {
@@ -390,7 +366,7 @@ namespace Dal {
     }
 
     template <class T_> Handle_<Tape::Rate_<T_>> Future_::PrecomputeT() const {
-        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, convexityAdjustment_, convention_));
+        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_, Tape::YCCtxSource_<T_>>(start_, maturity_, convexityAdjustment_, convention_));
     }
 
     template <class T_> Handle_<Tape::JointRate_<T_>> Future_::PrecomputeProjectionT() const {
@@ -428,44 +404,21 @@ namespace Dal {
     pair<Date_, Date_> Swap_::TimeSpan() const { return {start_, maturity_}; }
 
     Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
-        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  fixedLegConvention_,
-                                                  0,
-                                                  Holidays::None());
-        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  floatLegConvention_,
-                                                  floatIndexConvention_.fixingLag_,
-                                                  floatIndexConvention_.fixingHolidays_);
+        const auto [fixedPeriods, floatPeriods] =
+            BuildFixedAndFloatPeriods(start_, maturity_, fixedLegConvention_, floatLegConvention_, floatIndexConvention_);
         return Handle_<Rate_>(new SwapRate_(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_, funding_yc));
     }
 
     template <class T_> Handle_<Tape::Rate_<T_>> Swap_::PrecomputeT() const {
-        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  fixedLegConvention_,
-                                                  0,
-                                                  Holidays::None());
-        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  floatLegConvention_,
-                                                  floatIndexConvention_.fixingLag_,
-                                                  floatIndexConvention_.fixingHolidays_);
-        return Handle_<Tape::Rate_<T_>>(new Tape::SwapRate_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
+        const auto [fixedPeriods, floatPeriods] =
+            BuildFixedAndFloatPeriods(start_, maturity_, fixedLegConvention_, floatLegConvention_, floatIndexConvention_);
+        return Handle_<Tape::Rate_<T_>>(
+            new Tape::SwapRate_<T_, Tape::YCCtxSource_<T_>>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
     template <class T_> Handle_<Tape::JointRate_<T_>> Swap_::PrecomputeProjectionT() const {
-        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  fixedLegConvention_,
-                                                  0,
-                                                  Holidays::None());
-        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
-                                                  maturity_,
-                                                  floatLegConvention_,
-                                                  floatIndexConvention_.fixingLag_,
-                                                  floatIndexConvention_.fixingHolidays_);
+        const auto [fixedPeriods, floatPeriods] =
+            BuildFixedAndFloatPeriods(start_, maturity_, fixedLegConvention_, floatLegConvention_, floatIndexConvention_);
         return Handle_<Tape::JointRate_<T_>>(new Tape::SwapRateProj_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
@@ -478,6 +431,18 @@ namespace Dal {
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> FRA_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Future_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Swap_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
+
+    // Double instantiation exists so cross-family characterization tests can price through the
+    // templated families in plain double arithmetic.
+    template Handle_<Tape::Rate_<double>> Deposit_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> FRA_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> Future_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> Swap_::PrecomputeT<double>() const;
+
+    template Handle_<Tape::JointRate_<double>> Deposit_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> FRA_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> Future_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> Swap_::PrecomputeProjectionT<double>() const;
 
     namespace Tape {
         template <class T_>

@@ -7,6 +7,8 @@
 #include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/jointycctx.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/piecewiselinear.hpp>
@@ -354,4 +356,155 @@ TEST(YCInstrumentTest, TestSwapRejectsUnsupportedFrequency) {
     const DayBasis_ basis("ACT_365F");
 
     ASSERT_THROW(Swap_(today, Date::AddMonths(today, 24), 0.02, 2, basis), Dal::Exception_);
+}
+
+namespace {
+    // Joint block carrying one flat curve everywhere: OIS discount, plus the tenor forward when
+    // the projection route is exercised. Keeps forecast == discount so the three pricing
+    // families must agree.
+    Tape::JointCurveBlock_<double> SingleCurveJointBlock(const Handle_<DiscountCurve_>& discount, const PeriodLength_& forecastTenor) {
+        Tape::JointCurveBlock_<double> block;
+        block.discountCurves[CollateralType_(CollateralType_::Value_::OIS)] = discount.get();
+        block.forwardCurves[forecastTenor] = discount.get();
+        return block;
+    }
+
+    Tape::JointCurveBlock_<double> SingleCurveJointBlock(const Handle_<DiscountCurve_>& discount) {
+        Tape::JointCurveBlock_<double> block;
+        block.discountCurves[CollateralType_(CollateralType_::Value_::OIS)] = discount.get();
+        return block;
+    }
+} // namespace
+
+// The three pricing families in ycinstrument.cpp (double via YieldCurve_ routing, Tape::Rate_
+// via YCCtx_, Tape::JointRate_ via JointCurveBlock_ projection) implement one formula per
+// instrument. These tests pin that agreement on a forecast == discount single curve.
+TEST(YCInstrumentCrossFamilyTest, TestDepositRateAgreesAcrossFamilies) {
+    const Date_ today(2024, 1, 15);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_365F");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.02);
+    const CurveBlock_ familyA(*dc, basis);
+    const Tape::JointCurveBlock_<double> jointBlock = SingleCurveJointBlock(dc);
+    const Deposit_ deposit(today, maturity, 0.021, basis);
+
+    const double viaA = (*deposit.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double viaB = (*deposit.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double viaC = (*deposit.PrecomputeProjectionT<double>())(jointBlock);
+
+    ASSERT_NEAR(viaA, ExpectedSimpleRate(*dc, today, maturity, basis), 1e-12);
+    ASSERT_NEAR(viaB, viaA, 1e-12);
+    ASSERT_NEAR(viaC, viaA, 1e-12);
+}
+
+TEST(YCInstrumentCrossFamilyTest, TestFraRateAgreesAcrossFamilies) {
+    const Date_ today(2024, 1, 15);
+    const Date_ start = Date::AddMonths(today, 3);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.03);
+    const CurveBlock_ familyA(*dc, basis);
+    const Tape::JointCurveBlock_<double> jointBlock = SingleCurveJointBlock(dc);
+
+    RateIndexConvention_ convention;
+    convention.dayBasis_ = basis;
+    const FRA_ fra(today, start, maturity, 0.0, convention);
+
+    const double viaA = (*fra.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double viaB = (*fra.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double viaC = (*fra.PrecomputeProjectionT<double>())(jointBlock);
+
+    ASSERT_NEAR(viaA, ExpectedSimpleRate(*dc, start, maturity, basis), 1e-12);
+    ASSERT_NEAR(viaB, viaA, 1e-12);
+    ASSERT_NEAR(viaC, viaA, 1e-12);
+}
+
+TEST(YCInstrumentCrossFamilyTest, TestFutureRateAgreesAcrossFamilies) {
+    const Date_ today(2024, 1, 15);
+    const Date_ start = Date::AddMonths(today, 3);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.03);
+    const CurveBlock_ familyA(*dc, basis);
+    const Tape::JointCurveBlock_<double> jointBlock = SingleCurveJointBlock(dc);
+    const double convexity = 0.0015;
+
+    RateIndexConvention_ convention;
+    convention.dayBasis_ = basis;
+    const Future_ future(today, start, maturity, 0.0, convention, convexity);
+
+    const double viaA = (*future.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double viaB = (*future.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double viaC = (*future.PrecomputeProjectionT<double>())(jointBlock);
+
+    ASSERT_NEAR(viaA, ExpectedSimpleRate(*dc, start, maturity, basis) - convexity, 1e-12);
+    ASSERT_NEAR(viaB, viaA, 1e-12);
+    ASSERT_NEAR(viaC, viaA, 1e-12);
+}
+
+TEST(YCInstrumentCrossFamilyTest, TestSwapRateAgreesAcrossFamilies) {
+    const Date_ today(2024, 1, 15);
+    const Date_ maturity = Date::AddMonths(today, 60);
+    const DayBasis_ basis("ACT_365F");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.025);
+    const CurveBlock_ familyA(*dc, basis);
+    const Tape::JointCurveBlock_<double> jointBlock = SingleCurveJointBlock(dc);
+
+    RateIndexConvention_ floatIndex;
+    floatIndex.dayBasis_ = basis;
+    floatIndex.forecastTenor_ = PeriodLength_("3M");
+    floatIndex.businessDayConvention_ = BizDayConvention_("Unadjusted");
+    RateLegConvention_ fixedLeg;
+    fixedLeg.paymentFrequency_ = PeriodLength_("12M");
+    fixedLeg.dayBasis_ = basis;
+    fixedLeg.businessDayConvention_ = BizDayConvention_("Unadjusted");
+    fixedLeg.paymentConvention_ = BizDayConvention_("Unadjusted");
+    RateLegConvention_ floatLeg = fixedLeg;
+    floatLeg.paymentFrequency_ = PeriodLength_("3M");
+
+    const Swap_ swap(today, today, maturity, 0.0, fixedLeg, floatIndex, floatLeg);
+
+    const double viaA = (*swap.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double viaB = (*swap.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double viaC = (*swap.PrecomputeProjectionT<double>())(jointBlock);
+
+    ASSERT_NEAR(viaA, ExpectedSwapRate(*dc, today, maturity, 12, basis), 1e-12);
+    ASSERT_NEAR(viaB, viaA, 1e-12);
+    ASSERT_NEAR(viaC, viaA, 1e-12);
+}
+
+TEST(YCInstrumentCrossFamilyTest, TestProjectionRoutedRatesAgreeAcrossFamilies) {
+    const Date_ today(2024, 1, 15);
+    const Date_ start = Date::AddMonths(today, 3);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.03);
+    const CurveBlock_ familyA("forecast_eq_discount",
+                              "USD",
+                              {{CollateralType_(CollateralType_::Value_::OIS), dc}},
+                              {{PeriodLength_("3M"), dc}},
+                              basis);
+    const Tape::JointCurveBlock_<double> jointBlock = SingleCurveJointBlock(dc, PeriodLength_("3M"));
+    const double convexity = 0.0015;
+
+    RateIndexConvention_ convention;
+    convention.useProjectionCurve_ = true;
+    convention.forecastTenor_ = PeriodLength_("3M");
+    convention.dayBasis_ = basis;
+    convention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    const FRA_ fra(today, start, maturity, 0.0, convention);
+    const Future_ future(today, start, maturity, 0.0, convention, convexity);
+
+    const double fraA = (*fra.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double fraB = (*fra.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double fraC = (*fra.PrecomputeProjectionT<double>())(jointBlock);
+    ASSERT_NEAR(fraB, fraA, 1e-12);
+    ASSERT_NEAR(fraC, fraA, 1e-12);
+
+    const double futureA = (*future.Precompute(Handle_<YieldCurve_>()))(familyA);
+    const double futureB = (*future.PrecomputeT<double>())(Tape::YCCtx_<double>(*dc));
+    const double futureC = (*future.PrecomputeProjectionT<double>())(jointBlock);
+    ASSERT_NEAR(futureB, futureA, 1e-12);
+    ASSERT_NEAR(futureC, futureA, 1e-12);
+    ASSERT_NEAR(futureA, fraA - convexity, 1e-12);
 }
