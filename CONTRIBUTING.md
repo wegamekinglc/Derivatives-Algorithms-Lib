@@ -92,8 +92,9 @@ which requires a repeated regression rather than a single noisy measurement.
 Base-only cases fail as removals or renames.
 Head-only cases are reported as new informational coverage; the explicit Sobol
 precise-policy migration remains validated separately, and the head Sobol
-precise/fast ratio has a `10x` ceiling. The Windows benchmark job remains
-informational.
+precise/fast ratio has a `10x` ceiling. The Windows benchmark job runs the
+targets without a base/head comparison, and a benchmark failure fails the
+Windows CI gate.
 
 To reproduce the comparator after building separate base and head trees:
 
