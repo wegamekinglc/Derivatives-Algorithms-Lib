@@ -1095,6 +1095,18 @@ TEST(JointAnalyticJacobianTest, TestEffectiveInverseIsOptInAndApproximateIsUnava
     ASSERT_EQ(approximate.effJacobianInverseAvailability_, "not_available_for_mode");
 }
 
+// Empty-field regression: APPROXIMATE solve with computeJacobianAtSolution_ requested (the options
+// default) still leaves jacobianAtSolution_ empty -- the approximate fit never computes it.
+TEST(JointAnalyticJacobianTest, TestApproximateLeavesJacobianAtSolutionEmptyWhenRequested) {
+    auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), false, DayBasis_("ACT_365F"));
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    spec.fitTolerance_ = 1.0e-6;
+    JointMultiCurveCalibrationOptions_ options; // computeJacobianAtSolution_ defaults to true
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(result.converged_);
+    ASSERT_TRUE(result.jacobianAtSolution_.Empty());
+}
+
 TEST(JointAnalyticJacobianTest, TestRankDeficientResidualQuotesDoNotPublishAnEffectiveInverse) {
     const auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), true, DayBasis_("ACT_365F"));
     JointMultiCurveCalibrationOptions_ options;
