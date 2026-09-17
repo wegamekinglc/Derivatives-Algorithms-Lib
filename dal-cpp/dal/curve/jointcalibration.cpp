@@ -395,10 +395,11 @@ namespace Dal {
         const bool initialChart =
             options.computeEffJacobianInverse_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && totalParams > totalResiduals;
         CurveSolveOutput_ solve;
-        if (initialChart)
+        if (initialChart) {
             solve.parameters_ = RunJointInitialChartSolver(spec, func, guess, tol, *weights, &solve.effJacobianInverse_,
                                                            options.computeJacobianAtSolution_ ? &solve.forwardJacobian_ : nullptr);
-        else
+            solve.hasEffJacobianInverse_ = true;
+        } else
             solve = RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
                                         options.computeJacobianAtSolution_, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
 
