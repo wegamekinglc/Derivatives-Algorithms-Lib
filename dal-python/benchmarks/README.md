@@ -54,15 +54,15 @@ are errors, never silently skipped workloads.
 
 ## Workload alignment
 
-| Native target            | Python cases | Full workload and timing boundary                                                                                                                          |
-|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation |
-| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization          |
-| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                  |
-| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block      |
-| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01  |
-| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                 |
+| Native target            | Python cases | Full workload and timing boundary                                                                                                                                |
+|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
+| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
+| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                         |
+| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
+| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
+| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
@@ -82,7 +82,7 @@ Native-only scale cases in `rate_risk_perf` cover PV and two-component AAD at
 Appended 32/256-IRS cases measure prepared PV, prepared AAD and geometry
 construction separately, with complete ordinary/prepared PV and gradient
 equality checked before timing. These new native rows are informational when
-the base revision lacks them; existing base rows remain compared.
+the base revision lacks them; existing base rows remain gated.
 
 The single-curve quote portfolios retain the native N=2/5/16 and 1/120-trade
 shapes. Joint XCCY uses five calibrated blocks (domestic discount/forward, foreign
@@ -104,7 +104,7 @@ single-curve IRS portfolios. Each native `RateTradeNodeSensitivitiesBatch` invoc
 records and propagates reverse AAD, then returns all 21 non-anchor node derivatives
 per trade. Conversion to zero-rate DV01 is included in timing. These two cases need
 only DAL and the standard library; third-party packages are not needed by the
-base/head report. Their shared adapter and oracle files are included in suite hashes.
+base/head gate. Their shared adapter and oracle files are included in suite hashes.
 
 Native targets without direct Python kernel timing are listed individually by
 `--coverage` and in every report:
@@ -157,8 +157,8 @@ runner exits nonzero. Reusing an output directory replaces its previous report.
 
 Standalone runner measurements are informational. Python and C++ results have
 different boundaries and must not be divided into a claimed language overhead
-ratio. The Python CI report below compares Python base/head runs separately from
-the native nine-target report. For manual comparisons,
+ratio. The Python CI gate below compares Python base/head runs separately from
+the native nine-target gate. For manual comparisons,
 retain separate output directories, use equivalent Release builds and workloads,
 record both module hashes, fix thread settings, and interleave repeated processes
 on the same quiet machine. Shared-host/WSL noise and a single timing run cannot
@@ -169,11 +169,7 @@ runner's failure handling and the complete CMake target mapping. Adding a native
 target without a documented coverage entry fails that inventory check. The
 repository's Python 3.9 syntax gate includes benchmark sources.
 
-## CI performance reports
-
-Performance reports are advisory and do not block CI, merging, or delivery.
-Neither `Linux CI gate` nor `Windows CI gate` depends on the `Benchmarks` job.
-Required build, correctness, documentation and sanitizer checks still apply.
+## CI regression gate
 
 The Linux `Benchmarks` job builds both the PR base (or pre-push commit on `master`)
 and the tested revision as independent Release builds with Python bindings enabled.
@@ -182,21 +178,21 @@ flags and `DAL_NUM_THREADS=4`. The job verifies each revision's correctness test
 against its own native module, then the shared head benchmark workloads against
 both modules before measuring performance.
 
-The [paired Python comparison](../../.github/scripts/check_python_benchmark_regressions.py)
+The [paired Python gate](../../.github/scripts/check_python_benchmark_regressions.py)
 runs the complete head workload suite on **both** native modules. Each fresh process
 checks its package and native-extension paths before execution, performs one checked
 preflight call and two warmups per case, and records one full-scale sample. Base/head
 order alternates on every process pair. Two confirmation rounds each contain ten
 pairs: 20 processes per side, with 20 samples for every case on each side. A case
-is flagged only when its head minimum exceeds its base minimum by strictly more than
-4% in both rounds. Exactly +4% is within the reference threshold.
+fails only when its head minimum exceeds its base minimum by strictly more than
+4% in both rounds. Exactly +4% passes.
 
-After a Python comparison failure, CI also runs the complete suite twice as A/A controls:
+After a Python gate failure, CI also runs the complete suite twice as A/A controls:
 once with the baseline module on both sides and once with the head module on both
-sides. These run after all paired comparisons, use the same sampling rule, and retain
+sides. These run after all gated comparisons, use the same sampling rule, and retain
 their own module hashes and raw reports in `python-baseline-aa` and `python-head-aa`.
 Each control copies the selected package and build configuration into a separate
-root, preserving the comparison's directory checks; it is not an independent rebuild.
+root, preserving the gate's directory checks; it is not an independent rebuild.
 They help diagnose timing variability on that runner; they never replace or clear
 the original base/head failure. The artifact also retains both built `dal` packages
 under `python-reproduction` for binary-level investigation. These packages use the
@@ -205,12 +201,12 @@ outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
 including when the base predates this benchmark suite. All 90 cases are measured
-and compared against the base library. When a base suite exists, its inventory is
+and gated against the base library. When a base suite exists, its inventory is
 also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
 incorrect/ineligible result, unexpected package path, changed binary or suite hash,
-different workload/configuration, timeout, or incomplete sample set fails the report.
-There is no smoke-mode or case-filter option in the paired comparison.
+different workload/configuration, timeout, or incomplete sample set fails the gate.
+There is no smoke-mode or case-filter option in the gate.
 
 To reproduce it after creating two independent, equivalently configured workspace
 Release builds with `DAL_BUILD_PYTHON=ON` and the same `Python3_EXECUTABLE`, run from
@@ -227,22 +223,19 @@ DAL_NUM_THREADS=4 python3 .github/scripts/check_python_benchmark_regressions.py 
 ```
 
 The build-root arguments identify the CMake workspace roots, whose Python packages
-are under `dal-python/`; do not pass installed/staged packages. The comparison validates
+are under `dal-python/`; do not pass installed/staged packages. The gate validates
 Release configuration, matching compiler/options, and each build's source directory.
 Source commit IDs, build configuration, native module paths/hashes, suite hashes,
 raw timings, per-round minima and deltas are retained in
 `results.json` (`dal.python-performance-gate/1`). Every worker has a `raw/NN-side/`
 directory containing its normal runner reports and captured output. Errors still
-produce a failed report; interrupted runs retain `status: running`. The standalone
-command retains its nonzero exit for findings or invalid evidence, and the existing
-JSON schema remains unchanged.
+produce a failing gate report; interrupted runs retain `status: running`.
 
 The job appends the comparison to the GitHub Actions summary and uploads all Python
 evidence inside the existing `benchmark-linux-*` artifact for 30 days, including on
-failure. Python and native comparison steps, including A/A diagnostics, use
-`continue-on-error` so findings remain visible without failing CI. Diagnostics
-still use the original step outcome. Windows continues to run the Python
-correctness/smoke workloads through pytest; paired performance reporting is Linux-only.
+failure. Python and native comparison steps can both report failures, and either
+failure blocks the existing `Linux CI gate`. Windows continues to run the Python
+correctness/smoke workloads through pytest; the paired performance gate is Linux-only.
 
 ## Third-party comparison
 
@@ -252,10 +245,10 @@ its independent oracle. Only declared unsupported capabilities are reported as
 `unsupported` with a reason and no timings: rateslib equity MC, and QuantLib
 simultaneous joint calibration. This gives 31 DAL, 27 QuantLib and 23 rateslib
 measured cases. Missing dependencies, incorrect results, incomplete
-reports, changed workloads/binaries or process timeouts fail the optional benchmark
-job. Relative speed is reported without an absolute competitor speed threshold;
-the separate base/head report uses the 4% DAL reference threshold. Neither report
-is part of the required CI gates.
+reports, changed workloads/binaries or process timeouts fail the job and therefore
+the existing `Linux CI gate`. Relative speed is reported without an absolute
+competitor speed threshold; the separate base/head gate still enforces the 4% DAL
+regression rule.
 
 The comparison uses CPython 3.13 and a Release DAL build. Benchmark-only dependencies
 and their transitive dependencies are version/hash locked in
@@ -350,7 +343,7 @@ Curve/trade construction is excluded. DAL tape recording and reverse propagation
 rateslib active pricing and gradient extraction, QuantLib relinking and repricing,
 and bucket conversion are timed. Numeric oracle validation runs outside timing;
 shape, eligibility and AD-type guards during conversion reject unsupported results.
-Every invocation recalculates risk. The base/head report measures these DAL AAD
+Every invocation recalculates risk. The base/head 4% gate measures these DAL AAD
 workloads too.
 
 ### Monte Carlo options

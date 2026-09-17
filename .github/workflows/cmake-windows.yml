@@ -231,7 +231,7 @@ jobs:
   # Benchmark job: builds and runs all performance benchmarks on one
   # representative configuration (msvc, native/AADet backend).
   # Results appear in the CI logs, job summary, and retained benchmark artifact;
-  # timings are not a pass/fail gate.
+  # a benchmark failure fails the Windows CI gate.
   benchmark:
     name: Benchmarks
     needs: changes
@@ -370,12 +370,14 @@ jobs:
       - changes
       - build
       - build-script
+      - benchmark
     runs-on: ubuntu-latest
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
       CHANGES_RESULT: ${{ needs.changes.result }}
       BUILD_RESULT: ${{ needs.build.result }}
       BUILD_SCRIPT_RESULT: ${{ needs.build-script.result }}
+      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
     steps:
       - name: Require the selected CI path to pass
         run: |
@@ -385,3 +387,4 @@ jobs:
           fi
           test "$BUILD_RESULT" = success
           test "$BUILD_SCRIPT_RESULT" = success
+          test "$BENCHMARK_RESULT" = success

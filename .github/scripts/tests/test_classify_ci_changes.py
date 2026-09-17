@@ -198,8 +198,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn('if [ "$DOCS_ONLY" = true ]; then', gate)
         for job_id in heavy_jobs:
             with self.subTest(gate_dependency=job_id):
-                if job_id != "benchmark":
-                    self.assertIn(f"needs.{job_id}.result", gate)
+                self.assertIn(f"needs.{job_id}.result", gate)
 
     def test_windows_fast_path_preserves_stable_gate(self):
         workflow = self.workflow("cmake-windows.yml")
@@ -217,19 +216,18 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn('if [ "$DOCS_ONLY" = true ]; then', gate)
         for job_id in heavy_jobs:
             with self.subTest(gate_dependency=job_id):
-                if job_id != "benchmark":
-                    self.assertIn(f"needs.{job_id}.result", gate)
+                self.assertIn(f"needs.{job_id}.result", gate)
 
-    def test_performance_reports_do_not_block_required_gates(self):
+    def test_performance_reports_block_required_gates(self):
         for workflow_name, gate_id in (
             ("cmake-linux.yml", "linux-gate"),
             ("cmake-windows.yml", "windows-gate"),
         ):
             with self.subTest(workflow=workflow_name):
                 gate = self.job(self.workflow(workflow_name), gate_id)
-                self.assertNotIn("- benchmark", gate)
-                self.assertNotIn("needs.benchmark.result", gate)
-                self.assertNotIn("BENCHMARK_RESULT", gate)
+                self.assertIn("- benchmark", gate)
+                self.assertIn("needs.benchmark.result", gate)
+                self.assertIn("BENCHMARK_RESULT", gate)
 
     def test_benchmark_jobs_persist_environment_and_results(self):
         for workflow_name in ("cmake-linux.yml", "cmake-windows.yml"):
@@ -264,17 +262,17 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         ).returncode
 
     @unittest.skipIf(sys.platform == "win32" or not shutil.which("bash"), "CI gates execute on Linux with bash")
-    def test_gate_shell_requires_success_for_every_correctness_job(self):
+    def test_gate_shell_requires_success_for_every_required_job(self):
         required_jobs = {
             "linux": ("changes", "documentation", "define-matrix", "build",
-                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers"),
-            "windows": ("changes", "build", "build-script"),
+                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers",
+                      "benchmark"),
+            "windows": ("changes", "build", "build-script", "benchmark"),
         }
         for platform, jobs in required_jobs.items():
             success = dict.fromkeys(jobs, "success")
-            for benchmark in ("success", "failure", "cancelled", "skipped", "running", ""):
-                with self.subTest(platform=platform, benchmark=benchmark):
-                    self.assertEqual(self.run_gate(platform, {**success, "benchmark": benchmark}), 0)
+            with self.subTest(platform=platform, result="success"):
+                self.assertEqual(self.run_gate(platform, success), 0)
             for job in jobs:
                 for result in ("failure", "cancelled", "skipped", "running", ""):
                     with self.subTest(platform=platform, job=job, result=result):
