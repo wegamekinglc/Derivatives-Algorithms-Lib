@@ -311,7 +311,7 @@ python3() {
             with self.assertRaisesRegex(ValueError, "Release"):
                 GATE.build_configuration(root, root)
 
-    def test_linux_advisory_benchmark_job_preserves_comparisons_and_diagnostics(self):
+    def test_linux_required_benchmark_job_runs_python_gate_with_native_policy(self):
         workflow = (SCRIPTS.parent / "workflows/cmake-linux.yml").read_text()
         job = workflow.split("  benchmark:\n", 1)[1].split("  linux-gate:\n", 1)[0]
         self.assertIn("check_python_benchmark_regressions.py", job)
@@ -327,16 +327,16 @@ python3() {
             "--output-dir benchmark-results/python-paired",
         ):
             self.assertIn(flag, gate)
+        self.assertNotIn("continue-on-error", gate)
         for step in (
-            "Compare base and head Python performance",
             "Compare base and head performance",
             "Diagnose Python regression with baseline A/A",
             "Diagnose Python regression with head A/A",
         ):
             with self.subTest(step=step):
                 comparison = job.split(f"- name: {step}\n", 1)[1].split("- name:", 1)[0]
-                self.assertIn("continue-on-error: true", comparison)
-        self.assertNotIn("- benchmark", workflow.split("  linux-gate:\n", 1)[1])
+                self.assertNotIn("continue-on-error: true", comparison)
+        self.assertIn("- benchmark", workflow.split("  linux-gate:\n", 1)[1])
         self.assertEqual(job.count("steps.python-performance.outcome == 'failure'"), 3)
         self.assertIn(
             "if: always()", job.split("- name: Upload benchmark evidence", 1)[1]

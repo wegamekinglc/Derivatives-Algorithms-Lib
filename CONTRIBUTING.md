@@ -85,24 +85,16 @@ bash ./build_linux.sh --benchmarks
 
 Linux pull requests compare base and head builds on the same runner with GCC 14,
 Release mode, native CPU tuning, the native AAD backend, and
-`DAL_NUM_THREADS=4`. The advisory report runs two independent rounds of ten interleaved
+`DAL_NUM_THREADS=4`. The gate runs two independent rounds of ten interleaved
 process-level samples per side. A comparable case fails only when the head
 best-of-N minimum is more than `4%` above the base minimum in both rounds,
 which requires a repeated regression rather than a single noisy measurement.
 Base-only cases fail as removals or renames.
 Head-only cases are reported as new informational coverage; the explicit Sobol
 precise-policy migration remains validated separately, and the head Sobol
-precise/fast ratio has a `10x` ceiling. The Windows benchmark job remains
-informational.
-
-Performance reports do not block CI, merging, or delivery. Neither stable
-`Linux CI gate` nor `Windows CI gate` depends on `Benchmarks`; required build,
-correctness, documentation, and sanitizer checks still apply. The comparison
-commands retain nonzero exits and failed reports for findings or invalid
-evidence. Linux runs the native/Python comparisons and both Python A/A
-diagnostics with `continue-on-error`, while diagnostics inspect the original
-step outcome. Failed evidence remains available in benchmark artifacts for
-30 days. Build or validation errors can still fail the optional benchmark job.
+precise/fast ratio has a `10x` ceiling. The Windows benchmark job runs the
+targets without a base/head comparison, and a benchmark failure fails the
+Windows CI gate.
 
 To reproduce the comparator after building separate base and head trees:
 

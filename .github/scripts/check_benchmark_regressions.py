@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare DAL base/head benchmarks; CI treats the results as advisory."""
+"""Run DAL benchmarks against base and head in an interleaved regression gate."""
 
 from __future__ import annotations
 
@@ -382,9 +382,7 @@ def markdown_report(
     precise_slowdown_limit: float,
 ) -> str:
     lines = [
-        "## Paired benchmark performance report",
-        "",
-        "Advisory results: performance findings do not block CI or merging.",
+        "## Paired benchmark regression gate",
         "",
         f"{round_count} independent rounds of {sample_count} interleaved process-level samples; "
         f"failure requires every round to exceed +{threshold_percent:.2f}%.",
@@ -407,7 +405,7 @@ def markdown_report(
                 "",
                 "The informational Sobol migration row compares the historical "
                 "`precise=true, polish=false` Acklam-only behavior with the new exact-CDF opt-in. "
-                "Comparable cases use the 4% reference threshold; precise opt-in uses the relative ceiling above.",
+                "Comparable cases use the 4% gate; precise opt-in uses the relative ceiling above.",
             ]
         )
     if has_new_coverage(comparisons):
@@ -431,7 +429,7 @@ def markdown_report(
     if failures:
         lines.extend(["", "### Failures", ""] + [f"- {failure}" for failure in failures])
     else:
-        lines.extend(["", "All performance comparisons are within the reference limits."])
+        lines.extend(["", "All performance acceptance checks passed."])
     return "\n".join(lines) + "\n"
 
 
