@@ -10,11 +10,8 @@
 #include <type_traits>
 #include <vector>
 
-#include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/calibration_internal.hpp>
-#include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/curveparameterization.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/math/matrix/banded.hpp>
@@ -290,50 +287,17 @@ namespace Dal {
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Residuals<double>(x); }
 
             void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* jacobian) const override {
-                if (bumpSize_ != 1.0e-6) {
-                    Underdetermined::Function_::Gradient(x, f, jacobian);
-                    return;
-                }
-                CentralDifferenceJacobian(
-                    x, static_cast<int>(f.size()), bumpSize_, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); }, jacobian);
+                CentralDifferenceGradient(
+                    *this, true, bumpSize_, x, f, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>&) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
-                auto* tape = Dal::AAD::Tape();
-                TapeGuard_ guard(tape);
-                Vector_<Dal::AAD::Number_> parameters = RegisterCurveParameters(x);
-                Dal::AAD::NewRecording(*tape);
-                Vector_<Dal::AAD::Number_> residuals = Residuals<Dal::AAD::Number_>(parameters);
-                return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
+                return TapeResidualJacobian(x,
+                                            [&](const Vector_<Dal::AAD::Number_>& parameters) { return Residuals<Dal::AAD::Number_>(parameters); });
             }
         };
-
-        struct XccyBasisSolveResult_ {
-            Vector_<> parameters_;
-            Matrix_<> effJacobianInverse_;
-            Matrix_<> forwardJacobian_;
-            bool approximate_ = false;
-            bool hasEffJacobianInverse_ = false;
-        };
-
-        XccyBasisSolveResult_ SolveXccyBasis(const CrossCurrencyCalibrationSpec_& spec,
-                                             const CrossCurrencyCalibrationOptions_& options,
-                                             const XccyBasisCalibrationFunc_& func,
-                                             const Vector_<>& guess,
-                                             const Vector_<>& tolerance,
-                                             const Sparse::TriDiagonal_& weights) {
-            XccyBasisSolveResult_ result;
-            result.approximate_ = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            result.hasEffJacobianInverse_ = !result.approximate_ && options.computeEffJacobianInverse_;
-            const bool wantForwardJacobian =
-                !result.approximate_ && options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC;
-            result.parameters_ = RunCurveSolver(func, guess, tolerance, !result.approximate_, spec.fitTolerance_, weights, spec.maxEvaluations_,
-                                                spec.maxRestarts_, result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
-                                                wantForwardJacobian ? &result.forwardJacobian_ : nullptr);
-            return result;
-        }
 
         CrossCurrencyCalibrationDiagnostics_ BuildDiagnostics(const CrossCurrencyCalibrationSpec_& spec,
                                                               const CrossCurrencyCalibrationOptions_& options,
@@ -387,7 +351,7 @@ namespace Dal {
                                                                   const CurveDefinition_& basisDefinition,
                                                                   const XccyBasisCalibrationFunc_& func,
                                                                   const CrossCurrencyCalibrationOptions_& options,
-                                                                  XccyBasisSolveResult_* solve) {
+                                                                  CurveSolveOutput_* solve) {
             Handle_<DiscountCurve_> basisCurve(BuildDiscountCurveUniqueT<double>(basisDefinition, solve->parameters_).release());
             CrossCurrencyMarket_ market(spec.domesticCurveBlock_, spec.foreignCurveBlock_, spec.fxSpot_, valuationTime, collateralCurrency, fixings);
             market.SetBasisCurve(basisCurve);
@@ -465,7 +429,10 @@ namespace Dal {
         std::unique_ptr<Sparse::TriDiagonal_> weights(Underdetermined::WeightsPWC(knotDateTimes, spec.smoothingWeight_));
 
         XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_);
-        XccyBasisSolveResult_ solve = SolveXccyBasis(spec, options, func, guess, tolerance, *weights);
+        CurveSolveOutput_ solve =
+            RunCurveCalibration(func, guess, tolerance, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
+                                options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC, spec.fitTolerance_,
+                                *weights, spec.maxEvaluations_, spec.maxRestarts_);
         return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, options, &solve);
     }
 } // namespace Dal

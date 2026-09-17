@@ -5,15 +5,12 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
@@ -402,26 +399,21 @@ namespace Dal {
         };
 
         std::unique_ptr<Underdetermined::Jacobian_> YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
-            auto* tape = Dal::AAD::Tape();
-            TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
-
             const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition_);
             REQUIRE(static_cast<int>(x.size()) == layout.parameterCount_, "AnalyticJacobian: x vector length must equal the curve parameter count");
-            Vector_<Dal::AAD::Number_> parameters = RegisterCurveParameters(x);
-            Dal::AAD::NewRecording(*tape);
+            return TapeResidualJacobian(x, [&](const Vector_<Dal::AAD::Number_>& parameters) {
+                auto dc = BuildDiscountCurveUniqueT<Dal::AAD::Number_>(definition_, parameters, baseCurve_);
+                Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
 
-            auto dc = BuildDiscountCurveUniqueT<Dal::AAD::Number_>(definition_, parameters, baseCurve_);
-            Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
-
-            const int nRows = static_cast<int>(instruments_.size());
-            Vector_<Dal::AAD::Number_> residuals(nRows);
-            for (int i = 0; i < nRows; ++i) {
-                Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
-                residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
-            }
-
-            return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
+                const int nRows = static_cast<int>(instruments_.size());
+                Vector_<Dal::AAD::Number_> residuals(nRows);
+                for (int i = 0; i < nRows; ++i) {
+                    Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
+                    residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
+                }
+                return residuals;
+            });
         }
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
@@ -587,24 +579,6 @@ namespace Dal {
             return guess;
         }
 
-        struct SolverOutput_ {
-            Vector_<> result_;
-            Matrix_<> effJacobianInverse_;
-        };
-        SolverOutput_ RunCalibrationSolver(const CurveCalibrationSpec_& spec,
-                                           const Underdetermined::Function_& func,
-                                           const Vector_<>& guess,
-                                           const Vector_<>& tol,
-                                           const Sparse::TriDiagonal_& weights,
-                                           bool computeEffJacobianInverse,
-                                           Matrix_<>* fwdJacobian) {
-            SolverOutput_ out;
-            out.result_ =
-                RunCurveSolver(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, spec.fitTolerance_, weights, spec.maxEvaluations_,
-                               spec.maxRestarts_, computeEffJacobianInverse ? &out.effJacobianInverse_ : nullptr, fwdJacobian);
-            return out;
-        }
-
         CurveCalibrationResult_ AssembleCalibrationResult(const CurveCalibrationSpec_& spec,
                                                           const Vector_<Handle_<YCInstrument_>>& instruments,
                                                           const CurveDefinition_& definition,
@@ -687,15 +661,15 @@ namespace Dal {
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_, spec.solveMode_);
 
-        // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; nullptr otherwise so the solver leaves the output empty.
+        // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; not requested so the solver leaves the output empty.
         const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&
                                      spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
-        Matrix_<> fwdJacobian;
-        const SolverOutput_ solved =
-            RunCalibrationSolver(spec, func, guess, tol, *weights, options.computeEffJacobianInverse_, wantFwdJacobian ? &fwdJacobian : nullptr);
-        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.result_,
-                                                                   options.computeEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
-        retval.diagnostics_.jacobian_ = std::move(fwdJacobian);
+        CurveSolveOutput_ solved =
+            RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
+                                wantFwdJacobian, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
+        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.parameters_,
+                                                                   solved.hasEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
+        retval.diagnostics_.jacobian_ = std::move(solved.forwardJacobian_);
         return retval;
     }
 

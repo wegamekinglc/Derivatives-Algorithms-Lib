@@ -242,6 +242,22 @@ TEST(ForwardJacobianDiagnosticsTest, TestEmptyWhenApproximateSolve) {
     ASSERT_TRUE(result.diagnostics_.jacobian_.Empty());
 }
 
+// Empty-field regression: APPROXIMATE solve with the effective inverse requested still leaves
+// effJacobianInverse_ empty -- the approximate fit never computes it.
+
+TEST(ForwardJacobianDiagnosticsTest, TestEmptyEffJacobianInverseWhenApproximateSolveRequested) {
+    auto spec = MakeEligibleSpec();
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    spec.fitTolerance_ = 1e-4;
+    CurveCalibrationOptions_ opt;
+    opt.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    opt.computeEffJacobianInverse_ = true;
+
+    const CurveCalibrationResult_ result = CalibrateYieldCurve(spec, opt);
+    ASSERT_TRUE(result.diagnostics_.usedApproximateFit_);
+    ASSERT_TRUE(result.diagnostics_.effJacobianInverse_.Empty());
+}
+
 // Empty-field regression: EXACT solve + BUMPED leaves jacobian_ empty.
 
 TEST(ForwardJacobianDiagnosticsTest, TestEmptyWhenBumpedDefault) {

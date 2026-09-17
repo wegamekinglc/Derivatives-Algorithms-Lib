@@ -12,10 +12,8 @@
 #include <type_traits>
 #include <utility>
 
-#include <dal/curve/aadjacobian.hpp>
-#include <dal/curve/curvejacobian.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/jointcalibration_internal.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -392,23 +390,15 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                if (BumpSize() != 1.0e-6) {
-                    Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
-                    return;
-                }
-                CentralDifferenceJacobian(
-                    parameters, static_cast<int>(residuals.size()), BumpSize(), [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                CentralDifferenceGradient(
+                    *this, true, BumpSize(), parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
-                auto* tape = Dal::AAD::Tape();
-                TapeGuard_ guard(tape);
-                Vector_<Dal::AAD::Number_> activeParameters = RegisterCurveParameters(parameters);
-                Dal::AAD::NewRecording(*tape);
-                Vector_<Dal::AAD::Number_> residuals = Residuals<Dal::AAD::Number_>(activeParameters);
-                return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, activeParameters, residuals));
+                return TapeResidualJacobian(
+                    parameters, [&](const Vector_<Dal::AAD::Number_>& activeParameters) { return Residuals<Dal::AAD::Number_>(activeParameters); });
             }
         };
 
@@ -440,31 +430,17 @@ namespace Dal {
             return result;
         }
 
-        struct SolveResult_ {
-            Vector_<> parameters_;
-            Matrix_<> effectiveInverse_;
-            Matrix_<> forwardJacobian_;
-            bool hasEffectiveInverse_ = false;
-            bool approximate_ = false;
-        };
-
-        SolveResult_ Solve(const JointXccyCalibrationSpec_& spec,
-                           const JointXccyCalibrationOptions_& options,
-                           const JointXccyResidualFunction_& function,
-                           const Vector_<>& guess,
-                           const Sparse::TriDiagonal_& smoothing,
-                           int residualCount) {
+        CurveSolveOutput_ Solve(const JointXccyCalibrationSpec_& spec,
+                                const JointXccyCalibrationOptions_& options,
+                                const JointXccyResidualFunction_& function,
+                                const Vector_<>& guess,
+                                const Sparse::TriDiagonal_& smoothing,
+                                int residualCount) {
             const Vector_<> tolerance(residualCount, spec.tolerance_);
-
-            SolveResult_ result;
-            result.approximate_ = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            result.hasEffectiveInverse_ = !result.approximate_ && options.computeEffJacobianInverse_;
-            const bool wantForward =
-                !result.approximate_ && options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC;
-            result.parameters_ = RunCurveSolver(function, guess, tolerance, !result.approximate_, spec.fitTolerance_, smoothing, spec.maxEvaluations_,
-                                                spec.maxRestarts_, result.hasEffectiveInverse_ ? &result.effectiveInverse_ : nullptr,
-                                                wantForward ? &result.forwardJacobian_ : nullptr);
-            return result;
+            return RunCurveCalibration(function, guess, tolerance, spec.solveMode_ == CurveSolveMode_::Value_::EXACT,
+                                       options.computeEffJacobianInverse_,
+                                       options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC,
+                                       spec.fitTolerance_, smoothing, spec.maxEvaluations_, spec.maxRestarts_);
         }
 
         void AppendRanges(const String_& group,
@@ -550,13 +526,13 @@ namespace Dal {
                 {String_("xccy:") + spec.basis_.curveName_, layout.basisSlot_.residualOffset_, layout.basisSlot_.nInstruments_});
         }
 
-        void PopulateSummaryAndMatrices(int evaluationCount, SolveResult_* solve, JointXccyCalibrationResult_* result) {
+        void PopulateSummaryAndMatrices(int evaluationCount, CurveSolveOutput_* solve, JointXccyCalibrationResult_* result) {
             const ResidualStats_ stats = ResidualStats(result->residuals_);
             result->jointMaxAbsResidual_ = stats.maxAbsResidual_;
             result->jointRmsResidual_ = stats.rmsResidual_;
             result->solverEvaluations_ = evaluationCount;
-            if (solve->hasEffectiveInverse_)
-                result->effJacobianInverse_ = std::move(solve->effectiveInverse_);
+            if (solve->hasEffJacobianInverse_)
+                result->effJacobianInverse_ = std::move(solve->effJacobianInverse_);
             result->jacobianAtSolution_ = std::move(solve->forwardJacobian_);
         }
 
@@ -565,7 +541,7 @@ namespace Dal {
                                                    const JointXccyResidualFunction_& function,
                                                    const int* evaluationCount,
                                                    const Handle_<MarketFixingSnapshot_>& fixings,
-                                                   SolveResult_* solve) {
+                                                   CurveSolveOutput_* solve) {
             JointXccyCalibrationResult_ result;
             result.usedApproximateFit_ = solve->approximate_;
             result.fixings_ = fixings;
@@ -619,7 +595,7 @@ namespace Dal {
         const std::unique_ptr<Sparse::TriDiagonal_> smoothing = BuildSmoothing(layout);
         int evaluationCount = 0;
         JointXccyResidualFunction_ function(spec, layout, plans, fixings, options.jacobianMode_, &evaluationCount);
-        SolveResult_ solve = Solve(spec, options, function, guess, *smoothing, layout.totalResiduals_);
+        CurveSolveOutput_ solve = Solve(spec, options, function, guess, *smoothing, layout.totalResiduals_);
         JointXccyCalibrationResult_ result = AssembleResult(spec, layout, function, &evaluationCount, fixings, &solve);
         const double convergenceBound = spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 10.0 * spec.tolerance_ : 10.0 * spec.fitTolerance_;
         if (!ResidualsWithinBar(result.residuals_, convergenceBound)) {
