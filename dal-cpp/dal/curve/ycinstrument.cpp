@@ -479,6 +479,18 @@ namespace Dal {
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Future_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Swap_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
 
+    // Double instantiation exists so cross-family characterization tests can price through the
+    // templated families in plain double arithmetic.
+    template Handle_<Tape::Rate_<double>> Deposit_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> FRA_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> Future_::PrecomputeT<double>() const;
+    template Handle_<Tape::Rate_<double>> Swap_::PrecomputeT<double>() const;
+
+    template Handle_<Tape::JointRate_<double>> Deposit_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> FRA_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> Future_::PrecomputeProjectionT<double>() const;
+    template Handle_<Tape::JointRate_<double>> Swap_::PrecomputeProjectionT<double>() const;
+
     namespace Tape {
         template <class T_>
         Handle_<JointRate_<T_>> ProjectionRateAt(const YCInstrument_& inst) {
