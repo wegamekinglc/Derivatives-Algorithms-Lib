@@ -1095,6 +1095,18 @@ TEST(JointAnalyticJacobianTest, TestEffectiveInverseIsOptInAndApproximateIsUnava
     ASSERT_EQ(approximate.effJacobianInverseAvailability_, "not_available_for_mode");
 }
 
+// Empty-field regression: APPROXIMATE solve with computeJacobianAtSolution_ requested (the options
+// default) still leaves jacobianAtSolution_ empty -- the approximate fit never computes it.
+TEST(JointAnalyticJacobianTest, TestApproximateLeavesJacobianAtSolutionEmptyWhenRequested) {
+    auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), false, DayBasis_("ACT_365F"));
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    spec.fitTolerance_ = 1.0e-6;
+    JointMultiCurveCalibrationOptions_ options; // computeJacobianAtSolution_ defaults to true
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(result.converged_);
+    ASSERT_TRUE(result.jacobianAtSolution_.Empty());
+}
+
 TEST(JointAnalyticJacobianTest, TestRankDeficientResidualQuotesDoNotPublishAnEffectiveInverse) {
     const auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), true, DayBasis_("ACT_365F"));
     JointMultiCurveCalibrationOptions_ options;
@@ -1103,4 +1115,19 @@ TEST(JointAnalyticJacobianTest, TestRankDeficientResidualQuotesDoNotPublishAnEff
     ASSERT_TRUE(result.converged_);
     ASSERT_TRUE(result.effJacobianInverse_.Empty());
     ASSERT_EQ(result.effJacobianInverseAvailability_, "not_available_for_mapping");
+}
+
+// Contract regression: the underdetermined EXACT solve fills the effective inverse on the initial-chart
+// branch, so the availability flag and the published matrix must agree -- a future hasEffJacobianInverse_-
+// gated move (the xccyjointcalibration.cpp pattern) must not silently drop it.
+TEST(JointAnalyticJacobianTest, TestInitialChartSolvePublishesAvailableInverse) {
+    auto spec = BuildSmallJointSpec(Date_(2024, 1, 15), Ccy_("USD"), true, DayBasis_("ACT_365F"));
+    spec.curves_[0].knotDates_.front() = Date::AddMonths(spec.today_, 1); // full-rank fixture, as in the retained-inverse test
+    JointMultiCurveCalibrationOptions_ options;
+    options.computeEffJacobianInverse_ = true;
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(result.converged_);
+    ASSERT_EQ(result.effJacobianInverseMapping_, "initial_jacobian_chart");
+    ASSERT_EQ(result.effJacobianInverseAvailability_, "available");
+    ASSERT_FALSE(result.effJacobianInverse_.Empty());
 }

@@ -10,6 +10,10 @@
 #include <type_traits>
 #include <utility>
 
+#include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/curvejacobian.hpp>
+#include <dal/curve/curveparameterization.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -188,6 +192,40 @@ namespace Dal {
         return Underdetermined::Approximate(func, guess, tol, fitTolerance, weights, controls);
     }
 
+    // Shared solve result for the curve-calibration drivers: solved parameters plus the
+    // optional effective-inverse and forward-Jacobian matrices, left empty when not
+    // requested or when an approximate solve never computes them.
+    struct CurveSolveOutput_ {
+        Vector_<> parameters_;
+        Matrix_<> effJacobianInverse_;
+        Matrix_<> forwardJacobian_;
+        bool approximate_ = false;
+        bool hasEffJacobianInverse_ = false;
+    };
+
+    // Shared calibration solve driver on top of RunCurveSolver: the three real difference
+    // axes (exact vs approximate solve, effective-inverse request, forward-Jacobian request)
+    // stay call-site parameters.
+    inline CurveSolveOutput_ RunCurveCalibration(const Underdetermined::Function_& func,
+                                                 const Vector_<>& guess,
+                                                 const Vector_<>& tolerance,
+                                                 bool exact,
+                                                 bool wantEffJacobianInverse,
+                                                 bool wantForwardJacobian,
+                                                 double fitTolerance,
+                                                 const Sparse::TriDiagonal_& weights,
+                                                 int maxEvaluations,
+                                                 int maxRestarts) {
+        CurveSolveOutput_ result;
+        result.approximate_ = !exact;
+        result.hasEffJacobianInverse_ = exact && wantEffJacobianInverse;
+        const bool forwardJacobian = exact && wantForwardJacobian;
+        result.parameters_ = RunCurveSolver(func, guess, tolerance, exact, fitTolerance, weights, maxEvaluations, maxRestarts,
+                                            result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
+                                            forwardJacobian ? &result.forwardJacobian_ : nullptr);
+        return result;
+    }
+
     template <class ResidualFunction_>
     void CentralDifferenceJacobian(
         const Vector_<>& parameters, int residualCount, double bump, const ResidualFunction_& residualFunction, Matrix_<>* jacobian) {
@@ -207,6 +245,39 @@ namespace Dal {
             up[column] = parameters[column];
             down[column] = parameters[column];
         }
+    }
+
+    // Shared dense-Gradient override for the calibration residual functions: quote-risk
+    // requests take central differences at the calibration bump (exact solves bump 1.0e-6);
+    // everything else keeps the Underdetermined::Function_ finite-difference default. The
+    // request gate and the bump size stay call-site axes. The qualified base-class call is
+    // deliberate -- an unqualified call would virtually dispatch back into the override.
+    template <class ResidualFunction_>
+    void CentralDifferenceGradient(const Underdetermined::Function_& function,
+                                   bool requested,
+                                   double bump,
+                                   const Vector_<>& parameters,
+                                   const Vector_<>& residuals,
+                                   const ResidualFunction_& residualFunction,
+                                   Matrix_<>* jacobian) {
+        if (!requested || bump != 1.0e-6) {
+            function.Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
+            return;
+        }
+        CentralDifferenceJacobian(parameters, static_cast<int>(residuals.size()), bump, residualFunction, jacobian);
+    }
+
+    // Shared AAD envelope for analytic curve Jacobians: rewind the tape, register the curve
+    // parameters, start a recording, evaluate the caller's templated residuals, and harvest
+    // the dense Jacobian. Callers keep only their residual lambda.
+    template <class ComputeResiduals_>
+    std::unique_ptr<Underdetermined::Jacobian_> TapeResidualJacobian(const Vector_<>& x, ComputeResiduals_&& computeResiduals) {
+        auto* tape = AAD::Tape();
+        TapeGuard_ guard(tape);
+        Vector_<AAD::Number_> parameters = RegisterCurveParameters(x);
+        AAD::NewRecording(*tape);
+        Vector_<AAD::Number_> residuals = computeResiduals(parameters);
+        return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
     }
 
     // Resolve the coupon-months count for a single-period instrument's day-count context.

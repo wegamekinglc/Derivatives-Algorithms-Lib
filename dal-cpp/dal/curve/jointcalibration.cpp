@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/curvejacobian.hpp>
@@ -14,7 +13,6 @@
 #include <dal/curve/jointrate.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
@@ -172,12 +170,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                if (!quoteRiskRequested_) {
-                    Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
-                    return;
-                }
-                CentralDifferenceJacobian(
-                    parameters, static_cast<int>(residuals.size()), 1.0e-6, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                CentralDifferenceGradient(
+                    *this, quoteRiskRequested_, 1.0e-6, parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] Vector_<Dal::AAD::Number_> ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
@@ -191,26 +185,10 @@ namespace Dal {
         };
 
         std::unique_ptr<Underdetermined::Jacobian_> JointResidualFunction_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const {
-            auto* tape = Dal::AAD::Tape();
-            TapeGuard_ guard(tape);
-
-            Vector_<Dal::AAD::Number_> parameters = RegisterCurveParameters(x);
-            Dal::AAD::NewRecording(*tape);
-
-            const auto storage = JointCalibrationInternal::BuildTypedCurveBlock<Dal::AAD::Number_>(InternalSpec(*spec_), *slots_, parameters);
-            Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(storage.block_);
-            return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
-        }
-
-        Vector_<> RunJointSolver(const JointMultiCurveCalibrationSpec_& spec,
-                                 const JointResidualFunction_& func,
-                                 const Vector_<>& guess,
-                                 const Vector_<>& tol,
-                                 const Sparse::TriDiagonal_& weights,
-                                 Matrix_<>* optEffectiveInverse,
-                                 Matrix_<>* optFwdJacAtSolution = nullptr) {
-            return RunCurveSolver(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, spec.fitTolerance_, weights,
-                                  spec.maxEvaluations_, spec.maxRestarts_, optEffectiveInverse, optFwdJacAtSolution);
+            return TapeResidualJacobian(x, [&](const Vector_<Dal::AAD::Number_>& parameters) {
+                const auto storage = JointCalibrationInternal::BuildTypedCurveBlock<Dal::AAD::Number_>(InternalSpec(*spec_), *slots_, parameters);
+                return ComputeTemplatedResiduals(storage.block_);
+            });
         }
 
         Matrix_<> NativeJointJacobian(const Underdetermined::Function_& function, const Vector_<>& parameters, const Vector_<>& residuals) {
@@ -414,33 +392,34 @@ namespace Dal {
         int evaluationCount = 0;
         JointResidualFunction_ func(spec, slots, options.jacobianMode_,
                                     options.computeEffJacobianInverse_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT, &evaluationCount);
-        Matrix_<> fwdJacAtSolution;
-        Matrix_<> effectiveInverse;
         const bool initialChart =
             options.computeEffJacobianInverse_ && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && totalParams > totalResiduals;
-        const Vector_<> solved =
-            initialChart ? RunJointInitialChartSolver(spec, func, guess, tol, *weights, &effectiveInverse,
-                                                      options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr)
-                         : RunJointSolver(spec, func, guess, tol, *weights, options.computeEffJacobianInverse_ ? &effectiveInverse : nullptr,
-                                          options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
+        CurveSolveOutput_ solve;
+        if (initialChart) {
+            solve.parameters_ = RunJointInitialChartSolver(spec, func, guess, tol, *weights, &solve.effJacobianInverse_,
+                                                           options.computeJacobianAtSolution_ ? &solve.forwardJacobian_ : nullptr);
+            solve.hasEffJacobianInverse_ = true;
+        } else
+            solve = RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
+                                        options.computeJacobianAtSolution_, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
 
-        const Vector_<> finalResiduals = func.F(solved);
+        const Vector_<> finalResiduals = func.F(solve.parameters_);
         const bool converged = ResidualsWithinBar(finalResiduals, 10.0 * spec.fitTolerance_);
 
-        auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solved);
+        auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solve.parameters_);
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
-        JointMultiCurveCalibrationResult_ result =
-            AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves, totalResiduals, evaluationCount, std::move(fwdJacAtSolution));
+        JointMultiCurveCalibrationResult_ result = AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves, totalResiduals,
+                                                                  evaluationCount, std::move(solve.forwardJacobian_));
         if (!converged)
             ThrowNonConvergence(evaluationCount, finalResiduals);
         result.converged_ = true;
-        result.effJacobianInverse_ = std::move(effectiveInverse);
+        result.effJacobianInverse_ = std::move(solve.effJacobianInverse_);
         result.effJacobianInverseAvailability_ = !options.computeEffJacobianInverse_
                                                      ? "not_requested"
                                                      : (spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? "available" : "not_available_for_mode");
         if (result.effJacobianInverseAvailability_ == "available" &&
-            !ValidEffectiveMapping(func, solved, finalResiduals, tol, result.effJacobianInverse_)) {
+            !ValidEffectiveMapping(func, solve.parameters_, finalResiduals, tol, result.effJacobianInverse_)) {
             result.effJacobianInverse_.Clear();
             result.effJacobianInverseAvailability_ = "not_available_for_mapping";
         }
