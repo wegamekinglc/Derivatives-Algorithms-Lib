@@ -162,6 +162,9 @@ Public C++ supports typed product and valuation settings for unquoted
 preserving old call signatures. See the
 [settings contract](docs/methodology/script_engine.md#public-c-settings) and
 [runnable C++ example](dal-public/examples/script_settings.cpp).
+[fix_mc](dal-cpp/examples/fix_mc/) is a runnable Monte Carlo example covering
+historical fixings (global store or explicit snapshot), future fixings
+(simulated model paths), mixed payoffs, and the evaluation-date fixing policy.
 
 `DescribeScriptProduct` returns contract JSON `dal.script-product/2` with no
 history/model/global-date access. `ExplainScriptValuation` returns
