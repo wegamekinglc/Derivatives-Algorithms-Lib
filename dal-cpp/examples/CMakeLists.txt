@@ -11,6 +11,7 @@ add_subdirectory(xccy_mtm_calibration)
 add_subdirectory(xccy_reset_pricing)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
+add_subdirectory(fix_mc)
 add_subdirectory(snowball)
 add_subdirectory(sobol)
 add_subdirectory(script)
@@ -68,6 +69,7 @@ set(DAL_EXAMPLE_TARGETS
     xccy_reset_pricing
     european_mc
     european_fd
+    fix_mc
     snowball
     sobol
     script
