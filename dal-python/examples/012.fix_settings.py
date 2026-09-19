@@ -49,7 +49,7 @@ if explanation["schema"] != "dal.script-valuation/1":
     raise RuntimeError(
         f"Expected ScriptValuation_Explain schema dal.script-valuation/1; got {explanation['schema']!r}"
     )
-# Empty model_bindings: the engine infers the binding from the script's FIX index
+# The engine binds the model spot to the script's future FIX index by name
 if explanation["model_bindings"] != [
     {"asset": "spot", "index_original": index, "index_canonical": index}
 ]:

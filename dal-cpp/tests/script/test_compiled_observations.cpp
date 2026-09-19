@@ -31,12 +31,6 @@ namespace {
         return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
     }
 
-    ScriptValuationSettings_ CompiledBindings() {
-        ScriptValuationSettings_ settings;
-        settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
-        return settings;
-    }
-
     ScriptProductData_ ObservationCase(size_t kind) {
         const Vector_<String_> payoffs{"pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)",
                                        "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-11)",
@@ -52,7 +46,7 @@ namespace {
         simulation.enableAad_ = true;
         simulation.compiled_ = compiled;
         AAD::BlackScholes_<double> metadata(100.0, 0.2, 0.03, 0.01);
-        const auto prepared = PrepareScript(ObservationCase(kind), &metadata, CompiledBindings(), simulation, CompiledHistory());
+        const auto prepared = PrepareScript(ObservationCase(kind), &metadata, {}, simulation, CompiledHistory());
         AAD::Activate(*AAD::Tape());
         Dal::TapeGuard_ guard(AAD::Tape());
         AAD::BlackScholes_<AAD::Number_> model(100.0, 0.2, 0.03, 0.01);
@@ -134,7 +128,7 @@ TEST(ScriptCompiledParityTest, TestIndexFixingsSamePathAndArtifactLifetime) {
             AAD::BlackScholes_<double> model(100.0, 0.2, 0.03, 0.01);
             MonteCarloSettings_ simulation;
             simulation.compiled_ = true;
-            const auto prepared = PrepareScript(ObservationCase(kind), &model, CompiledBindings(), simulation, CompiledHistory());
+            const auto prepared = PrepareScript(ObservationCase(kind), &model, {}, simulation, CompiledHistory());
             AAD::AllocatePath(prepared.DefLine(), path);
             AAD::InitializePath(path);
             for (size_t i = 0; i < path.size(); ++i) {

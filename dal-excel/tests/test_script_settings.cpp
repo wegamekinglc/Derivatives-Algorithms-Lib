@@ -69,51 +69,37 @@ TEST(ScriptExcelContractTest, TestProductSettingsRejectBadRows) {
 TEST(ScriptExcelContractTest, TestValuationDefaultsAndExplicitFields) {
     static_assert(std::is_const_v<decltype(StorableScriptValuationSettings_::val_)>);
     Handle_<StorableScriptValuationSettings_> settings;
-    ScriptValuationSettings_New("defaults", {}, {}, {}, &settings);
+    ScriptValuationSettings_New("defaults", {}, {}, &settings);
     ASSERT_FALSE(settings->val_.evaluationDate_);
     ASSERT_FALSE(settings->val_.fixings_);
-    ASSERT_TRUE(settings->val_.modelBindings_.empty());
     ASSERT_EQ(settings->val_.todayFixingPolicy_, TodayFixingPolicy_::Value_::MODEL);
     const Handle_<MarketFixingSnapshot_> empty(new MarketFixingSnapshot_());
     const Handle_<StorableMarketFixingSnapshot_> snapshot(new StorableMarketFixingSnapshot_(empty));
-    auto bindings = Rows({{Cell_(), Cell_()}, {Cell_("spot"), Cell_("EQ[AAPL]")}});
     ScriptValuationSettings_New(
         "explicit", Rows({{Cell_("evaluation_date"), Cell_(46277.0)}, {Cell_(), Cell_()}, {Cell_("today_fixing"), Cell_("RequireHistorical")}}),
-        bindings, snapshot, &settings);
+        snapshot, &settings);
     ASSERT_EQ(settings->val_.evaluationDate_, Date_(2026, 9, 12));
     ASSERT_EQ(settings->val_.todayFixingPolicy_, TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
     ASSERT_EQ(settings->val_.fixings_, empty);
-    bindings(1, 1) = "EQ[OTHER]";
-    ASSERT_EQ(settings->val_.modelBindings_[0].indexName_, String_("EQ[AAPL]"));
 }
 
-TEST(ScriptExcelContractTest, TestValuationRejectsInvalidDatesPolicyAndBindings) {
+TEST(ScriptExcelContractTest, TestValuationRejectsInvalidDatesAndPolicy) {
     Handle_<StorableScriptValuationSettings_> settings;
     for (const auto& date :
          {Cell_(Date_()), Cell_(DateTime_(Date_(2026, 9, 12), 0.0)), Cell_(true), Cell_("2026-09-12"), Cell_(46277.5), Cell_(25568.0), Cell_(91104.0),
           Cell_(1e100), Cell_(std::numeric_limits<double>::infinity()), Cell_(std::numeric_limits<double>::quiet_NaN())}) {
-        AssertError([&] { ScriptValuationSettings_New("bad", Rows({{Cell_("evaluation_date"), date}}), {}, {}, &settings); },
+        AssertError([&] { ScriptValuationSettings_New("bad", Rows({{Cell_("evaluation_date"), date}}), {}, &settings); },
                     {"InvalidSetting", "evaluation_date", "row=1 column=2", "valid", "integral"});
     }
     for (const auto& date : {Cell_(25569.0), Cell_(91103.0), Cell_(Date_(2026, 9, 12))}) {
-        ScriptValuationSettings_New("date", Rows({{Cell_("evaluation_date"), date}}), {}, {}, &settings);
+        ScriptValuationSettings_New("date", Rows({{Cell_("evaluation_date"), date}}), {}, &settings);
         ASSERT_TRUE(settings->val_.evaluationDate_->IsValid());
     }
     for (const auto& policy : {Cell_("model"), Cell_("MODEL"), Cell_("UseIfAvailable"), Cell_("Model "), Cell_(true), Cell_(1.0)})
-        AssertError([&] { ScriptValuationSettings_New("bad", Rows({{Cell_("today_fixing"), policy}}), {}, {}, &settings); },
+        AssertError([&] { ScriptValuationSettings_New("bad", Rows({{Cell_("today_fixing"), policy}}), {}, &settings); },
                     {"today_fixing", "row=1 column=2"});
-    AssertError(
-        [&] {
-            ScriptValuationSettings_New("bad", {}, Rows({{Cell_("spot"), Cell_("EQ[A]")}, {Cell_(), Cell_()}, {Cell_("SPOT"), Cell_("EQ[A]")}}), {},
-                                        &settings);
-        },
-        {"DuplicateModelBinding", "model_bindings row=3 column=1", "first row=1"});
-    AssertError([&] { ScriptValuationSettings_New("bad", {}, Rows({{Cell_("rate"), Cell_("EQ[A]")}}), {}, &settings); },
-                {"UnknownModelAsset", "spot", "row=1 column=1"});
-    AssertError([&] { ScriptValuationSettings_New("bad", {}, Rows({{Cell_("spot"), Cell_(1.0)}}), {}, &settings); },
-                {"model_bindings row=1 column=2", "string"});
     const Handle_<StorableMarketFixingSnapshot_> invalid(new StorableMarketFixingSnapshot_({}));
-    AssertError([&] { ScriptValuationSettings_New("bad", {}, {}, invalid, &settings); }, {"fixings", "non-null"});
+    AssertError([&] { ScriptValuationSettings_New("bad", {}, invalid, &settings); }, {"fixings", "non-null"});
 }
 
 TEST(ScriptExcelContractTest, TestSimulationSettingsDefaultsAndBooleans) {

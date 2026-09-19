@@ -27,7 +27,6 @@ namespace Dal {
     ScriptProductSettings_New(const String_& name, const Matrix_<Cell_>& settings, Handle_<StorableScriptProductSettings_>* productSettings);
     DAL_SCRIPT_TEST_API void ScriptValuationSettings_New(const String_& name,
                                                          const Matrix_<Cell_>& settings,
-                                                         const Matrix_<Cell_>& modelBindings,
                                                          const Handle_<StorableMarketFixingSnapshot_>& fixings,
                                                          Handle_<StorableScriptValuationSettings_>* valuation);
     DAL_SCRIPT_TEST_API void

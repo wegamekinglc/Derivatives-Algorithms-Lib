@@ -8,7 +8,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
-- **Named FIX valuation** — explicit dates, immutable history snapshots, model bindings, and contract/valuation diagnostics
+- **Named FIX valuation** — explicit dates, immutable history snapshots, and contract/valuation diagnostics
 - **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians
 - **Rate cashflow pricing** — typed planning, batch PV, and AAD node sensitivities for deposit, FRA, future, OIS, IRS, basis-swap, and cross-currency trades
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
@@ -314,15 +314,14 @@ fixing date `F`:
 Wholly expired products still validate syntax, dates and settings, but skip
 history reads and return zero. Empty or no-PAYS products fail valuation.
 
-Historical EQ/FX observations can coexist. Model-sourced FIX, including today
-under `Model`, binds one ordinary equity in a BS or Dupire model: pass
-`model_bindings={"spot": "EQ[DAL196_TEST]"}` explicitly, or leave it empty to
-infer the binding from the script's future FIX index. Future FX, IR, composite,
-delivery-suffixed EQ, and multiple future equities are unsupported.
-`default_index` gives legacy `SPOT()` an identity; it does not supply a model
-binding. Unbound future-only `SPOT()` remains supported. Historical SPOT requires
-a default, and mixing SPOT with FIX requires one too. `SPOT(index)` and `FIX()`
-are invalid.
+Historical EQ/FX observations can coexist. A model-sourced FIX, including today
+under `Model`, is always bound to the script's own future FIX index by name; the
+`model_bindings` settings argument was removed. Two or more distinct future FIX
+indices fail with `MultipleModelIndices`. Future FX, IR, composite, and
+delivery-suffixed EQ remain unsupported. `default_index` gives legacy `SPOT()`
+an identity; it does not affect the model binding. Unbound future-only `SPOT()`
+remains supported. Historical SPOT requires a default, and mixing SPOT with FIX
+requires one too. `SPOT(index)` and `FIX()` are invalid.
 
 Snapshot keys are native `DateTime_` values. Use `dal.DateTime_(date, 0)` for
 midnight; a quote at 11:00 cannot satisfy a daily FIX. Python `datetime` objects
@@ -455,7 +454,7 @@ is also supported.
 ```text
 ScriptProductSettings_(*, default_index="")
 ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
-                         model_bindings=None, fixings=None)
+                         fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    smooth=0.01, compiled=None)
 ```
@@ -465,7 +464,6 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `default_index`        | `str` or `String_`; empty means unbound                                          | `str`, preserving spelling          |
 | `evaluation_date`      | Valid DAL `Date_`, or `None` to capture global date at each call                 | A date copy or `None`               |
 | `today_fixing`         | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`       | `TodayFixingPolicy_` member         |
-| `model_bindings`       | `dict` with `str` / `String_` keys and values, or `None` for empty               | Independent `dict[str, str]`        |
 | `fixings`              | `MarketFixingSnapshot_`, or `None` for global capture                            | Immutable snapshot handle or `None` |
 | `method`               | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`   | `str`, preserving spelling          |
 | `use_bb`, `enable_aad` | Python `bool` only; default `False`                                              | `bool`                              |
@@ -483,23 +481,16 @@ For `default_index`, `method`, and the string form of `today_fixing`, ordinary
 `str` subclasses and DAL `String_` are accepted. Python enum values, including
 `str, enum.Enum` and `enum.StrEnum` members, raise `TypeError` in constructors
 and setters; the native `TodayFixingPolicy_` members above remain valid policies.
-Event text and `model_bindings` keys/values accept string-derived enum members
-under their usual text validation rules.
+Event text accepts string-derived enum members under its usual text validation
+rules.
 
 Settings parameters accept their corresponding native settings object or `None`
-(fresh defaults), not an entire settings dictionary. Binding dictionaries are
-copied in insertion order. Python has already discarded repeated identical
-dictionary keys before DAL sees them; case-distinct `spot` / `SPOT` keys remain
-observable and are rejected as `DuplicateModelBinding` during preparation.
-Unknown assets, malformed/empty indices, conflicts, and unsupported model
-observations are also rejected during Value/Explain preparation, after basic
-dictionary/string conversion in the constructor or setter.
+(fresh defaults), not an entire settings dictionary.
 
 `copy.copy` and `copy.deepcopy` create independent settings values; both share
 the immutable snapshot handle. Ordinary Python assignment aliases the object.
-Changing a returned `model_bindings` dictionary or date copy does not update
-settings: assign the property to replace it. Failed setters preserve the old
-value. Product construction copies the table and settings; Value and Explain
+Changing a returned date copy does not update settings: assign the property to
+replace it. Failed setters preserve the old value. Product construction copies the table and settings; Value and Explain
 copy settings and native handles while holding the GIL, then release it for
 native work. Workers use native data and never call Python callbacks or read
 mutable Python dictionaries. Avoid modifying inputs during their conversion.
@@ -524,10 +515,11 @@ Unknown/duplicate keywords, extra positional arguments, wrong settings types,
 and invalid input types raise `TypeError`; unknown settings attributes raise
 `AttributeError`. Invalid values and native failures raise `RuntimeError`, with
 identifiers such as `InvalidPathCount`, `InvalidSetting`, `InvalidSmoothing`,
-`InvalidTodayFixingPolicy`, `InvalidFixingDate`, and `MissingFixing`, plus field
+`InvalidTodayFixingPolicy`, `InvalidFixingDate`, `MissingFixing`, and
+`MultipleModelIndices`, plus field
 and constraint context. Script errors retain source row/position and index/date
 details. Validation may occur at construction/assignment (types, policy, date,
-smoothing), description (syntax/default index), or preparation (bindings/history).
+smoothing), description (syntax/default index), or preparation (history).
 Empty or no-PAYS products can be described but Value/Explain reject them with
 `InvalidScriptStructure`. Valid wholly expired products return zero only after
 validation; errors never become successful `PV=0` results.

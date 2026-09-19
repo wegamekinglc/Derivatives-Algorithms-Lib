@@ -122,13 +122,13 @@ TEST(ScriptExcelRawTest, TestNullableInputsAndExplicitEmptySnapshot) {
         const auto& pv = result.value_->val.array.lparray[1];
         ASSERT_EQ(pv.xltype, xltypeNum);
         ASSERT_DOUBLE_EQ(pv.val.num, 100.);
-        Output_ valuation(Call("xl_ScriptValuationSettings_New", &name.cell_, blank, blank, blank));
+        Output_ valuation(Call("xl_ScriptValuationSettings_New", &name.cell_, blank, blank));
         ASSERT_EQ(valuation.Text().find("#Error:"), std::string::npos) << valuation.Text();
     }
     Output_ snapshot(Call("xl_MarketFixingSnapshot_New", &nil, &nil, &nil));
     ASSERT_FALSE(snapshot.Text().empty());
     ASSERT_EQ(snapshot.Text().find("#Error:"), std::string::npos);
-    Output_ valuation(Call("xl_ScriptValuationSettings_New", &name.cell_, &nil, &nil, snapshot.Scalar()));
+    Output_ valuation(Call("xl_ScriptValuationSettings_New", &name.cell_, &nil, snapshot.Scalar()));
     RawText_ historical(L"pay PAYS FIX(EQ[AAPL], 2026-09-11)");
     Output_ historyProduct(Call("xl_Product_New", &name.cell_, &date, &historical.cell_));
     Output_ missing(Call("xl_MonteCarlo_ValueWithSettings", historyProduct.Scalar(), model.Scalar(), &paths, valuation.Scalar(), &nil));

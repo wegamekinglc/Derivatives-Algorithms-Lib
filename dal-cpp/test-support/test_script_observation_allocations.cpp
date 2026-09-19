@@ -59,7 +59,6 @@ TEST(ScriptObservationAllocationTest, TestExactAndFuzzyRepeatedPathsAllocateNoth
         {"2", "79.95", "x = SCALE * FIX(EQ[DAL196_TEST])",
          "IF FIX(EQ[DAL196_TEST], 2026-09-11) > K:0.2 THEN pay PAYS x + FIX(EQ[DAL196_TEST], 2026-09-15) ELSE pay PAYS 0 END"});
     Dal::Script::ScriptValuationSettings_ bindings;
-    bindings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     for (bool fuzzy : {false, true}) {
         SCOPED_TRACE(fuzzy);
         Dal::Script::MonteCarloSettings_ settings;

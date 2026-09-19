@@ -59,8 +59,9 @@ after product, model, and path count. The original `PRODUCT.NEW` and seven-input
 `MONTECARLO.VALUE` remain available with the same two-column PV/risk result.
 
 Use unquoted `FIX(EQ[AAPL])` in script text. Valuation settings provide an
-explicit date, today policy, `spot` to ordinary EQ binding, and snapshot;
-simulation settings select compiled execution and AAD.
+explicit date, today policy, and snapshot; the engine binds the model's spot
+output to the script's future FIX index by name, so no binding range is
+passed. Simulation settings select compiled execution and AAD.
 `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` return complete native JSON
 in one column of text chunks. Concatenate all rows without separators before
 parsing. These functions are nonvolatile; each actual Value/Explain call

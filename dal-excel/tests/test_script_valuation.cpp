@@ -63,7 +63,7 @@ namespace {
             input(1, 1) = "RequireHistorical";
         }
         Handle_<StorableScriptValuationSettings_> result;
-        ScriptValuationSettings_New("valuation", input, Setting("spot", Cell_("EQ[AAPL]")), snapshot, &result);
+        ScriptValuationSettings_New("valuation", input, snapshot, &result);
         return result;
     }
 
@@ -334,7 +334,7 @@ TEST(ScriptExcelContractTest, TestDefaultValuationCapturesDateAtEachCall) {
     SubmissionCounter_ workers;
     const ObserverScope_ observe(&reads, &workers);
     Handle_<StorableScriptValuationSettings_> valuation;
-    ScriptValuationSettings_New("floating-date", {}, Setting("spot", Cell_("EQ[AAPL]")), Snapshot(), &valuation);
+    ScriptValuationSettings_New("floating-date", {}, Snapshot(), &valuation);
     ASSERT_FALSE(valuation->val_.evaluationDate_);
     ASSERT_EQ(reads.histories_, 0);
     ASSERT_EQ(reads.fixings_, 0);
@@ -370,8 +370,8 @@ TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExpli
     Handle_<StorableMarketFixingSnapshot_> snapshot;
     MarketFixingSnapshot_New({index}, {Cell_(DateTime_(H, 0.))}, {80.}, &snapshot);
     Handle_<StorableScriptValuationSettings_> global, explicitSnapshot;
-    ScriptValuationSettings_New("global", Setting("evaluation_date", Cell_(D)), {}, {}, &global);
-    ScriptValuationSettings_New("fixed", Setting("evaluation_date", Cell_(D)), {}, snapshot, &explicitSnapshot);
+    ScriptValuationSettings_New("global", Setting("evaluation_date", Cell_(D)), {}, &global);
+    ScriptValuationSettings_New("fixed", Setting("evaluation_date", Cell_(D)), snapshot, &explicitSnapshot);
     const Handle_<ModelData_> model(new BSModelData_("zero", 100., 0., 0., 0.));
     FixingReadCounter_ reads;
     SubmissionCounter_ workers;
