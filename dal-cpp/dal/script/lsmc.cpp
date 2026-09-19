@@ -33,6 +33,83 @@ namespace Dal::Script {
             return sum / static_cast<double>(count);
         }
 
+        //  Count, mean and sigma of the regressor over the included paths, with the sigma floor
+        struct RegressionStats_ {
+            size_t count_ = 0;
+            double mean_ = 0.0;
+            double sigma_ = 0.0;
+            double sigmaFloor_ = 0.0;
+        };
+
+        RegressionStats_ RegressionStats(const Vector_<>& x, const Vector_<char>& included) {
+            RegressionStats_ stats;
+            double sumX = 0.0;
+            for (size_t i = 0; i < x.size(); ++i)
+                if (included[i]) {
+                    ++stats.count_;
+                    sumX += x[i];
+                }
+            if (stats.count_ == 0)
+                return stats;
+            stats.mean_ = sumX / static_cast<double>(stats.count_);
+            double sumSq = 0.0;
+            for (size_t i = 0; i < x.size(); ++i)
+                if (included[i]) {
+                    const double dev = x[i] - stats.mean_;
+                    sumSq += dev * dev;
+                }
+            stats.sigma_ = std::sqrt(sumSq / static_cast<double>(stats.count_));
+            stats.sigmaFloor_ = SIGMA_FLOOR_SCALE * std::max(1.0, std::abs(stats.mean_));
+            return stats;
+        }
+
+        void DegradeToConstant(ExerciseRegression_* result, const char* reason, double constant) {
+            result->degenerate_ = true;
+            result->degenerateReason_ = reason;
+            result->basisDegree_ = 0;
+            result->coefficients_.Resize(1);
+            result->coefficients_[0] = constant;
+        }
+
+        //  Normal equations of the z-normalized monomial basis over the included paths.
+        //  Only the diagonal and upper triangle of the Gram matrix are needed downstream.
+        void AccumulateNormalEquations(const Vector_<>& x,
+                                       const Vector_<>& targets,
+                                       const Vector_<char>& included,
+                                       double mean,
+                                       double sigma,
+                                       SquareMatrix_<>* gram,
+                                       Vector_<>* rhs) {
+            const size_t nBasis = static_cast<size_t>(gram->Rows());
+            Vector_<> basis(nBasis);
+            for (size_t i = 0; i < x.size(); ++i) {
+                if (!included[i])
+                    continue;
+                const double z = (x[i] - mean) / sigma;
+                basis[0] = 1.0;
+                for (size_t j = 1; j < nBasis; ++j)
+                    basis[j] = basis[j - 1] * z;
+                for (size_t j = 0; j < nBasis; ++j) {
+                    (*rhs)[j] += basis[j] * targets[i];
+                    for (size_t k = j; k < nBasis; ++k)
+                        (*gram)(j, k) += basis[j] * basis[k];
+                }
+            }
+        }
+
+        //  Explicit relative ridge, then the Gram diagonal-ratio conditioning guard
+        bool RidgeAndIllConditioned(SquareMatrix_<>* gram) {
+            const size_t nBasis = static_cast<size_t>(gram->Rows());
+            double maxDiag = (*gram)(0, 0);
+            double minDiag = (*gram)(0, 0);
+            for (size_t j = 0; j < nBasis; ++j) {
+                (*gram)(j, j) *= 1.0 + RIDGE_LAMBDA;
+                maxDiag = std::max(maxDiag, (*gram)(j, j));
+                minDiag = std::min(minDiag, (*gram)(j, j));
+            }
+            return minDiag <= 0.0 || maxDiag / minDiag > CONDITION_LIMIT;
+        }
+
         constexpr size_t NO_SLOT = static_cast<size_t>(-1);
 
         struct ExerciseDayPlan_ {
@@ -209,6 +286,29 @@ namespace Dal::Script {
             return eventNumeraire;
         }
 
+        //  Holding value of one event in date-i units: H = p + D * W (S3), W := H in place
+        void InductBackward(const Vector_<Vector_<>>& pays, size_t paysSlot, double dNext, bool hasNext, Vector_<>* w) {
+            for (size_t j = 0; j < w->size(); ++j)
+                (*w)[j] = (paysSlot == NO_SLOT ? 0.0 : pays[paysSlot][j]) + (hasNext ? dNext * (*w)[j] : 0.0);
+        }
+
+        void FillIncluded(const Vector_<Vector_<char>>& condByDay, size_t day, Vector_<char>* included) {
+            const auto& cond = condByDay.empty() ? Vector_<char>() : condByDay[day];
+            if (!cond.empty())
+                for (size_t j = 0; j < included->size(); ++j)
+                    (*included)[j] = cond[j];
+            else
+                std::fill(included->begin(), included->end(), 1);
+        }
+
+        //  S3/S4: exercise on strictly-better continuation estimates replaces the future
+        void
+        ApplyExerciseDecisions(const Vector_<>& h, const Vector_<>& x, const Vector_<char>& included, const ExerciseRegression_& c, Vector_<>* w) {
+            for (size_t j = 0; j < w->size(); ++j)
+                if (included[j] && h[j] > RegressionPredict(c, x[j]))
+                    (*w)[j] = h[j];
+        }
+
         //  Phase B: backward induction and continuation regressions, single threaded in
         //  global path order (thread-count independent by construction, N9/N10)
         Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx, const Vector_<>& eventNumeraire, size_t nPaths, int degree) {
@@ -219,28 +319,16 @@ namespace Dal::Script {
             Vector_<ExerciseRegression_> regressions(scan.days_.size());
             Vector_<char> included(nPaths, 1);
             for (size_t ei = events.size(); ei-- > 0;) {
-                const size_t paysSlot = scan.eventToPays_[ei];
                 const bool hasNext = ei + 1 < events.size();
                 const double dNext = hasNext ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
-                for (size_t j = 0; j < nPaths; ++j)
-                    w[j] = (paysSlot == NO_SLOT ? 0.0 : storage.pays_[paysSlot][j]) + (hasNext ? dNext * w[j] : 0.0);
+                InductBackward(storage.pays_, scan.eventToPays_[ei], dNext, hasNext, &w);
 
                 const size_t day = scan.eventToExercise_[ei];
                 if (day == NO_SLOT)
                     continue;
-                const auto& cond = storage.condByDay_.empty() ? Vector_<char>() : storage.condByDay_[day];
-                if (!cond.empty())
-                    for (size_t j = 0; j < nPaths; ++j)
-                        included[j] = cond[j];
-                else
-                    std::fill(included.begin(), included.end(), 1);
+                FillIncluded(storage.condByDay_, day, &included);
                 regressions[day] = SolveExerciseRegression(storage.xByDay_[day], w, included, degree);
-                const auto& continuation = regressions[day];
-                const auto& h = storage.hByDay_[day];
-                const auto& x = storage.xByDay_[day];
-                for (size_t j = 0; j < nPaths; ++j)
-                    if (included[j] && h[j] > RegressionPredict(continuation, x[j]))
-                        w[j] = h[j]; //  S4: exercise replaces the same-day and later payments
+                ApplyExerciseDecisions(storage.hByDay_[day], storage.xByDay_[day], included, regressions[day], &w);
             }
             return regressions;
         }
@@ -347,74 +435,32 @@ namespace Dal::Script {
         REQUIRE(x.size() == targets.size() && x.size() == included.size(), "InvalidRegressionInput: mismatched regression vectors");
 
         ExerciseRegression_ result;
-        size_t nCond = 0;
-        double sumX = 0.0;
-        for (size_t i = 0; i < x.size(); ++i)
-            if (included[i]) {
-                ++nCond;
-                sumX += x[i];
-            }
-        result.numCondTrue_ = nCond;
-
-        const auto degrade = [&](const char* reason, double constant) {
-            result.degenerate_ = true;
-            result.degenerateReason_ = reason;
-            result.basisDegree_ = 0;
-            result.coefficients_.Resize(1);
-            result.coefficients_[0] = constant;
-        };
+        const auto stats = RegressionStats(x, included);
+        result.numCondTrue_ = stats.count_;
+        result.mean_ = stats.mean_;
+        result.sigma_ = std::max(stats.sigma_, stats.sigmaFloor_);
+        const double constantFit = MeanOf(targets, included, stats.count_);
 
         //  Guard order: sample size, then sigma floor, then Gram conditioning
-        if (nCond == 0) {
-            degrade("ConditionPathsBelowMin", 0.0);
+        if (stats.count_ == 0) {
+            DegradeToConstant(&result, "ConditionPathsBelowMin", 0.0);
             return result;
         }
-        result.mean_ = sumX / static_cast<double>(nCond);
-        double sumSq = 0.0;
-        for (size_t i = 0; i < x.size(); ++i)
-            if (included[i]) {
-                const double dev = x[i] - result.mean_;
-                sumSq += dev * dev;
-            }
-        const double sigma = std::sqrt(sumSq / static_cast<double>(nCond));
-        const double sigmaFloor = SIGMA_FLOOR_SCALE * std::max(1.0, std::abs(result.mean_));
-        result.sigma_ = std::max(sigma, sigmaFloor);
-        if (sigma < sigmaFloor) {
-            degrade("SigmaFloor", MeanOf(targets, included, nCond));
+        if (stats.sigma_ < stats.sigmaFloor_) {
+            DegradeToConstant(&result, "SigmaFloor", constantFit);
             return result;
         }
-        if (nCond < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1)) {
-            degrade("ConditionPathsBelowMin", MeanOf(targets, included, nCond));
+        if (stats.count_ < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1)) {
+            DegradeToConstant(&result, "ConditionPathsBelowMin", constantFit);
             return result;
         }
 
         const size_t nBasis = static_cast<size_t>(degree) + 1;
         SquareMatrix_<> gram(static_cast<int>(nBasis), 0.0);
         Vector_<> rhs(nBasis, 0.0);
-        Vector_<> basis(nBasis);
-        for (size_t i = 0; i < x.size(); ++i) {
-            if (!included[i])
-                continue;
-            const double z = (x[i] - result.mean_) / result.sigma_;
-            basis[0] = 1.0;
-            for (size_t j = 1; j < nBasis; ++j)
-                basis[j] = basis[j - 1] * z;
-            for (size_t j = 0; j < nBasis; ++j) {
-                rhs[j] += basis[j] * targets[i];
-                for (size_t k = j; k < nBasis; ++k)
-                    gram(j, k) += basis[j] * basis[k];
-            }
-        }
-        //  CholeskySolve reads the diagonal and upper triangle only
-        double maxDiag = gram(0, 0);
-        double minDiag = gram(0, 0);
-        for (size_t j = 0; j < nBasis; ++j) {
-            gram(j, j) *= 1.0 + RIDGE_LAMBDA;
-            maxDiag = std::max(maxDiag, gram(j, j));
-            minDiag = std::min(minDiag, gram(j, j));
-        }
-        if (!(minDiag > 0.0) || maxDiag / minDiag > CONDITION_LIMIT) {
-            degrade("IllConditioned", MeanOf(targets, included, nCond));
+        AccumulateNormalEquations(x, targets, included, result.mean_, result.sigma_, &gram, &rhs);
+        if (RidgeAndIllConditioned(&gram)) {
+            DegradeToConstant(&result, "IllConditioned", constantFit);
             return result;
         }
 

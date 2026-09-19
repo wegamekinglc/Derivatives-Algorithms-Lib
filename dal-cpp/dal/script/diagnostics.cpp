@@ -203,6 +203,48 @@ namespace Dal::Script {
         return String_(out.str());
     }
 
+    namespace {
+        //  The diagnostic explicitly runs the full valuation; the double tree-walk driver
+        //  is the only mode for now (AAD arrives with T4, compiled with T3)
+        void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
+            if (prepared.AllExpired())
+                return;
+            const auto& simulation = prepared.Simulation();
+            if (prepared.Product().ContainsExercise())
+                MCLsmcSimulation(prepared, model, nPaths, diagnostics);
+            else
+                MCDoubleSimulation(prepared, model, nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
+        }
+
+        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
+            out << ",\"simulation\":{\"rsg\":";
+            JsonWriteString(simulation.rsg_, out);
+            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
+                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
+                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+        }
+
+        void JsonWriteStringOrNull(const String_& text, std::ostream& out) {
+            if (text.empty())
+                out << "null";
+            else
+                JsonWriteString(text, out);
+        }
+
+        void WriteExerciseEvent(std::ostream& out, const ExerciseEventStats_& event) {
+            out << "{\"event_id\":" << event.eventId_ << ",\"date\":";
+            JsonWriteString(Date::ToString(event.date_), out);
+            out << ",\"basis_degree\":" << event.basisDegree_ << ",\"regressor_index\":";
+            JsonWriteStringOrNull(event.regressorIndex_, out);
+            out << ",\"num_cond_true_paths\":" << event.numCondTruePaths_ << ",\"num_coefficients\":" << event.coefficients_.size()
+                << ",\"coefficients\":";
+            WriteArray(out, event.coefficients_, [&](double coefficient, size_t) { out << DebugNumber(coefficient); });
+            out << ",\"degenerate\":" << (event.degenerate_ ? "true" : "false") << ",\"degenerate_reason\":";
+            JsonWriteStringOrNull(event.degenerateReason_, out);
+            out << ",\"exercise_rate\":" << DebugNumber(event.exerciseRate_) << '}';
+        }
+    } // namespace
+
     String_ ExplainScriptSimulation(const ScriptProductData_& data,
                                     const Handle_<ModelData_>& modelData,
                                     size_t nPaths,
@@ -224,39 +266,14 @@ namespace Dal::Script {
 
         LsmcDiagnostics_ diagnostics;
         diagnostics.nPaths_ = nPaths;
-        if (!prepared.AllExpired()) {
-            if (prepared.Product().ContainsExercise())
-                MCLsmcSimulation(prepared, model.get(), nPaths, &diagnostics);
-            else
-                MCDoubleSimulation(prepared, model.get(), nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
-        }
+        RunSimulationDiagnostic(prepared, model.get(), nPaths, &diagnostics);
 
         std::ostringstream out;
         out << "{\"schema\":\"dal.script-simulation/1\",\"evaluation_date\":";
         JsonWriteString(Date::ToString(prepared.EvaluationDate()), out);
-        out << ",\"simulation\":{\"rsg\":";
-        JsonWriteString(simulation.rsg_, out);
-        out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-            << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-            << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "},\"n_paths\":" << nPaths << ",\"exercise_events\":";
-        WriteArray(out, diagnostics.events_, [&](const auto& event, size_t) {
-            out << "{\"event_id\":" << event.eventId_ << ",\"date\":";
-            JsonWriteString(Date::ToString(event.date_), out);
-            out << ",\"basis_degree\":" << event.basisDegree_ << ",\"regressor_index\":";
-            if (event.regressorIndex_.empty())
-                out << "null";
-            else
-                JsonWriteString(event.regressorIndex_, out);
-            out << ",\"num_cond_true_paths\":" << event.numCondTruePaths_ << ",\"num_coefficients\":" << event.coefficients_.size()
-                << ",\"coefficients\":";
-            WriteArray(out, event.coefficients_, [&](double coefficient, size_t) { out << DebugNumber(coefficient); });
-            out << ",\"degenerate\":" << (event.degenerate_ ? "true" : "false") << ",\"degenerate_reason\":";
-            if (event.degenerateReason_.empty())
-                out << "null";
-            else
-                JsonWriteString(event.degenerateReason_, out);
-            out << ",\"exercise_rate\":" << DebugNumber(event.exerciseRate_) << '}';
-        });
+        WriteSimulationSettings(out, simulation);
+        out << ",\"n_paths\":" << nPaths << ",\"exercise_events\":";
+        WriteArray(out, diagnostics.events_, [&](const auto& event, size_t) { WriteExerciseEvent(out, event); });
         out << '}';
         return String_(out.str());
     }
