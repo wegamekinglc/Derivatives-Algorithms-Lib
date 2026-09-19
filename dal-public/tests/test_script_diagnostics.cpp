@@ -210,7 +210,6 @@ TEST(ScriptApiTest, TestExplainPreparation) {
     const auto product = DiagnosticProduct();
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[MiXeD]"}};
     valuation.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[MIXED]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
     const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.0, 0.0, 0.0));
     DiagnosticReads_ reads;
@@ -267,7 +266,6 @@ TEST(ScriptApiTest, TestTodayPolicy) {
     const auto product = NewScriptProduct("today", {Cell_(Date_(2026, 9, 12))}, {"pay PAYS FIX(EQ[DAL196_TEST])"});
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     for (const auto& model : DeterministicModels()) {
         for (const bool compiled : {false, true}) {
             for (const bool aad : {false, true}) {
@@ -423,7 +421,6 @@ TEST(ScriptApiTest, TestExplainRetainedFixingAndPaymentSamples) {
                                           {"x = 2", "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + x"});
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     DiagnosticReads_ reads;
     reads.reject_ = true;
     DiagnosticWorkers_ workers;

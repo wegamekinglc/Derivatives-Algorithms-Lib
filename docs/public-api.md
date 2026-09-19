@@ -118,10 +118,9 @@ new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
 Historical EQ/FX
 requests resolve at exact midnight, and a missing required fixing is an error,
 never a model or placeholder fallback. Model-sourced requests bind the model's
-`spot` output to one ordinary EQ: an explicit `valuation.modelBindings_`
-mapping is validated and honored, while an empty mapping infers the binding
-from the script's single future EQ. A product
-default does not create that model binding or supply model market data. The
+`spot` output to one ordinary EQ, taken from the script's own future FIX index
+by name; no settings are involved. A product
+default does not supply that model index or model market data. The
 per-form, per-date rules are in the
 [SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
 
@@ -158,7 +157,7 @@ valuation-dependent phase and does not establish pricing readiness.
 `ExplainScriptValuation(product, modelData, valuation=ScriptValuationSettings_())`
 returns `dal.script-valuation/1` from default price preparation. It can read
 history and initialize a model, but generates no paths and submits no workers.
-It reports actual requests/uses, historical values, bindings, event-to-sample
+It reports actual requests/uses, historical values, the model index, event-to-sample
 and numeraire mappings. Every Explain and Value prepares independently; use
 the same explicit date/snapshot to compare the same market.
 
@@ -590,7 +589,7 @@ ScriptValuation_Explain(product, modelData, *, valuation=None)
 `ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
 for fresh defaults. Their constructors use keyword-only fields. Product settings
 provide `default_index`; valuation settings provide `evaluation_date`,
-`today_fixing`, `model_bindings` and `fixings`; simulation settings provide
+`today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
@@ -598,16 +597,14 @@ case-sensitive `Model` / `RequireHistorical` strings. The three settings fields 
 `method`, and `today_fixing` reject foreign enums, including string-derived enum
 members, with `TypeError` on construction or assignment. Ordinary string
 subclasses, DAL `String_`, and the native today-policy members remain supported.
-Bindings accept a dictionary with string keys and values, such as
-`{"spot": "EQ[AAPL]"}`; event text and binding keys/values also accept
-string-derived enum members. Dates require a valid DAL
+Event text accepts string-derived enum members. Dates require a valid DAL
 `Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
 `fixings=None` captures current global history; an explicit empty snapshot
 never falls back to it. Global capture is sequential, not atomic across
 sequences, and requires callers to exclude concurrent fixing writes.
 
 The [FIX source rules](methodology/script_engine.md#dates-and-structural-validation)
-and [EQ model binding](methodology/script_engine.md#eq-model-binding-and-legacy-spot)
+and [script model index](methodology/script_engine.md#the-script-model-index-and-legacy-spot)
 apply unchanged: past history, today's selected policy, future model, and no
 fixing after its event. The complete
 [Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
@@ -783,8 +780,8 @@ require a finite integer path count in `1..2147483647`.
 The seven-input `MONTECARLO.VALUE` retains its argument order and has no
 compiled or script-settings argument. For explicit FIX settings, construct
 `SCRIPTPRODUCTSETTINGS.NEW(name, [settings])`,
-`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [model_bindings], [fixings])`,
-and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings and bindings
+`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [fixings])`,
+and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings
 are strict two-column ranges with physical row/column errors. Use
 `PRODUCT.NEWWITHSETTINGS(name, dates, events, settings)` for a product default,
 then `MONTECARLO.VALUEWITHSETTINGS(product, modelData, n_paths, [valuation], [simulation])`.
@@ -792,9 +789,9 @@ Square brackets mark optional arguments; omitted valuation/simulation handles
 select fresh native defaults. The product settings handle is required by
 `PRODUCT.NEWWITHSETTINGS`; `PRODUCT.NEW` remains available without it.
 
-Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX binds
-`spot` to one ordinary EQ, inferred from the script when the binding range is
-blank; a product default only gives legacy
+Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX binds the
+model's `spot` output to one ordinary EQ, taken from the script's own index by
+name; a product default only gives legacy
 `SPOT()` an identity. Valuation settings accept an integral evaluation date,
 case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
 match case-insensitively), and an immutable snapshot.

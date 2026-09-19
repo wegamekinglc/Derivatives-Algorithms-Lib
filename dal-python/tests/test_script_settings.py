@@ -3,7 +3,6 @@ import datetime
 import enum
 import json
 import math
-from collections import UserDict
 
 import dal
 from dal import _dal as native
@@ -67,22 +66,15 @@ def test_settings_values_and_copy_protocol():
     product = dal.ScriptProductSettings_(default_index=dal.String_("eq[MiXeD]"))
     assert product.default_index == "eq[MiXeD]"
     date = dal.Date_(2026, 9, 12)
-    mapping = {dal.String_("spot"): dal.String_("EQ[DAL196_TEST]")}
     snapshot = dal.MarketFixingSnapshot_New({})
     valuation = dal.ScriptValuationSettings_(
         evaluation_date=date,
         today_fixing=dal.String_("RequireHistorical"),
-        model_bindings=mapping,
         fixings=snapshot,
     )
-    mapping.clear()
     assert valuation.evaluation_date == date
     assert valuation.evaluation_date is not date
     assert valuation.today_fixing == dal.TodayFixingPolicy_.REQUIREHISTORICAL
-    assert valuation.model_bindings == {"spot": "EQ[DAL196_TEST]"}
-    detached = valuation.model_bindings
-    detached.clear()
-    assert valuation.model_bindings == {"spot": "EQ[DAL196_TEST]"}
     simulation = dal.MonteCarloSettings_(
         method=dal.String_("SoBoL"),
         use_bb=True,
@@ -105,7 +97,7 @@ def test_settings_values_and_copy_protocol():
     )
     for source, field, replacement in [
         (product, "default_index", "EQ[OTHER]"),
-        (valuation, "model_bindings", {"spot": "EQ[OTHER]"}),
+        (valuation, "today_fixing", dal.TodayFixingPolicy_.MODEL),
         (simulation, "smooth", 0.02),
     ]:
         for copier in (copy.copy, copy.deepcopy):
@@ -118,7 +110,6 @@ def test_settings_values_and_copy_protocol():
         assert copier(valuation).fixings is snapshot
     defaults = dal.ScriptValuationSettings_()
     assert defaults.evaluation_date is defaults.fixings is None
-    assert defaults.model_bindings == {}
     assert defaults.today_fixing == dal.TodayFixingPolicy_.MODEL
     execution = dal.MonteCarloSettings_()
     assert (
@@ -245,16 +236,9 @@ def test_settings_accept_native_today_policy(policy, construct):
 
 @pytest.mark.parametrize("layer", [dal, native])
 @pytest.mark.parametrize("text_type", [str, SettingText, dal.String_, ForeignSetting])
-def test_event_and_model_binding_text_remains_compatible(layer, text_type):
+def test_event_text_remains_compatible(layer, text_type):
     today = dal.Date_(2026, 9, 12)
-    bindings = {text_type("spot"): text_type("EQ[A]")}
-    valuation = layer.ScriptValuationSettings_(
-        evaluation_date=today, model_bindings=bindings
-    )
-    assert valuation.model_bindings == {"spot": "EQ[A]"}
-    valuation.model_bindings = None
-    valuation.model_bindings = bindings
-    assert valuation.model_bindings == {"spot": "EQ[A]"}
+    valuation = layer.ScriptValuationSettings_(evaluation_date=today)
     product = layer.Product_New([dal.Cell_(today)], [text_type("pay PAYS FIX(EQ[A])")])
     model = dal.BSModelData_New(100.0, 0.0, 0.0, 0.0)
     result = layer.MonteCarlo_ValueWithSettings(product, model, 1, valuation=valuation)
@@ -379,42 +363,6 @@ def test_path_conversion_accepts_integer_protocol_and_upper_bound(entry, value):
             "Model\0",
             RuntimeError,
             "InvalidTodayFixingPolicy",
-        ),
-        ("ScriptValuationSettings_", "model_bindings", [], TypeError, "InvalidSetting"),
-        (
-            "ScriptValuationSettings_",
-            "model_bindings",
-            UserDict(),
-            TypeError,
-            "InvalidSetting",
-        ),
-        (
-            "ScriptValuationSettings_",
-            "model_bindings",
-            {"spot": None},
-            TypeError,
-            "InvalidSetting",
-        ),
-        (
-            "ScriptValuationSettings_",
-            "model_bindings",
-            {1: "EQ[A]"},
-            TypeError,
-            "InvalidSetting",
-        ),
-        (
-            "ScriptValuationSettings_",
-            "model_bindings",
-            {"spot": "EQ[A]", "other": 2},
-            TypeError,
-            "InvalidSetting",
-        ),
-        (
-            "ScriptValuationSettings_",
-            "model_bindings",
-            {"spot": "EQ[A]\0"},
-            RuntimeError,
-            "InvalidSetting",
         ),
         ("ScriptValuationSettings_", "fixings", {}, TypeError, "InvalidSetting"),
         ("MonteCarloSettings_", "method", b"sobol", TypeError, "InvalidSetting"),
@@ -655,15 +603,12 @@ def test_evaluation_date_requires_dal_date(bad):
 def test_field_reset_and_unicode_copy():
     settings = dal.ScriptValuationSettings_(
         evaluation_date=dal.Date_(2026, 9, 12),
-        model_bindings={"spot": "EQ[A]"},
         fixings=dal.MarketFixingSnapshot_New({}),
     )
     settings.evaluation_date = None
-    settings.model_bindings = None
     settings.fixings = None
     settings.today_fixing = dal.TodayFixingPolicy_.MODEL
     assert settings.evaluation_date is settings.fixings is None
-    assert settings.model_bindings == {}
     execution = dal.MonteCarloSettings_(compiled=True)
     execution.compiled = None
     assert execution.compiled is None

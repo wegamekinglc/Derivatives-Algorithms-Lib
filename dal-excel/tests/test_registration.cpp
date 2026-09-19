@@ -62,7 +62,7 @@ TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
     };
     const Contract_ contracts[] = {{"ScriptProductSettings_New", "name,[settings]", "QQQ"},
                                    {"Product_NewWithSettings", "name,dates,events,settings", "QQQQQ"},
-                                   {"ScriptValuationSettings_New", "name,[settings],[model_bindings],[fixings]", "QQQQQ"},
+                                   {"ScriptValuationSettings_New", "name,[settings],[fixings]", "QQQQ"},
                                    {"MonteCarloSettings_New", "name,[settings]", "QQQ"},
                                    {"MonteCarlo_ValueWithSettings", "product,modelData,n_paths,[valuation],[simulation]", "QQQQQQ"},
                                    {"Product_Describe", "product", "QQ"},

@@ -24,8 +24,6 @@
       "E5": "=$B$2",
       "D6": "today_fixing",
       "E6": "Model",
-      "G5": "spot",
-      "H5": "EQ[AAPL]",
       "D9": "method",
       "E9": "sobol",
       "D10": "use_bb",
@@ -83,7 +81,7 @@
     "Handles": {
       "B2": "=SCRIPTPRODUCTSETTINGS.NEW(\"contract\",Inputs!D2:E2)",
       "B3": "=MARKETFIXINGSNAPSHOT.NEW(Inputs!G9:G10,Inputs!H9:H10,Inputs!I9:I10)",
-      "B4": "=SCRIPTVALUATIONSETTINGS.NEW(\"valuation\",Inputs!D5:E6,,B3)",
+      "B4": "=SCRIPTVALUATIONSETTINGS.NEW(\"valuation\",Inputs!D5:E6,B3)",
       "B5": "=MONTECARLOSETTINGS.NEW(\"simulation\",Inputs!D9:E13)",
       "B6": "=BSMODELDATA.NEW(\"zero-vol\",100,0,0,0)",
       "B7": "=PRODUCT.NEWWITHSETTINGS(\"mixed\",Inputs!A17:A19,Inputs!B17:B19,B2)",
@@ -92,16 +90,16 @@
       "B10": "=MONTECARLOSETTINGS.NEW(\"default-simulation\")",
       "B11": "=SCRIPTVALUATIONSETTINGS.NEW(\"default-valuation\")",
       "B12": "=MARKETFIXINGSNAPSHOT.NEW(,,)",
-      "B13": "=SCRIPTVALUATIONSETTINGS.NEW(\"empty-history\",Inputs!D5:E6,,B12)",
+      "B13": "=SCRIPTVALUATIONSETTINGS.NEW(\"empty-history\",Inputs!D5:E6,B12)",
       "B14": "=MARKETFIXINGSNAPSHOT.NEW(Inputs!G13,Inputs!H13,Inputs!I13)",
-      "B15": "=SCRIPTVALUATIONSETTINGS.NEW(\"only-11am\",Inputs!D5:E6,,B14)",
+      "B15": "=SCRIPTVALUATIONSETTINGS.NEW(\"only-11am\",Inputs!D5:E6,B14)",
       "B16": "=PRODUCT.NEW(\"today\",Inputs!A25,Inputs!B25)",
-      "B17": "=SCRIPTVALUATIONSETTINGS.NEW(\"require-today\",Inputs!D16:E17,Inputs!G5:H5,B3)",
+      "B17": "=SCRIPTVALUATIONSETTINGS.NEW(\"require-today\",Inputs!D16:E17,B3)",
       "B18": "=PRODUCT.NEWWITHSETTINGS(\"history\",Inputs!A28:A30,Inputs!B28:B30,B2)",
       "B19": "=PRODUCT.NEW(\"retained-future\",Inputs!A33,Inputs!B33)",
       "B20": "=BSMODELDATA.NEW(\"nonzero-carry\",100,0,0.05,0.02)",
       "B21": "=PRODUCT.NEWWITHSETTINGS(\"empty-contract\",Inputs!A22,Inputs!B22,B9)",
-      "B22": "=SCRIPTVALUATIONSETTINGS.NEW(\"blank-ref\",Inputs!D20,Inputs!E20,Inputs!F20)"
+      "B22": "=SCRIPTVALUATIONSETTINGS.NEW(\"blank-ref\",Inputs!D20,Inputs!F20)"
     },
     "Values": {
       "A2": "=MONTECARLO.VALUEWITHSETTINGS(Handles!B7,Handles!B6,257,Handles!B4,Handles!B5)",

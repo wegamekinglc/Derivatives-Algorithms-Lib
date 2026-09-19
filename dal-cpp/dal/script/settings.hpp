@@ -7,7 +7,6 @@
 #include <optional>
 
 #include <dal/indice/fixingsnapshot.hpp>
-#include <dal/model/base.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
@@ -24,6 +23,8 @@ alternative REQUIREHISTORICAL
 namespace Dal {
 #include <dal/auto/MG_TodayFixingPolicy_enum.hpp>
 
+    class Index_;
+
     namespace Script {
         struct ScriptProductSettings_ {
             String_ defaultIndex_;
@@ -39,7 +40,6 @@ namespace Dal {
 
         struct ScriptValuationSettings_ {
             TodayFixingPolicy_ todayFixingPolicy_ = TodayFixingPolicy_::Value_::MODEL;
-            Vector_<ModelIndexBinding_> modelBindings_;
             std::optional<Date_> evaluationDate_;
             Handle_<MarketFixingSnapshot_> fixings_;
         };

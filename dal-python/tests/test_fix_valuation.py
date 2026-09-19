@@ -51,7 +51,7 @@ def test_today_policy_independent_oracles(adapter, method, use_bb, compiled, aad
     dal.EvaluationDate_Set(dal.Date_(2026, 9, 23))
     product = dal.Product_New([D], ["pay PAYS FIX(EQ[DAL196_TEST])"])
     valuation = dal.ScriptValuationSettings_(
-        evaluation_date=D, model_bindings={"spot": INDEX}, fixings=snapshot(date=D)
+        evaluation_date=D, fixings=snapshot(date=D)
     )
     execution = dal.MonteCarloSettings_(
         method=method, use_bb=use_bb, compiled=compiled, enable_aad=aad
@@ -108,9 +108,7 @@ def test_historical_aad_batches_and_repricing(compiled, paths):
 def test_future_observation_and_payment_have_distinct_dates(adapter, compiled, aad):
     product = dal.Product_New([P], ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"])
     valuation = dal.ScriptValuationSettings_(
-        evaluation_date=D,
-        model_bindings={"spot": INDEX},
-        fixings=snapshot(999.0, date=dal.Date_(2026, 9, 15)),
+        evaluation_date=D, fixings=snapshot(999.0, date=dal.Date_(2026, 9, 15))
     )
     simulation = dal.MonteCarloSettings_(compiled=compiled, enable_aad=aad)
     data = model(adapter, rate=0.05, div=0.02)
@@ -176,48 +174,8 @@ def test_exact_fuzzy_and_hard_history_have_separate_oracles(compiled):
     assert hard["d_K"] == 0.0
 
 
-@pytest.mark.parametrize(
-    "bindings,identifier,field",
-    [
-        ({"spot": "EQ[OTHER]"}, "ConflictingModelBinding", "EQ[OTHER]"),
-        ({"other": INDEX}, "UnknownModelAsset", "valuation.modelBindings_[0]"),
-        ({"": INDEX}, "UnknownModelAsset", "valuation.modelBindings_[0]"),
-        ({"spot": ""}, "InvalidIndex", "valuation.modelBindings_[0]"),
-        ({"spot": "EQ[A]trailing"}, "InvalidIndex", "valuation.modelBindings_[0]"),
-        (
-            {"spot": INDEX, "SPOT": INDEX},
-            "DuplicateModelBinding",
-            "valuation.modelBindings_",
-        ),
-        (
-            {"spot": "FX[EUR/USD]"},
-            "UnsupportedModelObservation",
-            "valuation.modelBindings_[0]",
-        ),
-        (
-            {"spot": "EQ[DAL196_TEST]@2026-12-31"},
-            "UnsupportedModelObservation",
-            "valuation.modelBindings_[0]",
-        ),
-    ],
-)
-def test_binding_semantics_keep_native_errors(bindings, identifier, field):
-    product = dal.Product_New([P], ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"])
-    valuation = dal.ScriptValuationSettings_(evaluation_date=D, model_bindings=bindings)
-    for action in (
-        lambda: dal.MonteCarlo_ValueWithSettings(
-            product, model(), 1, valuation=valuation
-        ),
-        lambda: dal.ScriptValuation_Explain(product, model(), valuation=valuation),
-    ):
-        with pytest.raises(RuntimeError) as error:
-            action()
-        assert identifier in str(error.value)
-        assert field in str(error.value)
-
-
 @pytest.mark.parametrize("compiled", [False, True])
-def test_empty_bindings_infer_the_script_index(compiled):
+def test_script_index_is_the_model_binding(compiled):
     product = dal.Product_New([P], ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"])
     valuation = dal.ScriptValuationSettings_(evaluation_date=D)
     simulation = dal.MonteCarloSettings_(compiled=compiled)
@@ -235,7 +193,7 @@ def test_empty_bindings_infer_the_script_index(compiled):
     ]
 
 
-def test_empty_bindings_reject_ambiguous_future_indices():
+def test_multiple_future_indices_fail_with_multiple_model_indices():
     product = dal.Product_New(
         [P],
         ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + FIX(EQ[OTHER], 2026-09-15)"],
@@ -247,7 +205,7 @@ def test_empty_bindings_reject_ambiguous_future_indices():
     ):
         with pytest.raises(RuntimeError) as error:
             action()
-        assert "AmbiguousModelBinding" in str(error.value)
+        assert "MultipleModelIndices" in str(error.value)
         assert INDEX in str(error.value)
 
 
@@ -291,7 +249,6 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
     )
     valuation = dal.ScriptValuationSettings_(
         evaluation_date=D,
-        model_bindings={"spot": "EQ[A]"},
         fixings=dal.MarketFixingSnapshot_New(
             {
                 "EQ[Z]": {dal.DateTime_(H, 0): 80.0},
