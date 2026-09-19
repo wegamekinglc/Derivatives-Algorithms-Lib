@@ -155,11 +155,11 @@ namespace Dal::Script {
             << "},\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
             << (plan.Requests().empty() ? "Legacy" : "Named") << "\",\"model_bindings\":";
         WriteArray(out, plan.ModelBindingNames(), [&](const auto& canonical, size_t i) {
-            const bool explicit_ = i < settings.modelBindings_.size();
+            const bool isExplicit = i < settings.modelBindings_.size();
             out << "{\"asset\":";
-            JsonWriteString(explicit_ ? settings.modelBindings_[i].assetName_ : String_("spot"), out);
+            JsonWriteString(isExplicit ? settings.modelBindings_[i].assetName_ : String_("spot"), out);
             out << ",\"index_original\":";
-            JsonWriteString(explicit_ ? settings.modelBindings_[i].indexName_ : canonical, out);
+            JsonWriteString(isExplicit ? settings.modelBindings_[i].indexName_ : canonical, out);
             out << ",\"index_canonical\":";
             JsonWriteString(canonical, out);
             out << '}';
