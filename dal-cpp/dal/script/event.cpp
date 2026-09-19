@@ -16,16 +16,6 @@ namespace Dal::Script {
             REQUIRE2(!FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeSpot_*>(&visited) != nullptr; }),
                      "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
         }
-
-        bool ContainsPays(const Node_& node) {
-            return FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodePays_*>(&visited) != nullptr; }) != nullptr;
-        }
-
-        bool ContainsExerciseStatement(const Node_& node) {
-            return FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; }) != nullptr;
-        }
-
-        bool ContainsPayoff(const Node_& node) { return ContainsPays(node) || ContainsExerciseStatement(node); }
     } // namespace
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
@@ -44,38 +34,13 @@ namespace Dal::Script {
             auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
             if (preparationError_.empty())
                 preparationError_ = parser.PreparationError();
+            hasPays_ = hasPays_ || parser.HasPays();
+            hasExercise_ = hasExercise_ || parser.HasExercise();
             parsedEventDates_.push_back(processedEvent.first);
             parsedEventSources_.push_back(preprocessed.sources_.at(processedEvent.first));
             eventDates_.push_back(processedEvent.first);
             events_.push_back(std::move(event));
         }
-    }
-
-    bool ScriptProduct_::HasPayoff() const {
-        for (const auto* events : {&pastEvents_, &events_})
-            for (const auto& event : *events)
-                for (const auto& statement : event)
-                    if (ContainsPayoff(*statement))
-                        return true;
-        return false;
-    }
-
-    bool ScriptProduct_::HasPays() const {
-        for (const auto* events : {&pastEvents_, &events_})
-            for (const auto& event : *events)
-                for (const auto& statement : event)
-                    if (ContainsPays(*statement))
-                        return true;
-        return false;
-    }
-
-    bool ScriptProduct_::ContainsExercise() const {
-        for (const auto* events : {&pastEvents_, &events_})
-            for (const auto& event : *events)
-                for (const auto& statement : event)
-                    if (ContainsExerciseStatement(*statement))
-                        return true;
-        return false;
     }
 
     void ScriptProduct_::PartitionEvents(const Date_& evaluationDate) {

@@ -105,6 +105,10 @@ namespace Dal::Script {
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
 
+        // Recorded while parsing so payoff queries stay O(1) on hot paths (dump, indexing, gates)
+        bool hasPays_ = false;
+        bool hasExercise_ = false;
+
         //  Set by PreProcess().
         bool preProcessed_ = false;
         String_ preparationError_;
@@ -125,9 +129,10 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
         [[nodiscard]] const Vector_<Date_>& ParsedEventDates() const { return parsedEventDates_; }
         [[nodiscard]] const Vector_<Vector_<SourceOrigin_>>& ParsedEventSources() const { return parsedEventSources_; }
-        [[nodiscard]] bool HasPayoff() const;
-        [[nodiscard]] bool HasPays() const;
-        [[nodiscard]] bool ContainsExercise() const;
+        // PAYS or EXERCISE constitute a payoff; HasPays routes the payoff receiver slot
+        [[nodiscard]] bool HasPayoff() const { return hasPays_ || hasExercise_; }
+        [[nodiscard]] bool HasPays() const { return hasPays_; }
+        [[nodiscard]] bool ContainsExercise() const { return hasExercise_; }
         [[nodiscard]] const std::optional<Date_>& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }

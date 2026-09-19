@@ -198,6 +198,7 @@ namespace Dal::Script {
     }
 
     Statement_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
+        hasPays_ = true;
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
@@ -414,6 +415,16 @@ namespace Dal::Script {
         return top;
     }
 
+    Expression_ Parser_::ParseExerciseCondition(TokIt_& cur, const TokIt_& end, const SourceLocation_& source) {
+        ++cur; // the IF introducer, greedily bound to the exercise statement
+        REQUIRE2(cur != end, "unexpected end of statement; EXERCISE requires a condition after IF; " + source.Describe(), ScriptError_);
+        auto cond = ParseCond(cur, end);
+        if (cur != end && RESERVED_KEY_WORDS.find(cur->Text()) != RESERVED_KEY_WORDS.end())
+            THROW2("InvalidExerciseCondition: EXERCISE condition ends on the statement keyword '" + cur->Text() + "'; " + cur->source_.Describe(),
+                   ScriptError_);
+        return cond;
+    }
+
     Statement_ Parser_::ParseExercise(TokIt_& cur, const TokIt_& end) {
         const auto source = cur->source_;
         hasExercise_ = true;
@@ -427,13 +438,7 @@ namespace Dal::Script {
         top->arguments_.Resize(1);
         top->arguments_[0] = ParseExpr(cur, end);
         if (cur != end && cur->Text() == "IF") {
-            // Greedy binding: an IF after the value introduces the exercise condition
-            ++cur;
-            REQUIRE2(cur != end, "unexpected end of statement; EXERCISE requires a condition after IF; " + source.Describe(), ScriptError_);
-            auto cond = ParseCond(cur, end);
-            if (cur != end && RESERVED_KEY_WORDS.find(cur->Text()) != RESERVED_KEY_WORDS.end())
-                THROW2("InvalidExerciseCondition: EXERCISE condition ends on the statement keyword '" + cur->Text() + "'; " + cur->source_.Describe(),
-                       ScriptError_);
+            auto cond = ParseExerciseCondition(cur, end, source);
             if (const auto* comparison = FindFirstComparison(*cond))
                 top->eps_ = comparison->eps_;
             top->arguments_.Resize(2);
@@ -463,6 +468,7 @@ namespace Dal::Script {
     Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) {
         preparationError_.clear();
         hasExercise_ = false;
+        hasPays_ = false;
         ifLevel_ = 0;
         Event_ e;
         auto tokens = Lex(event, origins);

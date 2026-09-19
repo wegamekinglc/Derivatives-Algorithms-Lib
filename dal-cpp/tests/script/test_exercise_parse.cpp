@@ -31,6 +31,9 @@ namespace {
     }
 
     const NodeExercise_* ExerciseOf(const Event_& event) { return dynamic_cast<const NodeExercise_*>(event[0].get()); }
+
+    // The payoffIdx_ sentinel: no receiver variable (EXERCISE without PAYS)
+    constexpr size_t NO_PAYOFF_SLOT = static_cast<size_t>(-1);
 } // namespace
 
 TEST(ScriptExerciseParseTest, TestParseExerciseValueOnly) {
@@ -40,7 +43,9 @@ TEST(ScriptExerciseParseTest, TestParseExerciseValueOnly) {
     const auto* exercise = ExerciseOf(event);
     ASSERT_NE(exercise, nullptr);
     ASSERT_EQ(exercise->arguments_.size(), 1u);
-    ASSERT_NEAR(dynamic_cast<const NodeConst_*>(exercise->arguments_[0].get())->constVal_, 1.5, 1e-12);
+    const auto* value = dynamic_cast<const NodeConst_*>(exercise->arguments_[0].get());
+    ASSERT_NE(value, nullptr);
+    ASSERT_NEAR(value->constVal_, 1.5, 1e-12);
     ASSERT_EQ(exercise->eps_, -1.0);
 }
 
@@ -61,7 +66,9 @@ TEST(ScriptExerciseParseTest, TestParseExerciseSharesConditionEps) {
     const auto* exercise = ExerciseOf(event);
     ASSERT_NE(exercise, nullptr);
     ASSERT_EQ(exercise->eps_, 0.02);
-    ASSERT_EQ(dynamic_cast<const CompNode_*>(exercise->arguments_[1].get())->eps_, 0.02);
+    const auto* condition = dynamic_cast<const CompNode_*>(exercise->arguments_[1].get());
+    ASSERT_NE(condition, nullptr);
+    ASSERT_EQ(condition->eps_, 0.02);
 
     { // without the ;eps option the exercise falls back to the simulation default
         const auto plain = parser.Parse("EXERCISE 1.0 IF spot() > 100");
@@ -310,7 +317,7 @@ TEST(ScriptExerciseParseTest, TestPayoffReceiverRoutingFollowsPays) {
     { // no PAYS with EXERCISE: no receiver, the sentinel stays
         ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"x = 1\nEXERCISE x"});
         product.IndexVariables();
-        ASSERT_EQ(product.PayOffIdx(), static_cast<size_t>(-1));
+        ASSERT_EQ(product.PayOffIdx(), NO_PAYOFF_SLOT);
         ASSERT_TRUE(product.HasPayoff());
         ASSERT_FALSE(product.HasPays());
     }
