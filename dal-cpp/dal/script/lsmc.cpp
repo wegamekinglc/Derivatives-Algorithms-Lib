@@ -167,6 +167,7 @@ namespace Dal::Script {
             Vector_<Vector_<>> pays_;
             Vector_<Vector_<>> xByDay_;
             Vector_<Vector_<>> hByDay_;
+            Vector_<Vector_<>> preExercise_;   //  payoff accumulated strictly before each exercise date
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
         };
 
@@ -177,9 +178,11 @@ namespace Dal::Script {
                 row = Vector_<>(nPaths, 0.0);
             storage.xByDay_.Resize(scan.days_.size());
             storage.hByDay_.Resize(scan.days_.size());
+            storage.preExercise_.Resize(scan.days_.size());
             for (size_t k = 0; k < scan.days_.size(); ++k) {
                 storage.xByDay_[k] = Vector_<>(nPaths, 0.0);
                 storage.hByDay_[k] = Vector_<>(nPaths, 0.0);
+                storage.preExercise_[k] = Vector_<>(nPaths, 0.0);
             }
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
@@ -230,6 +233,9 @@ namespace Dal::Script {
             evaluator_.xStorage_ = &ctx.storage_.xByDay_;
             evaluator_.hStorage_ = &ctx.storage_.hByDay_;
             evaluator_.condStorage_ = ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
+            evaluator_.preExerciseStorage_ = ctx.storage_.preExercise_.empty() ? nullptr : &ctx.storage_.preExercise_;
+            evaluator_.payoffIndex_ = ctx.Product().PayOffIdx();
+            evaluator_.hasPayoffVar_ = ctx.Product().HasPays();
         }
 
         //  One forward evaluation with recording (the LsmcEvaluator_ no-ops EXERCISE)
@@ -345,7 +351,9 @@ namespace Dal::Script {
             for (size_t k = 0; k < scan.days_.size(); ++k) {
                 const bool condTrue = storage.condByDay_.empty() || storage.condByDay_[k].empty() || storage.condByDay_[k][pathSlot] != 0;
                 if (condTrue && storage.hByDay_[k][pathSlot] > RegressionPredict(regressions[k], storage.xByDay_[k][pathSlot])) {
-                    const double payoff = storage.hByDay_[k][pathSlot] / state.path_[scan.days_[k].sampleId_].numeraire_;
+                    //  S4: exercise replaces the same-day and later payments; earlier ones survive
+                    const double payoff =
+                        storage.preExercise_[k][pathSlot] + storage.hByDay_[k][pathSlot] / state.path_[scan.days_[k].sampleId_].numeraire_;
                     REQUIRE2(std::isfinite(payoff), "InvalidPayoff: non-finite exercise value", ScriptError_);
                     ++(*exerciseCounts)[k];
                     return payoff;

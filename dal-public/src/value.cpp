@@ -47,6 +47,12 @@ namespace Dal {
                                     const ScriptValuationSettings_& valuation,
                                     const MonteCarloSettings_& simulation) {
         XGLOBAL::ValuationMutationGuard_ valuationGuard;
+        //  Validate the signed argument before the size_t conversion: a negative count
+        //  would otherwise wrap to a near-maximum allocation request
+        REQUIRE2(numPath > 0,
+                 "InvalidPathCount: number of Monte Carlo paths must be positive; numPath=" + String_(std::to_string(numPath)) +
+                     "; expected a positive integer",
+                 ScriptError_);
         const auto& productCopy = product;
         const auto& modelCopy = modelData;
         const auto settings = CheckedValuation(productCopy, modelCopy, valuation);

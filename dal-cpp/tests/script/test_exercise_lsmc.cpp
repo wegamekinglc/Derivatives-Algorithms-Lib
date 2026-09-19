@@ -453,6 +453,14 @@ TEST(ScriptExerciseLSMCTest, TestPaysAndExerciseCompose) {
         const auto run = RunLsmc(product, ModelWithVol(0.0), 256);
         ASSERT_NEAR(run.pv_, 2.0 * std::exp(-RATE * YearFracTo(Date_(2028, 3, 20))), 1e-12);
     }
+    { //  a coupon strictly before the exercise date survives the exercise (S4 replaces same-day and later only)
+        const Vector_<Cell_> withCoupon{Cell_(Date_(2027, 3, 20)), Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))};
+        const ScriptProductData_ product("", withCoupon, {"pay PAYS 2.0", "EXERCISE MAX(120.0 - spot(), 0.0)", "EXERCISE MAX(120.0 - spot(), 0.0)"});
+        const auto run = RunLsmc(product, ModelWithVol(0.0), 256);
+        const double sMid = SPOT * std::exp(RATE * 1.0);
+        const double expected = 2.0 * std::exp(-RATE * YearFracTo(Date_(2027, 3, 20))) + (120.0 - sMid) * std::exp(-RATE * 1.0);
+        ASSERT_NEAR(run.pv_, expected, 1e-10);
+    }
 }
 
 //  ---------------------------------------------------------------------------

@@ -556,4 +556,13 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         ASSERT_EQ(plainJson["exercise_events"].Size(), 0u);
         ASSERT_EQ(plainJson["n_paths"].GetInt(), 1024);
     }
+    { //  a negative path count is rejected before the size_t conversion
+        try {
+            static_cast<void>(ExplainScriptSimulation(product, model, -1));
+            FAIL() << "expected InvalidPathCount";
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidPathCount"), std::string::npos);
+            ASSERT_NE(std::string(error.what()).find("numPath=-1"), std::string::npos);
+        }
+    }
 }
