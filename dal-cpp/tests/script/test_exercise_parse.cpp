@@ -3,6 +3,8 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <cmath>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/diagnostics.hpp>
@@ -110,9 +112,8 @@ TEST(ScriptExerciseParseTest, TestParseDuplicateExerciseRejected) {
 
 TEST(ScriptExerciseParseTest, TestDuplicateExerciseAcrossSameDateRowsCarriesRow) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    AssertScriptError([] {
-        static_cast<void>(ScriptProduct_({Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 22))}, {"EXERCISE 1", "EXERCISE 2"}));
-    }, {"DuplicateExercise", "row=2", "event=2026-09-22"});
+    AssertScriptError([] { static_cast<void>(ScriptProduct_({Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 22))}, {"EXERCISE 1", "EXERCISE 2"})); },
+                      {"DuplicateExercise", "row=2", "event=2026-09-22"});
 }
 
 TEST(ScriptExerciseParseTest, TestParseDanglingExerciseConditionRejected) {
@@ -142,22 +143,20 @@ namespace {
 } // namespace
 
 TEST(ScriptExerciseParseTest, TestDebuggerRendersExerciseText) {
-    ASSERT_EQ(Debugged("EXERCISE 1.5").String(),
-              String_("EXERCISE[CONT,EPS=-1.000000](\n"
-                      "\tCONST[1.500000]\n"
-                      ")\n"));
-    ASSERT_EQ(Debugged("EXERCISE 1.5 IF spot() > 100; 0.02").String(),
-              String_("EXERCISE[CONT,EPS=0.020000](\n"
-                      "\tCONST[1.500000]\n"
-                      ",\n"
-                      "\tGTZERO[CONT,EPS=0.020000](\n"
-                      "\t\tSUBTRACT(\n"
-                      "\t\t\tSPOT\n"
-                      "\t\t,\n"
-                      "\t\t\tCONST[100.000000]\n"
-                      "\t\t)\n"
-                      "\t)\n"
-                      ")\n"));
+    ASSERT_EQ(Debugged("EXERCISE 1.5").String(), String_("EXERCISE[CONT,EPS=-1.000000](\n"
+                                                         "\tCONST[1.500000]\n"
+                                                         ")\n"));
+    ASSERT_EQ(Debugged("EXERCISE 1.5 IF spot() > 100; 0.02").String(), String_("EXERCISE[CONT,EPS=0.020000](\n"
+                                                                               "\tCONST[1.500000]\n"
+                                                                               ",\n"
+                                                                               "\tGTZERO[CONT,EPS=0.020000](\n"
+                                                                               "\t\tSUBTRACT(\n"
+                                                                               "\t\t\tSPOT\n"
+                                                                               "\t\t,\n"
+                                                                               "\t\t\tCONST[100.000000]\n"
+                                                                               "\t\t)\n"
+                                                                               "\t)\n"
+                                                                               ")\n"));
 }
 
 TEST(ScriptExerciseParseTest, TestDebuggerJsonExerciseNode) {
@@ -165,23 +164,21 @@ TEST(ScriptExerciseParseTest, TestDebuggerJsonExerciseNode) {
     std::ostringstream out;
     size_t id = 0;
     DebugNodeJson(debugger.Top(), id, out);
-    ASSERT_EQ(out.str(),
-              "{\"id\":\"n0\",\"kind\":\"exercise\",\"mode\":\"continuous\",\"eps\":0.02,\"children\":["
-              "{\"id\":\"n1\",\"kind\":\"const\",\"value\":1.5},"
-              "{\"id\":\"n2\",\"kind\":\"gt0\",\"mode\":\"continuous\",\"eps\":0.02,\"children\":["
-              "{\"id\":\"n3\",\"kind\":\"sub\",\"children\":["
-              "{\"id\":\"n4\",\"kind\":\"spot\"},"
-              "{\"id\":\"n5\",\"kind\":\"const\",\"value\":100}"
-              "]}"
-              "]}]}");
+    ASSERT_EQ(out.str(), "{\"id\":\"n0\",\"kind\":\"exercise\",\"mode\":\"continuous\",\"eps\":0.02,\"children\":["
+                         "{\"id\":\"n1\",\"kind\":\"const\",\"value\":1.5},"
+                         "{\"id\":\"n2\",\"kind\":\"gt0\",\"mode\":\"continuous\",\"eps\":0.02,\"children\":["
+                         "{\"id\":\"n3\",\"kind\":\"sub\",\"children\":["
+                         "{\"id\":\"n4\",\"kind\":\"spot\"},"
+                         "{\"id\":\"n5\",\"kind\":\"const\",\"value\":100}"
+                         "]}"
+                         "]}]}");
 
     { // no condition: metadata stays, single child
         std::ostringstream plain;
         size_t fresh = 0;
         DebugNodeJson(Debugged("EXERCISE 1.5").Top(), fresh, plain);
-        ASSERT_EQ(plain.str(),
-                  "{\"id\":\"n0\",\"kind\":\"exercise\",\"mode\":\"continuous\",\"eps\":-1,\"children\":["
-                  "{\"id\":\"n1\",\"kind\":\"const\",\"value\":1.5}]}");
+        ASSERT_EQ(plain.str(), "{\"id\":\"n0\",\"kind\":\"exercise\",\"mode\":\"continuous\",\"eps\":-1,\"children\":["
+                               "{\"id\":\"n1\",\"kind\":\"const\",\"value\":1.5}]}");
     }
 }
 
@@ -257,27 +254,33 @@ TEST(ScriptExerciseParseTest, TestExerciseOnlyPassesPayoffGate) {
     const auto model = TestModel();
     const auto prepared = PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, {});
     ASSERT_FALSE(prepared.AllExpired());
-    // T2 unlocks valuation: the evaluators reject EXERCISE for now
-    AssertScriptError([&] { static_cast<void>(MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, {})); },
-                      {"UnsupportedExecutionMode"});
-    AssertScriptError([&] {
-        static_cast<void>(
-            MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, MonteCarloSettings_{"sobol", false, false, 0.01, true}));
-    }, {"UnsupportedExecutionMode"});
+    // T2 unlocked tree-walk valuation; the compiled evaluator still rejects EXERCISE (T3)
+    const auto valued = MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, {});
+    ASSERT_NEAR(valued.aggregated_, std::exp(-0.05 * 10.0 / 365.0), 1e-12); //  single path exercises for 1.0 on 2026-09-22
+    AssertScriptError(
+        [&] {
+            static_cast<void>(
+                MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, MonteCarloSettings_{"sobol", false, false, 0.01, true}));
+        },
+        {"UnsupportedExecutionMode"});
 }
 
 TEST(ScriptExerciseParseTest, TestExerciseDateMustBeStrictlyAfterEvaluation) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto model = TestModel();
     { // past exercise events are not replayable
-        AssertScriptError([&] {
-            static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0", Date_(2026, 9, 11)), CreateModel<double>(model).get(), {}, {}));
-        }, {"UnsupportedExerciseDate", "2026-09-11", "2026-09-12", "row=1", "strictly after"});
+        AssertScriptError(
+            [&] {
+                static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0", Date_(2026, 9, 11)), CreateModel<double>(model).get(), {}, {}));
+            },
+            {"UnsupportedExerciseDate", "2026-09-11", "2026-09-12", "row=1", "strictly after"});
     }
     { // same-day exercise is excluded by S1
-        AssertScriptError([&] {
-            static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0", Date_(2026, 9, 12)), CreateModel<double>(model).get(), {}, {}));
-        }, {"UnsupportedExerciseDate", "2026-09-12", "row=1"});
+        AssertScriptError(
+            [&] {
+                static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0", Date_(2026, 9, 12)), CreateModel<double>(model).get(), {}, {}));
+            },
+            {"UnsupportedExerciseDate", "2026-09-12", "row=1"});
     }
 }
 
@@ -285,13 +288,15 @@ TEST(ScriptExerciseParseTest, TestExerciseRequiresSobolRsg) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto model = TestModel();
     for (const String_& rsg : {String_("mrg32"), String_("irn")}) {
-        AssertScriptError([&] {
-            static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, MonteCarloSettings_{rsg}));
-        }, {"UnsupportedRsgForExercise", "rsg=" + rsg, "use method='sobol'", "row=1"});
+        AssertScriptError(
+            [&] {
+                static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, MonteCarloSettings_{rsg}));
+            },
+            {"UnsupportedRsgForExercise", "rsg=" + rsg, "use method='sobol'", "row=1"});
     }
     { // sobol preparation succeeds
-        ASSERT_NO_THROW(static_cast<void>(
-            PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, MonteCarloSettings_{"sobol"})));
+        ASSERT_NO_THROW(
+            static_cast<void>(PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, MonteCarloSettings_{"sobol"})));
     }
 }
 

@@ -18,6 +18,7 @@
 #include <dal/model/factory.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
@@ -287,6 +288,12 @@ namespace Dal::Script {
             mdl->Init(product.TimeLine(), product.DefLine());
         }
 
+        //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline only)
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
+            if (product.Product().ContainsExercise())
+                return MCLsmcSimulation(product, mdl, nPaths);
+        }
+
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
 
@@ -471,6 +478,10 @@ namespace Dal::Script {
         if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
                      "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+            REQUIRE2(!product.Product().ContainsExercise(),
+                     "UnsupportedExecutionMode: AAD valuation of EXERCISE is not implemented (the fuzzy driver arrives with a later milestone)",
+                     ScriptError_);
         const bool useCompiled = compiled.value_or(false);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
