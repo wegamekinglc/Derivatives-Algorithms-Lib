@@ -48,7 +48,8 @@ rows. With AAD disabled the result is a 1×2 PV table.
 
 Each `settings` range has exactly two columns, key then value, with no header.
 The valuation constructor's separate `model_bindings` range has two columns,
-asset then index; for example, the text cells `spot` and `EQ[AAPL]`.
+asset then index; for example, the text cells `spot` and `EQ[AAPL]`. A blank
+range leaves the binding to be inferred from the script's future FIX index.
 
 | Settings handle | Key               | Default                                         | Accepted value                                |
 |-----------------|-------------------|-------------------------------------------------|-----------------------------------------------|
@@ -160,10 +161,12 @@ For evaluation date D, fixing date F, and event date E:
   in a dead branch.
 
 `default_index` only gives the legacy zero-argument `SPOT()` an identity.
-It does not change `FIX` literals or infer model bindings. For model-sourced
-named observations, supply an explicit `spot` to one ordinary EQ binding.
-BS and Dupire support that single equity; future FX, IR, composite, delivery
-indices, and multiple assets are unsupported. Historical EQ/FX observations
+It does not change `FIX` literals or bind a model. For model-sourced
+named observations, the engine binds `spot` to one ordinary EQ: supply an
+explicit binding row, or leave the range blank to infer the script's future
+FIX index. BS and Dupire support that single equity; future FX, IR, composite,
+delivery indices, and multiple assets are unsupported; several future EQ
+identities fail with `AmbiguousModelBinding`. Historical EQ/FX observations
 need no model binding and may contain multiple identities. A product default
 and a model binding do not supply market data: the model inputs must describe
 the intended equity.
@@ -174,7 +177,7 @@ compatible. Historical unbound SPOT fails
 with `UnboundHistoricalSpot`; mixing a future-only unbound SPOT with FIX or
 bindings fails with `MissingDefaultIndex`. Matching default-bound SPOT and FIX
 share one request. `FIX()` and named/argument-taking SPOT are invalid. See the
-[script-engine rules](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
+[script-engine rules](methodology/script_engine.md#eq-model-binding-and-legacy-spot)
 for retained observations, separate payment numeraires, hard historical replay,
 fuzzy AAD future conditions, and wholly expired products.
 
@@ -272,7 +275,9 @@ such as `#NAME?` or `#SPILL!` does not satisfy an expected `MissingFixing` case.
 
 The manifest sets D=2026-09-12, H=2026-09-11 midnight, F=2026-09-15, and
 P=2026-09-22, with AAPL history 80, spot 100, SCALE 2, and 257 paths.
-`Handles!B4` supplies D, `Model`, the `spot` binding, and the snapshot;
+`Handles!B4` supplies D, `Model`, a blank binding range (so the `spot` binding
+is inferred from the script's `EQ[AAPL]` FIX), and the snapshot; `Handles!B17`
+keeps an explicit `spot` to `EQ[AAPL]` binding range.
 `Handles!B5` selects Sobol, compiled AAD, no bridge, and smoothing 0.01.
 `Handles!B6` is zero-volatility/zero-rate BS; `B20` has zero volatility,
 rate 0.05 and dividend yield 0.02.

@@ -179,7 +179,6 @@ def test_exact_fuzzy_and_hard_history_have_separate_oracles(compiled):
 @pytest.mark.parametrize(
     "bindings,identifier,field",
     [
-        ({}, "MissingModelBinding", "EQ[DAL196_TEST]"),
         ({"spot": "EQ[OTHER]"}, "ConflictingModelBinding", "EQ[OTHER]"),
         ({"other": INDEX}, "UnknownModelAsset", "valuation.modelBindings_[0]"),
         ({"": INDEX}, "UnknownModelAsset", "valuation.modelBindings_[0]"),
@@ -215,6 +214,41 @@ def test_binding_semantics_keep_native_errors(bindings, identifier, field):
             action()
         assert identifier in str(error.value)
         assert field in str(error.value)
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+def test_empty_bindings_infer_the_script_index(compiled):
+    product = dal.Product_New([P], ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"])
+    valuation = dal.ScriptValuationSettings_(evaluation_date=D)
+    simulation = dal.MonteCarloSettings_(compiled=compiled)
+    data = model(rate=0.05, div=0.02)
+    expected = 100.0 * math.exp(0.03 * 3 / 365.0 - 0.05 * 10 / 365.0)
+    assert_pv(
+        dal.MonteCarlo_ValueWithSettings(
+            product, data, 257, valuation=valuation, simulation=simulation
+        ),
+        expected,
+    )
+    explanation = dal.ScriptValuation_Explain(product, data, valuation=valuation)
+    assert explanation["model_bindings"] == [
+        {"asset": "spot", "index_original": INDEX, "index_canonical": INDEX}
+    ]
+
+
+def test_empty_bindings_reject_ambiguous_future_indices():
+    product = dal.Product_New(
+        [P],
+        ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + FIX(EQ[OTHER], 2026-09-15)"],
+    )
+    valuation = dal.ScriptValuationSettings_(evaluation_date=D)
+    for action in (
+        lambda: dal.MonteCarlo_ValueWithSettings(product, model(), 1, valuation=valuation),
+        lambda: dal.ScriptValuation_Explain(product, model(), valuation=valuation),
+    ):
+        with pytest.raises(RuntimeError) as error:
+            action()
+        assert "AmbiguousModelBinding" in str(error.value)
+        assert INDEX in str(error.value)
 
 
 def test_missing_history_and_midnight_are_not_silently_replaced():

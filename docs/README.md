@@ -113,7 +113,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Preprocessing pipeline (macros, schedules, constant variables)
   - Unquoted `FIX(index[,date])` parsing, protected index literals, and execution limits
   - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
-  - Core tree/compiled FIX valuation: explicit BS/Dupire EQ binding, shared observations, and payment numeraires
+  - Core tree/compiled FIX valuation: explicit or inferred BS/Dupire EQ binding, shared observations, and payment numeraires
   - Typed historical AAD state, hard past decisions, and fuzzy future conditions
   - Legacy SPOT compatibility boundary and C++/Python/Excel settings and diagnostics
   - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic

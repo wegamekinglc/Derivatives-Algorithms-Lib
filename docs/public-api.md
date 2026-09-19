@@ -117,8 +117,10 @@ the event date; unbound future-only scripts need no change. The named form for
 new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
 Historical EQ/FX
 requests resolve at exact midnight, and a missing required fixing is an error,
-never a model or placeholder fallback. Model-sourced requests require an explicit
-`valuation.modelBindings_` mapping from `spot` to one ordinary EQ. A product
+never a model or placeholder fallback. Model-sourced requests bind the model's
+`spot` output to one ordinary EQ: an explicit `valuation.modelBindings_`
+mapping is validated and honored, while an empty mapping infers the binding
+from the script's single future EQ. A product
 default does not create that model binding or supply model market data. The
 per-form, per-date rules are in the
 [SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
@@ -605,7 +607,7 @@ never falls back to it. Global capture is sequential, not atomic across
 sequences, and requires callers to exclude concurrent fixing writes.
 
 The [FIX source rules](methodology/script_engine.md#dates-and-structural-validation)
-and [explicit model binding](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
+and [EQ model binding](methodology/script_engine.md#eq-model-binding-and-legacy-spot)
 apply unchanged: past history, today's selected policy, future model, and no
 fixing after its event. The complete
 [Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
@@ -790,8 +792,9 @@ Square brackets mark optional arguments; omitted valuation/simulation handles
 select fresh native defaults. The product settings handle is required by
 `PRODUCT.NEWWITHSETTINGS`; `PRODUCT.NEW` remains available without it.
 
-Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX requires
-an explicit `spot` to ordinary EQ binding; a product default only gives legacy
+Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX binds
+`spot` to one ordinary EQ, inferred from the script when the binding range is
+blank; a product default only gives legacy
 `SPOT()` an identity. Valuation settings accept an integral evaluation date,
 case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
 match case-insensitively), and an immutable snapshot.
