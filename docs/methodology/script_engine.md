@@ -136,9 +136,9 @@ always the event date:
 
 | Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                       |
 |------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|-----------------------------------------------|
-| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model via the `spot` to EQ binding, explicit or inferred   |
+| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model, bound to the script's EQ index by name              |
 | Unbound `SPOT()`       | Model spot at event date | `UnboundHistoricalSpot`                    | Model, or `UnboundHistoricalSpot` under `REQUIREHISTORICAL` | Legacy model path; no binding                 |
-| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; needs the same `spot` binding as `FIX` |
+| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; same script index as `FIX`            |
 
 The compatibility rules are:
 
@@ -147,7 +147,7 @@ The compatibility rules are:
   tree/compiled and AAD paths.
 - A product `defaultIndex_` only names `SPOT()`; it does not change `FIX`
   literals, bind a model, or supply market data.
-- Mixing a future-only unbound `SPOT()` with `FIX` or model bindings fails
+- Mixing a future-only unbound `SPOT()` with `FIX` fails
   with `MissingDefaultIndex`; these checks include dead branches.
 - Missing required history is always an error, never a model or placeholder
   value, whichever form the observation uses.
@@ -155,7 +155,7 @@ The compatibility rules are:
   `F > E` fails with `LookAheadObservation`, including in a dead branch.
 
 Valuation-level detail lives under
-[EQ Model Binding and Legacy SPOT](#eq-model-binding-and-legacy-spot).
+[The Script Model Index and Legacy SPOT](#the-script-model-index-and-legacy-spot).
 
 ### Comparators and Smoothing Hints
 
@@ -236,8 +236,8 @@ Include `dal-public/src/script.hpp` for product construction and description,
 and `dal-public/src/value.hpp` for valuation and explanation. The public
 `Dal::ScriptProductSettings_`, `Dal::ScriptValuationSettings_`, and
 `Dal::MonteCarloSettings_` names expose the core types defined in
-`dal-cpp/dal/script/settings.hpp` under `Dal::Script`. `ModelIndexBinding_`,
-`TodayFixingPolicy_`, and `MarketFixingSnapshot_` belong to `Dal`.
+`dal-cpp/dal/script/settings.hpp` under `Dal::Script`. `TodayFixingPolicy_`
+and `MarketFixingSnapshot_` belong to `Dal`.
 
 The supported call shapes are:
 
@@ -262,7 +262,6 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 |----------------------------|----------------------|-------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | `ScriptProductSettings_`   | `defaultIndex_`      | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                  |
 | `ScriptValuationSettings_` | `todayFixingPolicy_` | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                          |
-| `ScriptValuationSettings_` | `modelBindings_`     | Empty vector                        | Records have `assetName_` and `indexName_`; empty infers one `spot` binding from the script's future EQ.     |
 | `ScriptValuationSettings_` | `evaluationDate_`    | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                        |
 | `ScriptValuationSettings_` | `fixings_`           | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.              |
 | `MonteCarloSettings_`      | `rsg_`               | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                               |
@@ -289,8 +288,7 @@ Errors retain a stable identifier, the offending field/value and its constraint,
 with the throwing function in DAL exception context. Examples include
 `InvalidPathCount` (`numPath`), `InvalidSetting` with `InvalidSmoothing`
 (`simulation.smooth_`), `InvalidTodayFixingPolicy`
-(`valuation.todayFixingPolicy_`), `DuplicateModelBinding`, `UnknownModelAsset`,
-`InvalidIndex`, `AmbiguousModelBinding`, and `ConflictingModelBinding`.
+(`valuation.todayFixingPolicy_`), `InvalidIndex`, and `MultipleModelIndices`.
 Observation failures additionally identify original/canonical index names,
 exact fixing timestamp, event, source row and expanded position, statement,
 and node. `MissingFixing` reports the selected source and the exact-history
@@ -458,25 +456,20 @@ workers start. Low-level callers must retain the returned `PreparedScript_`
 while using that initialized model: the model may reference its sample
 definitions. Moving the prepared object preserves that storage.
 
-### EQ Model Binding and Legacy SPOT
+### The Script Model Index and Legacy SPOT
 
-`ScriptValuationSettings_::modelBindings_` contains `Dal::ModelIndexBinding_`
-records with `assetName_` and `indexName_`. Black-Scholes and Dupire support
-one `spot` to ordinary `EQ[AAPL]` binding for model-sourced FIX, including
-today under `MODEL`. An empty `modelBindings_` infers the binding from the
-script: its single model-observed ordinary EQ supplies the identity, so
-`pay PAYS FIX(EQ[AAPL])` binds the model to `EQ[AAPL]` with no settings. The
-binding, explicit or inferred, declares which equity the caller's model inputs
-describe; the library cannot verify that the caller supplied the intended
-equity's market data.
+Black-Scholes and Dupire are single-asset models. A model-sourced `FIX`,
+including today under `MODEL`, is managed purely by its index name: the
+script's single model-observed ordinary EQ supplies the identity, so
+`pay PAYS FIX(EQ[AAPL])` binds the model's spot output to `EQ[AAPL]` with no
+settings of any kind. The named index declares which equity the caller's
+model inputs describe; the library cannot verify that the caller supplied the
+intended equity's market data.
 
-A duplicate binding, unknown asset, unsupported bound index, or an explicit
-binding conflicting with the requested identity (`ConflictingModelBinding`)
-fails before history access or worker submission. So does a second distinct
-future index under inference (`AmbiguousModelBinding`); supply an explicit
-binding only matches the requested identity. Future FX, IR, composite, EQ
-delivery (`>` or `@`), and multi-asset
-outputs are unsupported. Historical EQ/FX observations need no model binding;
+An unsupported model-observed index, or a second distinct future index
+(`MultipleModelIndices`), fails before history access or worker submission.
+Future FX, IR, composite, EQ delivery (`>` or `@`), and multi-asset
+outputs are unsupported. Historical EQ/FX observations need no model index;
 several historical equities, delivery identities, and FX directions can coexist
 with one future ordinary EQ. Historical inverse-FX lookup does not imply a
 future FX model or a reciprocal projection of model spot.
@@ -485,11 +478,10 @@ Zero-argument `SPOT()` retains the existing future-only legacy tree, compiled,
 and AAD paths and defaults. In model-aware preparation,
 `ScriptProductSettings_::defaultIndex_` gives SPOT an explicit named identity
 at its event date. Matching SPOT and FIX uses share one request and the same
-history value or model cell. A default index names SPOT but does not bind a
-model; the binding still comes from `modelBindings_` or the inferred future
-EQ. Without a default, historical
-SPOT raises `UnboundHistoricalSpot`; mixing future-only SPOT with FIX or
-model bindings raises `MissingDefaultIndex`. These checks include dead
+history value or model cell. A default index names SPOT; it does not change
+`FIX` literals or supply market data. Without a default, historical
+SPOT raises `UnboundHistoricalSpot`; mixing future-only SPOT with FIX raises
+`MissingDefaultIndex`. These checks include dead
 branches. SPOT takes no arguments, and `FIX()` is invalid.
 
 ### Retained Observations and Payment Dates
@@ -571,7 +563,7 @@ Python exposes the same preparation through
 `MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)`
 and the three native settings types. `Product_New(events_dates, events, *, settings=None)`
 accepts a product default; valuation settings supply an explicit date, today's
-policy, a `spot` to EQ binding dictionary and an immutable fixing snapshot.
+policy, and an immutable fixing snapshot.
 Legacy product calls and three-to-eight-argument `MonteCarlo_Value` remain
 available. Both Value entries validate integer paths and use fresh preparation.
 The [Python settings reference](../../dal-python/README.md#script-settings-and-copies)
@@ -588,8 +580,8 @@ date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`.
 
 Excel exposes the same preparation through `MONTECARLO.VALUEWITHSETTINGS`
 and immutable product, valuation, and simulation settings handles. Two-column
-settings/binding ranges supply a default for legacy SPOT, an explicit date,
-today policy, `spot` to ordinary EQ binding, snapshot, and compiled/AAD options.
+settings ranges supply a default for legacy SPOT, an explicit date,
+today policy, snapshot, and compiled/AAD options.
 Omitted handles use defaults; an explicit empty snapshot never falls back to
 global history. `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` project the
 native schemas as headerless JSON text columns, concatenated without separators.
@@ -602,7 +594,7 @@ date/time rules, and the executable workbook.
 ## Core AAD/Tree Fixing Valuation
 
 `MCSimulation<AAD::Number_>(data, modelData, nPaths, settings, simulation, snapshot, contract)`
-uses the same model-aware observation plan, date policies, explicit or inferred EQ binding,
+uses the same model-aware observation plan, date policies, the script's EQ model index,
 and payment numeraires as the double entry. The data overload enables AAD
 automatically; `simulation.smooth_` selects the default future-condition width
 and `simulation.compiled_` selects tree or compiled execution. Each call
@@ -929,7 +921,7 @@ Model-aware preparation fixes exact/fuzzy mode, default epsilon, and compiled
 selection before optimization. Its order is:
 
 1. Parse and collect every syntactic observation, partition events, index
-   variables, and validate settings and bindings.
+   variables, and validate settings.
 2. Validate model capabilities, build the observation/payment sample plan, and
    allocate and initialize the model. Resolve and seal required history before
    any branch pruning. Wholly expired products take the separate zero path.
@@ -1298,7 +1290,7 @@ Archive roundtrips preserve the original product name, event cells, unexpanded
 script text, default-index spelling, and unquoted FIX literals, including FX
 direction and EQ delivery identity. They do not rewrite script text to
 canonical names. The archive contains no valuation date, fixing values or
-sources, model bindings, slots, sample/observation plan, prepared AST, bytecode,
+sources, model index, slots, sample/observation plan, prepared AST, bytecode,
 or AAD seed. Explaining or repricing a product does not change its archive.
 
 The v1 reader does not imply that an old binary can read v2 or execute FIX
@@ -1355,9 +1347,8 @@ starts no workers, and creates no active AAD recording.
 
 The JSON reports `evaluation_date`, `today_fixing` (`Model` or
 `RequireHistorical`), `source_kind` (`GlobalSnapshot` or `ExplicitSnapshot`),
-effective `simulation`, `all_expired`, `observation_mode`, and effective
-`model_bindings` (echoing explicit settings, or the inferred `spot` binding
-when settings are empty). The source kind describes the selected historical input,
+effective `simulation`, `all_expired`, `observation_mode`, and the model's
+`spot` index in `model_bindings`. The source kind describes the selected historical input,
 even if no history is needed; each request separately has source `Historical`
 or `Model`.
 

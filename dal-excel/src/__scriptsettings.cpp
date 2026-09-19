@@ -35,15 +35,11 @@ public ScriptValuationSettings_New
 name is string
     Object name
 +const Excel::ScriptSettingsInput_ settingsInput(xl_settings); xl_settings = settingsInput.Get();
-+const Excel::ScriptSettingsInput_ bindingsInput(xl_model_bindings); xl_model_bindings = bindingsInput.Get();
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "ScriptValuationSettings_New", "settings");
-+argName = "model_bindings (input #3)"; Excel::ValidateScriptSettingsRange(xl_model_bindings, "ScriptValuationSettings_New", "model_bindings");
 +xl_fixings = Excel::ScriptScalarInput(xl_fixings);
 &optional
 settings is cell[][]+
     Two columns: evaluation_date (integer serial), today_fixing (Model or RequireHistorical). Blank uses defaults.
-model_bindings is cell[][]+
-    Two columns asset/index. Blank infers the binding from the script's future FIX index.
 fixings is handle StorableMarketFixingSnapshot
     Snapshot handle; blank uses global history per call. Explicit empty snapshot never falls back.
 &outputs
@@ -138,8 +134,8 @@ namespace Dal {
                 const auto valueContext = ScriptSettingLocation(function, argument, row + 1, 2) + key + "; ";
                 REQUIRE(!Cell::IsEmpty(value), valueContext + "expected non-empty value");
                 const auto inserted = seen.emplace(key, row + 1);
-                REQUIRE(inserted.second, keyContext + (argument == "model_bindings" ? "DuplicateModelBinding: duplicate asset " : "duplicate key ") +
-                                             key + "; first row=" + String_(std::to_string(inserted.first->second)) + "; expected each key once");
+                REQUIRE(inserted.second, keyContext + "duplicate key " + key + "; first row=" + String_(std::to_string(inserted.first->second)) +
+                                             "; expected each key once");
                 applyRow(key, value, keyContext, valueContext);
             }
         }
@@ -157,7 +153,6 @@ namespace Dal {
 
     void ScriptValuationSettings_New(const String_& name,
                                      const Matrix_<Cell_>& settings,
-                                     const Matrix_<Cell_>& modelBindings,
                                      const Handle_<StorableMarketFixingSnapshot_>& fixings,
                                      Handle_<StorableScriptValuationSettings_>* valuation) {
         Script::ScriptValuationSettings_ value;
@@ -176,11 +171,6 @@ namespace Dal {
                      } else {
                          THROW(keyContext + "unknown key " + key + "; expected evaluation_date or today_fixing");
                      }
-                 });
-        ReadRows(modelBindings, "ScriptValuationSettings_New", "model_bindings",
-                 [&](const String_& key, const Cell_& cell, const String_& keyContext, const String_& valueContext) {
-                     REQUIRE(key == "spot", keyContext + "UnknownModelAsset: " + key + "; expected spot");
-                     value.modelBindings_.push_back({key, TextValue(cell, valueContext)});
                  });
         if (fixings) {
             REQUIRE(fixings->val_, "InvalidSetting: ScriptValuationSettings_New; fixings; expected non-null native snapshot");

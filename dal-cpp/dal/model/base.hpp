@@ -16,11 +16,6 @@
 namespace Dal {
     class Index_;
 
-    struct ModelIndexBinding_ {
-        String_ assetName_;
-        String_ indexName_;
-    };
-
     namespace AAD {
         inline bool IsPlainEquity(const Index_& index) {
             const auto* equity = dynamic_cast<const Index::Equity_*>(&index);

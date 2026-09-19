@@ -18,13 +18,25 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-19
 
+- **BREAKING: model bindings removed; FIX is managed by index name** — deleted
+  `ScriptValuationSettings_::modelBindings_` and `Dal::ModelIndexBinding_` along
+  with the `UnknownModelAsset`/`DuplicateModelBinding`/`ConflictingModelBinding`/
+  `MissingModelBinding`/`AmbiguousModelBinding` errors. Every model-sourced
+  `FIX` now binds the model's `spot` output to the script's own future FIX
+  index; several distinct future indices fail with `MultipleModelIndices`.
+  The Python `model_bindings` settings argument is removed (passing it raises
+  `TypeError`), and Excel `SCRIPTVALUATIONSETTINGS.NEW` loses its third
+  argument, becoming `name, [settings], [fixings]`. Explain diagnostics keep
+  the `model_bindings` field as the effective model index. See
+  [the script model index](docs/methodology/script_engine.md#the-script-model-index-and-legacy-spot).
+
 - **Script engine infers the model binding** — an empty
   `ScriptValuationSettings_::modelBindings_` no longer fails model-sourced
   `FIX` valuation with `MissingModelBinding`; preparation binds the model's
   `spot` output to the script's single future ordinary EQ and raises
   `AmbiguousModelBinding` on several distinct future indices. Explicit
   bindings keep their validation, and Describe/Explain diagnostics report the
-  inferred binding. See [EQ model binding](docs/methodology/script_engine.md#eq-model-binding-and-legacy-spot).
+  inferred binding. (Superseded by the removal above, same day.)
 
 ## 2026-09-15
 

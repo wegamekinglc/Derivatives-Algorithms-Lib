@@ -1,7 +1,7 @@
 # Excel FIX Settings and Diagnostics
 
 The Windows XLL values scripts containing `FIX(EQ[AAPL])` with explicit
-valuation dates, model bindings, immutable fixing snapshots, and tree or
+valuation dates, immutable fixing snapshots, and tree or
 compiled price/AAD execution. Three settings constructors return repository
 handles for contract, valuation, and simulation choices.
 
@@ -9,14 +9,14 @@ handles for contract, valuation, and simulation choices.
 
 These are the registered worksheet names; use them without an added `DA.`
 prefix. Square brackets below mark optional arguments and are not formula
-syntax. Settings and bindings are worksheet ranges; the other settings inputs
+syntax. Settings are worksheet ranges; the other settings inputs
 are handles returned by constructors.
 
 | Function                       | Inputs in order                                          | Result                     |
 |--------------------------------|----------------------------------------------------------|----------------------------|
 | `SCRIPTPRODUCTSETTINGS.NEW`    | `name, [settings]`                                       | Product settings handle    |
 | `PRODUCT.NEWWITHSETTINGS`      | `name, dates, events, settings`                          | Script product handle      |
-| `SCRIPTVALUATIONSETTINGS.NEW`  | `name, [settings], [model_bindings], [fixings]`          | Valuation settings handle  |
+| `SCRIPTVALUATIONSETTINGS.NEW`  | `name, [settings], [fixings]`                            | Valuation settings handle  |
 | `MONTECARLOSETTINGS.NEW`       | `name, [settings]`                                       | Simulation settings handle |
 | `MONTECARLO.VALUEWITHSETTINGS` | `product, modelData, n_paths, [valuation], [simulation]` | N×2 price/risk table       |
 | `PRODUCT.DESCRIBE`             | `product`                                                | N×1 JSON text chunks       |
@@ -44,12 +44,12 @@ keys instead of assuming PV is the first row. AAD adds model and script-constant
 risks; risks are already normalized, and there are no fixing-risk or diagnostic
 rows. With AAD disabled the result is a 1×2 PV table.
 
-## Settings and Binding Ranges
+## Settings Ranges
 
 Each `settings` range has exactly two columns, key then value, with no header.
-The valuation constructor's separate `model_bindings` range has two columns,
-asset then index; for example, the text cells `spot` and `EQ[AAPL]`. A blank
-range leaves the binding to be inferred from the script's future FIX index.
+Model-sourced FIX observations are bound by index name, so the valuation
+constructor takes no binding range: the engine binds the model's spot output
+to the script's future FIX index.
 
 | Settings handle | Key               | Default                                         | Accepted value                                |
 |-----------------|-------------------|-------------------------------------------------|-----------------------------------------------|
@@ -62,7 +62,7 @@ range leaves the binding to be inferred from the script's future FIX index.
 | Simulation      | `smooth`          | `0.01`                                          | Finite, strictly positive number; not boolean |
 | Simulation      | `compiled`        | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
 
-Settings keys, RNG names, and binding assets use DAL's case-insensitive
+Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
 `MODEL`, `model`, and `UseIfAvailable` are invalid. Boolean fields reject text
 `"TRUE"`, `"FALSE"`, and `"1"`, as well as numbers other than 0 and 1.
@@ -115,13 +115,13 @@ tag, or a handle of the wrong type is an error. The following states differ:
 
 | Input                                                      | Meaning                                                                          |
 |------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Omitted valuation                                          | Default policy/bindings, global date and required history captured for this call |
-| Valuation constructed with blank settings/bindings/fixings | Same defaults; construction captures neither date nor history                    |
+| Omitted valuation                                          | Default policy, global date and required history captured for this call          |
+| Valuation constructed with blank settings/fixings          | Same defaults; construction captures neither date nor history                    |
 | Explicit valuation date, omitted fixings                   | Fixed date, current required global history at each call                         |
 | Snapshot handle, including an empty snapshot               | Use only that snapshot; missing required history fails                           |
 
 For an explicit empty snapshot, use `=MARKETFIXINGSNAPSHOT.NEW(,,)` and pass
-its nonempty handle as the valuation constructor's fourth argument. It selects
+its nonempty handle as the valuation constructor's third argument. It selects
 `ExplicitSnapshot`; it never fills missing values from global history. A blank
 handle selects `GlobalSnapshot`. Global history capture copies sequences in
 turn, not as an atomic market-wide snapshot; exclude concurrent fixing writes
@@ -162,22 +162,22 @@ For evaluation date D, fixing date F, and event date E:
 
 `default_index` only gives the legacy zero-argument `SPOT()` an identity.
 It does not change `FIX` literals or bind a model. For model-sourced
-named observations, the engine binds `spot` to one ordinary EQ: supply an
-explicit binding row, or leave the range blank to infer the script's future
-FIX index. BS and Dupire support that single equity; future FX, IR, composite,
-delivery indices, and multiple assets are unsupported; several future EQ
-identities fail with `AmbiguousModelBinding`. Historical EQ/FX observations
-need no model binding and may contain multiple identities. A product default
-and a model binding do not supply market data: the model inputs must describe
+named observations, the engine binds the model's `spot` output to one ordinary
+EQ, taken from the script's own future FIX index by name; several distinct
+future indices fail with `MultipleModelIndices`. BS and Dupire support that
+single equity; future FX, IR, composite,
+delivery indices, and multiple assets are unsupported. Historical EQ/FX observations
+need no model index and may contain multiple identities. A product default
+does not supply market data: the model inputs must describe
 the intended equity.
 
 `SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
 for named observations in new worksheets. Future-only unbound `SPOT()` remains
 compatible. Historical unbound SPOT fails
-with `UnboundHistoricalSpot`; mixing a future-only unbound SPOT with FIX or
-bindings fails with `MissingDefaultIndex`. Matching default-bound SPOT and FIX
+with `UnboundHistoricalSpot`; mixing a future-only unbound SPOT with FIX
+fails with `MissingDefaultIndex`. Matching default-bound SPOT and FIX
 share one request. `FIX()` and named/argument-taking SPOT are invalid. See the
-[script-engine rules](methodology/script_engine.md#eq-model-binding-and-legacy-spot)
+[script-engine rules](methodology/script_engine.md#the-script-model-index-and-legacy-spot)
 for retained observations, separate payment numeraires, hard historical replay,
 fuzzy AAD future conditions, and wholly expired products.
 
@@ -275,9 +275,8 @@ such as `#NAME?` or `#SPILL!` does not satisfy an expected `MissingFixing` case.
 
 The manifest sets D=2026-09-12, H=2026-09-11 midnight, F=2026-09-15, and
 P=2026-09-22, with AAPL history 80, spot 100, SCALE 2, and 257 paths.
-`Handles!B4` supplies D, `Model`, a blank binding range (so the `spot` binding
-is inferred from the script's `EQ[AAPL]` FIX), and the snapshot; `Handles!B17`
-keeps an explicit `spot` to `EQ[AAPL]` binding range.
+`Handles!B4` supplies D, `Model`, and the snapshot; the model's `spot` output
+is bound to the script's `EQ[AAPL]` FIX index by name.
 `Handles!B5` selects Sobol, compiled AAD, no bridge, and smoothing 0.01.
 `Handles!B6` is zero-volatility/zero-rate BS; `B20` has zero volatility,
 rate 0.05 and dividend yield 0.02.

@@ -17,7 +17,6 @@ Create immutable valuation settings; no date capture or preparation
 
 <tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
 <tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: evaluation_date (integer serial), today_fixing (Model or RequireHistorical). Blank uses defaults.</td></tr>
-<tr><td>model_bindings</td><td>matrix of cells</td><td>yes</td><td>Two columns asset/index. Blank infers the binding from the script's future FIX index.</td></tr>
 <tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Snapshot handle; blank uses global history per call. Explicit empty snapshot never falls back.</td></tr>
 
 </table>

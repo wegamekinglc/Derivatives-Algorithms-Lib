@@ -48,7 +48,6 @@ TEST(ScriptContractTest, TestExplainInterleavesModelAndInverseFxHistoryIds) {
                               {"pay PAYS FIX(EQ[Z], 2026-09-11) + FIX(EQ[A], 2026-09-15) + FIX(FX[EUR/USD], 2026-09-11) + FIX(eq[z], 2026-09-11)"});
     Dal::ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[A]"}};
     const DateTime_ historyTime(Date_(2026, 9, 11), 0.0);
     valuation.fixings_ =
         Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[Z]", {{historyTime, 80.0}}}, {"FX[USD/EUR]", {{historyTime, 0.8}}}}));

@@ -110,7 +110,7 @@ namespace Dal::Script {
                                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" +
                                             String_(std::to_string(use.nodeId_));
                     REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
-                    REQUIRE2(requests_.empty() && settings_.modelBindings_.empty(), "MissingDefaultIndex" + context, ScriptError_);
+                    REQUIRE2(requests_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }
             }
         };
@@ -183,23 +183,7 @@ namespace Dal::Script {
     } // namespace
 
     class PreparedScriptBuilder_ {
-        static Handle_<Index_> ValidateBindings(const ScriptValuationSettings_& settings) {
-            Handle_<Index_> result;
-            for (size_t i = 0; i < settings.modelBindings_.size(); ++i) {
-                const auto& binding = settings.modelBindings_[i];
-                const String_ field = "valuation.modelBindings_[" + String_(std::to_string(i)) + "]";
-                REQUIRE2(binding.assetName_ == "spot", "UnknownModelAsset: " + field + ".assetName_=" + binding.assetName_ + "; expected spot",
-                         ScriptError_);
-                REQUIRE2(!result,
-                         "DuplicateModelBinding: " + field + ".assetName_=" + binding.assetName_ +
-                             "; duplicates valuation.modelBindings_[0]; expected unique asset names",
-                         ScriptError_);
-                result = ParseSettingIndex(binding.indexName_, field + ".indexName_");
-            }
-            return result;
-        }
-
-        //  No explicit binding: the script's own model-observed index supplies the identity
+        //  The model's spot output binds to the script's own model-observed index
         static Handle_<Index_> InferBinding(const Vector_<ObservationRequest_>& requests) {
             Handle_<Index_> result;
             for (const auto& request : requests) {
@@ -210,8 +194,7 @@ namespace Dal::Script {
                     continue;
                 }
                 REQUIRE2(result->Name() == request.key_.canonicalIndex_,
-                         "AmbiguousModelBinding: valuation.modelBindings_=empty; inferred=" + result->Name() +
-                             "; expected one model-observed EQ or an explicit spot binding" + Context(request),
+                         "MultipleModelIndices: expected one model-observed EQ; first=" + result->Name() + Context(request),
                          ScriptError_);
             }
             return result;
@@ -242,24 +225,13 @@ namespace Dal::Script {
         static void ModelPlan(ObservationPlan_* plan,
                               const ScriptProduct_& product,
                               const Date_& evaluationDate,
-                              const ScriptValuationSettings_& settings,
-                              const AAD::Model_<double>& model,
-                              const Handle_<Index_>& boundIndex) {
-            if (boundIndex && !settings.modelBindings_.empty())
-                REQUIRE2(model.SupportsIndex(*boundIndex),
-                         "UnsupportedModelObservation: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
-                             "; canonical=" + boundIndex->Name() + "; expected one plain EQ supported by the model",
-                         ScriptError_);
+                              const AAD::Model_<double>& model) {
             std::set<Date_> dates(product.EventDates().begin(), product.EventDates().end());
             for (const auto& request : plan->requests_) {
                 if (request.historical_)
                     continue;
                 REQUIRE2(model.SupportsIndex(*request.index_),
                          "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
-                REQUIRE2(boundIndex->Name() == request.key_.canonicalIndex_,
-                         "ConflictingModelBinding: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
-                             "; bound canonical=" + boundIndex->Name() + "; expected requested identity" + Context(request),
-                         ScriptError_);
                 dates.insert(request.key_.fixingTime_.Date());
             }
             for (const auto& date : dates) {
@@ -291,9 +263,7 @@ namespace Dal::Script {
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
             product->IndexVariables();
-            auto boundIndex = ValidateBindings(settings);
-            if (!boundIndex)
-                boundIndex = InferBinding(collector.requests_);
+            const auto boundIndex = InferBinding(collector.requests_);
             ValidateSimulationSettings(simulation);
             ObservationPlan_ plan(std::move(collector.requests_), {});
             if (boundIndex)
@@ -304,7 +274,7 @@ namespace Dal::Script {
             if (result.AllExpired())
                 return result;
             if (model) {
-                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, settings, *model, boundIndex);
+                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }

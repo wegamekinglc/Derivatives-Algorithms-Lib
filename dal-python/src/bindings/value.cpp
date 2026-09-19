@@ -67,29 +67,6 @@ namespace {
         return TodayFixingPolicy_(name == "Model" ? Policy_::MODEL : Policy_::REQUIREHISTORICAL);
     }
 
-    Vector_<ModelIndexBinding_> ModelBindings(const py::handle& value) {
-        Vector_<ModelIndexBinding_> result;
-        if (value.is_none())
-            return result;
-        if (!py::isinstance<py::dict>(value))
-            throw py::type_error(
-                InputContext(value, "ScriptValuationSettings_; model_bindings / valuation.modelBindings_", "dict of str keys and values or None"));
-        for (const auto& item : py::reinterpret_borrow<py::dict>(value)) {
-            const auto field = "ScriptValuationSettings_; model_bindings / valuation.modelBindings_[" + std::to_string(result.size()) + "]";
-            const auto asset = StringInput(item.first, field + ".assetName_ (key)");
-            const auto index = StringInput(item.second, field + ".indexName_ (value for " + Text(asset) + ")");
-            result.push_back({asset, index});
-        }
-        return result;
-    }
-
-    py::dict BindingDict(const ScriptValuationSettings_& settings) {
-        py::dict result;
-        for (const auto& entry : settings.modelBindings_)
-            result[py::str(Text(entry.assetName_))] = py::str(Text(entry.indexName_));
-        return result;
-    }
-
     Handle_<MarketFixingSnapshot_> Fixings(const py::handle& value) {
         if (value.is_none())
             return {};
@@ -169,24 +146,20 @@ void init_bindings_value(py::module_& m) {
 
     WithCopies(py::class_<ScriptValuationSettings_>(m, "ScriptValuationSettings_"))
         .def(
-            py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& modelBindings, const py::object& fixings) {
+            py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& fixings) {
                 ScriptValuationSettings_ settings;
                 settings.evaluationDate_ = EvaluationDate(evaluationDate);
                 settings.todayFixingPolicy_ = TodayPolicy(todayFixing);
-                settings.modelBindings_ = ModelBindings(modelBindings);
                 settings.fixings_ = Fixings(fixings);
                 return settings;
             }),
-            py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("model_bindings") = py::none(),
-            py::arg("fixings") = py::none())
+            py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("fixings") = py::none())
         .def_property(
             "evaluation_date", [](const ScriptValuationSettings_& settings) { return settings.evaluationDate_; },
             [](ScriptValuationSettings_* settings, const py::object& value) { settings->evaluationDate_ = EvaluationDate(value); })
         .def_property(
             "today_fixing", [](const ScriptValuationSettings_& settings) { return settings.todayFixingPolicy_.Switch(); },
             [](ScriptValuationSettings_* settings, const py::object& value) { settings->todayFixingPolicy_ = TodayPolicy(value); })
-        .def_property("model_bindings", &BindingDict,
-                      [](ScriptValuationSettings_* settings, const py::object& value) { settings->modelBindings_ = ModelBindings(value); })
         .def_property(
             "fixings", [](const ScriptValuationSettings_& settings) { return std::const_pointer_cast<MarketFixingSnapshot_>(settings.fixings_); },
             [](ScriptValuationSettings_* settings, const py::object& value) { settings->fixings_ = Fixings(value); });

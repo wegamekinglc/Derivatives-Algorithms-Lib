@@ -46,8 +46,8 @@ namespace {
     // expectation of a simulated future fixing under Black-Scholes (no dividend)
     double Forward(const Date_& fixingDate) { return SPOT * std::exp(RATE * (fixingDate - EVAL_DATE) / DAYS_PER_YEAR); }
 
-    // future FIX(...) observations need no explicit model binding: with an empty
-    // valuation.modelBindings_ the engine binds the model to the script's own index
+    // future FIX(...) observations are managed by index name alone: the engine
+    // binds the model's spot output to the script's own index
     ScriptProductData_ PayFixing(const Date_& fixingDate) {
         return {"", {Cell_(MATURITY)}, {"pay PAYS FIX(" + INDEX + ", " + Date::ToString(fixingDate) + ")"}};
     }

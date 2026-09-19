@@ -5,6 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <dal/indice/index.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/script/settings.hpp>
 #include <dal/storage/globals.hpp>

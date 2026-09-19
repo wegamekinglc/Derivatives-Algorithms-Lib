@@ -19,7 +19,6 @@ int main(int argc, char** argv) {
     const Date_ d(2026, 9, 12), h(2026, 9, 11), p(2026, 9, 22);
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = d;
-    valuation.modelBindings_ = {{"spot", "EQ[AAPL]"}};
     valuation.fixings_ = MarketFixingSnapshotNew({{"EQ[AAPL]", {{DateTime_(h, 0.), 80.}, {DateTime_(d, 0.), 80.}}}});
     const Handle_<ModelData_> model(new BSModelData_("zero-vol", 100., 0., 0., 0.));
     const auto mixed = NewScriptProduct("mixed", {Cell_("SCALE"), Cell_(h), Cell_(p)},
