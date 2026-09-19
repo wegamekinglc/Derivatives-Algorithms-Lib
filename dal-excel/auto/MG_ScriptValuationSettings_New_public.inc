@@ -42,7 +42,7 @@ struct XlRegister_ScriptValuationSettings_New_
         Vector_<String_> argHelp;        
         argHelp.push_back("Object name");
         argHelp.push_back("Two columns: evaluation_date (integer serial), today_fixing (Model or RequireHistorical). Blank uses defaults.");
-        argHelp.push_back("Two columns asset/index. Future FIX requires explicit spot to one plain EQ. Blank means no bindings.");
+        argHelp.push_back("Two columns asset/index. Blank infers the binding from the script's future FIX index.");
         argHelp.push_back("Snapshot handle; blank uses global history per call. Explicit empty snapshot never falls back.");
         Excel::Register("Base", "xl_ScriptValuationSettings_New", "SCRIPTVALUATIONSETTINGS.NEW", "Create immutable valuation settings; no date capture or preparation", "QQQQQ", "name,[settings],[model_bindings],[fixings]", argHelp, false);
     }
