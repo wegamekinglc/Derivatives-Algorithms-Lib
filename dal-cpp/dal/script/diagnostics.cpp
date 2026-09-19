@@ -112,7 +112,9 @@ namespace Dal::Script {
             out << ",\"value\":" << DebugNumber(product.ConstVarValues()[i]) << '}';
         });
         out << ",\"payoff_index\":";
-        if (product.HasPayoff() && !product.VarNames().empty())
+        // The receiver slot exists only when a PAYS statement defines it; EXERCISE-only
+        // products keep the null key (the LSMC driver aggregates the path payoff itself)
+        if (product.HasPays() && !product.VarNames().empty())
             out << product.PayOffIdx();
         else
             out << "null";

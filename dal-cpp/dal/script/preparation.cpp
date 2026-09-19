@@ -180,6 +180,25 @@ namespace Dal::Script {
             }
             return values;
         }
+
+        //  First EXERCISE statement on events whose date satisfies `accept`, with the event date
+        template <class F_>
+        std::pair<const NodeExercise_*, Date_> FindExerciseIn(const Vector_<Event_>& events, const Vector_<Date_>& dates, const F_& accept) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                if (!accept(dates[i]))
+                    continue;
+                for (const auto& statement : events[i])
+                    if (const auto* exercise = dynamic_cast<const NodeExercise_*>(FindNode(
+                            *statement, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; })))
+                        return {exercise, dates[i]};
+            }
+            return {nullptr, Date_()};
+        }
+
+        template <class F_> std::pair<const NodeExercise_*, Date_> FindExercise(const ScriptProduct_& product, const F_& accept) {
+            const auto past = FindExerciseIn(product.PastEvents(), product.PastEventDates(), accept);
+            return past.first ? past : FindExerciseIn(product.Events(), product.EventDates(), accept);
+        }
     } // namespace
 
     class PreparedScriptBuilder_ {
@@ -262,9 +281,26 @@ namespace Dal::Script {
             collector.Collect(*product);
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
+            ValidateSimulationSettings(simulation);
+            //  Early-exercise gates: exercise dates must be strictly future (S1/S8) and only the
+            //  sobol engine safely replays normal paths for the frozen strategy (S15); history-only
+            //  preparation cannot value EXERCISE (S12)
+            const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
+            REQUIRE2(!expired.first,
+                     "UnsupportedExerciseDate: event=" + Date::ToString(expired.second) +
+                         "; expected an exercise date strictly after the evaluation date " + Date::ToString(evaluationDate) + "; " +
+                         expired.first->source_.Describe(),
+                     ScriptError_);
+            const auto exercise = FindExercise(*product, [](const Date_&) { return true; });
+            if (exercise.first) {
+                REQUIRE2(simulation.rsg_ == "sobol",
+                         "UnsupportedRsgForExercise: rsg=" + simulation.rsg_ + "; use method='sobol'; " + exercise.first->source_.Describe(),
+                         ScriptError_);
+                REQUIRE2(model, "UnsupportedExecutionMode: history-only preparation cannot value EXERCISE; " + exercise.first->source_.Describe(),
+                         ScriptError_);
+            }
             product->IndexVariables();
             const auto boundIndex = InferBinding(collector.requests_);
-            ValidateSimulationSettings(simulation);
             ObservationPlan_ plan(std::move(collector.requests_), {});
             if (boundIndex)
                 plan.modelBindingNames_.push_back(boundIndex->Name());

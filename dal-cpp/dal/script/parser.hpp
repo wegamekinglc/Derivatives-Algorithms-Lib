@@ -16,6 +16,11 @@ namespace Dal::Script {
         using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
         String_ preparationError_;
+        // One EXERCISE statement per event, and only at the event top level;
+        // hasPays_/hasExercise_ let ScriptProduct_ answer payoff queries without re-walking the AST
+        bool hasExercise_ = false;
+        bool hasPays_ = false;
+        size_t ifLevel_ = 0;
 
         // Helpers
 
@@ -91,6 +96,8 @@ namespace Dal::Script {
         Date_ ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
+        Statement_ ParseExercise(TokIt_& cur, const TokIt_& end);
+        Expression_ ParseExerciseCondition(TokIt_& cur, const TokIt_& end, const SourceLocation_& source);
 
         Expression_ BuildEqual(Expression_& lhs, Expression_& rhs, double eps);
         Expression_ BuildDifferent(Expression_& lhs, Expression_& rhs, double eps);
@@ -102,5 +109,8 @@ namespace Dal::Script {
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins = {});
         [[nodiscard]] const String_& PreparationError() const { return preparationError_; }
+        // Whether the last Parse built a PAYS or EXERCISE statement (at any nesting depth for PAYS)
+        [[nodiscard]] bool HasPays() const { return hasPays_; }
+        [[nodiscard]] bool HasExercise() const { return hasExercise_; }
     };
 } // namespace Dal::Script

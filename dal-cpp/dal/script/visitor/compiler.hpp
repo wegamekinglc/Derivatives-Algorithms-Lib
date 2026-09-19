@@ -259,6 +259,10 @@ namespace Dal::Script {
                 VisitAssignLike<Pays, PaysConst>(node);
         }
 
+        void Visit(const NodeExercise_& node) {
+            THROW2("UnsupportedExecutionMode: EXERCISE statements require the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
+        }
+
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
             nodeStream_.emplace_back(node.index_);

@@ -112,6 +112,10 @@ namespace Dal::Script {
         return dynamic_cast<const NodeFix_*>(FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeFix_*>(&visited) != nullptr; }));
     }
 
+    inline const CompNode_* FindFirstComparison(const Node_& node) {
+        return dynamic_cast<const CompNode_*>(FindNode(node, [](const Node_& visited) { return dynamic_cast<const CompNode_*>(&visited) != nullptr; }));
+    }
+
     //  Const
     struct NodeConst_ : public Visitable_<ExprNode_, NodeConst_, VISITORS> {
         explicit NodeConst_(double val) {
@@ -157,6 +161,18 @@ namespace Dal::Script {
     struct NodeAssign_ : public Visitable_<ActNode_, NodeAssign_, VISITORS> {};
 
     struct NodePays_ : public Visitable_<ActNode_, NodePays_, VISITORS> {};
+
+    //	Exercise: early exercise of the whole contract. arguments_[0] is the exercise value,
+    //	the optional arguments_[1] is the condition restricting exercisable paths. The fuzzy
+    //	metadata mirrors CompNode_: eps_ carries the condition's ;eps option (-1 falls back
+    //	to the simulation smoothing width) and serves both condition and decision smoothing.
+    struct NodeExercise_ : public Visitable_<ActNode_, NodeExercise_, VISITORS> {
+        bool isDiscrete_ = false;
+        double eps_ = -1.0;
+        double lb_ = 0.0;
+        double rb_ = 0.0;
+        SourceLocation_ source_;
+    };
 
     //	If
     struct NodeIf_ : public Visitable_<ActNode_, NodeIf_, VISITORS> {
