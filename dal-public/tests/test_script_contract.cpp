@@ -171,3 +171,23 @@ TEST(ScriptContractTest, TestErrorsRetainFunctionFieldConstraintAndSource) {
     ASSERT_NO_FATAL_FAILURE(assertFields([&] { Dal::ValueByMonteCarlo(product, model, 0, valuation); },
                                          {"ValueByMonteCarlo", "InvalidPathCount", "numPath=0", "positive integer"}));
 }
+
+TEST(ScriptContractTest, TestLsmcBasisDegreeValidatedInRange) {
+    Dal::InitGlobalData(1);
+    for (const int degree : {1, 3, 8})
+        ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(Dal::MonteCarloSettings_{"sobol", false, false, 0.01, false, degree}));
+    for (const int degree : {0, -1, 9}) {
+        const Dal::MonteCarloSettings_ simulation{"sobol", false, false, 0.01, false, degree};
+        try {
+            Dal::Script::ValidateSimulationSettings(simulation);
+            FAIL() << "expected a contract error for degree " << degree;
+        } catch (const Dal::Exception_& error) {
+            for (const auto& field :
+                 Vector_<String_>{"ValidateSimulationSettings", "InvalidSetting", String_("simulation.lsmcBasisDegree_=" + std::to_string(degree)),
+                                  "1 and 8"})
+                ASSERT_NE(std::string(error.what()).find(field.c_str()), std::string::npos) << error.what();
+        }
+    }
+    // the default construction keeps the documented basis degree
+    ASSERT_EQ(Dal::MonteCarloSettings_{}.lsmcBasisDegree_, 3);
+}

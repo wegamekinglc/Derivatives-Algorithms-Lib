@@ -36,6 +36,8 @@ namespace Dal {
             bool enableAad_ = false;
             double smooth_ = 0.01;
             std::optional<bool> compiled_;
+            // Polynomial degree of the LSMC regression basis for EXERCISE valuation
+            int lsmcBasisDegree_ = 3;
         };
 
         struct ScriptValuationSettings_ {

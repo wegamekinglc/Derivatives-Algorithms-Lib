@@ -16,6 +16,9 @@ namespace Dal::Script {
         using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
         String_ preparationError_;
+        // One EXERCISE statement per event, and only at the event top level
+        bool hasExercise_ = false;
+        size_t ifLevel_ = 0;
 
         // Helpers
 
@@ -91,6 +94,7 @@ namespace Dal::Script {
         Date_ ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
+        Statement_ ParseExercise(TokIt_& cur, const TokIt_& end);
 
         Expression_ BuildEqual(Expression_& lhs, Expression_& rhs, double eps);
         Expression_ BuildDifferent(Expression_& lhs, Expression_& rhs, double eps);

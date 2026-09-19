@@ -126,6 +126,8 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Date_>& ParsedEventDates() const { return parsedEventDates_; }
         [[nodiscard]] const Vector_<Vector_<SourceOrigin_>>& ParsedEventSources() const { return parsedEventSources_; }
         [[nodiscard]] bool HasPayoff() const;
+        [[nodiscard]] bool HasPays() const;
+        [[nodiscard]] bool ContainsExercise() const;
         [[nodiscard]] const std::optional<Date_>& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }

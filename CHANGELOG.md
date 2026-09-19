@@ -18,6 +18,26 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-19
 
+- **BREAKING: `EXERCISE` is a reserved script keyword** — the statement grammar
+  gains `EXERCISE <value> [IF <condition>]` for early-exercise (Bermudan,
+  American) products, parsed and validated end to end: one top-level statement
+  per event (`DuplicateExercise`, `UnsupportedExerciseNesting`), a dedicated
+  dangling-IF error (`InvalidExerciseCondition`), exercise dates strictly after
+  the evaluation date (`UnsupportedExerciseDate`), and sobol-only replay
+  (`UnsupportedRsgForExercise`), all with input row/line context. Scripts and
+  archived products that used `exercise` as a variable, macro, or
+  constant-variable name now fail to parse with a `ReservedIdentifier` error
+  carrying the source location and a rename hint; products that do not use the
+  reserved word are unaffected. EXERCISE valuation (LSMC driver) is not enabled
+  yet: evaluation reports `UnsupportedExecutionMode` until it lands. See
+  [the script engine grammar](docs/methodology/script_engine.md#reserved-keywords-and-variables).
+
+- **Script settings gain `lsmcBasisDegree_`** — `MonteCarloSettings_` carries
+  the LSMC regression basis degree (default 3), validated by
+  `ValidateSimulationSettings` as an integer between 1 and 8
+  (`InvalidSetting: InvalidLsmcBasisDegree`). The Python and Excel projections
+  of the field land with the EXERCISE valuation driver.
+
 - **BREAKING: model bindings removed; FIX is managed by index name** — deleted
   `ScriptValuationSettings_::modelBindings_` and `Dal::ModelIndexBinding_` along
   with the `UnknownModelAsset`/`DuplicateModelBinding`/`ConflictingModelBinding`/

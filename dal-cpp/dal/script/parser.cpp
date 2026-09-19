@@ -14,8 +14,9 @@
 #include <dal/time/daybasis.hpp>
 
 namespace {
-    const std::set<Dal::String_> RESERVED_KEY_WORDS = {"IF",   "END", "THEN", "ELSE", "DCF",  "PAYS", "AND", "OR",
-                                                       "SPOT", "MAX", "MIN",  "LOG",  "SQRT", "EXP",  "FIX"};
+    const std::set<Dal::String_> RESERVED_KEY_WORDS = {"IF",      "END", "THEN", "ELSE", "DCF",  "PAYS", "AND", "OR",
+                                                       "SPOT",    "MAX", "MIN",  "LOG",  "SQRT", "EXP",  "FIX",
+                                                       "EXERCISE"};
 } // namespace
 
 namespace Dal::Script {
@@ -135,6 +136,8 @@ namespace Dal::Script {
 
     Expression_ Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2(cur->Text() != "FIX", "ReservedIdentifier: FIX is a function; rename the variable; " + cur->source_.Describe(), ScriptError_);
+        REQUIRE2(cur->Text() != "EXERCISE",
+                 "ReservedIdentifier: EXERCISE is a statement; rename the variable; " + cur->source_.Describe(), ScriptError_);
         REQUIRE2(!std::holds_alternative<IndexLiteral_>(cur->value_),
                  "InvalidIndex: index literal is only allowed inside FIX; " + cur->source_.Describe(), ScriptError_);
         REQUIRE2(cur->Text()[0] >= 'A' && cur->Text()[0] <= 'z', String_("Variable name ") + cur->Text() + " is invalid", ScriptError_);
@@ -158,6 +161,7 @@ namespace Dal::Script {
             THROW2("`if` is not followed by `then`", ScriptError_);
         ++cur;
         Vector_<Statement_> stats;
+        ++ifLevel_;
         while (cur != end && cur->Text() != "ELSE" && cur->Text() != "END")
             stats.push_back(ParseStatement(cur, end));
 
@@ -171,6 +175,7 @@ namespace Dal::Script {
             REQUIRE2(cur != end, "`if/then/else` is not followed by `end`", ScriptError_);
             elseIdx = static_cast<int>(stats.size()) + 1;
         }
+        --ifLevel_;
 
         auto top = MakeNode<NodeIf_>();
         top->arguments_.Resize(1 + stats.size() + elseStats.size());
@@ -409,9 +414,43 @@ namespace Dal::Script {
         return top;
     }
 
+    Statement_ Parser_::ParseExercise(TokIt_& cur, const TokIt_& end) {
+        const auto source = cur->source_;
+        hasExercise_ = true;
+        ++cur;
+        // Legacy assignment/payment to a variable named `exercise` reads better as a reserved-word conflict
+        if (cur != end && (cur->Text() == "=" || cur->Text() == "PAYS"))
+            THROW2("ReservedIdentifier: EXERCISE is a statement; rename the variable; " + source.Describe(), ScriptError_);
+        REQUIRE2(cur != end, "unexpected end of statement; EXERCISE requires a value expression; " + source.Describe(), ScriptError_);
+        auto top = MakeNode<NodeExercise_>();
+        top->source_ = source;
+        top->arguments_.Resize(1);
+        top->arguments_[0] = ParseExpr(cur, end);
+        if (cur != end && cur->Text() == "IF") {
+            // Greedy binding: an IF after the value introduces the exercise condition
+            ++cur;
+            REQUIRE2(cur != end, "unexpected end of statement; EXERCISE requires a condition after IF; " + source.Describe(), ScriptError_);
+            auto cond = ParseCond(cur, end);
+            if (cur != end && RESERVED_KEY_WORDS.find(cur->Text()) != RESERVED_KEY_WORDS.end())
+                THROW2("InvalidExerciseCondition: EXERCISE condition ends on the statement keyword '" + cur->Text() + "'; " + cur->source_.Describe(),
+                       ScriptError_);
+            if (const auto* comparison = FindFirstComparison(*cond))
+                top->eps_ = comparison->eps_;
+            top->arguments_.Resize(2);
+            top->arguments_[1] = std::move(cond);
+        }
+        return top;
+    }
+
     Statement_ Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
         if (cur->Text() == "IF")
             return ParseIf(cur, end);
+        if (cur->Text() == "EXERCISE") {
+            REQUIRE2(ifLevel_ == 0, "UnsupportedExerciseNesting: EXERCISE must be a top-level statement of an event; " + cur->source_.Describe(),
+                     ScriptError_);
+            REQUIRE2(!hasExercise_, "DuplicateExercise: an event admits at most one EXERCISE statement; " + cur->source_.Describe(), ScriptError_);
+            return ParseExercise(cur, end);
+        }
         auto lhs = ParseVar(cur);
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         if (cur->Text() == "=")
@@ -423,6 +462,8 @@ namespace Dal::Script {
 
     Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) {
         preparationError_.clear();
+        hasExercise_ = false;
+        ifLevel_ = 0;
         Event_ e;
         auto tokens = Lex(event, origins);
         Vector_<Token_>::const_iterator it = tokens.begin();

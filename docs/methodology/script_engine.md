@@ -67,16 +67,19 @@ binds over `AND`, which binds over comparison elements — producing `NodeOr_`,
 ### Reserved Keywords and Variables
 
 A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `PAYS`, `AND`, `OR`,
-`SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`) cannot be used as variable
+`SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`, `EXERCISE`) cannot be used as variable
 names. Any other alphabetic token becomes either a `NodeVar_` (looked up in the
 preprocessor's constant-variable map and promoted to `NodeConstVar_` if it
 resolves there). Statements are either assignments (`=`, `NodeAssign_`), pays
-clauses (`PAYS`, `NodePays_`), or `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
-`firstElse_` indexing the else-branch within `arguments_`).
+clauses (`PAYS`, `NodePays_`), `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
+`firstElse_` indexing the else-branch within `arguments_`), or early-exercise
+clauses (`EXERCISE <value> [IF <condition>]`, `NodeExercise_`, at most one per
+event and only at the event top level).
 
-`FIX` is also reserved for macro and constant-variable definitions. A conflicting
-definition or variable produces `ReservedIdentifier` with source context and a
-request to rename it. Keyword comparisons are case-insensitive.
+`FIX` and `EXERCISE` are also reserved for macro and constant-variable
+definitions. A conflicting definition or variable produces `ReservedIdentifier`
+with source context and a request to rename it. Keyword comparisons are
+case-insensitive.
 
 ### Named Fixing Syntax
 

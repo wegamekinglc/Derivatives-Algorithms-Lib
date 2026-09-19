@@ -17,9 +17,15 @@ namespace Dal::Script {
                      "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
         }
 
-        bool ContainsPayoff(const Node_& node) {
+        bool ContainsPays(const Node_& node) {
             return FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodePays_*>(&visited) != nullptr; }) != nullptr;
         }
+
+        bool ContainsExerciseStatement(const Node_& node) {
+            return FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; }) != nullptr;
+        }
+
+        bool ContainsPayoff(const Node_& node) { return ContainsPays(node) || ContainsExerciseStatement(node); }
     } // namespace
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
@@ -54,6 +60,24 @@ namespace Dal::Script {
         return false;
     }
 
+    bool ScriptProduct_::HasPays() const {
+        for (const auto* events : {&pastEvents_, &events_})
+            for (const auto& event : *events)
+                for (const auto& statement : event)
+                    if (ContainsPays(*statement))
+                        return true;
+        return false;
+    }
+
+    bool ScriptProduct_::ContainsExercise() const {
+        for (const auto* events : {&pastEvents_, &events_})
+            for (const auto& event : *events)
+                for (const auto& statement : event)
+                    if (ContainsExerciseStatement(*statement))
+                        return true;
+        return false;
+    }
+
     void ScriptProduct_::PartitionEvents(const Date_& evaluationDate) {
         REQUIRE2(evaluationDate.IsValid(), "invalid script evaluation date", ScriptError_);
         REQUIRE2(!evaluationDate_, "script events are already partitioned", ScriptError_);
@@ -81,7 +105,9 @@ namespace Dal::Script {
                 payoffIdx_ = i;
                 break;
             }
-        if (payoffIdx_ == -1 && !variables_.empty())
+        // The default receiver slot requires a PAYS statement. An EXERCISE-only product has no
+        // receiver variable: the payoffIdx_ sentinel stays and the LSMC driver aggregates by itself.
+        if (payoffIdx_ == -1 && !variables_.empty() && (HasPays() || !ContainsExercise()))
             payoffIdx_ = variables_.size() - 1;
     }
 
@@ -128,6 +154,7 @@ namespace Dal::Script {
         REQUIRE2(!preProcessed_, "script product is already pre-processed", ScriptError_);
         if (!evaluationDate_)
             PartitionEvents(Global::Dates_::EvaluationDate());
+        REQUIRE2(!ContainsExercise(), "UnsupportedExecutionMode: the legacy PreProcess pipeline cannot value EXERCISE", ScriptError_);
         for (const auto& event : pastEvents_)
             for (const auto& statement : event)
                 RequireBoundPastSpots(*statement);
@@ -241,6 +268,9 @@ namespace Dal::Script {
     void ScriptProduct_::DebugJson(std::ostream& ost) const {
         REQUIRE2(preparationError_.empty(),
                  "DebugSchemaUnsupported: dal.script-product/1 does not support FIX; use DescribeScriptProduct (dal.script-product/2)", ScriptError_);
+        REQUIRE2(!ContainsExercise(),
+                 "DebugSchemaUnsupported: dal.script-product/1 does not support EXERCISE; use DescribeScriptProduct (dal.script-product/2)",
+                 ScriptError_);
         ost << "{\"schema\":\"dal.script-product/1\"";
         if (!variables_.empty()) {
             ost << ",\"variables\":[";

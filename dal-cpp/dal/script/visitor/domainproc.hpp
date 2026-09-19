@@ -369,6 +369,14 @@ namespace Dal::Script {
             domStack_.Pop();
         }
 
+        //  Exercise is a no-op for variable domains: discard the value domain and condition property
+        void Visit(NodeExercise_& node) {
+            VisitArguments(node);
+            domStack_.Pop();
+            if (node.arguments_.size() > 1)
+                condStack_.Pop();
+        }
+
         // Variables and constants
         void Visit(NodeVar_& node) {
             if (isLhsVar_)

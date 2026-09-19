@@ -207,6 +207,10 @@ namespace Dal::Script {
             variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
+        void Visit(const NodeExercise_& node) {
+            THROW2("UnsupportedExecutionMode: EXERCISE statements require the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
+        }
+
         FORCE_INLINE void Visit(const NodeVar_& node) {
             dStack_.Push(variables_[node.index_]);
         }

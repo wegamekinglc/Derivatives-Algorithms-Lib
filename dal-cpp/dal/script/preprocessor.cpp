@@ -101,6 +101,9 @@ namespace Dal::Script {
                 } else {
                     REQUIRE2(desc != "FIX", String_("ReservedIdentifier: FIX is a function; rename the definition; row=" + std::to_string(row)),
                              ScriptError_);
+                    REQUIRE2(desc != "EXERCISE",
+                             String_("ReservedIdentifier: EXERCISE is a statement; rename the definition; row=" + std::to_string(row)),
+                             ScriptError_);
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
                     REQUIRE2(constVariables.find(desc) == constVariables.end(), "const macro name has already registered", ScriptError_);
                     REQUIRE2(processedEvents.empty(), "macros should always at the front", ScriptError_);
