@@ -19,6 +19,14 @@ namespace Dal {
                                    const Handle_<ModelData_>& modelData,
                                    const ScriptValuationSettings_& valuation = ScriptValuationSettings_());
 
+    //  Simulation diagnostic (dal.script-simulation/1): runs the full valuation with
+    //  numPath paths and reports the per-exercise-event regression and exercise rates
+    String_ ExplainScriptSimulation(const Handle_<ScriptProductData_>& product,
+                                    const Handle_<ModelData_>& modelData,
+                                    int numPath,
+                                    const ScriptValuationSettings_& valuation = ScriptValuationSettings_(),
+                                    const MonteCarloSettings_& simulation = MonteCarloSettings_());
+
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
                                                 int numPath,
