@@ -2,11 +2,14 @@
 // Created by Codex on 2026/9/15.
 //
 
+#include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/script/visitor/debugger.hpp>
 
 namespace Dal::Script {
@@ -196,6 +199,81 @@ namespace Dal::Script {
         WriteArray(out, plan.EventToSample(), [&](size_t sample, size_t i) {
             out << "{\"event_id\":" << plan.LiveEventIds()[i] << ",\"future_event_index\":" << i << ",\"sample_id\":" << sample << '}';
         });
+        out << '}';
+        return String_(out.str());
+    }
+
+    namespace {
+        //  The diagnostic explicitly runs the full valuation; the double tree-walk driver
+        //  is the only mode for now (AAD arrives with T4, compiled with T3)
+        void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
+            if (prepared.AllExpired())
+                return;
+            const auto& simulation = prepared.Simulation();
+            if (prepared.Product().ContainsExercise())
+                MCLsmcSimulation(prepared, model, nPaths, diagnostics);
+            else
+                MCDoubleSimulation(prepared, model, nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
+        }
+
+        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
+            out << ",\"simulation\":{\"rsg\":";
+            JsonWriteString(simulation.rsg_, out);
+            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
+                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
+                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+        }
+
+        void JsonWriteStringOrNull(const String_& text, std::ostream& out) {
+            if (text.empty())
+                out << "null";
+            else
+                JsonWriteString(text, out);
+        }
+
+        void WriteExerciseEvent(std::ostream& out, const ExerciseEventStats_& event) {
+            out << "{\"event_id\":" << event.eventId_ << ",\"date\":";
+            JsonWriteString(Date::ToString(event.date_), out);
+            out << ",\"basis_degree\":" << event.basisDegree_ << ",\"regressor_index\":";
+            JsonWriteStringOrNull(event.regressorIndex_, out);
+            out << ",\"num_cond_true_paths\":" << event.numCondTruePaths_ << ",\"num_coefficients\":" << event.coefficients_.size()
+                << ",\"coefficients\":";
+            WriteArray(out, event.coefficients_, [&](double coefficient, size_t) { out << DebugNumber(coefficient); });
+            out << ",\"degenerate\":" << (event.degenerate_ ? "true" : "false") << ",\"degenerate_reason\":";
+            JsonWriteStringOrNull(event.degenerateReason_, out);
+            out << ",\"exercise_rate\":" << DebugNumber(event.exerciseRate_) << '}';
+        }
+    } // namespace
+
+    String_ ExplainScriptSimulation(const ScriptProductData_& data,
+                                    const Handle_<ModelData_>& modelData,
+                                    size_t nPaths,
+                                    const ScriptValuationSettings_& valuation,
+                                    const MonteCarloSettings_& requestedSimulation) {
+        REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
+        REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
+        //  The diagnostic explicitly runs the full three-phase valuation, so its cost is
+        //  the cost of a simulation; the double tree-walk driver is the only mode for now
+        REQUIRE2(!requestedSimulation.enableAad_ && !requestedSimulation.compiled_.value_or(false),
+                 "UnsupportedExecutionMode: the simulation diagnostic runs the double tree-walk LSMC; AAD and compiled exercise valuation are not "
+                 "implemented yet",
+                 ScriptError_);
+        const auto simulation = requestedSimulation;
+        const auto settings = ResolveValuationSettings(valuation);
+        auto model = CreateModel<double>(modelData);
+        const auto prepared = PrepareScript(data, model.get(), settings, simulation);
+        ValidateSimulationSettings(simulation);
+
+        LsmcDiagnostics_ diagnostics;
+        diagnostics.nPaths_ = nPaths;
+        RunSimulationDiagnostic(prepared, model.get(), nPaths, &diagnostics);
+
+        std::ostringstream out;
+        out << "{\"schema\":\"dal.script-simulation/1\",\"evaluation_date\":";
+        JsonWriteString(Date::ToString(prepared.EvaluationDate()), out);
+        WriteSimulationSettings(out, simulation);
+        out << ",\"n_paths\":" << nPaths << ",\"exercise_events\":";
+        WriteArray(out, diagnostics.events_, [&](const auto& event, size_t) { WriteExerciseEvent(out, event); });
         out << '}';
         return String_(out.str());
     }

@@ -42,7 +42,7 @@ on other toolchains.
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
 | `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
 | `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                                                |
-| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`                                                                         |
+| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
 | `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
@@ -160,6 +160,15 @@ history and initialize a model, but generates no paths and submits no workers.
 It reports actual requests/uses, historical values, the model index, event-to-sample
 and numeraire mappings. Every Explain and Value prepares independently; use
 the same explicit date/snapshot to compare the same market.
+`ExplainScriptSimulation(product, modelData, numPath, valuation=ScriptValuationSettings_(),
+simulation=MonteCarloSettings_())` returns `dal.script-simulation/1`. Unlike the
+valuation Explain it explicitly runs a full Monte Carlo valuation with `numPath`
+paths, so its cost is path generation plus worker parallelism plus the exercise
+regressions; it supports the double tree-walk mode only and rejects `enable_aad`
+and `compiled` settings. Products without `EXERCISE` return an empty
+`exercise_events` array; exercise products report per-exercise-event regression
+degree, regressor index, condition-true path count, coefficients, degenerate
+flag with PascalCase reason, and exercise rate.
 
 Product archives write v2 with optional `default_index` and retain the v1
 reader. They preserve contract text/identity and exclude runtime market data.

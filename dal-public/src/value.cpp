@@ -41,6 +41,24 @@ namespace Dal {
         return Script::ExplainPreparedScript(prepared);
     }
 
+    String_ ExplainScriptSimulation(const Handle_<ScriptProductData_>& product,
+                                    const Handle_<ModelData_>& modelData,
+                                    int numPath,
+                                    const ScriptValuationSettings_& valuation,
+                                    const MonteCarloSettings_& simulation) {
+        XGLOBAL::ValuationMutationGuard_ valuationGuard;
+        //  Validate the signed argument before the size_t conversion: a negative count
+        //  would otherwise wrap to a near-maximum allocation request
+        REQUIRE2(numPath > 0,
+                 "InvalidPathCount: number of Monte Carlo paths must be positive; numPath=" + String_(std::to_string(numPath)) +
+                     "; expected a positive integer",
+                 ScriptError_);
+        const auto& productCopy = product;
+        const auto& modelCopy = modelData;
+        const auto settings = CheckedValuation(productCopy, modelCopy, valuation);
+        return Script::ExplainScriptSimulation(*productCopy, modelCopy, static_cast<size_t>(numPath), settings, simulation);
+    }
+
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
                                                 int nPaths,
