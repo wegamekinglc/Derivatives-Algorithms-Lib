@@ -66,8 +66,17 @@ endif()
 # (<repo-root>/build/stage/<preset>), preferring a Release preset.
 if(NOT DAL_INSTALL_PREFIX AND DAL_PYTHON_IS_TOPLEVEL)
     set(_DAL_STAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/stage")
+    if(WIN32)
+        set(_DAL_STAGE_HOST_CONFIG "Release-windows")
+    else()
+        set(_DAL_STAGE_HOST_CONFIG "Release-linux")
+    endif()
+    file(GLOB _dal_stage_configs
+        "${_DAL_STAGE_DIR}/${_DAL_STAGE_HOST_CONFIG}/lib/cmake/dal-public/dal-publicConfig.cmake")
+    if(NOT _dal_stage_configs)
     file(GLOB _dal_stage_configs
         "${_DAL_STAGE_DIR}/Release-*/lib/cmake/dal-public/dal-publicConfig.cmake")
+    endif()
     if(NOT _dal_stage_configs)
         file(GLOB _dal_stage_configs
             "${_DAL_STAGE_DIR}/*/lib/cmake/dal-public/dal-publicConfig.cmake")
