@@ -98,8 +98,9 @@ behavior through a snapshot-backed environment. It does not admit arbitrary
 registered index types as historical adapters. Core
 [double/tree](script_engine.md#core-doubletree-fixing-valuation) and
 [AAD/tree FIX valuation](script_engine.md#core-aadtree-fixing-valuation)
-support model-aware preparation with an explicit `spot` to one ordinary EQ
-binding in Black-Scholes or Dupire. Model-sourced FX and EQ delivery are
+support model-aware preparation with a `spot` to one ordinary EQ
+binding in Black-Scholes or Dupire, given explicitly or inferred from the
+script's future FIX index. Model-sourced FX and EQ delivery are
 unsupported; historical inverse-FX lookup supplies no future FX capability.
 Raw unprepared FIX raises `PreparationRequired`, and preparation without a
 model cannot value a nonexpired product. Prepared AAD replay preserves

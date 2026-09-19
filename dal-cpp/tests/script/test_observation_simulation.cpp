@@ -547,8 +547,7 @@ TEST(ScriptObservationSimulationTest, TestModelBindingsBeforeHistory) {
     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
     const Handle_<ModelData_> model(new BSModelData_("EQ[DAL196_TEST]", 123.0, 0.2));
     const auto product = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
-    for (const Vector_<ModelIndexBinding_> bindings : {Vector_<ModelIndexBinding_>(),
-                                                       Vector_<ModelIndexBinding_>{{"spot", "EQ[OTHER]"}},
+    for (const Vector_<ModelIndexBinding_> bindings : {Vector_<ModelIndexBinding_>{{"spot", "EQ[OTHER]"}},
                                                        {{"other", "EQ[DAL196_TEST]"}},
                                                        {{"spot", "EQ[DAL196_TEST]"}, {"spot", "EQ[DAL196_TEST]"}},
                                                        {{"spot", "FX[EUR/USD]"}}}) {
@@ -567,6 +566,22 @@ TEST(ScriptObservationSimulationTest, TestModelBindingsBeforeHistory) {
         ASSERT_EQ(reads.fixings_, 0);
         ASSERT_EQ(workers.submissions_, 0);
     }
+}
+
+TEST(ScriptObservationSimulationTest, TestInferredModelBinding) {
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    StoreScriptTestFixing("EQ[DAL196_TEST]", 80.0);
+    const Handle_<ModelData_> model(new BSModelData_("EQ[DAL196_TEST]", 123.0, 0.2));
+    const auto product = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
+    const ScriptValuationSettings_ settings;
+    ASSERT_DOUBLE_EQ(MCSimulation<double>(product, model, 8193, settings).aggregated_,
+                     MCSimulation<double>(product, model, 8193, BoundSettings()).aggregated_);
+    ControlledModel_ counter;
+    const auto prepared = PrepareScript(product, &counter, settings, {});
+    ASSERT_EQ(prepared.Plan().ModelBindingNames(), Vector_<String_>{"EQ[DAL196_TEST]"});
+    for (const String_ script : {"pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + FIX(EQ[OTHER], 2026-09-15)",
+                                 "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + FIX(FX[EUR/USD], 2026-09-15)"})
+        ASSERT_THROW(MCSimulation<double>(ScriptTestProduct(script), model, 1, settings), ScriptError_);
 }
 
 TEST(ScriptObservationSimulationTest, TestLookAheadAndModeBarriers) {
@@ -843,8 +858,7 @@ TEST(ScriptObservationSimulationTest, TestBothAdaptersRejectUnsupportedBeforeHis
         const Index::DF_ rate(Ccy_("USD"), Cell_("3M"));
         ASSERT_FALSE(model->SupportsIndex(rate));
         const auto mixed = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
-        for (const Vector_<ModelIndexBinding_> bindings : {Vector_<ModelIndexBinding_>(),
-                                                           {{"spot", "EQ[OTHER]"}},
+        for (const Vector_<ModelIndexBinding_> bindings : {Vector_<ModelIndexBinding_>{{"spot", "EQ[OTHER]"}},
                                                            {{"unknown", "EQ[DAL196_TEST]"}},
                                                            {{"spot", "EQ[DAL196_TEST]"}, {"spot", "EQ[DAL196_TEST]"}},
                                                            {{"spot", "EQ[DAL196_TEST]"}, {"spot", "EQ[OTHER]"}}}) {

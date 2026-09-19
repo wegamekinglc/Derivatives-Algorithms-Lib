@@ -199,6 +199,24 @@ namespace Dal::Script {
             return result;
         }
 
+        //  No explicit binding: the script's own model-observed index supplies the identity
+        static Handle_<Index_> InferBinding(const Vector_<ObservationRequest_>& requests) {
+            Handle_<Index_> result;
+            for (const auto& request : requests) {
+                if (request.historical_)
+                    continue;
+                if (!result) {
+                    result = request.index_;
+                    continue;
+                }
+                REQUIRE2(result->Name() == request.key_.canonicalIndex_,
+                         "AmbiguousModelBinding: valuation.modelBindings_=empty; inferred=" + result->Name() +
+                             "; expected one model-observed EQ or an explicit spot binding" + Context(request),
+                         ScriptError_);
+            }
+            return result;
+        }
+
         static void BindModelObservations(ObservationPlan_* plan, const ScriptProduct_& product, const Date_& evaluationDate) {
             const auto sampleId = [&](const Date_& date) {
                 return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
@@ -227,7 +245,7 @@ namespace Dal::Script {
                               const ScriptValuationSettings_& settings,
                               const AAD::Model_<double>& model,
                               const Handle_<Index_>& boundIndex) {
-            if (boundIndex)
+            if (boundIndex && !settings.modelBindings_.empty())
                 REQUIRE2(model.SupportsIndex(*boundIndex),
                          "UnsupportedModelObservation: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
                              "; canonical=" + boundIndex->Name() + "; expected one plain EQ supported by the model",
@@ -238,8 +256,6 @@ namespace Dal::Script {
                     continue;
                 REQUIRE2(model.SupportsIndex(*request.index_),
                          "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
-                REQUIRE2(boundIndex, "MissingModelBinding: valuation.modelBindings_; expected spot -> requested index" + Context(request),
-                         ScriptError_);
                 REQUIRE2(boundIndex->Name() == request.key_.canonicalIndex_,
                          "ConflictingModelBinding: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
                              "; bound canonical=" + boundIndex->Name() + "; expected requested identity" + Context(request),
@@ -275,7 +291,9 @@ namespace Dal::Script {
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
             product->IndexVariables();
-            const auto boundIndex = ValidateBindings(settings);
+            auto boundIndex = ValidateBindings(settings);
+            if (!boundIndex)
+                boundIndex = InferBinding(collector.requests_);
             ValidateSimulationSettings(simulation);
             ObservationPlan_ plan(std::move(collector.requests_), {});
             if (boundIndex)

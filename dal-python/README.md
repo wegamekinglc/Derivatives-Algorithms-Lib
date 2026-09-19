@@ -315,8 +315,9 @@ Wholly expired products still validate syntax, dates and settings, but skip
 history reads and return zero. Empty or no-PAYS products fail valuation.
 
 Historical EQ/FX observations can coexist. Model-sourced FIX, including today
-under `Model`, requires an explicit `model_bindings={"spot": "EQ[DAL196_TEST]"}`
-for one ordinary equity in a BS or Dupire model. Future FX, IR, composite,
+under `Model`, binds one ordinary equity in a BS or Dupire model: pass
+`model_bindings={"spot": "EQ[DAL196_TEST]"}` explicitly, or leave it empty to
+infer the binding from the script's future FIX index. Future FX, IR, composite,
 delivery-suffixed EQ, and multiple future equities are unsupported.
 `default_index` gives legacy `SPOT()` an identity; it does not supply a model
 binding. Unbound future-only `SPOT()` remains supported. Historical SPOT requires

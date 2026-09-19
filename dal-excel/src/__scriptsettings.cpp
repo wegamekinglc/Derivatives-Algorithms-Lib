@@ -43,7 +43,7 @@ name is string
 settings is cell[][]+
     Two columns: evaluation_date (integer serial), today_fixing (Model or RequireHistorical). Blank uses defaults.
 model_bindings is cell[][]+
-    Two columns asset/index. Future FIX requires explicit spot to one plain EQ. Blank means no bindings.
+    Two columns asset/index. Blank infers the binding from the script's future FIX index.
 fixings is handle StorableMarketFixingSnapshot
     Snapshot handle; blank uses global history per call. Explicit empty snapshot never falls back.
 &outputs

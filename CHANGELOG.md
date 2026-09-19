@@ -16,6 +16,16 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-19
+
+- **Script engine infers the model binding** — an empty
+  `ScriptValuationSettings_::modelBindings_` no longer fails model-sourced
+  `FIX` valuation with `MissingModelBinding`; preparation binds the model's
+  `spot` output to the script's single future ordinary EQ and raises
+  `AmbiguousModelBinding` on several distinct future indices. Explicit
+  bindings keep their validation, and Describe/Explain diagnostics report the
+  inferred binding. See [EQ model binding](docs/methodology/script_engine.md#eq-model-binding-and-legacy-spot).
+
 ## 2026-09-15
 
 - **Excel FIX settings and diagnostics** — added immutable product, valuation,
