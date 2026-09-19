@@ -55,6 +55,30 @@ set(DAL_INSTALL_PREFIX "" CACHE PATH "Installed DAL prefix containing dal-public
 if(NOT DAL_INSTALL_PREFIX AND DAL_DIR)
     set(DAL_INSTALL_PREFIX "${DAL_DIR}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
 endif()
+# Fall back to the environment; the repo wrapper scripts export both variables.
+if(NOT DAL_INSTALL_PREFIX AND NOT "$ENV{DAL_INSTALL_PREFIX}" STREQUAL "")
+    set(DAL_INSTALL_PREFIX "$ENV{DAL_INSTALL_PREFIX}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
+endif()
+if(NOT DAL_INSTALL_PREFIX AND NOT "$ENV{DAL_DIR}" STREQUAL "")
+    set(DAL_INSTALL_PREFIX "$ENV{DAL_DIR}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
+endif()
+# Fall back to the default staged install produced by the repo build scripts
+# (<repo-root>/build/stage/<preset>), preferring a Release preset.
+if(NOT DAL_INSTALL_PREFIX AND DAL_PYTHON_IS_TOPLEVEL)
+    set(_DAL_STAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/stage")
+    file(GLOB _dal_stage_configs
+        "${_DAL_STAGE_DIR}/Release-*/lib/cmake/dal-public/dal-publicConfig.cmake")
+    if(NOT _dal_stage_configs)
+        file(GLOB _dal_stage_configs
+            "${_DAL_STAGE_DIR}/*/lib/cmake/dal-public/dal-publicConfig.cmake")
+    endif()
+    if(_dal_stage_configs)
+        list(GET _dal_stage_configs 0 _dal_stage_config)
+        get_filename_component(_dal_stage_prefix "${_dal_stage_config}/../../../.." ABSOLUTE)
+        set(DAL_INSTALL_PREFIX "${_dal_stage_prefix}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
+        message(STATUS "-- dal-public: using staged install at ${DAL_INSTALL_PREFIX}")
+    endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # Dependencies: pybind11, Python3, and dal-public
@@ -119,11 +143,21 @@ else()
         if(DAL_INSTALL_PREFIX)
             list(PREPEND CMAKE_PREFIX_PATH "${DAL_INSTALL_PREFIX}")
         endif()
-        find_package(dal-public CONFIG REQUIRED)
+        find_package(dal-public CONFIG QUIET)
+        if(NOT dal-public_FOUND)
+            message(FATAL_ERROR
+                "dal-python: could not find the installed dal-public package "
+                "(dal-publicConfig.cmake).\n"
+                "Build the staged C++ install first:\n"
+                "    cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && bash build_linux.sh\n"
+                "or point CMake at an existing install prefix with "
+                "-DDAL_INSTALL_PREFIX=<prefix> (pip/uv: "
+                "--config-settings=cmake.define.DAL_INSTALL_PREFIX=<prefix>).")
+        endif()
         if(NOT TARGET DAL::public)
             message(FATAL_ERROR "dal-public package did not define DAL::public")
         endif()
-        message(STATUS "-- core: linking against installed DAL::public from ${DAL_INSTALL_PREFIX}")
+        message(STATUS "-- core: linking against installed DAL::public from ${dal-public_DIR}")
         set(DAL_PUBLIC_TARGET DAL::public)
         set(DAL_PYTHON_USES_INSTALLED_PUBLIC TRUE)
     else()
