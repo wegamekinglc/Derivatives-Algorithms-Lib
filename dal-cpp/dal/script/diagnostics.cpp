@@ -204,8 +204,8 @@ namespace Dal::Script {
     }
 
     namespace {
-        //  The diagnostic explicitly runs the full valuation; the double tree-walk driver
-        //  is the only mode for now (AAD arrives with T4, compiled with T3)
+        //  The diagnostic explicitly runs the full valuation in the prepared mode
+        //  (tree-walk or compiled; AAD exercise valuation arrives with the fuzzy milestone)
         void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
             if (prepared.AllExpired())
                 return;
@@ -253,10 +253,11 @@ namespace Dal::Script {
         REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         //  The diagnostic explicitly runs the full three-phase valuation, so its cost is
-        //  the cost of a simulation; the double tree-walk driver is the only mode for now
-        REQUIRE2(!requestedSimulation.enableAad_ && !requestedSimulation.compiled_.value_or(false),
-                 "UnsupportedExecutionMode: the simulation diagnostic runs the double tree-walk LSMC; AAD and compiled exercise valuation are not "
-                 "implemented yet",
+        //  the cost of a simulation; the double driver covers tree-walk and compiled
+        //  (AAD exercise valuation arrives with the fuzzy milestone)
+        REQUIRE2(!requestedSimulation.enableAad_,
+                 "UnsupportedExecutionMode: the simulation diagnostic runs the double LSMC driver (tree-walk or compiled); AAD exercise valuation "
+                 "is not implemented yet",
                  ScriptError_);
         const auto simulation = requestedSimulation;
         const auto settings = ResolveValuationSettings(valuation);

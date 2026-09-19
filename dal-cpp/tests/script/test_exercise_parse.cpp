@@ -254,15 +254,12 @@ TEST(ScriptExerciseParseTest, TestExerciseOnlyPassesPayoffGate) {
     const auto model = TestModel();
     const auto prepared = PrepareScript(ScriptTestProduct("EXERCISE 1.0"), CreateModel<double>(model).get(), {}, {});
     ASSERT_FALSE(prepared.AllExpired());
-    // T2 unlocked tree-walk valuation; the compiled evaluator still rejects EXERCISE (T3)
+    // T2 unlocked tree-walk and T3 the compiled evaluator: both engines value the single path
     const auto valued = MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, {});
     ASSERT_NEAR(valued.aggregated_, std::exp(-0.05 * 10.0 / 365.0), 1e-12); //  single path exercises for 1.0 on 2026-09-22
-    AssertScriptError(
-        [&] {
-            static_cast<void>(
-                MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, MonteCarloSettings_{"sobol", false, false, 0.01, true}));
-        },
-        {"UnsupportedExecutionMode"});
+    const auto compiledValued =
+        MCSimulation<double>(ScriptTestProduct("EXERCISE 1.0"), model, 1, {}, MonteCarloSettings_{"sobol", false, false, 0.01, true});
+    ASSERT_NEAR(compiledValued.aggregated_, valued.aggregated_, 1e-12);
 }
 
 TEST(ScriptExerciseParseTest, TestExerciseDateMustBeStrictlyAfterEvaluation) {

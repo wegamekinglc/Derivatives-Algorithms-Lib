@@ -279,20 +279,21 @@ namespace Dal::Script {
             REQUIRE2(!product.Simulation().enableAad_ && useCompiled == product.Simulation().compiled_.value_or(false),
                      "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
 
-        std::optional<ScriptCompiled_> compiledProduct;
-        if (useCompiled)
-            compiledProduct.emplace(product.Compile());
-
         if (!initialized) {
             mdl->Allocate(product.TimeLine(), product.DefLine());
             mdl->Init(product.TimeLine(), product.DefLine());
         }
 
-        //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline only)
+        //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline
+        //  only), which builds its own recording artifact in compiled mode
         if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
             if (product.Product().ContainsExercise())
                 return MCLsmcSimulation(product, mdl, nPaths);
         }
+
+        std::optional<ScriptCompiled_> compiledProduct;
+        if (useCompiled)
+            compiledProduct.emplace(product.Compile());
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();

@@ -325,6 +325,97 @@ namespace {
             }
         }
     }
+    //  Random EXERCISE statement for the LSMC parity fuzz: a safe exercise value
+    //  expression (no LOG/POW, guarded division) with an optional condition. The
+    //  statement is appended last in its event so the greedy IF binding never
+    //  captures a following statement's condition keyword.
+    String_ BuildExerciseStatement(Rng_& rng, const Vector_<String_>& leaves) {
+        String_ statement = "EXERCISE " + BuildExpr(rng, 2, leaves);
+        if (rng.Bernoulli(0.5))
+            statement += " IF " + BuildCondition(rng, 2, leaves);
+        return statement + "\n";
+    }
+
+    //  Random EXERCISE product on the prepared pipeline (S12): coupons and exercise
+    //  dates over the existing expression generator. At least one EXERCISE statement
+    //  per product so the valuation diverts to the LSMC driver.
+    struct ExerciseFuzzProduct_ {
+        std::unique_ptr<ScriptProductData_> data;
+        uint32_t seed = 0;
+
+        // structure: 0 = single event, 1 = multi event, 2 = schedule
+        static ExerciseFuzzProduct_ Build(uint32_t s, int structure) {
+            Rng_ rng(s);
+            ExerciseFuzzProduct_ fp;
+            fp.seed = s;
+
+            Vector_<Cell_> eventDates;
+            Vector_<String_> events;
+            Vector_<String_> leaves;
+            AddConstVariables(rng, eventDates, events, leaves);
+            AddPastFixings(rng, eventDates, events, leaves);
+
+            size_t exerciseCount = 0;
+            if (structure == 2) {
+                eventDates.push_back(Cell_(Date_(2023, 1, 4)));
+                events.push_back("v = " + BuildExpr(rng, 1, leaves) + "\n");
+                Vector_<String_> vLeaves = leaves;
+                vLeaves.push_back("v");
+                eventDates.push_back(Cell_(String_("START: " + Date::ToString(Date_(2023, 1, 4)) +
+                                                   " END: " + Date::ToString(Date_(2023, rng.UniformInt(2, 4), 15)) +
+                                                   " FREQ: 1W")));
+                events.push_back(BuildBlock(rng, "v", vLeaves, leaves) + BuildExerciseStatement(rng, vLeaves));
+                eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+                events.push_back("out pays " + BuildExpr(rng, 1, vLeaves) + "\n" + BuildExerciseStatement(rng, vLeaves));
+                exerciseCount = 2;
+            } else {
+                const int nEvents = structure == 1 ? rng.UniformInt(2, 4) : 1;
+                Vector_<String_> vLeaves = leaves;
+                for (int e = 0; e < nEvents; ++e) {
+                    eventDates.push_back(Cell_(Date_(2023, 1, 4).AddDays(91 * e)));
+                    std::ostringstream body;
+                    if (e == 0) {
+                        body << "v = " << BuildExpr(rng, 1, leaves) << "\n";
+                        if (rng.Bernoulli(0.5))
+                            body << "coupon PAYS " << FormatLiteral(rng.UniformReal(0.5, 2.0)) << "\n";
+                    } else
+                        body << BuildBlock(rng, "v", vLeaves, leaves);
+                    if (e == 0)
+                        vLeaves.push_back("v");
+                    if (e == nEvents - 1)
+                        body << "out pays " << BuildExpr(rng, 1, vLeaves) << "\n";
+                    //  the last event always exercises, so the product diverts to the LSMC driver
+                    if (e == nEvents - 1 || rng.Bernoulli(0.6)) {
+                        body << BuildExerciseStatement(rng, vLeaves);
+                        ++exerciseCount;
+                    }
+                    events.push_back(String_(body.str()));
+                }
+            }
+            REQUIRE(exerciseCount > 0, "exercise fuzz generator must emit at least one EXERCISE statement");
+            fp.data = std::make_unique<ScriptProductData_>("", eventDates, events);
+            return fp;
+        }
+
+    private:
+        ExerciseFuzzProduct_() = default;
+    };
+
+    //  One LSMC parity case: the same generated product through the tree-walk and
+    //  compiled engines of the LSMC driver (same Sobol paths, frozen per-engine
+    //  regressions); S11 tolerance semantics on the aggregated PV.
+    void RunExerciseFuzzCase(uint32_t seed, int structure) {
+        Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+        const ExerciseFuzzProduct_ fp = ExerciseFuzzProduct_::Build(seed, structure);
+        auto model = Handle_<ModelData_>(new BSModelData_("bsmodel", 10.0, 0.20, 0.034, 0.021));
+        MonteCarloSettings_ compiled;
+        compiled.compiled_ = true;
+        const SimResults_ treeWalk = MCSimulation<double>(*fp.data, model, 4096, ScriptValuationSettings_(), MonteCarloSettings_());
+        const SimResults_ compiledResults = MCSimulation<double>(*fp.data, model, 4096, ScriptValuationSettings_(), compiled);
+        ASSERT_NEAR(compiledResults.aggregated_, treeWalk.aggregated_, 1e-8)
+            << "EXERCISE FUZZ DIVERGENCE: seed=" << seed << " structure=" << structure
+            << " (treeWalk=" << treeWalk.aggregated_ << ")";
+    }
 } // namespace
 
 // ~500 products per run across the three structural axes. Each case prints
@@ -348,5 +439,29 @@ TEST(ScriptCompiledParityFuzzTest, TestFuzz_Schedule_80) {
     for (uint32_t seed = 2001; seed <= 2080; ++seed) {
         SCOPED_TRACE("seed=" + std::to_string(seed));
         ASSERT_NO_FATAL_FAILURE(RunFuzzCase(seed, 2));
+    }
+}
+
+//  EXERCISE parity fuzz (T3): the three structural axes with random exercise
+//  statements valued through the LSMC driver, tree-walk vs compiled engine.
+
+TEST(ScriptCompiledParityFuzzTest, TestFuzz_Exercise_SingleEvent_100) {
+    for (uint32_t seed = 3001; seed <= 3100; ++seed) {
+        SCOPED_TRACE("seed=" + std::to_string(seed));
+        ASSERT_NO_FATAL_FAILURE(RunExerciseFuzzCase(seed, 0));
+    }
+}
+
+TEST(ScriptCompiledParityFuzzTest, TestFuzz_Exercise_MultiEvent_60) {
+    for (uint32_t seed = 4001; seed <= 4060; ++seed) {
+        SCOPED_TRACE("seed=" + std::to_string(seed));
+        ASSERT_NO_FATAL_FAILURE(RunExerciseFuzzCase(seed, 1));
+    }
+}
+
+TEST(ScriptCompiledParityFuzzTest, TestFuzz_Exercise_Schedule_40) {
+    for (uint32_t seed = 5001; seed <= 5040; ++seed) {
+        SCOPED_TRACE("seed=" + std::to_string(seed));
+        ASSERT_NO_FATAL_FAILURE(RunExerciseFuzzCase(seed, 2));
     }
 }

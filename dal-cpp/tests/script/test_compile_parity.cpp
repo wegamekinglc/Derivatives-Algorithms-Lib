@@ -8,18 +8,23 @@
 
 #include <set>
 #include <string>
+#include <vector>
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/lsmc.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/compiler.hpp>
+
+#include "bermudan_pde.hpp"
 
 using namespace Dal;
 using namespace Dal::AAD;
 using namespace Dal::Script;
+using Dal::Script::TestSupport::BermudanPutPDE;
 
 TEST(ScriptCompiledParityTest, TestParameterConditionRemainsLive) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
@@ -635,14 +640,14 @@ namespace {
         static const std::set<int> ops = {
             AddConst, SubConst, ConstSub, MultiConst, DivConst, ConstDiv,
             PowConst, ConstPow, Max2Const, Min2Const, Var, Const, ConstVar,
-            Assign, Pays, If, FuzzyEqual, FuzzyComp
+            Assign, Pays, If, FuzzyEqual, FuzzyComp, LsmcPays, LsmcExercise
         };
         return ops.count(op) != 0;
     }
 
     bool IsTwoOperandOpcode(int op) {
         static const std::set<int> ops = {
-            AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete
+            AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, LsmcPaysConst
         };
         return ops.count(op) != 0;
     }
@@ -728,7 +733,151 @@ namespace {
         NodeFalse_().Accept(literals);
         CollectOpcodes(literals.NodeStream(), out);
     }
+    //  Prepared EXERCISE product: coupons (const and live RHS, the latter inside IF),
+    //  a conditional and an unconditional exercise date, and a maturity PAYS
+    ScriptProductData_ ExerciseProduct() {
+        Vector_<Cell_> eventDates;
+        Vector_<String_> events;
+        eventDates.push_back(Cell_(String_("STRIKE")));
+        events.push_back("100.0");
+        eventDates.push_back(Cell_(Date_(2023, 1, 15)));
+        events.push_back("coupon PAYS 2.0");
+        eventDates.push_back(Cell_(Date_(2023, 7, 15)));
+        events.push_back("IF spot() > 50 THEN coupon PAYS spot() - STRIKE END\nEXERCISE MAX(STRIKE - spot(), 0.0) IF spot() < 95");
+        eventDates.push_back(Cell_(Date_(2024, 1, 15)));
+        events.push_back("EXERCISE MAX(STRIKE - spot(), 0.0)");
+        eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+        events.push_back("call PAYS MAX(spot() - STRIKE, 0.0)");
+        return {"", eventDates, events};
+    }
+
+    MonteCarloSettings_ CompiledSettings() {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        return simulation;
+    }
+
+    PreparedScript_ PrepareCompiledExercise() {
+        auto model = CreateModel<double>(StandardBSModel(100.0, 0.20, 0.05, 0.0));
+        return PrepareScript(ExerciseProduct(), model.get(), ScriptValuationSettings_(), CompiledSettings());
+    }
+    struct ExerciseRun_ {
+        double pvSum_;
+        LsmcDiagnostics_ diagnostics_;
+    };
+
+    //  Tree-walk vs compiled LSMC through the shared driver (S11: PV within the parity
+    //  tolerance, per-event decision differences confined to boundary paths)
+    ExerciseRun_ RunExerciseLsmc(const ScriptProductData_& product, const Handle_<ModelData_>& modelData, size_t nPaths, bool compiled, int degree = 3) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        simulation.lsmcBasisDegree_ = degree;
+        auto model = CreateModel<double>(modelData);
+        auto prepared = PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation);
+        ExerciseRun_ run{0.0, LsmcDiagnostics_()};
+        run.diagnostics_.nPaths_ = nPaths;
+        const auto results = MCLsmcSimulation(prepared, model.get(), nPaths, &run.diagnostics_);
+        run.pvSum_ = results.aggregated_;
+        return run;
+    }
+
+    void AssertExerciseParity(const ScriptProductData_& product, const Handle_<ModelData_>& modelData, size_t nPaths) {
+        const ExerciseRun_ treeWalk = RunExerciseLsmc(product, modelData, nPaths, false);
+        const ExerciseRun_ compiled = RunExerciseLsmc(product, modelData, nPaths, true);
+        ASSERT_EQ(treeWalk.diagnostics_.events_.size(), compiled.diagnostics_.events_.size());
+        for (size_t k = 0; k < treeWalk.diagnostics_.events_.size(); ++k) {
+            SCOPED_TRACE("exercise event " + std::to_string(k));
+            //  S11: differing decisions are boundary paths only, fraction <= 1e-4
+            ASSERT_NEAR(compiled.diagnostics_.events_[k].exerciseRate_, treeWalk.diagnostics_.events_[k].exerciseRate_, 1e-4);
+            ASSERT_EQ(compiled.diagnostics_.events_[k].coefficients_.size(), treeWalk.diagnostics_.events_[k].coefficients_.size());
+            for (size_t j = 0; j < treeWalk.diagnostics_.events_[k].coefficients_.size(); ++j)
+                ASSERT_NEAR(compiled.diagnostics_.events_[k].coefficients_[j], treeWalk.diagnostics_.events_[k].coefficients_[j], 1e-8);
+        }
+        ASSERT_NEAR(compiled.pvSum_, treeWalk.pvSum_, 1e-8) << "aggregated PV divergence (treeWalk=" << treeWalk.pvSum_ << ")";
+    }
+
+    Vector_<Date_> WeeklyExerciseDates(size_t count) {
+        Vector_<Date_> dates;
+        for (size_t i = 1; i <= count; ++i)
+            dates.push_back(Date_(2022, 6, 22).AddDays(static_cast<int>(7 * i)));
+        return dates;
+    }
+
+    ScriptProductData_ BermudanPutProduct(const Vector_<Date_>& dates, double strike = 100.0) {
+        Vector_<Cell_> cells;
+        for (const auto& d : dates)
+            cells.push_back(Cell_(d));
+        const String_ body = "EXERCISE MAX(" + ToString(strike) + " - spot(), 0.0)";
+        return {"", cells, Vector_<String_>(dates.size(), body)};
+    }
 } // namespace
+
+TEST(ScriptCompiledParityTest, TestExerciseCompiledPreparationBuildsRecordingStream) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    const PreparedScript_ prepared = PrepareCompiledExercise();
+    ASSERT_TRUE(prepared.Product().ContainsExercise());
+    const ScriptCompiled_ compiled = prepared.Compile();
+    ASSERT_EQ(compiled.NodeStreams().size(), prepared.Product().Events().size());
+}
+
+TEST(ScriptCompiledParityTest, TestExerciseCompiledStreamEmitsRecordingOpcodes) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    const ScriptCompiled_ compiled = PrepareCompiledExercise().Compile();
+    std::set<int> seen;
+    for (const auto& stream : compiled.NodeStreams())
+        CollectOpcodes(stream, &seen);
+    ASSERT_EQ(seen.count(LsmcPays), 1u);
+    ASSERT_EQ(seen.count(LsmcPaysConst), 1u);
+    ASSERT_EQ(seen.count(LsmcExercise), 1u);
+    ASSERT_EQ(seen.count(Pays), 0u) << "recording streams must not carry the plain Pays opcode";
+    ASSERT_EQ(seen.count(PaysConst), 0u) << "recording streams must not carry the plain PaysConst opcode";
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Exercise_Bermudan) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel(100.0, 0.20, 0.05, 0.0);
+    AssertExerciseParity(BermudanPutProduct(WeeklyExerciseDates(12)), model, 1u << 14);
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Exercise_CouponsAndCondition) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel(100.0, 0.20, 0.05, 0.02);
+    { //  coupons around the exercise dates plus a conditional exercise (S4 boundaries)
+        Vector_<Cell_> cells{Cell_(Date_(2022, 12, 21)), Cell_(Date_(2023, 6, 21)), Cell_(Date_(2023, 12, 21)), Cell_(Date_(2024, 6, 21))};
+        Vector_<String_> events{"pay PAYS 2.0",
+                                "pay PAYS 2.5\nEXERCISE MAX(100.0 - spot(), 0.0) IF spot() < 98",
+                                "EXERCISE MAX(100.0 - spot(), 0.0) IF spot() < 98",
+                                "pay PAYS MAX(spot() - 100.0, 0.0) + 3.0"};
+        AssertExerciseParity({"", cells, events}, model, 1u << 14);
+    }
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Exercise_PublicMCPath) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel(100.0, 0.20, 0.05, 0.0);
+    MonteCarloSettings_ treeWalk;
+    const SimResults_ treeResults = MCSimulation<double>(BermudanPutProduct(WeeklyExerciseDates(12)), model, 1u << 13, ScriptValuationSettings_(), treeWalk);
+    const SimResults_ compiledResults =
+        MCSimulation<double>(BermudanPutProduct(WeeklyExerciseDates(12)), model, 1u << 13, ScriptValuationSettings_(), CompiledSettings());
+    ASSERT_NEAR(compiledResults.aggregated_, treeResults.aggregated_, 1e-8);
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Exercise_GoldenPdeAnchored) {
+    //  Golden coverage of the compiled path: the T2 Bermudan anchor (mid + maturity
+    //  exercise) re-run through the compiled evaluator must stay inside the PDE band
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel(100.0, 0.20, 0.05, 0.0);
+    const Vector_<Date_> exerciseDates{Date_(2023, 6, 21), Date_(2024, 6, 21)};
+    const size_t nPaths = 1u << 16;
+    const ExerciseRun_ compiled = RunExerciseLsmc(BermudanPutProduct(exerciseDates), model, nPaths, true);
+    std::vector<double> exerciseTimes;
+    for (const auto& d : exerciseDates)
+        exerciseTimes.push_back(static_cast<double>(d - Date_(2022, 6, 22)) / 365.0);
+    const double pde = BermudanPutPDE(100.0, 0.20, 0.05, 0.0, 100.0, exerciseTimes, 1500, 1000);
+    const double pv = compiled.pvSum_ / static_cast<double>(nPaths);
+    const double band = std::max(3.0 * compiled.diagnostics_.StandardError(), 0.0075 * 100.0);
+    ASSERT_NEAR(pv, pde, band);
+}
 
 TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));

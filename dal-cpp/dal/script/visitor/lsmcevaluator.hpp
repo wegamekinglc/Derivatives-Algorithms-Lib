@@ -8,9 +8,6 @@
 
 namespace Dal::Script {
 
-    //  Event-map sentinel: the event carries no statement of this kind
-    constexpr size_t NO_EVENT_SLOT = static_cast<size_t>(-1);
-
     //  Tree-walk evaluator that records the LSMC driver's forward-pass data:
     //  raw (undiscounted) payments per PAYS event and the (x, h, condition)
     //  triple per exercise event. EXERCISE stays a no-op on the script state;
@@ -39,22 +36,10 @@ namespace Dal::Script {
         Vector_<Vector_<>>* xStorage_ = nullptr;
         Vector_<Vector_<>>* hStorage_ = nullptr;
         Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
-        Vector_<Vector_<>>* preExerciseStorage_ = nullptr;
-        size_t payoffIndex_ = 0;
-        bool hasPayoffVar_ = false;
         size_t pathSlot_ = 0;
         size_t eventOrdinal_ = 0;
 
-        void SetEventOrdinal(size_t event) {
-            eventOrdinal_ = event;
-            //  S4: exercise replaces same-day and later payments only, so the payoff
-            //  accumulated before the exercise event must survive the exercise
-            if (preExerciseStorage_) {
-                const size_t slot = (*eventToExercise_)[event];
-                if (slot != NO_EVENT_SLOT)
-                    (*preExerciseStorage_)[slot][pathSlot_] = hasPayoffVar_ ? variables_[payoffIndex_] : 0.0;
-            }
-        }
+        void SetEventOrdinal(size_t event) { eventOrdinal_ = event; }
 
         FORCE_INLINE void Visit(const NodePays_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;

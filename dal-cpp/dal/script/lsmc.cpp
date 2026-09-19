@@ -9,6 +9,7 @@
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/script/visitor/compiler.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -198,6 +199,9 @@ namespace Dal::Script {
             Vector_<> gauss_;
             Scenario_<> path_;
             LsmcEvaluator_<double> evaluator_;
+            //  Compiled mode (T3 parity): per-thread recording state feeding LsmcSinks_
+            std::optional<EvalState_<double>> compiledState_;
+            LsmcSinks_ sinks_;
 
             explicit ThreadState_(const struct LsmcContext_& ctx);
         };
@@ -209,6 +213,7 @@ namespace Dal::Script {
             const LsmcPlan_& scan_;
             LsmcStorage_& storage_;
             Vector_<std::unique_ptr<ThreadState_>>& threadStates_;
+            std::optional<ScriptCompiled_> compiled_; //  engaged when the prepared simulation selects the compiled evaluator
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
@@ -233,16 +238,27 @@ namespace Dal::Script {
             evaluator_.xStorage_ = &ctx.storage_.xByDay_;
             evaluator_.hStorage_ = &ctx.storage_.hByDay_;
             evaluator_.condStorage_ = ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
-            evaluator_.preExerciseStorage_ = ctx.storage_.preExercise_.empty() ? nullptr : &ctx.storage_.preExercise_;
-            evaluator_.payoffIndex_ = ctx.Product().PayOffIdx();
-            evaluator_.hasPayoffVar_ = ctx.Product().HasPays();
+            if (ctx.compiled_) {
+                compiledState_.emplace(ctx.prepared_.BuildEvalState<double>());
+                sinks_.eventToPays_ = &ctx.scan_.eventToPays_;
+                sinks_.eventToExercise_ = &ctx.scan_.eventToExercise_;
+                sinks_.pays_ = &ctx.storage_.pays_;
+                sinks_.x_ = &ctx.storage_.xByDay_;
+                sinks_.h_ = &ctx.storage_.hByDay_;
+                sinks_.cond_ = ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
+                compiledState_->lsmcSinks_ = &sinks_;
+            }
         }
 
-        //  One forward evaluation with recording (the LsmcEvaluator_ no-ops EXERCISE)
-        void EvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
-            state.random_->FillNormal(&state.gauss_);
-            ctx.model_->GeneratePath(state.gauss_, &state.path_);
-            ValidateSimulationPath(state.path_);
+        //  S4: exercise replaces same-day and later payments only, so the payoff
+        //  accumulated strictly before the exercise event survives (both engines)
+        void SnapshotPreExercise(const LsmcContext_& ctx, const Vector_<>& variables, size_t event, size_t pathSlot) {
+            const size_t slot = ctx.scan_.eventToExercise_[event];
+            if (slot != NO_SLOT)
+                ctx.storage_.preExercise_[slot][pathSlot] = ctx.Product().HasPays() ? variables[ctx.PayOffIdx()] : 0.0;
+        }
+
+        void TreeEvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
             auto& eval = state.evaluator_;
             eval.pathSlot_ = pathSlot;
             eval.SetScenario(&state.path_);
@@ -251,11 +267,44 @@ namespace Dal::Script {
             const auto& events = ctx.Product().Events();
             const auto& eventToSample = ctx.Plan().EventToSample();
             for (size_t e = 0; e < events.size(); ++e) {
+                SnapshotPreExercise(ctx, eval.VarVals(), e, pathSlot);
                 eval.SetCurEvt(eventToSample[e]);
                 eval.SetEventOrdinal(e);
                 for (const auto& statement : events[e])
                     statement->Accept(eval);
             }
+        }
+
+        //  Compiled engine mirror: one event stream per event, the driver installs the
+        //  sinks and owns the event boundaries; EXERCISE is recording-only on the state
+        void CompiledEvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
+            const ScriptCompiled_& compiled = *ctx.compiled_;
+            auto& eval = *state.compiledState_;
+            auto& sinks = state.sinks_;
+            sinks.pathSlot_ = pathSlot;
+            eval.Init();
+            eval.observations_ = &ctx.Plan();
+            eval.scenario_ = &state.path_;
+            const auto& nodeStreams = compiled.NodeStreams();
+            const auto& constStreams = compiled.ConstStreams();
+            const auto& eventToSample = ctx.Plan().EventToSample();
+            for (size_t e = 0; e < nodeStreams.size(); ++e) {
+                sinks.eventOrdinal_ = e;
+                SnapshotPreExercise(ctx, eval.variables_, e, pathSlot);
+                const Detail::CompiledEventView_<double> view{nodeStreams[e], constStreams[e], state.path_[eventToSample[e]]};
+                Detail::EvalCompiledEvents<true>(1, [&](size_t) { return view; }, &eval);
+            }
+        }
+
+        //  One forward evaluation with recording (EXERCISE is a no-op on the script state)
+        void EvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
+            state.random_->FillNormal(&state.gauss_);
+            ctx.model_->GeneratePath(state.gauss_, &state.path_);
+            ValidateSimulationPath(state.path_);
+            if (state.compiledState_)
+                CompiledEvaluateRecordedPath(state, ctx, pathSlot);
+            else
+                TreeEvaluateRecordedPath(state, ctx, pathSlot);
         }
 
         //  Phase A: forward storage over disjoint per-batch path slots
@@ -361,7 +410,8 @@ namespace Dal::Script {
             }
             if (!hasPayoffVar)
                 return 0.0;
-            const double payoff = state.evaluator_.VarVals()[ctx.PayOffIdx()];
+            const Vector_<>& variables = state.compiledState_ ? state.compiledState_->VarVals() : state.evaluator_.VarVals();
+            const double payoff = variables[ctx.PayOffIdx()];
             REQUIRE2(std::isfinite(payoff), "InvalidPayoff: non-finite path value", ScriptError_);
             return payoff;
         }
@@ -491,9 +541,6 @@ namespace Dal::Script {
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics) {
         const auto& product = prepared.Product();
         const auto& simulation = prepared.Simulation();
-        REQUIRE2(!simulation.compiled_.value_or(false),
-                 "UnsupportedExecutionMode: compiled valuation of EXERCISE is not implemented (compiled parity arrives with the next milestone)",
-                 ScriptError_);
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
                  "UnsupportedExecutionMode: AAD valuation of EXERCISE is not implemented (the fuzzy driver arrives with a later milestone)",
@@ -506,6 +553,8 @@ namespace Dal::Script {
         ThreadPool_* pool = ThreadPool_::GetInstance();
         Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
         LsmcContext_ ctx{prepared, mdl, scan, storage, threadStates};
+        if (simulation.compiled_.value_or(false))
+            ctx.compiled_.emplace(prepared.Compile());
         static_cast<void>(ctx.StateFor(0));
 
         RunForwardPhase(ctx, batchPlan);
