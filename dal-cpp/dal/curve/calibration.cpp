@@ -50,24 +50,6 @@ namespace Dal {
         // The count is process-global, so observing it requires a quiescent process.
         std::atomic<int> calibrationInvocationCount{0};
 
-        void AddAnalyticIssue(AnalyticEligibilityReport_* report,
-                              AnalyticIneligibilityReason_ reason,
-                              const String_& group,
-                              int declarationIndex,
-                              int instrumentIndex,
-                              int resetIndex,
-                              const String_& message) {
-            AnalyticEligibilityIssue_ issue;
-            issue.reason_ = reason;
-            issue.group_ = group;
-            issue.declarationIndex_ = declarationIndex;
-            issue.instrumentIndex_ = instrumentIndex;
-            issue.resetIndex_ = resetIndex;
-            issue.nativeMessage_ = message;
-            report->issues_.push_back(issue);
-            report->eligible_ = false;
-        }
-
         bool HasTemplatedSingleRate(const YCInstrument_& instrument) {
             return dynamic_cast<const Deposit_*>(&instrument) || dynamic_cast<const FRA_*>(&instrument) ||
                    dynamic_cast<const Future_*>(&instrument) || dynamic_cast<const Swap_*>(&instrument);
@@ -77,29 +59,29 @@ namespace Dal {
         SingleAnalyticEligibility(const Date_& anchor, bool calibrateDiscountCurve, const Vector_<Handle_<YCInstrument_>>& instruments) {
             AnalyticEligibilityReport_ report;
             if (!calibrateDiscountCurve) {
-                AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::DISCOUNT_TARGET_REQUIRED, "single", -1, -1, -1,
-                                 "AAD Jacobian requires a discount-target declaration");
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::DISCOUNT_TARGET_REQUIRED, "single", -1, -1, -1,
+                                    "AAD Jacobian requires a discount-target declaration");
             }
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 const YCInstrument_* instrument = instruments[i].get();
                 if (!instrument || !HasTemplatedSingleRate(*instrument)) {
-                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
-                                     "AAD Jacobian has no templated rate for the instrument");
+                    AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
+                                        "AAD Jacobian has no templated rate for the instrument");
                     continue;
                 }
                 const RateIndexConvention_* convention = FloatConventionOf(*instrument);
                 if (!convention) {
-                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
-                                     "AAD Jacobian has no floating-rate convention for the instrument");
+                    AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
+                                        "AAD Jacobian has no floating-rate convention for the instrument");
                     continue;
                 }
                 if (convention->useProjectionCurve_) {
-                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, "single", -1, i, -1,
-                                     "AAD Jacobian requires forecast and discount routing to coincide");
+                    AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, "single", -1, i, -1,
+                                        "AAD Jacobian requires forecast and discount routing to coincide");
                 }
                 if (instrument->TradeDate() != anchor) {
-                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, "single", -1, i, -1,
-                                     "instrument trade date does not equal the curve anchor");
+                    AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, "single", -1, i, -1,
+                                        "instrument trade date does not equal the curve anchor");
                 }
             }
             return report;
@@ -566,17 +548,8 @@ namespace Dal {
 
     namespace {
         Vector_<> BuildCalibrationGuess(const CurveCalibrationSpec_& spec, const CurveDefinition_& definition, const CurveParameterLayout_& layout) {
-            Vector_<> guess(layout.parameterCount_);
-            if (!spec.initialGuessPerNode_.empty()) {
-                std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
-            } else if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-                // initialGuess_ is an annualized continuously-compounded rate.
-                for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
-                    guess[i - 1] = -spec.initialGuess_ * spec.liborBasis_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
-            } else {
-                std::fill(guess.begin(), guess.end(), spec.initialGuess_);
-            }
-            return guess;
+            static_cast<void>(layout); // the shared slice rebuilds the layout from the definition
+            return BuildGuessSlice(spec, definition, spec.initialGuess_, String_("Curve calibration"));
         }
 
         CurveCalibrationResult_ AssembleCalibrationResult(const CurveCalibrationSpec_& spec,

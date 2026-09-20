@@ -60,8 +60,7 @@ namespace Dal {
 
         Vector_<>
         BuildGuessSlice(const JointMultiCurveCalibrationSpec_& spec, const JointCurveDeclaration_& decl, const CurveDefinition_& definition) {
-            return JointCalibrationInternal::BuildGuessSlice(decl, definition, spec.initialGuess_,
-                                                             String_("Joint curve declaration ") + decl.curveName_);
+            return Dal::BuildGuessSlice(decl, definition, spec.initialGuess_, String_("Joint curve declaration ") + decl.curveName_);
         }
 
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {

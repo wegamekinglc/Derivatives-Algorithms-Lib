@@ -12,6 +12,7 @@
 
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
+#include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/math/matrix/banded.hpp>
@@ -77,46 +78,18 @@ namespace Dal {
                                        LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.knotDates_, valuationTime.Date(), DayBasis::Act365F());
         }
 
-        void AddEligibilityIssue(
-            AnalyticEligibilityReport_* report, AnalyticIneligibilityReason_ reason, int instrumentIndex, int resetIndex, const String_& message) {
-            AnalyticEligibilityIssue_ issue;
-            issue.reason_ = reason;
-            issue.group_ = "staged";
-            issue.instrumentIndex_ = instrumentIndex;
-            issue.resetIndex_ = resetIndex;
-            issue.nativeMessage_ = message;
-            report->issues_.push_back(issue);
-            report->eligible_ = false;
-        }
-
-        void AddGroupedEligibilityIssue(AnalyticEligibilityReport_* report,
-                                        AnalyticIneligibilityReason_ reason,
-                                        const String_& group,
-                                        int instrumentIndex,
-                                        int resetIndex,
-                                        const String_& message) {
-            AnalyticEligibilityIssue_ issue;
-            issue.reason_ = reason;
-            issue.group_ = group;
-            issue.instrumentIndex_ = instrumentIndex;
-            issue.resetIndex_ = resetIndex;
-            issue.nativeMessage_ = message;
-            report->issues_.push_back(issue);
-            report->eligible_ = false;
-        }
-
         void ValidateStagedRoute(const CurveBlock_& block,
                                  const RateIndexConvention_& index,
                                  int instrumentIndex,
                                  const String_& leg,
                                  AnalyticEligibilityReport_* report) {
             if (!block.HasDiscount(index.collateral_)) {
-                AddGroupedEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, leg, instrumentIndex, -1,
-                                           leg + " discount route is absent");
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, leg, -1, instrumentIndex, -1,
+                                    leg + " discount route is absent");
             }
             if (index.useProjectionCurve_ && !block.HasForward(index.forecastTenor_)) {
-                AddGroupedEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, leg, instrumentIndex, -1,
-                                           leg + " projection route is absent");
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, leg, -1, instrumentIndex, -1,
+                                    leg + " projection route is absent");
             }
         }
 
@@ -127,15 +100,14 @@ namespace Dal {
             case XccyNotionalMode_::Value_::RESETTABLE:
             case XccyNotionalMode_::Value_::MARK_TO_MARKET:
                 for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
-                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
-                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, instrumentIndex, reset,
+                    if (!JointCalibrationInternal::ValidResetDomesticMapping(plan, reset)) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, "staged", -1, instrumentIndex, reset,
                                             "reset event does not map consecutively from the second domestic period");
                     }
                 }
                 return;
             default:
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, instrumentIndex, -1,
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, "staged", -1, instrumentIndex, -1,
                                     "typed pricing does not support the notional mode");
             }
         }
@@ -145,11 +117,11 @@ namespace Dal {
                                 int instrumentIndex,
                                 AnalyticEligibilityReport_* report) {
             if (!(plan.config_.pair_ == spec.basisPair_)) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PAIR_CURRENCY_MISMATCH, instrumentIndex, -1,
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PAIR_CURRENCY_MISMATCH, "staged", -1, instrumentIndex, -1,
                                     "instrument pair does not match the calibration pair");
             }
             if (plan.domesticPeriods_.empty() || plan.foreignPeriods_.empty()) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, instrumentIndex, -1,
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, "staged", -1, instrumentIndex, -1,
                                     "typed pricing requires coupon periods on both legs");
             }
             ValidateStagedResetMappings(plan, instrumentIndex, report);
@@ -392,16 +364,17 @@ namespace Dal {
     AnalyticEligibilityReport_ ValidateCrossCurrencyAnalyticEligibility(const CrossCurrencyCalibrationSpec_& spec) {
         AnalyticEligibilityReport_ report;
         if (spec.domesticCurveBlock_ && !HasAct365FLiborBasis(spec.domesticCurveBlock_->LiborBasis())) {
-            AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "domestic", -1, -1,
-                                       "domestic libor basis must be ACT_365F");
+            AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "domestic", -1, -1, -1,
+                                "domestic libor basis must be ACT_365F");
         }
         if (spec.foreignCurveBlock_ && !HasAct365FLiborBasis(spec.foreignCurveBlock_->LiborBasis())) {
-            AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "foreign", -1, -1,
-                                       "foreign libor basis must be ACT_365F");
+            AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "foreign", -1, -1, -1,
+                                "foreign libor basis must be ACT_365F");
         }
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
             if (!spec.instruments_[i]) {
-                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, i, -1, "empty XCCY instrument");
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, "staged", -1, i, -1,
+                                    "empty XCCY instrument");
                 continue;
             }
             try {
@@ -409,7 +382,7 @@ namespace Dal {
                 const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, spec.instruments_[i]->Config());
                 ValidateStagedPlan(spec, plan, i, &report);
             } catch (const std::exception& error) {
-                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, i, -1, String_(error.what()));
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, "staged", -1, i, -1, String_(error.what()));
             }
         }
         return report;
