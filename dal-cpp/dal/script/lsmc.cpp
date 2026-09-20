@@ -326,7 +326,9 @@ namespace Dal::Script {
             tasks.Complete();
         }
 
-        //  N5: the backward discounting ratios anchor on one probe path's numeraires
+        //  N5: the backward discounting ratios anchor on one probe path's numeraires;
+        //  the supported models (BS/Dupire, S13) carry deterministic rates, so the
+        //  numeraire is path-independent and any path pins the same ratios
         Vector_<> SampleGridNumeraires(const LsmcContext_& ctx) {
             const auto& simulation = ctx.prepared_.Simulation();
             const auto& events = ctx.Product().Events();

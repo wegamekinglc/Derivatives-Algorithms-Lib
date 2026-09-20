@@ -204,8 +204,9 @@ namespace Dal::Script {
     }
 
     namespace {
-        //  The diagnostic explicitly runs the full valuation in the prepared mode
-        //  (tree-walk or compiled; AAD exercise valuation arrives with the fuzzy milestone)
+        //  The diagnostic deliberately runs the double valuation path (tree-walk or
+        //  compiled) only: the fuzzy AAD driver reports no per-event statistics, and
+        //  enable_aad settings are rejected at the entry
         void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
             if (prepared.AllExpired())
                 return;
