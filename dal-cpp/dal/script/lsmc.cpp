@@ -201,16 +201,27 @@ namespace Dal::Script {
             return storage;
         }
 
+        //  Mirrors MCDoubleSimulation: an exact BlackScholes model generates into a
+        //  reusable checked path — generation and validation fused, deterministic
+        //  numeraires pre-filled once — instead of a generic GeneratePath plus a
+        //  separate full-path ValidateSimulationPath scan
+        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
+            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
+        };
+
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
+            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
             LsmcEvaluator_<double> evaluator_;
             //  Compiled mode (T3 parity): per-thread recording state feeding LsmcSinks_
             std::optional<EvalState_<double>> compiledState_;
             LsmcSinks_ sinks_;
 
             explicit ThreadState_(const struct LsmcContext_& ctx);
+
+            [[nodiscard]] const Scenario_<>& Path() const { return bsPaths_ ? bsPaths_->Path() : path_; }
         };
 
         //  Immutable per-run references shared by the three phases
@@ -237,8 +248,12 @@ namespace Dal::Script {
         ThreadState_::ThreadState_(const LsmcContext_& ctx)
             : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, ctx.model_->SimDim(), ctx.prepared_.Simulation().useBb_)),
               gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues()) {
-            AllocatePath(ctx.Plan().DefLine(), path_);
-            InitializePath(path_);
+            if (typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>))
+                bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(*ctx.model_));
+            else {
+                AllocatePath(ctx.Plan().DefLine(), path_);
+                InitializePath(path_);
+            }
             evaluator_.eventToPays_ = &ctx.scan_.eventToPays_;
             evaluator_.eventToExercise_ = &ctx.scan_.eventToExercise_;
             evaluator_.paysStorage_ = &ctx.storage_.pays_;
@@ -268,7 +283,7 @@ namespace Dal::Script {
         void TreeEvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
             auto& eval = state.evaluator_;
             eval.pathSlot_ = pathSlot;
-            eval.SetScenario(&state.path_);
+            eval.SetScenario(&state.Path());
             eval.SetObservations(&ctx.Plan());
             eval.Init();
             const auto& events = ctx.Product().Events();
@@ -291,14 +306,14 @@ namespace Dal::Script {
             sinks.pathSlot_ = pathSlot;
             eval.Init();
             eval.observations_ = &ctx.Plan();
-            eval.scenario_ = &state.path_;
+            eval.scenario_ = &state.Path();
             const auto& nodeStreams = compiled.NodeStreams();
             const auto& constStreams = compiled.ConstStreams();
             const auto& eventToSample = ctx.Plan().EventToSample();
             for (size_t e = 0; e < nodeStreams.size(); ++e) {
                 sinks.eventOrdinal_ = e;
                 SnapshotPreExercise(ctx, eval.variables_, e, pathSlot);
-                const Detail::CompiledEventView_<double> view{nodeStreams[e], constStreams[e], state.path_[eventToSample[e]]};
+                const Detail::CompiledEventView_<double> view{nodeStreams[e], constStreams[e], state.Path()[eventToSample[e]]};
                 Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &eval);
             }
         }
@@ -307,8 +322,13 @@ namespace Dal::Script {
         //  the terminal payoff-variable value closes the path's recorded rows
         void EvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
             state.random_->FillNormal(&state.gauss_);
-            ctx.model_->GeneratePath(state.gauss_, &state.path_);
-            ValidateSimulationPath(state.path_);
+            if (state.bsPaths_) {
+                if (!state.bsPaths_->Generate(state.gauss_))
+                    Detail::DiagnoseInvalidSimulationPath(state.bsPaths_->Path());
+            } else {
+                ctx.model_->GeneratePath(state.gauss_, &state.path_);
+                ValidateSimulationPath(state.path_);
+            }
             if (state.compiledState_)
                 CompiledEvaluateRecordedPath(state, ctx, pathSlot);
             else
