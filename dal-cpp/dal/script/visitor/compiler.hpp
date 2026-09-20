@@ -956,8 +956,11 @@ namespace Dal::Script {
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise
         //  triples land in the driver's sinks while the script-state arithmetic
-        //  mirrors the plain Pays opcodes statement for statement
-        template <class T_> FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        //  mirrors the plain Pays opcodes statement for statement. Deliberately not
+        //  FORCE_INLINE: only recording streams reach it, and keeping it a cold call
+        //  preserves the inlined shape (and instruction footprint) of the hot
+        //  LoadObservation/Discard path that every prepared product executes.
+        template <class T_> size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& bStack = state.bStack_;
