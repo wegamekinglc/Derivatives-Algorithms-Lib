@@ -229,10 +229,21 @@ namespace Dal::Script {
         return true;
     }
 
+    inline bool JsonWriteExercise(const DebugNode_& node, size_t& id, std::ostream& ost) {
+        if (node.kind != "exercise")
+            return false;
+        if (node.discrete)
+            ost << ",\"mode\":\"discrete\",\"lb\":" << DebugNumber(node.lb) << ",\"rb\":" << DebugNumber(node.rb);
+        else
+            ost << ",\"mode\":\"continuous\",\"eps\":" << DebugNumber(node.number);
+        JsonWriteChildren(node, id, ost);
+        return true;
+    }
+
     //  Writes the kind-specific fields; false when the kind takes only children
     inline bool JsonWriteFields(const DebugNode_& node, size_t& id, std::ostream& ost) {
         return JsonWriteIf(node, id, ost) || JsonWriteAssign(node, id, ost) || JsonWriteNamed(node, id, ost) || JsonWriteConst(node, id, ost) ||
-               JsonWriteCompare(node, id, ost);
+               JsonWriteCompare(node, id, ost) || JsonWriteExercise(node, id, ost);
     }
 
     //  Machine-friendly JSON; ids are pre-order and unique per dump.
@@ -332,9 +343,9 @@ namespace Dal::Script {
     }
 
     inline int TreePrec(const String_& kind) {
-        static const std::map<String_, int> PRECEDENCE = {{"assign", 0}, {"pays", 0}, {"if", 0},  {"collect", 0}, {"or", 1},  {"and", 2},
-                                                          {"eq0", 3},    {"gt0", 3},  {"ge0", 3}, {"add", 4},     {"sub", 4}, {"mul", 5},
-                                                          {"div", 5},    {"not", 6},  {"neg", 6}, {"uplus", 6},   {"pow", 7}};
+        static const std::map<String_, int> PRECEDENCE = {{"assign", 0},   {"pays", 0},  {"if", 0},  {"collect", 0}, {"exercise", 0}, {"or", 1},
+                                                          {"and", 2},      {"eq0", 3},   {"gt0", 3}, {"ge0", 3},     {"add", 4},       {"sub", 4},
+                                                          {"mul", 5},      {"div", 5},   {"not", 6}, {"neg", 6},     {"uplus", 6},     {"pow", 7}};
         const auto found = PRECEDENCE.find(kind);
         return found == PRECEDENCE.end() ? 8 : found->second;
     }
@@ -478,12 +489,22 @@ namespace Dal::Script {
         return rtn;
     }
 
+    inline String_ TreeInlineExercise(const DebugNode_& node, const TreeStyle_& st) {
+        //  The ;eps hint already renders on the condition's comparison; one eps serves both uses
+        String_ rtn = String_("exercise ") + TreeInline(node.children[0], st);
+        if (node.children.size() > 1)
+            rtn += " if " + TreeInline(node.children[1], st);
+        return rtn;
+    }
+
     inline String_ TreeInlineStatement(const DebugNode_& node, const TreeStyle_& st) {
         const String_& k = node.kind;
         if (k == "assign" || k == "pays")
             return TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS) + " " + TreeInline(node.children[1], st);
         if (k == "if")
             return TreeInlineIf(node, st);
+        if (k == "exercise")
+            return TreeInlineExercise(node, st);
         //  collect
         String_ rtn;
         for (size_t i = 0; i < node.children.size(); ++i) {
@@ -526,13 +547,20 @@ namespace Dal::Script {
             branches.push_back(TreeBranch_{&node.children[i], String_(st.elseS), false});
     }
 
-    //  Fills the statement-family header (assign, pays, if); false for other kinds
+    //  Fills the statement-family header (assign, pays, if, exercise); false for other kinds
     inline bool TreeBranchStatement(
         const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width, String_& header, Vector_<TreeBranch_>& branches) {
         const String_& k = node.kind;
         if (k == "assign" || k == "pays") {
             header = first + TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS);
             branches.push_back(TreeBranch_{&node.children[1], String_(), true});
+            return true;
+        }
+        if (k == "exercise") {
+            header = first + "exercise";
+            branches.push_back(TreeBranch_{&node.children[0], String_(), true});
+            if (node.children.size() > 1)
+                branches.push_back(TreeBranch_{&node.children[1], String_("if "), false});
             return true;
         }
         if (k != "if")
@@ -715,6 +743,22 @@ namespace Dal::Script {
         void Visit(const NodeOr_& node) { Debug(node, {"OR", "or"}); }
         void Visit(const NodeAssign_& node) { Debug(node, {"ASSIGN", "assign"}); }
         void Visit(const NodePays_& node) { Debug(node, {"PAYS", "pays"}); }
+        void Visit(const NodeExercise_& node) {
+            //  The fuzzy metadata (decision smoothing eps) renders like a comparison node
+            DebugNode_ ir;
+            ir.label = "EXERCISE";
+            ir.kind = "exercise";
+            if (!node.isDiscrete_) {
+                ir.label += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
+                ir.number = node.eps_;
+            } else {
+                ir.label += String_("[DISCRETE,BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
+                ir.discrete = true;
+                ir.lb = node.lb_;
+                ir.rb = node.rb_;
+            }
+            Debug(node, std::move(ir));
+        }
         void Visit(const NodeSpot_& node) {
             DebugNode_ ir{"SPOT", "spot"};
             if (describe_)

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/indice/fixingsnapshot.hpp>
+#include <dal/model/base.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/observationplan.hpp>
 #include <dal/script/settings.hpp>

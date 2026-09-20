@@ -195,7 +195,6 @@ TEST(ScriptApiTest, TestSettingsExplicitDateAndCopiedContract) {
     ASSERT_EQ(product->Settings().defaultIndex_, String_("eq[DAL196_TEST]"));
     Dal::ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     Dal::MarketFixingSnapshot_::values_t values{{"EQ[DAL196_TEST]", {{Dal::DateTime_(Date_(2026, 9, 12), 0.0), 80.0}}}};
     valuation.fixings_ = Handle_<Dal::MarketFixingSnapshot_>(new Dal::MarketFixingSnapshot_(values));
     values.clear();
@@ -223,15 +222,6 @@ TEST(ScriptApiTest, TestSettingErrorsHaveFieldValueAndConstraint) {
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 0); }, {"InvalidPathCount", "numPath=0", "positive"}));
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo({}, model, 1); }, {"InvalidSetting", "product=null", "non-null"}));
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, {}, 1); }, {"InvalidSetting", "modelData=null", "non-null"}));
-    valuation.modelBindings_ = {{"spot", "EQ[A]"}, {"spot", "EQ[B]"}};
-    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
-                                         {"DuplicateModelBinding", "modelBindings_[1].assetName_=spot", "modelBindings_[0]", "unique"}));
-    valuation.modelBindings_ = {{"wrong", "EQ[A]"}};
-    ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
-                                         {"UnknownModelAsset", "modelBindings_[0].assetName_=wrong", "spot"}));
-    valuation.modelBindings_ = {{"spot", ""}};
-    ASSERT_NO_FATAL_FAILURE(
-        AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); }, {"InvalidIndex", "modelBindings_[0].indexName_=", "non-empty"}));
 }
 
 TEST(ScriptApiTest, TestNativeTailArgumentsRejectConflictingSettings) {
@@ -261,11 +251,9 @@ TEST(ScriptApiTest, TestObservationErrorsIncludeSourceAndConstraints) {
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
                                          {"LookAheadObservation", "fixing=2026-09-23", "event=2026-09-22", "original=eq[FIELD]",
                                           "canonical=EQ[FIELD]", "row=1", "statement=0", "node=n2", "expected"}));
-    product = Dal::NewScriptProduct("binding", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS FIX(EQ[FIELD])"});
-    valuation.modelBindings_ = {{"spot", "EQ[OTHER]"}};
+    product = Dal::NewScriptProduct("indices", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS FIX(EQ[FIELD]) + FIX(EQ[OTHER])"});
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
-                                         {"ConflictingModelBinding", "EQ[FIELD]", "EQ[OTHER]", "modelBindings_", "expected"}));
-    valuation.modelBindings_.clear();
+                                         {"MultipleModelIndices", "EQ[FIELD]", "EQ[OTHER]", "expected"}));
     product = Dal::NewScriptProduct("spot", {Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))}, {"x = SPOT()", "pay PAYS x"});
     ASSERT_NO_FATAL_FAILURE(AssertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation); },
                                          {"UnboundHistoricalSpot", "product.defaultIndex_", "row=1", "column=5", "event=2026-09-11", "expected"}));

@@ -110,7 +110,7 @@ namespace Dal::Script {
                                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" +
                                             String_(std::to_string(use.nodeId_));
                     REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
-                    REQUIRE2(requests_.empty() && settings_.modelBindings_.empty(), "MissingDefaultIndex" + context, ScriptError_);
+                    REQUIRE2(requests_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }
             }
         };
@@ -180,21 +180,41 @@ namespace Dal::Script {
             }
             return values;
         }
+
+        //  First EXERCISE statement on events whose date satisfies `accept`, with the event date
+        template <class F_>
+        std::pair<const NodeExercise_*, Date_> FindExerciseIn(const Vector_<Event_>& events, const Vector_<Date_>& dates, const F_& accept) {
+            for (size_t i = 0; i < events.size(); ++i) {
+                if (!accept(dates[i]))
+                    continue;
+                for (const auto& statement : events[i])
+                    if (const auto* exercise = dynamic_cast<const NodeExercise_*>(FindNode(
+                            *statement, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; })))
+                        return {exercise, dates[i]};
+            }
+            return {nullptr, Date_()};
+        }
+
+        template <class F_> std::pair<const NodeExercise_*, Date_> FindExercise(const ScriptProduct_& product, const F_& accept) {
+            const auto past = FindExerciseIn(product.PastEvents(), product.PastEventDates(), accept);
+            return past.first ? past : FindExerciseIn(product.Events(), product.EventDates(), accept);
+        }
     } // namespace
 
     class PreparedScriptBuilder_ {
-        static Handle_<Index_> ValidateBindings(const ScriptValuationSettings_& settings) {
+        //  The model's spot output binds to the script's own model-observed index
+        static Handle_<Index_> InferBinding(const Vector_<ObservationRequest_>& requests) {
             Handle_<Index_> result;
-            for (size_t i = 0; i < settings.modelBindings_.size(); ++i) {
-                const auto& binding = settings.modelBindings_[i];
-                const String_ field = "valuation.modelBindings_[" + String_(std::to_string(i)) + "]";
-                REQUIRE2(binding.assetName_ == "spot", "UnknownModelAsset: " + field + ".assetName_=" + binding.assetName_ + "; expected spot",
+            for (const auto& request : requests) {
+                if (request.historical_)
+                    continue;
+                if (!result) {
+                    result = request.index_;
+                    continue;
+                }
+                REQUIRE2(result->Name() == request.key_.canonicalIndex_,
+                         "MultipleModelIndices: expected one model-observed EQ; first=" + result->Name() + Context(request),
                          ScriptError_);
-                REQUIRE2(!result,
-                         "DuplicateModelBinding: " + field + ".assetName_=" + binding.assetName_ +
-                             "; duplicates valuation.modelBindings_[0]; expected unique asset names",
-                         ScriptError_);
-                result = ParseSettingIndex(binding.indexName_, field + ".indexName_");
             }
             return result;
         }
@@ -224,26 +244,13 @@ namespace Dal::Script {
         static void ModelPlan(ObservationPlan_* plan,
                               const ScriptProduct_& product,
                               const Date_& evaluationDate,
-                              const ScriptValuationSettings_& settings,
-                              const AAD::Model_<double>& model,
-                              const Handle_<Index_>& boundIndex) {
-            if (boundIndex)
-                REQUIRE2(model.SupportsIndex(*boundIndex),
-                         "UnsupportedModelObservation: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
-                             "; canonical=" + boundIndex->Name() + "; expected one plain EQ supported by the model",
-                         ScriptError_);
+                              const AAD::Model_<double>& model) {
             std::set<Date_> dates(product.EventDates().begin(), product.EventDates().end());
             for (const auto& request : plan->requests_) {
                 if (request.historical_)
                     continue;
                 REQUIRE2(model.SupportsIndex(*request.index_),
                          "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
-                REQUIRE2(boundIndex, "MissingModelBinding: valuation.modelBindings_; expected spot -> requested index" + Context(request),
-                         ScriptError_);
-                REQUIRE2(boundIndex->Name() == request.key_.canonicalIndex_,
-                         "ConflictingModelBinding: valuation.modelBindings_[0].indexName_=" + settings.modelBindings_[0].indexName_ +
-                             "; bound canonical=" + boundIndex->Name() + "; expected requested identity" + Context(request),
-                         ScriptError_);
                 dates.insert(request.key_.fixingTime_.Date());
             }
             for (const auto& date : dates) {
@@ -274,9 +281,26 @@ namespace Dal::Script {
             collector.Collect(*product);
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
-            product->IndexVariables();
-            const auto boundIndex = ValidateBindings(settings);
             ValidateSimulationSettings(simulation);
+            //  Early-exercise gates: exercise dates must be strictly future (S1/S8) and only the
+            //  sobol engine safely replays normal paths for the frozen strategy (S15); history-only
+            //  preparation cannot value EXERCISE (S12)
+            const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
+            REQUIRE2(!expired.first,
+                     "UnsupportedExerciseDate: event=" + Date::ToString(expired.second) +
+                         "; expected an exercise date strictly after the evaluation date " + Date::ToString(evaluationDate) + "; " +
+                         expired.first->source_.Describe(),
+                     ScriptError_);
+            const auto exercise = FindExercise(*product, [](const Date_&) { return true; });
+            if (exercise.first) {
+                REQUIRE2(simulation.rsg_ == "sobol",
+                         "UnsupportedRsgForExercise: rsg=" + simulation.rsg_ + "; use method='sobol'; " + exercise.first->source_.Describe(),
+                         ScriptError_);
+                REQUIRE2(model, "UnsupportedExecutionMode: history-only preparation cannot value EXERCISE; " + exercise.first->source_.Describe(),
+                         ScriptError_);
+            }
+            product->IndexVariables();
+            const auto boundIndex = InferBinding(collector.requests_);
             ObservationPlan_ plan(std::move(collector.requests_), {});
             if (boundIndex)
                 plan.modelBindingNames_.push_back(boundIndex->Name());
@@ -286,7 +310,7 @@ namespace Dal::Script {
             if (result.AllExpired())
                 return result;
             if (model) {
-                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, settings, *model, boundIndex);
+                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
@@ -303,7 +327,7 @@ namespace Dal::Script {
                     if (auto* observer = Detail::SimulationObserver())
                         observer->BeforeCompilation();
                     result.pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result.plan_, true);
-                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_);
+                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_, false, writable->ContainsExercise());
                 }
                 result.executable_ = true;
             }

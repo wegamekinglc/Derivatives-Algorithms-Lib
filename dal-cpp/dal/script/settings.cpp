@@ -5,6 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <dal/indice/index.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/script/settings.hpp>
 #include <dal/storage/globals.hpp>
@@ -54,6 +55,10 @@ namespace Dal {
             REQUIRE2(std::isfinite(settings.smooth_) && settings.smooth_ > 0.0,
                      "InvalidSetting: InvalidSmoothing; simulation.smooth_=" + String_(std::to_string(settings.smooth_)) +
                          "; expected a finite positive width",
+                     ScriptError_);
+            REQUIRE2(settings.lsmcBasisDegree_ >= 1 && settings.lsmcBasisDegree_ <= 8,
+                     "InvalidSetting: InvalidLsmcBasisDegree; simulation.lsmcBasisDegree_=" + String_(std::to_string(settings.lsmcBasisDegree_)) +
+                         "; expected an integer between 1 and 8",
                      ScriptError_);
         }
     } // namespace Script

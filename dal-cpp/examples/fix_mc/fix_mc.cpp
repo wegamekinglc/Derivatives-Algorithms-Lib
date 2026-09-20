@@ -46,14 +46,8 @@ namespace {
     // expectation of a simulated future fixing under Black-Scholes (no dividend)
     double Forward(const Date_& fixingDate) { return SPOT * std::exp(RATE * (fixingDate - EVAL_DATE) / DAYS_PER_YEAR); }
 
-    // future FIX(...) observations must be bound to a model output: here the
-    // script's default index "spot" is the equity index EQ[STOCK]
-    ScriptValuationSettings_ BoundSettings() {
-        ScriptValuationSettings_ settings;
-        settings.modelBindings_ = {{"spot", INDEX}};
-        return settings;
-    }
-
+    // future FIX(...) observations are managed by index name alone: the engine
+    // binds the model's spot output to the script's own index
     ScriptProductData_ PayFixing(const Date_& fixingDate) {
         return {"", {Cell_(MATURITY)}, {"pay PAYS FIX(" + INDEX + ", " + Date::ToString(fixingDate) + ")"}};
     }
@@ -86,29 +80,29 @@ int main() {
               << std::setw(12) << std::right << "Diff (bps)" << std::endl;
 
     // 1) future fixing: the value comes from the simulated model paths
-    Run("future fixing (simulated model paths)", PayFixing(FUTURE_FIXING), BoundSettings(), {}, Forward(FUTURE_FIXING) * Discount(MATURITY));
+    Run("future fixing (simulated model paths)", PayFixing(FUTURE_FIXING), ScriptValuationSettings_(), {}, Forward(FUTURE_FIXING) * Discount(MATURITY));
 
     // 2) historical fixing: the value is frozen from the global fixings store
     StoreFixing(PAST_FIXING, PAST_VALUE);
-    Run("historical fixing (global fixings store)", PayFixing(PAST_FIXING), BoundSettings(), {}, PAST_VALUE * Discount(MATURITY));
+    Run("historical fixing (global fixings store)", PayFixing(PAST_FIXING), ScriptValuationSettings_(), {}, PAST_VALUE * Discount(MATURITY));
 
     // 3) mixed: one leg frozen from history, one leg simulated, in a single payoff
     const ScriptProductData_ mixed(
         "", {Cell_(MATURITY)},
         {"pay PAYS 0.5 * (FIX(" + INDEX + ", " + Date::ToString(PAST_FIXING) + ") + FIX(" + INDEX + ", " + Date::ToString(FUTURE_FIXING) + "))"});
-    Run("mixed historical + future fixings", mixed, BoundSettings(), {}, 0.5 * (PAST_VALUE + Forward(FUTURE_FIXING)) * Discount(MATURITY));
+    Run("mixed historical + future fixings", mixed, ScriptValuationSettings_(), {}, 0.5 * (PAST_VALUE + Forward(FUTURE_FIXING)) * Discount(MATURITY));
 
     // 4) historical fixing from an explicit snapshot, which takes precedence
     //    over the global fixings store for this valuation
     const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{INDEX, {{DateTime_(PAST_FIXING, 0.0), SNAPSHOT_VALUE}}}}));
-    Run("historical fixing (explicit snapshot)", PayFixing(PAST_FIXING), BoundSettings(), snapshot, SNAPSHOT_VALUE * Discount(MATURITY));
+    Run("historical fixing (explicit snapshot)", PayFixing(PAST_FIXING), ScriptValuationSettings_(), snapshot, SNAPSHOT_VALUE * Discount(MATURITY));
 
     // 5) fixing dated exactly on the evaluation date: the valuation setting
     //    todayFixingPolicy_ chooses the source
-    Run("today fixing, policy = MODEL (simulated)", PayFixing(EVAL_DATE), BoundSettings(), {}, SPOT * Discount(MATURITY));
+    Run("today fixing, policy = MODEL (simulated)", PayFixing(EVAL_DATE), ScriptValuationSettings_(), {}, SPOT * Discount(MATURITY));
 
     StoreFixing(EVAL_DATE, TODAY_VALUE);
-    auto requireHistorical = BoundSettings();
+    ScriptValuationSettings_ requireHistorical;
     requireHistorical.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
     Run("today fixing, policy = REQUIREHISTORICAL", PayFixing(EVAL_DATE), requireHistorical, {}, TODAY_VALUE * Discount(MATURITY));
 

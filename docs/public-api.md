@@ -42,7 +42,7 @@ on other toolchains.
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
 | `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
 | `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                                                |
-| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`                                                                         |
+| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
 | `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
@@ -117,9 +117,10 @@ the event date; unbound future-only scripts need no change. The named form for
 new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
 Historical EQ/FX
 requests resolve at exact midnight, and a missing required fixing is an error,
-never a model or placeholder fallback. Model-sourced requests require an explicit
-`valuation.modelBindings_` mapping from `spot` to one ordinary EQ. A product
-default does not create that model binding or supply model market data. The
+never a model or placeholder fallback. Model-sourced requests bind the model's
+`spot` output to one ordinary EQ, taken from the script's own future FIX index
+by name; no settings are involved. A product
+default does not supply that model index or model market data. The
 per-form, per-date rules are in the
 [SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
 
@@ -156,9 +157,18 @@ valuation-dependent phase and does not establish pricing readiness.
 `ExplainScriptValuation(product, modelData, valuation=ScriptValuationSettings_())`
 returns `dal.script-valuation/1` from default price preparation. It can read
 history and initialize a model, but generates no paths and submits no workers.
-It reports actual requests/uses, historical values, bindings, event-to-sample
+It reports actual requests/uses, historical values, the model index, event-to-sample
 and numeraire mappings. Every Explain and Value prepares independently; use
 the same explicit date/snapshot to compare the same market.
+`ExplainScriptSimulation(product, modelData, numPath, valuation=ScriptValuationSettings_(),
+simulation=MonteCarloSettings_())` returns `dal.script-simulation/1`. Unlike the
+valuation Explain it explicitly runs a full Monte Carlo valuation with `numPath`
+paths, so its cost is path generation plus worker parallelism plus the exercise
+regressions; it supports the double tree-walk and compiled modes and rejects
+`enable_aad` settings. Products without `EXERCISE` return an empty
+`exercise_events` array; exercise products report per-exercise-event regression
+degree, regressor index, condition-true path count, coefficients, degenerate
+flag with PascalCase reason, and exercise rate.
 
 Product archives write v2 with optional `default_index` and retain the v1
 reader. They preserve contract text/identity and exclude runtime market data.
@@ -588,7 +598,7 @@ ScriptValuation_Explain(product, modelData, *, valuation=None)
 `ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
 for fresh defaults. Their constructors use keyword-only fields. Product settings
 provide `default_index`; valuation settings provide `evaluation_date`,
-`today_fixing`, `model_bindings` and `fixings`; simulation settings provide
+`today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
@@ -596,16 +606,14 @@ case-sensitive `Model` / `RequireHistorical` strings. The three settings fields 
 `method`, and `today_fixing` reject foreign enums, including string-derived enum
 members, with `TypeError` on construction or assignment. Ordinary string
 subclasses, DAL `String_`, and the native today-policy members remain supported.
-Bindings accept a dictionary with string keys and values, such as
-`{"spot": "EQ[AAPL]"}`; event text and binding keys/values also accept
-string-derived enum members. Dates require a valid DAL
+Event text accepts string-derived enum members. Dates require a valid DAL
 `Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
 `fixings=None` captures current global history; an explicit empty snapshot
 never falls back to it. Global capture is sequential, not atomic across
 sequences, and requires callers to exclude concurrent fixing writes.
 
 The [FIX source rules](methodology/script_engine.md#dates-and-structural-validation)
-and [explicit model binding](methodology/script_engine.md#explicit-eq-binding-and-legacy-spot)
+and [script model index](methodology/script_engine.md#the-script-model-index-and-legacy-spot)
 apply unchanged: past history, today's selected policy, future model, and no
 fixing after its event. The complete
 [Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
@@ -781,8 +789,8 @@ require a finite integer path count in `1..2147483647`.
 The seven-input `MONTECARLO.VALUE` retains its argument order and has no
 compiled or script-settings argument. For explicit FIX settings, construct
 `SCRIPTPRODUCTSETTINGS.NEW(name, [settings])`,
-`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [model_bindings], [fixings])`,
-and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings and bindings
+`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [fixings])`,
+and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings
 are strict two-column ranges with physical row/column errors. Use
 `PRODUCT.NEWWITHSETTINGS(name, dates, events, settings)` for a product default,
 then `MONTECARLO.VALUEWITHSETTINGS(product, modelData, n_paths, [valuation], [simulation])`.
@@ -790,8 +798,9 @@ Square brackets mark optional arguments; omitted valuation/simulation handles
 select fresh native defaults. The product settings handle is required by
 `PRODUCT.NEWWITHSETTINGS`; `PRODUCT.NEW` remains available without it.
 
-Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX requires
-an explicit `spot` to ordinary EQ binding; a product default only gives legacy
+Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX binds the
+model's `spot` output to one ordinary EQ, taken from the script's own index by
+name; a product default only gives legacy
 `SPOT()` an identity. Valuation settings accept an integral evaluation date,
 case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
 match case-insensitively), and an immutable snapshot.

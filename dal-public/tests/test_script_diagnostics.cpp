@@ -210,7 +210,6 @@ TEST(ScriptApiTest, TestExplainPreparation) {
     const auto product = DiagnosticProduct();
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[MiXeD]"}};
     valuation.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[MIXED]", {{DateTime_(Date_(2026, 9, 11), 0.0), 80.0}}}}));
     const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.0, 0.0, 0.0));
     DiagnosticReads_ reads;
@@ -267,7 +266,6 @@ TEST(ScriptApiTest, TestTodayPolicy) {
     const auto product = NewScriptProduct("today", {Cell_(Date_(2026, 9, 12))}, {"pay PAYS FIX(EQ[DAL196_TEST])"});
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     for (const auto& model : DeterministicModels()) {
         for (const bool compiled : {false, true}) {
             for (const bool aad : {false, true}) {
@@ -423,7 +421,6 @@ TEST(ScriptApiTest, TestExplainRetainedFixingAndPaymentSamples) {
                                           {"x = 2", "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) + x"});
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    valuation.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     DiagnosticReads_ reads;
     reads.reject_ = true;
     DiagnosticWorkers_ workers;
@@ -516,4 +513,71 @@ TEST(ScriptApiTest, TestPublicPreparationFailuresSubmitNoWorkersAndRecover) {
     ASSERT_NO_FATAL_FAILURE(AssertInvalidVolatility([&] { ExplainScriptValuation(product, badModel); }));
     ASSERT_EQ(reads.fixings_, 0u);
     ASSERT_EQ(workers.submissions_, 0u);
+}
+
+TEST(ScriptApiTest, TestExplainScriptSimulation) {
+    InitGlobalData(1);
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const auto model = Handle_<ModelData_>(new BSModelData_("bs", 100.0, 0.2, 0.05, 0.0));
+    const auto product = NewScriptProduct("bermudan", {Cell_(Date_(2026, 12, 12)), Cell_(Date_(2027, 3, 12))},
+                                          {"EXERCISE MAX(100.0 - spot(), 0.0)", "EXERCISE MAX(100.0 - spot(), 0.0)"});
+    const auto text = ExplainScriptSimulation(product, model, 4096);
+    rapidjson::Document json;
+    json.Parse(text.c_str());
+    ASSERT_FALSE(json.HasParseError());
+    ASSERT_STREQ(json["schema"].GetString(), "dal.script-simulation/1");
+    ASSERT_STREQ(json["evaluation_date"].GetString(), "2026-09-12");
+    ASSERT_STREQ(json["simulation"]["rsg"].GetString(), "sobol");
+    ASSERT_FALSE(json["simulation"]["enable_aad"].GetBool());
+    ASSERT_EQ(json["simulation"]["lsmc_basis_degree"].GetInt(), 3);
+    ASSERT_EQ(json["n_paths"].GetInt(), 4096);
+
+    const auto& events = json["exercise_events"];
+    ASSERT_TRUE(events.IsArray());
+    ASSERT_EQ(events.Size(), 2u);
+    ASSERT_EQ(events[0]["event_id"].GetInt(), 0);
+    ASSERT_STREQ(events[0]["date"].GetString(), "2026-12-12");
+    ASSERT_EQ(events[0]["basis_degree"].GetInt(), 3);
+    ASSERT_TRUE(events[0]["regressor_index"].IsNull());
+    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 4096);
+    ASSERT_EQ(events[0]["num_coefficients"].GetInt(), 4);
+    ASSERT_EQ(events[0]["coefficients"].Size(), 4u);
+    ASSERT_FALSE(events[0]["degenerate"].GetBool());
+    ASSERT_TRUE(events[0]["degenerate_reason"].IsNull());
+    ASSERT_GT(events[0]["exercise_rate"].GetDouble(), 0.0);
+
+    { //  the compiled mode joins the LSMC driver (T3): the echo reports it and the events stay consistent
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        const auto compiledText = ExplainScriptSimulation(product, model, 4096, ScriptValuationSettings_(), simulation);
+        rapidjson::Document compiledJson;
+        compiledJson.Parse(compiledText.c_str());
+        ASSERT_FALSE(compiledJson.HasParseError());
+        ASSERT_TRUE(compiledJson["simulation"]["compiled"].GetBool());
+        const auto& compiledEvents = compiledJson["exercise_events"];
+        ASSERT_EQ(compiledEvents.Size(), events.Size());
+        for (rapidjson::SizeType k = 0; k < events.Size(); ++k) {
+            ASSERT_EQ(compiledEvents[k]["event_id"].GetInt(), events[k]["event_id"].GetInt());
+            ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
+        }
+    }
+    { //  products without EXERCISE return an empty exercise_events array
+        const auto plain = NewScriptProduct("plain", {Cell_(Date_(2027, 3, 12))}, {"pay PAYS 1.0"});
+        const auto plainText = ExplainScriptSimulation(plain, model, 1024);
+        rapidjson::Document plainJson;
+        plainJson.Parse(plainText.c_str());
+        ASSERT_FALSE(plainJson.HasParseError());
+        ASSERT_TRUE(plainJson["exercise_events"].IsArray());
+        ASSERT_EQ(plainJson["exercise_events"].Size(), 0u);
+        ASSERT_EQ(plainJson["n_paths"].GetInt(), 1024);
+    }
+    { //  a negative path count is rejected before the size_t conversion
+        try {
+            static_cast<void>(ExplainScriptSimulation(product, model, -1));
+            FAIL() << "expected InvalidPathCount";
+        } catch (const Dal::Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidPathCount"), std::string::npos);
+            ASSERT_NE(std::string(error.what()).find("numPath=-1"), std::string::npos);
+        }
+    }
 }

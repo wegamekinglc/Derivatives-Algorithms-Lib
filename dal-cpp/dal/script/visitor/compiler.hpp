@@ -32,6 +32,21 @@ As long as this comment is preserved at the Top of the file
 #include <iostream>
 
 namespace Dal::Script {
+    //  Recording sinks installed by the LSMC driver (dal/script/lsmc.cpp) before
+    //  evaluating a compiled EXERCISE stream: raw payments per PAYS event and the
+    //  (x, h, condition) triple per exercise event land in the driver's storage
+    //  rows; the driver advances eventOrdinal_ and pathSlot_ between events/paths.
+    struct LsmcSinks_ {
+        const Vector_<size_t>* eventToPays_ = nullptr;
+        const Vector_<size_t>* eventToExercise_ = nullptr;
+        Vector_<Vector_<>>* pays_ = nullptr;
+        Vector_<Vector_<>>* x_ = nullptr;
+        Vector_<Vector_<>>* h_ = nullptr;
+        Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
+        size_t eventOrdinal_ = 0;
+        size_t pathSlot_ = 0;
+    };
+
     template <class T_> struct EvalState_ : EvalStateCore_<T_> {
         //  Fuzzy If blend state.
         double defEps_ = 0.0;
@@ -40,6 +55,8 @@ namespace Dal::Script {
         Vector_<Vector_<T_>> varStore1_;
         const ObservationPlan_* observations_ = nullptr;
         const AAD::Scenario_<T_>* scenario_ = nullptr;
+        //  Engaged only while the LSMC driver evaluates a recording stream
+        LsmcSinks_* lsmcSinks_ = nullptr;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
@@ -109,7 +126,13 @@ namespace Dal::Script {
         FuzzyFalse = 48,
         FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff...
         LoadObservation = 50,
-        Discard = 51
+        Discard = 51,
+        //  LSMC recording opcodes (prepared streams only): the LSMC driver installs
+        //  LsmcSinks_ into EvalState_ before evaluating; operands mirror Pays/PaysConst,
+        //  LsmcExercise carries a single hasCond operand.
+        LsmcPays = 52,
+        LsmcPaysConst = 53,
+        LsmcExercise = 54
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -118,10 +141,13 @@ namespace Dal::Script {
         const bool fuzzy_;
         const ObservationPlan_* observations_;
         const bool historical_;
+        //  LSMC recording mode: EXERCISE products lowered for the LSMC driver, which
+        //  reads the recorded payments and exercise triples through LsmcSinks_
+        const bool lsmc_;
 
     public:
-        explicit Compiler_(bool fuzzy = false, const ObservationPlan_* observations = nullptr, bool historical = false)
-            : fuzzy_(fuzzy && !historical), observations_(observations), historical_(historical) {}
+        explicit Compiler_(bool fuzzy = false, const ObservationPlan_* observations = nullptr, bool historical = false, bool lsmc = false)
+            : fuzzy_(fuzzy && !historical), observations_(observations), historical_(historical), lsmc_(lsmc && !historical) {}
 
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
@@ -255,8 +281,29 @@ namespace Dal::Script {
             if (historical_) {
                 node.arguments_[1]->Accept(*this);
                 nodeStream_.emplace_back(Discard);
-            } else
+            } else if (lsmc_)
+                VisitAssignLike<LsmcPays, LsmcPaysConst>(node);
+            else
                 VisitAssignLike<Pays, PaysConst>(node);
+        }
+
+        //  Evaluation order mirrors the tree-walk recorder: the exercise value lands on
+        //  the double stack, an optional condition on the boolean stack, and LsmcExercise
+        //  records the (x, h, condition) triple through the driver's sinks
+        void Visit(const NodeExercise_& node) {
+            REQUIRE2(lsmc_, "UnsupportedExecutionMode: EXERCISE requires the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
+            //  Hard-mode recording only: fuzzy conditions push degrees onto the double stack, so the
+            //  boolean-stack condition slot of LsmcExercise would pop garbage; the fuzzy
+            //  decision-degree seam arrives with the AAD milestone
+            REQUIRE2(!fuzzy_, "UnsupportedExecutionMode: fuzzy compiled EXERCISE is not implemented yet; " + node.source_.Describe(), ScriptError_);
+            node.arguments_[0]->Accept(*this);
+            int hasCond = 0;
+            if (node.arguments_.size() > 1) {
+                node.arguments_[1]->Accept(*this);
+                hasCond = 1;
+            }
+            nodeStream_.emplace_back(LsmcExercise);
+            nodeStream_.emplace_back(hasCond);
         }
 
         void Visit(const NodeVar_& node) {
@@ -882,7 +929,75 @@ namespace Dal::Script {
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_> FORCE_INLINE LsmcSinks_& RequireLsmcSinks(EvalState_<T_>* statePtr) {
+            REQUIRE2(statePtr->lsmcSinks_, "UnsupportedExecutionMode: the LSMC recording stream requires the LSMC driver's sinks", ScriptError_);
+            return *statePtr->lsmcSinks_;
+        }
+
+        template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, double payment) {
+            auto& sinks = RequireLsmcSinks(statePtr);
+            (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]][sinks.pathSlot_] += payment;
+        }
+
+        //  Mirrors the tree-walk recorder: exercise leaves the script state untouched,
+        //  only the driver's rows move. Fuzzy conditions land on the double stack, so
+        //  the AAD replay extends this with its own decision-degree seam.
+        template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
+            auto& sinks = RequireLsmcSinks(statePtr);
+            const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
+            (*sinks.x_)[slot][sinks.pathSlot_] = spot;
+            (*sinks.h_)[slot][sinks.pathSlot_] = value;
+            if (sinks.cond_) {
+                auto& row = (*sinks.cond_)[slot];
+                if (!row.empty())
+                    row[sinks.pathSlot_] = static_cast<char>(cond);
+            }
+        }
+
+        //  LSMC recording tier of the prepared tail zone: payments and exercise
+        //  triples land in the driver's sinks while the script-state arithmetic
+        //  mirrors the plain Pays opcodes statement for statement. Compiled only
+        //  into the Lsmc_ dispatch chain (see EvalCompiledPrepared): a reachable
+        //  recording tail, called or not, perturbs the inlined LoadObservation
+        //  path that every prepared product executes.
+        template <class T_> FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& bStack = state.bStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            if (op == LsmcPays) {
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop();
+                RecordLsmcPayment(statePtr, Value(payment));
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcPaysConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t idx = nodeStream[++i];
+                RecordLsmcPayment(statePtr, val);
+                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcExercise) {
+                const bool hasCond = nodeStream[++i] != 0;
+                const T_ value = dStack.TopAndPop();
+                double cond = 1.0;
+                if (hasCond)
+                    cond = bStack.TopAndPop() ? 1.0 : 0.0;
+                RecordLsmcExercise(statePtr, Value(value), cond, Value(event.scenario_.spot_));
+                return i + 1;
+            }
+            ThrowUnknownCompiledOpcode(op);
+        }
+
+        //  Lsmc_ instantiates the recording tier for the LSMC driver's streams; the
+        //  default compiles to exactly the LoadObservation/Discard/throw shape that
+        //  predates the recording opcodes (hot path of every prepared product)
+        template <bool Lsmc_ = false, class T_>
+        FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op == LoadObservation) {
                 REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
@@ -893,10 +1008,12 @@ namespace Dal::Script {
                 statePtr->dStack_.Pop();
                 return i + 1;
             }
+            if constexpr (Lsmc_)
+                return EvalCompiledLsmcOp(event, i, statePtr);
             ThrowUnknownCompiledOpcode(op);
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
@@ -911,12 +1028,12 @@ namespace Dal::Script {
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
             if constexpr (Prepared_) {
                 if (op > FuzzyIf)
-                    return EvalCompiledPrepared(event, i, statePtr);
+                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
             }
             return EvalCompiledFuzzyControl<Prepared_>(event, i, statePtr);
         }
 
-        template <bool Prepared_ = true, class T_, class E_>
+        template <bool Prepared_ = true, bool Lsmc_ = false, class T_, class E_>
         void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
             for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex) {
                 const auto event = eventAt(eventIndex);
@@ -927,7 +1044,7 @@ namespace Dal::Script {
                 }
                 size_t i = event.first_;
                 while (i < n)
-                    i = EvalCompiledInstruction<Prepared_>(event, i, statePtr);
+                    i = EvalCompiledInstruction<Prepared_, Lsmc_>(event, i, statePtr);
             }
         }
 

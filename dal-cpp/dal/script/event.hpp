@@ -48,13 +48,19 @@ namespace Dal::Script {
             : nodeStreams_(std::move(nodeStreams)), constStreams_(std::move(constStreams)) {}
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
+        [[nodiscard]] const Vector_<Vector_<>>& ConstStreams() const { return constStreams_; }
 
-        static ScriptCompiled_
-        Build(const Vector_<Event_>& events, bool fuzzy, std::shared_ptr<const ObservationPlan_> observations = {}, bool historical = false) {
+        //  lsmc lowers PAYS/EXERCISE into the LSMC recording opcodes; only the prepared
+        //  future artifact of an EXERCISE product uses it (S8 keeps EXERCISE out of history)
+        static ScriptCompiled_ Build(const Vector_<Event_>& events,
+                                     bool fuzzy,
+                                     std::shared_ptr<const ObservationPlan_> observations = {},
+                                     bool historical = false,
+                                     bool lsmc = false) {
             Vector_<Vector_<int>> nodes;
             Vector_<Vector_<>> constants;
             for (const auto& event : events) {
-                Compiler_ compiler(fuzzy, observations.get(), historical);
+                Compiler_ compiler(fuzzy, observations.get(), historical, lsmc);
                 for (const auto& statement : event)
                     statement->Accept(compiler);
                 nodes.push_back(compiler.NodeStream());
@@ -105,6 +111,10 @@ namespace Dal::Script {
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
 
+        // Recorded while parsing so payoff queries stay O(1) on hot paths (dump, indexing, gates)
+        bool hasPays_ = false;
+        bool hasExercise_ = false;
+
         //  Set by PreProcess().
         bool preProcessed_ = false;
         String_ preparationError_;
@@ -125,7 +135,10 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
         [[nodiscard]] const Vector_<Date_>& ParsedEventDates() const { return parsedEventDates_; }
         [[nodiscard]] const Vector_<Vector_<SourceOrigin_>>& ParsedEventSources() const { return parsedEventSources_; }
-        [[nodiscard]] bool HasPayoff() const;
+        // PAYS or EXERCISE constitute a payoff; HasPays routes the payoff receiver slot
+        [[nodiscard]] bool HasPayoff() const { return hasPays_ || hasExercise_; }
+        [[nodiscard]] bool HasPays() const { return hasPays_; }
+        [[nodiscard]] bool ContainsExercise() const { return hasExercise_; }
         [[nodiscard]] const std::optional<Date_>& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }

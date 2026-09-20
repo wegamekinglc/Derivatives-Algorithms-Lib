@@ -98,19 +98,17 @@ behavior through a snapshot-backed environment. It does not admit arbitrary
 registered index types as historical adapters. Core
 [double/tree](script_engine.md#core-doubletree-fixing-valuation) and
 [AAD/tree FIX valuation](script_engine.md#core-aadtree-fixing-valuation)
-support model-aware preparation with an explicit `spot` to one ordinary EQ
-binding in Black-Scholes or Dupire. Model-sourced FX and EQ delivery are
+support model-aware preparation where the model's `spot` output binds to the
+script's future FIX index by name. Model-sourced FX and EQ delivery are
 unsupported; historical inverse-FX lookup supplies no future FX capability.
 Raw unprepared FIX raises `PreparationRequired`, and preparation without a
 model cannot value a nonexpired product. Prepared AAD replay preserves
 parameter risk through historical expressions, with hard past and fuzzy future
 conditions in both tree and compiled modes. The
 [public C++ settings overload](script_engine.md#public-c-settings) exposes the
-same preparation, explicit dates, bindings, and snapshots. Python and Excel
+same preparation, explicit dates, and snapshots. Python and Excel
 project the same settings and the Describe/Explain diagnostics in their own
-forms — Python keyword-only settings with a `model_bindings` dictionary, Excel
-settings handles with a `model_bindings` range — so either binding can supply
-the named `spot` model binding.
+forms — Python keyword-only settings and Excel settings handles.
 
 ## IR indices are constructed, not parsed
 

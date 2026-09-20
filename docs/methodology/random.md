@@ -321,7 +321,7 @@ over a 100K-path batch, the dominant Monte Carlo inner loop.
   split the inverse-CDF cost difference, since Sobol forwards both flags to
   `InverseNCDF` unchanged.
 - **BrownianBridge** (the variance-reduction wrapper) and the `PseudoRandom_`
-  alternatives `MRG32k3a` and `ShuffledIRN` are pinned to `precise=false`,
+  alternatives `MRG32` and `IRN` are pinned to `precise=false`,
   isolating their generator-specific overhead against the Sobol fast baseline
   rather than re-measuring the common inverse-CDF cost already covered by the
   Sobol fast/precise pair.

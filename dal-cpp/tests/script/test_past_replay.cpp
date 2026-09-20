@@ -236,7 +236,6 @@ TEST(ScriptPastReplayTest, TestCompiledEveryPathRebuildAcrossBatches) {
     simulation.enableAad_ = true;
     simulation.compiled_ = true;
     ScriptValuationSettings_ settings;
-    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     Vector_<Handle_<ModelData_>> models{Model()};
     models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {
@@ -402,7 +401,6 @@ TEST(ScriptPastReplayTest, TestEveryPathRebuildOracle) {
     MonteCarloSettings_ simulation;
     simulation.enableAad_ = true;
     ScriptValuationSettings_ settings;
-    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     Vector_<Handle_<ModelData_>> models{Model()};
     models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {
@@ -500,7 +498,6 @@ TEST(ScriptPastReplayTest, TestTodayPolicyPreservesHistoricalAndModelRisk) {
                     SCOPED_TRACE(::testing::Message()
                                  << "threads=" << threads << " historicalToday=" << historicalToday << " rng=" << rng << " bridge=" << bridge);
                     ScriptValuationSettings_ settings;
-                    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
                     if (historicalToday)
                         settings.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
                     MonteCarloSettings_ simulation;
@@ -528,7 +525,6 @@ TEST(ScriptPastReplayTest, TestEveryPathRebuildAcrossBatchBoundary) {
     MonteCarloSettings_ simulation;
     simulation.enableAad_ = true;
     ScriptValuationSettings_ settings;
-    settings.modelBindings_ = {{"spot", "EQ[DAL196_TEST]"}};
     Vector_<Handle_<ModelData_>> models{Model()};
     models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {

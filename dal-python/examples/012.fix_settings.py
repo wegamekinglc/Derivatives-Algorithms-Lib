@@ -24,7 +24,6 @@ product = dal.Product_New(
 valuation = dal.ScriptValuationSettings_(
     evaluation_date=D,
     today_fixing=dal.TodayFixingPolicy_.MODEL,
-    model_bindings={"spot": index},
     fixings=snapshot,
 )
 result = dal.MonteCarlo_ValueWithSettings(
@@ -49,5 +48,12 @@ if description["schema"] != "dal.script-product/2":
 if explanation["schema"] != "dal.script-valuation/1":
     raise RuntimeError(
         f"Expected ScriptValuation_Explain schema dal.script-valuation/1; got {explanation['schema']!r}"
+    )
+# The engine binds the model spot to the script's future FIX index by name
+if explanation["model_bindings"] != [
+    {"asset": "spot", "index_original": index, "index_canonical": index}
+]:
+    raise RuntimeError(
+        f"Expected inferred spot binding for {index}; got {explanation['model_bindings']!r}"
     )
 print(result)

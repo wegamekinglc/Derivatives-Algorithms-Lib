@@ -19,6 +19,7 @@ namespace Dal::Script {
     class IFProcessor_;
     class DomainProcessor_;
     template <class T> class FuzzyEvaluator_;
+    template <class T_> class LsmcEvaluator_;
 
 //  List
 
@@ -28,7 +29,7 @@ namespace Dal::Script {
 //  Const visitors
 #define CONST_VISITORS                                                                                                                               \
     Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_<double>, Compiler_, FuzzyEvaluator_<double>,                             \
-        FuzzyEvaluator_<AAD::Number_>, PastEvaluator_<AAD::Number_>
+        FuzzyEvaluator_<AAD::Number_>, PastEvaluator_<AAD::Number_>, LsmcEvaluator_<double>
 
 //  All visitors
 #define VISITORS MODIFY_VISITORS, CONST_VISITORS
@@ -49,9 +50,7 @@ namespace Dal::Script {
     };
 
     template <typename V_> struct HasConstVisit_ {
-        template <typename N_, void (V_::*)(const N_&) = &V_::Visit> static bool constexpr ForNodeType() {
-            return true;
-        }
+        template <typename N_, void (V_::*)(const N_&) = &V_::Visit> static bool constexpr ForNodeType() { return true; }
 
         template <typename N_> static bool constexpr ForNodeType(...) { return false; }
     };
