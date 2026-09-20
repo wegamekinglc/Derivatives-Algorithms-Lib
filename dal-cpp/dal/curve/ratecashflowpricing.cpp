@@ -42,6 +42,7 @@ namespace Dal {
 
         Vector_<CouponPeriod_>
         BuildCouponPeriods(const Date_& start, const Date_& maturity, const RateLegConvention_& leg, int fixingLag, const Holidays_& fixingHolidays) {
+            REQUIRE(fixingLag >= 0, "Rate pricing requires a non-negative fixing lag");
             RateCashflowPricingInternal::RecordRateCashflowLegBuild();
             return BuildLegPeriods<CouponPeriod_>(start, maturity, leg, fixingLag, fixingHolidays);
         }
@@ -219,7 +220,10 @@ namespace Dal {
                        const CurveRef_<T_>& forecast,
                        const RatePricingMarket_& market,
                        RatePricingTradeResult_* result) {
-            const DateTime_ fixingTime = FixingTime(period.accrualStart_, index, identity);
+            // The stored fixing date is leg preparation's ApplyLag backward from the accrual
+            // start -- identical to FixingDate for the non-negative lags the leg builder requires.
+            REQUIRE(ValidFixingIdentity(identity), "Floating rate pricing requires an explicit valid fixing identity");
+            const DateTime_ fixingTime = FixingDateTime(period.fixingDate_, identity);
             const FixingRequest_ request{identity.indexName_, fixingTime};
             const auto projected = [&]() {
                 return ForwardRate(forecast, period.accrualStart_, period.accrualEnd_, index.dayBasis_, period.dayCountContext_.get());
@@ -287,8 +291,7 @@ namespace Dal {
         }
 
         bool IsFamilyAadEnabled(const RateTradeDefinition_& trade) {
-            const auto enabled = RateCashflowPricingInternal::AadEnabledRateFamilies();
-            return std::find(enabled.begin(), enabled.end(), trade.instrumentType_) != enabled.end() && TermsMatchFamily(trade);
+            return RateCashflowPricingInternal::IsAadEnabledRateFamily(trade.instrumentType_) && TermsMatchFamily(trade);
         }
 
         // Curve components the trade's pricing actually reads, in deterministic terms order — the
@@ -1692,16 +1695,22 @@ namespace Dal {
             return found->second;
         }
 
-        void AddQuoteRiskGradient(int provenanceIndex,
+        // A non-finite running aggregate is a provenance-level failure, not a thrown exception:
+        // the contributing trade drops out with a meta row and the poisoned (provenance,
+        // currency) sum is withheld from bucket assembly.
+        bool AddQuoteRiskGradient(int provenanceIndex,
                                   const String_& currency,
                                   const Vector_<>& gradient,
                                   std::map<std::pair<int, String_>, Vector_<>>* sums) {
             Vector_<>& sum = EnsureQuoteRiskGradient(provenanceIndex, currency, static_cast<int>(gradient.size()), sums);
             for (int i = 0; i < static_cast<int>(gradient.size()); ++i) {
-                REQUIRE(std::isfinite(gradient[i]), "QUOTE_RISK_NON_FINITE_GRADIENT");
+                if (!std::isfinite(gradient[i]))
+                    return false;
                 sum[i] += gradient[i];
-                REQUIRE(std::isfinite(sum[i]), "QUOTE_RISK_NON_FINITE_GRADIENT");
+                if (!std::isfinite(sum[i]))
+                    return false;
             }
+            return true;
         }
 
         void AppendQuoteRiskMeta(const RateTradeDefinition_& trade,
@@ -1777,6 +1786,7 @@ namespace Dal {
                                              const Ccy_& actualPvCcy,
                                              NodeSensitivitySweeper_* sweeper,
                                              std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                             std::set<std::pair<int, String_>>* failedGradientSums,
                                              RatePortfolioQuoteRisk_* result) {
             if (!item.active_)
                 return;
@@ -1809,7 +1819,13 @@ namespace Dal {
                 }
                 std::copy(cell.gradient_.begin(), cell.gradient_.end(), gradient.begin() + block.offset_);
             }
-            AddQuoteRiskGradient(item.index_, actualPvCcy.String(), gradient, gradientSums);
+            const std::pair<int, String_> sumKey{item.index_, actualPvCcy.String()};
+            if (failedGradientSums->count(sumKey) || !AddQuoteRiskGradient(item.index_, actualPvCcy.String(), gradient, gradientSums)) {
+                if (failedGradientSums->insert(sumKey).second)
+                    AppendProvenanceFailure(*item.provenance_, "QUOTE_RISK_NON_FINITE_GRADIENT", String_(), String_(), String_(), result);
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, structuralZero, String_(), "QUOTE_RISK_NON_FINITE_GRADIENT", result);
+                return;
+            }
             AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, structuralZero, String_(), String_(), result);
         }
 
@@ -1818,12 +1834,13 @@ namespace Dal {
                                          const Vector_<PreparedQuoteRiskProvenance_>& prepared,
                                          NodeSensitivitySweeper_* sweeper,
                                          std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                         std::set<std::pair<int, String_>>* failedGradientSums,
                                          RatePortfolioQuoteRisk_* result) {
             const Ccy_ actualPvCcy = ActualPvCurrency(trade);
             if (UsablePassivePrice(passive))
                 result->pvByActualPvCcy_[actualPvCcy.String()] += passive.pv_;
             for (const auto& item : prepared)
-                ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, result);
+                ProcessQuoteRiskTradeProvenance(trade, passive, item, actualPvCcy, sweeper, gradientSums, failedGradientSums, result);
         }
 
         bool ConsumesInvalidCurve(const String_& key, const RatePricingMarket_& market, const std::set<String_>& invalidKeys) {
@@ -1875,26 +1892,28 @@ namespace Dal {
                                    const std::set<String_>& invalidKeys,
                                    NodeSensitivitySweeper_* sweeper,
                                    std::map<std::pair<int, String_>, Vector_<>>* gradientSums,
+                                   std::set<std::pair<int, String_>>* failedGradientSums,
                                    RatePortfolioQuoteRisk_* result) {
             if (const auto invalid = InvalidQuoteRiskSourcePrice(trade, market, invalidKeys)) {
-                ProcessPricedQuoteRiskTrade(trade, *invalid, prepared, sweeper, gradientSums, result);
+                ProcessPricedQuoteRiskTrade(trade, *invalid, prepared, sweeper, gradientSums, failedGradientSums, result);
                 return;
             }
             if (hasActiveProvenance) {
-                ProcessPricedQuoteRiskTrade(trade, sweeper->PassivePrice(trade), prepared, sweeper, gradientSums, result);
+                ProcessPricedQuoteRiskTrade(trade, sweeper->PassivePrice(trade), prepared, sweeper, gradientSums, failedGradientSums, result);
                 return;
             }
-            ProcessPricedQuoteRiskTrade(trade, PriceRateTrade(trade, market), prepared, sweeper, gradientSums, result);
+            ProcessPricedQuoteRiskTrade(trade, PriceRateTrade(trade, market), prepared, sweeper, gradientSums, failedGradientSums, result);
         }
 
         void AppendAllQuoteRiskBuckets(const Vector_<PreparedQuoteRiskProvenance_>& prepared,
                                        const std::map<std::pair<int, String_>, Vector_<>>& gradientSums,
+                                       const std::set<std::pair<int, String_>>& failedGradientSums,
                                        RatePortfolioQuoteRisk_* result) {
             for (const auto& item : prepared) {
                 if (!item.active_)
                     continue;
                 for (const auto& [key, gradient] : gradientSums)
-                    if (key.first == item.index_)
+                    if (key.first == item.index_ && !failedGradientSums.count(key))
                         AppendQuoteRiskBuckets(item, key.second, gradient, result);
             }
         }
@@ -1912,10 +1931,11 @@ namespace Dal {
         const bool hasActiveProvenance = std::any_of(prepared.begin(), prepared.end(), [](const auto& item) { return item.active_; });
         NodeSensitivitySweeper_ sweeper(market);
         std::map<std::pair<int, String_>, Vector_<>> gradientSums;
+        std::set<std::pair<int, String_>> failedGradientSums;
 
         for (const auto& trade : trades)
-            ProcessQuoteRiskTrade(trade, hasActiveProvenance, prepared, market, invalidKeys, &sweeper, &gradientSums, &result);
-        AppendAllQuoteRiskBuckets(prepared, gradientSums, &result);
+            ProcessQuoteRiskTrade(trade, hasActiveProvenance, prepared, market, invalidKeys, &sweeper, &gradientSums, &failedGradientSums, &result);
+        AppendAllQuoteRiskBuckets(prepared, gradientSums, failedGradientSums, &result);
         return result;
     }
 

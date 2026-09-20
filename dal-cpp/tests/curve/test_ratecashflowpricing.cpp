@@ -921,11 +921,11 @@ TEST(RateCashflowPricingTest, TestDepositNodeAADRewindsPerTradeAndIsThreadLocal)
 }
 
 TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesStayGated) {
-    const auto enabled = Dal::RateCashflowPricingInternal::AadEnabledRateFamilies();
     const auto families = Dal::RateInstrumentTypeListAll();
-    ASSERT_EQ(enabled.size(), 7);
-    for (const auto& family : enabled)
-        ASSERT_NE(std::find(families.begin(), families.end(), family), families.end());
+    int enabledCount = 0;
+    for (const auto& family : families)
+        enabledCount += Dal::RateCashflowPricingInternal::IsAadEnabledRateFamily(family) ? 1 : 0;
+    ASSERT_EQ(enabledCount, 7);
 
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ start(2026, 10, 15);

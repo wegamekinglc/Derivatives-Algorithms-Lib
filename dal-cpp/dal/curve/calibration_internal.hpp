@@ -277,17 +277,19 @@ namespace Dal {
     // Shared dense-Gradient override for the calibration residual functions: quote-risk
     // requests take central differences at the calibration bump (exact solves bump 1.0e-6);
     // everything else keeps the Underdetermined::Function_ finite-difference default. The
-    // request gate and the bump size stay call-site axes. The qualified base-class call is
+    // scheme and the bump size stay call-site axes. The qualified base-class call is
     // deliberate -- an unqualified call would virtually dispatch back into the override.
+    enum class FdScheme_ { FORWARD, CENTRAL };
+
     template <class ResidualFunction_>
-    void CentralDifferenceGradient(const Underdetermined::Function_& function,
-                                   bool requested,
-                                   double bump,
-                                   const Vector_<>& parameters,
-                                   const Vector_<>& residuals,
-                                   const ResidualFunction_& residualFunction,
-                                   Matrix_<>* jacobian) {
-        if (!requested || bump != 1.0e-6) {
+    void FiniteDifferenceGradient(const Underdetermined::Function_& function,
+                                  FdScheme_ scheme,
+                                  double bump,
+                                  const Vector_<>& parameters,
+                                  const Vector_<>& residuals,
+                                  const ResidualFunction_& residualFunction,
+                                  Matrix_<>* jacobian) {
+        if (scheme != FdScheme_::CENTRAL) {
             function.Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
             return;
         }

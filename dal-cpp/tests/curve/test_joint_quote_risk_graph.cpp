@@ -483,3 +483,34 @@ TEST(JointQuoteRiskTest, TestUnknownGraphUsesDeclarationOrderAndInactiveSourcesS
     ASSERT_TRUE(stale.meta_.empty());
     ASSERT_EQ(RateCashflowPricingInternal::g_nodeSensitivitySweepCount, 0);
 }
+
+TEST(JointQuoteRiskTest, TestNonFiniteGradientSumFailsProvenanceCellWithoutThrowing) {
+    const auto spec = JointQuoteRiskFixtures::Spec(5, 2, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, true);
+    const auto calibrated = CalibrateJointMultiCurve(spec, Options());
+    const auto market = Market(spec, calibrated);
+    const auto first = JointQuoteRiskFixtures::Irs(spec);
+    const auto second = Future(spec, "curve:0");
+    struct FaultScope_ {
+        FaultScope_() {
+            RateCashflowPricingInternal::g_quoteRiskRecordedSweepHook = [](const String_&, RateTradeNodeSensitivityResult_* cell) {
+                if (cell->eligible_ && !cell->gradient_.empty())
+                    cell->gradient_[0] = std::numeric_limits<double>::max();
+            };
+        }
+        ~FaultScope_() { RateCashflowPricingInternal::g_quoteRiskRecordedSweepHook = nullptr; }
+    } fault;
+
+    const auto risk = Risk(spec, calibrated, market, {first, second});
+
+    ASSERT_EQ(risk.provenanceFailures_.size(), 1);
+    ASSERT_EQ(risk.provenanceFailures_.front().calibrationId_, "generic-joint");
+    ASSERT_EQ(risk.provenanceFailures_.front().reason_, "QUOTE_RISK_NON_FINITE_GRADIENT");
+    ASSERT_TRUE(risk.buckets_.empty());
+    ASSERT_EQ(risk.meta_.size(), 2);
+    // The first finite sum still succeeds; the second trade's accumulation overflows and drops out.
+    ASSERT_TRUE(risk.meta_[0].eligible_);
+    ASSERT_FALSE(risk.meta_[1].eligible_);
+    ASSERT_EQ(risk.meta_[1].reason_, "QUOTE_RISK_TRADE_PROVENANCE_INCOMPLETE");
+    ASSERT_EQ(risk.meta_[1].originalNodeRiskReason_, "QUOTE_RISK_NON_FINITE_GRADIENT");
+    ASSERT_EQ(risk.meta_[1].instrumentId_, second.instrumentId_);
+}

@@ -390,8 +390,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                CentralDifferenceGradient(
-                    *this, true, BumpSize(), parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                FiniteDifferenceGradient(*this, spec_->solveMode_ == CurveSolveMode_::Value_::EXACT ? FdScheme_::CENTRAL : FdScheme_::FORWARD,
+                                         BumpSize(), parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {

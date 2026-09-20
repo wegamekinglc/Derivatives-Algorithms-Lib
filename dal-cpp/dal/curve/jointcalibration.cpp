@@ -170,8 +170,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                CentralDifferenceGradient(
-                    *this, quoteRiskRequested_, 1.0e-6, parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                FiniteDifferenceGradient(*this, quoteRiskRequested_ ? FdScheme_::CENTRAL : FdScheme_::FORWARD, 1.0e-6, parameters, residuals,
+                                         [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] Vector_<Dal::AAD::Number_> ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
@@ -327,19 +327,20 @@ namespace Dal {
                                                          Matrix_<>&& fwdJac) {
             JointMultiCurveCalibrationResult_ result;
             const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            double jointMaxAbs = 0.0, jointSq = 0.0;
+            Vector_<> jointResiduals;
+            jointResiduals.reserve(totalResiduals);
             for (const auto& s : slots) {
                 const JointCurveCalibrationDiagnostics_ diag =
                     JointCalibrationInternal::BuildCurveDiagnostics(spec.curves_[s.curveIndex_], s, solvedBlock, usedApprox);
-                jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
                 for (const double r : diag.residuals_)
-                    jointSq += r * r;
+                    jointResiduals.push_back(r);
                 result.diagnostics_.push_back(diag);
             }
+            const ResidualStats_ stats = ResidualStats(jointResiduals);
             result.discountCurves_ = std::move(discountCurves);
             result.forwardCurves_ = std::move(forwardCurves);
-            result.jointMaxAbsResidual_ = jointMaxAbs;
-            result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
+            result.jointMaxAbsResidual_ = stats.maxAbsResidual_;
+            result.jointRmsResidual_ = stats.rmsResidual_;
             result.solverEvaluations_ = evalCount;
             result.jacobianAtSolution_ = std::move(fwdJac);
             return result;

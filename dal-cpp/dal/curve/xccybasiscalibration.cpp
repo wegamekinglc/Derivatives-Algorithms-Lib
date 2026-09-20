@@ -243,6 +243,7 @@ namespace Dal {
             CurveDefinition_ basisDefinition_;
             CurveJacobianMode_ jacobianMode_;
             double bumpSize_;
+            FdScheme_ fdScheme_;
             int* evaluationCount_;
 
             template <class T_> Vector_<T_> Residuals(const Vector_<T_>& parameters) const {
@@ -279,7 +280,9 @@ namespace Dal {
                 : valuationTime_(valuationTime), pair_(spec.basisPair_), collateralCurrency_(collateralCurrency),
                   domesticBlock_(spec.domesticCurveBlock_), foreignBlock_(spec.foreignCurveBlock_), fxSpot_(spec.fxSpot_), fixings_(fixings),
                   plans_(plans), basisDefinition_(basisDefinition), jacobianMode_(jacobianMode),
-                  bumpSize_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4), evaluationCount_(evaluationCount) {
+                  bumpSize_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4),
+                  fdScheme_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? FdScheme_::CENTRAL : FdScheme_::FORWARD),
+                  evaluationCount_(evaluationCount) {
                 marketRates_.reserve(spec.instruments_.size());
                 for (const auto& instrument : spec.instruments_)
                     marketRates_.push_back(instrument->MarketRate());
@@ -292,8 +295,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* jacobian) const override {
-                CentralDifferenceGradient(
-                    *this, true, bumpSize_, x, f, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); }, jacobian);
+                FiniteDifferenceGradient(*this, fdScheme_, bumpSize_, x, f, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); },
+                                         jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>&) const override {
