@@ -629,9 +629,12 @@ invariant across thread counts.
   replaces the day's and all later payments.
 - **Phase C** replays the frozen policy: the same Sobol generator state is
   reconstructed (`SkipTo`), paths are regenerated, and each path is priced by
-  the hard recursion $W_k = \max(h_k,\, p_k + D_{k,k+1}W_{k+1})$ under the
-  frozen coefficients. PV divides the path mean by the first event's
-  numeraire as the explicit last step.
+  its first winning exercise decision. Exercise dates are scanned in order;
+  the earliest date whose condition holds with $h_k > C_k(z_k)$ under the
+  frozen coefficients pays $h_k$ discounted at that date's numeraire on top
+  of the payments accumulated before it. A path that never exercises keeps
+  its full `PAYS` value — zero for `EXERCISE`-only products — with every
+  payment discounted at its own event date. PV is the mean over paths.
 
 The regressor is the product's single model-sourced future observation (the
 same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
@@ -703,11 +706,11 @@ $$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(
 
 where $c_k$ is the fuzzy condition degree (1 when unconditional), the discount
 ratios come from the path's own numeraires, and $\varepsilon$ is the exercise
-statement's smoothing width resolved against `simulation.smooth_`. The final
-step divides by the first event's numeraire, mirroring the double driver's
-explicit last-step discounting. As $\varepsilon \to 0$ the decision degrees
-degenerate to hard indicators and the fuzzy path value converges to the
-hard-mode payoff.
+statement's smoothing width resolved against `simulation.smooth_`. The blend
+is carried in event-date units, so the recursion ends with the explicit
+division by the first event's numeraire. As $\varepsilon \to 0$ the decision
+degrees degenerate to hard indicators and the fuzzy path value converges to
+the hard-mode payoff.
 
 The regression coefficients enter the replay as passive tape constants, so the
 harvested adjoint is the exact gradient of the *frozen-policy* price

@@ -470,7 +470,7 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `use_bb`, `enable_aad` | Python `bool` only; default `False`                                              | `bool`                              |
 | `smooth`               | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01` | `float`                             |
 | `compiled`             | Python `bool` or `None`; default `None` selects tree                             | `bool` or `None`                    |
-| `lsmc_basis_degree`    | Integer or valid `__index__` value in `1..8`, excluding bool, enums, and floats; default `3` | `int`                    |
+| `lsmc_basis_degree`    | Integer or `__index__` value in `1..8`, excluding bool, enums, floats; default `3` | `int`                             |
 
 The policy enum members are `dal.TodayFixingPolicy_.MODEL` and
 `dal.TodayFixingPolicy_.REQUIREHISTORICAL`. Policy strings also accept DAL
