@@ -283,7 +283,7 @@ namespace Dal::Script {
             product->PartitionEvents(evaluationDate);
             ValidateSimulationSettings(simulation);
             //  Early-exercise gates: exercise dates must be strictly future (S1/S8) and only the
-            //  sobol engine safely replays normal paths for the frozen strategy (S15); history-only
+            //  sobol engine seeks each batch's normal paths exactly (S15); history-only
             //  preparation cannot value EXERCISE (S12)
             const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
             REQUIRE2(!expired.first,

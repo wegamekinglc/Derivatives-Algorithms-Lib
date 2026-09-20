@@ -619,8 +619,9 @@ invariant across thread counts.
 
 - **Phase A** generates the paths and evaluates the script forward;
   `EXERCISE` is a no-op forward. Each batch records, per path, the payments of
-  every `PAYS` event and, per exercise date, the regressor observation, the
-  exercise value, and the condition indicator (hard 0/1 in double mode).
+  every `PAYS` event, the terminal payoff-variable value, and, per exercise
+  date, the regressor observation, the exercise value, and the condition
+  indicator (hard 0/1 in double mode).
 - **Phase B** walks the events backward. The holding value is
   $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
   on each exercise date the driver regresses $H_k$ on the in-the-money
@@ -634,34 +635,37 @@ invariant across thread counts.
   engages, or the estimated condition number exceeds $10^{12}$. A path
   exercises when its condition holds, $h_k > 0$, and $h_k > C_k(z_k)$
   strictly; exercise replaces the day's and all later payments.
-- **Phase C** replays the frozen policy: the same Sobol generator state is
-  reconstructed (`SkipTo`), paths are regenerated, and each path is priced by
-  its first winning exercise decision. Exercise dates are scanned in order;
-  the earliest date whose condition holds with $h_k > 0$ and
+- **Phase C** values the frozen policy from the recorded rows; no path is
+  regenerated — Phase A stored everything the policy consumes, and a Sobol
+  replay would reproduce the same paths bitwise. Exercise dates are scanned
+  in order; the earliest date whose condition holds with $h_k > 0$ and
   $h_k > C_k(z_k)$ under the
   frozen coefficients pays $h_k$ discounted at that date's numeraire on top
   of the payments accumulated before it. A path that never exercises keeps
-  its full `PAYS` value — zero for `EXERCISE`-only products — with every
-  payment discounted at its own event date. PV is the mean over paths.
+  its recorded terminal payoff — zero for `EXERCISE`-only products — with
+  every payment discounted at its own event date. PV is the mean over paths.
 
 The regressor is the product's single model-sourced future observation (the
 same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
 `regressor_index` in diagnostics. Preparation allows only `rsg = "sobol"`
-for exercise products (`UnsupportedRsgForExercise`): Phase C consumes normal
-paths, and only Sobol's `SkipTo` reconstructs them exactly — see
+for exercise products (`UnsupportedRsgForExercise`): the driver seeks each
+batch's first path with `SkipTo`, and only Sobol's `SkipTo` reconstructs it
+exactly — see
 [Random and path generation](random.md#path-seeking).
 
 Peak memory is roughly `nPaths × nPaysEvents × 8B` for the stored payments
 plus `nPaths × nExerciseDates × 3 × 8B` for the per-date rows (regressor,
 exercise value, and pre-exercise payoff snapshot, allocated on every exercise
-date), one byte per path on conditional dates, and an `nPaths × 8B` backward
-working vector. Budget examples with 52 payment events and 12 exercise dates:
+date), `nPaths × 8B` for the terminal payoff row when the product has a
+`PAYS` receiver, one byte per path on conditional dates, and an `nPaths × 8B`
+backward working vector. Budget examples with 52 payment events and 12
+exercise dates:
 
 | Paths | Payments | Triples | Peak   |
 |-------|----------|---------|--------|
-| 2^16  | 27 MB    | 19 MB   | 46 MB  |
-| 2^18  | 109 MB   | 76 MB   | 185 MB |
-| 2^20  | 436 MB   | 302 MB  | 738 MB |
+| 2^16  | 27 MB    | 19 MB   | 47 MB  |
+| 2^18  | 109 MB   | 76 MB   | 187 MB |
+| 2^20  | 436 MB   | 302 MB  | 747 MB |
 
 Reduce the path count or event count to stay inside a budget.
 
