@@ -35,6 +35,8 @@ namespace Dal::Script {
         [[nodiscard]] const Date_& EvaluationDate() const { return evaluationDate_; }
         [[nodiscard]] const ScriptValuationSettings_& Settings() const { return settings_; }
         [[nodiscard]] const ObservationPlan_& Plan() const { return *plan_; }
+        //  Shared ownership for building additional compiled artifacts over the sealed plan
+        [[nodiscard]] std::shared_ptr<const ObservationPlan_> PlanHandle() const { return plan_; }
         [[nodiscard]] bool AllExpired() const { return product_->EventDates().empty(); }
         [[nodiscard]] const MonteCarloSettings_& Simulation() const { return simulation_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return product_->EventDates(); }

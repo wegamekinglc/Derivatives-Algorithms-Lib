@@ -57,6 +57,8 @@ namespace Dal::Script {
         const AAD::Scenario_<T_>* scenario_ = nullptr;
         //  Engaged only while the LSMC driver evaluates a recording stream
         LsmcSinks_* lsmcSinks_ = nullptr;
+        //  Engaged only while the LSMC driver replays a fuzzy (AAD) recording stream
+        LsmcFuzzySinks_<T_>* lsmcFuzzySinks_ = nullptr;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
@@ -129,10 +131,15 @@ namespace Dal::Script {
         Discard = 51,
         //  LSMC recording opcodes (prepared streams only): the LSMC driver installs
         //  LsmcSinks_ into EvalState_ before evaluating; operands mirror Pays/PaysConst,
-        //  LsmcExercise carries a single hasCond operand.
+        //  LsmcExercise carries a single hasCond operand. The fuzzy variants record into
+        //  the driver's typed LsmcFuzzySinks_ instead: conditions land on the double
+        //  stack as degrees, so LsmcFuzzyExercise pops its condition from there.
         LsmcPays = 52,
         LsmcPaysConst = 53,
-        LsmcExercise = 54
+        LsmcExercise = 54,
+        LsmcFuzzyPays = 55,
+        LsmcFuzzyPaysConst = 56,
+        LsmcFuzzyExercise = 57
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -281,28 +288,27 @@ namespace Dal::Script {
             if (historical_) {
                 node.arguments_[1]->Accept(*this);
                 nodeStream_.emplace_back(Discard);
-            } else if (lsmc_)
-                VisitAssignLike<LsmcPays, LsmcPaysConst>(node);
-            else
+            } else if (lsmc_) {
+                if (fuzzy_)
+                    VisitAssignLike<LsmcFuzzyPays, LsmcFuzzyPaysConst>(node);
+                else
+                    VisitAssignLike<LsmcPays, LsmcPaysConst>(node);
+            } else
                 VisitAssignLike<Pays, PaysConst>(node);
         }
 
         //  Evaluation order mirrors the tree-walk recorder: the exercise value lands on
-        //  the double stack, an optional condition on the boolean stack, and LsmcExercise
-        //  records the (x, h, condition) triple through the driver's sinks
+        //  the double stack; a hard condition goes to the boolean stack, a fuzzy condition
+        //  is a degree on the double stack (matching the fuzzy comparison opcodes)
         void Visit(const NodeExercise_& node) {
             REQUIRE2(lsmc_, "UnsupportedExecutionMode: EXERCISE requires the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
-            //  Hard-mode recording only: fuzzy conditions push degrees onto the double stack, so the
-            //  boolean-stack condition slot of LsmcExercise would pop garbage; the fuzzy
-            //  decision-degree seam arrives with the AAD milestone
-            REQUIRE2(!fuzzy_, "UnsupportedExecutionMode: fuzzy compiled EXERCISE is not implemented yet; " + node.source_.Describe(), ScriptError_);
             node.arguments_[0]->Accept(*this);
             int hasCond = 0;
             if (node.arguments_.size() > 1) {
                 node.arguments_[1]->Accept(*this);
                 hasCond = 1;
             }
-            nodeStream_.emplace_back(LsmcExercise);
+            nodeStream_.emplace_back(fuzzy_ ? LsmcFuzzyExercise : LsmcExercise);
             nodeStream_.emplace_back(hasCond);
         }
 
@@ -413,7 +419,7 @@ namespace Dal::Script {
                              bool reset = true);
 
     namespace Detail {
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_ = false, class T_>
         inline void EvalCompiledRange(const Vector_<int>& nodeStream,
                                       const Vector_<double>& constStream,
                                       const AAD::Sample_<T_>& scenario,
@@ -669,7 +675,7 @@ namespace Dal::Script {
             return EvalCompiledStore(event, i, statePtr);
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& bStack = state.bStack_;
@@ -692,7 +698,7 @@ namespace Dal::Script {
                     i = nodeStream[++i];
                 } else {
                     //  Preserve parent stacks while running the true branch.
-                    EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
+                    EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
@@ -743,10 +749,10 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] <= IfElse)
-                return EvalCompiledBranch<Prepared_>(event, i, statePtr);
+                return EvalCompiledBranch<Prepared_, Lsmc_>(event, i, statePtr);
             return EvalCompiledBoolean(event, i, statePtr);
         }
 
@@ -878,7 +884,7 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
@@ -894,7 +900,7 @@ namespace Dal::Script {
 
             const T_ t = dStack.TopAndPop();
             if (t > 1.0 - EPSILON) {
-                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                 i = lastFalse;
             } else if (t < EPSILON) {
                 i = lastTrue;
@@ -905,33 +911,44 @@ namespace Dal::Script {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore0_[lvl][idx] = state.variables_[idx];
                 }
-                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore1_[lvl][idx] = state.variables_[idx];
                     state.variables_[idx] = state.varStore0_[lvl][idx];
                 }
-                EvalCompiledRange<Prepared_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->CaptureBranchPayment(lvl);
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
                 }
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->BlendBranchPayment(lvl, t);
                 --state.nestedIfLvl_;
                 i = lastFalse;
             }
             return i;
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] == FuzzyIf)
-                return EvalCompiledFuzzyBranch<Prepared_>(event, i, statePtr);
+                return EvalCompiledFuzzyBranch<Prepared_, Lsmc_>(event, i, statePtr);
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
         }
 
         template <class T_> FORCE_INLINE LsmcSinks_& RequireLsmcSinks(EvalState_<T_>* statePtr) {
             REQUIRE2(statePtr->lsmcSinks_, "UnsupportedExecutionMode: the LSMC recording stream requires the LSMC driver's sinks", ScriptError_);
             return *statePtr->lsmcSinks_;
+        }
+
+        template <class T_> FORCE_INLINE LsmcFuzzySinks_<T_>& RequireLsmcFuzzySinks(EvalState_<T_>* statePtr) {
+            REQUIRE2(statePtr->lsmcFuzzySinks_, "UnsupportedExecutionMode: the LSMC fuzzy replay requires the LSMC driver's sinks", ScriptError_);
+            return *statePtr->lsmcFuzzySinks_;
         }
 
         template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, double payment) {
@@ -952,6 +969,19 @@ namespace Dal::Script {
                 if (!row.empty())
                     row[sinks.pathSlot_] = static_cast<char>(cond);
             }
+        }
+
+        //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
+        template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, const T_& payment) {
+            auto& sinks = RequireLsmcFuzzySinks(statePtr);
+            (*sinks.pays_)[sinks.eventOrdinal_] += payment;
+        }
+
+        template <class T_> FORCE_INLINE void RecordLsmcFuzzyExercise(EvalState_<T_>* statePtr, const T_& value, const T_& cond) {
+            auto& sinks = RequireLsmcFuzzySinks(statePtr);
+            const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
+            (*sinks.h_)[slot] = value;
+            (*sinks.cond_)[slot] = cond;
         }
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise
@@ -990,6 +1020,29 @@ namespace Dal::Script {
                 RecordLsmcExercise(statePtr, Value(value), cond, Value(event.scenario_.spot_));
                 return i + 1;
             }
+            if (op == LsmcFuzzyPays) {
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop();
+                RecordLsmcFuzzyPayment(statePtr, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t idx = nodeStream[++i];
+                RecordLsmcFuzzyPayment(statePtr, T_(val));
+                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyExercise) {
+                const bool hasCond = nodeStream[++i] != 0;
+                T_ cond(1.0);
+                if (hasCond)
+                    cond = dStack.TopAndPop();
+                const T_ value = dStack.TopAndPop();
+                RecordLsmcFuzzyExercise(statePtr, value, cond);
+                return i + 1;
+            }
             ThrowUnknownCompiledOpcode(op);
         }
 
@@ -1021,7 +1074,7 @@ namespace Dal::Script {
             if (op <= PaysConst)
                 return EvalCompiledData(event, i, statePtr);
             if (op <= Or)
-                return EvalCompiledControl<Prepared_>(event, i, statePtr);
+                return EvalCompiledControl<Prepared_, Lsmc_>(event, i, statePtr);
             if (op <= ConstVar)
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
@@ -1030,7 +1083,7 @@ namespace Dal::Script {
                 if (op > FuzzyIf)
                     return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
             }
-            return EvalCompiledFuzzyControl<Prepared_>(event, i, statePtr);
+            return EvalCompiledFuzzyControl<Prepared_, Lsmc_>(event, i, statePtr);
         }
 
         template <bool Prepared_ = true, bool Lsmc_ = false, class T_, class E_>
@@ -1048,7 +1101,7 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         inline void EvalCompiledRange(const Vector_<int>& nodeStream,
                                       const Vector_<double>& constStream,
                                       const AAD::Sample_<T_>& scenario,
@@ -1056,7 +1109,7 @@ namespace Dal::Script {
                                       size_t first,
                                       size_t last,
                                       bool reset) {
-            EvalCompiledEvents<Prepared_>(
+            EvalCompiledEvents<Prepared_, Lsmc_>(
                 1, [&](size_t) { return CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
         }
     } // namespace Detail

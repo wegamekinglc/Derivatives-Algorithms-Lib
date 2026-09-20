@@ -34,7 +34,9 @@ namespace Dal::Script {
     public:
         using Base = EvaluatorBase_<T, FuzzyEvaluator_>;
 
+        using Base::curEvt_;
         using Base::dStack_;
+        using Base::scenario_;
         using Base::variables_;
         using Base::Visit;
         using Base::VisitNode;
@@ -76,6 +78,9 @@ namespace Dal::Script {
 
         FORCE_INLINE void SetDefEps(double defEps) { defEps_ = defEps; }
 
+        //  Engaged only while the LSMC driver replays a recording path (fuzzy AAD)
+        LsmcFuzzySinks_<T>* lsmcFuzzySinks_ = nullptr;
+
         void EvalTrueBranch(const NodeIf_& node, size_t lastTrueStat) {
             for (size_t i = 1; i <= lastTrueStat; ++i)
                 VisitNode(*node.arguments_[i]);
@@ -108,10 +113,16 @@ namespace Dal::Script {
             REQUIRE(nestedIfLvl_ > 0 && nestedIfLvl_ <= varStore0_.size(), "fuzzy If nesting exceeds allocated var stores");
             const size_t lvl = nestedIfLvl_ - 1;
             StoreAffectedVars(node, lvl);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
             EvalTrueBranch(node, lastTrueStat);
             CaptureTrueBranchVars(node, lvl);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->CaptureBranchPayment(lvl);
             EvalFalseBranch(node);
             BlendAffectedVars(node, lvl, dt);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->BlendBranchPayment(lvl, dt);
         }
 
         void Visit(const NodeIf_& node) {
@@ -179,6 +190,39 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
             fuzzyStack_.Push(args.first + args.second - args.first * args.second);
+        }
+
+        //  LSMC recording: with no sinks installed the plain fuzzy arithmetic runs; with
+        //  them the raw payment lands in the driver's row while the payoff variable keeps
+        //  the exact accumulated arithmetic of the base evaluator. Payments inside a
+        //  fuzzy branch are blended by the branch degree via the sinks' snapshots.
+        FORCE_INLINE void Visit(const NodePays_& node) {
+            if (!lsmcFuzzySinks_) {
+                Base::Visit(node);
+                return;
+            }
+            const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
+            VisitNode(*node.arguments_[1]);
+            const T payment = dStack_.TopAndPop();
+            (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+            variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
+        }
+
+        //  EXERCISE leaves the script state untouched; the driver's rows receive the live
+        //  exercise value and the fuzzy condition degree (1 when unconditional)
+        void Visit(const NodeExercise_& node) {
+            REQUIRE2(lsmcFuzzySinks_,
+                     "UnsupportedExecutionMode: EXERCISE statements require the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
+            VisitNode(*node.arguments_[0]);
+            const T value = dStack_.TopAndPop();
+            T cond(1.0);
+            if (node.arguments_.size() > 1) {
+                VisitNode(*node.arguments_[1]);
+                cond = fuzzyStack_.TopAndPop();
+            }
+            const size_t slot = (*lsmcFuzzySinks_->eventToExercise_)[lsmcFuzzySinks_->eventOrdinal_];
+            (*lsmcFuzzySinks_->h_)[slot] = value;
+            (*lsmcFuzzySinks_->cond_)[slot] = cond;
         }
     };
 } // namespace Dal::Script

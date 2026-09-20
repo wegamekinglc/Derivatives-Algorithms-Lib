@@ -10,6 +10,7 @@
 #include <dal/script/lsmc.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/compiler.hpp>
+#include <dal/script/visitor/fuzzy.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -117,6 +118,7 @@ namespace Dal::Script {
             size_t eventId_;
             size_t sampleId_;
             bool conditional_;
+            double eps_; //  S17: the node's :eps option resolved against the simulation smoothing width
         };
 
         bool EventHasPays(const Event_& event) {
@@ -142,7 +144,7 @@ namespace Dal::Script {
             bool anyConditional_ = false;
         };
 
-        LsmcPlan_ ScanEvents(const Vector_<Event_>& events, const ObservationPlan_& plan) {
+        LsmcPlan_ ScanEvents(const Vector_<Event_>& events, const ObservationPlan_& plan, double smooth) {
             LsmcPlan_ scan;
             scan.eventToPays_.Resize(events.size());
             scan.eventToExercise_.Resize(events.size());
@@ -157,7 +159,7 @@ namespace Dal::Script {
                     const bool conditional = exercise->arguments_.size() > 1;
                     scan.anyConditional_ |= conditional;
                     scan.eventToExercise_[e] = scan.days_.size();
-                    scan.days_.push_back({e, plan.EventToSample()[e], conditional});
+                    scan.days_.push_back({e, plan.EventToSample()[e], conditional, exercise->eps_ < 0.0 ? smooth : exercise->eps_});
                 }
             }
             return scan;
@@ -486,6 +488,173 @@ namespace Dal::Script {
                 diagnostics->events_.push_back(stats);
             }
         }
+
+        //  S9 recursive blend, live on the worker's tape: walks the recorded per-path rows
+        //  backward, d_k = CSpr(h_k - C_k(z_k), eps) * condition degree, blending each
+        //  fuzzy decision into the continuation; the explicit last step discounts to the
+        //  evaluation date through the first event's numeraire (N5)
+        template <class T_>
+        T_ FuzzyPathValue(const LsmcPlan_& scan,
+                          const Vector_<T_>& pays,
+                          const Vector_<T_>& h,
+                          const Vector_<T_>& cond,
+                          const Vector_<ExerciseRegression_>& regressions,
+                          const Vector_<size_t>& eventToSample,
+                          const Scenario_<T_>& path) {
+            T_ value(0.0);
+            if (eventToSample.empty())
+                return value;
+            for (size_t e = scan.eventToExercise_.size(); e-- > 0;) {
+                if (e + 1 < scan.eventToExercise_.size())
+                    value *= path[eventToSample[e]].numeraire_ / path[eventToSample[e + 1]].numeraire_;
+                value += pays[e];
+                const size_t day = scan.eventToExercise_[e];
+                if (day != NO_SLOT) {
+                    //  materialize the continuation gap: CSpr's early-return constants need a
+                    //  value type, not an expression proxy
+                    const T_ continuation = RegressionPredict(regressions[day], path[eventToSample[e]].spot_);
+                    const T_ gap = h[day] - continuation;
+                    const T_ degree = CSpr(gap, scan.days_[day].eps_) * cond[day];
+                    value = degree * h[day] + (1.0 - degree) * value;
+                }
+            }
+            return value / path[eventToSample.front()].numeraire_;
+        }
+
+        //  Phase C (fuzzy): raw adjoint sums per batch slot, reduced in batch-index order (N9)
+        struct AadReplayOutcome_ {
+            double sum_ = 0.0;
+            Vector_<> risks_;
+        };
+
+        //  Per-worker replay state: active model, regenerated paths, and the per-path
+        //  recording rows (payments reset between paths, h/cond overwritten per statement)
+        struct FuzzyReplayWorkspace_ {
+            std::unique_ptr<AAD::Model_<AAD::Number_>> model_;
+            std::unique_ptr<Random_> random_;
+            Vector_<> gauss_;
+            Scenario_<AAD::Number_> path_;
+            LsmcFuzzySinks_<AAD::Number_> sinks_;
+            Vector_<AAD::Number_> pays_;
+            Vector_<AAD::Number_> h_;
+            Vector_<AAD::Number_> cond_;
+        };
+
+        FuzzyReplayWorkspace_ MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
+                                                       const Handle_<ModelData_>& modelData,
+                                                       const LsmcPlan_& scan,
+                                                       const PathBatch_& batch) {
+            const auto& simulation = prepared.Simulation();
+            FuzzyReplayWorkspace_ ws;
+            ws.model_ = CreateModel<AAD::Number_>(modelData);
+            ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
+            ws.random_ = CreateRNG(simulation.rsg_, ws.model_->SimDim(), simulation.useBb_);
+            ws.gauss_.Resize(ws.model_->SimDim());
+            AllocatePath(prepared.DefLine(), ws.path_);
+            InitializePath(ws.path_);
+            if (ws.random_)
+                ws.random_->SkipTo(batch.firstPath_);
+            ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
+            ws.pays_ = Vector_<AAD::Number_>(scan.eventToPays_.size(), 0.0);
+            ws.h_ = Vector_<AAD::Number_>(scan.days_.size(), 0.0);
+            ws.cond_ = Vector_<AAD::Number_>(scan.days_.size(), 1.0);
+            ws.sinks_.pays_ = &ws.pays_;
+            ws.sinks_.h_ = &ws.h_;
+            ws.sinks_.cond_ = &ws.cond_;
+            return ws;
+        }
+
+        //  Mirrors the double recorder: the driver owns the event boundaries and the sinks'
+        //  event ordinal while the fuzzy evaluator records through its installed sinks
+        void TreeEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws, const PreparedScript_& prepared, FuzzyEvaluator_<AAD::Number_>& evaluator) {
+            evaluator.lsmcFuzzySinks_ = &ws.sinks_;
+            evaluator.SetScenario(&ws.path_);
+            evaluator.SetObservations(&prepared.Plan());
+            evaluator.Init();
+            const auto& events = prepared.Product().Events();
+            const auto& eventToSample = prepared.Plan().EventToSample();
+            for (size_t e = 0; e < events.size(); ++e) {
+                ws.sinks_.eventOrdinal_ = e;
+                evaluator.SetCurEvt(eventToSample[e]);
+                for (const auto& statement : events[e])
+                    statement->Accept(evaluator);
+            }
+        }
+
+        void CompiledEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws,
+                                       const PreparedScript_& prepared,
+                                       const ScriptCompiled_& compiled,
+                                       EvalState_<AAD::Number_>& state) {
+            state.lsmcFuzzySinks_ = &ws.sinks_;
+            state.Init();
+            state.observations_ = &prepared.Plan();
+            state.scenario_ = &ws.path_;
+            const auto& nodeStreams = compiled.NodeStreams();
+            const auto& constStreams = compiled.ConstStreams();
+            const auto& eventToSample = prepared.Plan().EventToSample();
+            for (size_t e = 0; e < nodeStreams.size(); ++e) {
+                ws.sinks_.eventOrdinal_ = e;
+                const Detail::CompiledEventView_<AAD::Number_> view{nodeStreams[e], constStreams[e], ws.path_[eventToSample[e]]};
+                Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &state);
+            }
+        }
+
+        template <class E_, class F_>
+        void FuzzyReplayPaths(const PreparedScript_& prepared,
+                              const LsmcPlan_& scan,
+                              const Vector_<ExerciseRegression_>& regressions,
+                              const PathBatch_& batch,
+                              FuzzyReplayWorkspace_& ws,
+                              E_& evaluator,
+                              const F_& evaluate,
+                              AadReplayOutcome_* outcome) {
+            InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, nullptr);
+            for (size_t i = 0; i < batch.pathCount_; ++i) {
+                AAD::RewindToMark(*AAD::Tape());
+                for (auto& payment : ws.pays_)
+                    payment = 0.0;
+                if (ws.random_)
+                    ws.random_->FillNormal(&ws.gauss_);
+                ws.model_->GeneratePath(ws.gauss_, &ws.path_);
+                ValidateSimulationPath(ws.path_);
+                evaluate(ws, prepared, evaluator);
+                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan().EventToSample(), ws.path_);
+                REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
+                Adjoint(value) = 1.0;
+                AAD::PropagateToMark(*AAD::Tape());
+                outcome->sum_ += Value(value);
+            }
+            AAD::PropagateMarkToStart(*AAD::Tape());
+            size_t j = 0;
+            for (const auto* parameter : ws.model_->Parameters())
+                outcome->risks_[j++] += Adjoint(*parameter);
+            for (const auto& constVar : evaluator.ConstVarVals())
+                outcome->risks_[j++] += Adjoint(constVar);
+        }
+
+        void RunFuzzyReplayBatch(const PreparedScript_& prepared,
+                                 const Handle_<ModelData_>& modelData,
+                                 const LsmcPlan_& scan,
+                                 const Vector_<ExerciseRegression_>& regressions,
+                                 const std::optional<ScriptCompiled_>& fuzzyCompiled,
+                                 const PathBatch_& batch,
+                                 AadReplayOutcome_* outcome) {
+            AAD::Activate(*AAD::Tape());
+            AAD::Rewind(*AAD::Tape());
+            FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch);
+            if (fuzzyCompiled) {
+                EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
+                FuzzyReplayPaths(
+                    prepared, scan, regressions, batch, ws, state,
+                    [&fuzzyCompiled](FuzzyReplayWorkspace_& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
+                        CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
+                    },
+                    outcome);
+            } else {
+                FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
+                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath, outcome);
+            }
+        }
     } // namespace
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
@@ -530,23 +699,14 @@ namespace Dal::Script {
         return result;
     }
 
-    double RegressionPredict(const ExerciseRegression_& regression, double x) {
-        const double z = (x - regression.mean_) / regression.sigma_;
-        double value = 0.0;
-        for (size_t j = regression.coefficients_.size(); j-- > 0;)
-            value = value * z + regression.coefficients_[j];
-        return value;
-    }
-
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics) {
         const auto& product = prepared.Product();
         const auto& simulation = prepared.Simulation();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
-                 "UnsupportedExecutionMode: AAD valuation of EXERCISE is not implemented (the fuzzy driver arrives with a later milestone)",
-                 ScriptError_);
+                 "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
 
-        const auto scan = ScanEvents(product.Events(), prepared.Plan());
+        const auto scan = ScanEvents(product.Events(), prepared.Plan(), simulation.smooth_);
         auto storage = MakeStorage(scan, nPaths);
         //  N9 batch layout depends on nPaths only
         const BatchPlan_ batchPlan(nPaths, 1);
@@ -566,6 +726,63 @@ namespace Dal::Script {
         results.aggregated_ = reduction.sum_;
         if (diagnostics)
             FillDiagnostics(diagnostics, prepared, scan, regressions, reduction.exerciseCounts_, reduction, nPaths);
+        return results;
+    }
+
+    SimResults_ MCLsmcAadSimulation(const PreparedScript_& prepared, const Handle_<ModelData_>& modelData, size_t nPaths) {
+        const auto& product = prepared.Product();
+        const auto& simulation = prepared.Simulation();
+        REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
+        REQUIRE2(simulation.enableAad_, "UnsupportedExecutionMode: the fuzzy LSMC driver requires AAD preparation", ScriptError_);
+
+        //  Phases A/B run exactly as the double driver so the frozen policy is the
+        //  thread-count independent hard-decision artifact; the recording stream
+        //  therefore lowers hard even though the replay itself is fuzzy
+        auto doubleModel = CreateModel<double>(modelData);
+        doubleModel->Allocate(prepared.TimeLine(), prepared.DefLine());
+        doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
+
+        const auto scan = ScanEvents(product.Events(), prepared.Plan(), simulation.smooth_);
+        auto storage = MakeStorage(scan, nPaths);
+        //  N9 batch layout depends on nPaths only
+        const BatchPlan_ batchPlan(nPaths, 1);
+        ThreadPool_* pool = ThreadPool_::GetInstance();
+        Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
+        LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage, threadStates};
+        if (simulation.compiled_.value_or(false))
+            ctx.compiled_.emplace(ScriptCompiled_::Build(product.Events(), false, prepared.PlanHandle(), false, true));
+
+        RunForwardPhase(ctx, batchPlan);
+        const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
+        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nPaths, simulation.lsmcBasisDegree_);
+        threadStates.clear();
+
+        const std::optional<ScriptCompiled_> fuzzyCompiled =
+            simulation.compiled_.value_or(false) ? std::optional<ScriptCompiled_>(prepared.Compile(true)) : std::nullopt;
+        Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
+        for (auto& outcome : outcomes)
+            outcome.risks_ = Vector_<>(doubleModel->ParameterLabels().size() + product.ConstVarNames().size(), 0.0);
+
+        SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
+        for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
+            const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
+            tasks.Spawn([&, batch, batchIndex]() {
+                RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, batch, &outcomes[batchIndex]);
+                return true;
+            });
+        }
+        tasks.Complete();
+
+        //  N9: reduce the batch blocks in batch-index order, one final division by nPaths
+        SimResults_ results(Vector::Join(doubleModel->ParameterLabels(), product.ConstVarNames()));
+        for (const auto& outcome : outcomes)
+            results.aggregated_ += outcome.sum_;
+        for (size_t j = 0; j < results.risks_.size(); ++j) {
+            double total = 0.0;
+            for (const auto& outcome : outcomes)
+                total += outcome.risks_[j];
+            results.risks_[j] = total / static_cast<double>(nPaths);
+        }
         return results;
     }
 } // namespace Dal::Script
