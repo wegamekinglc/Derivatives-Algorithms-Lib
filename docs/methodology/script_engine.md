@@ -618,7 +618,8 @@ their low-level bindings return the unchanged C++ JSON strings. Describe is
 pure contract inspection; Explain always uses independent default exact/tree
 price preparation, even after compiled/AAD valuation. Neither diagnostic is a
 Python product archive. `ScriptSimulation_Explain` runs the full double
-valuation and returns the `dal.script-simulation/1` dictionary described
+valuation on exercise products (plain products skip it) and returns the
+`dal.script-simulation/1` dictionary described
 [below](#simulation-diagnostic-full-valuation-with-exercise-statistics). The complete
 [Python FIX example](../../dal-python/examples/012.fix_settings.py) checks a
 historical SCALE payment plus a retained future observation, with an explicit
@@ -1575,8 +1576,11 @@ keys to Value's numeric map.
 `ExplainScriptSimulation(product, modelData, numPath, valuation, simulation)`
 emits `dal.script-simulation/1`. Unlike the valuation Explain it explicitly
 runs a full three-phase double valuation — path generation, worker
-parallelism, and the exercise regressions — so its cost is the cost of a
-simulation, and that cost is part of its contract. The optional valuation and
+parallelism, and the exercise regressions — on exercise products, so its cost
+is the cost of a simulation, and that cost is part of its contract. Products
+without `EXERCISE` skip the run entirely: the LSMC driver is the only source
+of exercise statistics, so a plain product's simulation would be discarded.
+The optional valuation and
 simulation settings default exactly as in
 [public C++ settings](#fields-and-defaults); `simulation.compiled_` selects the
 tree-walk or compiled engine for the run, while `simulation.enable_aad_` is

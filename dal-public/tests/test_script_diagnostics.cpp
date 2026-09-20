@@ -562,7 +562,9 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
             ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
         }
     }
-    { //  products without EXERCISE return an empty exercise_events array
+    { //  products without EXERCISE return an empty exercise_events array and burn no simulation
+        DiagnosticWorkers_ workers;
+        const Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
         const auto plain = NewScriptProduct("plain", {Cell_(Date_(2027, 3, 12))}, {"pay PAYS 1.0"});
         const auto plainText = ExplainScriptSimulation(plain, model, 1024);
         rapidjson::Document plainJson;
@@ -571,6 +573,7 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         ASSERT_TRUE(plainJson["exercise_events"].IsArray());
         ASSERT_EQ(plainJson["exercise_events"].Size(), 0u);
         ASSERT_EQ(plainJson["n_paths"].GetInt(), 1024);
+        ASSERT_EQ(workers.submissions_, 0u);
     }
     { //  a negative path count is rejected before the size_t conversion
         try {

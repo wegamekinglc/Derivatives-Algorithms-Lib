@@ -163,8 +163,10 @@ the same explicit date/snapshot to compare the same market.
 `ExplainScriptSimulation(product, modelData, numPath, valuation=ScriptValuationSettings_(),
 simulation=MonteCarloSettings_())` returns `dal.script-simulation/1`. Unlike the
 valuation Explain it explicitly runs a full Monte Carlo valuation with `numPath`
-paths, so its cost is path generation plus worker parallelism plus the exercise
-regressions; it supports the double tree-walk and compiled modes and rejects
+paths on exercise products, so its cost is path generation plus worker
+parallelism plus the exercise regressions; products without `EXERCISE` skip the
+run, since the LSMC driver is the only source of exercise statistics. It
+supports the double tree-walk and compiled modes and rejects
 `enable_aad` settings. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
 degree, regressor index, condition-true path count, coefficients, degenerate
@@ -632,8 +634,9 @@ price preparation. It may read history and initialize a model, but generates
 no paths or workers and accepts no simulation settings. It neither describes
 a preceding compiled/AAD call nor caches the next Value. High-level
 `ScriptSimulation_Explain` runs the full double valuation with the given
-`num_path` and returns the `dal.script-simulation/1` exercise diagnostics
-dictionary. Low-level `dal._dal`
+`num_path` on exercise products (plain products skip the run, since their
+exercise events array is empty either way) and returns the
+`dal.script-simulation/1` exercise diagnostics dictionary. Low-level `dal._dal`
 and `dal.dal` diagnostics return raw JSON strings with the same schemas.
 Diagnostics are not loadable archives; Python has no public script-product
 serializer. Value results contain only already-normalized `PV` and optional
