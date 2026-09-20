@@ -259,6 +259,23 @@ These packages are not added to DAL's wheel requirements. Rateslib has its own
 [licence terms](https://rateslib.com/licence), including commercial/evaluation
 licensing requirements; its licence notice remains visible in worker logs.
 
+### Regenerating the pin file
+
+`requirements-comparisons.txt` is generated from
+[`requirements-comparisons.in`](requirements-comparisons.in) and installed with
+`--require-hashes`, so it must be regenerated whenever the `.in` file changes
+(new or upgraded comparison dependencies) or when intentionally bumping the
+locked versions. Run from the repository root:
+
+```bash
+uv pip compile dal-python/benchmarks/requirements-comparisons.in \
+  --python-version 3.13 --generate-hashes \
+  --output-file dal-python/benchmarks/requirements-comparisons.txt
+```
+
+Commit the regenerated file together with the `.in` change; CI installs the
+lockfile verbatim, so a stale pin fails the `Benchmarks` job.
+
 Run from the repository root, with the same interpreter used to build DAL:
 
 ```bash
