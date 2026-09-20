@@ -574,6 +574,100 @@ def test_every_new_boolean_field_is_strict(field, bad):
         assert getattr(settings, field) == previous
 
 
+def test_lsmc_basis_degree_accepts_integers_in_range():
+    assert dal.MonteCarloSettings_().lsmc_basis_degree == 3
+    for degree in [1, 3, 8, IndexCount()]:
+        expected = int(degree)
+        settings = dal.MonteCarloSettings_(lsmc_basis_degree=degree)
+        assert settings.lsmc_basis_degree == expected
+        settings.lsmc_basis_degree = 3
+        settings.lsmc_basis_degree = degree
+        assert settings.lsmc_basis_degree == expected
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        True,
+        False,
+        1.5,
+        3.0,
+        0,
+        -1,
+        9,
+        2**40,
+        "3",
+        None,
+        {},
+        IntChoice.ONE,
+        dal.TodayFixingPolicy_.MODEL,
+    ],
+)
+def test_lsmc_basis_degree_rejects_non_integers_and_out_of_range(bad, construct):
+    settings = dal.MonteCarloSettings_()
+    with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcBasisDegree") as error:
+        if construct:
+            dal.MonteCarloSettings_(lsmc_basis_degree=bad)
+        else:
+            settings.lsmc_basis_degree = bad
+    message = str(error.value)
+    assert all(
+        part in message
+        for part in ("InvalidSetting", "MonteCarloSettings_", "lsmc_basis_degree", "expected", "1", "8")
+    )
+    assert settings.lsmc_basis_degree == 3
+
+
+def test_script_simulation_explain_reports_exercise_events():
+    today = dal.Date_(2026, 9, 12)
+    first = dal.Date_(2026, 12, 12)
+    second = dal.Date_(2027, 3, 12)
+    product = dal.Product_New(
+        [first, second],
+        ["EXERCISE MAX(100.0 - spot(), 0.0)", "EXERCISE MAX(100.0 - spot(), 0.0)"],
+    )
+    model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.0)
+    valuation = dal.ScriptValuationSettings_(evaluation_date=today)
+    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=True)
+    diagnostic = dal.ScriptSimulation_Explain(
+        product, model, 4096, valuation=valuation, simulation=simulation
+    )
+    assert diagnostic == json.loads(
+        native.ScriptSimulation_Explain(
+            product, model, 4096, valuation=valuation, simulation=simulation
+        )
+    )
+    assert diagnostic["schema"] == "dal.script-simulation/1"
+    assert diagnostic["evaluation_date"] == "2026-09-12"
+    assert diagnostic["simulation"]["lsmc_basis_degree"] == 5
+    assert diagnostic["simulation"]["compiled"] is True
+    assert diagnostic["n_paths"] == 4096
+    events = diagnostic["exercise_events"]
+    assert [event["event_id"] for event in events] == [0, 1]
+    assert [event["date"] for event in events] == ["2026-12-12", "2027-03-12"]
+    assert all(event["basis_degree"] == 5 for event in events)
+    assert all(event["num_coefficients"] == 6 for event in events)
+    assert all(len(event["coefficients"]) == 6 for event in events)
+    assert all(event["regressor_index"] is None for event in events)
+    assert all(event["num_cond_true_paths"] == 4096 for event in events)
+    assert all(event["degenerate"] is False for event in events)
+    assert all(event["degenerate_reason"] is None for event in events)
+    assert all(0.0 < event["exercise_rate"] <= 1.0 for event in events)
+    plain = dal.Product_New([second], ["pay PAYS 1.0"])
+    without_exercise = dal.ScriptSimulation_Explain(plain, model, 1024)
+    assert without_exercise["exercise_events"] == []
+    assert without_exercise["n_paths"] == 1024
+    aad = dal.MonteCarloSettings_(enable_aad=True)
+    with pytest.raises(RuntimeError, match="UnsupportedExecutionMode.*enable_aad"):
+        dal.ScriptSimulation_Explain(product, model, 4096, simulation=aad)
+    with pytest.raises(RuntimeError, match="InvalidPathCount"):
+        dal.ScriptSimulation_Explain(product, model, 0)
+    for value in [{}, "Model", dal.ScriptProductSettings_()]:
+        with pytest.raises(TypeError, match="InvalidSetting.*simulation"):
+            dal.ScriptSimulation_Explain(product, model, 4096, simulation=value)
+
+
 @pytest.mark.parametrize(
     "bad",
     [

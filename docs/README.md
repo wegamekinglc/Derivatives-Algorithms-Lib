@@ -114,7 +114,9 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Unquoted `FIX(index[,date])` parsing, protected index literals, and execution limits
   - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
   - Core tree/compiled FIX valuation: the script's EQ index as the BS/Dupire model index, shared observations, and payment numeraires
+  - Early-exercise (Bermudan/American) LSMC valuation: phases, regression guards, and thread-count invariance
   - Typed historical AAD state, hard past decisions, and fuzzy future conditions
+  - Describe / Explain / simulation-diagnostic JSON contracts across C++, Python, and Excel
   - Legacy SPOT compatibility boundary and C++/Python/Excel settings and diagnostics
   - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
   - Prepared continuous fuzzy kernels and legacy domain/condition folding

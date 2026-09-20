@@ -17,9 +17,7 @@ using namespace Dal;
 using namespace Dal::Python;
 
 namespace {
-    int PathCount(const py::handle& value, const char* function) {
-        const auto context = InputContext(value, std::string(function) + "; num_path / numPath",
-                                          "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()), "InvalidPathCount");
+    long long IntegerInput(const py::handle& value, const std::string& context, long long lowest, long long highest, const std::string& rangeError) {
         if (PyBool_Check(value.ptr()) || IsEnum(value) || !PyIndex_Check(value.ptr()))
             throw py::type_error(context);
         const auto integer = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
@@ -28,12 +26,17 @@ namespace {
             throw py::type_error(context);
         }
         int overflow = 0;
-        const auto count = PyLong_AsLongLongAndOverflow(integer.ptr(), &overflow);
+        const long long result = PyLong_AsLongLongAndOverflow(integer.ptr(), &overflow);
         if (PyErr_Occurred())
             throw py::error_already_set();
-        REQUIRE2(!overflow && count > 0 && count <= std::numeric_limits<int>::max(),
-                 String_(context + "; number of Monte Carlo paths must be positive"), ScriptError_);
-        return static_cast<int>(count);
+        REQUIRE2(!overflow && result >= lowest && result <= highest, String_(context + rangeError), ScriptError_);
+        return result;
+    }
+
+    int PathCount(const py::handle& value, const char* function) {
+        const auto context = InputContext(value, std::string(function) + "; num_path / numPath",
+                                          "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()), "InvalidPathCount");
+        return static_cast<int>(IntegerInput(value, context, 1, std::numeric_limits<int>::max(), "; number of Monte Carlo paths must be positive"));
     }
 
     std::optional<Date_> EvaluationDate(const py::handle& value) {
@@ -117,6 +120,12 @@ namespace {
         return PositiveFloat(value, context);
     }
 
+    int BasisDegree(const py::handle& value) {
+        const auto context = InputContext(value, "MonteCarloSettings_; lsmc_basis_degree / simulation.lsmcBasisDegree_",
+                                          "an integer in 1..8, excluding bool", "InvalidSetting: InvalidLsmcBasisDegree");
+        return static_cast<int>(IntegerInput(value, context, 1, 8, "; LSMC basis degree must be an integer between 1 and 8"));
+    }
+
     double LegacySmoothing(const py::handle& value) {
         return PositiveFloat(value, InputContext(value, "MonteCarlo_Value; smooth / simulation.smooth_", "a finite positive floating-point value",
                                                  "InvalidSetting: InvalidSmoothing"));
@@ -166,12 +175,13 @@ void init_bindings_value(py::module_& m) {
 
     WithCopies(py::class_<MonteCarloSettings_>(m, "MonteCarloSettings_"))
         .def(py::init([](const py::object& method, const py::object& useBb, const py::object& enableAad, const py::object& smooth,
-                         const py::object& compiled) {
+                         const py::object& compiled, const py::object& lsmcBasisDegree) {
                  return MonteCarloSettings_{Method(method), Boolean(useBb, "use_bb / simulation.useBb_"),
-                                            Boolean(enableAad, "enable_aad / simulation.enableAad_"), Smoothing(smooth), Compiled(compiled)};
+                                            Boolean(enableAad, "enable_aad / simulation.enableAad_"), Smoothing(smooth), Compiled(compiled),
+                                            BasisDegree(lsmcBasisDegree)};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false, py::arg("smooth") = 0.01,
-             py::arg("compiled") = py::none())
+             py::arg("compiled") = py::none(), py::arg("lsmc_basis_degree") = 3)
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })
@@ -188,7 +198,10 @@ void init_bindings_value(py::module_& m) {
             [](MonteCarloSettings_* settings, const py::object& value) { settings->smooth_ = Smoothing(value); })
         .def_property(
             "compiled", [](const MonteCarloSettings_& settings) { return settings.compiled_; },
-            [](MonteCarloSettings_* settings, const py::object& value) { settings->compiled_ = Compiled(value); });
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->compiled_ = Compiled(value); })
+        .def_property(
+            "lsmc_basis_degree", [](const MonteCarloSettings_& settings) { return settings.lsmcBasisDegree_; },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcBasisDegree_ = BasisDegree(value); });
 
     m.def(
         "MonteCarlo_ValueWithSettings",
@@ -217,6 +230,23 @@ void init_bindings_value(py::module_& m) {
             return Text(result);
         },
         py::arg("product"), py::arg("modelData"), py::kw_only(), py::arg("valuation") = py::none());
+
+    m.def(
+        "ScriptSimulation_Explain",
+        [](const std::shared_ptr<ScriptProductData_>& product, const std::shared_ptr<ModelData_>& modelData, const py::object& numPath,
+           const py::object& valuation, const py::object& simulation) {
+            const int count = PathCount(numPath, "ScriptSimulation_Explain");
+            const Handle_<ScriptProductData_> nativeProduct(product);
+            const Handle_<ModelData_> nativeModel(modelData);
+            const auto settings =
+                SettingsInput<ScriptValuationSettings_>(valuation, "ScriptSimulation_Explain; valuation", "ScriptValuationSettings_");
+            const auto execution = SettingsInput<MonteCarloSettings_>(simulation, "ScriptSimulation_Explain; simulation", "MonteCarloSettings_");
+            py::gil_scoped_release release;
+            const auto result = ExplainScriptSimulation(nativeProduct, nativeModel, count, settings, execution);
+            return Text(result);
+        },
+        py::arg("product"), py::arg("modelData"), py::arg("num_path"), py::kw_only(), py::arg("valuation") = py::none(),
+        py::arg("simulation") = py::none());
 
     m.def(
         "MonteCarlo_Value",

@@ -409,6 +409,60 @@ TEST(ScriptExcelContractTest, TestReusedGlobalSettingsRefreshHistoryAndKeepExpli
     }
 }
 
+TEST(ScriptExcelContractTest, TestSimulationExplainRunsValuationAndReportsExerciseEvents) {
+    Excel::ScriptTestInitialize(2);
+    const DateScope_ restore(D);
+    const Handle_<ModelData_> model(new BSModelData_("bs", 100., .2, .05, 0.));
+    Handle_<ScriptProductData_> bermudan;
+    Product_New("bermudan", {Cell_(F), Cell_(P)}, {"EXERCISE MAX(100.0 - SPOT(), 0.0)", "EXERCISE MAX(100.0 - SPOT(), 0.0)"}, &bermudan);
+    FixingReadCounter_ reads;
+    SubmissionCounter_ workers;
+    const ObserverScope_ observe(&reads, &workers);
+    Vector_<String_> chunks;
+    ScriptSimulation_Explain(bermudan, model, 1024., {}, {}, &chunks);
+    const auto diagnostic = Json(chunks);
+    ASSERT_STREQ(diagnostic["schema"].GetString(), "dal.script-simulation/1");
+    ASSERT_STREQ(diagnostic["evaluation_date"].GetString(), "2026-09-12");
+    ASSERT_STREQ(diagnostic["simulation"]["rsg"].GetString(), "sobol");
+    ASSERT_EQ(diagnostic["simulation"]["lsmc_basis_degree"].GetInt(), 3);
+    ASSERT_EQ(diagnostic["n_paths"].GetInt(), 1024);
+    const auto& events = diagnostic["exercise_events"];
+    ASSERT_EQ(events.Size(), 2u);
+    ASSERT_EQ(events[0]["event_id"].GetInt(), 0);
+    ASSERT_STREQ(events[0]["date"].GetString(), "2026-09-15");
+    ASSERT_EQ(events[0]["basis_degree"].GetInt(), 3);
+    ASSERT_TRUE(events[0]["regressor_index"].IsNull());
+    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 1024);
+    ASSERT_EQ(events[0]["num_coefficients"].GetInt(), 4);
+    ASSERT_EQ(events[0]["coefficients"].Size(), 4u);
+    ASSERT_FALSE(events[0]["degenerate"].GetBool());
+    ASSERT_TRUE(events[0]["degenerate_reason"].IsNull());
+    ASSERT_GT(events[0]["exercise_rate"].GetDouble(), 0.0);
+    ASSERT_GT(workers.submissions_, 0);
+    { //  the settings handle wires through: degree 5 echo, six coefficients
+        Handle_<StorableMonteCarloSettings_> simulation;
+        MonteCarloSettings_New("degree", Setting("lsmc_basis_degree", Cell_(5.)), &simulation);
+        ScriptSimulation_Explain(bermudan, model, 1024., {}, simulation, &chunks);
+        const auto tuned = Json(chunks);
+        ASSERT_EQ(tuned["simulation"]["lsmc_basis_degree"].GetInt(), 5);
+        ASSERT_EQ(tuned["exercise_events"][0]["num_coefficients"].GetInt(), 6);
+    }
+    { //  plain products report an empty array, not an omitted key
+        Handle_<ScriptProductData_> plain;
+        Product_New("plain", {Cell_(P)}, {"pay PAYS 1"}, &plain);
+        ScriptSimulation_Explain(plain, model, 256., {}, {}, &chunks);
+        const auto withoutExercise = Json(chunks);
+        ASSERT_TRUE(withoutExercise["exercise_events"].IsArray());
+        ASSERT_EQ(withoutExercise["exercise_events"].Size(), 0u);
+        ASSERT_EQ(withoutExercise["n_paths"].GetInt(), 256);
+    }
+    Handle_<StorableMonteCarloSettings_> aad;
+    MonteCarloSettings_New("aad", Setting("enable_aad", Cell_(true)), &aad);
+    Error([&] { ScriptSimulation_Explain(bermudan, model, 1024., {}, aad, &chunks); }, {"UnsupportedExecutionMode", "enable_aad"});
+    for (double paths : {0., -1., 1.5})
+        Error([&] { ScriptSimulation_Explain(bermudan, model, paths, {}, {}, &chunks); }, {"n_paths", "InvalidPathCount"});
+}
+
 TEST(ScriptExcelContractTest, TestLegacyAndTypedAadTablesAgree) {
     Excel::ScriptTestInitialize(1);
     const DateScope_ restore(D);

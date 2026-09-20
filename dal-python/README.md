@@ -420,6 +420,7 @@ dupire_model = dal.DupireModelData_New(
 - `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01, compiled=None)` — Monte Carlo pricing with optional AAD Greeks
 - `dal.MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)` — Price with `ScriptValuationSettings_` and `MonteCarloSettings_`
 - `dal.ScriptValuation_Explain(product, modelData, *, valuation=None)` — Return a dictionary describing one default price preparation
+- `dal.ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None)` — Run the full double valuation and return the `dal.script-simulation/1` exercise diagnostics dictionary
 
 **Parameters:**
 - `product` — Script product (from `Product_New`)
@@ -456,7 +457,7 @@ ScriptProductSettings_(*, default_index="")
 ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
                          fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
-                   smooth=0.01, compiled=None)
+                   smooth=0.01, compiled=None, lsmc_basis_degree=3)
 ```
 
 | Field                  | Accepted input / default                                                         | Property result                     |
@@ -469,6 +470,7 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `use_bb`, `enable_aad` | Python `bool` only; default `False`                                              | `bool`                              |
 | `smooth`               | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01` | `float`                             |
 | `compiled`             | Python `bool` or `None`; default `None` selects tree                             | `bool` or `None`                    |
+| `lsmc_basis_degree`    | Integer or valid `__index__` value in `1..8`, excluding bool, enums, and floats; default `3` | `int`                    |
 
 The policy enum members are `dal.TodayFixingPolicy_.MODEL` and
 `dal.TodayFixingPolicy_.REQUIREHISTORICAL`. Policy strings also accept DAL
@@ -515,7 +517,8 @@ Unknown/duplicate keywords, extra positional arguments, wrong settings types,
 and invalid input types raise `TypeError`; unknown settings attributes raise
 `AttributeError`. Invalid values and native failures raise `RuntimeError`, with
 identifiers such as `InvalidPathCount`, `InvalidSetting`, `InvalidSmoothing`,
-`InvalidTodayFixingPolicy`, `InvalidFixingDate`, `MissingFixing`, and
+`InvalidTodayFixingPolicy`, `InvalidFixingDate`, `MissingFixing`,
+`InvalidLsmcBasisDegree`, and
 `MultipleModelIndices`, plus field
 and constraint context. Script errors retain source row/position and index/date
 details. Validation may occur at construction/assignment (types, policy, date,
@@ -530,6 +533,18 @@ High-level `dal.Product_Describe` and `dal.ScriptValuation_Explain` return ordin
 dictionaries. Their low-level counterparts in `dal._dal` (also re-exported by
 `dal.dal`) return the C++ JSON as `str`; the high-level wrappers apply `json.loads`
 without renaming keys or converting date strings into DAL dates.
+`dal.ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None,
+simulation=None)` follows the same split and returns the `dal.script-simulation/1`
+dictionary. Unlike the valuation Explain it runs the full double valuation with
+`num_path` paths (path generation plus workers plus the exercise regressions),
+requires the same integer path count as the Value entries, rejects
+`enable_aad=True` settings with `UnsupportedExecutionMode`, and reports the
+simulation echo with `lsmc_basis_degree`, the explicit `n_paths`, and one
+`exercise_events` entry per exercise date (degree, regressor index,
+condition-true count, coefficients, degenerate flag/reason, exercise rate).
+Products without `EXERCISE` return an empty `exercise_events` list. The
+[early-exercise example](examples/013.exercise_bermudan.py) prices the
+Bermudan and weekly-exercise puts and reads the diagnostic.
 
 - **Describe**, schema `dal.script-product/2`, parses all contract syntax with
   original/canonical identities, input rows, events, source positions and nodes.

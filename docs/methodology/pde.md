@@ -341,6 +341,22 @@ for (int n = 0; n < numT; ++n) {
 }
 ```
 
+## American Obstacles Are Test-Only
+
+The library PDE surface stays European: `Rollback_`/`ThetaScheme_` have no
+obstacle projection, PSOR, or penalty machinery, and there is no American or
+Bermudan pricer in the public framework. Early-exercise valuation lives in the
+script engine's LSMC driver (see
+[the script engine](script_engine.md#early-exercise-valuation-lsmc)).
+
+The one Bermudan rollback in the repository is deliberately test-only:
+`dal-cpp/test-support/bermudan_pde.hpp` rolls back between exercise dates with
+`ThetaScheme_` and projects onto the put obstacle $V = \max(V, K - s)$ on every
+exercise date. It anchors the LSMC acceptance suite, self-checking against the
+Black closed form in the single-exercise European limit and under grid
+refinement; it is not a public pricing API and adds no American capability to
+the framework.
+
 ## See Also
 
 - [Matrix and linear algebra](matrix.md) — tridiagonal storage and decomposition.

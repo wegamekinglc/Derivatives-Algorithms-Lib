@@ -129,6 +129,22 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsDefaultsAndBooleans) {
     }
 }
 
+TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcBasisDegree) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("defaults", {}, &settings);
+    ASSERT_EQ(settings->val_.lsmcBasisDegree_, 3);
+    for (const auto& degree : {Cell_(1.0), Cell_(3.0), Cell_(8.0), Cell_(6.)}) {
+        MonteCarloSettings_New("degree", Rows({{Cell_("LSMC_BASIS_DEGREE"), degree}}), &settings);
+        ASSERT_EQ(settings->val_.lsmcBasisDegree_, static_cast<int>(Cell::ToDouble(degree)));
+    }
+    for (const auto& value : {Cell_(0.0), Cell_(-1.0), Cell_(9.0), Cell_(2.5), Cell_(true), Cell_("3"),
+                              Cell_(std::numeric_limits<double>::quiet_NaN()), Cell_(std::numeric_limits<double>::infinity())})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_basis_degree"), value}}), &settings); },
+                    {"InvalidSetting", "InvalidLsmcBasisDegree", "lsmc_basis_degree", "row=1 column=2", "1", "8"});
+    AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_basis_degree"), Cell_()}}), &settings); },
+                {"row=1 column=2", "lsmc_basis_degree", "non-empty"});
+}
+
 TEST(ScriptExcelContractTest, TestSimulationRejectsInvalidScalarsAndDuplicateKeys) {
     Handle_<StorableMonteCarloSettings_> settings;
     for (const auto* key : {"use_bb", "enable_aad", "compiled"})

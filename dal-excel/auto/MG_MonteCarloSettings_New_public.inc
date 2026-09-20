@@ -37,7 +37,7 @@ struct XlRegister_MonteCarloSettings_New_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Object name");
-        argHelp.push_back("Two columns: method, use_bb, enable_aad, smooth, compiled. Boolean cells or numeric 0/1; smooth finite and positive.");
+        argHelp.push_back("Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree. Booleans 0/1; smooth positive; lsmc_basis_degree integer 1..8.");
         Excel::Register("Base", "xl_MonteCarloSettings_New", "MONTECARLOSETTINGS.NEW", "Create immutable Monte Carlo execution settings", "QQQ", "name,[settings]", argHelp, false);
     }
 };
