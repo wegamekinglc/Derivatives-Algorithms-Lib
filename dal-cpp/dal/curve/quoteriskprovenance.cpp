@@ -1721,16 +1721,20 @@ namespace Dal {
             return *found->second;
         }
 
-        String_ ExpectedStagedInverseAvailability(const CrossCurrencyCalibrationOptions_& options, bool approximate) {
+        String_ ExpectedStagedInverseAvailability(const CrossCurrencyCalibrationOptions_& options,
+                                                  bool approximate,
+                                                  const Matrix_<>& inverse) {
             if (!options.computeEffJacobianInverse_)
                 return "not_requested";
-            return approximate ? String_("not_available_for_mode") : String_("available");
+            if (approximate)
+                return "not_available_for_mode";
+            return inverse.Empty() ? "not_available_for_mapping" : "available";
         }
 
         void ValidateStagedInverseMetadata(const CrossCurrencyCalibrationDiagnostics_& diagnostics,
                                            const CrossCurrencyCalibrationOptions_& options,
                                            bool approximate) {
-            const String_ expected = ExpectedStagedInverseAvailability(options, approximate);
+            const String_ expected = ExpectedStagedInverseAvailability(options, approximate, diagnostics.effJacobianInverse_);
             REQUIRE(diagnostics.effJacobianInverseAvailability_ == expected, "QUOTE_RISK_EFFECTIVE_INVERSE_AVAILABILITY_MISMATCH");
             REQUIRE(diagnostics.effJacobianInverseScaling_ == "solver_scaled", "QUOTE_RISK_EFFECTIVE_INVERSE_SCALING_MISMATCH");
             REQUIRE((expected == "available") == !diagnostics.effJacobianInverse_.Empty(), "QUOTE_RISK_EFFECTIVE_INVERSE_AVAILABILITY_MISMATCH");

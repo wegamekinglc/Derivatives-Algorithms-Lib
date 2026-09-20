@@ -667,6 +667,9 @@ namespace Dal {
         CurveSolveOutput_ solved =
             RunCurveCalibration(func, guess, tol, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
                                 wantFwdJacobian, spec.fitTolerance_, *weights, spec.maxEvaluations_, spec.maxRestarts_);
+        if (solved.hasEffJacobianInverse_ &&
+            !ValidEffectiveMapping(func, solved.parameters_, func.F(solved.parameters_), tol, solved.effJacobianInverse_))
+            solved.effJacobianInverse_.Clear();
         CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.parameters_,
                                                                    solved.hasEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
         retval.diagnostics_.jacobian_ = std::move(solved.forwardJacobian_);

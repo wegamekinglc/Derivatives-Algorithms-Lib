@@ -161,15 +161,23 @@ namespace {
         const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(result.fixingValues_));
 
         const Date_ futureStart = Date::AddMonths(valuationDate, 1);
-        const Vector_<Date_> maturities = {
+        const Vector_<Date_> knotDates = {
             Date::AddMonths(startedDate, 12),
             Date::AddMonths(futureStart, 12),
             Date::AddMonths(futureStart, 18),
         };
+        // Swap maturities sit 12M beyond their knots: a piecewise-constant forward applies to
+        // the right of its knot, so a maturity at the last knot would leave that forward
+        // unconstrained and the residual Jacobian rank-deficient.
+        const Vector_<Date_> maturities = {
+            Date::AddMonths(startedDate, 24),
+            Date::AddMonths(futureStart, 24),
+            Date::AddMonths(futureStart, 30),
+        };
         result.trueParameters_ = {0.0010, 0.0020, 0.0030};
         CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, valuationTime, collateral, fixings);
         quoteMarket.SetBasisCurve(
-            Handle_<DiscountCurve_>(NewDiscountPWC("known_jac_basis", "USD", PiecewiseConstant_(maturities, result.trueParameters_))));
+            Handle_<DiscountCurve_>(NewDiscountPWC("known_jac_basis", "USD", PiecewiseConstant_(knotDates, result.trueParameters_))));
 
         result.spec_.today_ = valuationDate;
         result.spec_.valuationTime_ = valuationTime;
@@ -179,7 +187,7 @@ namespace {
         result.spec_.domesticCurveBlock_ = domestic;
         result.spec_.foreignCurveBlock_ = foreign;
         result.spec_.fxSpot_ = 1.10;
-        result.spec_.knotDates_ = maturities;
+        result.spec_.knotDates_ = knotDates;
         result.spec_.initialGuess_ = 0.0;
         result.spec_.tolerance_ = 1.0e-10;
         result.spec_.instruments_ = {
@@ -364,8 +372,8 @@ TEST(XccyBasisJacobianTest, TestEffectiveInverseRequiresToleranceScalingForSmall
 
 TEST(XccyBasisJacobianTest, TestEffectiveInversePredictsOneBasisPointAcrossFixedLadders) {
     constexpr double bump = 1.0e-4;
-    for (const int instrumentCount : {5, 10, 16}) {
-        const auto fixture = MakeLadderFixture(instrumentCount);
+    for (const int instrumentCount : {3, 5}) {
+        const auto fixture = MakeLadderFixture(instrumentCount, 12);
         const auto base = CalibrateCrossCurrencyMarket(fixture.spec_);
         const Vector_<> baseParameters = Parameters(base, fixture.spec_.basisPair_);
         const int instrument = instrumentCount - 1;
@@ -385,6 +393,19 @@ TEST(XccyBasisJacobianTest, TestEffectiveInversePredictsOneBasisPointAcrossFixed
         for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter)
             ASSERT_NEAR(predictedMoves[parameter], observedMoves[parameter], 0.03 * observedNorm + 1.0e-10)
                 << "instrumentCount=" << instrumentCount << " parameter=" << parameter;
+    }
+}
+
+// The mapping guard's 1e-7 identity bar is a condition-number gate on the solver's quadratic
+// form: longer ladders defeat it, and the driver must withhold the inverse instead of
+// publishing a finite-but-stale matrix.
+TEST(XccyBasisJacobianTest, TestEffectiveInverseIsWithheldForIllConditionedLadders) {
+    for (const int instrumentCount : {10, 16}) {
+        const auto fixture = MakeLadderFixture(instrumentCount, 12);
+        const auto base = CalibrateCrossCurrencyMarket(fixture.spec_);
+        ASSERT_TRUE(base.diagnostics_.effJacobianInverse_.Empty()) << "instrumentCount=" << instrumentCount;
+        ASSERT_EQ(base.diagnostics_.effJacobianInverseAvailability_, String_("not_available_for_mapping"))
+            << "instrumentCount=" << instrumentCount;
     }
 }
 

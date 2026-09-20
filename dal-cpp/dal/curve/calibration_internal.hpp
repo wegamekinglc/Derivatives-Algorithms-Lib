@@ -226,6 +226,33 @@ namespace Dal {
         return result;
     }
 
+    // Shared post-solve check for the solver-computed effective inverse: the tolerance-scaled
+    // residual Jacobian times each inverse column must reproduce the identity to 1e-7. A
+    // finite-but-wrong inverse would otherwise flow silently into inverse-Jacobian quote risk.
+    [[nodiscard]] inline bool ValidEffectiveMapping(const Underdetermined::Function_& function,
+                                                    const Vector_<>& solved,
+                                                    const Vector_<>& residuals,
+                                                    const Vector_<>& tolerance,
+                                                    const Matrix_<>& inverse) {
+        auto jacobian = function.Gradient(solved, residuals);
+        if (!jacobian) {
+            Matrix_<> dense;
+            function.Gradient(solved, residuals, &dense);
+            jacobian = std::make_unique<XCurveJacobian_>(std::move(dense));
+        }
+        jacobian->DivideRows(tolerance);
+        for (int column = 0; column < inverse.Cols(); ++column) {
+            Vector_<> direction(inverse.Rows());
+            for (int row = 0; row < inverse.Rows(); ++row)
+                direction[row] = inverse(row, column);
+            const auto mapped = jacobian->MultiplyLeft(direction);
+            for (int row = 0; row < static_cast<int>(mapped.size()); ++row)
+                if (!std::isfinite(mapped[row]) || std::abs(mapped[row] - (row == column ? 1.0 : 0.0)) > 1.0e-7)
+                    return false;
+        }
+        return !inverse.Empty();
+    }
+
     template <class ResidualFunction_>
     void CentralDifferenceJacobian(
         const Vector_<>& parameters, int residualCount, double bump, const ResidualFunction_& residualFunction, Matrix_<>* jacobian) {

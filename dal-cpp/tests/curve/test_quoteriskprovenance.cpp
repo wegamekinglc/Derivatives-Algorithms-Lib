@@ -113,6 +113,14 @@ namespace {
         Dal::RateQuoteRiskProvenanceConfig_ config_;
     };
 
+    // A piecewise-constant forward applies to the right of its knot, so a maturity at the last
+    // knot leaves that forward unconstrained and the residual Jacobian rank-deficient (covered
+    // by TestSingleCurveRankDeficientQuotesFailClosed below). Anchoring knot 0 at today keeps
+    // every quoted forward instrument-constrained.
+    Dal::Vector_<Dal::Date_> SingleMaturities(const Dal::Date_& today) {
+        return {Dal::Date::AddMonths(today, 6), Dal::Date::AddMonths(today, 12)};
+    }
+
     SingleProvenanceInput_ MakeSingleInput(Dal::CurveJacobianMode_ mode) {
         SingleProvenanceInput_ result;
         result.spec_.today_ = Dal::Date_(2025, 1, 2);
@@ -125,13 +133,13 @@ namespace {
         result.spec_.liborBasis_ = Dal::DayBasis_("ACT_365F");
         result.spec_.tolerance_ = 1.0e-10;
         result.spec_.initialGuess_ = 0.01;
-        result.spec_.knotDates_ = {Dal::Date::AddMonths(result.spec_.today_, 6), Dal::Date::AddMonths(result.spec_.today_, 12)};
+        result.spec_.knotDates_ = {result.spec_.today_, Dal::Date::AddMonths(result.spec_.today_, 6), Dal::Date::AddMonths(result.spec_.today_, 12)};
 
         const Dal::Handle_<Dal::DiscountCurve_> known(
-            Dal::NewDiscountPWC("single_quote_risk_known", "USD", Dal::PiecewiseConstant_(result.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025})));
+            Dal::NewDiscountPWC("single_quote_risk_known", "USD", Dal::PiecewiseConstant_(result.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025, 0.03})));
         const Dal::CurveBlock_ knownBlock(known, result.spec_.liborBasis_);
         const Dal::RateIndexConvention_ index = SingleIndex();
-        for (const auto& maturity : result.spec_.knotDates_) {
+        for (const auto& maturity : SingleMaturities(result.spec_.today_)) {
             const Dal::Handle_<Dal::YCInstrument_> prototype(new Dal::Deposit_(result.spec_.today_, result.spec_.today_, maturity, 0.0, index));
             const double quote = (*prototype->Precompute(Dal::Handle_<Dal::YieldCurve_>()))(knownBlock);
             result.spec_.instruments_.push_back(
@@ -1089,19 +1097,45 @@ TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
         ASSERT_TRUE(IsSha256Fingerprint(provenance.State().fingerprint_));
         ASSERT_EQ(provenance.Axis().parameterRanges_.size(), 1);
         ASSERT_EQ(provenance.Axis().residualRanges_.size(), 1);
-        ASSERT_EQ(provenance.Axis().parameters_.size(), 2);
+        ASSERT_EQ(provenance.Axis().parameters_.size(), 3);
         ASSERT_EQ(provenance.Axis().quotes_.size(), 2);
         ASSERT_EQ(provenance.State().components_.size(), 1);
-        ASSERT_EQ(provenance.EffectiveInverse().Rows(), 2);
+        ASSERT_EQ(provenance.EffectiveInverse().Rows(), 3);
         ASSERT_EQ(provenance.EffectiveInverse().Cols(), 2);
         ASSERT_DOUBLE_EQ(provenance.Tolerance(), input.spec_.tolerance_);
         if (mode == Dal::CurveJacobianMode_::Value_::ANALYTIC) {
             analyticAxis = provenance.Axis().fingerprint_;
-            ASSERT_EQ(analyticAxis, "sha256:da526c4aad2e15b7adbf95f5e2ebd33a20779d27b810edde48baf2eb0754f1ad");
+            ASSERT_EQ(analyticAxis, "sha256:5aada94e0f364e1367f224e5cd60fcadf42f51d4cefbebfb60447a77b1b02b42");
         } else {
             ASSERT_EQ(provenance.Axis().fingerprint_, analyticAxis);
         }
     }
+}
+
+// Fail-closed regression: when every instrument matures at or before the last knot, the last
+// piecewise-constant forward is unconstrained, the residual Jacobian is rank-deficient, and the
+// solver's finite-but-wrong effective inverse must be discarded rather than published.
+TEST(QuoteRiskProvenanceTest, TestSingleCurveRankDeficientQuotesFailClosed) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    input.spec_.knotDates_ = {Dal::Date::AddMonths(input.spec_.today_, 6), Dal::Date::AddMonths(input.spec_.today_, 12)};
+    input.spec_.instruments_.clear();
+    const Dal::RateIndexConvention_ index = SingleIndex();
+    const Dal::Handle_<Dal::DiscountCurve_> known(
+        Dal::NewDiscountPWC("single_quote_risk_known", "USD", Dal::PiecewiseConstant_(input.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025})));
+    const Dal::CurveBlock_ knownBlock(known, input.spec_.liborBasis_);
+    for (const auto& maturity : input.spec_.knotDates_) {
+        const Dal::Handle_<Dal::YCInstrument_> prototype(new Dal::Deposit_(input.spec_.today_, input.spec_.today_, maturity, 0.0, index));
+        const double quote = (*prototype->Precompute(Dal::Handle_<Dal::YieldCurve_>()))(knownBlock);
+        input.spec_.instruments_.push_back(
+            Dal::Handle_<Dal::YCInstrument_>(new Dal::Deposit_(input.spec_.today_, input.spec_.today_, maturity, quote, index)));
+    }
+    RecalibrateAndBindSingle(&input);
+    ASSERT_TRUE(input.result_.diagnostics_.effJacobianInverse_.Empty());
+
+    const auto provenance = BuildSingle(input);
+    ASSERT_FALSE(provenance.Available());
+    ASSERT_EQ(provenance.Reason(), "QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE");
+    ASSERT_TRUE(provenance.EffectiveInverse().Empty());
 }
 
 TEST(QuoteRiskAggregationTest, TestSingleCurveProducesUnitBearingBuckets) {
@@ -1833,10 +1867,10 @@ TEST(QuoteRiskProvenanceTest, TestSolvedCurveAndBaseChangesAffectStateNotAxis) {
 
     auto curveInput = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
     const Dal::Handle_<Dal::DiscountCurve_> changedKnown(Dal::NewDiscountPWC(
-        "single_quote_risk_changed_known", "USD", Dal::PiecewiseConstant_(curveInput.spec_.knotDates_, Dal::Vector_<>{0.021, 0.026})));
+        "single_quote_risk_changed_known", "USD", Dal::PiecewiseConstant_(curveInput.spec_.knotDates_, Dal::Vector_<>{0.021, 0.026, 0.031})));
     const Dal::CurveBlock_ changedKnownBlock(changedKnown, curveInput.spec_.liborBasis_);
     curveInput.spec_.instruments_.clear();
-    for (const auto& maturity : curveInput.spec_.knotDates_) {
+    for (const auto& maturity : SingleMaturities(curveInput.spec_.today_)) {
         const Dal::Handle_<Dal::YCInstrument_> prototype(
             new Dal::Deposit_(curveInput.spec_.today_, curveInput.spec_.today_, maturity, 0.0, SingleIndex()));
         const double quote = (*prototype->Precompute(Dal::Handle_<Dal::YieldCurve_>()))(changedKnownBlock);
@@ -1848,13 +1882,13 @@ TEST(QuoteRiskProvenanceTest, TestSolvedCurveAndBaseChangesAffectStateNotAxis) {
 
     auto baseInput = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
     baseInput.spec_.baseCurve_ = Dal::Handle_<Dal::DiscountCurve_>(
-        Dal::NewDiscountPWC("single_quote_risk_base", "USD", Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.001, 0.001})));
+        Dal::NewDiscountPWC("single_quote_risk_base", "USD", Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.001, 0.001, 0.001})));
     const Dal::Handle_<Dal::DiscountCurve_> knownWithBase(
         Dal::NewDiscountPWC("single_quote_risk_known_with_base", "USD",
-                            Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025}), baseInput.spec_.baseCurve_));
+                            Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025, 0.03}), baseInput.spec_.baseCurve_));
     const Dal::CurveBlock_ knownBaseBlock(knownWithBase, baseInput.spec_.liborBasis_);
     baseInput.spec_.instruments_.clear();
-    for (const auto& maturity : baseInput.spec_.knotDates_) {
+    for (const auto& maturity : SingleMaturities(baseInput.spec_.today_)) {
         const Dal::Handle_<Dal::YCInstrument_> prototype(
             new Dal::Deposit_(baseInput.spec_.today_, baseInput.spec_.today_, maturity, 0.0, SingleIndex()));
         const double quote = (*prototype->Precompute(Dal::Handle_<Dal::YieldCurve_>()))(knownBaseBlock);
