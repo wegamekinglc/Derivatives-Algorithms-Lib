@@ -191,8 +191,9 @@ void init_bindings_value(py::module_& m) {
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"), Smoothing(smooth), Compiled(compiled),
                                             BasisDegree(lsmcBasisDegree)};
              }),
-             py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false, py::arg("smooth") = 0.01,
-             py::arg("compiled") = py::none(), py::arg("lsmc_basis_degree") = 3)
+             py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
+             py::arg("smooth") = Script::DEFAULT_SMOOTH,
+             py::arg("compiled") = py::none(), py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE)
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })
@@ -270,5 +271,5 @@ void init_bindings_value(py::module_& m) {
             return Value(nativeProduct, nativeModel, count, ScriptValuationSettings_(), simulation);
         },
         py::arg("product"), py::arg("modelData"), py::arg("num_path"), py::arg("method") = "sobol", py::arg("use_bb") = false,
-        py::arg("enable_aad") = false, py::arg("smooth") = 0.01, py::arg("compiled") = py::none());
+        py::arg("enable_aad") = false, py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none());
 }

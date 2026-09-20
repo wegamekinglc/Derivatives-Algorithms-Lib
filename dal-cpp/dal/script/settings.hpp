@@ -26,6 +26,9 @@ namespace Dal {
     class Index_;
 
     namespace Script {
+        constexpr double DEFAULT_SMOOTH = 0.01;
+        constexpr int DEFAULT_LSMC_BASIS_DEGREE = 3;
+
         struct ScriptProductSettings_ {
             String_ defaultIndex_;
         };
@@ -34,10 +37,10 @@ namespace Dal {
             String_ rsg_ = "sobol";
             bool useBb_ = false;
             bool enableAad_ = false;
-            double smooth_ = 0.01;
+            double smooth_ = DEFAULT_SMOOTH;
             std::optional<bool> compiled_;
             // Polynomial degree of the LSMC regression basis for EXERCISE valuation
-            int lsmcBasisDegree_ = 3;
+            int lsmcBasisDegree_ = DEFAULT_LSMC_BASIS_DEGREE;
         };
 
         struct ScriptValuationSettings_ {
