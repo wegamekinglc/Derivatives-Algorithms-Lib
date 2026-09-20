@@ -272,6 +272,7 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 | `MonteCarloSettings_`      | `enableAad_`         | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                       |
 | `MonteCarloSettings_`      | `smooth_`            | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                            |
 | `MonteCarloSettings_`      | `compiled_`          | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                     |
+| `MonteCarloSettings_`      | `lsmcBasisDegree_`   | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                             |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
@@ -290,7 +291,8 @@ entry, and these typed settings have no string-key dictionary interface.
 Errors retain a stable identifier, the offending field/value and its constraint,
 with the throwing function in DAL exception context. Examples include
 `InvalidPathCount` (`numPath`), `InvalidSetting` with `InvalidSmoothing`
-(`simulation.smooth_`), `InvalidTodayFixingPolicy`
+(`simulation.smooth_`) or `InvalidLsmcBasisDegree`
+(`simulation.lsmcBasisDegree_`), `InvalidTodayFixingPolicy`
 (`valuation.todayFixingPolicy_`), `InvalidIndex`, and `MultipleModelIndices`.
 Observation failures additionally identify original/canonical index names,
 exact fixing timestamp, event, source row and expanded position, statement,
