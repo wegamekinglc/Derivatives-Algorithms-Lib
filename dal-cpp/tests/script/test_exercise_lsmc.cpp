@@ -490,6 +490,14 @@ TEST(ScriptExerciseLSMCTest, TestAadGate) {
         simulation.enableAad_ = true;
         static_cast<void>(MCSimulation<AAD::Number_>(product, StandardModel(), 128, ScriptValuationSettings_(), simulation));
     });
+    { //  fuzzy conditions push degrees onto the double stack, so the recording stream
+        //  must not even be built until the fuzzy decision seam exists (T4)
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = true;
+        auto model = CreateModel<double>(StandardModel());
+        AssertUnsupportedMode([&] { static_cast<void>(PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation)); });
+    }
     { //  the compiled engine joined the LSMC driver in T3 and values the same product
         MonteCarloSettings_ simulation;
         simulation.compiled_ = true;

@@ -336,64 +336,65 @@ namespace {
         return statement + "\n";
     }
 
+    //  Schedule-shaped EXERCISE product: a weekly row block with one exercise, then a
+    //  maturity event that pays and exercises. Draw order is fixed by the seed.
+    void AppendScheduleExercise(Rng_& rng, const Vector_<String_>& leaves, Vector_<Cell_>& eventDates, Vector_<String_>& events) {
+        eventDates.push_back(Cell_(Date_(2023, 1, 4)));
+        events.push_back("v = " + BuildExpr(rng, 1, leaves) + "\n");
+        Vector_<String_> vLeaves = leaves;
+        vLeaves.push_back("v");
+        eventDates.push_back(Cell_(String_("START: " + Date::ToString(Date_(2023, 1, 4)) +
+                                           " END: " + Date::ToString(Date_(2023, rng.UniformInt(2, 4), 15)) +
+                                           " FREQ: 1W")));
+        events.push_back(BuildBlock(rng, "v", vLeaves, leaves) + BuildExerciseStatement(rng, vLeaves));
+        eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+        events.push_back("out pays " + BuildExpr(rng, 1, vLeaves) + "\n" + BuildExerciseStatement(rng, vLeaves));
+    }
+
+    //  Dated EXERCISE product: per-event blocks over `v`, an optional const coupon on
+    //  the first event; the last event always pays and always exercises, so the
+    //  valuation diverts to the LSMC driver.
+    void AppendDatedExercise(Rng_& rng, int nEvents, const Vector_<String_>& leaves, Vector_<Cell_>& eventDates, Vector_<String_>& events) {
+        Vector_<String_> vLeaves = leaves;
+        for (int e = 0; e < nEvents; ++e) {
+            eventDates.push_back(Cell_(Date_(2023, 1, 4).AddDays(91 * e)));
+            std::ostringstream body;
+            if (e == 0) {
+                body << "v = " << BuildExpr(rng, 1, leaves) << "\n";
+                vLeaves.push_back("v");
+                if (rng.Bernoulli(0.5))
+                    body << "coupon PAYS " << FormatLiteral(rng.UniformReal(0.5, 2.0)) << "\n";
+            } else
+                body << BuildBlock(rng, "v", vLeaves, leaves);
+            const bool last = e == nEvents - 1;
+            if (last)
+                body << "out pays " << BuildExpr(rng, 1, vLeaves) << "\n";
+            if (last || rng.Bernoulli(0.6))
+                body << BuildExerciseStatement(rng, vLeaves);
+            events.push_back(String_(body.str()));
+        }
+    }
+
     //  Random EXERCISE product on the prepared pipeline (S12): coupons and exercise
-    //  dates over the existing expression generator. At least one EXERCISE statement
-    //  per product so the valuation diverts to the LSMC driver.
+    //  dates over the existing expression generator.
     struct ExerciseFuzzProduct_ {
-        std::unique_ptr<ScriptProductData_> data;
-        uint32_t seed = 0;
+        std::unique_ptr<ScriptProductData_> data_;
 
         // structure: 0 = single event, 1 = multi event, 2 = schedule
         static ExerciseFuzzProduct_ Build(uint32_t s, int structure) {
             Rng_ rng(s);
             ExerciseFuzzProduct_ fp;
-            fp.seed = s;
 
             Vector_<Cell_> eventDates;
             Vector_<String_> events;
             Vector_<String_> leaves;
             AddConstVariables(rng, eventDates, events, leaves);
             AddPastFixings(rng, eventDates, events, leaves);
-
-            size_t exerciseCount = 0;
-            if (structure == 2) {
-                eventDates.push_back(Cell_(Date_(2023, 1, 4)));
-                events.push_back("v = " + BuildExpr(rng, 1, leaves) + "\n");
-                Vector_<String_> vLeaves = leaves;
-                vLeaves.push_back("v");
-                eventDates.push_back(Cell_(String_("START: " + Date::ToString(Date_(2023, 1, 4)) +
-                                                   " END: " + Date::ToString(Date_(2023, rng.UniformInt(2, 4), 15)) +
-                                                   " FREQ: 1W")));
-                events.push_back(BuildBlock(rng, "v", vLeaves, leaves) + BuildExerciseStatement(rng, vLeaves));
-                eventDates.push_back(Cell_(Date_(2024, 6, 21)));
-                events.push_back("out pays " + BuildExpr(rng, 1, vLeaves) + "\n" + BuildExerciseStatement(rng, vLeaves));
-                exerciseCount = 2;
-            } else {
-                const int nEvents = structure == 1 ? rng.UniformInt(2, 4) : 1;
-                Vector_<String_> vLeaves = leaves;
-                for (int e = 0; e < nEvents; ++e) {
-                    eventDates.push_back(Cell_(Date_(2023, 1, 4).AddDays(91 * e)));
-                    std::ostringstream body;
-                    if (e == 0) {
-                        body << "v = " << BuildExpr(rng, 1, leaves) << "\n";
-                        if (rng.Bernoulli(0.5))
-                            body << "coupon PAYS " << FormatLiteral(rng.UniformReal(0.5, 2.0)) << "\n";
-                    } else
-                        body << BuildBlock(rng, "v", vLeaves, leaves);
-                    if (e == 0)
-                        vLeaves.push_back("v");
-                    if (e == nEvents - 1)
-                        body << "out pays " << BuildExpr(rng, 1, vLeaves) << "\n";
-                    //  the last event always exercises, so the product diverts to the LSMC driver
-                    if (e == nEvents - 1 || rng.Bernoulli(0.6)) {
-                        body << BuildExerciseStatement(rng, vLeaves);
-                        ++exerciseCount;
-                    }
-                    events.push_back(String_(body.str()));
-                }
-            }
-            REQUIRE(exerciseCount > 0, "exercise fuzz generator must emit at least one EXERCISE statement");
-            fp.data = std::make_unique<ScriptProductData_>("", eventDates, events);
+            if (structure == 2)
+                AppendScheduleExercise(rng, leaves, eventDates, events);
+            else
+                AppendDatedExercise(rng, structure == 1 ? rng.UniformInt(2, 4) : 1, leaves, eventDates, events);
+            fp.data_ = std::make_unique<ScriptProductData_>("", eventDates, events);
             return fp;
         }
 
@@ -410,8 +411,8 @@ namespace {
         auto model = Handle_<ModelData_>(new BSModelData_("bsmodel", 10.0, 0.20, 0.034, 0.021));
         MonteCarloSettings_ compiled;
         compiled.compiled_ = true;
-        const SimResults_ treeWalk = MCSimulation<double>(*fp.data, model, 4096, ScriptValuationSettings_(), MonteCarloSettings_());
-        const SimResults_ compiledResults = MCSimulation<double>(*fp.data, model, 4096, ScriptValuationSettings_(), compiled);
+        const SimResults_ treeWalk = MCSimulation<double>(*fp.data_, model, 4096, ScriptValuationSettings_(), MonteCarloSettings_());
+        const SimResults_ compiledResults = MCSimulation<double>(*fp.data_, model, 4096, ScriptValuationSettings_(), compiled);
         ASSERT_NEAR(compiledResults.aggregated_, treeWalk.aggregated_, 1e-8)
             << "EXERCISE FUZZ DIVERGENCE: seed=" << seed << " structure=" << structure
             << " (treeWalk=" << treeWalk.aggregated_ << ")";

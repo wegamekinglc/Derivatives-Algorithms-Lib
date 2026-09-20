@@ -292,6 +292,10 @@ namespace Dal::Script {
         //  records the (x, h, condition) triple through the driver's sinks
         void Visit(const NodeExercise_& node) {
             REQUIRE2(lsmc_, "UnsupportedExecutionMode: EXERCISE requires the LSMC simulation driver; " + node.source_.Describe(), ScriptError_);
+            //  Hard-mode recording only: fuzzy conditions push degrees onto the double stack, so the
+            //  boolean-stack condition slot of LsmcExercise would pop garbage; the fuzzy
+            //  decision-degree seam arrives with the AAD milestone
+            REQUIRE2(!fuzzy_, "UnsupportedExecutionMode: fuzzy compiled EXERCISE is not implemented yet; " + node.source_.Describe(), ScriptError_);
             node.arguments_[0]->Accept(*this);
             int hasCond = 0;
             if (node.arguments_.size() > 1) {
