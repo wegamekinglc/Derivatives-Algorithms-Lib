@@ -612,7 +612,8 @@ def test_lsmc_basis_degree_rejects_non_integers_and_out_of_range(bad, construct)
     assert settings.lsmc_basis_degree == 3
 
 
-def test_script_simulation_explain_reports_exercise_events():
+@pytest.mark.parametrize("compiled", [False, True])
+def test_script_simulation_explain_reports_exercise_events(compiled):
     today = dal.Date_(2026, 9, 12)
     first = dal.Date_(2026, 12, 12)
     second = dal.Date_(2027, 3, 12)
@@ -622,7 +623,7 @@ def test_script_simulation_explain_reports_exercise_events():
     )
     model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.0)
     valuation = dal.ScriptValuationSettings_(evaluation_date=today)
-    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=True)
+    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=compiled)
     diagnostic = dal.ScriptSimulation_Explain(
         product, model, 4096, valuation=valuation, simulation=simulation
     )
@@ -634,7 +635,7 @@ def test_script_simulation_explain_reports_exercise_events():
     assert diagnostic["schema"] == "dal.script-simulation/1"
     assert diagnostic["evaluation_date"] == "2026-09-12"
     assert diagnostic["simulation"]["lsmc_basis_degree"] == 5
-    assert diagnostic["simulation"]["compiled"] is True
+    assert diagnostic["simulation"]["compiled"] is compiled
     assert diagnostic["n_paths"] == 4096
     events = diagnostic["exercise_events"]
     assert [event["event_id"] for event in events] == [0, 1]
