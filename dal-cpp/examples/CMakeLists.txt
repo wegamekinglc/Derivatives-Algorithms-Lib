@@ -91,10 +91,9 @@ endif()
 # self-contained: exits 0 in well under 30 s with no input files, no network,
 # and no file outputs. Exclusions:
 #   european_mc - ~35 s runtime; runs under "examples_slow", kept out of CI
-#   quote_risk  - aborts at runtime on its rank-deficient calibration fixture
 #   excelwriter - drives a live Excel COM instance (Windows/MSVC only)
 set(DAL_EXAMPLE_SLOW_TARGETS european_mc)
-set(DAL_EXAMPLE_UNREGISTERED_TARGETS quote_risk excelwriter)
+set(DAL_EXAMPLE_UNREGISTERED_TARGETS excelwriter)
 
 foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
     dal_apply_platform_options(${example_target})

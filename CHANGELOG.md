@@ -92,14 +92,15 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   knot than instruments) so its provenance clears the calibration driver's
   effective-inverse guard.
 - **C++ examples run in CI as CTest smoke tests; Excel suite values an
-  EXERCISE product** — 21 self-contained `dal-cpp/examples/` binaries are
+  EXERCISE product** — 22 self-contained `dal-cpp/examples/` binaries are
   registered under the `examples` CTest label and exercised at runtime on the
   gcc-14/AADet build leg (`european_mc` sits behind the off-CI
-  `examples_slow` label; the runtime-aborting `quote_risk` stays excluded),
-  closing the compile-only gap behind commit 05cd72c0's runtime abort. The
-  Excel tests value a two-date Bermudan put against its European leg
-  (European ≤ Bermudan PV) and pin the fuzzy-AAD result table's finite
-  `d_spot`/`d_vol`/`d_rate`/`d_div` keys.
+  `examples_slow` label), closing the compile-only gap behind commit
+  05cd72c0's runtime abort; the `quote_risk` example's rank-deficient
+  calibration fixture is repaired to the canonical anchored-knot shape so it
+  joins the label. The Excel tests value a two-date Bermudan put against its
+  European leg (European ≤ Bermudan PV) and pin the fuzzy-AAD result table's
+  finite `d_spot`/`d_vol`/`d_rate`/`d_div` keys.
 
 ## 2026-09-19
 
