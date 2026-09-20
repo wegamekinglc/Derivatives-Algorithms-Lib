@@ -184,8 +184,10 @@ namespace Dal {
                      } else if (key == "today_fixing") {
                          const auto text = TextValue(cell, valueContext);
                          TodayFixingPolicy_ policy;
-                         REQUIRE(Script::TryParseTodayFixingPolicy(text, &policy),
-                                 valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
+                         //  explicit branch, not a macro argument: keeps the parse call
+                         //  and the uninitialized-policy store unconditional
+                         if (!Script::TryParseTodayFixingPolicy(text, &policy))
+                             THROW(valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
                          value.todayFixingPolicy_ = policy;
                      } else {
                          THROW(keyContext + "unknown key " + key + "; expected evaluation_date or today_fixing");
