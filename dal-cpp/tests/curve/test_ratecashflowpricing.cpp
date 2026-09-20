@@ -3286,6 +3286,39 @@ TEST(RateCashflowPricingTest, TestJointNodeRiskReusesSwapLegsWithCoupledBaseCurv
     }
 }
 
+TEST(RateCashflowPricingTest, TestJointBatchSweepAnswersUnknownComponentKeyWithoutThrowing) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+
+    {
+        // Single-currency joint sweep: an absent key must fail its cells, not throw out of the batch.
+        const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()}),
+        };
+        Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> cells;
+        ASSERT_NO_THROW(cells = internal::JointNodeSensitivitiesBatch(trades, market, {"discount", "missing"}));
+        ASSERT_EQ(cells.size(), 2);
+        ASSERT_TRUE(cells[0].result_.eligible_) << cells[0].result_.reason_;
+        ASSERT_FALSE(cells[1].result_.eligible_);
+        ASSERT_EQ(cells[1].result_.reason_, Dal::String_("CURVE_COMPONENT_UNAVAILABLE"));
+    }
+    {
+        // XCCY joint sweep: same contract through the cross-currency path.
+        const auto market = FlatXccyMarket(today);
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms())),
+        };
+        Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> cells;
+        ASSERT_NO_THROW(cells = internal::JointNodeSensitivitiesBatch(trades, market, {"missing"}));
+        ASSERT_EQ(cells.size(), 1);
+        ASSERT_FALSE(cells[0].result_.eligible_);
+        ASSERT_EQ(cells[0].result_.reason_, Dal::String_("CURVE_COMPONENT_UNAVAILABLE"));
+    }
+}
+
 TEST(RateCashflowPricingTest, TestBatchHoistsPassivePricingAndPerCurvePreparation) {
     namespace internal = Dal::RateCashflowPricingInternal;
     const Dal::Date_ today(2026, 1, 15);

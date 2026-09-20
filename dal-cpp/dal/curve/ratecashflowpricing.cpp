@@ -1152,7 +1152,12 @@ namespace Dal {
                 const auto& closure = JointClosureFor(trade);
                 if (!closure.complete_)
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                const auto* target = market_.curveComponents_.at(key).get();
+                // ConsumesComponent admits missing keys so they reach this graceful failure;
+                // a blunt .at() here would throw out of the batch's per-entry isolation.
+                const auto& gate = GateForKey(key);
+                if (!gate.available_)
+                    return RateCashflowPricingInternal::NodeSensitivityFailure("CURVE_COMPONENT_UNAVAILABLE");
+                const auto* target = gate.curve_;
                 const auto preparations = JointPreparations(closure, target, hoist != nullptr);
                 if (!preparations.count(target))
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
@@ -1245,7 +1250,12 @@ namespace Dal {
                 if (!ConsumesComponent(trade, hoist.dependencyKeys_, componentKey, jointCoordinates))
                     return NodeSensitivityFailure("TRADE_DOES_NOT_DEPEND_ON_COMPONENT");
                 REQUIRE(market_.xccyMarket_, "XCCY node sensitivity requires an immutable cross-currency market");
-                const DiscountCurve_* targetCurve = market_.curveComponents_.at(componentKey).get();
+                // Same unknown-key gate as SweepJoint: ConsumesComponent admits missing keys in
+                // joint coordinates, and the batch must answer rather than throw.
+                const auto& gate = GateForKey(componentKey);
+                if (!gate.available_)
+                    return NodeSensitivityFailure("CURVE_COMPONENT_UNAVAILABLE");
+                const DiscountCurve_* targetCurve = gate.curve_;
                 if (hoist.classificationFailureCurve_)
                     return NodeSensitivityFailure(hoist.classificationFailureCurve_ == targetCurve ? "CURVE_REPRESENTATION_NOT_AAD_ENABLED"
                                                                                                    : "AAD_EVALUATION_FAILED");
