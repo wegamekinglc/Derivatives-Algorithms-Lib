@@ -23,7 +23,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   the LSMC driver (`dal-cpp/dal/script/lsmc.cpp`) in both tree-walk and
   compiled execution, with hard-decision double valuation (forward storage,
   backward induction with z-normalized monomial regression, explicit ridge,
-  and degenerate guards, then frozen-policy replay on regenerated Sobol paths)
+  and degenerate guards, then frozen-policy valuation from the recorded
+  paths)
   and fuzzy AAD valuation (recursive blend over frozen coefficients; the
   adjoint is the exact frozen-policy gradient, with the envelope remainder
   quantified in bump tests). Same-seed PV, coefficients, exercise rates, and
