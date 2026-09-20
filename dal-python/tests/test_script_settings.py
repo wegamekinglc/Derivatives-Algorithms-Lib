@@ -26,26 +26,17 @@ def test_product_settings_copy_and_diagnostic_layers():
     }
 
 
-def test_historical_settings_value_preserves_parameter_risk():
-    today = dal.Date_(2026, 9, 12)
-    history = dal.Date_(2026, 9, 11)
-    payment = dal.Date_(2026, 9, 22)
-    product = dal.Product_New(
-        ["SCALE", history, payment],
-        ["2", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"],
+def test_historical_settings_value_preserves_parameter_risk(historical_fix):
+    product = historical_fix.product()
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=historical_fix.today, fixings=historical_fix.snapshot()
     )
-    snapshot = dal.MarketFixingSnapshot_New(
-        {
-            "EQ[DAL196_TEST]": {dal.DateTime_(history, 0): 80.0},
-        }
-    )
-    valuation = dal.ScriptValuationSettings_(evaluation_date=today, fixings=snapshot)
     model = dal.BSModelData_New(100.0, 0.0, 0.05, 0.0)
     simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=True)
     result = dal.MonteCarlo_ValueWithSettings(
         product, model, 257, valuation=valuation, simulation=simulation
     )
-    time = (payment - today) / 365.0
+    time = (historical_fix.payment - historical_fix.today) / 365.0
     expected = 160.0 * math.exp(-0.05 * time)
     assert abs(result["PV"] - expected) <= 1e-12 * expected
     assert abs(result["d_SCALE"] - expected / 2.0) <= 1e-10

@@ -544,7 +544,9 @@ simulation echo with `lsmc_basis_degree`, the explicit `n_paths`, and one
 condition-true count, coefficients, degenerate flag/reason, exercise rate).
 Products without `EXERCISE` return an empty `exercise_events` list. The
 [early-exercise example](examples/013.exercise_bermudan.py) prices the
-Bermudan and weekly-exercise puts and reads the diagnostic.
+Bermudan and weekly-exercise puts and reads the diagnostic. The example runs
+3 x 2^18-path LSMC valuations by default; set `DAL_EXAMPLE_NPATHS` to a
+smaller path count for a quicker smoke run.
 
 - **Describe**, schema `dal.script-product/2`, parses all contract syntax with
   original/canonical identities, input rows, events, source positions and nodes.

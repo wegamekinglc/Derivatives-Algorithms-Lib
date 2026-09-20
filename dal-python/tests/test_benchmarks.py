@@ -3,11 +3,8 @@
 import json
 from pathlib import Path
 import re
-import sys
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 
 from dal_benchmarks.harness import Case, Workload, measure, select_cases
 from dal_benchmarks.cases import CPP_COVERAGE, build_cases
