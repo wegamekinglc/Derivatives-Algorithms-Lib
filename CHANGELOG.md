@@ -40,6 +40,15 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc)
   and the
   [simulation diagnostic](docs/methodology/script_engine.md#product-archive-and-diagnostics).
+- **Script: LSMC exercise correctness fixes** — the continuation regression and
+  the exercise decision (hard and fuzzy) now use in-the-money paths only
+  ($h_k > 0$), so a regression undershoot can no longer "exercise" worthless
+  options; `num_cond_true_paths` in the simulation diagnostic accordingly
+  reports the ITM condition-true count. The `;eps`/`:eps` smoothing suffix
+  rejects non-positive widths at parse time (`InvalidSmoothing`), and the
+  probe path behind the backward discount ratios is validated like every
+  worker path. The Bermudan PDE test oracle's s=0 boundary anchors at the
+  next exercise date (zero measured delta on the suite benchmarks).
 
 ## 2026-09-19
 

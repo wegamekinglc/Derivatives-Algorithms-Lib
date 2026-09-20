@@ -78,6 +78,20 @@ TEST(ScriptExerciseParseTest, TestParseExerciseSharesConditionEps) {
     }
 }
 
+TEST(ScriptExerciseParseTest, TestParseConditionRejectsNonPositiveEps) {
+    //  a zero width parses into CSpr(x, 0) and divides by zero at the kink; the
+    //  same suffix feeds fuzzy IF conditions, so both statements reject it
+    Parser_ parser;
+    AssertScriptError([&] { parser.Parse("EXERCISE 1.0 IF spot() > 100; 0"); }, {"InvalidSmoothing", ";eps", "line="});
+    AssertScriptError([&] { parser.Parse("EXERCISE 1.0 IF spot() > 100; 0.0"); }, {"InvalidSmoothing"});
+    AssertScriptError([&] { parser.Parse("EXERCISE 1.0 IF spot() > 100: 0"); }, {"InvalidSmoothing"});
+    AssertScriptError([&] { parser.Parse("IF spot() > 100; 0 THEN y = 2 END"); }, {"InvalidSmoothing"});
+    { //  a positive width still parses and flows to the exercise decision
+        const auto event = parser.Parse("EXERCISE 1.0 IF spot() > 100; 0.02");
+        ASSERT_EQ(ExerciseOf(event)->eps_, 0.02);
+    }
+}
+
 TEST(ScriptExerciseParseTest, TestParseExerciseConditionEpsFollowsFirstComparison) {
     //  Multi-comparison conditions: the decision width follows the FIRST comparison's
     //  ;eps option (the simulation default when it carries none); later comparisons

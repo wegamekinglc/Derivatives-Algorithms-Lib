@@ -167,7 +167,9 @@ appropriate condition node (`NodeEqual_`, `NodeSup_`, `NodeSupEqual_`), with
 `!=`, `<`, `<=` rewritten in terms of `=`, `>`, `>=`. An optional `;eps` or
 `:eps` suffix on a comparison sets the node's `eps_` field, which the fuzzy
 evaluator consumes as the smoothing width for that condition (see
-[Fuzzy Evaluator](#fuzzy-evaluator)). The same suffix also feeds the
+[Fuzzy Evaluator](#fuzzy-evaluator)); the literal must be a finite positive
+width (`InvalidSmoothing`), since a zero width divides by zero at the
+transition kink. The same suffix also feeds the
 `EXERCISE` decision width: a conditioned statement's decision degree uses the
 **first** comparison of its condition — falling back to `simulation.smooth_`
 when that comparison carries no suffix — while every comparison keeps its own
@@ -621,20 +623,22 @@ invariant across thread counts.
   exercise value, and the condition indicator (hard 0/1 in double mode).
 - **Phase B** walks the events backward. The holding value is
   $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
-  on each exercise date the driver regresses $H_k$ on the condition-true path
-  subset over the z-normalized monomial basis $z=(x-\hat\mu)/\hat\sigma$ of
+  on each exercise date the driver regresses $H_k$ on the in-the-money
+  ($h_k > 0$) condition-true path subset over the z-normalized monomial basis
+  $z=(x-\hat\mu)/\hat\sigma$ of
   degree `simulation.lsmcBasisDegree_` (default 3). The normal equations carry
   an explicit relative ridge $A + \lambda\,\mathrm{diag}(A)$, $\lambda=10^{-12}$,
   and a day degenerates to the constant basis — flagging
   `ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned` — when the
-  condition-true path count is below $10(d{+}1)$, the $\hat\sigma$ floor
+  regression path count is below $10(d{+}1)$, the $\hat\sigma$ floor
   engages, or the estimated condition number exceeds $10^{12}$. A path
-  exercises when its condition holds and $h_k > C_k(z_k)$ strictly; exercise
-  replaces the day's and all later payments.
+  exercises when its condition holds, $h_k > 0$, and $h_k > C_k(z_k)$
+  strictly; exercise replaces the day's and all later payments.
 - **Phase C** replays the frozen policy: the same Sobol generator state is
   reconstructed (`SkipTo`), paths are regenerated, and each path is priced by
   its first winning exercise decision. Exercise dates are scanned in order;
-  the earliest date whose condition holds with $h_k > C_k(z_k)$ under the
+  the earliest date whose condition holds with $h_k > 0$ and
+  $h_k > C_k(z_k)$ under the
   frozen coefficients pays $h_k$ discounted at that date's numeraire on top
   of the payments accumulated before it. A path that never exercises keeps
   its full `PAYS` value — zero for `EXERCISE`-only products — with every
@@ -714,9 +718,11 @@ regenerates its batch on its own tape, records the per-event payments and the
 per-date exercise values and fuzzy condition degrees, and prices the path with
 the recursive blend
 
-$$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(h_k - C_k(z_k), \varepsilon)\cdot c_k,$$
+$$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(h_k - C_k(z_k), \varepsilon)\cdot\mathrm{CSpr}(h_k, 0, \varepsilon)\cdot c_k,$$
 
-where $c_k$ is the fuzzy condition degree (1 when unconditional), the discount
+where $c_k$ is the fuzzy condition degree (1 when unconditional), the second
+factor is the one-sided $h_k > 0$ exercise gate (degree 0 on the $h_k = 0$
+atom, matching the hard rule), the discount
 ratios come from the path's own numeraires, and $\varepsilon$ is the exercise
 statement's smoothing width resolved against `simulation.smooth_`. The blend
 is carried in event-date units, so the recursion ends with the explicit
@@ -1540,7 +1546,8 @@ event carries `event_id`, `date`, the effective `basis_degree`
 (`0` marks the degenerate constant basis), `regressor_index` (the canonical
 index name of the model-sourced regressor — the same join space as Explain's
 `requests[].index_canonical`; null when the product has no model index, such
-as an unbound `SPOT()` regressor), `num_cond_true_paths`, `num_coefficients`
+as an unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
+condition-true path count entering the regression), `num_coefficients`
 with the frozen `coefficients` on the z-normalized monomial basis, the
 `degenerate` flag with its PascalCase `degenerate_reason`
 (`ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned`), and the
