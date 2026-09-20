@@ -956,11 +956,11 @@ namespace Dal::Script {
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise
         //  triples land in the driver's sinks while the script-state arithmetic
-        //  mirrors the plain Pays opcodes statement for statement. Deliberately not
-        //  FORCE_INLINE: only recording streams reach it, and keeping it a cold call
-        //  preserves the inlined shape (and instruction footprint) of the hot
-        //  LoadObservation/Discard path that every prepared product executes.
-        template <class T_> size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        //  mirrors the plain Pays opcodes statement for statement. Compiled only
+        //  into the Lsmc_ dispatch chain (see EvalCompiledPrepared): a reachable
+        //  recording tail, called or not, perturbs the inlined LoadObservation
+        //  path that every prepared product executes.
+        template <class T_> FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& bStack = state.bStack_;
@@ -993,7 +993,11 @@ namespace Dal::Script {
             ThrowUnknownCompiledOpcode(op);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        //  Lsmc_ instantiates the recording tier for the LSMC driver's streams; the
+        //  default compiles to exactly the LoadObservation/Discard/throw shape that
+        //  predates the recording opcodes (hot path of every prepared product)
+        template <bool Lsmc_ = false, class T_>
+        FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op == LoadObservation) {
                 REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
@@ -1004,10 +1008,12 @@ namespace Dal::Script {
                 statePtr->dStack_.Pop();
                 return i + 1;
             }
-            return EvalCompiledLsmcOp(event, i, statePtr);
+            if constexpr (Lsmc_)
+                return EvalCompiledLsmcOp(event, i, statePtr);
+            ThrowUnknownCompiledOpcode(op);
         }
 
-        template <bool Prepared_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
@@ -1022,12 +1028,12 @@ namespace Dal::Script {
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
             if constexpr (Prepared_) {
                 if (op > FuzzyIf)
-                    return EvalCompiledPrepared(event, i, statePtr);
+                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
             }
             return EvalCompiledFuzzyControl<Prepared_>(event, i, statePtr);
         }
 
-        template <bool Prepared_ = true, class T_, class E_>
+        template <bool Prepared_ = true, bool Lsmc_ = false, class T_, class E_>
         void EvalCompiledEvents(size_t eventCount, const E_& eventAt, EvalState_<T_>* statePtr) {
             for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex) {
                 const auto event = eventAt(eventIndex);
@@ -1038,7 +1044,7 @@ namespace Dal::Script {
                 }
                 size_t i = event.first_;
                 while (i < n)
-                    i = EvalCompiledInstruction<Prepared_>(event, i, statePtr);
+                    i = EvalCompiledInstruction<Prepared_, Lsmc_>(event, i, statePtr);
             }
         }
 

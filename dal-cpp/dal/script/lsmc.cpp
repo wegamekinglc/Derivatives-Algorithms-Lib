@@ -292,7 +292,7 @@ namespace Dal::Script {
                 sinks.eventOrdinal_ = e;
                 SnapshotPreExercise(ctx, eval.variables_, e, pathSlot);
                 const Detail::CompiledEventView_<double> view{nodeStreams[e], constStreams[e], state.path_[eventToSample[e]]};
-                Detail::EvalCompiledEvents<true>(1, [&](size_t) { return view; }, &eval);
+                Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &eval);
             }
         }
 

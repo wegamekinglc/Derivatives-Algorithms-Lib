@@ -1085,8 +1085,8 @@ indicator to the driver's storage rows, while the script-state arithmetic
 mirrors the plain pay opcodes statement for statement. Recording streams exist
 for the double hard-decision mode only: preparing a fuzzy (AAD) compiled
 exercise product is rejected until the fuzzy decision-degree seam exists, and
-evaluating a recording stream without installed sinks raises
-`UnsupportedExecutionMode`.
+the recording opcodes are dispatched only by the driver's evaluation chain —
+the plain compiled dispatcher rejects them as unknown opcodes.
 
 The compiled artifact stores one integer opcode stream and one constant stream
 per future event. The integer stream contains opcodes plus operands such as
