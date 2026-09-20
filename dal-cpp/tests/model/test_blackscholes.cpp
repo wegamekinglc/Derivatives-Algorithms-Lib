@@ -10,6 +10,8 @@
 #include <new>
 
 #include <dal/platform/platform.hpp>
+#include <dal/indice/index/equity.hpp>
+#include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/storage/json.hpp>
@@ -122,6 +124,51 @@ TEST(ModelTest, TestBlackScholesAllocateRejectsEmptyTimeline) {
     const Vector_<> empty_timeline;
     const Vector_<AAD::SampleDef_> definitions;
     ASSERT_THROW(model.Allocate(empty_timeline, definitions), Dal::Exception_);
+}
+
+namespace {
+    int& CountingParserCalls() {
+        static int calls = 0;
+        return calls;
+    }
+
+    std::unique_ptr<Index_> CountingParser(const String_&) {
+        ++CountingParserCalls();
+        return std::make_unique<Index::Equity_>("COUNTED");
+    }
+} // namespace
+
+TEST(ModelTest, TestBlackScholesAllocateParsesEachIndexNameOnce) {
+    Index::RegisterParser("EQCOUNT", &CountingParser);
+    AAD::BlackScholes_<> model(100.0, 0.20, 0.05, 0.01);
+    { //  one observed index repeated over the timeline is parsed once per Allocate
+        const Vector_<> timeline{0.0, 1.0, 2.0, 3.0};
+        Vector_<AAD::SampleDef_> definitions(4);
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"EQCOUNT[SPOT]"};
+        CountingParserCalls() = 0;
+        model.Allocate(timeline, definitions);
+        ASSERT_EQ(CountingParserCalls(), 1);
+    }
+    { //  raw names canonicalizing alike stay one observation; distinct canonical names still throw
+        const Vector_<> timeline{0.0, 1.0, 2.0};
+        Vector_<AAD::SampleDef_> definitions(3);
+        definitions[0].indexNames_ = {"EQCOUNT[SPOT]"};
+        definitions[1].indexNames_ = {"EQCOUNT[SPOT]"};
+        definitions[2].indexNames_ = {"EQCOUNT[SPOT]"};
+        CountingParserCalls() = 0;
+        model.Allocate(timeline, definitions);
+        ASSERT_EQ(CountingParserCalls(), 1);
+
+        definitions[2].indexNames_ = {"EQ[DAL196_TEST]"};
+        ASSERT_THROW(model.Allocate(timeline, definitions), Dal::Exception_);
+    }
+    { //  more than one output per sample is still rejected
+        const Vector_<> timeline{0.0, 1.0};
+        Vector_<AAD::SampleDef_> definitions(2);
+        definitions[1].indexNames_ = {"EQCOUNT[SPOT]", "EQ[DAL196_TEST]"};
+        ASSERT_THROW(model.Allocate(timeline, definitions), Dal::Exception_);
+    }
 }
 
 TEST(ModelTest, TestBlackScholesDeterministicPathWithToday) {

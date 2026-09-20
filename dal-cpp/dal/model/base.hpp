@@ -40,13 +40,29 @@ namespace Dal {
                 return defaultAssetNames_;
             }
 
-            void ValidateSampleOutputs(const SampleDef_& definition, String_* indexName) const {
+            //  validatedNames memoizes raw name -> canonical name for this timeline traversal: every
+            //  sample definition repeats the same observed index, and the batch drivers re-Allocate a
+            //  model per batch, so an unmemoized loop re-parses one constant string per sample date
+            void ValidateSampleOutputs(const SampleDef_& definition, String_* indexName, Vector_<std::pair<String_, String_>>* validatedNames) const {
                 REQUIRE(definition.indexNames_.size() <= 1, "UnsupportedModelObservation: one EQ output per sample");
                 for (const auto& name : definition.indexNames_) {
-                    const Handle_<Index_> index(Index::Parse(name));
-                    REQUIRE(index && SupportsIndex(*index), "UnsupportedModelObservation: " + name);
-                    REQUIRE(indexName->empty() || *indexName == index->Name(), "UnsupportedModelObservation: multiple future indices");
-                    *indexName = index->Name();
+                    String_ canonical;
+                    bool known = false;
+                    for (const auto& validated : *validatedNames) {
+                        if (validated.first == name) {
+                            canonical = validated.second;
+                            known = true;
+                            break;
+                        }
+                    }
+                    if (!known) {
+                        const Handle_<Index_> index(Index::Parse(name));
+                        REQUIRE(index && SupportsIndex(*index), "UnsupportedModelObservation: " + name);
+                        canonical = index->Name();
+                        validatedNames->emplace_back(name, canonical);
+                    }
+                    REQUIRE(indexName->empty() || *indexName == canonical, "UnsupportedModelObservation: multiple future indices");
+                    *indexName = canonical;
                 }
             }
 
@@ -56,10 +72,11 @@ namespace Dal {
             void ValidateTimeline(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) const {
                 REQUIRE(!timeline.empty() && timeline.size() == definitions.size(), "InvalidModelTimeline: sample definitions must match dates");
                 String_ indexName;
+                Vector_<std::pair<String_, String_>> validatedNames;
                 for (size_t i = 0; i < timeline.size(); ++i) {
                     REQUIRE(std::isfinite(timeline[i]) && timeline[i] >= 0.0 && (i == 0 || timeline[i] > timeline[i - 1]),
                             "InvalidModelTimeline: times must be nonnegative, finite and strictly increasing");
-                    ValidateSampleOutputs(definitions[i], &indexName);
+                    ValidateSampleOutputs(definitions[i], &indexName, &validatedNames);
                 }
             }
 
