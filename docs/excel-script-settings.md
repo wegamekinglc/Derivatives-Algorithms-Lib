@@ -21,6 +21,7 @@ are handles returned by constructors.
 | `MONTECARLO.VALUEWITHSETTINGS` | `product, modelData, n_paths, [valuation], [simulation]` | N×2 price/risk table       |
 | `PRODUCT.DESCRIBE`             | `product`                                                | N×1 JSON text chunks       |
 | `SCRIPTVALUATION.EXPLAIN`      | `product, modelData, [valuation]`                        | N×1 JSON text chunks       |
+| `SCRIPTSIMULATION.EXPLAIN`     | `product, modelData, n_paths, [valuation], [simulation]` | N×1 JSON text chunks       |
 
 `PRODUCT.NEWWITHSETTINGS` requires a product settings handle, even for defaults.
 Use `SCRIPTPRODUCTSETTINGS.NEW("defaults")` to create one, or use the original
@@ -51,16 +52,17 @@ Model-sourced FIX observations are bound by index name, so the valuation
 constructor takes no binding range: the engine binds the model's spot output
 to the script's future FIX index.
 
-| Settings handle | Key               | Default                                         | Accepted value                                |
-|-----------------|-------------------|-------------------------------------------------|-----------------------------------------------|
-| Product         | `default_index`   | No default                                      | Nonempty index-name text                      |
-| Valuation       | `evaluation_date` | Capture global date at each Value/Explain entry | Valid integral Excel date serial              |
-| Valuation       | `today_fixing`    | `Model`                                         | Exact text `Model` or `RequireHistorical`     |
-| Simulation      | `method`          | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`               |
-| Simulation      | `use_bb`          | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `enable_aad`      | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `smooth`          | `0.01`                                          | Finite, strictly positive number; not boolean |
-| Simulation      | `compiled`        | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
+| Settings handle | Key                 | Default                                         | Accepted value                                |
+|-----------------|---------------------|-------------------------------------------------|-----------------------------------------------|
+| Product         | `default_index`     | No default                                      | Nonempty index-name text                      |
+| Valuation       | `evaluation_date`   | Capture global date at each Value/Explain entry | Valid integral Excel date serial              |
+| Valuation       | `today_fixing`      | `Model`                                         | Exact text `Model` or `RequireHistorical`     |
+| Simulation      | `method`            | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`               |
+| Simulation      | `use_bb`            | `FALSE`                                         | Excel boolean or numeric 0/1                  |
+| Simulation      | `enable_aad`        | `FALSE`                                         | Excel boolean or numeric 0/1                  |
+| Simulation      | `smooth`            | `0.01`                                          | Finite, strictly positive number; not boolean |
+| Simulation      | `compiled`          | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
+| Simulation      | `lsmc_basis_degree` | `3`                                             | Integral number 1..8; not boolean             |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
@@ -199,6 +201,17 @@ date/policy/source kind, requests and uses, resolved historical values, model
 slots, sample dates, event mappings, and payment-numeraire requests. It neither
 reuses a preceding Value nor caches a subsequent one. Use the same explicit
 date/snapshot and product/model inputs when comparing them.
+
+`SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
+[simulation])` returns `dal.script-simulation/1`: unlike the valuation Explain
+it explicitly runs the full double valuation with `n_paths` paths — path
+generation plus workers plus the exercise regressions — and reports the
+simulation echo (including `lsmc_basis_degree`), the explicit `n_paths`, and
+one `exercise_events` entry per exercise date with the regression degree,
+regressor index, condition-true path count, frozen coefficients, degenerate
+flag and reason, and the exercise rate. Products without `EXERCISE` return an
+empty `exercise_events` array. `enable_aad` settings are rejected with
+`UnsupportedExecutionMode`; `compiled` selects the engine for the run.
 
 Both functions return one column of text, with no header or row-number column.
 Concatenate every row in order **without separators or added newlines**, then

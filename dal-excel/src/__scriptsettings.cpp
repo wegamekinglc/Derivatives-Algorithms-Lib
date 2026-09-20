@@ -57,7 +57,7 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "MonteCarloSettings_New", "settings");
 &optional
 settings is cell[][]+
-    Two columns: method, use_bb, enable_aad, smooth, compiled. Boolean cells or numeric 0/1; smooth finite and positive.
+    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree. Booleans 0/1; smooth positive; lsmc_basis_degree integer 1..8.
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -110,6 +110,13 @@ namespace Dal {
             const auto* number = std::get_if<double>(&cell.val_);
             REQUIRE(number && std::isfinite(*number) && *number > 0.0, context + "InvalidSmoothing: expected finite positive number");
             return *number;
+        }
+
+        int BasisDegreeValue(const Cell_& cell, const String_& context) {
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 1.0 && *number <= 8.0,
+                    context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8");
+            return static_cast<int>(*number);
         }
 
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
@@ -187,9 +194,11 @@ namespace Dal {
                          value.rsg_ = MethodValue(cell, valueContext);
                      } else if (key == "smooth") {
                          value.smooth_ = SmoothingValue(cell, valueContext);
+                     } else if (key == "lsmc_basis_degree") {
+                         value.lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
                      } else {
                          REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
-                                 keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth or compiled");
+                                 keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth, compiled or lsmc_basis_degree");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;

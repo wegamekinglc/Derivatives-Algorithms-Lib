@@ -308,6 +308,11 @@ seeking surface.
   generator, not on odd offsets, reused generators, or normal-path substreams;
   `IRN` is retained as a lightweight Knuth-style alternative with no seek
   implementation. Use Sobol when direct normal-path seeking is required.
+- **Script `EXERCISE` products** accept only `sobol` (`UnsupportedRsgForExercise`
+  otherwise): their LSMC driver regenerates the identical paths to replay the
+  frozen exercise policy, which consumes normal-path substreams — exactly the
+  replay guarantee only Sobol's direct state reconstruction provides. See
+  [the LSMC driver](script_engine.md#early-exercise-valuation-lsmc).
 
 ## Benchmark Coverage
 

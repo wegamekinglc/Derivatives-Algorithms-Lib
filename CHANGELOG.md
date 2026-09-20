@@ -16,6 +16,31 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-20
+
+- **Early-exercise (Bermudan/American) valuation is live end to end** — the
+  `EXERCISE` statement reserved on 2026-09-19 now values: products divert to
+  the LSMC driver (`dal-cpp/dal/script/lsmc.cpp`) in both tree-walk and
+  compiled execution, with hard-decision double valuation (forward storage,
+  backward induction with z-normalized monomial regression, explicit ridge,
+  and degenerate guards, then frozen-policy replay on regenerated Sobol paths)
+  and fuzzy AAD valuation (recursive blend over frozen coefficients; the
+  adjoint is the exact frozen-policy gradient, with the envelope remainder
+  quantified in bump tests). Same-seed PV, coefficients, exercise rates, and
+  AAD risks are bitwise invariant across thread counts. Exercise products
+  accept only `rsg = "sobol"` (`UnsupportedRsgForExercise`). A simulation
+  diagnostic joins the two existing entry points on all three ends:
+  C++ `ExplainScriptSimulation`, Python `ScriptSimulation_Explain`, and Excel
+  `SCRIPTSIMULATION.EXPLAIN`, all emitting the `dal.script-simulation/1`
+  schema with per-exercise-event regression coefficients and exercise rates.
+  Python gains the keyword-only `lsmc_basis_degree` setting; Excel gains the
+  `MONTECARLOSETTINGS.NEW` `lsmc_basis_degree` key. Runnable examples:
+  `dal-cpp/examples/american_put_mc/` and
+  `dal-python/examples/013.exercise_bermudan.py`. See
+  [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc)
+  and the
+  [simulation diagnostic](docs/methodology/script_engine.md#product-archive-and-diagnostics).
+
 ## 2026-09-19
 
 - **BREAKING: `EXERCISE` is a reserved script keyword** — the statement grammar
@@ -29,14 +54,17 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   constant-variable name now fail to parse with a `ReservedIdentifier` error
   carrying the source location and a rename hint; products that do not use the
   reserved word are unaffected. EXERCISE valuation (LSMC driver) is not enabled
-  yet: evaluation reports `UnsupportedExecutionMode` until it lands. See
+  yet: evaluation reports `UnsupportedExecutionMode` until it lands. (The
+  driver landed the next day; see the 2026-09-20 early-exercise entry.) See
   [the script engine grammar](docs/methodology/script_engine.md#reserved-keywords-and-variables).
 
 - **Script settings gain `lsmcBasisDegree_`** — `MonteCarloSettings_` carries
   the LSMC regression basis degree (default 3), validated by
   `ValidateSimulationSettings` as an integer between 1 and 8
   (`InvalidSetting: InvalidLsmcBasisDegree`). The Python and Excel projections
-  of the field land with the EXERCISE valuation driver.
+  of the field land with the EXERCISE valuation driver. (Landed 2026-09-20:
+  the Python keyword-only `lsmc_basis_degree` argument/property and the Excel
+  `MONTECARLOSETTINGS.NEW` `lsmc_basis_degree` key.)
 
 - **BREAKING: model bindings removed; FIX is managed by index name** — deleted
   `ScriptValuationSettings_::modelBindings_` and `Dal::ModelIndexBinding_` along

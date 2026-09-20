@@ -57,6 +57,12 @@ namespace Dal {
                                                      const Handle_<ModelData_>& modelData,
                                                      const Handle_<StorableScriptValuationSettings_>& valuation,
                                                      Vector_<String_>* json);
+    DAL_SCRIPT_TEST_API void ScriptSimulation_Explain(const Handle_<ScriptProductData_>& product,
+                                                      const Handle_<ModelData_>& modelData,
+                                                      double nPaths,
+                                                      const Handle_<StorableScriptValuationSettings_>& valuation,
+                                                      const Handle_<StorableMonteCarloSettings_>& simulation,
+                                                      Vector_<String_>* json);
     namespace Excel {
         DAL_SCRIPT_TEST_API Vector_<String_> ScriptDiagnosticChunks(const String_& json, const String_& function);
         DAL_SCRIPT_TEST_API void ScriptTestInitialize(int threads);

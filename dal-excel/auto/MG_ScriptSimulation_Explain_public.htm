@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>ScriptSimulation_Explain</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>ScriptSimulation_Explain (in Excel: SCRIPTSIMULATION.EXPLAIN)</h1>
+Run the full double valuation and report per-exercise-event LSMC diagnostics
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>product</td><td>handle of type ScriptProductData</td><td></td><td>Script product handle</td></tr>
+<tr><td>modelData</td><td>handle of type ModelData</td><td></td><td>BS or Dupire model data handle</td></tr>
+<tr><td>n_paths</td><td>number</td><td></td><td>Finite integer from 1 to INT_MAX</td></tr>
+<tr><td>valuation</td><td>handle of type StorableScriptValuationSettings</td><td>yes</td><td>Valuation settings handle; blank selects per-call defaults</td></tr>
+<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>yes</td><td>Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>json</td><td>vector of strings</td><td>JSON chunks in one column; concatenate without separators for dal.script-simulation/1</td></tr>
+</table>
+
+
+
+
+
+

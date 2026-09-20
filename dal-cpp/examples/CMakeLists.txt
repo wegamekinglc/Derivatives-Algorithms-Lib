@@ -9,6 +9,7 @@ add_subdirectory(quote_risk)
 add_subdirectory(xccy_curve_calibration)
 add_subdirectory(xccy_mtm_calibration)
 add_subdirectory(xccy_reset_pricing)
+add_subdirectory(american_put_mc)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
 add_subdirectory(fix_mc)
@@ -67,6 +68,7 @@ set(DAL_EXAMPLE_TARGETS
     xccy_curve_calibration
     xccy_mtm_calibration
     xccy_reset_pricing
+    american_put_mc
     european_mc
     european_fd
     fix_mc

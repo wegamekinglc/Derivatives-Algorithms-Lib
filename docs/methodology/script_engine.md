@@ -578,10 +578,14 @@ Python `Product_Describe` and `ScriptValuation_Explain` return dictionaries;
 their low-level bindings return the unchanged C++ JSON strings. Describe is
 pure contract inspection; Explain always uses independent default exact/tree
 price preparation, even after compiled/AAD valuation. Neither diagnostic is a
-Python product archive. The complete
+Python product archive. `ScriptSimulation_Explain` runs the full double
+valuation and returns the `dal.script-simulation/1` dictionary described
+[below](#simulation-diagnostic-full-valuation-with-exercise-statistics). The complete
 [Python FIX example](../../dal-python/examples/012.fix_settings.py) checks a
 historical SCALE payment plus a retained future observation, with an explicit
-date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`.
+date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`; the
+[early-exercise example](../../dal-python/examples/013.exercise_bermudan.py)
+prices the Bermudan and weekly-exercise puts.
 
 Excel exposes the same preparation through `MONTECARLO.VALUEWITHSETTINGS`
 and immutable product, valuation, and simulation settings handles. Two-column
@@ -591,10 +595,68 @@ Omitted handles use defaults; an explicit empty snapshot never falls back to
 global history. `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` project the
 native schemas as headerless JSON text columns, concatenated without separators.
 Each Value/Explain call prepares afresh; the functions are nonvolatile, so global
-state changes require explicit recalculation. The seven-input `MONTECARLO.VALUE`
+state changes require explicit recalculation. `SCRIPTSIMULATION.EXPLAIN` returns
+the `dal.script-simulation/1` chunks the same way. The seven-input `MONTECARLO.VALUE`
 retains default valuation settings and has no compiled argument. See the
 [Excel FIX guide](../excel-script-settings.md) for exact worksheet inputs,
 date/time rules, and the executable workbook.
+
+## Early-Exercise Valuation (LSMC)
+
+Products containing `EXERCISE` divert from the plain double driver to the LSMC
+driver (`MCLsmcSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
+compiled execution. Valuation runs in three phases over a fixed,
+thread-count-independent batch layout: batches of `min(8192, nPaths)` paths
+indexed by batch order, with per-batch contributions reduced in batch-index
+sequence, so PV, the frozen coefficients, and every exercise rate are bitwise
+invariant across thread counts.
+
+- **Phase A** generates the paths and evaluates the script forward;
+  `EXERCISE` is a no-op forward. Each batch records, per path, the payments of
+  every `PAYS` event and, per exercise date, the regressor observation, the
+  exercise value, and the condition indicator (hard 0/1 in double mode).
+- **Phase B** walks the events backward. The holding value is
+  $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
+  on each exercise date the driver regresses $H_k$ on the condition-true path
+  subset over the z-normalized monomial basis $z=(x-\hat\mu)/\hat\sigma$ of
+  degree `simulation.lsmcBasisDegree_` (default 3). The normal equations carry
+  an explicit relative ridge $A + \lambda\,\mathrm{diag}(A)$, $\lambda=10^{-12}$,
+  and a day degenerates to the constant basis — flagging
+  `ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned` — when the
+  condition-true path count is below $10(d{+}1)$, the $\hat\sigma$ floor
+  engages, or the estimated condition number exceeds $10^{12}$. A path
+  exercises when its condition holds and $h_k > C_k(z_k)$ strictly; exercise
+  replaces the day's and all later payments.
+- **Phase C** replays the frozen policy: the same Sobol generator state is
+  reconstructed (`SkipTo`), paths are regenerated, and each path is priced by
+  its first winning exercise decision. Exercise dates are scanned in order;
+  the earliest date whose condition holds with $h_k > C_k(z_k)$ under the
+  frozen coefficients pays $h_k$ discounted at that date's numeraire on top
+  of the payments accumulated before it. A path that never exercises keeps
+  its full `PAYS` value — zero for `EXERCISE`-only products — with every
+  payment discounted at its own event date. PV is the mean over paths.
+
+The regressor is the product's single model-sourced future observation (the
+same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
+`regressor_index` in diagnostics. Preparation allows only `rsg = "sobol"`
+for exercise products (`UnsupportedRsgForExercise`): Phase C consumes normal
+paths, and only Sobol's `SkipTo` reconstructs them exactly — see
+[Random and path generation](random.md#path-seeking).
+
+Peak memory is roughly `nPaths × nPaysEvents × 8B` for the stored payments
+plus `nPaths × nExerciseDates × (2–3) × 8B` for the exercise triples — for
+example 2^20 paths, 52 payment events, and 12 exercise dates is about 0.74 GB.
+Reduce the path count or event count to stay inside a budget.
+
+AAD valuation of exercise products uses the fuzzy driver described in the
+next section; the per-exercise-date statistics above are observable through
+the [simulation diagnostic](#simulation-diagnostic-full-valuation-with-exercise-statistics),
+and the acceptance suite anchors both engines against a test-only Bermudan
+PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
+stays European-only). The runnable
+[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc/)
+prices the European-limit, two-date Bermudan, and weekly-exercise puts and
+prints the diagnostic.
 
 ## Core AAD/Tree Fixing Valuation
 
@@ -643,11 +705,11 @@ $$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(
 
 where $c_k$ is the fuzzy condition degree (1 when unconditional), the discount
 ratios come from the path's own numeraires, and $\varepsilon$ is the exercise
-statement's smoothing width resolved against `simulation.smooth_`. The final
-step divides by the first event's numeraire, mirroring the double driver's
-explicit last-step discounting. As $\varepsilon \to 0$ the decision degrees
-degenerate to hard indicators and the fuzzy path value converges to the
-hard-mode payoff.
+statement's smoothing width resolved against `simulation.smooth_`. The blend
+is carried in event-date units, so the recursion ends with the explicit
+division by the first event's numeraire. As $\varepsilon \to 0$ the decision
+degrees degenerate to hard indicators and the fuzzy path value converges to
+the hard-mode payoff.
 
 The regression coefficients enter the replay as passive tape constants, so the
 harvested adjoint is the exact gradient of the *frozen-policy* price
@@ -1375,7 +1437,9 @@ The JSON includes:
 
 - `name`, `default_index` with `original` and `canonical`, and `input_rows`
   containing the original `row`, `date_or_definition`, and `text`.
-- `variables`, `constants`, and `payoff_index` (null when no payoff exists).
+- `variables`, `constants`, and `payoff_index` (null when no payoff variable
+  exists: EXERCISE-only products pass the payoff gate — `EXERCISE` is a payoff —
+  but have no `PAYS` receiver, so the sentinel path keeps the null key).
 - `events` with `event_id`, `date`, preprocessing `origins`, and AST
   `statements`; node IDs `n0`, `n1`, … follow preorder over all events.
 - Observation leaves with `kind:"fix"` / `type:"Fix"` or
@@ -1441,6 +1505,44 @@ With global history, an update between calls can change Value after Explain.
 Explain describes default price preparation, not AAD branch behavior or a
 caller-selected compiled plan. It neither returns a price nor adds diagnostic
 keys to Value's numeric map.
+
+### Simulation Diagnostic: Full Valuation with Exercise Statistics
+
+`ExplainScriptSimulation(product, modelData, numPath, valuation, simulation)`
+emits `dal.script-simulation/1`. Unlike the valuation Explain it explicitly
+runs a full three-phase double valuation — path generation, worker
+parallelism, and the exercise regressions — so its cost is the cost of a
+simulation, and that cost is part of its contract. The optional valuation and
+simulation settings default exactly as in
+[public C++ settings](#fields-and-defaults); `simulation.compiled_` selects the
+tree-walk or compiled engine for the run, while `simulation.enable_aad_` is
+rejected with `UnsupportedExecutionMode` (the diagnostic runs the double
+valuation path only).
+
+The JSON reports `evaluation_date`, the effective `simulation` echo
+(`rsg`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`),
+the explicit `n_paths`, and `exercise_events`. Products without `EXERCISE`
+return an empty `exercise_events` array, never an omitted key. Each exercise
+event carries `event_id`, `date`, the effective `basis_degree`
+(`0` marks the degenerate constant basis), `regressor_index` (the canonical
+index name of the model-sourced regressor — the same join space as Explain's
+`requests[].index_canonical`; null when the product has no model index, such
+as an unbound `SPOT()` regressor), `num_cond_true_paths`, `num_coefficients`
+with the frozen `coefficients` on the z-normalized monomial basis, the
+`degenerate` flag with its PascalCase `degenerate_reason`
+(`ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned`), and the
+path-set `exercise_rate`. A degenerate day reports the constant fit, so its
+coefficients remain meaningful; a truly low exercise rate is distinguishable
+from a degenerate regression by the flag.
+
+Python exposes the same diagnostic as
+`ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None)`
+and Excel as `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
+[simulation])`, both returning the identical JSON contract (as a dictionary and
+as concatenated text chunks respectively). The runnable
+[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc/)
+prices the European-limit, two-date Bermudan, and weekly-exercise puts off the
+same engine and prints the diagnostic.
 
 ## Product Debug Outputs
 

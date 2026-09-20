@@ -29,6 +29,12 @@ def ScriptValuation_Explain(product, modelData, *, valuation=None):
     return _json.loads(_bindings.ScriptValuation_Explain(product, modelData, valuation=valuation))
 
 
+def ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None):
+    return _json.loads(
+        _bindings.ScriptSimulation_Explain(product, modelData, num_path, valuation=valuation, simulation=simulation)
+    )
+
+
 # Settings whose target fields expect DAL value types — plain Python str
 # must be wrapped before setattr so pybind11 can convert them correctly.
 # DAL objects (String_, CollateralType_ etc.) pass through as-is.
