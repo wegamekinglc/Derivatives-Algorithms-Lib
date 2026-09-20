@@ -161,8 +161,10 @@ tree-walk evaluator is the default; the compiled evaluator is an opt-in executio
 mode with the same payoff/risk contract. AAD simulations use a separate recording
 for each worker's path batch.
 
-Public C++ settings select the script default index, model binding, date/policy,
-and immutable fixing snapshot. Python projects these settings through
+Public C++ settings select the script default index, date/policy, and
+immutable fixing snapshot; model-sourced FIX observations bind the model's
+spot output to the script's own future FIX index by name rather than through
+a setting. Python projects these settings through
 keyword-only native classes, and Excel through immutable settings handles;
 both bindings retain their legacy signatures with default native preparation.
 Each Value and Explain call prepares independently;
