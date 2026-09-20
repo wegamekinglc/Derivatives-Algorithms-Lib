@@ -78,6 +78,31 @@ TEST(ScriptExerciseParseTest, TestParseExerciseSharesConditionEps) {
     }
 }
 
+TEST(ScriptExerciseParseTest, TestParseExerciseConditionEpsFollowsFirstComparison) {
+    //  Multi-comparison conditions: the decision width follows the FIRST comparison's
+    //  ;eps option (the simulation default when it carries none); later comparisons
+    //  keep their own width for the condition degree itself
+    Parser_ parser;
+    {
+        const auto event = parser.Parse("EXERCISE 1.0 IF spot() > 100 AND spot() < 200; 0.05");
+        const auto* exercise = ExerciseOf(event);
+        ASSERT_NE(exercise, nullptr);
+        ASSERT_EQ(exercise->eps_, -1.0); //  the first comparison carries no ;eps
+        const auto* condition = dynamic_cast<const NodeAnd_*>(exercise->arguments_[1].get());
+        ASSERT_NE(condition, nullptr);
+        const auto* first = dynamic_cast<const CompNode_*>(condition->arguments_[0].get());
+        const auto* second = dynamic_cast<const CompNode_*>(condition->arguments_[1].get());
+        ASSERT_NE(first, nullptr);
+        ASSERT_NE(second, nullptr);
+        ASSERT_EQ(first->eps_, -1.0);
+        ASSERT_EQ(second->eps_, 0.05); //  the condition degree still smooths at its own width
+    }
+    {
+        const auto event = parser.Parse("EXERCISE 1.0 IF spot() > 100; 0.02 AND spot() < 200");
+        ASSERT_EQ(ExerciseOf(event)->eps_, 0.02);
+    }
+}
+
 TEST(ScriptExerciseParseTest, TestParseExerciseKeywordIsCaseInsensitive) {
     Parser_ parser;
     for (const String_& text : {String_("exercise 1.5"), String_("Exercise 1.5"), String_("ExErCiSe 1.5")}) {
