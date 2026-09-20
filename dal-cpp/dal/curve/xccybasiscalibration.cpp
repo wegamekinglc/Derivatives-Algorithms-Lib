@@ -243,6 +243,7 @@ namespace Dal {
             CurveDefinition_ basisDefinition_;
             CurveJacobianMode_ jacobianMode_;
             double bumpSize_;
+            int* evaluationCount_;
 
             template <class T_> Vector_<T_> Residuals(const Vector_<T_>& parameters) const {
                 const auto basis = BuildDiscountCurveT<T_>(basisDefinition_, parameters);
@@ -273,18 +274,22 @@ namespace Dal {
                                       const Handle_<MarketFixingSnapshot_>& fixings,
                                       const Vector_<XccyCashflowPlan_>& plans,
                                       const CurveDefinition_& basisDefinition,
-                                      CurveJacobianMode_ jacobianMode)
+                                      CurveJacobianMode_ jacobianMode,
+                                      int* evaluationCount)
                 : valuationTime_(valuationTime), pair_(spec.basisPair_), collateralCurrency_(collateralCurrency),
                   domesticBlock_(spec.domesticCurveBlock_), foreignBlock_(spec.foreignCurveBlock_), fxSpot_(spec.fxSpot_), fixings_(fixings),
                   plans_(plans), basisDefinition_(basisDefinition), jacobianMode_(jacobianMode),
-                  bumpSize_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4) {
+                  bumpSize_(spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 1.0e-6 : 1.0e-4), evaluationCount_(evaluationCount) {
                 marketRates_.reserve(spec.instruments_.size());
                 for (const auto& instrument : spec.instruments_)
                     marketRates_.push_back(instrument->MarketRate());
             }
 
             [[nodiscard]] double BumpSize() const override { return bumpSize_; }
-            [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Residuals<double>(x); }
+            [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
+                ++*evaluationCount_;
+                return Residuals<double>(x);
+            }
 
             void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* jacobian) const override {
                 CentralDifferenceGradient(
@@ -434,11 +439,22 @@ namespace Dal {
             knotDateTimes.push_back(DateTime_(date));
         std::unique_ptr<Sparse::TriDiagonal_> weights(Underdetermined::WeightsPWC(knotDateTimes, spec.smoothingWeight_));
 
-        XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_);
+        int evaluationCount = 0;
+        XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_,
+                                       &evaluationCount);
         CurveSolveOutput_ solve =
             RunCurveCalibration(func, guess, tolerance, spec.solveMode_ == CurveSolveMode_::Value_::EXACT, options.computeEffJacobianInverse_,
                                 options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC, spec.fitTolerance_,
                                 *weights, spec.maxEvaluations_, spec.maxRestarts_);
-        return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, options, &solve);
+        CrossCurrencyCalibrationResult_ result =
+            AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, options, &solve);
+        const double convergenceBound = spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 10.0 * spec.tolerance_ : 10.0 * spec.fitTolerance_;
+        if (!ResidualsWithinBar(result.diagnostics_.residuals_, convergenceBound)) {
+            const String_ pairName = String_(spec.basisPair_.domestic_.String()) + "/" + spec.basisPair_.foreign_.String();
+            const String_ message = "Cross-currency calibration failed to converge for pair " + pairName + ": " +
+                                    NonConvergenceStats(result.diagnostics_.residuals_, evaluationCount, false);
+            THROW2(message, Underdetermined::ConvergenceError_);
+        }
+        return result;
     }
 } // namespace Dal

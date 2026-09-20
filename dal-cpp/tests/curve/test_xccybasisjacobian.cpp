@@ -409,6 +409,22 @@ TEST(XccyBasisJacobianTest, TestEffectiveInverseIsWithheldForIllConditionedLadde
     }
 }
 
+// The staged driver enforces the same post-solve convergence bar as its siblings: an
+// approximate solve that exhausts its evaluations returns above the bar and must throw
+// instead of publishing an unconverged basis curve.
+TEST(XccyBasisJacobianTest, TestApproximateSolveThatExhaustsEvaluationsThrowsConvergenceError) {
+    auto fixture = MakeFixture();
+    fixture.spec_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    fixture.spec_.maxEvaluations_ = 1;
+    try {
+        static_cast<void>(CalibrateCrossCurrencyMarket(fixture.spec_));
+        FAIL() << "Expected an exhausted approximate solve to fail the convergence bar";
+    } catch (const Dal::Exception_& exception) {
+        ASSERT_NE(std::string(exception.what()).find("Cross-currency calibration failed to converge for pair"), std::string::npos)
+            << exception.what();
+    }
+}
+
 TEST(XccyBasisJacobianTest, TestOmittedSnapshotCapturesRequiredGlobalFixingsOnce) {
     const auto fixture = MakeFixture();
     const ScopedGlobalFixingHistoryRestore_ restore(fixture.fixingValues_);
@@ -565,16 +581,17 @@ TEST(XccyBasisJacobianTest, TestPublicDiagnosticsRemainFiniteForLargeFiniteResid
     options.computeForwardJacobian_ = false;
     options.computeEffJacobianInverse_ = false;
 
-    const auto& diagnostics = CalibrateCrossCurrencyMarket(fixture.spec_, options).diagnostics_;
-    ASSERT_TRUE(diagnostics.usedApproximateFit_);
-    for (const double residual : diagnostics.residuals_) {
-        ASSERT_TRUE(std::isfinite(residual));
-        ASSERT_GT(std::fabs(residual), 0.5 * largeResidual);
+    // The post-solve convergence bar rejects the far-from-converged result; the thrown message
+    // must still carry finite residual statistics rather than overflowing to inf.
+    try {
+        static_cast<void>(CalibrateCrossCurrencyMarket(fixture.spec_, options));
+        FAIL() << "Expected the convergence bar to reject an unconverged approximate solve";
+    } catch (const Dal::Exception_& exception) {
+        const std::string message = exception.what();
+        ASSERT_NE(message.find("Cross-currency calibration failed to converge for pair"), std::string::npos) << message;
+        ASSERT_NE(message.find("maxAbsResidual = "), std::string::npos) << message;
+        ASSERT_EQ(message.find("inf"), std::string::npos) << message;
     }
-    ASSERT_TRUE(std::isfinite(diagnostics.maxAbsResidual_));
-    ASSERT_TRUE(std::isfinite(diagnostics.rmsResidual_));
-    ASSERT_LE(diagnostics.rmsResidual_, diagnostics.maxAbsResidual_);
-    ASSERT_GT(diagnostics.rmsResidual_, 0.5 * largeResidual);
 }
 
 TEST(XccyBasisJacobianTest, TestResidualStatsOutputValidationRejectsNonFiniteScalars) {
