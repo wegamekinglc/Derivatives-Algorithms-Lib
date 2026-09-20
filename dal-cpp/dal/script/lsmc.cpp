@@ -331,7 +331,8 @@ namespace Dal::Script {
         //  N5: the backward discounting ratios anchor on one probe path's numeraires;
         //  Black-Scholes and Dupire, the only models the factory constructs, carry
         //  deterministic rates, so the numeraire is path-independent and any path
-        //  pins the same ratios
+        //  pins the same ratios. The entry point debug-asserts that model set, and the
+        //  probe goes through the same validation as every worker path
         Vector_<> SampleGridNumeraires(const LsmcContext_& ctx) {
             const auto& simulation = ctx.prepared_.Simulation();
             const auto& events = ctx.Product().Events();
@@ -342,6 +343,7 @@ namespace Dal::Script {
             probe->SkipTo(0);
             probe->FillNormal(&gauss);
             ctx.model_->GeneratePath(gauss, &path);
+            ValidateSimulationPath(path);
             Vector_<> eventNumeraire(events.size(), 1.0);
             for (size_t e = 0; e < events.size(); ++e)
                 eventNumeraire[e] = path[ctx.Plan().EventToSample()[e]].numeraire_;
@@ -716,6 +718,11 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
+        //  N5: the probe-path discount ratios are path-independent only for
+        //  deterministic-rate models; the model base class exposes no rate-kind
+        //  query, so the factory's two models are pinned here in debug builds
+        ASSERT(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
+               "LSMC requires a deterministic-rate model (BlackScholes or Dupire)");
 
         const auto scan = ScanEvents(product.Events(), prepared.Plan(), simulation.smooth_);
         auto storage = MakeStorage(scan, nPaths);
