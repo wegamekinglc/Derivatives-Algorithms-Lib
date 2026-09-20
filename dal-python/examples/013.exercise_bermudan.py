@@ -26,11 +26,13 @@ european_pv = value(european)
 bermudan_pv = value(bermudan)
 american_pv = value(american)
 
-# More exercise opportunities can only add value, and the weekly premium over
-# the maturity-only put clears the half-a-percent-of-spot bar of the PDE benchmark.
-if not european_pv <= bermudan_pv:
+# The weekly grid and the two-date set are not nested, so their ordering is not
+# a theorem — with these fixed seeds the gap is ~0.25; the guards catch gross
+# regressions. The weekly premium over the maturity-only put clears the
+# half-a-percent-of-spot bar of the PDE benchmark.
+if not european_pv <= bermudan_pv + 1e-3:
     raise RuntimeError(f"two-date Bermudan {bermudan_pv} below the maturity-only put {european_pv}")
-if not bermudan_pv <= american_pv:
+if not bermudan_pv <= american_pv + 1e-3:
     raise RuntimeError(f"weekly-exercise put {american_pv} below the two-date Bermudan {bermudan_pv}")
 if not american_pv - european_pv > 0.005 * SPOT:
     raise RuntimeError(f"early-exercise premium {american_pv - european_pv} under the benchmark floor")

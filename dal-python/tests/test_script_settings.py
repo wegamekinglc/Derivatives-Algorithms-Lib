@@ -250,7 +250,7 @@ class IndexCount:
         return 1
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize(
     "value",
     [True, False, 1.0, 1.5, None, "2", float("nan"), float("inf"), IntChoice.ONE],
@@ -271,7 +271,7 @@ def test_path_type_errors_keep_context(entry, value):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize("value", [0, -1, 2**31, 2**100])
 def test_path_range_errors_keep_context(entry, value):
     with pytest.raises(RuntimeError) as error:
@@ -282,7 +282,7 @@ def test_path_range_errors_keep_context(entry, value):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize("value", [1, IndexCount(), 2**31 - 1])
 def test_path_conversion_accepts_integer_protocol_and_upper_bound(entry, value):
     # The next native precondition observes successful conversion without allocating paths.
@@ -506,6 +506,8 @@ def test_api_keyword_boundaries_and_settings_types(layer):
         ("MonteCarlo_ValueWithSettings", "valuation"),
         ("MonteCarlo_ValueWithSettings", "simulation"),
         ("ScriptValuation_Explain", "valuation"),
+        ("ScriptSimulation_Explain", "valuation"),
+        ("ScriptSimulation_Explain", "simulation"),
     ]:
         args = [product, data] + ([] if entry == "ScriptValuation_Explain" else [1])
         with pytest.raises(TypeError):
@@ -749,7 +751,7 @@ def test_fix_date_errors_preserve_source(text, identifier):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 def test_huge_path_integer_is_rejected_even_beyond_python_repr_limit(entry):
     with pytest.raises(RuntimeError, match="InvalidPathCount.*num_path.*2147483647"):
         getattr(native, entry)(None, None, 10**5000)

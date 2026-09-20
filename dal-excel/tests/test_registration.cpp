@@ -67,6 +67,7 @@ TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
                                    {"MonteCarlo_ValueWithSettings", "product,modelData,n_paths,[valuation],[simulation]", "QQQQQQ"},
                                    {"Product_Describe", "product", "QQ"},
                                    {"ScriptValuation_Explain", "product,modelData,[valuation]", "QQQQ"},
+                                   {"ScriptSimulation_Explain", "product,modelData,n_paths,[valuation],[simulation]", "QQQQQQ"},
                                    {"Product_New", "name,dates,events", "QQQQ"},
                                    {"MonteCarlo_Value", "product,modelData,n_paths,rsg,use_bb,enable_aad,smooth", "QQQQQQQQ"},
                                    {"MarketFixingSnapshot_New", "[indexNames],[fixingTimes],[values]", "QQQQ"}};

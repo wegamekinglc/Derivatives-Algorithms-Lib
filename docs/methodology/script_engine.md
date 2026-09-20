@@ -580,7 +580,7 @@ pure contract inspection; Explain always uses independent default exact/tree
 price preparation, even after compiled/AAD valuation. Neither diagnostic is a
 Python product archive. `ScriptSimulation_Explain` runs the full double
 valuation and returns the `dal.script-simulation/1` dictionary described
-[above](#simulation-diagnostic-full-valuation-with-exercise-statistics). The complete
+[below](#simulation-diagnostic-full-valuation-with-exercise-statistics). The complete
 [Python FIX example](../../dal-python/examples/012.fix_settings.py) checks a
 historical SCALE payment plus a retained future observation, with an explicit
 date/snapshot, compiled AAD, `PV=260` and `d_SCALE=80`; the
@@ -646,8 +646,7 @@ paths, and only Sobol's `SkipTo` reconstructs them exactly — see
 Peak memory is roughly `nPaths × nPaysEvents × 8B` for the stored payments
 plus `nPaths × nExerciseDates × (2–3) × 8B` for the exercise triples — for
 example 2^20 paths, 52 payment events, and 12 exercise dates is about 0.74 GB.
-Reduce the path count or event count to stay inside a budget; chunked replay
-is a recorded future optimization.
+Reduce the path count or event count to stay inside a budget.
 
 AAD valuation of exercise products uses the fuzzy driver described in the
 next section; the per-exercise-date statistics above are observable through
