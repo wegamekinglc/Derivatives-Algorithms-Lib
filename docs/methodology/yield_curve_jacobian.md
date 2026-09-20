@@ -382,7 +382,10 @@ both matrices. Exact analytic mode can publish both; exact bumped mode cannot
 publish the analytic forward matrix but can publish the effective inverse;
 approximate mode publishes neither. Each false compute flag overrides the mode
 and reports `not_requested`. Otherwise an unsupported combination reports
-`not_available_for_mode`, while a populated matrix reports `available`.
+`not_available_for_mode`, while a populated matrix reports `available`; a
+requested exact inverse that fails the solver's mapping verification
+(J/T x E ~ I to 1e-7, e.g. a rank-deficient or ill-conditioned quote map) is
+withheld and reports `not_available_for_mapping` instead.
 Callers should use `jacobianAvailability_` and
 `effJacobianInverseAvailability_` rather than interpret an empty matrix.
 
@@ -442,7 +445,9 @@ fail-fast. An unsupported declaration, day basis, instrument route, or malformed
 XCCY plan raises an eligibility error naming the offending group. `BUMPED`
 remains available for every otherwise-valid spec. In exact bumped mode,
 `jacobianAtSolution_` is empty while `effJacobianInverse_` is retained when
-requested. Exact analytic mode may retain both matrices; approximate mode
+requested and the mapping verification passes (J/T x E ~ I to 1e-7); a
+rank-deficient or ill-conditioned quote map leaves the inverse empty.
+Exact analytic mode may retain both matrices; approximate mode
 exposes neither. `JointXccyCalibrationOptions_` can suppress the two matrix
 computations independently. Core/public C++ and joint Python expose both
 top-level matrices. The Excel joint worksheet surface exposes both matrices and
@@ -459,7 +464,12 @@ Once the curve is calibrated with `solveMode_ = EXACT`, the diagnostics carry
 `CurveCalibrationDiagnostics_::effJacobianInverse_` — the solver's effective
 (weighted) inverse Jacobian, shape `nFreeParams × nInstruments`. It is the linear
 map from a perturbation of the market quotes to the resulting perturbation of the
-free parameters, modulo the solver's internal scaling (see below).
+free parameters, modulo the solver's internal scaling (see below). The inverse is
+published only when the at-solution Jacobian verifies the complete residual
+response (J/T x E ~ I to 1e-7); a rank-deficient or ill-conditioned quote map
+leaves the matrix empty, and quote-risk provenance then reports
+`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE` instead of consuming a
+finite-but-wrong map.
 
 Given a portfolio parameter-sensitivity vector
 
