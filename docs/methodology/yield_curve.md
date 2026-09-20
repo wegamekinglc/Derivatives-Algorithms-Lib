@@ -303,8 +303,8 @@ gate, while the path still requires `calibrateDiscountCurve_ == true` and checks
 every instrument passes `InstrumentEligibleForAnalyticJacobian`. Each fall-through path emits a `NOTICE`
 naming the offending condition. The predicate never throws — ineligibility routes
 through `return nullptr` so the solver dense-bumps. The verdict is evaluated once
-per `CalibrateYieldCurve` call and cached (via `EvaluateEligibilityOnce`), so
-every `NOTICE` fires at most once.
+per `CalibrateYieldCurve` call and cached in the solver's `analyticEligibility_`
+member, so every `NOTICE` fires at most once.
 
 Per-instrument eligibility requires the instrument to:
 
