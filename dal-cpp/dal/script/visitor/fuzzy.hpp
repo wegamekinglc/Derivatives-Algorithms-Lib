@@ -8,6 +8,7 @@
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>
+#include <dal/script/visitor/lsmcrecording.hpp>
 #include <dal/script/visitor/smoothing.hpp>
 
 
@@ -204,7 +205,7 @@ namespace Dal::Script {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T payment = dStack_.TopAndPop();
-            (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+            RecordLsmcFuzzyPaymentRow(*lsmcFuzzySinks_, payment);
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
 
@@ -220,9 +221,7 @@ namespace Dal::Script {
                 VisitNode(*node.arguments_[1]);
                 cond = fuzzyStack_.TopAndPop();
             }
-            const size_t slot = (*lsmcFuzzySinks_->eventToExercise_)[lsmcFuzzySinks_->eventOrdinal_];
-            (*lsmcFuzzySinks_->h_)[slot] = value;
-            (*lsmcFuzzySinks_->cond_)[slot] = cond;
+            RecordLsmcFuzzyExerciseRow(*lsmcFuzzySinks_, value, cond);
         }
     };
 } // namespace Dal::Script
