@@ -1,10 +1,11 @@
 """Black-Scholes and deterministic integration oracles for Monte Carlo cases."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from functools import lru_cache
 import math
 
-TODAY = datetime(2025, 1, 15)
+from .constants import DAY_COUNT, TODAY
+
 MATURITY = TODAY + timedelta(days=364)
 SPOT, VOL, RATE, DIVIDEND = 100.0, 0.2, 0.03, 0.01
 STRIKE, BARRIER = 100.0, 130.0
@@ -13,7 +14,7 @@ BUMPS = (1.0, 0.01, 0.01)
 CONVENTIONS = {
     "model": "Black-Scholes; S=K=100, vol=0.2, r=0.03, q=0.01",
     "dates": [TODAY.isoformat(), MATURITY.isoformat()],
-    "day_count": "ACT/365F",
+    "day_count": DAY_COUNT,
     "barrier": "up-and-out call, H=130, zero rebate; 52 weekly observations including maturity",
     "sampling": "Sobol: DAL initial point 0, QuantLib seed 42; no Brownian bridge or antithetics; generators restart per valuation",
     "greeks": "PV, Delta, Vega, Rho; derivatives per unit spot/decimal vol/decimal rate",
