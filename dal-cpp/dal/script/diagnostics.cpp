@@ -43,6 +43,14 @@ namespace Dal::Script {
             });
         }
 
+        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
+            out << ",\"simulation\":{\"rsg\":";
+            JsonWriteString(simulation.rsg_, out);
+            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
+                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
+                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+        }
+
         void
         WriteObservationRequest(std::ostream& out, const ObservationPlan_& plan, const ObservationRequest_& request, size_t id, bool allExpired) {
             out << "{\"request_id\":" << id << ",\"index_canonical\":";
@@ -153,11 +161,9 @@ namespace Dal::Script {
         out << "{\"schema\":\"dal.script-valuation/1\",\"evaluation_date\":";
         JsonWriteString(Date::ToString(prepared.EvaluationDate()), out);
         out << ",\"today_fixing\":\"" << (settings.todayFixingPolicy_ == TodayFixingPolicy_::Value_::MODEL ? "Model" : "RequireHistorical")
-            << "\",\"source_kind\":\"" << FixingSourceKind(settings) << "\",\"simulation\":{\"rsg\":";
-        JsonWriteString(simulation.rsg_, out);
-        out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-            << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-            << "},\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
+            << "\",\"source_kind\":\"" << FixingSourceKind(settings) << "\"";
+        WriteSimulationSettings(out, simulation);
+        out << ",\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
             << (plan.Requests().empty() ? "Legacy" : "Named") << "\",\"model_bindings\":";
         WriteArray(out, plan.ModelBindingNames(), [&](const auto& canonical, size_t) {
             out << "{\"asset\":\"spot\",\"index_original\":";
@@ -215,14 +221,6 @@ namespace Dal::Script {
                 MCLsmcSimulation(prepared, model, nPaths, diagnostics);
             else
                 MCDoubleSimulation(prepared, model, nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
-        }
-
-        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
-            out << ",\"simulation\":{\"rsg\":";
-            JsonWriteString(simulation.rsg_, out);
-            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
         }
 
         void JsonWriteStringOrNull(const String_& text, std::ostream& out) {

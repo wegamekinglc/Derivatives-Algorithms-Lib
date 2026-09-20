@@ -582,3 +582,24 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         }
     }
 }
+
+TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
+    InitGlobalData(1);
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.0, 0.0, 0.0));
+    const auto product = NewScriptProduct("echo", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS 1"});
+    rapidjson::Document valuation, simulation;
+    valuation.Parse(ExplainScriptValuation(product, model).c_str());
+    ASSERT_FALSE(valuation.HasParseError());
+    ASSERT_STREQ(valuation["schema"].GetString(), "dal.script-valuation/1");
+    simulation.Parse(ExplainScriptSimulation(product, model, 16).c_str());
+    ASSERT_FALSE(simulation.HasParseError());
+    ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
+    for (const auto* json : {&valuation, &simulation}) {
+        const auto& echo = (*json)["simulation"];
+        ASSERT_EQ(echo.MemberCount(), 6u);
+        for (const auto* field : {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree"})
+            ASSERT_TRUE(echo.HasMember(field)) << field;
+    }
+    ASSERT_TRUE(valuation["simulation"] == simulation["simulation"]);
+}
