@@ -208,8 +208,8 @@ it explicitly runs the full double valuation with `n_paths` paths — path
 generation plus workers plus the exercise regressions — and reports the
 simulation echo (including `lsmc_basis_degree`), the explicit `n_paths`, and
 one `exercise_events` entry per exercise date with the regression degree,
-regressor index, condition-true path count, frozen coefficients, degenerate
-flag and reason, and the exercise rate. Products without `EXERCISE` return an
+regressor index, in-the-money condition-true path count, frozen coefficients,
+degenerate flag and reason, and the exercise rate. Products without `EXERCISE` return an
 empty `exercise_events` array. `enable_aad` settings are rejected with
 `UnsupportedExecutionMode`; `compiled` selects the engine for the run.
 
