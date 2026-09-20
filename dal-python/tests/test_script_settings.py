@@ -652,10 +652,10 @@ def test_script_simulation_explain_reports_exercise_events():
     assert all(event["num_coefficients"] == 6 for event in events)
     assert all(len(event["coefficients"]) == 6 for event in events)
     assert all(event["regressor_index"] is None for event in events)
-    # in-the-money condition-true paths enter the regression: a strict subset of
-    # the paths on this ATM put (exact counts are engine-dependent at the h == 0
-    # boundary and pinned in the C++ suites)
-    assert all(0 < event["num_cond_true_paths"] < 4096 for event in events)
+    # in-the-money condition-true paths enter the regression: exact sobol counts on
+    # this ATM put, identical in the tree-walk and compiled engines (the first date
+    # matches the dal-public pin in test_script_diagnostics.cpp)
+    assert [event["num_cond_true_paths"] for event in events] == [1926, 1891]
     assert all(event["degenerate"] is False for event in events)
     assert all(event["degenerate_reason"] is None for event in events)
     assert all(0.0 < event["exercise_rate"] <= 1.0 for event in events)
