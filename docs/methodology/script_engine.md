@@ -167,7 +167,11 @@ appropriate condition node (`NodeEqual_`, `NodeSup_`, `NodeSupEqual_`), with
 `!=`, `<`, `<=` rewritten in terms of `=`, `>`, `>=`. An optional `;eps` or
 `:eps` suffix on a comparison sets the node's `eps_` field, which the fuzzy
 evaluator consumes as the smoothing width for that condition (see
-[Fuzzy Evaluator](#fuzzy-evaluator)).
+[Fuzzy Evaluator](#fuzzy-evaluator)). The same suffix also feeds the
+`EXERCISE` decision width: a conditioned statement's decision degree uses the
+**first** comparison of its condition — falling back to `simulation.smooth_`
+when that comparison carries no suffix — while every comparison keeps its own
+width for the condition degree itself.
 
 ### Boolean Operator Semantics
 
@@ -644,8 +648,16 @@ paths, and only Sobol's `SkipTo` reconstructs them exactly — see
 [Random and path generation](random.md#path-seeking).
 
 Peak memory is roughly `nPaths × nPaysEvents × 8B` for the stored payments
-plus `nPaths × nExerciseDates × (2–3) × 8B` for the exercise triples — for
-example 2^20 paths, 52 payment events, and 12 exercise dates is about 0.74 GB.
+plus `nPaths × nExerciseDates × (2–3) × 8B` for the exercise triples (three
+values per date when the exercise carries a condition). Budget examples with
+52 payment events and 12 conditional exercise dates:
+
+| Paths | Payments | Triples | Peak   |
+|-------|----------|---------|--------|
+| 2^16  | 27 MB    | 19 MB   | 46 MB  |
+| 2^18  | 109 MB   | 76 MB   | 185 MB |
+| 2^20  | 436 MB   | 302 MB  | 738 MB |
+
 Reduce the path count or event count to stay inside a budget.
 
 AAD valuation of exercise products uses the fuzzy driver described in the
