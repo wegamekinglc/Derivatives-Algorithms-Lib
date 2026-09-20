@@ -529,6 +529,112 @@ namespace Dal::Script {
             Vector_<> risks_;
         };
 
+        //  Per-worker replay state: active model, regenerated paths, and the per-path
+        //  recording rows (payments reset between paths, h/cond overwritten per statement)
+        struct FuzzyReplayWorkspace_ {
+            std::unique_ptr<AAD::Model_<AAD::Number_>> model_;
+            std::unique_ptr<Random_> random_;
+            Vector_<> gauss_;
+            Scenario_<AAD::Number_> path_;
+            LsmcFuzzySinks_<AAD::Number_> sinks_;
+            Vector_<AAD::Number_> pays_;
+            Vector_<AAD::Number_> h_;
+            Vector_<AAD::Number_> cond_;
+        };
+
+        FuzzyReplayWorkspace_ MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
+                                                       const Handle_<ModelData_>& modelData,
+                                                       const LsmcPlan_& scan,
+                                                       const PathBatch_& batch) {
+            const auto& simulation = prepared.Simulation();
+            FuzzyReplayWorkspace_ ws;
+            ws.model_ = CreateModel<AAD::Number_>(modelData);
+            ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
+            ws.random_ = CreateRNG(simulation.rsg_, ws.model_->SimDim(), simulation.useBb_);
+            ws.gauss_.Resize(ws.model_->SimDim());
+            AllocatePath(prepared.DefLine(), ws.path_);
+            InitializePath(ws.path_);
+            if (ws.random_)
+                ws.random_->SkipTo(batch.firstPath_);
+            ws.sinks_.eventToPays_ = &scan.eventToPays_;
+            ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
+            ws.pays_ = Vector_<AAD::Number_>(scan.paysEventIds_.size(), 0.0);
+            ws.h_ = Vector_<AAD::Number_>(scan.days_.size(), 0.0);
+            ws.cond_ = Vector_<AAD::Number_>(scan.days_.size(), 1.0);
+            ws.sinks_.pays_ = &ws.pays_;
+            ws.sinks_.h_ = &ws.h_;
+            ws.sinks_.cond_ = &ws.cond_;
+            return ws;
+        }
+
+        //  Mirrors the double recorder: the driver owns the event boundaries and the sinks'
+        //  event ordinal while the fuzzy evaluator records through its installed sinks
+        void TreeEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws, const PreparedScript_& prepared, FuzzyEvaluator_<AAD::Number_>& evaluator) {
+            evaluator.lsmcFuzzySinks_ = &ws.sinks_;
+            evaluator.SetScenario(&ws.path_);
+            evaluator.SetObservations(&prepared.Plan());
+            evaluator.Init();
+            const auto& events = prepared.Product().Events();
+            const auto& eventToSample = prepared.Plan().EventToSample();
+            for (size_t e = 0; e < events.size(); ++e) {
+                ws.sinks_.eventOrdinal_ = e;
+                evaluator.SetCurEvt(eventToSample[e]);
+                for (const auto& statement : events[e])
+                    statement->Accept(evaluator);
+            }
+        }
+
+        void CompiledEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws,
+                                       const PreparedScript_& prepared,
+                                       const ScriptCompiled_& compiled,
+                                       EvalState_<AAD::Number_>& state) {
+            state.lsmcFuzzySinks_ = &ws.sinks_;
+            state.Init();
+            state.observations_ = &prepared.Plan();
+            state.scenario_ = &ws.path_;
+            const auto& nodeStreams = compiled.NodeStreams();
+            const auto& constStreams = compiled.ConstStreams();
+            const auto& eventToSample = prepared.Plan().EventToSample();
+            for (size_t e = 0; e < nodeStreams.size(); ++e) {
+                ws.sinks_.eventOrdinal_ = e;
+                const Detail::CompiledEventView_<AAD::Number_> view{nodeStreams[e], constStreams[e], ws.path_[eventToSample[e]]};
+                Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &state);
+            }
+        }
+
+        template <class E_, class F_>
+        void FuzzyReplayPaths(const PreparedScript_& prepared,
+                              const LsmcPlan_& scan,
+                              const Vector_<ExerciseRegression_>& regressions,
+                              const PathBatch_& batch,
+                              FuzzyReplayWorkspace_& ws,
+                              E_& evaluator,
+                              const F_& evaluate,
+                              AadReplayOutcome_* outcome) {
+            InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, nullptr);
+            for (size_t i = 0; i < batch.pathCount_; ++i) {
+                AAD::RewindToMark(*AAD::Tape());
+                for (auto& payment : ws.pays_)
+                    payment = 0.0;
+                if (ws.random_)
+                    ws.random_->FillNormal(&ws.gauss_);
+                ws.model_->GeneratePath(ws.gauss_, &ws.path_);
+                ValidateSimulationPath(ws.path_);
+                evaluate(ws, prepared, evaluator);
+                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan().EventToSample(), ws.path_);
+                REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
+                Adjoint(value) = 1.0;
+                AAD::PropagateToMark(*AAD::Tape());
+                outcome->sum_ += Value(value);
+            }
+            AAD::PropagateMarkToStart(*AAD::Tape());
+            size_t j = 0;
+            for (const auto* parameter : ws.model_->Parameters())
+                outcome->risks_[j++] += Adjoint(*parameter);
+            for (const auto& constVar : evaluator.ConstVarVals())
+                outcome->risks_[j++] += Adjoint(constVar);
+        }
+
         void RunFuzzyReplayBatch(const PreparedScript_& prepared,
                                  const Handle_<ModelData_>& modelData,
                                  const LsmcPlan_& scan,
@@ -536,94 +642,20 @@ namespace Dal::Script {
                                  const std::optional<ScriptCompiled_>& fuzzyCompiled,
                                  const PathBatch_& batch,
                                  AadReplayOutcome_* outcome) {
-            const auto& product = prepared.Product();
-            const auto& simulation = prepared.Simulation();
             AAD::Activate(*AAD::Tape());
             AAD::Rewind(*AAD::Tape());
-            std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
-            model->Allocate(prepared.TimeLine(), prepared.DefLine());
-
-            std::unique_ptr<Random_> random = CreateRNG(simulation.rsg_, model->SimDim(), simulation.useBb_);
-            Vector_<> gauss(model->SimDim());
-
-            Scenario_<AAD::Number_> path;
-            AllocatePath(prepared.DefLine(), path);
-            InitializePath(path);
-            if (random)
-                random->SkipTo(batch.firstPath_);
-
-            //  Per-path recording rows: payments are reset between paths, h/cond are
-            //  overwritten at each exercise statement
-            LsmcFuzzySinks_<AAD::Number_> sinks;
-            sinks.eventToPays_ = &scan.eventToPays_;
-            sinks.eventToExercise_ = &scan.eventToExercise_;
-            Vector_<AAD::Number_> pays(scan.paysEventIds_.size(), 0.0);
-            Vector_<AAD::Number_> h(scan.days_.size(), 0.0);
-            Vector_<AAD::Number_> cond(scan.days_.size(), 1.0);
-            sinks.pays_ = &pays;
-            sinks.h_ = &h;
-            sinks.cond_ = &cond;
-
-            auto treeEvaluate = [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& evaluator) {
-                evaluator.lsmcFuzzySinks_ = &sinks;
-                evaluator.SetScenario(&p);
-                evaluator.SetObservations(&prepared.Plan());
-                evaluator.Init();
-                const auto& events = product.Events();
-                const auto& eventToSample = prepared.Plan().EventToSample();
-                for (size_t e = 0; e < events.size(); ++e) {
-                    sinks.eventOrdinal_ = e;
-                    evaluator.SetCurEvt(eventToSample[e]);
-                    for (const auto& statement : events[e])
-                        statement->Accept(evaluator);
-                }
-            };
-            auto compiledEvaluate = [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& state) {
-                state.lsmcFuzzySinks_ = &sinks;
-                state.Init();
-                state.observations_ = &prepared.Plan();
-                state.scenario_ = &p;
-                const auto& nodeStreams = fuzzyCompiled->NodeStreams();
-                const auto& constStreams = fuzzyCompiled->ConstStreams();
-                const auto& eventToSample = prepared.Plan().EventToSample();
-                for (size_t e = 0; e < nodeStreams.size(); ++e) {
-                    sinks.eventOrdinal_ = e;
-                    const Detail::CompiledEventView_<AAD::Number_> view{nodeStreams[e], constStreams[e], p[eventToSample[e]]};
-                    Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &state);
-                }
-            };
-
-            auto runPaths = [&](auto& evaluator, auto evaluate) {
-                InitModel4ParallelAAD(prepared, *model, path, evaluator, nullptr);
-                for (size_t i = 0; i < batch.pathCount_; ++i) {
-                    AAD::RewindToMark(*AAD::Tape());
-                    for (auto& payment : pays)
-                        payment = 0.0;
-                    if (random)
-                        random->FillNormal(&gauss);
-                    model->GeneratePath(gauss, &path);
-                    ValidateSimulationPath(path);
-                    evaluate(path, evaluator);
-                    AAD::Number_ value = FuzzyPathValue(scan, pays, h, cond, regressions, prepared.Plan().EventToSample(), path);
-                    REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
-                    Adjoint(value) = 1.0;
-                    AAD::PropagateToMark(*AAD::Tape());
-                    outcome->sum_ += Value(value);
-                }
-                AAD::PropagateMarkToStart(*AAD::Tape());
-                size_t j = 0;
-                for (const auto* parameter : model->Parameters())
-                    outcome->risks_[j++] += Adjoint(*parameter);
-                for (const auto& constVar : evaluator.ConstVarVals())
-                    outcome->risks_[j++] += Adjoint(constVar);
-            };
-
+            FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch);
             if (fuzzyCompiled) {
-                EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, simulation.smooth_);
-                runPaths(state, compiledEvaluate);
+                EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
+                FuzzyReplayPaths(
+                    prepared, scan, regressions, batch, ws, state,
+                    [&fuzzyCompiled](FuzzyReplayWorkspace_& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
+                        CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
+                    },
+                    outcome);
             } else {
-                FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, simulation.smooth_);
-                runPaths(evaluator, treeEvaluate);
+                FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
+                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath, outcome);
             }
         }
     } // namespace
