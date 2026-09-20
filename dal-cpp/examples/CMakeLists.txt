@@ -85,6 +85,27 @@ if(DAL_HAS_EXCEL)
     list(APPEND DAL_EXAMPLE_TARGETS excelwriter)
 endif()
 
+# Register examples as CTest smoke tests so CI exercises them at runtime, not
+# only at compile time (commit 05cd72c0 fixed a compile-clean example that
+# aborted at runtime). An example joins the "examples" label only when it is
+# self-contained: exits 0 in well under 30 s with no input files, no network,
+# and no file outputs. Exclusions:
+#   european_mc - ~35 s runtime; runs under "examples_slow", kept out of CI
+#   quote_risk  - aborts at runtime on its rank-deficient calibration fixture
+#   excelwriter - drives a live Excel COM instance (Windows/MSVC only)
+set(DAL_EXAMPLE_SLOW_TARGETS european_mc)
+set(DAL_EXAMPLE_UNREGISTERED_TARGETS quote_risk excelwriter)
+
 foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
     dal_apply_platform_options(${example_target})
+    if(example_target IN_LIST DAL_EXAMPLE_UNREGISTERED_TARGETS)
+        continue()
+    endif()
+    if(example_target IN_LIST DAL_EXAMPLE_SLOW_TARGETS)
+        set(example_label examples_slow)
+    else()
+        set(example_label examples)
+    endif()
+    add_test(NAME ${example_target} COMMAND ${example_target})
+    set_tests_properties(${example_target} PROPERTIES LABELS ${example_label})
 endforeach()

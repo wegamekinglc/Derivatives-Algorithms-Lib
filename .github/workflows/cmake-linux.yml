@@ -185,6 +185,15 @@ jobs:
           fi
           bash -e ./build_linux.sh $COVERAGE_FLAG
 
+      # build_linux.sh already compiles the examples (DAL_CPP_BUILD_EXAMPLES=ON)
+      # and registers them under the "examples" CTest label; exercise them at
+      # runtime on this single leg so a compile-clean but runtime-broken example
+      # (commit 05cd72c0) fails CI. The "examples_slow" label stays out of CI.
+      - name: Run example smoke tests
+        if: matrix.coverage
+        run: |
+          ctest --test-dir build/Release-linux -L '^examples$' --output-on-failure --parallel "$(nproc)"
+
       - name: Test installed CMake consumer
         if: matrix.coverage == false
         env:
