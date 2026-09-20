@@ -63,8 +63,10 @@ if(NOT DAL_INSTALL_PREFIX AND NOT "$ENV{DAL_DIR}" STREQUAL "")
     set(DAL_INSTALL_PREFIX "$ENV{DAL_DIR}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
 endif()
 # Fall back to the default staged install produced by the repo build scripts
-# (<repo-root>/build/stage/<preset>), preferring a Release preset.
-if(NOT DAL_INSTALL_PREFIX AND DAL_PYTHON_IS_TOPLEVEL)
+# (<repo-root>/build/stage/<preset>), preferring a Release preset.  Discovery
+# runs unconditionally so a not-found error can list the candidates; the
+# (arbitrary) first match is only used when no prefix was given.
+if(DAL_PYTHON_IS_TOPLEVEL)
     set(_DAL_STAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/stage")
     if(WIN32)
         set(_DAL_STAGE_HOST_CONFIG "Release-windows")
@@ -81,7 +83,7 @@ if(NOT DAL_INSTALL_PREFIX AND DAL_PYTHON_IS_TOPLEVEL)
         file(GLOB _dal_stage_configs
             "${_DAL_STAGE_DIR}/*/lib/cmake/dal-public/dal-publicConfig.cmake")
     endif()
-    if(_dal_stage_configs)
+    if(NOT DAL_INSTALL_PREFIX AND _dal_stage_configs)
         list(GET _dal_stage_configs 0 _dal_stage_config)
         get_filename_component(_dal_stage_prefix "${_dal_stage_config}/../../../.." ABSOLUTE)
         set(DAL_INSTALL_PREFIX "${_dal_stage_prefix}" CACHE PATH "Installed DAL prefix containing dal-publicConfig.cmake" FORCE)
@@ -154,14 +156,26 @@ else()
         endif()
         find_package(dal-public CONFIG QUIET)
         if(NOT dal-public_FOUND)
+            if(WIN32)
+                set(_dal_build_hint "build_windows.bat")
+            else()
+                set(_dal_build_hint "bash build_linux.sh")
+            endif()
+            set(_dal_candidates_hint "")
+            if(_dal_stage_configs)
+                string(REPLACE ";" "\n    " _dal_candidates_text "${_dal_stage_configs}")
+                set(_dal_candidates_hint
+                    "\nDiscovered staged dal-public package configs (point DAL_INSTALL_PREFIX at one of their prefixes):\n    ${_dal_candidates_text}\n")
+            endif()
             message(FATAL_ERROR
                 "dal-python: could not find the installed dal-public package "
                 "(dal-publicConfig.cmake).\n"
                 "Build the staged C++ install first:\n"
-                "    cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && bash build_linux.sh\n"
+                "    cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && ${_dal_build_hint}\n"
                 "or point CMake at an existing install prefix with "
                 "-DDAL_INSTALL_PREFIX=<prefix> (pip/uv: "
-                "--config-settings=cmake.define.DAL_INSTALL_PREFIX=<prefix>).")
+                "--config-settings=cmake.define.DAL_INSTALL_PREFIX=<prefix>)."
+                "${_dal_candidates_hint}")
         endif()
         if(NOT TARGET DAL::public)
             message(FATAL_ERROR "dal-public package did not define DAL::public")
