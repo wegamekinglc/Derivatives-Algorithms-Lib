@@ -54,6 +54,8 @@ namespace Dal {
         ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings,
                                                           const Handle_<MarketFixingSnapshot_>& snapshot = {});
         void ValidateRNG(const String_& method);
+        void ValidateSmoothing(double smooth);
+        void ValidateLsmcBasisDegree(int degree);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

@@ -108,7 +108,11 @@ namespace {
                 throw py::type_error(context);
             throw error;
         }
-        REQUIRE2(std::isfinite(result) && result > 0.0, String_(context), ScriptError_);
+        try {
+            Script::ValidateSmoothing(result);
+        } catch (const Exception_&) {
+            THROW2(String_(context), ScriptError_);
+        }
         return result;
     }
 
@@ -123,7 +127,14 @@ namespace {
     int BasisDegree(const py::handle& value) {
         const auto context = InputContext(value, "MonteCarloSettings_; lsmc_basis_degree / simulation.lsmcBasisDegree_",
                                           "an integer in 1..8, excluding bool", "InvalidSetting: InvalidLsmcBasisDegree");
-        return static_cast<int>(IntegerInput(value, context, 1, 8, "; LSMC basis degree must be an integer between 1 and 8"));
+        const auto degree = IntegerInput(value, context, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(),
+                                         "; LSMC basis degree must be an integer between 1 and 8");
+        try {
+            Script::ValidateLsmcBasisDegree(static_cast<int>(degree));
+        } catch (const Exception_&) {
+            THROW2(String_(context + "; LSMC basis degree must be an integer between 1 and 8"), ScriptError_);
+        }
+        return static_cast<int>(degree);
     }
 
     double LegacySmoothing(const py::handle& value) {

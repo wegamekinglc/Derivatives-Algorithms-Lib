@@ -107,16 +107,30 @@ namespace Dal {
         }
 
         double SmoothingValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidSmoothing: expected finite positive number";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && *number > 0.0, context + "InvalidSmoothing: expected finite positive number");
+            REQUIRE(number, constraint);
+            try {
+                Script::ValidateSmoothing(*number);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
             return *number;
         }
 
         int BasisDegreeValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 1.0 && *number <= 8.0,
-                    context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8");
-            return static_cast<int>(*number);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number &&
+                        std::fabs(*number) <= std::numeric_limits<int>::max(),
+                    constraint);
+            const auto degree = static_cast<int>(*number);
+            try {
+                Script::ValidateLsmcBasisDegree(degree);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
+            return degree;
         }
 
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
