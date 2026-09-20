@@ -118,7 +118,7 @@ namespace Dal::Script {
             size_t eventId_;
             size_t sampleId_;
             bool conditional_;
-            double eps_; //  S17: the node's ;eps option resolved against the simulation smoothing width
+            double eps_; //  S17: the node's :eps option resolved against the simulation smoothing width
         };
 
         bool EventHasPays(const Event_& event) {
@@ -507,9 +507,7 @@ namespace Dal::Script {
             for (size_t e = scan.eventToExercise_.size(); e-- > 0;) {
                 if (e + 1 < scan.eventToExercise_.size())
                     value *= path[eventToSample[e]].numeraire_ / path[eventToSample[e + 1]].numeraire_;
-                const size_t paysSlot = scan.eventToPays_[e];
-                if (paysSlot != NO_SLOT)
-                    value += pays[paysSlot];
+                value += pays[e];
                 const size_t day = scan.eventToExercise_[e];
                 if (day != NO_SLOT) {
                     //  materialize the continuation gap: CSpr's early-return constants need a
@@ -556,9 +554,8 @@ namespace Dal::Script {
             InitializePath(ws.path_);
             if (ws.random_)
                 ws.random_->SkipTo(batch.firstPath_);
-            ws.sinks_.eventToPays_ = &scan.eventToPays_;
             ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
-            ws.pays_ = Vector_<AAD::Number_>(scan.paysEventIds_.size(), 0.0);
+            ws.pays_ = Vector_<AAD::Number_>(scan.eventToPays_.size(), 0.0);
             ws.h_ = Vector_<AAD::Number_>(scan.days_.size(), 0.0);
             ws.cond_ = Vector_<AAD::Number_>(scan.days_.size(), 1.0);
             ws.sinks_.pays_ = &ws.pays_;

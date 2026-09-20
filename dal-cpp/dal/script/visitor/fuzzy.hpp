@@ -113,10 +113,16 @@ namespace Dal::Script {
             REQUIRE(nestedIfLvl_ > 0 && nestedIfLvl_ <= varStore0_.size(), "fuzzy If nesting exceeds allocated var stores");
             const size_t lvl = nestedIfLvl_ - 1;
             StoreAffectedVars(node, lvl);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
             EvalTrueBranch(node, lastTrueStat);
             CaptureTrueBranchVars(node, lvl);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->CaptureBranchPayment(lvl);
             EvalFalseBranch(node);
             BlendAffectedVars(node, lvl, dt);
+            if (lsmcFuzzySinks_)
+                lsmcFuzzySinks_->BlendBranchPayment(lvl, dt);
         }
 
         void Visit(const NodeIf_& node) {
@@ -188,7 +194,8 @@ namespace Dal::Script {
 
         //  LSMC recording: with no sinks installed the plain fuzzy arithmetic runs; with
         //  them the raw payment lands in the driver's row while the payoff variable keeps
-        //  the exact accumulated arithmetic of the base evaluator
+        //  the exact accumulated arithmetic of the base evaluator. Payments inside a
+        //  fuzzy branch are blended by the branch degree via the sinks' snapshots.
         FORCE_INLINE void Visit(const NodePays_& node) {
             if (!lsmcFuzzySinks_) {
                 Base::Visit(node);
@@ -197,7 +204,7 @@ namespace Dal::Script {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T payment = dStack_.TopAndPop();
-            (*lsmcFuzzySinks_->pays_)[(*lsmcFuzzySinks_->eventToPays_)[lsmcFuzzySinks_->eventOrdinal_]] += payment;
+            (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
 

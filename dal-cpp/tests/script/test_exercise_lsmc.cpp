@@ -594,6 +594,25 @@ TEST(ScriptExerciseLSMCTest, TestFuzzyConvergesToHardMode) {
     ASSERT_LT(lastError, 0.001);
 }
 
+//  A PAYS inside a fuzzy-if branch must record the degree-weighted payment, never the
+//  sum of both branches: the out-of-branch formulation pays the blended variable once,
+//  so the two scripts agree path by path (the wide band puts many paths at interior
+//  degrees; the EXERCISE keeps the product on the LSMC replay path)
+TEST(ScriptExerciseLSMCTest, TestFuzzyBranchPaymentsBlend) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Vector_<Cell_> cells{Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))};
+    const ScriptProductData_ inBranch("", cells, {"IF spot() > 100.0 THEN pay PAYS 1.0 ELSE pay PAYS 3.0 END", "EXERCISE 0.0"});
+    const ScriptProductData_ outOfBranch("", cells, {"x = 3.0\nIF spot() > 100.0 THEN x = 1.0 END\npay PAYS x", "EXERCISE 0.0"});
+    constexpr size_t N_PATHS = 1u << 15;
+    for (const bool compiled : {false, true}) {
+        SCOPED_TRACE(compiled ? "compiled" : "tree-walk");
+        const auto a = MCSimulation<AAD::Number_>(inBranch, StandardModel(), N_PATHS, ScriptValuationSettings_(), AadSettings(compiled, 10.0));
+        const auto b = MCSimulation<AAD::Number_>(outOfBranch, StandardModel(), N_PATHS, ScriptValuationSettings_(), AadSettings(compiled, 10.0));
+        ASSERT_NEAR(PvOf(a, N_PATHS), PvOf(b, N_PATHS), 1e-8 * std::abs(PvOf(b, N_PATHS)));
+        ASSERT_NEAR(a["spot"], b["spot"], 1e-8 * std::abs(b["spot"]));
+    }
+}
+
 //  N9 dual-mode promise completed: AAD risks are bitwise thread-count independent
 TEST(ScriptExerciseLSMCTest, TestAadThreadInvarianceBitwise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());

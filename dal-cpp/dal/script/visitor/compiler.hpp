@@ -911,17 +911,23 @@ namespace Dal::Script {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore0_[lvl][idx] = state.variables_[idx];
                 }
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
                 EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore1_[lvl][idx] = state.variables_[idx];
                     state.variables_[idx] = state.varStore0_[lvl][idx];
                 }
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->CaptureBranchPayment(lvl);
                 EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
                 }
+                if (state.lsmcFuzzySinks_)
+                    state.lsmcFuzzySinks_->BlendBranchPayment(lvl, t);
                 --state.nestedIfLvl_;
                 i = lastFalse;
             }
@@ -968,7 +974,7 @@ namespace Dal::Script {
         //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
         template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, const T_& payment) {
             auto& sinks = RequireLsmcFuzzySinks(statePtr);
-            (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]] += payment;
+            (*sinks.pays_)[sinks.eventOrdinal_] += payment;
         }
 
         template <class T_> FORCE_INLINE void RecordLsmcFuzzyExercise(EvalState_<T_>* statePtr, const T_& value, const T_& cond) {
