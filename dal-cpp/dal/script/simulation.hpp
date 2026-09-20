@@ -160,7 +160,7 @@ namespace Dal::Script {
 
     template <class P_, class E_>
     void
-    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero) {
+    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero = nullptr) {
         AAD::Rewind(*AAD::Tape());
         for (AAD::Number_* param : model.Parameters())
             PutOnTape(*param);
@@ -168,7 +168,8 @@ namespace Dal::Script {
         for (AAD::Number_& param : evaluator.ConstVarVals())
             PutOnTape(param);
 
-        PutOnTape(*payoffZero);
+        if (payoffZero)
+            PutOnTape(*payoffZero);
 
         AAD::NewRecording(*AAD::Tape());
 
@@ -479,10 +480,6 @@ namespace Dal::Script {
         if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
                      "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(!product.Product().ContainsExercise(),
-                     "UnsupportedExecutionMode: AAD valuation of EXERCISE is not implemented (the fuzzy driver arrives with a later milestone)",
-                     ScriptError_);
         const bool useCompiled = compiled.value_or(false);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
@@ -492,6 +489,13 @@ namespace Dal::Script {
             REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
                          useCompiled == product.Simulation().compiled_.value_or(false),
                      "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
+
+        //  Early-exercise products divert to the fuzzy LSMC driver (S9 recursive
+        //  blending over the frozen policy, N6 adjoint of the replay pass)
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
+            if (product.Product().ContainsExercise())
+                return MCLsmcAadSimulation(product, modelData, nPaths);
+        }
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)

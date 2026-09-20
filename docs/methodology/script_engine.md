@@ -628,6 +628,45 @@ with `enableAad_ = true`: `BuildFuzzyEvaluator<double>` plus `Evaluate`, or
 was selected. Use the prepared smoothing width in either case. This does not
 make `MCSimulation<double>` a fuzzy pricing entry; it rejects AAD-enabled settings.
 
+### Early-Exercise AAD
+
+Products containing `EXERCISE` divert to the fuzzy LSMC driver
+(`MCLsmcAadSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
+compiled execution. The forward storage and backward regression phases run
+exactly as the double driver, so the continuation coefficients `C_k` are the
+thread-count independent hard-decision artifact. Each replay worker then
+regenerates its batch on its own tape, records the per-event payments and the
+per-date exercise values and fuzzy condition degrees, and prices the path with
+the recursive blend
+
+$$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(h_k - C_k(z_k), \varepsilon)\cdot c_k,$$
+
+where $c_k$ is the fuzzy condition degree (1 when unconditional), the discount
+ratios come from the path's own numeraires, and $\varepsilon$ is the exercise
+statement's smoothing width resolved against `simulation.smooth_`. The final
+step divides by the first event's numeraire, mirroring the double driver's
+explicit last-step discounting. As $\varepsilon \to 0$ the decision degrees
+degenerate to hard indicators and the fuzzy path value converges to the
+hard-mode payoff.
+
+The regression coefficients enter the replay as passive tape constants, so the
+harvested adjoint is the exact gradient of the *frozen-policy* price
+functional. By the envelope theorem the difference to the total derivative —
+the missing $\partial C/\partial\theta$ term — is second order in the policy
+suboptimality error. Bump tests that regenerate the policy (production
+behavior) therefore carry this envelope remainder on top of their Monte Carlo
+error: on the two-date benchmark it measures around 1% for spot/rate, below 1%
+for dividend, and around 2-3% for volatility, the most policy-sensitive
+parameter because the continuation regression itself is vol-dependent; where
+the policy is exactly optimal (single exercise date, worthless continuation)
+the adjoint matches analytic Greeks to better than 0.2%. Seeded coefficient
+regeneration is the recorded fallback for tightening this band and stays
+outside the current version. Adjoint accumulation and reduction follow the
+same thread-count independent batch layout and batch-index ordering as the
+double driver, so PV and every `d_<param>` are bitwise invariant across
+thread counts in AAD mode as well, and historical fixings replay into the
+seed exactly as for non-exercise products.
+
 ### Historical State and Recording Lifetime
 
 Preparation resolves historical I/O before any worker starts and retains only
@@ -1084,11 +1123,15 @@ LSMC driver installs a per-thread `LsmcSinks_` recorder into `EvalState_`
 before evaluation; the recording opcodes append the raw payment per `PAYS`
 event and the per-exercise-date regressor, exercise value, and condition
 indicator to the driver's storage rows, while the script-state arithmetic
-mirrors the plain pay opcodes statement for statement. Recording streams exist
-for the double hard-decision mode only: preparing a fuzzy (AAD) compiled
-exercise product is rejected until the fuzzy decision-degree seam exists, and
-the recording opcodes are dispatched only by the driver's evaluation chain —
-the plain compiled dispatcher rejects them as unknown opcodes.
+mirrors the plain pay opcodes statement for statement. Fuzzy (AAD) preparation
+lowers the same statements to `LsmcFuzzyPays`/`LsmcFuzzyPaysConst`/
+`LsmcFuzzyExercise`, which record into the driver's typed `LsmcFuzzySinks_`
+rows instead — conditions are degrees on the double stack there, so
+`LsmcFuzzyExercise` pops its condition from the double stack while the hard
+opcode reads the boolean stack. Recording opcodes are dispatched only by the
+driver's evaluation chain — including the branches of `If`/`IfElse`/`FuzzyIf`
+statements — and the plain compiled dispatcher rejects them as unknown
+opcodes.
 
 The compiled artifact stores one integer opcode stream and one constant stream
 per future event. The integer stream contains opcodes plus operands such as

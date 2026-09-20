@@ -69,4 +69,17 @@ namespace Dal::Script {
         for (auto& varStore : *varStore1)
             varStore.Resize(numVars);
     }
+
+    //  Per-path recording sinks of the LSMC driver's fuzzy (AAD) replay: raw payments per
+    //  PAYS event of the current path plus the exercise value and fuzzy condition degree
+    //  per exercise date, all live on the worker's tape. The driver resets the payment
+    //  row and advances eventOrdinal_ between paths/events.
+    template <class T_> struct LsmcFuzzySinks_ {
+        const Vector_<size_t>* eventToPays_ = nullptr;
+        const Vector_<size_t>* eventToExercise_ = nullptr;
+        Vector_<T_>* pays_ = nullptr;
+        Vector_<T_>* h_ = nullptr;
+        Vector_<T_>* cond_ = nullptr;
+        size_t eventOrdinal_ = 0;
+    };
 } // namespace Dal::Script

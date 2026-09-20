@@ -29,7 +29,16 @@ namespace Dal::Script {
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree);
 
-    double RegressionPredict(const ExerciseRegression_& regression, double x);
+    //  Horner evaluation of the frozen coefficients on the z-normalized basis; the
+    //  arithmetic is identical for T_ = double (Phase B/C decisions) and AAD number
+    //  types (the fuzzy replay differentiates through the frozen continuation)
+    template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const T_& x) {
+        const T_ z = (x - regression.mean_) / regression.sigma_;
+        T_ value(0.0);
+        for (size_t j = regression.coefficients_.size(); j-- > 0;)
+            value = value * z + regression.coefficients_[j];
+        return value;
+    }
 
     //  Per-exercise-event diagnostics projected into dal.script-simulation/1
     struct ExerciseEventStats_ {
@@ -66,4 +75,11 @@ namespace Dal::Script {
     //  the backward induction with the continuation regressions, Phase C replays the
     //  frozen strategy on regenerated paths and aggregates the path payoffs.
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics = nullptr);
+
+    //  Fuzzy (AAD) LSMC (S9/N6): Phases A/B run exactly as the double driver (the
+    //  frozen policy is thread-count independent by construction), then each worker
+    //  replays its batch on its own tape, blending the recursive fuzzy decisions over
+    //  the frozen coefficients and harvesting parameter and constant-variable adjoints
+    //  with the same batch-index reduction (bitwise thread invariant).
+    SimResults_ MCLsmcAadSimulation(const PreparedScript_& prepared, const Handle_<ModelData_>& modelData, size_t nPaths);
 } // namespace Dal::Script
