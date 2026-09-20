@@ -73,8 +73,12 @@ namespace Dal::Script::TestSupport {
             tNext = tEx;
         };
 
-        for (size_t e = exerciseTimes.size() - 1; e-- > 0;)
-            rollTo(exerciseTimes[e], exerciseTimes[e], true);
+        for (size_t e = exerciseTimes.size() - 1; e-- > 0;) {
+            //  the s = 0 boundary anchors at the segment's RIGHT endpoint (the next
+            //  exercise date), read before rollTo reassigns tNext
+            const double nextExercise = tNext;
+            rollTo(exerciseTimes[e], nextExercise, true);
+        }
         //  Final segment back to the evaluation date: the lower boundary tracks the
         //  next exercise at t_1, and no projection happens on the evaluation date
         rollTo(0.0, exerciseTimes.front(), false);
