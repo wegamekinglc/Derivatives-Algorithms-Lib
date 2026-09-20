@@ -747,9 +747,10 @@ namespace Dal::Script {
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
         //  N5: the probe-path discount ratios are path-independent only for
         //  deterministic-rate models; the model base class exposes no rate-kind
-        //  query, so the factory's two models are pinned here in debug builds
-        ASSERT(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
-               "LSMC requires a deterministic-rate model (BlackScholes or Dupire)");
+        //  query, so the factory's two models are pinned here unconditionally --
+        //  a stochastic-rate model would otherwise be silently mis-discounted
+        REQUIRE2(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
+                 "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         auto storage = MakeStorage(scan, nPaths, product.HasPays());
