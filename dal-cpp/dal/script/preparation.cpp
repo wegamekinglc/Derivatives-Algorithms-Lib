@@ -327,7 +327,7 @@ namespace Dal::Script {
                     if (auto* observer = Detail::SimulationObserver())
                         observer->BeforeCompilation();
                     result.pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result.plan_, true);
-                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_);
+                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_, false, writable->ContainsExercise());
                 }
                 result.executable_ = true;
             }

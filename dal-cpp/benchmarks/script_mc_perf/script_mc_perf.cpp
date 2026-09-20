@@ -56,6 +56,26 @@ namespace {
         return Handle_<ModelData_>(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02));
     }
 
+    //  Weekly-exercise Bermudan put: every schedule row may exercise into the put
+    //  intrinsic (the END row covers maturity), the maturity event pays the vanilla
+    //  leg. Valuation diverts to the LSMC driver (prepared pipeline), so this case
+    //  runs the double engine only.
+    ScriptProductData_ BuildBermudanExerciseProduct() {
+        const Date_ start = Date_(2024, 1, 8);
+        const Date_ maturity = Date_(2025, 1, 1);
+        Vector_<Cell_> eventDates;
+        Vector_<String_> events;
+        eventDates.push_back(Cell_(String_("STRIKE")));
+        events.push_back("100.0");
+        eventDates.push_back(Cell_(String_("START: " + Date::ToString(start) +
+                                           " END: " + Date::ToString(maturity) +
+                                           " FREQ: 1W")));
+        events.push_back("EXERCISE MAX(STRIKE - spot(), 0.0)");
+        eventDates.push_back(Cell_(maturity));
+        events.push_back(String_("call PAYS MAX(spot() - STRIKE, 0.0)"));
+        return {"", eventDates, events};
+    }
+
     struct ScriptBenchmarkCase_ {
         const char* name_;
         ScriptProduct_ (*buildProduct_)();
@@ -102,6 +122,22 @@ namespace {
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
+
+    void RunDoubleExerciseCase(bool compiled, size_t paths, int repeats) {
+        double sink = 0.0;
+        const std::string name = std::string("script engine bermudan exercise double compiled=") +
+                                 (compiled ? "true" : "false") + " (" + std::to_string(paths) + " paths x 54 events)";
+        auto r = Bench::Run(name, [&]() {
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            auto results = MCSimulation<double>(
+                BuildBermudanExerciseProduct(), BuildModelData(), paths,
+                ScriptValuationSettings_(), simulation);
+            sink += results.aggregated_;
+        }, 1, repeats);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 int main() {
@@ -121,6 +157,10 @@ int main() {
         RunAadCase(scriptCase, false, kRepeats);
         RunAadCase(scriptCase, true, kRepeats);
     }
+
+    //  Early-exercise products: LSMC driver, double engine (AAD arrives with T4)
+    RunDoubleExerciseCase(false, 100000, kRepeats);
+    RunDoubleExerciseCase(true, 100000, kRepeats);
 
     return 0;
 }

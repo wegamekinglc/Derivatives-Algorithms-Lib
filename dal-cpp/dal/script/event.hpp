@@ -48,13 +48,19 @@ namespace Dal::Script {
             : nodeStreams_(std::move(nodeStreams)), constStreams_(std::move(constStreams)) {}
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
+        [[nodiscard]] const Vector_<Vector_<>>& ConstStreams() const { return constStreams_; }
 
-        static ScriptCompiled_
-        Build(const Vector_<Event_>& events, bool fuzzy, std::shared_ptr<const ObservationPlan_> observations = {}, bool historical = false) {
+        //  lsmc lowers PAYS/EXERCISE into the LSMC recording opcodes; only the prepared
+        //  future artifact of an EXERCISE product uses it (S8 keeps EXERCISE out of history)
+        static ScriptCompiled_ Build(const Vector_<Event_>& events,
+                                     bool fuzzy,
+                                     std::shared_ptr<const ObservationPlan_> observations = {},
+                                     bool historical = false,
+                                     bool lsmc = false) {
             Vector_<Vector_<int>> nodes;
             Vector_<Vector_<>> constants;
             for (const auto& event : events) {
-                Compiler_ compiler(fuzzy, observations.get(), historical);
+                Compiler_ compiler(fuzzy, observations.get(), historical, lsmc);
                 for (const auto& statement : event)
                     statement->Accept(compiler);
                 nodes.push_back(compiler.NodeStream());

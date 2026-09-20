@@ -1075,6 +1075,19 @@ Historical bytecode always uses hard comparisons and emits `Discard` for
 historical stream needs no model sample. Constant arithmetic may be inlined,
 but live parameter inputs and their historical-state dependencies are retained.
 
+Products with `EXERCISE` compile into a recording variant of the prepared
+stream: `PAYS` lowers to `LsmcPays`/`LsmcPaysConst` and `EXERCISE` to
+`LsmcExercise`, appended opcodes that live in the prepared dispatch tail. The
+LSMC driver installs a per-thread `LsmcSinks_` recorder into `EvalState_`
+before evaluation; the recording opcodes append the raw payment per `PAYS`
+event and the per-exercise-date regressor, exercise value, and condition
+indicator to the driver's storage rows, while the script-state arithmetic
+mirrors the plain pay opcodes statement for statement. Recording streams exist
+for the double hard-decision mode only: preparing a fuzzy (AAD) compiled
+exercise product is rejected until the fuzzy decision-degree seam exists, and
+the recording opcodes are dispatched only by the driver's evaluation chain —
+the plain compiled dispatcher rejects them as unknown opcodes.
+
 The compiled artifact stores one integer opcode stream and one constant stream
 per future event. The integer stream contains opcodes plus operands such as
 variable indexes, const-stream indexes, and branch jump positions. This removes
@@ -1118,7 +1131,9 @@ on the tape.
 Regression coverage lives in `dal-cpp/tests/script/test_compile_parity.cpp`.
 It checks per-path double parity, Monte Carlo aggregate parity, AAD PV/risk
 parity, const-variable mutation, preprocessing guards, fuzzy condition
-behavior, and opcode reachability. The benchmark target
+behavior, opcode reachability, and early-exercise LSMC parity between the
+tree-walk and compiled recording engines (named cases plus the randomized
+generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark target
 `dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
 `compiled=true` runs across simple and schedule-heavy products for both
 `double` and `AAD::Number_`; it times the Monte Carlo path loop rather than the

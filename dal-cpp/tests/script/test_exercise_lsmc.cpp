@@ -227,9 +227,10 @@ namespace {
         LsmcDiagnostics_ diagnostics_;
     };
 
-    LsmcRun_ RunLsmc(const ScriptProductData_& product, const Handle_<ModelData_>& modelData, size_t nPaths, int degree = 3) {
+    LsmcRun_ RunLsmc(const ScriptProductData_& product, const Handle_<ModelData_>& modelData, size_t nPaths, int degree = 3, bool compiled = false) {
         MonteCarloSettings_ simulation;
         simulation.lsmcBasisDegree_ = degree;
+        simulation.compiled_ = compiled;
         auto model = CreateModel<double>(modelData);
         auto prepared = PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation);
         LsmcRun_ run{0.0, LsmcDiagnostics_()};
@@ -335,11 +336,14 @@ TEST(ScriptExerciseLSMCTest, TestThreadInvarianceBitwise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     PoolRestore_ pool;
     const auto product = ExerciseOnlyProduct(WeeklyDates(12));
-    pool.pool_->Start(1, true);
-    const auto single = RunLsmc(product, StandardModel(), 1u << 16);
-    pool.pool_->Start(std::max(4u, static_cast<unsigned>(pool.threads_)), true);
-    const auto multi = RunLsmc(product, StandardModel(), 1u << 16);
-    AssertBitwiseEqual(single, multi);
+    for (const bool compiled : {false, true}) {
+        SCOPED_TRACE(compiled ? "compiled" : "tree-walk");
+        pool.pool_->Start(1, true);
+        const auto single = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled);
+        pool.pool_->Start(std::max(4u, static_cast<unsigned>(pool.threads_)), true);
+        const auto multi = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled);
+        AssertBitwiseEqual(single, multi);
+    }
 }
 
 //  ---------------------------------------------------------------------------
@@ -464,7 +468,7 @@ TEST(ScriptExerciseLSMCTest, TestPaysAndExerciseCompose) {
 }
 
 //  ---------------------------------------------------------------------------
-//  Execution-mode gates: AAD and compiled valuation of EXERCISE arrive in T4/T3
+//  Execution-mode gates: AAD valuation of EXERCISE arrives in T4 (compiled joined in T3)
 //  ---------------------------------------------------------------------------
 
 namespace {
@@ -478,7 +482,7 @@ namespace {
     }
 } // namespace
 
-TEST(ScriptExerciseLSMCTest, TestAadAndCompiledGates) {
+TEST(ScriptExerciseLSMCTest, TestAadGate) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
     AssertUnsupportedMode([&] {
@@ -486,9 +490,19 @@ TEST(ScriptExerciseLSMCTest, TestAadAndCompiledGates) {
         simulation.enableAad_ = true;
         static_cast<void>(MCSimulation<AAD::Number_>(product, StandardModel(), 128, ScriptValuationSettings_(), simulation));
     });
-    AssertUnsupportedMode([&] {
+    { //  fuzzy conditions push degrees onto the double stack, so the recording stream
+        //  must not even be built until the fuzzy decision seam exists (T4)
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = true;
+        auto model = CreateModel<double>(StandardModel());
+        AssertUnsupportedMode([&] { static_cast<void>(PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation)); });
+    }
+    { //  the compiled engine joined the LSMC driver in T3 and values the same product
         MonteCarloSettings_ simulation;
         simulation.compiled_ = true;
-        static_cast<void>(MCSimulation<double>(product, StandardModel(), 128, ScriptValuationSettings_(), simulation));
-    });
+        const auto compiled = MCSimulation<double>(product, StandardModel(), 128, ScriptValuationSettings_(), simulation);
+        const auto treeWalk = MCSimulation<double>(product, StandardModel(), 128, ScriptValuationSettings_(), MonteCarloSettings_());
+        ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, 1e-8 * 128);
+    }
 }

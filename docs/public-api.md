@@ -164,8 +164,8 @@ the same explicit date/snapshot to compare the same market.
 simulation=MonteCarloSettings_())` returns `dal.script-simulation/1`. Unlike the
 valuation Explain it explicitly runs a full Monte Carlo valuation with `numPath`
 paths, so its cost is path generation plus worker parallelism plus the exercise
-regressions; it supports the double tree-walk mode only and rejects `enable_aad`
-and `compiled` settings. Products without `EXERCISE` return an empty
+regressions; it supports the double tree-walk and compiled modes and rejects
+`enable_aad` settings. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
 degree, regressor index, condition-true path count, coefficients, degenerate
 flag with PascalCase reason, and exercise rate.

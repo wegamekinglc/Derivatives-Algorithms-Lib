@@ -546,6 +546,21 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
     ASSERT_TRUE(events[0]["degenerate_reason"].IsNull());
     ASSERT_GT(events[0]["exercise_rate"].GetDouble(), 0.0);
 
+    { //  the compiled mode joins the LSMC driver (T3): the echo reports it and the events stay consistent
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        const auto compiledText = ExplainScriptSimulation(product, model, 4096, ScriptValuationSettings_(), simulation);
+        rapidjson::Document compiledJson;
+        compiledJson.Parse(compiledText.c_str());
+        ASSERT_FALSE(compiledJson.HasParseError());
+        ASSERT_TRUE(compiledJson["simulation"]["compiled"].GetBool());
+        const auto& compiledEvents = compiledJson["exercise_events"];
+        ASSERT_EQ(compiledEvents.Size(), events.Size());
+        for (rapidjson::SizeType k = 0; k < events.Size(); ++k) {
+            ASSERT_EQ(compiledEvents[k]["event_id"].GetInt(), events[k]["event_id"].GetInt());
+            ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
+        }
+    }
     { //  products without EXERCISE return an empty exercise_events array
         const auto plain = NewScriptProduct("plain", {Cell_(Date_(2027, 3, 12))}, {"pay PAYS 1.0"});
         const auto plainText = ExplainScriptSimulation(plain, model, 1024);
