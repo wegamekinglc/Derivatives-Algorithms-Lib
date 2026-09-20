@@ -744,19 +744,13 @@ namespace Dal::Script {
         void Visit(const NodeAssign_& node) { Debug(node, {"ASSIGN", "assign"}); }
         void Visit(const NodePays_& node) { Debug(node, {"PAYS", "pays"}); }
         void Visit(const NodeExercise_& node) {
-            //  The fuzzy metadata (decision smoothing eps) renders like a comparison node
+            //  The fuzzy metadata (decision smoothing eps) renders like a comparison node;
+            //  exercise nodes are never discrete (nothing sets interpolation bounds on them)
             DebugNode_ ir;
             ir.label = "EXERCISE";
             ir.kind = "exercise";
-            if (!node.isDiscrete_) {
-                ir.label += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
-                ir.number = node.eps_;
-            } else {
-                ir.label += String_("[DISCRETE,BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
-                ir.discrete = true;
-                ir.lb = node.lb_;
-                ir.rb = node.rb_;
-            }
+            ir.label += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
+            ir.number = node.eps_;
             Debug(node, std::move(ir));
         }
         void Visit(const NodeSpot_& node) {

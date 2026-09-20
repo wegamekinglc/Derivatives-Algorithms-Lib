@@ -167,10 +167,7 @@ namespace Dal::Script {
     //	metadata mirrors CompNode_: eps_ carries the condition's ;eps option (-1 falls back
     //	to the simulation smoothing width) and serves both condition and decision smoothing.
     struct NodeExercise_ : public Visitable_<ActNode_, NodeExercise_, VISITORS> {
-        bool isDiscrete_ = false;
         double eps_ = -1.0;
-        double lb_ = 0.0;
-        double rb_ = 0.0;
         SourceLocation_ source_;
     };
 
