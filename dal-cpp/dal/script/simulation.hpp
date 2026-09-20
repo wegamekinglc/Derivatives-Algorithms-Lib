@@ -194,6 +194,13 @@ namespace Dal::Script {
                     REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
             }
         }
+
+        //  An exact BlackScholes model generates into a reusable checked path --
+        //  generation and validation fused, deterministic numeraires pre-filled
+        //  once -- instead of a generic GeneratePath plus a separate scan
+        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
+            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
+        };
     } // namespace Detail
 
     template <class T_> FORCE_INLINE void ValidateSimulationPath(const Scenario_<T_>& path) {
@@ -302,14 +309,11 @@ namespace Dal::Script {
         // Each worker constructs and reuses its own writable buffers. Keeping hot
         // evaluator state in adjacent arrays made timing sensitive to allocation layout.
         // Isolate snapshot metadata from another worker's adjacent writable sample.
-        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
-            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
-        };
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
-            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
+            std::unique_ptr<Detail::LocalCheckedPaths_> bsPaths_;
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
@@ -317,7 +321,7 @@ namespace Dal::Script {
                 : random_(CreateRNG(rsg, model.SimDim(), useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
                   compiledState_(product.template BuildEvalState<double>()) {
                 if (typeid(model) == typeid(AAD::BlackScholes_<double>))
-                    bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
+                    bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
                 else {
                     AllocatePath(product.DefLine(), path_);
                     InitializePath(path_);
