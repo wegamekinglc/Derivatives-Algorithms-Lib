@@ -541,7 +541,8 @@ requires the same integer path count as the Value entries, rejects
 `enable_aad=True` settings with `UnsupportedExecutionMode`, and reports the
 simulation echo with `lsmc_basis_degree`, the explicit `n_paths`, and one
 `exercise_events` entry per exercise date (degree, regressor index,
-condition-true count, coefficients, degenerate flag/reason, exercise rate).
+in-the-money condition-true count, coefficients, degenerate flag/reason,
+exercise rate).
 Products without `EXERCISE` return an empty `exercise_events` list. The
 [early-exercise example](examples/013.exercise_bermudan.py) prices the
 Bermudan and weekly-exercise puts and reads the diagnostic.
