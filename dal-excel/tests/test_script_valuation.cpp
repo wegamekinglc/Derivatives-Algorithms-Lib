@@ -432,7 +432,8 @@ TEST(ScriptExcelContractTest, TestSimulationExplainRunsValuationAndReportsExerci
     ASSERT_STREQ(events[0]["date"].GetString(), "2026-09-15");
     ASSERT_EQ(events[0]["basis_degree"].GetInt(), 3);
     ASSERT_TRUE(events[0]["regressor_index"].IsNull());
-    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 1024);
+    //  in-the-money condition-true paths enter the regression: 507 of 1024 on this ATM put
+    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 507);
     ASSERT_EQ(events[0]["num_coefficients"].GetInt(), 4);
     ASSERT_EQ(events[0]["coefficients"].Size(), 4u);
     ASSERT_FALSE(events[0]["degenerate"].GetBool());

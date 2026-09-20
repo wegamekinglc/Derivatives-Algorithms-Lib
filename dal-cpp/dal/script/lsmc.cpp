@@ -51,16 +51,18 @@ namespace Dal::Script {
                     ++stats.count_;
                     sumX += x[i];
                 }
-            if (stats.count_ == 0)
-                return stats;
-            stats.mean_ = sumX / static_cast<double>(stats.count_);
-            double sumSq = 0.0;
-            for (size_t i = 0; i < x.size(); ++i)
-                if (included[i]) {
-                    const double dev = x[i] - stats.mean_;
-                    sumSq += dev * dev;
-                }
-            stats.sigma_ = std::sqrt(sumSq / static_cast<double>(stats.count_));
+            if (stats.count_ != 0) {
+                stats.mean_ = sumX / static_cast<double>(stats.count_);
+                double sumSq = 0.0;
+                for (size_t i = 0; i < x.size(); ++i)
+                    if (included[i]) {
+                        const double dev = x[i] - stats.mean_;
+                        sumSq += dev * dev;
+                    }
+                stats.sigma_ = std::sqrt(sumSq / static_cast<double>(stats.count_));
+            }
+            //  the floor engages even on an empty regression set, so a degenerate day
+            //  never carries sigma_ = 0 into RegressionPredict's z-normalization
             stats.sigmaFloor_ = SIGMA_FLOOR_SCALE * std::max(1.0, std::abs(stats.mean_));
             return stats;
         }
@@ -329,7 +331,8 @@ namespace Dal::Script {
         //  N5: the backward discounting ratios anchor on one probe path's numeraires;
         //  Black-Scholes and Dupire, the only models the factory constructs, carry
         //  deterministic rates, so the numeraire is path-independent and any path
-        //  pins the same ratios
+        //  pins the same ratios. The entry point debug-asserts that model set, and the
+        //  probe goes through the same validation as every worker path
         Vector_<> SampleGridNumeraires(const LsmcContext_& ctx) {
             const auto& simulation = ctx.prepared_.Simulation();
             const auto& events = ctx.Product().Events();
@@ -340,6 +343,7 @@ namespace Dal::Script {
             probe->SkipTo(0);
             probe->FillNormal(&gauss);
             ctx.model_->GeneratePath(gauss, &path);
+            ValidateSimulationPath(path);
             Vector_<> eventNumeraire(events.size(), 1.0);
             for (size_t e = 0; e < events.size(); ++e)
                 eventNumeraire[e] = path[ctx.Plan().EventToSample()[e]].numeraire_;
@@ -352,13 +356,14 @@ namespace Dal::Script {
                 (*w)[j] = (paysSlot == NO_SLOT ? 0.0 : pays[paysSlot][j]) + (hasNext ? dNext * (*w)[j] : 0.0);
         }
 
-        void FillIncluded(const Vector_<Vector_<char>>& condByDay, size_t day, Vector_<char>* included) {
+        //  Longstaff-Schwartz: the regression set is the in-the-money condition-true
+        //  paths (h > 0); deep-OTM paths carry no exercise information, and a
+        //  continuation estimate that undershoots below zero must not "exercise" a
+        //  worthless option on them
+        void FillIncluded(const Vector_<Vector_<char>>& condByDay, const Vector_<>& h, size_t day, Vector_<char>* included) {
             const auto& cond = condByDay.empty() ? Vector_<char>() : condByDay[day];
-            if (!cond.empty())
-                for (size_t j = 0; j < included->size(); ++j)
-                    (*included)[j] = cond[j];
-            else
-                std::fill(included->begin(), included->end(), 1);
+            for (size_t j = 0; j < included->size(); ++j)
+                (*included)[j] = (cond.empty() || cond[j]) && h[j] > 0.0 ? 1 : 0;
         }
 
         //  S3/S4: exercise on strictly-better continuation estimates replaces the future
@@ -386,7 +391,7 @@ namespace Dal::Script {
                 const size_t day = scan.eventToExercise_[ei];
                 if (day == NO_SLOT)
                     continue;
-                FillIncluded(storage.condByDay_, day, &included);
+                FillIncluded(storage.condByDay_, storage.hByDay_[day], day, &included);
                 regressions[day] = SolveExerciseRegression(storage.xByDay_[day], w, included, degree);
                 ApplyExerciseDecisions(storage.hByDay_[day], storage.xByDay_[day], included, regressions[day], &w);
             }
@@ -404,7 +409,10 @@ namespace Dal::Script {
             const auto& storage = ctx.storage_;
             for (size_t k = 0; k < scan.days_.size(); ++k) {
                 const bool condTrue = storage.condByDay_.empty() || storage.condByDay_[k].empty() || storage.condByDay_[k][pathSlot] != 0;
-                if (condTrue && storage.hByDay_[k][pathSlot] > RegressionPredict(regressions[k], storage.xByDay_[k][pathSlot])) {
+                //  S3/S4 + Longstaff-Schwartz: a positive exercise value that strictly
+                //  beats the continuation estimate; h == 0 paths never exercise
+                if (condTrue && storage.hByDay_[k][pathSlot] > 0.0 &&
+                    storage.hByDay_[k][pathSlot] > RegressionPredict(regressions[k], storage.xByDay_[k][pathSlot])) {
                     //  S4: exercise replaces the same-day and later payments; earlier ones survive
                     const double payoff =
                         storage.preExercise_[k][pathSlot] + storage.hByDay_[k][pathSlot] / state.path_[scan.days_[k].sampleId_].numeraire_;
@@ -493,8 +501,10 @@ namespace Dal::Script {
         }
 
         //  S9 recursive blend, live on the worker's tape: walks the recorded per-path rows
-        //  backward, d_k = CSpr(h_k - C_k(z_k), eps) * condition degree, blending each
-        //  fuzzy decision into the continuation; the explicit last step discounts to the
+        //  backward, d_k = CSpr(h_k - C_k(z_k), eps) * CSpr(h_k, 0, eps) * condition degree
+        //  — the fuzzy-AND of h_k > C_k with the h_k > 0 exercise gate (the one-sided ramp
+        //  puts degree 0 on the h == 0 atom, matching the hard mode) — blending each fuzzy
+        //  decision into the continuation; the explicit last step discounts to the
         //  evaluation date through the first event's numeraire (N5)
         template <class T_>
         T_ FuzzyPathValue(const LsmcPlan_& scan,
@@ -517,7 +527,7 @@ namespace Dal::Script {
                     //  value type, not an expression proxy
                     const T_ continuation = RegressionPredict(regressions[day], path[eventToSample[e]].spot_);
                     const T_ gap = h[day] - continuation;
-                    const T_ degree = CSpr(gap, scan.days_[day].eps_) * cond[day];
+                    const T_ degree = CSpr(gap, scan.days_[day].eps_) * CSpr(h[day], 0.0, scan.days_[day].eps_) * cond[day];
                     value = degree * h[day] + (1.0 - degree) * value;
                 }
             }
@@ -708,6 +718,12 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
+        //  N5: the probe-path discount ratios are path-independent only for
+        //  deterministic-rate models; the model base class exposes no rate-kind
+        //  query, so the factory's two models are pinned here unconditionally --
+        //  a stochastic-rate model would otherwise be silently mis-discounted
+        REQUIRE2(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
+                 "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
 
         const auto scan = ScanEvents(product.Events(), prepared.Plan(), simulation.smooth_);
         auto storage = MakeStorage(scan, nPaths);
