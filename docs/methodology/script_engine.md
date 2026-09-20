@@ -648,9 +648,10 @@ paths, and only Sobol's `SkipTo` reconstructs them exactly — see
 [Random and path generation](random.md#path-seeking).
 
 Peak memory is roughly `nPaths × nPaysEvents × 8B` for the stored payments
-plus `nPaths × nExerciseDates × (2–3) × 8B` for the exercise triples (three
-values per date when the exercise carries a condition). Budget examples with
-52 payment events and 12 conditional exercise dates:
+plus `nPaths × nExerciseDates × 3 × 8B` for the per-date rows (regressor,
+exercise value, and pre-exercise payoff snapshot, allocated on every exercise
+date), one byte per path on conditional dates, and an `nPaths × 8B` backward
+working vector. Budget examples with 52 payment events and 12 exercise dates:
 
 | Paths | Payments | Triples | Peak   |
 |-------|----------|---------|--------|
