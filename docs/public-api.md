@@ -169,8 +169,8 @@ run, since the LSMC driver is the only source of exercise statistics. It
 supports the double tree-walk and compiled modes and rejects
 `enable_aad` settings. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
-degree, regressor index, condition-true path count, coefficients, degenerate
-flag with PascalCase reason, and exercise rate.
+degree, regressor index, in-the-money condition-true path count, coefficients,
+degenerate flag with PascalCase reason, and exercise rate.
 
 Product archives write v2 with optional `default_index` and retain the v1
 reader. They preserve contract text/identity and exclude runtime market data.

@@ -201,19 +201,12 @@ namespace Dal::Script {
             return storage;
         }
 
-        //  Mirrors MCDoubleSimulation: an exact BlackScholes model generates into a
-        //  reusable checked path — generation and validation fused, deterministic
-        //  numeraires pre-filled once — instead of a generic GeneratePath plus a
-        //  separate full-path ValidateSimulationPath scan
-        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
-            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
-        };
-
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
-            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
+            //  Shared with MCDoubleSimulation via Detail::LocalCheckedPaths_ (simulation.hpp)
+            std::unique_ptr<Detail::LocalCheckedPaths_> bsPaths_;
             LsmcEvaluator_<double> evaluator_;
             //  Compiled mode (T3 parity): per-thread recording state feeding LsmcSinks_
             std::optional<EvalState_<double>> compiledState_;
@@ -249,7 +242,7 @@ namespace Dal::Script {
             : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, ctx.model_->SimDim(), ctx.prepared_.Simulation().useBb_)),
               gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues()) {
             if (typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>))
-                bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(*ctx.model_));
+                bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(*ctx.model_));
             else {
                 AllocatePath(ctx.Plan().DefLine(), path_);
                 InitializePath(path_);
@@ -747,9 +740,10 @@ namespace Dal::Script {
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
         //  N5: the probe-path discount ratios are path-independent only for
         //  deterministic-rate models; the model base class exposes no rate-kind
-        //  query, so the factory's two models are pinned here in debug builds
-        ASSERT(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
-               "LSMC requires a deterministic-rate model (BlackScholes or Dupire)");
+        //  query, so the factory's two models are pinned here unconditionally --
+        //  a stochastic-rate model would otherwise be silently mis-discounted
+        REQUIRE2(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
+                 "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         auto storage = MakeStorage(scan, nPaths, product.HasPays());
@@ -788,7 +782,9 @@ namespace Dal::Script {
         doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
-        auto storage = MakeStorage(scan, nPaths, product.HasPays());
+        //  The fuzzy pass never runs the storage-driven Phase C, so the terminal
+        //  payoff row would be allocated and written for no reader here
+        auto storage = MakeStorage(scan, nPaths, false);
         //  N9 batch layout depends on nPaths only
         const BatchPlan_ batchPlan(nPaths, 1);
         ThreadPool_* pool = ThreadPool_::GetInstance();

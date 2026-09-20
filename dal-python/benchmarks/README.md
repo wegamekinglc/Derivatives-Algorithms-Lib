@@ -281,8 +281,10 @@ uv pip compile dal-python/benchmarks/requirements-comparisons.in \
   --output-file dal-python/benchmarks/requirements-comparisons.txt
 ```
 
-Commit the regenerated file together with the `.in` change; CI installs the
-lockfile verbatim, so a stale pin fails the `Benchmarks` job.
+Commit the regenerated file together with the `.in` change. CI installs the
+lockfile verbatim and does not compare it against the `.in` file, so keeping
+the two in sync is the contributor's responsibility — a stale lockfile passes
+CI unchanged until a yanked or re-hashed package breaks `--require-hashes`.
 
 Run from the repository root, with the same interpreter used to build DAL:
 
