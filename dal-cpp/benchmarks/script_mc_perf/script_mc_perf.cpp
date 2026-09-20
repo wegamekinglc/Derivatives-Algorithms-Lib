@@ -158,7 +158,8 @@ int main() {
         RunAadCase(scriptCase, true, kRepeats);
     }
 
-    //  Early-exercise products: LSMC driver, double engine (AAD arrives with T4)
+    //  Early-exercise products: LSMC driver, double engine — pins the cost of the
+    //  duplicated path generation/evaluation plus the regressions
     RunDoubleExerciseCase(false, 100000, kRepeats);
     RunDoubleExerciseCase(true, 100000, kRepeats);
 
