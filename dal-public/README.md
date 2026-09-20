@@ -60,7 +60,8 @@ and executable [settings example](examples/script_settings.cpp).
 or global-date access. `ExplainScriptValuation` provides valuation JSON /1
 using default price preparation with history access but no workers; every
 call prepares independently. `ExplainScriptSimulation` provides simulation
-JSON /1 from a full double valuation with per-exercise-event statistics.
+JSON /1 from a full double valuation on exercise products (plain products
+skip the run) with per-exercise-event statistics.
 Product archive v2 preserves the original
 contract/default index and retains a v1 reader. Legacy debug JSON /1 rejects
 FIX/nonempty defaults with a Describe /2 migration hint. See

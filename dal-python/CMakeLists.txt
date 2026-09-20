@@ -163,9 +163,15 @@ else()
             endif()
             set(_dal_candidates_hint "")
             if(_dal_stage_configs)
-                string(REPLACE ";" "\n    " _dal_candidates_text "${_dal_stage_configs}")
+                set(_dal_stage_prefixes "")
+                foreach(_dal_stage_config IN LISTS _dal_stage_configs)
+                    #  <prefix>/lib/cmake/dal-public/dal-publicConfig.cmake -> <prefix>
+                    get_filename_component(_dal_stage_prefix "${_dal_stage_config}/../../../.." ABSOLUTE)
+                    list(APPEND _dal_stage_prefixes "${_dal_stage_prefix}")
+                endforeach()
+                string(REPLACE ";" "\n    " _dal_candidates_text "${_dal_stage_prefixes}")
                 set(_dal_candidates_hint
-                    "\nDiscovered staged dal-public package configs (point DAL_INSTALL_PREFIX at one of their prefixes):\n    ${_dal_candidates_text}\n")
+                    "\nDiscovered staged install prefixes (pass one as DAL_INSTALL_PREFIX):\n    ${_dal_candidates_text}\n")
             endif()
             message(FATAL_ERROR
                 "dal-python: could not find the installed dal-public package "

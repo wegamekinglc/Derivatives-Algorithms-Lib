@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/script/visitor/evalstate.hpp>
 
 namespace Dal::Script {
     //  Recording sinks installed by the LSMC driver (dal/script/lsmc.cpp) before

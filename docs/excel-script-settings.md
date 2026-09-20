@@ -202,13 +202,14 @@ date/snapshot and product/model inputs when comparing them.
 
 `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
 [simulation])` returns `dal.script-simulation/1`: unlike the valuation Explain
-it explicitly runs the full double valuation with `n_paths` paths — path
-generation plus workers plus the exercise regressions — and reports the
+it explicitly runs the full double valuation with `n_paths` paths on exercise
+products — path generation plus workers plus the exercise regressions — and
+reports the
 simulation echo (including `lsmc_basis_degree`), the explicit `n_paths`, and
 one `exercise_events` entry per exercise date with the regression degree,
 regressor index, in-the-money condition-true path count, frozen coefficients,
-degenerate flag and reason, and the exercise rate. Products without `EXERCISE` return an
-empty `exercise_events` array. `enable_aad` settings are rejected with
+degenerate flag and reason, and the exercise rate. Products without `EXERCISE`
+skip the simulation run and return an empty `exercise_events` array. `enable_aad` settings are rejected with
 `UnsupportedExecutionMode`; `compiled` selects the engine for the run.
 
 Both functions return one column of text, with no header or row-number column.

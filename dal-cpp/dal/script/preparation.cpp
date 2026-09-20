@@ -109,7 +109,9 @@ namespace Dal::Script {
                     const String_ context = ": SPOT(); product.defaultIndex_=empty; expected a default index; " + use.source_.Describe() +
                                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" +
                                             String_(std::to_string(use.nodeId_));
-                    REQUIRE2(use.source_.eventDate_, "InvalidFixingDate: observation source has no event date" + context, ScriptError_);
+                    //  explicit branch, not a macro argument: keeps the guard unconditional
+                    if (!use.source_.eventDate_)
+                        THROW2("InvalidFixingDate: observation source has no event date" + context, ScriptError_);
                     REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
                     REQUIRE2(requests_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }

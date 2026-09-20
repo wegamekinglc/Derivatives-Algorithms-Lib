@@ -820,7 +820,8 @@ N×2 `PV`/`d_` key/value table, with already-normalized risks.
 access. `SCRIPTVALUATION.EXPLAIN(product, modelData, [valuation])` performs
 fresh default price preparation without paths, workers, or a subsequent Value
 cache. `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
-[simulation])` runs the full double valuation and returns the
+[simulation])` runs the full double valuation on exercise products (plain
+products skip the run) and returns the
 `dal.script-simulation/1` exercise diagnostics. Their `dal.script-product/2`,
 `dal.script-valuation/1`, and `dal.script-simulation/1` JSON is returned
 as one column of text chunks: concatenate in order without separators before
