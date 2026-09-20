@@ -51,6 +51,10 @@ namespace Dal {
             return settings.fixings_ ? "ExplicitSnapshot" : "GlobalSnapshot";
         }
         Handle_<Index_> ParseSettingIndex(const String_& name, const String_& field);
+        //  Binding-facing parser: deliberately case-sensitive exact Model / RequireHistorical
+        //  (unlike the Machinist String_ constructor, which is case-insensitive). Returns
+        //  false on any other spelling so each layer keeps its own error context.
+        bool TryParseTodayFixingPolicy(const String_& name, TodayFixingPolicy_* policy);
         ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings,
                                                           const Handle_<MarketFixingSnapshot_>& snapshot = {});
         void ValidateRNG(const String_& method);

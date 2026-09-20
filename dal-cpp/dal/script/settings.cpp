@@ -27,6 +27,20 @@ namespace Dal {
             }
         }
 
+        bool TryParseTodayFixingPolicy(const String_& name, TodayFixingPolicy_* policy) {
+            //  String_ comparison is case-insensitive (ci_traits); compare through std::string
+            const std::string exact(name.data(), name.size());
+            if (exact == "Model") {
+                *policy = TodayFixingPolicy_::Value_::MODEL;
+                return true;
+            }
+            if (exact == "RequireHistorical") {
+                *policy = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+                return true;
+            }
+            return false;
+        }
+
         ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings, const Handle_<MarketFixingSnapshot_>& snapshot) {
             auto result = settings;
             REQUIRE2(!snapshot || !result.fixings_ || snapshot == result.fixings_,

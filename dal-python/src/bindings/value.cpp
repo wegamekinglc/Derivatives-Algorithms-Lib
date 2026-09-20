@@ -63,11 +63,11 @@ namespace {
         }
         if (!py::isinstance<py::str>(value) && !py::isinstance<String_>(value))
             throw py::type_error(context);
-        const auto name =
-            Text(SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
-                                    "InvalidSetting: InvalidTodayFixingPolicy"));
-        REQUIRE2(name == "Model" || name == "RequireHistorical", String_(context), ScriptError_);
-        return TodayFixingPolicy_(name == "Model" ? Policy_::MODEL : Policy_::REQUIREHISTORICAL);
+        const auto name = SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
+                                             "InvalidSetting: InvalidTodayFixingPolicy");
+        TodayFixingPolicy_ policy;
+        REQUIRE2(Script::TryParseTodayFixingPolicy(name, &policy), String_(context), ScriptError_);
+        return policy;
     }
 
     Handle_<MarketFixingSnapshot_> Fixings(const py::handle& value) {
