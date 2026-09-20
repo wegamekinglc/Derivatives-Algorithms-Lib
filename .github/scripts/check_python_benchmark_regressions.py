@@ -260,6 +260,19 @@ def build_configuration(build, source):
     }
 
 
+# Only keys present in both caches are compared: a PR that adds or removes a
+# CMake option leaves the key absent on the other side, where it is treated as
+# carrying that side's default - failing closed on the full dicts would reject
+# any PR introducing an option. Genuinely changed values of common keys still
+# fail the pairing.
+def configuration_drift(base, head):
+    return {
+        key: (base[key], head[key])
+        for key in base.keys() & head.keys()
+        if base[key] != head[key]
+    }
+
+
 def source_sha(source):
     return subprocess.run(
         ["git", "-C", str(source), "rev-parse", "HEAD"],
@@ -335,10 +348,8 @@ def run_gate(args, result):
     configurations = {
         side: build_configuration(builds[side], sources[side]) for side in builds
     }
-    require(
-        configurations["base"] == configurations["head"],
-        "base/head build configurations differ",
-    )
+    drift = configuration_drift(configurations["base"], configurations["head"])
+    require(not drift, f"base/head build configurations differ: {drift}")
     result["builds"] = {
         side: {
             "path": str(builds[side]),

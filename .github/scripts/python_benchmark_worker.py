@@ -6,9 +6,23 @@ from importlib.machinery import EXTENSION_SUFFIXES
 import json
 from pathlib import Path
 import sys
+import time
+
+
+def record_elapsed(output, started):
+    # Per-worker wall time makes timeout headroom erosion visible in the
+    # archived raw reports. Optional top-level field: the gate's validate_report
+    # ignores unknown keys, so older checkers keep accepting the report.
+    path = output / "results.json"
+    report = json.loads(path.read_text(encoding="utf-8"))
+    report["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    path.write_text(
+        json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8"
+    )
 
 
 def main():
+    started = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", type=Path, required=True)
     parser.add_argument("--package", type=Path, required=True)
@@ -38,9 +52,11 @@ def main():
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
         )
         return 0
-    return run_benchmarks(
+    exit_code = run_benchmarks(
         ["--samples", "1", "--warmups", "2", "--output-dir", str(args.output)]
     )
+    record_elapsed(args.output, started)
+    return exit_code
 
 
 if __name__ == "__main__":
