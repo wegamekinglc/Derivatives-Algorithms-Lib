@@ -66,7 +66,9 @@ namespace {
         const auto name = SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
                                              "InvalidSetting: InvalidTodayFixingPolicy");
         TodayFixingPolicy_ policy;
-        REQUIRE2(Script::TryParseTodayFixingPolicy(name, &policy), String_(context), ScriptError_);
+        //  explicit branch, not a macro argument: keeps the parse call unconditional
+        if (!Script::TryParseTodayFixingPolicy(name, &policy))
+            THROW2(String_(context), ScriptError_);
         return policy;
     }
 
