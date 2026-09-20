@@ -70,10 +70,11 @@ namespace Dal::Script {
         }
     };
 
-    //  Double-mode tree-walk LSMC (S3/S4 hard decisions): Phase A stores payments and
-    //  exercise triples over the fixed thread-independent batch layout, Phase B runs
-    //  the backward induction with the continuation regressions, Phase C replays the
-    //  frozen strategy on regenerated paths and aggregates the path payoffs.
+    //  Double-mode tree-walk LSMC (S3/S4 hard decisions): Phase A stores payments,
+    //  exercise triples and the terminal payoff per path over the fixed
+    //  thread-independent batch layout, Phase B runs the backward induction with the
+    //  continuation regressions, Phase C values the frozen strategy from the recorded
+    //  rows and aggregates the path payoffs.
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics = nullptr);
 
     //  Fuzzy (AAD) LSMC (S9/N6): Phases A/B run exactly as the double driver (the
