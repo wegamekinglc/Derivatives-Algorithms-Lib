@@ -483,3 +483,35 @@ TEST(ScriptExcelContractTest, TestLegacyAndTypedAadTablesAgree) {
         ASSERT_NEAR(typed.at(entry.first), entry.second, 1e-8);
     }
 }
+
+TEST(ScriptExcelContractTest, TestExerciseValuesAboveEuropeanAndReportsAadRisks) {
+    Excel::ScriptTestInitialize(2);
+    const DateScope_ restore(Date_(2026, 9, 20));
+    const Handle_<ModelData_> model(new BSModelData_("bs", 100., .2, .05, 0.));
+    //  the two-date Bermudan of dal-cpp's test_exercise_lsmc.cpp: a 100-strike put
+    //  exercisable at the 1y mid date and at the 18m maturity; the single-date leg
+    //  (exercise at maturity only) is the matching European put
+    const String_ exercise = "EXERCISE MAX(100.0 - SPOT(), 0.0)";
+    Handle_<ScriptProductData_> european, bermudan;
+    Product_New("european", {Cell_(Date_(2028, 3, 20))}, {exercise}, &european);
+    Product_New("bermudan", {Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))}, {exercise, exercise}, &bermudan);
+    Matrix_<Cell_> europeanCells, bermudanCells;
+    MonteCarlo_ValueWithSettings(european, model, 4096, {}, {}, &europeanCells);
+    MonteCarlo_ValueWithSettings(bermudan, model, 4096, {}, {}, &bermudanCells);
+    const double europeanPv = Result(europeanCells).at("PV");
+    const double bermudanPv = Result(bermudanCells).at("PV");
+    //  the mid-date early-exercise right only adds value; the deterministic sobol
+    //  driver keeps the LSMC regression bias far below the premium on this product
+    ASSERT_LE(europeanPv, bermudanPv);
+    { //  fuzzy-AAD path: the typed table carries PV plus one finite risk per model parameter
+        Handle_<StorableMonteCarloSettings_> aad;
+        MonteCarloSettings_New("aad", Setting("enable_aad", Cell_(true)), &aad);
+        Matrix_<Cell_> aadCells;
+        MonteCarlo_ValueWithSettings(bermudan, model, 4096, {}, aad, &aadCells);
+        const auto risks = Result(aadCells);
+        ASSERT_EQ(risks.size(), 5u);
+        for (const auto* key : {"d_spot", "d_vol", "d_rate", "d_div"})
+            ASSERT_EQ(risks.count(key), 1u) << key;
+        ASSERT_NEAR(risks.at("PV"), bermudanPv, 0.02);
+    }
+}
