@@ -398,12 +398,52 @@ TEST(ScriptExerciseLSMCTest, TestDegenerateConditionPathsBelowMin) {
     ASSERT_EQ(run.pv_, 0.0);
 }
 
+//  Longstaff-Schwartz: only in-the-money paths (h > 0) enter the continuation
+//  regression or the exercise decision; an all-OTM day has an empty regression
+//  set even though the day is unconditional
+TEST(ScriptExerciseLSMCTest, TestDegenerateAllPathsOutOfTheMoney) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)}, 90.0);
+    const auto run = RunLsmc(product, ModelWithVol(0.0), 256);
+    ASSERT_EQ(run.diagnostics_.events_.size(), 2u);
+    for (const auto& event : run.diagnostics_.events_) {
+        ASSERT_TRUE(event.degenerate_);
+        ASSERT_EQ(event.degenerateReason_, "ConditionPathsBelowMin");
+        ASSERT_EQ(event.numCondTruePaths_, 0u);
+        ASSERT_EQ(event.exerciseRate_, 0.0);
+    }
+    ASSERT_EQ(run.pv_, 0.0);
+}
+
+//  Regression undershoot must not "exercise" out-of-the-money paths: the day-1
+//  regression set is the 4084 in-the-money paths and the exercise rate stays below
+//  the ITM fraction. The unfiltered driver exercised 41.4% of all paths at day 1 —
+//  most of them at h == 0 against a negative continuation estimate — and
+//  underpriced this put by more than 1% against the PDE oracle
+TEST(ScriptExerciseLSMCTest, TestOutOfTheMoneyPathsNeverExercise) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Vector_<Date_> exerciseDates{Date_(2027, 9, 20), Date_(2028, 3, 20)};
+    constexpr size_t N_PATHS = 1u << 14;
+    const auto run = RunLsmc(ExerciseOnlyProduct(exerciseDates, 90.0), StandardModel(), N_PATHS);
+    ASSERT_EQ(run.diagnostics_.events_.size(), 2u);
+    ASSERT_EQ(run.diagnostics_.events_[0].numCondTruePaths_, 4084u);
+    ASSERT_EQ(run.diagnostics_.events_[1].numCondTruePaths_, 4412u);
+    ASSERT_GT(run.diagnostics_.events_[0].exerciseRate_, 0.0);
+    ASSERT_LE(run.diagnostics_.events_[0].exerciseRate_,
+              static_cast<double>(run.diagnostics_.events_[0].numCondTruePaths_) / static_cast<double>(N_PATHS));
+    const double pde = BermudanPutPDE(SPOT, VOL, RATE, DIV, 90.0, {YearFracTo(exerciseDates[0]), YearFracTo(exerciseDates[1])}, 2000, 2000);
+    ASSERT_NEAR(run.pv_, pde, 0.005 * SPOT);
+}
+
 TEST(ScriptExerciseLSMCTest, TestDegenerateIllConditioned) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     //  5y at 50% vol puts an extreme right-tail outlier into the regressors; the degree-8
-    //  Gram diagonal ratio crosses the conditioning guard
+    //  Gram diagonal ratio crosses the conditioning guard. The call keeps the outlier
+    //  inside the in-the-money regression set (on a put the right tail is all h == 0 and
+    //  the ITM filter excludes it before the guard can see it)
     const Handle_<ModelData_> wild(new BSModelData_("bs", SPOT, 0.5, RATE, DIV));
-    const auto run = RunLsmc(ExerciseOnlyProduct({Date_(2031, 9, 20)}), wild, 4096, 8);
+    const ScriptProductData_ product("", {Cell_(Date_(2031, 9, 20))}, {"EXERCISE MAX(spot() - 100.0, 0.0)"});
+    const auto run = RunLsmc(product, wild, 4096, 8);
     ASSERT_EQ(run.diagnostics_.events_.size(), 1u);
     ASSERT_TRUE(run.diagnostics_.events_[0].degenerate_);
     ASSERT_EQ(run.diagnostics_.events_[0].degenerateReason_, "IllConditioned");
@@ -570,28 +610,22 @@ TEST(ScriptExerciseLSMCTest, TestAadRiskMatchesCentralDifferences) {
     }
 }
 
-//  S9 reading: the recursive blend degenerates to the hard payoff as smooth shrinks;
-//  band plus endpoint trend (the errors bottom out on the decision-boundary remnant,
-//  so a strict monotone chain would test noise against noise)
+//  S9 reading: with the h > 0 decision gate the recursive blend tracks the hard
+//  payoff to the decision-boundary remnant at every width — a first-order blend
+//  bias would break the error < smooth band, while the remnant itself is
+//  noise-scale, so an endpoint trend would test noise against noise
 TEST(ScriptExerciseLSMCTest, TestFuzzyConvergesToHardMode) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct(WeeklyDates(12));
     constexpr size_t N_PATHS = 1u << 16;
     const double hard = PvOf(MCSimulation<double>(product, StandardModel(), N_PATHS, ScriptValuationSettings_(), MonteCarloSettings_()), N_PATHS);
-    double firstError = std::numeric_limits<double>::max();
-    double lastError = std::numeric_limits<double>::max();
     for (const double smooth : {0.1, 0.01, 0.001}) {
         SCOPED_TRACE(std::to_string(smooth));
         const auto aad = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, ScriptValuationSettings_(), AadSettings(false, smooth));
         const double error = std::abs(PvOf(aad, N_PATHS) - hard);
         ASSERT_LT(error, smooth) << "blend bias must shrink with the transition band";
-        if (smooth == 0.1)
-            firstError = error;
-        if (smooth == 0.001)
-            lastError = error;
+        ASSERT_LT(error, 0.001) << "fuzzy PV tracks the hard PV to the decision remnant at every width";
     }
-    ASSERT_LT(lastError, firstError) << "fuzzy PV must converge toward the hard PV as smooth decreases";
-    ASSERT_LT(lastError, 0.001);
 }
 
 //  A PAYS inside a fuzzy-if branch must record the degree-weighted payment, never the
