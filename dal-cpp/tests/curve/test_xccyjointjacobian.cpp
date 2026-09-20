@@ -110,8 +110,10 @@ namespace {
         Vector_<Date_> knots_;
     };
 
-    Fixture_ MakeFixture(const Vector_<XccyNotionalMode_>& modes) {
+    Fixture_ MakeFixture(const Vector_<XccyNotionalMode_>& modes, const Vector_<Date_>& basisMaturities = {}) {
         REQUIRE(modes.size() == 2, "Joint XCCY Jacobian fixture requires two notional modes");
+        REQUIRE(basisMaturities.empty() || basisMaturities.size() == modes.size(),
+                "Joint XCCY Jacobian fixture requires one basis maturity per notional mode");
         Fixture_ result;
         const Date_ today(2025, 1, 16);
         const Vector_<Date_> maturities = {Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
@@ -136,11 +138,12 @@ namespace {
         result.spec_.tolerance_ = 1.0e-10;
         result.spec_.fitTolerance_ = 1.0e-8;
 
-        for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
+        const Vector_<Date_> basisInstrumentMaturities = basisMaturities.empty() ? maturities : basisMaturities;
+        for (int i = 0; i < static_cast<int>(basisInstrumentMaturities.size()); ++i) {
             const CrossCurrencySwapConfig_ config = XccyConfig(pair, modes[i]);
-            const CrossCurrencySwap_ prototype(today, today, maturities[i], 0.0, config);
-            result.spec_.basis_.instruments_.push_back(
-                Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturities[i], (*prototype.Precompute())(quoteMarket), config)));
+            const CrossCurrencySwap_ prototype(today, today, basisInstrumentMaturities[i], 0.0, config);
+            result.spec_.basis_.instruments_.push_back(Handle_<CrossCurrencySwap_>(
+                new CrossCurrencySwap_(today, today, basisInstrumentMaturities[i], (*prototype.Precompute())(quoteMarket), config)));
         }
         return result;
     }
@@ -375,6 +378,28 @@ TEST(XccyJointJacobianTest, TestExactApproximateAnalyticAndBumpedMatrixContracts
         ASSERT_TRUE(diagnostics.usedApproximateFit_);
     for (const auto& diagnostics : approximate.foreignDiagnostics_)
         ASSERT_TRUE(diagnostics.usedApproximateFit_);
+}
+
+// Fail-closed regression for the joint XCCY mapping guard: basis swaps maturing at the last
+// knot leave the forward to its right unconstrained, so the stacked residual Jacobian is
+// rank-deficient and the solver's finite-but-wrong effective inverse must be withheld, while
+// the well-posed fixture still publishes it.
+TEST(XccyJointJacobianTest, TestRankDeficientBasisQuotesWithholdTheEffectiveInverse) {
+    const JointXccyCalibrationOptions_ options; // computeEffJacobianInverse_ defaults to true
+    {
+        const Date_ today(2025, 1, 16); // must match the fixture's valuation date
+        const Fixture_ fixture = MakeFixture({XccyNotionalMode_::Value_::FIXED, XccyNotionalMode_::Value_::FIXED},
+                                             {Date::AddMonths(today, 6), Date::AddMonths(today, 18)});
+        const JointXccyCalibrationResult_ result = CalibrateJointXccyMarket(fixture.spec_, options);
+        ASSERT_TRUE(result.converged_);
+        ASSERT_TRUE(result.effJacobianInverse_.Empty());
+    }
+    {
+        const Fixture_ fixture = MakeFixture();
+        const JointXccyCalibrationResult_ result = CalibrateJointXccyMarket(fixture.spec_, options);
+        ASSERT_TRUE(result.converged_);
+        ASSERT_FALSE(result.effJacobianInverse_.Empty());
+    }
 }
 
 TEST(XccyJointJacobianTest, TestAnalyticIneligibleFailsWithReasonWhileBumpedRemainsAvailable) {
