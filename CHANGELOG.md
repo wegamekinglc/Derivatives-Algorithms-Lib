@@ -81,6 +81,17 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   exported constants; error tokens and messages are unchanged on every layer.
   Both diagnostic schemas now emit the same six-field simulation echo:
   `dal.script-valuation/1` gains `lsmc_basis_degree`.
+- **Python test coverage for early exercise and examples** — the bindings now
+  value an `EXERCISE` product in-tree: a two-date Bermudan put pins the
+  European/Bermudan ordering against the Black oracle and checks the fuzzy-AAD
+  `d_spot` against a central finite difference in both engines, the simulation
+  diagnostic's `num_cond_true_paths` is pinned to the exact Sobol counts
+  (1926/1891 on the ATM put), and the numbered examples 010-013 run as
+  subprocess smoke tests (`013` accepts `DAL_EXAMPLE_NPATHS` to shrink its
+  path count, default unchanged). The single-curve benchmark fixture is
+  repaired to the canonical well-posed shape (knot anchored at today, one more
+  knot than instruments) so its provenance clears the calibration driver's
+  effective-inverse guard.
 
 ## 2026-09-19
 

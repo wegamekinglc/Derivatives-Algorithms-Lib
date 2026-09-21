@@ -13,10 +13,6 @@ P = dal.Date_(2026, 9, 22)
 INDEX = "EQ[DAL196_TEST]"
 
 
-def snapshot(value=80.0, date=H, hour=0):
-    return dal.MarketFixingSnapshot_New({INDEX: {dal.DateTime_(date, hour): value}})
-
-
 def model(adapter="bs", rate=0.0, div=0.0):
     if adapter == "bs":
         return dal.BSModelData_New(100.0, 0.0, rate, div)
@@ -27,12 +23,6 @@ def model(adapter="bs", rate=0.0, div=0.0):
         [80.0, 120.0],
         [0.0, 1.0],
         dal.DoubleMatrix_([[0.0, 0.0], [0.0, 0.0]]),
-    )
-
-
-def historical_product():
-    return dal.Product_New(
-        ["SCALE", H, P], ["2", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"]
     )
 
 
@@ -47,11 +37,13 @@ def assert_pv(result, expected):
 @pytest.mark.parametrize("use_bb", [False, True])
 @pytest.mark.parametrize("compiled", [False, True])
 @pytest.mark.parametrize("aad", [False, True])
-def test_today_policy_independent_oracles(adapter, method, use_bb, compiled, aad):
+def test_today_policy_independent_oracles(
+    adapter, method, use_bb, compiled, aad, historical_fix
+):
     dal.EvaluationDate_Set(dal.Date_(2026, 9, 23))
     product = dal.Product_New([D], ["pay PAYS FIX(EQ[DAL196_TEST])"])
     valuation = dal.ScriptValuationSettings_(
-        evaluation_date=D, fixings=snapshot(date=D)
+        evaluation_date=D, fixings=historical_fix.snapshot(date=D)
     )
     execution = dal.MonteCarloSettings_(
         method=method, use_bb=use_bb, compiled=compiled, enable_aad=aad
@@ -83,14 +75,16 @@ def test_today_policy_independent_oracles(adapter, method, use_bb, compiled, aad
 
 @pytest.mark.parametrize("compiled", [False, True])
 @pytest.mark.parametrize("paths", [1, 257, 8193])
-def test_historical_aad_batches_and_repricing(compiled, paths):
-    product = historical_product()
-    valuation = dal.ScriptValuationSettings_(evaluation_date=D, fixings=snapshot())
+def test_historical_aad_batches_and_repricing(compiled, paths, historical_fix):
+    product = historical_fix.product()
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=D, fixings=historical_fix.snapshot()
+    )
     simulation = dal.MonteCarloSettings_(compiled=compiled, enable_aad=True)
     data = model(rate=0.05)
     time = 10.0 / 365.0
     for fixing in [80.0, 90.0, 80.0]:
-        valuation.fixings = snapshot(fixing)
+        valuation.fixings = historical_fix.snapshot(fixing)
         result = dal.MonteCarlo_ValueWithSettings(
             product, data, paths, valuation=valuation, simulation=simulation
         )
@@ -105,10 +99,13 @@ def test_historical_aad_batches_and_repricing(compiled, paths):
 @pytest.mark.parametrize("adapter", ["bs", "dupire"])
 @pytest.mark.parametrize("compiled", [False, True])
 @pytest.mark.parametrize("aad", [False, True])
-def test_future_observation_and_payment_have_distinct_dates(adapter, compiled, aad):
+def test_future_observation_and_payment_have_distinct_dates(
+    adapter, compiled, aad, historical_fix
+):
     product = dal.Product_New([P], ["pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"])
     valuation = dal.ScriptValuationSettings_(
-        evaluation_date=D, fixings=snapshot(999.0, date=dal.Date_(2026, 9, 15))
+        evaluation_date=D,
+        fixings=historical_fix.snapshot(999.0, date=dal.Date_(2026, 9, 15)),
     )
     simulation = dal.MonteCarloSettings_(compiled=compiled, enable_aad=aad)
     data = model(adapter, rate=0.05, div=0.02)
@@ -136,8 +133,10 @@ def test_future_observation_and_payment_have_distinct_dates(adapter, compiled, a
 
 
 @pytest.mark.parametrize("compiled", [False, True])
-def test_exact_fuzzy_and_hard_history_have_separate_oracles(compiled):
-    valuation = dal.ScriptValuationSettings_(evaluation_date=D, fixings=snapshot())
+def test_exact_fuzzy_and_hard_history_have_separate_oracles(compiled, historical_fix):
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=D, fixings=historical_fix.snapshot()
+    )
     data = model()
 
     def price(strike, aad, past=False):
@@ -209,12 +208,12 @@ def test_multiple_future_indices_fail_with_multiple_model_indices():
         assert INDEX in str(error.value)
 
 
-def test_missing_history_and_midnight_are_not_silently_replaced():
-    product = historical_product()
+def test_missing_history_and_midnight_are_not_silently_replaced(historical_fix):
+    product = historical_fix.product()
     for fixings, source in [
         (None, "GlobalSnapshot"),
         (dal.MarketFixingSnapshot_New({}), "ExplicitSnapshot"),
-        (snapshot(hour=11), "ExplicitSnapshot"),
+        (historical_fix.snapshot(hour=11), "ExplicitSnapshot"),
     ]:
         valuation = dal.ScriptValuationSettings_(evaluation_date=D, fixings=fixings)
         with pytest.raises(RuntimeError) as error:
@@ -296,7 +295,7 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
         dal.Product_DebugJson(bound)
 
 
-def test_legacy_calls_and_default_deduplication():
+def test_legacy_calls_and_default_deduplication(historical_fix):
     dal.EvaluationDate_Set(D)
     data = model()
     legacy = dal.Product_New([D], ["pay PAYS SPOT()"])
@@ -328,7 +327,9 @@ def test_legacy_calls_and_default_deduplication():
     )
     assert json.loads(dal.Product_DebugJson(legacy))["schema"] == "dal.script-product/1"
     dates, events = [H, P], ["x = SPOT() + FIX(eq[dal196_test])", "pay PAYS x"]
-    valuation = dal.ScriptValuationSettings_(evaluation_date=D, fixings=snapshot())
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=D, fixings=historical_fix.snapshot()
+    )
     bound = dal.Product_New(
         dates, events, settings=dal.ScriptProductSettings_(default_index=INDEX)
     )
@@ -380,10 +381,12 @@ def test_expired_empty_and_error_recovery():
     )
 
 
-def test_settings_are_copied_before_gil_release():
-    product = historical_product()
+def test_settings_are_copied_before_gil_release(historical_fix):
+    product = historical_fix.product()
     data = model()
-    valuation = dal.ScriptValuationSettings_(evaluation_date=D, fixings=snapshot())
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=D, fixings=historical_fix.snapshot()
+    )
     simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=True)
     ready, start, progressed = threading.Event(), threading.Event(), threading.Event()
 

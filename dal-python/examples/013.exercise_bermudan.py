@@ -1,9 +1,14 @@
+import os
+
 import dal
 
 EVAL = dal.Date_(2026, 9, 20)
 MID = dal.Date_(2027, 9, 20)
 MATURITY = dal.Date_(2028, 3, 20)
 SPOT, VOL, RATE, DIV, STRIKE = 100.0, 0.20, 0.05, 0.0, 100.0
+
+# Test harnesses shrink the run with DAL_EXAMPLE_NPATHS; default keeps 2^18.
+NPATHS = int(os.environ.get("DAL_EXAMPLE_NPATHS", str(2**18)))
 
 dal.EvaluationDate_Set(EVAL)
 model = dal.BSModelData_New(SPOT, VOL, RATE, DIV)
@@ -19,7 +24,7 @@ simulation = dal.MonteCarloSettings_(lsmc_basis_degree=3)
 
 
 def value(product):
-    return dal.MonteCarlo_ValueWithSettings(product, model, 2**18, simulation=simulation)["PV"]
+    return dal.MonteCarlo_ValueWithSettings(product, model, NPATHS, simulation=simulation)["PV"]
 
 
 european_pv = value(european)
@@ -49,7 +54,7 @@ if not all(0.0 < rate <= 1.0 for rate in rates):
     raise RuntimeError(f"exercise rates out of range: {rates!r}")
 
 print(f"European put (exercise at maturity only): {european_pv:.4f}")
-print(f"Bermudan put, 2 exercise dates, 2^18 paths: {bermudan_pv:.4f}")
+print(f"Bermudan put, 2 exercise dates, {NPATHS} paths: {bermudan_pv:.4f}")
 print(f"American put, weekly exercise (78 dates): {american_pv:.4f}")
 print(f"Early-exercise premium (weekly - European): {american_pv - european_pv:.4f}")
 print(f"Exercise rates per date (4096 paths): {[round(rate, 4) for rate in rates]}")
