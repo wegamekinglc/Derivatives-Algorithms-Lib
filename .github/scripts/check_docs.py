@@ -627,7 +627,7 @@ def check_python_release_action(errors: list[str]) -> None:
         ".github/scripts/check_dal_python_syntax.py",
         "dal-python/scripts/smoke_installed_wheel.py",
         "uv run --isolated --no-project --python 3.9",
-        "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d",
+        "astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4",
         "pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae",
         'test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"',
         'git cat-file -t "${GITHUB_REF}"',
