@@ -44,7 +44,7 @@ TEST(JointCalibrationTest, TestLogDiscountScalarGuessUsesDatedRawUnits) {
     const CurveDefinition_ definition = MakeCurveDefinition("joint_log", "USD", declaration.parameterization_, declaration.logDfScheme_,
                                                             declaration.knotDates_, today, DayBasis_("ACT_365F"));
 
-    const Vector_<> scalar = JointCalibrationInternal::BuildGuessSlice(declaration, definition, 0.04, "joint_log");
+    const Vector_<> scalar = Dal::BuildGuessSlice(declaration, definition, 0.04, "joint_log");
 
     ASSERT_EQ(scalar.size(), static_cast<size_t>(2));
     ASSERT_NEAR(scalar[0], -0.04, 1.0e-14);

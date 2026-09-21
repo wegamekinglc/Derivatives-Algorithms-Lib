@@ -60,8 +60,7 @@ namespace Dal {
 
         Vector_<>
         BuildGuessSlice(const JointMultiCurveCalibrationSpec_& spec, const JointCurveDeclaration_& decl, const CurveDefinition_& definition) {
-            return JointCalibrationInternal::BuildGuessSlice(decl, definition, spec.initialGuess_,
-                                                             String_("Joint curve declaration ") + decl.curveName_);
+            return Dal::BuildGuessSlice(decl, definition, spec.initialGuess_, String_("Joint curve declaration ") + decl.curveName_);
         }
 
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
@@ -170,8 +169,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                CentralDifferenceGradient(
-                    *this, quoteRiskRequested_, 1.0e-6, parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                FiniteDifferenceGradient(*this, quoteRiskRequested_ ? FdScheme_::CENTRAL : FdScheme_::FORWARD, 1.0e-6, parameters, residuals,
+                                         [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] Vector_<Dal::AAD::Number_> ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
@@ -268,7 +267,12 @@ namespace Dal {
             const auto coordinates = RunCurveSolver(chart, Vector_<>(directions.Cols(), 0.0), tolerance, true, spec.fitTolerance_, chartWeights,
                                                     spec.maxEvaluations_, spec.maxRestarts_, &chartInverse);
             const auto solved = chart.Parameters(coordinates);
-            Matrix::Multiply(directions, chartInverse, inverse);
+            // The solver clears the chart inverse when it fails the mapping verification;
+            // the composed full inverse must fail closed the same way instead of multiplying.
+            if (chartInverse.Empty())
+                inverse->Clear();
+            else
+                Matrix::Multiply(directions, chartInverse, inverse);
             if (forward && function.JacobianModeUsed() == "ANALYTIC")
                 *forward = NativeJointJacobian(function, solved, function.F(solved));
             return solved;
@@ -291,30 +295,6 @@ namespace Dal {
                     result->residualInstrumentOrdinals_.push_back(ordinal);
                 }
             }
-        }
-
-        bool ValidEffectiveMapping(const Underdetermined::Function_& function,
-                                   const Vector_<>& solved,
-                                   const Vector_<>& residuals,
-                                   const Vector_<>& tolerance,
-                                   const Matrix_<>& inverse) {
-            auto jacobian = function.Gradient(solved, residuals);
-            if (!jacobian) {
-                Matrix_<> dense;
-                function.Gradient(solved, residuals, &dense);
-                jacobian = std::make_unique<XCurveJacobian_>(std::move(dense));
-            }
-            jacobian->DivideRows(tolerance);
-            for (int column = 0; column < inverse.Cols(); ++column) {
-                Vector_<> direction(inverse.Rows());
-                for (int row = 0; row < inverse.Rows(); ++row)
-                    direction[row] = inverse(row, column);
-                const auto mapped = jacobian->MultiplyLeft(direction);
-                for (int row = 0; row < static_cast<int>(mapped.size()); ++row)
-                    if (!std::isfinite(mapped[row]) || std::abs(mapped[row] - (row == column ? 1.0 : 0.0)) > 1.0e-7)
-                        return false;
-            }
-            return !inverse.Empty();
         }
 
         [[noreturn]] void ThrowNonConvergence(int evaluationCount, const Vector_<>& residuals) {
@@ -351,19 +331,20 @@ namespace Dal {
                                                          Matrix_<>&& fwdJac) {
             JointMultiCurveCalibrationResult_ result;
             const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-            double jointMaxAbs = 0.0, jointSq = 0.0;
+            Vector_<> jointResiduals;
+            jointResiduals.reserve(totalResiduals);
             for (const auto& s : slots) {
                 const JointCurveCalibrationDiagnostics_ diag =
                     JointCalibrationInternal::BuildCurveDiagnostics(spec.curves_[s.curveIndex_], s, solvedBlock, usedApprox);
-                jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
                 for (const double r : diag.residuals_)
-                    jointSq += r * r;
+                    jointResiduals.push_back(r);
                 result.diagnostics_.push_back(diag);
             }
+            const ResidualStats_ stats = ResidualStats(jointResiduals);
             result.discountCurves_ = std::move(discountCurves);
             result.forwardCurves_ = std::move(forwardCurves);
-            result.jointMaxAbsResidual_ = jointMaxAbs;
-            result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
+            result.jointMaxAbsResidual_ = stats.maxAbsResidual_;
+            result.jointRmsResidual_ = stats.rmsResidual_;
             result.solverEvaluations_ = evalCount;
             result.jacobianAtSolution_ = std::move(fwdJac);
             return result;
@@ -418,11 +399,9 @@ namespace Dal {
         result.effJacobianInverseAvailability_ = !options.computeEffJacobianInverse_
                                                      ? "not_requested"
                                                      : (spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? "available" : "not_available_for_mode");
-        if (result.effJacobianInverseAvailability_ == "available" &&
-            !ValidEffectiveMapping(func, solve.parameters_, finalResiduals, tol, result.effJacobianInverse_)) {
-            result.effJacobianInverse_.Clear();
+        // The solver clears a requested inverse that fails its mapping verification.
+        if (result.effJacobianInverseAvailability_ == "available" && result.effJacobianInverse_.Empty())
             result.effJacobianInverseAvailability_ = "not_available_for_mapping";
-        }
         result.jacobianModeUsed_ = func.JacobianModeUsed();
         result.effJacobianInverseMapping_ = initialChart ? "initial_jacobian_chart" : "local_weighted";
         result.solverEvaluations_ = evaluationCount;

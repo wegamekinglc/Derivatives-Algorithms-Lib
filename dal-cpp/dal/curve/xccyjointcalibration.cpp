@@ -187,24 +187,6 @@ namespace Dal {
             return result;
         }
 
-        void AddEligibilityIssue(AnalyticEligibilityReport_* report,
-                                 AnalyticIneligibilityReason_ reason,
-                                 const String_& group,
-                                 int declarationIndex,
-                                 int instrumentIndex,
-                                 int resetIndex,
-                                 const String_& message) {
-            AnalyticEligibilityIssue_ issue;
-            issue.reason_ = reason;
-            issue.group_ = group;
-            issue.declarationIndex_ = declarationIndex;
-            issue.instrumentIndex_ = instrumentIndex;
-            issue.resetIndex_ = resetIndex;
-            issue.nativeMessage_ = message;
-            report->issues_.push_back(issue);
-            report->eligible_ = false;
-        }
-
         bool HasSupportedJointInstrument(const YCInstrument_* instrument) {
             return instrument && JointCalibrationInternal::SupportedInstrumentType(*instrument);
         }
@@ -273,8 +255,7 @@ namespace Dal {
             case XccyNotionalMode_::Value_::RESETTABLE:
             case XccyNotionalMode_::Value_::MARK_TO_MARKET:
                 for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
-                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
-                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
+                    if (!JointCalibrationInternal::ValidResetDomesticMapping(plan, reset)) {
                         AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, "basis", -1, instrumentIndex, reset,
                                             "reset event has an invalid domestic-period mapping");
                     }
@@ -390,8 +371,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& parameters, const Vector_<>& residuals, Matrix_<>* jacobian) const override {
-                CentralDifferenceGradient(
-                    *this, true, BumpSize(), parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
+                FiniteDifferenceGradient(*this, spec_->solveMode_ == CurveSolveMode_::Value_::EXACT ? FdScheme_::CENTRAL : FdScheme_::FORWARD,
+                                         BumpSize(), parameters, residuals, [&](const Vector_<>& bumped) { return F(bumped); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {
@@ -407,16 +388,16 @@ namespace Dal {
             auto appendCurrency = [&](const CurveCollectionSpec_& collection, const std::vector<CurveSlot_>& slots) {
                 for (const auto& slot : slots) {
                     const JointCurveDeclaration_& declaration = (*collection.curves_)[slot.curveIndex_];
-                    const Vector_<> slice = JointCalibrationInternal::BuildGuessSlice(
-                        declaration, slot.definition_, spec.initialGuess_, JointCalibrationInternal::SlotName(collection, slot.curveIndex_));
+                    const Vector_<> slice = Dal::BuildGuessSlice(declaration, slot.definition_, spec.initialGuess_,
+                                                                 JointCalibrationInternal::SlotName(collection, slot.curveIndex_));
                     for (int i = 0; i < slot.nParams_; ++i)
                         result[slot.paramOffset_ + i] = slice[i];
                 }
             };
             appendCurrency(layout.domesticCollection_, layout.domesticSlots_);
             appendCurrency(layout.foreignCollection_, layout.foreignSlots_);
-            const Vector_<> basisGuess = JointCalibrationInternal::BuildGuessSlice(spec.basis_, layout.basisDefinition_, spec.initialGuess_,
-                                                                                   String_("XCCY basis slot '") + spec.basis_.curveName_ + "'");
+            const Vector_<> basisGuess = Dal::BuildGuessSlice(spec.basis_, layout.basisDefinition_, spec.initialGuess_,
+                                                              String_("XCCY basis slot '") + spec.basis_.curveName_ + "'");
             for (int i = 0; i < layout.basisSlot_.nParams_; ++i)
                 result[layout.basisSlot_.paramOffset_ + i] = basisGuess[i];
             return result;

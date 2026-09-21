@@ -58,6 +58,19 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   forward pass through the fused checked-path fast path shared with the plain
   driver. PVs, exercise rates, diagnostics, and thread-count invariance are
   bitwise unchanged; the fuzzy/AAD driver still regenerates on tape.
+- **Curve calibration hardening** — every calibration driver now rejects a
+  finite-but-wrong solver effective inverse: the joint driver's
+  J/T x eff ~ I mapping guard is shared, and single-curve, staged XCCY basis,
+  and joint XCCY results publish an empty inverse
+  (`not_available_for_mapping`, or `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`
+  downstream) instead of silent garbage DV01s. The staged XCCY basis driver
+  enforces the same post-solve convergence bar as its siblings
+  (`ConvergenceError_` above ten times tolerance), and the joint batch node
+  sweep answers an unknown component key with
+  `CURVE_COMPONENT_UNAVAILABLE` instead of throwing `std::out_of_range`
+  out of the batch. Quote-risk aggregation converts a non-finite running
+  gradient to a `QUOTE_RISK_NON_FINITE_GRADIENT` provenance failure rather
+  than throwing mid-batch.
 
 ## 2026-09-19
 

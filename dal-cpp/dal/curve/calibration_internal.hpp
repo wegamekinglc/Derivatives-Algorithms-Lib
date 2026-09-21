@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/calibration.hpp>
 #include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/tapeguard.hpp>
@@ -89,8 +90,50 @@ namespace Dal {
         return AccrualPeriod_(period.accrualStart_, period.accrualEnd_, 1.0, basis, period.dayCountContext_, period.isStub_);
     }
 
+    // Shared initial-guess slice for every calibration driver: an explicit per-node guess wins,
+    // LOG_DISCOUNT guesses are annualized continuously-compounded rates scaled by node year
+    // fraction, and every other parameterization takes the scalar default at each node.
+    template <class Declaration_>
+    inline Vector_<>
+    BuildGuessSlice(const Declaration_& declaration, const CurveDefinition_& definition, double defaultGuess, const String_& context) {
+        const int parameterCount = BuildCurveParameterLayout(definition).parameterCount_;
+        if (!declaration.initialGuessPerNode_.empty()) {
+            REQUIRE(static_cast<int>(declaration.initialGuessPerNode_.size()) == parameterCount,
+                    context + " initialGuessPerNode_ length must equal its parameter count");
+            return declaration.initialGuessPerNode_;
+        }
+        if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
+            Vector_<> result(parameterCount);
+            for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i) {
+                result[i - 1] = -defaultGuess * definition.dayCount_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
+            }
+            return result;
+        }
+        return Vector_<>(parameterCount, defaultGuess);
+    }
+
     // Shared analytic-Jacobian eligibility bar: the libor basis must be the canonical ACT/365F.
     [[nodiscard]] inline bool HasAct365FLiborBasis(const DayBasis_& basis) { return basis == DayBasis::Act365F(); }
+
+    // Shared eligibility-issue append: every driver reports through the same fields so the
+    // report consumers see identical tokens, indices, and ordering.
+    inline void AddEligibilityIssue(AnalyticEligibilityReport_* report,
+                                    AnalyticIneligibilityReason_ reason,
+                                    const String_& group,
+                                    int declarationIndex,
+                                    int instrumentIndex,
+                                    int resetIndex,
+                                    const String_& message) {
+        AnalyticEligibilityIssue_ issue;
+        issue.reason_ = reason;
+        issue.group_ = group;
+        issue.declarationIndex_ = declarationIndex;
+        issue.instrumentIndex_ = instrumentIndex;
+        issue.resetIndex_ = resetIndex;
+        issue.nativeMessage_ = message;
+        report->issues_.push_back(issue);
+        report->eligible_ = false;
+    }
 
     // Build a leg's coupon periods. PeriodT must be an aggregate initializable as
     // {SchedulePeriod_, AccrualPeriod_} (e.g. CouponPeriod_, XccyCouponPeriod_).
@@ -250,17 +293,19 @@ namespace Dal {
     // Shared dense-Gradient override for the calibration residual functions: quote-risk
     // requests take central differences at the calibration bump (exact solves bump 1.0e-6);
     // everything else keeps the Underdetermined::Function_ finite-difference default. The
-    // request gate and the bump size stay call-site axes. The qualified base-class call is
+    // scheme and the bump size stay call-site axes. The qualified base-class call is
     // deliberate -- an unqualified call would virtually dispatch back into the override.
+    enum class FdScheme_ { FORWARD, CENTRAL };
+
     template <class ResidualFunction_>
-    void CentralDifferenceGradient(const Underdetermined::Function_& function,
-                                   bool requested,
-                                   double bump,
-                                   const Vector_<>& parameters,
-                                   const Vector_<>& residuals,
-                                   const ResidualFunction_& residualFunction,
-                                   Matrix_<>* jacobian) {
-        if (!requested || bump != 1.0e-6) {
+    void FiniteDifferenceGradient(const Underdetermined::Function_& function,
+                                  FdScheme_ scheme,
+                                  double bump,
+                                  const Vector_<>& parameters,
+                                  const Vector_<>& residuals,
+                                  const ResidualFunction_& residualFunction,
+                                  Matrix_<>* jacobian) {
+        if (scheme != FdScheme_::CENTRAL) {
             function.Underdetermined::Function_::Gradient(parameters, residuals, jacobian);
             return;
         }

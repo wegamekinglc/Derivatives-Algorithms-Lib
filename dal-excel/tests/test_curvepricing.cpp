@@ -82,11 +82,14 @@ namespace {
         builder.ccy_ = "USD";
         builder.curveName_ = "single_quote_risk";
         builder.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
-        builder.knotDates_ = {Date::AddMonths(builder.today_, 6), Date::AddMonths(builder.today_, 12)};
-        const auto known = DiscountPWCNew(builder.curveName_, builder.ccy_, builder.knotDates_, {0.02, 0.025});
+        // A piecewise-constant forward applies to the right of its knot, so a maturity at the
+        // last knot leaves that forward unconstrained and the residual Jacobian rank-deficient;
+        // anchoring knot 0 at today keeps every quoted forward instrument-constrained.
+        builder.knotDates_ = {builder.today_, Date::AddMonths(builder.today_, 6), Date::AddMonths(builder.today_, 12)};
+        const auto known = DiscountPWCNew(builder.curveName_, builder.ccy_, builder.knotDates_, {0.02, 0.025, 0.03});
         const CurveBlock_ knownBlock(known, DayBasis_New("ACT_365F"));
         const RateIndexConvention_ index = QuarterlyIndex()->val_;
-        for (const auto& maturity : builder.knotDates_) {
+        for (const auto& maturity : {Date::AddMonths(builder.today_, 6), Date::AddMonths(builder.today_, 12)}) {
             const auto prototype = DepositNew(builder.today_, builder.today_, maturity, 0.0, index);
             const double quote = (*prototype->Precompute(Handle_<YieldCurve_>()))(knownBlock);
             builder.instruments_.push_back(DepositNew(builder.today_, builder.today_, maturity, quote, index));

@@ -97,16 +97,20 @@ def irs(
 
 def single_fixture(width, count, mode):
     today = dal.Date_(2025, 1, 2)
-    knots = [
+    # A piecewise-constant forward applies to the right of its knot, so an instrument
+    # maturing at the last knot leaves that forward unconstrained and the residual
+    # Jacobian rank-deficient (the driver then withholds the effective inverse).
+    # Anchor knot 0 at today and mature instrument i at knot i + 1, the canonical
+    # well-posed shape of the repaired native fixtures.
+    knots = [today] + [
         dal.Date_(2025 + (i + 1) // 2, 7 if i % 2 == 0 else 1, 2) for i in range(width)
     ]
     # Generate deposit quotes from the native fixture's piecewise constant forwards.
-    forwards = [0.02 + 0.0005 * i for i in range(width)]
-    integral, previous, quotes = 0.0, today, []
-    for i, maturity in enumerate(knots):
-        integral += forwards[max(0, i - 1)] * (maturity - previous) / 365
-        quotes.append(math.expm1(integral) / ((maturity - today) / 365))
-        previous = maturity
+    forwards = [0.02 + 0.0005 * i for i in range(len(knots))]
+    integral, quotes = 0.0, []
+    for i in range(width):
+        integral += forwards[i] * (knots[i + 1] - knots[i]) / 365
+        quotes.append(math.expm1(integral) / ((knots[i + 1] - today) / 365))
     builder = dal.CurveCalibrationSpecBuilder_()
     builder.today_, builder.ccy_, builder.curveName_ = (
         today,
@@ -119,7 +123,7 @@ def single_fixture(width, count, mode):
     builder.knotDates_ = knots
     builder.instruments_ = [
         dal.Deposit_New(today, today, maturity, quote, index(months=6))
-        for maturity, quote in zip(knots, quotes)
+        for maturity, quote in zip(knots[1:], quotes)
     ]
     spec = builder.Build()
     options = calibration_options(mode)

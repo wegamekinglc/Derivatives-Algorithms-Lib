@@ -180,25 +180,6 @@ namespace Dal::JointCalibrationInternal {
         return result;
     }
 
-    template <class Declaration_>
-    inline Vector_<>
-    BuildGuessSlice(const Declaration_& declaration, const CurveDefinition_& definition, double defaultGuess, const String_& context) {
-        const int parameterCount = BuildCurveParameterLayout(definition).parameterCount_;
-        if (!declaration.initialGuessPerNode_.empty()) {
-            REQUIRE(static_cast<int>(declaration.initialGuessPerNode_.size()) == parameterCount,
-                    context + " initialGuessPerNode_ length must equal its parameter count");
-            return declaration.initialGuessPerNode_;
-        }
-        if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-            Vector_<> result(parameterCount);
-            for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i) {
-                result[i - 1] = -defaultGuess * definition.dayCount_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
-            }
-            return result;
-        }
-        return Vector_<>(parameterCount, defaultGuess);
-    }
-
     template <class T_> struct TypedCurveBlockStorage_ {
         Tape::JointCurveBlock_<T_> block_;
         std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<T_>>> discountCurves_;
@@ -345,10 +326,16 @@ namespace Dal::JointCalibrationInternal {
         return String_();
     }
 
+    // Reset-mapping validity shared by every XCCY eligibility family: reset events must map
+    // consecutively from the second domestic period.
+    inline bool ValidResetDomesticMapping(const XccyCashflowPlan_& plan, int reset) {
+        return plan.resets_[reset].domesticPeriodIndex_ == reset + 1 &&
+               plan.resets_[reset].domesticPeriodIndex_ < static_cast<int>(plan.domesticPeriods_.size());
+    }
+
     inline String_ XccyResetPlanAnalyticIneligibilityReason(const XccyCashflowPlan_& plan) {
         for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
-            if (plan.resets_[i].domesticPeriodIndex_ != i + 1 ||
-                plan.resets_[i].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size()))
+            if (!ValidResetDomesticMapping(plan, i))
                 return "reset event " + String::FromInt(i) + " must map consecutively from the second domestic period";
         }
         return String_();

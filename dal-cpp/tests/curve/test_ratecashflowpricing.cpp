@@ -921,11 +921,11 @@ TEST(RateCashflowPricingTest, TestDepositNodeAADRewindsPerTradeAndIsThreadLocal)
 }
 
 TEST(RateCashflowPricingTest, TestRegistryTracksAadEnabledFamiliesAndLockedOnesStayGated) {
-    const auto enabled = Dal::RateCashflowPricingInternal::AadEnabledRateFamilies();
     const auto families = Dal::RateInstrumentTypeListAll();
-    ASSERT_EQ(enabled.size(), 7);
-    for (const auto& family : enabled)
-        ASSERT_NE(std::find(families.begin(), families.end(), family), families.end());
+    int enabledCount = 0;
+    for (const auto& family : families)
+        enabledCount += Dal::RateCashflowPricingInternal::IsAadEnabledRateFamily(family) ? 1 : 0;
+    ASSERT_EQ(enabledCount, 7);
 
     const Dal::Date_ today(2026, 1, 15);
     const Dal::Date_ start(2026, 10, 15);
@@ -3283,6 +3283,39 @@ TEST(RateCashflowPricingTest, TestJointNodeRiskReusesSwapLegsWithCoupledBaseCurv
             ASSERT_NEAR(cell.result_.gradient_[0], central, 1.0e-6 + 1.0e-8 * std::abs(central));
         }
         ASSERT_EQ(cells[3 * tradeIndex].result_.gradient_, cells[3 * tradeIndex + 2].result_.gradient_);
+    }
+}
+
+TEST(RateCashflowPricingTest, TestJointBatchSweepAnswersUnknownComponentKeyWithoutThrowing) {
+    namespace internal = Dal::RateCashflowPricingInternal;
+    const Dal::Date_ today(2026, 1, 15);
+    const Dal::Date_ start(2026, 10, 15);
+    const Dal::Date_ maturity(2029, 1, 15);
+
+    {
+        // Single-currency joint sweep: an absent key must fail its cells, not throw out of the batch.
+        const auto market = ComponentMarket(today, FlatCurve(maturity, 0.04), FlatCurve(maturity, 0.03));
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("IRS"), today, start, maturity, Dal::IrsTradeTerms_{FixedFloatTerms()}),
+        };
+        Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> cells;
+        ASSERT_NO_THROW(cells = internal::JointNodeSensitivitiesBatch(trades, market, {"discount", "missing"}));
+        ASSERT_EQ(cells.size(), 2);
+        ASSERT_TRUE(cells[0].result_.eligible_) << cells[0].result_.reason_;
+        ASSERT_FALSE(cells[1].result_.eligible_);
+        ASSERT_EQ(cells[1].result_.reason_, Dal::String_("CURVE_COMPONENT_UNAVAILABLE"));
+    }
+    {
+        // XCCY joint sweep: same contract through the cross-currency path.
+        const auto market = FlatXccyMarket(today);
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            Trade(Dal::RateInstrumentType_("XCCY"), today, start, maturity, Dal::RateTradeTerms_(XccyTerms())),
+        };
+        Dal::Vector_<Dal::RateTradeNodeSensitivityCell_> cells;
+        ASSERT_NO_THROW(cells = internal::JointNodeSensitivitiesBatch(trades, market, {"missing"}));
+        ASSERT_EQ(cells.size(), 1);
+        ASSERT_FALSE(cells[0].result_.eligible_);
+        ASSERT_EQ(cells[0].result_.reason_, Dal::String_("CURVE_COMPONENT_UNAVAILABLE"));
     }
 }
 
