@@ -57,7 +57,7 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "MonteCarloSettings_New", "settings");
 &optional
 settings is cell[][]+
-    Two columns: method, use_bb, enable_aad, smooth, compiled. Boolean cells or numeric 0/1; smooth finite and positive.
+    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree. Booleans 0/1; smooth positive; lsmc_basis_degree integer 1..8.
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -107,9 +107,30 @@ namespace Dal {
         }
 
         double SmoothingValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidSmoothing: expected finite positive number";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && *number > 0.0, context + "InvalidSmoothing: expected finite positive number");
+            REQUIRE(number, constraint);
+            try {
+                Script::ValidateSmoothing(*number);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
             return *number;
+        }
+
+        int BasisDegreeValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8";
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number &&
+                        std::fabs(*number) <= std::numeric_limits<int>::max(),
+                    constraint);
+            const auto degree = static_cast<int>(*number);
+            try {
+                Script::ValidateLsmcBasisDegree(degree);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
+            return degree;
         }
 
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
@@ -162,12 +183,12 @@ namespace Dal {
                          value.evaluationDate_ = EvaluationDate(cell, valueContext);
                      } else if (key == "today_fixing") {
                          const auto text = TextValue(cell, valueContext);
-                         //  Deliberately case-sensitive: values must read Model/RequireHistorical exactly, unlike the case-insensitive keys
-                         const std::string policy(text.data(), text.size());
-                         REQUIRE(policy == "Model" || policy == "RequireHistorical",
-                                 valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
-                         value.todayFixingPolicy_ =
-                             policy == "Model" ? TodayFixingPolicy_::Value_::MODEL : TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+                         TodayFixingPolicy_ policy;
+                         //  explicit branch, not a macro argument: keeps the parse call
+                         //  and the uninitialized-policy store unconditional
+                         if (!Script::TryParseTodayFixingPolicy(text, &policy))
+                             THROW(valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
+                         value.todayFixingPolicy_ = policy;
                      } else {
                          THROW(keyContext + "unknown key " + key + "; expected evaluation_date or today_fixing");
                      }
@@ -187,9 +208,11 @@ namespace Dal {
                          value.rsg_ = MethodValue(cell, valueContext);
                      } else if (key == "smooth") {
                          value.smooth_ = SmoothingValue(cell, valueContext);
+                     } else if (key == "lsmc_basis_degree") {
+                         value.lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
                      } else {
                          REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
-                                 keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth or compiled");
+                                 keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth, compiled or lsmc_basis_degree");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;

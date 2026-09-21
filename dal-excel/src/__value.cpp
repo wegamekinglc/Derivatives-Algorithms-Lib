@@ -71,6 +71,27 @@ json is string[]
     JSON chunks in one column; concatenate without separators for dal.script-valuation/1
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public ScriptSimulation_Explain
+    Run the full double valuation and report per-exercise-event LSMC diagnostics
+&inputs
+product is handle ScriptProductData
+    Script product handle
+modelData is handle ModelData
+    BS or Dupire model data handle
+n_paths is number
+    Finite integer from 1 to INT_MAX
++xl_valuation = Excel::ScriptScalarInput(xl_valuation); xl_simulation = Excel::ScriptScalarInput(xl_simulation);
+&optional
+valuation is handle StorableScriptValuationSettings
+    Valuation settings handle; blank selects per-call defaults
+simulation is handle StorableMonteCarloSettings
+    Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree
+&outputs
+json is string[]
+    JSON chunks in one column; concatenate without separators for dal.script-simulation/1
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     namespace {
         Matrix_<Cell_> PriceTable(const std::map<String_, double>& prices) {
@@ -122,9 +143,27 @@ namespace Dal {
         *json = Excel::ScriptDiagnosticChunks(ExplainScriptValuation(product, modelData, settings), "ScriptValuation_Explain");
     }
 
+    void ScriptSimulation_Explain(const Handle_<ScriptProductData_>& product,
+                                  const Handle_<ModelData_>& modelData,
+                                  double nPaths,
+                                  const Handle_<StorableScriptValuationSettings_>& valuation,
+                                  const Handle_<StorableMonteCarloSettings_>& simulation,
+                                  Vector_<String_>* json) {
+        const auto settings = valuation ? valuation->val_ : ScriptValuationSettings_();
+        const auto execution = simulation ? simulation->val_ : MonteCarloSettings_();
+        int count;
+        try {
+            count = Excel::CheckedMonteCarloPathCount(nPaths);
+        } catch (const Exception_& error) {
+            THROW("InvalidPathCount: ScriptSimulation_Explain; n_paths; " + String_(error.what()));
+        }
+        *json = Excel::ScriptDiagnosticChunks(ExplainScriptSimulation(product, modelData, count, settings, execution), "ScriptSimulation_Explain");
+    }
+
 #ifdef _WIN32
 #include <dal-excel/auto/MG_MonteCarlo_ValueWithSettings_public.inc>
 #include <dal-excel/auto/MG_MonteCarlo_Value_public.inc>
+#include <dal-excel/auto/MG_ScriptSimulation_Explain_public.inc>
 #include <dal-excel/auto/MG_ScriptValuation_Explain_public.inc>
 #endif
 } // namespace Dal

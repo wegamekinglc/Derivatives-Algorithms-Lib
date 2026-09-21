@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <type_traits>
 
 #include <dal/math/stacks.hpp>
@@ -69,4 +70,37 @@ namespace Dal::Script {
         for (auto& varStore : *varStore1)
             varStore.Resize(numVars);
     }
+
+    //  Per-path recording sinks of the LSMC driver's fuzzy (AAD) replay: one raw payment
+    //  row per event of the current path plus the exercise value and fuzzy condition
+    //  degree per exercise date, all live on the worker's tape. The driver resets the
+    //  payment rows and advances eventOrdinal_ between paths/events.
+    template <class T_> struct LsmcFuzzySinks_ {
+        const Vector_<size_t>* eventToExercise_ = nullptr;
+        Vector_<T_>* pays_ = nullptr; //  indexed by event ordinal
+        Vector_<T_>* h_ = nullptr;
+        Vector_<T_>* cond_ = nullptr;
+        size_t eventOrdinal_ = 0;
+
+        //  Fuzzy-if payment blend: both branches of an interior degree run, so the row
+        //  must end up holding the degree-weighted payment, not the sum of both. The
+        //  per-nesting-level snapshots mirror the evaluator's variable stores.
+        Vector_<T_> branchPaySnapshot_;
+        Vector_<T_> branchPayTrue_;
+
+        void SnapshotBranchPayment(size_t lvl) {
+            branchPaySnapshot_.Resize(std::max(branchPaySnapshot_.size(), lvl + 1));
+            branchPayTrue_.Resize(std::max(branchPayTrue_.size(), lvl + 1));
+            branchPaySnapshot_[lvl] = (*pays_)[eventOrdinal_];
+        }
+
+        void CaptureBranchPayment(size_t lvl) {
+            branchPayTrue_[lvl] = (*pays_)[eventOrdinal_];
+            (*pays_)[eventOrdinal_] = branchPaySnapshot_[lvl];
+        }
+
+        void BlendBranchPayment(size_t lvl, const T_& degree) {
+            (*pays_)[eventOrdinal_] = degree * branchPayTrue_[lvl] + (1.0 - degree) * (*pays_)[eventOrdinal_];
+        }
+    };
 } // namespace Dal::Script

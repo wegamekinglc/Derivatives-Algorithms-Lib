@@ -539,7 +539,8 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
     ASSERT_STREQ(events[0]["date"].GetString(), "2026-12-12");
     ASSERT_EQ(events[0]["basis_degree"].GetInt(), 3);
     ASSERT_TRUE(events[0]["regressor_index"].IsNull());
-    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 4096);
+    //  in-the-money condition-true paths enter the regression: 1926 of 4096 on this ATM put
+    ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 1926);
     ASSERT_EQ(events[0]["num_coefficients"].GetInt(), 4);
     ASSERT_EQ(events[0]["coefficients"].Size(), 4u);
     ASSERT_FALSE(events[0]["degenerate"].GetBool());
@@ -561,7 +562,9 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
             ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
         }
     }
-    { //  products without EXERCISE return an empty exercise_events array
+    { //  products without EXERCISE return an empty exercise_events array and burn no simulation
+        DiagnosticWorkers_ workers;
+        const Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
         const auto plain = NewScriptProduct("plain", {Cell_(Date_(2027, 3, 12))}, {"pay PAYS 1.0"});
         const auto plainText = ExplainScriptSimulation(plain, model, 1024);
         rapidjson::Document plainJson;
@@ -570,6 +573,7 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         ASSERT_TRUE(plainJson["exercise_events"].IsArray());
         ASSERT_EQ(plainJson["exercise_events"].Size(), 0u);
         ASSERT_EQ(plainJson["n_paths"].GetInt(), 1024);
+        ASSERT_EQ(workers.submissions_, 0u);
     }
     { //  a negative path count is rejected before the size_t conversion
         try {
@@ -580,4 +584,25 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
             ASSERT_NE(std::string(error.what()).find("numPath=-1"), std::string::npos);
         }
     }
+}
+
+TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
+    InitGlobalData(1);
+    const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.0, 0.0, 0.0));
+    const auto product = NewScriptProduct("echo", {Cell_(Date_(2026, 9, 22))}, {"pay PAYS 1"});
+    rapidjson::Document valuation, simulation;
+    valuation.Parse(ExplainScriptValuation(product, model).c_str());
+    ASSERT_FALSE(valuation.HasParseError());
+    ASSERT_STREQ(valuation["schema"].GetString(), "dal.script-valuation/1");
+    simulation.Parse(ExplainScriptSimulation(product, model, 16).c_str());
+    ASSERT_FALSE(simulation.HasParseError());
+    ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
+    for (const auto* json : {&valuation, &simulation}) {
+        const auto& echo = (*json)["simulation"];
+        ASSERT_EQ(echo.MemberCount(), 6u);
+        for (const auto* field : {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree"})
+            ASSERT_TRUE(echo.HasMember(field)) << field;
+    }
+    ASSERT_TRUE(valuation["simulation"] == simulation["simulation"]);
 }

@@ -167,7 +167,7 @@ TEST(ScriptContractTest, TestErrorsRetainFunctionFieldConstraintAndSource) {
                       "row=1", "column=14", "statement=0", "node=n2", "ExplicitSnapshot", "exact historical fixing required", "no model fallback"}));
     const Dal::MonteCarloSettings_ simulation{"sobol", false, false, 0.0, false};
     ASSERT_NO_FATAL_FAILURE(assertFields([&] { Dal::ValueByMonteCarlo(product, model, 1, valuation, simulation); },
-                                         {"ValidateSimulationSettings", "InvalidSetting", "simulation.smooth_=0", "finite positive"}));
+                                         {"ValidateSmoothing", "InvalidSetting", "simulation.smooth_=0", "finite positive"}));
     ASSERT_NO_FATAL_FAILURE(assertFields([&] { Dal::ValueByMonteCarlo(product, model, 0, valuation); },
                                          {"ValueByMonteCarlo", "InvalidPathCount", "numPath=0", "positive integer"}));
 }
@@ -183,7 +183,7 @@ TEST(ScriptContractTest, TestLsmcBasisDegreeValidatedInRange) {
             FAIL() << "expected a contract error for degree " << degree;
         } catch (const Dal::Exception_& error) {
             for (const auto& field :
-                 Vector_<String_>{"ValidateSimulationSettings", "InvalidSetting", String_("simulation.lsmcBasisDegree_=" + std::to_string(degree)),
+                 Vector_<String_>{"ValidateLsmcBasisDegree", "InvalidSetting", String_("simulation.lsmcBasisDegree_=" + std::to_string(degree)),
                                   "1 and 8"})
                 ASSERT_NE(std::string(error.what()).find(field.c_str()), std::string::npos) << error.what();
         }

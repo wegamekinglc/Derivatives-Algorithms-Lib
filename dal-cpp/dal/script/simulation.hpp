@@ -160,7 +160,7 @@ namespace Dal::Script {
 
     template <class P_, class E_>
     void
-    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero) {
+    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero = nullptr) {
         AAD::Rewind(*AAD::Tape());
         for (AAD::Number_* param : model.Parameters())
             PutOnTape(*param);
@@ -168,7 +168,8 @@ namespace Dal::Script {
         for (AAD::Number_& param : evaluator.ConstVarVals())
             PutOnTape(param);
 
-        PutOnTape(*payoffZero);
+        if (payoffZero)
+            PutOnTape(*payoffZero);
 
         AAD::NewRecording(*AAD::Tape());
 
@@ -193,6 +194,13 @@ namespace Dal::Script {
                     REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
             }
         }
+
+        //  An exact BlackScholes model generates into a reusable checked path --
+        //  generation and validation fused, deterministic numeraires pre-filled
+        //  once -- instead of a generic GeneratePath plus a separate scan
+        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
+            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
+        };
     } // namespace Detail
 
     template <class T_> FORCE_INLINE void ValidateSimulationPath(const Scenario_<T_>& path) {
@@ -285,10 +293,16 @@ namespace Dal::Script {
         }
 
         //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline
-        //  only), which builds its own recording artifact in compiled mode
+        //  only), which builds its own recording artifact in compiled mode.  The
+        //  driver reads its RNG settings from preparation (S15 pins rsg to sobol
+        //  for EXERCISE), so the caller's rsg/useBb are dropped on this route;
+        //  pin their redundancy in debug builds
         if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
-            if (product.Product().ContainsExercise())
+            if (product.Product().ContainsExercise()) {
+                ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
+                       "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
                 return MCLsmcSimulation(product, mdl, nPaths);
+            }
         }
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -301,14 +315,11 @@ namespace Dal::Script {
         // Each worker constructs and reuses its own writable buffers. Keeping hot
         // evaluator state in adjacent arrays made timing sensitive to allocation layout.
         // Isolate snapshot metadata from another worker's adjacent writable sample.
-        struct alignas(64) LocalCheckedPaths_ : AAD::BlackScholes_<double>::CheckedPaths_ {
-            using AAD::BlackScholes_<double>::CheckedPaths_::CheckedPaths_;
-        };
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
             Scenario_<> path_;
-            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
+            std::unique_ptr<Detail::LocalCheckedPaths_> bsPaths_;
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
@@ -316,7 +327,7 @@ namespace Dal::Script {
                 : random_(CreateRNG(rsg, model.SimDim(), useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
                   compiledState_(product.template BuildEvalState<double>()) {
                 if (typeid(model) == typeid(AAD::BlackScholes_<double>))
-                    bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
+                    bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
                 else {
                     AllocatePath(product.DefLine(), path_);
                     InitializePath(path_);
@@ -479,10 +490,6 @@ namespace Dal::Script {
         if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
                      "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(!product.Product().ContainsExercise(),
-                     "UnsupportedExecutionMode: AAD valuation of EXERCISE is not implemented (the fuzzy driver arrives with a later milestone)",
-                     ScriptError_);
         const bool useCompiled = compiled.value_or(false);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
@@ -492,6 +499,13 @@ namespace Dal::Script {
             REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
                          useCompiled == product.Simulation().compiled_.value_or(false),
                      "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
+
+        //  Early-exercise products divert to the fuzzy LSMC driver (S9 recursive
+        //  blending over the frozen policy, N6 adjoint of the replay pass)
+        if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
+            if (product.Product().ContainsExercise())
+                return MCLsmcAadSimulation(product, modelData, nPaths);
+        }
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)

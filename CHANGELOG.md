@@ -16,6 +16,105 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-20
+
+- **Early-exercise (Bermudan/American) valuation is live end to end** — the
+  `EXERCISE` statement reserved on 2026-09-19 now values: products divert to
+  the LSMC driver (`dal-cpp/dal/script/lsmc.cpp`) in both tree-walk and
+  compiled execution, with hard-decision double valuation (forward storage,
+  backward induction with z-normalized monomial regression, explicit ridge,
+  and degenerate guards, then frozen-policy valuation from the recorded
+  paths)
+  and fuzzy AAD valuation (recursive blend over frozen coefficients; the
+  adjoint is the exact frozen-policy gradient, with the envelope remainder
+  quantified in bump tests). Same-seed PV, coefficients, exercise rates, and
+  AAD risks are bitwise invariant across thread counts. Exercise products
+  accept only `rsg = "sobol"` (`UnsupportedRsgForExercise`). A simulation
+  diagnostic joins the two existing entry points on all three ends:
+  C++ `ExplainScriptSimulation`, Python `ScriptSimulation_Explain`, and Excel
+  `SCRIPTSIMULATION.EXPLAIN`, all emitting the `dal.script-simulation/1`
+  schema with per-exercise-event regression coefficients and exercise rates.
+  Python gains the keyword-only `lsmc_basis_degree` setting; Excel gains the
+  `MONTECARLOSETTINGS.NEW` `lsmc_basis_degree` key. Runnable examples:
+  `dal-cpp/examples/american_put_mc/` and
+  `dal-python/examples/013.exercise_bermudan.py`. See
+  [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc)
+  and the
+  [simulation diagnostic](docs/methodology/script_engine.md#product-archive-and-diagnostics).
+- **Script: LSMC exercise correctness fixes** — the continuation regression and
+  the exercise decision (hard and fuzzy) now use in-the-money paths only
+  ($h_k > 0$), so a regression undershoot can no longer "exercise" worthless
+  options; `num_cond_true_paths` in the simulation diagnostic accordingly
+  reports the ITM condition-true count. The `;eps`/`:eps` smoothing suffix
+  rejects non-positive widths at parse time (`InvalidSmoothing`), and the
+  probe path behind the backward discount ratios is validated like every
+  worker path. The Bermudan PDE test oracle's s=0 boundary anchors at the
+  next exercise date (zero measured delta on the suite benchmarks).
+- **Script: reuse recorded LSMC paths instead of replaying simulation** — the
+  double driver's frozen-policy pass no longer regenerates paths: Phase A
+  closes each path's rows with the terminal payoff value, and Phase C values
+  the policy from storage (exercise-date numeraires come from the probe grid
+  the backward induction already trusts). Black-Scholes products generate the
+  forward pass through the fused checked-path fast path shared with the plain
+  driver. PVs, exercise rates, diagnostics, and thread-count invariance are
+  bitwise unchanged; the fuzzy/AAD driver still regenerates on tape.
+- **Curve calibration hardening** — every calibration driver now rejects a
+  finite-but-wrong solver effective inverse: the joint driver's
+  J/T x eff ~ I mapping guard is shared, and single-curve, staged XCCY basis,
+  and joint XCCY results publish an empty inverse
+  (`not_available_for_mapping`, or `QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE`
+  downstream) instead of silent garbage DV01s. The staged XCCY basis driver
+  enforces the same post-solve convergence bar as its siblings
+  (`ConvergenceError_` above ten times tolerance), and the joint batch node
+  sweep answers an unknown component key with
+  `CURVE_COMPONENT_UNAVAILABLE` instead of throwing `std::out_of_range`
+  out of the batch. Quote-risk aggregation converts a non-finite running
+  gradient to a `QUOTE_RISK_NON_FINITE_GRADIENT` provenance failure rather
+  than throwing mid-batch.
+- **Script settings validation single-sourced in dal-cpp** — the smoothing and
+  LSMC basis-degree field checks (`ValidateSmoothing`,
+  `ValidateLsmcBasisDegree`) join `ValidateRNG` as shared dal-cpp validators
+  called from the Python and Excel bindings, the bindings' deliberately
+  case-sensitive `today_fixing` parse moves to
+  `Script::TryParseTodayFixingPolicy` (the Machinist enum parse stays
+  case-insensitive), and the `smooth` / `lsmc_basis_degree` defaults are
+  exported constants; error tokens and messages are unchanged on every layer.
+  Both diagnostic schemas now emit the same six-field simulation echo:
+  `dal.script-valuation/1` gains `lsmc_basis_degree`.
+- **Python test coverage for early exercise and examples** — the bindings now
+  value an `EXERCISE` product in-tree: a two-date Bermudan put pins the
+  European/Bermudan ordering against the Black oracle and checks the fuzzy-AAD
+  `d_spot` against a central finite difference in both engines, the simulation
+  diagnostic's `num_cond_true_paths` is pinned to the exact Sobol counts
+  (1926/1891 on the ATM put), and the numbered examples 010-013 run as
+  subprocess smoke tests (`013` accepts `DAL_EXAMPLE_NPATHS` to shrink its
+  path count, default unchanged). The single-curve benchmark fixture is
+  repaired to the canonical well-posed shape (knot anchored at today, one more
+  knot than instruments) so its provenance clears the calibration driver's
+  effective-inverse guard.
+- **C++ examples run in CI as CTest smoke tests; Excel suite values an
+  EXERCISE product** — 22 self-contained `dal-cpp/examples/` binaries are
+  registered under the `examples` CTest label and exercised at runtime on the
+  gcc-14/AADet build leg (`european_mc` sits behind the off-CI
+  `examples_slow` label), closing the compile-only gap behind commit
+  05cd72c0's runtime abort; the `quote_risk` example's rank-deficient
+  calibration fixture is repaired to the canonical anchored-knot shape so it
+  joins the label. The Excel tests value a two-date Bermudan put against its
+  European leg (European ≤ Bermudan PV) and pin the fuzzy-AAD result table's
+  finite `d_spot`/`d_vol`/`d_rate`/`d_div` keys.
+- **Review sweep: diagnostic cost, dead metadata, and benchmark hygiene** — the
+  simulation diagnostic no longer burns a Monte Carlo run for products without
+  `EXERCISE` (the LSMC driver is the only source of exercise statistics, so the
+  discarded double simulation is skipped; the JSON contract is byte-identical).
+  `NodeExercise_` drops its never-written discrete metadata and the debugger's
+  unreachable discrete branch, model `Allocate` parses each distinct observed
+  index once per timeline instead of once per sample date, and the LSMC
+  recording seam is shared between the tree-walk and compiled engines through
+  one set of sink kernels per mode (numerics bitwise unchanged). The Python
+  comparison suite single-sources its valuation-date/day-count constants,
+  labels third-party `prepared_pv` rows "passive (no prepared API)", and
+  carries each backend's solver tolerances on calibration rows.
+
 ## 2026-09-19
 
 - **BREAKING: `EXERCISE` is a reserved script keyword** — the statement grammar
@@ -29,7 +128,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   constant-variable name now fail to parse with a `ReservedIdentifier` error
   carrying the source location and a rename hint; products that do not use the
   reserved word are unaffected. EXERCISE valuation (LSMC driver) is not enabled
-  yet: evaluation reports `UnsupportedExecutionMode` until it lands. See
+  yet: evaluation reports `UnsupportedExecutionMode` until it lands. (The
+  driver landed the next day; see the 2026-09-20 early-exercise entry.) See
   [the script engine grammar](docs/methodology/script_engine.md#reserved-keywords-and-variables).
 
 - **Script settings gain `lsmcBasisDegree_`** — `MonteCarloSettings_` carries
@@ -49,14 +149,6 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   argument, becoming `name, [settings], [fixings]`. Explain diagnostics keep
   the `model_bindings` field as the effective model index. See
   [the script model index](docs/methodology/script_engine.md#the-script-model-index-and-legacy-spot).
-
-- **Script engine infers the model binding** — an empty
-  `ScriptValuationSettings_::modelBindings_` no longer fails model-sourced
-  `FIX` valuation with `MissingModelBinding`; preparation binds the model's
-  `spot` output to the script's single future ordinary EQ and raises
-  `AmbiguousModelBinding` on several distinct future indices. Explicit
-  bindings keep their validation, and Describe/Explain diagnostics report the
-  inferred binding. (Superseded by the removal above, same day.)
 
 ## 2026-09-15
 

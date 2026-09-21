@@ -169,13 +169,16 @@ historical fixings (global store or explicit snapshot), future fixings
 `DescribeScriptProduct` returns contract JSON `dal.script-product/2` with no
 history/model/global-date access. `ExplainScriptValuation` returns
 `dal.script-valuation/1` from one default price preparation: it may read history,
-submits no workers, and does not cache the next valuation. Python projects the
+submits no workers, and does not cache the next valuation.
+`ExplainScriptSimulation` returns `dal.script-simulation/1` from a full
+double valuation on exercise products (plain products skip the run and
+report an empty event array) with per-exercise-event statistics. Python projects the
 same settings and diagnostics through keyword-only settings classes,
-`Product_Describe`, and `ScriptValuation_Explain` — see
+`Product_Describe`, `ScriptValuation_Explain`, and `ScriptSimulation_Explain` — see
 [Historical and Future FIX](dal-python/README.md#historical-and-future-fix).
 Excel exposes settings handles with `PRODUCT.NEWWITHSETTINGS` /
-`MONTECARLO.VALUEWITHSETTINGS` plus the chunk-valued `PRODUCT.DESCRIBE` /
-`SCRIPTVALUATION.EXPLAIN` — see
+`MONTECARLO.VALUEWITHSETTINGS` plus the chunk-valued `PRODUCT.DESCRIBE`,
+`SCRIPTVALUATION.EXPLAIN`, and `SCRIPTSIMULATION.EXPLAIN` — see
 [Excel FIX Settings and Diagnostics](docs/excel-script-settings.md).
 
 ### Script Product Debug Dumps

@@ -43,6 +43,14 @@ namespace Dal::Script {
             });
         }
 
+        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
+            out << ",\"simulation\":{\"rsg\":";
+            JsonWriteString(simulation.rsg_, out);
+            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
+                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
+                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+        }
+
         void
         WriteObservationRequest(std::ostream& out, const ObservationPlan_& plan, const ObservationRequest_& request, size_t id, bool allExpired) {
             out << "{\"request_id\":" << id << ",\"index_canonical\":";
@@ -153,11 +161,9 @@ namespace Dal::Script {
         out << "{\"schema\":\"dal.script-valuation/1\",\"evaluation_date\":";
         JsonWriteString(Date::ToString(prepared.EvaluationDate()), out);
         out << ",\"today_fixing\":\"" << (settings.todayFixingPolicy_ == TodayFixingPolicy_::Value_::MODEL ? "Model" : "RequireHistorical")
-            << "\",\"source_kind\":\"" << FixingSourceKind(settings) << "\",\"simulation\":{\"rsg\":";
-        JsonWriteString(simulation.rsg_, out);
-        out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-            << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-            << "},\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
+            << "\",\"source_kind\":\"" << FixingSourceKind(settings) << "\"";
+        WriteSimulationSettings(out, simulation);
+        out << ",\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
             << (plan.Requests().empty() ? "Legacy" : "Named") << "\",\"model_bindings\":";
         WriteArray(out, plan.ModelBindingNames(), [&](const auto& canonical, size_t) {
             out << "{\"asset\":\"spot\",\"index_original\":";
@@ -204,24 +210,15 @@ namespace Dal::Script {
     }
 
     namespace {
-        //  The diagnostic explicitly runs the full valuation in the prepared mode
-        //  (tree-walk or compiled; AAD exercise valuation arrives with the fuzzy milestone)
+        //  The diagnostic deliberately runs the double valuation path (tree-walk or
+        //  compiled) only: the fuzzy AAD driver reports no per-event statistics, and
+        //  enable_aad settings are rejected at the entry.  Only exercise products
+        //  burn a simulation: the LSMC driver is the sole writer of LsmcDiagnostics_,
+        //  so the double run's SimResults_ would be discarded for plain products
         void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
-            if (prepared.AllExpired())
+            if (prepared.AllExpired() || !prepared.Product().ContainsExercise())
                 return;
-            const auto& simulation = prepared.Simulation();
-            if (prepared.Product().ContainsExercise())
-                MCLsmcSimulation(prepared, model, nPaths, diagnostics);
-            else
-                MCDoubleSimulation(prepared, model, nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
-        }
-
-        void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
-            out << ",\"simulation\":{\"rsg\":";
-            JsonWriteString(simulation.rsg_, out);
-            out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+            MCLsmcSimulation(prepared, model, nPaths, diagnostics);
         }
 
         void JsonWriteStringOrNull(const String_& text, std::ostream& out) {
@@ -252,8 +249,10 @@ namespace Dal::Script {
                                     const MonteCarloSettings_& requestedSimulation) {
         REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
-        //  The diagnostic explicitly runs the full three-phase valuation, so its cost is
-        //  the cost of a simulation; it runs the double valuation path only
+        //  The diagnostic runs the full three-phase valuation for exercise products,
+        //  so its cost is the cost of a simulation; it runs the double valuation
+        //  path only, and plain products skip the run entirely (their
+        //  exercise_events array is empty either way)
         REQUIRE2(!requestedSimulation.enableAad_,
                  "UnsupportedExecutionMode: the simulation diagnostic runs the double valuation path (tree-walk or compiled); enable_aad is not "
                  "supported here",

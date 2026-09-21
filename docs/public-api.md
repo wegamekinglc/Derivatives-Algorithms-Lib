@@ -163,12 +163,14 @@ the same explicit date/snapshot to compare the same market.
 `ExplainScriptSimulation(product, modelData, numPath, valuation=ScriptValuationSettings_(),
 simulation=MonteCarloSettings_())` returns `dal.script-simulation/1`. Unlike the
 valuation Explain it explicitly runs a full Monte Carlo valuation with `numPath`
-paths, so its cost is path generation plus worker parallelism plus the exercise
-regressions; it supports the double tree-walk and compiled modes and rejects
+paths on exercise products, so its cost is path generation plus worker
+parallelism plus the exercise regressions; products without `EXERCISE` skip the
+run, since the LSMC driver is the only source of exercise statistics. It
+supports the double tree-walk and compiled modes and rejects
 `enable_aad` settings. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
-degree, regressor index, condition-true path count, coefficients, degenerate
-flag with PascalCase reason, and exercise rate.
+degree, regressor index, in-the-money condition-true path count, coefficients,
+degenerate flag with PascalCase reason, and exercise rate.
 
 Product archives write v2 with optional `default_index` and retain the v1
 reader. They preserve contract text/identity and exclude runtime market data.
@@ -546,7 +548,7 @@ import dal
 | Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                                                                        |
 | Script products         | `Product_New`, `Product_Describe`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                       |
 | Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                                                                           |
-| Valuation               | `MonteCarlo_Value`, `MonteCarlo_ValueWithSettings`, `ScriptValuation_Explain`                                                                                                                                                                      |
+| Valuation               | `MonteCarlo_Value`, `MonteCarlo_ValueWithSettings`, `ScriptValuation_Explain`, `ScriptSimulation_Explain`                                                                                                                                          |
 | Script settings         | `ScriptProductSettings_`, `ScriptValuationSettings_`, `MonteCarloSettings_`, `TodayFixingPolicy_`                                                                                                                                                  |
 | Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                                                                                   |
 | Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                                                                     |
@@ -592,6 +594,7 @@ Product_New(events_dates, events, *, settings=None)
 MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)
 Product_Describe(product)
 ScriptValuation_Explain(product, modelData, *, valuation=None)
+ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None)
 ```
 
 `settings`, `valuation`, and `simulation` take `ScriptProductSettings_`,
@@ -599,7 +602,7 @@ ScriptValuation_Explain(product, modelData, *, valuation=None)
 for fresh defaults. Their constructors use keyword-only fields. Product settings
 provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing` and `fixings`; simulation settings provide
-`method`, `use_bb`, `enable_aad`, `smooth` and `compiled`.
+`method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, and `lsmc_basis_degree`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
 case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,
@@ -629,7 +632,11 @@ I/O, global-date access or valuation phase. High-level Explain returns a
 `dal.script-valuation/1` dictionary from one independent default exact/tree
 price preparation. It may read history and initialize a model, but generates
 no paths or workers and accepts no simulation settings. It neither describes
-a preceding compiled/AAD call nor caches the next Value. Low-level `dal._dal`
+a preceding compiled/AAD call nor caches the next Value. High-level
+`ScriptSimulation_Explain` runs the full double valuation with the given
+`num_path` on exercise products (plain products skip the run, since their
+exercise events array is empty either way) and returns the
+`dal.script-simulation/1` exercise diagnostics dictionary. Low-level `dal._dal`
 and `dal.dal` diagnostics return raw JSON strings with the same schemas.
 Diagnostics are not loadable archives; Python has no public script-product
 serializer. Value results contain only already-normalized `PV` and optional
@@ -812,7 +819,11 @@ N×2 `PV`/`d_` key/value table, with already-normalized risks.
 `PRODUCT.DESCRIBE(product)` inspects contract syntax without history or date
 access. `SCRIPTVALUATION.EXPLAIN(product, modelData, [valuation])` performs
 fresh default price preparation without paths, workers, or a subsequent Value
-cache. Their `dal.script-product/2` and `dal.script-valuation/1` JSON is returned
+cache. `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
+[simulation])` runs the full double valuation on exercise products (plain
+products skip the run) and returns the
+`dal.script-simulation/1` exercise diagnostics. Their `dal.script-product/2`,
+`dal.script-valuation/1`, and `dal.script-simulation/1` JSON is returned
 as one column of text chunks: concatenate in order without separators before
 parsing. Functions are nonvolatile; explicitly recalculate after global-state
 changes. See the [Excel FIX guide](excel-script-settings.md) for exact defaults,

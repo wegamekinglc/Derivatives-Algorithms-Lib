@@ -63,7 +63,7 @@ namespace JointQuoteRiskFixtures {
         Dal::Vector_<> known;
         for (const auto& slot : slots) {
             const double rate = slot.curveIndex_ == 0 ? 0.02 : (layered ? 0.014 : 0.034) + 0.004 * (slot.curveIndex_ - 1);
-            const auto parameters = Dal::JointCalibrationInternal::BuildGuessSlice(spec.curves_[slot.curveIndex_], slot.definition_, rate, "fixture");
+            const auto parameters = Dal::BuildGuessSlice(spec.curves_[slot.curveIndex_], slot.definition_, rate, "fixture");
             for (double parameter : parameters)
                 known.push_back(parameter);
         }

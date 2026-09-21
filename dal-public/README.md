@@ -50,14 +50,19 @@ three-argument form and accepts a typed contract as a fourth argument;
 required typed valuation argument with optional simulation settings.
 Explicit dates avoid global date access, and non-null fixing snapshots are
 authoritative even when empty. Product defaults identify legacy `SPOT()`;
-model-sourced named fixings still require an explicit `spot` to ordinary EQ
-binding. See the [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
+model-sourced named fixings bind the model's `spot` output to the script's
+own future FIX index by name, and several distinct future indices fail with
+`MultipleModelIndices`. See the
+[field/default contract](../docs/methodology/script_engine.md#public-c-settings)
 and executable [settings example](examples/script_settings.cpp).
 
 `DescribeScriptProduct` provides contract JSON /2 without historical, model,
 or global-date access. `ExplainScriptValuation` provides valuation JSON /1
 using default price preparation with history access but no workers; every
-call prepares independently. Product archive v2 preserves the original
+call prepares independently. `ExplainScriptSimulation` provides simulation
+JSON /1 from a full double valuation on exercise products (plain products
+skip the run) with per-exercise-event statistics.
+Product archive v2 preserves the original
 contract/default index and retains a v1 reader. Legacy debug JSON /1 rejects
 FIX/nonempty defaults with a Describe /2 migration hint. See
 [archives and diagnostics](../docs/methodology/script_engine.md#product-archive-and-diagnostics).
@@ -105,8 +110,9 @@ Both bindings retain their legacy script signatures, and their old valuation
 wrappers use default preparation through the public facade. Each binding also
 projects the script settings and Describe/Explain diagnostics in its own form:
 Python exposes keyword-only settings classes, `MonteCarlo_ValueWithSettings`,
-`Product_Describe`, and `ScriptValuation_Explain`; Excel exposes immutable
-settings handles, `PRODUCT.NEWWITHSETTINGS`, `MONTECARLO.VALUEWITHSETTINGS`,
-`PRODUCT.DESCRIBE`, and `SCRIPTVALUATION.EXPLAIN`.
+`Product_Describe`, `ScriptValuation_Explain`, and `ScriptSimulation_Explain`;
+Excel exposes immutable settings handles, `PRODUCT.NEWWITHSETTINGS`,
+`MONTECARLO.VALUEWITHSETTINGS`, `PRODUCT.DESCRIBE`, `SCRIPTVALUATION.EXPLAIN`,
+and `SCRIPTSIMULATION.EXPLAIN`.
 
 DAL is distributed under the repository [MIT license](../LICENSE).

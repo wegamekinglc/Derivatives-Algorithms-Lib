@@ -156,10 +156,19 @@ namespace Dal::RateCashflowPricingInternal {
     // open. A family enters this set only once its multi-component AAD stage is onboarded;
     // the per-trade gate additionally requires the terms alternative to match the family,
     // so terms-mismatch trades keep hitting the family gate by construction.
-    inline Vector_<RateInstrumentType_> AadEnabledRateFamilies() {
-        return {RateInstrumentType_::Value_::DEPOSIT, RateInstrumentType_::Value_::FRA, RateInstrumentType_::Value_::FUTURE,
-                RateInstrumentType_::Value_::OIS,     RateInstrumentType_::Value_::IRS, RateInstrumentType_::Value_::BASIS_SWAP,
-                RateInstrumentType_::Value_::XCCY};
+    inline bool IsAadEnabledRateFamily(const RateInstrumentType_& family) {
+        switch (family.Switch()) {
+        case RateInstrumentType_::Value_::DEPOSIT:
+        case RateInstrumentType_::Value_::FRA:
+        case RateInstrumentType_::Value_::FUTURE:
+        case RateInstrumentType_::Value_::OIS:
+        case RateInstrumentType_::Value_::IRS:
+        case RateInstrumentType_::Value_::BASIS_SWAP:
+        case RateInstrumentType_::Value_::XCCY:
+            return true;
+        default:
+            return false;
+        }
     }
 
     inline RateTradeNodeSensitivityResult_ NodeSensitivityFailure(const String_& reason) {

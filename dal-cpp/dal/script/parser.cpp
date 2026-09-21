@@ -257,10 +257,14 @@ namespace Dal::Script {
     void Parser_::ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps) {
         eps = -1.0;
         while (cur != end && (cur->Text() == ";" || cur->Text() == ":")) {
-            const char c = cur->Text()[0];
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             eps = String::ToDouble(cur->Text());
+            //  a zero width divides by zero in CSpr at the kink; a negative one would
+            //  silently read as "unset" against the -1 sentinel
+            REQUIRE2(std::isfinite(eps) && eps > 0.0,
+                     "InvalidSmoothing: the ;eps option expects a finite positive width, got '" + cur->Text() + "'; " + cur->source_.Describe(),
+                     ScriptError_);
             ++cur;
         }
     }

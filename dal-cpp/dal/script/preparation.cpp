@@ -109,6 +109,9 @@ namespace Dal::Script {
                     const String_ context = ": SPOT(); product.defaultIndex_=empty; expected a default index; " + use.source_.Describe() +
                                             "; statement=" + String_(std::to_string(use.statementId_)) + "; node=n" +
                                             String_(std::to_string(use.nodeId_));
+                    //  explicit branch, not a macro argument: keeps the guard unconditional
+                    if (!use.source_.eventDate_)
+                        THROW2("InvalidFixingDate: observation source has no event date" + context, ScriptError_);
                     REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
                     REQUIRE2(requests_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }
@@ -283,7 +286,7 @@ namespace Dal::Script {
             product->PartitionEvents(evaluationDate);
             ValidateSimulationSettings(simulation);
             //  Early-exercise gates: exercise dates must be strictly future (S1/S8) and only the
-            //  sobol engine safely replays normal paths for the frozen strategy (S15); history-only
+            //  sobol engine seeks each batch's normal paths exactly (S15); history-only
             //  preparation cannot value EXERCISE (S12)
             const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
             REQUIRE2(!expired.first,

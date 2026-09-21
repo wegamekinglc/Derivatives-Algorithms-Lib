@@ -26,6 +26,9 @@ namespace Dal {
     class Index_;
 
     namespace Script {
+        constexpr double DEFAULT_SMOOTH = 0.01;
+        constexpr int DEFAULT_LSMC_BASIS_DEGREE = 3;
+
         struct ScriptProductSettings_ {
             String_ defaultIndex_;
         };
@@ -34,10 +37,10 @@ namespace Dal {
             String_ rsg_ = "sobol";
             bool useBb_ = false;
             bool enableAad_ = false;
-            double smooth_ = 0.01;
+            double smooth_ = DEFAULT_SMOOTH;
             std::optional<bool> compiled_;
             // Polynomial degree of the LSMC regression basis for EXERCISE valuation
-            int lsmcBasisDegree_ = 3;
+            int lsmcBasisDegree_ = DEFAULT_LSMC_BASIS_DEGREE;
         };
 
         struct ScriptValuationSettings_ {
@@ -51,9 +54,15 @@ namespace Dal {
             return settings.fixings_ ? "ExplicitSnapshot" : "GlobalSnapshot";
         }
         Handle_<Index_> ParseSettingIndex(const String_& name, const String_& field);
+        //  Binding-facing parser: deliberately case-sensitive exact Model / RequireHistorical
+        //  (unlike the Machinist String_ constructor, which is case-insensitive). Returns
+        //  false on any other spelling so each layer keeps its own error context.
+        bool TryParseTodayFixingPolicy(const String_& name, TodayFixingPolicy_* policy);
         ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings,
                                                           const Handle_<MarketFixingSnapshot_>& snapshot = {});
         void ValidateRNG(const String_& method);
+        void ValidateSmoothing(double smooth);
+        void ValidateLsmcBasisDegree(int degree);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

@@ -208,6 +208,14 @@ incorrect/ineligible result, unexpected package path, changed binary or suite ha
 different workload/configuration, timeout, or incomplete sample set fails the gate.
 There is no smoke-mode or case-filter option in the gate.
 
+Because the gate fails closed on a missing base API, a pull request cannot add a
+Python API and its benchmark case together: the base library predates the API, so
+the head suite's worker exits non-zero against it. Land the API first (without the
+benchmark), then add the benchmark case in a follow-up pull request. The failure
+names the missing API: the retained `worker.log` shows the worker's
+`AttributeError: module 'dal' has no attribute '<name>'` alongside the
+`Python benchmark worker exited` message.
+
 To reproduce it after creating two independent, equivalently configured workspace
 Release builds with `DAL_BUILD_PYTHON=ON` and the same `Python3_EXECUTABLE`, run from
 the head source checkout:
@@ -258,6 +266,25 @@ is pinned to 1.18, its actual `QuantLib` dependency to 1.43, and `rateslib` to 2
 These packages are not added to DAL's wheel requirements. Rateslib has its own
 [licence terms](https://rateslib.com/licence), including commercial/evaluation
 licensing requirements; its licence notice remains visible in worker logs.
+
+### Regenerating the pin file
+
+`requirements-comparisons.txt` is generated from
+[`requirements-comparisons.in`](requirements-comparisons.in) and installed with
+`--require-hashes`, so it must be regenerated whenever the `.in` file changes
+(new or upgraded comparison dependencies) or when intentionally bumping the
+locked versions. Run from the repository root:
+
+```bash
+uv pip compile dal-python/benchmarks/requirements-comparisons.in \
+  --python-version 3.13 --generate-hashes \
+  --output-file dal-python/benchmarks/requirements-comparisons.txt
+```
+
+Commit the regenerated file together with the `.in` change. CI installs the
+lockfile verbatim and does not compare it against the `.in` file, so keeping
+the two in sync is the contributor's responsibility — a stale lockfile passes
+CI unchanged until a yanked or re-hashed package breaks `--require-hashes`.
 
 Run from the repository root, with the same interpreter used to build DAL:
 

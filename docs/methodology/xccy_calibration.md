@@ -201,7 +201,12 @@ to infer intent from an empty matrix:
 | `APPROXIMATE` | `BUMPED`      | `not_available_for_mode`   | `not_available_for_mode`    |
 
 For either matrix, a false compute flag takes precedence and reports
-`not_requested`. Unavailable matrices use an empty numeric carrier.
+`not_requested`. Unavailable matrices use an empty numeric carrier. A requested
+exact inverse is additionally verified against the at-solution residual
+response (J/T x E must reproduce the identity to 1e-7); a rank-deficient or
+ill-conditioned quote map fails that check and reports
+`not_available_for_mapping` with an empty matrix rather than publishing a
+finite-but-wrong inverse.
 
 Joint XCCY analytic calibration is fail-fast. Every domestic and foreign
 declaration must satisfy the joint curve AAD gates, including `ACT_365F`, a

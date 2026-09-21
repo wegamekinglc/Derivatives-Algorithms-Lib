@@ -879,6 +879,23 @@ TEST(ScriptCompiledParityTest, TestParity_Exercise_GoldenPdeAnchored) {
     ASSERT_NEAR(pv, pde, band);
 }
 
+//  S11 AAD row for EXERCISE products: the fuzzy drivers agree on PV and d_<param>
+//  within the parity tolerance (association noise, no bitwise promise)
+TEST(ScriptCompiledParityTest, TestParity_Exercise_Aad) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel(100.0, 0.20, 0.05, 0.02);
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    const auto product = ExerciseProduct();
+    const auto treeWalk = MCSimulation<AAD::Number_>(product, model, 1u << 14, ScriptValuationSettings_(), simulation);
+    simulation.compiled_ = true;
+    const auto compiled = MCSimulation<AAD::Number_>(product, model, 1u << 14, ScriptValuationSettings_(), simulation);
+    ASSERT_EQ(treeWalk.names_.size(), compiled.names_.size());
+    ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, 1e-6 * (1u << 14));
+    for (size_t j = 0; j < treeWalk.risks_.size(); ++j)
+        ASSERT_NEAR(compiled.risks_[j], treeWalk.risks_[j], 1e-8) << "risk " << treeWalk.names_[j];
+}
+
 TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     std::set<int> seen;

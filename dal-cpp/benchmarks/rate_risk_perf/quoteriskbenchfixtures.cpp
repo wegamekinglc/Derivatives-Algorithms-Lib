@@ -168,15 +168,21 @@ namespace Dal::RateRiskPerf {
         spec.liborBasis_ = DayBasis_("ACT_365F");
         spec.tolerance_ = 1.0e-10;
         spec.initialGuess_ = 0.02;
+        // A piecewise-constant forward applies to the right of its knot, so an instrument
+        // maturing at the last knot leaves that forward unconstrained and the residual
+        // Jacobian rank-deficient (the driver then withholds the effective inverse).
+        // Anchor knot 0 at today and mature instrument i at knot i + 1, the canonical
+        // well-posed shape of the repaired native fixtures.
+        spec.knotDates_.push_back(spec.today_);
         Vector_<> knownForwards;
-        for (int i = 0; i < quoteCount; ++i) {
+        for (int i = 0; i < quoteCount; ++i)
             spec.knotDates_.push_back(Date::AddMonths(spec.today_, 6 * (i + 1)));
+        for (int i = 0; i < static_cast<int>(spec.knotDates_.size()); ++i)
             knownForwards.push_back(0.02 + 0.0005 * i);
-        }
         const auto known = Pwc("single_quote_bench_known", Ccy_(spec.ccy_), spec.knotDates_, knownForwards);
         const CurveBlock_ knownBlock(known, spec.liborBasis_);
-        for (const auto& maturity : spec.knotDates_)
-            spec.instruments_.push_back(DepositInstrument(spec.today_, maturity, Index(false), knownBlock));
+        for (int i = 1; i <= quoteCount; ++i)
+            spec.instruments_.push_back(DepositInstrument(spec.today_, spec.knotDates_[i], Index(false), knownBlock));
 
         materials.options_.jacobianMode_ = mode;
         materials.options_.computeForwardJacobian_ = false;

@@ -26,26 +26,17 @@ def test_product_settings_copy_and_diagnostic_layers():
     }
 
 
-def test_historical_settings_value_preserves_parameter_risk():
-    today = dal.Date_(2026, 9, 12)
-    history = dal.Date_(2026, 9, 11)
-    payment = dal.Date_(2026, 9, 22)
-    product = dal.Product_New(
-        ["SCALE", history, payment],
-        ["2", "x = SCALE * FIX(EQ[DAL196_TEST])", "pay PAYS x"],
+def test_historical_settings_value_preserves_parameter_risk(historical_fix):
+    product = historical_fix.product()
+    valuation = dal.ScriptValuationSettings_(
+        evaluation_date=historical_fix.today, fixings=historical_fix.snapshot()
     )
-    snapshot = dal.MarketFixingSnapshot_New(
-        {
-            "EQ[DAL196_TEST]": {dal.DateTime_(history, 0): 80.0},
-        }
-    )
-    valuation = dal.ScriptValuationSettings_(evaluation_date=today, fixings=snapshot)
     model = dal.BSModelData_New(100.0, 0.0, 0.05, 0.0)
     simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=True)
     result = dal.MonteCarlo_ValueWithSettings(
         product, model, 257, valuation=valuation, simulation=simulation
     )
-    time = (payment - today) / 365.0
+    time = (historical_fix.payment - historical_fix.today) / 365.0
     expected = 160.0 * math.exp(-0.05 * time)
     assert abs(result["PV"] - expected) <= 1e-12 * expected
     assert abs(result["d_SCALE"] - expected / 2.0) <= 1e-10
@@ -250,7 +241,7 @@ class IndexCount:
         return 1
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize(
     "value",
     [True, False, 1.0, 1.5, None, "2", float("nan"), float("inf"), IntChoice.ONE],
@@ -271,7 +262,7 @@ def test_path_type_errors_keep_context(entry, value):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize("value", [0, -1, 2**31, 2**100])
 def test_path_range_errors_keep_context(entry, value):
     with pytest.raises(RuntimeError) as error:
@@ -282,7 +273,7 @@ def test_path_range_errors_keep_context(entry, value):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 @pytest.mark.parametrize("value", [1, IndexCount(), 2**31 - 1])
 def test_path_conversion_accepts_integer_protocol_and_upper_bound(entry, value):
     # The next native precondition observes successful conversion without allocating paths.
@@ -506,6 +497,8 @@ def test_api_keyword_boundaries_and_settings_types(layer):
         ("MonteCarlo_ValueWithSettings", "valuation"),
         ("MonteCarlo_ValueWithSettings", "simulation"),
         ("ScriptValuation_Explain", "valuation"),
+        ("ScriptSimulation_Explain", "valuation"),
+        ("ScriptSimulation_Explain", "simulation"),
     ]:
         args = [product, data] + ([] if entry == "ScriptValuation_Explain" else [1])
         with pytest.raises(TypeError):
@@ -572,6 +565,104 @@ def test_every_new_boolean_field_is_strict(field, bad):
             else:
                 dal.MonteCarloSettings_(**{field: bad})
         assert getattr(settings, field) == previous
+
+
+def test_lsmc_basis_degree_accepts_integers_in_range():
+    assert dal.MonteCarloSettings_().lsmc_basis_degree == 3
+    for degree in [1, 3, 8, IndexCount()]:
+        expected = int(degree)
+        settings = dal.MonteCarloSettings_(lsmc_basis_degree=degree)
+        assert settings.lsmc_basis_degree == expected
+        settings.lsmc_basis_degree = 3
+        settings.lsmc_basis_degree = degree
+        assert settings.lsmc_basis_degree == expected
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        True,
+        False,
+        1.5,
+        3.0,
+        0,
+        -1,
+        9,
+        2**40,
+        "3",
+        None,
+        {},
+        IntChoice.ONE,
+        dal.TodayFixingPolicy_.MODEL,
+    ],
+)
+def test_lsmc_basis_degree_rejects_non_integers_and_out_of_range(bad, construct):
+    settings = dal.MonteCarloSettings_()
+    with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcBasisDegree") as error:
+        if construct:
+            dal.MonteCarloSettings_(lsmc_basis_degree=bad)
+        else:
+            settings.lsmc_basis_degree = bad
+    message = str(error.value)
+    assert all(
+        part in message
+        for part in ("InvalidSetting", "MonteCarloSettings_", "lsmc_basis_degree", "expected", "1", "8")
+    )
+    assert settings.lsmc_basis_degree == 3
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+def test_script_simulation_explain_reports_exercise_events(compiled):
+    today = dal.Date_(2026, 9, 12)
+    first = dal.Date_(2026, 12, 12)
+    second = dal.Date_(2027, 3, 12)
+    product = dal.Product_New(
+        [first, second],
+        ["EXERCISE MAX(100.0 - spot(), 0.0)", "EXERCISE MAX(100.0 - spot(), 0.0)"],
+    )
+    model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.0)
+    valuation = dal.ScriptValuationSettings_(evaluation_date=today)
+    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=compiled)
+    diagnostic = dal.ScriptSimulation_Explain(
+        product, model, 4096, valuation=valuation, simulation=simulation
+    )
+    assert diagnostic == json.loads(
+        native.ScriptSimulation_Explain(
+            product, model, 4096, valuation=valuation, simulation=simulation
+        )
+    )
+    assert diagnostic["schema"] == "dal.script-simulation/1"
+    assert diagnostic["evaluation_date"] == "2026-09-12"
+    assert diagnostic["simulation"]["lsmc_basis_degree"] == 5
+    assert diagnostic["simulation"]["compiled"] is compiled
+    assert diagnostic["n_paths"] == 4096
+    events = diagnostic["exercise_events"]
+    assert [event["event_id"] for event in events] == [0, 1]
+    assert [event["date"] for event in events] == ["2026-12-12", "2027-03-12"]
+    assert all(event["basis_degree"] == 5 for event in events)
+    assert all(event["num_coefficients"] == 6 for event in events)
+    assert all(len(event["coefficients"]) == 6 for event in events)
+    assert all(event["regressor_index"] is None for event in events)
+    # in-the-money condition-true paths enter the regression: exact sobol counts on
+    # this ATM put, identical in the tree-walk and compiled engines (the first date
+    # matches the dal-public pin in test_script_diagnostics.cpp)
+    assert [event["num_cond_true_paths"] for event in events] == [1926, 1891]
+    assert all(event["degenerate"] is False for event in events)
+    assert all(event["degenerate_reason"] is None for event in events)
+    assert all(0.0 < event["exercise_rate"] <= 1.0 for event in events)
+    plain = dal.Product_New([second], ["pay PAYS 1.0"])
+    without_exercise = dal.ScriptSimulation_Explain(plain, model, 1024)
+    assert without_exercise["exercise_events"] == []
+    assert without_exercise["n_paths"] == 1024
+    aad = dal.MonteCarloSettings_(enable_aad=True)
+    with pytest.raises(RuntimeError, match="UnsupportedExecutionMode.*enable_aad"):
+        dal.ScriptSimulation_Explain(product, model, 4096, simulation=aad)
+    with pytest.raises(RuntimeError, match="InvalidPathCount"):
+        dal.ScriptSimulation_Explain(product, model, 0)
+    for value in [{}, "Model", dal.ScriptProductSettings_()]:
+        with pytest.raises(TypeError, match="InvalidSetting.*simulation"):
+            dal.ScriptSimulation_Explain(product, model, 4096, simulation=value)
 
 
 @pytest.mark.parametrize(
@@ -655,7 +746,7 @@ def test_fix_date_errors_preserve_source(text, identifier):
     )
 
 
-@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings"])
+@pytest.mark.parametrize("entry", ["MonteCarlo_Value", "MonteCarlo_ValueWithSettings", "ScriptSimulation_Explain"])
 def test_huge_path_integer_is_rejected_even_beyond_python_repr_limit(entry):
     with pytest.raises(RuntimeError, match="InvalidPathCount.*num_path.*2147483647"):
         getattr(native, entry)(None, None, 10**5000)

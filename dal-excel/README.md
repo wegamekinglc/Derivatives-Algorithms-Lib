@@ -63,7 +63,9 @@ explicit date, today policy, and snapshot; the engine binds the model's spot
 output to the script's future FIX index by name, so no binding range is
 passed. Simulation settings select compiled execution and AAD.
 `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN` return complete native JSON
-in one column of text chunks. Concatenate all rows without separators before
+in one column of text chunks; `SCRIPTSIMULATION.EXPLAIN` returns the
+`dal.script-simulation/1` exercise diagnostics from a full double valuation
+in the same chunk form. Concatenate all rows without separators before
 parsing. These functions are nonvolatile; each actual Value/Explain call
 prepares independently, so explicitly recalculate after global-state changes.
 

@@ -2,6 +2,7 @@
 
 import dal
 
+from dal_benchmarks.calibration import index, leg
 from dal_benchmarks.harness import require
 from .scenarios import BUMP, LOG_DFS, NODES, TIMES, TODAY
 
@@ -21,28 +22,6 @@ def curve(shift):
     )
 
 
-def leg():
-    result = dal.RateLegConvention_New(
-        dal.PeriodLength_New("12M"), dal.DayBasis_New("ACT_365F")
-    )
-    result.payment_lag = 0
-    result.business_day_convention = dal.BizDayConvention_.UNADJUSTED
-    result.payment_convention = dal.BizDayConvention_.UNADJUSTED
-    return result
-
-
-def index():
-    result = dal.RateIndexConvention_New(
-        dal.PeriodLength_New("12M"),
-        dal.DayBasis_New("ACT_365F"),
-        dal.CollateralType_OIS(),
-        True,
-    )
-    result.fixing_lag = result.spot_lag = 0
-    result.business_day_convention = dal.BizDayConvention_.UNADJUSTED
-    return result
-
-
 def swap(value, ordinal):
     identity = dal.FixingIdentity_()
     identity.index_name = "USD-COMPARISON"
@@ -53,7 +32,7 @@ def swap(value, ordinal):
         pay_fixed=value["sign"] == 1,
         fixed_leg=leg(),
         float_leg=leg(),
-        float_index=index(),
+        float_index=index(projected=True, months=12),
         fixing_identity=identity,
         forecast_component_key="curve",
         discount_component_key="curve",
