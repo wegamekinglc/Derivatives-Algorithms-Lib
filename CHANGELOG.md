@@ -103,9 +103,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   the LSMC regression basis degree (default 3), validated by
   `ValidateSimulationSettings` as an integer between 1 and 8
   (`InvalidSetting: InvalidLsmcBasisDegree`). The Python and Excel projections
-  of the field land with the EXERCISE valuation driver. (Landed 2026-09-20:
-  the Python keyword-only `lsmc_basis_degree` argument/property and the Excel
-  `MONTECARLOSETTINGS.NEW` `lsmc_basis_degree` key.)
+  of the field land with the EXERCISE valuation driver.
 
 - **BREAKING: model bindings removed; FIX is managed by index name** — deleted
   `ScriptValuationSettings_::modelBindings_` and `Dal::ModelIndexBinding_` along
@@ -118,14 +116,6 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   argument, becoming `name, [settings], [fixings]`. Explain diagnostics keep
   the `model_bindings` field as the effective model index. See
   [the script model index](docs/methodology/script_engine.md#the-script-model-index-and-legacy-spot).
-
-- **Script engine infers the model binding** — an empty
-  `ScriptValuationSettings_::modelBindings_` no longer fails model-sourced
-  `FIX` valuation with `MissingModelBinding`; preparation binds the model's
-  `spot` output to the script's single future ordinary EQ and raises
-  `AmbiguousModelBinding` on several distinct future indices. Explicit
-  bindings keep their validation, and Describe/Explain diagnostics report the
-  inferred binding. (Superseded by the removal above, same day.)
 
 ## 2026-09-15
 

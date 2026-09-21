@@ -152,7 +152,7 @@ namespace Dal {
         // Curve reference for the pricing kernels: the target component as an active
         // DiscountCurve_<T_>, every other component as its passive double curve, so mixed
         // active/passive arithmetic type-checks without registering passive parameters
-        // (frozen P0 contract 1 in docs/experimental/aad-node-risk-portfolio-aggregation-design.md).
+        // (docs/methodology/rate_node_risk.md#aad-and-passive-dependencies).
         // T_ = double keeps every reference passive.
         template <class T_> struct CurveRef_ {
             const Tape::DiscountCurve_<T_>* active_ = nullptr;

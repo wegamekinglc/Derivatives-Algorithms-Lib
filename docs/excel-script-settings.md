@@ -78,9 +78,7 @@ Any other column count is rejected, even for an entirely blank range.
 
 A half-empty row is an error. Omit the `default_index` or `compiled` row to
 leave it unset; do not pair the key with a blank value. Unknown or repeated
-keys are errors, including differently cased duplicates. Binding assets must
-be nonempty text and currently only accept `spot`; duplicate assets are rejected
-even if their index values agree. Index values must be nonempty text. Complete
+keys are errors, including differently cased duplicates. Complete
 index parsing and model-capability checks occur in description/preparation,
 so constructing a settings handle does not establish that a product can price.
 

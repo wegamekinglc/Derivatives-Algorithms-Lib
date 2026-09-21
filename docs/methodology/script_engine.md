@@ -4,6 +4,28 @@ This note describes the script-engine pipeline that turns a human-readable event
 table into an evaluable expression tree, and the visitor passes that transform it
 before simulation or valuation. The implementation lives in `dal-cpp/dal/script/`.
 
+## Contents
+
+- [Architecture](#architecture)
+- [Parser and AST](#parser-and-ast)
+- [Events and Schedules](#events-and-schedules)
+- [Public C++ Settings](#public-c-settings)
+- [Historical Fixing Preparation](#historical-fixing-preparation)
+- [Core Double/Tree Fixing Valuation](#core-doubletree-fixing-valuation)
+- [Early-Exercise Valuation (LSMC)](#early-exercise-valuation-lsmc)
+- [Core AAD/Tree Fixing Valuation](#core-aadtree-fixing-valuation)
+- [Preprocessing Pipeline](#preprocessing-pipeline)
+- [Domain Processor](#domain-processor)
+- [Constant Condition Processor](#constant-condition-processor)
+- [Fuzzy Evaluator](#fuzzy-evaluator)
+- [Pipeline Ordering](#pipeline-ordering)
+- [Simulation and Evaluation](#simulation-and-evaluation)
+- [Visitor Machinery](#visitor-machinery)
+- [Examples](#examples)
+- [Product Archive and Diagnostics](#product-archive-and-diagnostics)
+- [Product Debug Outputs](#product-debug-outputs)
+- [See Also](#see-also)
+
 ## Architecture
 
 The script engine is split into two independent halves connected by a well-defined
@@ -74,7 +96,10 @@ resolves there). Statements are either assignments (`=`, `NodeAssign_`), pays
 clauses (`PAYS`, `NodePays_`), `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
 `firstElse_` indexing the else-branch within `arguments_`), or early-exercise
 clauses (`EXERCISE <value> [IF <condition>]`, `NodeExercise_`, at most one per
-event and only at the event top level).
+event and only at the event top level). A second `EXERCISE` in one event raises
+`DuplicateExercise` and one nested inside an `IF` raises
+`UnsupportedExerciseNesting`; a condition that ends on a statement keyword
+raises `InvalidExerciseCondition`. All three carry input row/line context.
 
 `FIX` and `EXERCISE` are also reserved for macro and constant-variable
 definitions. A conflicting definition or variable produces `ReservedIdentifier`
@@ -157,6 +182,10 @@ The compatibility rules are:
 - An omitted `FIX` date resolves to the event date during preparation;
   `F > E` fails with `LookAheadObservation`, including in a dead branch.
 
+The table compares how the three observation forms resolve each date
+relation; the preparation-level date rules themselves, including the
+exact-midnight requirement, are stated under
+[Dates and Structural Validation](#dates-and-structural-validation).
 Valuation-level detail lives under
 [The Script Model Index and Legacy SPOT](#the-script-model-index-and-legacy-spot).
 
@@ -371,6 +400,10 @@ the AST's optional date remains unchanged. Every fixing key uses exact midnight
 - `F > D` remains a model request, regardless of snapshot contents.
 - `F > E` raises `LookAheadObservation`, including in a dead branch or a
   wholly expired product.
+
+These are the `FIX` date rules; the per-form differences for unbound and
+default-bound `SPOT()` on the same relations are tabulated under
+[SPOT() Compatibility and the FIX Boundary](#spot-compatibility-and-the-fix-boundary).
 
 A model request has no historical value slot. The overload without a model
 leaves it unresolved; model-aware preparation binds it to a scenario output.
@@ -647,7 +680,10 @@ invariant across thread counts.
 
 The regressor is the product's single model-sourced future observation (the
 same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
-`regressor_index` in diagnostics. Preparation allows only `rsg = "sobol"`
+`regressor_index` in diagnostics. Exercise dates must be strictly after the
+evaluation date (`UnsupportedExerciseDate`), and history-only preparation
+cannot value an exercise product (`UnsupportedExecutionMode`). Preparation
+allows only `rsg = "sobol"`
 for exercise products (`UnsupportedRsgForExercise`): the driver seeks each
 batch's first path with `SkipTo`, and only Sobol's `SkipTo` reconstructs it
 exactly — see
@@ -1379,6 +1415,11 @@ eventDates.emplace_back("BARRIER");
 events.emplace_back("150.00");
 eventDates.emplace_back("STRIKE");
 events.emplace_back("120.00");
+
+// Initialization event: variables default to zero, so the knock-out flag
+// must be set alive before the monitor periods run
+eventDates.emplace_back(Date_(2022, 9, 25));
+events.emplace_back("alive = 1");
 
 // Schedule directive: the preprocessor expands PeriodBegin/PeriodEnd per period
 eventDates.emplace_back(
