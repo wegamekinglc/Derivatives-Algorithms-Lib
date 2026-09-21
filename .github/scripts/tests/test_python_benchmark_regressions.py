@@ -311,6 +311,50 @@ python3() {
             with self.assertRaisesRegex(ValueError, "Release"):
                 GATE.build_configuration(root, root)
 
+    def test_configuration_drift_compares_only_shared_keys(self):
+        base = {"DAL_USE_XAD_AAD": "OFF", "CMAKE_CXX_FLAGS": "-O2"}
+        added = {**base, "DAL_USE_NEW_BACKEND": "ON"}
+        self.assertEqual(GATE.configuration_drift(base, added), {})
+        self.assertEqual(GATE.configuration_drift(added, base), {})
+        changed = GATE.configuration_drift(base, {**added, "CMAKE_CXX_FLAGS": "-O3"})
+        self.assertEqual(changed, {"CMAKE_CXX_FLAGS": ("-O2", "-O3")})
+
+    def test_run_gate_configuration_guard_ignores_added_options(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            argv = [
+                "--base-root",
+                str(root / "base-build"),
+                "--head-root",
+                str(root / "head-build"),
+                "--base-source",
+                str(root / "base-source"),
+                "--head-source",
+                str(root / "head-source"),
+                "--output-dir",
+                str(root / "results"),
+            ]
+            with (
+                mock.patch.object(
+                    GATE,
+                    "build_configuration",
+                    side_effect=[{"A": "1"}, {"A": "1", "DAL_USE_NEW": "ON"}],
+                ),
+                mock.patch.object(GATE, "source_sha", return_value="commit"),
+                mock.patch.object(
+                    GATE, "run_worker", side_effect=RuntimeError("sentinel")
+                ),
+            ):
+                # An option present only on the head side is not drift; the
+                # sentinel proves the guard passed and sampling began.
+                with self.assertRaisesRegex(RuntimeError, "sentinel"):
+                    GATE.run_gate(GATE.arguments(argv), {})
+            with mock.patch.object(
+                GATE, "build_configuration", side_effect=[{"A": "1"}, {"A": "2"}]
+            ):
+                with self.assertRaisesRegex(ValueError, "configurations differ"):
+                    GATE.run_gate(GATE.arguments(argv), {})
+
     def test_linux_required_benchmark_job_runs_python_gate_with_native_policy(self):
         workflow = (SCRIPTS.parent / "workflows/cmake-linux.yml").read_text()
         job = workflow.split("  benchmark:\n", 1)[1].split("  linux-gate:\n", 1)[0]

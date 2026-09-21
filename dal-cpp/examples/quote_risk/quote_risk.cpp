@@ -43,18 +43,17 @@ namespace {
         spec.liborBasis_ = DayBasis_("ACT_365F");
         spec.tolerance_ = 1.0e-10;
         spec.initialGuess_ = 0.02;
-        // A piecewise-constant forward applies to the right of its knot, so an instrument
-        // maturing at the last knot leaves that forward unconstrained and the residual
-        // Jacobian rank-deficient (the driver then withholds the effective inverse and the
-        // provenance reports QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE). Anchor knot 0 at
-        // today so every quoted forward is instrument-constrained.
+        // A piecewise-constant forward applies to the right of its knot, so a maturity at the
+        // last knot leaves that forward unconstrained and the residual Jacobian rank-deficient
+        // (the calibration driver then withholds the effective inverse). Anchor knot 0 at today
+        // and mature instrument i at knot i + 1, the canonical well-posed shape.
         spec.knotDates_ = {spec.today_, Date::AddMonths(spec.today_, 6), Date::AddMonths(spec.today_, 12), Date::AddMonths(spec.today_, 24)};
 
         const Handle_<DiscountCurve_> known(NewDiscountPWC("known_usd", spec.ccy_, PiecewiseConstant_(spec.knotDates_, {0.020, 0.023, 0.026, 0.029})));
         const CurveBlock_ knownBlock(known, spec.liborBasis_);
         const RateIndexConvention_ index = Index();
         for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i) {
-            const auto maturity = spec.knotDates_[i];
+            const Date_& maturity = spec.knotDates_[i];
             const Handle_<YCInstrument_> prototype(new Deposit_(spec.today_, spec.today_, maturity, 0.0, index));
             const double quote = (*prototype->Precompute(Handle_<YieldCurve_>()))(knownBlock);
             spec.instruments_.push_back(Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.today_, maturity, quote, index)));
