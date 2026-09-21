@@ -247,12 +247,12 @@ namespace Dal::Script {
                 AllocatePath(ctx.Plan().DefLine(), path_);
                 InitializePath(path_);
             }
-            evaluator_.sinks_.eventToPays_ = &ctx.scan_.eventToPays_;
-            evaluator_.sinks_.eventToExercise_ = &ctx.scan_.eventToExercise_;
-            evaluator_.sinks_.pays_ = &ctx.storage_.pays_;
-            evaluator_.sinks_.x_ = &ctx.storage_.xByDay_;
-            evaluator_.sinks_.h_ = &ctx.storage_.hByDay_;
-            evaluator_.sinks_.cond_ = ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
+            evaluator_.eventToPays_ = &ctx.scan_.eventToPays_;
+            evaluator_.eventToExercise_ = &ctx.scan_.eventToExercise_;
+            evaluator_.paysStorage_ = &ctx.storage_.pays_;
+            evaluator_.xStorage_ = &ctx.storage_.xByDay_;
+            evaluator_.hStorage_ = &ctx.storage_.hByDay_;
+            evaluator_.condStorage_ = ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
             if (ctx.compiled_) {
                 compiledState_.emplace(ctx.prepared_.BuildEvalState<double>());
                 sinks_.eventToPays_ = &ctx.scan_.eventToPays_;
@@ -275,7 +275,7 @@ namespace Dal::Script {
 
         void TreeEvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
             auto& eval = state.evaluator_;
-            eval.sinks_.pathSlot_ = pathSlot;
+            eval.pathSlot_ = pathSlot;
             eval.SetScenario(&state.Path());
             eval.SetObservations(&ctx.Plan());
             eval.Init();

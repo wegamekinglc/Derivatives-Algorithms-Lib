@@ -26,13 +26,27 @@ As long as this comment is preserved at the Top of the file
 #include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
-#include <dal/script/visitor/lsmcrecording.hpp>
 #include <dal/script/visitor/smoothing.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <functional>
 #include <iostream>
 
 namespace Dal::Script {
+    //  Recording sinks installed by the LSMC driver (dal/script/lsmc.cpp) before
+    //  evaluating a compiled EXERCISE stream: raw payments per PAYS event and the
+    //  (x, h, condition) triple per exercise event land in the driver's storage
+    //  rows; the driver advances eventOrdinal_ and pathSlot_ between events/paths.
+    struct LsmcSinks_ {
+        const Vector_<size_t>* eventToPays_ = nullptr;
+        const Vector_<size_t>* eventToExercise_ = nullptr;
+        Vector_<Vector_<>>* pays_ = nullptr;
+        Vector_<Vector_<>>* x_ = nullptr;
+        Vector_<Vector_<>>* h_ = nullptr;
+        Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
+        size_t eventOrdinal_ = 0;
+        size_t pathSlot_ = 0;
+    };
+
     template <class T_> struct EvalState_ : EvalStateCore_<T_> {
         //  Fuzzy If blend state.
         double defEps_ = 0.0;
@@ -938,23 +952,36 @@ namespace Dal::Script {
         }
 
         template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, double payment) {
-            RecordLsmcPaymentRow(RequireLsmcSinks(statePtr), payment);
+            auto& sinks = RequireLsmcSinks(statePtr);
+            (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]][sinks.pathSlot_] += payment;
         }
 
         //  Mirrors the tree-walk recorder: exercise leaves the script state untouched,
         //  only the driver's rows move. Fuzzy conditions land on the double stack, so
         //  the AAD replay extends this with its own decision-degree seam.
         template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
-            RecordLsmcExerciseRow(RequireLsmcSinks(statePtr), value, cond, spot);
+            auto& sinks = RequireLsmcSinks(statePtr);
+            const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
+            (*sinks.x_)[slot][sinks.pathSlot_] = spot;
+            (*sinks.h_)[slot][sinks.pathSlot_] = value;
+            if (sinks.cond_) {
+                auto& row = (*sinks.cond_)[slot];
+                if (!row.empty())
+                    row[sinks.pathSlot_] = static_cast<char>(cond);
+            }
         }
 
         //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
         template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, const T_& payment) {
-            RecordLsmcFuzzyPaymentRow(RequireLsmcFuzzySinks(statePtr), payment);
+            auto& sinks = RequireLsmcFuzzySinks(statePtr);
+            (*sinks.pays_)[sinks.eventOrdinal_] += payment;
         }
 
         template <class T_> FORCE_INLINE void RecordLsmcFuzzyExercise(EvalState_<T_>* statePtr, const T_& value, const T_& cond) {
-            RecordLsmcFuzzyExerciseRow(RequireLsmcFuzzySinks(statePtr), value, cond);
+            auto& sinks = RequireLsmcFuzzySinks(statePtr);
+            const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
+            (*sinks.h_)[slot] = value;
+            (*sinks.cond_)[slot] = cond;
         }
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise

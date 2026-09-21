@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/script/visitor/evaluator.hpp>
-#include <dal/script/visitor/lsmcrecording.hpp>
 
 namespace Dal::Script {
 
@@ -31,15 +30,22 @@ namespace Dal::Script {
         LsmcEvaluator_(const Vector_<>& variables, const Vector_<T_>& constVariables) : Base(variables, constVariables) {}
 
         //  Driver-installed recording sinks; storage rows are indexed by global path slot
-        LsmcSinks_ sinks_;
+        const Vector_<size_t>* eventToPays_ = nullptr;
+        const Vector_<size_t>* eventToExercise_ = nullptr;
+        Vector_<Vector_<>>* paysStorage_ = nullptr;
+        Vector_<Vector_<>>* xStorage_ = nullptr;
+        Vector_<Vector_<>>* hStorage_ = nullptr;
+        Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
+        size_t pathSlot_ = 0;
+        size_t eventOrdinal_ = 0;
 
-        void SetEventOrdinal(size_t event) { sinks_.eventOrdinal_ = event; }
+        void SetEventOrdinal(size_t event) { eventOrdinal_ = event; }
 
         FORCE_INLINE void Visit(const NodePays_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T_ payment = dStack_.TopAndPop();
-            RecordLsmcPaymentRow(sinks_, payment);
+            (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
 
@@ -51,7 +57,14 @@ namespace Dal::Script {
                 VisitNode(*node.arguments_[1]);
                 cond = bStack_.TopAndPop() ? 1.0 : 0.0;
             }
-            RecordLsmcExerciseRow(sinks_, value, cond, (*scenario_)[curEvt_].spot_);
+            const size_t slot = (*eventToExercise_)[eventOrdinal_];
+            (*xStorage_)[slot][pathSlot_] = (*scenario_)[curEvt_].spot_;
+            (*hStorage_)[slot][pathSlot_] = value;
+            if (condStorage_) {
+                auto& row = (*condStorage_)[slot];
+                if (!row.empty())
+                    row[pathSlot_] = static_cast<char>(cond);
+            }
         }
     };
 } // namespace Dal::Script
