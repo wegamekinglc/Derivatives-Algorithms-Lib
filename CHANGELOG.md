@@ -23,7 +23,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   the LSMC driver (`dal-cpp/dal/script/lsmc.cpp`) in both tree-walk and
   compiled execution, with hard-decision double valuation (forward storage,
   backward induction with z-normalized monomial regression, explicit ridge,
-  and degenerate guards, then frozen-policy replay on regenerated Sobol paths)
+  and degenerate guards, then frozen-policy valuation from the recorded
+  paths)
   and fuzzy AAD valuation (recursive blend over frozen coefficients; the
   adjoint is the exact frozen-policy gradient, with the envelope remainder
   quantified in bump tests). Same-seed PV, coefficients, exercise rates, and
@@ -49,6 +50,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   probe path behind the backward discount ratios is validated like every
   worker path. The Bermudan PDE test oracle's s=0 boundary anchors at the
   next exercise date (zero measured delta on the suite benchmarks).
+- **Script: reuse recorded LSMC paths instead of replaying simulation** — the
+  double driver's frozen-policy pass no longer regenerates paths: Phase A
+  closes each path's rows with the terminal payoff value, and Phase C values
+  the policy from storage (exercise-date numeraires come from the probe grid
+  the backward induction already trusts). Black-Scholes products generate the
+  forward pass through the fused checked-path fast path shared with the plain
+  driver. PVs, exercise rates, diagnostics, and thread-count invariance are
+  bitwise unchanged; the fuzzy/AAD driver still regenerates on tape.
 
 ## 2026-09-19
 
