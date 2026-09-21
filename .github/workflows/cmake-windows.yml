@@ -183,7 +183,10 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release
+          # Examples are compile-checked here but only run in the Linux coverage
+          # leg: the AAD-backed Monte Carlo examples (e.g. european_mc) are
+          # pathologically slow under the MSVC xad backend (hours, not minutes).
+          ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release -LE "benchmark|examples|examples_slow"
 
       - name: Test installed CMake consumer
         shell: pwsh
