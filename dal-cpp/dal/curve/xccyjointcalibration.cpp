@@ -584,10 +584,6 @@ namespace Dal {
                                     NonConvergenceStats(result.residuals_, result.solverEvaluations_, false);
             THROW2(message, Underdetermined::ConvergenceError_);
         }
-        if (solve.hasEffJacobianInverse_ &&
-            !ValidEffectiveMapping(function, solve.parameters_, result.residuals_, Vector_<>(layout.totalResiduals_, spec.tolerance_),
-                                   result.effJacobianInverse_))
-            result.effJacobianInverse_.Clear();
         return result;
     }
 } // namespace Dal

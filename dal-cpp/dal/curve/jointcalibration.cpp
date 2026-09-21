@@ -267,7 +267,12 @@ namespace Dal {
             const auto coordinates = RunCurveSolver(chart, Vector_<>(directions.Cols(), 0.0), tolerance, true, spec.fitTolerance_, chartWeights,
                                                     spec.maxEvaluations_, spec.maxRestarts_, &chartInverse);
             const auto solved = chart.Parameters(coordinates);
-            Matrix::Multiply(directions, chartInverse, inverse);
+            // The solver clears the chart inverse when it fails the mapping verification;
+            // the composed full inverse must fail closed the same way instead of multiplying.
+            if (chartInverse.Empty())
+                inverse->Clear();
+            else
+                Matrix::Multiply(directions, chartInverse, inverse);
             if (forward && function.JacobianModeUsed() == "ANALYTIC")
                 *forward = NativeJointJacobian(function, solved, function.F(solved));
             return solved;
@@ -394,11 +399,9 @@ namespace Dal {
         result.effJacobianInverseAvailability_ = !options.computeEffJacobianInverse_
                                                      ? "not_requested"
                                                      : (spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? "available" : "not_available_for_mode");
-        if (result.effJacobianInverseAvailability_ == "available" &&
-            !ValidEffectiveMapping(func, solve.parameters_, finalResiduals, tol, result.effJacobianInverse_)) {
-            result.effJacobianInverse_.Clear();
+        // The solver clears a requested inverse that fails its mapping verification.
+        if (result.effJacobianInverseAvailability_ == "available" && result.effJacobianInverse_.Empty())
             result.effJacobianInverseAvailability_ = "not_available_for_mapping";
-        }
         result.jacobianModeUsed_ = func.JacobianModeUsed();
         result.effJacobianInverseMapping_ = initialChart ? "initial_jacobian_chart" : "local_weighted";
         result.solverEvaluations_ = evaluationCount;

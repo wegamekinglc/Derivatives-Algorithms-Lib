@@ -79,6 +79,10 @@ namespace Dal {
             virtual void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const;
         };
 
+        // When effJInv is non-null, the effective (weighted) inverse of the solution Jacobian is
+        // stored there only if the tolerance-scaled solution Jacobian maps each of its columns
+        // back to the identity to 1e-7; a finite-but-wrong inverse is cleared instead
+        // (fail-closed for inverse-Jacobian consumers such as quote risk).
         Vector_<> Find(const Function_& func,
                        const Vector_<>& guess,
                        const Vector_<>& tol,
