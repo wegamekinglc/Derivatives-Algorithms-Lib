@@ -350,12 +350,10 @@ namespace Dal {
                                        "Cross-currency calibration diagnostics");
             RequireFiniteValues(diagnostics.jacobian_, "Cross-currency calibration forward Jacobian");
             RequireFiniteValues(diagnostics.effJacobianInverse_, "Cross-currency calibration effective inverse Jacobian");
-            if (solve->hasEffJacobianInverse_ &&
-                !ValidEffectiveMapping(func, solve->parameters_, diagnostics.residuals_,
-                                       Vector_<>(spec.instruments_.size(), spec.tolerance_), diagnostics.effJacobianInverse_)) {
-                diagnostics.effJacobianInverse_.Clear();
+            // The solver clears a requested inverse that fails its mapping verification;
+            // report that fail-closed outcome with the joint driver's token.
+            if (solve->hasEffJacobianInverse_ && diagnostics.effJacobianInverse_.Empty())
                 diagnostics.effJacobianInverseAvailability_ = "not_available_for_mapping";
-            }
             RequireFiniteValues(fxForwardCurve.forwards_, "Cross-currency calibration FX forwards");
             return CrossCurrencyCalibrationResult_(market, basisCurves, fxForwardCurve, diagnostics);
         }
