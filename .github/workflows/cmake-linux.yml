@@ -730,11 +730,6 @@ jobs:
         env:
           DAL_NUM_THREADS: 4
         run: |
-          # One-time widening for this PR only (reverted by the follow-up):
-          # the rank-deficient single-curve benchmark fixtures were repaired to
-          # a well-posed shape, which grows the timed solve from N to N+1
-          # parameters (+10-17% on two quote-risk rows); the pre-repair base
-          # measured a solve whose inverse the new guard rejects as garbage.
           python3 .github/scripts/check_benchmark_regressions.py \
             --base-root benchmark-base/build/benchmark-base \
             --head-root build/benchmark-head \
@@ -742,7 +737,7 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
             --confirmation-rounds 2 \
-            --threshold-percent 20
+            --threshold-percent 4
 
       - name: Diagnose Python regression with baseline A/A
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
