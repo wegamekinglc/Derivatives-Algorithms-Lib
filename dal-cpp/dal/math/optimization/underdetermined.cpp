@@ -265,6 +265,21 @@ namespace Dal {
 
         bool IsFindSolution(const Vector_<>& f) { return *MaxElement(f) < 1.0 && *MinElement(f) > -1.0; }
 
+        // Fail-closed inverse validation: the tolerance-scaled solution Jacobian must map each
+        // inverse column back to the identity to 1e-7; a finite-but-wrong inverse fails closed.
+        bool ValidSolutionMapping(const Underdetermined::Jacobian_& scaledJacobian, const Matrix_<>& inverse) {
+            for (int column = 0; column < inverse.Cols(); ++column) {
+                Vector_<> direction(inverse.Rows());
+                for (int row = 0; row < inverse.Rows(); ++row)
+                    direction[row] = inverse(row, column);
+                const auto mapped = scaledJacobian.MultiplyLeft(direction);
+                for (int row = 0; row < static_cast<int>(mapped.size()); ++row)
+                    if (!std::isfinite(mapped[row]) || std::abs(mapped[row] - (row == column ? 1.0 : 0.0)) > 1.0e-7)
+                        return false;
+            }
+            return !inverse.Empty();
+        }
+
         void StoreFindDiagnostics(XScaledFunc_* func,
                                   const Underdetermined::Function_& funcIn,
                                   const Vector_<>& x,
@@ -276,6 +291,8 @@ namespace Dal {
             if (effJInv) {
                 std::unique_ptr<Underdetermined::Jacobian_> jSolution(func->JAtSolution(x, scaledF));
                 StoreEffectiveJacobianInverse(*jSolution, w, effJInv);
+                if (!ValidSolutionMapping(*jSolution, *effJInv))
+                    effJInv->Clear();
             }
             if (fwdJacobianAtSolution) {
                 fwdJacobianAtSolution->Clear();
