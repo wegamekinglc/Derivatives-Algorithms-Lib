@@ -293,10 +293,16 @@ namespace Dal::Script {
         }
 
         //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline
-        //  only), which builds its own recording artifact in compiled mode
+        //  only), which builds its own recording artifact in compiled mode.  The
+        //  driver reads its RNG settings from preparation (S15 pins rsg to sobol
+        //  for EXERCISE), so the caller's rsg/useBb are dropped on this route;
+        //  pin their redundancy in debug builds
         if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
-            if (product.Product().ContainsExercise())
+            if (product.Product().ContainsExercise()) {
+                ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
+                       "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
                 return MCLsmcSimulation(product, mdl, nPaths);
+            }
         }
 
         std::optional<ScriptCompiled_> compiledProduct;

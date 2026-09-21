@@ -212,15 +212,13 @@ namespace Dal::Script {
     namespace {
         //  The diagnostic deliberately runs the double valuation path (tree-walk or
         //  compiled) only: the fuzzy AAD driver reports no per-event statistics, and
-        //  enable_aad settings are rejected at the entry
+        //  enable_aad settings are rejected at the entry.  Only exercise products
+        //  burn a simulation: the LSMC driver is the sole writer of LsmcDiagnostics_,
+        //  so the double run's SimResults_ would be discarded for plain products
         void RunSimulationDiagnostic(const PreparedScript_& prepared, AAD::Model_<double>* model, size_t nPaths, LsmcDiagnostics_* diagnostics) {
-            if (prepared.AllExpired())
+            if (prepared.AllExpired() || !prepared.Product().ContainsExercise())
                 return;
-            const auto& simulation = prepared.Simulation();
-            if (prepared.Product().ContainsExercise())
-                MCLsmcSimulation(prepared, model, nPaths, diagnostics);
-            else
-                MCDoubleSimulation(prepared, model, nPaths, simulation.rsg_, simulation.useBb_, simulation.compiled_, true);
+            MCLsmcSimulation(prepared, model, nPaths, diagnostics);
         }
 
         void JsonWriteStringOrNull(const String_& text, std::ostream& out) {
@@ -251,8 +249,10 @@ namespace Dal::Script {
                                     const MonteCarloSettings_& requestedSimulation) {
         REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
-        //  The diagnostic explicitly runs the full three-phase valuation, so its cost is
-        //  the cost of a simulation; it runs the double valuation path only
+        //  The diagnostic runs the full three-phase valuation for exercise products,
+        //  so its cost is the cost of a simulation; it runs the double valuation
+        //  path only, and plain products skip the run entirely (their
+        //  exercise_events array is empty either way)
         REQUIRE2(!requestedSimulation.enableAad_,
                  "UnsupportedExecutionMode: the simulation diagnostic runs the double valuation path (tree-walk or compiled); enable_aad is not "
                  "supported here",

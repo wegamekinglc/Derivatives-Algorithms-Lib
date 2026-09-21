@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 import math
 
 from . import calibration_scenarios, option_scenarios
+from .constants import DAY_COUNT, TODAY
 
-TODAY = datetime(2025, 1, 15)
 NODES = [datetime(2025 + year, 1, 15) for year in range(22)]
 TIMES = [(date - TODAY).days / 365 for date in NODES]
 LOG_DFS = [-(0.02 + 0.0005 * i) * t for i, t in enumerate(TIMES)]
@@ -20,7 +20,7 @@ RISK_METHODS = {
 CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
     "currency": "USD",
-    "day_count": "ACT/365F",
+    "day_count": DAY_COUNT,
     "calendar": "none",
     "adjustment": "unadjusted",
     "fixed_and_float_frequency_months": 12,
@@ -36,7 +36,7 @@ CONVENTIONS = {
     "cache_policy": "QuantLib swap NPV forced recalculation; unchanged floating coupons may stay cached; rateslib curve_caching=False",
     "pv_modes": {
         "pv": "historical public pricing; DAL rebuilds geometry; third-party instruments reused",
-        "prepared_pv": "instruments/geometry prepared before timing; DAL recomputes rates; QuantLib floating coupons may stay cached",
+        "prepared_pv": "instruments/geometry prepared before timing; DAL recomputes rates; QuantLib and rateslib have no prepared API and rerun their pv path; QuantLib floating coupons may stay cached",
         "market_update_pv": "prepared instruments; +1bp then -1bp prebuilt curves; QuantLib relink and notifications timed; output: up vector then down vector",
         "cold_pv": "construct and destroy instruments from raw terms inside timing; curves/market prepared before timing",
     },
@@ -154,7 +154,12 @@ def method(backend, case):
         return calibration_scenarios.method(backend, case)
     if case["operation"] == "node_dv01":
         return RISK_METHODS[backend]
-    return "central finite difference" if case["operation"] == "dv01" else "passive"
+    if case["operation"] == "dv01":
+        return "central finite difference"
+    if case["operation"] == "prepared_pv" and backend != "dal":
+        # The third-party prepared_pricing_runner is their pv runner: no prepared API
+        return "passive (no prepared API)"
+    return "passive"
 
 
 def tolerance(case):

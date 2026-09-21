@@ -597,6 +597,9 @@ jobs:
           CC: gcc-14
           CXX: g++-14
         run: |
+          # See the base build step for why this flag is here: it is a no-op
+          # on the head (the mapped prefix does not occur in head sources) but
+          # keeps CMAKE_CXX_FLAGS textually identical between the two builds.
           cmake -S . -B build/benchmark-head \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
@@ -610,6 +613,7 @@ jobs:
             -DDAL_USE_XAD_AAD=OFF \
             -DDAL_USE_CODIPACK_AAD=OFF \
             -DDAL_USE_ADEPT_AAD=OFF \
+            -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
           cmake --build build/benchmark-head --parallel
 
@@ -618,6 +622,13 @@ jobs:
           CC: gcc-14
           CXX: g++-14
         run: |
+          # The base tree is checked out one directory deeper than the head
+          # tree, so __FILE__-embedded absolute paths differ by ~15 chars
+          # between the two builds, skewing codegen layout on fast
+          # sub-millisecond benchmark cases. Map the base prefix onto the
+          # head's so both binaries embed identical paths; the same flag text
+          # is passed to the head build (a harmless no-op there) to keep the
+          # gate's CMAKE_CXX_FLAGS equality check satisfied.
           cmake -S benchmark-base -B benchmark-base/build/benchmark-base \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
@@ -631,6 +642,7 @@ jobs:
             -DDAL_USE_XAD_AAD=OFF \
             -DDAL_USE_CODIPACK_AAD=OFF \
             -DDAL_USE_ADEPT_AAD=OFF \
+            -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
           cmake --build benchmark-base/build/benchmark-base --parallel
 

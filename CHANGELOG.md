@@ -102,6 +102,18 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   joins the label. The Excel tests value a two-date Bermudan put against its
   European leg (European ≤ Bermudan PV) and pin the fuzzy-AAD result table's
   finite `d_spot`/`d_vol`/`d_rate`/`d_div` keys.
+- **Review sweep: diagnostic cost, dead metadata, and benchmark hygiene** — the
+  simulation diagnostic no longer burns a Monte Carlo run for products without
+  `EXERCISE` (the LSMC driver is the only source of exercise statistics, so the
+  discarded double simulation is skipped; the JSON contract is byte-identical).
+  `NodeExercise_` drops its never-written discrete metadata and the debugger's
+  unreachable discrete branch, model `Allocate` parses each distinct observed
+  index once per timeline instead of once per sample date, and the LSMC
+  recording seam is shared between the tree-walk and compiled engines through
+  one set of sink kernels per mode (numerics bitwise unchanged). The Python
+  comparison suite single-sources its valuation-date/day-count constants,
+  labels third-party `prepared_pv` rows "passive (no prepared API)", and
+  carries each backend's solver tolerances on calibration rows.
 
 ## 2026-09-19
 

@@ -170,7 +170,10 @@ def summary(report):
         "QuantLib relinking/notifications; cold_pv constructs and destroys "
         "instruments inside timing. Curves/markets are built before timing. "
         "On unchanged markets QuantLib floating coupons may remain cached "
-        "even with swap.recalculate(); DAL prepared pricing recomputes rates.",
+        "even with swap.recalculate(); DAL prepared pricing recomputes rates. "
+        "QuantLib and rateslib expose no prepared pricing API, so their "
+        "prepared_pv rows rerun the pv path and are labeled 'passive (no "
+        "prepared API)': QL/DAL prepared ratios mix unlike API paths.",
         "",
         "MC options: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
         "weekly discrete barrier monitoring. DAL vanilla uses reverse AAD; "
@@ -181,7 +184,10 @@ def summary(report):
         "Calibration: fresh non-flat annual IRS/XCCY markets, log-linear DFs; "
         "single, staged/joint multi-curve and staged/joint XCCY solves. "
         "Every solved node and midpoint is checked. Raw quotes and oracles are "
-        "outside timing; instrument construction, solving and DF conversion are timed.",
+        "outside timing; instrument construction, solving and DF conversion are timed. "
+        "Solver tolerances differ per backend and are carried in each row's "
+        "method label: DAL tolerance 1e-12 (fit 1e-10 where applicable), "
+        "QuantLib bootstrap accuracy 1e-12, rateslib func/conv 1e-20, grad 1e-16.",
         "",
         "N/A: declared unsupported capabilities only (rateslib equity MC; "
         "QuantLib simultaneous joint calibration). Missing packages or failed "

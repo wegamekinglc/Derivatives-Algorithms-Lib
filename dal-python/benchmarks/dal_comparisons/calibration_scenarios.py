@@ -4,7 +4,8 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 import math
 
-TODAY = datetime(2025, 1, 15)
+from .constants import DAY_COUNT, TODAY
+
 KEYS = (
     "usd_discount",
     "usd_forward",
@@ -23,7 +24,7 @@ KINDS = ("single", "multi_staged", "multi_joint", "xccy_staged", "xccy_joint")
 CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
     "instruments": "annual fixed/float IRS; annual fixed-notional USD/EUR XCCY basis swaps with both principal exchanges, spread on EUR leg",
-    "calendar": "unadjusted, no holidays, zero settlement/fixing/payment lags; ACT/365F",
+    "calendar": f"unadjusted, no holidays, zero settlement/fixing/payment lags; {DAY_COUNT}",
     "interpolation": "log-linear discount factors, annual pillars, anchor DF=1",
     "market": "five distinct non-flat curves; quotes derived from independent scalar cashflows",
     "profiles": {key: list(profile) for key, profile in zip(KEYS, PROFILES)},
@@ -136,12 +137,17 @@ def expected(case):
 
 
 def method(backend, case):
+    structure = "staged" if case["kind"].endswith("staged") else "simultaneous"
     if backend == "quantlib":
-        return "piecewise log-linear discount bootstrap"
+        return "piecewise log-linear discount bootstrap (accuracy 1e-12)"
     if backend == "rateslib":
-        return "forward AD solver, " + (
-            "staged" if case["kind"].endswith("staged") else "simultaneous"
+        return (
+            f"forward AD solver, {structure} "
+            "(func_tol 1e-20, conv_tol 1e-20, grad_tol 1e-16)"
         )
-    return "analytic Jacobian solve, " + (
-        "staged" if case["kind"].endswith("staged") else "simultaneous"
+    settings = (
+        "tolerance 1e-12"
+        if case["kind"] == "xccy_staged"
+        else "tolerance 1e-12, fit_tolerance 1e-10"
     )
+    return f"analytic Jacobian solve, {structure} ({settings})"
