@@ -71,6 +71,16 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   out of the batch. Quote-risk aggregation converts a non-finite running
   gradient to a `QUOTE_RISK_NON_FINITE_GRADIENT` provenance failure rather
   than throwing mid-batch.
+- **Script settings validation single-sourced in dal-cpp** — the smoothing and
+  LSMC basis-degree field checks (`ValidateSmoothing`,
+  `ValidateLsmcBasisDegree`) join `ValidateRNG` as shared dal-cpp validators
+  called from the Python and Excel bindings, the bindings' deliberately
+  case-sensitive `today_fixing` parse moves to
+  `Script::TryParseTodayFixingPolicy` (the Machinist enum parse stays
+  case-insensitive), and the `smooth` / `lsmc_basis_degree` defaults are
+  exported constants; error tokens and messages are unchanged on every layer.
+  Both diagnostic schemas now emit the same six-field simulation echo:
+  `dal.script-valuation/1` gains `lsmc_basis_degree`.
 
 ## 2026-09-19
 

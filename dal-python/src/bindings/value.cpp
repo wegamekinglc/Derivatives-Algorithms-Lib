@@ -63,11 +63,13 @@ namespace {
         }
         if (!py::isinstance<py::str>(value) && !py::isinstance<String_>(value))
             throw py::type_error(context);
-        const auto name =
-            Text(SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
-                                    "InvalidSetting: InvalidTodayFixingPolicy"));
-        REQUIRE2(name == "Model" || name == "RequireHistorical", String_(context), ScriptError_);
-        return TodayFixingPolicy_(name == "Model" ? Policy_::MODEL : Policy_::REQUIREHISTORICAL);
+        const auto name = SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
+                                             "InvalidSetting: InvalidTodayFixingPolicy");
+        TodayFixingPolicy_ policy;
+        //  explicit branch, not a macro argument: keeps the parse call unconditional
+        if (!Script::TryParseTodayFixingPolicy(name, &policy))
+            THROW2(String_(context), ScriptError_);
+        return policy;
     }
 
     Handle_<MarketFixingSnapshot_> Fixings(const py::handle& value) {
@@ -108,7 +110,11 @@ namespace {
                 throw py::type_error(context);
             throw error;
         }
-        REQUIRE2(std::isfinite(result) && result > 0.0, String_(context), ScriptError_);
+        try {
+            Script::ValidateSmoothing(result);
+        } catch (const Exception_&) {
+            THROW2(String_(context), ScriptError_);
+        }
         return result;
     }
 
@@ -123,7 +129,14 @@ namespace {
     int BasisDegree(const py::handle& value) {
         const auto context = InputContext(value, "MonteCarloSettings_; lsmc_basis_degree / simulation.lsmcBasisDegree_",
                                           "an integer in 1..8, excluding bool", "InvalidSetting: InvalidLsmcBasisDegree");
-        return static_cast<int>(IntegerInput(value, context, 1, 8, "; LSMC basis degree must be an integer between 1 and 8"));
+        const auto degree = IntegerInput(value, context, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(),
+                                         "; LSMC basis degree must be an integer between 1 and 8");
+        try {
+            Script::ValidateLsmcBasisDegree(static_cast<int>(degree));
+        } catch (const Exception_&) {
+            THROW2(String_(context + "; LSMC basis degree must be an integer between 1 and 8"), ScriptError_);
+        }
+        return static_cast<int>(degree);
     }
 
     double LegacySmoothing(const py::handle& value) {
@@ -180,8 +193,9 @@ void init_bindings_value(py::module_& m) {
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"), Smoothing(smooth), Compiled(compiled),
                                             BasisDegree(lsmcBasisDegree)};
              }),
-             py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false, py::arg("smooth") = 0.01,
-             py::arg("compiled") = py::none(), py::arg("lsmc_basis_degree") = 3)
+             py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
+             py::arg("smooth") = Script::DEFAULT_SMOOTH,
+             py::arg("compiled") = py::none(), py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE)
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })
@@ -259,5 +273,5 @@ void init_bindings_value(py::module_& m) {
             return Value(nativeProduct, nativeModel, count, ScriptValuationSettings_(), simulation);
         },
         py::arg("product"), py::arg("modelData"), py::arg("num_path"), py::arg("method") = "sobol", py::arg("use_bb") = false,
-        py::arg("enable_aad") = false, py::arg("smooth") = 0.01, py::arg("compiled") = py::none());
+        py::arg("enable_aad") = false, py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none());
 }

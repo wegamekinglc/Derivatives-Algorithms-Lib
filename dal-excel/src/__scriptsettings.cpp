@@ -107,16 +107,30 @@ namespace Dal {
         }
 
         double SmoothingValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidSmoothing: expected finite positive number";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && *number > 0.0, context + "InvalidSmoothing: expected finite positive number");
+            REQUIRE(number, constraint);
+            try {
+                Script::ValidateSmoothing(*number);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
             return *number;
         }
 
         int BasisDegreeValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 1.0 && *number <= 8.0,
-                    context + "InvalidLsmcBasisDegree: expected integral number between 1 and 8");
-            return static_cast<int>(*number);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number &&
+                        std::fabs(*number) <= std::numeric_limits<int>::max(),
+                    constraint);
+            const auto degree = static_cast<int>(*number);
+            try {
+                Script::ValidateLsmcBasisDegree(degree);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
+            return degree;
         }
 
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
@@ -169,12 +183,12 @@ namespace Dal {
                          value.evaluationDate_ = EvaluationDate(cell, valueContext);
                      } else if (key == "today_fixing") {
                          const auto text = TextValue(cell, valueContext);
-                         //  Deliberately case-sensitive: values must read Model/RequireHistorical exactly, unlike the case-insensitive keys
-                         const std::string policy(text.data(), text.size());
-                         REQUIRE(policy == "Model" || policy == "RequireHistorical",
-                                 valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
-                         value.todayFixingPolicy_ =
-                             policy == "Model" ? TodayFixingPolicy_::Value_::MODEL : TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+                         TodayFixingPolicy_ policy;
+                         //  explicit branch, not a macro argument: keeps the parse call
+                         //  and the uninitialized-policy store unconditional
+                         if (!Script::TryParseTodayFixingPolicy(text, &policy))
+                             THROW(valueContext + "InvalidTodayFixingPolicy: expected Model or RequireHistorical; received " + text);
+                         value.todayFixingPolicy_ = policy;
                      } else {
                          THROW(keyContext + "unknown key " + key + "; expected evaluation_date or today_fixing");
                      }

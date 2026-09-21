@@ -40,7 +40,7 @@ namespace Dal {
                                                 const String_& rsg = "sobol",
                                                 bool useBb = false,
                                                 bool enableAad = false,
-                                                double smooth = 0.01,
+                                                double smooth = Script::DEFAULT_SMOOTH,
                                                 std::optional<bool> compiled = std::nullopt);
 
 } // namespace Dal
