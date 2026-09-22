@@ -123,27 +123,31 @@ namespace Dal::Script {
                     (*gram)(j, k) = moments[j + k];
         }
 
-        //  Equal diagonal entries do not imply independent columns. Test the
-        //  unregularized, column-scaled Gram matrix before ridge can hide rank loss.
-        bool RankDeficient(const SquareMatrix_<>& gram) {
+        bool HasIndependentColumns(const SquareMatrix_<>& gram, const std::array<double, 9>& scale) {
             std::array<std::array<double, 9>, 9> lower{};
-            std::array<double, 9> scale{};
-            for (int j = 0; j < gram.Rows(); ++j) {
-                if (!std::isfinite(gram(j, j)) || gram(j, j) <= 0.0)
-                    return true;
-                scale[j] = std::sqrt(gram(j, j));
-            }
             for (int j = 0; j < gram.Rows(); ++j) {
                 for (int k = 0; k <= j; ++k) {
                     double residual = gram(k, j) / scale[j] / scale[k];
                     for (int l = 0; l < k; ++l)
                         residual -= lower[j][l] * lower[k][l];
                     if (!std::isfinite(residual) || (j == k && residual <= 1.0 / CONDITION_LIMIT))
-                        return true;
+                        return false;
                     lower[j][k] = j == k ? std::sqrt(residual) : residual / lower[k][k];
                 }
             }
-            return false;
+            return true;
+        }
+
+        //  Equal diagonal entries do not imply independent columns. Test the
+        //  unregularized, column-scaled Gram matrix before ridge can hide rank loss.
+        bool RankDeficient(const SquareMatrix_<>& gram) {
+            std::array<double, 9> scale{};
+            for (int j = 0; j < gram.Rows(); ++j) {
+                if (!std::isfinite(gram(j, j)) || gram(j, j) <= 0.0)
+                    return true;
+                scale[j] = std::sqrt(gram(j, j));
+            }
+            return !HasIndependentColumns(gram, scale);
         }
 
         //  Explicit relative ridge, then the Gram diagonal-ratio conditioning guard
@@ -224,20 +228,22 @@ namespace Dal::Script {
             Vector_<> payoffFinal_;            //  empty = no PAYS receiver (EXERCISE-only product)
         };
 
+        Vector_<Vector_<>> PathRows(size_t nRows, size_t nPaths) {
+            Vector_<Vector_<>> rows(nRows);
+            for (auto& row : rows)
+                row = Vector_<>(nPaths, 0.0);
+            return rows;
+        }
+
         LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, bool hasPayoff, bool pricing = false) {
             LsmcStorage_ storage;
-            storage.pays_.Resize(scan.paysEventIds_.size());
-            for (auto& row : storage.pays_)
-                row = Vector_<>(nPaths, 0.0);
-            storage.xByDay_.Resize(scan.days_.size());
-            storage.hByDay_.Resize(scan.days_.size());
-            if (pricing)
-                storage.preExercise_.Resize(scan.days_.size());
-            for (size_t k = 0; k < scan.days_.size(); ++k) {
-                storage.xByDay_[k] = Vector_<>(nPaths, 0.0);
-                storage.hByDay_[k] = Vector_<>(nPaths, 0.0);
-                if (pricing)
-                    storage.preExercise_[k] = Vector_<>(nPaths, 0.0);
+            storage.pays_ = PathRows(scan.paysEventIds_.size(), nPaths);
+            storage.xByDay_ = PathRows(scan.days_.size(), nPaths);
+            storage.hByDay_ = PathRows(scan.days_.size(), nPaths);
+            if (pricing) {
+                storage.preExercise_ = PathRows(scan.days_.size(), nPaths);
+                if (hasPayoff)
+                    storage.payoffFinal_ = Vector_<>(nPaths, 0.0);
             }
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
@@ -245,8 +251,6 @@ namespace Dal::Script {
                     if (scan.days_[k].conditional_)
                         storage.condByDay_[k] = Vector_<char>(nPaths, 1);
             }
-            if (hasPayoff && pricing)
-                storage.payoffFinal_ = Vector_<>(nPaths, 0.0);
             return storage;
         }
 

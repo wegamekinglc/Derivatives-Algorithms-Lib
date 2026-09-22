@@ -17,6 +17,16 @@ namespace Dal::Script {
                      "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
         }
 
+        void ValidateLsmcPayoffAssignment(const NodeAssign_& assign, int payoffIdx, bool historical, bool paid) {
+            if (Downcast<NodeVar_>(assign.arguments_[0])->index_ != payoffIdx)
+                return;
+            const auto* zero = dynamic_cast<const NodeConst_*>(assign.arguments_[1].get());
+            REQUIRE2(!paid && zero && zero->constVal_ == 0.0,
+                     "UnsupportedExercisePayoff: " + String_(historical ? "historical" : "future") +
+                         " payoff receiver permits only literal-zero initialization before PAYS",
+                     ScriptError_);
+        }
+
         bool ValidateLsmcPayoffNode(const Node_& node, int payoffIdx, bool historical, bool paid) {
             const auto validateRange = [&](size_t first, size_t last, bool initialPaid) {
                 for (size_t i = first; i < last; ++i)
@@ -24,7 +34,7 @@ namespace Dal::Script {
                 return initialPaid;
             };
             if (const auto* branch = dynamic_cast<const NodeIf_*>(&node)) {
-                const size_t firstElse = branch->HasElse() ? branch->firstElse_ : node.arguments_.size();
+                const size_t firstElse = branch->LastTrueIndex() + 1;
                 const bool thenPaid = validateRange(1, firstElse, paid);
                 const bool elsePaid = validateRange(firstElse, node.arguments_.size(), paid);
                 return thenPaid || elsePaid;
@@ -32,13 +42,7 @@ namespace Dal::Script {
             if (const auto* pays = dynamic_cast<const NodePays_*>(&node))
                 return paid || (!historical && Downcast<NodeVar_>(pays->arguments_[0])->index_ == payoffIdx);
             if (const auto* assign = dynamic_cast<const NodeAssign_*>(&node)) {
-                if (Downcast<NodeVar_>(assign->arguments_[0])->index_ == payoffIdx) {
-                    const auto* zero = dynamic_cast<const NodeConst_*>(assign->arguments_[1].get());
-                    REQUIRE2(!paid && zero && zero->constVal_ == 0.0,
-                             "UnsupportedExercisePayoff: " + String_(historical ? "historical" : "future") +
-                                 " payoff receiver permits only literal-zero initialization before PAYS",
-                             ScriptError_);
-                }
+                ValidateLsmcPayoffAssignment(*assign, payoffIdx, historical, paid);
                 return paid;
             }
             return validateRange(0, node.arguments_.size(), paid);

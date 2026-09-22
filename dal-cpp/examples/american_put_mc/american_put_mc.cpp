@@ -60,6 +60,26 @@ namespace {
             << "  Positive integers; defaults: pricing_paths=" << DEFAULT_PRICING_PATHS << ", training_paths=" << DEFAULT_TRAINING_PATHS << '\n';
     }
 
+    struct PathCounts_ {
+        int pricing_ = DEFAULT_PRICING_PATHS;
+        int training_ = DEFAULT_TRAINING_PATHS;
+    };
+
+    std::optional<PathCounts_> ParsePaths(int argc, char* argv[]) {
+        PathCounts_ counts;
+        for (int i = 1; i < argc; ++i) {
+            const auto count = PathCount(argv[i]);
+            const bool pricing = i == 1;
+            if (!count) {
+                cerr << "Invalid " << (pricing ? "pricing_paths: " : "training_paths: ") << argv[i] << "; expected an integer in 1..2147483647\n";
+                Usage(cerr);
+                return std::nullopt;
+            }
+            (pricing ? counts.pricing_ : counts.training_) = *count;
+        }
+        return counts;
+    }
+
     double YearFracTo(const Date_& date) { return static_cast<double>(date - EVAL_DATE) / 365.0; }
 
     Handle_<ModelData_> Model() { return Handle_<ModelData_>(new BSModelData_("bs", SPOT, VOL, RATE, DIV)); }
@@ -135,17 +155,13 @@ int main(int argc, char* argv[]) {
         Usage(cerr);
         return 1;
     }
-    const auto pricingPaths = argc > 1 ? PathCount(argv[1]) : std::optional<int>(DEFAULT_PRICING_PATHS);
-    const auto trainingPaths = argc > 2 ? PathCount(argv[2]) : std::optional<int>(DEFAULT_TRAINING_PATHS);
-    if (!pricingPaths || !trainingPaths) {
-        cerr << "Invalid " << (!pricingPaths ? "pricing_paths: " : "training_paths: ") << (!pricingPaths ? argv[1] : argv[2])
-             << "; expected an integer in 1..2147483647\n";
-        Usage(cerr);
+    const auto counts = ParsePaths(argc, argv);
+    if (!counts)
         return 1;
-    }
-    const int nPaths = *pricingPaths;
+    const int nPaths = counts->pricing_;
+    const int trainingPaths = counts->training_;
     MonteCarloSettings_ simulation;
-    simulation.lsmcTrainingPaths_ = *trainingPaths;
+    simulation.lsmcTrainingPaths_ = trainingPaths;
 
     Dal::RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(EVAL_DATE);
@@ -240,22 +256,22 @@ int main(int argc, char* argv[]) {
          << europeanAadRes["spot"] << setw(widths[6]) << right << europeanAadRes["vol"] << setw(widths[7]) << right << europeanAadRes["rate"]
          << setw(widths[8]) << right << europeanAadRes["div"] << setw(widths[9]) << right << europeanAadMs << endl;
     cout << setw(widths[0]) << left << "Bermudan (2 dates)" << setw(widths[1]) << right << bermudanDates.size() << setw(widths[2]) << right << nPaths
-         << setw(widths[2]) << right << *trainingPaths << setw(widths[3]) << right << bermudan << setw(widths[4]) << right << bermudan - european
+         << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << bermudan << setw(widths[4]) << right << bermudan - european
          << setw(widths[5]) << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-"
          << setw(widths[9]) << right << bermudanMs << endl;
     cout << setw(widths[0]) << left << "American (weekly)" << setw(widths[1]) << right << weekly.size() << setw(widths[2]) << right << nPaths
-         << setw(widths[2]) << right << *trainingPaths << setw(widths[3]) << right << american << setw(widths[4]) << right << american - european
+         << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << american << setw(widths[4]) << right << american - european
          << setw(widths[5]) << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-"
          << setw(widths[9]) << right << americanMs << endl;
     cout << setw(widths[0]) << left << "American (weekly AAD)" << setw(widths[1]) << right << weekly.size() << setw(widths[2]) << right << nPaths
-         << setw(widths[2]) << right << *trainingPaths << setw(widths[3]) << right << americanAad << setw(widths[4]) << right
-         << americanAad - european << setw(widths[5]) << right << aadRes["spot"] << setw(widths[6]) << right << aadRes["vol"] << setw(widths[7])
-         << right << aadRes["rate"] << setw(widths[8]) << right << aadRes["div"] << setw(widths[9]) << right << aadMs << endl;
+         << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << americanAad << setw(widths[4]) << right << americanAad - european
+         << setw(widths[5]) << right << aadRes["spot"] << setw(widths[6]) << right << aadRes["vol"] << setw(widths[7]) << right << aadRes["rate"]
+         << setw(widths[8]) << right << aadRes["div"] << setw(widths[9]) << right << aadMs << endl;
     cout << setw(widths[0]) << left << "American (PDE)" << setw(widths[1]) << right << "continuous" << setw(widths[2]) << right << "-"
          << setw(widths[2]) << right << "-" << setw(widths[3]) << right << pde << setw(widths[4]) << right << pde - european << setw(widths[5])
          << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-" << setw(widths[9])
          << right << pdeMs << endl;
-    cout << "\nSimulation diagnostic (" << nPaths << " pricing paths, " << *trainingPaths << " training paths, two-date Bermudan):\n"
+    cout << "\nSimulation diagnostic (" << nPaths << " pricing paths, " << trainingPaths << " training paths, two-date Bermudan):\n"
          << string(diagnostic.data(), diagnostic.size()) << endl;
 
     return 0;
