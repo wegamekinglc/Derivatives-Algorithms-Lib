@@ -16,6 +16,40 @@ namespace Dal::Script {
             REQUIRE2(!FindNode(node, [](const Node_& visited) { return dynamic_cast<const NodeSpot_*>(&visited) != nullptr; }),
                      "UnboundHistoricalSpot: SPOT() requires a default index", ScriptError_);
         }
+
+        bool ValidateLsmcPayoffNode(const Node_& node, int payoffIdx, bool historical, bool paid) {
+            const auto validateRange = [&](size_t first, size_t last, bool initialPaid) {
+                for (size_t i = first; i < last; ++i)
+                    initialPaid = ValidateLsmcPayoffNode(*node.arguments_[i], payoffIdx, historical, initialPaid);
+                return initialPaid;
+            };
+            if (const auto* branch = dynamic_cast<const NodeIf_*>(&node)) {
+                const size_t firstElse = branch->HasElse() ? branch->firstElse_ : node.arguments_.size();
+                const bool thenPaid = validateRange(1, firstElse, paid);
+                const bool elsePaid = validateRange(firstElse, node.arguments_.size(), paid);
+                return thenPaid || elsePaid;
+            }
+            if (const auto* pays = dynamic_cast<const NodePays_*>(&node))
+                return paid || (!historical && Downcast<NodeVar_>(pays->arguments_[0])->index_ == payoffIdx);
+            if (const auto* assign = dynamic_cast<const NodeAssign_*>(&node)) {
+                if (Downcast<NodeVar_>(assign->arguments_[0])->index_ == payoffIdx) {
+                    const auto* zero = dynamic_cast<const NodeConst_*>(assign->arguments_[1].get());
+                    REQUIRE2(!paid && zero && zero->constVal_ == 0.0,
+                             "UnsupportedExercisePayoff: " + String_(historical ? "historical" : "future") +
+                                 " payoff receiver permits only literal-zero initialization before PAYS",
+                             ScriptError_);
+                }
+                return paid;
+            }
+            return validateRange(0, node.arguments_.size(), paid);
+        }
+
+        void ValidateLsmcPayoffAssignments(const Vector_<Event_>& events, int payoffIdx, bool historical) {
+            bool paid = false;
+            for (const auto& event : events)
+                for (const auto& statement : event)
+                    paid = ValidateLsmcPayoffNode(*statement, payoffIdx, historical, paid);
+        }
     } // namespace
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
@@ -94,6 +128,17 @@ namespace Dal::Script {
         IFProcessor_ ifProc;
         Visit(ifProc);
         return ifProc.MaxNestedIFs();
+    }
+
+    void ScriptProduct_::OptimizeLsmc() {
+        if (HasPays()) {
+            REQUIRE2(variableValues_[payoffIdx_] == 0.0, "UnsupportedExercisePayoff: EXERCISE requires a zero initial payoff receiver", ScriptError_);
+            // A zero historical value can still carry live parameter risk on the AAD tape.
+            ValidateLsmcPayoffAssignments(pastEvents_, payoffIdx_, true);
+            ValidateLsmcPayoffAssignments(events_, payoffIdx_, false);
+        }
+        LsmcProcessor_ processor(variables_.size(), HasPays() ? static_cast<size_t>(payoffIdx_) : static_cast<size_t>(-1));
+        processor.Process(&events_);
     }
 
     void ScriptProduct_::DomainProcess(bool fuzzy) {

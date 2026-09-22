@@ -17,6 +17,7 @@ namespace Dal::Script {
     class Compiler_;
     class ConstCondProcessor_;
     class IFProcessor_;
+    class LsmcProcessor_;
     class DomainProcessor_;
     template <class T> class FuzzyEvaluator_;
     template <class T_> class LsmcEvaluator_;
@@ -24,7 +25,7 @@ namespace Dal::Script {
 //  List
 
 //  Modifying visitors
-#define MODIFY_VISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_
+#define MODIFY_VISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_, LsmcProcessor_
 
 //  Const visitors
 #define CONST_VISITORS                                                                                                                               \

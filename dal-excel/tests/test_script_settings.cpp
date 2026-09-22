@@ -161,3 +161,19 @@ TEST(ScriptExcelContractTest, TestSimulationRejectsInvalidScalarsAndDuplicateKey
     AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("compiled"), Cell_(true)}, {Cell_("COMPILED"), Cell_(false)}}), &settings); },
                 {"duplicate key", "row=2 column=1", "first row=1"});
 }
+
+TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcTrainingPaths) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("defaults", {}, &settings);
+    ASSERT_FALSE(settings->val_.lsmcTrainingPaths_);
+    for (const double count : {1.0, 16384.0, static_cast<double>(std::numeric_limits<int>::max())}) {
+        MonteCarloSettings_New("training", Rows({{Cell_("LSMC_TRAINING_PATHS"), Cell_(count)}}), &settings);
+        ASSERT_EQ(settings->val_.lsmcTrainingPaths_, static_cast<int>(count));
+    }
+    for (const auto& value : {Cell_(0.0), Cell_(-1.0), Cell_(2147483648.0), Cell_(2.5), Cell_(true), Cell_("3"),
+                              Cell_(std::numeric_limits<double>::quiet_NaN()), Cell_(std::numeric_limits<double>::infinity())})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_training_paths"), value}}), &settings); },
+                    {"InvalidSetting", "InvalidLsmcTrainingPaths", "lsmc_training_paths", "row=1 column=2", "positive"});
+    AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_training_paths"), Cell_()}}), &settings); },
+                {"row=1 column=2", "lsmc_training_paths", "non-empty"});
+}

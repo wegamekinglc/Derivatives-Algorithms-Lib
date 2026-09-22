@@ -33,6 +33,8 @@ namespace Dal::Script {
     //  arithmetic is identical for T_ = double (Phase B/C decisions) and AAD number
     //  types (the fuzzy replay differentiates through the frozen continuation)
     template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const T_& x) {
+        if (regression.coefficients_.size() == 1)
+            return T_(regression.coefficients_[0]);
         const T_ z = (x - regression.mean_) / regression.sigma_;
         T_ value(0.0);
         for (size_t j = regression.coefficients_.size(); j-- > 0;)
@@ -70,16 +72,14 @@ namespace Dal::Script {
         }
     };
 
-    //  Double-mode tree-walk LSMC (S3/S4 hard decisions): Phase A stores payments,
-    //  exercise triples and the terminal payoff per path over the fixed
-    //  thread-independent batch layout, Phase B runs the backward induction with the
-    //  continuation regressions, Phase C values the frozen strategy from the recorded
-    //  rows and aggregates the path payoffs.
+    //  Train on lsmcTrainingPaths_ Sobol points (default nPaths), then price the
+    //  frozen policy on the next nPaths points. Release training rows before pricing;
+    //  batches and reductions are independent of the worker count.
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics = nullptr);
 
     //  Fuzzy (AAD) LSMC (S9/N6): Phases A/B run exactly as the double driver (the
     //  frozen policy is thread-count independent by construction), then each worker
-    //  replays its batch on its own tape, blending the recursive fuzzy decisions over
+    //  prices its disjoint batch on its own tape, blending the recursive fuzzy decisions over
     //  the frozen coefficients and harvesting parameter and constant-variable adjoints
     //  with the same batch-index reduction (bitwise thread invariant).
     SimResults_ MCLsmcAadSimulation(const PreparedScript_& prepared, const Handle_<ModelData_>& modelData, size_t nPaths);

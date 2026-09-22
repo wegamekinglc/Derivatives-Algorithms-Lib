@@ -138,6 +138,26 @@ namespace {
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
+
+    void RunRegressionCase(int degree, int repeats) {
+        constexpr size_t N_PATHS = 100000;
+        Vector_<> x(N_PATHS), targets(N_PATHS);
+        const Vector_<char> included(N_PATHS, 1);
+        for (size_t i = 0; i < N_PATHS; ++i) {
+            x[i] = 80.0 + 40.0 * static_cast<double>(i) / static_cast<double>(N_PATHS - 1);
+            targets[i] = std::max(100.0 - x[i], 0.0);
+        }
+        double sink = 0.0;
+        auto r = Bench::Run(
+            "LSMC regression degree=" + std::to_string(degree) + " (100000 paths)",
+            [&]() {
+                const auto fit = SolveExerciseRegression(x, targets, included, degree);
+                sink += RegressionPredict(fit, 95.0);
+            },
+            1, repeats);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 int main() {
@@ -162,6 +182,8 @@ int main() {
     //  duplicated path generation/evaluation plus the regressions
     RunDoubleExerciseCase(false, 100000, kRepeats);
     RunDoubleExerciseCase(true, 100000, kRepeats);
+    RunRegressionCase(3, kRepeats);
+    RunRegressionCase(8, kRepeats);
 
     return 0;
 }

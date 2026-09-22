@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <limits>
 #include <rapidjson/document.h>
 
 #include <dal-public/src/global.hpp>
@@ -190,4 +191,24 @@ TEST(ScriptContractTest, TestLsmcBasisDegreeValidatedInRange) {
     }
     // the default construction keeps the documented basis degree
     ASSERT_EQ(Dal::MonteCarloSettings_{}.lsmcBasisDegree_, 3);
+}
+
+TEST(ScriptContractTest, TestLsmcTrainingPathsValidatedPositive) {
+    Dal::MonteCarloSettings_ simulation;
+    ASSERT_FALSE(simulation.lsmcTrainingPaths_);
+    ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+    for (const int count : {1, 16384, std::numeric_limits<int>::max()}) {
+        simulation.lsmcTrainingPaths_ = count;
+        ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+    }
+    for (const int count : {0, -1, std::numeric_limits<int>::min()}) {
+        simulation.lsmcTrainingPaths_ = count;
+        try {
+            Dal::Script::ValidateSimulationSettings(simulation);
+            FAIL() << "expected a contract error for training paths " << count;
+        } catch (const Dal::Exception_& error) {
+            for (const auto& field : Vector_<String_>{"InvalidSetting", "InvalidLsmcTrainingPaths", "simulation.lsmcTrainingPaths_", "positive"})
+                ASSERT_NE(std::string(error.what()).find(field.c_str()), std::string::npos) << error.what();
+        }
+    }
 }

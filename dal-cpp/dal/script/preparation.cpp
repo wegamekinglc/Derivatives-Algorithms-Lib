@@ -326,6 +326,10 @@ namespace Dal::Script {
                 result.maxNestedIfs_ = writable->IFProcess();
                 constants.StartFuture();
                 writable->Visit(constants, false, true);
+                if (writable->ContainsExercise()) {
+                    writable->OptimizeLsmc();
+                    result.maxNestedIfs_ = writable->IFProcess();
+                }
                 if (simulation.compiled_.value_or(false)) {
                     if (auto* observer = Detail::SimulationObserver())
                         observer->BeforeCompilation();

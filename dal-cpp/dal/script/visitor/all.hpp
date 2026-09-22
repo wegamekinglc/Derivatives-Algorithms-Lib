@@ -14,5 +14,6 @@
 #include <dal/script/visitor/fuzzy.hpp>
 #include <dal/script/visitor/ifprocessor.hpp>
 #include <dal/script/visitor/lsmcevaluator.hpp>
+#include <dal/script/visitor/lsmcprocessor.hpp>
 #include <dal/script/visitor/pastevaluator.hpp>
 #include <dal/script/visitor/varindexer.hpp>
