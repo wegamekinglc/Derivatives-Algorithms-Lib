@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
 

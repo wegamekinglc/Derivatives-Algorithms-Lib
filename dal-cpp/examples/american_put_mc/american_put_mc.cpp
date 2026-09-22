@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -247,11 +248,11 @@ int main(int argc, char* argv[]) {
          << setw(widths[2]) << right << "-" << setw(widths[3]) << right << european << setw(widths[4]) << right << "-" << setw(widths[5]) << right
          << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-" << setw(widths[9]) << right
          << europeanMs << endl;
-    cout << setw(widths[0]) << left << "European (MC)" << setw(widths[1]) << right << 1 << setw(widths[2]) << right << nPaths << setw(widths[2])
+    cout << setw(widths[0]) << left << "European (MC)" << setw(widths[1]) << right << 0 << setw(widths[2]) << right << nPaths << setw(widths[2])
          << right << "-" << setw(widths[3]) << right << europeanMc << setw(widths[4]) << right << "-" << setw(widths[5]) << right << "-"
          << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-" << setw(widths[9]) << right
          << europeanMcMs << endl;
-    cout << setw(widths[0]) << left << "European (MC AAD)" << setw(widths[1]) << right << 1 << setw(widths[2]) << right << nPaths << setw(widths[2])
+    cout << setw(widths[0]) << left << "European (MC AAD)" << setw(widths[1]) << right << 0 << setw(widths[2]) << right << nPaths << setw(widths[2])
          << right << "-" << setw(widths[3]) << right << europeanAad << setw(widths[4]) << right << "-" << setw(widths[5]) << right
          << europeanAadRes["spot"] << setw(widths[6]) << right << europeanAadRes["vol"] << setw(widths[7]) << right << europeanAadRes["rate"]
          << setw(widths[8]) << right << europeanAadRes["div"] << setw(widths[9]) << right << europeanAadMs << endl;

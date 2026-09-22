@@ -3,6 +3,7 @@
 //
 // Script-engine tree-walk vs compiled evaluator benchmarks.
 
+#include <algorithm>
 #include <string>
 
 #include <dal/platform/platform.hpp>

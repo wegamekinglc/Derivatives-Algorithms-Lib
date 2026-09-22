@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,12 +19,13 @@
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/dupire.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
 #include <dal/script/simulation.hpp>
-#include <dal/storage/globals.hpp>
 #include <dal/storage/_repository.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 #include "bermudan_pde.hpp"
@@ -322,6 +324,45 @@ TEST(ScriptExerciseLSMCTest, TestPricingUsesPathsAfterTrainingBlock) {
                 ASSERT_NEAR(fuzzy.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
                 ASSERT_NEAR(fuzzy["spot"], expectedDelta / N_PATHS, 1e-10);
                 settings.enableAad_ = false;
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestFlatDupireMatchesBlackScholesWithSeparatePathBudgets) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    constexpr size_t N_PATHS = 8197;
+    const auto product = ExerciseOnlyProduct({Date_(2027, 3, 20), Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    const Handle_<ModelData_> dupire(new DupireModelData_("dupire", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL)));
+    // Flat local volatility has the same pathwise law and aggregate vega as BS,
+    // while exercising the generic path generator and the Dupire AAD workspace.
+    for (const int trainingPaths : {73, 16391}) {
+        SCOPED_TRACE(trainingPaths);
+        for (const bool bridge : {false, true}) {
+            SCOPED_TRACE(bridge);
+            MonteCarloSettings_ settings;
+            settings.lsmcTrainingPaths_ = trainingPaths;
+            settings.useBb_ = bridge;
+            const auto expectedHard = MCSimulation<double>(product, StandardModel(), N_PATHS, {}, settings);
+            settings.enableAad_ = true;
+            const auto expectedAad = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+            for (const bool compiled : {false, true}) {
+                SCOPED_TRACE(compiled);
+                settings.compiled_ = compiled;
+                settings.enableAad_ = false;
+                const auto hard = MCSimulation<double>(product, dupire, N_PATHS, {}, settings);
+                ASSERT_NEAR(hard.aggregated_ / N_PATHS, expectedHard.aggregated_ / N_PATHS, 1e-8);
+                settings.enableAad_ = true;
+                const auto aad = MCSimulation<AAD::Number_>(product, dupire, N_PATHS, {}, settings);
+                ASSERT_NEAR(aad.aggregated_ / N_PATHS, expectedAad.aggregated_ / N_PATHS, 1e-8);
+                ASSERT_NEAR(aad["spot"], expectedAad["spot"], 1e-8);
+                ASSERT_NEAR(aad["rate"], expectedAad["rate"], 1e-8);
+                ASSERT_NEAR(aad["repo"], expectedAad["div"], 1e-8);
+                ASSERT_EQ(aad.risks_.size(), 7u);
+                double parallelVega = 0.0;
+                for (size_t i = 3; i < aad.risks_.size(); ++i)
+                    parallelVega += aad.risks_[i];
+                ASSERT_NEAR(parallelVega, expectedAad["vol"], 1e-8);
             }
         }
     }

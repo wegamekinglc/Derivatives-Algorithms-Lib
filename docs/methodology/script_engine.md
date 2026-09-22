@@ -682,7 +682,7 @@ invariant across thread counts.
 - **Phase C** values the frozen policy on the next `nPaths` Sobol paths,
   starting at `SkipTo(nTrainingPaths)`. Training and pricing path blocks do not overlap;
   the total generated path count is `nTrainingPaths + nPaths`, plus one
-numeraire probe. Training storage scales with `nTrainingPaths` and is released
+  numeraire probe. Training storage scales with `nTrainingPaths` and is released
   first, and pricing reuses one path's recording buffers per active batch.
   Exercise dates are scanned
   in order; the earliest date whose condition holds with $h_k > 0$ and

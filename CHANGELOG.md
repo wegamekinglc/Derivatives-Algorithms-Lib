@@ -21,8 +21,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - **LSMC trains and prices on disjoint path blocks** — hard and fuzzy/AAD
   valuation fit on the first M Sobol paths and value the frozen policy on the
   next N. `lsmc_training_paths` configures M independently of the pricing
-  count N and defaults to N. Hard pricing streams per-worker buffers after releasing training
-  storage. A dedicated liveness visitor removes irrelevant script statements;
+  count N and defaults to N. Hard pricing reuses buffers per active batch after
+  releasing training storage. A dedicated liveness visitor removes irrelevant script statements;
   continuation cashflows now follow the selected payoff receiver. Regression
   uses shared polynomial moments and checks rank before regularization. See
   [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc)
