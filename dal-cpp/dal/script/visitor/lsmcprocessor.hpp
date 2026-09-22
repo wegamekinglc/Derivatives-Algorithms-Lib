@@ -7,15 +7,32 @@
 #include <utility>
 
 #include <dal/script/node.hpp>
-#include <dal/script/visitor.hpp>
 
 namespace Dal::Script {
     //  Backward liveness for the recording program. Exercise expressions and the
     //  selected receiver's payments are roots; both IF arms contribute dependencies.
-    class LsmcProcessor_ : public Visitor_<LsmcProcessor_> {
+    //  This preparation-only visitor dispatches locally: registering another
+    //  Accept overload would add a vptr/base subobject to every script node.
+    class LsmcProcessor_ {
         Vector_<char> live_;
         size_t payoffIdx_;
         bool keep_ = true;
+
+        void VisitNode(Node_& node) {
+            if (auto* var = dynamic_cast<NodeVar_*>(&node))
+                Visit(*var);
+            else if (auto* assign = dynamic_cast<NodeAssign_*>(&node))
+                Visit(*assign);
+            else if (auto* pays = dynamic_cast<NodePays_*>(&node))
+                Visit(*pays);
+            else if (auto* branch = dynamic_cast<NodeIf_*>(&node))
+                Visit(*branch);
+            else if (auto* collect = dynamic_cast<NodeCollect_*>(&node))
+                Visit(*collect);
+            else
+                for (auto& argument : node.arguments_)
+                    VisitNode(*argument);
+        }
 
         void ProcessRange(Event_* statements, size_t first, size_t last) {
             for (size_t i = last; i-- > first;) {
@@ -38,8 +55,6 @@ namespace Dal::Script {
         }
 
     public:
-        using Visitor_<LsmcProcessor_>::Visit;
-
         LsmcProcessor_(size_t nVariables, size_t payoffIdx) : live_(nVariables, 0), payoffIdx_(payoffIdx) {
             if (payoffIdx < nVariables)
                 live_[payoffIdx] = 1;

@@ -704,9 +704,11 @@ replicates. `LsmcDiagnostics_::StandardError()` is a descriptive payoff-dispersi
 measure; it is not a calibrated QMC confidence interval. Independent scrambled
 replicates would be needed for that error estimate.
 
-Preparation runs `LsmcProcessor_`, a backward liveness visitor, before compiling
-the recording program. It removes overwritten or unused assignments and empty
-branches, and unions the dependencies of both IF arms. Exercise expressions,
+Preparation runs `LsmcProcessor_`, a backward liveness visitor with local
+dispatch, before compiling the recording program. It does not extend the
+global visitor hierarchy or add storage to ordinary script nodes. It removes
+overwritten or unused assignments and empty branches, and unions the
+dependencies of both IF arms. Exercise expressions,
 conditions, and the selected receiver's cashflows remain roots. Other receivers
 remain live when the script reads them, but their payments do not enter the
 continuation value. The observation grid and historical program are retained.

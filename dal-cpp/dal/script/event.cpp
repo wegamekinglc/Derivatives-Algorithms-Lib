@@ -8,6 +8,7 @@
 #include <dal/script/parser.hpp>
 #include <dal/script/preprocessor.hpp>
 #include <dal/script/visitor/debugger.hpp>
+#include <dal/script/visitor/lsmcprocessor.hpp>
 #include <dal/storage/globals.hpp>
 
 namespace Dal::Script {
