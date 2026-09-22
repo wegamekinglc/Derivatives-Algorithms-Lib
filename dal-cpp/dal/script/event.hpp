@@ -219,6 +219,7 @@ namespace Dal::Script {
         void DomainProcess(bool fuzzy);
         void ConstProcess();
         void ConstCondProcess();
+        void OptimizeLsmc();
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;

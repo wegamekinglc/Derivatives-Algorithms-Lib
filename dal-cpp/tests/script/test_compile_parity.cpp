@@ -747,7 +747,7 @@ namespace {
         eventDates.push_back(Cell_(Date_(2024, 1, 15)));
         events.push_back("EXERCISE MAX(STRIKE - spot(), 0.0)");
         eventDates.push_back(Cell_(Date_(2024, 6, 21)));
-        events.push_back("call PAYS MAX(spot() - STRIKE, 0.0)");
+        events.push_back("coupon PAYS MAX(spot() - STRIKE, 0.0)");
         return {"", eventDates, events};
     }
 

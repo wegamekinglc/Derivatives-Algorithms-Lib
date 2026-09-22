@@ -45,6 +45,7 @@ namespace Dal::Script {
         Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
         size_t eventOrdinal_ = 0;
         size_t pathSlot_ = 0;
+        size_t payoffIdx_ = static_cast<size_t>(-1);
     };
 
     template <class T_> struct EvalState_ : EvalStateCore_<T_> {
@@ -951,15 +952,17 @@ namespace Dal::Script {
             return *statePtr->lsmcFuzzySinks_;
         }
 
-        template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, double payment) {
+        template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, size_t index, double payment) {
             auto& sinks = RequireLsmcSinks(statePtr);
-            (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]][sinks.pathSlot_] += payment;
+            if (index == sinks.payoffIdx_)
+                (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]][sinks.pathSlot_] += payment;
         }
 
         //  Mirrors the tree-walk recorder: exercise leaves the script state untouched,
         //  only the driver's rows move. Fuzzy conditions land on the double stack, so
         //  the AAD replay extends this with its own decision-degree seam.
         template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
+            REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite exercise value", ScriptError_);
             auto& sinks = RequireLsmcSinks(statePtr);
             const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
             (*sinks.x_)[slot][sinks.pathSlot_] = spot;
@@ -972,9 +975,10 @@ namespace Dal::Script {
         }
 
         //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
-        template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, const T_& payment) {
+        template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, size_t index, const T_& payment) {
             auto& sinks = RequireLsmcFuzzySinks(statePtr);
-            (*sinks.pays_)[sinks.eventOrdinal_] += payment;
+            if (index == sinks.payoffIdx_)
+                (*sinks.pays_)[sinks.eventOrdinal_] += payment;
         }
 
         template <class T_> FORCE_INLINE void RecordLsmcFuzzyExercise(EvalState_<T_>* statePtr, const T_& value, const T_& cond) {
@@ -1000,14 +1004,14 @@ namespace Dal::Script {
             if (op == LsmcPays) {
                 const size_t idx = nodeStream[++i];
                 const T_ payment = dStack.TopAndPop();
-                RecordLsmcPayment(statePtr, Value(payment));
+                RecordLsmcPayment(statePtr, idx, Value(payment));
                 state.variables_[idx] += payment / event.scenario_.numeraire_;
                 return i + 1;
             }
             if (op == LsmcPaysConst) {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
-                RecordLsmcPayment(statePtr, val);
+                RecordLsmcPayment(statePtr, idx, val);
                 state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
                 return i + 1;
             }
@@ -1023,14 +1027,14 @@ namespace Dal::Script {
             if (op == LsmcFuzzyPays) {
                 const size_t idx = nodeStream[++i];
                 const T_ payment = dStack.TopAndPop();
-                RecordLsmcFuzzyPayment(statePtr, payment);
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
                 state.variables_[idx] += payment / event.scenario_.numeraire_;
                 return i + 1;
             }
             if (op == LsmcFuzzyPaysConst) {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
-                RecordLsmcFuzzyPayment(statePtr, T_(val));
+                RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
                 state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
                 return i + 1;
             }

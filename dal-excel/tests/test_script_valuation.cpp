@@ -457,6 +457,18 @@ TEST(ScriptExcelContractTest, TestSimulationExplainRunsValuationAndReportsExerci
         ASSERT_EQ(withoutExercise["exercise_events"].Size(), 0u);
         ASSERT_EQ(withoutExercise["n_paths"].GetInt(), 256);
     }
+    { // Fixed training paths preserve the fitted policy when the pricing count changes.
+        Handle_<StorableMonteCarloSettings_> simulation;
+        MonteCarloSettings_New("training", Setting("lsmc_training_paths", Cell_(1024.)), &simulation);
+        ScriptSimulation_Explain(bermudan, model, 257., {}, simulation, &chunks);
+        const auto tuned = Json(chunks);
+        ASSERT_EQ(tuned["simulation"]["lsmc_training_paths"].GetInt(), 1024);
+        ASSERT_EQ(tuned["n_paths"].GetInt(), 257);
+        for (rapidjson::SizeType i = 0; i < events.Size(); ++i) {
+            ASSERT_TRUE(tuned["exercise_events"][i]["coefficients"] == events[i]["coefficients"]);
+            ASSERT_TRUE(tuned["exercise_events"][i]["num_cond_true_paths"] == events[i]["num_cond_true_paths"]);
+        }
+    }
     Handle_<StorableMonteCarloSettings_> aad;
     MonteCarloSettings_New("aad", Setting("enable_aad", Cell_(true)), &aad);
     Error([&] { ScriptSimulation_Explain(bermudan, model, 1024., {}, aad, &chunks); }, {"UnsupportedExecutionMode", "enable_aad"});

@@ -20,7 +20,9 @@ bermudan = dal.Product_New([MID, MATURITY], [exercise, exercise])
 weekly_dates = [EVAL.AddDays(7 * week) for week in range(1, 79)]
 american = dal.Product_New(weekly_dates, [exercise] * len(weekly_dates))
 
-simulation = dal.MonteCarloSettings_(lsmc_basis_degree=3)
+simulation = dal.MonteCarloSettings_(
+    lsmc_basis_degree=3, lsmc_training_paths=min(16384, NPATHS)
+)
 
 
 def value(product):

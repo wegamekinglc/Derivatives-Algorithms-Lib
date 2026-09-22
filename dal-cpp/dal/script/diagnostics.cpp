@@ -48,7 +48,12 @@ namespace Dal::Script {
             JsonWriteString(simulation.rsg_, out);
             out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
                 << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
-                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << "}";
+                << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << ",\"lsmc_training_paths\":";
+            if (simulation.lsmcTrainingPaths_)
+                out << *simulation.lsmcTrainingPaths_;
+            else
+                out << "null";
+            out << '}';
         }
 
         void

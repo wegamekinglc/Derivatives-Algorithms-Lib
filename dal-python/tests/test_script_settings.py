@@ -567,6 +567,37 @@ def test_every_new_boolean_field_is_strict(field, bad):
         assert getattr(settings, field) == previous
 
 
+def test_lsmc_training_paths_accepts_optional_positive_integers():
+    assert dal.MonteCarloSettings_().lsmc_training_paths is None
+    for count in [None, 1, 16384, 2**31 - 1, IndexCount()]:
+        expected = None if count is None else int(count)
+        settings = dal.MonteCarloSettings_(lsmc_training_paths=count)
+        assert settings.lsmc_training_paths == expected
+        assert copy.deepcopy(settings).lsmc_training_paths == expected
+        settings.lsmc_training_paths = 17
+        settings.lsmc_training_paths = count
+        assert settings.lsmc_training_paths == expected
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize(
+    "bad",
+    [True, False, 1.5, 3.0, 0, -1, 2**31, 2**100, "3", {}, IntChoice.ONE, dal.TodayFixingPolicy_.MODEL],
+)
+def test_lsmc_training_paths_rejects_invalid_counts(bad, construct):
+    settings = dal.MonteCarloSettings_(lsmc_training_paths=128)
+    with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcTrainingPaths") as error:
+        if construct:
+            dal.MonteCarloSettings_(lsmc_training_paths=bad)
+        else:
+            settings.lsmc_training_paths = bad
+    assert all(
+        part in str(error.value)
+        for part in ("InvalidSetting", "MonteCarloSettings_", "lsmc_training_paths", "expected", "positive")
+    )
+    assert settings.lsmc_training_paths == 128
+
+
 def test_lsmc_basis_degree_accepts_integers_in_range():
     assert dal.MonteCarloSettings_().lsmc_basis_degree == 3
     for degree in [1, 3, 8, IndexCount()]:
@@ -623,7 +654,7 @@ def test_script_simulation_explain_reports_exercise_events(compiled):
     )
     model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.0)
     valuation = dal.ScriptValuationSettings_(evaluation_date=today)
-    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=compiled)
+    simulation = dal.MonteCarloSettings_(lsmc_basis_degree=5, compiled=compiled, lsmc_training_paths=4096)
     diagnostic = dal.ScriptSimulation_Explain(
         product, model, 4096, valuation=valuation, simulation=simulation
     )
@@ -635,6 +666,7 @@ def test_script_simulation_explain_reports_exercise_events(compiled):
     assert diagnostic["schema"] == "dal.script-simulation/1"
     assert diagnostic["evaluation_date"] == "2026-09-12"
     assert diagnostic["simulation"]["lsmc_basis_degree"] == 5
+    assert diagnostic["simulation"]["lsmc_training_paths"] == 4096
     assert diagnostic["simulation"]["compiled"] is compiled
     assert diagnostic["n_paths"] == 4096
     events = diagnostic["exercise_events"]
@@ -651,6 +683,13 @@ def test_script_simulation_explain_reports_exercise_events(compiled):
     assert all(event["degenerate"] is False for event in events)
     assert all(event["degenerate_reason"] is None for event in events)
     assert all(0.0 < event["exercise_rate"] <= 1.0 for event in events)
+    more_pricing = dal.ScriptSimulation_Explain(
+        product, model, 8193, valuation=valuation, simulation=simulation
+    )
+    assert more_pricing["n_paths"] == 8193
+    for trained, repriced in zip(events, more_pricing["exercise_events"]):
+        assert trained["coefficients"] == repriced["coefficients"]
+        assert trained["num_cond_true_paths"] == repriced["num_cond_true_paths"]
     plain = dal.Product_New([second], ["pay PAYS 1.0"])
     without_exercise = dal.ScriptSimulation_Explain(plain, model, 1024)
     assert without_exercise["exercise_events"] == []

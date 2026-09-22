@@ -16,6 +16,18 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-23
+
+- **LSMC trains and prices on disjoint path blocks** — hard and fuzzy/AAD
+  valuation fit on the first M Sobol paths and value the frozen policy on the
+  next N. `lsmc_training_paths` configures M independently of the pricing
+  count N and defaults to N. Hard pricing reuses buffers per active batch after
+  releasing training storage. A dedicated liveness visitor removes irrelevant script statements;
+  continuation cashflows now follow the selected payoff receiver. Regression
+  uses shared polynomial moments and checks rank before regularization. See
+  [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc)
+  for the QMC, state-basis, and frozen-policy Greek limitations.
+
 ## 2026-09-20
 
 - **Early-exercise (Bermudan/American) valuation is live end to end** — the

@@ -38,6 +38,7 @@ namespace Dal::Script {
         Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
         size_t pathSlot_ = 0;
         size_t eventOrdinal_ = 0;
+        size_t payoffIdx_ = static_cast<size_t>(-1);
 
         void SetEventOrdinal(size_t event) { eventOrdinal_ = event; }
 
@@ -45,13 +46,15 @@ namespace Dal::Script {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T_ payment = dStack_.TopAndPop();
-            (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
+            if (static_cast<size_t>(varIdx) == payoffIdx_)
+                (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
 
         void Visit(const NodeExercise_& node) {
             VisitNode(*node.arguments_[0]);
             const double value = dStack_.TopAndPop();
+            REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite exercise value", ScriptError_);
             double cond = 1.0;
             if (node.arguments_.size() > 1) {
                 VisitNode(*node.arguments_[1]);

@@ -2,6 +2,10 @@
 // Created by dal-implementer on 2026/9/20.
 //
 
+#include <array>
+#include <cstdint>
+#include <limits>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
@@ -22,16 +26,27 @@ namespace Dal::Script {
         constexpr double SIGMA_FLOOR_SCALE = 1e-12;
         //  N3: explicit relative ridge applied before CholeskySolve
         constexpr double RIDGE_LAMBDA = 1e-12;
-        //  N3: Gram diagonal ratio above which the day degrades to the constant basis
+        //  Bound both the Gram diagonal spread and the scaled Cholesky pivots.
         constexpr double CONDITION_LIMIT = 1e12;
+
+        size_t TrainingPathCount(const MonteCarloSettings_& simulation, size_t nPaths) {
+            const size_t training = simulation.lsmcTrainingPaths_ ? static_cast<size_t>(*simulation.lsmcTrainingPaths_) : nPaths;
+            constexpr size_t MAX_SOBOL_PATHS = std::numeric_limits<uint32_t>::max();
+            REQUIRE2(training <= MAX_SOBOL_PATHS && nPaths <= MAX_SOBOL_PATHS - training,
+                     "InvalidPathCount: LSMC training and pricing paths exceed the 32-bit Sobol sequence", ScriptError_);
+            return training;
+        }
 
         double MeanOf(const Vector_<>& values, const Vector_<char>& included, size_t count) {
             if (count == 0)
                 return 0.0;
             double sum = 0.0;
             for (size_t i = 0; i < values.size(); ++i)
-                if (included[i])
+                if (included[i]) {
+                    REQUIRE(std::isfinite(values[i]), "InvalidRegressionInput: non-finite included target");
                     sum += values[i];
+                }
+            REQUIRE(std::isfinite(sum), "InvalidRegressionInput: target sum overflow");
             return sum / static_cast<double>(count);
         }
 
@@ -48,6 +63,7 @@ namespace Dal::Script {
             double sumX = 0.0;
             for (size_t i = 0; i < x.size(); ++i)
                 if (included[i]) {
+                    REQUIRE(std::isfinite(x[i]), "InvalidRegressionInput: non-finite included regressor");
                     ++stats.count_;
                     sumX += x[i];
                 }
@@ -60,6 +76,7 @@ namespace Dal::Script {
                         sumSq += dev * dev;
                     }
                 stats.sigma_ = std::sqrt(sumSq / static_cast<double>(stats.count_));
+                REQUIRE(std::isfinite(stats.mean_) && std::isfinite(stats.sigma_), "InvalidRegressionInput: regressor moments overflow");
             }
             //  the floor engages even on an empty regression set, so a degenerate day
             //  never carries sigma_ = 0 into RegressionPredict's z-normalization
@@ -75,8 +92,8 @@ namespace Dal::Script {
             result->coefficients_[0] = constant;
         }
 
-        //  Normal equations of the z-normalized monomial basis over the included paths.
-        //  Only the diagonal and upper triangle of the Gram matrix are needed downstream.
+        //  A[j,k] = sum(z^(j+k)): accumulate each moment once, O(N*d), then
+        //  expand the small Hankel matrix. The fit retains the monomial convention.
         void AccumulateNormalEquations(const Vector_<>& x,
                                        const Vector_<>& targets,
                                        const Vector_<char>& included,
@@ -85,24 +102,58 @@ namespace Dal::Script {
                                        SquareMatrix_<>* gram,
                                        Vector_<>* rhs) {
             const size_t nBasis = static_cast<size_t>(gram->Rows());
-            Vector_<> basis(nBasis);
+            std::array<double, 17> moments{};
             for (size_t i = 0; i < x.size(); ++i) {
                 if (!included[i])
                     continue;
                 const double z = (x[i] - mean) / sigma;
-                basis[0] = 1.0;
-                for (size_t j = 1; j < nBasis; ++j)
-                    basis[j] = basis[j - 1] * z;
+                double power = 1.0;
                 for (size_t j = 0; j < nBasis; ++j) {
-                    (*rhs)[j] += basis[j] * targets[i];
-                    for (size_t k = j; k < nBasis; ++k)
-                        (*gram)(j, k) += basis[j] * basis[k];
+                    moments[j] += power;
+                    (*rhs)[j] += power * targets[i];
+                    power *= z;
+                }
+                for (size_t j = nBasis; j < 2 * nBasis - 1; ++j) {
+                    moments[j] += power;
+                    power *= z;
                 }
             }
+            for (size_t j = 0; j < nBasis; ++j)
+                for (size_t k = j; k < nBasis; ++k)
+                    (*gram)(j, k) = moments[j + k];
+        }
+
+        bool HasIndependentColumns(const SquareMatrix_<>& gram, const std::array<double, 9>& scale) {
+            std::array<std::array<double, 9>, 9> lower{};
+            for (int j = 0; j < gram.Rows(); ++j) {
+                for (int k = 0; k <= j; ++k) {
+                    double residual = gram(k, j) / scale[j] / scale[k];
+                    for (int l = 0; l < k; ++l)
+                        residual -= lower[j][l] * lower[k][l];
+                    if (!std::isfinite(residual) || (j == k && residual <= 1.0 / CONDITION_LIMIT))
+                        return false;
+                    lower[j][k] = j == k ? std::sqrt(residual) : residual / lower[k][k];
+                }
+            }
+            return true;
+        }
+
+        //  Equal diagonal entries do not imply independent columns. Test the
+        //  unregularized, column-scaled Gram matrix before ridge can hide rank loss.
+        bool RankDeficient(const SquareMatrix_<>& gram) {
+            std::array<double, 9> scale{};
+            for (int j = 0; j < gram.Rows(); ++j) {
+                if (!std::isfinite(gram(j, j)) || gram(j, j) <= 0.0)
+                    return true;
+                scale[j] = std::sqrt(gram(j, j));
+            }
+            return !HasIndependentColumns(gram, scale);
         }
 
         //  Explicit relative ridge, then the Gram diagonal-ratio conditioning guard
         bool RidgeAndIllConditioned(SquareMatrix_<>* gram) {
+            if (RankDeficient(*gram))
+                return true;
             const size_t nBasis = static_cast<size_t>(gram->Rows());
             double maxDiag = (*gram)(0, 0);
             double minDiag = (*gram)(0, 0);
@@ -166,8 +217,8 @@ namespace Dal::Script {
             return scan;
         }
 
-        //  N7 storage: payments per PAYS event, (x, h[, condition]) per exercise day, and
-        //  the terminal payoff-variable value per path, so Phase C reads recorded rows only
+        //  Training keeps only regression inputs. Pricing uses one reusable path of
+        //  storage per worker, including the pre-exercise and terminal receiver values.
         struct LsmcStorage_ {
             Vector_<Vector_<>> pays_;
             Vector_<Vector_<>> xByDay_;
@@ -177,18 +228,22 @@ namespace Dal::Script {
             Vector_<> payoffFinal_;            //  empty = no PAYS receiver (EXERCISE-only product)
         };
 
-        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, bool hasPayoff) {
-            LsmcStorage_ storage;
-            storage.pays_.Resize(scan.paysEventIds_.size());
-            for (auto& row : storage.pays_)
+        Vector_<Vector_<>> PathRows(size_t nRows, size_t nPaths) {
+            Vector_<Vector_<>> rows(nRows);
+            for (auto& row : rows)
                 row = Vector_<>(nPaths, 0.0);
-            storage.xByDay_.Resize(scan.days_.size());
-            storage.hByDay_.Resize(scan.days_.size());
-            storage.preExercise_.Resize(scan.days_.size());
-            for (size_t k = 0; k < scan.days_.size(); ++k) {
-                storage.xByDay_[k] = Vector_<>(nPaths, 0.0);
-                storage.hByDay_[k] = Vector_<>(nPaths, 0.0);
-                storage.preExercise_[k] = Vector_<>(nPaths, 0.0);
+            return rows;
+        }
+
+        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, bool hasPayoff, bool pricing = false) {
+            LsmcStorage_ storage;
+            storage.pays_ = PathRows(scan.paysEventIds_.size(), nPaths);
+            storage.xByDay_ = PathRows(scan.days_.size(), nPaths);
+            storage.hByDay_ = PathRows(scan.days_.size(), nPaths);
+            if (pricing) {
+                storage.preExercise_ = PathRows(scan.days_.size(), nPaths);
+                if (hasPayoff)
+                    storage.payoffFinal_ = Vector_<>(nPaths, 0.0);
             }
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
@@ -196,8 +251,6 @@ namespace Dal::Script {
                     if (scan.days_[k].conditional_)
                         storage.condByDay_[k] = Vector_<char>(nPaths, 1);
             }
-            if (hasPayoff)
-                storage.payoffFinal_ = Vector_<>(nPaths, 0.0);
             return storage;
         }
 
@@ -211,6 +264,7 @@ namespace Dal::Script {
             //  Compiled mode (T3 parity): per-thread recording state feeding LsmcSinks_
             std::optional<EvalState_<double>> compiledState_;
             LsmcSinks_ sinks_;
+            size_t exercisedDay_ = NO_SLOT;
 
             explicit ThreadState_(const struct LsmcContext_& ctx);
 
@@ -223,19 +277,12 @@ namespace Dal::Script {
             AAD::Model_<double>* model_;
             const LsmcPlan_& scan_;
             LsmcStorage_& storage_;
-            Vector_<std::unique_ptr<ThreadState_>>& threadStates_;
             std::optional<ScriptCompiled_> compiled_; //  engaged when the prepared simulation selects the compiled evaluator
+            const Vector_<ExerciseRegression_>* policy_ = nullptr; //  pricing stops evaluating after the first hard exercise
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
             [[nodiscard]] size_t PayOffIdx() const { return Product().PayOffIdx(); }
-
-            ThreadState_& StateFor(size_t threadNum) {
-                auto& state = threadStates_[threadNum];
-                if (!state)
-                    state = std::make_unique<ThreadState_>(*this);
-                return *state;
-            }
         };
 
         ThreadState_::ThreadState_(const LsmcContext_& ctx)
@@ -248,6 +295,7 @@ namespace Dal::Script {
                 InitializePath(path_);
             }
             evaluator_.eventToPays_ = &ctx.scan_.eventToPays_;
+            evaluator_.payoffIdx_ = ctx.PayOffIdx();
             evaluator_.eventToExercise_ = &ctx.scan_.eventToExercise_;
             evaluator_.paysStorage_ = &ctx.storage_.pays_;
             evaluator_.xStorage_ = &ctx.storage_.xByDay_;
@@ -256,6 +304,7 @@ namespace Dal::Script {
             if (ctx.compiled_) {
                 compiledState_.emplace(ctx.prepared_.BuildEvalState<double>());
                 sinks_.eventToPays_ = &ctx.scan_.eventToPays_;
+                sinks_.payoffIdx_ = ctx.PayOffIdx();
                 sinks_.eventToExercise_ = &ctx.scan_.eventToExercise_;
                 sinks_.pays_ = &ctx.storage_.pays_;
                 sinks_.x_ = &ctx.storage_.xByDay_;
@@ -269,8 +318,23 @@ namespace Dal::Script {
         //  accumulated strictly before the exercise event survives (both engines)
         void SnapshotPreExercise(const LsmcContext_& ctx, const Vector_<>& variables, size_t event, size_t pathSlot) {
             const size_t slot = ctx.scan_.eventToExercise_[event];
-            if (slot != NO_SLOT)
+            if (slot != NO_SLOT && !ctx.storage_.preExercise_.empty())
                 ctx.storage_.preExercise_[slot][pathSlot] = ctx.Product().HasPays() ? variables[ctx.PayOffIdx()] : 0.0;
+        }
+
+        bool Exercises(const LsmcContext_& ctx, const Vector_<ExerciseRegression_>& regressions, size_t day, size_t pathSlot) {
+            const auto& storage = ctx.storage_;
+            const bool condTrue = storage.condByDay_.empty() || storage.condByDay_[day].empty() || storage.condByDay_[day][pathSlot];
+            const double h = storage.hByDay_[day][pathSlot];
+            return condTrue && h > 0.0 && h > RegressionPredict(regressions[day], storage.xByDay_[day][pathSlot]);
+        }
+
+        bool StopAfterEvent(const LsmcContext_& ctx, size_t event, size_t pathSlot, ThreadState_* state) {
+            const size_t day = ctx.scan_.eventToExercise_[event];
+            if (!ctx.policy_ || day == NO_SLOT || !Exercises(ctx, *ctx.policy_, day, pathSlot))
+                return false;
+            state->exercisedDay_ = day;
+            return true;
         }
 
         void TreeEvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
@@ -287,6 +351,8 @@ namespace Dal::Script {
                 eval.SetEventOrdinal(e);
                 for (const auto& statement : events[e])
                     statement->Accept(eval);
+                if (StopAfterEvent(ctx, e, pathSlot, &state))
+                    break;
             }
         }
 
@@ -308,12 +374,15 @@ namespace Dal::Script {
                 SnapshotPreExercise(ctx, eval.variables_, e, pathSlot);
                 const Detail::CompiledEventView_<double> view{nodeStreams[e], constStreams[e], state.Path()[eventToSample[e]]};
                 Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &eval);
+                if (StopAfterEvent(ctx, e, pathSlot, &state))
+                    break;
             }
         }
 
         //  One forward evaluation with recording (EXERCISE is a no-op on the script state);
         //  the terminal payoff-variable value closes the path's recorded rows
         void EvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
+            state.exercisedDay_ = NO_SLOT;
             state.random_->FillNormal(&state.gauss_);
             if (state.bsPaths_) {
                 if (!state.bsPaths_->Generate(state.gauss_))
@@ -334,11 +403,15 @@ namespace Dal::Script {
         //  Phase A: forward storage over disjoint per-batch path slots
         void RunForwardPhase(LsmcContext_& ctx, const BatchPlan_& batchPlan) {
             ThreadPool_* pool = ThreadPool_::GetInstance();
+            Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
             SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
             for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
                 const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
                 tasks.Spawn([&, batch]() {
-                    ThreadState_& state = ctx.StateFor(ThreadPool_::ThreadNum());
+                    auto& local = threadStates[ThreadPool_::ThreadNum()];
+                    if (!local)
+                        local = std::make_unique<ThreadState_>(ctx);
+                    ThreadState_& state = *local;
                     state.random_->SkipTo(batch.firstPath_);
                     for (size_t i = 0; i < batch.pathCount_; ++i)
                         EvaluateRecordedPath(state, ctx, batch.firstPath_ + i);
@@ -381,9 +454,9 @@ namespace Dal::Script {
         //  continuation estimate that undershoots below zero must not "exercise" a
         //  worthless option on them
         void FillIncluded(const Vector_<Vector_<char>>& condByDay, const Vector_<>& h, size_t day, Vector_<char>* included) {
-            const auto& cond = condByDay.empty() ? Vector_<char>() : condByDay[day];
+            const Vector_<char>* cond = condByDay.empty() || condByDay[day].empty() ? nullptr : &condByDay[day];
             for (size_t j = 0; j < included->size(); ++j)
-                (*included)[j] = (cond.empty() || cond[j]) && h[j] > 0.0 ? 1 : 0;
+                (*included)[j] = (!cond || (*cond)[j]) && h[j] > 0.0 ? 1 : 0;
         }
 
         //  S3/S4: exercise on strictly-better continuation estimates replaces the future
@@ -419,27 +492,18 @@ namespace Dal::Script {
         }
 
         //  First exercise wins (S3/S4): the earliest true decision replaces the payoff
-        double PathPayoff(const LsmcContext_& ctx,
-                          const Vector_<>& eventNumeraire,
-                          const Vector_<ExerciseRegression_>& regressions,
-                          size_t pathSlot,
-                          Vector_<size_t>* exerciseCounts) {
+        double
+        PathPayoff(const LsmcContext_& ctx, const Vector_<>& eventNumeraire, size_t exercisedDay, size_t pathSlot, Vector_<size_t>* exerciseCounts) {
             const auto& scan = ctx.scan_;
             const auto& storage = ctx.storage_;
-            for (size_t k = 0; k < scan.days_.size(); ++k) {
-                const bool condTrue = storage.condByDay_.empty() || storage.condByDay_[k].empty() || storage.condByDay_[k][pathSlot] != 0;
-                //  S3/S4 + Longstaff-Schwartz: a positive exercise value that strictly
-                //  beats the continuation estimate; h == 0 paths never exercise
-                if (condTrue && storage.hByDay_[k][pathSlot] > 0.0 &&
-                    storage.hByDay_[k][pathSlot] > RegressionPredict(regressions[k], storage.xByDay_[k][pathSlot])) {
-                    //  S4: exercise replaces the same-day and later payments; earlier ones survive.
-                    //  The pinned deterministic-rate model set makes the exercise-date numeraire
-                    //  path-independent, so the probe grid supplies the same value the path carried
-                    const double payoff = storage.preExercise_[k][pathSlot] + storage.hByDay_[k][pathSlot] / eventNumeraire[scan.days_[k].eventId_];
-                    REQUIRE2(std::isfinite(payoff), "InvalidPayoff: non-finite exercise value", ScriptError_);
-                    ++(*exerciseCounts)[k];
-                    return payoff;
-                }
+            if (exercisedDay != NO_SLOT) {
+                //  The event loop already selected the first exercise. Reusing it
+                //  avoids a second scan and a second polynomial evaluation per date.
+                const double payoff = storage.preExercise_[exercisedDay][pathSlot] +
+                                      storage.hByDay_[exercisedDay][pathSlot] / eventNumeraire[scan.days_[exercisedDay].eventId_];
+                REQUIRE2(std::isfinite(payoff), "InvalidPayoff: non-finite exercise value", ScriptError_);
+                ++(*exerciseCounts)[exercisedDay];
+                return payoff;
             }
             if (storage.payoffFinal_.empty())
                 return 0.0;
@@ -454,12 +518,12 @@ namespace Dal::Script {
             Vector_<size_t> exerciseCounts_;
         };
 
-        //  Phase C accumulates per batch, then reduces in batch-index order (N9); the frozen
-        //  strategy values each path from the recorded rows — Phase A already generated every
-        //  path, and the deterministic Sobol replay would regenerate them bitwise identically
+        //  Phase C evaluates the frozen strategy on a disjoint Sobol block. Rows are
+        //  reused for each path; batch-index reduction preserves thread invariance.
         ReplayOutcome_ RunReplayPhase(const LsmcContext_& ctx,
                                       const Vector_<>& eventNumeraire,
                                       const BatchPlan_& batchPlan,
+                                      size_t pricingPathOffset,
                                       const Vector_<ExerciseRegression_>& regressions) {
             Vector_<ReplayOutcome_> outcomes(batchPlan.BatchCount());
             for (auto& outcome : outcomes)
@@ -471,8 +535,15 @@ namespace Dal::Script {
                 const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
                 tasks.Spawn([&, batch, batchIndex]() {
                     ReplayOutcome_& outcome = outcomes[batchIndex];
+                    auto storage = MakeStorage(ctx.scan_, 1, ctx.Product().HasPays(), true);
+                    LsmcContext_ pricing{ctx.prepared_, ctx.model_, ctx.scan_, storage, ctx.compiled_, &regressions};
+                    ThreadState_ state(pricing);
+                    state.random_->SkipTo(pricingPathOffset + batch.firstPath_);
                     for (size_t i = 0; i < batch.pathCount_; ++i) {
-                        const double payoff = PathPayoff(ctx, eventNumeraire, regressions, batch.firstPath_ + i, &outcome.exerciseCounts_);
+                        for (auto& row : storage.pays_)
+                            row[0] = 0.0;
+                        EvaluateRecordedPath(state, pricing, 0);
+                        const double payoff = PathPayoff(pricing, eventNumeraire, state.exercisedDay_, 0, &outcome.exerciseCounts_);
                         outcome.sum_ += payoff;
                         outcome.sumSq_ += payoff * payoff;
                     }
@@ -588,12 +659,10 @@ namespace Dal::Script {
             if (ws.random_)
                 ws.random_->SkipTo(batch.firstPath_);
             ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
+            ws.sinks_.payoffIdx_ = prepared.PayOffIdx();
             ws.pays_ = Vector_<AAD::Number_>(scan.eventToPays_.size(), 0.0);
             ws.h_ = Vector_<AAD::Number_>(scan.days_.size(), 0.0);
             ws.cond_ = Vector_<AAD::Number_>(scan.days_.size(), 1.0);
-            ws.sinks_.pays_ = &ws.pays_;
-            ws.sinks_.h_ = &ws.h_;
-            ws.sinks_.cond_ = &ws.cond_;
             return ws;
         }
 
@@ -675,6 +744,10 @@ namespace Dal::Script {
             AAD::Activate(*AAD::Tape());
             AAD::Rewind(*AAD::Tape());
             FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch);
+            //  Bind after the return-by-value, without relying on optional NRVO.
+            ws.sinks_.pays_ = &ws.pays_;
+            ws.sinks_.h_ = &ws.h_;
+            ws.sinks_.cond_ = &ws.cond_;
             if (fuzzyCompiled) {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
                 FuzzyReplayPaths(
@@ -691,7 +764,7 @@ namespace Dal::Script {
     } // namespace
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
-        REQUIRE(degree >= 1, "InvalidLsmcBasisDegree: regression degree must be positive");
+        ValidateLsmcBasisDegree(degree);
         REQUIRE(x.size() == targets.size() && x.size() == included.size(), "InvalidRegressionInput: mismatched regression vectors");
 
         ExerciseRegression_ result;
@@ -727,6 +800,11 @@ namespace Dal::Script {
         Vector_<Vector_<>> rhsWrapped(1);
         rhsWrapped[0] = rhs;
         CholeskySolve(&gram, &rhsWrapped);
+        for (double coefficient : rhsWrapped[0])
+            if (!std::isfinite(coefficient)) {
+                DegradeToConstant(&result, "IllConditioned", constantFit);
+                return result;
+            }
         result.coefficients_ = rhsWrapped[0];
         result.basisDegree_ = degree;
         return result;
@@ -746,20 +824,19 @@ namespace Dal::Script {
                  "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
-        auto storage = MakeStorage(scan, nPaths, product.HasPays());
-        //  N9 batch layout depends on nPaths only
+        const size_t nTrainingPaths = TrainingPathCount(simulation, nPaths);
+        auto storage = MakeStorage(scan, nTrainingPaths, product.HasPays());
+        //  Each phase has its own count-specific, thread-independent batch layout.
+        const BatchPlan_ trainingPlan(nTrainingPaths, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
-        ThreadPool_* pool = ThreadPool_::GetInstance();
-        Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
-        LsmcContext_ ctx{prepared, mdl, scan, storage, threadStates};
+        LsmcContext_ ctx{prepared, mdl, scan, storage};
         if (simulation.compiled_.value_or(false))
             ctx.compiled_.emplace(prepared.Compile());
-        static_cast<void>(ctx.StateFor(0));
-
-        RunForwardPhase(ctx, batchPlan);
+        RunForwardPhase(ctx, trainingPlan);
         const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nPaths, simulation.lsmcBasisDegree_);
-        const auto reduction = RunReplayPhase(ctx, eventNumeraire, batchPlan, regressions);
+        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nTrainingPaths, simulation.lsmcBasisDegree_);
+        storage = LsmcStorage_();
+        const auto reduction = RunReplayPhase(ctx, eventNumeraire, batchPlan, nTrainingPaths, regressions);
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
         results.aggregated_ = reduction.sum_;
@@ -782,21 +859,22 @@ namespace Dal::Script {
         doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
+        const size_t nTrainingPaths = TrainingPathCount(simulation, nPaths);
         //  The fuzzy pass never runs the storage-driven Phase C, so the terminal
         //  payoff row would be allocated and written for no reader here
-        auto storage = MakeStorage(scan, nPaths, false);
-        //  N9 batch layout depends on nPaths only
+        auto storage = MakeStorage(scan, nTrainingPaths, false);
+        //  Each phase has its own count-specific, thread-independent batch layout.
+        const BatchPlan_ trainingPlan(nTrainingPaths, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
         ThreadPool_* pool = ThreadPool_::GetInstance();
-        Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
-        LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage, threadStates};
+        LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage};
         if (simulation.compiled_.value_or(false))
             ctx.compiled_.emplace(ScriptCompiled_::Build(product.Events(), false, prepared.PlanHandle(), false, true));
 
-        RunForwardPhase(ctx, batchPlan);
+        RunForwardPhase(ctx, trainingPlan);
         const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nPaths, simulation.lsmcBasisDegree_);
-        threadStates.clear();
+        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nTrainingPaths, simulation.lsmcBasisDegree_);
+        storage = LsmcStorage_();
 
         const std::optional<ScriptCompiled_> fuzzyCompiled =
             simulation.compiled_.value_or(false) ? std::optional<ScriptCompiled_>(prepared.Compile(true)) : std::nullopt;
@@ -808,7 +886,8 @@ namespace Dal::Script {
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
             tasks.Spawn([&, batch, batchIndex]() {
-                RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, batch, &outcomes[batchIndex]);
+                const PathBatch_ pricingBatch{nTrainingPaths + batch.firstPath_, batch.pathCount_};
+                RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, &outcomes[batchIndex]);
                 return true;
             });
         }

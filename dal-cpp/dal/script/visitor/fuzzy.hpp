@@ -204,7 +204,8 @@ namespace Dal::Script {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T payment = dStack_.TopAndPop();
-            (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+            if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
+                (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
 

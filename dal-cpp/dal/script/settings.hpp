@@ -41,6 +41,8 @@ namespace Dal {
             std::optional<bool> compiled_;
             // Polynomial degree of the LSMC regression basis for EXERCISE valuation
             int lsmcBasisDegree_ = DEFAULT_LSMC_BASIS_DEGREE;
+            // Positive training count for EXERCISE valuation; unset uses the pricing count.
+            std::optional<int> lsmcTrainingPaths_ = std::nullopt;
         };
 
         struct ScriptValuationSettings_ {
@@ -63,6 +65,7 @@ namespace Dal {
         void ValidateRNG(const String_& method);
         void ValidateSmoothing(double smooth);
         void ValidateLsmcBasisDegree(int degree);
+        void ValidateLsmcTrainingPaths(int count);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

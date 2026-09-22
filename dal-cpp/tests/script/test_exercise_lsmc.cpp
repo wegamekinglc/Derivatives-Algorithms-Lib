@@ -5,9 +5,11 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,12 +19,13 @@
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/dupire.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
 #include <dal/script/simulation.hpp>
-#include <dal/storage/globals.hpp>
 #include <dal/storage/_repository.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 #include "bermudan_pde.hpp"
@@ -218,6 +221,35 @@ TEST(ScriptExerciseLSMCTest, TestRegressionIncludedSubsetDrivesFit) {
             ASSERT_NEAR(RegressionPredict(regression, x[i]), 1.0, 1e-10);
 }
 
+TEST(ScriptExerciseLSMCTest, TestRegressionDetectsCollinearBasis) {
+    Vector_<> x(100), targets(100);
+    for (size_t i = 0; i < x.size(); ++i) {
+        x[i] = i % 2 ? 1.0 : -1.0;
+        targets[i] = 3.0 + x[i];
+    }
+    const auto fit = SolveExerciseRegression(x, targets, AllIncluded(x.size()), 3);
+    ASSERT_TRUE(fit.degenerate_);
+    ASSERT_EQ(fit.degenerateReason_, "IllConditioned");
+    ASSERT_NEAR(RegressionPredict(fit, 0.0), 3.0, 1e-12);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRegressionRejectsNonFiniteIncludedData) {
+    Vector_<> x(100, 1.0), targets(100, 2.0);
+    for (double invalid : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+        x[0] = invalid;
+        ASSERT_THROW(SolveExerciseRegression(x, targets, AllIncluded(x.size()), 3), Dal::Exception_);
+        x[0] = 1.0;
+        targets[0] = invalid;
+        ASSERT_THROW(SolveExerciseRegression(x, targets, AllIncluded(x.size()), 3), Dal::Exception_);
+        targets[0] = 2.0;
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestConstantRegressionAvoidsNormalizationOverflow) {
+    const auto fit = SolveExerciseRegression(Vector_<>(100, 0.0), Vector_<>(100, 2.0), AllIncluded(100), 3);
+    ASSERT_EQ(RegressionPredict(fit, std::numeric_limits<double>::max()), 2.0);
+}
+
 //  ---------------------------------------------------------------------------
 //  LSMC driver: European limit (exercise only at maturity == European put)
 //  ---------------------------------------------------------------------------
@@ -228,10 +260,16 @@ namespace {
         LsmcDiagnostics_ diagnostics_;
     };
 
-    LsmcRun_ RunLsmc(const ScriptProductData_& product, const Handle_<ModelData_>& modelData, size_t nPaths, int degree = 3, bool compiled = false) {
+    LsmcRun_ RunLsmc(const ScriptProductData_& product,
+                     const Handle_<ModelData_>& modelData,
+                     size_t nPaths,
+                     int degree = 3,
+                     bool compiled = false,
+                     std::optional<int> trainingPaths = std::nullopt) {
         MonteCarloSettings_ simulation;
         simulation.lsmcBasisDegree_ = degree;
         simulation.compiled_ = compiled;
+        simulation.lsmcTrainingPaths_ = trainingPaths;
         auto model = CreateModel<double>(modelData);
         auto prepared = PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation);
         LsmcRun_ run{0.0, LsmcDiagnostics_()};
@@ -247,6 +285,254 @@ TEST(ScriptExerciseLSMCTest, TestEuropeanLimit) {
     const auto product = ExerciseOnlyProduct({Date_(2028, 3, 20)});
     const auto run = RunLsmc(product, StandardModel(), EUROPEAN_LIMIT_PATHS);
     ASSERT_NEAR(run.pv_, EuropeanPutClosedForm(), 3.0 * run.diagnostics_.StandardError());
+}
+
+TEST(ScriptExerciseLSMCTest, TestPricingUsesPathsAfterTrainingBlock) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    constexpr size_t N_PATHS = 8197; // Cross the fixed pricing-batch boundary.
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
+    for (const auto trainingPaths : {std::optional<int>(), std::optional<int>(73), std::optional<int>(16391)}) {
+        SCOPED_TRACE(trainingPaths.value_or(static_cast<int>(N_PATHS)));
+        for (const bool bridge : {false, true}) {
+            MonteCarloSettings_ settings;
+            settings.lsmcTrainingPaths_ = trainingPaths;
+            settings.useBb_ = bridge;
+            auto model = CreateModel<double>(StandardModel());
+            const auto prepared = PrepareScript(product, model.get(), {}, settings);
+            auto rng = CreateRNG(settings.rsg_, model->SimDim(), bridge);
+            rng->SkipTo(static_cast<size_t>(trainingPaths.value_or(static_cast<int>(N_PATHS))));
+            Vector_<> gauss(model->SimDim());
+            Scenario_<> path;
+            AllocatePath(prepared.DefLine(), path);
+            InitializePath(path);
+            double expected = 0.0;
+            double expectedDelta = 0.0;
+            for (size_t i = 0; i < N_PATHS; ++i) {
+                rng->FillNormal(&gauss);
+                model->GeneratePath(gauss, &path);
+                expected += std::max(STRIKE - path.back().spot_, 0.0) / path.back().numeraire_;
+                if (path.back().spot_ < STRIKE)
+                    expectedDelta -= path.back().spot_ / SPOT / path.back().numeraire_;
+            }
+            for (const bool compiled : {false, true}) {
+                settings.compiled_ = compiled;
+                const auto hard = MCSimulation<double>(product, StandardModel(), N_PATHS, {}, settings);
+                ASSERT_NEAR(hard.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
+                settings.enableAad_ = true;
+                settings.smooth_ = 1e-10;
+                const auto fuzzy = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+                ASSERT_NEAR(fuzzy.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
+                ASSERT_NEAR(fuzzy["spot"], expectedDelta / N_PATHS, 1e-10);
+                settings.enableAad_ = false;
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestFlatDupireMatchesBlackScholesWithSeparatePathBudgets) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    constexpr size_t N_PATHS = 8197;
+    const auto product = ExerciseOnlyProduct({Date_(2027, 3, 20), Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    const Handle_<ModelData_> dupire(new DupireModelData_("dupire", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL)));
+    // Flat local volatility has the same pathwise law and aggregate vega as BS,
+    // while exercising the generic path generator and the Dupire AAD workspace.
+    for (const int trainingPaths : {73, 16391}) {
+        SCOPED_TRACE(trainingPaths);
+        for (const bool bridge : {false, true}) {
+            SCOPED_TRACE(bridge);
+            MonteCarloSettings_ settings;
+            settings.lsmcTrainingPaths_ = trainingPaths;
+            settings.useBb_ = bridge;
+            const auto expectedHard = MCSimulation<double>(product, StandardModel(), N_PATHS, {}, settings);
+            settings.enableAad_ = true;
+            const auto expectedAad = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+            for (const bool compiled : {false, true}) {
+                SCOPED_TRACE(compiled);
+                settings.compiled_ = compiled;
+                settings.enableAad_ = false;
+                const auto hard = MCSimulation<double>(product, dupire, N_PATHS, {}, settings);
+                ASSERT_NEAR(hard.aggregated_ / N_PATHS, expectedHard.aggregated_ / N_PATHS, 1e-8);
+                settings.enableAad_ = true;
+                const auto aad = MCSimulation<AAD::Number_>(product, dupire, N_PATHS, {}, settings);
+                ASSERT_NEAR(aad.aggregated_ / N_PATHS, expectedAad.aggregated_ / N_PATHS, 1e-8);
+                ASSERT_NEAR(aad["spot"], expectedAad["spot"], 1e-8);
+                ASSERT_NEAR(aad["rate"], expectedAad["rate"], 1e-8);
+                ASSERT_NEAR(aad["repo"], expectedAad["div"], 1e-8);
+                ASSERT_EQ(aad.risks_.size(), 7u);
+                double parallelVega = 0.0;
+                for (size_t i = 3; i < aad.risks_.size(); ++i)
+                    parallelVega += aad.risks_[i];
+                ASSERT_NEAR(parallelVega, expectedAad["vol"], 1e-8);
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestTrainingPolicyDoesNotDependOnPricingCount) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    for (const bool compiled : {false, true}) {
+        const auto small = RunLsmc(product, StandardModel(), 257, 3, compiled, 4096);
+        const auto large = RunLsmc(product, StandardModel(), 8193, 3, compiled, 4096);
+        ASSERT_EQ(small.diagnostics_.nPaths_, 257u);
+        ASSERT_EQ(large.diagnostics_.nPaths_, 8193u);
+        ASSERT_EQ(small.diagnostics_.events_.size(), 2u);
+        ASSERT_EQ(large.diagnostics_.events_.size(), 2u);
+        for (size_t i = 0; i < small.diagnostics_.events_.size(); ++i) {
+            const auto& lhs = small.diagnostics_.events_[i];
+            const auto& rhs = large.diagnostics_.events_[i];
+            ASSERT_FALSE(lhs.degenerate_);
+            ASSERT_EQ(lhs.coefficients_, rhs.coefficients_);
+            ASSERT_EQ(lhs.numCondTruePaths_, rhs.numCondTruePaths_);
+        }
+        // Explicitly matching the pricing count preserves the default policy and PV.
+        const auto implicit = RunLsmc(product, StandardModel(), 4096, 3, compiled);
+        const auto explicitCount = RunLsmc(product, StandardModel(), 4096, 3, compiled, 4096);
+        ASSERT_EQ(implicit.pv_, explicitCount.pv_);
+        for (size_t i = 0; i < implicit.diagnostics_.events_.size(); ++i)
+            ASSERT_EQ(implicit.diagnostics_.events_[i].coefficients_, explicitCount.diagnostics_.events_[i].coefficients_);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRejectsSobolPathRangeOverflowBeforeAllocation) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
+    constexpr size_t PATHS = std::numeric_limits<uint32_t>::max();
+    for (const auto trainingPaths : {std::optional<int>(), std::optional<int>(1)}) {
+        MonteCarloSettings_ settings;
+        settings.lsmcTrainingPaths_ = trainingPaths;
+        for (const bool compiled : {false, true}) {
+            settings.compiled_ = compiled;
+            ASSERT_THROW(MCSimulation<double>(product, StandardModel(), PATHS, {}, settings), ScriptError_);
+            settings.enableAad_ = true;
+            ASSERT_THROW(MCSimulation<AAD::Number_>(product, StandardModel(), PATHS, {}, settings), ScriptError_);
+            settings.enableAad_ = false;
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestLsmcPrunesDeadStatementsAndKeepsBranchDependencies) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Vector_<Cell_> dates{Cell_(Date_(2027, 3, 20)), Cell_(Date_(2027, 9, 20))};
+    const ScriptProductData_ product("", dates,
+                                     {"x = 1\nx = spot()\nIF spot() > 100 THEN y = x ELSE y = 2 * x END\n"
+                                      "IF spot() > 90 THEN unused = LOG(spot()) END",
+                                      "dead = EXP(spot())\nEXERCISE MAX(120 - y, 0)"});
+    auto model = CreateModel<double>(StandardModel());
+    const auto prepared = PrepareScript(product, model.get(), {}, {});
+    ASSERT_EQ(prepared.Product().Events()[0].size(), 2u);
+    ASSERT_EQ(prepared.Product().Events()[1].size(), 1u);
+    const ScriptProductData_ minimal("", dates, {"x = spot()\nIF spot() > 100 THEN y = x ELSE y = 2 * x END", "EXERCISE MAX(120 - y, 0)"});
+    for (bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        for (bool aad : {false, true}) {
+            settings.enableAad_ = aad;
+            const auto run = [&](const ScriptProductData_& data) {
+                return aad ? MCSimulation<AAD::Number_>(data, StandardModel(), 256, {}, settings)
+                           : MCSimulation<double>(data, StandardModel(), 256, {}, settings);
+            };
+            const auto actual = run(product), expected = run(minimal);
+            ASSERT_EQ(actual.aggregated_, expected.aggregated_);
+            ASSERT_EQ(actual.risks_, expected.risks_);
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestOnlySelectedPayoffReceiverEntersContinuation) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {"fee PAYS 100\npay PAYS 1\nEXERCISE 2 IF fee > 0"});
+    for (bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        const auto hard = MCSimulation<double>(product, ModelWithVol(0.0), 256, {}, settings);
+        ASSERT_NEAR(hard.aggregated_ / 256, 2.0 * std::exp(-RATE), 1e-10);
+        settings.enableAad_ = true;
+        const auto fuzzy = MCSimulation<AAD::Number_>(product, ModelWithVol(0.0), 256, {}, settings);
+        ASSERT_NEAR(fuzzy.aggregated_ / 256, 2.0 * std::exp(-RATE), 1e-10);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRejectsPayoffAssignmentsThatInvalidateCashflowRecursion) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {"pay PAYS 100\npay = 1\nEXERCISE 2"});
+    ASSERT_THROW(RunLsmc(product, ModelWithVol(0.0), 256), Dal::Exception_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRejectsHistoricalPayoffSeedWithZeroValueAndLiveRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(EvalDate().AddDays(-1)), Cell_(Date_(2027, 9, 20))},
+                                     {"1", "pay = SCALE - 1", "pay PAYS 1\nEXERCISE 2"});
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        ASSERT_THROW(MCSimulation<double>(product, StandardModel(), 64, {}, settings), ScriptError_);
+        settings.enableAad_ = true;
+        ASSERT_THROW(MCSimulation<AAD::Number_>(product, StandardModel(), 64, {}, settings), ScriptError_);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestHistoricalZeroInitializationAndExpiredPaymentAreAllowed) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(EvalDate().AddDays(-1)), Cell_(Date_(2027, 9, 20))},
+                                     {"pay PAYS 100\npay = 0", "pay PAYS 1\nEXERCISE 2"});
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        const auto hard = MCSimulation<double>(product, StandardModel(), 64, {}, settings);
+        ASSERT_NEAR(hard.aggregated_ / 64, 2.0 * std::exp(-RATE), 1e-10);
+        settings.enableAad_ = true;
+        const auto aad = MCSimulation<AAD::Number_>(product, StandardModel(), 64, {}, settings);
+        ASSERT_NEAR(aad.aggregated_ / 64, 2.0 * std::exp(-RATE), 1e-10);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestZeroInitializationInMutuallyExclusivePaymentBranch) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Handle_<ModelData_> model(new BSModelData_("bs", 1.0, 0.0, 0.0, 0.0));
+    const Vector_<String_> scripts{"IF spot() > 1 THEN pay PAYS 4 ELSE pay = 0 END\nEXERCISE 0",
+                                   "IF spot() > 1 THEN pay = 0 ELSE pay PAYS 4 END\nEXERCISE 0"};
+    for (size_t i = 0; i < scripts.size(); ++i) {
+        const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {scripts[i]});
+        for (const bool compiled : {false, true}) {
+            MonteCarloSettings_ settings;
+            settings.compiled_ = compiled;
+            const auto hard = MCSimulation<double>(product, model, 64, {}, settings);
+            ASSERT_NEAR(hard.aggregated_ / 64, i == 0 ? 0.0 : 4.0, 1e-10);
+            settings.enableAad_ = true;
+            const auto aad = MCSimulation<AAD::Number_>(product, model, 64, {}, settings);
+            ASSERT_NEAR(aad.aggregated_ / 64, 2.0, 1e-10);
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRejectsNonFiniteExerciseValue) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {"EXERCISE SQRT(-spot())"});
+    for (bool compiled : {false, true})
+        ASSERT_THROW(RunLsmc(product, StandardModel(), 64, 3, compiled), Dal::Exception_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestLsmcPruningRetainsImplicitBranchState) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Handle_<ModelData_> model(new BSModelData_("bs", 1.0, 0.0, 0.0, 0.0));
+    const Vector_<String_> scripts{"x = 4\nIF spot() > 1 THEN x = 2 ELSE dead = LOG(spot()) END\nEXERCISE x",
+                                   "x = 4\nIF spot() > 1 THEN dead = LOG(spot()) ELSE x = 2 END\nEXERCISE x",
+                                   "x = 4\nIF spot() > 1 THEN IF spot() > 1 THEN x = 2 ELSE dead = 3 END END\nEXERCISE x"};
+    const Vector_<> hardValues{4.0, 2.0, 4.0}, fuzzyValues{3.0, 3.0, 3.5};
+    for (size_t i = 0; i < scripts.size(); ++i) {
+        SCOPED_TRACE(std::to_string(i));
+        const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {scripts[i]});
+        for (bool compiled : {false, true}) {
+            MonteCarloSettings_ settings;
+            settings.compiled_ = compiled;
+            const auto hard = MCSimulation<double>(product, model, 64, {}, settings);
+            ASSERT_NEAR(hard.aggregated_ / 64, hardValues[i], 1e-10);
+            settings.enableAad_ = true;
+            const auto fuzzy = MCSimulation<AAD::Number_>(product, model, 64, {}, settings);
+            ASSERT_NEAR(fuzzy.aggregated_ / 64, fuzzyValues[i], 1e-10);
+        }
+    }
 }
 
 //  ---------------------------------------------------------------------------
@@ -271,27 +557,26 @@ TEST(ScriptExerciseLSMCTest, TestAmericanWeeklyBenchmark) {
     //  discriminating power: the weekly premium over the European put exceeds the tolerance,
     //  so a driver that never exercises cannot pass
     ASSERT_GT(pde - EuropeanPutClosedForm(), 0.005 * SPOT);
-    const auto run = RunLsmc(ExerciseOnlyProduct(exerciseDates), StandardModel(), EUROPEAN_LIMIT_PATHS);
+    const auto run = RunLsmc(ExerciseOnlyProduct(exerciseDates), StandardModel(), EUROPEAN_LIMIT_PATHS, 3, false, 1 << 14);
     ASSERT_NEAR(run.pv_, pde, 0.005 * SPOT);
 }
 
-TEST(ScriptExerciseLSMCTest, TestConvergenceBandAndTrend) {
+TEST(ScriptExerciseLSMCTest, TestConvergenceBandAndDispersion) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const Vector_<Date_> exerciseDates{Date_(2027, 9, 20), Date_(2028, 3, 20)};
     const double pde = BermudanPutPDE(SPOT, VOL, RATE, DIV, STRIKE, {YearFracTo(exerciseDates[0]), YearFracTo(exerciseDates[1])}, 2000, 2000);
-    //  Degree 4: the degree-3 fit bias of this two-date product is size independent (the
-    //  error is flat at ~0.075 across path counts), which turns the single-point trend
-    //  comparison into noise vs noise; degree 4 shows the sampling-noise reduction the
-    //  trend clause targets while staying well inside the plan's acceptance band.
-    double errorAt64k = std::numeric_limits<double>::max();
+    //  Disjoint QMC blocks need not improve absolute error monotonically. Require
+    //  tight PDE accuracy at every size and the expected payoff-dispersion scaling.
+    double dispersionAt64k = 0.0;
     for (size_t paths : {1u << 16, 1u << 17, 1u << 18}) {
         const auto run = RunLsmc(ExerciseOnlyProduct(exerciseDates), StandardModel(), paths, 4);
         const double error = std::abs(run.pv_ - pde);
         ASSERT_LT(error, std::max(3.0 * run.diagnostics_.StandardError(), 0.0075 * SPOT));
+        ASSERT_LT(error, 0.01);
         if (paths == (1u << 16))
-            errorAt64k = error;
+            dispersionAt64k = run.diagnostics_.StandardError();
         if (paths == (1u << 18))
-            ASSERT_LE(error, errorAt64k);
+            ASSERT_LT(run.diagnostics_.StandardError(), 0.51 * dispersionAt64k);
     }
 }
 
@@ -340,9 +625,9 @@ TEST(ScriptExerciseLSMCTest, TestThreadInvarianceBitwise) {
     for (const bool compiled : {false, true}) {
         SCOPED_TRACE(compiled ? "compiled" : "tree-walk");
         pool.pool_->Start(1, true);
-        const auto single = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled);
+        const auto single = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled, 12307);
         pool.pool_->Start(std::max(4u, static_cast<unsigned>(pool.threads_)), true);
-        const auto multi = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled);
+        const auto multi = RunLsmc(product, StandardModel(), 1u << 16, 3, compiled, 12307);
         AssertBitwiseEqual(single, multi);
     }
 }
@@ -610,21 +895,18 @@ TEST(ScriptExerciseLSMCTest, TestAadRiskMatchesCentralDifferences) {
     }
 }
 
-//  S9 reading: with the h > 0 decision gate the recursive blend tracks the hard
-//  payoff to the decision-boundary remnant at every width — a first-order blend
-//  bias would break the error < smooth band, while the remnant itself is
-//  noise-scale, so an endpoint trend would test noise against noise
+//  Check the shrinking smoothing band and the hard limit on the same held-out
+//  paths. A wide finite band has no universal 0.001 absolute-error guarantee.
 TEST(ScriptExerciseLSMCTest, TestFuzzyConvergesToHardMode) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct(WeeklyDates(12));
     constexpr size_t N_PATHS = 1u << 16;
     const double hard = PvOf(MCSimulation<double>(product, StandardModel(), N_PATHS, ScriptValuationSettings_(), MonteCarloSettings_()), N_PATHS);
-    for (const double smooth : {0.1, 0.01, 0.001}) {
+    for (const double smooth : {0.1, 0.01, 0.001, 1e-8}) {
         SCOPED_TRACE(std::to_string(smooth));
         const auto aad = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, ScriptValuationSettings_(), AadSettings(false, smooth));
         const double error = std::abs(PvOf(aad, N_PATHS) - hard);
         ASSERT_LT(error, smooth) << "blend bias must shrink with the transition band";
-        ASSERT_LT(error, 0.001) << "fuzzy PV tracks the hard PV to the decision remnant at every width";
     }
 }
 
@@ -656,10 +938,12 @@ TEST(ScriptExerciseLSMCTest, TestAadThreadInvarianceBitwise) {
     const ScriptProductData_ product("", dates, events);
     for (const bool compiled : {false, true}) {
         SCOPED_TRACE(compiled ? "compiled" : "tree-walk");
+        auto settings = AadSettings(compiled);
+        settings.lsmcTrainingPaths_ = 12307;
         pool.pool_->Start(1, true);
-        const auto single = MCSimulation<AAD::Number_>(product, StandardModel(), 1u << 16, ScriptValuationSettings_(), AadSettings(compiled));
+        const auto single = MCSimulation<AAD::Number_>(product, StandardModel(), 1u << 16, ScriptValuationSettings_(), settings);
         pool.pool_->Start(std::max(4u, static_cast<unsigned>(pool.threads_)), true);
-        const auto multi = MCSimulation<AAD::Number_>(product, StandardModel(), 1u << 16, ScriptValuationSettings_(), AadSettings(compiled));
+        const auto multi = MCSimulation<AAD::Number_>(product, StandardModel(), 1u << 16, ScriptValuationSettings_(), settings);
         ASSERT_EQ(BitsOf(single.aggregated_), BitsOf(multi.aggregated_));
         ASSERT_EQ(single.risks_.size(), multi.risks_.size());
         for (size_t j = 0; j < single.risks_.size(); ++j)

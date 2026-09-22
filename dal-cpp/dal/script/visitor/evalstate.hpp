@@ -81,6 +81,7 @@ namespace Dal::Script {
         Vector_<T_>* h_ = nullptr;
         Vector_<T_>* cond_ = nullptr;
         size_t eventOrdinal_ = 0;
+        size_t payoffIdx_ = static_cast<size_t>(-1);
 
         //  Fuzzy-if payment blend: both branches of an interior degree run, so the row
         //  must end up holding the degree-weighted payment, not the sum of both. The

@@ -57,7 +57,8 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "MonteCarloSettings_New", "settings");
 &optional
 settings is cell[][]+
-    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree. Booleans 0/1; smooth positive; lsmc_basis_degree integer 1..8.
+    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths.
+    Booleans 0/1; smooth positive; degree integer 1..8; training paths positive integer (default pricing count).
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -131,6 +132,21 @@ namespace Dal {
                 THROW(constraint);
             }
             return degree;
+        }
+
+        int TrainingPathsValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcTrainingPaths: expected positive integral number in 1..2147483647";
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= std::numeric_limits<int>::min() &&
+                        *number <= std::numeric_limits<int>::max(),
+                    constraint);
+            const auto count = static_cast<int>(*number);
+            try {
+                Script::ValidateLsmcTrainingPaths(count);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
+            return count;
         }
 
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
@@ -210,9 +226,12 @@ namespace Dal {
                          value.smooth_ = SmoothingValue(cell, valueContext);
                      } else if (key == "lsmc_basis_degree") {
                          value.lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
+                     } else if (key == "lsmc_training_paths") {
+                         value.lsmcTrainingPaths_ = TrainingPathsValue(cell, valueContext);
                      } else {
                          REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
-                                 keyContext + "unknown key " + key + "; expected method, use_bb, enable_aad, smooth, compiled or lsmc_basis_degree");
+                                 keyContext + "unknown key " + key +
+                                     "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree or lsmc_training_paths");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;
