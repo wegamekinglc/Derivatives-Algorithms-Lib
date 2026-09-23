@@ -753,8 +753,9 @@ PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
 stays European-only). The runnable
 [`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc/)
 compares the European closed form with ordinary Monte Carlo and its AAD
-version, and prices two-date Bermudan and weekly-exercise puts. It also
-prints the diagnostic. Run `american_put_mc [pricing_paths [training_paths]]`
+version, and prices two-date Bermudan and weekly-exercise puts with both
+hard valuation and AAD. It also prints the diagnostic.
+Run `american_put_mc [pricing_paths [training_paths]]`
 to set the two counts independently; defaults are 131,072 pricing paths and
 16,384 training paths. For example, `american_put_mc 262144 32768` uses
 32,768 paths to fit the policy. The result table reports `Pricing paths` and
@@ -762,7 +763,7 @@ to set the two counts independently; defaults are 131,072 pricing paths and
 uses a terminal payment without regression, so its training count is `-`;
 closed-form and PDE rows show `-` for both counts. AAD rows report spot,
 volatility, rate, and dividend sensitivities. AAD and hard valuation use the
-same pricing count; the American AAD run and the diagnostic also use the
+same pricing count; both exercise AAD runs and the diagnostic also use the
 configured training count.
 
 ## Core AAD/Tree Fixing Valuation

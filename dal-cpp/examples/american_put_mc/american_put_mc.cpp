@@ -186,10 +186,16 @@ int main(int argc, char* argv[]) {
     const double europeanAad = europeanAadRes.aggregated_ / static_cast<double>(nPaths);
 
     const Vector_<Date_> bermudanDates = {BERMUDAN_MID, MATURITY};
+    const ScriptProductData_ bermudanProduct = PutOnExerciseDates(bermudanDates);
     timer.Reset();
-    const SimResults_ bermudanRes = Simulate<double>(PutOnExerciseDates(bermudanDates), nPaths, simulation);
+    const SimResults_ bermudanRes = Simulate<double>(bermudanProduct, nPaths, simulation);
     const int64_t bermudanMs = timer.Elapsed<milliseconds>();
     const double bermudan = bermudanRes.aggregated_ / static_cast<double>(nPaths);
+
+    timer.Reset();
+    const SimResults_ bermudanAadRes = Simulate<AAD::Number_>(bermudanProduct, nPaths, simulation);
+    const int64_t bermudanAadMs = timer.Elapsed<milliseconds>();
+    const double bermudanAad = bermudanAadRes.aggregated_ / static_cast<double>(nPaths);
 
     Vector_<Date_> weekly;
     for (int i = 1; i <= (MATURITY - EVAL_DATE) / 7; ++i)
@@ -223,6 +229,9 @@ int main(int argc, char* argv[]) {
     REQUIRE(europeanAadRes["spot"] < 0.0, "European put delta must be negative");
     REQUIRE(europeanAadRes["vol"] > 0.0, "European put vega must be positive");
     REQUIRE(bermudan >= european - 1e-3, "Bermudan put below the European closed form");
+    REQUIRE(std::fabs(bermudanAad - bermudan) < MC_TOL, "Bermudan AAD and non-AAD values disagree");
+    REQUIRE(bermudanAadRes["spot"] < 0.0, "Bermudan put delta must be negative");
+    REQUIRE(bermudanAadRes["vol"] > 0.0, "Bermudan put vega must be positive");
     REQUIRE(american >= bermudan - 1e-3, "weekly-exercise put below the two-date Bermudan");
     REQUIRE(american - european > 0.005 * SPOT, "early-exercise premium under the benchmark floor");
     REQUIRE(american <= STRIKE * std::exp(-RATE * YearFracTo(EVAL_DATE.AddDays(7))), "put above the discounted-strike bound");
@@ -234,7 +243,7 @@ int main(int argc, char* argv[]) {
 
     //  The simulation diagnostic runs the same valuation and reports per-date
     //  regression and exercise statistics (dal.script-simulation/1).
-    const String_ diagnostic = ExplainScriptSimulation(PutOnExerciseDates(bermudanDates), Model(), nPaths, ScriptValuationSettings_(), simulation);
+    const String_ diagnostic = ExplainScriptSimulation(bermudanProduct, Model(), nPaths, ScriptValuationSettings_(), simulation);
     const string needle = "\"schema\":\"dal.script-simulation/1\"";
     REQUIRE(string(diagnostic.data(), diagnostic.size()).find(needle) != string::npos, "simulation diagnostic schema missing");
 
@@ -260,6 +269,11 @@ int main(int argc, char* argv[]) {
          << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << bermudan << setw(widths[4]) << right << bermudan - european
          << setw(widths[5]) << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-"
          << setw(widths[9]) << right << bermudanMs << endl;
+    cout << setw(widths[0]) << left << "Bermudan (2 dates AAD)" << setw(widths[1]) << right << bermudanDates.size() << setw(widths[2]) << right
+         << nPaths << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << bermudanAad << setw(widths[4]) << right
+         << bermudanAad - european << setw(widths[5]) << right << bermudanAadRes["spot"] << setw(widths[6]) << right << bermudanAadRes["vol"]
+         << setw(widths[7]) << right << bermudanAadRes["rate"] << setw(widths[8]) << right << bermudanAadRes["div"] << setw(widths[9]) << right
+         << bermudanAadMs << endl;
     cout << setw(widths[0]) << left << "American (weekly)" << setw(widths[1]) << right << weekly.size() << setw(widths[2]) << right << nPaths
          << setw(widths[2]) << right << trainingPaths << setw(widths[3]) << right << american << setw(widths[4]) << right << american - european
          << setw(widths[5]) << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-"
