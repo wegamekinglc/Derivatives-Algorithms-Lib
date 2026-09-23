@@ -31,22 +31,20 @@ def docs_only(paths: Sequence[str]) -> bool:
     return bool(paths) and all(_is_documentation(path) for path in paths)
 
 
+def _is_example_source(path_text: str) -> bool:
+    path = PurePosixPath(path_text)
+    return (
+        not path.is_absolute()
+        and ".." not in path.parts
+        and path.parts[:2] == ("dal-cpp", "examples")
+        and len(path.parts) > 2
+        and path.suffix.lower() in EXAMPLE_SOURCE_SUFFIXES
+    )
+
+
 def benchmark_needed(paths: Sequence[str]) -> bool:
     """Keep performance gates for changes outside documentation and C++ examples."""
-    if not paths:
-        return True
-    for path_text in paths:
-        path = PurePosixPath(path_text)
-        example_source = (
-            not path.is_absolute()
-            and ".." not in path.parts
-            and path.parts[:2] == ("dal-cpp", "examples")
-            and len(path.parts) > 2
-            and path.suffix.lower() in EXAMPLE_SOURCE_SUFFIXES
-        )
-        if not _is_documentation(path_text) and not example_source:
-            return True
-    return False
+    return not paths or any(not (_is_documentation(path) or _is_example_source(path)) for path in paths)
 
 
 def changed_paths(base: str, head: str) -> tuple[str, ...]:

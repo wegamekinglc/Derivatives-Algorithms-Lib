@@ -110,6 +110,13 @@ foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
     if(example_target STREQUAL "uoc")
         add_test(NAME uoc COMMAND uoc 32768)
         set_tests_properties(uoc PROPERTIES TIMEOUT 60)
+        add_test(NAME uoc_rejects_zero COMMAND uoc 0)
+        add_test(NAME uoc_rejects_invalid COMMAND uoc bad)
+        add_test(NAME uoc_rejects_overflow COMMAND uoc 2147483648)
+        add_test(NAME uoc_rejects_extra_args COMMAND uoc 32768 extra)
+        set_tests_properties(
+            uoc_rejects_zero uoc_rejects_invalid uoc_rejects_overflow uoc_rejects_extra_args
+            PROPERTIES LABELS examples WILL_FAIL TRUE TIMEOUT 5)
     else()
         add_test(NAME ${example_target} COMMAND ${example_target})
     endif()
