@@ -433,6 +433,11 @@ Neither backend uses Brownian bridge, antithetics or control variates here.
 Both use degree-three monomials, but DAL normalizes spot from the training sample
 and QuantLib scales spot by strike; their linear regression solvers differ.
 QuantLib's
+[`AmericanPathPricer`](https://github.com/lballabio/QuantLib/blob/v1.43/ql/pricingengines/vanilla/mcamericanengine.cpp)
+adds the payoff as another basis column. For in-the-money puts it is linearly
+dependent on the constant and spot columns; the two regression matrices are
+therefore not identical despite spanning the same cubic polynomial space.
+QuantLib's
 [`MCAmericanEngine`](https://github.com/lballabio/QuantLib/blob/v1.43/ql/pricingengines/vanilla/mcamericanengine.hpp)
 also accepts Bermudan exercise and permits exercise at every simulation grid
 point. The equally spaced Bermudan dates and exactly six time steps avoid

@@ -19,7 +19,7 @@ CONVENTIONS = {
     "paths": "16384 training, 16384/65536 pricing; smoke: 2048 training, 4096 pricing",
     "dal_sampling": "Sobol, first M training and next N pricing; disjoint blocks, not independently randomized; no Brownian bridge",
     "quantlib_sampling": "pseudorandom, pricing seed 42, calibration seed 43; no antithetics or control variates",
-    "basis": "degree 3 monomials; DAL normalized spot, QuantLib strike-scaled spot; backend regression solvers differ",
+    "basis": "degree 3 monomials; DAL normalized spot, QuantLib strike-scaled spot plus payoff column (linearly dependent for ITM puts); backend regression solvers differ",
     "greeks": "PV, Delta, Vega, Rho per unit spot/decimal vol/decimal rate; both use refitted-policy central differences with common random numbers; DAL frozen-policy AAD is a different estimator and is not used here",
     "bumps": list(BUMPS),
     "boundary": "fresh product/model/engine construction, preprocessing, training, pricing and output conversion; oracle excluded",

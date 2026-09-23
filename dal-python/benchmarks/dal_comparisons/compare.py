@@ -200,7 +200,8 @@ def summary(report):
         "paths N. DAL uses disjoint Sobol blocks; QuantLib uses pseudorandom streams "
         "with pricing seed 42 and calibration seed 43. Both refit policies for "
         "central-difference Greeks (common random numbers), with training included "
-        "in timing. Degree 3 monomials; normalization and solvers differ. CRR "
+        "in timing. Degree 3 monomials; QuantLib adds a payoff column; "
+        "normalization and solvers differ. CRR "
         "references use identical exercise dates. Equal path budgets do not imply "
         "equal precision. Rateslib equity MC remains unsupported.",
         "",
