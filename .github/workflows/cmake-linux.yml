@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
+      benchmark_needed: ${{ steps.classify.outputs.benchmark_needed }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -524,7 +525,7 @@ jobs:
   benchmark:
     name: Benchmarks
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.benchmark_needed == 'true'
     runs-on: ubuntu-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
@@ -837,6 +838,7 @@ jobs:
       EXTENDED_RESULT: ${{ needs.build-extended.result }}
       WARNING_RESULT: ${{ needs.warning-clean.result }}
       SANITIZER_RESULT: ${{ needs.sanitizers.result }}
+      BENCHMARK_NEEDED: ${{ needs.changes.outputs.benchmark_needed }}
       BENCHMARK_RESULT: ${{ needs.benchmark.result }}
     steps:
       - name: Require the selected CI path to pass
@@ -852,7 +854,12 @@ jobs:
             "$CODIPACK_RESULT" \
             "$EXTENDED_RESULT" \
             "$WARNING_RESULT" \
-            "$SANITIZER_RESULT" \
-            "$BENCHMARK_RESULT"; do
+            "$SANITIZER_RESULT"; do
             test "$result" = success
           done
+          if [ "$BENCHMARK_NEEDED" = true ]; then
+            test "$BENCHMARK_RESULT" = success
+          else
+            test "$BENCHMARK_NEEDED" = false
+            test "$BENCHMARK_RESULT" = skipped
+          fi

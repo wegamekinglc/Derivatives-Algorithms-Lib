@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
+      benchmark_needed: ${{ steps.classify.outputs.benchmark_needed }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -238,7 +239,7 @@ jobs:
   benchmark:
     name: Benchmarks
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.benchmark_needed == 'true'
     runs-on: windows-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
@@ -380,6 +381,7 @@ jobs:
       CHANGES_RESULT: ${{ needs.changes.result }}
       BUILD_RESULT: ${{ needs.build.result }}
       BUILD_SCRIPT_RESULT: ${{ needs.build-script.result }}
+      BENCHMARK_NEEDED: ${{ needs.changes.outputs.benchmark_needed }}
       BENCHMARK_RESULT: ${{ needs.benchmark.result }}
     steps:
       - name: Require the selected CI path to pass
@@ -390,4 +392,9 @@ jobs:
           fi
           test "$BUILD_RESULT" = success
           test "$BUILD_SCRIPT_RESULT" = success
-          test "$BENCHMARK_RESULT" = success
+          if [ "$BENCHMARK_NEEDED" = true ]; then
+            test "$BENCHMARK_RESULT" = success
+          else
+            test "$BENCHMARK_NEEDED" = false
+            test "$BENCHMARK_RESULT" = skipped
+          fi

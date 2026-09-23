@@ -2,26 +2,164 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <iostream>
+#include <charconv>
 #include <iomanip>
-#include <dal/platform/platform.hpp>
-#include <dal/time/schedules.hpp>
-#include <dal/time/dateincrement.hpp>
-#include <dal/script/event.hpp>
+#include <iostream>
+#include <optional>
+#include <string_view>
+
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/dupire.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/utilities/timer.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/time/schedules.hpp>
+#include <dal/utilities/timer.hpp>
 
 using namespace std;
 using namespace Dal;
 using namespace Dal::Script;
-using Dal::AAD::Model_;
 using Dal::AAD::Dupire_;
+using Dal::AAD::Model_;
 
+namespace {
+    std::optional<int> ParsePaths(int argc, char* argv[]) {
+        if (argc > 2)
+            return std::nullopt;
+        if (argc == 1)
+            return 1 << 20;
+        int numPath = 0;
+        const std::string_view text(argv[1]);
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), numPath);
+        if (parsed.ec != std::errc() || parsed.ptr != text.data() + text.size() || numPath <= 0)
+            return std::nullopt;
+        return numPath;
+    }
 
-int main() {
+    struct FdmInputs_ {
+        const Vector_<Cell_>& eventDates_;
+        const Vector_<String_>& events_;
+        const Vector_<double>& spots_;
+        const Vector_<double>& times_;
+        const Vector_<int>& widths_;
+        int numPath_;
+        int numObs_;
+        double spot_;
+        double vol_;
+        double rate_;
+        double div_;
+        double strike_;
+        double barrier_;
+    };
+
+    void PrintFiniteDifferences(const FdmInputs_& input) {
+        const auto& eventDates = input.eventDates_;
+        const auto& events = input.events_;
+        const auto& spots = input.spots_;
+        const auto& times = input.times_;
+        const auto& widths = input.widths_;
+        const int numPath = input.numPath_;
+        const int numObs = input.numObs_;
+        const double spot = input.spot_;
+        const double vol = input.vol_;
+        const double rate = input.rate_;
+        const double div = input.div_;
+        const double strike = input.strike_;
+        const double barrier = input.barrier_;
+
+        Handle_<ModelData_> modelData(
+            new DupireModelData_("dupiremodel", spot, rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        Timer_ timer;
+        timer.Reset();
+
+        ScriptProduct_ product(eventDates, events);
+        product.PreProcess(false, false);
+        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, false);
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
+
+        double eps = 0.0001;
+        Handle_<ModelData_> modelDataDown(
+            new DupireModelData_("dupiremodel", spot * (1 - eps), rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+
+        Handle_<ModelData_> modelDataUp(
+            new DupireModelData_("dupiremodel", spot * (1 + eps), rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
+
+        double epsRate = std::abs(rate) > 0 ? abs(rate) * eps : eps;
+        modelDataDown.reset(
+            new DupireModelData_("dupiremodel", spot, rate - epsRate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+
+        modelDataUp.reset(
+            new DupireModelData_("dupiremodel", spot, rate + epsRate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dRate = (calculatedUp - calculatedDown) / (2 * epsRate);
+
+        double epsDiv = std::abs(div) > 0 ? abs(rate) * eps : eps;
+        modelDataDown.reset(
+            new DupireModelData_("dupiremodel", spot, rate, div - epsDiv, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+
+        modelDataUp.reset(
+            new DupireModelData_("dupiremodel", spot, rate, div + epsDiv, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dDiv = (calculatedUp - calculatedDown) / (2 * epsDiv);
+
+        auto events_down = events;
+        events_down[0] = ToString(strike * (1.0 - eps));
+        ScriptProduct_ product_down(eventDates, events_down);
+        product_down.PreProcess(false, false);
+        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+
+        auto events_up = events;
+        events_up[0] = ToString(strike * (1.0 + eps));
+        ScriptProduct_ product_up(eventDates, events_up);
+        product_up.PreProcess(false, false);
+        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dStrike = (calculatedUp - calculatedDown) / (2 * strike * eps);
+
+        events_down = events;
+        events_down[1] = ToString(barrier * (1.0 - eps));
+        product_down = ScriptProduct_(eventDates, events_down);
+        product_down.PreProcess(false, false);
+        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+
+        events_up = events;
+        events_up[1] = ToString(barrier * (1.0 + eps));
+        product_up = ScriptProduct_(eventDates, events_up);
+        product_up.PreProcess(false, false);
+        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dBarrier = (calculatedUp - calculatedDown) / (2 * barrier * eps);
+
+        std::cout << std::setw(widths[0]) << std::left << "FDM" << std::setw(widths[1]) << std::right << numPath << std::setw(widths[2]) << std::right
+                  << numObs << std::fixed << std::setprecision(6) << std::setw(widths[3]) << std::right << calculated << std::setw(widths[4])
+                  << std::right << dSpot << std::setw(widths[5]) << std::right << dRate << std::setw(widths[6]) << std::right << dDiv
+                  << std::setw(widths[7]) << std::right << "#NA" << std::setw(widths[8]) << std::right << dBarrier << std::setw(widths[9])
+                  << std::right << dStrike << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+    }
+} // namespace
+
+int main(int argc, char* argv[]) {
+    const auto parsedPaths = ParsePaths(argc, argv);
+    if (!parsedPaths) {
+        std::cerr << "Usage: uoc [paths] (positive integer)\n";
+        return 1;
+    }
+    const int numPath = *parsedPaths;
     Dal::RegisterAll_::Init();
 
     const Date_ start = Date_(2022, 9, 25);
@@ -40,7 +178,6 @@ int main() {
     const double barrier = 150.0;
     const String_ freq = "1W";
     const String_ fuzzy = "0.1";
-    const int numPath = std::pow(2, 20);
 
     timer.Reset();
 
@@ -136,130 +273,7 @@ int main() {
                   << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
-    {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        timer.Reset();
-
-        ScriptProduct_ product(eventDates, events);
-        int maxNestedIfs = product.PreProcess(false, false);
-        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, false);
-        auto calculated = results.aggregated_ / static_cast<double>(numPath);
-
-        double eps = 0.0001;
-        Handle_<ModelData_> modelDataDown(new DupireModelData_("dupiremodel",
-                                                                      spot * (1 - eps),
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        Handle_<ModelData_> modelDataUp(new DupireModelData_("dupiremodel",
-                                                                      spot * (1 + eps),
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
-
-        double epsRate = std::abs(rate) > 0 ? abs(rate) * eps : eps;
-        modelDataDown.reset(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate - epsRate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        modelDataUp.reset(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate + epsRate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dRate = (calculatedUp - calculatedDown) / (2 * epsRate);
-
-        double epsDiv = std::abs(div) > 0 ? abs(rate) * eps : eps;
-        modelDataDown.reset(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div - epsDiv,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        modelDataUp.reset(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div + epsDiv,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
-        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dDiv = (calculatedUp - calculatedDown) / (2 * epsDiv);
-
-        auto events_down = events;
-        events_down[0] = ToString(strike * (1.0 - eps));
-        ScriptProduct_ product_down(eventDates, events_down);
-        product_down.PreProcess(false, false);
-        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        auto events_up = events;
-        events_up[0] = ToString(strike * (1.0 + eps));
-        ScriptProduct_ product_up(eventDates, events_up);
-        product_up.PreProcess(false, false);
-        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dStrike = (calculatedUp - calculatedDown) / (2 * strike * eps);
-
-        events_down = events;
-        events_down[1] = ToString(barrier * (1.0 - eps));
-        product_down = ScriptProduct_(eventDates, events_down);
-        product_down.PreProcess(false, false);
-        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        events_up = events;
-        events_up[1] = ToString(barrier * (1.0 + eps));
-        product_up = ScriptProduct_(eventDates, events_up);
-        product_up.PreProcess(false, false);
-        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dBarrier = (calculatedUp - calculatedDown) / (2 * barrier * eps);
-
-        std::cout << std::setw(widths[0]) << std::left << "FDM"
-                  << std::setw(widths[1]) << std::right << numPath
-                  << std::setw(widths[2]) << std::right << numObs
-                  << std::fixed << std::setprecision(6)
-                  << std::setw(widths[3]) << std::right << calculated
-                  << std::setw(widths[4]) << std::right << dSpot
-                  << std::setw(widths[5]) << std::right << dRate
-                  << std::setw(widths[6]) << std::right << dDiv
-                  << std::setw(widths[7]) << std::right << "#NA"
-                  << std::setw(widths[8]) << std::right << dBarrier
-                  << std::setw(widths[9]) << std::right << dStrike
-                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
-    }
+    PrintFiniteDifferences({eventDates, events, spots, times, widths, numPath, numObs, spot, vol, rate, div, strike, barrier});
 
     {
         Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",

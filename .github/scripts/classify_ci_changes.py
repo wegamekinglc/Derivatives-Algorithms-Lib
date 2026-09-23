@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTATION_SUFFIXES = frozenset({".md", ".mdx", ".rst"})
 DOCUMENTATION_ROOT_FILES = frozenset({"LICENSE", "NOTICE"})
+EXAMPLE_SOURCE_SUFFIXES = frozenset({".cpp", ".cc", ".h", ".hpp", ".hxx"})
 
 
 def _is_documentation(path_text: str) -> bool:
@@ -28,6 +29,22 @@ def _is_documentation(path_text: str) -> bool:
 def docs_only(paths: Sequence[str]) -> bool:
     """Return whether every changed path is documentation-only."""
     return bool(paths) and all(_is_documentation(path) for path in paths)
+
+
+def _is_example_source(path_text: str) -> bool:
+    path = PurePosixPath(path_text)
+    return (
+        not path.is_absolute()
+        and ".." not in path.parts
+        and path.parts[:2] == ("dal-cpp", "examples")
+        and len(path.parts) > 2
+        and path.suffix.lower() in EXAMPLE_SOURCE_SUFFIXES
+    )
+
+
+def benchmark_needed(paths: Sequence[str]) -> bool:
+    """Keep performance gates for changes outside documentation and C++ examples."""
+    return not paths or any(not (_is_documentation(path) or _is_example_source(path)) for path in paths)
 
 
 def changed_paths(base: str, head: str) -> tuple[str, ...]:
@@ -67,15 +84,16 @@ def _parser() -> argparse.ArgumentParser:
 def main(arguments: Sequence[str] | None = None) -> None:
     options = _parser().parse_args(arguments)
     try:
-        classification = docs_only(changed_paths(options.base, options.head))
+        paths = changed_paths(options.base, options.head)
     except subprocess.CalledProcessError as error:
         print(
             f"git diff failed with exit code {error.returncode}; running full CI",
             file=sys.stderr,
         )
-        classification = False
+        paths = ()
     with options.github_output.open("a", encoding="utf-8") as output:
-        output.write(f"docs_only={str(classification).lower()}\n")
+        output.write(f"docs_only={str(docs_only(paths)).lower()}\n")
+        output.write(f"benchmark_needed={str(benchmark_needed(paths)).lower()}\n")
 
 
 if __name__ == "__main__":
