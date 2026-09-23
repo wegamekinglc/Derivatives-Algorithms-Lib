@@ -99,7 +99,7 @@ def test_quantlib_uses_disjoint_pseudorandom_streams_and_fresh_training(
         for c in inputs.cases(True)
         if c["kind"] == kind and c["operation"] == "mc_price"
     )
-    run = runner(dict(case, training_paths=2048))
+    run = runner(dict(case, training_paths=3072))
     assert not calls
     run()
     run()
@@ -107,7 +107,7 @@ def test_quantlib_uses_disjoint_pseudorandom_streams_and_fresh_training(
     for rng, settings in calls:
         assert rng == "pseudorandom"
         assert settings["seed"] != settings["seedCalibration"]
-        assert settings["nCalibrationSamples"] == 2048
+        assert settings["nCalibrationSamples"] == 3072
         assert settings["requiredSamples"] == 4096
         assert settings["timeSteps"] == len(inputs.exercise_days(kind))
         assert settings["polynomOrder"] == 3
