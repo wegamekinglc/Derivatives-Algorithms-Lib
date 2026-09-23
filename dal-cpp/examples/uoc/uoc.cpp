@@ -2,26 +2,40 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <iostream>
-#include <iomanip>
-#include <dal/platform/platform.hpp>
-#include <dal/time/schedules.hpp>
-#include <dal/time/dateincrement.hpp>
-#include <dal/script/event.hpp>
+#include <charconv>
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/dupire.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/utilities/timer.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/time/schedules.hpp>
+#include <dal/utilities/timer.hpp>
+#include <iomanip>
+#include <iostream>
+#include <string_view>
 
 using namespace std;
 using namespace Dal;
 using namespace Dal::Script;
-using Dal::AAD::Model_;
 using Dal::AAD::Dupire_;
+using Dal::AAD::Model_;
 
-
-int main() {
+int main(int argc, char* argv[]) {
+    int numPath = 1 << 20;
+    if (argc > 2) {
+        std::cerr << "Usage: uoc [paths]\n";
+        return 1;
+    }
+    if (argc == 2) {
+        const std::string_view text(argv[1]);
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), numPath);
+        if (parsed.ec != std::errc() || parsed.ptr != text.data() + text.size() || numPath <= 0) {
+            std::cerr << "Usage: uoc [paths] (positive integer)\n";
+            return 1;
+        }
+    }
     Dal::RegisterAll_::Init();
 
     const Date_ start = Date_(2022, 9, 25);
@@ -40,7 +54,6 @@ int main() {
     const double barrier = 150.0;
     const String_ freq = "1W";
     const String_ fuzzy = "0.1";
-    const int numPath = std::pow(2, 20);
 
     timer.Reset();
 
