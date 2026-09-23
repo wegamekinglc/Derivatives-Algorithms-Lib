@@ -756,10 +756,13 @@ compares the European closed form with ordinary Monte Carlo and its AAD
 version, and prices two-date Bermudan and weekly-exercise puts with both
 hard valuation and AAD. It also prints the diagnostic.
 Run `american_put_mc [pricing_paths [training_paths]]`
-to set the two counts independently; defaults are 131,072 pricing paths and
-16,384 training paths. For example, `american_put_mc 262144 32768` uses
-32,768 paths to fit the policy. The result table reports `Pricing paths` and
-`Training paths` for each exercise Monte Carlo row. European Monte Carlo
+to set the two counts independently. Pricing defaults to 131,072 paths; when
+`training_paths` is omitted, it defaults to `max(4096, pricing_paths / 8)`
+using integer division (16,384 paths with default pricing). For example,
+`american_put_mc 262144` uses 32,768 training paths, while
+`american_put_mc 262144 4096` explicitly uses 4,096. The result table reports
+`Pricing paths` and `Training paths` for each exercise Monte Carlo row.
+European Monte Carlo
 uses a terminal payment without regression, so its training count is `-`;
 closed-form and PDE rows show `-` for both counts. AAD rows report spot,
 volatility, rate, and dividend sensitivities. AAD and hard valuation use the

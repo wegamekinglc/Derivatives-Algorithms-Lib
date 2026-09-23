@@ -46,7 +46,9 @@ namespace {
     const Date_ MATURITY(2028, 3, 20);
 
     constexpr int DEFAULT_PRICING_PATHS = 1 << 17;
-    constexpr int DEFAULT_TRAINING_PATHS = 1 << 14;
+    constexpr int MIN_TRAINING_PATHS = 1 << 12;
+
+    int DefaultTrainingPaths(int pricingPaths) { return std::max(MIN_TRAINING_PATHS, pricingPaths / 8); }
 
     std::optional<int> PathCount(std::string_view text) {
         int count = 0;
@@ -58,12 +60,13 @@ namespace {
 
     void Usage(std::ostream& out) {
         out << "Usage: american_put_mc [pricing_paths [training_paths]]\n"
-            << "  Positive integers; defaults: pricing_paths=" << DEFAULT_PRICING_PATHS << ", training_paths=" << DEFAULT_TRAINING_PATHS << '\n';
+            << "  Positive integers; defaults: pricing_paths=" << DEFAULT_PRICING_PATHS << ", training_paths=max(pricing_paths/8, "
+            << MIN_TRAINING_PATHS << ")\n";
     }
 
     struct PathCounts_ {
         int pricing_ = DEFAULT_PRICING_PATHS;
-        int training_ = DEFAULT_TRAINING_PATHS;
+        int training_ = DefaultTrainingPaths(DEFAULT_PRICING_PATHS);
     };
 
     std::optional<PathCounts_> ParsePaths(int argc, char* argv[]) {
@@ -76,7 +79,12 @@ namespace {
                 Usage(cerr);
                 return std::nullopt;
             }
-            (pricing ? counts.pricing_ : counts.training_) = *count;
+            if (pricing) {
+                counts.pricing_ = *count;
+                counts.training_ = DefaultTrainingPaths(*count);
+            } else {
+                counts.training_ = *count;
+            }
         }
         return counts;
     }
