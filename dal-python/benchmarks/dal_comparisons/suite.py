@@ -25,6 +25,8 @@ def prepare(backend, case):
     reference = expected(case)
     if case["operation"].startswith("mc_") or case["operation"] == "calibration":
         family = "calibration" if case["operation"] == "calibration" else "option"
+        if case["kind"] in ("bermudan", "american"):
+            family = "exercise"
         adapter = import_module(f"dal_comparisons.{family}_{backend}")
         run = adapter.runner(case)
     else:

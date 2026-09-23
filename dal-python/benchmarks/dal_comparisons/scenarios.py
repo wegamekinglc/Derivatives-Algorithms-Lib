@@ -4,7 +4,7 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 import math
 
-from . import calibration_scenarios, option_scenarios
+from . import calibration_scenarios, exercise_scenarios, option_scenarios
 from .constants import DAY_COUNT, TODAY
 
 NODES = [datetime(2025 + year, 1, 15) for year in range(22)]
@@ -44,6 +44,7 @@ CONVENTIONS = {
     "node_dates": [date.isoformat() for date in NODES],
     "node_log_dfs": LOG_DFS,
     "monte_carlo": option_scenarios.CONVENTIONS,
+    "early_exercise": exercise_scenarios.CONVENTIONS,
     "calibration": calibration_scenarios.CONVENTIONS,
 }
 

@@ -17,7 +17,7 @@ from .scenarios import (
     validate,
 )
 
-SCHEMA = "dal.python-comparisons/3"
+SCHEMA = "dal.python-comparisons/4"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -114,6 +114,10 @@ def timings(reports, name):
         "min_ns": min(values),
         "median_ns": statistics.median(values),
     }
+
+
+def returned_values(report, name):
+    return next(row["values"] for row in report["results"] if row["name"] == name)
 
 
 def write_json(path, value):
