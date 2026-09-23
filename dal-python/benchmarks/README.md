@@ -1,9 +1,9 @@
 # DAL Python interface benchmarks
 
-This suite runs 90 workloads through `import dal`, with a coverage entry for every
+This suite runs 98 workloads through `import dal`, with a coverage entry for every
 target in [the C++ benchmark inventory](../../dal-cpp/benchmarks/CMakeLists.txt).
 It requires a current DAL Python build and Python 3.9–3.13. The runner uses the
-standard library and NumPy for the independent barrier-option integration oracle;
+standard library and NumPy for the independent option integration and tree oracles;
 pytest is needed only for its correctness tests.
 
 ## Running
@@ -58,7 +58,7 @@ are errors, never silently skipped workloads.
 |--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
 | `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
-| `script_mc_perf`         | 16           | Eight native-aligned tree/compiled double/AAD cases plus eight comparable vanilla/barrier MC price and Greek cases at 16,384/65,536 paths                         |
+| `script_mc_perf`         | 24           | Eight native-aligned tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
 | `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
 | `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
 | `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
@@ -200,7 +200,7 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 90 cases are measured
+including when the base predates this benchmark suite. All 98 cases are measured
 and gated against the base library. When a base suite exists, its inventory is
 also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
@@ -247,11 +247,11 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 
 ## Third-party comparison
 
-The Linux `Benchmarks` job also runs 31 workloads against DAL,
+The Linux `Benchmarks` job also runs 39 workloads against DAL,
 QuantLib-Python and rateslib. Every supported backend/case pair must execute and pass
 its independent oracle. Only declared unsupported capabilities are reported as
 `unsupported` with a reason and no timings: rateslib equity MC, and QuantLib
-simultaneous joint calibration. This gives 31 DAL, 27 QuantLib and 23 rateslib
+simultaneous joint calibration. This gives 39 DAL, 35 QuantLib and 23 rateslib
 measured cases. Missing dependencies, incorrect results, incomplete
 reports, changed workloads/binaries or process timeouts fail the job and therefore
 the existing `Linux CI gate`. Relative speed is reported without an absolute
@@ -299,7 +299,8 @@ python dal-python/benchmarks/run_comparisons.py \
 ```
 
 The output directory must be new, so an old successful report cannot satisfy a
-failed run. `--smoke` uses four queries/trades, 4,096 MC paths, two calibration
+failed run. `--smoke` uses four queries/trades, 4,096 MC pricing paths (plus 2,048
+separate training paths for early exercise), two calibration
 quotes per block and one process per backend for
 local correctness checks; CI always uses full sizes and at least two rounds of ten
 fresh processes per backend. Backend order rotates for each sample and reverses
@@ -409,6 +410,59 @@ explicit MC accuracy bounds, not deterministic equality or equal-error-cost
 comparisons. Full output widths, finite values and each Greek are checked. The
 JSON conventions and workload records retain path counts, bumps and methods.
 
+### Bermudan and American Monte Carlo
+
+Eight `mc_{bermudan,american}_{price,greeks}_{16384,65536}` cases compare the
+native LSM engines on puts with spot/strike 100, volatility 20%, continuous rate
+5%, zero dividends and ACT/365F time. Maturity is 546 days after 2025-01-15.
+Bermudan exercise is every 91 days (six dates); the American approximation uses
+every seven days (78 dates). Both include maturity. The American rows therefore
+measure a weekly approximation, not continuous exercise.
+
+Training uses **M = 16,384** paths independently of **N = 16,384 or 65,536**
+pricing paths. The workload's `training_paths` field is passed separately to
+both backends; smoke uses M = 2,048 and N = 4,096. DAL takes the first M Sobol
+points for training and the following N points for pricing. These are disjoint
+blocks, not independently randomized samples. QuantLib uses pseudorandom streams
+with explicit calibration seed 43 and pricing seed 42. Changing a Sobol seed
+does not generally separate its calibration and pricing paths, as documented in
+QuantLib's pinned
+[`MCLongstaffSchwartzEngine`](https://github.com/lballabio/QuantLib/blob/v1.43/ql/pricingengines/mclongstaffschwartzengine.hpp).
+Neither backend uses Brownian bridge, antithetics or control variates here.
+
+Both use degree-three monomials, but DAL normalizes spot from the training sample
+and QuantLib scales spot by strike; their linear regression solvers differ.
+QuantLib's
+[`MCAmericanEngine`](https://github.com/lballabio/QuantLib/blob/v1.43/ql/pricingengines/vanilla/mcamericanengine.hpp)
+also accepts Bermudan exercise and permits exercise at every simulation grid
+point. The equally spaced Bermudan dates and exactly six time steps avoid
+introducing extra exercise opportunities. The American grid uses exactly 78 steps.
+
+Both Greek backends use central differences with common random numbers and
+bumps of 1 spot unit, 0.01 volatility and 0.01 rate. Each bumped valuation fits
+a fresh policy. DAL's frozen-policy AAD estimates a different derivative and is
+not used in these comparison rows; it remains covered by the native AAD examples
+and tests. Every invocation times product/model/engine construction, preprocessing,
+training, pricing and conversion; a Greek row includes seven complete valuations.
+Equal path budgets do not imply equal accuracy or equal-error timing ratios.
+
+An independent NumPy CRR tree uses eight steps per calendar day and permits
+exercise only on the matching dates. Tests compare it with sixteen steps per day
+at the base market and all six Greek bumps (PV differences below 0.003), verify
+the European limit against Black-Scholes, and check the early-exercise premium.
+The reference Greeks use the same finite bumps as the MC engines. Absolute
+`[PV, Delta, Vega, Rho]` bounds are
+`[0.25, 0.02, 1, 1.5] * sqrt(16384/N) + [0.05, 0.01, 0.5, 1] * sqrt(16384/M)`.
+The training term retains an allowance for policy error when N increases.
+These empirical accuracy bounds are not confidence intervals. Tests also reject
+perturbed outputs and verify separate calibration/pricing settings and fresh fits.
+
+The timing table shows actual N and M (including reduced smoke sizes). A second
+table shows DAL/QuantLib values and the discrete-exercise CRR reference; Greek
+rows show `[PV, Delta, Vega, Rho]`. Values shown are from each round's first
+checked sample, while every sample is validated and retained in worker JSON.
+Rateslib has no corresponding equity MC engine and is explicitly unsupported.
+
 ### Curve calibration
 
 Ten `calibration_{single,multi_staged,multi_joint,xccy_staged,xccy_joint}_{5,15}`
@@ -456,7 +510,7 @@ case explicitly measures invalidation and fresh pricing. These are comparisons
 of the available Python APIs, not isolated
 identical native kernels.
 
-`results.json` (`dal.python-comparisons/3`) retains raw timings, minimum and median,
+`results.json` (`dal.python-comparisons/4`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
 hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the

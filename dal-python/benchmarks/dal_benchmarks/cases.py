@@ -17,7 +17,7 @@ CPP_COVERAGE = {
     },
     "script_mc_perf": {
         "status": "partial",
-        "detail": "All eight native vanilla/barrier x double/AAD x tree/compiled cases, plus eight common third-party MC price/Delta/Vega/Rho workloads at 16K/64K paths. Includes public result conversion.",
+        "detail": "All eight native vanilla/barrier x double/AAD x tree/compiled cases, plus sixteen common third-party MC price/Delta/Vega/Rho workloads (European/barrier/Bermudan/American approximation) at 16K/64K pricing paths; LSM trains on a separate 16K paths. Includes public result conversion.",
     },
     "curve_calibration_perf": {
         "status": "partial",

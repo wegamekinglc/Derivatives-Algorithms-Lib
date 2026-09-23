@@ -5,6 +5,7 @@ from functools import lru_cache
 import math
 
 from .constants import DAY_COUNT, TODAY
+from . import exercise_scenarios
 
 MATURITY = TODAY + timedelta(days=364)
 SPOT, VOL, RATE, DIVIDEND = 100.0, 0.2, 0.03, 0.01
@@ -37,7 +38,7 @@ def cases(smoke=False):
         for kind in ("vanilla", "barrier")
         for operation in ("price", "greeks")
         for paths in (16384, 65536)
-    ]
+    ] + exercise_scenarios.cases(smoke)
 
 
 def cdf(x):
@@ -105,11 +106,15 @@ def bumped_values(price):
 
 
 def expected(case):
+    if case["kind"] in exercise_scenarios.KINDS:
+        return exercise_scenarios.expected(case)
     values = vanilla() if case["kind"] == "vanilla" else bumped_values(barrier_price)
     return values if case["operation"] == "mc_greeks" else values[:1]
 
 
 def tolerance(case):
+    if case["kind"] in exercise_scenarios.KINDS:
+        return exercise_scenarios.tolerance(case)
     scale = math.sqrt(16384 / case["size"])
     bounds = (
         (0.08, 0.01, 0.5, 0.5) if case["kind"] == "vanilla" else (0.25, 0.05, 3.0, 4.0)
@@ -119,6 +124,8 @@ def tolerance(case):
 
 
 def method(backend, case):
+    if case["kind"] in exercise_scenarios.KINDS:
+        return exercise_scenarios.method(backend, case)
     if case["operation"] == "mc_price":
         return "Sobol Monte Carlo"
     if backend == "dal" and case["kind"] == "vanilla":

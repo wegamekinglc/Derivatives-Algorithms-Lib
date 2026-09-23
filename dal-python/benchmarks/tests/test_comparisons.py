@@ -289,6 +289,16 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     assert risk["backends"]["rateslib"]["method"] == "forward AD (Dual)"
     assert risk["backends"]["quantlib"]["method"] == "central finite difference"
     assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "Pricing N | Training M" in summary
+    assert "mc_bermudan_price_16384 | 4096 | 2048 |" in summary
+    assert "CRR reference" in summary
+    exercise = next(
+        row
+        for row in report["rounds"][0]["cases"]
+        if row["workload"]["name"] == "mc_american_greeks_65536"
+    )
+    assert exercise["backends"]["dal"]["values"] == exercise["reference"]
 
 
 def test_unsupported_capabilities_have_no_aggregate_timing_or_ratio():

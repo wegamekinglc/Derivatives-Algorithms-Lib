@@ -8,8 +8,16 @@ import subprocess  # nosec B404
 import sys
 
 from dal_benchmarks.harness import require
-from .evidence import ROOT, SCHEMA, check_report, source_hashes, timings, write_json
-from .scenarios import CONVENTIONS, cases, method, unsupported_reason
+from .evidence import (
+    ROOT,
+    SCHEMA,
+    check_report,
+    returned_values,
+    source_hashes,
+    timings,
+    write_json,
+)
+from .scenarios import CONVENTIONS, cases, expected, method, unsupported_reason
 from .suite import BACKENDS
 
 
@@ -135,6 +143,7 @@ def aggregate(reports, smoke):
                 else dict(
                     timings(reports[backend], case["name"]),
                     method=method(backend, case),
+                    values=returned_values(reports[backend][0], case["name"]),
                 )
             )
         dal_time = measurements["dal"]["min_ns"]
@@ -144,7 +153,12 @@ def aggregate(reports, smoke):
             if not unsupported_reason(backend, case)
         }
         rows.append(
-            {"workload": case, "backends": measurements, "third_party_over_dal": ratios}
+            {
+                "workload": case,
+                "backends": measurements,
+                "third_party_over_dal": ratios,
+                "reference": expected(case),
+            }
         )
     return rows
 
@@ -175,11 +189,20 @@ def summary(report):
         "prepared_pv rows rerun the pv path and are labeled 'passive (no "
         "prepared API)': QL/DAL prepared ratios mix unlike API paths.",
         "",
-        "MC options: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
+        "European/barrier MC: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
         "weekly discrete barrier monitoring. DAL vanilla uses reverse AAD; "
         "other MC Greeks use common-random-number central differences. "
         "Analytic vanilla and deterministic Gaussian quadrature barrier oracles "
         "validate every output with explicit MC tolerances.",
+        "",
+        "Early-exercise put LSM: Bermudan every 91 days; American approximation "
+        "every 7 days; maturity 546 days. Training paths M are separate from pricing "
+        "paths N. DAL uses disjoint Sobol blocks; QuantLib uses pseudorandom streams "
+        "with pricing seed 42 and calibration seed 43. Both refit policies for "
+        "central-difference Greeks (common random numbers), with training included "
+        "in timing. Degree 3 monomials; normalization and solvers differ. CRR "
+        "references use identical exercise dates. Equal path budgets do not imply "
+        "equal precision. Rateslib equity MC remains unsupported.",
         "",
         "Calibration: fresh non-flat annual IRS/XCCY markets, log-linear DFs; "
         "single, staged/joint multi-curve and staged/joint XCCY solves. "
@@ -200,18 +223,20 @@ def summary(report):
     lines += [
         "Ratio = third-party minimum / DAL minimum; >1 means DAL took less time.",
         "",
-        "| Round | Case | DAL min ms | QuantLib min ms | rateslib min ms "
+        "| Round | Case | Pricing N | Training M | DAL min ms | QuantLib min ms | rateslib min ms "
         "| QL / DAL | RL / DAL |",
-        "| ----- | ---- | ---------: | --------------: | --------------: "
+        "| ----- | ---- | --------: | ---------: | ---------: | --------------: | --------------: "
         "| -------: | -------: |",
     ]
     for index, result in enumerate(report["rounds"], 1):
         for row in result["cases"]:
             values = row["backends"]
             times = " | ".join(
-                f"{values[backend]['min_ns'] / 1e6:.4f}"
-                if "min_ns" in values[backend]
-                else "N/A"
+                (
+                    f"{values[backend]['min_ns'] / 1e6:.4f}"
+                    if "min_ns" in values[backend]
+                    else "N/A"
+                )
                 for backend in BACKENDS
             )
             ratios = row["third_party_over_dal"]
@@ -220,9 +245,38 @@ def summary(report):
                 for backend in BACKENDS[1:]
             )
             lines.append(
-                f"| {index} | {row['workload']['name']} | {times} | {ratio_text} |"
+                f"| {index} | {row['workload']['name']} | {path_counts(row['workload'])} | {times} | {ratio_text} |"
             )
+    lines += exercise_values_summary(report)
     return "\n".join(lines) + "\n"
+
+
+def path_counts(case):
+    if not case["operation"].startswith("mc_"):
+        return "— | —"
+    return f"{case['size']} | {case.get('training_paths', '—')}"
+
+
+def exercise_values_summary(report):
+    lines = [
+        "",
+        "Early-exercise values from the first checked sample of each round "
+        "(all samples validated): price rows show PV; Greek rows show "
+        "[PV, Delta, Vega, Rho]. Reference is the matching discrete-exercise CRR tree.",
+        "",
+        "| Round | Case | DAL | QuantLib | CRR reference |",
+        "| ----- | ---- | --- | -------- | ------------- |",
+    ]
+    for index, result in enumerate(report["rounds"], 1):
+        for row in result["cases"]:
+            if "training_paths" in row["workload"]:
+                numbers = [row["backends"][b]["values"] for b in ("dal", "quantlib")]
+                numbers.append(row["reference"])
+                cells = " | ".join(
+                    ", ".join(f"{value:.6f}" for value in values) for values in numbers
+                )
+                lines.append(f"| {index} | {row['workload']['name']} | {cells} |")
+    return lines
 
 
 def run(args):

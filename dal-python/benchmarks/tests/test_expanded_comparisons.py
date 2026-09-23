@@ -60,15 +60,20 @@ def test_explicit_barrier_inputs_do_not_depend_on_defaults(
 
 def test_new_families_preserve_historical_inventory_and_cover_both_sizes():
     inventory = cases()
-    assert len(inventory) == 31
+    assert len(inventory) == 39
     assert [case["name"] for case in inventory[:13]][-1] == "irs_cold_pv_256"
 
 
 def test_mc_inventory_covers_both_products_and_operations():
     inventory = cases()
     options = [case for case in inventory if case["operation"].startswith("mc_")]
-    assert len(options) == 8
-    assert {case["kind"] for case in options} == {"vanilla", "barrier"}
+    assert len(options) == 16
+    assert {case["kind"] for case in options} == {
+        "vanilla",
+        "barrier",
+        "bermudan",
+        "american",
+    }
     assert {case["operation"] for case in options} == {"mc_price", "mc_greeks"}
 
 
