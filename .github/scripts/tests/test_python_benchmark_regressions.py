@@ -53,7 +53,7 @@ def report(duration=100):
 class PythonBenchmarkRegressionTest(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "Linux workflow requires bash")
     def test_workload_verification_matches_regressions_to_each_native_revision(self):
-        workflow = (SCRIPTS.parent / "workflows/cmake-linux.yml").read_text()
+        workflow = (SCRIPTS.parent / "workflows/benchmarks.yml").read_text()
         step = workflow.split(
             "- name: Verify Python workloads on both native builds", 1
         )[1].split("      - name:", 1)[0]
@@ -355,9 +355,9 @@ python3() {
                 with self.assertRaisesRegex(ValueError, "configurations differ"):
                     GATE.run_gate(GATE.arguments(argv), {})
 
-    def test_linux_required_benchmark_job_runs_python_gate_with_native_policy(self):
-        workflow = (SCRIPTS.parent / "workflows/cmake-linux.yml").read_text()
-        job = workflow.split("  benchmark:\n", 1)[1].split("  linux-gate:\n", 1)[0]
+    def test_scheduled_linux_benchmark_runs_python_gate_with_native_policy(self):
+        workflow = (SCRIPTS.parent / "workflows/benchmarks.yml").read_text()
+        job = workflow.split("  linux:\n", 1)[1].split("  windows:\n", 1)[0]
         self.assertIn("check_python_benchmark_regressions.py", job)
         self.assertEqual(job.count("-DDAL_BUILD_PYTHON=ON"), 2)
         self.assertEqual(job.count('-DPython3_EXECUTABLE="$(command -v python3)"'), 2)
@@ -380,7 +380,7 @@ python3() {
             with self.subTest(step=step):
                 comparison = job.split(f"- name: {step}\n", 1)[1].split("- name:", 1)[0]
                 self.assertNotIn("continue-on-error: true", comparison)
-        self.assertIn("- benchmark", workflow.split("  linux-gate:\n", 1)[1])
+        self.assertNotIn("pull_request:", workflow)
         self.assertEqual(job.count("steps.python-performance.outcome == 'failure'"), 3)
         self.assertIn(
             "if: always()", job.split("- name: Upload benchmark evidence", 1)[1]

@@ -453,11 +453,16 @@ def check_component_build_modes(errors: list[str]) -> None:
 def check_windows_generation_and_tests(errors: list[str]) -> None:
     windows_build = (ROOT / "build_windows.bat").read_text(encoding="utf-8")
     windows_workflow = (ROOT / ".github/workflows/cmake-windows.yml").read_text(encoding="utf-8")
+    benchmark_workflow = (ROOT / ".github/workflows/benchmarks.yml").read_text(encoding="utf-8")
     normalizer = "normalize-calibration-generated-enums.cmake"
     if normalizer not in windows_build:
         errors.append("build_windows.bat: code generation bypasses the canonical normalizer")
-    if windows_workflow.count(normalizer) < 2:
-        errors.append(".github/workflows/cmake-windows.yml: generation jobs bypass the normalizer")
+    for path, workflow in (
+        (".github/workflows/cmake-windows.yml", windows_workflow),
+        (".github/workflows/benchmarks.yml", benchmark_workflow),
+    ):
+        if normalizer not in workflow:
+            errors.append(f"{path}: code generation bypasses the normalizer")
     if "DAL_CPP_BUILD_BENCHMARKS=OFF" not in windows_build or "-LE benchmark" not in windows_build:
         errors.append("build_windows.bat: normal verification must exclude benchmark tests")
 

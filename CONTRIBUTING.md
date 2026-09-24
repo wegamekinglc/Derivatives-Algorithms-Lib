@@ -83,8 +83,9 @@ Build benchmark targets locally with:
 bash ./build_linux.sh --benchmarks
 ```
 
-Linux pull requests compare base and head builds on the same runner with GCC 14,
-Release mode, native CPU tuning, the native AAD backend, and
+The scheduled Linux benchmark workflow runs at 06:00 and 18:00 Asia/Shanghai.
+It compares the current `master` commit with its first parent on the same
+runner with GCC 14, Release mode, native CPU tuning, the native AAD backend, and
 `DAL_NUM_THREADS=4`. The gate runs two independent rounds of ten interleaved
 process-level samples per side. A comparable case fails only when the head
 best-of-N minimum is more than `4%` above the base minimum in both rounds,
@@ -93,8 +94,9 @@ Base-only cases fail as removals or renames.
 Head-only cases are reported as new informational coverage; the explicit Sobol
 precise-policy migration remains validated separately, and the head Sobol
 precise/fast ratio has a `10x` ceiling. The Windows benchmark job runs the
-targets without a base/head comparison, and a benchmark failure fails the
-Windows CI gate.
+targets without a base/head comparison. Benchmark results and failures appear
+in the separate workflow summary and artifacts; they do not block pull-request
+or push CI.
 
 To reproduce the comparator after building separate base and head trees:
 
@@ -110,8 +112,8 @@ python3 .github/scripts/check_benchmark_regressions.py \
 ```
 
 The roots are the CMake build directories containing
-`dal-cpp/benchmarks/<benchmark>/<benchmark>` executables. Preserve the CI build
-configuration when investigating a CI-only regression.
+`dal-cpp/benchmarks/<benchmark>/<benchmark>` executables. Preserve the scheduled
+build configuration when investigating a benchmark regression.
 
 ## C++ Style
 
