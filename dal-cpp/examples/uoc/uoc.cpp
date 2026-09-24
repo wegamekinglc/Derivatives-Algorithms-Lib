@@ -54,6 +54,26 @@ namespace {
         double barrier_;
     };
 
+    template <class F_> double CentralDifference(const F_& valueAt, double down, double up, double denominator) {
+        const double valueDown = valueAt(down);
+        const double valueUp = valueAt(up);
+        return (valueUp - valueDown) / denominator;
+    }
+
+    double ModelValue(const FdmInputs_& input, const ScriptProduct_& product, double spot, double rate, double div) {
+        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel", spot, rate, div, input.spots_, input.times_,
+                                                           Matrix_<double>(input.spots_.size(), input.times_.size(), input.vol_)));
+        return MCSimulation<double>(product, modelData, input.numPath_, String_("sobol"), false).aggregated_ / static_cast<double>(input.numPath_);
+    }
+
+    double EventValue(const FdmInputs_& input, const Handle_<ModelData_>& modelData, int eventIndex, double value) {
+        auto events = input.events_;
+        events[eventIndex] = ToString(value);
+        ScriptProduct_ product(input.eventDates_, events);
+        product.PreProcess(false, false);
+        return MCSimulation<double>(product, modelData, input.numPath_, String_("sobol"), false).aggregated_ / static_cast<double>(input.numPath_);
+    }
+
     void PrintFiniteDifferences(const FdmInputs_& input) {
         const auto& eventDates = input.eventDates_;
         const auto& events = input.events_;
@@ -79,71 +99,23 @@ namespace {
         SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, false);
         auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
-        double eps = 0.0001;
-        Handle_<ModelData_> modelDataDown(
-            new DupireModelData_("dupiremodel", spot * (1 - eps), rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+        const double eps = 0.0001;
+        const double dSpot = CentralDifference([&](double bumped) { return ModelValue(input, product, bumped, rate, div); }, spot * (1 - eps),
+                                               spot * (1 + eps), 2 * spot * eps);
 
-        Handle_<ModelData_> modelDataUp(
-            new DupireModelData_("dupiremodel", spot * (1 + eps), rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
+        const double epsRate = std::abs(rate) > 0 ? abs(rate) * eps : eps;
+        const double dRate = CentralDifference([&](double bumped) { return ModelValue(input, product, spot, bumped, div); }, rate - epsRate,
+                                               rate + epsRate, 2 * epsRate);
 
-        double epsRate = std::abs(rate) > 0 ? abs(rate) * eps : eps;
-        modelDataDown.reset(
-            new DupireModelData_("dupiremodel", spot, rate - epsRate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
+        const double epsDiv = std::abs(div) > 0 ? abs(rate) * eps : eps;
+        const double dDiv =
+            CentralDifference([&](double bumped) { return ModelValue(input, product, spot, rate, bumped); }, div - epsDiv, div + epsDiv, 2 * epsDiv);
 
-        modelDataUp.reset(
-            new DupireModelData_("dupiremodel", spot, rate + epsRate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dRate = (calculatedUp - calculatedDown) / (2 * epsRate);
+        const double dStrike = CentralDifference([&](double bumped) { return EventValue(input, modelData, 0, bumped); }, strike * (1.0 - eps),
+                                                 strike * (1.0 + eps), 2 * strike * eps);
 
-        double epsDiv = std::abs(div) > 0 ? abs(rate) * eps : eps;
-        modelDataDown.reset(
-            new DupireModelData_("dupiremodel", spot, rate, div - epsDiv, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        modelDataUp.reset(
-            new DupireModelData_("dupiremodel", spot, rate, div + epsDiv, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
-        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dDiv = (calculatedUp - calculatedDown) / (2 * epsDiv);
-
-        auto events_down = events;
-        events_down[0] = ToString(strike * (1.0 - eps));
-        ScriptProduct_ product_down(eventDates, events_down);
-        product_down.PreProcess(false, false);
-        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        auto events_up = events;
-        events_up[0] = ToString(strike * (1.0 + eps));
-        ScriptProduct_ product_up(eventDates, events_up);
-        product_up.PreProcess(false, false);
-        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dStrike = (calculatedUp - calculatedDown) / (2 * strike * eps);
-
-        events_down = events;
-        events_down[1] = ToString(barrier * (1.0 - eps));
-        product_down = ScriptProduct_(eventDates, events_down);
-        product_down.PreProcess(false, false);
-        results_down = MCSimulation<double>(product_down, modelData, numPath, String_("sobol"), false);
-        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
-
-        events_up = events;
-        events_up[1] = ToString(barrier * (1.0 + eps));
-        product_up = ScriptProduct_(eventDates, events_up);
-        product_up.PreProcess(false, false);
-        results_up = MCSimulation<double>(product_up, modelData, numPath, String_("sobol"), false);
-        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
-        auto dBarrier = (calculatedUp - calculatedDown) / (2 * barrier * eps);
+        const double dBarrier = CentralDifference([&](double bumped) { return EventValue(input, modelData, 1, bumped); }, barrier * (1.0 - eps),
+                                                  barrier * (1.0 + eps), 2 * barrier * eps);
 
         std::cout << std::setw(widths[0]) << std::left << "FDM" << std::setw(widths[1]) << std::right << numPath << std::setw(widths[2]) << std::right
                   << numObs << std::fixed << std::setprecision(6) << std::setw(widths[3]) << std::right << calculated << std::setw(widths[4])
