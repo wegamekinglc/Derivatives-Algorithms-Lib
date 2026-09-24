@@ -110,6 +110,11 @@ foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
     if(example_target STREQUAL "uoc")
         add_test(NAME uoc COMMAND uoc 32768)
         set_tests_properties(uoc PROPERTIES TIMEOUT 60)
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_test(NAME uoc_output
+            COMMAND ${CMAKE_COMMAND} -E env "UOC_BINARY=$<TARGET_FILE:uoc>"
+                "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/uoc/test_uoc_output.py")
+        set_tests_properties(uoc_output PROPERTIES LABELS examples TIMEOUT 60)
         add_test(NAME uoc_rejects_zero COMMAND uoc 0)
         add_test(NAME uoc_rejects_invalid COMMAND uoc bad)
         add_test(NAME uoc_rejects_overflow COMMAND uoc 2147483648)
