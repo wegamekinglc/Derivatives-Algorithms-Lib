@@ -11,7 +11,7 @@ substitute for correctness review.
 - [Baseline and isolation](#baseline-and-isolation)
 - [Release builds](#release-builds)
 - [Paired measurement](#paired-measurement)
-- [Current CI reproduction](#current-ci-reproduction)
+- [Scheduled workflow reproduction](#scheduled-workflow-reproduction)
 - [Threshold and verdict](#threshold-and-verdict)
 - [Report contract](#report-contract)
 - [Coverage advisory](#coverage-advisory)
@@ -26,8 +26,8 @@ substitute for correctness review.
 - `DAL_CPP_BUILD_BENCHMARKS` defaults to `ON` in `dal-cpp/CMakeLists.txt`, but the shared `base`
   CMake preset overrides it to `OFF`. Every preset-based performance build must therefore pass
   `-DDAL_CPP_BUILD_BENCHMARKS=ON` explicitly.
-- The Linux CI job builds and smoke-runs all current benchmark targets. Its paired pull-request
-  and `master`-push regression gate is the nine-target closed set in
+- The scheduled Linux benchmark job builds and smoke-runs all current benchmark targets.
+  Its paired regression gate is the nine-target closed set in
   `.github/scripts/check_benchmark_regressions.py`.
 - Installed binaries under `build/stage/.../bin/` change only after `cmake --install`. They can
   be stale after a rebuild and are not valid for branch-versus-baseline comparison.
@@ -151,18 +151,19 @@ For every gated executable:
 6. If a result is borderline, collect more paired samples and inspect distribution shape or a
    corroborating statistical test. Do not replace the gate reduction with mean or median.
 
-Set `DAL_NUM_THREADS` consistently for both sides. Current CI uses `DAL_NUM_THREADS=4`.
+Set `DAL_NUM_THREADS` consistently for both sides. The scheduled workflow uses `DAL_NUM_THREADS=4`.
 
 On a shared runner, VM, WSL2 host, thermally unstable machine, or visibly busy workstation,
 record the environment as noisy. If additional samples do not stabilize the minima, the verdict
 is `inconclusive`, not `regression`.
 
-## Current CI Reproduction
+## Scheduled Workflow Reproduction
 
-The current executable gate defaults to ten samples, two confirmation rounds, and a 4% threshold.
-The Linux workflow passes those values explicitly for pull requests and `master` pushes. For a
-pull request the baseline is its base SHA; for a push it is `github.event.before`. Two rounds of
-ten means twenty interleaved process samples per case and side.
+The executable gate defaults to ten samples, two confirmation rounds, and a 4% threshold.
+The scheduled Linux workflow passes those values explicitly at 06:00 and 18:00
+Asia/Shanghai each day. It compares the latest default-branch commit with its
+first parent. Two rounds of ten means twenty interleaved process samples per
+case and side. The workflow can also be dispatched manually.
 
 Reproduce it against the isolated build roots:
 
@@ -187,7 +188,7 @@ The script:
 - applies the current Sobol precise-opt-in/fast ratio ceiling; and
 - writes raw command outputs, `results.json`, and `summary.md` under the output directory.
 
-Use the script's nonzero exit as the current repository gate result, but still inspect and report
+Use the script's nonzero exit as the scheduled benchmark result, but still inspect and report
 its raw samples and failures.
 
 The Linux and Windows benchmark jobs upload `benchmark-results/` for 30 days. Both artifacts

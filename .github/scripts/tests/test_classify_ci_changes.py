@@ -50,28 +50,6 @@ class ClassifyCiChangesTest(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assertFalse(CLASSIFIER.docs_only(paths))
 
-    def test_example_source_and_documentation_changes_skip_benchmarks(self):
-        for paths in (
-            ("dal-cpp/examples/american_put_mc/american_put_mc.cpp",),
-            ("dal-cpp/examples/uoc/uoc.cpp", "docs/methodology/script_engine.md"),
-            ("README.md",),
-        ):
-            with self.subTest(paths=paths):
-                self.assertFalse(CLASSIFIER.benchmark_needed(paths))
-
-    def test_core_code_configuration_and_unknown_paths_need_benchmarks(self):
-        for paths in (
-            (),
-            ("dal-cpp/dal/script/simulation.cpp",),
-            ("dal-cpp/examples/uoc/uoc.cpp", "dal-cpp/dal/script/simulation.cpp"),
-            ("dal-cpp/examples/CMakeLists.txt",),
-            (".github/workflows/cmake-linux.yml",),
-            ("../dal-cpp/examples/uoc/uoc.cpp",),
-            ("dal-cpp/examples/../dal/script/simulation.cpp",),
-        ):
-            with self.subTest(paths=paths):
-                self.assertTrue(CLASSIFIER.benchmark_needed(paths))
-
     @mock.patch.object(CLASSIFIER.subprocess, "run")
     def test_changed_paths_uses_nul_safe_fail_closed_git_diff(self, run):
         run.return_value = mock.Mock(stdout=b"src/lib.cpp\0docs/lib.md\0")
@@ -120,7 +98,7 @@ class ClassifyCiChangesTest(unittest.TestCase):
 
             self.assertEqual(
                 output.read_text(encoding="utf-8"),
-                "docs_only=true\nbenchmark_needed=false\n",
+                "docs_only=true\n",
             )
 
     @mock.patch.object(CLASSIFIER, "changed_paths")
@@ -144,7 +122,7 @@ class ClassifyCiChangesTest(unittest.TestCase):
 
             self.assertEqual(
                 output.read_text(encoding="utf-8"),
-                "docs_only=false\nbenchmark_needed=true\n",
+                "docs_only=false\n",
             )
 
 
@@ -169,6 +147,37 @@ class CiWorkflowFastPathTest(unittest.TestCase):
             encoding="utf-8"
         )
 
+    def test_benchmarks_are_not_part_of_pull_request_or_push_ci(self):
+        for name, gate_id in (
+            ("cmake-linux.yml", "linux-gate"),
+            ("cmake-windows.yml", "windows-gate"),
+        ):
+            with self.subTest(name=name):
+                workflow = self.workflow(name)
+                self.assertNotIn("  benchmark:\n", workflow)
+                self.assertNotIn("benchmark_needed", workflow)
+                self.assertNotIn("needs.benchmark", self.job(workflow, gate_id))
+
+    def test_scheduled_benchmarks_keep_both_platforms_and_artifacts(self):
+        workflow = self.workflow("benchmarks.yml")
+        self.assertIn("cron: '0 6,18 * * *'", workflow)
+        self.assertIn("timezone: Asia/Shanghai", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertNotIn("pull_request:", workflow)
+        self.assertNotIn("  push:\n", workflow)
+
+        linux = self.job(workflow, "linux")
+        windows = self.job(workflow, "windows")
+        self.assertIn("check_python_benchmark_regressions.py", linux)
+        self.assertIn("check_benchmark_regressions.py", linux)
+        self.assertIn("run_comparisons.py", linux)
+        self.assertIn("ctest -N -L benchmark", windows)
+        self.assertIn("fetch-depth: 2", windows)
+        self.assertIn("actions/upload-artifact@", linux)
+        self.assertIn("actions/upload-artifact@", windows)
+        self.assertNotIn("  report:\n", workflow)
+        self.assertNotIn("BENCHMARK_SMTP", workflow)
+
     def test_workflows_classify_with_full_history(self):
         for name in ("cmake-linux.yml", "cmake-windows.yml"):
             with self.subTest(name=name):
@@ -183,10 +192,6 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertIn("classify_ci_changes.py", changes)
                 self.assertIn(
                     "docs_only: ${{ steps.classify.outputs.docs_only }}", changes
-                )
-                self.assertIn(
-                    "benchmark_needed: ${{ steps.classify.outputs.benchmark_needed }}",
-                    changes,
                 )
 
     def test_release_workflow_excludes_component_documentation(self):
@@ -210,7 +215,6 @@ class CiWorkflowFastPathTest(unittest.TestCase):
             "build-extended",
             "warning-clean",
             "sanitizers",
-            "benchmark",
         )
         for job_id in heavy_jobs:
             with self.subTest(job_id=job_id):
@@ -234,7 +238,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
 
     def test_windows_fast_path_preserves_stable_gate(self):
         workflow = self.workflow("cmake-windows.yml")
-        heavy_jobs = ("build", "build-script", "benchmark")
+        heavy_jobs = ("build", "build-script")
         for job_id in heavy_jobs:
             with self.subTest(job_id=job_id):
                 job = self.job(workflow, job_id)
@@ -250,24 +254,11 @@ class CiWorkflowFastPathTest(unittest.TestCase):
             with self.subTest(gate_dependency=job_id):
                 self.assertIn(f"needs.{job_id}.result", gate)
 
-    def test_performance_reports_block_required_gates(self):
-        for workflow_name, gate_id in (
-            ("cmake-linux.yml", "linux-gate"),
-            ("cmake-windows.yml", "windows-gate"),
-        ):
-            with self.subTest(workflow=workflow_name):
-                gate = self.job(self.workflow(workflow_name), gate_id)
-                self.assertIn("- benchmark", gate)
-                self.assertIn("needs.benchmark.result", gate)
-                self.assertIn("BENCHMARK_RESULT", gate)
-                self.assertIn("BENCHMARK_NEEDED", gate)
-                benchmark = self.job(self.workflow(workflow_name), "benchmark")
-                self.assertIn("needs.changes.outputs.benchmark_needed == 'true'", benchmark)
-
     def test_benchmark_jobs_persist_environment_and_results(self):
-        for workflow_name in ("cmake-linux.yml", "cmake-windows.yml"):
-            with self.subTest(workflow=workflow_name):
-                benchmark = self.job(self.workflow(workflow_name), "benchmark")
+        workflow = self.workflow("benchmarks.yml")
+        for job_id in ("linux", "windows"):
+            with self.subTest(job_id=job_id):
+                benchmark = self.job(workflow, job_id)
                 self.assertIn("write_benchmark_metadata.py", benchmark)
                 self.assertIn("--head-sha", benchmark)
                 self.assertIn("--base-sha", benchmark)
@@ -278,17 +269,16 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertIn("path: benchmark-results", benchmark)
                 self.assertIn("retention-days: 30", benchmark)
 
-        linux_benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
+        linux_benchmark = self.job(workflow, "linux")
         self.assertIn("/usr/bin/time --verbose", linux_benchmark)
         self.assertIn('resource_file="benchmark-results/${bench}.resources.txt"', linux_benchmark)
 
-    def run_gate(self, platform, results, docs_only=False, benchmark_needed=True):
+    def run_gate(self, platform, results, docs_only=False):
         gate = self.job(self.workflow(f"cmake-{platform}.yml"), f"{platform}-gate")
         bindings = re.findall(r"^      (\w+): \$\{\{ needs\.([\w-]+)\.result \}\}$", gate, re.MULTILINE)
         environment = {
             "PATH": os.environ.get("PATH", ""),
             "DOCS_ONLY": str(docs_only).lower(),
-            "BENCHMARK_NEEDED": str(benchmark_needed).lower(),
         }
         environment.update({name: results.get(job, "") for name, job in bindings})
         script = textwrap.dedent(gate.split("        run: |\n", 1)[1])
@@ -304,9 +294,8 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     def test_gate_shell_requires_success_for_every_required_job(self):
         required_jobs = {
             "linux": ("changes", "documentation", "define-matrix", "build",
-                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers",
-                      "benchmark"),
-            "windows": ("changes", "build", "build-script", "benchmark"),
+                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers"),
+            "windows": ("changes", "build", "build-script"),
         }
         for platform, jobs in required_jobs.items():
             success = dict.fromkeys(jobs, "success")
@@ -322,7 +311,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         for platform in ("linux", "windows"):
             results = dict.fromkeys(("define-matrix", "build", "codipack-thread-isolation",
                                      "build-extended", "warning-clean", "sanitizers",
-                                     "build-script", "benchmark"), "skipped")
+                                     "build-script"), "skipped")
             required = ("changes", "documentation") if platform == "linux" else ("changes",)
             results.update(dict.fromkeys(required, "success"))
             with self.subTest(platform=platform):
@@ -333,40 +322,11 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                     with self.subTest(platform=platform, job=job, result=result):
                         self.assertNotEqual(self.run_gate(platform, {**results, job: result}, docs_only=True), 0)
 
-    @unittest.skipIf(sys.platform == "win32" or not shutil.which("bash"), "CI gates execute on Linux with bash")
-    def test_gate_shell_example_only_requires_skipped_benchmark_and_other_checks(self):
-        required_jobs = {
-            "linux": ("changes", "documentation", "define-matrix", "build",
-                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers"),
-            "windows": ("changes", "build", "build-script"),
-        }
-        for platform, jobs in required_jobs.items():
-            results = {**dict.fromkeys(jobs, "success"), "benchmark": "skipped"}
-            with self.subTest(platform=platform, result="success"):
-                self.assertEqual(self.run_gate(platform, results, benchmark_needed=False), 0)
-                self.assertNotEqual(self.run_gate(platform, results, benchmark_needed=""), 0)
-            for result in ("success", "failure", "cancelled", "running", ""):
-                with self.subTest(platform=platform, benchmark=result):
-                    self.assertNotEqual(
-                        self.run_gate(platform, {**results, "benchmark": result}, benchmark_needed=False),
-                        0,
-                    )
-            for job in jobs:
-                with self.subTest(platform=platform, required_job=job):
-                    self.assertNotEqual(
-                        self.run_gate(platform, {**results, job: "failure"}, benchmark_needed=False),
-                        0,
-                    )
+    def test_scheduled_linux_benchmark_compares_with_previous_master_commit(self):
+        benchmark = self.job(self.workflow("benchmarks.yml"), "linux")
 
-    def test_linux_benchmark_pairs_pull_requests_and_master_pushes(self):
-        benchmark = self.job(self.workflow("cmake-linux.yml"), "benchmark")
-
-        self.assertIn("PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}", benchmark)
-        self.assertIn("EVENT_BEFORE: ${{ github.event.before }}", benchmark)
-        self.assertIn('base_sha="${PR_BASE_SHA:-$EVENT_BEFORE}"', benchmark)
-        self.assertIn('[[ "$base_sha" =~ ^0+$ ]]', benchmark)
+        self.assertIn('git rev-parse HEAD^1', benchmark)
         self.assertIn("ref: ${{ env.BASE_SHA }}", benchmark)
-        self.assertNotIn("if: github.event_name == 'pull_request'", benchmark)
 
 
 if __name__ == "__main__":

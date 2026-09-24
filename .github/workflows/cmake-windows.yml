@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
-      benchmark_needed: ${{ steps.classify.outputs.benchmark_needed }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -232,141 +231,6 @@ jobs:
         shell: cmd
         run: build_windows.bat --configure-only
 
-  # Benchmark job: builds and runs all performance benchmarks on one
-  # representative configuration (msvc, native/AADet backend).
-  # Results appear in the CI logs, job summary, and retained benchmark artifact;
-  # a benchmark failure fails the Windows CI gate.
-  benchmark:
-    name: Benchmarks
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.benchmark_needed == 'true'
-    runs-on: windows-latest
-    # No ccache here: this job builds with -march=native, and cached objects
-    # restored on a different runner CPU generation crash with SIGILL.
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
-
-      - name: Setup MSVC environment
-        shell: pwsh
-        run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $vsPath) {
-            throw "Visual Studio with C++ build tools was not found"
-          }
-          $vsDevCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
-          if (-not (Test-Path $vsDevCmd)) {
-            throw "VsDevCmd.bat was not found at $vsDevCmd"
-          }
-          $varsToExport = @(
-            "Path", "PATH", "INCLUDE", "LIB", "LIBPATH",
-            "UniversalCRTSdkDir", "UCRTVersion", "VCINSTALLDIR",
-            "VCToolsInstallDir", "VSINSTALLDIR", "WindowsSdkDir", "WindowsSDKVersion"
-          )
-          cmd /c "`"$vsDevCmd`" -host_arch=x64 -arch=x64 && set" | ForEach-Object {
-            if ($_ -match "^(.*?)=(.*)$") {
-              $name = $matches[1]
-              if ($varsToExport -contains $name) {
-                "$name=$($matches[2])" >> $env:GITHUB_ENV
-              }
-            }
-          }
-
-      - name: Capture benchmark environment
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          python3 .github/scripts/write_benchmark_metadata.py \
-            --output benchmark-results/environment.json \
-            --head-sha "$(git rev-parse HEAD)" \
-            --base-sha "$BASE_SHA" \
-            --compiler cl \
-            --aad-backend aadet \
-            --threads 4 \
-            --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
-
-      - name: Build Machinist
-        shell: bash
-        run: |
-          cd dal-cpp/externals/machinist
-          rm -rf build
-          mkdir -p build
-          cd build
-          cmake --preset Release-windows ..
-          cmake --build .
-          cmake --install .
-
-      - name: Run code generation
-        shell: bash
-        run: |
-          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
-          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-          cmake -DDAL_REPOSITORY_ROOT="$PWD" -P dal-cpp/cmake/normalize-calibration-generated-enums.cmake
-          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
-
-      - name: Compile
-        shell: bash
-        env:
-          CC: cl
-          CXX: cl
-        run: |
-          rm -rf build/Release-windows build/stage/Release-windows
-          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
-            -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
-            -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build build/Release-windows --parallel
-          cmake --install build/Release-windows
-
-      - name: Run benchmarks
-        shell: bash
-        run: |
-          # Single-source benchmark list via CTest labels (H8 fix, same as cmake-linux.yml)
-          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/Release-windows | awk -F': ' '/Test +#/{print $2}') )
-          if [ ${#benchmarks[@]} -eq 0 ]; then
-            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/Release-windows found no tests"
-            exit 1
-          fi
-
-          mkdir -p benchmark-results
-          benchmark_failure=0
-          for bench in "${benchmarks[@]}"; do
-            echo "========== $bench =========="
-            result_file="benchmark-results/${bench}.txt"
-            if "./build/stage/Release-windows/bin/$bench.exe" > "$result_file" 2>&1; then
-              status=0
-            else
-              status=$?
-              benchmark_failure=1
-            fi
-            echo "$status" > "benchmark-results/${bench}.status"
-            cat "$result_file"
-            echo
-          done
-
-          # One aggregated table for the whole run (same as cmake-linux.yml),
-          # replacing the old per-benchmark summary sections.
-          python3 .github/scripts/write_benchmark_summary.py \
-            --results-dir benchmark-results \
-            --summary-file "$GITHUB_STEP_SUMMARY" \
-            --configuration "msvc, native/AADet backend." \
-            --benchmarks "${benchmarks[@]}"
-
-          exit "$benchmark_failure"
-
-      - name: Upload benchmark evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: benchmark-windows-${{ github.run_id }}-${{ github.run_attempt }}
-          path: benchmark-results
-          if-no-files-found: warn
-          retention-days: 30
-
   windows-gate:
     name: Windows CI gate
     if: always()
@@ -374,15 +238,12 @@ jobs:
       - changes
       - build
       - build-script
-      - benchmark
     runs-on: ubuntu-latest
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
       CHANGES_RESULT: ${{ needs.changes.result }}
       BUILD_RESULT: ${{ needs.build.result }}
       BUILD_SCRIPT_RESULT: ${{ needs.build-script.result }}
-      BENCHMARK_NEEDED: ${{ needs.changes.outputs.benchmark_needed }}
-      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
     steps:
       - name: Require the selected CI path to pass
         run: |
@@ -392,9 +253,3 @@ jobs:
           fi
           test "$BUILD_RESULT" = success
           test "$BUILD_SCRIPT_RESULT" = success
-          if [ "$BENCHMARK_NEEDED" = true ]; then
-            test "$BENCHMARK_RESULT" = success
-          else
-            test "$BENCHMARK_NEEDED" = false
-            test "$BENCHMARK_RESULT" = skipped
-          fi

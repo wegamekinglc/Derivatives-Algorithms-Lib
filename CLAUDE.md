@@ -75,7 +75,7 @@ cmake --build build/Release-linux --target script_mc_perf -j 4
 ./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
-The paired regression gate that CI runs on pull requests lives in `.github/scripts/check_benchmark_regressions.py`; see [.codex/references/benchmark-workflow.md](.codex/references/benchmark-workflow.md#current-ci-reproduction) for reproducing it locally.
+The paired regression gate runs in the twice-daily scheduled benchmark workflow and lives in `.github/scripts/check_benchmark_regressions.py`; see [.codex/references/benchmark-workflow.md](.codex/references/benchmark-workflow.md#scheduled-workflow-reproduction) for reproducing it locally.
 
 ## Code Style
 
