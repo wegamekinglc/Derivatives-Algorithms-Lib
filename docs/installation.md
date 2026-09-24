@@ -338,14 +338,15 @@ installation; a different minor, an unsupported version, or a non-CPython
 interpreter fails without mutating that environment.
 
 Official releases remain CPython-specific, wheel-only builds for Linux x86-64
-(`manylinux_2_28_x86_64`) and Windows AMD64 (`win_amd64`). Pull requests build
-`cp39-cp39` and `cp313-cp313` on both platforms (four wheels). Manual and tag
-runs build CPython 3.9-3.13 on both platforms (ten wheels). Every wheel runs the
-full installed-wheel test suite; the two `cp39` wheels also run the fresh
-source-independent smoke. Linux filenames always include the 2.28 platform
-component and may also carry unique compatible PEP 600 x86-64 components for
-older glibc baselines. CPython 3.14, macOS, ARM, musllinux, PyPy, free-threaded
-CPython, and sdist publication are outside this release matrix.
+(`manylinux_2_28_x86_64`) and Windows AMD64 (`win_amd64`). An annotated release
+tag on the current `master` commit builds CPython 3.9-3.13 on both platforms
+(ten wheels), with tags from `cp39-cp39` through `cp313-cp313`. Each built wheel
+runs the installed-wheel Python unit suite before publication. Pull requests and
+manual dispatches do not run the release workflow. Linux filenames always
+include the 2.28 platform component and may also carry unique compatible
+PEP 600 x86-64 components for older glibc baselines. CPython 3.14, macOS, ARM,
+musllinux, PyPy, free-threaded CPython, and sdist publication are outside this
+release matrix.
 
 ## Verification
 

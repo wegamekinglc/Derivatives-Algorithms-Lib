@@ -194,17 +194,11 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                     "docs_only: ${{ steps.classify.outputs.docs_only }}", changes
                 )
 
-    def test_release_workflow_excludes_component_documentation(self):
+    def test_release_workflow_runs_only_for_release_tags(self):
         workflow = self.workflow("dal-python-release.yml")
-        positive_paths = ("dal-python/**", "dal-cpp/**", "dal-public/**")
-        for positive in positive_paths:
-            with self.subTest(positive=positive):
-                self.assertIn(f"      - {positive}\n", workflow)
-                positive_offset = workflow.index(f"      - {positive}\n")
-                for suffix in ("md", "mdx", "rst"):
-                    negative = f"      - '!{positive}/*.{suffix}'\n"
-                    self.assertIn(negative, workflow)
-                    self.assertGreater(workflow.index(negative), positive_offset)
+        self.assertIn("on:\n  push:\n    tags:\n      - dal-python-v*\n", workflow)
+        self.assertNotIn("  pull_request:", workflow)
+        self.assertNotIn("  workflow_dispatch:", workflow)
 
     def test_linux_fast_path_preserves_docs_and_stable_gate(self):
         workflow = self.workflow("cmake-linux.yml")

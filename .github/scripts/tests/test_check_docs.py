@@ -2,10 +2,11 @@
 
 import copy
 import importlib.util
-from pathlib import Path
+import re
 import tempfile
 import tomllib
 import unittest
+from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_docs.py"
@@ -259,6 +260,24 @@ class PythonReleaseContractTest(unittest.TestCase):
 
         self.assertTrue(any("unique" in error for error in errors))
 
+    def test_rejects_missing_post_build_unit_suite(self):
+        metadata = copy.deepcopy(self.metadata())
+        del metadata["tool"]["cibuildwheel"]["test-command"]
+        errors: list[str] = []
+
+        CHECK_DOCS.check_cibuildwheel_config(errors, metadata)
+
+        self.assertTrue(any("unit suite" in error for error in errors))
+
+    def test_rejects_missing_pytest_dependency(self):
+        metadata = copy.deepcopy(self.metadata())
+        metadata["tool"]["cibuildwheel"]["test-requires"] = ["numpy>=1.24"]
+        errors: list[str] = []
+
+        CHECK_DOCS.check_cibuildwheel_config(errors, metadata)
+
+        self.assertTrue(any("wheel tests require pytest" in error for error in errors))
+
     def test_build_linux_python_option_is_enforced_in_installation_docs(self):
         build_script = (CHECK_DOCS.ROOT / "build_linux.sh").read_text(encoding="utf-8")
         installation = self.document_texts()["installation"]
@@ -288,7 +307,6 @@ class PythonReleaseContractTest(unittest.TestCase):
         mutations = (
             ("readme", "CPython 3.9-3.13", "CPython 3.10-3.13"),
             ("readme", "ten wheels", "eight wheels"),
-            ("installation", "four wheels", "three wheels"),
             ("changelog", "ten CPython-specific wheels", "eight wheels"),
         )
         for document, old, new in mutations:
@@ -307,74 +325,45 @@ class PythonReleaseContractTest(unittest.TestCase):
 
                 self.assertNotEqual(errors, [])
 
-    def test_current_workflow_projections_match_event_contract(self):
+    def test_release_workflow_has_only_post_build_unit_tests(self):
         workflow = (
             CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
         ).read_text(encoding="utf-8")
-        errors: list[str] = []
-
-        CHECK_DOCS.check_python_release_projections(errors, self.metadata(), workflow)
-
-        self.assertEqual(errors, [])
-
-    def test_projection_parsers_preserve_validation_boundaries(self):
-        errors: list[str] = []
-
+        cibuildwheel = self.metadata()["tool"]["cibuildwheel"]
         self.assertEqual(
-            CHECK_DOCS.parse_build_projection("cp39-* cp313-*", "pull_request", errors),
-            ("cp39", "cp313"),
+            cibuildwheel["test-command"], "python -m pytest {package}/tests -q"
         )
-        self.assertEqual(
-            CHECK_DOCS.parse_verify_projection("cp39,cp313", "pull_request", errors),
-            ("cp39", "cp313"),
-        )
-        self.assertEqual(errors, [])
-
-        self.assertIsNone(
-            CHECK_DOCS.parse_verify_projection("cp39,,cp313", "pull_request", errors)
-        )
-        self.assertTrue(any("nonempty and unique" in error for error in errors))
-
-    def test_workflow_runs_fresh_cp39_smoke(self):
-        workflow = (
-            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("dal-python/scripts/smoke_installed_wheel.py", workflow)
-        self.assertIn("uv run --isolated --no-project --python 3.9", workflow)
-        self.assertIn(".github/scripts/check_dal_python_syntax.py", workflow)
-
-    def test_workflow_executes_powershell_helper_contracts_on_windows(self):
-        workflow = (
-            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("Test executable PowerShell helper contracts", workflow)
-        self.assertIn("test_python_helpers_powershell.py", workflow)
-        self.assertIn("matrix.platform == 'windows-amd64'", workflow)
+        self.assertIn("pytest>=7.0", cibuildwheel["test-requires"])
+        jobs = re.findall(r"^  ([a-z-]+):$", workflow.split("jobs:\n", 1)[1], re.MULTILINE)
+        self.assertEqual(jobs, ["prepare", "wheels", "publish"])
+        prepare = workflow.split("  prepare:\n", 1)[1].split("  wheels:\n", 1)[0]
+        wheels = workflow.split("  wheels:\n", 1)[1].split("  publish:\n", 1)[0]
+        publish = workflow.split("  publish:\n", 1)[1]
+        self.assertIn("git fetch --no-tags origin master", prepare)
+        self.assertIn('test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"', prepare)
+        self.assertIn("needs: prepare", wheels)
+        self.assertIn("needs: [prepare, wheels]", publish)
+        self.assertNotIn("git fetch --no-tags origin master", publish)
+        self.assertIn('git rev-parse "${GITHUB_REF}^{commit}"', publish)
         self.assertLess(
-            workflow.index("Test executable PowerShell helper contracts"),
-            workflow.index("Build and test wheels"),
+            publish.index("name: Download wheels"),
+            publish.index("name: Validate release tag and wheels"),
         )
-
-    def test_rejects_independent_workflow_projection_drift(self):
-        workflow = (
-            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
-        ).read_text(encoding="utf-8")
-        mutations = (
-            ("cp39-* cp313-*", "cp313-*"),
-            ("cp39,cp313", "cp313"),
-            ("cp39-* cp310-* cp311-* cp312-* cp313-*", "cp39-* cp311-* cp312-* cp313-*"),
-            ("cp39,cp310,cp311,cp312,cp313", "cp39,cp310,cp311,cp312,cp38"),
-            ("cp39-* cp313-*", "cp39-* cp39-* cp313-*"),
-            ("cp39,cp313", "cp39,,cp313"),
+        self.assertLess(
+            publish.index("name: Validate release tag and wheels"),
+            publish.index("name: Publish exact wheel artifacts"),
         )
-        for old, new in mutations:
-            with self.subTest(new=new):
-                mutated = workflow.replace(old, new, 1)
-                errors: list[str] = []
-                CHECK_DOCS.check_python_release_projections(errors, self.metadata(), mutated)
-                self.assertNotEqual(errors, [])
+        for fragment in (
+            "pull_request:",
+            "workflow_dispatch:",
+            "smoke_installed_wheel.py",
+            "check_dal_python_syntax.py",
+            "check_docs.py",
+            "benchmark",
+            "CIBW_TEST_COMMAND",
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertNotIn(fragment, workflow)
 
 
 if __name__ == "__main__":
