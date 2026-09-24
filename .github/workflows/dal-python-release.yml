@@ -42,6 +42,10 @@ jobs:
             platform: linux-x86_64
           - os: windows-2022
             platform: windows-amd64
+          - os: macos-15-intel
+            platform: macos-x86_64
+          - os: macos-15
+            platform: macos-arm64
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

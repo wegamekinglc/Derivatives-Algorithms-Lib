@@ -22,7 +22,7 @@ SPEC.loader.exec_module(PYTHON_COMPAT)
 
 class PythonHelpersTest(unittest.TestCase):
     def test_accepts_each_supported_cpython_minor(self):
-        for minor in ("3.9", "3.10", "3.11", "3.12", "3.13"):
+        for minor in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14"):
             major, minor_number = (int(part) for part in minor.split("."))
             with self.subTest(minor=minor):
                 observed = PYTHON_COMPAT.validate_interpreter(
@@ -56,7 +56,7 @@ class PythonHelpersTest(unittest.TestCase):
         ):
             with self.subTest(script=script):
                 result = subprocess.run(
-                    ("bash", script, "--python", "3.14"),
+                    ("bash", script, "--python", "3.15"),
                     cwd=SCRIPT.parents[2],
                     text=True,
                     stdout=subprocess.PIPE,
@@ -65,7 +65,7 @@ class PythonHelpersTest(unittest.TestCase):
                 )
 
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("unsupported value '3.14'", result.stdout)
+                self.assertIn("unsupported value '3.15'", result.stdout)
 
     def test_rejected_reused_environment_is_non_destructive_and_actionable(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -94,8 +94,8 @@ class PythonHelpersTest(unittest.TestCase):
     def test_rejects_non_cpython_and_out_of_range_interpreters(self):
         for implementation, version, expected in (
             ("PyPy", (3, 9), "requires CPython"),
-            ("CPython", (3, 8), ">=3.9,<3.14"),
-            ("CPython", (3, 14), ">=3.9,<3.14"),
+            ("CPython", (3, 8), ">=3.9,<3.15"),
+            ("CPython", (3, 15), ">=3.9,<3.15"),
         ):
             with self.subTest(implementation=implementation, version=version):
                 with self.assertRaisesRegex(ValueError, expected):
@@ -123,7 +123,7 @@ class PythonHelpersTest(unittest.TestCase):
                 text = helper.read_text(encoding="utf-8")
                 selector = "-Python" if helper.suffix == ".ps1" else "--python"
                 self.assertIn(selector, text)
-                for minor in ("3.9", "3.10", "3.11", "3.12", "3.13"):
+                for minor in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14"):
                     self.assertIn(minor, text)
                 self.assertLess(text.index("python_compat.py"), text.index("uv pip install"))
 
@@ -191,7 +191,7 @@ class PythonHelpersTest(unittest.TestCase):
                 (package, "build_wheel.sh", ("--python",)),
                 (package, "run_tests.sh", ("--python",)),
             )
-            for minor in ("3.9", "3.10", "3.11", "3.12", "3.13"):
+            for minor in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14"):
                 for cwd, script, prefix in helpers:
                     with self.subTest(minor=minor, script=script):
                         log.unlink(missing_ok=True)

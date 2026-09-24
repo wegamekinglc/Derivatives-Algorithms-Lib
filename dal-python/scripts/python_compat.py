@@ -7,8 +7,8 @@ import platform
 import sys
 
 
-SUPPORTED_MINORS = ("3.9", "3.10", "3.11", "3.12", "3.13")
-SUPPORTED_RANGE = ">=3.9,<3.14"
+SUPPORTED_MINORS = ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
+SUPPORTED_RANGE = ">=3.9,<3.15"
 
 
 def validate_interpreter(

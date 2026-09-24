@@ -100,10 +100,13 @@ endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
 
-# Find pybind11: prefer a discoverable system install, then the package in the
-# selected Python environment, and otherwise build the pinned v2.11.1 vendored
-# under dal-cpp/externals/pybind11 (sibling of this project).
-find_package(pybind11 CONFIG QUIET)
+# Find the package from the selected interpreter first. Python 3.14 needs
+# pybind11 3.0 or newer; older interpreters may use the pinned vendored copy.
+if(Python3_VERSION VERSION_GREATER_EQUAL 3.14)
+    set(_DAL_PYBIND11_MIN_VERSION 3.0)
+else()
+    set(_DAL_PYBIND11_MIN_VERSION 2.11.1)
+endif()
 if(NOT pybind11_FOUND)
     execute_process(
         COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
@@ -112,10 +115,16 @@ if(NOT pybind11_FOUND)
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET)
     if(DAL_PYBIND11_CMAKEDIR_RESULT EQUAL 0 AND EXISTS "${DAL_PYBIND11_CMAKEDIR}/pybind11Config.cmake")
-        find_package(pybind11 2.11.1 CONFIG QUIET PATHS "${DAL_PYBIND11_CMAKEDIR}" NO_DEFAULT_PATH)
+        find_package(pybind11 ${_DAL_PYBIND11_MIN_VERSION} CONFIG QUIET PATHS "${DAL_PYBIND11_CMAKEDIR}" NO_DEFAULT_PATH)
     endif()
 endif()
 if(NOT pybind11_FOUND)
+    find_package(pybind11 ${_DAL_PYBIND11_MIN_VERSION} CONFIG QUIET)
+endif()
+if(NOT pybind11_FOUND)
+    if(Python3_VERSION VERSION_GREATER_EQUAL 3.14)
+        message(FATAL_ERROR "dal-python: CPython 3.14 requires pybind11 3.0 or newer in the selected Python environment")
+    endif()
     # Resolve the submodule path. In monorepo mode (dal-python pulled in via
     # add_subdirectory from the top-level workspace), the submodule lives at
     # ${CMAKE_SOURCE_DIR}/dal-cpp/externals/pybind11. In standalone mode the

@@ -8,7 +8,7 @@ BUILD_BENCHMARKS=false
 GENERATE=false
 PYTHON_REQUESTED=false
 PYTHON_VERSION=""
-SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -33,7 +33,7 @@ done
 
 if [[ $PYTHON_REQUESTED == true ]]; then
     case "$PYTHON_VERSION" in
-        3.9|3.10|3.11|3.12|3.13) ;;
+        3.9|3.10|3.11|3.12|3.13|3.14) ;;
         *)
             echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
             exit 1
@@ -93,7 +93,7 @@ if [[ $BUILD_PYTHON == true ]]; then
             if [[ $PYTHON_REQUESTED == true ]]; then
                 uv venv "$venv_dir" --python "$PYTHON_VERSION"
             else
-                uv venv "$venv_dir" --python ">=3.9,<3.14"
+                uv venv "$venv_dir" --python ">=3.9,<3.15"
             fi
         elif command -v python3 >/dev/null 2>&1; then
             python3 "$compat_script" "${compat_args[@]}"
@@ -113,6 +113,11 @@ if [[ $BUILD_PYTHON == true ]]; then
         fi
     fi
     export PATH="$venv_dir/bin:$PATH"
+    if command -v uv >/dev/null 2>&1; then
+        uv pip install --python "$python_bin" "pybind11==3.1.0"
+    else
+        "$python_bin" -m pip install "pybind11==3.1.0"
+    fi
     cmake_flags+=("-DPython3_EXECUTABLE=$python_bin")
 fi
 

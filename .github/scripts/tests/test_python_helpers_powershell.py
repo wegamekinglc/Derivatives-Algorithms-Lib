@@ -310,7 +310,7 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
 
     def test_helpers_pass_each_exact_and_omitted_selector_to_provisioning(self):
         for name in ("run_tests.ps1", "build_wheel.ps1"):
-            for selector in ("3.9", "3.10", "3.11", "3.12", "3.13", None):
+            for selector in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14", None):
                 with self.subTest(name=name, selector=selector), tempfile.TemporaryDirectory() as tmp:
                     package, install, fake_bin, log = self.helper_tree(Path(tmp))
                     arguments = ["-Clean", "-DalInstallPrefix", str(install)]
@@ -329,7 +329,7 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
                         for executable, arguments in self.calls(log)
                         if executable == "uv" and arguments[:1] == ["venv"]
                     ]
-                    expected = selector or ">=3.9,<3.14"
+                    expected = selector or ">=3.9,<3.15"
                     self.assertEqual(len(venv_calls), 1)
                     self.assertEqual(venv_calls[0][-2:], ["--python", expected])
 
@@ -364,7 +364,7 @@ class PythonPowerShellHelpersTest(unittest.TestCase):
 
     def test_helpers_reject_invalid_selectors_before_provisioning(self):
         for name in ("run_tests.ps1", "build_wheel.ps1"):
-            for selector in ("", "3.14", "cpython3.9"):
+            for selector in ("", "3.15", "cpython3.9"):
                 with self.subTest(name=name, selector=selector), tempfile.TemporaryDirectory() as tmp:
                     package, install, fake_bin, log = self.helper_tree(Path(tmp))
                     result = self.run_helper(

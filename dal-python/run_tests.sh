@@ -11,14 +11,14 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The staged C++ install must exist (run ../build_linux.sh from repo root)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.13 development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.14 development headers
 #
 
 set -eu
 
 PYTHON_REQUESTED=false
 PYTHON_VERSION=""
-SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
 PYTEST_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -38,7 +38,7 @@ done
 
 if [[ $PYTHON_REQUESTED == true ]]; then
     case "$PYTHON_VERSION" in
-        3.9|3.10|3.11|3.12|3.13) ;;
+        3.9|3.10|3.11|3.12|3.13|3.14) ;;
         *)
             echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
             exit 1
@@ -91,7 +91,7 @@ if [[ ! -x "$VENV_PYTHON" ]]; then
     if [[ $PYTHON_REQUESTED == true ]]; then
         uv venv "$VENV_DIR" --python "$PYTHON_VERSION"
     else
-        uv venv "$VENV_DIR" --python ">=3.9,<3.14"
+        uv venv "$VENV_DIR" --python ">=3.9,<3.15"
     fi
 else
     echo "Reusing existing virtual environment at .venv/"
@@ -117,7 +117,7 @@ echo "  Path:   $(which python)"
 
 echo ""
 echo "Installing dependencies (scikit-build-core, pytest, numpy)..."
-uv pip install "scikit-build-core==1.0.3" pytest numpy
+uv pip install "scikit-build-core==1.0.3" "pybind11==3.1.0" pytest numpy
 
 # ---- Step 4: Install the package in editable mode ---------------------------
 

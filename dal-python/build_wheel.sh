@@ -7,7 +7,7 @@
 # Prerequisites:
 # - Staged C++ install must contain the exported dal-public CMake package
 # - uv must be installed
-# - CPython 3.9-3.13 with development headers
+# - CPython 3.9-3.14 with development headers
 #
 # Usage:
 #   ./build_wheel.sh              # Build wheel for current platform
@@ -31,7 +31,7 @@ MANYLINUX=false
 CLEAN=false
 PYTHON_REQUESTED=false
 PYTHON_VERSION=""
-SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --manylinux)
@@ -57,7 +57,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --manylinux    Build manylinux-compatible wheel (Linux only)"
             echo "  --clean        Clean build artifacts before building"
-            echo "  --python MINOR Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
+            echo "  --python MINOR Select CPython 3.9 through 3.14"
             echo "  --help, -h     Show this help message"
             exit 0
             ;;
@@ -68,7 +68,7 @@ done
 
 if [[ $PYTHON_REQUESTED == true ]]; then
     case "$PYTHON_VERSION" in
-        3.9|3.10|3.11|3.12|3.13) ;;
+        3.9|3.10|3.11|3.12|3.13|3.14) ;;
         *)
             echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
             exit 1
@@ -117,7 +117,7 @@ if [[ ! -x "$VENV_PYTHON" ]]; then
     if [[ $PYTHON_REQUESTED == true ]]; then
         uv venv "$VENV_DIR" --python "$PYTHON_VERSION"
     else
-        uv venv "$VENV_DIR" --python ">=3.9,<3.14"
+        uv venv "$VENV_DIR" --python ">=3.9,<3.15"
     fi
 fi
 compat_args=(
@@ -134,7 +134,7 @@ echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q "scikit-build-core==1.0.3" cmake ninja build
+uv pip install -q "scikit-build-core==1.0.3" "pybind11==3.1.0" cmake ninja build
 if [ "$MANYLINUX" = true ]; then
     uv pip install -q auditwheel
 fi

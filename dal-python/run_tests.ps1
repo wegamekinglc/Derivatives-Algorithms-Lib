@@ -9,7 +9,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be installed first (run ..\build_windows.bat)
-#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.13 development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and CPython 3.9-3.14 development headers
 #   - Visual Studio 2022 with C++ workload
 
 param(
@@ -30,7 +30,7 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
-    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
+    Write-Output "  -Python <minor> Select CPython 3.9 through 3.14"
     Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     Write-Output ""
@@ -38,7 +38,7 @@ if ($Help) {
     exit 0
 }
 
-$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
+$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
 $PythonRequested = $PSBoundParameters.ContainsKey("Python")
 if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
     Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
@@ -97,7 +97,7 @@ if ($Clean) {
 
 if (-not (Test-Path $VenvDir)) {
     Write-Output "Creating fresh uv virtual environment..."
-    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.14" }
+    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.15" }
     uv venv $VenvDir --python $PythonRequest
 }
 else {
@@ -131,7 +131,7 @@ Write-Output "  Path:   $(Get-Command python | Select-Object -ExpandProperty Sou
 
 Write-Output ""
 Write-Output "Installing dependencies (scikit-build-core, pytest, numpy)..."
-uv pip install "scikit-build-core==1.0.3" pytest numpy
+uv pip install "scikit-build-core==1.0.3" "pybind11==3.1.0" pytest numpy
 
 # ---- Step 4: Install the package in editable mode ---------------------------
 

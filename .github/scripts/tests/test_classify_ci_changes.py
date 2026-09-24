@@ -210,12 +210,14 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn("      - .github/workflows/dal-python-ci.yml\n", workflow)
         self.assertNotIn("gh-action-pypi-publish", workflow)
         wheels = self.job(workflow, "wheels")
-        self.assertIn("CIBW_BUILD: cp39-* cp313-*", wheels)
+        self.assertIn("CIBW_BUILD: cp39-* cp314-*", wheels)
+        for platform in ("linux-x86_64", "windows-amd64", "macos-x86_64", "macos-arm64"):
+            self.assertIn(f"platform: {platform}", wheels)
         self.assertIn("pypa/cibuildwheel@", wheels)
         self.assertIn("smoke_installed_wheel.py", wheels)
         verify = self.job(workflow, "verify")
         self.assertIn("needs: wheels", verify)
-        self.assertIn("--expected-python cp39,cp313", verify)
+        self.assertIn("--expected-python cp39,cp314", verify)
         self.assertIn("verify_release.py", verify)
 
     def test_linux_fast_path_preserves_docs_and_stable_gate(self):

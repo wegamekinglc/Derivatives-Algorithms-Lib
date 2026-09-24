@@ -10,7 +10,7 @@ here instead of maintaining separate build recipes.
 | Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool        |
 | Linux    | GCC 13+ or Clang 18+; Make or Ninja                                         |
 | Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                |
-| Python   | CPython 3.9-3.13 with development headers (`>=3.9,<3.14`); `uv` recommended |
+| Python   | CPython 3.9-3.14 with development headers (`>=3.9,<3.15`); `uv` recommended |
 | Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`        |
 
 Clone all submodules:
@@ -61,8 +61,8 @@ BUILD_TYPE=Debug bash ./build_linux.sh
 
 When Python is requested, the script creates or reuses
 `dal-python/.venv`, installs `pytest` and `numpy` if needed, and configures CMake
-with that interpreter. `--python` accepts exactly 3.9, 3.10, 3.11, 3.12, or
-3.13; without it, the script resolves CPython in `>=3.9,<3.14`. A reused
+with that interpreter. `--python` accepts exactly 3.9, 3.10, 3.11, 3.12, 3.13, or
+3.14; without it, the script resolves CPython in `>=3.9,<3.15`. A reused
 environment must match the requested minor and is not replaced on a mismatch.
 Useful environment overrides are:
 
@@ -304,7 +304,7 @@ prefix, then install `dal-python` against that prefix:
 ```bash
 bash ./build_linux.sh
 cd dal-python
-uv venv --python ">=3.9,<3.14"
+uv venv --python ">=3.9,<3.15"
 source .venv/bin/activate
 uv pip install -e ".[test]" "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 python -m pytest tests -v
@@ -338,15 +338,15 @@ installation; a different minor, an unsupported version, or a non-CPython
 interpreter fails without mutating that environment.
 
 Official releases remain CPython-specific, wheel-only builds for Linux x86-64
-(`manylinux_2_28_x86_64`) and Windows AMD64 (`win_amd64`). An annotated release
-tag on the current `master` commit builds CPython 3.9-3.13 on both platforms
-(ten wheels), with tags from `cp39-cp39` through `cp313-cp313`. Each built wheel
+(`manylinux_2_28_x86_64`), Windows AMD64 (`win_amd64`), macOS Intel and Apple Silicon.
+An annotated release tag on the current `master` commit builds CPython 3.9-3.14
+on all four targets (24 wheels), with tags from `cp39-cp39` through `cp314-cp314`. Each built wheel
 runs the installed-wheel Python unit suite before publication. Pull requests and
 manual dispatches do not run the release workflow. The separate Python wheel CI
-builds and tests `cp39-cp39` and `cp313-cp313` on both platforms (four wheels)
+builds and tests `cp39-cp39` and `cp314-cp314` on all four targets (eight wheels)
 for path-matched pull requests. Linux filenames always
 include the 2.28 platform component and may also carry unique compatible
-PEP 600 x86-64 components for older glibc baselines. CPython 3.14, macOS, ARM,
+PEP 600 x86-64 components for older glibc baselines. Linux ARM,
 musllinux, PyPy, free-threaded CPython, and sdist publication are outside this
 release matrix.
 
