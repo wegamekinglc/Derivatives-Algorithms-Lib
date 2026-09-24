@@ -266,6 +266,63 @@ namespace Dal::Script {
             BindModelObservations(plan, product, evaluationDate);
         }
 
+        static void MarkLiveObservations(const Node_& node, Vector_<char>* live) {
+            const std::optional<size_t>* id = nullptr;
+            if (const auto* spot = dynamic_cast<const NodeSpot_*>(&node))
+                id = &spot->observationId_;
+            else if (const auto* fix = dynamic_cast<const NodeFix_*>(&node))
+                id = &fix->observationId_;
+            if (id && *id) {
+                REQUIRE2(**id < live->size(), "ObservationIdOutOfRange", ScriptError_);
+                (*live)[**id] = 1;
+            }
+            for (const auto& child : node.arguments_)
+                MarkLiveObservations(*child, live);
+        }
+
+        static Vector_<char> LiveModelObservations(const ObservationPlan_& plan, const ScriptProduct_& product) {
+            Vector_<char> live(plan.requests_.size(), 0);
+            for (const auto& event : product.Events())
+                for (const auto& statement : event)
+                    MarkLiveObservations(*statement, &live);
+            return live;
+        }
+
+        static bool HasDeadModelObservations(const ObservationPlan_& plan, const Vector_<char>& live) {
+            for (size_t id = 0; id < live.size(); ++id)
+                if (plan.requests_[id].modelSlot_ && !live[id])
+                    return true;
+            return false;
+        }
+
+        static void CompactModelOutputs(ObservationPlan_* plan, const Vector_<char>& live) {
+            for (auto& def : plan->defLine_)
+                def.indexNames_.clear();
+            for (size_t id = 0; id < live.size(); ++id) {
+                auto& request = plan->requests_[id];
+                if (!request.modelSlot_)
+                    continue;
+                if (!live[id]) {
+                    request.modelSlot_.reset();
+                    continue;
+                }
+                auto& outputs = plan->defLine_[request.modelSlot_->sampleId_].indexNames_;
+                request.modelSlot_->outputId_ = outputs.size();
+                outputs.push_back(request.key_.canonicalIndex_);
+            }
+        }
+
+        //  Keep the timeline and all event/sample IDs intact: removing dates
+        //  would change Sobol dimensions and path-dependent model evolution.
+        //  Historical requests were resolved before this pass.
+        static bool PruneDeadModelObservations(ObservationPlan_* plan, const ScriptProduct_& product) {
+            const auto live = LiveModelObservations(*plan, product);
+            if (!HasDeadModelObservations(*plan, live))
+                return false;
+            CompactModelOutputs(plan, live);
+            return true;
+        }
+
     public:
         static PreparedScript_ Prepare(const ScriptProductData_& data,
                                        const ScriptValuationSettings_& valuation,
@@ -329,6 +386,10 @@ namespace Dal::Script {
                 if (writable->ContainsExercise()) {
                     writable->OptimizeLsmc();
                     result.maxNestedIfs_ = writable->IFProcess();
+                    if (PruneDeadModelObservations(result.plan_.get(), *writable)) {
+                        model->Allocate(result.TimeLine(), result.DefLine());
+                        model->Init(result.TimeLine(), result.DefLine());
+                    }
                 }
                 if (simulation.compiled_.value_or(false)) {
                     if (auto* observer = Detail::SimulationObserver())

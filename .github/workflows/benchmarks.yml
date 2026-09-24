@@ -1,0 +1,422 @@
+name: Scheduled Benchmarks
+on:
+  schedule:
+    - cron: '0 6,18 * * *'
+      timezone: Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-benchmarks
+  cancel-in-progress: false
+
+jobs:
+  # Paired Linux measurements run outside pull-request and push CI.
+  linux:
+    name: Linux benchmarks
+    runs-on: ubuntu-latest
+    # No ccache here: this job builds with -march=native, and cached objects
+    # restored on a different runner CPU generation crash with SIGILL.
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+          # The previous master commit is the scheduled comparison baseline.
+          fetch-depth: 2
+
+      - name: Resolve benchmark base SHA
+        run: echo "BASE_SHA=$(git rev-parse HEAD^1)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: benchmark-base
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake time \
+            libc++-dev autotools-dev autoconf libtool
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # @v10.1.0
+
+      - name: Set up benchmark Python
+        run: |
+          export VIRTUAL_ENV="$PWD/dal-python/.venv"
+          uv venv "$VIRTUAL_ENV" --python 3.13
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+          uv pip install pytest numpy
+
+      - name: Capture benchmark environment
+        env:
+          BASE_SHA: ${{ env.BASE_SHA }}
+        run: |
+          resolved_base="$BASE_SHA"
+          if [ -d benchmark-base ]; then
+            resolved_base="$(git -C benchmark-base rev-parse HEAD)"
+          fi
+          python3 .github/scripts/write_benchmark_metadata.py \
+            --output benchmark-results/environment.json \
+            --head-sha "$(git rev-parse HEAD)" \
+            --base-sha "$resolved_base" \
+            --compiler gcc-14 \
+            --aad-backend aadet \
+            --threads 4 \
+            --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
+
+      - name: Test benchmark regression gate
+        run: |
+          python3 -m unittest discover -s .github/scripts/tests -v
+
+      - name: Build head benchmarks
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          # See the base build step for why this flag is here: it is a no-op
+          # on the head (the mapped prefix does not occur in head sources) but
+          # keeps CMAKE_CXX_FLAGS textually identical between the two builds.
+          cmake -S . -B build/benchmark-head \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=ON \
+            -DDAL_PUBLIC_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=ON \
+            -DPython3_EXECUTABLE="$(command -v python3)" \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build build/benchmark-head --parallel
+
+      - name: Build base benchmarks
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          # The base tree is checked out one directory deeper than the head
+          # tree, so __FILE__-embedded absolute paths differ by ~15 chars
+          # between the two builds, skewing codegen layout on fast
+          # sub-millisecond benchmark cases. Map the base prefix onto the
+          # head's so both binaries embed identical paths; the same flag text
+          # is passed to the head build (a harmless no-op there) to keep the
+          # gate's CMAKE_CXX_FLAGS equality check satisfied.
+          cmake -S benchmark-base -B benchmark-base/build/benchmark-base \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=ON \
+            -DDAL_PUBLIC_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=ON \
+            -DPython3_EXECUTABLE="$(command -v python3)" \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build benchmark-base/build/benchmark-base --parallel
+
+      - name: Verify Python workloads on both native builds
+        id: python-workloads
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          verify_python_build() {
+            local source_root="$1"
+            local build_root="$2"
+            (
+              cd "$build_root/dal-python"
+              # A new bug regression can intentionally fail on the base revision.
+              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              # Both native revisions must still satisfy the same head workloads.
+              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$GITHUB_WORKSPACE/dal-python/tests/test_benchmarks.py" -q
+            )
+          }
+          verify_python_build "$GITHUB_WORKSPACE/benchmark-base" "$GITHUB_WORKSPACE/benchmark-base/build/benchmark-base"
+          verify_python_build "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/build/benchmark-head"
+
+      - name: Run head benchmarks
+        env:
+          DAL_NUM_THREADS: 4
+          DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE: ${{ github.workspace }}/benchmark-results/generic-joint-raw-v1.csv
+        run: |
+          # Single-source benchmark list via CTest labels (H8 fix)
+          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
+          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | awk -F': ' '/Test +#/{print $2}') )
+          if [ ${#benchmarks[@]} -eq 0 ]; then
+            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/benchmark-head found no tests"
+            exit 1
+          fi
+
+          mkdir -p benchmark-results
+          benchmark_failure=0
+          for bench in "${benchmarks[@]}"; do
+            echo "========== $bench =========="
+            result_file="benchmark-results/${bench}.txt"
+            resource_file="benchmark-results/${bench}.resources.txt"
+            if /usr/bin/time --verbose --output="$resource_file" \
+              "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
+              status=0
+            else
+              status=$?
+              benchmark_failure=1
+            fi
+            echo "$status" > "benchmark-results/${bench}.status"
+            cat "$result_file"
+            echo
+          done
+
+          # One aggregated table for the whole run, replacing the old per-benchmark
+          # summary sections that each repeated their own header.
+          python3 .github/scripts/write_benchmark_summary.py \
+            --results-dir benchmark-results \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --configuration "gcc-14, native CPU tuning, AADet backend, Release." \
+            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
+
+          exit "$benchmark_failure"
+
+      - name: Compare base and head Python performance
+        id: python-performance
+        if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          # The full inventory includes 32/256-IRS native AAD node-DV01 workloads.
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source benchmark-base \
+            --head-source . \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root build/benchmark-head \
+            --output-dir benchmark-results/python-paired \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --confirmation-rounds 2 \
+            --threshold-percent 4
+
+      - name: Install Python comparison dependencies
+        id: python-comparison-dependencies
+        if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
+        run: |
+          uv pip install --require-hashes \
+            -r dal-python/benchmarks/requirements-comparisons.txt
+
+      - name: Compare Python pricing and AAD risk with QuantLib and rateslib
+        if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
+        env:
+          DAL_NUM_THREADS: 4
+          MPLCONFIGDIR: ${{ runner.temp }}/dal-comparison-matplotlib
+        run: |
+          PYTHONPATH="$PWD/build/benchmark-head/dal-python" \
+            python3 -m pytest dal-python/benchmarks/tests -q
+          python3 dal-python/benchmarks/run_comparisons.py \
+            --dal-package build/benchmark-head/dal-python \
+            --output-dir benchmark-results/python-third-party \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --rounds 2
+
+      - name: Compare base and head performance
+        if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          python3 .github/scripts/check_benchmark_regressions.py \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root build/benchmark-head \
+            --output-dir benchmark-results/paired \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --confirmation-rounds 2 \
+            --threshold-percent 4
+
+      - name: Diagnose Python regression with baseline A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          # Diagnostics never replace the original base/head verdict. Run them
+          # after all comparisons so their workloads do not precede gated timings.
+          # Keep the gate's distinct-root check: the control is an explicit copy
+          # of this binary and its configuration, not an independent rebuild.
+          mkdir -p benchmark-baseline-aa/dal-python
+          cp benchmark-base/build/benchmark-base/CMakeCache.txt benchmark-baseline-aa/
+          cp -a benchmark-base/build/benchmark-base/dal-python/dal benchmark-baseline-aa/dal-python/
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source benchmark-base --head-source benchmark-base \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root benchmark-baseline-aa \
+            --output-dir benchmark-results/python-baseline-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
+
+      - name: Diagnose Python regression with head A/A
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          mkdir -p benchmark-head-aa/dal-python
+          cp build/benchmark-head/CMakeCache.txt benchmark-head-aa/
+          cp -a build/benchmark-head/dal-python/dal benchmark-head-aa/dal-python/
+          python3 .github/scripts/check_python_benchmark_regressions.py \
+            --base-source . --head-source . \
+            --base-root build/benchmark-head --head-root benchmark-head-aa \
+            --output-dir benchmark-results/python-head-aa \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 --confirmation-rounds 2 --threshold-percent 4
+
+      - name: Preserve Python binaries after a regression
+        if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
+        run: |
+          mkdir -p benchmark-results/python-reproduction
+          tar -C benchmark-base/build/benchmark-base/dal-python \
+            -czf benchmark-results/python-reproduction/base-package.tar.gz dal
+          tar -C build/benchmark-head/dal-python \
+            -czf benchmark-results/python-reproduction/head-package.tar.gz dal
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-linux-${{ github.run_id }}-${{ github.run_attempt }}
+          path: benchmark-results
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Representative MSVC/AADet run, independent of the Windows CI gate.
+  windows:
+    name: Windows benchmarks
+    runs-on: windows-latest
+    # Keep the benchmark build independent of the CI compiler cache.
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+          fetch-depth: 2
+
+      - name: Setup MSVC environment
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            throw "Visual Studio with C++ build tools was not found"
+          }
+          $vsDevCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+          if (-not (Test-Path $vsDevCmd)) {
+            throw "VsDevCmd.bat was not found at $vsDevCmd"
+          }
+          $varsToExport = @(
+            "Path", "PATH", "INCLUDE", "LIB", "LIBPATH",
+            "UniversalCRTSdkDir", "UCRTVersion", "VCINSTALLDIR",
+            "VCToolsInstallDir", "VSINSTALLDIR", "WindowsSdkDir", "WindowsSDKVersion"
+          )
+          cmd /c "`"$vsDevCmd`" -host_arch=x64 -arch=x64 && set" | ForEach-Object {
+            if ($_ -match "^(.*?)=(.*)$") {
+              $name = $matches[1]
+              if ($varsToExport -contains $name) {
+                "$name=$($matches[2])" >> $env:GITHUB_ENV
+              }
+            }
+          }
+
+      - name: Capture benchmark environment
+        shell: bash
+        run: |
+          python3 .github/scripts/write_benchmark_metadata.py \
+            --output benchmark-results/environment.json \
+            --head-sha "$(git rev-parse HEAD)" \
+            --base-sha "$(git rev-parse HEAD^1)" \
+            --compiler cl \
+            --aad-backend aadet \
+            --threads 4 \
+            --runner-image "${ImageOS:-unknown}/${ImageVersion:-unknown}"
+
+      - name: Build Machinist
+        shell: bash
+        run: |
+          cd dal-cpp/externals/machinist
+          rm -rf build
+          mkdir -p build
+          cd build
+          cmake --preset Release-windows ..
+          cmake --build .
+          cmake --install .
+
+      - name: Run code generation
+        shell: bash
+        run: |
+          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+          cmake -DDAL_REPOSITORY_ROOT="$PWD" -P dal-cpp/cmake/normalize-calibration-generated-enums.cmake
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+
+      - name: Compile
+        shell: bash
+        env:
+          CC: cl
+          CXX: cl
+        run: |
+          rm -rf build/Release-windows build/stage/Release-windows
+          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
+            -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
+            -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build build/Release-windows --parallel
+          cmake --install build/Release-windows
+
+      - name: Run benchmarks
+        shell: bash
+        run: |
+          # Discover the same registered CTest benchmark set as the Linux job.
+          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
+          benchmarks=( $(ctest -N -L benchmark --test-dir build/Release-windows | awk -F': ' '/Test +#/{print $2}') )
+          if [ ${#benchmarks[@]} -eq 0 ]; then
+            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/Release-windows found no tests"
+            exit 1
+          fi
+
+          mkdir -p benchmark-results
+          benchmark_failure=0
+          for bench in "${benchmarks[@]}"; do
+            echo "========== $bench =========="
+            result_file="benchmark-results/${bench}.txt"
+            if "./build/stage/Release-windows/bin/$bench.exe" > "$result_file" 2>&1; then
+              status=0
+            else
+              status=$?
+              benchmark_failure=1
+            fi
+            echo "$status" > "benchmark-results/${bench}.status"
+            cat "$result_file"
+            echo
+          done
+
+          # One aggregated table for the whole run,
+          # replacing the old per-benchmark summary sections.
+          python3 .github/scripts/write_benchmark_summary.py \
+            --results-dir benchmark-results \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --configuration "msvc, native/AADet backend." \
+            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
+
+          exit "$benchmark_failure"
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-windows-${{ github.run_id }}-${{ github.run_attempt }}
+          path: benchmark-results
+          if-no-files-found: warn
+          retention-days: 30
