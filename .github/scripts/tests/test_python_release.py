@@ -118,17 +118,19 @@ class PythonReleaseTest(unittest.TestCase):
         for python_tag in python_tags:
             self.write_wheel(directory, python_tag, "manylinux_2_28_x86_64")
             self.write_wheel(directory, python_tag, "win_amd64")
+            self.write_wheel(directory, python_tag, "macosx_14_0_x86_64")
+            self.write_wheel(directory, python_tag, "macosx_14_0_arm64")
 
     def test_project_configuration_supports_python_39(self):
         _, requires_python, python_tags = VERIFY_RELEASE.project_configuration()
 
         self.assertEqual(
             VERIFY_RELEASE.normalized_requires_python(requires_python),
-            frozenset((">=3.9", "<3.14")),
+            frozenset((">=3.9", "<3.15")),
         )
         self.assertEqual(
             set(python_tags),
-            {"cp39", "cp310", "cp311", "cp312", "cp313"},
+            {"cp39", "cp310", "cp311", "cp312", "cp313", "cp314"},
         )
 
     def test_rejects_duplicate_expected_python_selector(self):
@@ -137,7 +139,7 @@ class PythonReleaseTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate selector 'cp39'"):
             VERIFY_RELEASE.validate_expected_python_tags(("cp39", "cp39"), configured)
 
-    def test_accepts_complete_platform_pair(self):
+    def test_accepts_complete_platform_matrix(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             version, _, _ = VERIFY_RELEASE.project_configuration()
@@ -147,6 +149,8 @@ class PythonReleaseTest(unittest.TestCase):
                 "manylinux_2_27_x86_64.manylinux_2_28_x86_64",
             )
             self.write_wheel(directory, "cp313", "win_amd64")
+            self.write_wheel(directory, "cp313", "macosx_14_0_x86_64")
+            self.write_wheel(directory, "cp313", "macosx_14_0_arm64")
 
             manifest = VERIFY_RELEASE.validate_release(
                 directory,
@@ -154,7 +158,7 @@ class PythonReleaseTest(unittest.TestCase):
                 tag=f"dal-python-v{version}",
             )
 
-            self.assertEqual(len(manifest), 2)
+            self.assertEqual(len(manifest), 4)
 
     def test_rejects_raw_linux_platform_tag(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -238,6 +242,12 @@ class PythonReleaseTest(unittest.TestCase):
             "manylinux_2_28_x86_64.manylinux_2_28_x86_64",
             "win32",
             "win_amd64.win32",
+            "macosx_10_13_x86_64.macosx_11_0_arm64",
+            "macosx_11_0_universal2",
+            "macosx_10_15_arm64",
+            "macosx_10_8_x86_64",
+            "macosx_13_0_arm64",
+            "macosx_13_0_x86_64",
         )
         for platform in platforms:
             with self.subTest(platform=platform), tempfile.TemporaryDirectory() as tmp:
@@ -352,8 +362,8 @@ class PythonReleaseTest(unittest.TestCase):
 
     def test_accepts_reduced_and_complete_matrices(self):
         for python_tags in (
-            ("cp39", "cp313"),
-            ("cp39", "cp310", "cp311", "cp312", "cp313"),
+            ("cp39", "cp314"),
+            ("cp39", "cp310", "cp311", "cp312", "cp313", "cp314"),
         ):
             with self.subTest(python_tags=python_tags), tempfile.TemporaryDirectory() as tmp:
                 directory = Path(tmp)
@@ -363,16 +373,35 @@ class PythonReleaseTest(unittest.TestCase):
                     directory, expected_python_tags=python_tags
                 )
 
-                self.assertEqual(len(manifest), len(python_tags) * 2)
+                self.assertEqual(len(manifest), len(python_tags) * 4)
 
     def test_rejects_each_missing_newer_target_from_complete_matrix(self):
-        configured = ("cp39", "cp310", "cp311", "cp312", "cp313")
+        configured = ("cp39", "cp310", "cp311", "cp312", "cp313", "cp314")
         for missing in configured[1:]:
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
                 directory = Path(tmp)
                 self.write_matrix(directory, tuple(tag for tag in configured if tag != missing))
                 with self.assertRaisesRegex(ValueError, "wheel matrix mismatch"):
                     VERIFY_RELEASE.validate_release(directory)
+
+    def test_rejects_missing_macos_architecture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            self.write_matrix(directory, ("cp314",))
+            arm_wheel = next(directory.glob("*macosx_*_arm64.whl"))
+            arm_wheel.unlink()
+
+            with self.assertRaisesRegex(ValueError, "macos-arm64"):
+                VERIFY_RELEASE.validate_release(directory, expected_python_tags=("cp314",))
+
+    def test_rejects_duplicate_macos_architecture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            self.write_matrix(directory, ("cp314",))
+            self.write_wheel(directory, "cp314", "macosx_15_0_arm64")
+
+            with self.assertRaisesRegex(ValueError, "duplicate wheel target"):
+                VERIFY_RELEASE.validate_release(directory, expected_python_tags=("cp314",))
 
     def test_rejects_duplicate_target(self):
         with tempfile.TemporaryDirectory() as tmp:

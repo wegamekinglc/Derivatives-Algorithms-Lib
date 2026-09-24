@@ -72,6 +72,11 @@ Python tests can be run with:
 (cd dal-python && python -m pytest tests -v)
 ```
 
+Path-matched pull requests also build Linux and Windows Python wheels for
+CPython 3.9 and 3.13 in the separate wheel CI workflow. Each built wheel runs
+the installed-package unit suite; the CPython 3.9 wheels receive an additional
+fresh-environment smoke test.
+
 Installed-package changes should also configure and run the consumer under
 `tests/installed-consumer/` against a fresh staging prefix.
 

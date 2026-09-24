@@ -6,7 +6,7 @@
 # Prerequisites:
 # - C++ library must be installed (run ..\build_windows.bat)
 # - uv must be installed
-# - CPython 3.9-3.13 with development headers
+# - CPython 3.9-3.14 with development headers
 # - Visual Studio 2022 with C++ workload
 #
 # Usage:
@@ -30,13 +30,13 @@ if ($Help) {
     Write-Output ""
     Write-Output "Options:"
     Write-Output "  -Clean         Clean build artifacts before building"
-    Write-Output "  -Python <minor> Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
+    Write-Output "  -Python <minor> Select CPython 3.9 through 3.14"
     Write-Output "  -DalInstallPrefix <path>  Installed DAL prefix"
     Write-Output "  -Help          Show this help message"
     exit 0
 }
 
-$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13")
+$SupportedPythons = @("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
 $PythonRequested = $PSBoundParameters.ContainsKey("Python")
 if ($PythonRequested -and ((-not $Python) -or ($Python -notin $SupportedPythons))) {
     Write-Error "-Python: unsupported value '$Python'; expected one of $($SupportedPythons -join ', ')"
@@ -93,7 +93,7 @@ if (-not (Test-Path $VenvPython)) {
     if (Test-Path $VenvDir) {
         Write-Error "build_wheel.ps1: environment '$VenvDir' has no executable Python; rerun with -Clean to recreate it"
     }
-    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.14" }
+    $PythonRequest = if ($PythonRequested) { $Python } else { ">=3.9,<3.15" }
     uv venv $VenvDir --python $PythonRequest
 }
 $CompatArgs = @(
@@ -111,7 +111,7 @@ Write-Output "  Build environment ready"
 
 # Install build dependencies
 Write-Output "Installing build dependencies..."
-uv pip install -q "scikit-build-core==1.0.3" cmake ninja build
+uv pip install -q "scikit-build-core==1.0.3" "pybind11==3.1.0" cmake ninja build
 Write-Output "  Build dependencies installed"
 
 # Build wheel

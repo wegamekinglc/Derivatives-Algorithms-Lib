@@ -557,15 +557,15 @@ def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
         errors.append(
             "dal-python: src/dal/__init__.py __version__ must match pyproject.toml project.version"
         )
-    if project.get("requires-python") != ">=3.9,<3.14":
-        errors.append("dal-python/pyproject.toml: release wheels must target CPython 3.9-3.13")
+    if project.get("requires-python") != ">=3.9,<3.15":
+        errors.append("dal-python/pyproject.toml: release wheels must target CPython 3.9-3.14")
     classifiers = project.get("classifiers", [])
     implementation_classifier = "Programming Language :: Python :: Implementation :: CPython"
     if implementation_classifier not in classifiers:
         errors.append("dal-python/pyproject.toml: missing CPython implementation classifier")
     expected_versions = {
         f"Programming Language :: Python :: {version}"
-        for version in ("3.9", "3.10", "3.11", "3.12", "3.13")
+        for version in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
     }
     actual_versions = {
         classifier
@@ -574,7 +574,7 @@ def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
     }
     if actual_versions != expected_versions:
         errors.append(
-            "dal-python/pyproject.toml: version classifiers must be exactly CPython 3.9-3.13"
+            "dal-python/pyproject.toml: version classifiers must be exactly CPython 3.9-3.14"
         )
     if project.get("readme") != "README.md":
         errors.append("dal-python/pyproject.toml: project.readme must publish the component README")
@@ -582,18 +582,22 @@ def check_python_project_metadata(errors: list[str], metadata: dict) -> None:
 
 def check_cibuildwheel_config(errors: list[str], metadata: dict) -> None:
     cibuildwheel = metadata["tool"]["cibuildwheel"]
-    expected_builds = {"cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*"}
+    expected_builds = {"cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"}
     actual_builds = cibuildwheel.get("build", [])
     if len(actual_builds) != len(set(actual_builds)):
         errors.append("dal-python/pyproject.toml: cibuildwheel selectors must be unique")
     if set(actual_builds) != expected_builds:
-        errors.append("dal-python/pyproject.toml: cibuildwheel build matrix must cover cp39-cp313")
+        errors.append("dal-python/pyproject.toml: cibuildwheel build matrix must cover cp39-cp314")
     if cibuildwheel.get("linux", {}).get("manylinux-x86_64-image") != "manylinux_2_28":
         errors.append("dal-python/pyproject.toml: Linux wheels must use manylinux_2_28")
     if cibuildwheel.get("linux", {}).get("archs") != ["x86_64"]:
         errors.append("dal-python/pyproject.toml: Linux wheel architecture must be x86_64")
     if cibuildwheel.get("windows", {}).get("archs") != ["AMD64"]:
         errors.append("dal-python/pyproject.toml: Windows wheel architecture must be AMD64")
+    if cibuildwheel.get("macos", {}).get("archs") != ["native"]:
+        errors.append("dal-python/pyproject.toml: macOS wheels must use native runner architecture")
+    if cibuildwheel.get("macos", {}).get("environment", {}).get("MACOSX_DEPLOYMENT_TARGET") != "14.0":
+        errors.append("dal-python/pyproject.toml: macOS wheels require the 14.0 deployment target")
     if cibuildwheel.get("test-command") != "python -m pytest {package}/tests -q":
         errors.append("dal-python/pyproject.toml: each built wheel must run the Python unit suite")
     if "pytest>=7.0" not in cibuildwheel.get("test-requires", []):
@@ -610,11 +614,11 @@ def check_python_helper_scripts(errors: list[str]) -> None:
         "dal-python/run_tests.sh",
     ):
         script = (ROOT / relative_path).read_text(encoding="utf-8")
-        if '">=3.9,<3.14"' not in script:
+        if '">=3.9,<3.15"' not in script:
             errors.append(f"{relative_path}: uv interpreter range must match project.requires-python")
         selector = "-Python" if relative_path.endswith(".ps1") else "--python"
-        if selector not in script or any(version not in script for version in ("3.9", "3.10", "3.11", "3.12", "3.13")):
-            errors.append(f"{relative_path}: exact Python selector must cover 3.9-3.13")
+        if selector not in script or any(version not in script for version in ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")):
+            errors.append(f"{relative_path}: exact Python selector must cover 3.9-3.14")
         if "python_compat.py" not in script:
             errors.append(f"{relative_path}: reused environments must use shared interpreter validation")
         if relative_path != "build_linux.sh" and '"scikit-build-core==1.0.3"' not in script:
@@ -672,8 +676,8 @@ def check_stale_python_release_texts(
     current_docs: dict[str, str], errors: list[str]
 ) -> None:
     stale_patterns = (
-        r"\b3\.10(?:-|–|—|\s+to\s+|\s+through\s+)3\.13\b",
-        r"\beight wheels\b",
+        r"\b3\.9(?:-|–|—|\s+to\s+|\s+through\s+)3\.13\b",
+        r"\bten wheels\b",
     )
     for document, text in current_docs.items():
         for pattern in stale_patterns:
@@ -688,25 +692,27 @@ def check_required_python_release_texts(
 ) -> None:
     required = {
         "dal-python/README.md": (
-            "CPython 3.9-3.13",
-            ">=3.9,<3.14",
+            "CPython 3.9-3.14",
+            ">=3.9,<3.15",
             "`manylinux_2_28_x86_64`",
             "`win_amd64`",
+            "`macosx_*_x86_64`",
+            "`macosx_*_arm64`",
             "`cp39-cp39`",
-            "`cp313-cp313`",
-            "ten wheels",
+            "`cp314-cp314`",
+            "24 wheels",
         ),
         "docs/installation.md": (
-            "CPython 3.9-3.13",
-            ">=3.9,<3.14",
+            "CPython 3.9-3.14",
+            ">=3.9,<3.15",
             "`cp39-cp39`",
-            "`cp313-cp313`",
-            "ten wheels",
+            "`cp314-cp314`",
+            "24 wheels",
         ),
         "CHANGELOG.md": (
-            "CPython 3.9-3.13",
-            "Requires-Python: >=3.9,<3.14",
-            "ten CPython-specific wheels",
+            "CPython 3.9-3.14",
+            "Requires-Python: >=3.9,<3.15",
+            "24 CPython-specific wheels",
         ),
     }
     for document, fragments in required.items():
@@ -734,8 +740,6 @@ def check_python_release_selector_texts(selector_docs: str, errors: list[str]) -
 
 def check_python_release_exclusion_texts(readme: str, errors: list[str]) -> None:
     for exclusion in (
-        "CPython 3.14",
-        "macOS",
         "Linux ARM",
         "musllinux",
         "PyPy",

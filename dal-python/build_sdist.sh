@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 # - uv must be installed
-# - CPython 3.9-3.13
+# - CPython 3.9-3.14
 #
 # Usage:
 #   ./build_sdist.sh         # Build source distribution
@@ -28,7 +28,7 @@ NC='\033[0m' # No Color
 CLEAN=false
 PYTHON_REQUESTED=false
 PYTHON_VERSION=""
-SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13"
+SUPPORTED_PYTHONS="3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --clean)
@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --clean        Clean build artifacts before building"
-            echo "  --python MINOR Select CPython 3.9, 3.10, 3.11, 3.12, or 3.13"
+            echo "  --python MINOR Select CPython 3.9 through 3.14"
             echo "  --help, -h     Show this help message"
             exit 0
             ;;
@@ -61,7 +61,7 @@ done
 
 if [[ $PYTHON_REQUESTED == true ]]; then
     case "$PYTHON_VERSION" in
-        3.9|3.10|3.11|3.12|3.13) ;;
+        3.9|3.10|3.11|3.12|3.13|3.14) ;;
         *)
             echo "--python: unsupported value '$PYTHON_VERSION'; expected one of $SUPPORTED_PYTHONS" >&2
             exit 1
@@ -100,7 +100,7 @@ if [[ ! -x "$VENV_PYTHON" ]]; then
     if [[ $PYTHON_REQUESTED == true ]]; then
         uv venv "$VENV_DIR" --python "$PYTHON_VERSION"
     else
-        uv venv "$VENV_DIR" --python ">=3.9,<3.14"
+        uv venv "$VENV_DIR" --python ">=3.9,<3.15"
     fi
 fi
 compat_args=(
@@ -117,7 +117,7 @@ echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q "scikit-build-core==1.0.3" build "pybind11==2.11.1"
+uv pip install -q "scikit-build-core==1.0.3" build "pybind11==3.1.0"
 echo -e "${GREEN}✓ Build dependencies installed${NC}"
 
 # Build sdist
@@ -152,8 +152,8 @@ echo ""
 echo "Note: Building from source requires:"
 echo "  - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)"
 echo "  - CMake 3.21+"
-echo "  - pybind11 2.11.1 (installed automatically from the sdist build requirements)"
-echo "  - CPython 3.9-3.13 development headers"
+echo "  - pybind11 3.1.0 (installed automatically from the sdist build requirements)"
+echo "  - CPython 3.9-3.14 development headers"
 echo "  - DAL staged install containing lib/cmake/dal-public/dal-publicConfig.cmake"
 echo ""
 

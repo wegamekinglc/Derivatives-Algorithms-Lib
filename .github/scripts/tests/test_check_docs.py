@@ -305,15 +305,15 @@ class PythonReleaseContractTest(unittest.TestCase):
     def test_rejects_stale_public_python_release_claims(self):
         texts = self.document_texts()
         mutations = (
-            ("readme", "CPython 3.9-3.13", "CPython 3.10-3.13"),
-            ("readme", "ten wheels", "eight wheels"),
-            ("changelog", "ten CPython-specific wheels", "eight wheels"),
+            ("readme", "CPython 3.9-3.14", "CPython 3.10-3.14"),
+            ("readme", "24 wheels", "eight wheels"),
+            ("changelog", "24 CPython-specific wheels", "eight wheels"),
         )
         for document, old, new in mutations:
             with self.subTest(document=document, replacement=new):
                 mutated = dict(texts)
                 self.assertIn(old, mutated[document])
-                mutated[document] = mutated[document].replace(old, new, 1)
+                mutated[document] = mutated[document].replace(old, new)
                 errors: list[str] = []
 
                 CHECK_DOCS.check_python_release_document_texts(

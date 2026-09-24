@@ -24,6 +24,8 @@ LINUX_PLATFORM = "manylinux_2_28_x86_64"
 WINDOWS_PLATFORM = "win_amd64"
 PYTHON_TAG_RE = re.compile(r"cp[1-9][0-9]+")
 MANYLINUX_PLATFORM_RE = re.compile(r"manylinux_([0-9]+)_([0-9]+)_x86_64")
+MACOS_PLATFORM_RE = re.compile(r"macosx_([0-9]+)_([0-9]+)_(x86_64|arm64)")
+PLATFORM_FAMILIES = ("linux", "windows", "macos-x86_64", "macos-arm64")
 
 
 def project_configuration() -> tuple[str, str, tuple[str, ...]]:
@@ -113,6 +115,14 @@ def platform_family(platform_tag: str) -> str:
         raise ValueError(
             f"Windows platform must be exactly {WINDOWS_PLATFORM!r}, observed {platform_tag!r}"
         )
+    if len(components) == 1:
+        match = MACOS_PLATFORM_RE.fullmatch(components[0])
+        if match is not None:
+            major, minor, architecture = match.groups()
+            version = (int(major), int(minor))
+            if version < (14, 0):
+                raise ValueError("macOS wheels require a deployment target of at least 14.0")
+            return f"macos-{architecture}"
     raise ValueError(f"unsupported or unrepaired wheel platform tag: {platform_tag}")
 
 
@@ -285,7 +295,7 @@ def validate_release(
         actual.add(target)
         manifest.append(f"{digest}  {wheel.name}")
 
-    expected = {(python_tag, family) for python_tag in python_tags for family in ("linux", "windows")}
+    expected = {(python_tag, family) for python_tag in python_tags for family in PLATFORM_FAMILIES}
     if actual != expected:
         raise ValueError(
             f"wheel matrix mismatch: missing={sorted(expected - actual)}, "

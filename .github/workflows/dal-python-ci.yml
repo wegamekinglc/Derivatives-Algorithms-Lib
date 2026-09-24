@@ -1,0 +1,133 @@
+name: dal-python wheel CI
+
+on:
+  pull_request:
+    paths:
+      - .github/scripts/check_dal_python_syntax.py
+      - .github/scripts/check_docs.py
+      - .github/scripts/tests/test_check_docs.py
+      - .github/scripts/tests/test_python_helpers*.py
+      - .github/scripts/tests/test_python_release.py
+      - .github/scripts/tests/test_python_smoke.py
+      - .github/scripts/tests/test_python_syntax.py
+      - .github/workflows/dal-python-ci.yml
+      - .github/workflows/dal-python-release.yml
+      - dal-python/**
+      - '!dal-python/**/*.md'
+      - '!dal-python/**/*.mdx'
+      - '!dal-python/**/*.rst'
+      - CMakeLists.txt
+      - CMakePresets.json
+      - dal-cpp/**
+      - '!dal-cpp/**/*.md'
+      - '!dal-cpp/**/*.mdx'
+      - '!dal-cpp/**/*.rst'
+      - dal-public/**
+      - '!dal-public/**/*.md'
+      - '!dal-public/**/*.mdx'
+      - '!dal-public/**/*.rst'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Check Python 3.9 compatibility
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # @v10.1.0
+
+      - name: Check Python 3.9 syntax compatibility
+        run: >-
+          uv run --isolated --no-project --python 3.9 python
+          .github/scripts/check_dal_python_syntax.py
+
+  wheels:
+    name: ${{ matrix.platform }} wheels
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x86_64
+          - os: windows-2022
+            platform: windows-amd64
+          - os: macos-15-intel
+            platform: macos-x86_64
+          - os: macos-15
+            platform: macos-arm64
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # @v10.1.0
+
+      - name: Test executable PowerShell helper contracts
+        if: matrix.platform == 'windows-amd64'
+        shell: pwsh
+        run: >-
+          uv run --isolated --no-project --python 3.13 python
+          .github/scripts/tests/test_python_helpers_powershell.py -v
+
+      - name: Test POSIX helper contracts
+        if: matrix.platform == 'linux-x86_64'
+        run: >-
+          uv run --isolated --no-project --python 3.13 python
+          .github/scripts/tests/test_python_helpers.py -v
+
+      - name: Build and test wheels
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
+        with:
+          package-dir: dal-python
+          output-dir: wheelhouse
+        env:
+          CIBW_BUILD: cp39-* cp314-*
+
+      - name: Smoke test installed Python 3.9 wheel
+        run: >-
+          uv run --isolated --no-project --python 3.9 python
+          dal-python/scripts/smoke_installed_wheel.py
+          --wheelhouse "${{ github.workspace }}/wheelhouse"
+          --environment "${{ runner.temp }}/dal-python-smoke-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.platform }}"
+          --work-dir "${{ runner.temp }}/dal-python-smoke-work-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.platform }}"
+          --exclude "${{ github.workspace }}"
+          --exclude "${{ github.workspace }}/wheelhouse"
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.platform }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  verify:
+    name: Verify wheel matrix and metadata
+    needs: wheels
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheels-*
+          path: wheelhouse
+          merge-multiple: true
+
+      - name: Validate eight-wheel CI matrix
+        run: >-
+          python dal-python/scripts/verify_release.py
+          --dist-dir wheelhouse --expected-python cp39,cp314

@@ -15,11 +15,12 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 ## Prerequisites
 
-- **CPython 3.9-3.13** with development headers (`Requires-Python: >=3.9,<3.14`)
+- **CPython 3.9-3.14** with development headers (`Requires-Python: >=3.9,<3.15`)
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **pybind11 2.11.1** — installed automatically for isolated package builds;
-  repository builds fall back to the pinned `dal-cpp/externals/pybind11`
-  submodule, so run `git submodule update --init --recursive` on fresh clones
+- **pybind11 3.1.0** — installed automatically for isolated package builds;
+  local helpers install it before non-isolated builds. Older repository builds
+  can fall back to the pinned `dal-cpp/externals/pybind11` submodule, so run
+  `git submodule update --init --recursive` on fresh clones
 - **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - **DAL C++ staged install** — build core/public first; the canonical workflow is
   in the [installation guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/installation.md#python-bindings)
@@ -46,7 +47,7 @@ Clone the repository and install in editable mode:
 cd Derivatives-Algorithms-Lib/dal-python
 
 # Create a virtual environment with uv
-uv venv --python ">=3.9,<3.14"
+uv venv --python ">=3.9,<3.15"
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies and build the extension
@@ -91,8 +92,8 @@ bash ./build_linux.sh --python 3.9
 .\run_tests.ps1 -Python 3.9
 ```
 
-The accepted values are 3.9, 3.10, 3.11, 3.12, and 3.13. When the selector is
-omitted, the helpers resolve a CPython in `>=3.9,<3.14`. A reused `.venv` must
+The accepted values are 3.9, 3.10, 3.11, 3.12, 3.13, and 3.14. When the selector is
+omitted, the helpers resolve a CPython in `>=3.9,<3.15`. A reused `.venv` must
 already use the selected CPython minor; mismatches fail without replacing the
 environment.
 
@@ -136,19 +137,19 @@ The source archive is created under `dist/`.
 
 Install from source (requires C++ build tools):
 ```bash
-pip install dist/dal_python-2026.9.23.tar.gz \
+pip install dist/dal_python-2026.9.25.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 # or
-uv pip install dist/dal_python-2026.9.23.tar.gz \
+uv pip install dist/dal_python-2026.9.25.tar.gz \
   "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 ```
 
 **Requirements for building from source:**
 - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - CMake 3.21+
-- pybind11 2.11.1 (declared as an isolated build requirement and installed
-  automatically; repository builds may use the pinned vendored submodule)
-- CPython 3.9-3.13 development headers
+- pybind11 3.1.0 (declared as an isolated build requirement and installed
+  automatically; Python 3.14 builds require pybind11 3.0 or newer)
+- CPython 3.9-3.14 development headers
 - DAL staged install containing the `dal-public`/`dal-cpp` CMake packages and
   platform libraries
 
@@ -158,22 +159,27 @@ Release tags build and test this wheel matrix:
 
 | Operating system | Architecture | Wheel platform tag      | CPython versions |
 |------------------|--------------|-------------------------|------------------|
-| Linux            | x86-64       | `manylinux_2_28_x86_64` | 3.9-3.13         |
-| Windows          | x86-64       | `win_amd64`             | 3.9-3.13         |
+| Linux            | x86-64       | `manylinux_2_28_x86_64` | 3.9-3.14         |
+| Windows          | x86-64       | `win_amd64`             | 3.9-3.14         |
+| macOS 14+        | x86-64       | `macosx_*_x86_64`      | 3.9-3.14         |
+| macOS 14+        | Apple Silicon | `macosx_*_arm64`      | 3.9-3.14         |
 
 Every release artifact is a CPython-specific native wheel. Python/ABI tags run
-from `cp39-cp39` through `cp313-cp313`; DAL does not publish `abi3` or universal
+from `cp39-cp39` through `cp314-cp314`; DAL does not publish `abi3` or universal
 wheels. An annotated `dal-python-v<version>` tag on the current `master` commit
-builds all five supported interpreters on both platforms, for ten wheels.
+builds all six supported interpreters on four platform/architecture targets, for 24 wheels.
 After each wheel is built, cibuildwheel runs the installed-wheel Python unit
-suite. Pull requests and manual dispatches do not run the release workflow.
+suite. The separate Python wheel CI runs on path-matched pull requests: it
+builds `cp39` and `cp314` on all four targets (eight wheels), runs the same unit
+suite, and smoke-tests the installed `cp39` wheels. Pull requests and manual
+dispatches do not run the release workflow.
 
 Linux filenames always include `manylinux_2_28_x86_64` and may also contain
 unique compatible PEP 600 x86-64 components for glibc baselines no newer than
 2.28. Mixed platform families, other architectures, raw Linux, legacy manylinux,
-and musllinux tags are rejected. macOS, Linux ARM, PyPy, free-threaded CPython,
-source distributions, and CPython 3.14 are not part of the current PyPI release
-contract.
+and musllinux tags are rejected. macOS wheels use one native architecture tag;
+mixed or universal2 tags are rejected. Linux ARM, PyPy, free-threaded CPython,
+and source distributions are outside the current PyPI release contract.
 
 Before building, the workflow checks that the annotated tag points to the
 current `master` commit and that the version is unused on PyPI. Before upload,
@@ -215,7 +221,7 @@ OIDC short-lived credentials; do not add a long-lived PyPI API token.
 
 4. The tag run builds and unit-tests every wheel, validates the complete wheel
    set and unused PyPI version, then publishes those wheel files through the
-   `pypi` environment. Confirm that PyPI lists all ten wheels.
+   `pypi` environment. Confirm that PyPI lists all 24 wheels.
 
 PyPI versions and files are immutable. Never use a skip-existing option to repair
 an incomplete release; correct the issue, increment the version, and run the full

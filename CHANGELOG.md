@@ -16,7 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-25
+
+- **Python binary releases add CPython 3.14 and macOS** — `dal-python` now
+  supports CPython 3.9-3.14 (`Requires-Python: >=3.9,<3.15`) and publishes
+  24 CPython-specific wheels across Linux x86-64, Windows AMD64, macOS Intel,
+  and macOS Apple Silicon. See `dal-python/README.md`.
+
 ## 2026-09-23
+
 
 - **LSMC trains and prices on disjoint path blocks** — hard and fuzzy/AAD
   valuation fit on the first M Sobol paths and value the frozen policy on the
