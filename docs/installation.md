@@ -342,7 +342,9 @@ Official releases remain CPython-specific, wheel-only builds for Linux x86-64
 tag on the current `master` commit builds CPython 3.9-3.13 on both platforms
 (ten wheels), with tags from `cp39-cp39` through `cp313-cp313`. Each built wheel
 runs the installed-wheel Python unit suite before publication. Pull requests and
-manual dispatches do not run the release workflow. Linux filenames always
+manual dispatches do not run the release workflow. The separate Python wheel CI
+builds and tests `cp39-cp39` and `cp313-cp313` on both platforms (four wheels)
+for path-matched pull requests. Linux filenames always
 include the 2.28 platform component and may also carry unique compatible
 PEP 600 x86-64 components for older glibc baselines. CPython 3.14, macOS, ARM,
 musllinux, PyPy, free-threaded CPython, and sdist publication are outside this

@@ -17,6 +17,9 @@ the compile or sanitizer jobs. Pushes to `master` (merges and direct
 master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
 because the pull request already covered every combination. GitHub publishes
 one status badge per workflow; open a workflow run for per-job results.
+Path-matched pull requests run [Python wheel CI](.github/workflows/dal-python-ci.yml)
+for installed-package tests on Linux and Windows; PyPI publication remains in
+the tag-only [release workflow](.github/workflows/dal-python-release.yml).
 
 Benchmarks run in a separate [scheduled workflow](.github/workflows/benchmarks.yml)
 at 06:00 and 18:00 Asia/Shanghai every day, with manual dispatch available.

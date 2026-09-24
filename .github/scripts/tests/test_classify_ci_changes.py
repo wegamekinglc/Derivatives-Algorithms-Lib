@@ -200,6 +200,24 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertNotIn("  pull_request:", workflow)
         self.assertNotIn("  workflow_dispatch:", workflow)
 
+    def test_pull_requests_build_and_test_python_wheels_outside_release(self):
+        workflow = self.workflow("dal-python-ci.yml")
+        self.assertIn("on:\n  pull_request:\n    paths:\n", workflow)
+        for component in ("dal-python", "dal-cpp", "dal-public"):
+            self.assertIn(f"      - {component}/**\n", workflow)
+            for suffix in ("md", "mdx", "rst"):
+                self.assertIn(f"      - '!{component}/**/*.{suffix}'\n", workflow)
+        self.assertIn("      - .github/workflows/dal-python-ci.yml\n", workflow)
+        self.assertNotIn("gh-action-pypi-publish", workflow)
+        wheels = self.job(workflow, "wheels")
+        self.assertIn("CIBW_BUILD: cp39-* cp313-*", wheels)
+        self.assertIn("pypa/cibuildwheel@", wheels)
+        self.assertIn("smoke_installed_wheel.py", wheels)
+        verify = self.job(workflow, "verify")
+        self.assertIn("needs: wheels", verify)
+        self.assertIn("--expected-python cp39,cp313", verify)
+        self.assertIn("verify_release.py", verify)
+
     def test_linux_fast_path_preserves_docs_and_stable_gate(self):
         workflow = self.workflow("cmake-linux.yml")
         heavy_jobs = (

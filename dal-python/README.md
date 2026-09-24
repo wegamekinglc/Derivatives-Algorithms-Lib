@@ -166,7 +166,10 @@ from `cp39-cp39` through `cp313-cp313`; DAL does not publish `abi3` or universal
 wheels. An annotated `dal-python-v<version>` tag on the current `master` commit
 builds all five supported interpreters on both platforms, for ten wheels.
 After each wheel is built, cibuildwheel runs the installed-wheel Python unit
-suite. Pull requests and manual dispatches do not run the release workflow.
+suite. The separate Python wheel CI runs on path-matched pull requests: it
+builds `cp39` and `cp313` on both platforms (four wheels), runs the same unit
+suite, and smoke-tests the installed `cp39` wheels. Pull requests and manual
+dispatches do not run the release workflow.
 
 Linux filenames always include `manylinux_2_28_x86_64` and may also contain
 unique compatible PEP 600 x86-64 components for glibc baselines no newer than
