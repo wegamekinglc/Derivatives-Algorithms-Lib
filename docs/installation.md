@@ -338,7 +338,7 @@ installation; a different minor, an unsupported version, or a non-CPython
 interpreter fails without mutating that environment.
 
 Official releases remain CPython-specific, wheel-only builds for Linux x86-64
-(`manylinux_2_28_x86_64`), Windows AMD64 (`win_amd64`), macOS Intel and Apple Silicon.
+(`manylinux_2_28_x86_64`), Windows AMD64 (`win_amd64`), macOS 13.3+ Intel and Apple Silicon.
 An annotated release tag on the current `master` commit builds CPython 3.9-3.14
 on all four targets (24 wheels), with tags from `cp39-cp39` through `cp314-cp314`. Each built wheel
 runs the installed-wheel Python unit suite before publication. Pull requests and
