@@ -1,14 +1,9 @@
 """Characterize the UOC example's pricing rows at a fixed Sobol path count."""
 
-import os
-import subprocess
+import sys
 import unittest
-from pathlib import Path
 
 
-DEFAULT_BINARY = (
-    Path(__file__).resolve().parents[3] / "build/Release-linux/dal-cpp/examples/uoc/uoc"
-)
 NON_AAD = ("32768", "153", "1.200024", "#NA", "#NA", "#NA", "#NA", "#NA", "#NA")
 AAD = (
     "32768",
@@ -42,16 +37,7 @@ EXPECTED = {
 
 class UocOutputTest(unittest.TestCase):
     def test_fixed_path_prices_and_greeks(self):
-        binary = Path(os.environ.get("UOC_BINARY", DEFAULT_BINARY))
-        environment = {**os.environ, "DAL_NUM_THREADS": "4"}
-        result = subprocess.run(
-            (str(binary), "32768"),
-            check=True,
-            capture_output=True,
-            text=True,
-            env=environment,
-        )
-        lines = result.stdout.splitlines()
+        lines = sys.stdin.read().splitlines()
         for label, expected in EXPECTED.items():
             with self.subTest(label=label):
                 rows = [line for line in lines if line.startswith(f"{label:<14}")]
