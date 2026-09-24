@@ -77,7 +77,10 @@ namespace Dal::Script {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
         }
-        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const { return CompiledProgram(fuzzy); }
+        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
+            REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
+            return *compiled_;
+        }
         template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& scenario, E_& eval) const {
             RequireExecutable();
             eval.SetScenario(&scenario);
