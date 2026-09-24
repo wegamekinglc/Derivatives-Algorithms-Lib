@@ -13,8 +13,25 @@ permissions:
   contents: read
 
 jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Check tag provenance and version
+        shell: bash
+        run: |
+          test "$(git cat-file -t "${GITHUB_REF}")" = "tag"
+          git fetch --no-tags origin master
+          test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse "${GITHUB_REF}^{commit}")" = "${GITHUB_SHA}"
+          python dal-python/scripts/verify_release.py \
+            --version-only --tag "${GITHUB_REF_NAME}" --check-pypi
+
   wheels:
     name: ${{ matrix.platform }} wheels
+    needs: prepare
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -48,7 +65,7 @@ jobs:
 
   publish:
     name: Publish wheels to PyPI
-    needs: wheels
+    needs: [prepare, wheels]
     runs-on: ubuntu-24.04
     environment:
       name: pypi
@@ -70,9 +87,8 @@ jobs:
       - name: Validate release tag and wheels
         shell: bash
         run: |
-          git fetch --no-tags origin master
-          test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"
           test "$(git cat-file -t "${GITHUB_REF}")" = "tag"
+          test "$(git rev-parse "${GITHUB_REF}^{commit}")" = "${GITHUB_SHA}"
           python dal-python/scripts/verify_release.py \
             --dist-dir wheelhouse --tag "${GITHUB_REF_NAME}" --check-pypi
 

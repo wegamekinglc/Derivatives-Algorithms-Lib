@@ -175,9 +175,11 @@ and musllinux tags are rejected. macOS, Linux ARM, PyPy, free-threaded CPython,
 source distributions, and CPython 3.14 are not part of the current PyPI release
 contract.
 
-Before upload, the publish job checks the release tag, PyPI version availability,
-complete wheel matrix, and package metadata. It uploads the same downloaded
-wheel files that passed those checks. The toolchain is pinned (full action SHAs,
+Before building, the workflow checks that the annotated tag points to the
+current `master` commit and that the version is unused on PyPI. Before upload,
+the publish job rechecks the tag target, PyPI version, complete wheel matrix,
+and package metadata. It uploads the same downloaded wheel files that passed
+those checks. The toolchain is pinned (full action SHAs,
 exact build dependency versions, named manylinux/runner images), but
 byte-for-byte reproducibility across independent rebuilds is not currently
 enforced.

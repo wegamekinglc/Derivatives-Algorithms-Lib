@@ -269,6 +269,15 @@ class PythonReleaseContractTest(unittest.TestCase):
 
         self.assertTrue(any("unit suite" in error for error in errors))
 
+    def test_rejects_missing_pytest_dependency(self):
+        metadata = copy.deepcopy(self.metadata())
+        metadata["tool"]["cibuildwheel"]["test-requires"] = ["numpy>=1.24"]
+        errors: list[str] = []
+
+        CHECK_DOCS.check_cibuildwheel_config(errors, metadata)
+
+        self.assertTrue(any("wheel tests require pytest" in error for error in errors))
+
     def test_build_linux_python_option_is_enforced_in_installation_docs(self):
         build_script = (CHECK_DOCS.ROOT / "build_linux.sh").read_text(encoding="utf-8")
         installation = self.document_texts()["installation"]
@@ -326,9 +335,16 @@ class PythonReleaseContractTest(unittest.TestCase):
         )
         self.assertIn("pytest>=7.0", cibuildwheel["test-requires"])
         jobs = re.findall(r"^  ([a-z-]+):$", workflow.split("jobs:\n", 1)[1], re.MULTILINE)
-        self.assertEqual(jobs, ["wheels", "publish"])
+        self.assertEqual(jobs, ["prepare", "wheels", "publish"])
+        prepare = workflow.split("  prepare:\n", 1)[1].split("  wheels:\n", 1)[0]
+        wheels = workflow.split("  wheels:\n", 1)[1].split("  publish:\n", 1)[0]
         publish = workflow.split("  publish:\n", 1)[1]
-        self.assertIn("needs: wheels", publish)
+        self.assertIn("git fetch --no-tags origin master", prepare)
+        self.assertIn('test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"', prepare)
+        self.assertIn("needs: prepare", wheels)
+        self.assertIn("needs: [prepare, wheels]", publish)
+        self.assertNotIn("git fetch --no-tags origin master", publish)
+        self.assertIn('git rev-parse "${GITHUB_REF}^{commit}"', publish)
         self.assertLess(
             publish.index("name: Download wheels"),
             publish.index("name: Validate release tag and wheels"),
