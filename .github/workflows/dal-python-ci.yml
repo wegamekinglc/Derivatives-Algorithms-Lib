@@ -80,6 +80,12 @@ jobs:
           uv run --isolated --no-project --python 3.13 python
           .github/scripts/tests/test_python_helpers_powershell.py -v
 
+      - name: Test POSIX helper contracts
+        if: matrix.platform == 'linux-x86_64'
+        run: >-
+          uv run --isolated --no-project --python 3.13 python
+          .github/scripts/tests/test_python_helpers.py -v
+
       - name: Build and test wheels
         uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         with:

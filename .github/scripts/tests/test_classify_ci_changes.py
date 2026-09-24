@@ -214,6 +214,8 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         for platform in ("linux-x86_64", "windows-amd64", "macos-x86_64", "macos-arm64"):
             self.assertIn(f"platform: {platform}", wheels)
         self.assertIn("pypa/cibuildwheel@", wheels)
+        self.assertIn("if: matrix.platform == 'linux-x86_64'", wheels)
+        self.assertIn(".github/scripts/tests/test_python_helpers.py -v", wheels)
         self.assertIn("smoke_installed_wheel.py", wheels)
         verify = self.job(workflow, "verify")
         self.assertIn("needs: wheels", verify)
