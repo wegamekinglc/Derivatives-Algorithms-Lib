@@ -157,8 +157,6 @@ On a shared runner, VM, WSL2 host, thermally unstable machine, or visibly busy w
 record the environment as noisy. If additional samples do not stabilize the minima, the verdict
 is `inconclusive`, not `regression`.
 
-<a id="current-ci-reproduction"></a>
-
 ## Scheduled Workflow Reproduction
 
 The executable gate defaults to ten samples, two confirmation rounds, and a 4% threshold.

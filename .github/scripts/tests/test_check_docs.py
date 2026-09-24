@@ -15,19 +15,6 @@ SPEC.loader.exec_module(CHECK_DOCS)
 
 
 class AgentDocsTest(unittest.TestCase):
-    def test_explicit_anchor_preserves_links_after_heading_rename(self):
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            document = Path(temporary_directory) / "guide.md"
-            document.write_text(
-                '<a id="current-ci-reproduction"></a>\n'
-                '## Scheduled Workflow Reproduction\n',
-                encoding="utf-8",
-            )
-            self.assertEqual(
-                CHECK_DOCS.anchors(document),
-                {"current-ci-reproduction", "scheduled-workflow-reproduction"},
-            )
-
     def test_all_docs_cover_codex_skills_and_references(self):
         relative = {path.relative_to(CHECK_DOCS.ROOT).as_posix() for path in CHECK_DOCS.ALL_DOCS}
 

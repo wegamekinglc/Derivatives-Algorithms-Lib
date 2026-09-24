@@ -43,7 +43,6 @@ ALL_DOCS = tuple(sorted({*DOCS, *AGENT_DOCS, *CODEX_DOCS, *GITHUB_DOCS}))
 
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*$")
-HTML_ANCHOR_RE = re.compile(r"^ {0,3}<a\s+(?:id|name)=[\"']([A-Za-z0-9_-]+)[\"']\s*></a>\s*$")
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 TABLE_DELIMITER_RE = re.compile(r"^:?-{3,}:?$")
 TABLE_TOKEN_RE = re.compile(r"\\.|`+|.", flags=re.DOTALL)
@@ -138,10 +137,6 @@ def anchors(path: Path) -> set[str]:
     counts: Counter[str] = Counter()
     lines = path.read_text(encoding="utf-8").splitlines()
     for _, line in without_fenced_code(lines):
-        explicit = HTML_ANCHOR_RE.match(line)
-        if explicit:
-            result.add(explicit.group(1))
-            continue
         match = HEADING_RE.match(line)
         if not match:
             continue
