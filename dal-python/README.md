@@ -161,8 +161,8 @@ Release tags build and test this wheel matrix:
 |------------------|--------------|-------------------------|------------------|
 | Linux            | x86-64       | `manylinux_2_28_x86_64` | 3.9-3.14         |
 | Windows          | x86-64       | `win_amd64`             | 3.9-3.14         |
-| macOS 13.3+      | x86-64       | `macosx_*_x86_64`      | 3.9-3.14         |
-| macOS 13.3+      | Apple Silicon | `macosx_*_arm64`      | 3.9-3.14         |
+| macOS 14+        | x86-64       | `macosx_*_x86_64`      | 3.9-3.14         |
+| macOS 14+        | Apple Silicon | `macosx_*_arm64`      | 3.9-3.14         |
 
 Every release artifact is a CPython-specific native wheel. Python/ABI tags run
 from `cp39-cp39` through `cp314-cp314`; DAL does not publish `abi3` or universal

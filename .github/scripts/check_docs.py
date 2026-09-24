@@ -596,8 +596,8 @@ def check_cibuildwheel_config(errors: list[str], metadata: dict) -> None:
         errors.append("dal-python/pyproject.toml: Windows wheel architecture must be AMD64")
     if cibuildwheel.get("macos", {}).get("archs") != ["native"]:
         errors.append("dal-python/pyproject.toml: macOS wheels must use native runner architecture")
-    if cibuildwheel.get("macos", {}).get("environment", {}).get("MACOSX_DEPLOYMENT_TARGET") != "13.3":
-        errors.append("dal-python/pyproject.toml: macOS wheels require the 13.3 deployment target")
+    if cibuildwheel.get("macos", {}).get("environment", {}).get("MACOSX_DEPLOYMENT_TARGET") != "14.0":
+        errors.append("dal-python/pyproject.toml: macOS wheels require the 14.0 deployment target")
     if cibuildwheel.get("test-command") != "python -m pytest {package}/tests -q":
         errors.append("dal-python/pyproject.toml: each built wheel must run the Python unit suite")
     if "pytest>=7.0" not in cibuildwheel.get("test-requires", []):

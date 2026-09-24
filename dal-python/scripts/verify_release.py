@@ -120,10 +120,8 @@ def platform_family(platform_tag: str) -> str:
         if match is not None:
             major, minor, architecture = match.groups()
             version = (int(major), int(minor))
-            if architecture == "arm64" and version < (11, 0):
-                raise ValueError("macOS arm64 requires a deployment target of at least 11.0")
-            if architecture == "x86_64" and version < (10, 9):
-                raise ValueError("macOS x86-64 requires a deployment target of at least 10.9")
+            if version < (14, 0):
+                raise ValueError("macOS wheels require a deployment target of at least 14.0")
             return f"macos-{architecture}"
     raise ValueError(f"unsupported or unrepaired wheel platform tag: {platform_tag}")
 

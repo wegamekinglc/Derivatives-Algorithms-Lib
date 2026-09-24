@@ -71,4 +71,4 @@ environment = { CMAKE_ARGS = "-DDAL_INSTALL_PREFIX=C:/dal-cibw/install -DCMAKE_P
 [tool.cibuildwheel.macos]
 archs = ["native"]
 before-all = "python {package}/scripts/build_native.py --build-dir /tmp/dal-cibw-build --install-dir /tmp/dal-cibw-install"
-environment = { CMAKE_ARGS = "-DDAL_INSTALL_PREFIX=/tmp/dal-cibw-install -DCMAKE_PREFIX_PATH=/tmp/dal-cibw-install", MACOSX_DEPLOYMENT_TARGET = "13.3" }
+environment = { CMAKE_ARGS = "-DDAL_INSTALL_PREFIX=/tmp/dal-cibw-install -DCMAKE_PREFIX_PATH=/tmp/dal-cibw-install", MACOSX_DEPLOYMENT_TARGET = "14.0" }

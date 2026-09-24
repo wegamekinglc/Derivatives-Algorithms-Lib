@@ -118,8 +118,8 @@ class PythonReleaseTest(unittest.TestCase):
         for python_tag in python_tags:
             self.write_wheel(directory, python_tag, "manylinux_2_28_x86_64")
             self.write_wheel(directory, python_tag, "win_amd64")
-            self.write_wheel(directory, python_tag, "macosx_10_13_x86_64")
-            self.write_wheel(directory, python_tag, "macosx_11_0_arm64")
+            self.write_wheel(directory, python_tag, "macosx_14_0_x86_64")
+            self.write_wheel(directory, python_tag, "macosx_14_0_arm64")
 
     def test_project_configuration_supports_python_39(self):
         _, requires_python, python_tags = VERIFY_RELEASE.project_configuration()
@@ -149,8 +149,8 @@ class PythonReleaseTest(unittest.TestCase):
                 "manylinux_2_27_x86_64.manylinux_2_28_x86_64",
             )
             self.write_wheel(directory, "cp313", "win_amd64")
-            self.write_wheel(directory, "cp313", "macosx_10_13_x86_64")
-            self.write_wheel(directory, "cp313", "macosx_11_0_arm64")
+            self.write_wheel(directory, "cp313", "macosx_14_0_x86_64")
+            self.write_wheel(directory, "cp313", "macosx_14_0_arm64")
 
             manifest = VERIFY_RELEASE.validate_release(
                 directory,
@@ -246,6 +246,8 @@ class PythonReleaseTest(unittest.TestCase):
             "macosx_11_0_universal2",
             "macosx_10_15_arm64",
             "macosx_10_8_x86_64",
+            "macosx_13_0_arm64",
+            "macosx_13_0_x86_64",
         )
         for platform in platforms:
             with self.subTest(platform=platform), tempfile.TemporaryDirectory() as tmp:
@@ -396,7 +398,7 @@ class PythonReleaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             self.write_matrix(directory, ("cp314",))
-            self.write_wheel(directory, "cp314", "macosx_12_0_arm64")
+            self.write_wheel(directory, "cp314", "macosx_15_0_arm64")
 
             with self.assertRaisesRegex(ValueError, "duplicate wheel target"):
                 VERIFY_RELEASE.validate_release(directory, expected_python_tags=("cp314",))

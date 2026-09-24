@@ -128,8 +128,8 @@ def test_matrix_dimensions_must_fit_native_sentinel_storage(rows, cols):
 
 def test_matrix_exact_sentinel_boundary_preserves_memory_error():
     """An arithmetic-valid boundary reaches allocation and maps bad_alloc correctly."""
-    if sys.platform == "win32":
-        pytest.skip("the resource module is unavailable on Windows")
+    if sys.platform != "linux":
+        pytest.skip("the RLIMIT_AS allocation guard is Linux-only")
     pytest.importorskip("resource")
 
     probe = textwrap.dedent(
