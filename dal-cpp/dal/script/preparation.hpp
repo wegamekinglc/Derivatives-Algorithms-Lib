@@ -71,10 +71,13 @@ namespace Dal::Script {
             pastCompiled_->Evaluate(AAD::Scenario_<T_>(), past);
             evaluator->SetHistoricalSeed(past.VarVals());
         }
-        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
+        //  Borrow the prepared program for an evaluation whose lifetime stays
+        //  inside this PreparedScript_; Compile() retains its owning-copy API.
+        [[nodiscard]] const ScriptCompiled_& CompiledProgram(bool fuzzy = false) const {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
         }
+        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const { return CompiledProgram(fuzzy); }
         template <class T_, class E_> void Evaluate(const AAD::Scenario_<T_>& scenario, E_& eval) const {
             RequireExecutable();
             eval.SetScenario(&scenario);

@@ -36,6 +36,9 @@ namespace Dal::Script {
         Vector_<Vector_<>>* xStorage_ = nullptr;
         Vector_<Vector_<>>* hStorage_ = nullptr;
         Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
+        double pricingX_ = 0.0;
+        double pricingH_ = 0.0;
+        bool pricingCond_ = true;
         size_t pathSlot_ = 0;
         size_t eventOrdinal_ = 0;
         size_t payoffIdx_ = static_cast<size_t>(-1);
@@ -46,7 +49,7 @@ namespace Dal::Script {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
             const T_ payment = dStack_.TopAndPop();
-            if (static_cast<size_t>(varIdx) == payoffIdx_)
+            if (paysStorage_ && static_cast<size_t>(varIdx) == payoffIdx_)
                 (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
             variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
         }
@@ -60,13 +63,19 @@ namespace Dal::Script {
                 VisitNode(*node.arguments_[1]);
                 cond = bStack_.TopAndPop() ? 1.0 : 0.0;
             }
-            const size_t slot = (*eventToExercise_)[eventOrdinal_];
-            (*xStorage_)[slot][pathSlot_] = (*scenario_)[curEvt_].spot_;
-            (*hStorage_)[slot][pathSlot_] = value;
-            if (condStorage_) {
-                auto& row = (*condStorage_)[slot];
-                if (!row.empty())
-                    row[pathSlot_] = static_cast<char>(cond);
+            if (xStorage_) {
+                const size_t slot = (*eventToExercise_)[eventOrdinal_];
+                (*xStorage_)[slot][pathSlot_] = (*scenario_)[curEvt_].spot_;
+                (*hStorage_)[slot][pathSlot_] = value;
+                if (condStorage_) {
+                    auto& row = (*condStorage_)[slot];
+                    if (!row.empty())
+                        row[pathSlot_] = static_cast<char>(cond);
+                }
+            } else {
+                pricingX_ = (*scenario_)[curEvt_].spot_;
+                pricingH_ = value;
+                pricingCond_ = cond != 0.0;
             }
         }
     };

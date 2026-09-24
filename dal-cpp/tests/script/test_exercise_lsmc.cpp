@@ -439,6 +439,79 @@ TEST(ScriptExerciseLSMCTest, TestLsmcPrunesDeadStatementsAndKeepsBranchDependenc
     }
 }
 
+TEST(ScriptExerciseLSMCTest, TestDeadFutureFixDoesNotAllocateModelObservation) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Vector_<Cell_> dates{Cell_(Date_(2027, 3, 20)), Cell_(Date_(2027, 9, 20))};
+    const String_ liveEvent = "pay PAYS FIX(EQ[DAL418_TEST])\nEXERCISE MAX(120 - FIX(EQ[DAL418_TEST]), 0)";
+    const ScriptProductData_ withDeadFix("", dates, {"dead = FIX(EQ[DAL418_TEST])", liveEvent});
+    const ScriptProductData_ minimal("", dates, {"dead = 0", liveEvent});
+    auto model = CreateModel<double>(StandardModel());
+    const auto prepared = PrepareScript(withDeadFix, model.get(), {}, {});
+    ASSERT_EQ(prepared.Plan().Requests().size(), 2u);
+    ASSERT_EQ(prepared.Plan().SampleDates().size(), 2u);
+    ASSERT_TRUE(prepared.DefLine()[0].indexNames_.empty());
+    ASSERT_EQ(prepared.DefLine()[1].indexNames_.size(), 1u);
+    ASSERT_FALSE(prepared.Plan().Requests()[0].modelSlot_);
+    ASSERT_TRUE(prepared.Plan().Requests()[1].modelSlot_);
+
+    //  A dead off-event fixing still contributes a Sobol dimension: removing
+    //  that date would change every later simulated spot.
+    const ScriptProductData_ offGrid("", dates, {"dead = 0", "dead = FIX(EQ[DAL418_TEST], 2027-06-20)\n" + liveEvent});
+    auto offGridModel = CreateModel<double>(StandardModel());
+    const auto offGridPrepared = PrepareScript(offGrid, offGridModel.get(), {}, {});
+    ASSERT_EQ(offGridPrepared.Plan().SampleDates().size(), 3u);
+    ASSERT_TRUE(offGridPrepared.DefLine()[1].indexNames_.empty());
+    ASSERT_EQ(offGridModel->SimDim(), 3u);
+
+    for (const bool dupire : {false, true}) {
+        SCOPED_TRACE(dupire);
+        const Handle_<ModelData_> modelData =
+            dupire ? Handle_<ModelData_>(new DupireModelData_("dupire", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL)))
+                   : StandardModel();
+        for (const bool compiled : {false, true}) {
+            for (const bool aad : {false, true}) {
+                MonteCarloSettings_ settings;
+                settings.compiled_ = compiled;
+                settings.enableAad_ = aad;
+                settings.lsmcTrainingPaths_ = 4096;
+                const auto run = [&](const ScriptProductData_& product) {
+                    return aad ? MCSimulation<AAD::Number_>(product, modelData, 8197, {}, settings)
+                               : MCSimulation<double>(product, modelData, 8197, {}, settings);
+                };
+                const auto actual = run(withDeadFix), expected = run(minimal);
+                ASSERT_EQ(actual.aggregated_, expected.aggregated_);
+                ASSERT_EQ(actual.risks_, expected.risks_);
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestDeadHistoricalFixStillRequiresResolution) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(Date_(2027, 3, 20)), Cell_(Date_(2027, 9, 20))},
+                                     {"dead = FIX(EQ[DAL418_MISSING], 2026-09-11)", "EXERCISE MAX(120 - FIX(EQ[DAL418_MISSING]), 0)"});
+    auto model = CreateModel<double>(StandardModel());
+    const Handle_<MarketFixingSnapshot_> empty(new MarketFixingSnapshot_({}));
+    try {
+        static_cast<void>(PrepareScript(product, model.get(), {}, {}, empty));
+        FAIL() << "dead historical fixing was skipped";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("MissingFixing"), std::string::npos);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestDeadFutureUnsupportedIndexStillFailsPreparation) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const ScriptProductData_ product("", {Cell_(Date_(2027, 3, 20)), Cell_(Date_(2027, 9, 20))}, {"dead = FIX(FX[EUR/USD])", "EXERCISE 1"});
+    auto model = CreateModel<double>(StandardModel());
+    try {
+        static_cast<void>(PrepareScript(product, model.get(), {}, {}));
+        FAIL() << "dead unsupported model fixing was skipped";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("UnsupportedModelObservation"), std::string::npos);
+    }
+}
+
 TEST(ScriptExerciseLSMCTest, TestOnlySelectedPayoffReceiverEntersContinuation) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const ScriptProductData_ product("", {Cell_(Date_(2027, 9, 20))}, {"fee PAYS 100\npay PAYS 1\nEXERCISE 2 IF fee > 0"});
@@ -790,6 +863,36 @@ TEST(ScriptExerciseLSMCTest, TestPaysAndExerciseCompose) {
         const double sMid = SPOT * std::exp(RATE * 1.0);
         const double expected = 2.0 * std::exp(-RATE * YearFracTo(Date_(2027, 3, 20))) + (120.0 - sMid) * std::exp(-RATE * 1.0);
         ASSERT_NEAR(run.pv_, expected, 1e-10);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestPricingKeepsEarlierPaymentAndDropsSameDayPaymentAcrossBatches) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    PoolRestore_ pool;
+    const Date_ couponDate(2027, 3, 20);
+    const Date_ exerciseDate(2027, 9, 20);
+    const Date_ maturity(2028, 3, 20);
+    const ScriptProductData_ product(
+        "", {Cell_(couponDate), Cell_(exerciseDate), Cell_(maturity)},
+        {"pay PAYS 2.0", "pay PAYS 3.0\nEXERCISE MAX(300.0 - spot(), 0.0)", "pay PAYS 5.0\nEXERCISE MAX(300.0 - spot(), 0.0)"});
+    const double tCoupon = YearFracTo(couponDate);
+    const double tExercise = YearFracTo(exerciseDate);
+    const double expected = 2.0 * std::exp(-RATE * tCoupon) + (300.0 - SPOT * std::exp(RATE * tExercise)) * std::exp(-RATE * tExercise);
+    constexpr size_t PRICING_PATHS = 8197;
+    for (const int trainingPaths : {73, 16391}) {
+        SCOPED_TRACE(trainingPaths);
+        for (const bool compiled : {false, true}) {
+            SCOPED_TRACE(compiled);
+            pool.pool_->Start(1, true);
+            const auto single = RunLsmc(product, ModelWithVol(0.0), PRICING_PATHS, 3, compiled, trainingPaths);
+            pool.pool_->Start(std::max(4u, static_cast<unsigned>(pool.threads_)), true);
+            const auto multi = RunLsmc(product, ModelWithVol(0.0), PRICING_PATHS, 3, compiled, trainingPaths);
+            ASSERT_NEAR(single.pv_, expected, 1e-10);
+            ASSERT_EQ(BitsOf(single.pv_), BitsOf(multi.pv_));
+            ASSERT_EQ(single.diagnostics_.events_.size(), 2u);
+            ASSERT_DOUBLE_EQ(single.diagnostics_.events_[0].exerciseRate_, 1.0);
+            ASSERT_DOUBLE_EQ(single.diagnostics_.events_[1].exerciseRate_, 0.0);
+        }
     }
 }
 

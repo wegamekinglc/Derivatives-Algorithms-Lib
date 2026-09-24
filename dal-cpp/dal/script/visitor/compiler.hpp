@@ -43,6 +43,9 @@ namespace Dal::Script {
         Vector_<Vector_<>>* x_ = nullptr;
         Vector_<Vector_<>>* h_ = nullptr;
         Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
+        double pricingX_ = 0.0;
+        double pricingH_ = 0.0;
+        bool pricingCond_ = true;
         size_t eventOrdinal_ = 0;
         size_t pathSlot_ = 0;
         size_t payoffIdx_ = static_cast<size_t>(-1);
@@ -954,7 +957,7 @@ namespace Dal::Script {
 
         template <class T_> FORCE_INLINE void RecordLsmcPayment(EvalState_<T_>* statePtr, size_t index, double payment) {
             auto& sinks = RequireLsmcSinks(statePtr);
-            if (index == sinks.payoffIdx_)
+            if (sinks.pays_ && index == sinks.payoffIdx_)
                 (*sinks.pays_)[(*sinks.eventToPays_)[sinks.eventOrdinal_]][sinks.pathSlot_] += payment;
         }
 
@@ -964,13 +967,19 @@ namespace Dal::Script {
         template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
             REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite exercise value", ScriptError_);
             auto& sinks = RequireLsmcSinks(statePtr);
-            const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
-            (*sinks.x_)[slot][sinks.pathSlot_] = spot;
-            (*sinks.h_)[slot][sinks.pathSlot_] = value;
-            if (sinks.cond_) {
-                auto& row = (*sinks.cond_)[slot];
-                if (!row.empty())
-                    row[sinks.pathSlot_] = static_cast<char>(cond);
+            if (sinks.x_) {
+                const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
+                (*sinks.x_)[slot][sinks.pathSlot_] = spot;
+                (*sinks.h_)[slot][sinks.pathSlot_] = value;
+                if (sinks.cond_) {
+                    auto& row = (*sinks.cond_)[slot];
+                    if (!row.empty())
+                        row[sinks.pathSlot_] = static_cast<char>(cond);
+                }
+            } else {
+                sinks.pricingX_ = spot;
+                sinks.pricingH_ = value;
+                sinks.pricingCond_ = cond != 0.0;
             }
         }
 
