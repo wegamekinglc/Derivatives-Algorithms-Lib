@@ -43,6 +43,7 @@ ALL_DOCS = tuple(sorted({*DOCS, *AGENT_DOCS, *CODEX_DOCS, *GITHUB_DOCS}))
 
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*$")
+HTML_ANCHOR_RE = re.compile(r"^ {0,3}<a\s+(?:id|name)=[\"']([A-Za-z0-9_-]+)[\"']\s*></a>\s*$")
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 TABLE_DELIMITER_RE = re.compile(r"^:?-{3,}:?$")
 TABLE_TOKEN_RE = re.compile(r"\\.|`+|.", flags=re.DOTALL)
@@ -137,6 +138,10 @@ def anchors(path: Path) -> set[str]:
     counts: Counter[str] = Counter()
     lines = path.read_text(encoding="utf-8").splitlines()
     for _, line in without_fenced_code(lines):
+        explicit = HTML_ANCHOR_RE.match(line)
+        if explicit:
+            result.add(explicit.group(1))
+            continue
         match = HEADING_RE.match(line)
         if not match:
             continue
@@ -453,11 +458,16 @@ def check_component_build_modes(errors: list[str]) -> None:
 def check_windows_generation_and_tests(errors: list[str]) -> None:
     windows_build = (ROOT / "build_windows.bat").read_text(encoding="utf-8")
     windows_workflow = (ROOT / ".github/workflows/cmake-windows.yml").read_text(encoding="utf-8")
+    benchmark_workflow = (ROOT / ".github/workflows/benchmarks.yml").read_text(encoding="utf-8")
     normalizer = "normalize-calibration-generated-enums.cmake"
     if normalizer not in windows_build:
         errors.append("build_windows.bat: code generation bypasses the canonical normalizer")
-    if windows_workflow.count(normalizer) < 2:
-        errors.append(".github/workflows/cmake-windows.yml: generation jobs bypass the normalizer")
+    for path, workflow in (
+        (".github/workflows/cmake-windows.yml", windows_workflow),
+        (".github/workflows/benchmarks.yml", benchmark_workflow),
+    ):
+        if normalizer not in workflow:
+            errors.append(f"{path}: code generation bypasses the normalizer")
     if "DAL_CPP_BUILD_BENCHMARKS=OFF" not in windows_build or "-LE benchmark" not in windows_build:
         errors.append("build_windows.bat: normal verification must exclude benchmark tests")
 

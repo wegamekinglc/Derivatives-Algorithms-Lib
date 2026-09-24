@@ -2,6 +2,7 @@
 
 [![CMake Linux CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml)
 [![CMake Windows CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-windows.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-windows.yml)
+[![Scheduled Benchmarks](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/benchmarks.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/benchmarks.yml)
 [![Codacy Grade](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
 [![Coverage Status](https://coveralls.io/repos/github/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/wegamekinglc/Derivatives-Algorithms-Lib?branch=master)
 
@@ -12,10 +13,17 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 Pull requests with source, configuration, or build changes build and test the
 full compiler × AAD-backend matrix below. Documentation-only changes run the
 documentation integrity check and stable Linux/Windows gates without starting
-the compile, sanitizer, or benchmark jobs. Pushes to `master` (merges and direct
+the compile or sanitizer jobs. Pushes to `master` (merges and direct
 master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
 because the pull request already covered every combination. GitHub publishes
 one status badge per workflow; open a workflow run for per-job results.
+
+Benchmarks run in a separate [scheduled workflow](.github/workflows/benchmarks.yml)
+at 06:00 and 18:00 Asia/Shanghai every day, with manual dispatch available.
+Linux compares the current `master` commit with its first parent and runs the
+Python and native regression checks; Windows runs benchmark executables on
+MSVC/AADet. Results remain in the workflow summaries and 30-day artifacts.
+Benchmark failures do not block pull-request or push CI.
 
 | Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
 |----------------------------|----------|-------|-----|----------|-------|
@@ -31,7 +39,7 @@ one status badge per workflow; open a workflow run for per-job results.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
 - Separate Linux jobs cover CoDiPack thread isolation, Python bindings with
   generated-source verification, documentation integrity, a warning-clean
-  build, ASan/UBSan/TSan spot tests, and benchmark regression gating.
+  build, and ASan/UBSan/TSan spot tests.
 
 ## Quick Start
 
