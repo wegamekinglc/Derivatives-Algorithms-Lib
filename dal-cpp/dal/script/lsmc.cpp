@@ -246,6 +246,12 @@ namespace Dal::Script {
             return storage;
         }
 
+        struct PricingObservation_ {
+            double x_;
+            double h_;
+            bool cond_;
+        };
+
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
@@ -263,6 +269,11 @@ namespace Dal::Script {
             explicit ThreadState_(const struct LsmcContext_& ctx);
 
             [[nodiscard]] const Scenario_<>& Path() const { return bsPaths_ ? bsPaths_->Path() : path_; }
+            [[nodiscard]] PricingObservation_ PricingObservation() const {
+                if (compiledState_)
+                    return {sinks_.pricingX_, sinks_.pricingH_, sinks_.pricingCond_};
+                return {evaluator_.pricingX_, evaluator_.pricingH_, evaluator_.pricingCond_};
+            }
         };
 
         //  Immutable per-run references shared by the three phases
@@ -320,13 +331,11 @@ namespace Dal::Script {
             const size_t day = ctx.scan_.eventToExercise_[event];
             if (!ctx.policy_ || day == NO_SLOT)
                 return false;
-            const double h = state->compiledState_ ? state->sinks_.pricingH_ : state->evaluator_.pricingH_;
-            const double x = state->compiledState_ ? state->sinks_.pricingX_ : state->evaluator_.pricingX_;
-            const bool cond = state->compiledState_ ? state->sinks_.pricingCond_ : state->evaluator_.pricingCond_;
-            if (!(cond && h > 0.0 && h > RegressionPredict((*ctx.policy_)[day], x)))
+            const auto observation = state->PricingObservation();
+            if (!(observation.cond_ && observation.h_ > 0.0 && observation.h_ > RegressionPredict((*ctx.policy_)[day], observation.x_)))
                 return false;
             state->exercisedDay_ = day;
-            state->exerciseValue_ = h;
+            state->exerciseValue_ = observation.h_;
             return true;
         }
 

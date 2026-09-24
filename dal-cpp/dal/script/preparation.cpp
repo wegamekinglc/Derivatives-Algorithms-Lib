@@ -280,22 +280,22 @@ namespace Dal::Script {
                 MarkLiveObservations(*child, live);
         }
 
-        //  Keep the timeline and all event/sample IDs intact: removing dates
-        //  would change Sobol dimensions and path-dependent model evolution.
-        //  Only model outputs no longer read by the optimized future program
-        //  can be removed; historical requests were resolved before this pass.
-        static bool PruneDeadModelObservations(ObservationPlan_* plan, const ScriptProduct_& product) {
-            Vector_<char> live(plan->requests_.size(), 0);
+        static Vector_<char> LiveModelObservations(const ObservationPlan_& plan, const ScriptProduct_& product) {
+            Vector_<char> live(plan.requests_.size(), 0);
             for (const auto& event : product.Events())
                 for (const auto& statement : event)
                     MarkLiveObservations(*statement, &live);
+            return live;
+        }
 
-            bool hasDead = false;
+        static bool HasDeadModelObservations(const ObservationPlan_& plan, const Vector_<char>& live) {
             for (size_t id = 0; id < live.size(); ++id)
-                hasDead |= plan->requests_[id].modelSlot_ && !live[id];
-            if (!hasDead)
-                return false;
+                if (plan.requests_[id].modelSlot_ && !live[id])
+                    return true;
+            return false;
+        }
 
+        static void CompactModelOutputs(ObservationPlan_* plan, const Vector_<char>& live) {
             for (auto& def : plan->defLine_)
                 def.indexNames_.clear();
             for (size_t id = 0; id < live.size(); ++id) {
@@ -310,6 +310,16 @@ namespace Dal::Script {
                 request.modelSlot_->outputId_ = outputs.size();
                 outputs.push_back(request.key_.canonicalIndex_);
             }
+        }
+
+        //  Keep the timeline and all event/sample IDs intact: removing dates
+        //  would change Sobol dimensions and path-dependent model evolution.
+        //  Historical requests were resolved before this pass.
+        static bool PruneDeadModelObservations(ObservationPlan_* plan, const ScriptProduct_& product) {
+            const auto live = LiveModelObservations(*plan, product);
+            if (!HasDeadModelObservations(*plan, live))
+                return false;
+            CompactModelOutputs(plan, live);
             return true;
         }
 
