@@ -4,19 +4,26 @@
 // Script-engine tree-walk vs compiled evaluator benchmarks.
 
 #include <algorithm>
+#include <charconv>
+#include <chrono>
+#include <initializer_list>
+#include <iomanip>
+#include <iostream>
+#include <limits>
 #include <string>
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
+#include <dal/benchmarks/bench.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/dupire.hpp>
+#include <dal/platform/initall.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
-#include <dal/benchmarks/bench.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -59,21 +66,18 @@ namespace {
 
     //  Weekly-exercise Bermudan put: every schedule row may exercise into the put
     //  intrinsic (the END row covers maturity), the maturity event pays the vanilla
-    //  leg. Valuation diverts to the LSMC driver (prepared pipeline), so this case
-    //  runs the double engine only.
-    ScriptProductData_ BuildBermudanExerciseProduct() {
+    //  leg. Valuation diverts to the LSMC driver (prepared pipeline).
+    ScriptProductData_ BuildBermudanExerciseProduct(const String_& frequency = "1W", bool deadFix = false) {
         const Date_ start = Date_(2024, 1, 8);
         const Date_ maturity = Date_(2025, 1, 1);
         Vector_<Cell_> eventDates;
         Vector_<String_> events;
         eventDates.push_back(Cell_(String_("STRIKE")));
         events.push_back("100.0");
-        eventDates.push_back(Cell_(String_("START: " + Date::ToString(start) +
-                                           " END: " + Date::ToString(maturity) +
-                                           " FREQ: 1W")));
-        events.push_back("EXERCISE MAX(STRIKE - spot(), 0.0)");
+        eventDates.push_back(Cell_(String_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: " + frequency)));
+        events.push_back(deadFix ? "unused = FIX(EQ[DAL418_BENCH])\nEXERCISE MAX(STRIKE - 110.0, 0.0)" : "EXERCISE MAX(STRIKE - spot(), 0.0)");
         eventDates.push_back(Cell_(maturity));
-        events.push_back(String_("call PAYS MAX(spot() - STRIKE, 0.0)"));
+        events.push_back(deadFix ? "call PAYS MAX(FIX(EQ[DAL418_BENCH]) - STRIKE, 0.0)" : "call PAYS MAX(spot() - STRIKE, 0.0)");
         return {"", eventDates, events};
     }
 
@@ -159,11 +163,94 @@ namespace {
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
+
+    bool ParsePathCount(const char* text, size_t* count) {
+        const char* end = text + std::char_traits<char>::length(text);
+        const auto parsed = std::from_chars(text, end, *count);
+        return parsed.ec == std::errc() && parsed.ptr == end && *count > 0;
+    }
+
+    struct ReplayProfile_ {
+        size_t trainingPaths_ = 0;
+        size_t pricingPaths_ = 0;
+        String_ frequency_;
+        std::string mode_;
+        std::string model_;
+        std::string engine_;
+        bool deadFix_ = false;
+    };
+
+    bool IsAllowed(const std::string& value, std::initializer_list<const char*> choices) {
+        return std::any_of(choices.begin(), choices.end(), [&](const char* choice) { return value == choice; });
+    }
+
+    bool ValidReplayOptions(int argc, char** argv) {
+        return IsAllowed(argv[4], {"1W", "1CD"}) && IsAllowed(argv[5], {"hard", "aad"}) && IsAllowed(argv[6], {"bs", "dupire"}) &&
+               IsAllowed(argv[7], {"tree", "compiled"}) && (argc == 8 || std::string(argv[8]) == "deadfix");
+    }
+
+    bool ParseReplayCounts(char** argv, ReplayProfile_* profile) {
+        return ParsePathCount(argv[2], &profile->trainingPaths_) && ParsePathCount(argv[3], &profile->pricingPaths_) &&
+               profile->trainingPaths_ <= static_cast<size_t>(std::numeric_limits<int>::max());
+    }
+
+    bool ParseReplayProfile(int argc, char** argv, ReplayProfile_* profile) {
+        if (argc != 8 && argc != 9)
+            return false;
+        if (!ParseReplayCounts(argv, profile) || !ValidReplayOptions(argc, argv))
+            return false;
+        profile->frequency_ = argv[4];
+        profile->mode_ = argv[5];
+        profile->model_ = argv[6];
+        profile->engine_ = argv[7];
+        profile->deadFix_ = argc == 9;
+        return true;
+    }
+
+    SimResults_ RunReplayValuation(const ReplayProfile_& profile, const Handle_<ModelData_>& model, const MonteCarloSettings_& simulation) {
+        const auto product = BuildBermudanExerciseProduct(profile.frequency_, profile.deadFix_);
+        if (profile.mode_ == "aad")
+            return MCSimulation<AAD::Number_>(product, model, profile.pricingPaths_, ScriptValuationSettings_(), simulation);
+        return MCSimulation<double>(product, model, profile.pricingPaths_, ScriptValuationSettings_(), simulation);
+    }
+
+    //  Optional single-run profile for paired baseline/head measurements. Keeping
+    //  each case in its own process makes peak RSS attributable to that case.
+    int RunLsmcReplayProfile(int argc, char** argv) {
+        ReplayProfile_ profile;
+        if (!ParseReplayProfile(argc, argv, &profile)) {
+            std::cerr << "usage: script_mc_perf --lsmc-replay TRAINING PRICING 1W|1CD hard|aad bs|dupire tree|compiled [deadfix]\n";
+            return 2;
+        }
+        const Handle_<ModelData_> model =
+            profile.model_ == "bs"
+                ? BuildModelData()
+                : Handle_<ModelData_>(new DupireModelData_("dupire", 100.0, 0.05, 0.02, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, 0.20)));
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = profile.engine_ == "compiled";
+        simulation.lsmcTrainingPaths_ = profile.trainingPaths_;
+        simulation.enableAad_ = profile.mode_ == "aad";
+        const auto begin = std::chrono::steady_clock::now();
+        const auto result = RunReplayValuation(profile, model, simulation);
+        const auto end = std::chrono::steady_clock::now();
+        const double elapsedMs = std::chrono::duration<double, std::milli>(end - begin).count();
+        std::cout << std::setprecision(17) << "LSMC_REPLAY training=" << profile.trainingPaths_ << " pricing=" << profile.pricingPaths_
+                  << " frequency=" << profile.frequency_ << " mode=" << profile.mode_ << " model=" << profile.model_ << " engine=" << profile.engine_
+                  << " deadfix=" << profile.deadFix_ << " time_ms=" << elapsedMs
+                  << " pv=" << result.aggregated_ / static_cast<double>(profile.pricingPaths_) << " risks=";
+        const Vector_<> risks = profile.mode_ == "aad" ? result.risks_ : Vector_<>();
+        for (size_t i = 0; i < risks.size(); ++i)
+            std::cout << (i ? "," : "") << risks[i];
+        std::cout << '\n';
+        return 0;
+    }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
+    if (argc > 1)
+        return std::string(argv[1]) == "--lsmc-replay" ? RunLsmcReplayProfile(argc, argv) : 2;
     constexpr int kRepeats = 3;
     Bench::PrintHeader();
 

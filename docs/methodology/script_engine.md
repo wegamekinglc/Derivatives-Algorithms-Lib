@@ -683,7 +683,9 @@ invariant across thread counts.
   starting at `SkipTo(nTrainingPaths)`. Training and pricing path blocks do not overlap;
   the total generated path count is `nTrainingPaths + nPaths`, plus one
   numeraire probe. Training storage scales with `nTrainingPaths` and is released
-  first, and pricing reuses one path's recording buffers per active batch.
+  first. Hard pricing shares the immutable compiled program and reuses one
+  evaluator, path generator, and scalar decision state per worker across batches;
+  it does not allocate per-exercise-date recording rows.
   Exercise dates are scanned
   in order; the earliest date whose condition holds with $h_k > 0$ and
   $h_k > C_k(z_k)$ under the
@@ -711,7 +713,13 @@ overwritten or unused assignments and empty branches, and unions the
 dependencies of both IF arms. Exercise expressions,
 conditions, and the selected receiver's cashflows remain roots. Other receivers
 remain live when the script reads them, but their payments do not enter the
-continuation value. The observation grid and historical program are retained.
+continuation value. Observation dates and the historical program are retained.
+After liveness, unused future model observation outputs are removed from the
+sample definitions and live request slots are compacted; the model is
+reallocated and reinitialized when this happens. Keeping all dates preserves
+Sobol dimensions and path-dependent model evolution. Historical fixings and
+model-index support are resolved before pruning, including references in dead
+statements.
 The payoff receiver must accumulate `PAYS` only, with an optional literal-zero
 initialization before any future payment. Historical receiver assignments
 must also be literal zero: a parameter-dependent expression can have zero
@@ -742,8 +750,9 @@ exactly — see
 Training memory is roughly `nTrainingPaths × (nPaysEvents + 2 × nExerciseDates + 1) × 8B`
 for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
-Pre-exercise receiver snapshots and terminal payoffs occupy only the per-worker
-pricing buffers. Reduce the path count or event count to stay inside a budget.
+Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
+worker-local evaluator state. Reduce the training path count or event count to
+stay inside a memory budget.
 
 AAD valuation of exercise products uses the fuzzy driver described in the
 next section; the per-exercise-date statistics above are observable through
@@ -1289,10 +1298,11 @@ but live parameter inputs and their historical-state dependencies are retained.
 Products with `EXERCISE` compile into a recording variant of the prepared
 stream: `PAYS` lowers to `LsmcPays`/`LsmcPaysConst` and `EXERCISE` to
 `LsmcExercise`, appended opcodes that live in the prepared dispatch tail. The
-LSMC driver installs a per-thread `LsmcSinks_` recorder into `EvalState_`
-before evaluation; the recording opcodes append the raw payment per `PAYS`
+LSMC driver installs worker-local `LsmcSinks_` into `EvalState_`
+before evaluation. Training opcodes append the raw payment per `PAYS`
 event and the per-exercise-date regressor, exercise value, and condition
-indicator to the driver's storage rows, while the script-state arithmetic
+indicator to the driver's storage rows. Hard pricing writes the current
+exercise triple into scalar sinks without payment rows. Script-state arithmetic
 mirrors the plain pay opcodes statement for statement. Fuzzy (AAD) preparation
 lowers the same statements to `LsmcFuzzyPays`/`LsmcFuzzyPaysConst`/
 `LsmcFuzzyExercise`, which record into the driver's typed `LsmcFuzzySinks_`
@@ -1351,8 +1361,11 @@ tree-walk and compiled recording engines (named cases plus the randomized
 generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark target
 `dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
 `compiled=true` runs across simple and schedule-heavy products for both
-`double` and `AAD::Number_`; it times the Monte Carlo path loop rather than the
-parser front-end.
+`double` and `AAD::Number_`. Its optional `--lsmc-replay TRAINING PRICING
+1W|1CD hard|aad bs|dupire tree|compiled [deadfix]` mode runs one valuation
+per process, printing elapsed time, PV, and AAD risks so paired runs can
+compare equal budgets and peak process memory. The `deadfix` workload puts
+dead future FIX requests on each exercise row to measure observation pruning.
 
 Named coverage in `dal-cpp/tests/script/test_exact_folding.cpp`,
 `dal-cpp/tests/script/test_fuzzy_arithmetic.cpp`,
