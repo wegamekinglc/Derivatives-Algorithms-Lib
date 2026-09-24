@@ -154,7 +154,7 @@ uv pip install dist/dal_python-2026.9.23.tar.gz \
 
 ## PyPI Binary Release
 
-The repository release workflow builds and tests this wheel matrix:
+Release tags build and test this wheel matrix:
 
 | Operating system | Architecture | Wheel platform tag      | CPython versions |
 |------------------|--------------|-------------------------|------------------|
@@ -163,12 +163,10 @@ The repository release workflow builds and tests this wheel matrix:
 
 Every release artifact is a CPython-specific native wheel. Python/ABI tags run
 from `cp39-cp39` through `cp313-cp313`; DAL does not publish `abi3` or universal
-wheels. Path-matched pull requests build the floor and ceiling (`cp39` and
-`cp313`) on both platforms, for four wheels; documentation-only component
-changes remain on the lightweight documentation CI path. Manual and release-tag
-runs build all five supported interpreters on both platforms, for ten wheels.
-Every wheel runs the complete installed-wheel Python suite, and the two `cp39`
-wheels also run a fresh, source-independent installed-wheel smoke test.
+wheels. An annotated `dal-python-v<version>` tag on the current `master` commit
+builds all five supported interpreters on both platforms, for ten wheels.
+After each wheel is built, cibuildwheel runs the installed-wheel Python unit
+suite. Pull requests and manual dispatches do not run the release workflow.
 
 Linux filenames always include `manylinux_2_28_x86_64` and may also contain
 unique compatible PEP 600 x86-64 components for glibc baselines no newer than
@@ -177,11 +175,12 @@ and musllinux tags are rejected. macOS, Linux ARM, PyPy, free-threaded CPython,
 source distributions, and CPython 3.14 are not part of the current PyPI release
 contract.
 
-The SHA-256 release manifest records the exact verified bytes of every wheel,
-and the publish job re-checks the downloaded artifacts against it before
-upload. The toolchain is pinned (full action SHAs, exact build dependency
-versions, named manylinux/runner images), but byte-for-byte reproducibility
-across independent rebuilds is not currently enforced.
+Before upload, the publish job checks the release tag, PyPI version availability,
+complete wheel matrix, and package metadata. It uploads the same downloaded
+wheel files that passed those checks. The toolchain is pinned (full action SHAs,
+exact build dependency versions, named manylinux/runner images), but
+byte-for-byte reproducibility across independent rebuilds is not currently
+enforced.
 
 ### One-time PyPI setup
 
@@ -203,25 +202,18 @@ OIDC short-lived credentials; do not add a long-lived PyPI API token.
 
 1. Choose a new PEP 440 version that does not exist on PyPI. Update both
    `pyproject.toml` and `src/dal/__init__.py`.
-2. Build and test the workspace with `bash ./build_linux.sh --full` from the
-   repository root. Review and merge the version and release-note changes to
-   `master` only after the exact PR head is green.
-3. Run the `dal-python wheels and PyPI release` workflow manually from `master`.
-   This is a build-only rehearsal. Confirm that ten wheels and the SHA-256
-   release manifest are present.
-4. Tag that reviewed `master` commit and push only the tag:
+2. Review and merge the version and release-note changes to `master` after the
+   normal pull-request checks pass.
+3. Tag that reviewed `master` commit and push only the tag:
 
    ```bash
    git tag -a dal-python-v<version> -m "Release dal-python <version>"
    git push origin dal-python-v<version>
    ```
 
-5. The tag run rebuilds and tests every wheel, validates the combined manifest,
-   checks that the version is unused on PyPI, then publishes the exact artifacts
-   from the build jobs through the `pypi` environment.
-6. Verify the PyPI file list contains all ten wheels. In fresh Windows and Linux
-   environments, install `dal-python==<version>`, import `dal`, and confirm
-   `dal.__version__` equals `<version>`.
+4. The tag run builds and unit-tests every wheel, validates the complete wheel
+   set and unused PyPI version, then publishes those wheel files through the
+   `pypi` environment. Confirm that PyPI lists all ten wheels.
 
 PyPI versions and files are immutable. Never use a skip-existing option to repair
 an incomplete release; correct the issue, increment the version, and run the full
