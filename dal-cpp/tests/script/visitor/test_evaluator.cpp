@@ -71,6 +71,10 @@ TEST(ScriptTest, TestVectorCapacitySurvivesEvaluatorCopy) {
     ASSERT_GE(original.VectorVals()[0].capacity(), 3);
     auto copy = original;
     ASSERT_GE(copy.VectorVals()[0].capacity(), 3);
+    copy.SetHistoricalVectorSeed({{1.0, 2.0}});
+    copy.Init();
+    ASSERT_EQ(copy.VectorVals()[0].size(), 2);
+    ASSERT_GE(copy.VectorVals()[0].capacity(), 3);
 }
 
 TEST(ScriptTest, TestEvaluatorWithSqrt) {

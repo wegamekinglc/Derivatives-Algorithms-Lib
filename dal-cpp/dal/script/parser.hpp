@@ -23,6 +23,7 @@ namespace Dal::Script {
         bool hasExercise_ = false;
         bool hasPays_ = false;
         size_t ifLevel_ = 0;
+        size_t forLevel_ = 0;
         size_t expandedStatements_ = 0;
 
         // Helpers
@@ -106,7 +107,9 @@ namespace Dal::Script {
         Statement_ ParseExercise(TokIt_& cur, const TokIt_& end);
         Expression_ ParseExerciseCondition(TokIt_& cur, const TokIt_& end, const SourceLocation_& source);
         [[nodiscard]] static bool IsBareName(const Token_& token);
+        [[nodiscard]] static bool IsVectorIdentifier(const String_& name);
         [[nodiscard]] bool IsFreshLoopIndex(const Token_& token) const;
+        [[nodiscard]] bool CanExercise() const { return ifLevel_ == 0 && forLevel_ == 0; }
         [[nodiscard]] double NumericConstant(const String_& key, const String_& error) const;
         [[nodiscard]] static size_t NonnegativeInteger(double value, const String_& error);
         String_ ParseVectorName(TokIt_& cur, const TokIt_& end, const SourceLocation_& source, const String_& operation);

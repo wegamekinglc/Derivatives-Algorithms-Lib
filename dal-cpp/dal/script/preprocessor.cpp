@@ -3,13 +3,14 @@
 //
 
 #include <cmath>
+#include <regex>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/event/schedule.hpp>
 #include <dal/script/lexer.hpp>
 #include <dal/script/preprocessor.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <regex>
 
 namespace Dal::Script {
     namespace {

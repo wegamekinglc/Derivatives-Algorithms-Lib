@@ -67,8 +67,10 @@ namespace Dal::Script {
 
         void Init() {
             InitVariables();
-            for (size_t i = 0; i < vectors_.size(); ++i)
-                vectors_[i].Assign(vectorSeed_[i].begin(), vectorSeed_[i].end());
+            for (size_t i = 0; i < vectors_.size(); ++i) {
+                vectors_[i].Resize(vectorSeed_[i].size());
+                std::copy(vectorSeed_[i].begin(), vectorSeed_[i].end(), vectors_[i].begin());
+            }
             dStack_.Reset();
             bStack_.Reset();
         }

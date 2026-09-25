@@ -2,9 +2,12 @@
 // Created by wegam on 2022/4/4.
 //
 
+#include <algorithm>
+#include <cmath>
+#include <set>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-
 #include <dal/indice/index.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/script/node.hpp>
@@ -13,9 +16,6 @@
 #include <dal/script/visitor/vectorops.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/time/daybasis.hpp>
-
-#include <algorithm>
-#include <cmath>
 
 namespace {
     const std::set<Dal::String_> RESERVED_KEY_WORDS = {"IF",  "END", "THEN", "ELSE", "DCF", "PAYS",     "AND", "OR",     "SPOT", "MAX",
@@ -175,8 +175,14 @@ namespace Dal::Script {
     }
 
     bool Parser_::IsBareName(const Token_& token) {
-        return !std::holds_alternative<IndexLiteral_>(token.value_) && !token.Text().empty() && token.Text()[0] >= 'A' && token.Text()[0] <= 'z' &&
+        return !std::holds_alternative<IndexLiteral_>(token.value_) && IsVectorIdentifier(token.Text()) &&
                RESERVED_KEY_WORDS.find(token.Text()) == RESERVED_KEY_WORDS.end();
+    }
+
+    bool Parser_::IsVectorIdentifier(const String_& name) {
+        static const String_ LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        static const String_ NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.";
+        return !name.empty() && LETTERS.find(name.front()) != String_::npos && name.find_first_not_of(NAME_CHARS) == String_::npos;
     }
 
     bool Parser_::IsFreshLoopIndex(const Token_& token) const {
@@ -194,7 +200,8 @@ namespace Dal::Script {
     }
 
     size_t Parser_::NonnegativeInteger(double value, const String_& error) {
-        REQUIRE2(std::isfinite(value) && value >= 0.0 && value <= 1000000.0 && std::floor(value) == value, error, ScriptError_);
+        if (!std::isfinite(value) || value < 0.0 || value > 1000000.0 || std::floor(value) != value)
+            THROW2(error, ScriptError_);
         return static_cast<size_t>(value);
     }
 
@@ -216,6 +223,7 @@ namespace Dal::Script {
                  "InvalidVectorEntry: expected name[constant-index]; " + source.Describe(), ScriptError_);
         const String_ name(raw.substr(0, open));
         const String_ key(raw.substr(open + 1, close - open - 1));
+        REQUIRE2(IsVectorIdentifier(name), "InvalidVectorEntry: invalid vector name; " + source.Describe(), ScriptError_);
         REQUIRE2(!loopIndices_.count(name), "InvalidFor: loop index cannot name a vector; " + source.Describe(), ScriptError_);
         REQUIRE2(RESERVED_KEY_WORDS.find(name) == RESERVED_KEY_WORDS.end(), "InvalidVectorEntry: reserved vector name; " + source.Describe(),
                  ScriptError_);
@@ -321,6 +329,7 @@ namespace Dal::Script {
         const bool hadExercise = hasExercise_;
         const String_ previousPreparationError = preparationError_;
         const size_t previousExpandedStatements = expandedStatements_;
+        ++forLevel_;
         for (int i = header.first_; i < std::max(header.last_, header.first_ + 1); ++i) {
             loopIndices_[header.indexName_] = static_cast<double>(i);
             const TokIt_ body = ParseForIteration(bodyStart, end, i < header.last_, collected.get(), context);
@@ -329,6 +338,7 @@ namespace Dal::Script {
             else
                 REQUIRE2(body == bodyEnd, "InvalidFor: inconsistent loop body" + context, ScriptError_);
         }
+        --forLevel_;
         loopIndices_.erase(header.indexName_);
         if (header.first_ == header.last_) {
             hasPays_ = hadPays;
@@ -646,7 +656,7 @@ namespace Dal::Script {
         if (cur->Text() == "APPEND")
             return ParseVectorAppend(cur, end);
         if (cur->Text() == "EXERCISE") {
-            REQUIRE2(ifLevel_ == 0, "UnsupportedExerciseNesting: EXERCISE must be a top-level statement of an event; " + cur->source_.Describe(),
+            REQUIRE2(CanExercise(), "UnsupportedExerciseNesting: EXERCISE must be a top-level statement outside IF/FOR; " + cur->source_.Describe(),
                      ScriptError_);
             REQUIRE2(!hasExercise_, "DuplicateExercise: an event admits at most one EXERCISE statement; " + cur->source_.Describe(), ScriptError_);
             return ParseExercise(cur, end);
@@ -676,6 +686,7 @@ namespace Dal::Script {
         hasExercise_ = false;
         hasPays_ = false;
         ifLevel_ = 0;
+        forLevel_ = 0;
         expandedStatements_ = 0;
         loopIndices_.clear();
         Event_ e;

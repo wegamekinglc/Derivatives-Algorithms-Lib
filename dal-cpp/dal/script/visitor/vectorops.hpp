@@ -9,7 +9,8 @@
 
 namespace Dal::Script {
     template <class T_> const T_& ReadVectorEntry(const Vector_<T_>& values, size_t entry, const String_& context) {
-        REQUIRE2(entry < values.size(), "VectorIndexOutOfRange: " + context, ScriptError_);
+        if (entry >= values.size())
+            THROW2("VectorIndexOutOfRange: " + context, ScriptError_);
         return values[entry];
     }
 
@@ -37,7 +38,8 @@ namespace Dal::Script {
     template <class T_> T_ ReduceVectorValues(const Vector_<T_>& values, NodeVectorReduce_::Kind_ kind, const String_& context) {
         if (kind == NodeVectorReduce_::Kind_::Sum)
             return SumVectorValues(values);
-        REQUIRE2(!values.empty(), "EmptyVectorReduction: " + context, ScriptError_);
+        if (values.empty())
+            THROW2("EmptyVectorReduction: " + context, ScriptError_);
         if (kind == NodeVectorReduce_::Kind_::Average)
             return SumVectorValues(values) / static_cast<double>(values.size());
         return ExtremeVectorValue(values, kind == NodeVectorReduce_::Kind_::Minimum);

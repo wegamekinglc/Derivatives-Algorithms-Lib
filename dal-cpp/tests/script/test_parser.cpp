@@ -174,6 +174,8 @@ TEST(ScriptTest, TestParseForRejectsInvalidBounds) {
     ASSERT_THROW(parser.Parse("FOR(i, 0, 2) i[0] = 5 END"), ScriptError_);
     ASSERT_THROW(parser.Parse("FOR(i, 0, 2) APPEND(i, 5) END"), ScriptError_);
     ASSERT_THROW(parser.Parse("FOR(i, 0, 2) x PAYS SUM(i) END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 1) EXERCISE 1 END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 0) EXERCISE 1 END"), ScriptError_);
 }
 
 TEST(ScriptTest, TestParseForNestedAndEmptyRanges) {
@@ -229,6 +231,12 @@ TEST(ScriptTest, TestPredefinedNumericVectorIsImmutable) {
     ASSERT_THROW(parser.Parse("STRIKES[0] = 99"), ScriptError_);
     ASSERT_THROW(parser.Parse("STRIKES = 99"), ScriptError_);
     ASSERT_THROW(parser.Parse("x = STRIKES[3]"), ScriptError_);
+}
+
+TEST(ScriptTest, TestVectorEntryRejectsInvalidIdentifier) {
+    Parser_ parser;
+    ASSERT_THROW(parser.Parse("x = 1bad[0]"), ScriptError_);
+    ASSERT_THROW(parser.Parse("x = _bad[0]"), ScriptError_);
 }
 
 TEST(ScriptTest, TestVectorNodesHaveDebugRepresentation) {

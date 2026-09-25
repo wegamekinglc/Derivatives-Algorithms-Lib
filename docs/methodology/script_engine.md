@@ -139,7 +139,9 @@ expands the loop body into the existing statement AST, replacing counter reads
 with numeric literals. A single loop may have at most 10,000 iterations, and
 one event may expand at most 100,000 statements. Both bounds and vector indices
 must be at most 1,000,000. The counter cannot be assigned or reused as a nested
-counter.
+counter. Vector names and loop counters start with an ASCII letter and may
+contain ASCII letters, digits, underscores, and dots. `EXERCISE` remains a
+top-level event statement and is rejected inside `FOR`.
 
 ```text
 STRIKES  [80, 100, 120]
