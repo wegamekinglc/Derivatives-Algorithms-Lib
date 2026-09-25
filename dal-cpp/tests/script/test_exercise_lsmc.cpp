@@ -92,9 +92,49 @@ namespace {
 
     //  Test-only long-double Householder QR. It neither forms normal equations
     //  nor uses the production column-pivoted/reorthogonalized solver.
+    using ReferenceDesign_ = std::vector<std::array<long double, 9>>;
+
+    struct HouseholderVector_ {
+        std::vector<long double> values_;
+        long double scale_;
+    };
+
+    HouseholderVector_ MakeHouseholderVector(const ReferenceDesign_& a, size_t k) {
+        long double normSq = 0.0;
+        for (size_t i = k; i < a.size(); ++i)
+            normSq += a[i][k] * a[i][k];
+        const long double alpha = a[k][k] >= 0.0 ? -std::sqrt(normSq) : std::sqrt(normSq);
+        std::vector<long double> v(a.size() - k);
+        v[0] = a[k][k] - alpha;
+        long double vNormSq = v[0] * v[0];
+        for (size_t i = k + 1; i < a.size(); ++i) {
+            v[i - k] = a[i][k];
+            vNormSq += v[i - k] * v[i - k];
+        }
+        return {std::move(v), 2.0L / vNormSq};
+    }
+
+    void ApplyHouseholderToDesign(ReferenceDesign_* a, size_t k, size_t columns, const HouseholderVector_& reflector) {
+        for (size_t j = k; j < columns; ++j) {
+            long double projection = 0.0;
+            for (size_t i = k; i < a->size(); ++i)
+                projection += reflector.values_[i - k] * (*a)[i][j];
+            for (size_t i = k; i < a->size(); ++i)
+                (*a)[i][j] -= reflector.scale_ * reflector.values_[i - k] * projection;
+        }
+    }
+
+    void ApplyHouseholderToResponse(std::vector<long double>* b, size_t k, const HouseholderVector_& reflector) {
+        long double projection = 0.0;
+        for (size_t i = k; i < b->size(); ++i)
+            projection += reflector.values_[i - k] * (*b)[i];
+        for (size_t i = k; i < b->size(); ++i)
+            (*b)[i] -= reflector.scale_ * reflector.values_[i - k] * projection;
+    }
+
     Vector_<> HouseholderReference(const Vector_<>& x, const Vector_<>& y, int degree, double mean, double sigma) {
         const size_t columns = static_cast<size_t>(degree + 1);
-        std::vector<std::array<long double, 9>> a(x.size());
+        ReferenceDesign_ a(x.size());
         std::vector<long double> b(x.size());
         for (size_t i = 0; i < x.size(); ++i) {
             const long double z = (static_cast<long double>(x[i]) - mean) / sigma;
@@ -106,30 +146,9 @@ namespace {
             b[i] = y[i];
         }
         for (size_t k = 0; k < columns; ++k) {
-            long double normSq = 0.0;
-            for (size_t i = k; i < x.size(); ++i)
-                normSq += a[i][k] * a[i][k];
-            const long double alpha = a[k][k] >= 0.0 ? -std::sqrt(normSq) : std::sqrt(normSq);
-            std::vector<long double> v(x.size() - k);
-            v[0] = a[k][k] - alpha;
-            long double vNormSq = v[0] * v[0];
-            for (size_t i = k + 1; i < x.size(); ++i) {
-                v[i - k] = a[i][k];
-                vNormSq += v[i - k] * v[i - k];
-            }
-            const long double scale = 2.0L / vNormSq;
-            for (size_t j = k; j < columns; ++j) {
-                long double projection = 0.0;
-                for (size_t i = k; i < x.size(); ++i)
-                    projection += v[i - k] * a[i][j];
-                for (size_t i = k; i < x.size(); ++i)
-                    a[i][j] -= scale * v[i - k] * projection;
-            }
-            long double projection = 0.0;
-            for (size_t i = k; i < x.size(); ++i)
-                projection += v[i - k] * b[i];
-            for (size_t i = k; i < x.size(); ++i)
-                b[i] -= scale * v[i - k] * projection;
+            const auto reflector = MakeHouseholderVector(a, k);
+            ApplyHouseholderToDesign(&a, k, columns, reflector);
+            ApplyHouseholderToResponse(&b, k, reflector);
         }
         Vector_<> coefficients(columns);
         for (size_t k = columns; k-- > 0;) {
@@ -564,6 +583,16 @@ TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeUsesHeldOutPathsOnly) {
         for (double risk : fuzzy.risks_)
             ASSERT_TRUE(std::isfinite(risk));
     }
+}
+
+TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeReportsNoLossWithoutValidationCandidates) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)}, 0.0);
+    const auto run = RunLsmc(product, StandardModel(), 128, 8, false, 256, 128);
+    ASSERT_EQ(run.diagnostics_.events_.size(), 1u);
+    ASSERT_EQ(run.diagnostics_.events_[0].numCondTruePaths_, 0u);
+    ASSERT_TRUE(run.diagnostics_.events_[0].degenerate_);
+    ASSERT_FALSE(run.diagnostics_.events_[0].validationMse_.has_value());
 }
 
 TEST(ScriptExerciseLSMCTest, TestRejectsSobolPathRangeOverflowBeforeAllocation) {

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <utility>
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -177,9 +178,114 @@ namespace Dal::Script {
             return minDiag <= 0.0 || maxDiag / minDiag > CONDITION_LIMIT ? "GramScale" : nullptr;
         }
 
-        //  Column-pivoted, twice-reorthogonalized QR on the actual design rows.
-        //  It is used only after the O(Md) moment solve rejects a fit; in particular,
-        //  no squared-condition Gram matrix enters this rank decision.
+        struct QrWorkspace_ {
+            size_t nRows_ = 0;
+            size_t nBasis_ = 0;
+            std::array<Vector_<>, 9> columns_;
+            std::array<double, 9> scales_{};
+            std::array<size_t, 9> permutation_{};
+            std::array<std::array<double, 9>, 9> upper_{};
+            std::array<double, 9> projection_{};
+            Vector_<> response_;
+        };
+
+        QrWorkspace_
+        MakeQrWorkspace(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, double mean, double sigma, int degree) {
+            QrWorkspace_ ws;
+            ws.nBasis_ = static_cast<size_t>(degree + 1);
+            ws.nRows_ = static_cast<size_t>(std::count(included.begin(), included.end(), 1));
+            ws.response_.Resize(ws.nRows_);
+            for (size_t j = 0; j < ws.nBasis_; ++j) {
+                ws.columns_[j].Resize(ws.nRows_);
+                ws.permutation_[j] = j;
+            }
+            size_t row = 0;
+            for (size_t i = 0; i < x.size(); ++i) {
+                if (!included[i])
+                    continue;
+                const double z = (x[i] - mean) / sigma;
+                ws.response_[row] = targets[i];
+                double power = 1.0;
+                for (size_t j = 0; j < ws.nBasis_; ++j) {
+                    ws.columns_[j][row] = power;
+                    power *= z;
+                }
+                ++row;
+            }
+            return ws;
+        }
+
+        size_t NormalizeQrColumns(QrWorkspace_* ws) {
+            for (size_t j = 0; j < ws->nBasis_; ++j) {
+                double norm = 0.0;
+                for (double value : ws->columns_[j])
+                    norm = std::hypot(norm, value);
+                if (!std::isfinite(norm) || norm == 0.0)
+                    return j;
+                ws->scales_[j] = norm;
+                for (double& value : ws->columns_[j])
+                    value /= norm;
+            }
+            return ws->nBasis_;
+        }
+
+        std::pair<size_t, double> BestQrPivot(const QrWorkspace_& ws, size_t step) {
+            size_t pivot = step;
+            double bestNorm = 0.0;
+            for (size_t j = step; j < ws.nBasis_; ++j) {
+                double normSq = 0.0;
+                for (double value : ws.columns_[j])
+                    normSq += value * value;
+                if (normSq > bestNorm) {
+                    bestNorm = normSq;
+                    pivot = j;
+                }
+            }
+            return {pivot, bestNorm};
+        }
+
+        void PivotQrColumns(QrWorkspace_* ws, size_t step, size_t pivot) {
+            if (pivot == step)
+                return;
+            std::swap(ws->columns_[step], ws->columns_[pivot]);
+            std::swap(ws->scales_[step], ws->scales_[pivot]);
+            std::swap(ws->permutation_[step], ws->permutation_[pivot]);
+            for (size_t i = 0; i < step; ++i)
+                std::swap(ws->upper_[i][step], ws->upper_[i][pivot]);
+        }
+
+        void OrthogonalizeQrStep(QrWorkspace_* ws, size_t step, double normSq) {
+            ws->upper_[step][step] = std::sqrt(normSq);
+            for (double& value : ws->columns_[step])
+                value /= ws->upper_[step][step];
+            for (size_t i = 0; i < ws->nRows_; ++i)
+                ws->projection_[step] += ws->columns_[step][i] * ws->response_[i];
+            for (size_t j = step + 1; j < ws->nBasis_; ++j)
+                for (int pass = 0; pass < 2; ++pass) {
+                    double dot = 0.0;
+                    for (size_t i = 0; i < ws->nRows_; ++i)
+                        dot += ws->columns_[step][i] * ws->columns_[j][i];
+                    ws->upper_[step][j] += dot;
+                    for (size_t i = 0; i < ws->nRows_; ++i)
+                        ws->columns_[j][i] -= dot * ws->columns_[step][i];
+                }
+        }
+
+        void RecoverQrCoefficients(const QrWorkspace_& ws, Vector_<>* coefficients) {
+            std::array<double, 9> pivoted{};
+            for (size_t k = ws.nBasis_; k-- > 0;) {
+                double residual = ws.projection_[k];
+                for (size_t j = k + 1; j < ws.nBasis_; ++j)
+                    residual -= ws.upper_[k][j] * pivoted[j];
+                pivoted[k] = residual / ws.upper_[k][k];
+            }
+            coefficients->Resize(ws.nBasis_);
+            for (size_t k = 0; k < ws.nBasis_; ++k)
+                (*coefficients)[ws.permutation_[k]] = pivoted[k] / ws.scales_[k];
+        }
+
+        //  Column-pivoted, twice-reorthogonalized QR on actual design rows runs
+        //  only after the O(Md) moment solve rejects a fit.
         size_t PivotedQrFit(const Vector_<>& x,
                             const Vector_<>& targets,
                             const Vector_<char>& included,
@@ -187,92 +293,21 @@ namespace Dal::Script {
                             double sigma,
                             int degree,
                             Vector_<>* coefficients) {
-            const size_t nBasis = static_cast<size_t>(degree + 1);
-            const size_t nRows = static_cast<size_t>(std::count(included.begin(), included.end(), 1));
-            std::array<Vector_<>, 9> columns;
-            std::array<double, 9> scales{};
-            std::array<size_t, 9> permutation{};
-            Vector_<> response(nRows);
-            for (size_t j = 0; j < nBasis; ++j) {
-                columns[j].Resize(nRows);
-                permutation[j] = j;
-            }
-            size_t row = 0;
-            for (size_t i = 0; i < x.size(); ++i) {
-                if (!included[i])
-                    continue;
-                const double z = (x[i] - mean) / sigma;
-                response[row] = targets[i];
-                double power = 1.0;
-                for (size_t j = 0; j < nBasis; ++j) {
-                    columns[j][row] = power;
-                    power *= z;
-                }
-                ++row;
-            }
-            for (size_t j = 0; j < nBasis; ++j) {
-                double norm = 0.0;
-                for (double value : columns[j])
-                    norm = std::hypot(norm, value);
-                if (!std::isfinite(norm) || norm == 0.0)
-                    return j;
-                scales[j] = norm;
-                for (double& value : columns[j])
-                    value /= norm;
-            }
-
-            std::array<std::array<double, 9>, 9> upper{};
-            std::array<double, 9> projection{};
+            auto ws = MakeQrWorkspace(x, targets, included, mean, sigma, degree);
+            const size_t normalized = NormalizeQrColumns(&ws);
+            if (normalized != ws.nBasis_)
+                return normalized;
             size_t rank = 0;
-            for (size_t k = 0; k < nBasis; ++k) {
-                size_t pivot = k;
-                double bestNorm = 0.0;
-                for (size_t j = k; j < nBasis; ++j) {
-                    double normSq = 0.0;
-                    for (double value : columns[j])
-                        normSq += value * value;
-                    if (normSq > bestNorm) {
-                        bestNorm = normSq;
-                        pivot = j;
-                    }
-                }
-                if (!std::isfinite(bestNorm) || bestNorm < QR_RANK_TOLERANCE * QR_RANK_TOLERANCE)
+            for (size_t step = 0; step < ws.nBasis_; ++step) {
+                const auto [pivot, normSq] = BestQrPivot(ws, step);
+                if (!std::isfinite(normSq) || normSq < QR_RANK_TOLERANCE * QR_RANK_TOLERANCE)
                     break;
-                if (pivot != k) {
-                    std::swap(columns[k], columns[pivot]);
-                    std::swap(scales[k], scales[pivot]);
-                    std::swap(permutation[k], permutation[pivot]);
-                    for (size_t i = 0; i < k; ++i)
-                        std::swap(upper[i][k], upper[i][pivot]);
-                }
-                upper[k][k] = std::sqrt(bestNorm);
-                for (double& value : columns[k])
-                    value /= upper[k][k];
-                for (size_t i = 0; i < nRows; ++i)
-                    projection[k] += columns[k][i] * response[i];
-                for (size_t j = k + 1; j < nBasis; ++j)
-                    for (int pass = 0; pass < 2; ++pass) {
-                        double dot = 0.0;
-                        for (size_t i = 0; i < nRows; ++i)
-                            dot += columns[k][i] * columns[j][i];
-                        upper[k][j] += dot;
-                        for (size_t i = 0; i < nRows; ++i)
-                            columns[j][i] -= dot * columns[k][i];
-                    }
+                PivotQrColumns(&ws, step, pivot);
+                OrthogonalizeQrStep(&ws, step, normSq);
                 ++rank;
             }
-            if (rank != nBasis)
-                return rank;
-            std::array<double, 9> pivoted{};
-            for (size_t k = nBasis; k-- > 0;) {
-                double residual = projection[k];
-                for (size_t j = k + 1; j < nBasis; ++j)
-                    residual -= upper[k][j] * pivoted[j];
-                pivoted[k] = residual / upper[k][k];
-            }
-            coefficients->Resize(nBasis);
-            for (size_t k = 0; k < nBasis; ++k)
-                (*coefficients)[permutation[k]] = pivoted[k] / scales[k];
+            if (rank == ws.nBasis_)
+                RecoverQrCoefficients(ws, coefficients);
             return rank;
         }
 
@@ -585,48 +620,57 @@ namespace Dal::Script {
             const Vector_<char>& included_;
         };
 
+        struct ValidationLoss_ {
+            double mse_ = std::numeric_limits<double>::infinity();
+            double standardError_ = 0.0;
+        };
+
+        ValidationLoss_ EvaluateValidationLoss(const ExerciseRegression_& candidate, const RegressionRows_& validation, size_t count) {
+            double sumLoss = 0.0;
+            double sumLossSq = 0.0;
+            for (size_t i = 0; i < validation.x_.size(); ++i) {
+                if (!validation.included_[i])
+                    continue;
+                const double error = RegressionPredict(candidate, validation.x_[i]) - validation.targets_[i];
+                const double loss = error * error;
+                sumLoss += loss;
+                sumLossSq += loss * loss;
+            }
+            const double mse = sumLoss / static_cast<double>(count);
+            const double secondMoment = sumLossSq / static_cast<double>(count);
+            return {mse, std::sqrt(std::max(0.0, secondMoment - mse * mse) / static_cast<double>(count))};
+        }
+
+        int ChooseValidationDegree(const std::array<ValidationLoss_, 8>& losses, int maxDegree, const ValidationLoss_& best) {
+            if (!std::isfinite(best.mse_))
+                return 0;
+            const double threshold = best.mse_ + best.standardError_ + 1e-10 * std::max(1.0, best.mse_);
+            for (int degree = 1; degree <= maxDegree; ++degree)
+                if (std::isfinite(losses[static_cast<size_t>(degree - 1)].mse_) && losses[static_cast<size_t>(degree - 1)].mse_ <= threshold)
+                    return degree - 1;
+            return 0;
+        }
+
         ExerciseRegression_ SelectRegression(const RegressionRows_& training, const RegressionRows_& validation, int maxDegree) {
+            const size_t validationCount = static_cast<size_t>(std::count(validation.included_.begin(), validation.included_.end(), 1));
+            if (validationCount == 0)
+                return SolveExerciseRegression(training.x_, training.targets_, training.included_, 1);
+
             std::array<ExerciseRegression_, 8> candidates;
-            std::array<double, 8> losses{};
-            double bestMse = std::numeric_limits<double>::infinity();
-            double bestStandardError = 0.0;
-            size_t validationCount = 0;
-            for (char included : validation.included_)
-                validationCount += included != 0;
+            std::array<ValidationLoss_, 8> losses;
+            ValidationLoss_ best;
             for (int degree = 1; degree <= maxDegree; ++degree) {
                 auto& candidate = candidates[static_cast<size_t>(degree - 1)];
                 candidate = SolveExerciseRegression(training.x_, training.targets_, training.included_, degree);
-                double sumLoss = 0.0;
-                double sumLossSq = 0.0;
-                for (size_t i = 0; i < validation.x_.size(); ++i) {
-                    if (!validation.included_[i])
-                        continue;
-                    const double error = RegressionPredict(candidate, validation.x_[i]) - validation.targets_[i];
-                    const double loss = error * error;
-                    sumLoss += loss;
-                    sumLossSq += loss * loss;
-                }
-                const double mse = validationCount ? sumLoss / static_cast<double>(validationCount) : 0.0;
-                losses[static_cast<size_t>(degree - 1)] = mse;
-                if (std::isfinite(mse) && mse < bestMse) {
-                    bestMse = mse;
-                    const double secondMoment = validationCount ? sumLossSq / static_cast<double>(validationCount) : 0.0;
-                    bestStandardError =
-                        std::sqrt(std::max(0.0, secondMoment - mse * mse) / static_cast<double>(std::max<size_t>(1, validationCount)));
-                }
+                auto& loss = losses[static_cast<size_t>(degree - 1)];
+                loss = EvaluateValidationLoss(candidate, validation, validationCount);
+                if (std::isfinite(loss.mse_) && loss.mse_ < best.mse_)
+                    best = loss;
             }
-            int chosen = 0;
-            if (std::isfinite(bestMse)) {
-                const double threshold = bestMse + bestStandardError + 1e-10 * std::max(1.0, bestMse);
-                for (int degree = 1; degree <= maxDegree; ++degree)
-                    if (std::isfinite(losses[static_cast<size_t>(degree - 1)]) && losses[static_cast<size_t>(degree - 1)] <= threshold) {
-                        chosen = degree - 1;
-                        break;
-                    }
-            }
+            const int chosen = ChooseValidationDegree(losses, maxDegree, best);
             auto selected = std::move(candidates[static_cast<size_t>(chosen)]);
-            if (std::isfinite(bestMse))
-                selected.validationMse_ = losses[static_cast<size_t>(chosen)];
+            if (std::isfinite(best.mse_))
+                selected.validationMse_ = losses[static_cast<size_t>(chosen)].mse_;
             return selected;
         }
 

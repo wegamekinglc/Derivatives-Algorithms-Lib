@@ -693,6 +693,8 @@ invariant across thread counts.
   descriptive dispersion heuristic on deterministic QMC points, not a
   calibrated statistical confidence interval. Validation
   targets and final pricing payoffs never enter the training fit.
+  If no validation path is eligible on a date, the selector fits degree 1
+  and reports a null validation loss rather than a fabricated zero.
 - **Phase C** values the frozen policy on the final `nPaths` Sobol paths,
   starting at `SkipTo(nTrainingPaths + nValidationPaths)`. Training, validation,
   and pricing blocks do not overlap; the total generated path count is
