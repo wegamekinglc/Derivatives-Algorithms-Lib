@@ -183,11 +183,17 @@ def validate_result(result) -> None:
     )
 
 
-def print_ranges(label: str, ranges) -> None:
+def print_ranges(label: str, ranges, name_attribute: str = "name") -> None:
     """Print named half-open calibration blocks."""
-    print(f"{label} ranges:")
+    print("\n" + "=" * 70)
+    print(f"  {label} ranges")
+    print("=" * 70 + "\n")
+    print(f"{'Block':<34}{'Range':>18}")
+    print("-" * 52)
     for block in ranges:
-        print(f"  {block.name}: [{block.offset}, {block.offset + block.size})")
+        span = f"[{block.offset}, {block.offset + block.size})"
+        print(f"{str(getattr(block, name_attribute)):<34}{span:>18}")
+    print("-" * 52)
 
 
 def build_quote_risk_provenance(spec, result, options):
@@ -242,15 +248,18 @@ def main() -> int:
     print(f"Jacobian dimensions: {jacobian.rows()}x{jacobian.cols()}")
     print_ranges("Parameter", result.parameter_ranges)
     print_ranges("Residual", result.residual_ranges)
-    print("FX forwards:")
+    print("\n" + "=" * 70)
+    print("  FX forwards")
+    print("=" * 70 + "\n")
+    print(f"{'Date':<16}{'Forward':>18}")
+    print("-" * 34)
     for date, forward in zip(
         result.fx_forward_curve.dates, result.fx_forward_curve.forwards
     ):
-        print(f"  {date}: {forward:.12g}")
+        print(f"{str(date):<16}{forward:>18.12g}")
+    print("-" * 34)
     print(f"Quote-risk axis fingerprint: {provenance.axis.fingerprint}")
-    print("Quote-risk blocks:")
-    for block in provenance.axis.parameter_ranges:
-        print(f"  {block.block_key}: [{block.offset}, {block.offset + block.size})")
+    print_ranges("Quote-risk", provenance.axis.parameter_ranges, "block_key")
     return 0
 
 

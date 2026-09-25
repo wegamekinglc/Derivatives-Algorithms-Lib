@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 
@@ -40,8 +41,8 @@ int main() {
     const int nParams = 2 * static_cast<int>(knotDates.size());
     const int nInstruments = static_cast<int>(instruments.size());
 
-    std::cout << "Yield Curve Calibration via Underdetermined Search\n";
-    std::cout << "===================================================\n";
+    std::cout << '\n' << std::string(70, '=') << "\n  Yield Curve Calibration via Underdetermined Search\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << "Knot dates: " << knotDates.size() << "\n";
     std::cout << "Parameters: " << nParams << " (2 per knot: left + right)\n";
     std::cout << "Instruments: " << nInstruments << "\n";
@@ -51,21 +52,24 @@ int main() {
     std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
     std::cout << "Calibration complete.\n\n";
 
-    std::cout << "Repricing Check:\n";
+    std::cout << '\n' << std::string(70, '=') << "\n  Repricing Check\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::fixed << std::setprecision(6);
-    std::cout << std::setw(12) << "Instrument" << std::setw(10) << "Market" << std::setw(12) << "Model" << std::setw(12) << "Error(bp)\n";
+    std::cout << std::left << std::setw(12) << "Instrument" << std::right << std::setw(10) << "Market"
+              << std::setw(12) << "Model" << std::setw(12) << "Error(bp)" << '\n';
+    std::cout << std::string(46, '-') << '\n';
 
     CurveBlock_ calibYC(*dc);
     for (int i = 0; i < nInstruments; ++i) {
         Handle_<YCInstrument_::Rate_> rate = instruments[i]->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(calibYC);
         double mktRate = instruments[i]->MarketRate();
-        std::cout << std::setw(12) << instruments[i]->Name()
+        std::cout << std::left << std::setw(12) << instruments[i]->Name() << std::right
                   << std::setw(10) << mktRate * 100.0
                   << std::setw(12) << modelRate * 100.0
                   << std::setw(12) << (modelRate - mktRate) * 10000.0 << "\n";
     }
 
+    std::cout << std::string(46, '-') << "\n\n";
     return 0;
 }
-

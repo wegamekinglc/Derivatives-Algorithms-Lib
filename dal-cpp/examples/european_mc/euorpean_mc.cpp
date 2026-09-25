@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <string>
 #include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -50,24 +51,27 @@ int main() {
     double volStd = std::sqrt(t) * vol;
     const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
 
+    Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
+    ScriptProduct_ product(eventDates, events, "call");
+    int maxNested = product.PreProcess(true, true);
+    const int tableWidth = 104 + 14 * static_cast<int>(modelData->parameterLabels_.size() + product.ConstVarNames().size());
+    std::cout << '\n' << std::string(70, '=') << "\n  European call Monte Carlo comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of pathes"
               << std::setw(widths[2]) << std::right << "spot"
               << std::setw(widths[3]) << std::right << "price"
               << std::setw(widths[4]) << std::right << "benchmark";
 
-    Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
     for (const auto& s: modelData->parameterLabels_)
         std::cout << std::setw(widths[5]) << std::right << s;
-
-    ScriptProduct_ product(eventDates, events, "call");
-    int maxNested = product.PreProcess(true, true);
 
     for (const auto& s: product.ConstVarNames())
         std::cout << std::setw(widths[5]) << std::right << s;
     std::cout << std::setw(widths[6]) << std::right << "Diff (bps)"
               << std::setw(widths[7]) << std::right << "Elapsed (ms)"
               << std::endl;
+    std::cout << std::string(tableWidth, '-') << '\n';
 
     for (int i = 12; i <= 30; ++i) {
         int numPaths = std::pow(2, i);
@@ -91,5 +95,6 @@ int main() {
                       << std::endl;
         }
     }
+    std::cout << std::string(tableWidth, '-') << "\n\n";
     return 0;
 }

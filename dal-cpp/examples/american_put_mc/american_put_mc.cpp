@@ -256,11 +256,14 @@ int main(int argc, char* argv[]) {
     REQUIRE(string(diagnostic.data(), diagnostic.size()).find(needle) != string::npos, "simulation diagnostic schema missing");
 
     Vector_<int> widths = {22, 14, 16, 12, 12, 12, 12, 12, 12, 14};
+    cout << '\n' << string(70, '=') << "\n  American put pricing comparison\n"
+         << string(70, '=') << "\n\n";
     cout << fixed << setprecision(4);
     cout << setw(widths[0]) << left << "Method" << setw(widths[1]) << right << "# of ex dates" << setw(widths[2]) << right << "Pricing paths"
          << setw(widths[2]) << right << "Training paths" << setw(widths[3]) << right << "price" << setw(widths[4]) << right << "premium"
          << setw(widths[5]) << right << "dP/dS" << setw(widths[6]) << right << "dP/dV" << setw(widths[7]) << right << "dP/dR" << setw(widths[8])
          << right << "dP/dDiv" << setw(widths[9]) << right << "Elapsed (ms)" << endl;
+    cout << string(154, '-') << '\n';
     cout << setw(widths[0]) << left << "European (closed form)" << setw(widths[1]) << right << "-" << setw(widths[2]) << right << "-"
          << setw(widths[2]) << right << "-" << setw(widths[3]) << right << european << setw(widths[4]) << right << "-" << setw(widths[5]) << right
          << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-" << setw(widths[9]) << right
@@ -294,6 +297,7 @@ int main(int argc, char* argv[]) {
          << setw(widths[2]) << right << "-" << setw(widths[3]) << right << pde << setw(widths[4]) << right << pde - european << setw(widths[5])
          << right << "-" << setw(widths[6]) << right << "-" << setw(widths[7]) << right << "-" << setw(widths[8]) << right << "-" << setw(widths[9])
          << right << pdeMs << endl;
+    cout << string(154, '-') << "\n\n";
     cout << "\nSimulation diagnostic (" << nPaths << " pricing paths, " << trainingPaths << " training paths, two-date Bermudan):\n"
          << string(diagnostic.data(), diagnostic.size()) << endl;
 

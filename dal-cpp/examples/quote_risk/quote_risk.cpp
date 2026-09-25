@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -99,9 +100,16 @@ int main() {
     std::cout << "state scheme: " << provenance.State().scheme_ << '\n';
     std::cout << "state fingerprint: " << provenance.State().fingerprint_ << '\n';
     std::cout << "policy: " << risk.policy_ << '\n';
-    std::cout << "quote_key,currency,dPV/dDecimalQuote,DV01\n";
-    std::cout << std::setprecision(12);
+    std::cout << '\n' << std::string(70, '=') << "\n  Quote risk by market instrument\n"
+              << std::string(70, '=') << "\n\n";
+    const Vector_<int> w = {34, 10, 26, 22};
+    std::cout << std::left << std::setw(w[0]) << "Quote key" << std::setw(w[1]) << "Currency"
+              << std::right << std::setw(w[2]) << "dPV/dDecimalQuote" << std::setw(w[3]) << "DV01" << '\n';
+    std::cout << std::string(92, '-') << '\n';
+    std::cout << std::defaultfloat << std::setprecision(12);
     for (const auto& bucket : risk.buckets_)
-        std::cout << bucket.quoteKey_ << ',' << bucket.actualPvCcy_.String() << ',' << bucket.dPvDDecimalQuote_ << ',' << bucket.dv01_ << '\n';
+        std::cout << std::left << std::setw(w[0]) << bucket.quoteKey_ << std::setw(w[1]) << bucket.actualPvCcy_.String()
+                  << std::right << std::setw(w[2]) << bucket.dPvDDecimalQuote_ << std::setw(w[3]) << bucket.dv01_ << '\n';
+    std::cout << std::string(92, '-') << "\n\n";
     return 0;
 }

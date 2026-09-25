@@ -55,20 +55,26 @@ def _is_jacobian_empty(jacobian):
     return jacobian is None or not hasattr(jacobian, 'Rows') or jacobian.Rows() == 0
 
 
+def _print_section(title):
+    print("\n" + "=" * 70)
+    print(f"  {title}")
+    print("=" * 70 + "\n")
+
+
 def _jacobian_header_row(free_knots, n_cols):
     column_label = 'row \\ col'
-    header = f"  {column_label:<14}"
+    header = f"{column_label:<14}"
     for j in range(n_cols):
-        header += f" {str(free_knots[j]):>10}"
+        header += f"{str(free_knots[j]):>13}"
     return header
 
 
 def _jacobian_data_rows(jacobian, maturities, n_rows, n_cols):
     rows = []
     for i in range(n_rows):
-        row = f"  {str(maturities[i]):<14}"
+        row = f"{str(maturities[i]):<14}"
         for j in range(n_cols):
-            row += f" {jacobian(i, j):>10.6f}"
+            row += f"{jacobian(i, j):>13.6f}"
         rows.append(row)
     return rows
 
@@ -87,8 +93,10 @@ def print_jacobian(label, jacobian, maturities, free_knots):
     n_cols = min(jacobian.Cols(), 10)
     print(f"  [{label}] Shape: {jacobian.Rows()} instruments x {jacobian.Cols()} free params")
     print(_jacobian_header_row(free_knots, n_cols))
+    print("-" * (14 + 13 * n_cols))
     for row in _jacobian_data_rows(jacobian, maturities, n_rows, n_cols):
         print(row)
+    print("-" * (14 + 13 * n_cols))
     _print_truncation_note(jacobian)
 
 
@@ -142,9 +150,9 @@ def compare_jacobians(ja, jb, label_a, label_b):
 
 
 def _print_header(n_instruments):
-    print("=" * 72)
+    print("=" * 70)
     print("  Yield-Curve Jacobian — AAD Analytic Jacobian Demonstration")
-    print("=" * 72)
+    print("=" * 70)
     print()
     print(f"  Calibration:       {n_instruments} instruments on {n_instruments} free LOG_DISCOUNT params")
     print(f"  System:            square ({n_instruments}x{n_instruments}) — EXACT solve")
@@ -196,12 +204,15 @@ def _build_spec(today, ccy, n_instruments):
 
 
 def _print_residuals(diag, maturities, n_instruments):
-    print(f"  Calibration residuals ({n_instruments} instruments):")
-    print(f"  {'Maturity':<14} {'Market(%)':>10} {'Model(%)':>10} {'Error(bp)':>10}")
-    print(f"  {'-' * 44}")
+    print("\n" + "=" * 70)
+    print(f"  Calibration residuals ({n_instruments} instruments)")
+    print("=" * 70 + "\n")
+    print(f"{'Maturity':<14}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>10}")
+    print("-" * 44)
     for i in range(n_instruments):
-        print(f"  {str(maturities[i]):<14} {diag.marketRates_[i] * 100:>10.6f} "
-              f"{diag.modelRates_[i] * 100:>10.6f} {diag.residuals_[i] * 10000:>10.4f}")
+        print(f"{str(maturities[i]):<14}{diag.marketRates_[i] * 100:>10.6f}"
+              f"{diag.modelRates_[i] * 100:>10.6f}{diag.residuals_[i] * 10000:>10.4f}")
+    print("-" * 44)
     print(f"\n  Max abs residual: {diag.maxAbsResidual_ * 10000:.4f} bp")
     print(f"  RMS residual:     {diag.rmsResidual_ * 10000:.4f} bp")
 
@@ -235,7 +246,7 @@ def _explain_bumped_jacobian(j_bumped_ok):
 
 
 def _print_inverse_jacobian(eff_inv, maturities, free_knots, tolerance):
-    print(f"\n  --- (e) Inverse Jacobian (effJacobianInverse_) ---")
+    _print_section("(e) Inverse Jacobian (effJacobianInverse_)")
     if eff_inv is not None and hasattr(eff_inv, 'Rows') and eff_inv.Rows() > 0:
         n_knots = eff_inv.Rows()
         n_instr = eff_inv.Cols()
@@ -252,11 +263,13 @@ def _print_inverse_jacobian(eff_inv, maturities, free_knots, tolerance):
         print()
         print(f"  (Raw solver-scaled values; divide by tolerance={tolerance} for natural units.)")
         print(_jacobian_header_row(maturities, min(n_instr, 5)))
+        print("-" * (14 + 13 * min(n_instr, 5)))
         for i in range(min(n_knots, 5)):
-            row = f"  {str(free_knots[i]):<14}"
+            row = f"{str(free_knots[i]):<14}"
             for j in range(min(n_instr, 5)):
-                row += f" {eff_inv(i, j):>10.2e}"
+                row += f"{eff_inv(i, j):>13.2e}"
             print(row)
+        print("-" * (14 + 13 * min(n_instr, 5)))
         if n_knots > 5 or n_instr > 5:
             print(f"  ... ({n_knots} x {n_instr} matrix truncated)")
     else:
@@ -267,7 +280,7 @@ def _print_inverse_jacobian(eff_inv, maturities, free_knots, tolerance):
 
 
 def _print_timing(t_analytic, t_bumped, n_instruments):
-    print(f"\n  --- (f) Calibration timing: ANALYTIC vs BUMPED ---")
+    _print_section("(f) Calibration timing: ANALYTIC vs BUMPED")
     print(f"  ANALYTIC (AAD reverse sweep):  {t_analytic:.2f} ms")
     print(f"  BUMPED   (finite difference):  {t_bumped:.2f} ms")
     if t_bumped > t_analytic:
@@ -285,7 +298,7 @@ def _print_timing(t_analytic, t_bumped, n_instruments):
 
 
 def _print_summary(j_analytic_ok):
-    print(f"\n{'=' * 72}")
+    print(f"\n{'=' * 70}")
     if j_analytic_ok:
         print(f"  The AAD analytic Jacobian was successfully computed and validated.")
     else:
@@ -293,12 +306,12 @@ def _print_summary(j_analytic_ok):
         print(f"  The AAD analytic Jacobian was not populated in this build.")
         print(f"  See the C++ example for the full AAD Jacobian demonstration:")
         print(f"    dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp")
-    print(f"{'=' * 72}")
+    print(f"{'=' * 70}")
 
 
 def _run_aad_vs_bump_comparison(j_analytic, j_bumped, j_analytic_ok, j_bumped_ok):
     """Print AAD vs BUMPED Jacobian agreement check results."""
-    print(f"\n  --- (d) AAD vs BUMPED element-wise agreement check ---")
+    _print_section("(d) AAD vs BUMPED element-wise agreement check")
     if j_analytic_ok and j_bumped_ok:
         compare_jacobians(j_analytic, j_bumped, "AAD", "BUMPED")
     elif j_analytic_ok and not j_bumped_ok:
@@ -327,9 +340,9 @@ def main():
     free_knots = knot_dates[1:]
 
     # (a) Calibrate with ANALYTIC Jacobian
-    print("-" * 72)
+    print("=" * 70)
     print("  (a) Calibration with ANALYTIC (AAD) Jacobian mode")
-    print("-" * 72)
+    print("=" * 70)
 
     result_analytic, t_analytic, j_analytic_ok = calibrate_and_check(
         spec, "ANALYTIC", dal.CurveJacobianMode.ANALYTIC)
@@ -338,12 +351,12 @@ def main():
 
     # (b) ANALYTIC (AAD) Jacobian
     j_analytic = diag.jacobian_
-    print(f"\n  --- (b) AAD Forward Jacobian J = d(modelRate_i) / d(logDF_free_k) ---")
+    _print_section("(b) AAD Forward Jacobian J = d(modelRate_i) / d(logDF_free_k)")
     _explain_analytic_jacobian(j_analytic_ok)
     print_jacobian("AAD", j_analytic, maturities, free_knots)
 
     # (c) BUMPED Jacobian
-    print(f"\n  --- (c) BUMPED (central-difference) Jacobian ---")
+    _print_section("(c) BUMPED (central-difference) Jacobian")
     result_bumped, t_bumped, j_bumped_ok = calibrate_and_check(
         spec, "BUMPED", dal.CurveJacobianMode.BUMPED)
     j_bumped = result_bumped.diagnostics_.jacobian_

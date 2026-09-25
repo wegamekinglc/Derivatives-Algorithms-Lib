@@ -142,13 +142,16 @@ def main():
     # ------------------------------------------------------------------
     # Print diagnostics
     # ------------------------------------------------------------------
-    print(f"\n  --- Calibration residuals ---")
-    print(f"  {'Instrument':<20} {'Market(bp)':>12} {'Model(bp)':>12} {'Error(bp)':>12}")
-    print(f"  {'-' * 56}")
+    print("\n" + "=" * 70)
+    print("  Calibration residuals")
+    print("=" * 70 + "\n")
+    print(f"{'Instrument':<20}{'Market(bp)':>12}{'Model(bp)':>12}{'Error(bp)':>12}")
+    print("-" * 56)
     for i, m in enumerate(maturities_months):
         label = f"XCCY Swap {m}M"
-        print(f"  {label:<20} {diag.marketRates_[i] * 10000:>12.4f} "
-              f"{diag.modelRates_[i] * 10000:>12.4f} {diag.residuals_[i] * 10000:>12.6f}")
+        print(f"{label:<20}{diag.marketRates_[i] * 10000:>12.4f}"
+              f"{diag.modelRates_[i] * 10000:>12.4f}{diag.residuals_[i] * 10000:>12.6f}")
+    print("-" * 56)
 
     print(f"\n  FX spot: {fx_spot}")
     print(f"  Max abs residual: {diag.maxAbsResidual_ * 10000:.6f} bp")
@@ -156,11 +159,14 @@ def main():
 
     # Print FX forward curve
     fxfwd = result.fxForwardCurve_
-    print(f"\n  --- FX Forward Curve ({fxfwd.pair_}) ---")
-    print(f"  {'Date':<14} {'Forward':>12}")
-    print(f"  {'-' * 26}")
+    print("\n" + "=" * 70)
+    print("  FX Forward Curve")
+    print("=" * 70 + "\n")
+    print(f"{'Date':<14}{'Forward':>12}")
+    print("-" * 26)
     for i in range(len(fxfwd.dates_)):
-        print(f"  {str(fxfwd.dates_[i]):<14} {fxfwd.forwards_[i]:>12.6f}")
+        print(f"{str(fxfwd.dates_[i]):<14}{fxfwd.forwards_[i]:>12.6f}")
+    print("-" * 26)
 
     print(f"\n  All diagnostics printed successfully.")
 
