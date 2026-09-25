@@ -2,12 +2,17 @@
 // Created by dal-implementer on 2026/6/19.
 //
 
-#include <dal/platform/platform.hpp>
-
-#include "../floatformat.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/ycinstrument.hpp>
@@ -23,12 +28,8 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 

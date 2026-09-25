@@ -2,14 +2,12 @@
 // Created by dal-implementer on 2026/9/2.
 //
 
-#include <dal/platform/platform.hpp>
-
-#include "../floatformat.hpp"
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/quoteriskaggregation.hpp>
@@ -19,6 +17,8 @@
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/time/holidays.hpp>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 

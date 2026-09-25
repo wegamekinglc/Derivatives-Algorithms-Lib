@@ -2,7 +2,6 @@
 // Created by dal-spec-writer on 2026/6/20.
 //
 
-#include "../floatformat.hpp"
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -32,6 +31,8 @@
 #include <dal/time/schedules.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/timer.hpp>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 

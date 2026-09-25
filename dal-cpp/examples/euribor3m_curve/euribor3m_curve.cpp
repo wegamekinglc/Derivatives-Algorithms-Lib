@@ -10,7 +10,6 @@
 // All instruments reference 3M Euribor and discount/forecast off one curve
 // (classic single-curve construction). No OIS data is assumed.
 
-#include "../floatformat.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -33,6 +32,8 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/utilities/timer.hpp>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 

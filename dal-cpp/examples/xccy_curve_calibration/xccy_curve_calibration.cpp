@@ -2,11 +2,12 @@
 // Created by GitHub Copilot on 2026/6/6.
 //
 
-#include <dal/platform/platform.hpp>
-
-#include "../floatformat.hpp"
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
+
+#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/xccycalibration.hpp>
@@ -16,8 +17,8 @@
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/timer.hpp>
-#include <iomanip>
-#include <iostream>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 

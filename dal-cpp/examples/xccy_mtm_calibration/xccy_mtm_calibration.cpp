@@ -2,15 +2,13 @@
 // Created by Codex on 2026/7/14.
 //
 
-#include <dal/platform/platform.hpp>
-
-#include "../floatformat.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <string>
 
+#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
@@ -20,6 +18,8 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
+
+#include "../floatformat.hpp"
 
 using namespace Dal;
 
