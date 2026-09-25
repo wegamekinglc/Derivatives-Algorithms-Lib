@@ -58,7 +58,8 @@ name is string
 &optional
 settings is cell[][]+
     Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths,
-    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed. Replicates at least 2; seeds nonnegative integers.
+    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative.
+    Replicates at least 2; seeds nonnegative integers. Policy mode is Frozen or RetrainedBump; relative bump is in (0, 0.1].
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -168,24 +169,22 @@ namespace Dal {
         }
 
         String_ LsmcPolicyRiskModeValue(const Cell_& cell, const String_& context) {
-            const auto mode = TextValue(cell, context);
-            try {
-                Script::ValidateLsmcPolicyRiskMode(mode);
-            } catch (const Exception_&) {
+            if (!Cell::IsString(cell))
                 THROW(context + "InvalidLsmcPolicyRiskMode: expected exact text Frozen or RetrainedBump");
-            }
+            const auto mode = std::get<String_>(cell.val_);
+            const std::string exact(mode.data(), mode.size());
+            if (exact != "Frozen" && exact != "RetrainedBump")
+                THROW(context + "InvalidLsmcPolicyRiskMode: expected exact text Frozen or RetrainedBump");
             return mode;
         }
 
         double LsmcPolicyBumpRelativeValue(const Cell_& cell, const String_& context) {
             const auto constraint = context + "InvalidLsmcPolicyBumpRelative: expected a finite number in (0, 0.1]";
             const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number, constraint);
-            try {
-                Script::ValidateLsmcPolicyBumpRelative(*number);
-            } catch (const Exception_&) {
+            if (!number)
                 THROW(constraint);
-            }
+            if (!std::isfinite(*number) || *number <= 0.0 || *number > 0.1)
+                THROW(constraint);
             return *number;
         }
 
@@ -290,10 +289,11 @@ namespace Dal {
                      } else if (ApplyLsmcSetting(key, cell, valueContext, &value)) {
                          return;
                      } else {
-                         REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
-                                 keyContext + "unknown key " + key +
-                                     "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths or "
-                                     "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed or lsmc_pricing_seed");
+                         if (key != "use_bb" && key != "enable_aad" && key != "compiled")
+                             THROW(keyContext + "unknown key " + key +
+                                   "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, "
+                                   "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, "
+                                   "lsmc_policy_risk_mode or lsmc_policy_bump_relative");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;

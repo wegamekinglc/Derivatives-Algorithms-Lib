@@ -1290,6 +1290,31 @@ namespace {
         return Handle_<ModelData_>(new BSModelData_("bs", spot, vol, rate, div));
     }
 
+    Handle_<ModelData_> BumpedBsModel(const String_& parameter, double bump) {
+        if (parameter == "spot")
+            return BumpModel(SPOT + bump);
+        if (parameter == "vol")
+            return BumpModel(SPOT, VOL + bump);
+        if (parameter == "rate")
+            return BumpModel(SPOT, VOL, RATE + bump);
+        return BumpModel(SPOT, VOL, RATE, 0.03 + bump);
+    }
+
+    Handle_<ModelData_> BumpedDupireModel(size_t parameter, double bump) {
+        Matrix_<> vols(2, 2, VOL);
+        vols(0, 0) = 0.0; // first grid volatility exercises the one-sided lower-bound rule
+        double spot = SPOT, rate = RATE, repo = 0.03;
+        if (parameter == 0)
+            spot += bump;
+        else if (parameter == 1)
+            rate += bump;
+        else if (parameter == 2)
+            repo += bump;
+        else
+            vols((parameter - 3) / 2, (parameter - 3) % 2) += bump;
+        return Handle_<ModelData_>(new DupireModelData_("dupire", spot, rate, repo, {50.0, 150.0}, {0.0, 2.0}, vols));
+    }
+
     double PvOf(const SimResults_& results, size_t nPaths) { return results.aggregated_ / static_cast<double>(nPaths); }
 } // namespace
 
@@ -1327,16 +1352,47 @@ TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskMatchesFuzzyRepricing) {
         settings.lsmcPolicyRiskMode_ = "Frozen";
         const auto frozen = MCSimulation<AAD::Number_>(product, BumpModel(), N_PATHS, ScriptValuationSettings_(), settings);
         ASSERT_DOUBLE_EQ(total.aggregated_, frozen.aggregated_);
-        for (const auto& bumped : Vector_<String_>{"spot", "vol"}) {
+        for (const auto& bumped : Vector_<String_>{"spot", "vol", "rate", "div"}) {
             const double step = bumped == "spot" ? SPOT * 1e-3 : 1e-3;
-            const auto upModel = bumped == "spot" ? BumpModel(SPOT + step) : BumpModel(SPOT, VOL + step);
-            const auto downModel = bumped == "spot" ? BumpModel(SPOT - step) : BumpModel(SPOT, VOL - step);
+            const auto upModel = BumpedBsModel(bumped, step);
+            const auto downModel = BumpedBsModel(bumped, -step);
             const double up = PvOf(MCSimulation<AAD::Number_>(product, upModel, N_PATHS, ScriptValuationSettings_(), settings), N_PATHS);
             const double down = PvOf(MCSimulation<AAD::Number_>(product, downModel, N_PATHS, ScriptValuationSettings_(), settings), N_PATHS);
             const double reference = (up - down) / (2.0 * step);
             ASSERT_NEAR(total[bumped], reference, 2e-2) << bumped;
-            ASSERT_LT(std::abs(total[bumped] - reference), std::abs(frozen[bumped] - reference)) << bumped;
+            if (bumped == "spot" || bumped == "vol")
+                ASSERT_LT(std::abs(total[bumped] - reference), std::abs(frozen[bumped] - reference)) << bumped;
         }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedDupirePolicyRiskParameterIndexAndVolBoundary) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    constexpr size_t N_PATHS = 2048;
+    constexpr double STEP = 1e-3;
+    auto settings = AadSettings(false, 2.0);
+    settings.lsmcTrainingPaths_ = 1024;
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    const auto baseModel = BumpedDupireModel(0, 0.0);
+    const auto total = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
+    settings.lsmcPolicyRiskMode_ = "Frozen";
+    const auto frozen = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
+    ASSERT_DOUBLE_EQ(total.aggregated_, frozen.aggregated_);
+    ASSERT_EQ(total.names_.size(), 7u);
+    ASSERT_EQ(total.names_[3], String_("lvol 50.00 0.00"));
+    ASSERT_EQ(total.names_[6], String_("lvol 150.00 2.00"));
+    for (const size_t parameter : {1u, 2u, 3u, 6u}) {
+        SCOPED_TRACE(parameter);
+        const double up = PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, STEP), N_PATHS, {}, settings), N_PATHS);
+        const double down = parameter == 3
+                                ? PvOf(frozen, N_PATHS)
+                                : PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, -STEP), N_PATHS, {}, settings), N_PATHS);
+        const double reference = (up - down) / (parameter == 3 ? STEP : 2.0 * STEP);
+        ASSERT_TRUE(std::isfinite(total.risks_[parameter]));
+        //  Sparse hard-policy retraining makes the full-repricing drift secant noisier than the direct grid-volatility secants.
+        const double tolerance = parameter < 3 ? 0.03 * std::abs(reference) : 3e-2;
+        ASSERT_NEAR(total.risks_[parameter], reference, tolerance);
     }
 }
 

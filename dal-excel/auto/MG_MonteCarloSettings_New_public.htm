@@ -16,7 +16,7 @@ Create immutable Monte Carlo execution settings
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
-<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed. Replicates at least 2; seeds nonnegative integers.</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative. Replicates at least 2; seeds nonnegative integers. Policy mode is Frozen or RetrainedBump; relative bump is in (0, 0.1].</td></tr>
 
 </table>
 
