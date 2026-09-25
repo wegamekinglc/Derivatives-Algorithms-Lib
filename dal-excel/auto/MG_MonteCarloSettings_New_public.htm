@@ -16,7 +16,7 @@ Create immutable Monte Carlo execution settings
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
-<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths. Booleans 0/1; smooth positive; degree integer 1..8; path counts positive integers (validation omitted by default).</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed. Replicates at least 2; seeds nonnegative integers.</td></tr>
 
 </table>
 

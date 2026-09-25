@@ -621,6 +621,40 @@ def test_lsmc_validation_paths_rejects_invalid_counts(bad, construct):
     assert settings.lsmc_validation_paths == 128
 
 
+def test_lsmc_rqmc_settings_round_trip():
+    settings = dal.MonteCarloSettings_(lsmc_rqmc_replicates=8, lsmc_training_seed=17, lsmc_pricing_seed=29)
+    assert settings.lsmc_rqmc_replicates == 8
+    assert settings.lsmc_training_seed == 17
+    assert settings.lsmc_pricing_seed == 29
+    copied = copy.deepcopy(settings)
+    assert copied.lsmc_rqmc_replicates == 8
+    assert copied.lsmc_training_seed == 17
+    assert copied.lsmc_pricing_seed == 29
+    settings.lsmc_rqmc_replicates = 4
+    settings.lsmc_training_seed = 0
+    settings.lsmc_pricing_seed = None
+    assert (settings.lsmc_rqmc_replicates, settings.lsmc_training_seed, settings.lsmc_pricing_seed) == (4, 0, None)
+
+
+@pytest.mark.parametrize("field,bad", [("lsmc_rqmc_replicates", 1), ("lsmc_training_seed", -1), ("lsmc_pricing_seed", -1)])
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+def test_lsmc_rqmc_settings_reject_invalid_values(field, bad, construct):
+    settings = dal.MonteCarloSettings_(lsmc_rqmc_replicates=4, lsmc_training_seed=17, lsmc_pricing_seed=29)
+    previous = getattr(settings, field)
+    with pytest.raises(RuntimeError, match="InvalidLsmc"):
+        if construct:
+            dal.MonteCarloSettings_(**{field: bad})
+        else:
+            setattr(settings, field, bad)
+    assert getattr(settings, field) == previous
+
+
+@pytest.mark.parametrize("field", ["lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed"])
+def test_lsmc_rqmc_settings_reject_boolean(field):
+    with pytest.raises(TypeError, match=f"InvalidSetting.*{field}"):
+        dal.MonteCarloSettings_(**{field: True})
+
+
 def test_lsmc_basis_degree_accepts_integers_in_range():
     assert dal.MonteCarloSettings_().lsmc_basis_degree == 3
     for degree in [1, 3, 8, IndexCount()]:
@@ -726,6 +760,36 @@ def test_script_simulation_explain_reports_exercise_events(compiled):
     for value in [{}, "Model", dal.ScriptProductSettings_()]:
         with pytest.raises(TypeError, match="InvalidSetting.*simulation"):
             dal.ScriptSimulation_Explain(product, model, 4096, simulation=value)
+
+
+def test_lsmc_rqmc_exposes_conditional_error_and_prices_replicates():
+    product = dal.Product_New(
+        [dal.Date_(2026, 12, 12), dal.Date_(2027, 3, 12)],
+        ["EXERCISE MAX(100.0 - spot(), 0.0)"] * 2,
+    )
+    model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.0)
+    valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 9, 12))
+    simulation = dal.MonteCarloSettings_(
+        lsmc_training_paths=1024,
+        lsmc_rqmc_replicates=4,
+        lsmc_training_seed=17,
+        lsmc_pricing_seed=29,
+        smooth=1e-10,
+    )
+    diagnostic = dal.ScriptSimulation_Explain(product, model, 257, valuation=valuation, simulation=simulation)
+    uncertainty = diagnostic["uncertainty"]
+    assert uncertainty["mode"] == "rqmc_conditional_policy"
+    assert uncertainty["replicate_count"] == 4
+    assert uncertainty["training_seed"] == 17
+    assert uncertainty["pricing_seed"] == 29
+    assert uncertainty["pricing_paths_total"] == 1028
+    assert len(uncertainty["replicate_means"]) == 4
+    assert uncertainty["replicate_mean_se"] > 0
+    hard = dal.MonteCarlo_ValueWithSettings(product, model, 257, valuation=valuation, simulation=simulation)
+    assert math.isclose(hard["PV"], sum(uncertainty["replicate_means"]) / 4, abs_tol=1e-10)
+    simulation.enable_aad = True
+    fuzzy = dal.MonteCarlo_ValueWithSettings(product, model, 257, valuation=valuation, simulation=simulation)
+    assert math.isclose(fuzzy["PV"], hard["PV"], abs_tol=1e-7)
 
 
 @pytest.mark.parametrize(

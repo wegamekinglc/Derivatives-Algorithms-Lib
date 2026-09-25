@@ -3,6 +3,10 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <cmath>
+#include <cstdint>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/quasirandom.hpp>
@@ -186,4 +190,53 @@ TEST(RandomTest, TestNewSobolPerformance) {
         sum += dst[0];
     }
     ASSERT_NEAR(sum / num_path, 0.5, 1e-4);
+}
+
+TEST(RandomTest, TestDigitallyShiftedSobolReproducibleAndSeparated) {
+    constexpr uint64_t KEY = 0x123456789abcdef0ULL;
+    auto source = NewDigitallyShiftedSobol(3, 2048, KEY);
+    auto matching = NewDigitallyShiftedSobol(3, 0, KEY);
+    matching->SkipTo(2048);
+    auto different = NewDigitallyShiftedSobol(3, 2048, KEY + 1);
+    Vector_<> first, same, other;
+    source->FillUniform(&first);
+    matching->FillUniform(&same);
+    different->FillUniform(&other);
+    ASSERT_EQ(first.size(), 3u);
+    ASSERT_EQ(first, same);
+    ASSERT_NE(first, other);
+    auto pricingRole = NewDigitallyShiftedSobol(3, 2048, (uint64_t{1} << 63) | (uint64_t{17} << 32));
+    auto trainingRole = NewDigitallyShiftedSobol(3, 2048, uint64_t{17} << 32);
+    pricingRole->FillUniform(&first);
+    trainingRole->FillUniform(&same);
+    ASSERT_NE(first, same);
+    for (double value : first) {
+        ASSERT_GT(value, 0.0);
+        ASSERT_LT(value, 1.0);
+    }
+
+    auto cloned = source->Clone();
+    source->FillNormal(&first);
+    cloned->FillNormal(&same);
+    ASSERT_EQ(first, same);
+    for (double value : first)
+        ASSERT_TRUE(std::isfinite(value));
+}
+
+TEST(RandomTest, TestDigitallyShiftedSobolTakeAwayPreservesCoordinates) {
+    constexpr uint64_t KEY = 0x123456789abcdef0ULL;
+    auto complete = NewDigitallyShiftedSobol(3, 17, KEY);
+    auto prefix = NewDigitallyShiftedSobol(3, 17, KEY);
+    auto suffix = prefix->TakeAway(1);
+    Vector_<> all, left, right;
+    for (int i = 0; i < 16; ++i) {
+        complete->FillUniform(&all);
+        prefix->FillUniform(&left);
+        suffix->FillUniform(&right);
+        ASSERT_EQ(left.size(), 2u);
+        ASSERT_EQ(right.size(), 1u);
+        ASSERT_DOUBLE_EQ(all[0], left[0]);
+        ASSERT_DOUBLE_EQ(all[1], left[1]);
+        ASSERT_DOUBLE_EQ(all[2], right[0]);
+    }
 }

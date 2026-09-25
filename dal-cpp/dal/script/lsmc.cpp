@@ -36,15 +36,24 @@ namespace Dal::Script {
             size_t training_;
             size_t validation_;
             size_t pricingOffset_;
+            size_t replicates_;
         };
 
         PathCounts_ LsmcPathCounts(const MonteCarloSettings_& simulation, size_t nPaths) {
             const size_t training = simulation.lsmcTrainingPaths_ ? static_cast<size_t>(*simulation.lsmcTrainingPaths_) : nPaths;
             const size_t validation = simulation.lsmcValidationPaths_ ? static_cast<size_t>(*simulation.lsmcValidationPaths_) : 0;
+            REQUIRE2(!simulation.lsmcRqmcReplicates_ || *simulation.lsmcRqmcReplicates_ >= 2,
+                     "InvalidLsmcRqmcReplicates: expected at least 2 pricing replicates", ScriptError_);
+            const size_t replicates = static_cast<size_t>(simulation.lsmcRqmcReplicates_.value_or(1));
             constexpr size_t MAX_SOBOL_PATHS = std::numeric_limits<uint32_t>::max();
-            REQUIRE2(training <= MAX_SOBOL_PATHS && validation <= MAX_SOBOL_PATHS - training && nPaths <= MAX_SOBOL_PATHS - training - validation,
-                     "InvalidPathCount: LSMC training, validation, and pricing paths exceed the 32-bit Sobol sequence", ScriptError_);
-            return {training, validation, training + validation};
+            REQUIRE2(training <= MAX_SOBOL_PATHS && validation <= MAX_SOBOL_PATHS - training &&
+                         nPaths <= (MAX_SOBOL_PATHS - training - validation) / replicates,
+                     "InvalidPathCount: LSMC training, validation, and all pricing replicates exceed the 32-bit Sobol sequence", ScriptError_);
+            return {training, validation, training + validation, replicates};
+        }
+
+        uint64_t LsmcScrambleKey(bool pricing, int seed, size_t replicate = 0) {
+            return (static_cast<uint64_t>(pricing) << 63) | (static_cast<uint64_t>(seed) << 32) | static_cast<uint64_t>(replicate);
         }
 
         double MeanOf(const Vector_<>& values, const Vector_<char>& included, size_t count) {
@@ -430,6 +439,7 @@ namespace Dal::Script {
             LsmcStorage_& storage_;
             const ScriptCompiled_* compiled_ = nullptr;            //  shared immutable program for every worker
             const Vector_<ExerciseRegression_>* policy_ = nullptr; //  pricing stops evaluating after the first hard exercise
+            std::optional<uint64_t> scrambleKey_;
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
@@ -437,7 +447,7 @@ namespace Dal::Script {
         };
 
         ThreadState_::ThreadState_(const LsmcContext_& ctx)
-            : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, ctx.model_->SimDim(), ctx.prepared_.Simulation().useBb_)),
+            : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, ctx.model_->SimDim(), ctx.prepared_.Simulation().useBb_, ctx.scrambleKey_)),
               gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues()) {
             if (typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>))
                 bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(*ctx.model_));
@@ -717,6 +727,25 @@ namespace Dal::Script {
             return regressions;
         }
 
+        struct TrainingOutcome_ {
+            Vector_<> eventNumeraire_;
+            Vector_<ExerciseRegression_> regressions_;
+        };
+
+        TrainingOutcome_ TrainFrozenPolicy(LsmcContext_& ctx, const PathCounts_& counts) {
+            RunForwardPhase(ctx, BatchPlan_(counts.training_, 1));
+            auto eventNumeraire = SampleGridNumeraires(ctx);
+            LsmcStorage_ validationStorage;
+            if (counts.validation_) {
+                validationStorage = MakeStorage(ctx.scan_, counts.validation_);
+                LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
+                RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
+            }
+            auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, ctx.prepared_.Simulation().lsmcBasisDegree_,
+                                                counts.validation_ ? &validationStorage : nullptr, counts.validation_);
+            return {std::move(eventNumeraire), std::move(regressions)};
+        }
+
         //  First exercise wins (S3/S4): the earliest true decision replaces the payoff
         double PathPayoff(const LsmcContext_& ctx, const Vector_<>& eventNumeraire, const ThreadState_& state, Vector_<size_t>* exerciseCounts) {
             if (state.exercisedDay_ != NO_SLOT) {
@@ -746,7 +775,7 @@ namespace Dal::Script {
             ThreadState_ state_;
 
             ReplayWorkspace_(const LsmcContext_& ctx, const Vector_<ExerciseRegression_>& regressions)
-                : pricing_{ctx.prepared_, ctx.model_, ctx.scan_, storage_, ctx.compiled_, &regressions}, state_(pricing_) {}
+                : pricing_{ctx.prepared_, ctx.model_, ctx.scan_, storage_, ctx.compiled_, &regressions, ctx.scrambleKey_}, state_(pricing_) {}
         };
 
         //  Phase C evaluates the frozen strategy on a disjoint Sobol block. Each
@@ -802,11 +831,23 @@ namespace Dal::Script {
                              const Vector_<ExerciseRegression_>& regressions,
                              const Vector_<size_t>& exerciseCounts,
                              const ReplayOutcome_& reduction,
-                             size_t nPaths) {
+                             const PathCounts_& counts,
+                             size_t pricingPathsPerReplicate,
+                             const Vector_<>& replicateMeans) {
             diagnostics->events_.clear();
             diagnostics->payoffSum_ = reduction.sum_;
             diagnostics->payoffSumSq_ = reduction.sumSq_;
-            diagnostics->nPaths_ = nPaths;
+            diagnostics->nPaths_ = counts.replicates_ * pricingPathsPerReplicate;
+            diagnostics->trainingPaths_ = counts.training_;
+            diagnostics->validationPaths_ = counts.validation_;
+            diagnostics->pricingPathsPerReplicate_ = pricingPathsPerReplicate;
+            diagnostics->replicateCount_ = counts.replicates_;
+            diagnostics->replicateMeans_ = replicateMeans;
+            diagnostics->trainingSeed_ =
+                counts.replicates_ > 1 ? std::optional<int>(prepared.Simulation().lsmcTrainingSeed_.value_or(0)) : std::nullopt;
+            diagnostics->pricingSeed_ =
+                counts.replicates_ > 1 ? std::optional<int>(prepared.Simulation().lsmcPricingSeed_.value_or(0)) : std::nullopt;
+            diagnostics->scrambleIdentity_ = counts.replicates_ > 1 ? "sobol-digital-shift-splitmix64-v1" : "none";
             const auto& bindings = prepared.Plan().ModelBindingNames();
             for (size_t k = 0; k < scan.days_.size(); ++k) {
                 ExerciseEventStats_ stats;
@@ -823,7 +864,7 @@ namespace Dal::Script {
                 stats.solver_ = regressions[k].solver_;
                 stats.fallbackReason_ = regressions[k].fallbackReason_;
                 stats.validationMse_ = regressions[k].validationMse_;
-                stats.exerciseRate_ = static_cast<double>(exerciseCounts[k]) / static_cast<double>(nPaths);
+                stats.exerciseRate_ = static_cast<double>(exerciseCounts[k]) / static_cast<double>(diagnostics->nPaths_);
                 diagnostics->events_.push_back(stats);
             }
         }
@@ -884,12 +925,13 @@ namespace Dal::Script {
         FuzzyReplayWorkspace_ MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
                                                        const Handle_<ModelData_>& modelData,
                                                        const LsmcPlan_& scan,
-                                                       const PathBatch_& batch) {
+                                                       const PathBatch_& batch,
+                                                       std::optional<uint64_t> scrambleKey) {
             const auto& simulation = prepared.Simulation();
             FuzzyReplayWorkspace_ ws;
             ws.model_ = CreateModel<AAD::Number_>(modelData);
             ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
-            ws.random_ = CreateRNG(simulation.rsg_, ws.model_->SimDim(), simulation.useBb_);
+            ws.random_ = CreateRNG(simulation.rsg_, ws.model_->SimDim(), simulation.useBb_, scrambleKey);
             ws.gauss_.Resize(ws.model_->SimDim());
             AllocatePath(prepared.DefLine(), ws.path_);
             InitializePath(ws.path_);
@@ -977,10 +1019,11 @@ namespace Dal::Script {
                                  const Vector_<ExerciseRegression_>& regressions,
                                  const ScriptCompiled_* fuzzyCompiled,
                                  const PathBatch_& batch,
+                                 std::optional<uint64_t> scrambleKey,
                                  AadReplayOutcome_* outcome) {
             AAD::Activate(*AAD::Tape());
             AAD::Rewind(*AAD::Tape());
-            FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch);
+            FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch, scrambleKey);
             //  Bind after the return-by-value, without relying on optional NRVO.
             ws.sinks_.pays_ = &ws.pays_;
             ws.sinks_.h_ = &ws.h_;
@@ -997,6 +1040,38 @@ namespace Dal::Script {
                 FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
                 FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath, outcome);
             }
+        }
+
+        void AccumulateFuzzyReplicate(const PreparedScript_& prepared,
+                                      const Handle_<ModelData_>& modelData,
+                                      const LsmcPlan_& scan,
+                                      const Vector_<ExerciseRegression_>& regressions,
+                                      const ScriptCompiled_* fuzzyCompiled,
+                                      const BatchPlan_& batchPlan,
+                                      size_t pricingOffset,
+                                      std::optional<uint64_t> pricingKey,
+                                      SimResults_* results,
+                                      Vector_<>* riskTotals) {
+            Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
+            for (auto& outcome : outcomes)
+                outcome.risks_ = Vector_<>(results->risks_.size(), 0.0);
+
+            SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batchPlan.BatchCount());
+            for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
+                const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
+                tasks.Spawn([&, batch, batchIndex]() {
+                    const PathBatch_ pricingBatch{pricingOffset + batch.firstPath_, batch.pathCount_};
+                    RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, &outcomes[batchIndex]);
+                    return true;
+                });
+            }
+            tasks.Complete();
+
+            for (const auto& outcome : outcomes)
+                results->aggregated_ += outcome.sum_;
+            for (size_t j = 0; j < results->risks_.size(); ++j)
+                for (const auto& outcome : outcomes)
+                    (*riskTotals)[j] += outcome.risks_[j];
         }
     } // namespace
 
@@ -1087,29 +1162,36 @@ namespace Dal::Script {
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
         auto storage = MakeStorage(scan, counts.training_);
-        LsmcStorage_ validationStorage;
-        //  Each phase has its own count-specific, thread-independent batch layout.
-        const BatchPlan_ trainingPlan(counts.training_, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
         const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
-        LsmcContext_ ctx{prepared, mdl, scan, storage, compiled};
-        RunForwardPhase(ctx, trainingPlan);
-        const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        if (counts.validation_) {
-            validationStorage = MakeStorage(scan, counts.validation_);
-            LsmcContext_ validationCtx{prepared, mdl, scan, validationStorage, compiled};
-            RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
-        }
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, simulation.lsmcBasisDegree_,
-                                                  counts.validation_ ? &validationStorage : nullptr, counts.validation_);
+        const std::optional<uint64_t> trainingKey =
+            counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
+        LsmcContext_ ctx{prepared, mdl, scan, storage, compiled, nullptr, trainingKey};
+        const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
-        validationStorage = LsmcStorage_();
-        const auto reduction = RunReplayPhase(ctx, eventNumeraire, batchPlan, counts.pricingOffset_, regressions);
+        ReplayOutcome_ reduction;
+        Vector_<> replicateMeans;
+        if (counts.replicates_ == 1) {
+            reduction = RunReplayPhase(ctx, trained.eventNumeraire_, batchPlan, counts.pricingOffset_, trained.regressions_);
+        } else {
+            reduction.exerciseCounts_ = Vector_<size_t>(scan.days_.size(), 0);
+            for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
+                auto pricingCtx = ctx;
+                pricingCtx.scrambleKey_ = LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate);
+                const auto one =
+                    RunReplayPhase(pricingCtx, trained.eventNumeraire_, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
+                replicateMeans.push_back(one.sum_ / static_cast<double>(nPaths));
+                reduction.sum_ += one.sum_;
+                reduction.sumSq_ += one.sumSq_;
+                for (size_t day = 0; day < reduction.exerciseCounts_.size(); ++day)
+                    reduction.exerciseCounts_[day] += one.exerciseCounts_[day];
+            }
+        }
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
-        results.aggregated_ = reduction.sum_;
+        results.aggregated_ = reduction.sum_ / static_cast<double>(counts.replicates_);
         if (diagnostics)
-            FillDiagnostics(diagnostics, prepared, scan, regressions, reduction.exerciseCounts_, reduction, nPaths);
+            FillDiagnostics(diagnostics, prepared, scan, trained.regressions_, reduction.exerciseCounts_, reduction, counts, nPaths, replicateMeans);
         return results;
     }
 
@@ -1129,54 +1211,29 @@ namespace Dal::Script {
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
         auto storage = MakeStorage(scan, counts.training_);
-        LsmcStorage_ validationStorage;
-        //  Each phase has its own count-specific, thread-independent batch layout.
-        const BatchPlan_ trainingPlan(counts.training_, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
-        ThreadPool_* pool = ThreadPool_::GetInstance();
         std::optional<ScriptCompiled_> hardCompiled;
         if (simulation.compiled_.value_or(false))
             hardCompiled.emplace(ScriptCompiled_::Build(product.Events(), false, prepared.PlanHandle(), false, true));
-        LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage, hardCompiled ? &*hardCompiled : nullptr};
-
-        RunForwardPhase(ctx, trainingPlan);
-        const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        if (counts.validation_) {
-            validationStorage = MakeStorage(scan, counts.validation_);
-            LsmcContext_ validationCtx{prepared, doubleModel.get(), scan, validationStorage, hardCompiled ? &*hardCompiled : nullptr};
-            RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
-        }
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, simulation.lsmcBasisDegree_,
-                                                  counts.validation_ ? &validationStorage : nullptr, counts.validation_);
+        const std::optional<uint64_t> trainingKey =
+            counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
+        LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage, hardCompiled ? &*hardCompiled : nullptr, nullptr, trainingKey};
+        const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
-        validationStorage = LsmcStorage_();
 
         const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram(true) : nullptr;
-        Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
-        for (auto& outcome : outcomes)
-            outcome.risks_ = Vector_<>(doubleModel->ParameterLabels().size() + product.ConstVarNames().size(), 0.0);
-
-        SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
-        for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
-            const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            tasks.Spawn([&, batch, batchIndex]() {
-                const PathBatch_ pricingBatch{counts.pricingOffset_ + batch.firstPath_, batch.pathCount_};
-                RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, &outcomes[batchIndex]);
-                return true;
-            });
-        }
-        tasks.Complete();
-
-        //  N9: reduce the batch blocks in batch-index order, one final division by nPaths
         SimResults_ results(Vector::Join(doubleModel->ParameterLabels(), product.ConstVarNames()));
-        for (const auto& outcome : outcomes)
-            results.aggregated_ += outcome.sum_;
-        for (size_t j = 0; j < results.risks_.size(); ++j) {
-            double total = 0.0;
-            for (const auto& outcome : outcomes)
-                total += outcome.risks_[j];
-            results.risks_[j] = total / static_cast<double>(nPaths);
+        Vector_<> riskTotals(results.risks_.size(), 0.0);
+        for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
+            const std::optional<uint64_t> pricingKey =
+                counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate))
+                                       : std::nullopt;
+            AccumulateFuzzyReplicate(prepared, modelData, scan, trained.regressions_, fuzzyCompiled, batchPlan,
+                                     counts.pricingOffset_ + replicate * nPaths, pricingKey, &results, &riskTotals);
         }
+        results.aggregated_ /= static_cast<double>(counts.replicates_);
+        for (size_t j = 0; j < results.risks_.size(); ++j)
+            results.risks_[j] = riskTotals[j] / static_cast<double>(counts.replicates_ * nPaths);
         return results;
     }
 } // namespace Dal::Script

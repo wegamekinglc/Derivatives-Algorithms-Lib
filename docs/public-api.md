@@ -603,7 +603,10 @@ for fresh defaults. Their constructors use keyword-only fields. Product settings
 provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
-`lsmc_training_paths`, and `lsmc_validation_paths`.
+`lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
+`lsmc_training_seed`, and `lsmc_pricing_seed`. RQMC pricing uses one frozen
+policy and reports conditional replicate-mean uncertainty through
+`ScriptSimulation_Explain`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
 case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,

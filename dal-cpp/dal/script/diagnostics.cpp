@@ -43,21 +43,28 @@ namespace Dal::Script {
             });
         }
 
+        void WriteOptionalInt(std::ostream& out, const std::optional<int>& value) {
+            if (value)
+                out << *value;
+            else
+                out << "null";
+        }
+
         void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
             out << ",\"simulation\":{\"rsg\":";
             JsonWriteString(simulation.rsg_, out);
             out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
                 << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
                 << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << ",\"lsmc_training_paths\":";
-            if (simulation.lsmcTrainingPaths_)
-                out << *simulation.lsmcTrainingPaths_;
-            else
-                out << "null";
+            WriteOptionalInt(out, simulation.lsmcTrainingPaths_);
             out << ",\"lsmc_validation_paths\":";
-            if (simulation.lsmcValidationPaths_)
-                out << *simulation.lsmcValidationPaths_;
-            else
-                out << "null";
+            WriteOptionalInt(out, simulation.lsmcValidationPaths_);
+            out << ",\"lsmc_rqmc_replicates\":";
+            WriteOptionalInt(out, simulation.lsmcRqmcReplicates_);
+            out << ",\"lsmc_training_seed\":";
+            WriteOptionalInt(out, simulation.lsmcTrainingSeed_);
+            out << ",\"lsmc_pricing_seed\":";
+            WriteOptionalInt(out, simulation.lsmcPricingSeed_);
             out << '}';
         }
 
@@ -261,6 +268,41 @@ namespace Dal::Script {
             JsonWriteStringOrNull(event.degenerateReason_, out);
             out << ",\"exercise_rate\":" << DebugNumber(event.exerciseRate_) << '}';
         }
+
+        void WriteUncertainty(std::ostream& out, const LsmcDiagnostics_& diagnostics) {
+            out << "{\"mode\":";
+            JsonWriteString(diagnostics.nPaths_ == 0              ? "not_applicable"
+                            : diagnostics.replicateMeans_.empty() ? "deterministic"
+                                                                  : "rqmc_conditional_policy",
+                            out);
+            out << ",\"scramble\":";
+            JsonWriteString(diagnostics.scrambleIdentity_.empty() ? "none" : diagnostics.scrambleIdentity_, out);
+            out << ",\"replicate_count\":" << diagnostics.replicateCount_ << ",\"training_seed\":";
+            if (diagnostics.trainingSeed_)
+                out << *diagnostics.trainingSeed_;
+            else
+                out << "null";
+            out << ",\"pricing_seed\":";
+            if (diagnostics.pricingSeed_)
+                out << *diagnostics.pricingSeed_;
+            else
+                out << "null";
+            out << ",\"training_paths\":" << diagnostics.trainingPaths_ << ",\"validation_paths\":" << diagnostics.validationPaths_
+                << ",\"pricing_paths_per_replicate\":" << diagnostics.pricingPathsPerReplicate_ << ",\"pricing_paths_total\":" << diagnostics.nPaths_
+                << ",\"replicate_means\":";
+            WriteArray(out, diagnostics.replicateMeans_, [&](double value, size_t) { out << DebugNumber(value); });
+            out << ",\"replicate_mean_se\":";
+            if (const auto error = diagnostics.ReplicateMeanStandardError())
+                out << DebugNumber(*error);
+            else
+                out << "null";
+            out << ",\"payoff_dispersion_se\":";
+            if (diagnostics.nPaths_)
+                out << DebugNumber(diagnostics.StandardError());
+            else
+                out << "null";
+            out << '}';
+        }
     } // namespace
 
     String_ ExplainScriptSimulation(const ScriptProductData_& data,
@@ -285,14 +327,15 @@ namespace Dal::Script {
         ValidateSimulationSettings(simulation);
 
         LsmcDiagnostics_ diagnostics;
-        diagnostics.nPaths_ = nPaths;
         RunSimulationDiagnostic(prepared, model.get(), nPaths, &diagnostics);
 
         std::ostringstream out;
         out << "{\"schema\":\"dal.script-simulation/1\",\"evaluation_date\":";
         JsonWriteString(Date::ToString(prepared.EvaluationDate()), out);
         WriteSimulationSettings(out, simulation);
-        out << ",\"n_paths\":" << nPaths << ",\"exercise_events\":";
+        out << ",\"n_paths\":" << nPaths << ",\"uncertainty\":";
+        WriteUncertainty(out, diagnostics);
+        out << ",\"exercise_events\":";
         WriteArray(out, diagnostics.events_, [&](const auto& event, size_t) { WriteExerciseEvent(out, event); });
         out << '}';
         return String_(out.str());

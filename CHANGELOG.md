@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-25
 
+- **LSMC adds conditional randomized-QMC error estimates** — opt-in,
+  independently digitally shifted Sobol pricing replicates use configurable
+  seeds and report a standard error across replicate means. Deterministic
+  Sobol remains the default. See
+  [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc).
 - **LSMC gains an opt-in held-out degree selector and rank-revealing fallback** —
   `lsmc_validation_paths` selects a separate Sobol block for bounded degree
   selection before final pricing. Ill-conditioned moment fits use pivoted QR

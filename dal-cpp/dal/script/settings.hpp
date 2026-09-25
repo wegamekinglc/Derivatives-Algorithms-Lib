@@ -46,6 +46,11 @@ namespace Dal {
             // Positive held-out count enables degree selection on a disjoint Sobol block.
             // Unset retains the fixed-degree fast path.
             std::optional<int> lsmcValidationPaths_ = std::nullopt;
+            // Optional randomized-QMC pricing replicates for one frozen LSMC policy.
+            std::optional<int> lsmcRqmcReplicates_ = std::nullopt;
+            // User-visible, exactly representable seeds; unset uses zero in RQMC mode.
+            std::optional<int> lsmcTrainingSeed_ = std::nullopt;
+            std::optional<int> lsmcPricingSeed_ = std::nullopt;
         };
 
         struct ScriptValuationSettings_ {
@@ -70,6 +75,8 @@ namespace Dal {
         void ValidateLsmcBasisDegree(int degree);
         void ValidateLsmcTrainingPaths(int count);
         void ValidateLsmcValidationPaths(int count);
+        void ValidateLsmcRqmcReplicates(int count);
+        void ValidateLsmcSeed(int seed, const String_& field);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

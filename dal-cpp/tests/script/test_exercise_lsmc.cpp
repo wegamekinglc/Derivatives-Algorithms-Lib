@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <utility>
@@ -614,10 +615,109 @@ TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeReportsNoLossWithoutValidationCan
     ASSERT_FALSE(run.diagnostics_.events_[0].validationMse_.has_value());
 }
 
+TEST(ScriptExerciseLSMCTest, TestRqmcReportsReplicateMeanErrorForFrozenPolicy) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    MonteCarloSettings_ settings;
+    settings.lsmcTrainingPaths_ = 1024;
+    settings.lsmcRqmcReplicates_ = 4;
+    settings.lsmcTrainingSeed_ = 17;
+    settings.lsmcPricingSeed_ = 29;
+    auto model = CreateModel<double>(StandardModel());
+    const auto prepared = PrepareScript(product, model.get(), {}, settings);
+    LsmcDiagnostics_ diagnostics;
+    const auto result = MCLsmcSimulation(prepared, model.get(), 257, &diagnostics);
+    ASSERT_EQ(diagnostics.replicateMeans_.size(), 4u);
+    ASSERT_EQ(diagnostics.nPaths_, 4u * 257u);
+    const double mean = std::accumulate(diagnostics.replicateMeans_.begin(), diagnostics.replicateMeans_.end(), 0.0) / 4.0;
+    double squared = 0.0;
+    for (double value : diagnostics.replicateMeans_)
+        squared += (value - mean) * (value - mean);
+    ASSERT_NEAR(result.aggregated_ / 257.0, mean, 1e-12);
+    ASSERT_TRUE(diagnostics.ReplicateMeanStandardError().has_value());
+    ASSERT_NEAR(*diagnostics.ReplicateMeanStandardError(), std::sqrt(squared / (4.0 * 3.0)), 1e-14);
+
+    LsmcDiagnostics_ repeated;
+    const auto again = MCLsmcSimulation(prepared, model.get(), 257, &repeated);
+    ASSERT_DOUBLE_EQ(again.aggregated_, result.aggregated_);
+    ASSERT_EQ(repeated.replicateMeans_, diagnostics.replicateMeans_);
+    ASSERT_EQ(repeated.events_[0].coefficients_, diagnostics.events_[0].coefficients_);
+
+    settings.lsmcPricingSeed_ = 30;
+    const auto otherPrepared = PrepareScript(product, model.get(), {}, settings);
+    LsmcDiagnostics_ changedPricing;
+    MCLsmcSimulation(otherPrepared, model.get(), 257, &changedPricing);
+    ASSERT_EQ(changedPricing.events_[0].coefficients_, diagnostics.events_[0].coefficients_);
+    ASSERT_NE(changedPricing.replicateMeans_, diagnostics.replicateMeans_);
+
+    settings.lsmcPricingSeed_ = 29;
+    settings.lsmcTrainingSeed_ = 18;
+    const auto changedTrainingPrepared = PrepareScript(product, model.get(), {}, settings);
+    LsmcDiagnostics_ changedTraining;
+    MCLsmcSimulation(changedTrainingPrepared, model.get(), 257, &changedTraining);
+    ASSERT_NE(changedTraining.events_[0].coefficients_, diagnostics.events_[0].coefficients_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRqmcAadPricesTheSameReplicates) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        settings.smooth_ = 1e-10;
+        settings.lsmcTrainingPaths_ = 1024;
+        settings.lsmcRqmcReplicates_ = 4;
+        settings.lsmcTrainingSeed_ = 17;
+        settings.lsmcPricingSeed_ = 29;
+        const auto hard = MCSimulation<double>(product, StandardModel(), 257, {}, settings);
+        settings.enableAad_ = true;
+        const auto fuzzy = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+        ASSERT_NEAR(fuzzy.aggregated_ / 257.0, hard.aggregated_ / 257.0, 1e-7);
+        for (double risk : fuzzy.risks_)
+            ASSERT_TRUE(std::isfinite(risk));
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRqmcPricingBlocksMatchIndependentPathReplay) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
+    MonteCarloSettings_ settings;
+    settings.lsmcTrainingPaths_ = 128;
+    settings.lsmcRqmcReplicates_ = 3;
+    settings.lsmcPricingSeed_ = 29;
+    auto model = CreateModel<double>(StandardModel());
+    const auto prepared = PrepareScript(product, model.get(), {}, settings);
+    LsmcDiagnostics_ diagnostics;
+    MCLsmcSimulation(prepared, model.get(), 32, &diagnostics);
+    ASSERT_EQ(diagnostics.replicateMeans_.size(), 3u);
+    for (size_t replicate = 0; replicate < 3; ++replicate) {
+        const uint64_t key = (uint64_t{1} << 63) | (uint64_t{29} << 32) | replicate;
+        auto rng = NewDigitallyShiftedSobol(static_cast<int>(model->SimDim()), 0, key);
+        rng->SkipTo(128 + replicate * 32);
+        Vector_<> gauss(model->SimDim());
+        Scenario_<> path;
+        AllocatePath(prepared.DefLine(), path);
+        InitializePath(path);
+        double sum = 0.0;
+        for (int i = 0; i < 32; ++i) {
+            rng->FillNormal(&gauss);
+            model->GeneratePath(gauss, &path);
+            sum += std::max(STRIKE - path.back().spot_, 0.0) / path.back().numeraire_;
+        }
+        ASSERT_NEAR(diagnostics.replicateMeans_[replicate], sum / 32.0, 1e-10);
+    }
+}
+
 TEST(ScriptExerciseLSMCTest, TestRejectsSobolPathRangeOverflowBeforeAllocation) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
     constexpr size_t PATHS = std::numeric_limits<uint32_t>::max();
+    MonteCarloSettings_ withReplicates;
+    withReplicates.lsmcTrainingPaths_ = 1;
+    withReplicates.lsmcRqmcReplicates_ = 2;
+    ASSERT_THROW(MCSimulation<double>(product, StandardModel(), PATHS / 2 + 1, {}, withReplicates), ScriptError_);
+    withReplicates.enableAad_ = true;
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, StandardModel(), PATHS / 2 + 1, {}, withReplicates), ScriptError_);
     for (const auto trainingPaths : {std::optional<int>(), std::optional<int>(1)}) {
         MonteCarloSettings_ settings;
         settings.lsmcTrainingPaths_ = trainingPaths;
@@ -914,6 +1014,40 @@ namespace {
         }
     }
 } // namespace
+
+TEST(ScriptExerciseLSMCTest, TestRqmcThreadInvarianceBitwise) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    PoolRestore_ pool;
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    MonteCarloSettings_ settings;
+    settings.lsmcTrainingPaths_ = 1024;
+    settings.lsmcRqmcReplicates_ = 4;
+    settings.lsmcTrainingSeed_ = 17;
+    settings.lsmcPricingSeed_ = 29;
+    auto run = [&]() {
+        auto model = CreateModel<double>(StandardModel());
+        const auto prepared = PrepareScript(product, model.get(), {}, settings);
+        LsmcRun_ result{0.0, {}};
+        result.pv_ = MCLsmcSimulation(prepared, model.get(), 257, &result.diagnostics_).aggregated_ / 257.0;
+        return result;
+    };
+    pool.pool_->Start(1, true);
+    const auto one = run();
+    pool.pool_->Start(4, true);
+    const auto four = run();
+    AssertBitwiseEqual(one, four);
+    ASSERT_EQ(one.diagnostics_.replicateMeans_, four.diagnostics_.replicateMeans_);
+    ASSERT_EQ(one.diagnostics_.ReplicateMeanStandardError(), four.diagnostics_.ReplicateMeanStandardError());
+
+    settings.enableAad_ = true;
+    pool.pool_->Start(1, true);
+    const auto aadOne = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+    pool.pool_->Start(4, true);
+    const auto aadFour = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+    ASSERT_EQ(BitsOf(aadOne.aggregated_), BitsOf(aadFour.aggregated_));
+    for (size_t i = 0; i < aadOne.risks_.size(); ++i)
+        ASSERT_EQ(BitsOf(aadOne.risks_[i]), BitsOf(aadFour.risks_[i]));
+}
 
 TEST(ScriptExerciseLSMCTest, TestThreadInvarianceBitwise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());

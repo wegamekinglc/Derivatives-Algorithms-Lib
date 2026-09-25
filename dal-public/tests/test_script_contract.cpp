@@ -232,3 +232,25 @@ TEST(ScriptContractTest, TestLsmcValidationPathsValidatedPositive) {
         }
     }
 }
+
+TEST(ScriptContractTest, TestLsmcRqmcSettingsRequireSobolAndValidSeeds) {
+    Dal::MonteCarloSettings_ simulation;
+    ASSERT_FALSE(simulation.lsmcRqmcReplicates_);
+    ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+    simulation.lsmcRqmcReplicates_ = 8;
+    simulation.lsmcTrainingSeed_ = 17;
+    simulation.lsmcPricingSeed_ = 29;
+    ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+
+    simulation.lsmcRqmcReplicates_ = 1;
+    ASSERT_THROW(Dal::Script::ValidateSimulationSettings(simulation), Dal::ScriptError_);
+    simulation.lsmcRqmcReplicates_ = 8;
+    simulation.lsmcPricingSeed_ = -1;
+    ASSERT_THROW(Dal::Script::ValidateSimulationSettings(simulation), Dal::ScriptError_);
+    simulation.lsmcPricingSeed_ = 29;
+    simulation.rsg_ = "mrg32";
+    ASSERT_THROW(Dal::Script::ValidateSimulationSettings(simulation), Dal::ScriptError_);
+    simulation.rsg_ = "sobol";
+    simulation.lsmcRqmcReplicates_ = std::nullopt;
+    ASSERT_THROW(Dal::Script::ValidateSimulationSettings(simulation), Dal::ScriptError_);
+}
