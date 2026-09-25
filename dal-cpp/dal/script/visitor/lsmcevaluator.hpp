@@ -27,7 +27,8 @@ namespace Dal::Script {
         using Base::Visit;
         using Base::VisitNode;
 
-        LsmcEvaluator_(const Vector_<>& variables, const Vector_<T_>& constVariables) : Base(variables, constVariables) {}
+        LsmcEvaluator_(const Vector_<>& variables, const Vector_<T_>& constVariables, const Vector_<size_t>& vectorCapacities = {})
+            : Base(variables, constVariables, vectorCapacities) {}
 
         //  Driver-installed recording sinks; storage rows are indexed by global path slot
         const Vector_<size_t>* eventToPays_ = nullptr;

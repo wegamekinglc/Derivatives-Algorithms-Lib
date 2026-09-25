@@ -42,6 +42,41 @@ TEST(ScriptTest, TestCompile) {
     ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);
 }
 
+TEST(ScriptTest, TestCompileVectorAppendEntryAndAverage) {
+    Parser_ parser;
+    auto event = parser.Parse("APPEND(v, 2) APPEND(v, 4) v[1] = v[1] + 2 x = AVERAGE(v)");
+    VarIndexer_ indexer;
+    for (auto& statement : event)
+        statement->Accept(indexer);
+    Compiler_ compiler;
+    for (const auto& statement : event)
+        statement->Accept(compiler);
+    EvalState_<double> state(Vector_<>(indexer.VarNames().size(), 0.0), {}, 0, 0.0, indexer.VectorCapacities());
+    EvalCompiled(compiler.NodeStream(), compiler.ConstStream(), AAD::Sample_<double>(), state);
+    ASSERT_EQ(state.VectorVals()[0].size(), 2);
+    ASSERT_DOUBLE_EQ(state.VectorVals()[0][1], 6.0);
+    ASSERT_DOUBLE_EQ(state.VarVals()[0], 4.0);
+}
+
+TEST(ScriptTest, TestCompiledVectorIndexErrorKeepsSourceLine) {
+    Parser_ parser;
+    auto event = parser.Parse("APPEND(v, 1)\nx = v[2]");
+    VarIndexer_ indexer;
+    for (auto& statement : event)
+        statement->Accept(indexer);
+    Compiler_ compiler;
+    for (const auto& statement : event)
+        statement->Accept(compiler);
+    EvalState_<double> state(Vector_<>(1, 0.0), {}, 0, 0.0, indexer.VectorCapacities());
+    try {
+        EvalCompiled(compiler.NodeStream(), compiler.ConstStream(), AAD::Sample_<double>(), state);
+        FAIL() << "out-of-range vector access must fail";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("VectorIndexOutOfRange"), std::string::npos);
+        ASSERT_NE(std::string(error.what()).find("line=2"), std::string::npos);
+    }
+}
+
 TEST(ScriptTest, TestCompileWithVariable) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(

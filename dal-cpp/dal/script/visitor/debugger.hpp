@@ -34,6 +34,7 @@ namespace Dal::Script {
         String_ kind;
         String_ name;        //  var, const_var
         int index = -1;      //  var, const_var
+        size_t entry = 0;    //  vector_entry
         int firstElse = -1;  //  if
         double number = 0.0; //  const / const_var value, comparison eps
         double lb = 0.0;     //  discrete comparison bounds
@@ -193,7 +194,7 @@ namespace Dal::Script {
     }
 
     inline bool JsonWriteAssign(const DebugNode_& node, size_t& id, std::ostream& ost) {
-        if (node.kind != "assign" && node.kind != "pays")
+        if (node.kind != "assign" && node.kind != "pays" && node.kind != "vector_assign")
             return false;
         ost << ",\"target\":";
         DebugNodeJson(node.children[0], id, ost);
@@ -203,11 +204,19 @@ namespace Dal::Script {
     }
 
     inline bool JsonWriteNamed(const DebugNode_& node, size_t& id, std::ostream& ost) {
-        if (node.kind != "var" && node.kind != "const_var")
+        const bool vectorNode = node.kind == "vector_entry" || node.kind == "vector_append" || node.kind == "vector_sum" ||
+                                node.kind == "vector_average" || node.kind == "vector_min" || node.kind == "vector_max";
+        if (node.kind != "var" && node.kind != "const_var" && !vectorNode)
             return false;
         ost << ",\"name\":";
         JsonWriteString(node.name, ost);
-        ost << ",\"index\":" << node.index << (node.kind == "var" ? ",\"const_value\":" : ",\"value\":") << DebugNumber(node.number);
+        ost << ",\"index\":" << node.index;
+        if (node.kind == "vector_entry")
+            ost << ",\"entry\":" << node.entry;
+        else if (node.kind == "vector_append")
+            JsonWriteChildren(node, id, ost);
+        else if (!vectorNode)
+            ost << (node.kind == "var" ? ",\"const_value\":" : ",\"value\":") << DebugNumber(node.number);
         return true;
     }
 
@@ -343,9 +352,10 @@ namespace Dal::Script {
     }
 
     inline int TreePrec(const String_& kind) {
-        static const std::map<String_, int> PRECEDENCE = {{"assign", 0},   {"pays", 0},  {"if", 0},  {"collect", 0}, {"exercise", 0}, {"or", 1},
-                                                          {"and", 2},      {"eq0", 3},   {"gt0", 3}, {"ge0", 3},     {"add", 4},       {"sub", 4},
-                                                          {"mul", 5},      {"div", 5},   {"not", 6}, {"neg", 6},     {"uplus", 6},     {"pow", 7}};
+        static const std::map<String_, int> PRECEDENCE = {
+            {"assign", 0}, {"vector_assign", 0}, {"vector_append", 0}, {"pays", 0}, {"if", 0},    {"collect", 0}, {"exercise", 0},
+            {"or", 1},     {"and", 2},           {"eq0", 3},           {"gt0", 3},  {"ge0", 3},   {"add", 4},     {"sub", 4},
+            {"mul", 5},    {"div", 5},           {"not", 6},           {"neg", 6},  {"uplus", 6}, {"pow", 7}};
         const auto found = PRECEDENCE.find(kind);
         return found == PRECEDENCE.end() ? 8 : found->second;
     }
@@ -374,7 +384,15 @@ namespace Dal::Script {
             out = DebugNumber(node.number);
         else if (node.kind == "var" || node.kind == "const_var")
             out = node.name;
-        else if (node.kind == "spot")
+        else if (node.kind == "vector_entry")
+            out = node.name + "[" + String_(std::to_string(node.entry)) + "]";
+        else if (node.kind == "vector_sum" || node.kind == "vector_average" || node.kind == "vector_min" || node.kind == "vector_max") {
+            const char* function = node.kind == "vector_sum"       ? "SUM"
+                                   : node.kind == "vector_average" ? "AVERAGE"
+                                   : node.kind == "vector_min"     ? "MIN"
+                                                                   : "MAX";
+            out = String_(function) + "(" + node.name + ")";
+        } else if (node.kind == "spot")
             out = String_("spot()");
         else if (node.kind == "fix")
             out = node.label;
@@ -499,8 +517,10 @@ namespace Dal::Script {
 
     inline String_ TreeInlineStatement(const DebugNode_& node, const TreeStyle_& st) {
         const String_& k = node.kind;
-        if (k == "assign" || k == "pays")
-            return TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS) + " " + TreeInline(node.children[1], st);
+        if (k == "assign" || k == "vector_assign" || k == "pays")
+            return TreeInline(node.children[0], st) + " " + (k == "pays" ? st.paysS : st.assignS) + " " + TreeInline(node.children[1], st);
+        if (k == "vector_append")
+            return "APPEND(" + node.name + ", " + TreeInline(node.children[0], st) + ")";
         if (k == "if")
             return TreeInlineIf(node, st);
         if (k == "exercise")
@@ -551,9 +571,14 @@ namespace Dal::Script {
     inline bool TreeBranchStatement(
         const DebugNode_& node, const String_& first, const TreeStyle_& st, size_t width, String_& header, Vector_<TreeBranch_>& branches) {
         const String_& k = node.kind;
-        if (k == "assign" || k == "pays") {
-            header = first + TreeInline(node.children[0], st) + " " + (k == "assign" ? st.assignS : st.paysS);
+        if (k == "assign" || k == "vector_assign" || k == "pays") {
+            header = first + TreeInline(node.children[0], st) + " " + (k == "pays" ? st.paysS : st.assignS);
             branches.push_back(TreeBranch_{&node.children[1], String_(), true});
+            return true;
+        }
+        if (k == "vector_append") {
+            header = first + "APPEND(" + node.name + ")";
+            branches.push_back(TreeBranch_{&node.children[0], String_(), true});
             return true;
         }
         if (k == "exercise") {
@@ -742,6 +767,34 @@ namespace Dal::Script {
         void Visit(const NodeAnd_& node) { Debug(node, {"AND", "and"}); }
         void Visit(const NodeOr_& node) { Debug(node, {"OR", "or"}); }
         void Visit(const NodeAssign_& node) { Debug(node, {"ASSIGN", "assign"}); }
+        void Visit(const NodeVectorAssign_& node) { Debug(node, {"VECTOR_ASSIGN", "vector_assign"}); }
+        void Visit(const NodeVectorAppend_& node) {
+            DebugNode_ ir{"VECTOR_APPEND[" + node.name_ + "]", "vector_append"};
+            ir.name = node.name_;
+            ir.index = node.index_;
+            Debug(node, std::move(ir));
+        }
+        void Visit(const NodeVectorEntry_& node) {
+            DebugNode_ ir{"VECTOR_ENTRY[" + node.name_ + "," + String_(std::to_string(node.entry_)) + "]", "vector_entry"};
+            ir.name = node.name_;
+            ir.index = node.index_;
+            ir.entry = node.entry_;
+            Debug(node, std::move(ir));
+        }
+        void Visit(const NodeVectorReduce_& node) {
+            const char* function = node.kind_ == NodeVectorReduce_::Kind_::Sum       ? "SUM"
+                                   : node.kind_ == NodeVectorReduce_::Kind_::Average ? "AVERAGE"
+                                   : node.kind_ == NodeVectorReduce_::Kind_::Minimum ? "MIN"
+                                                                                     : "MAX";
+            const char* kind = node.kind_ == NodeVectorReduce_::Kind_::Sum       ? "vector_sum"
+                               : node.kind_ == NodeVectorReduce_::Kind_::Average ? "vector_average"
+                               : node.kind_ == NodeVectorReduce_::Kind_::Minimum ? "vector_min"
+                                                                                 : "vector_max";
+            DebugNode_ ir{String_(function) + "[" + node.name_ + "]", kind};
+            ir.name = node.name_;
+            ir.index = node.index_;
+            Debug(node, std::move(ir));
+        }
         void Visit(const NodePays_& node) { Debug(node, {"PAYS", "pays"}); }
         void Visit(const NodeExercise_& node) {
             //  The fuzzy metadata (decision smoothing eps) renders like a comparison node;

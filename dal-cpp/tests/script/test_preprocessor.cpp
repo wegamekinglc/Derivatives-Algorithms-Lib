@@ -28,6 +28,23 @@ TEST(ScriptPreprocessorTest, TestConstVariableDefinition) {
     ASSERT_TRUE(result.events_.empty());
 }
 
+TEST(ScriptPreprocessorTest, TestNumericVectorDefinition) {
+    Vector_<Cell_> dates = {Cell_("STRIKES"), Cell_(Date_(2026, 10, 1))};
+    Vector_<String_> events = {"[100, 120, 150]", "pay PAYS STRIKES[1]"};
+    Preprocessor_ preprocessor;
+    const auto result = preprocessor.Process(MakeTable(dates, events));
+    ASSERT_EQ(result.numericVectors_.size(), 1);
+    ASSERT_EQ(result.numericVectors_.at("STRIKES").size(), 3);
+    ASSERT_DOUBLE_EQ(result.numericVectors_.at("STRIKES")[1], 120.0);
+    ASSERT_EQ(result.events_.at(Date_(2026, 10, 1)), "pay PAYS STRIKES[1]");
+}
+
+TEST(ScriptPreprocessorTest, TestVectorAndLoopKeywordsCannotBeDefinitions) {
+    Preprocessor_ preprocessor;
+    for (const String_ keyword : {"FOR", "APPEND", "SUM", "AVERAGE"})
+        ASSERT_THROW(preprocessor.Process({{Cell_(keyword), "1"}}), ScriptError_);
+}
+
 TEST(ScriptPreprocessorTest, TestMacroExpansionIntoDatedEvent) {
     Vector_<Cell_> dates = {Cell_("PAYOFF"), Cell_(Date_(2023, 12, 1))};
     Vector_<String_> events = {"MAX(spot() - 100.0, 0.0)", "call PAYS PAYOFF"};

@@ -2,7 +2,10 @@
 // Created by wegam on 2023/6/17.
 //
 
+#include <iomanip>
 #include <iostream>
+#include <sstream>
+
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
@@ -52,6 +55,16 @@ int main() {
 
     ScriptProduct_ product(eventDates, events);
     std::cout << DebugScriptProduct(product) << std::endl;
+
+    ScriptProduct_ basket({Cell_("STRIKES"), Cell_("WEIGHTS"), Cell_(Date_(2022, 12, 25))},
+                          {"[80, 100, 120]", "[0.2, 0.3, 0.5]", "FOR(i, 0, 3) pay PAYS WEIGHTS[i] * MAX(SPOT() - STRIKES[i], 0) END"});
+    basket.PreProcess(false, false);
+    AAD::Scenario_<double> path(1);
+    path[0].spot_ = 130.0;
+    path[0].numeraire_ = 1.0;
+    auto evaluator = basket.BuildEvaluator<double>();
+    basket.Evaluate(path, evaluator);
+    std::cout << "basket payoff: " << std::fixed << std::setprecision(2) << evaluator.VarVals()[basket.PayOffIdx()] << std::endl;
 
     return 0;
 }

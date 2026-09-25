@@ -18,6 +18,7 @@ namespace Dal::Script {
     // Independent of Parser_ — never builds an AST — so the two halves can be tested in isolation.
     struct PreprocessedEvents_ {
         std::map<String_, double> constVariables_;
+        std::map<String_, Vector_<double>> numericVectors_;
         std::map<Date_, String_> events_;
         std::map<Date_, Vector_<SourceOrigin_>> sources_;
     };

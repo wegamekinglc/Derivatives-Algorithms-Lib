@@ -44,6 +44,8 @@ namespace Dal::Script {
         }
 
         size_t IndexSuffixEnd(const String_& str, size_t start, const SourceLocation_& source) {
+            if (start == str.size() || (str[start] != '@' && str[start] != '>'))
+                return start;
             auto end = str.find_first_of(",)", start);
             if (end == String_::npos)
                 end = str.size();

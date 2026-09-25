@@ -48,6 +48,14 @@ TEST(ScriptTest, TestDebugReturnsNonEmptyDescription) {
     ASSERT_FALSE(description.empty());
 }
 
+TEST(ScriptTest, TestProductTableAcceptsNumericVectorsAndFor) {
+    const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
+    const auto product = Dal::NewScriptProduct("public_vector_loop", {Cell_("WEIGHTS"), Cell_(Date_(2023, 9, 25))},
+                                               {"[0.25, 0.75]", "FOR(i, 0, 2) pay PAYS WEIGHTS[i] * SPOT() END"});
+    const String_ debug = Dal::DebugScriptProduct(product);
+    ASSERT_NE(debug.find("PAYS"), String_::npos);
+}
+
 TEST(ScriptTest, TestDebugIsRepeatable) {
     const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
     const Vector_<Cell_> dates = {Cell_("STRIKE"), Cell_(Date_(2023, 9, 25))};

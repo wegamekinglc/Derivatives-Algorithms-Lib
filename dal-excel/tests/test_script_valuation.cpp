@@ -150,6 +150,17 @@ TEST(ScriptExcelContractTest, TestHistoricalPriceAndAadOracle) {
             }
 }
 
+TEST(ScriptExcelValuationTest, TestProductTableAcceptsNumericVectorsAndFor) {
+    const DateScope_ date(D);
+    Handle_<ScriptProductData_> product;
+    Product_New("excel_vector_loop", {Cell_("WEIGHTS"), Cell_(P)}, {"[0.25, 0.75]", "FOR(i, 0, 2) pay PAYS WEIGHTS[i] * SPOT() END"}, &product);
+    Vector_<String_> chunks;
+    Product_Describe(product, &chunks);
+    const auto description = Json(chunks);
+    ASSERT_TRUE(description.HasMember("payoff_index"));
+    ASSERT_TRUE(description["payoff_index"].IsInt());
+}
+
 TEST(ScriptExcelContractTest, TestTodayPolicyAcrossExecutionModes) {
     Excel::ScriptTestInitialize(1);
     const DateScope_ restore(D);

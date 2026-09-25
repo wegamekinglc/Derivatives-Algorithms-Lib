@@ -2,13 +2,15 @@
 // Created by wegam on 2026/5/30.
 //
 
+#include <cmath>
+#include <regex>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/script/preprocessor.hpp>
-#include <dal/script/lexer.hpp>
 #include <dal/script/event/schedule.hpp>
+#include <dal/script/lexer.hpp>
+#include <dal/script/preprocessor.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <regex>
 
 namespace Dal::Script {
     namespace {
@@ -43,6 +45,38 @@ namespace Dal::Script {
                 start = range.second;
             }
             return result + std::regex_replace(String_(statement.substr(start)), expression, replacement);
+        }
+
+        String_ TrimVectorToken(const String_& token) {
+            const auto first = token.find_first_not_of(" \t\r\n");
+            if (first == String_::npos)
+                return {};
+            const auto last = token.find_last_not_of(" \t\r\n");
+            return String_(token.substr(first, last - first + 1));
+        }
+
+        Vector_<double> ParseNumericVector(const String_& definition, size_t row) {
+            const String_ text = TrimVectorToken(definition);
+            REQUIRE2(text.size() >= 2 && text.front() == '[' && text.back() == ']',
+                     "InvalidVectorDefinition: expected [number, ...]; row=" + String_(std::to_string(row)), ScriptError_);
+            Vector_<double> values;
+            if (text.size() == 2)
+                return values;
+            const String_ body(text.substr(1, text.size() - 2));
+            size_t begin = 0;
+            while (begin <= body.size()) {
+                const auto comma = body.find(',', begin);
+                const auto token = TrimVectorToken(String_(body.substr(begin, comma == String_::npos ? String_::npos : comma - begin)));
+                REQUIRE2(!token.empty() && String::IsNumber(token),
+                         "InvalidVectorDefinition: expected finite numeric entries; row=" + String_(std::to_string(row)), ScriptError_);
+                const double value = String::ToDouble(token);
+                REQUIRE2(std::isfinite(value), "InvalidVectorDefinition: entries must be finite; row=" + String_(std::to_string(row)), ScriptError_);
+                values.push_back(value);
+                if (comma == String_::npos)
+                    break;
+                begin = comma + 1;
+            }
+            return values;
         }
     } // namespace
 
@@ -104,11 +138,17 @@ namespace Dal::Script {
                     REQUIRE2(desc != "EXERCISE",
                              String_("ReservedIdentifier: EXERCISE is a statement; rename the definition; row=" + std::to_string(row)),
                              ScriptError_);
+                    REQUIRE2(desc != "FOR" && desc != "APPEND" && desc != "SUM" && desc != "AVERAGE",
+                             "ReservedIdentifier: vector/loop keyword cannot name a definition; row=" + String_(std::to_string(row)), ScriptError_);
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
                     REQUIRE2(constVariables.find(desc) == constVariables.end(), "const macro name has already registered", ScriptError_);
+                    REQUIRE2(result.numericVectors_.find(desc) == result.numericVectors_.end(), "vector name has already registered", ScriptError_);
                     REQUIRE2(processedEvents.empty(), "macros should always at the front", ScriptError_);
 
-                    if (IsConstVariable(event.second))
+                    const auto definition = TrimVectorToken(event.second);
+                    if (!definition.empty() && definition.front() == '[')
+                        result.numericVectors_[desc] = ParseNumericVector(definition, row);
+                    else if (IsConstVariable(event.second))
                         constVariables[desc] = String::ToDouble(event.second);
                     else
                         macros[desc] = event.second;

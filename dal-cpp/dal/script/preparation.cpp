@@ -360,6 +360,8 @@ namespace Dal::Script {
                          ScriptError_);
             }
             product->IndexVariables();
+            if (simulation.enableAad_)
+                product->ValidateFuzzyVectorMutations();
             const auto boundIndex = InferBinding(collector.requests_);
             ObservationPlan_ plan(std::move(collector.requests_), {});
             if (boundIndex)

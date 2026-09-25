@@ -60,16 +60,18 @@ namespace Dal::Script {
             return product_->BuildFuzzyEvaluator<T_>(static_cast<int>(maxNestedIfs_), eps);
         }
         template <class E_> void InitializeHistoricalState(E_* evaluator) const {
-            PastEvaluator_<AAD::Number_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals());
+            PastEvaluator_<AAD::Number_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals(), product_->VectorCapacities());
             past.SetObservations(plan_.get());
             product_->Visit(past, true, false);
             evaluator->SetHistoricalSeed(past.VarVals());
+            evaluator->SetHistoricalVectorSeed(past.VectorVals());
         }
         template <class T_> void InitializeHistoricalState(EvalState_<T_>* evaluator) const {
             REQUIRE2(pastCompiled_, "PreparationRequired: historical bytecode is not prepared", ScriptError_);
-            EvalState_<T_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals());
+            EvalState_<T_> past(Vector_<>(product_->VarNames().size(), 0.0), evaluator->ConstVarVals(), 0, 0.0, product_->VectorCapacities());
             pastCompiled_->Evaluate(AAD::Scenario_<T_>(), past);
             evaluator->SetHistoricalSeed(past.VarVals());
+            evaluator->SetHistoricalVectorSeed(past.VectorVals());
         }
         //  Borrow the prepared program for an evaluation whose lifetime stays
         //  inside this PreparedScript_; Compile() retains its owning-copy API.

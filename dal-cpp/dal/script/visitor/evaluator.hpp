@@ -12,6 +12,7 @@
 #include <dal/script/observationplan.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
+#include <dal/script/visitor/vectorops.hpp>
 
 namespace Dal::Script {
 
@@ -24,6 +25,7 @@ namespace Dal::Script {
         using StateCore_::dStack_;
         using StateCore_::variables_;
         using StateCore_::variablesInit_;
+        using StateCore_::vectors_;
 
         const AAD::Scenario_<T_>* scenario_;
         const ObservationPlan_* observations_ = nullptr;
@@ -36,10 +38,12 @@ namespace Dal::Script {
         using StateCore_::ConstVarVals;
         using StateCore_::Init;
         using StateCore_::SetHistoricalSeed;
+        using StateCore_::SetHistoricalVectorSeed;
         using StateCore_::VarVals;
+        using StateCore_::VectorVals;
 
-        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
-            : StateCore_(variables, constVariables), scenario_(nullptr), curEvt_(-1) {}
+        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables, const Vector_<size_t>& vectorCapacities = {})
+            : StateCore_(variables, constVariables, vectorCapacities), scenario_(nullptr), curEvt_(-1) {}
 
         EvaluatorBase_(const EvaluatorBase_& rhs)
             : StateCore_(rhs), scenario_(rhs.scenario_), observations_(rhs.observations_), curEvt_(rhs.curEvt_) {}
@@ -219,6 +223,30 @@ namespace Dal::Script {
             dStack_.Push(constVariables_[node.index_]);
         }
 
+        void Visit(const NodeVectorEntry_& node) {
+            const auto& values = vectors_[node.index_];
+            if (node.entry_ >= values.size())
+                THROW2("VectorIndexOutOfRange: " + node.name_ + "; " + node.source_.Describe(), ScriptError_);
+            dStack_.Push(values[node.entry_]);
+        }
+
+        void Visit(const NodeVectorAssign_& node) {
+            const auto* entry = Downcast<NodeVectorEntry_>(node.arguments_[0]);
+            VisitNode(*node.arguments_[1]);
+            WriteVectorEntry(&vectors_[entry->index_], entry->entry_, dStack_.TopAndPop());
+        }
+
+        void Visit(const NodeVectorAppend_& node) {
+            VisitNode(*node.arguments_[0]);
+            vectors_[node.index_].push_back(dStack_.TopAndPop());
+        }
+
+        void Visit(const NodeVectorReduce_& node) {
+            const auto& values = vectors_[node.index_];
+            dStack_.Push(ReduceVectorValues(
+                values, node.kind_,
+                values.empty() && node.kind_ != NodeVectorReduce_::Kind_::Sum ? node.name_ + "; " + node.source_.Describe() : String_()));
+        }
 
         FORCE_INLINE void Visit(const NodeConst_& node) { dStack_.Push(node.constVal_); }
 
@@ -246,7 +274,9 @@ namespace Dal::Script {
         using Base = EvaluatorBase_<T_, Evaluator_>;
 
         explicit Evaluator_(const Vector_<>& variables,
-                            const Vector_<T_>& constVariables = Vector_<T_>()) : Base(variables, constVariables) {}
+                            const Vector_<T_>& constVariables = Vector_<T_>(),
+                            const Vector_<size_t>& vectorCapacities = {})
+            : Base(variables, constVariables, vectorCapacities) {}
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
         Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
         Evaluator_& operator=(const Evaluator_& rhs) {

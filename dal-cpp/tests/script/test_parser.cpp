@@ -147,6 +147,107 @@ TEST(ScriptTest, TestParseIfWithElse) {
     ASSERT_NE(dynamic_cast<NodeVar_*>(toTest11->arguments_[1].get()), nullptr);
 }
 
+TEST(ScriptTest, TestParseForUnrollsConstantBounds) {
+    Parser_ parser({{"COUNT", 3.0}});
+    auto statements = parser.Parse("FOR(i, 0, COUNT) x = x + i END");
+    ASSERT_EQ(statements.size(), 1);
+    const auto* collected = dynamic_cast<const NodeCollect_*>(statements[0].get());
+    ASSERT_NE(collected, nullptr);
+    ASSERT_EQ(collected->arguments_.size(), 3);
+    for (size_t i = 0; i < 3; ++i) {
+        const auto* assign = dynamic_cast<const NodeAssign_*>(collected->arguments_[i].get());
+        ASSERT_NE(assign, nullptr);
+        const auto* add = dynamic_cast<const NodeAdd_*>(assign->arguments_[1].get());
+        ASSERT_NE(add, nullptr);
+        const auto* index = dynamic_cast<const NodeConst_*>(add->arguments_[1].get());
+        ASSERT_NE(index, nullptr);
+        ASSERT_DOUBLE_EQ(index->constVal_, static_cast<double>(i));
+    }
+}
+
+TEST(ScriptTest, TestParseForRejectsInvalidBounds) {
+    Parser_ parser;
+    ASSERT_THROW(parser.Parse("FOR(i, 0.5, 3) x = i END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, n) x = i END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 2) x = i"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 2) i = 5 END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 2) i[0] = 5 END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 2) APPEND(i, 5) END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 2) x PAYS SUM(i) END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 1) EXERCISE 1 END"), ScriptError_);
+    ASSERT_THROW(parser.Parse("FOR(i, 0, 0) EXERCISE 1 END"), ScriptError_);
+}
+
+TEST(ScriptTest, TestParseForNestedAndEmptyRanges) {
+    Parser_ parser;
+    auto statements = parser.Parse("FOR(i, 0, 2) FOR(j, i, 2) x = i + j END END FOR(k, 3, 3) x = 99 END");
+    ASSERT_EQ(statements.size(), 2);
+    const auto* outer = dynamic_cast<const NodeCollect_*>(statements[0].get());
+    ASSERT_NE(outer, nullptr);
+    ASSERT_EQ(outer->arguments_.size(), 2);
+    const auto* first = dynamic_cast<const NodeCollect_*>(outer->arguments_[0].get());
+    const auto* second = dynamic_cast<const NodeCollect_*>(outer->arguments_[1].get());
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    ASSERT_EQ(first->arguments_.size(), 2);
+    ASSERT_EQ(second->arguments_.size(), 1);
+    const auto* empty = dynamic_cast<const NodeCollect_*>(statements[1].get());
+    ASSERT_NE(empty, nullptr);
+    ASSERT_TRUE(empty->arguments_.empty());
+    parser.Parse("FOR(i, 0, 0) x PAYS FIX(EQ[AAPL]) END");
+    ASSERT_FALSE(parser.HasPays());
+    ASSERT_TRUE(parser.PreparationError().empty());
+}
+
+TEST(ScriptTest, TestParseVectorAppendEntryAndAverage) {
+    Parser_ parser;
+    auto statements = parser.Parse("APPEND(fixings, SPOT()) FOR(i, 0, 2) fixings[i] = fixings[i] + 1 END payoff PAYS AVERAGE(fixings)");
+    ASSERT_EQ(statements.size(), 3);
+    ASSERT_NE(dynamic_cast<const NodeVectorAppend_*>(statements[0].get()), nullptr);
+    const auto* loop = dynamic_cast<const NodeCollect_*>(statements[1].get());
+    ASSERT_NE(loop, nullptr);
+    ASSERT_EQ(loop->arguments_.size(), 2);
+    const auto* assignment = dynamic_cast<const NodeVectorAssign_*>(loop->arguments_[1].get());
+    ASSERT_NE(assignment, nullptr);
+    const auto* entry = dynamic_cast<const NodeVectorEntry_*>(assignment->arguments_[0].get());
+    ASSERT_NE(entry, nullptr);
+    ASSERT_EQ(entry->entry_, 1);
+    const auto* payment = dynamic_cast<const NodePays_*>(statements[2].get());
+    ASSERT_NE(payment, nullptr);
+    ASSERT_NE(dynamic_cast<const NodeVectorReduce_*>(payment->arguments_[1].get()), nullptr);
+}
+
+TEST(ScriptTest, TestPredefinedNumericVectorIsImmutable) {
+    Parser_ parser({}, {{"STRIKES", {100.0, 120.0, 150.0}}});
+    auto statements = parser.Parse("x = STRIKES[1] y = AVERAGE(STRIKES)");
+    ASSERT_EQ(statements.size(), 2);
+    const auto* entry = dynamic_cast<const NodeConst_*>(statements[0]->arguments_[1].get());
+    const auto* mean = dynamic_cast<const NodeConst_*>(statements[1]->arguments_[1].get());
+    ASSERT_NE(entry, nullptr);
+    ASSERT_NE(mean, nullptr);
+    ASSERT_DOUBLE_EQ(entry->constVal_, 120.0);
+    ASSERT_DOUBLE_EQ(mean->constVal_, 370.0 / 3.0);
+    ASSERT_THROW(parser.Parse("APPEND(STRIKES, 1)"), ScriptError_);
+    ASSERT_THROW(parser.Parse("STRIKES[0] = 99"), ScriptError_);
+    ASSERT_THROW(parser.Parse("STRIKES = 99"), ScriptError_);
+    ASSERT_THROW(parser.Parse("x = STRIKES[3]"), ScriptError_);
+}
+
+TEST(ScriptTest, TestVectorEntryRejectsInvalidIdentifier) {
+    Parser_ parser;
+    ASSERT_THROW(parser.Parse("x = 1bad[0]"), ScriptError_);
+    ASSERT_THROW(parser.Parse("x = _bad[0]"), ScriptError_);
+}
+
+TEST(ScriptTest, TestVectorNodesHaveDebugRepresentation) {
+    Parser_ parser;
+    auto statements = parser.Parse("APPEND(v, 2) v[0] = v[0] + 1 x = SUM(v)");
+    Debugger_ debugger;
+    statements[0]->Accept(debugger);
+    ASSERT_EQ(debugger.Top().kind, "vector_append");
+    ASSERT_EQ(debugger.Top().name, "v");
+}
+
 TEST(ScriptTest, TestParserWithInvaildVaribaleName) {
     Parser_ parser;
     String_ event = R"(

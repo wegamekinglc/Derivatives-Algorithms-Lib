@@ -30,6 +30,16 @@ default_index is ?string
 namespace Dal::Script {
     using AAD::Scenario_;
 
+    template <class T_> Vector_<Vector_<T_>> TypedVectorValues(const Vector_<Vector_<>>& values) {
+        Vector_<Vector_<T_>> result(values.size());
+        for (size_t i = 0; i < values.size(); ++i) {
+            result[i].reserve(values[i].size());
+            for (const double value : values[i])
+                result[i].emplace_back(value);
+        }
+        return result;
+    }
+
     //  Flat per-event artifact produced by ScriptProduct_::Compile().
     class ScriptCompiled_ {
         Vector_<Vector_<int>> nodeStreams_;
@@ -107,6 +117,9 @@ namespace Dal::Script {
         Vector_<String_> variables_;
         Vector_<String_> consVariables_;
         Vector_<> consVariablesValues_;
+        Vector_<String_> vectorNames_;
+        Vector_<size_t> vectorCapacities_;
+        Vector_<Vector_<>> vectorValues_;
 
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
@@ -147,19 +160,30 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<>& VarValues() const { return variableValues_; }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return consVariables_; }
         [[nodiscard]] const Vector_<>& ConstVarValues() const { return consVariablesValues_; }
+        [[nodiscard]] const Vector_<String_>& VectorNames() const { return vectorNames_; }
+        [[nodiscard]] const Vector_<size_t>& VectorCapacities() const { return vectorCapacities_; }
+        [[nodiscard]] const Vector_<Vector_<>>& VectorValues() const { return vectorValues_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
-            return Evaluator_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_));
+            Evaluator_<T_> evaluator(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), vectorCapacities_);
+            evaluator.SetHistoricalVectorSeed(TypedVectorValues<T_>(vectorValues_));
+            return evaluator;
         }
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return FuzzyEvaluator_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps);
+            FuzzyEvaluator_<T_> evaluator(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps,
+                                          vectorCapacities_);
+            evaluator.SetHistoricalVectorSeed(TypedVectorValues<T_>(vectorValues_));
+            return evaluator;
         }
 
         template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double defEps = 0.0) const {
-            return EvalState_<T_>(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps);
+            EvalState_<T_> state(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), maxNestedIfs, defEps,
+                                 vectorCapacities_);
+            state.SetHistoricalVectorSeed(TypedVectorValues<T_>(vectorValues_));
+            return state;
         }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -220,6 +244,7 @@ namespace Dal::Script {
         void ConstProcess();
         void ConstCondProcess();
         void OptimizeLsmc();
+        void ValidateFuzzyVectorMutations() const;
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;

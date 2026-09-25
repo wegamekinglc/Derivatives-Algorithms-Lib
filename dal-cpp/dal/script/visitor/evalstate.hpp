@@ -9,6 +9,7 @@
 
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal::Script {
     template <class T_> struct HistoricalSeedStorage_ {
@@ -23,22 +24,63 @@ namespace Dal::Script {
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
         Vector_<T_> constVariables_;
+        Vector_<Vector_<T_>> vectors_;
+        Vector_<Vector_<T_>> vectorSeed_;
 
         StaticStack_<T_> dStack_;
         StaticStack_<bool> bStack_;
 
-        explicit EvalStateCore_(const Vector_<>& variables, const Vector_<T_>& constVariables = Vector_<T_>())
-            : variablesInit_(variables), constVariables_(constVariables) {
+        explicit EvalStateCore_(const Vector_<>& variables,
+                                const Vector_<T_>& constVariables = Vector_<T_>(),
+                                const Vector_<size_t>& vectorCapacities = {})
+            : variablesInit_(variables), constVariables_(constVariables), vectors_(vectorCapacities.size()), vectorSeed_(vectorCapacities.size()) {
+            for (size_t i = 0; i < vectorCapacities.size(); ++i)
+                vectors_[i].reserve(vectorCapacities[i]);
             InitVariables();
         }
 
+        EvalStateCore_(const EvalStateCore_& rhs)
+            : HistoricalSeedStorage_<T_>(rhs), variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_),
+              vectors_(rhs.vectors_), vectorSeed_(rhs.vectorSeed_), dStack_(rhs.dStack_), bStack_(rhs.bStack_) {
+            for (size_t i = 0; i < vectors_.size(); ++i)
+                vectors_[i].reserve(rhs.vectors_[i].capacity());
+        }
+
+        EvalStateCore_& operator=(const EvalStateCore_& rhs) {
+            if (this == &rhs)
+                return *this;
+            HistoricalSeedStorage_<T_>::operator=(rhs);
+            variables_ = rhs.variables_;
+            variablesInit_ = rhs.variablesInit_;
+            constVariables_ = rhs.constVariables_;
+            vectors_ = rhs.vectors_;
+            vectorSeed_ = rhs.vectorSeed_;
+            dStack_ = rhs.dStack_;
+            bStack_ = rhs.bStack_;
+            for (size_t i = 0; i < vectors_.size(); ++i)
+                vectors_[i].reserve(rhs.vectors_[i].capacity());
+            return *this;
+        }
+
+        EvalStateCore_(EvalStateCore_&&) = default;
+        EvalStateCore_& operator=(EvalStateCore_&&) = default;
+
         void Init() {
             InitVariables();
+            for (size_t i = 0; i < vectors_.size(); ++i) {
+                vectors_[i].Resize(vectorSeed_[i].size());
+                std::copy(vectorSeed_[i].begin(), vectorSeed_[i].end(), vectors_[i].begin());
+            }
             dStack_.Reset();
             bStack_.Reset();
         }
 
         [[nodiscard]] const Vector_<T_>& VarVals() const { return variables_; }
+        [[nodiscard]] const Vector_<Vector_<T_>>& VectorVals() const { return vectors_; }
+        void SetHistoricalVectorSeed(Vector_<Vector_<T_>> seed) {
+            REQUIRE(seed.size() == vectors_.size(), "historical vector seed size mismatch");
+            vectorSeed_ = std::move(seed);
+        }
         Vector_<T_>& ConstVarVals() { return constVariables_; }
         const Vector_<T_>& ConstVarVals() const { return constVariables_; }
 

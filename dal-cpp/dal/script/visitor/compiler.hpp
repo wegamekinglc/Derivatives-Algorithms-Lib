@@ -27,6 +27,7 @@ As long as this comment is preserved at the Top of the file
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/evalstate.hpp>
 #include <dal/script/visitor/smoothing.hpp>
+#include <dal/script/visitor/vectorops.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <functional>
 #include <iostream>
@@ -67,8 +68,9 @@ namespace Dal::Script {
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
                             size_t maxNestedIfs = 0,
-                            double defEps = 0.0)
-            : EvalStateCore_<T_>(variables, constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
+                            double defEps = 0.0,
+                            const Vector_<size_t>& vectorCapacities = {})
+            : EvalStateCore_<T_>(variables, constVariables, vectorCapacities), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
             ResizeVarStores(&varStore0_, &varStore1_, variables.size());
         }
 
@@ -143,7 +145,11 @@ namespace Dal::Script {
         LsmcExercise = 54,
         LsmcFuzzyPays = 55,
         LsmcFuzzyPaysConst = 56,
-        LsmcFuzzyExercise = 57
+        LsmcFuzzyExercise = 57,
+        VectorRead = 58,
+        VectorAssign = 59,
+        VectorAppend = 60,
+        VectorReduce = 61
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -163,6 +169,12 @@ namespace Dal::Script {
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
         [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
+
+        void EmitVectorSource(const SourceLocation_& source) {
+            nodeStream_.emplace_back(static_cast<int>(source.line_));
+            nodeStream_.emplace_back(static_cast<int>(source.column_));
+            nodeStream_.emplace_back(static_cast<int>(source.row_));
+        }
 
         template <NodeType_ IfBin, NodeType_ IfConstLeft, NodeType_ IfConstRight> void VisitBinary(const ExprNode_& node) {
             if (node.isConst_) {
@@ -324,6 +336,34 @@ namespace Dal::Script {
         void Visit(const NodeConstVar_& node) {
             nodeStream_.emplace_back(ConstVar);
             nodeStream_.emplace_back(node.index_);
+        }
+
+        void Visit(const NodeVectorEntry_& node) {
+            nodeStream_.emplace_back(VectorRead);
+            nodeStream_.emplace_back(node.index_);
+            nodeStream_.emplace_back(static_cast<int>(node.entry_));
+            EmitVectorSource(node.source_);
+        }
+
+        void Visit(const NodeVectorAssign_& node) {
+            const auto* entry = Downcast<NodeVectorEntry_>(node.arguments_[0]);
+            node.arguments_[1]->Accept(*this);
+            nodeStream_.emplace_back(VectorAssign);
+            nodeStream_.emplace_back(entry->index_);
+            nodeStream_.emplace_back(static_cast<int>(entry->entry_));
+        }
+
+        void Visit(const NodeVectorAppend_& node) {
+            node.arguments_[0]->Accept(*this);
+            nodeStream_.emplace_back(VectorAppend);
+            nodeStream_.emplace_back(node.index_);
+        }
+
+        void Visit(const NodeVectorReduce_& node) {
+            nodeStream_.emplace_back(VectorReduce);
+            nodeStream_.emplace_back(node.index_);
+            nodeStream_.emplace_back(static_cast<int>(node.kind_));
+            EmitVectorSource(node.source_);
         }
 
         void Visit(const NodeConst_& node) {
@@ -1079,9 +1119,54 @@ namespace Dal::Script {
             ThrowUnknownCompiledOpcode(op);
         }
 
+        inline String_ CompiledVectorContext(const Vector_<int>& stream, size_t offset, size_t index) {
+            String_ value = "vector index=" + String_(std::to_string(index)) + "; line=" + String_(std::to_string(stream[offset])) +
+                            ", column=" + String_(std::to_string(stream[offset + 1]));
+            if (stream[offset + 2] > 0)
+                value += ", row=" + String_(std::to_string(stream[offset + 2]));
+            return value;
+        }
+
+        template <class T_>
+        FORCE_INLINE size_t EvalCompiledVectorReduction(const Vector_<int>& stream, size_t i, size_t index, EvalState_<T_>* statePtr) {
+            const auto kind = static_cast<NodeVectorReduce_::Kind_>(stream[i++]);
+            const auto& values = statePtr->vectors_[index];
+            const String_ context = values.empty() && kind != NodeVectorReduce_::Kind_::Sum ? CompiledVectorContext(stream, i, index) : String_();
+            statePtr->dStack_.Push(ReduceVectorValues(values, kind, context));
+            return i + 3;
+        }
+
+        template <class T_> FORCE_INLINE size_t EvalCompiledVector(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const auto& stream = event.nodeStream_;
+            const int op = stream[i++];
+            const size_t index = static_cast<size_t>(stream[i++]);
+            auto& values = statePtr->vectors_[index];
+            if (op == VectorRead) {
+                const size_t entry = static_cast<size_t>(stream[i++]);
+                if (entry >= values.size())
+                    THROW2("VectorIndexOutOfRange: " + CompiledVectorContext(stream, i, index), ScriptError_);
+                statePtr->dStack_.Push(values[entry]);
+                return i + 3;
+            }
+            if (op == VectorAssign) {
+                const size_t entry = static_cast<size_t>(stream[i++]);
+                WriteVectorEntry(&values, entry, statePtr->dStack_.TopAndPop());
+                return i;
+            }
+            if (op == VectorAppend) {
+                values.push_back(statePtr->dStack_.TopAndPop());
+                return i;
+            }
+            if (op == VectorReduce)
+                return EvalCompiledVectorReduction(stream, i, index, statePtr);
+            ThrowUnknownCompiledOpcode(op);
+        }
+
         template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
+            if (op >= VectorRead && op <= VectorReduce)
+                return EvalCompiledVector(event, i, statePtr);
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
             if (op <= PaysConst)
