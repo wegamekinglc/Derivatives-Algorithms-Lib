@@ -59,7 +59,6 @@ name is string
 settings is cell[][]+
     Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths,
     lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative.
-    Replicates at least 2; seeds nonnegative integers. Policy mode is Frozen or RetrainedBump; relative bump is in (0, 0.1].
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
