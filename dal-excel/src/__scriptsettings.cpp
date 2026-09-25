@@ -211,6 +211,8 @@ namespace Dal {
             return true;
         }
 
+        bool IsBooleanSimulationSetting(const String_& key) { return key == "use_bb" || key == "enable_aad" || key == "compiled"; }
+
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
             return (input.Rows() == 0 && input.Cols() == 0) || (input.Rows() == 1 && input.Cols() == 1 && Cell::IsEmpty(input(0, 0)));
         }
@@ -289,7 +291,7 @@ namespace Dal {
                      } else if (ApplyLsmcSetting(key, cell, valueContext, &value)) {
                          return;
                      } else {
-                         if (key != "use_bb" && key != "enable_aad" && key != "compiled")
+                         if (!IsBooleanSimulationSetting(key))
                              THROW(keyContext + "unknown key " + key +
                                    "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, "
                                    "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, "
