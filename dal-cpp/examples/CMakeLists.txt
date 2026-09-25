@@ -22,6 +22,10 @@ add_subdirectory(uoc)
 add_subdirectory(vanilla)
 add_subdirectory(yield_curve_jacobian)
 
+add_executable(example_floatformat_test floatformat_test.cpp)
+add_test(NAME example_floatformat_test COMMAND example_floatformat_test)
+set_tests_properties(example_floatformat_test PROPERTIES LABELS examples)
+
 # The excelwriter example needs MSVC's #import COM support plus the Microsoft
 # Office type libraries on the build machine (see excelimport.hpp). Detect
 # them; users may also pass the OFFICE_* paths explicitly as cache variables.

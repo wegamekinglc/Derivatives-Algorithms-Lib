@@ -4,6 +4,7 @@
 import math
 
 import dal
+from float_format import format_float
 
 
 TODAY = dal.Date_(2025, 6, 20)
@@ -244,7 +245,7 @@ def main() -> int:
 
     jacobian = result.jacobian_at_solution
     print(f"Converged: {result.converged}")
-    print(f"Maximum absolute residual: {result.joint_max_abs_residual:.12g}")
+    print(f"Maximum absolute residual: {format_float(result.joint_max_abs_residual, 6)}")
     print(f"Jacobian dimensions: {jacobian.rows()}x{jacobian.cols()}")
     print_ranges("Parameter", result.parameter_ranges)
     print_ranges("Residual", result.residual_ranges)
@@ -256,7 +257,7 @@ def main() -> int:
     for date, forward in zip(
         result.fx_forward_curve.dates, result.fx_forward_curve.forwards
     ):
-        print(f"{str(date):<16}{forward:>18.12g}")
+        print(f"{str(date):<16}{format_float(forward, 12):>18}")
     print("-" * 34)
     print(f"Quote-risk axis fingerprint: {provenance.axis.fingerprint}")
     print_ranges("Quote-risk", provenance.axis.parameter_ranges, "block_key")

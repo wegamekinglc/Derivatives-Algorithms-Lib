@@ -2,6 +2,7 @@
 """Reuse an immutable IRS snapshot with current markets for PV and AAD risk."""
 
 import dal
+from float_format import format_float
 
 
 TODAY = dal.Date_(2026, 1, 15)
@@ -82,7 +83,8 @@ def main():
         validate_prices(prices, ordinary)
         validate_risk(risk, ordinary_risk)
         print(
-            f"rate={rate:.2%}, PV={prices[0].pv:.6f}, dPV/dforward={list(risk[0].result.gradient)}"
+            f"rate={format_float(rate * 100)}%, PV={prices[0].pv:.6f}, dPV/dforward="
+            f"[{', '.join(format_float(value, 6) for value in risk[0].result.gradient)}]"
         )
     return 0
 

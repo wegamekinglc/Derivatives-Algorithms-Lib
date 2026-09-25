@@ -2,15 +2,14 @@
 // Created by dal-implementer on 2026/6/14.
 //
 
-#include <chrono>
-#include <iomanip>
-#include <iostream>
-#include <memory>
 #include <dal/platform/platform.hpp>
+
+#include "../floatformat.hpp"
+#include <chrono>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/math/interp/interp.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -20,6 +19,9 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
+#include <iomanip>
+#include <iostream>
+#include <memory>
 
 using namespace Dal;
 
@@ -177,10 +179,9 @@ namespace {
     }
 
     void PrintResiduals(const CurveCalibrationDiagnostics_& d, LogDfScheme_::Value_ scheme, double elapsedMs) {
-        std::cout << std::left << std::setw(14) << SchemeName(scheme) << std::right << std::scientific << std::setprecision(3)
-                  << std::setw(20) << d.maxAbsResidual_ << std::setw(20) << d.rmsResidual_ << std::fixed
-                  << std::setw(16) << (d.usedApproximateFit_ ? "approx fit" : "exact solve")
-                  << std::setw(14) << std::setprecision(3) << elapsedMs << '\n';
+        std::cout << std::left << std::setw(14) << SchemeName(scheme) << std::right << std::setw(20) << ExampleFloat(d.maxAbsResidual_, 3)
+                  << std::setw(20) << ExampleFloat(d.rmsResidual_, 3) << std::setw(16) << (d.usedApproximateFit_ ? "approx fit" : "exact solve")
+                  << std::setw(14) << ExampleFloat(elapsedMs, 3) << '\n';
     }
 } // namespace
 

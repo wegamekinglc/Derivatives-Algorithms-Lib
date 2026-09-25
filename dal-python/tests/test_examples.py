@@ -21,7 +21,7 @@ _PACKAGE_ROOT = str(Path(dal.__file__).resolve().parent.parent)
     [
         ("010.generic_joint_quote_risk.py", {}, "Quote key"),
         ("011.prepared_rate_pricing.py", {}, "dPV/dforward"),
-        ("012.fix_settings.py", {}, "'PV': 260.0"),
+        ("012.fix_settings.py", {}, "PV=260.0000"),
         (
             "013.exercise_bermudan.py",
             {"DAL_EXAMPLE_NPATHS": "4096"},

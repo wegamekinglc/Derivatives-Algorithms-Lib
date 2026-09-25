@@ -2,13 +2,10 @@
 // Created by GitHub Copilot on 2026/5/19.
 //
 
-#include <iomanip>
-#include <iostream>
-#include <memory>
-#include <map>
 #include <dal/platform/platform.hpp>
+
+#include "../floatformat.hpp"
 #include <dal/currency/currencydata.hpp>
-#include <dal/utilities/timer.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
@@ -18,6 +15,11 @@
 #include <dal/time/date.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/schedules.hpp>
+#include <dal/utilities/timer.hpp>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <memory>
 
 using namespace Dal;
 
@@ -230,21 +232,20 @@ namespace {
                   << "  " << diagnostics.curveName_ << " calibration residuals"
                   << "  (elapsed: " << int(elapsedMs) << " ms)\n"
                   << std::string(70, '=') << "\n\n";
-        const Vector_<int> w = {26, 12, 12, 12};
+        const Vector_<int> w = {26, 12, 12, 20};
         std::cout << std::left  << std::setw(w[0]) << "Instrument"
                   << std::right << std::setw(w[1]) << "Market(%)"
                   << std::setw(w[2]) << "Model(%)"
                   << std::setw(w[3]) << "Error(bp)" << '\n';
-        std::cout << std::string(62, '-') << '\n';
+        std::cout << std::string(70, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(diagnostics.instrumentNames_.size()); ++i) {
-            std::cout << std::left  << std::setw(w[0])
-                      << (static_cast<size_t>(i) < names.size() ? names[i].c_str() : diagnostics.instrumentNames_[i].c_str())
-                      << std::right << std::setw(w[1]) << diagnostics.marketRates_[i] * 100.0
-                      << std::setw(w[2]) << diagnostics.modelRates_[i] * 100.0
-                      << std::setw(w[3]) << diagnostics.residuals_[i] * 10000.0 << '\n';
+            std::cout << std::left << std::setw(w[0])
+                      << (static_cast<size_t>(i) < names.size() ? names[i].c_str() : diagnostics.instrumentNames_[i].c_str()) << std::right
+                      << std::setw(w[1]) << diagnostics.marketRates_[i] * 100.0 << std::setw(w[2]) << diagnostics.modelRates_[i] * 100.0
+                      << std::setw(w[3]) << ExampleFloat(diagnostics.residuals_[i] * 10000.0, 6) << '\n';
         }
-        std::cout << std::string(62, '-') << "\n\n";
+        std::cout << std::string(70, '-') << "\n\n";
     }
 
     void PrintMultiCurveExample(const Date_& today, const Ccy_& ccy) {

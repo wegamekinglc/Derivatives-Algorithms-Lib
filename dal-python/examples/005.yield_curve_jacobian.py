@@ -20,6 +20,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import dal
+from float_format import format_float
 
 
 def S(s):
@@ -61,20 +62,31 @@ def _print_section(title):
     print("=" * 70 + "\n")
 
 
-def _jacobian_header_row(free_knots, n_cols):
+def _matrix_column_widths(matrix, column_dates, n_rows, n_cols):
+    return [
+        max(
+            13,
+            len(str(column_dates[j])) + 1,
+            *(len(format_float(matrix(i, j), 6)) + 1 for i in range(n_rows)),
+        )
+        for j in range(n_cols)
+    ]
+
+
+def _jacobian_header_row(free_knots, n_cols, column_widths):
     column_label = 'row \\ col'
     header = f"{column_label:<14}"
     for j in range(n_cols):
-        header += f"{str(free_knots[j]):>13}"
+        header += f"{str(free_knots[j]):>{column_widths[j]}}"
     return header
 
 
-def _jacobian_data_rows(jacobian, maturities, n_rows, n_cols):
+def _jacobian_data_rows(jacobian, maturities, n_rows, n_cols, column_widths):
     rows = []
     for i in range(n_rows):
         row = f"{str(maturities[i]):<14}"
         for j in range(n_cols):
-            row += f"{jacobian(i, j):>13.6f}"
+            row += f"{format_float(jacobian(i, j), 6):>{column_widths[j]}}"
         rows.append(row)
     return rows
 
@@ -91,12 +103,13 @@ def print_jacobian(label, jacobian, maturities, free_knots):
         return
     n_rows = min(jacobian.Rows(), 10)
     n_cols = min(jacobian.Cols(), 10)
+    column_widths = _matrix_column_widths(jacobian, free_knots, n_rows, n_cols)
     print(f"  [{label}] Shape: {jacobian.Rows()} instruments x {jacobian.Cols()} free params")
-    print(_jacobian_header_row(free_knots, n_cols))
-    print("-" * (14 + 13 * n_cols))
-    for row in _jacobian_data_rows(jacobian, maturities, n_rows, n_cols):
+    print(_jacobian_header_row(free_knots, n_cols, column_widths))
+    print("-" * (14 + sum(column_widths)))
+    for row in _jacobian_data_rows(jacobian, maturities, n_rows, n_cols, column_widths):
         print(row)
-    print("-" * (14 + 13 * n_cols))
+    print("-" * (14 + sum(column_widths)))
     _print_truncation_note(jacobian)
 
 
@@ -124,16 +137,16 @@ def _print_comparison_details(max_abs_diff, i_max, j_max, max_rel_diff,
                               ja, jb, label_a, label_b):
     """Print Jacobian comparison details: max differences and pass/fail verdict."""
     AAD_TOL = 1e-9
-    print(f"  Max absolute difference: {max_abs_diff:.2e}")
+    print(f"  Max absolute difference: {format_float(max_abs_diff)}")
     print(f"    at element ({i_max},{j_max}):")
-    print(f"    {label_a} = {ja(i_max, j_max):.12f}")
-    print(f"    {label_b} = {jb(i_max, j_max):.12f}")
-    print(f"  Max relative difference: {max_rel_diff:.2e}")
+    print(f"    {label_a} = {format_float(ja(i_max, j_max), 12)}")
+    print(f"    {label_b} = {format_float(jb(i_max, j_max), 12)}")
+    print(f"  Max relative difference: {format_float(max_rel_diff)}")
     if max_rel_diff < AAD_TOL:
         print(f"  PASS: {label_a} agrees with {label_b}")
-        print(f"        (max rel diff {max_rel_diff:.2e} < {AAD_TOL:.0e} tolerance)")
+        print(f"        (max rel diff {format_float(max_rel_diff)} < {format_float(AAD_TOL)} tolerance)")
     else:
-        print(f"  NOTE: max rel diff {max_rel_diff:.2e} > {AAD_TOL:.0e} tolerance")
+        print(f"  NOTE: max rel diff {format_float(max_rel_diff)} > {format_float(AAD_TOL)} tolerance")
         print(f"        Near-zero Jacobian elements inflate relative error.")
 
 
@@ -207,14 +220,14 @@ def _print_residuals(diag, maturities, n_instruments):
     print("\n" + "=" * 70)
     print(f"  Calibration residuals ({n_instruments} instruments)")
     print("=" * 70 + "\n")
-    print(f"{'Maturity':<14}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>10}")
-    print("-" * 44)
+    print(f"{'Maturity':<14}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>22}")
+    print("-" * 56)
     for i in range(n_instruments):
         print(f"{str(maturities[i]):<14}{diag.marketRates_[i] * 100:>10.6f}"
-              f"{diag.modelRates_[i] * 100:>10.6f}{diag.residuals_[i] * 10000:>10.4f}")
-    print("-" * 44)
-    print(f"\n  Max abs residual: {diag.maxAbsResidual_ * 10000:.4f} bp")
-    print(f"  RMS residual:     {diag.rmsResidual_ * 10000:.4f} bp")
+              f"{diag.modelRates_[i] * 100:>10.6f}{format_float(diag.residuals_[i] * 10000, 4):>22}")
+    print("-" * 56)
+    print(f"\n  Max abs residual: {format_float(diag.maxAbsResidual_ * 10000, 4)} bp")
+    print(f"  RMS residual:     {format_float(diag.rmsResidual_ * 10000, 4)} bp")
 
 
 def _explain_analytic_jacobian(j_analytic_ok):
@@ -261,15 +274,18 @@ def _print_inverse_jacobian(eff_inv, maturities, free_knots, tolerance):
         print(f"  yield-curve-level risk  ->  tradable-instrument bucketed risk.")
         print(f"  Quants can hedge each bucket independently after this decomposition.")
         print()
-        print(f"  (Raw solver-scaled values; divide by tolerance={tolerance} for natural units.)")
-        print(_jacobian_header_row(maturities, min(n_instr, 5)))
-        print("-" * (14 + 13 * min(n_instr, 5)))
-        for i in range(min(n_knots, 5)):
+        print(f"  (Raw solver-scaled values; divide by tolerance={format_float(tolerance)} for natural units.)")
+        n_rows = min(n_knots, 5)
+        n_cols = min(n_instr, 5)
+        column_widths = _matrix_column_widths(eff_inv, maturities, n_rows, n_cols)
+        print(_jacobian_header_row(maturities, n_cols, column_widths))
+        print("-" * (14 + sum(column_widths)))
+        for i in range(n_rows):
             row = f"{str(free_knots[i]):<14}"
-            for j in range(min(n_instr, 5)):
-                row += f"{eff_inv(i, j):>13.2e}"
+            for j in range(n_cols):
+                row += f"{format_float(eff_inv(i, j), 6):>{column_widths[j]}}"
             print(row)
-        print("-" * (14 + 13 * min(n_instr, 5)))
+        print("-" * (14 + sum(column_widths)))
         if n_knots > 5 or n_instr > 5:
             print(f"  ... ({n_knots} x {n_instr} matrix truncated)")
     else:
@@ -281,16 +297,16 @@ def _print_inverse_jacobian(eff_inv, maturities, free_knots, tolerance):
 
 def _print_timing(t_analytic, t_bumped, n_instruments):
     _print_section("(f) Calibration timing: ANALYTIC vs BUMPED")
-    print(f"  ANALYTIC (AAD reverse sweep):  {t_analytic:.2f} ms")
-    print(f"  BUMPED   (finite difference):  {t_bumped:.2f} ms")
+    print(f"  ANALYTIC (AAD reverse sweep):  {format_float(t_analytic)} ms")
+    print(f"  BUMPED   (finite difference):  {format_float(t_bumped)} ms")
     if t_bumped > t_analytic:
         speedup = t_bumped / t_analytic
-        print(f"  -> ANALYTIC is {speedup:.2f}x faster than BUMPED")
+        print(f"  -> ANALYTIC is {format_float(speedup)}x faster than BUMPED")
         print(f"     AAD computes all partial derivatives in a single reverse sweep.")
         print(f"     BUMPED re-prices O(n_params) times.")
     else:
         ratio = t_analytic / t_bumped
-        print(f"  -> BUMPED is {ratio:.2f}x faster than ANALYTIC")
+        print(f"  -> BUMPED is {format_float(ratio)}x faster than ANALYTIC")
         print(f"     On this small {n_instruments}x{n_instruments} system, the AAD tape")
         print(f"     recording overhead can dominate.")
         print(f"     For larger calibrations (50+ instruments), AAD wins: O(1) reverse")

@@ -4,6 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 
+#include "../floatformat.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -213,9 +214,8 @@ namespace {
         truth.Append(basisParameters);
         const Vector_<> recovered = RecoveredParameters(result);
         double maxParameterError = 0.0;
-        std::cout << std::scientific << std::setprecision(3) << "converged=" << std::boolalpha << result.converged_
-                  << " maxResidual=" << result.jointMaxAbsResidual_ << " jacobian=" << result.jacobianAtSolution_.Rows() << "x"
-                  << result.jacobianAtSolution_.Cols() << '\n';
+        std::cout << "converged=" << std::boolalpha << result.converged_ << " maxResidual=" << ExampleFloat(result.jointMaxAbsResidual_)
+                  << " jacobian=" << result.jacobianAtSolution_.Rows() << "x" << result.jacobianAtSolution_.Cols() << '\n';
         std::cout << '\n' << std::string(70, '=') << "\n  Joint cross-currency parameter recovery\n"
                   << std::string(70, '=') << "\n\n"
                   << std::left << std::setw(26) << "Curve" << std::setw(18) << "Parameters"
@@ -230,8 +230,8 @@ namespace {
                                               std::to_string(parameterRange.offset_ + parameterRange.size_) + ")";
             const std::string residualSpan = "[" + std::to_string(residualRange.offset_) + "," +
                                              std::to_string(residualRange.offset_ + residualRange.size_) + ")";
-            std::cout << std::left << std::setw(26) << parameterRange.name_ << std::setw(18) << parameterSpan
-                      << std::setw(18) << residualSpan << std::right << std::setw(18) << blockError << '\n';
+            std::cout << std::left << std::setw(26) << parameterRange.name_ << std::setw(18) << parameterSpan << std::setw(18) << residualSpan
+                      << std::right << std::setw(18) << ExampleFloat(blockError) << '\n';
         }
         std::cout << std::string(80, '-') << "\n\n";
         return result.converged_ && result.jointMaxAbsResidual_ < 1.0e-8 && maxParameterError < 1.0e-8 && !result.jacobianAtSolution_.Empty() &&

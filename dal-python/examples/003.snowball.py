@@ -1,5 +1,6 @@
 import datetime as dt
 from dal import *
+from float_format import format_float
 
 spot = 1.00
 vol = 0.15
@@ -42,17 +43,17 @@ events.append(
 print("\n" + "=" * 70)
 print("  Model Parameters")
 print("=" * 70 + "\n")
-print(f"rate : {rate* 100:.2f}%")
-print(f"div  : {div * 100:.2f}%")
-print(f"vol  : {vol * 100:.2f}%\n")
+print(f"rate : {format_float(rate * 100)}%")
+print(f"div  : {format_float(div * 100)}%")
+print(f"vol  : {format_float(vol * 100)}%\n")
 
 print("\n" + "=" * 70)
 print("  Product Description")
 print("=" * 70 + "\n")
 print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
-print(f"knock in  : {ki:.2f}")
-print(f"knock out : {ko:.2f}")
+print(f"knock in  : {format_float(ki)}")
+print(f"knock out : {format_float(ko)}")
 print(f"# of obs  : {(len(event_dates) - 4) * 12 if freq == '1M' else (len(event_dates) - 4) * 51}")
 print(f"# of paths: {n_paths}\n")
 

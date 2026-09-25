@@ -2,6 +2,9 @@
 // Created by dal-implementer on 2026/9/2.
 //
 
+#include <dal/platform/platform.hpp>
+
+#include "../floatformat.hpp"
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -15,7 +18,6 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/platform/initall.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/time/holidays.hpp>
 
 using namespace Dal;
@@ -106,10 +108,9 @@ int main() {
     std::cout << std::left << std::setw(w[0]) << "Quote key" << std::setw(w[1]) << "Currency"
               << std::right << std::setw(w[2]) << "dPV/dDecimalQuote" << std::setw(w[3]) << "DV01" << '\n';
     std::cout << std::string(92, '-') << '\n';
-    std::cout << std::defaultfloat << std::setprecision(12);
     for (const auto& bucket : risk.buckets_)
-        std::cout << std::left << std::setw(w[0]) << bucket.quoteKey_ << std::setw(w[1]) << bucket.actualPvCcy_.String()
-                  << std::right << std::setw(w[2]) << bucket.dPvDDecimalQuote_ << std::setw(w[3]) << bucket.dv01_ << '\n';
+        std::cout << std::left << std::setw(w[0]) << bucket.quoteKey_ << std::setw(w[1]) << bucket.actualPvCcy_.String() << std::right
+                  << std::setw(w[2]) << ExampleFloat(bucket.dPvDDecimalQuote_, 6) << std::setw(w[3]) << ExampleFloat(bucket.dv01_, 6) << '\n';
     std::cout << std::string(92, '-') << "\n\n";
     return 0;
 }

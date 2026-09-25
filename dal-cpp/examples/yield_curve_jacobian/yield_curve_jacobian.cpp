@@ -2,22 +2,20 @@
 // Created by dal-implementer on 2026/6/19.
 //
 
+#include <dal/platform/platform.hpp>
+
+#include "../floatformat.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <string>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/initall.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
@@ -25,6 +23,12 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 using namespace Dal;
 
@@ -308,13 +312,13 @@ namespace {
     void PrintResiduals(const CurveCalibrationDiagnostics_& diag, const Vector_<Date_>& maturities) {
         std::cout << std::fixed << std::setprecision(6);
         std::cout << std::left << std::setw(14) << "Maturity" << std::right << std::setw(14) << "Market(%)" << std::setw(14) << "Model(%)"
-                  << std::setw(14) << "Error(bp)" << "\n";
-        std::cout << std::string(56, '-') << "\n";
+                  << std::setw(22) << "Error(bp)" << "\n";
+        std::cout << std::string(64, '-') << "\n";
         for (int i = 0; i < static_cast<int>(diag.instrumentNames_.size()); ++i) {
             std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(14) << diag.marketRates_[i] * 100.0
-                      << std::setw(14) << diag.modelRates_[i] * 100.0 << std::setw(14) << diag.residuals_[i] * 10000.0 << "\n";
+                      << std::setw(14) << diag.modelRates_[i] * 100.0 << std::setw(22) << ExampleFloat(diag.residuals_[i] * 10000.0, 6) << "\n";
         }
-        std::cout << std::string(56, '-') << "\n\n";
+        std::cout << std::string(64, '-') << "\n\n";
     }
 
     // Label each free-node row by its knot date (the solved log-DF params are indexed by free knot).
@@ -335,25 +339,30 @@ namespace {
                      const Vector_<Date_>& rowDates,
                      const Vector_<Date_>& colDates,
                      double scale = 1.0) {
-        // `scale` multiplies every printed entry. The default 1.0 prints the raw matrix; pass
-        // 1/tolerance_ for effJacobianInverse_ so the displayed matrix is in natural units (the
-        // solver pre-scales that matrix by tolerance_, making the raw entries ~1e-10 and invisible
-        // at fixed-6 precision).
+        // `scale` multiplies every printed entry. Pass 1/tolerance_ for effJacobianInverse_
+        // to show natural units; its raw entries are pre-scaled by the solver and can be tiny.
         std::cout << std::fixed << std::setprecision(6);
         if (!label.empty())
             std::cout << label << "\n";
         std::cout << "  " << orientation << "  (rows=" << m.Rows() << ", cols=" << m.Cols() << ")\n";
+        std::vector<int> widths(m.Cols(), 13);
+        int tableWidth = 14;
+        for (int j = 0; j < m.Cols(); ++j) {
+            for (int i = 0; i < m.Rows(); ++i)
+                widths[j] = std::max(widths[j], static_cast<int>(ExampleFloat(m(i, j) * scale, 6).size()) + 1);
+            tableWidth += widths[j];
+        }
         std::cout << std::left << std::setw(14) << "row \\ col";
         for (int j = 0; j < m.Cols(); ++j)
-            std::cout << std::right << std::setw(13) << IsoDate(colDates[j]);
-        std::cout << "\n" << std::string(14 + 13 * m.Cols(), '-') << "\n";
+            std::cout << std::right << std::setw(widths[j]) << IsoDate(colDates[j]);
+        std::cout << "\n" << std::string(tableWidth, '-') << "\n";
         for (int i = 0; i < m.Rows(); ++i) {
             std::cout << std::left << std::setw(14) << IsoDate(rowDates[i]);
             for (int j = 0; j < m.Cols(); ++j)
-                std::cout << std::right << std::setw(13) << (m(i, j) * scale);
+                std::cout << std::right << std::setw(widths[j]) << ExampleFloat(m(i, j) * scale, 6);
             std::cout << "\n";
         }
-        std::cout << std::string(14 + 13 * m.Cols(), '-') << "\n\n";
+        std::cout << std::string(tableWidth, '-') << "\n\n";
     }
 
     // ---- main() section runners (extracted to keep main's cyclomatic complexity under the
@@ -395,13 +404,13 @@ namespace {
                     maxRel = std::max(maxRel, absErr);
                     if (absErr > AAD_TOL)
                         THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) +
-                              "): |an|=" + std::to_string(absErr) + " > " + std::to_string(AAD_TOL) + " (|fd|<1e-9 branch)");
+                              "): |an|=" + ExampleFloat(absErr) + " > " + ExampleFloat(AAD_TOL) + " (|fd|<0.000000001000 branch)");
                 } else {
                     const double rel = absErr / std::max(1.0, std::abs(fd));
                     maxRel = std::max(maxRel, rel);
                     if (rel > AAD_TOL)
-                        THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) + "): rel=" + std::to_string(rel) +
-                              " > " + std::to_string(AAD_TOL) + " (an=" + std::to_string(an) + ", fd=" + std::to_string(fd) + ")");
+                        THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) + "): rel=" + ExampleFloat(rel) +
+                              " > " + ExampleFloat(AAD_TOL) + " (an=" + ExampleFloat(an) + ", fd=" + ExampleFloat(fd) + ")");
                 }
             }
         }
@@ -412,13 +421,21 @@ namespace {
     // labelled by the maturity date of the instrument whose quote was bumped.
     void PrintQuoteRisk(const Vector_<>& r, const Vector_<Date_>& maturities) {
         std::cout << std::fixed << std::setprecision(10);
-        std::cout << std::left << std::setw(14) << "Maturity" << std::right << std::setw(20) << "raw r[i]" << std::setw(22) << "par-rate DV01"
+        int riskWidth = 20;
+        int dv01Width = 22;
+        for (const double value : r) {
+            riskWidth = std::max(riskWidth, static_cast<int>(ExampleFloat(value, 10).size()) + 1);
+            dv01Width = std::max(dv01Width, static_cast<int>(ExampleFloat(value * ONE_BP, 10).size()) + 1);
+        }
+        const int tableWidth = 14 + riskWidth + dv01Width;
+        std::cout << std::left << std::setw(14) << "Maturity" << std::right << std::setw(riskWidth) << "raw r[i]" << std::setw(dv01Width)
+                  << "par-rate DV01"
                   << "\n";
-        std::cout << std::string(56, '-') << "\n";
+        std::cout << std::string(tableWidth, '-') << "\n";
         for (int i = 0; i < static_cast<int>(r.size()); ++i)
-            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << r[i] << std::setw(22) << r[i] * ONE_BP
-                      << "\n";
-        std::cout << std::string(56, '-') << "\n\n";
+            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(riskWidth) << ExampleFloat(r[i], 10)
+                      << std::setw(dv01Width) << ExampleFloat(r[i] * ONE_BP, 10) << "\n";
+        std::cout << std::string(tableWidth, '-') << "\n\n";
     }
 
     // (h) FR6 inverse-Jacobian nonlinear re-solve sanity. For each calibration instrument, bump its
@@ -434,8 +451,8 @@ namespace {
         int nInst,
         int nFree) {
         std::cout << std::fixed << std::setprecision(8);
-        std::cout << std::left << std::setw(14) << "Bumped" << std::right << std::setw(20) << "max rel delta" << "\n";
-        std::cout << std::string(34, '-') << "\n";
+        std::cout << std::left << std::setw(14) << "Bumped" << std::right << std::setw(26) << "max rel delta" << "\n";
+        std::cout << std::string(40, '-') << "\n";
         bool fr6Passed = true;
         for (int i = 0; i < nInst; ++i) {
             const Vector_<> trueDelta = RebumpedParamDelta(spec, options, i, ONE_BP, baselineFree);
@@ -451,15 +468,15 @@ namespace {
                 maxRel = std::max(maxRel, rel);
                 if (rel > RE_SOLVE_TOL) {
                     fr6Passed = false;
-                    THROW(std::string("FR6 re-solve FAIL at inst=") + std::to_string(i) + " k=" + std::to_string(k) + ": rel=" + std::to_string(rel) +
-                          " > " + std::to_string(RE_SOLVE_TOL) + " (pred=" + std::to_string(p) + ", true=" + std::to_string(t) + ")");
+                    THROW(std::string("FR6 re-solve FAIL at inst=") + std::to_string(i) + " k=" + std::to_string(k) + ": rel=" + ExampleFloat(rel) +
+                          " > " + ExampleFloat(RE_SOLVE_TOL) + " (pred=" + ExampleFloat(p) + ", true=" + ExampleFloat(t) + ")");
                 }
             }
-            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << maxRel << "\n";
+            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(26) << ExampleFloat(maxRel, 8) << "\n";
         }
-        std::cout << std::string(34, '-') << '\n';
+        std::cout << std::string(40, '-') << '\n';
         if (fr6Passed)
-            std::cout << "  Verdict : PASS  (all rel <= " << RE_SOLVE_TOL << ")\n";
+            std::cout << "  Verdict : PASS  (all rel <= " << ExampleFloat(RE_SOLVE_TOL) << ")\n";
     }
 
     // (i) Calibration elapsed time -- BUMPED vs ANALYTIC (both EXACT Phase A solves; ANALYTIC also
@@ -527,7 +544,7 @@ int main() {
     std::cout << "\nCalibration: " << nInst << " instruments on " << spec.knotDates_.size() << " LOG_DISCOUNT knots (" << nFree
               << " free params + anchor)\n";
     std::cout << "Parameterization: LOG_DISCOUNT   Solve mode: EXACT   Jacobian mode: ANALYTIC\n";
-    std::cout << "Bump step h: " << std::scientific << std::setprecision(6) << BUMP_STEP << std::fixed << "\n";
+    std::cout << "Bump step h: " << ExampleFloat(BUMP_STEP, 6) << "\n";
 
     CurveCalibrationOptions_ options;
     options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
@@ -546,7 +563,7 @@ int main() {
 
     const Matrix_<> jBump = BumpJacobian(spec, x, BUMP_STEP);
     PrintSection("(b) Bump Jacobian  J_bump = d(modelRate_i) / d(logDF_free_k)");
-    PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 1e-6", maturities, freeKnots);
+    PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 0.000001000", maturities, freeKnots);
 
     // jacobian_ is populated by the solver's convergence-branch hook on the EXACT + ANALYTIC +
     // eligible path via a single func.Gradient(xNew, fNew) call at the solved x -- the same point
@@ -562,12 +579,12 @@ int main() {
     PrintSection("(c) AAD Jacobian  J_aad = d(modelRate_i) / d(logDF_free_k)");
     PrintMatrix("", jAad, "rows = instruments, cols = free params; reverse sweep, 1 per row", maturities, freeKnots);
 
-    PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 1e-9)");
+    PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 0.000000001000)");
     const AgreementResult_ agree = RunAgreementCheck(jBump, jAad);
     std::cout << std::fixed << std::setprecision(12);
-    std::cout << "  max abs discrepancy : " << agree.maxAbs_ << "\n";
-    std::cout << "  max rel discrepancy : " << agree.maxRel_ << "\n";
-    std::cout << "  Verdict              : PASS  (rel <= 1e-9)\n";
+    std::cout << "  max abs discrepancy : " << ExampleFloat(agree.maxAbs_, 12) << "\n";
+    std::cout << "  max rel discrepancy : " << ExampleFloat(agree.maxRel_, 12) << "\n";
+    std::cout << "  Verdict              : PASS  (rel <= " << ExampleFloat(AAD_TOL) << ")\n";
 
     // The solver returns the inverse Jacobian pre-scaled by tolerance_ (each residual row is
     // divided by tolerance_ before the pseudoinverse is formed), so the raw effJacobianInverse_(k,i)
@@ -597,8 +614,9 @@ int main() {
     PrintQuoteRisk(r, maturities);
 
     PrintSection("(h) FR6 inverse-Jacobian nonlinear re-solve sanity");
-    std::cout << "  bump each marketRate by +1e-4, re-run CalibrateYieldCurve (ANALYTIC),\n";
-    std::cout << "  compare true delta vs linear prediction effJacobianInverse_(k,i) * 1e-4 / tolerance_ (tol = " << RE_SOLVE_TOL << " rel)\n";
+    std::cout << "  bump each marketRate by +" << ExampleFloat(ONE_BP) << ", re-run CalibrateYieldCurve (ANALYTIC),\n";
+    std::cout << "  compare true delta vs linear prediction effJacobianInverse_(k,i) * " << ExampleFloat(ONE_BP)
+              << " / tolerance_ (tol = " << ExampleFloat(RE_SOLVE_TOL) << " rel)\n";
     // The solver scales each residual row by 1/tolerance_ before forming the pseudoinverse
     // (underdetermined.cpp XScaledFunc_::F divides residuals by tol; J() calls DivideRows(tol)).
     // So effJacobianInverse_(k,i) carries units d(params)/d(scaled residual), i.e.

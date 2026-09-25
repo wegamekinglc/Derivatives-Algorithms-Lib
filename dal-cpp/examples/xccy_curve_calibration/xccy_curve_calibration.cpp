@@ -2,20 +2,22 @@
 // Created by GitHub Copilot on 2026/6/6.
 //
 
+#include <dal/platform/platform.hpp>
+
+#include "../floatformat.hpp"
 #include <algorithm>
 #include <cmath>
-#include <iomanip>
-#include <iostream>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/platform/initall.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/timer.hpp>
+#include <iomanip>
+#include <iostream>
 
 using namespace Dal;
 
@@ -137,27 +139,26 @@ namespace Dal {
                   << "  Cross-currency basis calibration example  ("
                   << spec.instruments_.size() << " instruments)\n"
                   << std::string(70, '=') << "\n\n";
-        const Vector_<int> w = {26, 14, 14, 14};
+        const Vector_<int> w = {26, 14, 14, 20};
         std::cout << std::left  << std::setw(w[0]) << "Instrument"
                   << std::right << std::setw(w[1]) << "Market(bp)"
                   << std::setw(w[2]) << "Model(bp)"
                   << std::setw(w[3]) << "Error(bp)" << '\n';
-        std::cout << std::string(68, '-') << '\n';
+        std::cout << std::string(74, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(result.diagnostics_.instrumentNames_.size()); ++i) {
-            std::cout << std::left  << std::setw(w[0]) << xccyNames[i].c_str()
-                      << std::right << std::setw(w[1]) << result.diagnostics_.marketRates_[i] * 10000.0
-                      << std::setw(w[2]) << result.diagnostics_.modelRates_[i] * 10000.0
-                      << std::setw(w[3]) << result.diagnostics_.residuals_[i] * 10000.0 << '\n';
+            std::cout << std::left << std::setw(w[0]) << xccyNames[i].c_str() << std::right << std::setw(w[1])
+                      << result.diagnostics_.marketRates_[i] * 10000.0 << std::setw(w[2]) << result.diagnostics_.modelRates_[i] * 10000.0
+                      << std::setw(w[3]) << ExampleFloat(result.diagnostics_.residuals_[i] * 10000.0, 6) << '\n';
         }
-        std::cout << std::string(68, '-') << '\n';
+        std::cout << std::string(74, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
-        std::cout << "  FX spot: " << spec.fxSpot_
-                  << "  |  max residual: "
-                  << std::abs(*std::max_element(result.diagnostics_.residuals_.begin(),
-                                       result.diagnostics_.residuals_.end(),
-                                       [](double a, double b) { return std::abs(a) < std::abs(b); }))
-                    * 10000.0 << " bp"
+        std::cout << "  FX spot: " << spec.fxSpot_ << "  |  max residual: "
+                  << ExampleFloat(std::abs(*std::max_element(result.diagnostics_.residuals_.begin(), result.diagnostics_.residuals_.end(),
+                                                             [](double a, double b) { return std::abs(a) < std::abs(b); })) *
+                                      10000.0,
+                                  6)
+                  << " bp"
                   << "  |  elapsed: " << int(elapsedMs) << " ms"
                   << "\n\n";
     }
@@ -173,4 +174,3 @@ int main() {
 
     return 0;
 }
-

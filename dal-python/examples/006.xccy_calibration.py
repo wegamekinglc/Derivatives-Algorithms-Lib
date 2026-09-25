@@ -17,6 +17,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import dal as _dal
+from float_format import format_float
 
 
 def make_flat_curve(ccy, today, rate):
@@ -74,9 +75,9 @@ def main():
     usd_block = make_xccy_block("USD", today, usd_rate)
     eur_block = make_xccy_block("EUR", today, eur_rate)
 
-    print(f"\n  USD OIS rate: {usd_rate * 100:.2f}%")
-    print(f"  EUR OIS rate: {eur_rate * 100:.2f}%")
-    print(f"  FX spot (EURUSD): {fx_spot}")
+    print(f"\n  USD OIS rate: {format_float(usd_rate * 100)}%")
+    print(f"  EUR OIS rate: {format_float(eur_rate * 100)}%")
+    print(f"  FX spot (EURUSD): {format_float(fx_spot)}")
 
     # ------------------------------------------------------------------
     # Build cross-currency basis swap conventions
@@ -110,7 +111,7 @@ def main():
         instruments.append(inst)
 
     print(f"\n  Instruments: {len(instruments)} cross-currency swap ({maturities_months[0]}M)")
-    print(f"  Market basis spread: {basis_rate * 10000:.1f} bp")
+    print(f"  Market basis spread: {format_float(basis_rate * 10000)} bp")
 
     # ------------------------------------------------------------------
     # Build calibration spec
@@ -145,17 +146,17 @@ def main():
     print("\n" + "=" * 70)
     print("  Calibration residuals")
     print("=" * 70 + "\n")
-    print(f"{'Instrument':<20}{'Market(bp)':>12}{'Model(bp)':>12}{'Error(bp)':>12}")
-    print("-" * 56)
+    print(f"{'Instrument':<20}{'Market(bp)':>12}{'Model(bp)':>12}{'Error(bp)':>22}")
+    print("-" * 66)
     for i, m in enumerate(maturities_months):
         label = f"XCCY Swap {m}M"
         print(f"{label:<20}{diag.marketRates_[i] * 10000:>12.4f}"
-              f"{diag.modelRates_[i] * 10000:>12.4f}{diag.residuals_[i] * 10000:>12.6f}")
-    print("-" * 56)
+              f"{diag.modelRates_[i] * 10000:>12.4f}{format_float(diag.residuals_[i] * 10000, 6):>22}")
+    print("-" * 66)
 
-    print(f"\n  FX spot: {fx_spot}")
-    print(f"  Max abs residual: {diag.maxAbsResidual_ * 10000:.6f} bp")
-    print(f"  RMS residual:     {diag.rmsResidual_ * 10000:.6f} bp")
+    print(f"\n  FX spot: {format_float(fx_spot)}")
+    print(f"  Max abs residual: {format_float(diag.maxAbsResidual_ * 10000, 6)} bp")
+    print(f"  RMS residual:     {format_float(diag.rmsResidual_ * 10000, 6)} bp")
 
     # Print FX forward curve
     fxfwd = result.fxForwardCurve_
