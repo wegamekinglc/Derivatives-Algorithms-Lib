@@ -417,6 +417,28 @@ TEST(ScriptExerciseLSMCTest, TestEuropeanLimit) {
     ASSERT_NEAR(run.pv_, EuropeanPutClosedForm(), 3.0 * run.diagnostics_.StandardError());
 }
 
+TEST(ScriptExerciseLSMCTest, TestVectorLoopExerciseMatchesScalar) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const Vector_<Cell_> dates = {Cell_(Date_(2026, 9, 27))};
+    const ScriptProductData_ vectorProduct("", dates, {"FOR(i, 0, 2) APPEND(v, 2.5) END EXERCISE SUM(v)"});
+    const ScriptProductData_ scalarProduct("", dates, {"EXERCISE 5"});
+    for (const bool compiled : {false, true}) {
+        const auto vectorRun = RunLsmc(vectorProduct, StandardModel(), 257, 3, compiled, 73);
+        const auto scalarRun = RunLsmc(scalarProduct, StandardModel(), 257, 3, compiled, 73);
+        ASSERT_NEAR(vectorRun.pv_, scalarRun.pv_, 1.0e-10);
+
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        settings.lsmcTrainingPaths_ = 73;
+        const auto vectorAad = MCSimulation<AAD::Number_>(vectorProduct, StandardModel(), 257, {}, settings);
+        const auto scalarAad = MCSimulation<AAD::Number_>(scalarProduct, StandardModel(), 257, {}, settings);
+        ASSERT_NEAR(vectorAad.aggregated_, scalarAad.aggregated_, 1.0e-8);
+        ASSERT_EQ(vectorAad.risks_.size(), scalarAad.risks_.size());
+        for (size_t i = 0; i < vectorAad.risks_.size(); ++i)
+            ASSERT_NEAR(vectorAad.risks_[i], scalarAad.risks_[i], 1.0e-8);
+    }
+}
+
 TEST(ScriptExerciseLSMCTest, TestPricingUsesPathsAfterTrainingBlock) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     constexpr size_t N_PATHS = 8197; // Cross the fixed pricing-batch boundary.

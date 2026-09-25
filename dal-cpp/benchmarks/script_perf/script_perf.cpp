@@ -65,6 +65,31 @@ namespace {
              << static_cast<double>(micros) / static_cast<double>(iterations)
              << " us/iter" << endl;
     }
+
+    void BenchmarkEvaluation(const String_& label, const ScriptProduct_& product, bool compiled) {
+        constexpr size_t ITERATIONS = 100000;
+        AAD::Scenario_<double> path(1);
+        path[0].spot_ = 100.0;
+        path[0].numeraire_ = 1.0;
+        double sink = 0.0;
+        Timer_ timer;
+        if (compiled) {
+            const auto program = product.Compile();
+            auto state = product.BuildEvalState<double>();
+            for (size_t i = 0; i < ITERATIONS; ++i) {
+                program.Evaluate(path, state);
+                sink += state.VarVals()[product.PayOffIdx()];
+            }
+        } else {
+            auto evaluator = product.BuildEvaluator<double>();
+            for (size_t i = 0; i < ITERATIONS; ++i) {
+                product.Evaluate(path, evaluator);
+                sink += evaluator.VarVals()[product.PayOffIdx()];
+            }
+        }
+        Bench::DoNotOptimize(&sink);
+        Report(label, timer.Elapsed<microseconds>(), ITERATIONS);
+    }
 } // namespace
 
 int main() {
@@ -117,6 +142,15 @@ int main() {
         Bench::DoNotOptimize(&sink);
         Report("construct (stage 1+2)", timer.Elapsed<microseconds>(), kIterations);
     }
+
+    ScriptProduct_ scalar({Cell_(Date_(2022, 10, 25))}, {"pay PAYS SPOT() + 2 * SPOT()"});
+    ScriptProduct_ vector({Cell_(Date_(2022, 10, 25))}, {"APPEND(v, SPOT()) APPEND(v, 2 * SPOT()) pay PAYS SUM(v)"});
+    scalar.PreProcess(false, true);
+    vector.PreProcess(false, true);
+    BenchmarkEvaluation("scalar tree evaluation", scalar, false);
+    BenchmarkEvaluation("vector tree evaluation", vector, false);
+    BenchmarkEvaluation("scalar compiled evaluation", scalar, true);
+    BenchmarkEvaluation("vector compiled evaluation", vector, true);
 
     return 0;
 }

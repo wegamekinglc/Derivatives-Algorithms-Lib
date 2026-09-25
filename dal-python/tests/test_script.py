@@ -12,6 +12,16 @@ def test_product_new_european_call():
     assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
+def test_product_new_accepts_numeric_vectors_and_for():
+    """Definition rows expose fixed numeric vectors to bounded loops."""
+    maturity = dal.Date_(2025, 9, 24)
+    product = dal.Product_New(
+        ["WEIGHTS", maturity],
+        ["[0.25, 0.75]", "FOR(i, 0, 2) pay PAYS WEIGHTS[i] * SPOT() END"],
+    )
+    assert "PAYS" in dal.Product_Debug(product)  # nosec B101
+
+
 def test_product_new_european_put():
     """Create a simple european put option product."""
     maturity = dal.Date_(2025, 9, 24)

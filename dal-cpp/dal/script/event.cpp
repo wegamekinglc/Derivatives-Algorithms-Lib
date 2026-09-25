@@ -55,6 +55,20 @@ namespace Dal::Script {
                 for (const auto& statement : event)
                     paid = ValidateLsmcPayoffNode(*statement, payoffIdx, historical, paid);
         }
+
+        void CheckFuzzyVectorMutation(const Node_& node, bool conditional) {
+            if (conditional) {
+                if (const auto* append = dynamic_cast<const NodeVectorAppend_*>(&node))
+                    THROW2("UnsupportedFuzzyVectorMutation: APPEND inside IF; " + append->source_.Describe(), ScriptError_);
+                if (const auto* assign = dynamic_cast<const NodeVectorAssign_*>(&node)) {
+                    const auto* entry = Downcast<NodeVectorEntry_>(assign->arguments_[0]);
+                    THROW2("UnsupportedFuzzyVectorMutation: indexed assignment inside IF; " + entry->source_.Describe(), ScriptError_);
+                }
+            }
+            const bool insideIf = conditional || dynamic_cast<const NodeIf_*>(&node);
+            for (const auto& argument : node.arguments_)
+                CheckFuzzyVectorMutation(*argument, insideIf);
+        }
     } // namespace
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
@@ -64,7 +78,7 @@ namespace Dal::Script {
         auto preprocessed = preprocessor.Process(events);
 
         // 2. Payoff back-end: parse the resolved event descriptions into AST.
-        Parser_ parser(preprocessed.constVariables_);
+        Parser_ parser(preprocessed.constVariables_, preprocessed.numericVectors_);
         for (const auto& processedEvent : preprocessed.events_) {
             REQUIRE2(processedEvent.first.IsValid(),
                      "InvalidFixingDate: dates/events; row=" + String_(std::to_string(preprocessed.sources_.at(processedEvent.first).front().row_)) +
@@ -103,6 +117,9 @@ namespace Dal::Script {
         variables_ = indexer.VarNames();
         consVariables_ = indexer.ConstVarNames();
         consVariablesValues_ = indexer.ConstVarValues();
+        vectorNames_ = indexer.VectorNames();
+        vectorCapacities_ = indexer.VectorCapacities();
+        vectorValues_.Resize(vectorNames_.size());
 
         for (auto i = 0; i < variables_.size(); ++i)
             if (variables_[i] == payoff_) {
@@ -117,16 +134,17 @@ namespace Dal::Script {
 
     Vector_<> ScriptProduct_::PastEvaluate() const {
         RequirePreparedFixings();
-        PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_);
+        PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_, vectorCapacities_);
         Visit(pastEvaluator, true, false);
         return pastEvaluator.Variables();
     }
 
     void ScriptProduct_::InitializePastObservations(const ObservationPlan_& plan) {
-        PastEvaluator_<double> evaluator(Vector_<>(variables_.size(), 0.0), consVariablesValues_);
+        PastEvaluator_<double> evaluator(Vector_<>(variables_.size(), 0.0), consVariablesValues_, vectorCapacities_);
         evaluator.SetObservations(&plan);
         Visit(evaluator, true, false);
         variableValues_ = evaluator.VarVals();
+        vectorValues_ = evaluator.VectorVals();
     }
 
     size_t ScriptProduct_::IFProcess() {
@@ -142,8 +160,17 @@ namespace Dal::Script {
             ValidateLsmcPayoffAssignments(pastEvents_, payoffIdx_, true);
             ValidateLsmcPayoffAssignments(events_, payoffIdx_, false);
         }
+        if (!vectorNames_.empty())
+            return;
         LsmcProcessor_ processor(variables_.size(), HasPays() ? static_cast<size_t>(payoffIdx_) : static_cast<size_t>(-1));
         processor.Process(&events_);
+    }
+
+    void ScriptProduct_::ValidateFuzzyVectorMutations() const {
+        for (const auto& events : {&pastEvents_, &events_})
+            for (const auto& event : *events)
+                for (const auto& statement : event)
+                    CheckFuzzyVectorMutation(*statement, false);
     }
 
     void ScriptProduct_::DomainProcess(bool fuzzy) {
@@ -174,8 +201,13 @@ namespace Dal::Script {
             for (const auto& statement : event)
                 RequireBoundPastSpots(*statement);
         IndexVariables();
+        if (fuzzy)
+            ValidateFuzzyVectorMutations();
         REQUIRE2(!variables_.empty(), "InvalidScriptStructure: script has no payoff variable", ScriptError_);
-        variableValues_ = PastEvaluate();
+        PastEvaluator_<double> past(Vector_<>(variables_.size(), 0.0), consVariablesValues_, vectorCapacities_);
+        Visit(past, true, false);
+        variableValues_ = past.VarVals();
+        vectorValues_ = past.VectorVals();
 
         size_t maxNestedIfs = 0;
         if (fuzzy || !skip_domain) {

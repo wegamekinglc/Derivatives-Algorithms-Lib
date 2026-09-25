@@ -15,12 +15,15 @@ namespace Dal::Script {
     class Parser_ {
         using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
+        std::map<String_, Vector_<double>> numericVectors_;
+        std::map<String_, double> loopIndices_;
         String_ preparationError_;
         // One EXERCISE statement per event, and only at the event top level;
         // hasPays_/hasExercise_ let ScriptProduct_ answer payoff queries without re-walking the AST
         bool hasExercise_ = false;
         bool hasPays_ = false;
         size_t ifLevel_ = 0;
+        size_t expandedStatements_ = 0;
 
         // Helpers
 
@@ -87,6 +90,8 @@ namespace Dal::Script {
         Expression_ ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
         Expression_ ParseConst(TokIt_& cur);
         Expression_ ParseVar(TokIt_& cur);
+        Expression_ ParseVectorEntry(TokIt_& cur);
+        Expression_ ParseVectorReduction(TokIt_& cur, const TokIt_& end);
         Expression_ ParseCond(TokIt_& cur, const TokIt_& end);
         Expression_ ParseCondL2(TokIt_& cur, const TokIt_& end);
         Expression_ ParseCondElem(TokIt_& cur, const TokIt_& end);
@@ -96,6 +101,8 @@ namespace Dal::Script {
         Date_ ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
+        Statement_ ParseFor(TokIt_& cur, const TokIt_& end);
+        Statement_ ParseVectorAppend(TokIt_& cur, const TokIt_& end);
         Statement_ ParseExercise(TokIt_& cur, const TokIt_& end);
         Expression_ ParseExerciseCondition(TokIt_& cur, const TokIt_& end, const SourceLocation_& source);
 
@@ -105,7 +112,8 @@ namespace Dal::Script {
         Expression_ BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps);
 
     public:
-        explicit Parser_(const std::map<String_, double>& constVariables = std::map<String_, double>()): constVariables_(constVariables) {}
+        explicit Parser_(const std::map<String_, double>& constVariables = {}, const std::map<String_, Vector_<double>>& numericVectors = {})
+            : constVariables_(constVariables), numericVectors_(numericVectors) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins = {});
         [[nodiscard]] const String_& PreparationError() const { return preparationError_; }

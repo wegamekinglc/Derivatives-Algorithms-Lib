@@ -172,6 +172,20 @@ TEST(ScriptPastReplayTest, TestParameterRisk) {
     ASSERT_EQ(result.risks_.size(), 5u);
 }
 
+TEST(ScriptPastReplayTest, TestVectorHistoryAndAadRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const ScriptProductData_ product("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2026, 9, 22))},
+                                     {"2", "APPEND(v, SCALE * FIX(EQ[DAL196_TEST]))", "APPEND(v, SCALE * 10) pay PAYS AVERAGE(v)"});
+    const double discount = exp(-0.03 * 10.0 / DAYS_PER_YEAR);
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        const auto result = MCSimulation<AAD::Number_>(product, Model(), 17, ScriptValuationSettings_(), simulation, History());
+        ASSERT_NEAR(result.aggregated_ / 17, 90.0 * discount, 1.0e-10);
+        ASSERT_NEAR(result["SCALE"], 45.0 * discount, 1.0e-10);
+    }
+}
+
 TEST(ScriptPastReplayTest, TestCompiledParameterRisk) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     MonteCarloSettings_ settings;

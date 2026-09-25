@@ -156,9 +156,39 @@ namespace Dal::Script {
         int index_;
     };
 
+    struct NodeVectorEntry_ : public Visitable_<ExprNode_, NodeVectorEntry_, VISITORS> {
+        NodeVectorEntry_(String_ name, size_t entry, SourceLocation_ source) : name_(std::move(name)), entry_(entry), source_(source) {}
+
+        const String_ name_;
+        const size_t entry_;
+        const SourceLocation_ source_;
+        int index_ = -1;
+    };
+
+    struct NodeVectorReduce_ : public Visitable_<ExprNode_, NodeVectorReduce_, VISITORS> {
+        enum class Kind_ { Sum, Average, Minimum, Maximum };
+
+        NodeVectorReduce_(String_ name, Kind_ kind, SourceLocation_ source) : name_(std::move(name)), kind_(kind), source_(source) {}
+
+        const String_ name_;
+        const Kind_ kind_;
+        const SourceLocation_ source_;
+        int index_ = -1;
+    };
+
     //	Assign, Pays
 
     struct NodeAssign_ : public Visitable_<ActNode_, NodeAssign_, VISITORS> {};
+
+    struct NodeVectorAssign_ : public Visitable_<ActNode_, NodeVectorAssign_, VISITORS> {};
+
+    struct NodeVectorAppend_ : public Visitable_<ActNode_, NodeVectorAppend_, VISITORS> {
+        NodeVectorAppend_(String_ name, SourceLocation_ source) : name_(std::move(name)), source_(source) {}
+
+        const String_ name_;
+        const SourceLocation_ source_;
+        int index_ = -1;
+    };
 
     struct NodePays_ : public Visitable_<ActNode_, NodePays_, VISITORS> {};
 

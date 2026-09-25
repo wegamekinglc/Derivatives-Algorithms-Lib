@@ -78,6 +78,7 @@ namespace Dal {
         using typename std::vector<E_>::value_type;
 
         using std::vector<E_>::size;
+        using std::vector<E_>::capacity;
         using std::vector<E_>::empty;
         using std::vector<E_>::operator[];
         using std::vector<E_>::begin;

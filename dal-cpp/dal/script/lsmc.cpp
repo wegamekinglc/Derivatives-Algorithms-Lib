@@ -450,7 +450,8 @@ namespace Dal::Script {
 
         ThreadState_::ThreadState_(const LsmcContext_& ctx)
             : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, ctx.model_->SimDim(), ctx.prepared_.Simulation().useBb_, ctx.scrambleKey_)),
-              gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues()) {
+              gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues(), ctx.Product().VectorCapacities()) {
+            evaluator_.SetHistoricalVectorSeed(TypedVectorValues<double>(ctx.Product().VectorValues()));
             if (typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>))
                 bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(*ctx.model_));
             else {
@@ -479,12 +480,15 @@ namespace Dal::Script {
                 evaluator_.ConstVarVals() = *ctx.constValues_;
                 if (compiledState_)
                     compiledState_->ConstVarVals() = *ctx.constValues_;
-                PastEvaluator_<double> past(Vector_<>(ctx.Product().VarNames().size(), 0.0), *ctx.constValues_);
+                PastEvaluator_<double> past(Vector_<>(ctx.Product().VarNames().size(), 0.0), *ctx.constValues_, ctx.Product().VectorCapacities());
                 past.SetObservations(&ctx.Plan());
                 ctx.Product().Visit(past, true, false);
                 evaluator_.SetHistoricalSeed(past.VarVals());
+                evaluator_.SetHistoricalVectorSeed(past.VectorVals());
                 if (compiledState_)
                     compiledState_->SetHistoricalSeed(past.VarVals());
+                if (compiledState_)
+                    compiledState_->SetHistoricalVectorSeed(past.VectorVals());
             }
         }
 

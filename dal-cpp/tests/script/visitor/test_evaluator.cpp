@@ -49,6 +49,30 @@ TEST(ScriptTest, TestEvaluator) {
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 50);
 }
 
+TEST(ScriptTest, TestVectorAppendResetsBetweenPaths) {
+    Parser_ parser;
+    auto event = parser.Parse("APPEND(fixings, 2) APPEND(fixings, 4)");
+    VarIndexer_ indexer;
+    for (auto& statement : event)
+        statement->Accept(indexer);
+    Evaluator_<double> evaluator({}, {}, indexer.VectorCapacities());
+    for (auto& statement : event)
+        statement->Accept(evaluator);
+    ASSERT_EQ(evaluator.VectorVals().size(), 1);
+    ASSERT_EQ(evaluator.VectorVals()[0].size(), 2);
+    ASSERT_DOUBLE_EQ(evaluator.VectorVals()[0][0], 2.0);
+    ASSERT_DOUBLE_EQ(evaluator.VectorVals()[0][1], 4.0);
+    evaluator.Init();
+    ASSERT_TRUE(evaluator.VectorVals()[0].empty());
+}
+
+TEST(ScriptTest, TestVectorCapacitySurvivesEvaluatorCopy) {
+    Evaluator_<double> original({}, {}, {3});
+    ASSERT_GE(original.VectorVals()[0].capacity(), 3);
+    auto copy = original;
+    ASSERT_GE(copy.VectorVals()[0].capacity(), 3);
+}
+
 TEST(ScriptTest, TestEvaluatorWithSqrt) {
     auto const1 = MakeBaseNode<NodeConst_>(2.0);
     auto expExpr = MakeBaseNode<NodeSqrt_>();

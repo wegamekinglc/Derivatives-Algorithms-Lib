@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-26
+
+- **Script adds numeric vectors and bounded loops** — mutable path-local vectors
+  support indexed entries, `APPEND`, and reductions; product tables can define
+  immutable numeric vectors. `FOR(index, start, end) ... END` expands bounded,
+  half-open ranges during parsing. Tree and compiled valuation support double
+  and AAD execution, historical replay, and LSMC. See
+  [vectors and bounded loops](docs/methodology/script_engine.md#vectors-and-bounded-loops).
+
 ## 2026-09-25
 
 - **LSMC exposes policy-sensitive AAD model risks** — the opt-in

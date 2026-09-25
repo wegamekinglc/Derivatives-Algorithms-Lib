@@ -13,7 +13,10 @@ namespace Dal::Script {
     class PastEvaluator_: public EvaluatorBase_<T_, PastEvaluator_> {
     public:
         using Base = EvaluatorBase_<T_, PastEvaluator_>;
-        explicit PastEvaluator_(const Vector_<>& variables, const Vector_<T_>& constVariables = Vector_<T_>()) : Base(variables, constVariables) {}
+        explicit PastEvaluator_(const Vector_<>& variables,
+                                const Vector_<T_>& constVariables = Vector_<T_>(),
+                                const Vector_<size_t>& vectorCapacities = {})
+            : Base(variables, constVariables, vectorCapacities) {}
 
         using Base::Visit;
         using Base::VisitNode;

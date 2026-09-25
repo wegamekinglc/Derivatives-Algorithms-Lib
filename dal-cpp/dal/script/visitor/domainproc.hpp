@@ -369,6 +369,19 @@ namespace Dal::Script {
             domStack_.Pop();
         }
 
+        void Visit(NodeVectorAppend_& node) {
+            node.arguments_[0]->Accept(*this);
+            domStack_.Pop();
+        }
+
+        void Visit(NodeVectorAssign_& node) {
+            node.arguments_[1]->Accept(*this);
+            domStack_.Pop();
+        }
+
+        void Visit(NodeVectorEntry_&) { domStack_.Push(RealDomain()); }
+        void Visit(NodeVectorReduce_&) { domStack_.Push(RealDomain()); }
+
         //  Exercise is a no-op for variable domains: discard the value domain and condition property
         void Visit(NodeExercise_& node) {
             VisitArguments(node);

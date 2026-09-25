@@ -8,6 +8,7 @@ before simulation or valuation. The implementation lives in `dal-cpp/dal/script/
 
 - [Architecture](#architecture)
 - [Parser and AST](#parser-and-ast)
+- [Vectors and Bounded Loops](#vectors-and-bounded-loops)
 - [Events and Schedules](#events-and-schedules)
 - [Public C++ Settings](#public-c-settings)
 - [Historical Fixing Preparation](#historical-fixing-preparation)
@@ -32,8 +33,8 @@ The script engine is split into two independent halves connected by a well-defin
 interface:
 
 1. **Preprocessor** (`dal-cpp/dal/script/preprocessor.hpp`) — resolves the
-   "definition" half of an events table: constant variables, textual macros, and
-   schedules. Produces dated event descriptions. Does not build an AST and knows
+   "definition" half of an events table: constant variables, numeric vectors,
+   textual macros, and schedules. Produces dated event descriptions. Does not build an AST and knows
    nothing about nodes.
 
 2. **Parser** — consumes the preprocessor's output and builds the AST (expression
@@ -62,7 +63,8 @@ the preprocessor add the original one-based table row and expanded event date.
 callers that do not need type or position information.
 
 The lexer preserves bracket contents, FX slashes, and EQ delivery suffixes as
-one index literal. Commas and parentheses inside brackets remain name content;
+one index literal. A simple `name[constant]` token outside `FIX` becomes a vector
+entry; `FIX` continues to parse named market indices. Commas and parentheses inside brackets remain name content;
 the index argument ends at a comma or closing parenthesis outside the brackets.
 Nested brackets, quotes, unmatched brackets, and unsupported script characters
 raise errors. The shared `IndexLiteralRanges` scan also identifies the regions
@@ -79,7 +81,7 @@ delegating to the next tighter level:
 | L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                                       |
 | L3    | `^` (right-assoc)       | `NodePow_`                                                                                                                     |
 | L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                                    |
-| Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeSpot_`, `NodeFix_`, `NodeLog_`, `NodeExp_`, `NodeSqrt_`, `NodeMin_`, `NodeMax_` |
+| Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeVectorEntry_`, `NodeVectorReduce_`, `NodeSpot_`, `NodeFix_`, and math functions |
 
 Parenthesised sub-expressions re-enter at the top level through a shared
 `ParseParentheses` helper. Conditions form a parallel cascade — `OR` (loosest)
@@ -88,12 +90,16 @@ binds over `AND`, which binds over comparison elements — producing `NodeOr_`,
 
 ### Reserved Keywords and Variables
 
-A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `PAYS`, `AND`, `OR`,
-`SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`, `EXERCISE`) cannot be used as variable
-names. Any other alphabetic token becomes either a `NodeVar_` (looked up in the
+A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `FOR`, `APPEND`, `SUM`,
+`AVERAGE`, `PAYS`, `AND`, `OR`, `SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`,
+`EXP`, `DCF`, `EXERCISE`) cannot be used as variable names. A plain non-reserved
+alphabetic token becomes either a `NodeVar_` (looked up in the
 preprocessor's constant-variable map and promoted to `NodeConstVar_` if it
-resolves there). Statements are either assignments (`=`, `NodeAssign_`), pays
-clauses (`PAYS`, `NodePays_`), `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
+resolves there), or a vector name in a vector operation. Statements include
+scalar assignments (`=`, `NodeAssign_`), vector-entry assignments
+(`NodeVectorAssign_`), `APPEND` (`NodeVectorAppend_`), pays clauses (`PAYS`,
+`NodePays_`), `FOR/END` blocks (expanded into `NodeCollect_`), and
+`IF/THEN/ELSE/END` blocks (`NodeIf_`, with
 `firstElse_` indexing the else-branch within `arguments_`), or early-exercise
 clauses (`EXERCISE <value> [IF <condition>]`, `NodeExercise_`, at most one per
 event and only at the event top level). A second `EXERCISE` in one event raises
@@ -101,10 +107,61 @@ event and only at the event top level). A second `EXERCISE` in one event raises
 `UnsupportedExerciseNesting`; a condition that ends on a statement keyword
 raises `InvalidExerciseCondition`. All three carry input row/line context.
 
-`FIX` and `EXERCISE` are also reserved for macro and constant-variable
+`FIX`, `EXERCISE`, `FOR`, `APPEND`, `SUM`, and `AVERAGE` are also reserved for macro and constant-variable
 definitions. A conflicting definition or variable produces `ReservedIdentifier`
 with source context and a request to rename it. Keyword comparisons are
 case-insensitive.
+
+### Vectors and Bounded Loops
+
+Numeric vectors are path-local script state. `APPEND(v, expression)` adds one
+value, while `v[index]` reads or assigns an entry. Indices start at zero and
+must resolve to a nonnegative integer literal, a numeric constant defined in
+the events table, or a `FOR` counter during parsing. Runtime expressions and
+scalar variables cannot serve as indices. An indexed assignment beyond the
+current size extends the vector and fills skipped entries with zero. Reading a
+missing entry raises `VectorIndexOutOfRange`. `SUM(v)` returns zero for an empty
+vector; `AVERAGE(v)`, `MIN(v)`, and `MAX(v)` raise `EmptyVectorReduction` when
+empty. The existing multi-argument scalar `MIN` and `MAX` remain available.
+
+An undated row can define an immutable numeric vector, for example a row named
+`STRIKES` with text `[80, 100, 120]`. Its entries and reductions resolve to
+numeric constants during parsing; assignment and `APPEND` to that name fail.
+These fixed values do not become AAD risk parameters. The same events-table
+form is accepted through C++, Python, and Excel product entry points because
+the serialized product retains the original table rows.
+
+`FOR(i, start, end) ... END` repeats its body for integer counters in the
+half-open range `[start, end)`. Bounds resolve to nonnegative integer literals,
+defined numeric constants, or enclosing loop counters; a decreasing range is
+invalid, and equal bounds execute zero times. Nested loops work. The parser
+expands the loop body into the existing statement AST, replacing counter reads
+with numeric literals. A single loop may have at most 10,000 iterations, and
+one event may expand at most 100,000 statements. Both bounds and vector indices
+must be at most 1,000,000. The counter cannot be assigned or reused as a nested
+counter.
+
+```text
+STRIKES  [80, 100, 120]
+WEIGHTS  [0.2, 0.3, 0.5]
+2022-12-25
+FOR(i, 0, 3)
+    pay PAYS WEIGHTS[i] * MAX(SPOT() - STRIKES[i], 0)
+END
+```
+
+The first two lines represent definition rows, not dated statements. See the
+runnable [C++ script example](../../dal-cpp/examples/script/script.cpp) for
+the events-table construction and valuation. Mutable vectors retain values
+across events and historical replay, reset between Monte Carlo paths, and are
+preallocated from the indexed entries and number of `APPEND` statements.
+Tree and compiled double/AAD evaluators share their reduction semantics.
+Hard `IF` branches may mutate vectors. Fuzzy/AAD valuation rejects an
+`APPEND` or indexed assignment inside `IF` with
+`UnsupportedFuzzyVectorMutation`; it cannot blend vector lengths or branch
+mutations. LSMC supports vector reads and writes, retaining all script
+statements for vector products rather than applying scalar-only liveness
+pruning.
 
 ### Named Fixing Syntax
 
@@ -263,7 +320,8 @@ about schedules.
 ### Variable Indexing and the Payoff Slot
 
 After parsing, `IndexVariables` runs a `VarIndexer_` pass to assign every named
-variable a stable integer slot in the evaluator's variable vector. The product
+scalar variable and mutable vector a stable integer slot. The pass also
+reserves vector capacity from indexed writes and `APPEND` statements. The product
 also records the slot of the variable named in its `payoff_` field
 (`payoffIdx_`, defaulting to the last variable); simulation harvests that slot
 as the path value.
@@ -771,8 +829,9 @@ Finite differences must reprepare and use the same smoothing width and paths.
 ## Preprocessing Pipeline
 
 The `Preprocessor_` class in `dal-cpp/dal/script/preprocessor.hpp` resolves a raw
-`(Cell_, String_)` events table into `PreprocessedEvents_`: a map of constant
-variables (`String_ -> double`) and dated event descriptions (`Date_ -> String_`).
+`(Cell_, String_)` events table into `PreprocessedEvents_`: maps of constant
+variables (`String_ -> double`) and immutable numeric vectors
+(`String_ -> Vector_<double>`), plus dated event descriptions (`Date_ -> String_`).
 It also records source origins for each event description. Statements sharing
 an event date are concatenated in input/expansion order while retaining their
 individual table rows for parser diagnostics.

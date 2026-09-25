@@ -38,6 +38,98 @@ TEST(ScriptCompiledParityTest, TestParameterConditionRemainsLive) {
     ASSERT_DOUBLE_EQ(state.VarVals()[product.PayOffIdx()], -4.0);
 }
 
+TEST(ScriptCompiledParityTest, TestVectorAverageMatchesTreeAndCompiled) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"APPEND(v, 2) APPEND(v, 4) pay PAYS AVERAGE(v)"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    auto tree = product.BuildEvaluator<double>();
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], 3.0);
+    auto compiled = product.BuildEvalState<double>();
+    product.Compile().Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 3.0);
+}
+
+TEST(ScriptCompiledParityTest, TestForBasketUsesPredefinedVectors) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_("STRIKES"), Cell_("WEIGHTS"), Cell_(Date_(2026, 9, 22))},
+                           {"[80, 100, 120]", "[0.2, 0.3, 0.5]", "FOR(i, 0, 3) pay PAYS WEIGHTS[i] * MAX(SPOT() - STRIKES[i], 0) END"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].spot_ = 130.0;
+    path[0].numeraire_ = 1.0;
+    auto tree = product.BuildEvaluator<double>();
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], 24.0);
+    auto compiled = product.BuildEvalState<double>();
+    product.Compile().Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 24.0);
+}
+
+TEST(ScriptCompiledParityTest, TestFuzzyVectorMutationInsideIfFailsClearly) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"IF SPOT() > 0 THEN APPEND(v, SPOT()) END pay PAYS SUM(v)"});
+    try {
+        product.PreProcess(true, false);
+        FAIL() << "fuzzy conditional append must fail before valuation";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("UnsupportedFuzzyVectorMutation"), std::string::npos);
+    }
+}
+
+TEST(ScriptCompiledParityTest, TestVectorAadSpotRiskMatchesScalar) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Vector_<Cell_> dates = {Cell_(Date_(2026, 9, 22))};
+    const ScriptProductData_ vectorProduct("", dates, {"APPEND(v, SPOT()) APPEND(v, 2 * SPOT()) pay PAYS AVERAGE(v)"});
+    const ScriptProductData_ scalarProduct("", dates, {"pay PAYS 1.5 * SPOT()"});
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, 0.03, 0.01));
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        const auto vector = MCSimulation<AAD::Number_>(vectorProduct, model, 257, {}, settings);
+        const auto scalar = MCSimulation<AAD::Number_>(scalarProduct, model, 257, {}, settings);
+        ASSERT_NEAR(vector.aggregated_, scalar.aggregated_, 1.0e-8);
+        ASSERT_EQ(vector.risks_.size(), scalar.risks_.size());
+        for (size_t i = 0; i < vector.risks_.size(); ++i)
+            ASSERT_NEAR(vector.risks_[i], scalar.risks_[i], 1.0e-8);
+    }
+}
+
+TEST(ScriptCompiledParityTest, TestVectorReductionsAndIndexedWrite) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"v[2] = 5 v[0] = 3 v[1] = 1 pay PAYS MIN(v) + MAX(v) + SUM(v) + AVERAGE(v)"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    const double expected = 1.0 + 5.0 + 9.0 + 3.0;
+    auto tree = product.BuildEvaluator<double>();
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], expected);
+    auto compiled = product.BuildEvalState<double>();
+    product.Compile().Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], expected);
+}
+
+TEST(ScriptCompiledParityTest, TestEmptyVectorReductionIsExplicit) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    ScriptProduct_ sum({Cell_(Date_(2026, 9, 22))}, {"pay PAYS SUM(v)"});
+    sum.PreProcess(false, false);
+    auto sumTree = sum.BuildEvaluator<double>();
+    sum.Evaluate(path, sumTree);
+    ASSERT_DOUBLE_EQ(sumTree.VarVals()[sum.PayOffIdx()], 0.0);
+
+    ScriptProduct_ average({Cell_(Date_(2026, 9, 22))}, {"pay PAYS AVERAGE(v)"});
+    average.PreProcess(false, false);
+    auto tree = average.BuildEvaluator<double>();
+    ASSERT_THROW(average.Evaluate(path, tree), ScriptError_);
+    auto compiled = average.BuildEvalState<double>();
+    ASSERT_THROW(average.Compile().Evaluate(path, compiled), ScriptError_);
+}
+
 TEST(ScriptCompiledParityTest, TestLiteralFuzzyBandRemainsFractional) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"IF 80 > 79.95:0.2 THEN pay PAYS 160 ELSE pay PAYS 0 END"});

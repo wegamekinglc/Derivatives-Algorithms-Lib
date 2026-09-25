@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <dal/math/operators.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
@@ -41,8 +43,13 @@ namespace Dal::Script {
         using Base::Visit;
         using Base::VisitNode;
 
-        FuzzyEvaluator_(const Vector_<>& variables,  const Vector_<T>& constVariables, const size_t maxNestedIfs, const double defEps = 0)
-            : Base(variables, constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs), nestedIfLvl_(0) {
+        FuzzyEvaluator_(const Vector_<>& variables,
+                        const Vector_<T>& constVariables,
+                        const size_t maxNestedIfs,
+                        const double defEps = 0,
+                        const Vector_<size_t>& vectorCapacities = {})
+            : Base(variables, constVariables, vectorCapacities), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs),
+              nestedIfLvl_(0) {
             ResizeVarStores(&varStore0_, &varStore1_, variables.size());
         }
 
@@ -65,13 +72,13 @@ namespace Dal::Script {
         }
 
         FuzzyEvaluator_(FuzzyEvaluator_&& rhs) noexcept
-            : Base(move(rhs)), defEps_(rhs.defEps_), varStore0_(move(rhs.varStore0_)), varStore1_(move(rhs.varStore1_)),
+            : Base(std::move(rhs)), defEps_(rhs.defEps_), varStore0_(std::move(rhs.varStore0_)), varStore1_(std::move(rhs.varStore1_)),
               nestedIfLvl_(0) {}
         FuzzyEvaluator_& operator = (FuzzyEvaluator_&& rhs) noexcept {
-            Base::operator=(move(rhs));
+            Base::operator=(std::move(rhs));
             defEps_ = rhs.defEps_;
-            varStore0_ = move(rhs.varStore0_);
-            varStore1_ = move(rhs.varStore1_);
+            varStore0_ = std::move(rhs.varStore0_);
+            varStore1_ = std::move(rhs.varStore1_);
             nestedIfLvl_ = 0;
             return *this;
         }
