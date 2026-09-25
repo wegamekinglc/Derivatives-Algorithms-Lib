@@ -531,6 +531,9 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
     ASSERT_FALSE(json["simulation"]["enable_aad"].GetBool());
     ASSERT_EQ(json["simulation"]["lsmc_basis_degree"].GetInt(), 3);
     ASSERT_EQ(json["n_paths"].GetInt(), 4096);
+    ASSERT_STREQ(json["uncertainty"]["mode"].GetString(), "deterministic");
+    ASSERT_TRUE(json["uncertainty"]["replicate_mean_se"].IsNull());
+    ASSERT_TRUE(json["uncertainty"]["payoff_dispersion_se"].IsNumber());
 
     const auto& events = json["exercise_events"];
     ASSERT_TRUE(events.IsArray());
@@ -583,6 +586,28 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
             ASSERT_TRUE(event["effective_rank"].IsUint64());
         }
     }
+    { //  RQMC diagnostics report per-replicate means and their conditional error.
+        MonteCarloSettings_ simulation;
+        simulation.lsmcTrainingPaths_ = 1024;
+        simulation.lsmcRqmcReplicates_ = 4;
+        simulation.lsmcTrainingSeed_ = 17;
+        simulation.lsmcPricingSeed_ = 29;
+        rapidjson::Document rqmc;
+        rqmc.Parse(ExplainScriptSimulation(product, model, 257, ScriptValuationSettings_(), simulation).c_str());
+        ASSERT_FALSE(rqmc.HasParseError());
+        ASSERT_EQ(rqmc["simulation"]["lsmc_rqmc_replicates"].GetInt(), 4);
+        const auto& uncertainty = rqmc["uncertainty"];
+        ASSERT_STREQ(uncertainty["mode"].GetString(), "rqmc_conditional_policy");
+        ASSERT_STREQ(uncertainty["scramble"].GetString(), "sobol-digital-shift-splitmix64-v1");
+        ASSERT_EQ(uncertainty["training_seed"].GetInt(), 17);
+        ASSERT_EQ(uncertainty["pricing_seed"].GetInt(), 29);
+        ASSERT_EQ(uncertainty["training_paths"].GetUint64(), 1024u);
+        ASSERT_EQ(uncertainty["pricing_paths_per_replicate"].GetUint64(), 257u);
+        ASSERT_EQ(uncertainty["pricing_paths_total"].GetUint64(), 4u * 257u);
+        ASSERT_EQ(uncertainty["replicate_means"].Size(), 4u);
+        ASSERT_TRUE(uncertainty["replicate_mean_se"].IsNumber());
+        ASSERT_TRUE(uncertainty["payoff_dispersion_se"].IsNumber());
+    }
     { //  products without EXERCISE return an empty exercise_events array and burn no simulation
         DiagnosticWorkers_ workers;
         const Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
@@ -591,6 +616,8 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         rapidjson::Document plainJson;
         plainJson.Parse(plainText.c_str());
         ASSERT_FALSE(plainJson.HasParseError());
+        ASSERT_STREQ(plainJson["uncertainty"]["mode"].GetString(), "not_applicable");
+        ASSERT_TRUE(plainJson["uncertainty"]["payoff_dispersion_se"].IsNull());
         ASSERT_TRUE(plainJson["exercise_events"].IsArray());
         ASSERT_EQ(plainJson["exercise_events"].Size(), 0u);
         ASSERT_EQ(plainJson["n_paths"].GetInt(), 1024);
@@ -621,12 +648,15 @@ TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
     ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
     for (const auto* json : {&valuation, &simulation}) {
         const auto& echo = (*json)["simulation"];
-        ASSERT_EQ(echo.MemberCount(), 8u);
-        for (const auto* field :
-             {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths", "lsmc_validation_paths"})
+        ASSERT_EQ(echo.MemberCount(), 11u);
+        for (const auto* field : {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths",
+                                  "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed"})
             ASSERT_TRUE(echo.HasMember(field)) << field;
         ASSERT_TRUE(echo["lsmc_training_paths"].IsNull());
         ASSERT_TRUE(echo["lsmc_validation_paths"].IsNull());
+        ASSERT_TRUE(echo["lsmc_rqmc_replicates"].IsNull());
+        ASSERT_TRUE(echo["lsmc_training_seed"].IsNull());
+        ASSERT_TRUE(echo["lsmc_pricing_seed"].IsNull());
     }
     ASSERT_TRUE(valuation["simulation"] == simulation["simulation"]);
 }

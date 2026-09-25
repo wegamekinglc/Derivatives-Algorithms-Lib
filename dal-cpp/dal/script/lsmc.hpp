@@ -71,6 +71,14 @@ namespace Dal::Script {
         double payoffSum_ = 0.0;
         double payoffSumSq_ = 0.0;
         size_t nPaths_ = 0;
+        size_t trainingPaths_ = 0;
+        size_t validationPaths_ = 0;
+        size_t pricingPathsPerReplicate_ = 0;
+        size_t replicateCount_ = 1;
+        std::optional<int> trainingSeed_;
+        std::optional<int> pricingSeed_;
+        String_ scrambleIdentity_;
+        Vector_<> replicateMeans_;
 
         [[nodiscard]] double StandardError() const {
             if (nPaths_ == 0)
@@ -79,6 +87,20 @@ namespace Dal::Script {
             const double mean = payoffSum_ / n;
             const double variance = std::max(0.0, payoffSumSq_ / n - mean * mean);
             return std::sqrt(variance / n);
+        }
+
+        [[nodiscard]] std::optional<double> ReplicateMeanStandardError() const {
+            if (replicateMeans_.size() < 2)
+                return std::nullopt;
+            double mean = 0.0;
+            for (double value : replicateMeans_)
+                mean += value;
+            mean /= static_cast<double>(replicateMeans_.size());
+            double squared = 0.0;
+            for (double value : replicateMeans_)
+                squared += (value - mean) * (value - mean);
+            const double count = static_cast<double>(replicateMeans_.size());
+            return std::sqrt(squared / ((count - 1.0) * count));
         }
     };
 

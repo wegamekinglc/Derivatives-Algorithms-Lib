@@ -92,6 +92,20 @@ namespace Dal {
                      ScriptError_);
         }
 
+        void ValidateLsmcRqmcReplicates(int count) {
+            REQUIRE2(count >= 2,
+                     "InvalidSetting: InvalidLsmcRqmcReplicates; simulation.lsmcRqmcReplicates_=" + String_(std::to_string(count)) +
+                         "; expected an integer of at least 2",
+                     ScriptError_);
+        }
+
+        void ValidateLsmcSeed(int seed, const String_& field) {
+            REQUIRE2(seed >= 0,
+                     "InvalidSetting: InvalidLsmcSeed; simulation." + field + "=" + String_(std::to_string(seed)) +
+                         "; expected a nonnegative integer",
+                     ScriptError_);
+        }
+
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
             ValidateRNG(settings.rsg_);
             ValidateSmoothing(settings.smooth_);
@@ -100,6 +114,17 @@ namespace Dal {
                 ValidateLsmcTrainingPaths(*settings.lsmcTrainingPaths_);
             if (settings.lsmcValidationPaths_)
                 ValidateLsmcValidationPaths(*settings.lsmcValidationPaths_);
+            if (settings.lsmcRqmcReplicates_) {
+                ValidateLsmcRqmcReplicates(*settings.lsmcRqmcReplicates_);
+                REQUIRE2(settings.rsg_ == "sobol", "InvalidSetting: lsmcRqmcReplicates_ requires simulation.rsg_=sobol", ScriptError_);
+            } else {
+                REQUIRE2(!settings.lsmcTrainingSeed_ && !settings.lsmcPricingSeed_,
+                         "InvalidSetting: lsmcTrainingSeed_ and lsmcPricingSeed_ require lsmcRqmcReplicates_", ScriptError_);
+            }
+            if (settings.lsmcTrainingSeed_)
+                ValidateLsmcSeed(*settings.lsmcTrainingSeed_, "lsmcTrainingSeed_");
+            if (settings.lsmcPricingSeed_)
+                ValidateLsmcSeed(*settings.lsmcPricingSeed_, "lsmcPricingSeed_");
         }
     } // namespace Script
 } // namespace Dal

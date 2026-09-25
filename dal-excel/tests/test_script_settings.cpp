@@ -190,3 +190,20 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcValidationPaths) {
         AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_validation_paths"), value}}), &settings); },
                     {"InvalidSetting", "InvalidLsmcValidationPaths", "lsmc_validation_paths", "row=1 column=2", "positive"});
 }
+
+TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcRqmc) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New(
+        "rqmc",
+        Rows({{Cell_("LSMC_RQMC_REPLICATES"), Cell_(4.0)}, {Cell_("lsmc_training_seed"), Cell_(17.0)}, {Cell_("lsmc_pricing_seed"), Cell_(29.0)}}),
+        &settings);
+    ASSERT_EQ(settings->val_.lsmcRqmcReplicates_, 4);
+    ASSERT_EQ(settings->val_.lsmcTrainingSeed_, 17);
+    ASSERT_EQ(settings->val_.lsmcPricingSeed_, 29);
+    for (const auto& value : {Cell_(1.0), Cell_(-1.0), Cell_(2.5), Cell_(true), Cell_("4")})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_rqmc_replicates"), value}}), &settings); },
+                    {"InvalidLsmcRqmcReplicates", "lsmc_rqmc_replicates", "row=1 column=2"});
+    for (const auto& value : {Cell_(-1.0), Cell_(2.5), Cell_(true), Cell_("29")})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_pricing_seed"), value}}), &settings); },
+                    {"InvalidLsmcSeed", "lsmc_pricing_seed", "row=1 column=2"});
+}

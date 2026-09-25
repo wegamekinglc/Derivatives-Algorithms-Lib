@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <exception>
 #include <optional>
 #include <type_traits>
@@ -182,7 +183,7 @@ namespace Dal::Script {
         AAD::Mark(*AAD::Tape());
     }
 
-    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
+    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt);
 
     namespace Detail {
         template <class T_> void DiagnoseInvalidSimulationPath(const Scenario_<T_>& path) {

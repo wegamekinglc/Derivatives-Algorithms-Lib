@@ -458,7 +458,9 @@ ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
                          fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    smooth=0.01, compiled=None, lsmc_basis_degree=3,
-                   lsmc_training_paths=None, lsmc_validation_paths=None)
+                   lsmc_training_paths=None, lsmc_validation_paths=None,
+                   lsmc_rqmc_replicates=None, lsmc_training_seed=None,
+                   lsmc_pricing_seed=None)
 ```
 
 | Field                   | Accepted input / default                                                                                        | Property result                     |
@@ -474,6 +476,8 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `lsmc_basis_degree`     | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                              | `int`                               |
 | `lsmc_training_paths`   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path`    | `int` or `None`                     |
 | `lsmc_validation_paths` | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |
+| `lsmc_rqmc_replicates`  | Integer or valid `__index__` in `2..2**31-1`, excluding bool, enums, floats; `None` keeps deterministic Sobol | `int` or `None` |
+| `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode | `int` or `None` |
 
 For exercise products, training and pricing counts can be set independently:
 
@@ -496,6 +500,35 @@ the final `num_path` paths price the selected policy. For example,
 uses three disjoint Sobol blocks. Omitting validation retains the faster fixed
 degree fit. The [comparison benchmark](benchmarks/compare_lsmc_solvers.py)
 reports repeated pricing times and errors against a separate CRR tree oracle.
+
+For conditional randomized-QMC error bars, set
+`lsmc_rqmc_replicates` to at least 2. Training (and optional validation) fits
+one frozen policy; each pricing replicate then uses `num_path` fresh Sobol
+points with an independent 32-bit digital shift. The returned PV is the mean
+of replicate prices. `lsmc_training_seed` and `lsmc_pricing_seed` select
+reproducible streams; when omitted, both effective seeds are 0 and distinct
+role keys keep the streams separate. Seeds without a replicate count, and
+replicates with a non-Sobol `method`, are errors. For example:
+
+```python
+simulation = dal.MonteCarloSettings_(
+    lsmc_training_paths=8_192,
+    lsmc_rqmc_replicates=8,
+    lsmc_training_seed=17,
+    lsmc_pricing_seed=29,
+)
+diagnostic = dal.ScriptSimulation_Explain(
+    product, model, 2_048, simulation=simulation
+)
+error_bar = diagnostic["uncertainty"]["replicate_mean_se"]
+```
+
+`error_bar` estimates pricing error **conditional on that policy**. It does
+not cover retraining variation or approximation bias. The
+[coverage experiment](benchmarks/lsmc_rqmc_coverage.py) reports observed
+mean ± two-standard-error coverage against analytic European and independent
+PDE Bermudan references. The default deterministic Sobol mode retains its
+original values and only reports a descriptive payoff-dispersion statistic.
 
 The policy enum members are `dal.TodayFixingPolicy_.MODEL` and
 `dal.TodayFixingPolicy_.REQUIREHISTORICAL`. Policy strings also accept DAL
@@ -567,13 +600,17 @@ dictionary. Unlike the valuation Explain it runs the full double valuation with
 requires the same integer path count as the Value entries, rejects
 `enable_aad=True` settings with `UnsupportedExecutionMode`, and reports the
 simulation echo with `lsmc_basis_degree`, `lsmc_training_paths`, and
-`lsmc_validation_paths` (null when unset), the explicit pricing count `n_paths`, and one
+`lsmc_validation_paths`, `lsmc_rqmc_replicates`, `lsmc_training_seed`, and
+`lsmc_pricing_seed` (null when unset), the explicit per-replicate pricing
+count `n_paths`, an `uncertainty` object with replicate means and their
+conditional standard error, and one
 `exercise_events` entry per exercise date (degree, basis, solver, effective rank,
 fallback reason, validation MSE, regressor index, in-the-money condition-true
 count, coefficients, degenerate flag/reason,
 exercise rate).
 Regression counts describe the training block; exercise rates describe the
-pricing block. Both blocks use deterministic Sobol points and do not overlap.
+pricing block. The blocks do not overlap; they use deterministic Sobol points
+unless RQMC replicates are enabled.
 Products without `EXERCISE` return an empty `exercise_events` list. The
 [early-exercise example](examples/013.exercise_bermudan.py) prices the
 Bermudan and weekly-exercise puts and reads the diagnostic. The example runs

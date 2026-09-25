@@ -2,12 +2,13 @@
 // Created by wegam on 2020/12/26.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <dal/math/random/quasirandom.hpp>
+#include <cstdint>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <stdint.h>
 
@@ -17,6 +18,13 @@ namespace Dal {
         constexpr double MUL = 2.3283064365386963E-10;
         constexpr auto XOR = [](uint_least32_t i, uint_least32_t j) -> uint_least32_t { return i ^ j; };
         constexpr auto SCALETO01 = [](uint_least32_t state) -> double { return MUL * state; };
+        uint64_t NextSplitMix64(uint64_t* state) {
+            *state += 0x9e3779b97f4a7c15ULL;
+            uint64_t value = *state;
+            value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+            value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+            return value ^ (value >> 31);
+        }
         constexpr size_t N_KNOWN = 21201;
 const uint_least32_t dim1[] = {2147483648,1073741824,536870912,268435456,134217728,67108864,33554432,16777216,8388608,4194304,2097152,1048576,524288,262144,131072,65536,32768,16384,8192,4096,2048,1024,512,256,128,64,32,16,8,4,2,1};
 const uint_least32_t dim2[] = {2147483648,3221225472,2684354560,4026531840,2281701376,3422552064,2852126720,4278190080,2155872256,3233808384,2694840320,4042260480,2290614272,3435921408,2863267840,4294901760,2147516416,3221274624,2684395520,4026593280,2281736192,3422604288,2852170240,4278255360,2155905152,3233857728,2694881440,4042322160,2290649224,3435973836,2863311530,4294967295};
@@ -21246,6 +21254,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             bool precise_;
             bool polish_;
             Vector_<uint_least32_t> state_;
+            Vector_<uint_least32_t> shifts_;
 
             explicit SobolSet_(size_t iPath, bool precise = false, bool polish = false)
                 : iPath_(iPath), precise_(precise), polish_(polish) {}
@@ -21259,6 +21268,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
                 auto seq = std::make_unique<SobolSet_>(iPath_, precise_, polish_);
                 seq->directions_ = directions_;
                 seq->state_ = state_;
+                seq->shifts_ = shifts_;
                 return seq;
             }
             void SkipTo(size_t nPaths) override {
@@ -21276,7 +21286,11 @@ const uint_least32_t* const DIRECTIONS[21201] = {
                 ;
             REQUIRE(k < directions_.Rows(), "Exceeding the maximum directions number");
             Transform(state_, directions_.Row(k), XOR, &state_);
-            Transform(state_, SCALETO01, dst);
+            if (shifts_.empty())
+                Transform(state_, SCALETO01, dst);
+            else
+                for (size_t i = 0; i < NDim(); ++i)
+                    (*dst)[i] = (static_cast<double>(state_[i] ^ shifts_[i]) + 0.5) * MUL;
         }
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
@@ -21292,6 +21306,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             if (subSize == NDim()) {
                 directions_.Swap(&ret_val->directions_);
                 state_.Swap(&ret_val->state_);
+                shifts_.Swap(&ret_val->shifts_);
             } else {
                 const int size = NDim() - subSize;
                 Matrix_<uint_least32_t> dir(N_BITS, size);
@@ -21304,6 +21319,10 @@ const uint_least32_t* const DIRECTIONS[21201] = {
                 directions_.Swap(&dir);
                 ret_val->state_.Assign(state_.begin() + size, state_.end());
                 state_.Resize(size);
+                if (!shifts_.empty()) {
+                    ret_val->shifts_.Assign(shifts_.begin() + size, shifts_.end());
+                    shifts_.Resize(size);
+                }
             }
             return ret_val;
         }
@@ -21313,6 +21332,17 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         auto seq = std::make_unique<SobolSet_>(iPath, precise, polish);
         seq->state_.Resize(size);
         seq->directions_ = Directions(size);
+        Seek(seq->state_, iPath, seq->directions_);
+        return seq;
+    }
+
+    std::unique_ptr<SequenceSet_> NewDigitallyShiftedSobol(int size, size_t iPath, uint64_t key, bool precise, bool polish) {
+        auto seq = std::make_unique<SobolSet_>(iPath, precise, polish);
+        seq->state_.Resize(size);
+        seq->directions_ = Directions(size);
+        seq->shifts_.Resize(size);
+        for (auto& shift : seq->shifts_)
+            shift = static_cast<uint32_t>(NextSplitMix64(&key) >> 32);
         Seek(seq->state_, iPath, seq->directions_);
         return seq;
     }

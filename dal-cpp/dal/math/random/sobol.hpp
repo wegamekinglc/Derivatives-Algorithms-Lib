@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <dal/storage/archive.hpp>
 #include <dal/math/random/quasirandom.hpp>
 
@@ -21,6 +23,8 @@ polish is boolean
 
 namespace Dal {
     std::unique_ptr<SequenceSet_> NewSobol(int size, size_t iPath, bool precise = false, bool polish = false);
+    //  A reproducible random digital shift (one 32-bit XOR mask per coordinate).
+    std::unique_ptr<SequenceSet_> NewDigitallyShiftedSobol(int size, size_t iPath, uint64_t key, bool precise = false, bool polish = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;

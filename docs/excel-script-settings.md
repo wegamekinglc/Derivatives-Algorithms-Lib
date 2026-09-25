@@ -65,6 +65,9 @@ to the script's future FIX index.
 | Simulation      | `lsmc_basis_degree`     | `3`                                             | Integral number 1..8; not boolean             |
 | Simulation      | `lsmc_training_paths`   | Same as the pricing count                       | Integral number 1..2147483647; not boolean    |
 | Simulation      | `lsmc_validation_paths` | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean    |
+| Simulation      | `lsmc_rqmc_replicates`  | Omitted (deterministic Sobol)                    | Integral number 2..2147483647; not boolean    |
+| Simulation      | `lsmc_training_seed`    | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean    |
+| Simulation      | `lsmc_pricing_seed`     | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean    |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
@@ -78,6 +81,13 @@ ignore the setting after validation.
 `lsmc_validation_paths` reserves a disjoint block between training and pricing
 for selecting a polynomial degree up to `lsmc_basis_degree`. Omitting it keeps
 the fixed-degree fast path. When present, all three Sobol blocks are disjoint.
+`lsmc_rqmc_replicates` enables independently digitally shifted Sobol pricing
+replicates for one frozen policy. `n_paths` then counts paths per replicate;
+the price averages replicate means and the `uncertainty` diagnostic reports
+their standard error. Training and pricing seeds make streams reproducible.
+Seeds without a replicate count, or RQMC with a non-Sobol method, are errors.
+The error estimate is conditional on the fitted policy; it excludes policy
+bias and retraining uncertainty.
 
 Omitting a matrix, passing `""`, or referencing one blank cell selects defaults.
 An entirely blank two-column range also selects defaults. Within a two-column
@@ -216,9 +226,10 @@ it explicitly runs the full double valuation with `n_paths` pricing paths and
 `lsmc_validation_paths` held-out paths on exercise
 products — path generation plus workers plus the exercise regressions — and
 reports the
-simulation echo (including `lsmc_basis_degree`, `lsmc_training_paths`, and
-`lsmc_validation_paths`, null
-when unset), the explicit `n_paths`, and
+simulation echo (including `lsmc_basis_degree`, `lsmc_training_paths`,
+`lsmc_validation_paths`, `lsmc_rqmc_replicates`, `lsmc_training_seed`, and
+`lsmc_pricing_seed`, null when unset), the explicit per-replicate `n_paths`,
+an `uncertainty` object with budgets, seeds, replicate means and error, and
 one `exercise_events` entry per exercise date with the selected degree, basis,
 solver, effective rank, fallback reason, validation MSE, regressor index,
 in-the-money condition-true path count, frozen coefficients,

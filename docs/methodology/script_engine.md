@@ -310,6 +310,9 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 | `MonteCarloSettings_`      | `lsmcBasisDegree_`     | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
 | `MonteCarloSettings_`      | `lsmcTrainingPaths_`   | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
 | `MonteCarloSettings_`      | `lsmcValidationPaths_` | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
+| `MonteCarloSettings_`      | `lsmcRqmcReplicates_`  | `std::nullopt`                      | Integer at least 2: opt-in independent digitally shifted pricing replicates for one frozen LSMC policy.             |
+| `MonteCarloSettings_`      | `lsmcTrainingSeed_`    | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                           |
+| `MonteCarloSettings_`      | `lsmcPricingSeed_`     | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                           |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
@@ -695,9 +698,10 @@ invariant across thread counts.
   targets and final pricing payoffs never enter the training fit.
   If no validation path is eligible on a date, the selector fits the requested degree
   and reports a null validation loss rather than a fabricated zero.
-- **Phase C** values the frozen policy on the final `nPaths` Sobol paths,
+- **Phase C** values the frozen policy on the final `nPaths` Sobol paths in
+  deterministic mode,
   starting at `SkipTo(nTrainingPaths + nValidationPaths)`. Training, validation,
-  and pricing blocks do not overlap; the total generated path count is
+  and pricing blocks do not overlap; the deterministic total generated path count is
   `nTrainingPaths + nValidationPaths + nPaths`, plus one
   numeraire probe. Training and validation storage is released
   first. Hard pricing shares the immutable compiled program and reuses one
@@ -718,10 +722,44 @@ The combined training, validation, and pricing count must fit the 32-bit Sobol s
 ranges with `InvalidPathCount` before allocating training storage.
 
 The separate blocks avoid evaluating the policy on its own regression samples.
-They are deterministic QMC blocks, not statistically independent randomized
-replicates. `LsmcDiagnostics_::StandardError()` is a descriptive payoff-dispersion
-measure; it is not a calibrated QMC confidence interval. Independent scrambled
-replicates would be needed for that error estimate.
+By default they remain deterministic QMC blocks, not statistically independent
+randomized replicates. `LsmcDiagnostics_::StandardError()` is a descriptive
+payoff-dispersion measure, not a calibrated QMC confidence interval.
+
+Setting `lsmcRqmcReplicates_` to at least 2 freezes one policy from a digitally
+shifted training Sobol stream and prices it on that many independently shifted
+pricing streams. `nPaths` is the pricing count **per replicate**; the total
+pricing budget is `lsmcRqmcReplicates_ * nPaths`. The training and optional
+validation budgets are paid once. Every stream uses a distinct, non-overlapping
+Sobol index block; the training/validation stream shares a shift but has
+disjoint blocks. A role bit, a 31-bit user seed, and the replicate index form
+a unique 64-bit scramble key; SplitMix64 expands each key into one 32-bit XOR
+mask per Sobol coordinate. Shifted integer points are mapped to bin midpoints
+before inverse-normal transformation, avoiding 0 and 1. Omitted training and
+pricing seeds use zero, but role separation keeps their stream identities
+distinct. Explicit seeds without a replicate count, and non-Sobol RQMC settings,
+are rejected. Unset RQMC settings retain the original deterministic Sobol path
+and numerical results.
+
+The RQMC price is the mean of replicate prices. Its
+`ReplicateMeanStandardError()` is the sample standard deviation of those prices
+divided by the square root of the replicate count. This error concerns pricing
+**conditional on the single frozen policy**; it excludes retraining variation,
+continuation approximation error, and optimal-policy bias. AAD replays the
+same pricing replicates against the same policy and averages their risks.
+Digital shifts are a reproducible pseudorandomization, not nested Owen
+scrambling. A finite number of replicates gives an estimated error bar, not a
+guaranteed confidence interval.
+
+The standalone [coverage experiment](../../dal-python/benchmarks/lsmc_rqmc_coverage.py)
+uses 256 pricing-seed groups, eight replicates per group, 8,192 fixed-policy
+training paths, and 2,048 pricing paths per replicate. With a mean ± two
+replicate-standard-error band, 233/256 European-put intervals covered the
+analytic value and 226/256 two-date Bermudan intervals covered an independent
+Crank–Nicolson PDE value. The refined PDE grid changed that value by 0.000179,
+and the one-date PDE differed from the analytic European price by 0.000056;
+the mean Bermudan price exceeded it by 0.000541. These are observed coverages
+for this policy, budget, and band, not universal nominal-coverage claims.
 
 Preparation runs `LsmcProcessor_`, a backward liveness visitor with local
 dispatch, before compiling the recording program. It does not extend the
@@ -1673,11 +1711,17 @@ valuation path only).
 
 The JSON reports `evaluation_date`, the effective `simulation` echo
 (`rsg`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
-`lsmc_training_paths`, `lsmc_validation_paths`),
-the explicit `n_paths`, and `exercise_events`. Products without `EXERCISE`
+`lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
+`lsmc_training_seed`, `lsmc_pricing_seed`), the explicit per-replicate
+`n_paths`, `uncertainty`, and `exercise_events`. Products without `EXERCISE`
 return an empty `exercise_events` array, never an omitted key.
 `lsmc_training_paths` is null when unset, meaning the same count as `n_paths`;
 `lsmc_validation_paths` is null when the fixed-degree fast path is used.
+`uncertainty` reports the mode, scramble identity, effective seeds, training
+and validation budgets, per-replicate and total pricing budgets, ordered
+replicate means, and `replicate_mean_se` (null in deterministic mode).
+`payoff_dispersion_se` remains separate and descriptive. For products without
+`EXERCISE`, the uncertainty mode is `not_applicable` and no simulation runs.
 Each exercise
 event carries `event_id`, `date`, the effective `basis_degree`
 (`0` marks the degenerate constant basis), `regressor_index` (the canonical

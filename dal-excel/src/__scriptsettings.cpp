@@ -57,8 +57,8 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "MonteCarloSettings_New", "settings");
 &optional
 settings is cell[][]+
-    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths.
-    Booleans 0/1; smooth positive; degree integer 1..8; path counts positive integers (validation omitted by default).
+    Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths,
+    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed. Replicates at least 2; seeds nonnegative integers.
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -149,6 +149,43 @@ namespace Dal {
             return count;
         }
 
+        int LsmcRqmcReplicateValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcRqmcReplicates: expected integral number in 2..2147483647";
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 2.0 &&
+                        *number <= std::numeric_limits<int>::max(),
+                    constraint);
+            return static_cast<int>(*number);
+        }
+
+        int LsmcSeedValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcSeed: expected nonnegative integral number in 0..2147483647";
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 0.0 &&
+                        *number <= std::numeric_limits<int>::max(),
+                    constraint);
+            return static_cast<int>(*number);
+        }
+
+        bool ApplyLsmcSetting(const String_& key, const Cell_& cell, const String_& valueContext, Script::MonteCarloSettings_* settings) {
+            if (key == "lsmc_basis_degree")
+                settings->lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
+            else if (key == "lsmc_training_paths")
+                settings->lsmcTrainingPaths_ = LsmcPathCountValue(cell, valueContext, "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
+            else if (key == "lsmc_validation_paths")
+                settings->lsmcValidationPaths_ =
+                    LsmcPathCountValue(cell, valueContext, "InvalidLsmcValidationPaths", Script::ValidateLsmcValidationPaths);
+            else if (key == "lsmc_rqmc_replicates")
+                settings->lsmcRqmcReplicates_ = LsmcRqmcReplicateValue(cell, valueContext);
+            else if (key == "lsmc_training_seed")
+                settings->lsmcTrainingSeed_ = LsmcSeedValue(cell, valueContext);
+            else if (key == "lsmc_pricing_seed")
+                settings->lsmcPricingSeed_ = LsmcSeedValue(cell, valueContext);
+            else
+                return false;
+            return true;
+        }
+
         bool IsDefaultSettingsInput(const Matrix_<Cell_>& input) {
             return (input.Rows() == 0 && input.Cols() == 0) || (input.Rows() == 1 && input.Cols() == 1 && Cell::IsEmpty(input(0, 0)));
         }
@@ -224,19 +261,13 @@ namespace Dal {
                          value.rsg_ = MethodValue(cell, valueContext);
                      } else if (key == "smooth") {
                          value.smooth_ = SmoothingValue(cell, valueContext);
-                     } else if (key == "lsmc_basis_degree") {
-                         value.lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
-                     } else if (key == "lsmc_training_paths") {
-                         value.lsmcTrainingPaths_ =
-                             LsmcPathCountValue(cell, valueContext, "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
-                     } else if (key == "lsmc_validation_paths") {
-                         value.lsmcValidationPaths_ =
-                             LsmcPathCountValue(cell, valueContext, "InvalidLsmcValidationPaths", Script::ValidateLsmcValidationPaths);
+                     } else if (ApplyLsmcSetting(key, cell, valueContext, &value)) {
+                         return;
                      } else {
                          REQUIRE(key == "use_bb" || key == "enable_aad" || key == "compiled",
                                  keyContext + "unknown key " + key +
                                      "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths or "
-                                     "lsmc_validation_paths");
+                                     "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed or lsmc_pricing_seed");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;
