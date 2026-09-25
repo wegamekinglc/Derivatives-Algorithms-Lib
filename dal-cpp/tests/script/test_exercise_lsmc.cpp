@@ -337,6 +337,12 @@ TEST(ScriptExerciseLSMCTest, TestRegressionDetectsCollinearBasis) {
     ASSERT_NEAR(RegressionPredict(fit, 0.0), 3.0, 1e-12);
     ASSERT_NEAR(RegressionPredict(fit, -1.0), 2.0, 1e-12);
     ASSERT_NEAR(RegressionPredict(fit, 1.0), 4.0, 1e-12);
+
+    // Every nonzero mask value denotes an included row, including in the QR fallback.
+    const auto nonBooleanMask = SolveExerciseRegression(x, targets, Vector_<char>(x.size(), 2), 3);
+    ASSERT_EQ(nonBooleanMask.numCondTrue_, x.size());
+    ASSERT_EQ(nonBooleanMask.solver_, "PivotedQR");
+    ASSERT_EQ(nonBooleanMask.coefficients_, fit.coefficients_);
 }
 
 TEST(ScriptExerciseLSMCTest, TestRegressionPreservesQuadraticDiscreteStates) {
@@ -587,11 +593,24 @@ TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeUsesHeldOutPathsOnly) {
 
 TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeReportsNoLossWithoutValidationCandidates) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
-    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)}, 0.0);
-    const auto run = RunLsmc(product, StandardModel(), 128, 8, false, 256, 128);
+    constexpr int TRAINING = 4096;
+    const auto maturity = Date_(2027, 9, 20);
+    auto model = CreateModel<double>(StandardModel());
+    const auto sample = ExerciseOnlyProduct({maturity});
+    const auto prepared = PrepareScript(sample, model.get(), {}, MonteCarloSettings_());
+    auto rng = CreateRNG(MonteCarloSettings_().rsg_, model->SimDim(), false);
+    rng->SkipTo(TRAINING);
+    Vector_<> gauss(model->SimDim());
+    Scenario_<> path;
+    AllocatePath(prepared.DefLine(), path);
+    InitializePath(path);
+    rng->FillNormal(&gauss);
+    model->GeneratePath(gauss, &path);
+    const auto product = ExerciseOnlyProduct({maturity}, path.back().spot_ - 1e-5);
+    const auto run = RunLsmc(product, StandardModel(), 128, 8, false, TRAINING, 1);
     ASSERT_EQ(run.diagnostics_.events_.size(), 1u);
-    ASSERT_EQ(run.diagnostics_.events_[0].numCondTruePaths_, 0u);
-    ASSERT_TRUE(run.diagnostics_.events_[0].degenerate_);
+    ASSERT_GT(run.diagnostics_.events_[0].numCondTruePaths_, 90u);
+    ASSERT_EQ(run.diagnostics_.events_[0].basisDegree_, 8);
     ASSERT_FALSE(run.diagnostics_.events_[0].validationMse_.has_value());
 }
 

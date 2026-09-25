@@ -193,7 +193,7 @@ namespace Dal::Script {
         MakeQrWorkspace(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, double mean, double sigma, int degree) {
             QrWorkspace_ ws;
             ws.nBasis_ = static_cast<size_t>(degree + 1);
-            ws.nRows_ = static_cast<size_t>(std::count(included.begin(), included.end(), 1));
+            ws.nRows_ = static_cast<size_t>(std::count_if(included.begin(), included.end(), [](char value) { return value != 0; }));
             ws.response_.Resize(ws.nRows_);
             for (size_t j = 0; j < ws.nBasis_; ++j) {
                 ws.columns_[j].Resize(ws.nRows_);
@@ -652,9 +652,10 @@ namespace Dal::Script {
         }
 
         ExerciseRegression_ SelectRegression(const RegressionRows_& training, const RegressionRows_& validation, int maxDegree) {
-            const size_t validationCount = static_cast<size_t>(std::count(validation.included_.begin(), validation.included_.end(), 1));
+            const size_t validationCount =
+                static_cast<size_t>(std::count_if(validation.included_.begin(), validation.included_.end(), [](char value) { return value != 0; }));
             if (validationCount == 0)
-                return SolveExerciseRegression(training.x_, training.targets_, training.included_, 1);
+                return SolveExerciseRegression(training.x_, training.targets_, training.included_, maxDegree);
 
             std::array<ExerciseRegression_, 8> candidates;
             std::array<ValidationLoss_, 8> losses;

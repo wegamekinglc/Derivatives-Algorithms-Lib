@@ -72,12 +72,12 @@ comparison, with no whitespace trimming. Today-policy values are case-sensitive:
 `"TRUE"`, `"FALSE"`, and `"1"`, as well as numbers other than 0 and 1.
 Smoothing must be valid even with AAD disabled.
 `lsmc_training_paths` sets the regression count for exercise products;
-`n_paths` still sets the pricing count. The two Sobol blocks do not overlap.
+`n_paths` still sets the pricing count. Training and pricing use disjoint Sobol blocks.
 Omit the training key to use the pricing count. Products without `EXERCISE`
 ignore the setting after validation.
 `lsmc_validation_paths` reserves a disjoint block between training and pricing
 for selecting a polynomial degree up to `lsmc_basis_degree`. Omitting it keeps
-the fixed-degree fast path.
+the fixed-degree fast path. When present, all three Sobol blocks are disjoint.
 
 Omitting a matrix, passing `""`, or referencing one blank cell selects defaults.
 An entirely blank two-column range also selects defaults. Within a two-column
