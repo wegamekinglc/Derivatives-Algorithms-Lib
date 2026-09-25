@@ -165,7 +165,7 @@ spot, rates, and a dense strike-by-maturity local-volatility matrix. The
 up-and-out call program builds a flat 31-by-61 surface by hand and prices the
 barrier option on a `Dupire_<T_>` model via the script Monte Carlo driver; a
 calibrated run would fill the same matrix from `DupireCalib`. See
-[`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc/) for a runnable version;
+[`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) for a runnable version;
 its model construction and pricing call are:
 
 ```cpp
@@ -212,11 +212,11 @@ output is a dense grid adjoint rather than a single scalar.
 Related example programs used as flat-volatility baselines against the Dupire
 pricer:
 
-- [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla/) — European call
+- [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla) — European call
   priced analytically and by Monte Carlo on a `BlackScholes_<T_>` model.
-- [`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc/) —
+- [`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc) —
   convergence of the quasi-Monte Carlo pricer to the Black-Scholes closed form.
-- [`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd/) —
+- [`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd) —
   finite-difference European pricer that recovers the Black-Scholes closed form
   from the PDE.
 

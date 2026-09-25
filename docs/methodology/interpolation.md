@@ -86,7 +86,7 @@ positivity exactly: a convex combination of logs can never produce a negative va
 Factory: `Interp::NewLogLinear(name, x, f)` (`dal-cpp/dal/math/interp/interploglinear.hpp`).
 Requires $N \ge 2$ and **every $f_i > 0$** (checked at construction). This scheme is the
 default for the `LOG_DISCOUNT` curve parameterization — see
-[Log-discount curve](log_discount_curve.md).
+[Log-discount curve](../yield-curves/log-discount.md).
 
 ## Cubic Spline
 
@@ -119,7 +119,7 @@ Supply $N > 2$ and strictly increasing $x$. `IsInBounds` reports whether a query
 lies in the knot range; it does not guard evaluation. Outside that range,
 `operator()` extends the first or last cubic segment. The curve-specific
 natural-cubic weight geometry uses the same polynomial definition. Log-DF curves
-apply their own explicit boundary policy; see [Log-discount curve](log_discount_curve.md).
+apply their own explicit boundary policy; see [Log-discount curve](../yield-curves/log-discount.md).
 
 ## Mixed Log-DF
 
@@ -140,7 +140,7 @@ silently snapping an in-between value to a knot.
 Factory: `NewMixedLogDF(name, yf, logDF, spec)` where `spec` is a `MixedSchemeSpec_`
 carrying `cutoffYf_` and the two cubic `Boundary_` conditions
 (`dal-cpp/dal/math/interp/interpmixed.hpp`). This scheme backs the `MIXED` value of
-`LogDfScheme_` — see [Log-discount curve](log_discount_curve.md).
+`LogDfScheme_` — see [Log-discount curve](../yield-curves/log-discount.md).
 
 `Tape::DiscountLogDF_` uses the scalar-generic `LogDfInterpolation_` rather than this
 archive-backed composite. Its compatibility cutoff is storage index
@@ -168,7 +168,7 @@ $(N_x, N_y)$ (`dal-cpp/dal/math/interp/interp2d.hpp`).
 
 - Use **linear** for noisy or sparse data where higher-order smoothness would amplify
   noise, and for piecewise-linear forwards in calibration (see
-  [Yield curve construction](yield_curve.md)).
+  [Yield curve construction](../yield-curves/construction.md)).
 - Use **log-linear** for any strictly positive, geometrically-scaling quantity — discount
   factors and forward rates are the canonical cases.
 - Use **cubic** when $C^2$ smoothness matters (e.g. second-derivative-dependent risk) and
@@ -201,7 +201,7 @@ The scalar-generic weight geometry that underpins the curve layer is exercised
 end to end by the log-discount curve calibration program, which builds the same
 curve under `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` schemes and compares
 the resulting node discount factors and forward rates. See
-[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve/)
+[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve)
 for a runnable version; its per-scheme calibration call is:
 
 ```cpp
@@ -220,7 +220,7 @@ const Vector_<> nodeDf = logDf->NodeDF();          // scheme-dependent knot DFs
 
 ## See Also
 
-- [Log-discount curve](log_discount_curve.md) — uses log-linear, cubic, and mixed
+- [Log-discount curve](../yield-curves/log-discount.md) — uses log-linear, cubic, and mixed
   interpolation on $\ln P$ as its `LogDfScheme_` parameterization.
-- [Yield curve construction](yield_curve.md) — the piecewise-linear and
+- [Yield curve construction](../yield-curves/construction.md) — the piecewise-linear and
   piecewise-constant forward parameterizations are built on the linear kernel.

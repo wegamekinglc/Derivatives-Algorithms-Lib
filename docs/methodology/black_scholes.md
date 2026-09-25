@@ -187,7 +187,7 @@ Monte Carlo on a `BSModelData_`-driven `BlackScholes_<T_>` model and by AAD
 against an inlined closed-form payoff. The canonical kernel those runs measure
 against is `Distribution::BlackOpt`, defined in the header below; the European
 Monte Carlo and finite-difference examples call it directly as their benchmark.
-See [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla/) for a
+See [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla) for a
 runnable version; the closed-form kernel is:
 
 ```cpp
@@ -220,7 +220,7 @@ The `OptionType_::Value_::CALL` argument is the dispatch described in *The Black
 (Lognormal) Closed Form*; `PUT` and `STRADDLE` go through the same template. The
 European Monte Carlo program reuses this closed form as the convergence target
 of a quasi-Monte Carlo sweep on a `BSModelData_` model. See
-[`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc/); its
+[`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc); its
 per-path pricing loop is:
 
 ```cpp
@@ -257,7 +257,7 @@ for (int i = 12; i <= 30; ++i) {
 A finite-difference European pricer exercises the same closed form through
 explicit, implicit, and Crank-Nicolson $\theta$-schemes on the Black-Scholes
 PDE, and checks the recovered price against `Distribution::BlackOpt`. See
-[`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd/); its PDE
+[`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd); its PDE
 coefficient setup is:
 
 ```cpp
@@ -284,15 +284,15 @@ scheme.Prepare(dt, grids, *disc, *mu, *var);
 
 Additional example programs that price off the Black/Bachelier kernels:
 
-- [`dal-cpp/examples/digital/`](../../dal-cpp/examples/digital/) — a digital
+- [`dal-cpp/examples/digital/`](../../dal-cpp/examples/digital) — a digital
   payoff priced analytically, by finite-difference bumps, and by pathwise AAD.
-- [`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc/) — an up-and-out call
+- [`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) — an up-and-out call
   priced on a `Dupire_<T_>` local-volatility model fed by a flat vol surface.
-- [`dal-cpp/examples/snowball/`](../../dal-cpp/examples/snowball/) — a snowball
+- [`dal-cpp/examples/snowball/`](../../dal-cpp/examples/snowball) — a snowball
   autocallable priced on a `BlackScholes_<T_>` model with scripted monitoring.
 
 ## See Also
 
-- [Yield-curve Jacobian](yield_curve_jacobian.md) — how greeks feed calibration risk.
+- [Yield-curve Jacobian](../yield-curves/jacobian-risk.md) — how greeks feed calibration risk.
 - [Dupire local volatility](dupire.md) — Black-Scholes calls are the input to the IVS
   inversion that recovers the local-volatility surface.

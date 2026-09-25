@@ -1,187 +1,51 @@
 # DAL Documentation
 
-This directory contains technical documentation for the Derivatives Algorithms Library (DAL).
-
-The library is documented as a single current version: the docs here always describe the latest
-state. Historical context — breaking changes, new methodologies, and significant capability
-additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
+These guides describe the current repository implementation. API and
+methodology changes are recorded in [CHANGELOG.md](../CHANGELOG.md). Except in
+the dedicated Python and Excel chapters, examples use C++ by default.
 
 ## Start Here
 
-- **[Installation guide](installation.md)** — prerequisites, build profiles, staged
-  installs, and Python bindings
-- **[Architecture](architecture.md)** — component boundaries, runtime ownership,
-  generated code, valuation, and calibration flows
-- **[Public API guide](public-api.md)** — supported C++, Python, and Excel entry points
-- **[Contributing](../CONTRIBUTING.md)** — build, test, generation, formatting, docs,
-  and review expectations
+- [Installation](installation.md) — build profiles, staged installs, and package setup.
+- [Architecture](architecture.md) — component boundaries and valuation flows.
+- [C++ public API](public-api.md) — facade headers, construction, pricing, and risk.
+- [Python interface](python/README.md) — bindings, settings, examples, and package usage.
+- [Excel interface](excel/README.md) — worksheet functions, handles, and examples.
+- [Contributing](../CONTRIBUTING.md) — build, test, and review workflow.
+
+## Quantitative Methods
+
+| Chapter | Contents |
+|---------|----------|
+| [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk |
+| [CCY curves](ccy-curves/README.md) | Cross-currency pricing, fixing snapshots, staged and joint calibration |
+| [Monte Carlo](monte-carlo/README.md) | Simulation, sampling, LSM exercise pricing, RQMC, AAD, and performance |
+| [PDE](pde/README.md) | One-dimensional theta rollback and European option example |
+
+The remaining C++ methodology guides cover [AAD](methodology/aad.md),
+[Black/Bachelier pricing](methodology/black_scholes.md),
+[Dupire local volatility](methodology/dupire.md),
+[script syntax and preparation](methodology/script_engine.md),
+[interpolation](methodology/interpolation.md),
+[matrix algorithms](methodology/matrix.md),
+[quadrature](methodology/quadrature.md),
+[underdetermined search](methodology/underdetermined_search.md),
+[dates and calendars](methodology/dates.md), and
+[index parsing](methodology/index_parsing.md).
 
 ## Component Guides
 
-- **[Repository overview](../README.md)** — workspace entry point and examples
-- **[Core C++](../dal-cpp/README.md)** — quantitative engine, tests, and examples
-- **[Public C++ facade](../dal-public/README.md)** — convenience API and compatibility contract
-- **[Python bindings](../dal-python/README.md)** — package usage and Python API
-- **[Excel add-in](../dal-excel/README.md)** — Windows XLL and worksheet functions
-- **[Excel FIX settings](excel-script-settings.md)** — settings matrices and handles,
-  date/snapshot rules, JSON diagnostics, and the executable workbook
+- [Core C++](../dal-cpp/README.md) and [public C++ facade](../dal-public/README.md).
+- [Python package](../dal-python/README.md) and [Excel add-in](../dal-excel/README.md).
+- [Excel FIX settings](excel/script-settings.md) — worksheet matrices, dates,
+  snapshots, diagnostics, and executable workbook.
 
-## Installation
-
-- **[installation.md](installation.md)** — Complete Installation Guide
-  - System requirements (C++ compiler, Python)
-  - C++ library installation (Linux and Windows)
-  - Python bindings setup with uv
-  - Verification and troubleshooting
-
-## Methodology (`methodology/`)
-
-Deep dives into the quantitative methods and algorithms implemented in DAL:
-
-- **[aad.md](methodology/aad.md)** — Automatic Adjoint Differentiation (AAD)
-  - Expression templates, tape management, reverse-mode propagation
-  - Native block storage, allocation boundaries, and mark/rewind reuse
-  - Backend architecture (native, XAD, CoDiPack, Adept)
-  - Parallel AAD for Monte Carlo simulations
-  - Tape-layer curve calibration primitives (`DiscountPWLF_`, `JointCurveBlock_`, `JointRate_`)
-
-- **[yield_curve.md](methodology/yield_curve.md)** — Yield Curve Construction
-  - Discount curve framework (`DiscountPWLF_`, `DiscountPWC_`)
-  - Piecewise-linear and piecewise-constant forward rates
-  - Multi-curve construction and calibration (sequential and joint simultaneous)
-  - Single-curve AAD calibration internals (TapeGuard, eligibility predicate, analytic Jacobian)
-  - Joint simultaneous calibration (`CalibrateJointMultiCurve`) with stacked-parameter AAD Jacobian
-  - Joint vs staged calibration drift characteristics
-  - Integration with the underdetermined solver
-
-- **[underdetermined_search.md](methodology/underdetermined_search.md)** — Underdetermined Optimization
-  - Scaled quasi-Newton method for underdetermined systems
-  - Residual scaling, quadratic backtrack fraction, forward Jacobian capture at solution
-  - Solver controls structure and Broyden update regime
-  - Application to yield curve calibration via smoothness penalties
-
-- **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Pricing and Calibration
-  - Fixed, resettable-notional, and mark-to-market cross-currency pricing
-  - Immutable operation-level snapshots of timestamped rate and FX fixings
-  - Staged basis calibration and simultaneous domestic/foreign/basis calibration
-  - Joint parameter/residual matrix ranges, analytic or bumped Jacobians, and effective-inverse scaling
-
-- **[interpolation.md](methodology/interpolation.md)** — Interpolation
-  - Linear, log-linear, cubic-spline, and mixed one-dimensional interpolators
-  - `MIXED` compatibility orientation: linear head and natural-cubic tail
-  - Cubic boundary conditions (`Boundary_` order/value)
-  - Bilinear (2D) interpolation on a rectilinear grid
-  - Selection guidance and where each scheme is used
-
-- **[matrix.md](methodology/matrix.md)** — Matrix and Linear Algebra
-  - Numerical-Recipes band-storage layout and the `Sparse::Square_` / decomposition interfaces
-  - Tri-diagonal Thomas-algorithm solve (`TriDiagonal_`, `TriDecomp_`, `TriDecompSymm_`)
-  - Dense Cholesky with reciprocal-diagonal regularization, plus band-Cholesky factorization
-  - Preconditioned conjugate-gradient (CG) and bi-conjugate-gradient (BCG) Krylov solvers
-
-- **[log_discount_curve.md](methodology/log_discount_curve.md)** — Log-Discount Curve
-  - Node log-discount-factor representation and anchor convention
-  - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
-  - Thomas algorithm for the natural-cubic system, basis weights, and `fppCoef_` matrix
-  - Serialization version design (v1 without scheme, v2 with named scheme)
-  - Persistent log-discount coordinates, interpolation/extrapolation, basis weights, and participation in the shared analytic-Jacobian curve factory
-
-- **[pde.md](methodology/pde.md)** — PDE Framework
-  - Coordinate maps, including identity, sinh, and endpoint-exact concentrating maps
-  - `CoordinateVector_`, `GridLocations`, and uniform/concentrating grid builders
-  - Node-location-based tridiagonal derivative operators and boundary-row convention
-  - Coefficient factories and callable adapters for scalar/vector/matrix coefficients
-  - `ThetaScheme_` rollback, explicit `Prepare`, decomposition reuse, and value-layer layout
-
-- **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
-  - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
-  - Staged and joint matrix dimensions, including named joint parameter/residual ranges
-  - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
-  - Production quote-space DV01 provenance, state fingerprints, currency policy, and full-recalibration oracle
-  - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
-
-- **[rate_node_risk.md](methodology/rate_node_risk.md)** — Rate-Trade Node Risk
-  - Seven-family AAD eligibility, native parameter coordinates, and tape isolation
-  - Deterministic batch cells, failure isolation, component tensors, and PV currencies
-
-- **[generic_joint_quote_risk.md](methodology/generic_joint_quote_risk.md)** — Generic Joint Multi-Curve Quote DV01
-  - Explicit inverse retention and the fixed initial-Jacobian parameter subspace
-  - Coupled curve/base risk, immutable v2 provenance, and failure isolation
-  - Public C++, Python, and Excel construction and aggregation surfaces
-
-- **[script_engine.md](methodology/script_engine.md)** — Script Engine
-  - Preprocessing pipeline (macros, schedules, constant variables)
-  - Unquoted `FIX(index[,date])` parsing, protected index literals, and execution limits
-  - Core historical preparation: date policy, deduplicated EQ/FX snapshot reads, and immutable values
-  - Core tree/compiled FIX valuation: the script's EQ index as the BS/Dupire model index, shared observations, and payment numeraires
-  - Early-exercise (Bermudan/American) LSMC valuation: phases, regression guards, and thread-count invariance
-  - Typed historical AAD state, hard past decisions, and fuzzy future conditions
-  - Describe / Explain / simulation-diagnostic JSON contracts across C++, Python, and Excel
-  - Legacy SPOT compatibility boundary and C++/Python/Excel settings and diagnostics
-  - Strict history prefetch, exact/fuzzy branch retention, and dependency-aware constant arithmetic
-  - Prepared continuous fuzzy kernels and legacy domain/condition folding
-  - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
-  - Product debug outputs (legacy text, versioned JSON, Unicode/ASCII tree)
-
-- **[dupire.md](methodology/dupire.md)** — Dupire Local Volatility
-  - Discounted spot-call contract and rate-aware Dupire formula
-  - Central-difference IVS inversion (`IVS_::LocalVol`) and relative bump sizing
-  - Calibration grid construction (`DupireCalib`, `DupireCalibMaturity`)
-  - 2.5-$\Sigma$ strike cutoff, the spot-strike-call $\sqrt{2\pi}$ proxy, and flat-tail extrapolation
-
-- **[black_scholes.md](methodology/black_scholes.md)** — Black / Bachelier Vanilla Pricing
-  - Black (lognormal) and Bachelier (normal) European closed forms, de-annualized vol convention
-  - Bachelier pricing for all real forward/strike pairs and finite nonnegative implied-vol bracketing
-  - Forward delta and vega greeks by `OptionType_` (`CALL` / `PUT` / `STRADDLE`)
-  - `DistributionNormalLike_` shared base, vega-notional (`VolVega`), parameter derivatives
-  - Translation-invariant Bachelier tolerances, finite-input checks, and intrinsic floor
-
-- **[quadrature.md](methodology/quadrature.md)** — Numerical Quadrature
-  - Gauss-Hermite construction (orthonormal Hermite recurrence, Newton root search, node/weight mapping)
-  - Standard-normal-expectation rule `NCDFGaussHermiteWeights` / `NormalExpectation_`
-  - Composite Simpson's 1/3 rule, odd-point forcing, and global fourth-order convergence
-  - The `Quad1DFixed_<T_>` pull-style driver loop and vector-valued integration
-
-- **[random.md](methodology/random.md)** — Random Number Generation and Path Construction
-  - `Random_` interface and the pseudo-random vs. quasi-random split
-  - Brownian bridge: bisection order, conditional mean/variance, variation normalization
-  - Sobol direction numbers and the Gray-code $O(1)$ recurrence
-  - Sobol inverse-CDF policy table and clone-equivalent state/flag preservation
-  - Path seeking via direct state reconstruction (`SobolSet_::SkipTo`, MRG32k32a matrix jump)
-
-- **[dates.md](methodology/dates.md)** — Dates, Calendars, and Schedules
-  - `Date_` serial-day value type, Excel conversion, and string parsing
-  - Process-wide holiday centers, `Holidays_` unions, and business-day adjustment
-  - Tenor and special-day increments, schedule generation, and day-count bases
-
-- **[index_parsing.md](methodology/index_parsing.md)** — Index Names and Parsing
-  - `Index_` interface, environment fixing lookup, and name-driven `Index::Parse`
-  - Registered `EQ` and `FX` parser grammars; IR indices constructed in C++
-  - Composite indices and historical index paths
-
-## Experimental (`experimental/`)
-
-Reference studies and capability explorations that are not normative methodology:
-
-- **[aad-analytic-jacobian-curve-calibration.md](experimental/aad-analytic-jacobian-curve-calibration.md)**
-  — Compatibility redirect to the supported yield-curve and AAD methodology.
-- **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
-  — Validated rateslib/PTIRDS single-currency curve replication.
+The [experimental studies](experimental/) are reference explorations rather
+than supported methodology.
 
 ## Documentation Conventions
 
-All documentation uses GitHub-flavored Markdown with:
-
-- **Mathematical notation** — LaTeX-style math in `$...$` (inline) or `$$...$$` (display)
-- **Code references** — Inline code with backticks, file paths relative to repo root
-- **Cross-references** — Links between docs use relative paths (e.g., `[AAD](methodology/aad.md)`)
-
-## Contributing
-
-Follow the repository [contributor guide](../CONTRIBUTING.md). When adding documentation:
-
-1. **Methodology docs** go in `docs/methodology/` — explain algorithms, math, and design decisions
-2. **Update this index** — add a brief description and link to new documents
-3. **Cross-reference** — link related documents using relative paths
-
-Keep documentation focused and technical. Docs own the **WHY** (methodology, math, invariants); source comments own the **WHAT** (local intent, invariants that must live next to the code they constrain). When a comment grows into methodology prose, move the prose here and reduce the comment to a short pointer rather than duplicating it in both places.
+Use relative links between guides and repo-relative paths when naming source
+files. Mathematical notation uses `$...$` and `$$...$$`. Put reusable method
+explanations in the corresponding chapter and update this index when adding a
+chapter. Source comments should retain local implementation constraints.

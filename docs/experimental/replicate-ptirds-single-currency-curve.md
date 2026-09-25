@@ -167,7 +167,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
     defined by explicit node dates + `log(DF)` values with a pluggable
     `LogDfScheme_` interpolation rule on `log(DF)`
     (`dal-cpp/dal/curve/yclogdf.hpp`, `dal-cpp/dal/curve/yclogdf.cpp`; see
-    [Log-discount curve](../methodology/log_discount_curve.md)). It is selected by
+    [Log-discount curve](../yield-curves/log-discount.md)). It is selected by
     the `LOG_DISCOUNT` value of `CurveParameterization_`.
   - `NewDiscountZeroRate` — a persistent continuously compounded zero-rate curve.
     Future rates map to log-DF nodes and then use the same `LogDfScheme_` machinery
@@ -193,7 +193,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   cubic beyond, scheme 3). The scheme is carried on
   `CurveCalibrationSpec_::logDfScheme_` and
   dispatched in `dal-cpp/dal/curve/yclogdf.cpp` (see
-  [Log-discount curve](../methodology/log_discount_curve.md)). The cubic and mixed
+  [Log-discount curve](../yield-curves/log-discount.md)). The cubic and mixed
   forms are natural cubics over the value array, not rateslib's clamped B-spline with
   repeated boundary knots — see §2.4 for how the boundary mapping is validated.
 - **`CurveParameterization_` status.** `PIECEWISE_CONSTANT_FWD`,
@@ -226,7 +226,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   anchor). Ineligible specs fall back to the base finite-difference bump
   (`BumpSize() = 1e-4`, `dal-cpp/dal/math/optimization/underdetermined.cpp`). The
   eligibility verdict is evaluated once per `CalibrateYieldCurve` call and cached;
-  see [Yield-curve Jacobian](../methodology/yield_curve_jacobian.md).
+  see [Yield-curve Jacobian](../yield-curves/jacobian-risk.md).
 
 ### 3.4 Day count / calendar / schedule / payment lag
 

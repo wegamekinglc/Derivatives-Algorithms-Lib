@@ -1,0 +1,189 @@
+# Rate-Trade Node Risk and Portfolio Aggregation
+
+DAL computes rate-trade PV gradients in native curve-parameter coordinates.
+`RateTradeNodeSensitivities` selects one market component;
+`RateTradeNodeSensitivitiesBatch` evaluates a shared component list across trades;
+`AggregateRatePortfolioNodeRisk` sums the eligible results.
+The interfaces and runnable examples are in the
+[public API guide](../public-api.md#c-rate-cashflow-pricing).
+
+## Coordinates and Supported Trades
+
+For a trade PV $V$ and a selected component's free parameter vector $x$,
+the returned gradient is
+
+$$
+g_j = \frac{\partial V}{\partial x_j}.
+$$
+
+The coordinate depends on the curve representation: piecewise-constant or
+piecewise-linear forwards, log discount factors, or continuously compounded
+zero rates. `BuildCurveParameterLayout` owns parameter count and order;
+`DescribeCurveFreeParameters` supplies the date and component labels.
+Fixed anchors are not free parameters. A gradient is price per unit native
+parameter, not a market-quote DV01.
+
+| Family     | Addressable rate components                                        |
+|------------|--------------------------------------------------------------------|
+| Deposit    | Discount                                                           |
+| FRA        | Forecast and discount                                              |
+| Future     | Forecast                                                           |
+| OIS / IRS  | Forecast and discount                                              |
+| Basis swap | Spread forecast, reference forecast, and discount                  |
+| XCCY       | Consumed domestic/foreign discount and forecast curves, plus basis |
+
+Terms identify single-currency curves by component key. For XCCY, the
+market-aware `BuildRateCashflowPlan(trade, market)` selects curves actually
+consumed by the collateral and tenor configuration, then matches their object
+identity to `market.curveComponents_`. An unused member of a curve block is
+not a dependency. Matching a display name does not establish this identity.
+
+All seven families require the matching terms alternative and supported curve
+representations. Historical fixings supplied in the immutable snapshot remain
+constants; projected future fixings can contribute curve risk. XCCY FX spot
+also remains constant, so this surface does not include FX delta or volatility
+risk.
+
+## AAD and Passive Dependencies
+
+Single-currency passive and active pricing use the same templated kernels.
+The selected component is rebuilt with AAD parameters. Other curves remain
+`double` curves behind the heterogeneous `CurveRef_` view; the selected
+curve's base also stays passive. This prevents passive OIS daily compounding
+from inflating the tape.
+
+XCCY uses uniformly typed market/curve-block views. Consumed curves are
+active-typed, but only the selected component's parameters are registered as
+independent variables. Non-target parameters and FX spot stay constant.
+
+These fixed-base coordinates also serve v1 quote-risk provenance. Generic joint
+quote risk follows consumed base paths in separate joint sweeps, including
+paths through unregistered XCCY forecast roots; it does not change the public
+standalone node-risk coordinates. See the
+[joint graph and eligibility contract](joint-quote-risk.md#aggregation-and-failures).
+
+Each sweep owns its thread's tape through `TapeGuard_`, registers inputs,
+records pricing, seeds the PV adjoint, propagates, and validates the finite
+gradient and its expected width. The guard rewinds on exit, including failure.
+Batch execution is serial and deterministic; it does not dispatch sweeps to the
+thread pool. See [AAD methodology](../methodology/aad.md) for backend and tape ownership.
+
+## Eligibility and Failure Isolation
+
+The failure result is `eligible_ = false`, `pv_ = 0`, an empty
+`gradient_`, and a stable non-empty `reason_`. Single-currency gates check:
+
+1. Family and terms compatibility.
+2. Whether the trade depends on the requested component.
+3. Availability and representation of every consumed curve, in dependency order.
+4. Passive trade validation.
+5. AAD execution and finite-result/width validation.
+
+The six tokens and XCCY-specific priority rules are defined in the
+[public contract](../public-api.md#c-rate-cashflow-pricing). In particular, an
+unclassifiable non-target XCCY dependency reports `AAD_EVALUATION_FAILED`;
+an unresolved live XCCY market reports `TRADE_VALIDATION_FAILED`.
+Use the passive pricing result's `error_` and missing-fixing list for detail.
+An unavailable sensitivity is distinct from an eligible zero gradient.
+
+The batch returns the Cartesian product of trades and one shared key list,
+in trade-major then key order. Each cell has the single-trade result plus
+instrument and component identifiers. Failed cells leave siblings available.
+The sweep engine caches passive pricing per trade and curve preparation per
+curve within the call.
+
+IRS, OIS and basis-swap requests also retain each leg's schedule and accrual
+geometry once. Fixing diagnostics, passive pricing and subsequent standalone
+or joint active sweeps read these same periods. Preparation occurs at the
+existing validation boundary for each leg, preserving error priority. Only
+date and accrual structure is reused: discount factors, projected rates, PVs
+and AAD values are evaluated for each sweep. The state belongs to the current
+request and is keyed by the trade object, so later calls rebuild it after
+changes to dates, conventions, calendars or market inputs.
+
+## Repeated Pricing with Prepared Trades
+
+`PreparedRateTrades_` owns an immutable value snapshot of a trade vector and
+prepares IRS, OIS and basis-swap coupon geometry once. `Price(market)` and
+`NodeSensitivities(market, componentKeys)` return the same rows, ordering,
+diagnostics and complete gradients as the ordinary batch APIs. Mixed portfolios,
+duplicate IDs and keys, empty inputs and per-row failures remain supported.
+Deposit, FRA, future and XCCY entries use their ordinary pricing paths.
+Geometry errors are replayed when the original pricing path consumes that leg,
+preserving earlier market and fixing error priority.
+
+The snapshot stores no market, fixing values, projected rates, PV or AAD objects.
+Every call uses its supplied valuation time, immutable fixing snapshot and curve
+components; active curves and tapes belong to that call. Concurrent const calls
+may share prepared trades with independent immutable markets. Copies share the
+snapshot, and moved-from objects are empty. Changing source trade fields cannot
+change an existing snapshot: construct a new one to adopt different dates,
+notionals, conventions or calendar definitions.
+
+Python exposes keyword-only `PreparedRateTrades_New(trades=...)`,
+`PreparedRateTrades_Get_Prices(prepared=..., market=...)` and
+`PreparedRateTrades_Get_NodeSensitivities(prepared=..., market=..., component_keys=[...])`.
+Preparation and evaluation release the GIL during native work. The read-only
+`size` property reports the snapshot's trade count. See the
+[runnable IRS example](../../dal-python/examples/011.prepared_rate_pricing.py).
+This surface reports native node risk; quote-space risk continues through the
+provenance APIs.
+
+## Aggregation and Currency
+
+The aggregate retains one dense `Report_` per successfully prepared component,
+with one `node` axis. Each node header contains its date and parameter-component
+label. There is no padding across components with different node counts.
+A prepared component with no eligible contribution has a zero tensor;
+an unpreparable component has no tensor.
+
+The tensor sums eligible gradients by component key. It has no currency axis.
+For currency-separated node risk, group eligible batch cells by both component
+key and the trade's actual PV currency before summing. Do not infer a common
+denomination solely from a shared curve dependency.
+
+PV totals use `pvByActualPvCcy_` and the
+`UnconvertedByActualPvCcy` policy: single-currency trade PV uses its trade
+currency; XCCY PV uses the domestic currency from covered-interest parity.
+`RatePricingTradeResult_::currency_` is a market result-currency label and
+does not perform conversion. Each trade with at least one eligible cell
+contributes PV once. Duplicate component keys retain their cells and metadata
+but contribute a gradient only once per trade and component.
+
+The parallel metadata retains eligibility, reason, actual PV currency, and PV
+for every requested cell. Component tensors are not complete risk reports by
+themselves; retain this metadata to identify omitted contributions.
+
+## Bindings and Quote-Space Risk
+
+Python calls are keyword-only, return read-only projections, and release the
+GIL for native batch work. `component_keys` must be a list. Python conversion
+errors can raise before native per-cell failure handling.
+
+Excel's batch spill contains `trade, component, reason, pv, node, value`.
+The aggregate spill adds `currency`: component-node rows have a blank currency;
+PV rows carry the actual currency and policy, and failure rows carry their
+reason and actual currency.
+
+For supported exact calibration domains, use
+`AggregateRatePortfolioQuoteRisk` with frozen provenance to obtain
+currency-separated quote sensitivities and DV01. It accumulates complete
+gradients by provenance and actual PV currency before applying the retained
+effective inverse and solver-scale correction. It does not transform the
+already-summed component tensors. See
+[quote-space DV01](jacobian-risk.md#production-quote-space-dv01).
+
+## Source and Verification
+
+- `dal-cpp/dal/curve/ratecashflowpricing.hpp` and
+  `dal-cpp/dal/curve/ratecashflowpricing.cpp`: public shapes, sweep engine,
+  dependency resolution, pricing kernels, and aggregation.
+- `dal-cpp/dal/curve/ratecashflowpricing_internal.hpp`: family registry,
+  failure finalization, and tape guard.
+- `dal-cpp/tests/curve/test_ratecashflowpricing.cpp`: central-parameter-bump
+  comparisons, active/passive PV agreement, dependency and fixing failures,
+  tape isolation, batch equivalence, duplicate keys, and currency metadata.
+- `dal-python/tests/test_curve_pricing.py` and
+  `dal-excel/tests/test_curvepricing.cpp`: binding contracts.
+- `dal-cpp/benchmarks/rate_risk_perf/rate_risk_perf.cpp`: rate-pricing,
+  node-risk, and quote-risk workloads in the paired regression gate.
