@@ -1,5 +1,6 @@
 import math
 import dal
+from float_format import format_float
 
 D = dal.Date_(2026, 9, 12)
 H = dal.Date_(2026, 9, 11)
@@ -56,4 +57,4 @@ if explanation["model_bindings"] != [
     raise RuntimeError(
         f"Expected inferred spot binding for {index}; got {explanation['model_bindings']!r}"
     )
-print(result)
+print(", ".join(f"{key}={format_float(value, 4)}" for key, value in result.items()))

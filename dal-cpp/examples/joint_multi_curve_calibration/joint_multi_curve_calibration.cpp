@@ -32,6 +32,8 @@
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/timer.hpp>
 
+#include "../floatformat.hpp"
+
 using namespace Dal;
 
 namespace {
@@ -269,17 +271,18 @@ namespace {
         std::cout << std::fixed << std::setprecision(6);
         for (const auto& diag : diags)
             std::cout << std::left << std::setw(14) << diag.curveName_ << std::right << std::setw(12) << diag.residuals_.size() << std::setw(16)
-                      << diag.maxAbsResidual_ * 10000.0 << std::setw(16) << diag.rmsResidual_ * 10000.0 << "\n";
+                      << ExampleFloat(diag.maxAbsResidual_ * 10000.0, 6) << std::setw(16) << ExampleFloat(diag.rmsResidual_ * 10000.0, 6) << "\n";
         std::cout << std::string(58, '-') << "\n\n";
     }
 
     void PrintDfComparisonTable(const char* title, const Date_& today, const DiscountCurve_& jointCurve, const DiscountCurve_& stagedCurve) {
+        std::cout << std::fixed;
         std::cout << "\n" << std::string(70, '=') << "\n";
         std::cout << "  " << title << "  (joint vs staged)\n";
         std::cout << std::string(70, '=') << "\n";
         std::cout << std::left << std::setw(10) << "Pillar" << std::right << std::setw(22) << "DF_joint" << std::setw(22) << "DF_staged"
-                  << std::setw(14) << "|diff|" << "\n";
-        std::cout << std::string(68, '-') << "\n";
+                  << std::setw(22) << "|diff|" << "\n";
+        std::cout << std::string(76, '-') << "\n";
         const Vector_<int> pillarMonths = {12, 24, 36, 60, 84, 120};
         double maxDiff = 0.0;
         double sqDiff = 0.0;
@@ -293,11 +296,11 @@ namespace {
             sqDiff += diff * diff;
             ++n;
             std::cout << std::left << std::setw(10) << (std::to_string(months / 12) + "Y") << std::right << std::setw(22) << std::setprecision(10)
-                      << dj << std::setw(22) << ds << std::setw(14) << std::setprecision(4) << std::scientific << diff << std::fixed << "\n";
+                      << dj << std::setw(22) << ds << std::setw(22) << ExampleFloat(diff, 4) << "\n";
         }
         const double rms = std::sqrt(sqDiff / n);
-        std::cout << std::string(68, '-') << "\n";
-        std::cout << "  max |diff| = " << std::scientific << std::setprecision(4) << maxDiff << "    RMS |diff| = " << rms << std::fixed << "\n\n";
+        std::cout << std::string(76, '-') << "\n";
+        std::cout << "  max |diff| = " << ExampleFloat(maxDiff, 4) << "    RMS |diff| = " << ExampleFloat(rms, 4) << "\n\n";
     }
 
     void RunSelfChecks(const JointMultiCurveCalibrationResult_& joint,
@@ -349,13 +352,11 @@ namespace {
             max3mDiff = std::max(max3mDiff, std::fabs(joint3m(today, pillar) - staged3m(today, pillar)));
         }
 
-        std::cout << "  BAR-A (PASS gate): PASS  (both paths maxAbsResidual <= " << BAR_A_TOLERANCE << ", all pillar DFs in (0, 1])\n";
-        std::cout << "  BAR-B (info, OIS):  max |diff| = " << std::scientific << std::setprecision(4) << maxOisDiff << "  (spec nominal "
-                  << BAR_B_REFERENCE << "; drift from joint OIS<->3M-spread cross-curve coupling)\n"
-                  << std::fixed;
-        std::cout << "  BAR-C (info, 3M):   max |diff| = " << std::scientific << std::setprecision(4) << max3mDiff << "  (spec nominal "
-                  << BAR_C_REFERENCE << "; drift from joint-vs-staged OIS-slice difference propagating through 3M base)\n"
-                  << std::fixed;
+        std::cout << "  BAR-A (PASS gate): PASS  (both paths maxAbsResidual <= " << ExampleFloat(BAR_A_TOLERANCE) << ", all pillar DFs in (0, 1])\n";
+        std::cout << "  BAR-B (info, OIS):  max |diff| = " << ExampleFloat(maxOisDiff, 4) << "  (spec nominal " << ExampleFloat(BAR_B_REFERENCE)
+                  << "; drift from joint OIS<->3M-spread cross-curve coupling)\n";
+        std::cout << "  BAR-C (info, 3M):   max |diff| = " << ExampleFloat(max3mDiff, 4) << "  (spec nominal " << ExampleFloat(BAR_C_REFERENCE)
+                  << "; drift from joint-vs-staged OIS-slice difference propagating through 3M base)\n";
     }
 } // namespace
 

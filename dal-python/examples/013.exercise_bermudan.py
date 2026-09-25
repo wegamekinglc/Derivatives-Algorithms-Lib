@@ -1,6 +1,7 @@
 import os
 
 import dal
+from float_format import format_float
 
 EVAL = dal.Date_(2026, 9, 20)
 MID = dal.Date_(2027, 9, 20)
@@ -59,4 +60,4 @@ print(f"European put (exercise at maturity only): {european_pv:.4f}")
 print(f"Bermudan put, 2 exercise dates, {NPATHS} paths: {bermudan_pv:.4f}")
 print(f"American put, weekly exercise (78 dates): {american_pv:.4f}")
 print(f"Early-exercise premium (weekly - European): {american_pv - european_pv:.4f}")
-print(f"Exercise rates per date (4096 paths): {[round(rate, 4) for rate in rates]}")
+print(f"Exercise rates per date (4096 paths): [{', '.join(format_float(rate, 4) for rate in rates)}]")

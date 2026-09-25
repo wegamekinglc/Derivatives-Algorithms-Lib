@@ -2,6 +2,7 @@
 // Created by Codex on 2026/9/15.
 //
 
+#include <iomanip>
 #include <iostream>
 
 #include <dal-public/src/global.hpp>
@@ -26,7 +27,7 @@ int main() {
     simulation.compiled_ = true;
     const auto result = ValueByMonteCarlo(product, model, 4096, valuation, simulation);
     REQUIRE(result.at("PV") == 160.0 && result.at("d_SCALE") == 80.0, "historical price/risk example failed");
-    std::cout << "PV=" << result.at("PV") << ", d_SCALE=" << result.at("d_SCALE") << '\n'
+    std::cout << std::fixed << std::setprecision(4) << "PV=" << result.at("PV") << ", d_SCALE=" << result.at("d_SCALE") << '\n'
               << DescribeScriptProduct(product) << '\n'
               << ExplainScriptValuation(product, model, valuation) << '\n';
 }

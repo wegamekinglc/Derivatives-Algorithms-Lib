@@ -2,6 +2,7 @@
 """Calibrate one USD curve and aggregate quote-space DV01."""
 
 import dal
+from float_format import format_float
 
 
 TODAY = dal.Date_(2025, 6, 20)
@@ -109,7 +110,7 @@ def main() -> int:
     for bucket in risk.buckets:
         print(
             f"{str(bucket.quote_key):<34}{str(bucket.actual_pv_ccy):<10}"
-            f"{bucket.d_pv_d_decimal_quote:>26.10g}{bucket.dv01:>22.10g}"
+            f"{format_float(bucket.d_pv_d_decimal_quote, 6):>26}{format_float(bucket.dv01, 6):>22}"
         )
     print("-" * 92)
     return 0

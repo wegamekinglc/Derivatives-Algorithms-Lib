@@ -19,6 +19,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import dal
+from float_format import format_float
 
 # def_readwrite String_ fields need explicit wrapping (plain str works for functions)
 S = dal.String_
@@ -77,8 +78,8 @@ def main():
     print()
     print(f"  Today:            {today}")
     print(f"  Currency:         {ccy}")
-    print(f"  OIS market rate:  1.00%  (all instruments)")
-    print(f"  Libor 3M rate:    3.00%  (all instruments)")
+    print(f"  OIS market rate:  1.000%  (all instruments)")
+    print(f"  Libor 3M rate:    3.000%  (all instruments)")
     print()
 
     # ------------------------------------------------------------------
@@ -213,20 +214,20 @@ def main():
               f"({len(diag.marketRates_)} instruments, {n_free} free params, square)")
         print("=" * 70)
         print()
-        print(f"{'Instrument':<18}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>10}")
-        print("-" * 48)
+        print(f"{'Instrument':<18}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>22}")
+        print("-" * 60)
         for i in range(len(diag.marketRates_)):
             print(f"{names[i]:<18}{diag.marketRates_[i] * 100:>10.6f}"
-                  f"{diag.modelRates_[i] * 100:>10.6f}{diag.residuals_[i] * 10000:>10.4f}")
-        print("-" * 48)
+                  f"{diag.modelRates_[i] * 100:>10.6f}{format_float(diag.residuals_[i] * 10000, 4):>22}")
+        print("-" * 60)
         print()
 
     print()
     print(f"  --- Summary ---")
-    print(f"  Max abs residual (OIS):    {result.diagnostics_[0].maxAbsResidual_ * 10000:.6f} bp")
-    print(f"  Max abs residual (Libor):  {result.diagnostics_[1].maxAbsResidual_ * 10000:.6f} bp")
-    print(f"  RMS residual (OIS):        {result.diagnostics_[0].rmsResidual_ * 10000:.6f} bp")
-    print(f"  RMS residual (Libor):      {result.diagnostics_[1].rmsResidual_ * 10000:.6f} bp")
+    print(f"  Max abs residual (OIS):    {format_float(result.diagnostics_[0].maxAbsResidual_ * 10000, 6)} bp")
+    print(f"  Max abs residual (Libor):  {format_float(result.diagnostics_[1].maxAbsResidual_ * 10000, 6)} bp")
+    print(f"  RMS residual (OIS):        {format_float(result.diagnostics_[0].rmsResidual_ * 10000, 6)} bp")
+    print(f"  RMS residual (Libor):      {format_float(result.diagnostics_[1].rmsResidual_ * 10000, 6)} bp")
     print()
     print(f"  Interpretation")
     print(f"  --------------")

@@ -33,6 +33,8 @@
 #include <dal/time/periodlength.hpp>
 #include <dal/utilities/timer.hpp>
 
+#include "../floatformat.hpp"
+
 using namespace Dal;
 
 namespace {
@@ -206,21 +208,19 @@ namespace {
     }
 
     void PrintResiduals(const CurveCalibrationDiagnostics_& d, const Vector_<String_>& names) {
-        const Vector_<int> w = {26, 12, 12, 12};
+        const Vector_<int> w = {26, 12, 12, 20};
         std::cout << std::left << std::setw(w[0]) << "Instrument" << std::right << std::setw(w[1]) << "Market(%)"
                   << std::setw(w[2]) << "Model(%)" << std::setw(w[3]) << "Error(bp)" << '\n';
-        std::cout << std::string(62, '-') << '\n';
+        std::cout << std::string(70, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(d.instrumentNames_.size()); ++i) {
-            std::cout << std::left << std::setw(w[0])
-                      << (static_cast<size_t>(i) < names.size() ? names[i].c_str() : d.instrumentNames_[i].c_str())
-                      << std::right << std::setw(w[1]) << d.marketRates_[i] * 100.0 << std::setw(w[2])
-                      << d.modelRates_[i] * 100.0 << std::setw(w[3]) << d.residuals_[i] * 10000.0 << '\n';
+            std::cout << std::left << std::setw(w[0]) << (static_cast<size_t>(i) < names.size() ? names[i].c_str() : d.instrumentNames_[i].c_str())
+                      << std::right << std::setw(w[1]) << d.marketRates_[i] * 100.0 << std::setw(w[2]) << d.modelRates_[i] * 100.0 << std::setw(w[3])
+                      << ExampleFloat(d.residuals_[i] * 10000.0, 6) << '\n';
         }
-        std::cout << std::string(62, '-') << '\n';
-        std::cout << std::left << std::setw(w[0]) << "RMS / max abs residual" << std::right << std::setw(w[1]) << ""
-                  << std::setw(w[2]) << d.rmsResidual_ * 10000.0 << std::setw(w[3]) << d.maxAbsResidual_ * 10000.0
-                  << "  (bp)\n\n";
+        std::cout << std::string(70, '-') << '\n';
+        std::cout << std::left << std::setw(w[0]) << "RMS / max abs residual" << std::right << std::setw(w[1]) << "" << std::setw(w[2])
+                  << ExampleFloat(d.rmsResidual_ * 10000.0, 6) << std::setw(w[3]) << ExampleFloat(d.maxAbsResidual_ * 10000.0, 6) << "  (bp)\n\n";
     }
 
     void PrintCurve(const DiscountCurve_& curve, const Date_& today, const Vector_<int>& tenorMonths) {
