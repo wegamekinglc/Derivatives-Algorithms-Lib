@@ -63,6 +63,179 @@ def european_reference(spot, vol, rate, maturity_years):
     }
 
 
+def case_reference(name, spot, vol, days, pde_grid, pde_steps):
+    if name == "european":
+        return (
+            european_reference(spot, vol, RATE, MATURITY_DAYS / 365.0),
+            (PDE_MATURITY,),
+            False,
+            None,
+        )
+    pde_dates = (PDE_MID, PDE_MATURITY)
+    pde_pv = bermudan_put_pde(pde_dates, pde_grid, pde_steps, spot, vol, RATE)
+    use_pde = name != "bermudan_low_vol"
+    return (
+        {"PV": pde_pv if use_pde else oracle.tree_price(days, spot, vol, RATE)},
+        pde_dates,
+        use_pde,
+        pde_pv,
+    )
+
+
+def make_price(product, valuation, pricing_paths, common, relative_bump):
+    def price(s, v, r, aad=True, mode="Frozen", training_seed=None, pricing_seed=None):
+        streams = common.copy()
+        if training_seed is not None:
+            streams["lsmc_training_seed"] = training_seed
+        if pricing_seed is not None:
+            streams["lsmc_pricing_seed"] = pricing_seed
+        settings = dal.MonteCarloSettings_(
+            **streams,
+            enable_aad=aad,
+            lsmc_policy_risk_mode=mode,
+            lsmc_policy_bump_relative=relative_bump,
+        )
+        model = dal.BSModelData_New(s, v, r, 0.0)
+        return dal.MonteCarlo_ValueWithSettings(
+            product, model, pricing_paths, valuation=valuation, simulation=settings
+        )
+
+    return price
+
+
+def full_retrain_bump(price, spot, vol, relative_bump):
+    values = [spot, vol, RATE]
+    bumped = {}
+    for index, label in enumerate(("spot", "vol", "rate")):
+        step = relative_bump * max(1.0, abs(values[index]))
+        up, down = values.copy(), values.copy()
+        up[index] += step
+        down[index] -= step
+        if down[index] < 0.0 and label == "vol":
+            down[index] = values[index]
+        denominator = up[index] - down[index]
+        bumped[label] = (price(*up)["PV"] - price(*down)["PV"]) / denominator
+    return bumped
+
+
+def run_seed(
+    seed,
+    first_seed,
+    product,
+    valuation,
+    spot,
+    vol,
+    training_paths,
+    pricing_paths,
+    replicates,
+    smooth,
+    relative_bump,
+    compiled,
+):
+    common = {
+        "compiled": compiled,
+        "smooth": smooth,
+        "lsmc_training_paths": training_paths,
+        "lsmc_rqmc_replicates": replicates,
+        "lsmc_training_seed": seed,
+        "lsmc_pricing_seed": seed + 100_000,
+    }
+    price = make_price(product, valuation, pricing_paths, common, relative_bump)
+    frozen_start = time.perf_counter()
+    frozen = price(spot, vol, RATE)
+    frozen_ms = 1000 * (time.perf_counter() - frozen_start)
+    retrained_start = time.perf_counter()
+    retrained = price(spot, vol, RATE, mode="RetrainedBump")
+    retrained_ms = 1000 * (time.perf_counter() - retrained_start)
+    hard = price(spot, vol, RATE, aad=False)
+    training_only_hard = (
+        hard
+        if seed == first_seed
+        else price(spot, vol, RATE, aad=False, pricing_seed=first_seed + 100_000)
+    )
+    pricing_only_hard = (
+        hard
+        if seed == first_seed
+        else price(spot, vol, RATE, aad=False, training_seed=first_seed)
+    )
+    bumped = full_retrain_bump(price, spot, vol, relative_bump)
+    half_step = 0.5 * relative_bump * max(1.0, abs(spot))
+    half_spot_bump = (
+        price(spot + half_step, vol, RATE)["PV"]
+        - price(spot - half_step, vol, RATE)["PV"]
+    ) / (2.0 * half_step)
+    return {
+        "seed": seed,
+        "frozen": frozen,
+        "retrained": retrained,
+        "hard_pv": hard["PV"],
+        "training_only_hard_pv": training_only_hard["PV"],
+        "pricing_only_hard_pv": pricing_only_hard["PV"],
+        "full_retrain_bump": bumped,
+        "half_step_spot_bump": half_spot_bump,
+        "frozen_ms": frozen_ms,
+        "retrained_ms": retrained_ms,
+    }
+
+
+def greek_comparison(rows):
+    comparison = {}
+    for label in ("spot", "vol", "rate"):
+        key = f"d_{label}"
+        comparison[label] = {
+            "frozen": mean_se([row["frozen"][key] for row in rows]),
+            "retrained": mean_se([row["retrained"][key] for row in rows]),
+            "full_retrain_bump": mean_se(
+                [row["full_retrain_bump"][label] for row in rows]
+            ),
+            "policy_contribution": mean_se(
+                [row["retrained"][key] - row["frozen"][key] for row in rows]
+            ),
+        }
+    return comparison
+
+
+def add_reference_greeks(
+    reference, spot, vol, days, pde_dates, use_pde, relative_bump, pde_grid, pde_steps
+):
+    values = [spot, vol, RATE]
+    for index, label in enumerate(("spot", "vol", "rate")):
+        step = relative_bump * max(1.0, abs(values[index]))
+        up, down = values.copy(), values.copy()
+        up[index] += step
+        down[index] -= step
+        if use_pde:
+            reference_up = bermudan_put_pde(pde_dates, pde_grid, pde_steps, *up)
+            reference_down = bermudan_put_pde(pde_dates, pde_grid, pde_steps, *down)
+        else:
+            reference_up = oracle.tree_price(days, *up)
+            reference_down = oracle.tree_price(days, *down)
+        reference[f"d_{label}"] = (reference_up - reference_down) / (2 * step)
+
+
+def case_diagnostics(rows, reference_pv):
+    return {
+        "smoothing_bias_pv": mean_se(
+            [row["frozen"]["PV"] - row["hard_pv"] for row in rows]
+        ),
+        "hard_vs_reference_pv": mean_se(
+            [row["hard_pv"] - reference_pv for row in rows]
+        ),
+        "training_seed_hard_pv": mean_se(
+            [row["training_only_hard_pv"] for row in rows]
+        ),
+        "pricing_seed_hard_pv": mean_se([row["pricing_only_hard_pv"] for row in rows]),
+        "spot_bump_step_shift": mean_se(
+            [
+                row["half_step_spot_bump"] - row["full_retrain_bump"]["spot"]
+                for row in rows
+            ]
+        ),
+        "frozen_ms": [row["frozen_ms"] for row in rows],
+        "retrained_ms": [row["retrained_ms"] for row in rows],
+    }
+
+
 def run_case(
     name,
     spec,
@@ -80,128 +253,39 @@ def run_case(
         list(dates), [f"EXERCISE MAX({STRIKE} - spot(), 0.0)"] * len(dates)
     )
     valuation = dal.ScriptValuationSettings_(evaluation_date=EVALUATION)
-    reference = (
-        european_reference(spot, vol, RATE, MATURITY_DAYS / 365.0)
-        if name == "european"
-        else {}
+    reference, pde_dates, use_pde_reference, pde_pv_diagnostic = case_reference(
+        name, spot, vol, days, pde_grid, pde_steps
     )
-    pde_dates = (PDE_MATURITY,) if name == "european" else (PDE_MID, PDE_MATURITY)
-    use_pde_reference = name not in ("european", "bermudan_low_vol")
-    pde_pv_diagnostic = None
+    rows = [
+        run_seed(
+            seed,
+            seeds[0],
+            product,
+            valuation,
+            spot,
+            vol,
+            training_paths,
+            pricing_paths,
+            replicates,
+            smooth,
+            relative_bump,
+            compiled,
+        )
+        for seed in seeds
+    ]
+
     if name != "european":
-        pde_pv_diagnostic = bermudan_put_pde(
-            pde_dates, pde_grid, pde_steps, spot, vol, RATE
+        add_reference_greeks(
+            reference,
+            spot,
+            vol,
+            days,
+            pde_dates,
+            use_pde_reference,
+            relative_bump,
+            pde_grid,
+            pde_steps,
         )
-        reference["PV"] = (
-            pde_pv_diagnostic
-            if use_pde_reference
-            else oracle.tree_price(days, spot, vol, RATE)
-        )
-    rows = []
-    for seed in seeds:
-        common = {
-            "compiled": compiled,
-            "smooth": smooth,
-            "lsmc_training_paths": training_paths,
-            "lsmc_rqmc_replicates": replicates,
-            "lsmc_training_seed": seed,
-            "lsmc_pricing_seed": seed + 100_000,
-        }
-
-        def price(
-            s, v, r, aad=True, mode="Frozen", training_seed=None, pricing_seed=None
-        ):
-            streams = common.copy()
-            if training_seed is not None:
-                streams["lsmc_training_seed"] = training_seed
-            if pricing_seed is not None:
-                streams["lsmc_pricing_seed"] = pricing_seed
-            settings = dal.MonteCarloSettings_(
-                **streams,
-                enable_aad=aad,
-                lsmc_policy_risk_mode=mode,
-                lsmc_policy_bump_relative=relative_bump,
-            )
-            model = dal.BSModelData_New(s, v, r, 0.0)
-            return dal.MonteCarlo_ValueWithSettings(
-                product, model, pricing_paths, valuation=valuation, simulation=settings
-            )
-
-        frozen_start = time.perf_counter()
-        frozen = price(spot, vol, RATE)
-        frozen_ms = 1000 * (time.perf_counter() - frozen_start)
-        retrained_start = time.perf_counter()
-        retrained = price(spot, vol, RATE, mode="RetrainedBump")
-        retrained_ms = 1000 * (time.perf_counter() - retrained_start)
-        hard = price(spot, vol, RATE, aad=False)
-        training_only_hard = (
-            hard
-            if seed == seeds[0]
-            else price(spot, vol, RATE, aad=False, pricing_seed=seeds[0] + 100_000)
-        )
-        pricing_only_hard = (
-            hard
-            if seed == seeds[0]
-            else price(spot, vol, RATE, aad=False, training_seed=seeds[0])
-        )
-        values = [spot, vol, RATE]
-        bumped = {}
-        for index, label in enumerate(("spot", "vol", "rate")):
-            step = relative_bump * max(1.0, abs(values[index]))
-            up, down = values.copy(), values.copy()
-            up[index] += step
-            down[index] -= step
-            if down[index] < 0.0 and label == "vol":
-                down[index] = values[index]
-            denominator = up[index] - down[index]
-            bumped[label] = (price(*up)["PV"] - price(*down)["PV"]) / denominator
-        half_step = 0.5 * relative_bump * max(1.0, abs(spot))
-        half_spot_bump = (
-            price(spot + half_step, vol, RATE)["PV"]
-            - price(spot - half_step, vol, RATE)["PV"]
-        ) / (2.0 * half_step)
-        rows.append(
-            {
-                "seed": seed,
-                "frozen": frozen,
-                "retrained": retrained,
-                "hard_pv": hard["PV"],
-                "training_only_hard_pv": training_only_hard["PV"],
-                "pricing_only_hard_pv": pricing_only_hard["PV"],
-                "full_retrain_bump": bumped,
-                "half_step_spot_bump": half_spot_bump,
-                "frozen_ms": frozen_ms,
-                "retrained_ms": retrained_ms,
-            }
-        )
-
-    comparison = {}
-    for label in ("spot", "vol", "rate"):
-        key = f"d_{label}"
-        comparison[label] = {
-            "frozen": mean_se([row["frozen"][key] for row in rows]),
-            "retrained": mean_se([row["retrained"][key] for row in rows]),
-            "full_retrain_bump": mean_se(
-                [row["full_retrain_bump"][label] for row in rows]
-            ),
-            "policy_contribution": mean_se(
-                [row["retrained"][key] - row["frozen"][key] for row in rows]
-            ),
-        }
-        if name != "european":
-            values = [spot, vol, RATE]
-            index = ("spot", "vol", "rate").index(label)
-            step = relative_bump * max(1.0, abs(values[index]))
-            up, down = values.copy(), values.copy()
-            up[index] += step
-            down[index] -= step
-            if use_pde_reference:
-                reference_up = bermudan_put_pde(pde_dates, pde_grid, pde_steps, *up)
-                reference_down = bermudan_put_pde(pde_dates, pde_grid, pde_steps, *down)
-            else:
-                reference_up = oracle.tree_price(days, *up)
-                reference_down = oracle.tree_price(days, *down)
-            reference[key] = (reference_up - reference_down) / (2 * step)
     return {
         "case": name,
         "training_paths": training_paths,
@@ -216,27 +300,31 @@ def run_case(
         ),
         "pde_pv_diagnostic": pde_pv_diagnostic,
         "crr_pv_crosscheck": oracle.tree_price(days, spot, vol, RATE),
-        "smoothing_bias_pv": mean_se(
-            [row["frozen"]["PV"] - row["hard_pv"] for row in rows]
-        ),
-        "hard_vs_reference_pv": mean_se(
-            [row["hard_pv"] - reference["PV"] for row in rows]
-        ),
-        "training_seed_hard_pv": mean_se(
-            [row["training_only_hard_pv"] for row in rows]
-        ),
-        "pricing_seed_hard_pv": mean_se([row["pricing_only_hard_pv"] for row in rows]),
-        "spot_bump_step_shift": mean_se(
-            [
-                row["half_step_spot_bump"] - row["full_retrain_bump"]["spot"]
-                for row in rows
-            ]
-        ),
-        "frozen_ms": [row["frozen_ms"] for row in rows],
-        "retrained_ms": [row["retrained_ms"] for row in rows],
-        "greeks": comparison,
+        **case_diagnostics(rows, reference["PV"]),
+        "greeks": greek_comparison(rows),
         "rows": rows,
     }
+
+
+def validate_paths_and_seeds(parser, args):
+    if (
+        args.pricing_paths <= 0
+        or args.replicates < 2
+        or len(args.seeds) < 2
+        or len(set(args.seeds)) != len(args.seeds)
+        or min(args.seeds) < 0
+        or max(args.seeds) > 2**31 - 1 - 100_000
+    ):
+        parser.error(
+            "positive pricing paths, at least two replicates, and distinct valid nonnegative seeds are required"
+        )
+
+
+def validate_numerical_options(parser, args):
+    if not 0 < args.smooth or not 0 < args.bump_relative <= 0.1:
+        parser.error("smooth must be positive and bump-relative must be in (0, 0.1]")
+    if args.pde_grid < 101 or args.pde_steps < 50:
+        parser.error("PDE grid must have at least 101 nodes and 50 steps per interval")
 
 
 def main():
@@ -253,21 +341,8 @@ def main():
     parser.add_argument("--pde-steps", type=int, default=200)
     parser.add_argument("--cases", nargs="+", choices=CASES, default=list(CASES))
     args = parser.parse_args()
-    if (
-        args.pricing_paths <= 0
-        or args.replicates < 2
-        or len(args.seeds) < 2
-        or len(set(args.seeds)) != len(args.seeds)
-        or min(args.seeds) < 0
-        or max(args.seeds) > 2**31 - 1 - 100_000
-    ):
-        parser.error(
-            "positive pricing paths, at least two replicates, and distinct valid nonnegative seeds are required"
-        )
-    if not 0 < args.smooth or not 0 < args.bump_relative <= 0.1:
-        parser.error("smooth must be positive and bump-relative must be in (0, 0.1]")
-    if args.pde_grid < 101 or args.pde_steps < 50:
-        parser.error("PDE grid must have at least 101 nodes and 50 steps per interval")
+    validate_paths_and_seeds(parser, args)
+    validate_numerical_options(parser, args)
     report = {
         "method": "independent outer seed pairs; common Sobol shifts and disjoint blocks within each finite difference",
         "smooth": args.smooth,

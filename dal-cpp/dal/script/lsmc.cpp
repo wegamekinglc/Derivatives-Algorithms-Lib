@@ -1176,6 +1176,15 @@ namespace Dal::Script {
             return parameter >= 3 && lower < 0.0; // Dupire local-volatility grid
         }
 
+        bool ValidModelPolicyBump(double parameter, double step) {
+            return std::isfinite(step) && std::isfinite(parameter + step) && parameter + step != parameter;
+        }
+
+        bool ValidConstantPolicyBump(double constant, double step) {
+            return std::isfinite(step) && std::isfinite(constant + step) && std::isfinite(constant - step) && constant + step != constant &&
+                   constant - step != constant;
+        }
+
         void AddRetrainedPolicyRisks(const PreparedScript_& prepared,
                                      const Handle_<ModelData_>& modelData,
                                      AAD::Model_<double>& baseModel,
@@ -1193,8 +1202,7 @@ namespace Dal::Script {
             for (size_t j = 0; j < baseModel.NumParams(); ++j) {
                 const double parameter = *baseModel.Parameters()[j];
                 const double step = relative * std::max(1.0, std::abs(parameter));
-                REQUIRE2(std::isfinite(step) && std::isfinite(parameter + step) && parameter + step != parameter,
-                         "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
+                REQUIRE2(ValidModelPolicyBump(parameter, step), "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
                 const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step);
                 const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
                 double down;
@@ -1213,9 +1221,7 @@ namespace Dal::Script {
             const auto& constants = prepared.Product().ConstVarValues();
             for (size_t k = 0; k < constants.size(); ++k) {
                 const double step = relative * std::max(1.0, std::abs(constants[k]));
-                REQUIRE2(std::isfinite(step) && std::isfinite(constants[k] + step) && std::isfinite(constants[k] - step) &&
-                             constants[k] + step != constants[k] && constants[k] - step != constants[k],
-                         "InvalidLsmcPolicyBump: script constant cannot be bumped", ScriptError_);
+                REQUIRE2(ValidConstantPolicyBump(constants[k], step), "InvalidLsmcPolicyBump: script constant cannot be bumped", ScriptError_);
                 const auto upPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step);
                 const auto downPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step);
                 const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
