@@ -2,9 +2,11 @@
 // Created by dal-implementer on 2026/9/20.
 //
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <utility>
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -28,13 +30,21 @@ namespace Dal::Script {
         constexpr double RIDGE_LAMBDA = 1e-12;
         //  Bound both the Gram diagonal spread and the scaled Cholesky pivots.
         constexpr double CONDITION_LIMIT = 1e12;
+        constexpr double QR_RANK_TOLERANCE = 1e-10;
 
-        size_t TrainingPathCount(const MonteCarloSettings_& simulation, size_t nPaths) {
+        struct PathCounts_ {
+            size_t training_;
+            size_t validation_;
+            size_t pricingOffset_;
+        };
+
+        PathCounts_ LsmcPathCounts(const MonteCarloSettings_& simulation, size_t nPaths) {
             const size_t training = simulation.lsmcTrainingPaths_ ? static_cast<size_t>(*simulation.lsmcTrainingPaths_) : nPaths;
+            const size_t validation = simulation.lsmcValidationPaths_ ? static_cast<size_t>(*simulation.lsmcValidationPaths_) : 0;
             constexpr size_t MAX_SOBOL_PATHS = std::numeric_limits<uint32_t>::max();
-            REQUIRE2(training <= MAX_SOBOL_PATHS && nPaths <= MAX_SOBOL_PATHS - training,
-                     "InvalidPathCount: LSMC training and pricing paths exceed the 32-bit Sobol sequence", ScriptError_);
-            return training;
+            REQUIRE2(training <= MAX_SOBOL_PATHS && validation <= MAX_SOBOL_PATHS - training && nPaths <= MAX_SOBOL_PATHS - training - validation,
+                     "InvalidPathCount: LSMC training, validation, and pricing paths exceed the 32-bit Sobol sequence", ScriptError_);
+            return {training, validation, training + validation};
         }
 
         double MeanOf(const Vector_<>& values, const Vector_<char>& included, size_t count) {
@@ -87,6 +97,9 @@ namespace Dal::Script {
         void DegradeToConstant(ExerciseRegression_* result, const char* reason, double constant) {
             result->degenerate_ = true;
             result->degenerateReason_ = reason;
+            result->fallbackReason_ = reason;
+            result->effectiveRank_ = result->numCondTrue_ > 0 ? 1 : 0;
+            result->solver_ = "Constant";
             result->basisDegree_ = 0;
             result->coefficients_.Resize(1);
             result->coefficients_[0] = constant;
@@ -151,9 +164,9 @@ namespace Dal::Script {
         }
 
         //  Explicit relative ridge, then the Gram diagonal-ratio conditioning guard
-        bool RidgeAndIllConditioned(SquareMatrix_<>* gram) {
+        const char* RidgeAndIllConditioned(SquareMatrix_<>* gram) {
             if (RankDeficient(*gram))
-                return true;
+                return "GramRankLoss";
             const size_t nBasis = static_cast<size_t>(gram->Rows());
             double maxDiag = (*gram)(0, 0);
             double minDiag = (*gram)(0, 0);
@@ -162,7 +175,140 @@ namespace Dal::Script {
                 maxDiag = std::max(maxDiag, (*gram)(j, j));
                 minDiag = std::min(minDiag, (*gram)(j, j));
             }
-            return minDiag <= 0.0 || maxDiag / minDiag > CONDITION_LIMIT;
+            return minDiag <= 0.0 || maxDiag / minDiag > CONDITION_LIMIT ? "GramScale" : nullptr;
+        }
+
+        struct QrWorkspace_ {
+            size_t nRows_ = 0;
+            size_t nBasis_ = 0;
+            std::array<Vector_<>, 9> columns_;
+            std::array<double, 9> scales_{};
+            std::array<size_t, 9> permutation_{};
+            std::array<std::array<double, 9>, 9> upper_{};
+            std::array<double, 9> projection_{};
+            Vector_<> response_;
+        };
+
+        QrWorkspace_
+        MakeQrWorkspace(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, double mean, double sigma, int degree) {
+            QrWorkspace_ ws;
+            ws.nBasis_ = static_cast<size_t>(degree + 1);
+            ws.nRows_ = static_cast<size_t>(std::count_if(included.begin(), included.end(), [](char value) { return value != 0; }));
+            ws.response_.Resize(ws.nRows_);
+            for (size_t j = 0; j < ws.nBasis_; ++j) {
+                ws.columns_[j].Resize(ws.nRows_);
+                ws.permutation_[j] = j;
+            }
+            size_t row = 0;
+            for (size_t i = 0; i < x.size(); ++i) {
+                if (!included[i])
+                    continue;
+                const double z = (x[i] - mean) / sigma;
+                ws.response_[row] = targets[i];
+                double power = 1.0;
+                for (size_t j = 0; j < ws.nBasis_; ++j) {
+                    ws.columns_[j][row] = power;
+                    power *= z;
+                }
+                ++row;
+            }
+            return ws;
+        }
+
+        size_t NormalizeQrColumns(QrWorkspace_* ws) {
+            for (size_t j = 0; j < ws->nBasis_; ++j) {
+                double norm = 0.0;
+                for (double value : ws->columns_[j])
+                    norm = std::hypot(norm, value);
+                if (!std::isfinite(norm) || norm == 0.0)
+                    return j;
+                ws->scales_[j] = norm;
+                for (double& value : ws->columns_[j])
+                    value /= norm;
+            }
+            return ws->nBasis_;
+        }
+
+        std::pair<size_t, double> BestQrPivot(const QrWorkspace_& ws, size_t step) {
+            size_t pivot = step;
+            double bestNorm = 0.0;
+            for (size_t j = step; j < ws.nBasis_; ++j) {
+                double normSq = 0.0;
+                for (double value : ws.columns_[j])
+                    normSq += value * value;
+                if (normSq > bestNorm) {
+                    bestNorm = normSq;
+                    pivot = j;
+                }
+            }
+            return {pivot, bestNorm};
+        }
+
+        void PivotQrColumns(QrWorkspace_* ws, size_t step, size_t pivot) {
+            if (pivot == step)
+                return;
+            std::swap(ws->columns_[step], ws->columns_[pivot]);
+            std::swap(ws->scales_[step], ws->scales_[pivot]);
+            std::swap(ws->permutation_[step], ws->permutation_[pivot]);
+            for (size_t i = 0; i < step; ++i)
+                std::swap(ws->upper_[i][step], ws->upper_[i][pivot]);
+        }
+
+        void OrthogonalizeQrStep(QrWorkspace_* ws, size_t step, double normSq) {
+            ws->upper_[step][step] = std::sqrt(normSq);
+            for (double& value : ws->columns_[step])
+                value /= ws->upper_[step][step];
+            for (size_t i = 0; i < ws->nRows_; ++i)
+                ws->projection_[step] += ws->columns_[step][i] * ws->response_[i];
+            for (size_t j = step + 1; j < ws->nBasis_; ++j)
+                for (int pass = 0; pass < 2; ++pass) {
+                    double dot = 0.0;
+                    for (size_t i = 0; i < ws->nRows_; ++i)
+                        dot += ws->columns_[step][i] * ws->columns_[j][i];
+                    ws->upper_[step][j] += dot;
+                    for (size_t i = 0; i < ws->nRows_; ++i)
+                        ws->columns_[j][i] -= dot * ws->columns_[step][i];
+                }
+        }
+
+        void RecoverQrCoefficients(const QrWorkspace_& ws, Vector_<>* coefficients) {
+            std::array<double, 9> pivoted{};
+            for (size_t k = ws.nBasis_; k-- > 0;) {
+                double residual = ws.projection_[k];
+                for (size_t j = k + 1; j < ws.nBasis_; ++j)
+                    residual -= ws.upper_[k][j] * pivoted[j];
+                pivoted[k] = residual / ws.upper_[k][k];
+            }
+            coefficients->Resize(ws.nBasis_);
+            for (size_t k = 0; k < ws.nBasis_; ++k)
+                (*coefficients)[ws.permutation_[k]] = pivoted[k] / ws.scales_[k];
+        }
+
+        //  Column-pivoted, twice-reorthogonalized QR on actual design rows runs
+        //  only after the O(Md) moment solve rejects a fit.
+        size_t PivotedQrFit(const Vector_<>& x,
+                            const Vector_<>& targets,
+                            const Vector_<char>& included,
+                            double mean,
+                            double sigma,
+                            int degree,
+                            Vector_<>* coefficients) {
+            auto ws = MakeQrWorkspace(x, targets, included, mean, sigma, degree);
+            const size_t normalized = NormalizeQrColumns(&ws);
+            if (normalized != ws.nBasis_)
+                return normalized;
+            size_t rank = 0;
+            for (size_t step = 0; step < ws.nBasis_; ++step) {
+                const auto [pivot, normSq] = BestQrPivot(ws, step);
+                if (!std::isfinite(normSq) || normSq < QR_RANK_TOLERANCE * QR_RANK_TOLERANCE)
+                    break;
+                PivotQrColumns(&ws, step, pivot);
+                OrthogonalizeQrStep(&ws, step, normSq);
+                ++rank;
+            }
+            if (rank == ws.nBasis_)
+                RecoverQrCoefficients(ws, coefficients);
+            return rank;
         }
 
         constexpr size_t NO_SLOT = static_cast<size_t>(-1);
@@ -402,7 +548,7 @@ namespace Dal::Script {
         }
 
         //  Phase A: forward storage over disjoint per-batch path slots
-        void RunForwardPhase(LsmcContext_& ctx, const BatchPlan_& batchPlan) {
+        void RunForwardPhase(LsmcContext_& ctx, const BatchPlan_& batchPlan, size_t pathOffset = 0) {
             ThreadPool_* pool = ThreadPool_::GetInstance();
             Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
             SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
@@ -413,7 +559,7 @@ namespace Dal::Script {
                     if (!local)
                         local = std::make_unique<ThreadState_>(ctx);
                     ThreadState_& state = *local;
-                    state.random_->SkipTo(batch.firstPath_);
+                    state.random_->SkipTo(pathOffset + batch.firstPath_);
                     for (size_t i = 0; i < batch.pathCount_; ++i)
                         EvaluateRecordedPath(state, ctx, batch.firstPath_ + i);
                     return true;
@@ -468,26 +614,105 @@ namespace Dal::Script {
                     (*w)[j] = h[j];
         }
 
+        struct RegressionRows_ {
+            const Vector_<>& x_;
+            const Vector_<>& targets_;
+            const Vector_<char>& included_;
+        };
+
+        struct ValidationLoss_ {
+            double mse_ = std::numeric_limits<double>::infinity();
+            double standardError_ = 0.0;
+        };
+
+        ValidationLoss_ EvaluateValidationLoss(const ExerciseRegression_& candidate, const RegressionRows_& validation, size_t count) {
+            double sumLoss = 0.0;
+            double sumLossSq = 0.0;
+            for (size_t i = 0; i < validation.x_.size(); ++i) {
+                if (!validation.included_[i])
+                    continue;
+                const double error = RegressionPredict(candidate, validation.x_[i]) - validation.targets_[i];
+                const double loss = error * error;
+                sumLoss += loss;
+                sumLossSq += loss * loss;
+            }
+            const double mse = sumLoss / static_cast<double>(count);
+            const double secondMoment = sumLossSq / static_cast<double>(count);
+            return {mse, std::sqrt(std::max(0.0, secondMoment - mse * mse) / static_cast<double>(count))};
+        }
+
+        int ChooseValidationDegree(const std::array<ValidationLoss_, 8>& losses, int maxDegree, const ValidationLoss_& best) {
+            if (!std::isfinite(best.mse_))
+                return 0;
+            const double threshold = best.mse_ + best.standardError_ + 1e-10 * std::max(1.0, best.mse_);
+            for (int degree = 1; degree <= maxDegree; ++degree)
+                if (std::isfinite(losses[static_cast<size_t>(degree - 1)].mse_) && losses[static_cast<size_t>(degree - 1)].mse_ <= threshold)
+                    return degree - 1;
+            return 0;
+        }
+
+        ExerciseRegression_ SelectRegression(const RegressionRows_& training, const RegressionRows_& validation, int maxDegree) {
+            const size_t validationCount =
+                static_cast<size_t>(std::count_if(validation.included_.begin(), validation.included_.end(), [](char value) { return value != 0; }));
+            if (validationCount == 0)
+                return SolveExerciseRegression(training.x_, training.targets_, training.included_, maxDegree);
+
+            std::array<ExerciseRegression_, 8> candidates;
+            std::array<ValidationLoss_, 8> losses;
+            ValidationLoss_ best;
+            for (int degree = 1; degree <= maxDegree; ++degree) {
+                auto& candidate = candidates[static_cast<size_t>(degree - 1)];
+                candidate = SolveExerciseRegression(training.x_, training.targets_, training.included_, degree);
+                auto& loss = losses[static_cast<size_t>(degree - 1)];
+                loss = EvaluateValidationLoss(candidate, validation, validationCount);
+                if (std::isfinite(loss.mse_) && loss.mse_ < best.mse_)
+                    best = loss;
+            }
+            const int chosen = ChooseValidationDegree(losses, maxDegree, best);
+            auto selected = std::move(candidates[static_cast<size_t>(chosen)]);
+            if (std::isfinite(best.mse_))
+                selected.validationMse_ = losses[static_cast<size_t>(chosen)].mse_;
+            return selected;
+        }
+
         //  Phase B: backward induction and continuation regressions, single threaded in
         //  global path order (thread-count independent by construction, N9/N10)
-        Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx, const Vector_<>& eventNumeraire, size_t nPaths, int degree) {
+        Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx,
+                                                      const Vector_<>& eventNumeraire,
+                                                      size_t nPaths,
+                                                      int degree,
+                                                      const LsmcStorage_* validationStorage = nullptr,
+                                                      size_t nValidation = 0) {
             const auto& scan = ctx.scan_;
             const auto& storage = ctx.storage_;
             const auto& events = ctx.Product().Events();
             Vector_<> w(nPaths, 0.0);
             Vector_<ExerciseRegression_> regressions(scan.days_.size());
             Vector_<char> included(nPaths, 1);
+            Vector_<> validationW(nValidation, 0.0);
+            Vector_<char> validationIncluded(nValidation, 1);
             for (size_t ei = events.size(); ei-- > 0;) {
                 const bool hasNext = ei + 1 < events.size();
                 const double dNext = hasNext ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
                 InductBackward(storage.pays_, scan.eventToPays_[ei], dNext, hasNext, &w);
+                if (validationStorage)
+                    InductBackward(validationStorage->pays_, scan.eventToPays_[ei], dNext, hasNext, &validationW);
 
                 const size_t day = scan.eventToExercise_[ei];
                 if (day == NO_SLOT)
                     continue;
                 FillIncluded(storage.condByDay_, storage.hByDay_[day], day, &included);
-                regressions[day] = SolveExerciseRegression(storage.xByDay_[day], w, included, degree);
+                if (validationStorage) {
+                    FillIncluded(validationStorage->condByDay_, validationStorage->hByDay_[day], day, &validationIncluded);
+                    regressions[day] = SelectRegression({storage.xByDay_[day], w, included},
+                                                        {validationStorage->xByDay_[day], validationW, validationIncluded}, degree);
+                } else {
+                    regressions[day] = SolveExerciseRegression(storage.xByDay_[day], w, included, degree);
+                }
                 ApplyExerciseDecisions(storage.hByDay_[day], storage.xByDay_[day], included, regressions[day], &w);
+                if (validationStorage)
+                    ApplyExerciseDecisions(validationStorage->hByDay_[day], validationStorage->xByDay_[day], validationIncluded, regressions[day],
+                                           &validationW);
             }
             return regressions;
         }
@@ -594,6 +819,10 @@ namespace Dal::Script {
                 stats.coefficients_ = regressions[k].coefficients_;
                 stats.degenerate_ = regressions[k].degenerate_;
                 stats.degenerateReason_ = regressions[k].degenerateReason_;
+                stats.effectiveRank_ = regressions[k].effectiveRank_;
+                stats.solver_ = regressions[k].solver_;
+                stats.fallbackReason_ = regressions[k].fallbackReason_;
+                stats.validationMse_ = regressions[k].validationMse_;
                 stats.exerciseRate_ = static_cast<double>(exerciseCounts[k]) / static_cast<double>(nPaths);
                 diagnostics->events_.push_back(stats);
             }
@@ -800,7 +1029,29 @@ namespace Dal::Script {
         SquareMatrix_<> gram(static_cast<int>(nBasis), 0.0);
         Vector_<> rhs(nBasis, 0.0);
         AccumulateNormalEquations(x, targets, included, result.mean_, result.sigma_, &gram, &rhs);
-        if (RidgeAndIllConditioned(&gram)) {
+        if (const char* fallbackReason = RidgeAndIllConditioned(&gram)) {
+            result.solver_ = "PivotedQR";
+            result.fallbackReason_ = fallbackReason;
+            int fitDegree = degree;
+            size_t effectiveRank = nBasis;
+            while (fitDegree > 0) {
+                Vector_<> coefficients;
+                const size_t rank = PivotedQrFit(x, targets, included, result.mean_, result.sigma_, fitDegree, &coefficients);
+                effectiveRank = std::min(effectiveRank, rank);
+                if (rank == static_cast<size_t>(fitDegree + 1)) {
+                    const bool finite = std::all_of(coefficients.begin(), coefficients.end(), [](double c) { return std::isfinite(c); });
+                    if (finite) {
+                        result.coefficients_ = std::move(coefficients);
+                        result.basisDegree_ = fitDegree;
+                        result.effectiveRank_ = effectiveRank;
+                        if (fitDegree < degree)
+                            result.fallbackReason_ = "RankDeficient";
+                        return result;
+                    }
+                    break;
+                }
+                fitDegree = std::min(fitDegree - 1, static_cast<int>(rank) - 1);
+            }
             DegradeToConstant(&result, "IllConditioned", constantFit);
             return result;
         }
@@ -815,6 +1066,8 @@ namespace Dal::Script {
             }
         result.coefficients_ = rhsWrapped[0];
         result.basisDegree_ = degree;
+        result.effectiveRank_ = nBasis;
+        result.solver_ = "MomentsCholesky";
         return result;
     }
 
@@ -832,18 +1085,26 @@ namespace Dal::Script {
                  "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
-        const size_t nTrainingPaths = TrainingPathCount(simulation, nPaths);
-        auto storage = MakeStorage(scan, nTrainingPaths);
+        const auto counts = LsmcPathCounts(simulation, nPaths);
+        auto storage = MakeStorage(scan, counts.training_);
+        LsmcStorage_ validationStorage;
         //  Each phase has its own count-specific, thread-independent batch layout.
-        const BatchPlan_ trainingPlan(nTrainingPaths, 1);
+        const BatchPlan_ trainingPlan(counts.training_, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
         const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
         LsmcContext_ ctx{prepared, mdl, scan, storage, compiled};
         RunForwardPhase(ctx, trainingPlan);
         const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nTrainingPaths, simulation.lsmcBasisDegree_);
+        if (counts.validation_) {
+            validationStorage = MakeStorage(scan, counts.validation_);
+            LsmcContext_ validationCtx{prepared, mdl, scan, validationStorage, compiled};
+            RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
+        }
+        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, simulation.lsmcBasisDegree_,
+                                                  counts.validation_ ? &validationStorage : nullptr, counts.validation_);
         storage = LsmcStorage_();
-        const auto reduction = RunReplayPhase(ctx, eventNumeraire, batchPlan, nTrainingPaths, regressions);
+        validationStorage = LsmcStorage_();
+        const auto reduction = RunReplayPhase(ctx, eventNumeraire, batchPlan, counts.pricingOffset_, regressions);
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
         results.aggregated_ = reduction.sum_;
@@ -866,10 +1127,11 @@ namespace Dal::Script {
         doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
-        const size_t nTrainingPaths = TrainingPathCount(simulation, nPaths);
-        auto storage = MakeStorage(scan, nTrainingPaths);
+        const auto counts = LsmcPathCounts(simulation, nPaths);
+        auto storage = MakeStorage(scan, counts.training_);
+        LsmcStorage_ validationStorage;
         //  Each phase has its own count-specific, thread-independent batch layout.
-        const BatchPlan_ trainingPlan(nTrainingPaths, 1);
+        const BatchPlan_ trainingPlan(counts.training_, 1);
         const BatchPlan_ batchPlan(nPaths, 1);
         ThreadPool_* pool = ThreadPool_::GetInstance();
         std::optional<ScriptCompiled_> hardCompiled;
@@ -879,8 +1141,15 @@ namespace Dal::Script {
 
         RunForwardPhase(ctx, trainingPlan);
         const Vector_<> eventNumeraire = SampleGridNumeraires(ctx);
-        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, nTrainingPaths, simulation.lsmcBasisDegree_);
+        if (counts.validation_) {
+            validationStorage = MakeStorage(scan, counts.validation_);
+            LsmcContext_ validationCtx{prepared, doubleModel.get(), scan, validationStorage, hardCompiled ? &*hardCompiled : nullptr};
+            RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
+        }
+        const auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, simulation.lsmcBasisDegree_,
+                                                  counts.validation_ ? &validationStorage : nullptr, counts.validation_);
         storage = LsmcStorage_();
+        validationStorage = LsmcStorage_();
 
         const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram(true) : nullptr;
         Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
@@ -891,7 +1160,7 @@ namespace Dal::Script {
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
             tasks.Spawn([&, batch, batchIndex]() {
-                const PathBatch_ pricingBatch{nTrainingPaths + batch.firstPath_, batch.pathCount_};
+                const PathBatch_ pricingBatch{counts.pricingOffset_ + batch.firstPath_, batch.pathCount_};
                 RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, &outcomes[batchIndex]);
                 return true;
             });

@@ -85,12 +85,21 @@ namespace Dal {
                      ScriptError_);
         }
 
+        void ValidateLsmcValidationPaths(int count) {
+            REQUIRE2(count > 0,
+                     "InvalidSetting: InvalidLsmcValidationPaths; simulation.lsmcValidationPaths_=" + String_(std::to_string(count)) +
+                         "; expected a positive integer",
+                     ScriptError_);
+        }
+
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
             ValidateRNG(settings.rsg_);
             ValidateSmoothing(settings.smooth_);
             ValidateLsmcBasisDegree(settings.lsmcBasisDegree_);
             if (settings.lsmcTrainingPaths_)
                 ValidateLsmcTrainingPaths(*settings.lsmcTrainingPaths_);
+            if (settings.lsmcValidationPaths_)
+                ValidateLsmcValidationPaths(*settings.lsmcValidationPaths_);
         }
     } // namespace Script
 } // namespace Dal

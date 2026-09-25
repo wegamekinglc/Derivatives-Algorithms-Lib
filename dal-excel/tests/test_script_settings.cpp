@@ -177,3 +177,16 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcTrainingPaths) {
     AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_training_paths"), Cell_()}}), &settings); },
                 {"row=1 column=2", "lsmc_training_paths", "non-empty"});
 }
+
+TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcValidationPaths) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("defaults", {}, &settings);
+    ASSERT_FALSE(settings->val_.lsmcValidationPaths_);
+    for (const double count : {1.0, 1024.0, static_cast<double>(std::numeric_limits<int>::max())}) {
+        MonteCarloSettings_New("validation", Rows({{Cell_("LSMC_VALIDATION_PATHS"), Cell_(count)}}), &settings);
+        ASSERT_EQ(settings->val_.lsmcValidationPaths_, static_cast<int>(count));
+    }
+    for (const auto& value : {Cell_(0.0), Cell_(-1.0), Cell_(2147483648.0), Cell_(2.5), Cell_(true), Cell_("3")})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_validation_paths"), value}}), &settings); },
+                    {"InvalidSetting", "InvalidLsmcValidationPaths", "lsmc_validation_paths", "row=1 column=2", "positive"});
+}

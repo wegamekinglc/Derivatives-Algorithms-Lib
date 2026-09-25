@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-25
 
+- **LSMC gains an opt-in held-out degree selector and rank-revealing fallback** —
+  `lsmc_validation_paths` selects a separate Sobol block for bounded degree
+  selection before final pricing. Ill-conditioned moment fits use pivoted QR
+  and retain the supported polynomial degree where possible. Diagnostics report
+  the solver, effective rank, fallback reason, and validation loss. See
+  [early-exercise valuation](docs/methodology/script_engine.md#early-exercise-valuation-lsmc).
 - **Python binary releases add CPython 3.14 and macOS** — `dal-python` now
   supports CPython 3.9-3.14 (`Requires-Python: >=3.9,<3.15`) and publishes
   24 CPython-specific wheels across Linux x86-64, Windows AMD64, macOS Intel,

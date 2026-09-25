@@ -139,20 +139,29 @@ namespace {
         return static_cast<int>(degree);
     }
 
-    std::optional<int> TrainingPaths(const py::handle& value) {
+    std::optional<int> LsmcPathCount(const py::handle& value, const char* field, const char* member, const char* error, void (*validate)(int)) {
         if (value.is_none())
             return std::nullopt;
-        const auto context = InputContext(value, "MonteCarloSettings_; lsmc_training_paths / simulation.lsmcTrainingPaths_",
+        const auto context = InputContext(value, "MonteCarloSettings_; " + std::string(field) + " / simulation." + member,
                                           "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()) + " or None, excluding bool",
-                                          "InvalidSetting: InvalidLsmcTrainingPaths");
-        const auto count = IntegerInput(value, context, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(),
-                                        "; LSMC training paths must be a positive integer");
+                                          "InvalidSetting: " + std::string(error));
+        const auto count =
+            IntegerInput(value, context, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), "; LSMC paths must be a positive integer");
         try {
-            Script::ValidateLsmcTrainingPaths(static_cast<int>(count));
+            validate(static_cast<int>(count));
         } catch (const Exception_&) {
             THROW2(String_(context), ScriptError_);
         }
         return static_cast<int>(count);
+    }
+
+    std::optional<int> TrainingPaths(const py::handle& value) {
+        return LsmcPathCount(value, "lsmc_training_paths", "lsmcTrainingPaths_", "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
+    }
+
+    std::optional<int> ValidationPaths(const py::handle& value) {
+        return LsmcPathCount(value, "lsmc_validation_paths", "lsmcValidationPaths_", "InvalidLsmcValidationPaths",
+                             Script::ValidateLsmcValidationPaths);
     }
 
     double LegacySmoothing(const py::handle& value) {
@@ -204,18 +213,21 @@ void init_bindings_value(py::module_& m) {
 
     WithCopies(py::class_<MonteCarloSettings_>(m, "MonteCarloSettings_"))
         .def(py::init([](const py::object& method, const py::object& useBb, const py::object& enableAad, const py::object& smooth,
-                         const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths) {
+                         const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths,
+                         const py::object& lsmcValidationPaths) {
                  return MonteCarloSettings_{Method(method),
                                             Boolean(useBb, "use_bb / simulation.useBb_"),
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"),
                                             Smoothing(smooth),
                                             Compiled(compiled),
                                             BasisDegree(lsmcBasisDegree),
-                                            TrainingPaths(lsmcTrainingPaths)};
+                                            TrainingPaths(lsmcTrainingPaths),
+                                            ValidationPaths(lsmcValidationPaths)};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
              py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
-             py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none())
+             py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
+             py::arg("lsmc_validation_paths") = py::none())
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })
@@ -238,7 +250,10 @@ void init_bindings_value(py::module_& m) {
             [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcBasisDegree_ = BasisDegree(value); })
         .def_property(
             "lsmc_training_paths", [](const MonteCarloSettings_& settings) { return settings.lsmcTrainingPaths_; },
-            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcTrainingPaths_ = TrainingPaths(value); });
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcTrainingPaths_ = TrainingPaths(value); })
+        .def_property(
+            "lsmc_validation_paths", [](const MonteCarloSettings_& settings) { return settings.lsmcValidationPaths_; },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcValidationPaths_ = ValidationPaths(value); });
 
     m.def(
         "MonteCarlo_ValueWithSettings",

@@ -37,7 +37,7 @@ struct XlRegister_MonteCarloSettings_New_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Object name");
-        argHelp.push_back("Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths. Booleans 0/1; smooth positive; degree integer 1..8; training paths positive integer (default pricing count).");
+        argHelp.push_back("Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths. Booleans 0/1; smooth positive; degree integer 1..8; path counts positive integers (validation omitted by default).");
         Excel::Register("Base", "xl_MonteCarloSettings_New", "MONTECARLOSETTINGS.NEW", "Create immutable Monte Carlo execution settings", "QQQ", "name,[settings]", argHelp, false);
     }
 };

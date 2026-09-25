@@ -282,6 +282,7 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
         "compiled": False,
         "lsmc_basis_degree": 3,
         "lsmc_training_paths": None,
+        "lsmc_validation_paths": None,
     }
     assert_pv(
         dal.MonteCarlo_ValueWithSettings(product, data, 257, valuation=valuation),

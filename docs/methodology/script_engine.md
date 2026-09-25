@@ -296,19 +296,20 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 
 ### Fields and Defaults
 
-| Settings type              | Field                | Default                             | Contract                                                                                                              |
-|----------------------------|----------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `ScriptProductSettings_`   | `defaultIndex_`      | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
-| `ScriptValuationSettings_` | `todayFixingPolicy_` | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
-| `ScriptValuationSettings_` | `evaluationDate_`    | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
-| `ScriptValuationSettings_` | `fixings_`           | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
-| `MonteCarloSettings_`      | `rsg_`               | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                  |
-| `MonteCarloSettings_`      | `useBb_`             | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                   |
-| `MonteCarloSettings_`      | `enableAad_`         | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
-| `MonteCarloSettings_`      | `smooth_`            | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
-| `MonteCarloSettings_`      | `compiled_`          | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
-| `MonteCarloSettings_`      | `lsmcBasisDegree_`   | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
-| `MonteCarloSettings_`      | `lsmcTrainingPaths_` | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
+| Settings type              | Field                  | Default                             | Contract                                                                                                              |
+|----------------------------|------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `ScriptProductSettings_`   | `defaultIndex_`        | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
+| `ScriptValuationSettings_` | `todayFixingPolicy_`   | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
+| `ScriptValuationSettings_` | `evaluationDate_`      | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
+| `ScriptValuationSettings_` | `fixings_`             | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
+| `MonteCarloSettings_`      | `rsg_`                 | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                  |
+| `MonteCarloSettings_`      | `useBb_`               | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                   |
+| `MonteCarloSettings_`      | `enableAad_`           | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
+| `MonteCarloSettings_`      | `smooth_`              | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
+| `MonteCarloSettings_`      | `compiled_`            | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
+| `MonteCarloSettings_`      | `lsmcBasisDegree_`     | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
+| `MonteCarloSettings_`      | `lsmcTrainingPaths_`   | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
+| `MonteCarloSettings_`      | `lsmcValidationPaths_` | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
@@ -648,8 +649,10 @@ Products containing `EXERCISE` divert from the plain double driver to the LSMC
 driver (`MCLsmcSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
 compiled execution. `nPaths` is the pricing count; `nTrainingPaths` is
 `simulation.lsmcTrainingPaths_` when set, otherwise `nPaths`. Training can use fewer or
-more paths than pricing. Fixing the training count keeps the fitted policy
-unchanged when the pricing count changes. Valuation runs in three phases over a fixed,
+more paths than pricing. `simulation.lsmcValidationPaths_`, when set, adds a separate
+held-out block for selecting degree; otherwise the requested degree is used directly.
+Fixing both counts keeps the fitted policy unchanged when the pricing count changes.
+Valuation runs in three phases over a fixed,
 thread-count-independent batch layout: batches of at most 8192 paths
 indexed by batch order, with per-batch contributions reduced in batch-index
 sequence, so PV, the frozen coefficients, and every exercise rate are bitwise
@@ -670,19 +673,33 @@ invariant across thread counts.
   The Gram matrix is assembled from the `2d+1` scalar moments, reducing the
   path-dependent assembly work from $O(Md^2)$ to $O(Md)$ for $M$ training paths. Before applying
   ridge, a Cholesky pivot check on the column-scaled Gram matrix detects
-  collinearity that diagonal ratios alone cannot detect. A day degenerates to the constant basis — flagging
-  `ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned` — when the
-  regression path count is below $10(d{+}1)$, the $\hat\sigma$ floor
-  engages, the Gram diagonal ratio exceeds $10^{12}$, or a scaled Cholesky
-  pivot is at most $10^{-12}$. These are numerical guards, not an exact
-  condition-number estimate. Included non-finite observations and targets
+  collinearity that diagonal ratios alone cannot detect. Too few condition-true
+  paths ($M < 10(d{+}1)$) or the $\hat\sigma$ floor yield a constant fit. A Gram
+  diagonal ratio above $10^{12}$ or a scaled Cholesky pivot at most $10^{-12}$
+  triggers a rank-revealing fallback: a
+  column-pivoted, twice-reorthogonalized QR fit on the original design rows
+  avoids squaring the condition number. Rank loss lowers the effective degree
+  to the supported polynomial subspace before falling back to a constant.
+  Only an unrecoverable fallback reports `IllConditioned` and a constant fit.
+  These guards are not an exact condition-number estimate. Included non-finite observations and targets
   are rejected. Constant fits bypass normalization during prediction. A path
   exercises when its condition holds, $h_k > 0$, and $h_k > C_k(z_k)$
   strictly; exercise replaces the day's and all later payments.
-- **Phase C** values the frozen policy on the next `nPaths` Sobol paths,
-  starting at `SkipTo(nTrainingPaths)`. Training and pricing path blocks do not overlap;
-  the total generated path count is `nTrainingPaths + nPaths`, plus one
-  numeraire probe. Training storage scales with `nTrainingPaths` and is released
+- **Optional held-out selection** records the next `lsmcValidationPaths_` paths
+  and applies already selected later-date policies during backward induction.
+  For each exercise date, candidate degrees 1 through `lsmcBasisDegree_` are
+  fitted on training paths. The smallest degree within one standard error of
+  the best held-out continuation mean-squared error is selected. This is a
+  descriptive dispersion heuristic on deterministic QMC points, not a
+  calibrated statistical confidence interval. Validation
+  targets and final pricing payoffs never enter the training fit.
+  If no validation path is eligible on a date, the selector fits the requested degree
+  and reports a null validation loss rather than a fabricated zero.
+- **Phase C** values the frozen policy on the final `nPaths` Sobol paths,
+  starting at `SkipTo(nTrainingPaths + nValidationPaths)`. Training, validation,
+  and pricing blocks do not overlap; the total generated path count is
+  `nTrainingPaths + nValidationPaths + nPaths`, plus one
+  numeraire probe. Training and validation storage is released
   first. Hard pricing shares the immutable compiled program and reuses one
   evaluator, path generator, and scalar decision state per worker across batches;
   it does not allocate per-exercise-date recording rows.
@@ -696,7 +713,7 @@ invariant across thread counts.
   the first exercised event; model path generation still covers the full grid.
   PV is the mean over pricing paths only.
 
-The combined training and pricing count must fit the 32-bit Sobol sequence
+The combined training, validation, and pricing count must fit the 32-bit Sobol sequence
 (at most `2^32 - 1` paths). The core `size_t` entry points reject larger
 ranges with `InvalidPathCount` before allocating training storage.
 
@@ -730,8 +747,12 @@ recursion. Historical `PAYS` remain expired and do not seed the receiver.
 The default cubic standardized polynomial is a small one-dimensional approximation,
 not a universally optimal basis. Unweighted polynomial families of the same
 degree span the same space; changing their names does not add information.
-Increasing degree can increase variance and worsen conditioning. Select degree
-using held-out pricing and a suitable benchmark. In particular, a single spot
+Increasing degree can increase variance and worsen conditioning. QR orthogonalizes
+the design columns for the solve but does not change the approximation span.
+The held-out selector is opt-in because it needs additional simulated paths and
+up to eight fits per exercise date; the fixed-degree moment solve remains the
+default. Use independent final pricing and a suitable benchmark to assess the
+selected policy. In particular, a single spot
 regressor does not capture all relevant state for general path-dependent claims
 (for example, a running average or barrier state). Such scripts can be evaluated,
 but their continuation approximation omits that additional state.
@@ -750,6 +771,8 @@ exactly — see
 Training memory is roughly `nTrainingPaths × (nPaysEvents + 2 × nExerciseDates + 1) × 8B`
 for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
+Enabling selection adds analogous storage for `nValidationPaths` until backward
+induction finishes.
 Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
 worker-local evaluator state. Reduce the training path count or event count to
 stay inside a memory budget.
@@ -1650,10 +1673,11 @@ valuation path only).
 
 The JSON reports `evaluation_date`, the effective `simulation` echo
 (`rsg`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
-`lsmc_training_paths`),
+`lsmc_training_paths`, `lsmc_validation_paths`),
 the explicit `n_paths`, and `exercise_events`. Products without `EXERCISE`
 return an empty `exercise_events` array, never an omitted key.
-`lsmc_training_paths` is null when unset, meaning the same count as `n_paths`.
+`lsmc_training_paths` is null when unset, meaning the same count as `n_paths`;
+`lsmc_validation_paths` is null when the fixed-degree fast path is used.
 Each exercise
 event carries `event_id`, `date`, the effective `basis_degree`
 (`0` marks the degenerate constant basis), `regressor_index` (the canonical
@@ -1662,6 +1686,9 @@ index name of the model-sourced regressor — the same join space as Explain's
 as an unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
 condition-true path count entering the regression), `num_coefficients`
 with the frozen `coefficients` on the z-normalized monomial basis, the
+`basis` family (`NormalizedMonomial` or `Constant`), `effective_rank`, `solver`
+(`MomentsCholesky`, `PivotedQR`, or `Constant`), `fallback_reason`, and
+`validation_mse` (null without held-out selection), the
 `degenerate` flag with its PascalCase `degenerate_reason`
 (`ConditionPathsBelowMin`, `SigmaFloor`, or `IllConditioned`), and the
 path-set `exercise_rate`. A degenerate day reports the constant fit, so its

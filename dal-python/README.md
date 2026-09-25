@@ -458,21 +458,22 @@ ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
                          fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    smooth=0.01, compiled=None, lsmc_basis_degree=3,
-                   lsmc_training_paths=None)
+                   lsmc_training_paths=None, lsmc_validation_paths=None)
 ```
 
-| Field                  | Accepted input / default                                                                                     | Property result                     |
-|------------------------|--------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| `default_index`        | `str` or `String_`; empty means unbound                                                                      | `str`, preserving spelling          |
-| `evaluation_date`      | Valid DAL `Date_`, or `None` to capture global date at each call                                             | A date copy or `None`               |
-| `today_fixing`         | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`                                   | `TodayFixingPolicy_` member         |
-| `fixings`              | `MarketFixingSnapshot_`, or `None` for global capture                                                        | Immutable snapshot handle or `None` |
-| `method`               | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`                               | `str`, preserving spelling          |
-| `use_bb`, `enable_aad` | Python `bool` only; default `False`                                                                          | `bool`                              |
-| `smooth`               | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01`                             | `float`                             |
-| `compiled`             | Python `bool` or `None`; default `None` selects tree                                                         | `bool` or `None`                    |
-| `lsmc_basis_degree`    | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                           | `int`                               |
-| `lsmc_training_paths`  | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path` | `int` or `None`                     |
+| Field                   | Accepted input / default                                                                                        | Property result                     |
+|-------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `default_index`         | `str` or `String_`; empty means unbound                                                                         | `str`, preserving spelling          |
+| `evaluation_date`       | Valid DAL `Date_`, or `None` to capture global date at each call                                                | A date copy or `None`               |
+| `today_fixing`          | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`                                      | `TodayFixingPolicy_` member         |
+| `fixings`               | `MarketFixingSnapshot_`, or `None` for global capture                                                           | Immutable snapshot handle or `None` |
+| `method`                | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`                                  | `str`, preserving spelling          |
+| `use_bb`, `enable_aad`  | Python `bool` only; default `False`                                                                             | `bool`                              |
+| `smooth`                | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01`                                | `float`                             |
+| `compiled`              | Python `bool` or `None`; default `None` selects tree                                                            | `bool` or `None`                    |
+| `lsmc_basis_degree`     | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                              | `int`                               |
+| `lsmc_training_paths`   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path`    | `int` or `None`                     |
+| `lsmc_validation_paths` | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |
 
 For exercise products, training and pricing counts can be set independently:
 
@@ -486,6 +487,15 @@ result = dal.MonteCarlo_ValueWithSettings(
 This fits the exercise policy on 16,384 paths and values it on the next 262,144
 paths. Fixing `lsmc_training_paths` keeps the fitted policy unchanged when
 `num_path` changes. The setting has no effect on products without `EXERCISE`.
+Set `lsmc_validation_paths` to enable held-out degree selection. The first block
+fits candidate degrees 1 through `lsmc_basis_degree`, the next block selects the
+smallest degree within a descriptive one-standard-error tolerance of the minimum
+continuation MSE, and
+the final `num_path` paths price the selected policy. For example,
+`MonteCarloSettings_(lsmc_training_paths=16_384, lsmc_validation_paths=4_096)`
+uses three disjoint Sobol blocks. Omitting validation retains the faster fixed
+degree fit. The [comparison benchmark](benchmarks/compare_lsmc_solvers.py)
+reports repeated pricing times and errors against a separate CRR tree oracle.
 
 The policy enum members are `dal.TodayFixingPolicy_.MODEL` and
 `dal.TodayFixingPolicy_.REQUIREHISTORICAL`. Policy strings also accept DAL
@@ -551,15 +561,16 @@ without renaming keys or converting date strings into DAL dates.
 `dal.ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None,
 simulation=None)` follows the same split and returns the `dal.script-simulation/1`
 dictionary. Unlike the valuation Explain it runs the full double valuation with
-`num_path` pricing paths plus a separate block of `lsmc_training_paths`
-training paths (defaulting to `num_path`)
+`num_path` pricing paths plus separate `lsmc_training_paths` training paths
+(defaulting to `num_path`) and optional `lsmc_validation_paths` paths
 (path generation plus workers plus the exercise regressions),
 requires the same integer path count as the Value entries, rejects
 `enable_aad=True` settings with `UnsupportedExecutionMode`, and reports the
-simulation echo with `lsmc_basis_degree` and `lsmc_training_paths` (null when
-unset), the explicit pricing count `n_paths`, and one
-`exercise_events` entry per exercise date (degree, regressor index,
-in-the-money condition-true count, coefficients, degenerate flag/reason,
+simulation echo with `lsmc_basis_degree`, `lsmc_training_paths`, and
+`lsmc_validation_paths` (null when unset), the explicit pricing count `n_paths`, and one
+`exercise_events` entry per exercise date (degree, basis, solver, effective rank,
+fallback reason, validation MSE, regressor index, in-the-money condition-true
+count, coefficients, degenerate flag/reason,
 exercise rate).
 Regression counts describe the training block; exercise rates describe the
 pricing block. Both blocks use deterministic Sobol points and do not overlap.

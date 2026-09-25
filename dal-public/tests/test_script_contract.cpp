@@ -212,3 +212,23 @@ TEST(ScriptContractTest, TestLsmcTrainingPathsValidatedPositive) {
         }
     }
 }
+
+TEST(ScriptContractTest, TestLsmcValidationPathsValidatedPositive) {
+    Dal::MonteCarloSettings_ simulation;
+    ASSERT_FALSE(simulation.lsmcValidationPaths_);
+    ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+    for (const int count : {1, 1024, std::numeric_limits<int>::max()}) {
+        simulation.lsmcValidationPaths_ = count;
+        ASSERT_NO_THROW(Dal::Script::ValidateSimulationSettings(simulation));
+    }
+    for (const int count : {0, -1, std::numeric_limits<int>::min()}) {
+        simulation.lsmcValidationPaths_ = count;
+        try {
+            Dal::Script::ValidateSimulationSettings(simulation);
+            FAIL() << "expected a contract error for validation paths " << count;
+        } catch (const Dal::Exception_& error) {
+            for (const auto& field : Vector_<String_>{"InvalidSetting", "InvalidLsmcValidationPaths", "simulation.lsmcValidationPaths_", "positive"})
+                ASSERT_NE(std::string(error.what()).find(field.c_str()), std::string::npos) << error.what();
+        }
+    }
+}
