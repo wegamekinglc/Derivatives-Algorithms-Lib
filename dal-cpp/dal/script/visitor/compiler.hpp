@@ -1119,37 +1119,47 @@ namespace Dal::Script {
             ThrowUnknownCompiledOpcode(op);
         }
 
+        inline String_ CompiledVectorContext(const Vector_<int>& stream, size_t offset, size_t index) {
+            String_ value = "vector index=" + String_(std::to_string(index)) + "; line=" + String_(std::to_string(stream[offset])) +
+                            ", column=" + String_(std::to_string(stream[offset + 1]));
+            if (stream[offset + 2] > 0)
+                value += ", row=" + String_(std::to_string(stream[offset + 2]));
+            return value;
+        }
+
+        template <class T_>
+        FORCE_INLINE size_t EvalCompiledVectorReduction(const Vector_<int>& stream, size_t i, size_t index, EvalState_<T_>* statePtr) {
+            const auto kind = static_cast<NodeVectorReduce_::Kind_>(stream[i++]);
+            const auto& values = statePtr->vectors_[index];
+            const String_ context = values.empty() && kind != NodeVectorReduce_::Kind_::Sum ? CompiledVectorContext(stream, i, index) : String_();
+            statePtr->dStack_.Push(ReduceVectorValues(values, kind, context));
+            return i + 3;
+        }
+
         template <class T_> FORCE_INLINE size_t EvalCompiledVector(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const auto& stream = event.nodeStream_;
             const int op = stream[i++];
             const size_t index = static_cast<size_t>(stream[i++]);
             auto& values = statePtr->vectors_[index];
-            const auto context = [&](size_t sourceOffset) {
-                String_ value = "vector index=" + String_(std::to_string(index)) + "; line=" + String_(std::to_string(stream[sourceOffset])) +
-                                ", column=" + String_(std::to_string(stream[sourceOffset + 1]));
-                if (stream[sourceOffset + 2] > 0)
-                    value += ", row=" + String_(std::to_string(stream[sourceOffset + 2]));
-                return value;
-            };
             if (op == VectorRead) {
                 const size_t entry = static_cast<size_t>(stream[i++]);
                 if (entry >= values.size())
-                    THROW2("VectorIndexOutOfRange: " + context(i), ScriptError_);
+                    THROW2("VectorIndexOutOfRange: " + CompiledVectorContext(stream, i, index), ScriptError_);
                 statePtr->dStack_.Push(values[entry]);
-                i += 3;
-            } else if (op == VectorAssign) {
+                return i + 3;
+            }
+            if (op == VectorAssign) {
                 const size_t entry = static_cast<size_t>(stream[i++]);
                 WriteVectorEntry(&values, entry, statePtr->dStack_.TopAndPop());
-            } else if (op == VectorAppend)
+                return i;
+            }
+            if (op == VectorAppend) {
                 values.push_back(statePtr->dStack_.TopAndPop());
-            else if (op == VectorReduce) {
-                const auto kind = static_cast<NodeVectorReduce_::Kind_>(stream[i++]);
-                statePtr->dStack_.Push(
-                    ReduceVectorValues(values, kind, values.empty() && kind != NodeVectorReduce_::Kind_::Sum ? context(i) : String_()));
-                i += 3;
-            } else
-                ThrowUnknownCompiledOpcode(op);
-            return i;
+                return i;
+            }
+            if (op == VectorReduce)
+                return EvalCompiledVectorReduction(stream, i, index, statePtr);
+            ThrowUnknownCompiledOpcode(op);
         }
 
         template <bool Prepared_, bool Lsmc_, class T_>

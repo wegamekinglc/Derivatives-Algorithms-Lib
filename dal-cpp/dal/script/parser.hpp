@@ -105,6 +105,19 @@ namespace Dal::Script {
         Statement_ ParseVectorAppend(TokIt_& cur, const TokIt_& end);
         Statement_ ParseExercise(TokIt_& cur, const TokIt_& end);
         Expression_ ParseExerciseCondition(TokIt_& cur, const TokIt_& end, const SourceLocation_& source);
+        [[nodiscard]] static bool IsBareName(const Token_& token);
+        [[nodiscard]] bool IsFreshLoopIndex(const Token_& token) const;
+        [[nodiscard]] double NumericConstant(const String_& key, const String_& error) const;
+        [[nodiscard]] static size_t NonnegativeInteger(double value, const String_& error);
+        String_ ParseVectorName(TokIt_& cur, const TokIt_& end, const SourceLocation_& source, const String_& operation);
+        int ParseForBound(TokIt_& cur, const TokIt_& end, const String_& context);
+        struct ForHeader_ {
+            String_ indexName_;
+            int first_;
+            int last_;
+        };
+        ForHeader_ ParseForHeader(TokIt_& cur, const TokIt_& end, const String_& context);
+        TokIt_ ParseForIteration(TokIt_ body, const TokIt_& end, bool emit, NodeCollect_* collected, const String_& context);
 
         Expression_ BuildEqual(Expression_& lhs, Expression_& rhs, double eps);
         Expression_ BuildDifferent(Expression_& lhs, Expression_& rhs, double eps);

@@ -174,6 +174,39 @@ namespace Dal::Script {
         return std::move(top);
     }
 
+    bool Parser_::IsBareName(const Token_& token) {
+        return !std::holds_alternative<IndexLiteral_>(token.value_) && !token.Text().empty() && token.Text()[0] >= 'A' && token.Text()[0] <= 'z' &&
+               RESERVED_KEY_WORDS.find(token.Text()) == RESERVED_KEY_WORDS.end();
+    }
+
+    bool Parser_::IsFreshLoopIndex(const Token_& token) const {
+        return IsBareName(token) && !constVariables_.count(token.Text()) && !numericVectors_.count(token.Text()) && !loopIndices_.count(token.Text());
+    }
+
+    double Parser_::NumericConstant(const String_& key, const String_& error) const {
+        if (String::IsNumber(key))
+            return String::ToDouble(key);
+        if (const auto constant = constVariables_.find(key); constant != constVariables_.end())
+            return constant->second;
+        if (const auto loopIndex = loopIndices_.find(key); loopIndex != loopIndices_.end())
+            return loopIndex->second;
+        THROW2(error, ScriptError_);
+    }
+
+    size_t Parser_::NonnegativeInteger(double value, const String_& error) {
+        REQUIRE2(std::isfinite(value) && value >= 0.0 && value <= 1000000.0 && std::floor(value) == value, error, ScriptError_);
+        return static_cast<size_t>(value);
+    }
+
+    String_ Parser_::ParseVectorName(TokIt_& cur, const TokIt_& end, const SourceLocation_& source, const String_& operation) {
+        REQUIRE2(cur != end && IsBareName(*cur), operation + ": expected a vector name; " + source.Describe(), ScriptError_);
+        const String_ name = cur->Text();
+        REQUIRE2(!loopIndices_.count(name), "InvalidFor: loop index cannot name a vector; " + source.Describe(), ScriptError_);
+        REQUIRE2(!constVariables_.count(name), operation + ": scalar constant is not a vector; " + source.Describe(), ScriptError_);
+        ++cur;
+        return name;
+    }
+
     Expression_ Parser_::ParseVectorEntry(TokIt_& cur) {
         const String_ raw = cur->Text();
         const auto source = cur->source_;
@@ -187,21 +220,13 @@ namespace Dal::Script {
         REQUIRE2(RESERVED_KEY_WORDS.find(name) == RESERVED_KEY_WORDS.end(), "InvalidVectorEntry: reserved vector name; " + source.Describe(),
                  ScriptError_);
         REQUIRE2(!constVariables_.count(name), "InvalidVectorEntry: scalar constant is not a vector; " + source.Describe(), ScriptError_);
-        double value;
-        if (String::IsNumber(key))
-            value = String::ToDouble(key);
-        else if (const auto constant = constVariables_.find(key); constant != constVariables_.end())
-            value = constant->second;
-        else if (const auto loopIndex = loopIndices_.find(key); loopIndex != loopIndices_.end())
-            value = loopIndex->second;
-        else
-            THROW2("InvalidVectorEntry: index must be an integer constant; " + source.Describe(), ScriptError_);
-        REQUIRE2(std::isfinite(value) && value >= 0.0 && value <= 1000000.0 && std::floor(value) == value,
-                 "InvalidVectorEntry: index must be a nonnegative integer at most 1000000; " + source.Describe(), ScriptError_);
+        const double value = NumericConstant(key, "InvalidVectorEntry: index must be an integer constant; " + source.Describe());
+        const size_t entry =
+            NonnegativeInteger(value, "InvalidVectorEntry: index must be a nonnegative integer at most 1000000; " + source.Describe());
         ++cur;
         if (const auto predefined = numericVectors_.find(name); predefined != numericVectors_.end())
-            return MakeNode<NodeConst_>(ReadVectorEntry(predefined->second, static_cast<size_t>(value), name + "; " + source.Describe()));
-        return MakeNode<NodeVectorEntry_>(name, static_cast<size_t>(value), source);
+            return MakeNode<NodeConst_>(ReadVectorEntry(predefined->second, entry, name + "; " + source.Describe()));
+        return MakeNode<NodeVectorEntry_>(name, entry, source);
     }
 
     Expression_ Parser_::ParseVectorReduction(TokIt_& cur, const TokIt_& end) {
@@ -210,13 +235,7 @@ namespace Dal::Script {
         ++cur;
         REQUIRE2(cur != end && cur->Text() == "(", "InvalidVectorReduction: expected '('; " + source.Describe(), ScriptError_);
         ++cur;
-        REQUIRE2(cur != end && !std::holds_alternative<IndexLiteral_>(cur->value_) && !cur->Text().empty() && cur->Text()[0] >= 'A' &&
-                     cur->Text()[0] <= 'z' && RESERVED_KEY_WORDS.find(cur->Text()) == RESERVED_KEY_WORDS.end(),
-                 "InvalidVectorReduction: expected a vector name; " + source.Describe(), ScriptError_);
-        const String_ name = cur->Text();
-        REQUIRE2(!loopIndices_.count(name), "InvalidFor: loop index cannot name a vector; " + source.Describe(), ScriptError_);
-        REQUIRE2(!constVariables_.count(name), "InvalidVectorReduction: scalar constant is not a vector; " + source.Describe(), ScriptError_);
-        ++cur;
+        const String_ name = ParseVectorName(cur, end, source, "InvalidVectorReduction");
         REQUIRE2(cur != end && cur->Text() == ")", "InvalidVectorReduction: expected ')'; " + source.Describe(), ScriptError_);
         ++cur;
         const auto kind = function == "SUM"       ? NodeVectorReduce_::Kind_::Sum
@@ -234,15 +253,9 @@ namespace Dal::Script {
         REQUIRE2(cur != end && cur->Text() == "(", "InvalidVectorAppend: expected '('; " + source.Describe(), ScriptError_);
         auto close = FindMatch<'(', ')'>(cur, end);
         ++cur;
-        REQUIRE2(cur != close && !std::holds_alternative<IndexLiteral_>(cur->value_) && !cur->Text().empty() && cur->Text()[0] >= 'A' &&
-                     cur->Text()[0] <= 'z' && RESERVED_KEY_WORDS.find(cur->Text()) == RESERVED_KEY_WORDS.end(),
-                 "InvalidVectorAppend: expected a vector name; " + source.Describe(), ScriptError_);
-        auto append = MakeNode<NodeVectorAppend_>(cur->Text(), source);
-        REQUIRE2(!loopIndices_.count(append->name_), "InvalidFor: loop index cannot name a vector; " + source.Describe(), ScriptError_);
-        REQUIRE2(!constVariables_.count(append->name_), "InvalidVectorAppend: scalar constant is not a vector; " + source.Describe(), ScriptError_);
+        auto append = MakeNode<NodeVectorAppend_>(ParseVectorName(cur, close, source, "InvalidVectorAppend"), source);
         REQUIRE2(!numericVectors_.count(append->name_), "ImmutableVector: APPEND cannot modify a predefined vector; " + source.Describe(),
                  ScriptError_);
-        ++cur;
         REQUIRE2(cur != close && cur->Text() == ",", "InvalidVectorAppend: expected ','; " + source.Describe(), ScriptError_);
         ++cur;
         REQUIRE2(cur != close, "InvalidVectorAppend: expected a value; " + source.Describe(), ScriptError_);
@@ -253,52 +266,54 @@ namespace Dal::Script {
         return append;
     }
 
-    Statement_ Parser_::ParseFor(TokIt_& cur, const TokIt_& end) {
-        const auto source = cur->source_;
-        const String_ context = "; " + source.Describe();
+    int Parser_::ParseForBound(TokIt_& cur, const TokIt_& end, const String_& context) {
+        REQUIRE2(cur != end, "InvalidFor: missing loop bound" + context, ScriptError_);
+        int sign = 1;
+        if (cur->Text() == "-" || cur->Text() == "+") {
+            sign = cur->Text() == "-" ? -1 : 1;
+            ++cur;
+        }
+        REQUIRE2(cur != end, "InvalidFor: missing loop bound" + context, ScriptError_);
+        const double value = sign * NumericConstant(cur->Text(), "InvalidFor: bound must be an integer constant" + context);
+        ++cur;
+        return static_cast<int>(NonnegativeInteger(value, "InvalidFor: bound must be a nonnegative integer at most 1000000" + context));
+    }
+
+    Parser_::ForHeader_ Parser_::ParseForHeader(TokIt_& cur, const TokIt_& end, const String_& context) {
         ++cur;
         REQUIRE2(cur != end && cur->Text() == "(", "InvalidFor: expected '('" + context, ScriptError_);
         ++cur;
-        REQUIRE2(cur != end && !std::holds_alternative<IndexLiteral_>(cur->value_) && !cur->Text().empty() && cur->Text()[0] >= 'A' &&
-                     cur->Text()[0] <= 'z' && RESERVED_KEY_WORDS.find(cur->Text()) == RESERVED_KEY_WORDS.end() &&
-                     !constVariables_.count(cur->Text()) && !numericVectors_.count(cur->Text()) && !loopIndices_.count(cur->Text()),
-                 "InvalidFor: expected a fresh loop index" + context, ScriptError_);
+        REQUIRE2(cur != end && IsFreshLoopIndex(*cur), "InvalidFor: expected a fresh loop index" + context, ScriptError_);
         const String_ indexName = cur->Text();
         ++cur;
         REQUIRE2(cur != end && cur->Text() == ",", "InvalidFor: expected ',' after loop index" + context, ScriptError_);
         ++cur;
-
-        const auto bound = [&]() -> int {
-            REQUIRE2(cur != end, "InvalidFor: missing loop bound" + context, ScriptError_);
-            int sign = 1;
-            if (cur->Text() == "-" || cur->Text() == "+") {
-                sign = cur->Text() == "-" ? -1 : 1;
-                ++cur;
-            }
-            REQUIRE2(cur != end, "InvalidFor: missing loop bound" + context, ScriptError_);
-            double value;
-            if (String::IsNumber(cur->Text()))
-                value = String::ToDouble(cur->Text());
-            else if (const auto constant = constVariables_.find(cur->Text()); constant != constVariables_.end())
-                value = constant->second;
-            else if (const auto outer = loopIndices_.find(cur->Text()); outer != loopIndices_.end())
-                value = outer->second;
-            else
-                THROW2("InvalidFor: bound must be an integer constant" + context, ScriptError_);
-            ++cur;
-            value *= sign;
-            REQUIRE2(std::isfinite(value) && std::floor(value) == value && value >= 0.0 && value <= 1000000.0,
-                     "InvalidFor: bound must be a nonnegative integer at most 1000000" + context, ScriptError_);
-            return static_cast<int>(value);
-        };
-
-        const int first = bound();
+        const int first = ParseForBound(cur, end, context);
         REQUIRE2(cur != end && cur->Text() == ",", "InvalidFor: expected ',' between bounds" + context, ScriptError_);
         ++cur;
-        const int last = bound();
+        const int last = ParseForBound(cur, end, context);
         REQUIRE2(cur != end && cur->Text() == ")", "InvalidFor: expected ')'" + context, ScriptError_);
         REQUIRE2(last >= first && last - first <= 10000, "InvalidFor: range must contain at most 10000 iterations" + context, ScriptError_);
         ++cur;
+        return {indexName, first, last};
+    }
+
+    Parser_::TokIt_ Parser_::ParseForIteration(TokIt_ body, const TokIt_& end, bool emit, NodeCollect_* collected, const String_& context) {
+        while (body != end && body->Text() != "END") {
+            auto statement = ParseStatement(body, end);
+            if (emit) {
+                REQUIRE2(expandedStatements_ < 100000, "InvalidFor: expanded program exceeds 100000 statements" + context, ScriptError_);
+                ++expandedStatements_;
+                collected->arguments_.push_back(std::move(statement));
+            }
+        }
+        REQUIRE2(body != end, "InvalidFor: missing END" + context, ScriptError_);
+        return body;
+    }
+
+    Statement_ Parser_::ParseFor(TokIt_& cur, const TokIt_& end) {
+        const String_ context = "; " + cur->source_.Describe();
+        const auto header = ParseForHeader(cur, end, context);
         const TokIt_ bodyStart = cur;
         TokIt_ bodyEnd = end;
         auto collected = MakeNode<NodeCollect_>();
@@ -306,25 +321,16 @@ namespace Dal::Script {
         const bool hadExercise = hasExercise_;
         const String_ previousPreparationError = preparationError_;
         const size_t previousExpandedStatements = expandedStatements_;
-        for (int i = first; i < std::max(last, first + 1); ++i) {
-            loopIndices_[indexName] = static_cast<double>(i);
-            TokIt_ body = bodyStart;
-            while (body != end && body->Text() != "END") {
-                auto statement = ParseStatement(body, end);
-                if (i < last) {
-                    REQUIRE2(expandedStatements_ < 100000, "InvalidFor: expanded program exceeds 100000 statements" + context, ScriptError_);
-                    ++expandedStatements_;
-                    collected->arguments_.push_back(std::move(statement));
-                }
-            }
-            REQUIRE2(body != end, "InvalidFor: missing END" + context, ScriptError_);
+        for (int i = header.first_; i < std::max(header.last_, header.first_ + 1); ++i) {
+            loopIndices_[header.indexName_] = static_cast<double>(i);
+            const TokIt_ body = ParseForIteration(bodyStart, end, i < header.last_, collected.get(), context);
             if (bodyEnd == end)
                 bodyEnd = body;
             else
                 REQUIRE2(body == bodyEnd, "InvalidFor: inconsistent loop body" + context, ScriptError_);
         }
-        loopIndices_.erase(indexName);
-        if (first == last) {
+        loopIndices_.erase(header.indexName_);
+        if (header.first_ == header.last_) {
             hasPays_ = hadPays;
             hasExercise_ = hadExercise;
             preparationError_ = previousPreparationError;
