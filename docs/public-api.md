@@ -602,7 +602,8 @@ ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simula
 for fresh defaults. Their constructors use keyword-only fields. Product settings
 provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing` and `fixings`; simulation settings provide
-`method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, and `lsmc_basis_degree`.
+`method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
+`lsmc_training_paths`, and `lsmc_validation_paths`.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
 case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,

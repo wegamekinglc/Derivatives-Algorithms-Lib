@@ -43,6 +43,9 @@ namespace Dal {
             int lsmcBasisDegree_ = DEFAULT_LSMC_BASIS_DEGREE;
             // Positive training count for EXERCISE valuation; unset uses the pricing count.
             std::optional<int> lsmcTrainingPaths_ = std::nullopt;
+            // Positive held-out count enables degree selection on a disjoint Sobol block.
+            // Unset retains the fixed-degree fast path.
+            std::optional<int> lsmcValidationPaths_ = std::nullopt;
         };
 
         struct ScriptValuationSettings_ {
@@ -66,6 +69,7 @@ namespace Dal {
         void ValidateSmoothing(double smooth);
         void ValidateLsmcBasisDegree(int degree);
         void ValidateLsmcTrainingPaths(int count);
+        void ValidateLsmcValidationPaths(int count);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

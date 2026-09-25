@@ -598,6 +598,29 @@ def test_lsmc_training_paths_rejects_invalid_counts(bad, construct):
     assert settings.lsmc_training_paths == 128
 
 
+def test_lsmc_validation_paths_accepts_optional_positive_integers():
+    assert dal.MonteCarloSettings_().lsmc_validation_paths is None
+    for count in [None, 1, 1024, 2**31 - 1, IndexCount()]:
+        expected = None if count is None else int(count)
+        settings = dal.MonteCarloSettings_(lsmc_validation_paths=count)
+        assert settings.lsmc_validation_paths == expected
+        assert copy.deepcopy(settings).lsmc_validation_paths == expected
+        settings.lsmc_validation_paths = count
+        assert settings.lsmc_validation_paths == expected
+
+
+@pytest.mark.parametrize("construct", [True, False], ids=["constructor", "setter"])
+@pytest.mark.parametrize("bad", [True, 0, -1, 1.5, 2**31, "3", IntChoice.ONE])
+def test_lsmc_validation_paths_rejects_invalid_counts(bad, construct):
+    settings = dal.MonteCarloSettings_(lsmc_validation_paths=128)
+    with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcValidationPaths"):
+        if construct:
+            dal.MonteCarloSettings_(lsmc_validation_paths=bad)
+        else:
+            settings.lsmc_validation_paths = bad
+    assert settings.lsmc_validation_paths == 128
+
+
 def test_lsmc_basis_degree_accepts_integers_in_range():
     assert dal.MonteCarloSettings_().lsmc_basis_degree == 3
     for degree in [1, 3, 8, IndexCount()]:
@@ -667,6 +690,7 @@ def test_script_simulation_explain_reports_exercise_events(compiled):
     assert diagnostic["evaluation_date"] == "2026-09-12"
     assert diagnostic["simulation"]["lsmc_basis_degree"] == 5
     assert diagnostic["simulation"]["lsmc_training_paths"] == 4096
+    assert diagnostic["simulation"]["lsmc_validation_paths"] is None
     assert diagnostic["simulation"]["compiled"] is compiled
     assert diagnostic["n_paths"] == 4096
     events = diagnostic["exercise_events"]

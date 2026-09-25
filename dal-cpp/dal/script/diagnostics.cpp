@@ -53,6 +53,11 @@ namespace Dal::Script {
                 out << *simulation.lsmcTrainingPaths_;
             else
                 out << "null";
+            out << ",\"lsmc_validation_paths\":";
+            if (simulation.lsmcValidationPaths_)
+                out << *simulation.lsmcValidationPaths_;
+            else
+                out << "null";
             out << '}';
         }
 
@@ -236,7 +241,18 @@ namespace Dal::Script {
         void WriteExerciseEvent(std::ostream& out, const ExerciseEventStats_& event) {
             out << "{\"event_id\":" << event.eventId_ << ",\"date\":";
             JsonWriteString(Date::ToString(event.date_), out);
-            out << ",\"basis_degree\":" << event.basisDegree_ << ",\"regressor_index\":";
+            out << ",\"basis_degree\":" << event.basisDegree_ << ",\"basis\":";
+            JsonWriteString(event.basisDegree_ == 0 ? "Constant" : "NormalizedMonomial", out);
+            out << ",\"effective_rank\":" << event.effectiveRank_ << ",\"solver\":";
+            JsonWriteString(event.solver_, out);
+            out << ",\"fallback_reason\":";
+            JsonWriteStringOrNull(event.fallbackReason_, out);
+            out << ",\"validation_mse\":";
+            if (event.validationMse_)
+                out << DebugNumber(*event.validationMse_);
+            else
+                out << "null";
+            out << ",\"regressor_index\":";
             JsonWriteStringOrNull(event.regressorIndex_, out);
             out << ",\"num_cond_true_paths\":" << event.numCondTruePaths_ << ",\"num_coefficients\":" << event.coefficients_.size()
                 << ",\"coefficients\":";

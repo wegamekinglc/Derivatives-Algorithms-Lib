@@ -52,18 +52,19 @@ Model-sourced FIX observations are bound by index name, so the valuation
 constructor takes no binding range: the engine binds the model's spot output
 to the script's future FIX index.
 
-| Settings handle | Key                   | Default                                         | Accepted value                                |
-|-----------------|-----------------------|-------------------------------------------------|-----------------------------------------------|
-| Product         | `default_index`       | No default                                      | Nonempty index-name text                      |
-| Valuation       | `evaluation_date`     | Capture global date at each Value/Explain entry | Valid integral Excel date serial              |
-| Valuation       | `today_fixing`        | `Model`                                         | Exact text `Model` or `RequireHistorical`     |
-| Simulation      | `method`              | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`               |
-| Simulation      | `use_bb`              | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `enable_aad`          | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `smooth`              | `0.01`                                          | Finite, strictly positive number; not boolean |
-| Simulation      | `compiled`            | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
-| Simulation      | `lsmc_basis_degree`   | `3`                                             | Integral number 1..8; not boolean             |
-| Simulation      | `lsmc_training_paths` | Same as the pricing count                       | Integral number 1..2147483647; not boolean    |
+| Settings handle | Key                     | Default                                         | Accepted value                                |
+|-----------------|-------------------------|-------------------------------------------------|-----------------------------------------------|
+| Product         | `default_index`         | No default                                      | Nonempty index-name text                      |
+| Valuation       | `evaluation_date`       | Capture global date at each Value/Explain entry | Valid integral Excel date serial              |
+| Valuation       | `today_fixing`          | `Model`                                         | Exact text `Model` or `RequireHistorical`     |
+| Simulation      | `method`                | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`               |
+| Simulation      | `use_bb`                | `FALSE`                                         | Excel boolean or numeric 0/1                  |
+| Simulation      | `enable_aad`            | `FALSE`                                         | Excel boolean or numeric 0/1                  |
+| Simulation      | `smooth`                | `0.01`                                          | Finite, strictly positive number; not boolean |
+| Simulation      | `compiled`              | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
+| Simulation      | `lsmc_basis_degree`     | `3`                                             | Integral number 1..8; not boolean             |
+| Simulation      | `lsmc_training_paths`   | Same as the pricing count                       | Integral number 1..2147483647; not boolean    |
+| Simulation      | `lsmc_validation_paths` | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean    |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
@@ -74,6 +75,9 @@ Smoothing must be valid even with AAD disabled.
 `n_paths` still sets the pricing count. The two Sobol blocks do not overlap.
 Omit the training key to use the pricing count. Products without `EXERCISE`
 ignore the setting after validation.
+`lsmc_validation_paths` reserves a disjoint block between training and pricing
+for selecting a polynomial degree up to `lsmc_basis_degree`. Omitting it keeps
+the fixed-degree fast path.
 
 Omitting a matrix, passing `""`, or referencing one blank cell selects defaults.
 An entirely blank two-column range also selects defaults. Within a two-column
@@ -208,13 +212,16 @@ date/snapshot and product/model inputs when comparing them.
 `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
 [simulation])` returns `dal.script-simulation/1`: unlike the valuation Explain
 it explicitly runs the full double valuation with `n_paths` pricing paths and
-`lsmc_training_paths` training paths (defaulting to `n_paths`) on exercise
+`lsmc_training_paths` training paths (defaulting to `n_paths`) and optional
+`lsmc_validation_paths` held-out paths on exercise
 products — path generation plus workers plus the exercise regressions — and
 reports the
-simulation echo (including `lsmc_basis_degree` and `lsmc_training_paths`, null
+simulation echo (including `lsmc_basis_degree`, `lsmc_training_paths`, and
+`lsmc_validation_paths`, null
 when unset), the explicit `n_paths`, and
-one `exercise_events` entry per exercise date with the regression degree,
-regressor index, in-the-money condition-true path count, frozen coefficients,
+one `exercise_events` entry per exercise date with the selected degree, basis,
+solver, effective rank, fallback reason, validation MSE, regressor index,
+in-the-money condition-true path count, frozen coefficients,
 degenerate flag and reason, and the exercise rate. Products without `EXERCISE`
 skip the simulation run and return an empty `exercise_events` array. `enable_aad` settings are rejected with
 `UnsupportedExecutionMode`; `compiled` selects the engine for the run.

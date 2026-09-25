@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/preparation.hpp>
@@ -15,8 +17,8 @@ namespace Dal::Script {
 
     //  Frozen continuation regression of one exercise date: coefficients live on the
     //  z-normalized monomial basis [1, z, ..., z^d], z = (x - mean_) / sigma_. A
-    //  degenerate day carries the constant fit (intercept only) and one of the
-    //  PascalCase tokens ConditionPathsBelowMin / SigmaFloor / IllConditioned.
+    //  degenerate day carries the constant fit (intercept only). A rank-revealing
+    //  QR fallback may lower the degree while retaining nonconstant state.
     struct ExerciseRegression_ {
         Vector_<> coefficients_;
         int basisDegree_ = 0;
@@ -25,6 +27,10 @@ namespace Dal::Script {
         double mean_ = 0.0;
         double sigma_ = 1.0;
         size_t numCondTrue_ = 0;
+        size_t effectiveRank_ = 0;
+        String_ solver_ = "Constant";
+        String_ fallbackReason_;
+        std::optional<double> validationMse_;
     };
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree);
@@ -53,6 +59,10 @@ namespace Dal::Script {
         Vector_<> coefficients_;
         bool degenerate_ = false;
         String_ degenerateReason_; //  "" | ConditionPathsBelowMin | SigmaFloor | IllConditioned
+        size_t effectiveRank_ = 0;
+        String_ solver_;
+        String_ fallbackReason_;
+        std::optional<double> validationMse_;
         double exerciseRate_ = 0.0;
     };
 
@@ -72,8 +82,9 @@ namespace Dal::Script {
         }
     };
 
-    //  Train on lsmcTrainingPaths_ Sobol points (default nPaths), then price the
-    //  frozen policy on the next nPaths points. Release training rows before pricing;
+    //  Train on lsmcTrainingPaths_ Sobol points (default nPaths), optionally select
+    //  degree on the following lsmcValidationPaths_ points, then price on nPaths
+    //  further points. Release training and validation rows before pricing;
     //  batches and reductions are independent of the worker count.
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics = nullptr);
 

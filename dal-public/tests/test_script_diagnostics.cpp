@@ -538,6 +538,11 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
     ASSERT_EQ(events[0]["event_id"].GetInt(), 0);
     ASSERT_STREQ(events[0]["date"].GetString(), "2026-12-12");
     ASSERT_EQ(events[0]["basis_degree"].GetInt(), 3);
+    ASSERT_STREQ(events[0]["basis"].GetString(), "NormalizedMonomial");
+    ASSERT_EQ(events[0]["effective_rank"].GetInt(), 4);
+    ASSERT_STREQ(events[0]["solver"].GetString(), "MomentsCholesky");
+    ASSERT_TRUE(events[0]["fallback_reason"].IsNull());
+    ASSERT_TRUE(events[0]["validation_mse"].IsNull());
     ASSERT_TRUE(events[0]["regressor_index"].IsNull());
     //  in-the-money condition-true paths enter the regression: 1926 of 4096 on this ATM put
     ASSERT_EQ(events[0]["num_cond_true_paths"].GetInt(), 1926);
@@ -560,6 +565,22 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
         for (rapidjson::SizeType k = 0; k < events.Size(); ++k) {
             ASSERT_EQ(compiledEvents[k]["event_id"].GetInt(), events[k]["event_id"].GetInt());
             ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
+        }
+    }
+    { // held-out selection is visible without exposing validation rows as pricing observations
+        MonteCarloSettings_ simulation;
+        simulation.lsmcTrainingPaths_ = 1024;
+        simulation.lsmcValidationPaths_ = 256;
+        simulation.lsmcBasisDegree_ = 5;
+        rapidjson::Document adaptive;
+        adaptive.Parse(ExplainScriptSimulation(product, model, 257, ScriptValuationSettings_(), simulation).c_str());
+        ASSERT_FALSE(adaptive.HasParseError());
+        ASSERT_EQ(adaptive["simulation"]["lsmc_validation_paths"].GetInt(), 256);
+        for (const auto& event : adaptive["exercise_events"].GetArray()) {
+            ASSERT_GE(event["basis_degree"].GetInt(), 1);
+            ASSERT_LE(event["basis_degree"].GetInt(), 5);
+            ASSERT_TRUE(event["validation_mse"].IsNumber());
+            ASSERT_TRUE(event["effective_rank"].IsUint64());
         }
     }
     { //  products without EXERCISE return an empty exercise_events array and burn no simulation
@@ -600,10 +621,12 @@ TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
     ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
     for (const auto* json : {&valuation, &simulation}) {
         const auto& echo = (*json)["simulation"];
-        ASSERT_EQ(echo.MemberCount(), 7u);
-        for (const auto* field : {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths"})
+        ASSERT_EQ(echo.MemberCount(), 8u);
+        for (const auto* field :
+             {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths", "lsmc_validation_paths"})
             ASSERT_TRUE(echo.HasMember(field)) << field;
         ASSERT_TRUE(echo["lsmc_training_paths"].IsNull());
+        ASSERT_TRUE(echo["lsmc_validation_paths"].IsNull());
     }
     ASSERT_TRUE(valuation["simulation"] == simulation["simulation"]);
 }

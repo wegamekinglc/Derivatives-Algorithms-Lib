@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -89,6 +90,64 @@ TEST(ScriptExerciseLSMCTest, TestPdeBenchmarkGridConvergence) {
 namespace {
     Vector_<char> AllIncluded(size_t n) { return Vector_<char>(n, 1); }
 
+    //  Test-only long-double Householder QR. It neither forms normal equations
+    //  nor uses the production column-pivoted/reorthogonalized solver.
+    Vector_<> HouseholderReference(const Vector_<>& x, const Vector_<>& y, int degree, double mean, double sigma) {
+        const size_t columns = static_cast<size_t>(degree + 1);
+        std::vector<std::array<long double, 9>> a(x.size());
+        std::vector<long double> b(x.size());
+        for (size_t i = 0; i < x.size(); ++i) {
+            const long double z = (static_cast<long double>(x[i]) - mean) / sigma;
+            long double power = 1.0;
+            for (size_t j = 0; j < columns; ++j) {
+                a[i][j] = power;
+                power *= z;
+            }
+            b[i] = y[i];
+        }
+        for (size_t k = 0; k < columns; ++k) {
+            long double normSq = 0.0;
+            for (size_t i = k; i < x.size(); ++i)
+                normSq += a[i][k] * a[i][k];
+            const long double alpha = a[k][k] >= 0.0 ? -std::sqrt(normSq) : std::sqrt(normSq);
+            std::vector<long double> v(x.size() - k);
+            v[0] = a[k][k] - alpha;
+            long double vNormSq = v[0] * v[0];
+            for (size_t i = k + 1; i < x.size(); ++i) {
+                v[i - k] = a[i][k];
+                vNormSq += v[i - k] * v[i - k];
+            }
+            const long double scale = 2.0L / vNormSq;
+            for (size_t j = k; j < columns; ++j) {
+                long double projection = 0.0;
+                for (size_t i = k; i < x.size(); ++i)
+                    projection += v[i - k] * a[i][j];
+                for (size_t i = k; i < x.size(); ++i)
+                    a[i][j] -= scale * v[i - k] * projection;
+            }
+            long double projection = 0.0;
+            for (size_t i = k; i < x.size(); ++i)
+                projection += v[i - k] * b[i];
+            for (size_t i = k; i < x.size(); ++i)
+                b[i] -= scale * v[i - k] * projection;
+        }
+        Vector_<> coefficients(columns);
+        for (size_t k = columns; k-- > 0;) {
+            long double residual = b[k];
+            for (size_t j = k + 1; j < columns; ++j)
+                residual -= a[k][j] * coefficients[j];
+            coefficients[k] = static_cast<double>(residual / a[k][k]);
+        }
+        return coefficients;
+    }
+
+    double Horner(const Vector_<>& coefficients, double z) {
+        double value = 0.0;
+        for (size_t j = coefficients.size(); j-- > 0;)
+            value = value * z + coefficients[j];
+        return value;
+    }
+
     constexpr size_t EUROPEAN_LIMIT_PATHS = 1u << 18;
 
     String_ PutExerciseText(double strike) { return "EXERCISE MAX(" + String_(std::to_string(strike)) + " - spot(), 0.0)"; }
@@ -124,8 +183,28 @@ TEST(ScriptExerciseLSMCTest, TestRegressionRecoversPolynomial) {
     ASSERT_EQ(regression.basisDegree_, 3);
     ASSERT_EQ(regression.coefficients_.size(), 4u);
     ASSERT_EQ(regression.numCondTrue_, n);
+    ASSERT_EQ(regression.effectiveRank_, 4u);
+    ASSERT_EQ(regression.solver_, "MomentsCholesky");
     for (size_t i = 0; i < n; ++i)
         ASSERT_NEAR(RegressionPredict(regression, x[i]), targets[i], 1e-8);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRegressionDegreesAgainstIndependentHouseholderReference) {
+    constexpr size_t N = 257;
+    Vector_<> x(N), targets(N);
+    for (size_t i = 0; i < N; ++i) {
+        x[i] = 20.0 + 230.0 * static_cast<double>(i) / static_cast<double>(N - 1);
+        targets[i] = std::exp(-x[i] / 80.0) + 0.05 * std::sin(x[i] / 30.0);
+    }
+    for (int degree = 1; degree <= 8; ++degree) {
+        SCOPED_TRACE(degree);
+        const auto fit = SolveExerciseRegression(x, targets, AllIncluded(N), degree);
+        ASSERT_FALSE(fit.degenerate_);
+        ASSERT_EQ(fit.basisDegree_, degree);
+        const auto reference = HouseholderReference(x, targets, degree, fit.mean_, fit.sigma_);
+        for (double spot : {22.5, 58.5, 101.0, 177.0, 248.0})
+            ASSERT_NEAR(RegressionPredict(fit, spot), Horner(reference, (spot - fit.mean_) / fit.sigma_), 2e-7);
+    }
 }
 
 TEST(ScriptExerciseLSMCTest, TestRegressionConstantTargetLeavesRidgeHarmless) {
@@ -197,9 +276,12 @@ TEST(ScriptExerciseLSMCTest, TestRegressionIllConditioned) {
     x[n - 1] = 1e7; //  single extreme outlier dominates the high-order Gram diagonal
     targets[n - 1] = 2.0;
     const auto regression = SolveExerciseRegression(x, targets, AllIncluded(n), 8);
-    ASSERT_TRUE(regression.degenerate_);
-    ASSERT_EQ(regression.degenerateReason_, "IllConditioned");
-    ASSERT_EQ(regression.basisDegree_, 0);
+    ASSERT_FALSE(regression.degenerate_);
+    ASSERT_GE(regression.basisDegree_, 1);
+    ASSERT_EQ(regression.solver_, "PivotedQR");
+    ASSERT_FALSE(regression.fallbackReason_.empty());
+    ASSERT_NEAR(RegressionPredict(regression, 1.0), 2.0, 1e-3);
+    ASSERT_NEAR(RegressionPredict(regression, 1e7), 2.0, 1e-3);
 }
 
 TEST(ScriptExerciseLSMCTest, TestRegressionIncludedSubsetDrivesFit) {
@@ -228,9 +310,29 @@ TEST(ScriptExerciseLSMCTest, TestRegressionDetectsCollinearBasis) {
         targets[i] = 3.0 + x[i];
     }
     const auto fit = SolveExerciseRegression(x, targets, AllIncluded(x.size()), 3);
-    ASSERT_TRUE(fit.degenerate_);
-    ASSERT_EQ(fit.degenerateReason_, "IllConditioned");
+    ASSERT_FALSE(fit.degenerate_);
+    ASSERT_EQ(fit.basisDegree_, 1);
+    ASSERT_EQ(fit.effectiveRank_, 2u);
+    ASSERT_EQ(fit.solver_, "PivotedQR");
+    ASSERT_EQ(fit.fallbackReason_, "RankDeficient");
     ASSERT_NEAR(RegressionPredict(fit, 0.0), 3.0, 1e-12);
+    ASSERT_NEAR(RegressionPredict(fit, -1.0), 2.0, 1e-12);
+    ASSERT_NEAR(RegressionPredict(fit, 1.0), 4.0, 1e-12);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRegressionPreservesQuadraticDiscreteStates) {
+    Vector_<> x(120), targets(120);
+    for (size_t i = 0; i < x.size(); ++i) {
+        x[i] = 80.0 + 20.0 * static_cast<double>(i % 3);
+        targets[i] = 2.0 + 0.1 * x[i] + 0.01 * x[i] * x[i];
+    }
+    const auto fit = SolveExerciseRegression(x, targets, AllIncluded(x.size()), 8);
+    ASSERT_FALSE(fit.degenerate_);
+    ASSERT_EQ(fit.basisDegree_, 2);
+    ASSERT_EQ(fit.effectiveRank_, 3u);
+    ASSERT_EQ(fit.solver_, "PivotedQR");
+    for (double state : {80.0, 100.0, 120.0})
+        ASSERT_NEAR(RegressionPredict(fit, state), 2.0 + 0.1 * state + 0.01 * state * state, 1e-8);
 }
 
 TEST(ScriptExerciseLSMCTest, TestRegressionRejectsNonFiniteIncludedData) {
@@ -265,11 +367,13 @@ namespace {
                      size_t nPaths,
                      int degree = 3,
                      bool compiled = false,
-                     std::optional<int> trainingPaths = std::nullopt) {
+                     std::optional<int> trainingPaths = std::nullopt,
+                     std::optional<int> validationPaths = std::nullopt) {
         MonteCarloSettings_ simulation;
         simulation.lsmcBasisDegree_ = degree;
         simulation.compiled_ = compiled;
         simulation.lsmcTrainingPaths_ = trainingPaths;
+        simulation.lsmcValidationPaths_ = validationPaths;
         auto model = CreateModel<double>(modelData);
         auto prepared = PrepareScript(product, model.get(), ScriptValuationSettings_(), simulation);
         LsmcRun_ run{0.0, LsmcDiagnostics_()};
@@ -326,6 +430,40 @@ TEST(ScriptExerciseLSMCTest, TestPricingUsesPathsAfterTrainingBlock) {
                 settings.enableAad_ = false;
             }
         }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestValidationPathsStayBetweenTrainingAndPricing) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
+    constexpr size_t TRAINING = 101;
+    constexpr size_t VALIDATION = 37;
+    constexpr size_t PRICING = 257;
+    MonteCarloSettings_ settings;
+    settings.lsmcTrainingPaths_ = static_cast<int>(TRAINING);
+    settings.lsmcValidationPaths_ = static_cast<int>(VALIDATION);
+    auto model = CreateModel<double>(StandardModel());
+    const auto prepared = PrepareScript(product, model.get(), {}, settings);
+    auto rng = CreateRNG(settings.rsg_, model->SimDim(), settings.useBb_);
+    rng->SkipTo(TRAINING + VALIDATION);
+    Vector_<> gauss(model->SimDim());
+    Scenario_<> path;
+    AllocatePath(prepared.DefLine(), path);
+    InitializePath(path);
+    double expected = 0.0;
+    for (size_t i = 0; i < PRICING; ++i) {
+        rng->FillNormal(&gauss);
+        model->GeneratePath(gauss, &path);
+        expected += std::max(STRIKE - path.back().spot_, 0.0) / path.back().numeraire_;
+    }
+    for (bool compiled : {false, true}) {
+        settings.compiled_ = compiled;
+        const auto hard = MCSimulation<double>(product, StandardModel(), PRICING, {}, settings);
+        ASSERT_NEAR(hard.aggregated_, expected, 1e-10);
+        settings.enableAad_ = true;
+        const auto aad = MCSimulation<AAD::Number_>(product, StandardModel(), PRICING, {}, settings);
+        ASSERT_NEAR(aad.aggregated_, expected, 1e-10);
+        settings.enableAad_ = false;
     }
 }
 
@@ -394,6 +532,40 @@ TEST(ScriptExerciseLSMCTest, TestTrainingPolicyDoesNotDependOnPricingCount) {
     }
 }
 
+TEST(ScriptExerciseLSMCTest, TestAdaptiveDegreeUsesHeldOutPathsOnly) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 3, 20), Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    for (bool compiled : {false, true}) {
+        const auto small = RunLsmc(product, StandardModel(), 257, 8, compiled, 4096, 1024);
+        const auto large = RunLsmc(product, StandardModel(), 2049, 8, compiled, 4096, 1024);
+        ASSERT_EQ(small.diagnostics_.events_.size(), 3u);
+        ASSERT_EQ(large.diagnostics_.events_.size(), 3u);
+        for (size_t day = 0; day < small.diagnostics_.events_.size(); ++day) {
+            const auto& lhs = small.diagnostics_.events_[day];
+            const auto& rhs = large.diagnostics_.events_[day];
+            ASSERT_EQ(lhs.coefficients_, rhs.coefficients_);
+            ASSERT_EQ(lhs.basisDegree_, rhs.basisDegree_);
+            ASSERT_GE(lhs.basisDegree_, 1);
+            ASSERT_LE(lhs.basisDegree_, 8);
+            ASSERT_TRUE(lhs.validationMse_.has_value());
+            ASSERT_TRUE(std::isfinite(*lhs.validationMse_));
+            ASSERT_EQ(lhs.validationMse_, rhs.validationMse_);
+        }
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        settings.lsmcBasisDegree_ = 8;
+        settings.lsmcTrainingPaths_ = 4096;
+        settings.lsmcValidationPaths_ = 1024;
+        settings.smooth_ = 1e-10;
+        const auto hard = MCSimulation<double>(product, StandardModel(), 257, {}, settings);
+        settings.enableAad_ = true;
+        const auto fuzzy = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+        ASSERT_NEAR(hard.aggregated_ / 257.0, fuzzy.aggregated_ / 257.0, 1e-7);
+        for (double risk : fuzzy.risks_)
+            ASSERT_TRUE(std::isfinite(risk));
+    }
+}
+
 TEST(ScriptExerciseLSMCTest, TestRejectsSobolPathRangeOverflowBeforeAllocation) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
@@ -409,6 +581,10 @@ TEST(ScriptExerciseLSMCTest, TestRejectsSobolPathRangeOverflowBeforeAllocation) 
             settings.enableAad_ = false;
         }
     }
+    MonteCarloSettings_ withValidation;
+    withValidation.lsmcTrainingPaths_ = std::numeric_limits<int>::max();
+    withValidation.lsmcValidationPaths_ = std::numeric_limits<int>::max();
+    ASSERT_THROW(MCSimulation<double>(product, StandardModel(), 2, {}, withValidation), ScriptError_);
 }
 
 TEST(ScriptExerciseLSMCTest, TestLsmcPrunesDeadStatementsAndKeepsBranchDependencies) {
@@ -793,7 +969,7 @@ TEST(ScriptExerciseLSMCTest, TestOutOfTheMoneyPathsNeverExercise) {
     ASSERT_NEAR(run.pv_, pde, 0.005 * SPOT);
 }
 
-TEST(ScriptExerciseLSMCTest, TestDegenerateIllConditioned) {
+TEST(ScriptExerciseLSMCTest, TestQrFallbackForDeepTailExercise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     //  5y at 50% vol puts an extreme right-tail outlier into the regressors; the degree-8
     //  Gram diagonal ratio crosses the conditioning guard. The call keeps the outlier
@@ -803,8 +979,10 @@ TEST(ScriptExerciseLSMCTest, TestDegenerateIllConditioned) {
     const ScriptProductData_ product("", {Cell_(Date_(2031, 9, 20))}, {"EXERCISE MAX(spot() - 100.0, 0.0)"});
     const auto run = RunLsmc(product, wild, 4096, 8);
     ASSERT_EQ(run.diagnostics_.events_.size(), 1u);
-    ASSERT_TRUE(run.diagnostics_.events_[0].degenerate_);
-    ASSERT_EQ(run.diagnostics_.events_[0].degenerateReason_, "IllConditioned");
+    ASSERT_FALSE(run.diagnostics_.events_[0].degenerate_);
+    ASSERT_GE(run.diagnostics_.events_[0].basisDegree_, 1);
+    ASSERT_EQ(run.diagnostics_.events_[0].solver_, "PivotedQR");
+    ASSERT_FALSE(run.diagnostics_.events_[0].fallbackReason_.empty());
     ASSERT_TRUE(std::isfinite(run.pv_));
 }
 
