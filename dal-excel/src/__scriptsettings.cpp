@@ -167,6 +167,28 @@ namespace Dal {
             return static_cast<int>(*number);
         }
 
+        String_ LsmcPolicyRiskModeValue(const Cell_& cell, const String_& context) {
+            const auto mode = TextValue(cell, context);
+            try {
+                Script::ValidateLsmcPolicyRiskMode(mode);
+            } catch (const Exception_&) {
+                THROW(context + "InvalidLsmcPolicyRiskMode: expected exact text Frozen or RetrainedBump");
+            }
+            return mode;
+        }
+
+        double LsmcPolicyBumpRelativeValue(const Cell_& cell, const String_& context) {
+            const auto constraint = context + "InvalidLsmcPolicyBumpRelative: expected a finite number in (0, 0.1]";
+            const auto* number = std::get_if<double>(&cell.val_);
+            REQUIRE(number, constraint);
+            try {
+                Script::ValidateLsmcPolicyBumpRelative(*number);
+            } catch (const Exception_&) {
+                THROW(constraint);
+            }
+            return *number;
+        }
+
         bool ApplyLsmcSetting(const String_& key, const Cell_& cell, const String_& valueContext, Script::MonteCarloSettings_* settings) {
             if (key == "lsmc_basis_degree")
                 settings->lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
@@ -181,6 +203,10 @@ namespace Dal {
                 settings->lsmcTrainingSeed_ = LsmcSeedValue(cell, valueContext);
             else if (key == "lsmc_pricing_seed")
                 settings->lsmcPricingSeed_ = LsmcSeedValue(cell, valueContext);
+            else if (key == "lsmc_policy_risk_mode")
+                settings->lsmcPolicyRiskMode_ = LsmcPolicyRiskModeValue(cell, valueContext);
+            else if (key == "lsmc_policy_bump_relative")
+                settings->lsmcPolicyBumpRelative_ = LsmcPolicyBumpRelativeValue(cell, valueContext);
             else
                 return false;
             return true;

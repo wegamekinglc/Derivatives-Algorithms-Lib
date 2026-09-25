@@ -207,3 +207,16 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcRqmc) {
         AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_pricing_seed"), value}}), &settings); },
                     {"InvalidLsmcSeed", "lsmc_pricing_seed", "row=1 column=2"});
 }
+
+TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcPolicyRisk) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New(
+        "policy", Rows({{Cell_("lsmc_policy_risk_mode"), Cell_("RetrainedBump")}, {Cell_("lsmc_policy_bump_relative"), Cell_(0.002)}}), &settings);
+    ASSERT_EQ(settings->val_.lsmcPolicyRiskMode_, String_("RetrainedBump"));
+    ASSERT_DOUBLE_EQ(settings->val_.lsmcPolicyBumpRelative_, 0.002);
+    AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_policy_risk_mode"), Cell_("retrainedbump")}}), &settings); },
+                {"InvalidLsmcPolicyRiskMode", "Frozen", "RetrainedBump", "row=1 column=2"});
+    for (const auto& value : {Cell_(true), Cell_(0.0), Cell_(0.11), Cell_("0.01")})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_policy_bump_relative"), value}}), &settings); },
+                    {"InvalidLsmcPolicyBumpRelative", "row=1 column=2"});
+}

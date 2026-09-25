@@ -110,10 +110,9 @@ namespace Dal::Script {
     //  batches and reductions are independent of the worker count.
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics = nullptr);
 
-    //  Fuzzy (AAD) LSMC (S9/N6): Phases A/B run exactly as the double driver (the
-    //  frozen policy is thread-count independent by construction), then each worker
-    //  prices its disjoint batch on its own tape, blending the recursive fuzzy decisions over
-    //  the frozen coefficients and harvesting parameter and constant-variable adjoints
-    //  with the same batch-index reduction (bitwise thread invariant).
+    //  Fuzzy (AAD) LSMC: Phase A/B fit a thread-invariant hard policy, then workers
+    //  replay disjoint pricing batches on their own tapes. Frozen mode returns the
+    //  adjoint of that policy's fuzzy price. RetrainedBump also adds a common-path
+    //  finite secant of regenerated policies for model and script-constant inputs.
     SimResults_ MCLsmcAadSimulation(const PreparedScript_& prepared, const Handle_<ModelData_>& modelData, size_t nPaths);
 } // namespace Dal::Script

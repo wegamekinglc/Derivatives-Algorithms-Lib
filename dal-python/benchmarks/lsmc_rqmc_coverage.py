@@ -49,14 +49,14 @@ def tridiagonal(lower, diagonal, upper, rhs):
     return values
 
 
-def bermudan_put_pde(exercise_dates, grid_points, steps_per_interval):
+def bermudan_put_pde(exercise_dates, grid_points, steps_per_interval, spot=SPOT, vol=VOL, rate=RATE):
     """Crank-Nicolson Black-Scholes rollback with exercise-date projection."""
     grid = np.linspace(0.0, 400.0, grid_points)
     step = grid[1] - grid[0]
     inner = grid[1:-1]
-    lower = 0.5 * VOL**2 * inner**2 / step**2 - (RATE - DIVIDEND) * inner / (2.0 * step)
-    center = -VOL**2 * inner**2 / step**2 - RATE
-    upper = 0.5 * VOL**2 * inner**2 / step**2 + (RATE - DIVIDEND) * inner / (2.0 * step)
+    lower = 0.5 * vol**2 * inner**2 / step**2 - (rate - DIVIDEND) * inner / (2.0 * step)
+    center = -vol**2 * inner**2 / step**2 - rate
+    upper = 0.5 * vol**2 * inner**2 / step**2 + (rate - DIVIDEND) * inner / (2.0 * step)
     payoff = np.maximum(STRIKE - grid, 0.0)
     value = payoff.copy()
     exercise_times = [(day - TODAY).days / 365.0 for day in exercise_dates]
@@ -71,8 +71,8 @@ def bermudan_put_pde(exercise_dates, grid_points, steps_per_interval):
         for step_index in range(steps_per_interval):
             time_new = right - step_index * dt
             time_old = time_new - dt
-            boundary_new = STRIKE * math.exp(-RATE * (right - time_new))
-            boundary_old = STRIKE * math.exp(-RATE * (right - time_old))
+            boundary_new = STRIKE * math.exp(-rate * (right - time_new))
+            boundary_old = STRIKE * math.exp(-rate * (right - time_old))
             rhs = (1.0 + 0.5 * dt * center) * value[1:-1]
             rhs[1:] += 0.5 * dt * lower[1:] * value[1:-2]
             rhs[:-1] += 0.5 * dt * upper[:-1] * value[2:-1]
@@ -83,7 +83,7 @@ def bermudan_put_pde(exercise_dates, grid_points, steps_per_interval):
         if left > 0.0:
             value = np.maximum(value, payoff)
 
-    return float(np.interp(SPOT, grid, value))
+    return float(np.interp(spot, grid, value))
 
 
 def dal_date(value):

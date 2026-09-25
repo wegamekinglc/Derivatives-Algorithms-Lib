@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-25
 
+- **LSMC exposes policy-sensitive AAD model risks** — the opt-in
+  `RetrainedBump` mode adds a common-path policy-retraining secant to the
+  frozen-policy adjoint for model parameters and script constants while preserving
+  the default. See [early-exercise AAD](docs/methodology/script_engine.md#early-exercise-aad).
 - **LSMC adds conditional randomized-QMC error estimates** — opt-in,
   independently digitally shifted Sobol pricing replicates use configurable
   seeds and report a standard error across replicate means. Deterministic

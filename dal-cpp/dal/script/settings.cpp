@@ -106,10 +106,26 @@ namespace Dal {
                      ScriptError_);
         }
 
+        void ValidateLsmcPolicyRiskMode(const String_& mode) {
+            const std::string exact(mode.data(), mode.size());
+            REQUIRE2(exact == "Frozen" || exact == "RetrainedBump",
+                     "InvalidSetting: InvalidLsmcPolicyRiskMode; simulation.lsmcPolicyRiskMode_=" + mode + "; expected Frozen or RetrainedBump",
+                     ScriptError_);
+        }
+
+        void ValidateLsmcPolicyBumpRelative(double bump) {
+            REQUIRE2(std::isfinite(bump) && bump > 0.0 && bump <= 0.1,
+                     "InvalidSetting: InvalidLsmcPolicyBumpRelative; expected a finite number in (0, 0.1]", ScriptError_);
+        }
+
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
             ValidateRNG(settings.rsg_);
             ValidateSmoothing(settings.smooth_);
             ValidateLsmcBasisDegree(settings.lsmcBasisDegree_);
+            ValidateLsmcPolicyRiskMode(settings.lsmcPolicyRiskMode_);
+            ValidateLsmcPolicyBumpRelative(settings.lsmcPolicyBumpRelative_);
+            REQUIRE2(settings.lsmcPolicyRiskMode_ == "Frozen" || settings.enableAad_,
+                     "InvalidSetting: lsmcPolicyRiskMode_=RetrainedBump requires enableAad_=true", ScriptError_);
             if (settings.lsmcTrainingPaths_)
                 ValidateLsmcTrainingPaths(*settings.lsmcTrainingPaths_);
             if (settings.lsmcValidationPaths_)

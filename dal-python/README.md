@@ -460,7 +460,8 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    smooth=0.01, compiled=None, lsmc_basis_degree=3,
                    lsmc_training_paths=None, lsmc_validation_paths=None,
                    lsmc_rqmc_replicates=None, lsmc_training_seed=None,
-                   lsmc_pricing_seed=None)
+                   lsmc_pricing_seed=None, lsmc_policy_risk_mode="Frozen",
+                   lsmc_policy_bump_relative=0.001)
 ```
 
 | Field                                     | Accepted input / default                                                                                        | Property result                     |
@@ -478,6 +479,8 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `lsmc_validation_paths`                   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |
 | `lsmc_rqmc_replicates`                    | Integer or valid `__index__` in `2..2**31-1`, excluding bool, enums, floats; `None` keeps deterministic Sobol   | `int` or `None`                     |
 | `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode             | `int` or `None`                     |
+| `lsmc_policy_risk_mode`                   | Exact `Frozen` (default) or `RetrainedBump`; the latter requires AAD                                            | `str`                               |
+| `lsmc_policy_bump_relative`               | Finite Python `int` / `float` in `(0, 0.1]`, excluding bool and enums; default `0.001`                          | `float`                             |
 
 For exercise products, training and pricing counts can be set independently:
 
@@ -522,6 +525,18 @@ diagnostic = dal.ScriptSimulation_Explain(
 )
 error_bar = diagnostic["uncertainty"]["replicate_mean_se"]
 ```
+
+For AAD Greeks that include the fitted exercise policy's
+response, use `lsmc_policy_risk_mode="RetrainedBump"` with
+`enable_aad=True`. This adds the common-path finite difference of policies
+retrained at each model-parameter or script-constant bump to the frozen-policy
+adjoint. The bump is `lsmc_policy_bump_relative * max(1, abs(input))`, with a
+forward secant at a spot or volatility lower boundary. The PV is identical in
+both modes. Retraining costs roughly two extra fits and two value-only pricing
+passes per unconstrained input; a finite bump can
+cross exercise, inclusion, degree-selection, or solver boundaries. The default
+`Frozen` mode remains the cheaper exact gradient of the fixed-policy fuzzy
+estimator.
 
 `error_bar` estimates pricing error **conditional on that policy**. It does
 not cover retraining variation or approximation bias. The
