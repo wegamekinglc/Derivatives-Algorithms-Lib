@@ -604,7 +604,10 @@ provide `default_index`; valuation settings provide `evaluation_date`,
 `today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
 `lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
-`lsmc_training_seed`, and `lsmc_pricing_seed`. RQMC pricing uses one frozen
+`lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`, and
+`lsmc_policy_bump_relative`. `Frozen` is the default AAD sensitivity mode;
+`RetrainedBump` adds a common-path policy-retraining secant to model-parameter
+and script-constant risks. RQMC pricing uses one fitted
 policy and reports conditional replicate-mean uncertainty through
 `ScriptSimulation_Explain`.
 

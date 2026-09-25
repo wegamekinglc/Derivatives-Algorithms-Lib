@@ -52,22 +52,24 @@ Model-sourced FIX observations are bound by index name, so the valuation
 constructor takes no binding range: the engine binds the model's spot output
 to the script's future FIX index.
 
-| Settings handle | Key                     | Default                                         | Accepted value                                |
-|-----------------|-------------------------|-------------------------------------------------|-----------------------------------------------|
-| Product         | `default_index`         | No default                                      | Nonempty index-name text                      |
-| Valuation       | `evaluation_date`       | Capture global date at each Value/Explain entry | Valid integral Excel date serial              |
-| Valuation       | `today_fixing`          | `Model`                                         | Exact text `Model` or `RequireHistorical`     |
-| Simulation      | `method`                | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`               |
-| Simulation      | `use_bb`                | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `enable_aad`            | `FALSE`                                         | Excel boolean or numeric 0/1                  |
-| Simulation      | `smooth`                | `0.01`                                          | Finite, strictly positive number; not boolean |
-| Simulation      | `compiled`              | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                  |
-| Simulation      | `lsmc_basis_degree`     | `3`                                             | Integral number 1..8; not boolean             |
-| Simulation      | `lsmc_training_paths`   | Same as the pricing count                       | Integral number 1..2147483647; not boolean    |
-| Simulation      | `lsmc_validation_paths` | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean    |
-| Simulation      | `lsmc_rqmc_replicates`  | Omitted (deterministic Sobol)                    | Integral number 2..2147483647; not boolean    |
-| Simulation      | `lsmc_training_seed`    | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean    |
-| Simulation      | `lsmc_pricing_seed`     | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean    |
+| Settings handle | Key                         | Default                                         | Accepted value                                                  |
+|-----------------|-----------------------------|-------------------------------------------------|-----------------------------------------------------------------|
+| Product         | `default_index`             | No default                                      | Nonempty index-name text                                        |
+| Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                |
+| Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                       |
+| Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                 |
+| Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
+| Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
+| Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                   |
+| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                    |
+| Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                               |
+| Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                      |
+| Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                      |
+| Simulation      | `lsmc_rqmc_replicates`      | Omitted (deterministic Sobol)                   | Integral number 2..2147483647; not boolean                      |
+| Simulation      | `lsmc_training_seed`        | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
+| Simulation      | `lsmc_pricing_seed`         | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
+| Simulation      | `lsmc_policy_risk_mode`     | `Frozen`                                        | Exact text `Frozen` or `RetrainedBump`; the latter requires AAD |
+| Simulation      | `lsmc_policy_bump_relative` | `0.001`                                         | Finite number in (0, 0.1]; not boolean                          |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
@@ -88,6 +90,11 @@ their standard error. Training and pricing seeds make streams reproducible.
 Seeds without a replicate count, or RQMC with a non-Sobol method, are errors.
 The error estimate is conditional on the fitted policy; it excludes policy
 bias and retraining uncertainty.
+`lsmc_policy_risk_mode=RetrainedBump` adds a common-path retrained-policy
+secant for model-parameter and script-constant AAD risks.
+`lsmc_policy_bump_relative` sets the relative input bump; see
+[early-exercise AAD](methodology/script_engine.md#early-exercise-aad) for the
+exact derivative semantics and boundary behavior.
 
 Omitting a matrix, passing `""`, or referencing one blank cell selects defaults.
 An entirely blank two-column range also selects defaults. Within a two-column

@@ -1290,6 +1290,31 @@ namespace {
         return Handle_<ModelData_>(new BSModelData_("bs", spot, vol, rate, div));
     }
 
+    Handle_<ModelData_> BumpedBsModel(const String_& parameter, double bump) {
+        if (parameter == "spot")
+            return BumpModel(SPOT + bump);
+        if (parameter == "vol")
+            return BumpModel(SPOT, VOL + bump);
+        if (parameter == "rate")
+            return BumpModel(SPOT, VOL, RATE + bump);
+        return BumpModel(SPOT, VOL, RATE, 0.03 + bump);
+    }
+
+    Handle_<ModelData_> BumpedDupireModel(size_t parameter, double bump) {
+        Matrix_<> vols(2, 2, VOL);
+        vols(0, 0) = 0.0; // first grid volatility exercises the one-sided lower-bound rule
+        double spot = SPOT, rate = RATE, repo = 0.03;
+        if (parameter == 0)
+            spot += bump;
+        else if (parameter == 1)
+            rate += bump;
+        else if (parameter == 2)
+            repo += bump;
+        else
+            vols((parameter - 3) / 2, (parameter - 3) % 2) += bump;
+        return Handle_<ModelData_>(new DupireModelData_("dupire", spot, rate, repo, {50.0, 150.0}, {0.0, 2.0}, vols));
+    }
+
     double PvOf(const SimResults_& results, size_t nPaths) { return results.aggregated_ / static_cast<double>(nPaths); }
 } // namespace
 
@@ -1311,6 +1336,133 @@ TEST(ScriptExerciseLSMCTest, TestAadGate) {
             static_cast<void>(MCSimulation<double>(product, StandardModel(), 128, ScriptValuationSettings_(), simulation));
         });
     }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskMatchesFuzzyRepricing) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    constexpr size_t N_PATHS = 4096;
+    for (const bool compiled : {false, true}) {
+        SCOPED_TRACE(compiled ? "compiled" : "tree");
+        auto settings = AadSettings(compiled, 2.0);
+        settings.lsmcTrainingPaths_ = 4096;
+        settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+        settings.lsmcPolicyBumpRelative_ = 1e-3;
+        const auto total = MCSimulation<AAD::Number_>(product, BumpModel(), N_PATHS, ScriptValuationSettings_(), settings);
+        settings.lsmcPolicyRiskMode_ = "Frozen";
+        const auto frozen = MCSimulation<AAD::Number_>(product, BumpModel(), N_PATHS, ScriptValuationSettings_(), settings);
+        ASSERT_DOUBLE_EQ(total.aggregated_, frozen.aggregated_);
+        for (const auto& bumped : Vector_<String_>{"spot", "vol", "rate", "div"}) {
+            const double step = bumped == "spot" ? SPOT * 1e-3 : 1e-3;
+            const auto upModel = BumpedBsModel(bumped, step);
+            const auto downModel = BumpedBsModel(bumped, -step);
+            const double up = PvOf(MCSimulation<AAD::Number_>(product, upModel, N_PATHS, ScriptValuationSettings_(), settings), N_PATHS);
+            const double down = PvOf(MCSimulation<AAD::Number_>(product, downModel, N_PATHS, ScriptValuationSettings_(), settings), N_PATHS);
+            const double reference = (up - down) / (2.0 * step);
+            ASSERT_NEAR(total[bumped], reference, 2e-2) << bumped;
+            if (bumped == "spot" || bumped == "vol")
+                ASSERT_LT(std::abs(total[bumped] - reference), std::abs(frozen[bumped] - reference)) << bumped;
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedDupirePolicyRiskParameterIndexAndVolBoundary) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    constexpr size_t N_PATHS = 2048;
+    constexpr double STEP = 1e-3;
+    auto settings = AadSettings(false, 2.0);
+    settings.lsmcTrainingPaths_ = 1024;
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    const auto baseModel = BumpedDupireModel(0, 0.0);
+    const auto total = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
+    settings.lsmcPolicyRiskMode_ = "Frozen";
+    const auto frozen = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
+    ASSERT_DOUBLE_EQ(total.aggregated_, frozen.aggregated_);
+    ASSERT_EQ(total.names_.size(), 7u);
+    ASSERT_EQ(total.names_[3], String_("lvol 50.00 0.00"));
+    ASSERT_EQ(total.names_[6], String_("lvol 150.00 2.00"));
+    for (const size_t parameter : {1u, 2u, 3u, 6u}) {
+        SCOPED_TRACE(parameter);
+        const double up = PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, STEP), N_PATHS, {}, settings), N_PATHS);
+        const double down = parameter == 3
+                                ? PvOf(frozen, N_PATHS)
+                                : PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, -STEP), N_PATHS, {}, settings), N_PATHS);
+        const double reference = (up - down) / (parameter == 3 ? STEP : 2.0 * STEP);
+        ASSERT_TRUE(std::isfinite(total.risks_[parameter]));
+        //  Sparse hard-policy retraining makes the full-repricing drift secant noisier than the direct grid-volatility secants.
+        const double tolerance = parameter < 3 ? 0.03 * std::abs(reference) : 3e-2;
+        ASSERT_NEAR(total.risks_[parameter], reference, tolerance);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskValidatesModeAndBoundary) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
+    auto settings = AadSettings(false);
+    settings.lsmcPolicyRiskMode_ = "retrainedbump";
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, ModelWithVol(0.0), 256, {}, settings), ScriptError_);
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    settings.lsmcPolicyBumpRelative_ = 0.0;
+    ASSERT_THROW(MCSimulation<AAD::Number_>(product, ModelWithVol(0.0), 256, {}, settings), ScriptError_);
+    settings.lsmcPolicyBumpRelative_ = 1e-3;
+    const auto oneSided = MCSimulation<AAD::Number_>(product, ModelWithVol(0.0), 256, {}, settings);
+    settings.lsmcPolicyRiskMode_ = "Frozen";
+    const auto frozen = MCSimulation<AAD::Number_>(product, ModelWithVol(0.0), 256, {}, settings);
+    ASSERT_NEAR(oneSided["vol"], frozen["vol"], 1e-10);
+    settings.enableAad_ = false;
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    ASSERT_THROW(MCSimulation<double>(product, ModelWithVol(0.0), 256, {}, settings), ScriptError_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskIncludesScriptConstants) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = [](double strike) {
+        return ScriptProductData_("", {Cell_("K"), Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))},
+                                  {String_(std::to_string(strike)), "EXERCISE MAX(K - spot(), 0.0)", "EXERCISE MAX(K - spot(), 0.0)"});
+    };
+    constexpr size_t N_PATHS = 4096;
+    const double step = 0.1;
+    for (const int validationPaths : {0, 512}) {
+        SCOPED_TRACE(validationPaths);
+        auto settings = AadSettings(true, 2.0);
+        settings.lsmcTrainingPaths_ = 4096;
+        if (validationPaths)
+            settings.lsmcValidationPaths_ = validationPaths;
+        settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+        const auto total = MCSimulation<AAD::Number_>(product(100.0), BumpModel(), N_PATHS, {}, settings);
+        settings.lsmcPolicyRiskMode_ = "Frozen";
+        const auto frozen = MCSimulation<AAD::Number_>(product(100.0), BumpModel(), N_PATHS, {}, settings);
+        const double up = PvOf(MCSimulation<AAD::Number_>(product(100.0 + step), BumpModel(), N_PATHS, {}, settings), N_PATHS);
+        const double down = PvOf(MCSimulation<AAD::Number_>(product(100.0 - step), BumpModel(), N_PATHS, {}, settings), N_PATHS);
+        const double reference = (up - down) / (2.0 * step);
+        ASSERT_LT(std::abs(total["K"] - reference), std::abs(frozen["K"] - reference));
+        ASSERT_NEAR(total["K"], reference, 2e-2);
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskTreeCompiledAndThreadParity) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    PoolRestore_ pool;
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    auto settings = AadSettings(false, 2.0);
+    settings.lsmcTrainingPaths_ = 1024;
+    settings.lsmcRqmcReplicates_ = 2;
+    settings.lsmcTrainingSeed_ = 17;
+    settings.lsmcPricingSeed_ = 29;
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    pool.pool_->Start(1, true);
+    const auto treeSingle = MCSimulation<AAD::Number_>(product, BumpModel(), 2048, {}, settings);
+    pool.pool_->Start(4, true);
+    const auto treeMulti = MCSimulation<AAD::Number_>(product, BumpModel(), 2048, {}, settings);
+    ASSERT_EQ(BitsOf(treeSingle.aggregated_), BitsOf(treeMulti.aggregated_));
+    for (size_t j = 0; j < treeSingle.risks_.size(); ++j)
+        ASSERT_EQ(BitsOf(treeSingle.risks_[j]), BitsOf(treeMulti.risks_[j]));
+    settings.compiled_ = true;
+    const auto compiled = MCSimulation<AAD::Number_>(product, BumpModel(), 2048, {}, settings);
+    ASSERT_NEAR(compiled.aggregated_, treeSingle.aggregated_, 1e-8);
+    for (size_t j = 0; j < treeSingle.risks_.size(); ++j)
+        ASSERT_NEAR(compiled.risks_[j], treeSingle.risks_[j], 1e-8);
 }
 
 //  AAD parameter risks vs central differences under the production behavior: every
@@ -1469,6 +1621,29 @@ namespace {
         ASSERT_NEAR(aad["spot"], -std::exp(-div * t) * NormalCdf(-d1), 0.01);
     }
 } // namespace
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedConstantRiskReplaysHistoricalState) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const auto snapshot = HistorySnapshot();
+    const auto product = [](double scale) {
+        return ScriptProductData_("", {Cell_("SCALE"), Cell_(Date_(2026, 9, 11)), Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))},
+                                  {String_(std::to_string(scale)), "x = SCALE * FIX(EQ[DAL283_TEST], 2026-09-11)",
+                                   "EXERCISE MAX(x - FIX(EQ[DAL283_TEST]), 0.0)", "EXERCISE MAX(x - FIX(EQ[DAL283_TEST]), 0.0)"});
+    };
+    auto settings = AadSettings(true, 2.0);
+    settings.lsmcTrainingPaths_ = 4096;
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    constexpr size_t N_PATHS = 4096;
+    const auto total = MCSimulation<AAD::Number_>(product(1.25), BumpModel(), N_PATHS, {}, settings, snapshot);
+    settings.lsmcPolicyRiskMode_ = "Frozen";
+    const auto frozen = MCSimulation<AAD::Number_>(product(1.25), BumpModel(), N_PATHS, {}, settings, snapshot);
+    const double step = 1.25e-3;
+    const double up = PvOf(MCSimulation<AAD::Number_>(product(1.25 + step), BumpModel(), N_PATHS, {}, settings, snapshot), N_PATHS);
+    const double down = PvOf(MCSimulation<AAD::Number_>(product(1.25 - step), BumpModel(), N_PATHS, {}, settings, snapshot), N_PATHS);
+    const double reference = (up - down) / (2.0 * step);
+    ASSERT_LT(std::abs(total["SCALE"] - reference), std::abs(frozen["SCALE"] - reference));
+    ASSERT_NEAR(total["SCALE"], reference, 2e-1);
+}
 
 TEST(ScriptExerciseLSMCTest, TestHistoricalFixingTimesExerciseAad) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));

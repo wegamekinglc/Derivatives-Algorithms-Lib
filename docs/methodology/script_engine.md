@@ -894,18 +894,87 @@ division by the first event's numeraire. As $\varepsilon \to 0$ the decision
 degrees degenerate to hard indicators and the fuzzy path value converges to
 the hard-mode payoff.
 
-The regression coefficients enter the replay as passive tape constants, so the
-harvested adjoint is the exact gradient of the *frozen-policy* price
-functional, including the frozen normalization parameters. It does not include
-the derivative of the fitted continuation or its normalization with respect to
-market parameters. Bump tests that retrain the policy therefore measure a
-different derivative. An envelope argument at an optimal stopping rule does not
+By default (`lsmcPolicyRiskMode_ = "Frozen"`), the regression coefficients and
+normalization enter the replay as passive tape constants. The harvested adjoint
+is the exact pathwise gradient of the *frozen-policy* fuzzy price functional.
+It excludes the response of the fitted continuation to market parameters.
+`lsmcPolicyRiskMode_ = "RetrainedBump"` adds that response for model parameters
+and script constants: for each input, it retrains the hard policy at positive and negative bumps
+on the same training and optional validation paths, then reprices both policies
+with the unchanged base model and identical disjoint fuzzy pricing paths. The
+common-path policy secant is added to the frozen-policy adjoint. The step is
+`lsmcPolicyBumpRelative_ * max(1, abs(input))` (default `1e-3`); constrained
+spot/volatility parameters at their lower boundary use a forward policy secant.
+The price itself is identical in both modes. Historical script state is replayed
+when a script constant is bumped. This is a finite-step sensitivity of the fitted,
+smoothed estimator, not an analytic derivative through the regression solver.
+Changing path inclusion, selected degree, rank fallback, or a hard exercise
+decision can make the policy response nonsmooth and bump dependent. The policy
+retraining and value-only replays add roughly two training fits and two pricing
+passes per unconstrained input; they do not add an AAD tape for those
+passes. Bump tests that retrain the entire fuzzy valuation measure the full
+finite difference, which also includes finite-step curvature of the direct
+payoff response. An envelope argument at an optimal stopping rule does not
 provide a general second-order error guarantee for an approximate, smoothed
 policy. Adjoint accumulation and reduction follow the
 same thread-count independent batch layout and batch-index ordering as the
 double driver, so PV and every `d_<param>` are bitwise invariant across
 thread counts in AAD mode as well, and historical fixings replay into the
 seed exactly as for non-exercise products.
+
+### LSMC Policy Sensitivity Validation
+
+`dal-python/benchmarks/compare_lsmc_policy_sensitivities.py` reproduces a
+six-case study with disjoint training/pricing streams, two independently
+digitally shifted pricing replicates per outer run, and eight independent
+training/pricing seed pairs. Each full-retraining finite difference shares
+its seed pair between bumps. The European case uses analytic Black-Scholes
+Greeks; regular Bermudan cases use an independent Crank-Nicolson PDE with
+exercise-date projection and CRR cross-check. The low-volatility case uses
+CRR as its reference because the PDE's central spatial stencil becomes
+convection dominated there. The script reports the hard-price error to the
+oracle (fitting plus residual QMC), fuzzy-minus-hard smoothing bias, policy
+contribution, empirical standard error across independent seed pairs, separate
+hard-price variation when only training or only pricing seeds change, and the
+change when the spot bump is halved. In the ATM case the training-only and
+pricing-only hard-price standard errors were `0.00022` and `0.00150`;
+the latter is close to the observed `0.00180` hard-price difference from the PDE.
+These quantities should be read separately: a closer Greek to the full-retraining bump is not necessarily
+closer to the continuous-model stopping oracle.
+
+For the default study (4,096 pricing paths per replicate, 4,096 training paths
+except 256 in the sparse case, smoothing `0.1`, relative bump `0.001`, compiled
+execution), representative spot sensitivities are:
+
+| Case                     | Frozen   | RetrainedBump | Full-retrain bump | Independent reference | Bump SE |
+|--------------------------|----------|---------------|-------------------|-----------------------|---------|
+| European                 | -0.33418 | -0.33418      | -0.33416          | -0.33416 analytic     | 0.00001 |
+| Bermudan ATM             | -0.36389 | -0.36404      | -0.36464          | -0.36246 PDE          | 0.00066 |
+| Bermudan deep ITM        | -0.89919 | -0.90067      | -0.89927          | -0.89615 PDE          | 0.00371 |
+| Bermudan deep OTM        | -0.07172 | -0.07120      | -0.06951          | -0.06965 PDE          | 0.00066 |
+| Bermudan sparse training | -0.36311 | -0.36269      | -0.36236          | -0.36246 PDE          | 0.00333 |
+| Bermudan low volatility  | -0.74700 | -0.74700      | -0.73789          | -0.75503 CRR          | 0.00002 |
+
+`dal-cpp/benchmarks/script_mc_perf/script_mc_perf.cpp` accepts `retrained` on
+the `--lsmc-replay` AAD profile. On a Linux i9-13900HX, GCC 15.2 Release,
+four DAL threads, 1,024 training paths, 2,048 pricing paths, the 1CD
+Black-Scholes compiled profile gave these best-of-five interleaved process
+measurements (milliseconds and peak RSS in KiB):
+
+| AAD backend | Frozen ms | Retrained ms | Time ratio | Frozen RSS | Retrained RSS |
+|-------------|-----------|--------------|------------|------------|---------------|
+| Native      | 282       | 741          | 2.62       | 16,424     | 18,576        |
+| XAD         | 288       | 742          | 2.58       | 46,892     | 46,752        |
+| Adept       | 479       | 945          | 1.97       | 16,752     | 16,932        |
+| CoDiPack    | 358       | 828          | 2.32       | 36,740     | 41,392        |
+
+Both modes record the same 2,048 AAD pricing paths. This profile has five
+live inputs (four model parameters and one script constant), so the retrained
+mode adds ten hard-policy fits and ten value-only pricing passes, with no
+additional AAD tape recordings. The peak RSS comparison includes tape and
+ordinary process allocations; it is not a backend-specific tape-byte count.
+Tree and compiled runs returned matching PV and all five risks to the printed
+precision on every backend.
 
 ### Historical State and Recording Lifetime
 

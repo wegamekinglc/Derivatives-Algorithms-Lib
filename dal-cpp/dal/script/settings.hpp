@@ -28,6 +28,7 @@ namespace Dal {
     namespace Script {
         constexpr double DEFAULT_SMOOTH = 0.01;
         constexpr int DEFAULT_LSMC_BASIS_DEGREE = 3;
+        constexpr double DEFAULT_LSMC_POLICY_BUMP_RELATIVE = 1e-3;
 
         struct ScriptProductSettings_ {
             String_ defaultIndex_;
@@ -51,6 +52,10 @@ namespace Dal {
             // User-visible, exactly representable seeds; unset uses zero in RQMC mode.
             std::optional<int> lsmcTrainingSeed_ = std::nullopt;
             std::optional<int> lsmcPricingSeed_ = std::nullopt;
+            // Frozen keeps the pathwise partial derivative. RetrainedBump adds the
+            // common-path policy secant for model parameters and script constants.
+            String_ lsmcPolicyRiskMode_ = "Frozen";
+            double lsmcPolicyBumpRelative_ = DEFAULT_LSMC_POLICY_BUMP_RELATIVE;
         };
 
         struct ScriptValuationSettings_ {
@@ -77,6 +82,8 @@ namespace Dal {
         void ValidateLsmcValidationPaths(int count);
         void ValidateLsmcRqmcReplicates(int count);
         void ValidateLsmcSeed(int seed, const String_& field);
+        void ValidateLsmcPolicyRiskMode(const String_& mode);
+        void ValidateLsmcPolicyBumpRelative(double bump);
         void ValidateSimulationSettings(const MonteCarloSettings_& settings);
     } // namespace Script
 } // namespace Dal

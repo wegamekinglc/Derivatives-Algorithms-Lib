@@ -890,3 +890,22 @@ def test_legacy_smooth_overflow_keeps_field_context_and_valid_float_protocol():
     assert dal.MonteCarlo_Value(product, model, 1, smooth=True)["PV"] == 1.0
     with pytest.raises(RuntimeError, match="InvalidSmoothing.*smooth.*finite positive"):
         native.MonteCarlo_Value(product, model, 1, smooth=10**400)
+
+
+def test_lsmc_policy_risk_settings_validate_exact_mode_and_bump():
+    defaults = dal.MonteCarloSettings_()
+    assert defaults.lsmc_policy_risk_mode == "Frozen"
+    assert defaults.lsmc_policy_bump_relative == 1e-3
+    settings = dal.MonteCarloSettings_(
+        enable_aad=True,
+        lsmc_policy_risk_mode="RetrainedBump",
+        lsmc_policy_bump_relative=2e-3,
+    )
+    assert copy.deepcopy(settings).lsmc_policy_risk_mode == "RetrainedBump"
+    assert settings.lsmc_policy_bump_relative == 2e-3
+    for bad in ["retrainedbump", "Frozen ", "Other", None, 2]:
+        with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcPolicyRiskMode"):
+            dal.MonteCarloSettings_(lsmc_policy_risk_mode=bad)
+    for bad in [True, 0.0, -0.1, 0.11, float("nan"), float("inf"), "0.01"]:
+        with pytest.raises((TypeError, RuntimeError), match="InvalidLsmcPolicyBumpRelative"):
+            dal.MonteCarloSettings_(lsmc_policy_bump_relative=bad)

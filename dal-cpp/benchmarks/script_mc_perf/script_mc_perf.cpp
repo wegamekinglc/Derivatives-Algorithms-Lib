@@ -178,6 +178,7 @@ namespace {
         std::string model_;
         std::string engine_;
         bool deadFix_ = false;
+        bool retrainedPolicy_ = false;
     };
 
     bool IsAllowed(const std::string& value, std::initializer_list<const char*> choices) {
@@ -185,8 +186,20 @@ namespace {
     }
 
     bool ValidReplayOptions(int argc, char** argv) {
-        return IsAllowed(argv[4], {"1W", "1CD"}) && IsAllowed(argv[5], {"hard", "aad"}) && IsAllowed(argv[6], {"bs", "dupire"}) &&
-               IsAllowed(argv[7], {"tree", "compiled"}) && (argc == 8 || std::string(argv[8]) == "deadfix");
+        if (!IsAllowed(argv[4], {"1W", "1CD"}) || !IsAllowed(argv[5], {"hard", "aad"}) || !IsAllowed(argv[6], {"bs", "dupire"}) ||
+            !IsAllowed(argv[7], {"tree", "compiled"}))
+            return false;
+        bool deadFix = false, retrained = false;
+        for (int i = 8; i < argc; ++i) {
+            const std::string option(argv[i]);
+            if (option == "deadfix" && !deadFix)
+                deadFix = true;
+            else if (option == "retrained" && !retrained && std::string(argv[5]) == "aad")
+                retrained = true;
+            else
+                return false;
+        }
+        return true;
     }
 
     bool ParseReplayCounts(char** argv, ReplayProfile_* profile) {
@@ -195,7 +208,7 @@ namespace {
     }
 
     bool ParseReplayProfile(int argc, char** argv, ReplayProfile_* profile) {
-        if (argc != 8 && argc != 9)
+        if (argc < 8 || argc > 10)
             return false;
         if (!ParseReplayCounts(argv, profile) || !ValidReplayOptions(argc, argv))
             return false;
@@ -203,7 +216,10 @@ namespace {
         profile->mode_ = argv[5];
         profile->model_ = argv[6];
         profile->engine_ = argv[7];
-        profile->deadFix_ = argc == 9;
+        for (int i = 8; i < argc; ++i) {
+            profile->deadFix_ |= std::string(argv[i]) == "deadfix";
+            profile->retrainedPolicy_ |= std::string(argv[i]) == "retrained";
+        }
         return true;
     }
 
@@ -219,7 +235,7 @@ namespace {
     int RunLsmcReplayProfile(int argc, char** argv) {
         ReplayProfile_ profile;
         if (!ParseReplayProfile(argc, argv, &profile)) {
-            std::cerr << "usage: script_mc_perf --lsmc-replay TRAINING PRICING 1W|1CD hard|aad bs|dupire tree|compiled [deadfix]\n";
+            std::cerr << "usage: script_mc_perf --lsmc-replay TRAINING PRICING 1W|1CD hard|aad bs|dupire tree|compiled [deadfix] [retrained]\n";
             return 2;
         }
         const Handle_<ModelData_> model =
@@ -230,13 +246,14 @@ namespace {
         simulation.compiled_ = profile.engine_ == "compiled";
         simulation.lsmcTrainingPaths_ = profile.trainingPaths_;
         simulation.enableAad_ = profile.mode_ == "aad";
+        simulation.lsmcPolicyRiskMode_ = profile.retrainedPolicy_ ? "RetrainedBump" : "Frozen";
         const auto begin = std::chrono::steady_clock::now();
         const auto result = RunReplayValuation(profile, model, simulation);
         const auto end = std::chrono::steady_clock::now();
         const double elapsedMs = std::chrono::duration<double, std::milli>(end - begin).count();
         std::cout << std::setprecision(17) << "LSMC_REPLAY training=" << profile.trainingPaths_ << " pricing=" << profile.pricingPaths_
                   << " frequency=" << profile.frequency_ << " mode=" << profile.mode_ << " model=" << profile.model_ << " engine=" << profile.engine_
-                  << " deadfix=" << profile.deadFix_ << " time_ms=" << elapsedMs
+                  << " deadfix=" << profile.deadFix_ << " policy=" << simulation.lsmcPolicyRiskMode_ << " time_ms=" << elapsedMs
                   << " pv=" << result.aggregated_ / static_cast<double>(profile.pricingPaths_) << " risks=";
         const Vector_<> risks = profile.mode_ == "aad" ? result.risks_ : Vector_<>();
         for (size_t i = 0; i < risks.size(); ++i)

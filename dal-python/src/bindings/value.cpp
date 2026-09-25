@@ -90,6 +90,37 @@ namespace {
         return result;
     }
 
+    String_ LsmcPolicyRiskMode(const py::handle& value) {
+        const auto context = "InvalidSetting: InvalidLsmcPolicyRiskMode; MonteCarloSettings_; lsmc_policy_risk_mode / simulation.lsmcPolicyRiskMode_";
+        const auto result = SettingStringInput(value, context, "InvalidSetting: InvalidLsmcPolicyRiskMode");
+        try {
+            Script::ValidateLsmcPolicyRiskMode(result);
+        } catch (const Exception_&) {
+            THROW2(String_(context) + "; expected Frozen or RetrainedBump", ScriptError_);
+        }
+        return result;
+    }
+
+    double LsmcPolicyBumpRelative(const py::handle& value) {
+        const auto context = InputContext(value, "MonteCarloSettings_; lsmc_policy_bump_relative / simulation.lsmcPolicyBumpRelative_",
+                                          "a finite float in (0, 0.1], excluding bool", "InvalidSetting: InvalidLsmcPolicyBumpRelative");
+        if (PyBool_Check(value.ptr()) || IsEnum(value) || (!PyLong_Check(value.ptr()) && !PyFloat_Check(value.ptr())))
+            throw py::type_error(context);
+        const double result = PyFloat_AsDouble(value.ptr());
+        if (PyErr_Occurred()) {
+            py::error_already_set error;
+            if (error.matches(PyExc_OverflowError))
+                THROW2(String_(context), ScriptError_);
+            throw error;
+        }
+        try {
+            Script::ValidateLsmcPolicyBumpRelative(result);
+        } catch (const Exception_&) {
+            THROW2(String_(context), ScriptError_);
+        }
+        return result;
+    }
+
     bool Boolean(const py::handle& value, const char* field) {
         if (!PyBool_Check(value.ptr()))
             throw py::type_error(InputContext(value, std::string("MonteCarloSettings_; ") + field, "bool"));
@@ -245,7 +276,7 @@ void init_bindings_value(py::module_& m) {
         .def(py::init([](const py::object& method, const py::object& useBb, const py::object& enableAad, const py::object& smooth,
                          const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths,
                          const py::object& lsmcValidationPaths, const py::object& lsmcRqmcReplicates, const py::object& lsmcTrainingSeed,
-                         const py::object& lsmcPricingSeed) {
+                         const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative) {
                  return MonteCarloSettings_{Method(method),
                                             Boolean(useBb, "use_bb / simulation.useBb_"),
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"),
@@ -256,13 +287,16 @@ void init_bindings_value(py::module_& m) {
                                             ValidationPaths(lsmcValidationPaths),
                                             RqmcReplicates(lsmcRqmcReplicates),
                                             RqmcSeed(lsmcTrainingSeed, "lsmc_training_seed", "lsmcTrainingSeed_"),
-                                            RqmcSeed(lsmcPricingSeed, "lsmc_pricing_seed", "lsmcPricingSeed_")};
+                                            RqmcSeed(lsmcPricingSeed, "lsmc_pricing_seed", "lsmcPricingSeed_"),
+                                            LsmcPolicyRiskMode(lsmcPolicyRiskMode),
+                                            LsmcPolicyBumpRelative(lsmcPolicyBumpRelative)};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
              py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
              py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
              py::arg("lsmc_validation_paths") = py::none(), py::arg("lsmc_rqmc_replicates") = py::none(), py::arg("lsmc_training_seed") = py::none(),
-             py::arg("lsmc_pricing_seed") = py::none())
+             py::arg("lsmc_pricing_seed") = py::none(), py::arg("lsmc_policy_risk_mode") = "Frozen",
+             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE)
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })
@@ -301,7 +335,13 @@ void init_bindings_value(py::module_& m) {
             "lsmc_pricing_seed", [](const MonteCarloSettings_& settings) { return settings.lsmcPricingSeed_; },
             [](MonteCarloSettings_* settings, const py::object& value) {
                 settings->lsmcPricingSeed_ = RqmcSeed(value, "lsmc_pricing_seed", "lsmcPricingSeed_");
-            });
+            })
+        .def_property(
+            "lsmc_policy_risk_mode", [](const MonteCarloSettings_& settings) { return Text(settings.lsmcPolicyRiskMode_); },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcPolicyRiskMode_ = LsmcPolicyRiskMode(value); })
+        .def_property(
+            "lsmc_policy_bump_relative", [](const MonteCarloSettings_& settings) { return settings.lsmcPolicyBumpRelative_; },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->lsmcPolicyBumpRelative_ = LsmcPolicyBumpRelative(value); });
 
     m.def(
         "MonteCarlo_ValueWithSettings",

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <utility>
 
 #include <dal/platform/platform.hpp>
@@ -440,6 +441,7 @@ namespace Dal::Script {
             const ScriptCompiled_* compiled_ = nullptr;            //  shared immutable program for every worker
             const Vector_<ExerciseRegression_>* policy_ = nullptr; //  pricing stops evaluating after the first hard exercise
             std::optional<uint64_t> scrambleKey_;
+            const Vector_<>* constValues_ = nullptr; //  optional bumped script constants for policy training
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
@@ -472,6 +474,17 @@ namespace Dal::Script {
                 sinks_.h_ = ctx.policy_ ? nullptr : &ctx.storage_.hByDay_;
                 sinks_.cond_ = ctx.policy_ || ctx.storage_.condByDay_.empty() ? nullptr : &ctx.storage_.condByDay_;
                 compiledState_->lsmcSinks_ = &sinks_;
+            }
+            if (ctx.constValues_) {
+                evaluator_.ConstVarVals() = *ctx.constValues_;
+                if (compiledState_)
+                    compiledState_->ConstVarVals() = *ctx.constValues_;
+                PastEvaluator_<double> past(Vector_<>(ctx.Product().VarNames().size(), 0.0), *ctx.constValues_);
+                past.SetObservations(&ctx.Plan());
+                ctx.Product().Visit(past, true, false);
+                evaluator_.SetHistoricalSeed(past.VarVals());
+                if (compiledState_)
+                    compiledState_->SetHistoricalSeed(past.VarVals());
             }
         }
 
@@ -739,6 +752,7 @@ namespace Dal::Script {
             if (counts.validation_) {
                 validationStorage = MakeStorage(ctx.scan_, counts.validation_);
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
+                validationCtx.constValues_ = ctx.constValues_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
             }
             auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, ctx.prepared_.Simulation().lsmcBasisDegree_,
@@ -911,26 +925,29 @@ namespace Dal::Script {
 
         //  Per-worker replay state: active model, regenerated paths, and the per-path
         //  recording rows (payments reset between paths, h/cond overwritten per statement)
-        struct FuzzyReplayWorkspace_ {
-            std::unique_ptr<AAD::Model_<AAD::Number_>> model_;
+        template <class T_> struct FuzzyReplayWorkspace_ {
+            std::unique_ptr<AAD::Model_<T_>> model_;
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
-            Scenario_<AAD::Number_> path_;
-            LsmcFuzzySinks_<AAD::Number_> sinks_;
-            Vector_<AAD::Number_> pays_;
-            Vector_<AAD::Number_> h_;
-            Vector_<AAD::Number_> cond_;
+            Scenario_<T_> path_;
+            LsmcFuzzySinks_<T_> sinks_;
+            Vector_<T_> pays_;
+            Vector_<T_> h_;
+            Vector_<T_> cond_;
         };
 
-        FuzzyReplayWorkspace_ MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
-                                                       const Handle_<ModelData_>& modelData,
-                                                       const LsmcPlan_& scan,
-                                                       const PathBatch_& batch,
-                                                       std::optional<uint64_t> scrambleKey) {
+        template <class T_>
+        FuzzyReplayWorkspace_<T_> MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
+                                                           const Handle_<ModelData_>& modelData,
+                                                           const LsmcPlan_& scan,
+                                                           const PathBatch_& batch,
+                                                           std::optional<uint64_t> scrambleKey) {
             const auto& simulation = prepared.Simulation();
-            FuzzyReplayWorkspace_ ws;
-            ws.model_ = CreateModel<AAD::Number_>(modelData);
+            FuzzyReplayWorkspace_<T_> ws;
+            ws.model_ = CreateModel<T_>(modelData);
             ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
+            if constexpr (std::is_same_v<T_, double>)
+                ws.model_->Init(prepared.TimeLine(), prepared.DefLine());
             ws.random_ = CreateRNG(simulation.rsg_, ws.model_->SimDim(), simulation.useBb_, scrambleKey);
             ws.gauss_.Resize(ws.model_->SimDim());
             AllocatePath(prepared.DefLine(), ws.path_);
@@ -939,15 +956,16 @@ namespace Dal::Script {
                 ws.random_->SkipTo(batch.firstPath_);
             ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
             ws.sinks_.payoffIdx_ = prepared.PayOffIdx();
-            ws.pays_ = Vector_<AAD::Number_>(scan.eventToPays_.size(), 0.0);
-            ws.h_ = Vector_<AAD::Number_>(scan.days_.size(), 0.0);
-            ws.cond_ = Vector_<AAD::Number_>(scan.days_.size(), 1.0);
+            ws.pays_ = Vector_<T_>(scan.eventToPays_.size(), 0.0);
+            ws.h_ = Vector_<T_>(scan.days_.size(), 0.0);
+            ws.cond_ = Vector_<T_>(scan.days_.size(), 1.0);
             return ws;
         }
 
         //  Mirrors the double recorder: the driver owns the event boundaries and the sinks'
         //  event ordinal while the fuzzy evaluator records through its installed sinks
-        void TreeEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws, const PreparedScript_& prepared, FuzzyEvaluator_<AAD::Number_>& evaluator) {
+        template <class T_>
+        void TreeEvaluateFuzzyPath(FuzzyReplayWorkspace_<T_>& ws, const PreparedScript_& prepared, FuzzyEvaluator_<T_>& evaluator) {
             evaluator.lsmcFuzzySinks_ = &ws.sinks_;
             evaluator.SetScenario(&ws.path_);
             evaluator.SetObservations(&prepared.Plan());
@@ -962,10 +980,11 @@ namespace Dal::Script {
             }
         }
 
-        void CompiledEvaluateFuzzyPath(FuzzyReplayWorkspace_& ws,
+        template <class T_>
+        void CompiledEvaluateFuzzyPath(FuzzyReplayWorkspace_<T_>& ws,
                                        const PreparedScript_& prepared,
                                        const ScriptCompiled_& compiled,
-                                       EvalState_<AAD::Number_>& state) {
+                                       EvalState_<T_>& state) {
             state.lsmcFuzzySinks_ = &ws.sinks_;
             state.Init();
             state.observations_ = &prepared.Plan();
@@ -975,7 +994,7 @@ namespace Dal::Script {
             const auto& eventToSample = prepared.Plan().EventToSample();
             for (size_t e = 0; e < nodeStreams.size(); ++e) {
                 ws.sinks_.eventOrdinal_ = e;
-                const Detail::CompiledEventView_<AAD::Number_> view{nodeStreams[e], constStreams[e], ws.path_[eventToSample[e]]};
+                const Detail::CompiledEventView_<T_> view{nodeStreams[e], constStreams[e], ws.path_[eventToSample[e]]};
                 Detail::EvalCompiledEvents<true, true>(1, [&](size_t) { return view; }, &state);
             }
         }
@@ -985,7 +1004,7 @@ namespace Dal::Script {
                               const LsmcPlan_& scan,
                               const Vector_<ExerciseRegression_>& regressions,
                               const PathBatch_& batch,
-                              FuzzyReplayWorkspace_& ws,
+                              FuzzyReplayWorkspace_<AAD::Number_>& ws,
                               E_& evaluator,
                               const F_& evaluate,
                               AadReplayOutcome_* outcome) {
@@ -1023,7 +1042,7 @@ namespace Dal::Script {
                                  AadReplayOutcome_* outcome) {
             AAD::Activate(*AAD::Tape());
             AAD::Rewind(*AAD::Tape());
-            FuzzyReplayWorkspace_ ws = MakeFuzzyReplayWorkspace(prepared, modelData, scan, batch, scrambleKey);
+            FuzzyReplayWorkspace_<AAD::Number_> ws = MakeFuzzyReplayWorkspace<AAD::Number_>(prepared, modelData, scan, batch, scrambleKey);
             //  Bind after the return-by-value, without relying on optional NRVO.
             ws.sinks_.pays_ = &ws.pays_;
             ws.sinks_.h_ = &ws.h_;
@@ -1032,13 +1051,182 @@ namespace Dal::Script {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
                 FuzzyReplayPaths(
                     prepared, scan, regressions, batch, ws, state,
-                    [fuzzyCompiled](FuzzyReplayWorkspace_& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
+                    [fuzzyCompiled](FuzzyReplayWorkspace_<AAD::Number_>& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
                         CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
                     },
                     outcome);
             } else {
                 FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
-                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath, outcome);
+                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
+            }
+        }
+
+        template <class E_, class F_>
+        double ValueFuzzyReplayPaths(const PreparedScript_& prepared,
+                                     const LsmcPlan_& scan,
+                                     const Vector_<ExerciseRegression_>& regressions,
+                                     const PathBatch_& batch,
+                                     FuzzyReplayWorkspace_<double>& ws,
+                                     E_& evaluator,
+                                     const F_& evaluate) {
+            double sum = 0.0;
+            for (size_t i = 0; i < batch.pathCount_; ++i) {
+                std::fill(ws.pays_.begin(), ws.pays_.end(), 0.0);
+                ws.random_->FillNormal(&ws.gauss_);
+                ws.model_->GeneratePath(ws.gauss_, &ws.path_);
+                ValidateSimulationPath(ws.path_);
+                evaluate(ws, prepared, evaluator);
+                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan().EventToSample(), ws.path_);
+                REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
+                sum += value;
+            }
+            return sum;
+        }
+
+        double RunValueFuzzyReplayBatch(const PreparedScript_& prepared,
+                                        const Handle_<ModelData_>& modelData,
+                                        const LsmcPlan_& scan,
+                                        const Vector_<ExerciseRegression_>& regressions,
+                                        const ScriptCompiled_* fuzzyCompiled,
+                                        const PathBatch_& batch,
+                                        std::optional<uint64_t> scrambleKey) {
+            auto ws = MakeFuzzyReplayWorkspace<double>(prepared, modelData, scan, batch, scrambleKey);
+            ws.sinks_.pays_ = &ws.pays_;
+            ws.sinks_.h_ = &ws.h_;
+            ws.sinks_.cond_ = &ws.cond_;
+            if (fuzzyCompiled) {
+                auto state = prepared.BuildEvalState<double>(0, prepared.Simulation().smooth_);
+                return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, state,
+                                             [fuzzyCompiled](FuzzyReplayWorkspace_<double>& w, const PreparedScript_& p, EvalState_<double>& s) {
+                                                 CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
+                                             });
+            }
+            auto evaluator = prepared.BuildFuzzyEvaluator<double>(0, prepared.Simulation().smooth_);
+            return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<double>);
+        }
+
+        double ValueFuzzyPolicy(const PreparedScript_& prepared,
+                                const Handle_<ModelData_>& modelData,
+                                const LsmcPlan_& scan,
+                                const Vector_<ExerciseRegression_>& regressions,
+                                const ScriptCompiled_* fuzzyCompiled,
+                                const BatchPlan_& batchPlan,
+                                const PathCounts_& counts,
+                                size_t nPaths) {
+            double sum = 0.0;
+            for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
+                const std::optional<uint64_t> pricingKey =
+                    counts.replicates_ > 1
+                        ? std::optional<uint64_t>(LsmcScrambleKey(true, prepared.Simulation().lsmcPricingSeed_.value_or(0), replicate))
+                        : std::nullopt;
+                Vector_<> batchSums(batchPlan.BatchCount(), 0.0);
+                SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batchPlan.BatchCount());
+                for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
+                    const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
+                    tasks.Spawn([&, batch, batchIndex]() {
+                        const PathBatch_ pricingBatch{counts.pricingOffset_ + replicate * nPaths + batch.firstPath_, batch.pathCount_};
+                        batchSums[batchIndex] =
+                            RunValueFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey);
+                        return true;
+                    });
+                }
+                tasks.Complete();
+                for (double batchSum : batchSums)
+                    sum += batchSum;
+            }
+            return sum / static_cast<double>(counts.replicates_ * nPaths);
+        }
+
+        Vector_<ExerciseRegression_> TrainBumpedPolicy(const PreparedScript_& prepared,
+                                                       const AAD::Model_<double>& baseModel,
+                                                       const LsmcPlan_& scan,
+                                                       const ScriptCompiled_* hardCompiled,
+                                                       const PathCounts_& counts,
+                                                       std::optional<uint64_t> trainingKey,
+                                                       size_t parameter,
+                                                       double bump) {
+            auto model = baseModel.Clone();
+            *model->Parameters()[parameter] += bump;
+            model->Init(prepared.TimeLine(), prepared.DefLine());
+            auto storage = MakeStorage(scan, counts.training_);
+            LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey};
+            return TrainFrozenPolicy(ctx, counts).regressions_;
+        }
+
+        Vector_<ExerciseRegression_> TrainBumpedConstantPolicy(const PreparedScript_& prepared,
+                                                               AAD::Model_<double>* model,
+                                                               const LsmcPlan_& scan,
+                                                               const ScriptCompiled_* hardCompiled,
+                                                               const PathCounts_& counts,
+                                                               std::optional<uint64_t> trainingKey,
+                                                               size_t constant,
+                                                               double bump) {
+            auto constants = prepared.Product().ConstVarValues();
+            constants[constant] += bump;
+            auto storage = MakeStorage(scan, counts.training_);
+            LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
+            return TrainFrozenPolicy(ctx, counts).regressions_;
+        }
+
+        bool InvalidLowerModelBump(const AAD::Model_<double>& model, size_t parameter, double lower) {
+            if (parameter == 0)
+                return lower <= 0.0;
+            if (typeid(model) == typeid(AAD::BlackScholes_<double>))
+                return parameter == 1 && lower < 0.0;
+            return parameter >= 3 && lower < 0.0; // Dupire local-volatility grid
+        }
+
+        bool ValidModelPolicyBump(double parameter, double step) {
+            return std::isfinite(step) && std::isfinite(parameter + step) && parameter + step != parameter;
+        }
+
+        bool ValidConstantPolicyBump(double constant, double step) {
+            return std::isfinite(step) && std::isfinite(constant + step) && std::isfinite(constant - step) && constant + step != constant &&
+                   constant - step != constant;
+        }
+
+        void AddRetrainedPolicyRisks(const PreparedScript_& prepared,
+                                     const Handle_<ModelData_>& modelData,
+                                     AAD::Model_<double>& baseModel,
+                                     const LsmcPlan_& scan,
+                                     const Vector_<ExerciseRegression_>& basePolicy,
+                                     const ScriptCompiled_* hardCompiled,
+                                     const ScriptCompiled_* fuzzyCompiled,
+                                     const BatchPlan_& batchPlan,
+                                     const PathCounts_& counts,
+                                     std::optional<uint64_t> trainingKey,
+                                     size_t nPaths,
+                                     SimResults_* results) {
+            std::optional<double> basePolicyValue;
+            const double relative = prepared.Simulation().lsmcPolicyBumpRelative_;
+            for (size_t j = 0; j < baseModel.NumParams(); ++j) {
+                const double parameter = *baseModel.Parameters()[j];
+                const double step = relative * std::max(1.0, std::abs(parameter));
+                REQUIRE2(ValidModelPolicyBump(parameter, step), "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
+                const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step);
+                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                double down;
+                double denominator = 2.0 * step;
+                if (InvalidLowerModelBump(baseModel, j, parameter - step)) {
+                    if (!basePolicyValue)
+                        basePolicyValue = ValueFuzzyPolicy(prepared, modelData, scan, basePolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                    down = *basePolicyValue;
+                    denominator = step;
+                } else {
+                    const auto downPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, -step);
+                    down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                }
+                results->risks_[j] += (up - down) / denominator;
+            }
+            const auto& constants = prepared.Product().ConstVarValues();
+            for (size_t k = 0; k < constants.size(); ++k) {
+                const double step = relative * std::max(1.0, std::abs(constants[k]));
+                REQUIRE2(ValidConstantPolicyBump(constants[k], step), "InvalidLsmcPolicyBump: script constant cannot be bumped", ScriptError_);
+                const auto upPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step);
+                const auto downPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step);
+                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                const double down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                results->risks_[baseModel.NumParams() + k] += (up - down) / (2.0 * step);
             }
         }
 
@@ -1234,6 +1422,9 @@ namespace Dal::Script {
         results.aggregated_ /= static_cast<double>(counts.replicates_);
         for (size_t j = 0; j < results.risks_.size(); ++j)
             results.risks_[j] = riskTotals[j] / static_cast<double>(counts.replicates_ * nPaths);
+        if (simulation.lsmcPolicyRiskMode_ == "RetrainedBump")
+            AddRetrainedPolicyRisks(prepared, modelData, *doubleModel, scan, trained.regressions_, hardCompiled ? &*hardCompiled : nullptr,
+                                    fuzzyCompiled, batchPlan, counts, trainingKey, nPaths, &results);
         return results;
     }
 } // namespace Dal::Script
