@@ -297,15 +297,12 @@ namespace {
 
     void PrintBanner(const String_& title) {
         const std::string bar(70, '=');
-        std::cout << "\n" << bar << "\n";
-        const int pad = static_cast<int>(bar.size() - static_cast<int>(title.size())) / 2;
-        std::cout << std::string(pad > 0 ? pad : 1, ' ') << title << "\n";
-        std::cout << bar << "\n";
+        std::cout << "\n" << bar << "\n  " << title << "\n" << bar << "\n\n";
     }
 
     void PrintSection(const String_& title) {
-        const std::string bar(70, '-');
-        std::cout << "\n" << bar << "\n  " << title << "\n" << bar << "\n";
+        const std::string bar(70, '=');
+        std::cout << "\n" << bar << "\n  " << title << "\n" << bar << "\n\n";
     }
 
     void PrintResiduals(const CurveCalibrationDiagnostics_& diag, const Vector_<Date_>& maturities) {
@@ -317,6 +314,7 @@ namespace {
             std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(14) << diag.marketRates_[i] * 100.0
                       << std::setw(14) << diag.modelRates_[i] * 100.0 << std::setw(14) << diag.residuals_[i] * 10000.0 << "\n";
         }
+        std::cout << std::string(56, '-') << "\n\n";
     }
 
     // Label each free-node row by its knot date (the solved log-DF params are indexed by free knot).
@@ -328,6 +326,7 @@ namespace {
         std::cout << std::string(36, '-') << "\n";
         for (int i = 0; i < static_cast<int>(v.size()); ++i)
             std::cout << std::left << std::setw(14) << IsoDate(freeKnots[i]) << std::right << std::setw(22) << v[i] << "\n";
+        std::cout << std::string(36, '-') << "\n\n";
     }
 
     void PrintMatrix(const String_& label,
@@ -354,6 +353,7 @@ namespace {
                 std::cout << std::right << std::setw(13) << (m(i, j) * scale);
             std::cout << "\n";
         }
+        std::cout << std::string(14 + 13 * m.Cols(), '-') << "\n\n";
     }
 
     // ---- main() section runners (extracted to keep main's cyclomatic complexity under the
@@ -418,6 +418,7 @@ namespace {
         for (int i = 0; i < static_cast<int>(r.size()); ++i)
             std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << r[i] << std::setw(22) << r[i] * ONE_BP
                       << "\n";
+        std::cout << std::string(56, '-') << "\n\n";
     }
 
     // (h) FR6 inverse-Jacobian nonlinear re-solve sanity. For each calibration instrument, bump its
@@ -456,6 +457,7 @@ namespace {
             }
             std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << maxRel << "\n";
         }
+        std::cout << std::string(34, '-') << '\n';
         if (fr6Passed)
             std::cout << "  Verdict : PASS  (all rel <= " << RE_SOLVE_TOL << ")\n";
     }
@@ -493,6 +495,7 @@ namespace {
         std::cout << std::left << std::setw(28) << ("BUMPED (mean over " + std::to_string(nRuns) + ")") << std::right << std::setw(16) << msBumped << "\n";
         std::cout << std::left << std::setw(28) << ("ANALYTIC (mean over " + std::to_string(nRuns) + ")") << std::right << std::setw(16) << msAnalytic << "\n";
         std::cout << std::left << std::setw(28) << "ratio BUMPED/ANALYTIC" << std::right << std::setw(16) << ratio << "\n";
+        std::cout << std::string(44, '-') << '\n';
         std::cout << "\n  NOTE: the ANALYTIC time includes the single at-solution forward-Jacobian\n"
                   << "        evaluation the solver makes on convergence to populate the diagnostics\n"
                   << "        jacobian_ field, which BUMPED does not perform.\n";

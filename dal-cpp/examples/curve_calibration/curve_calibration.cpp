@@ -120,7 +120,7 @@ namespace {
                       << std::setw(w[2]) << Date::ToString(period.paymentDate_)
                       << std::right << std::setw(w[3]) << (period.isStub_ ? "yes" : "no") << '\n';
         }
-        std::cout << '\n';
+        std::cout << std::string(52, '-') << "\n\n";
     }
 
     void PrintScheduleContextExample() {
@@ -159,7 +159,7 @@ namespace {
                       << (period.dayCountContext_ ? period.dayCountContext_->couponMonths_ : 0)
                       << std::setw(w[4]) << (period.isStub_ ? "yes" : "no") << '\n';
         }
-        std::cout << '\n';
+        std::cout << std::string(62, '-') << "\n\n";
     }
 
     void PrintForwardInstrumentExample(const Date_& today, const Ccy_& ccy) {
@@ -226,9 +226,10 @@ namespace {
     void PrintStageDiagnostics(const CurveCalibrationDiagnostics_& diagnostics,
                                const Vector_<String_>& names,
                                double elapsedMs) {
-        std::cout << "\n  " << diagnostics.curveName_ << " calibration residuals";
-        std::cout << "  (elapsed: " << int(elapsedMs) << " ms)\n";
-        std::cout << "  " << std::string(36, '-') << "\n\n";
+        std::cout << "\n" << std::string(70, '=') << '\n'
+                  << "  " << diagnostics.curveName_ << " calibration residuals"
+                  << "  (elapsed: " << int(elapsedMs) << " ms)\n"
+                  << std::string(70, '=') << "\n\n";
         const Vector_<int> w = {26, 12, 12, 12};
         std::cout << std::left  << std::setw(w[0]) << "Instrument"
                   << std::right << std::setw(w[1]) << "Market(%)"
@@ -243,7 +244,7 @@ namespace {
                       << std::setw(w[2]) << diagnostics.modelRates_[i] * 100.0
                       << std::setw(w[3]) << diagnostics.residuals_[i] * 10000.0 << '\n';
         }
-        std::cout << '\n';
+        std::cout << std::string(62, '-') << "\n\n";
     }
 
     void PrintMultiCurveExample(const Date_& today, const Ccy_& ccy) {

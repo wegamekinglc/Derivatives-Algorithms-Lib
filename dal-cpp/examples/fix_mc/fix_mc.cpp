@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -75,9 +76,12 @@ int main() {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(EVAL_DATE);
 
-    std::cout << "evaluation date: " << Date::ToString(EVAL_DATE) << "  (fixings before this date are historical)\n" << std::endl;
+    std::cout << '\n' << std::string(70, '=') << "\n  Fixing Monte Carlo scenarios\n"
+              << std::string(70, '=') << "\n\n"
+              << "evaluation date: " << Date::ToString(EVAL_DATE) << "  (fixings before this date are historical)\n\n";
     std::cout << std::setw(52) << std::left << "Scenario" << std::setw(14) << std::right << "MC price" << std::setw(14) << std::right << "expected"
               << std::setw(12) << std::right << "Diff (bps)" << std::endl;
+    std::cout << std::string(92, '-') << '\n';
 
     // 1) future fixing: the value comes from the simulated model paths
     Run("future fixing (simulated model paths)", PayFixing(FUTURE_FIXING), ScriptValuationSettings_(), {}, Forward(FUTURE_FIXING) * Discount(MATURITY));
@@ -106,5 +110,6 @@ int main() {
     requireHistorical.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
     Run("today fixing, policy = REQUIREHISTORICAL", PayFixing(EVAL_DATE), requireHistorical, {}, TODAY_VALUE * Discount(MATURITY));
 
+    std::cout << std::string(92, '-') << "\n\n";
     return 0;
 }

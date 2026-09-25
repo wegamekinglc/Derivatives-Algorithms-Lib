@@ -1,7 +1,4 @@
 import datetime as dt
-import pandas as pd
-import numpy as np
-from dateutil.relativedelta import relativedelta
 from dal import *
 
 spot = 1.00
@@ -42,12 +39,16 @@ events.append(
     """
 )
 
-print("------   Model Parameters  ------")
+print("\n" + "=" * 70)
+print("  Model Parameters")
+print("=" * 70 + "\n")
 print(f"rate : {rate* 100:.2f}%")
 print(f"div  : {div * 100:.2f}%")
 print(f"vol  : {vol * 100:.2f}%\n")
 
-print("------ Product Description ------")
+print("\n" + "=" * 70)
+print("  Product Description")
+print("=" * 70 + "\n")
 print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
 print(f"knock in  : {ki:.2f}")
@@ -59,15 +60,21 @@ print(f"# of paths: {n_paths}\n")
 product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)
 
-print("------ Product Evaluation  ------")
+print("\n" + "=" * 70)
+print("  Product Evaluation")
+print("=" * 70 + "\n")
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, False)
-all_res = {"Non-AAD": [res["PV"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
+all_res = {"Non-AAD": [res["PV"], float("nan"), float("nan"), float("nan"), float("nan"),
+                       (dt.datetime.now() - now).total_seconds() * 1000]}
 
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, True)
 all_res["AAD"] = [res["PV"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
 
-df = pd.DataFrame.from_dict(all_res)
-df.index = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]
-print(df.T.to_markdown())
+labels = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]
+print(f"{'Method':<14}" + "".join(f"{label:>16}" for label in labels))
+print("-" * 110)
+for method, values in all_res.items():
+    print(f"{method:<14}" + "".join(f"{value:>16.6f}" for value in values))
+print("-" * 110)

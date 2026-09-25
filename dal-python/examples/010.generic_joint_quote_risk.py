@@ -93,9 +93,14 @@ def main():
     print("mapping:", calibrated.eff_jacobian_inverse_mapping)
     print("axis:", provenance.axis.scheme, provenance.axis.fingerprint)
     print("policy:", risk.policy)
-    print("quote_key,currency,dPV/dDecimalQuote,DV01")
+    print("\n" + "=" * 70)
+    print("  Joint quote risk by market instrument")
+    print("=" * 70 + "\n")
+    print(f"{'Quote key':<34}{'Currency':<10}{'dPV/dDecimalQuote':>26}{'DV01':>22}")
+    print("-" * 92)
     for bucket in risk.buckets:
-        print(f"{bucket.quote_key},{bucket.actual_pv_ccy},{bucket.d_pv_d_decimal_quote:.12g},{bucket.dv01:.12g}")
+        print(f"{str(bucket.quote_key):<34}{str(bucket.actual_pv_ccy):<10}{bucket.d_pv_d_decimal_quote:>26.12g}{bucket.dv01:>22.12g}")
+    print("-" * 92)
 
 
 if __name__ == "__main__":

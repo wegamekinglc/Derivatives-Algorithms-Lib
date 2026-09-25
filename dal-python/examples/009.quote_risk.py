@@ -101,12 +101,17 @@ def main() -> int:
     print(f"Axis fingerprint: {provenance.axis.fingerprint}")
     print(f"State fingerprint: {provenance.state.fingerprint}")
     print(f"Policy: {risk.policy}")
-    print("Quote risk (decimal quote sensitivity, DV01):")
+    print("\n" + "=" * 70)
+    print("  Quote risk by market instrument")
+    print("=" * 70 + "\n")
+    print(f"{'Quote key':<34}{'Currency':<10}{'dPV/dDecimalQuote':>26}{'DV01':>22}")
+    print("-" * 92)
     for bucket in risk.buckets:
         print(
-            f"  {bucket.quote_key}: "
-            f"{bucket.d_pv_d_decimal_quote:.10g}, {bucket.dv01:.10g} {bucket.actual_pv_ccy}"
+            f"{str(bucket.quote_key):<34}{str(bucket.actual_pv_ccy):<10}"
+            f"{bucket.d_pv_d_decimal_quote:>26.10g}{bucket.dv01:>22.10g}"
         )
+    print("-" * 92)
     return 0
 
 

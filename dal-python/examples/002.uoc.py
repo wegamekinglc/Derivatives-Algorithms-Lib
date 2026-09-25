@@ -38,10 +38,20 @@ else:
 
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, True)
 vega = 0.0
+rows = []
 for k, v in res.items():
     if k.startswith("d_lvol"):
         vega += v
     else:
-        print(f"{k:<8}: {v:>10.4f}")
+        rows.append((k, v))
 if vega != 0:
-    print(f"{'d_vol':<8}: {vega:>10.4f}")
+    rows.append(("d_vol", vega))
+
+print("\n" + "=" * 70)
+print("  UOC Monte Carlo results")
+print("=" * 70 + "\n")
+print(f"{'Result':<18}{'Value':>14}")
+print("-" * 32)
+for name, value in rows:
+    print(f"{name:<18}{value:>14.4f}")
+print("-" * 32)

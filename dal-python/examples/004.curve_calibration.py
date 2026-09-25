@@ -71,9 +71,9 @@ def main():
     ois_flat = make_flat_discount_curve("ois_market", ccy, today, 0.01)
     libor3m_flat = make_flat_discount_curve("libor3m_market", ccy, today, 0.03)
 
-    print("=" * 72)
+    print("=" * 70)
     print("  Exactly-Determined (Square) Multi-Curve Calibration")
-    print("=" * 72)
+    print("=" * 70)
     print()
     print(f"  Today:            {today}")
     print(f"  Currency:         {ccy}")
@@ -208,15 +208,18 @@ def main():
         (libor_names, result.diagnostics_[1]),
     ]):
         stage_label = "OIS discount" if stage_idx == 0 else "Libor 3M forward"
-        print("=" * 72)
+        print("=" * 70)
         print(f"  Stage {stage_idx + 1}: {stage_label}  "
               f"({len(diag.marketRates_)} instruments, {n_free} free params, square)")
-        print("=" * 72)
-        print(f"  {'Instrument':<18} {'Market(%)':>10} {'Model(%)':>10} {'Error(bp)':>10}")
-        print(f"  {'-' * 48}")
+        print("=" * 70)
+        print()
+        print(f"{'Instrument':<18}{'Market(%)':>10}{'Model(%)':>10}{'Error(bp)':>10}")
+        print("-" * 48)
         for i in range(len(diag.marketRates_)):
-            print(f"  {names[i]:<18} {diag.marketRates_[i] * 100:>10.6f} "
-                  f"{diag.modelRates_[i] * 100:>10.6f} {diag.residuals_[i] * 10000:>10.4f}")
+            print(f"{names[i]:<18}{diag.marketRates_[i] * 100:>10.6f}"
+                  f"{diag.modelRates_[i] * 100:>10.6f}{diag.residuals_[i] * 10000:>10.4f}")
+        print("-" * 48)
+        print()
 
     print()
     print(f"  --- Summary ---")

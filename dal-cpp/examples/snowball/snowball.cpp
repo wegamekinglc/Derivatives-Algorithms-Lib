@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <string>
 
 #include <iomanip>
 #include <dal/platform/platform.hpp>
@@ -68,6 +69,8 @@ int main() {
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};
 
+    std::cout << '\n' << std::string(70, '=') << "\n  Snowball pricing comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
@@ -78,6 +81,7 @@ int main() {
               << std::setw(widths[7]) << std::right << "dP/dDiv"
               << std::setw(widths[8]) << std::right << "Elapsed (ms)"
               << std::endl;
+    std::cout << std::string(126, '-') << '\n';
 
     {
         Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
@@ -236,5 +240,6 @@ int main() {
                   << std::endl;
     }
 
+    std::cout << std::string(126, '-') << "\n\n";
     return 0;
 }
