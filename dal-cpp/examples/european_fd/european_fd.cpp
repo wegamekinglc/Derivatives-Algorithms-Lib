@@ -96,14 +96,17 @@ int main() {
     double volStd = std::sqrt(kT) * kVol;
     const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, kStrike, OptionType_::Value_::CALL);
 
-    std::cout << std::setw(widths[0]) << std::right << "scheme" << std::setw(widths[1]) << std::right << "grids (x/t)" << std::setw(widths[2])
+    std::cout << '\n' << std::string(70, '=') << "\n  European call finite-difference comparison\n"
+              << std::string(70, '=') << "\n\n";
+    std::cout << std::setw(widths[0]) << std::left << "scheme" << std::setw(widths[1]) << std::right << "grids (x/t)" << std::setw(widths[2])
               << std::right << "spot" << std::setw(widths[3]) << std::right << "price" << std::setw(widths[4]) << std::right << "benchmark"
               << std::setw(widths[5]) << std::right << "Diff (bps)" << std::setw(widths[6]) << std::right << "Elapsed (ms)" << std::endl;
+    std::cout << std::string(108, '-') << '\n';
 
     const auto printRun = [&](const SchemeRun_& run) {
         const PriceResult_ result = PriceEuropeanCall(run);
         const std::string gridLabel = std::to_string(run.spaceSteps + 1) + "/" + std::to_string(run.timeSteps);
-        std::cout << std::setw(widths[0]) << std::right << run.name << std::setw(widths[1]) << std::right << gridLabel << std::fixed
+        std::cout << std::setw(widths[0]) << std::left << run.name << std::setw(widths[1]) << std::right << gridLabel << std::fixed
                   << std::setw(widths[2]) << std::right << std::setprecision(2) << kSpot << std::setprecision(6) << std::setw(widths[3]) << std::right
                   << result.value << std::setw(widths[4]) << std::right << benchmark << std::setw(widths[5]) << std::right
                   << (result.value - benchmark) / benchmark * 10000 << std::setw(widths[6]) << std::right << result.elapsedMs << std::endl;
@@ -118,5 +121,6 @@ int main() {
         printRun(run);
     }
 
+    std::cout << std::string(108, '-') << "\n\n";
     return 0;
 }

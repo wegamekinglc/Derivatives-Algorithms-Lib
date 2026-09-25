@@ -8,6 +8,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -215,15 +216,24 @@ namespace {
         std::cout << std::scientific << std::setprecision(3) << "converged=" << std::boolalpha << result.converged_
                   << " maxResidual=" << result.jointMaxAbsResidual_ << " jacobian=" << result.jacobianAtSolution_.Rows() << "x"
                   << result.jacobianAtSolution_.Cols() << '\n';
+        std::cout << '\n' << std::string(70, '=') << "\n  Joint cross-currency parameter recovery\n"
+                  << std::string(70, '=') << "\n\n"
+                  << std::left << std::setw(26) << "Curve" << std::setw(18) << "Parameters"
+                  << std::setw(18) << "Residuals" << std::right << std::setw(18) << "Recovery error" << '\n'
+                  << std::string(80, '-') << '\n';
         for (int i = 0; i < static_cast<int>(result.parameterRanges_.size()); ++i) {
             const auto& parameterRange = result.parameterRanges_[i];
             const auto& residualRange = result.residualRanges_[i];
             const double blockError = MaxDifference(recovered, truth, parameterRange.offset_, parameterRange.size_);
             maxParameterError = std::max(maxParameterError, blockError);
-            std::cout << parameterRange.name_ << " params=[" << parameterRange.offset_ << "," << parameterRange.offset_ + parameterRange.size_
-                      << ") residuals=[" << residualRange.offset_ << "," << residualRange.offset_ + residualRange.size_
-                      << ") recoveryError=" << blockError << '\n';
+            const std::string parameterSpan = "[" + std::to_string(parameterRange.offset_) + "," +
+                                              std::to_string(parameterRange.offset_ + parameterRange.size_) + ")";
+            const std::string residualSpan = "[" + std::to_string(residualRange.offset_) + "," +
+                                             std::to_string(residualRange.offset_ + residualRange.size_) + ")";
+            std::cout << std::left << std::setw(26) << parameterRange.name_ << std::setw(18) << parameterSpan
+                      << std::setw(18) << residualSpan << std::right << std::setw(18) << blockError << '\n';
         }
+        std::cout << std::string(80, '-') << "\n\n";
         return result.converged_ && result.jointMaxAbsResidual_ < 1.0e-8 && maxParameterError < 1.0e-8 && !result.jacobianAtSolution_.Empty() &&
                !result.parameterRanges_.empty();
     }

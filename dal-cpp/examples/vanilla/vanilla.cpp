@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <string>
 #include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -58,6 +59,8 @@ int main() {
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
+    std::cout << '\n' << std::string(70, '=') << "\n  Vanilla option pricing comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
@@ -69,6 +72,7 @@ int main() {
               << std::setw(widths[8]) << std::right << "dP/dK"
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
+    std::cout << std::string(140, '-') << '\n';
 
     {
         // aadet
@@ -273,5 +277,6 @@ int main() {
                   << std::setw(widths[8]) << std::right << results.risks_[4]
                   << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
+    std::cout << std::string(140, '-') << "\n\n";
     return 0;
 }

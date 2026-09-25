@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include <dal/model/blackscholes.hpp>
@@ -173,6 +174,8 @@ int main(int argc, char* argv[]) {
     auto spots = Vector::XRange(50.0, 200.0, 31);
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
+    std::cout << '\n' << std::string(70, '=') << "\n  UOC pricing comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
@@ -185,6 +188,7 @@ int main(int argc, char* argv[]) {
               << std::setw(widths[9]) << std::right << "dP/dK"
               << std::setw(widths[10]) << std::right << "Elapsed (ms)"
               << std::endl;
+    std::cout << std::string(154, '-') << '\n';
     {
         Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
                                                                       spot,
@@ -316,5 +320,6 @@ int main(int argc, char* argv[]) {
                   << std::setw(widths[9]) << std::right << results.risks_[3 + volLength + 1]
                   << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
+    std::cout << std::string(154, '-') << "\n\n";
     return 0;
 }

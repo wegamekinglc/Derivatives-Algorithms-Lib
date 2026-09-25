@@ -21,6 +21,11 @@ product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)
 
 res = MonteCarlo_Value(product, model, n_paths, rsg, False, True)
-vega = 0.0
+print("\n" + "=" * 70)
+print("  European call Monte Carlo results")
+print("=" * 70 + "\n")
+print(f"{'Result':<18}{'Value':>14}")
+print("-" * 32)
 for k, v in res.items():
-    print(f"{k:<8}: {v:>10.4f}")
+    print(f"{k:<18}{v:>14.4f}")
+print("-" * 32)

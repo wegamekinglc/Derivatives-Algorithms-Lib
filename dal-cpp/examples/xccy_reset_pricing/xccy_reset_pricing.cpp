@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -168,9 +169,9 @@ namespace {
     }
 
     void PrintMode(const ModeResult_& result) {
-        std::cout << result.label_ << " periods=" << result.periodCount_ << " resets=" << result.resetCount_
-                  << " mtm_deltas=" << result.mtmDeltaCount_ << " next_domestic_notional=" << result.nextDomesticNotional_
-                  << " par_quote_bp=" << 1.0e4 * result.parQuote_ << '\n';
+        std::cout << std::left << std::setw(22) << result.label_ << std::right << std::setw(10) << result.periodCount_
+                  << std::setw(10) << result.resetCount_ << std::setw(14) << result.mtmDeltaCount_
+                  << std::setw(24) << result.nextDomesticNotional_ << std::setw(18) << 1.0e4 * result.parQuote_ << '\n';
     }
 
     Handle_<MarketFixingSnapshot_> SnapshotFor(const XccyCashflowPlan_& plan, const DateTime_& valuationTime) {
@@ -183,8 +184,13 @@ namespace {
         bool hasForeign = false;
         bool hasFx = false;
         MarketFixingSnapshot_::values_t values;
+        std::cout << '\n' << std::string(70, '=') << "\n  Historical fixings\n"
+                  << std::string(70, '=') << "\n\n"
+                  << std::left << std::setw(32) << "Index" << std::right << std::setw(24) << "Fixing time" << '\n'
+                  << std::string(56, '-') << '\n';
         for (const auto& request : requests) {
-            std::cout << "historical_fixing index=" << request.indexName_ << " time=" << DateTime::ToString(request.fixingTime_) << '\n';
+            std::cout << std::left << std::setw(32) << request.indexName_ << std::right << std::setw(24)
+                      << DateTime::ToString(request.fixingTime_) << '\n';
             if (request.indexName_ == config.domesticRateFixing_.indexName_) {
                 values["USD-XCCY-RESET-3M"][request.fixingTime_] = 0.040;
                 hasDomestic = true;
@@ -198,6 +204,7 @@ namespace {
                 THROW("Unknown historical XCCY fixing identity: " + request.indexName_);
             }
         }
+        std::cout << std::string(56, '-') << "\n\n";
         REQUIRE(hasDomestic && hasForeign && hasFx, "Started MTM example requires USD, EUR, and FX historical fixing requests");
         return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
     }
@@ -223,9 +230,16 @@ namespace {
         const ModeResult_ fixed = EvaluateFutureMode(fixture, XccyNotionalMode_::Value_::FIXED);
         const ModeResult_ resettable = EvaluateFutureMode(fixture, XccyNotionalMode_::Value_::RESETTABLE);
         const ModeResult_ mtm = EvaluateFutureMode(fixture, XccyNotionalMode_::Value_::MARK_TO_MARKET);
+        std::cout << '\n' << std::string(70, '=') << "\n  Cross-currency reset pricing comparison\n"
+                  << std::string(70, '=') << "\n\n"
+                  << std::left << std::setw(22) << "Mode" << std::right << std::setw(10) << "Periods"
+                  << std::setw(10) << "Resets" << std::setw(14) << "MTM deltas"
+                  << std::setw(24) << "Next domestic notional" << std::setw(18) << "Par quote(bp)" << '\n'
+                  << std::string(98, '-') << '\n';
         PrintMode(fixed);
         PrintMode(resettable);
         PrintMode(mtm);
+        std::cout << std::string(98, '-') << "\n\n";
 
         REQUIRE(fixed.resetCount_ == 0 && fixed.mtmDeltaCount_ == 0, "FIXED mode must have zero resets and zero MTM deltas");
         REQUIRE(resettable.resetCount_ == resettable.periodCount_ - 1 && resettable.mtmDeltaCount_ == 0,

@@ -119,8 +119,8 @@ namespace {
     }
 
     void PrintHeader(const char* title) {
-        std::cout << "\n" << std::string(78, '=') << "\n  " << title << "\n"
-                  << std::string(78, '=') << "\n";
+        std::cout << "\n" << std::string(70, '=') << "\n  " << title << "\n"
+                  << std::string(70, '=') << "\n\n";
     }
 
     void PrintDfTable(const Vector_<Date_>& dates,
@@ -139,6 +139,7 @@ namespace {
                       << std::setw(w[1]) << dfLinear[i] << std::setw(w[2]) << dfCubic[i]
                       << std::setw(w[3]) << dfMixed[i] << '\n';
         }
+        std::cout << std::string(52, '-') << "\n\n";
     }
 
     // One-year continuously-compounded forward rate at each node: f = -d(log DF)/dt.
@@ -172,15 +173,14 @@ namespace {
                       << std::setw(w[2]) << AnnualForward(cubic, d, basis) * 100.0
                       << std::setw(w[3]) << AnnualForward(mixed, d, basis) * 100.0 << '\n';
         }
+        std::cout << std::string(52, '-') << "\n\n";
     }
 
     void PrintResiduals(const CurveCalibrationDiagnostics_& d, LogDfScheme_::Value_ scheme, double elapsedMs) {
-        std::cout << std::left << std::setw(12) << SchemeName(scheme) << std::right
-                  << "  maxAbsResidual = " << std::scientific << std::setprecision(3)
-                  << d.maxAbsResidual_ << std::fixed << ",  rmsResidual = " << std::scientific
-                  << std::setprecision(3) << d.rmsResidual_ << std::fixed
-                  << (d.usedApproximateFit_ ? "  [approx fit]" : "  [exact solve]")
-                  << ",  time = " << std::fixed << std::setprecision(3) << elapsedMs << " ms\n";
+        std::cout << std::left << std::setw(14) << SchemeName(scheme) << std::right << std::scientific << std::setprecision(3)
+                  << std::setw(20) << d.maxAbsResidual_ << std::setw(20) << d.rmsResidual_ << std::fixed
+                  << std::setw(16) << (d.usedApproximateFit_ ? "approx fit" : "exact solve")
+                  << std::setw(14) << std::setprecision(3) << elapsedMs << '\n';
     }
 } // namespace
 
@@ -223,10 +223,14 @@ int main() {
 
     // -- Repricing residuals --
     PrintHeader("Repricing residuals and calibration time (per scheme)");
+    std::cout << std::left << std::setw(14) << "Scheme" << std::right << std::setw(20) << "Max abs residual"
+              << std::setw(20) << "RMS residual" << std::setw(16) << "Fit"
+              << std::setw(14) << "Time(ms)" << '\n'
+              << std::string(84, '-') << '\n';
     PrintResiduals(rLin.diagnostics_, LogDfScheme_::Value_::LOG_LINEAR, msLin);
     PrintResiduals(rCub.diagnostics_, LogDfScheme_::Value_::LOG_CUBIC_NATURAL, msCub);
     PrintResiduals(rMix.diagnostics_, LogDfScheme_::Value_::MIXED, msMix);
-    std::cout << '\n';
+    std::cout << std::string(84, '-') << "\n\n";
 
     return 0;
 }

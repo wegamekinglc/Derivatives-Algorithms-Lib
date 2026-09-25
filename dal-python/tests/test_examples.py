@@ -19,7 +19,7 @@ _PACKAGE_ROOT = str(Path(dal.__file__).resolve().parent.parent)
 @pytest.mark.parametrize(
     "name,env,marker",
     [
-        ("010.generic_joint_quote_risk.py", {}, "quote_key,currency"),
+        ("010.generic_joint_quote_risk.py", {}, "Quote key"),
         ("011.prepared_rate_pricing.py", {}, "dPV/dforward"),
         ("012.fix_settings.py", {}, "'PV': 260.0"),
         (

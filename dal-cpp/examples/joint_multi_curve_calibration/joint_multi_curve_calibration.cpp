@@ -260,16 +260,17 @@ namespace {
     // Both diagnostics structs (joint and staged) expose curveName_, residuals_, maxAbsResidual_,
     // rmsResidual_ with identical shapes, so a single template covers both summary tables.
     template <class Diag_> void PrintResidualSummary(const char* path, const Vector_<Diag_>& diags) {
-        std::cout << "\n  " << path << " per-curve residuals\n";
-        std::cout << "  " << std::string(54, '-') << "\n";
+        std::cout << "\n" << std::string(70, '=') << "\n"
+                  << "  " << path << " per-curve residuals\n"
+                  << std::string(70, '=') << "\n\n";
         std::cout << std::left << std::setw(14) << "Curve" << std::right << std::setw(12) << "nInstr" << std::setw(16) << "maxAbs(bp)"
                   << std::setw(16) << "rms(bp)" << "\n";
-        std::cout << std::string(54, '-') << "\n";
+        std::cout << std::string(58, '-') << "\n";
         std::cout << std::fixed << std::setprecision(6);
         for (const auto& diag : diags)
             std::cout << std::left << std::setw(14) << diag.curveName_ << std::right << std::setw(12) << diag.residuals_.size() << std::setw(16)
                       << diag.maxAbsResidual_ * 10000.0 << std::setw(16) << diag.rmsResidual_ * 10000.0 << "\n";
-        std::cout << "\n";
+        std::cout << std::string(58, '-') << "\n\n";
     }
 
     void PrintDfComparisonTable(const char* title, const Date_& today, const DiscountCurve_& jointCurve, const DiscountCurve_& stagedCurve) {

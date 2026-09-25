@@ -9,6 +9,7 @@
 #include <iostream>
 #include <iomanip>
 #include <memory>
+#include <string>
 
 using namespace Dal;
 using namespace std;
@@ -19,6 +20,8 @@ int main() {
     Timer_ timer;
     Vector_<int> widths = {20, 14, 14, 22, 22, 22};
 
+    std::cout << '\n' << std::string(70, '=') << "\n  Sobol sequence timing comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::right << "# of paths"
               << std::setw(widths[1]) << std::right << "# of dims"
               << std::setw(widths[2]) << std::right << "Uniform"
@@ -26,6 +29,7 @@ int main() {
               << std::setw(widths[4]) << std::right << "precise=T polish=F"
               << std::setw(widths[5]) << std::right << "precise=T polish=T"
               << std::endl;
+    std::cout << std::string(114, '-') << '\n';
 
     struct SobolNormalSetting_ {
         bool precise_;
@@ -70,5 +74,6 @@ int main() {
 
         std::cout << std::endl;
     }
+    std::cout << std::string(114, '-') << "\n\n";
     return 0;
 }

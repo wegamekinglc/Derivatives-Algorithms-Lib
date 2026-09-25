@@ -202,7 +202,7 @@ namespace {
                       << Date::ToString(span.first) << std::setw(w[2]) << Date::ToString(span.second)
                       << std::setw(w[3]) << e.inst_->MarketRate() * 100.0 << '\n';
         }
-        std::cout << '\n';
+        std::cout << std::string(58, '-') << "\n\n";
     }
 
     void PrintResiduals(const CurveCalibrationDiagnostics_& d, const Vector_<String_>& names) {
@@ -238,7 +238,7 @@ namespace {
             std::cout << std::left << std::setw(w[0]) << label << std::right << std::setw(w[1])
                       << Date::ToString(d) << std::setw(w[2]) << zero * 100.0 << std::setw(w[3]) << df << '\n';
         }
-        std::cout << '\n';
+        std::cout << std::string(52, '-') << "\n\n";
     }
 
     void PrintBenchmarkComparison(const DiscountCurve_& curve,
@@ -422,8 +422,9 @@ int main() {
     const auto result = CalibrateYieldCurve(spec);
     const auto elapsedMs = timer.Elapsed<milliseconds>();
 
-    std::cout << "  Calibration residuals  (elapsed: " << elapsedMs << " ms)\n";
-    std::cout << "  " << std::string(36, '-') << "\n\n";
+    std::cout << std::string(70, '=') << "\n"
+              << "  Calibration residuals  (elapsed: " << elapsedMs << " ms)\n"
+              << std::string(70, '=') << "\n\n";
     PrintResiduals(result.diagnostics_, displayNames);
 
     std::cout << std::string(70, '=') << "\n"

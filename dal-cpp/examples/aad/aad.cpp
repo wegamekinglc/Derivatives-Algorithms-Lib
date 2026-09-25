@@ -10,6 +10,7 @@
 #include <dal/utilities/timer.hpp>
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 using namespace std;
 using namespace Dal;
@@ -44,6 +45,8 @@ int main() {
 
     Vector_<int> widths = {25, 14, 14, 14, 14, 14, 14, 14};
 
+    std::cout << '\n' << std::string(70, '=') << "\n  AAD Black pricing comparison\n"
+              << std::string(70, '=') << "\n\n";
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "PV"
               << std::setw(widths[2]) << std::right << "dP/dFwd"
@@ -53,6 +56,7 @@ int main() {
               << std::setw(widths[6]) << std::right << "dP/dT"
               << std::setw(widths[7]) << std::right << "Elapsed (ms)"
               << std::endl;
+    std::cout << std::string(123, '-') << '\n';
 
     {
         // no aad
@@ -222,5 +226,6 @@ int main() {
     //               << std::endl;
     // }
 
+    std::cout << std::string(123, '-') << "\n\n";
     return 0;
 }
