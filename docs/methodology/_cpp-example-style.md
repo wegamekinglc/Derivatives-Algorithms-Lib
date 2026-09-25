@@ -1,18 +1,18 @@
 # C++ Example Style Guide for Methodology Docs
 
-This is the internal style guide every doc-writer follows when adding C++ examples to a
-methodology note under `docs/methodology/`. It is not itself a methodology note. Read it before
-editing any doc in this directory.
+This is the internal style guide for C++ examples in quantitative-method docs.
+It applies to `docs/methodology/`, `docs/yield-curves/`, `docs/ccy-curves/`,
+`docs/monte-carlo/`, and `docs/pde/`. It is not itself a methodology note.
 
-Its goal is consistency: a reader moving from `aad.md` to `yield_curve.md` to `script_engine.md`
+Its goal is consistency: a reader moving from AAD to yield curves to the script engine
 should see the same include style, the same naming, the same way of pointing at a runnable program,
 and the same rules about what may be invented.
 
 ## Scope
 
-Apply this guide to every C++ snippet under `docs/methodology/`, including
-node-risk and generic joint quote-risk examples. The current methodology inventory
-is maintained in [the documentation index](../README.md#methodology-methodology).
+Apply this guide to every C++ snippet in the quantitative-method chapters.
+The current chapter inventory is maintained in
+[the documentation index](../README.md#quantitative-methods).
 
 ## Source of truth
 
@@ -98,7 +98,7 @@ following:
 1. Link to the program directory with a project-relative markdown link. The canonical phrasing is:
 
    ```markdown
-   See [`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad/) for a runnable version.
+   See [`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad) for a runnable version.
    ```
 
    Use exactly the relative form `../../dal-cpp/examples/<name>/` from any file in
@@ -177,17 +177,18 @@ Use exactly these paths. Every directory was verified against `dal-cpp/examples/
 | `aad.md`                      | `dal-cpp/examples/aad/`                                                                                                                                                           |
 | `black_scholes.md`            | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
 | `dupire.md`                   | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
-| `yield_curve.md`              | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
-| `log_discount_curve.md`       | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
+| `yield-curves/construction.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
+| `yield-curves/log-discount.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
 | `interpolation.md`            | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
-| `yield_curve_jacobian.md`     | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
-| `random.md`                   | `dal-cpp/examples/sobol/`                                                                                                                                                         |
-| `script_engine.md`            | `dal-cpp/examples/script/`, `dal-cpp/examples/american_put_mc/`                                                                                                                   |
+| `yield-curves/jacobian-risk.md` | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
+| `monte-carlo/sampling.md`     | `dal-cpp/examples/sobol/`                                                                                                                                                         |
+| `script_engine.md`            | `dal-cpp/examples/script/`                                                                                                                                                        |
+| `monte-carlo/lsm.md`          | `dal-cpp/examples/american_put_mc/`                                                                                                                                              |
 | `underdetermined_search.md`   | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
-| `xccy_calibration.md`         | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
-| `pde.md`                      | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
-| `rate_node_risk.md`           | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
-| `generic_joint_quote_risk.md` | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
+| `ccy-curves/pricing-calibration.md` | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
+| `pde/option-pricing.md`       | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
+| `yield-curves/node-risk.md`   | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
+| `yield-curves/joint-quote-risk.md` | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
 | `matrix.md`                   | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
 | `dates.md`                    | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
 | `index_parsing.md`            | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |

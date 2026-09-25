@@ -18,7 +18,8 @@ master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
 because the pull request already covered every combination. GitHub publishes
 one status badge per workflow; open a workflow run for per-job results.
 Path-matched pull requests run [Python wheel CI](.github/workflows/dal-python-ci.yml)
-for installed-package tests on Linux and Windows; PyPI publication remains in
+for installed-package tests on Linux, Windows, and macOS (Intel and Apple
+Silicon); PyPI publication remains in
 the tag-only [release workflow](.github/workflows/dal-python-release.yml).
 
 Benchmarks run in a separate [scheduled workflow](.github/workflows/benchmarks.yml)
@@ -94,55 +95,27 @@ Core domains in `dal-cpp/dal/`:
 
 ## Examples
 
-### Python
+### C++
 
-```python
-from dal import *
+The [scripted Monte Carlo example](docs/public-api.md#scripted-monte-carlo)
+constructs a product and Black-Scholes model through the public C++ facade,
+then calls `ValueByMonteCarlo`. The runnable
+[European](dal-cpp/examples/european_mc/) and
+[American/Bermudan](dal-cpp/examples/american_put_mc/) C++ examples compare
+Monte Carlo prices with analytic or PDE references.
 
-today = Date_(2022, 9, 15)
-EvaluationDate_Set(today)
-
-spot, vol, rate, div = 100.0, 0.15, 0.0, 0.0
-strike = 120.0
-maturity = Date_(2025, 9, 15)
-
-events = [f"call pays MAX(spot() - {strike}, 0.0)"]
-product = Product_New([maturity], events)
-model = BSModelData_New(spot, vol, rate, div)
-
-res = MonteCarlo_Value(
-    product,
-    model,
-    2**20,
-    method="sobol",
-    enable_aad=True,
-    compiled=True,
-)
-for k, v in res.items():
-    print(f"{k:<8}: {v:>10.4f}")
-```
-
-Output:
-```
-PV      :     4.0389
-d_div   :   -85.2290
-d_rate  :    73.1011
-d_spot  :     0.2838
-d_vol   :    58.7140
-```
-
-More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C++](dal-cpp/examples/). The C++ Monte Carlo script examples show both tree-walk and compiled evaluator output where applicable.
+More examples: [Python](dal-python/examples), [Excel](dal-excel/examples), [C++](dal-cpp/examples). The C++ Monte Carlo script examples show both tree-walk and compiled evaluator output where applicable.
 
 Cross-currency examples:
 
-- [reset-aware pricing](dal-cpp/examples/xccy_reset_pricing/)
-- [staged basis calibration](dal-cpp/examples/xccy_curve_calibration/)
-- [joint domestic/foreign/basis calibration](dal-cpp/examples/xccy_mtm_calibration/)
+- [reset-aware pricing](dal-cpp/examples/xccy_reset_pricing)
+- [staged basis calibration](dal-cpp/examples/xccy_curve_calibration)
+- [joint domestic/foreign/basis calibration](dal-cpp/examples/xccy_mtm_calibration)
 - [Python joint calibration](dal-python/examples/007.xccy_joint_calibration.py)
 
 Quote-space DV01 examples:
 
-- [C++ single-curve quote risk](dal-cpp/examples/quote_risk/)
+- [C++ single-curve quote risk](dal-cpp/examples/quote_risk)
 - [Python single-curve quote risk](dal-python/examples/009.quote_risk.py)
 - [Excel worksheet recipe](dal-excel/examples/008.quote_risk.md)
 - [Generic joint multi-curve worksheet recipe](dal-excel/examples/009.generic_joint_quote_risk.md)
@@ -173,7 +146,7 @@ Public C++ supports typed product and valuation settings for unquoted
 preserving old call signatures. See the
 [settings contract](docs/methodology/script_engine.md#public-c-settings) and
 [runnable C++ example](dal-public/examples/script_settings.cpp).
-[fix_mc](dal-cpp/examples/fix_mc/) is a runnable Monte Carlo example covering
+[fix_mc](dal-cpp/examples/fix_mc) is a runnable Monte Carlo example covering
 historical fixings (global store or explicit snapshot), future fixings
 (simulated model paths), mixed payoffs, and the evaluation-date fixing policy.
 
@@ -190,7 +163,7 @@ same settings and diagnostics through keyword-only settings classes,
 Excel exposes settings handles with `PRODUCT.NEWWITHSETTINGS` /
 `MONTECARLO.VALUEWITHSETTINGS` plus the chunk-valued `PRODUCT.DESCRIBE`,
 `SCRIPTVALUATION.EXPLAIN`, and `SCRIPTSIMULATION.EXPLAIN` — see
-[Excel FIX Settings and Diagnostics](docs/excel-script-settings.md).
+[Excel FIX Settings and Diagnostics](docs/excel/script-settings.md).
 
 ### Script Product Debug Dumps
 
@@ -205,11 +178,9 @@ for the formats.
 
 ### Excel
 
-```
-=PRODUCT.NEW("my_product", A2, B2)
-=BSMODELDATA.NEW("model", 100, 0.15, 0.0, 0.0)
-=MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE, TRUE, 0.01)
-```
+See the [Excel interface chapter](docs/excel/README.md) for worksheet formulas
+and handle conventions. Python examples are in the
+[Python interface chapter](docs/python/README.md).
 
 ## Web UI
 
@@ -220,19 +191,21 @@ The portfolio management web UI moved to its own repository:
 
 - **[Installation Guide](docs/installation.md)** — Canonical setup workflows
 - **[Architecture Guide](docs/architecture.md)** — Components, ownership, and execution flows
-- **[Public API Guide](docs/public-api.md)** — C++, Python, and Excel entry points
+- **[C++ Public API Guide](docs/public-api.md)** — public facade entry points
+- **[Python Interface](docs/python/README.md)** — Python bindings and examples
+- **[Excel Interface](docs/excel/README.md)** — worksheet functions and handles
 - **[Contributing Guide](CONTRIBUTING.md)** — Development and review workflow
 - **[Documentation Index](docs/README.md)** — All methodology and component guides
 
 Methodology notes (see the index above for the full list):
 
 - [AAD](docs/methodology/aad.md) — Automatic adjoint differentiation: expression templates, tape, propagation
-- [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, inverse-Jacobian transforms, and production quote-space DV01
-- [Cross-Currency Pricing and Calibration](docs/methodology/xccy_calibration.md) — fixed, resettable, and MTM swaps; immutable fixing snapshots; staged basis and simultaneous domestic/foreign/basis calibration
+- [Yield Curve](docs/yield-curves/construction.md) and [Yield-Curve Jacobian](docs/yield-curves/jacobian-risk.md) — discount curves, calibration, inverse-Jacobian transforms, and production quote-space DV01
+- [Cross-Currency Pricing and Calibration](docs/ccy-curves/pricing-calibration.md) — fixed, resettable, and MTM swaps; immutable fixing snapshots; staged basis and simultaneous domestic/foreign/basis calibration
 - [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
-- [PDE](docs/methodology/pde.md) — PDE framework, grid construction, and coordinate maps
+- [PDE](docs/pde/README.md) — finite-difference framework and European option pricing
 - [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
-- [Random](docs/methodology/random.md) — random number generation and path construction
+- [Monte Carlo](docs/monte-carlo/README.md) — simulation, LSM, sampling, RQMC, and AAD
 - [Black / Bachelier](docs/methodology/black_scholes.md) — vanilla option pricing
 - [Matrix](docs/methodology/matrix.md) — matrix and linear algebra
 

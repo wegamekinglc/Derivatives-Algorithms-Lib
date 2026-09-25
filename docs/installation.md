@@ -417,5 +417,6 @@ CPU-specific tuning.
 ## Next Steps
 
 - Read the [architecture guide](architecture.md).
-- Choose an entry point in the [public API guide](public-api.md).
+- Choose an entry point in the [documentation index](README.md): C++, Python,
+  or Excel.
 - Follow [CONTRIBUTING.md](../CONTRIBUTING.md) for development workflow.

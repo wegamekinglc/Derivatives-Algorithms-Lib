@@ -46,7 +46,7 @@ Curve workflows use convention/instrument constructors followed by
 `CALIBRATE.JOINTXCCY`; result accessors return diagnostics, supported matrix or
 range views, and curve handles. Matrix visibility differs between staged and
 joint XCCY as described below. The
-[public API guide](../docs/public-api.md#excel) lists the primary worksheet
+[Excel interface chapter](../docs/excel/README.md) lists the primary worksheet
 families.
 
 ## Script FIX Settings and Diagnostics
@@ -69,7 +69,7 @@ in the same chunk form. Concatenate all rows without separators before
 parsing. These functions are nonvolatile; each actual Value/Explain call
 prepares independently, so explicitly recalculate after global-state changes.
 
-The [Excel FIX guide](../docs/excel-script-settings.md) covers exact signatures,
+The [Excel FIX guide](../docs/excel/script-settings.md) covers exact signatures,
 defaults, physical row/column errors, immutable ownership, date/time boundaries,
 and the [workbook manifest](examples/010.script_fix_settings.json).
 Its [Windows runner](tests/windows/run-script-fix-settings.ps1) creates,

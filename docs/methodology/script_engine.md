@@ -296,23 +296,25 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 
 ### Fields and Defaults
 
-| Settings type              | Field                  | Default                             | Contract                                                                                                              |
-|----------------------------|------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `ScriptProductSettings_`   | `defaultIndex_`        | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
-| `ScriptValuationSettings_` | `todayFixingPolicy_`   | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
-| `ScriptValuationSettings_` | `evaluationDate_`      | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
-| `ScriptValuationSettings_` | `fixings_`             | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
-| `MonteCarloSettings_`      | `rsg_`                 | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                  |
-| `MonteCarloSettings_`      | `useBb_`               | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                   |
-| `MonteCarloSettings_`      | `enableAad_`           | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
-| `MonteCarloSettings_`      | `smooth_`              | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
-| `MonteCarloSettings_`      | `compiled_`            | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
-| `MonteCarloSettings_`      | `lsmcBasisDegree_`     | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
-| `MonteCarloSettings_`      | `lsmcTrainingPaths_`   | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
-| `MonteCarloSettings_`      | `lsmcValidationPaths_` | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
-| `MonteCarloSettings_`      | `lsmcRqmcReplicates_`  | `std::nullopt`                      | Integer at least 2: opt-in independent digitally shifted pricing replicates for one frozen LSMC policy.             |
-| `MonteCarloSettings_`      | `lsmcTrainingSeed_`    | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                           |
-| `MonteCarloSettings_`      | `lsmcPricingSeed_`     | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                           |
+| Settings type              | Field                     | Default                             | Contract                                                                                                              |
+| -------------------------- | ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `ScriptProductSettings_`   | `defaultIndex_`           | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
+| `ScriptValuationSettings_` | `todayFixingPolicy_`      | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
+| `ScriptValuationSettings_` | `evaluationDate_`         | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
+| `ScriptValuationSettings_` | `fixings_`                | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
+| `MonteCarloSettings_`      | `rsg_`                    | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                  |
+| `MonteCarloSettings_`      | `useBb_`                  | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                   |
+| `MonteCarloSettings_`      | `enableAad_`              | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
+| `MonteCarloSettings_`      | `smooth_`                 | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
+| `MonteCarloSettings_`      | `compiled_`               | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
+| `MonteCarloSettings_`      | `lsmcBasisDegree_`        | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
+| `MonteCarloSettings_`      | `lsmcTrainingPaths_`      | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
+| `MonteCarloSettings_`      | `lsmcValidationPaths_`    | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
+| `MonteCarloSettings_`      | `lsmcRqmcReplicates_`     | `std::nullopt`                      | Integer at least 2: opt-in independent digitally shifted pricing replicates for one frozen LSMC policy.               |
+| `MonteCarloSettings_`      | `lsmcTrainingSeed_`       | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                             |
+| `MonteCarloSettings_`      | `lsmcPricingSeed_`        | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                             |
+| `MonteCarloSettings_`      | `lsmcPolicyRiskMode_`     | `"Frozen"`                          | `Frozen` or `RetrainedBump`; retraining mode requires AAD.                                                            |
+| `MonteCarloSettings_`      | `lsmcPolicyBumpRelative_` | `0.001`                             | Finite relative bump in `(0, 0.1]` for retrained-policy risk.                                                         |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
@@ -323,7 +325,7 @@ it neither binds a model nor changes model spot/volatility inputs. Explicit
 `NewScriptProduct` checks equal date/event lengths and copies the input table
 and contract settings. It performs no parsing or market access. Full script
 and index validation occurs in description or preparation; pricing additionally
-requires dated events and a syntactic `PAYS`. Product and model handles must
+requires dated events and a syntactic `PAYS` or `EXERCISE`. Product and model handles must
 be non-null, the model must be BS or Dupire, and `numPath` must be a positive
 `int`. C++ cannot detect fractional values already converted to `int` before
 entry, and these typed settings have no string-key dictionary interface.
@@ -417,7 +419,8 @@ Historical requests accept the built-in `Index::Equity_` and `Index::Fx_`
 implementations only. EQ delivery identities remain distinct. IR, composite,
 third-party indices, and subclasses are not admitted as historical adapters.
 
-Preparation requires at least one dated event and a syntactic `PAYS` statement.
+Preparation requires at least one dated event and a syntactic `PAYS` or
+`EXERCISE` statement.
 Empty, definitions-only, and assignment-only products raise
 `InvalidScriptStructure`. When any event is on or after `D`, collection and
 historical resolution cover all syntax branches, including constant-false
@@ -574,7 +577,7 @@ lookahead, and ordinary settings. Simulation validates path count, RNG name,
 and model construction, then returns zero value and zero labelled risks. It
 does no history capture, past replay, model `Allocate`/`GeneratePath`, or worker
 submission, and needs no unused model-output capability. Empty tables,
-definitions-only tables, and products without a syntactic `PAYS` are errors,
+definitions-only tables, and products without a syntactic `PAYS` or `EXERCISE` are errors,
 not expired products. Unbound historical SPOT remains an error.
 
 Today-only products have a valid `t=0` sample. When model dimension is zero,
@@ -643,201 +646,14 @@ Each Value/Explain call prepares afresh; the functions are nonvolatile, so globa
 state changes require explicit recalculation. `SCRIPTSIMULATION.EXPLAIN` returns
 the `dal.script-simulation/1` chunks the same way. The seven-input `MONTECARLO.VALUE`
 retains default valuation settings and has no compiled argument. See the
-[Excel FIX guide](../excel-script-settings.md) for exact worksheet inputs,
+[Excel FIX guide](../excel/script-settings.md) for exact worksheet inputs,
 date/time rules, and the executable workbook.
 
 ## Early-Exercise Valuation (LSMC)
 
-Products containing `EXERCISE` divert from the plain double driver to the LSMC
-driver (`MCLsmcSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
-compiled execution. `nPaths` is the pricing count; `nTrainingPaths` is
-`simulation.lsmcTrainingPaths_` when set, otherwise `nPaths`. Training can use fewer or
-more paths than pricing. `simulation.lsmcValidationPaths_`, when set, adds a separate
-held-out block for selecting degree; otherwise the requested degree is used directly.
-Fixing both counts keeps the fitted policy unchanged when the pricing count changes.
-Valuation runs in three phases over a fixed,
-thread-count-independent batch layout: batches of at most 8192 paths
-indexed by batch order, with per-batch contributions reduced in batch-index
-sequence, so PV, the frozen coefficients, and every exercise rate are bitwise
-invariant across thread counts.
-
-- **Phase A** generates the first `nTrainingPaths` Sobol paths and evaluates the script forward;
-  `EXERCISE` is a no-op forward. Each batch records, per path, the payments of
-  each event's `PAYS` into the selected payoff receiver and, per exercise
-  date, the regressor observation, the exercise value, and the condition
-  indicator (hard 0/1 in double mode).
-- **Phase B** walks the events backward. The holding value is
-  $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
-  on each exercise date the driver regresses $H_k$ on the in-the-money
-  ($h_k > 0$) condition-true path subset over the z-normalized monomial basis
-  $z=(x-\hat\mu)/\hat\sigma$ of
-  degree `simulation.lsmcBasisDegree_` (default 3). The normal equations carry
-  an explicit relative ridge $A + \lambda\,\mathrm{diag}(A)$, $\lambda=10^{-12}$.
-  The Gram matrix is assembled from the `2d+1` scalar moments, reducing the
-  path-dependent assembly work from $O(Md^2)$ to $O(Md)$ for $M$ training paths. Before applying
-  ridge, a Cholesky pivot check on the column-scaled Gram matrix detects
-  collinearity that diagonal ratios alone cannot detect. Too few condition-true
-  paths ($M < 10(d{+}1)$) or the $\hat\sigma$ floor yield a constant fit. A Gram
-  diagonal ratio above $10^{12}$ or a scaled Cholesky pivot at most $10^{-12}$
-  triggers a rank-revealing fallback: a
-  column-pivoted, twice-reorthogonalized QR fit on the original design rows
-  avoids squaring the condition number. Rank loss lowers the effective degree
-  to the supported polynomial subspace before falling back to a constant.
-  Only an unrecoverable fallback reports `IllConditioned` and a constant fit.
-  These guards are not an exact condition-number estimate. Included non-finite observations and targets
-  are rejected. Constant fits bypass normalization during prediction. A path
-  exercises when its condition holds, $h_k > 0$, and $h_k > C_k(z_k)$
-  strictly; exercise replaces the day's and all later payments.
-- **Optional held-out selection** records the next `lsmcValidationPaths_` paths
-  and applies already selected later-date policies during backward induction.
-  For each exercise date, candidate degrees 1 through `lsmcBasisDegree_` are
-  fitted on training paths. The smallest degree within one standard error of
-  the best held-out continuation mean-squared error is selected. This is a
-  descriptive dispersion heuristic on deterministic QMC points, not a
-  calibrated statistical confidence interval. Validation
-  targets and final pricing payoffs never enter the training fit.
-  If no validation path is eligible on a date, the selector fits the requested degree
-  and reports a null validation loss rather than a fabricated zero.
-- **Phase C** values the frozen policy on the final `nPaths` Sobol paths in
-  deterministic mode,
-  starting at `SkipTo(nTrainingPaths + nValidationPaths)`. Training, validation,
-  and pricing blocks do not overlap; the deterministic total generated path count is
-  `nTrainingPaths + nValidationPaths + nPaths`, plus one
-  numeraire probe. Training and validation storage is released
-  first. Hard pricing shares the immutable compiled program and reuses one
-  evaluator, path generator, and scalar decision state per worker across batches;
-  it does not allocate per-exercise-date recording rows.
-  Exercise dates are scanned
-  in order; the earliest date whose condition holds with $h_k > 0$ and
-  $h_k > C_k(z_k)$ under the
-  frozen coefficients pays $h_k$ discounted at that date's numeraire on top
-  of the payments accumulated before it. A path that never exercises keeps
-  its terminal payoff — zero for `EXERCISE`-only products — with
-  every payment discounted at its own event date. Script evaluation stops after
-  the first exercised event; model path generation still covers the full grid.
-  PV is the mean over pricing paths only.
-
-The combined training, validation, and pricing count must fit the 32-bit Sobol sequence
-(at most `2^32 - 1` paths). The core `size_t` entry points reject larger
-ranges with `InvalidPathCount` before allocating training storage.
-
-The separate blocks avoid evaluating the policy on its own regression samples.
-By default they remain deterministic QMC blocks, not statistically independent
-randomized replicates. `LsmcDiagnostics_::StandardError()` is a descriptive
-payoff-dispersion measure, not a calibrated QMC confidence interval.
-
-Setting `lsmcRqmcReplicates_` to at least 2 freezes one policy from a digitally
-shifted training Sobol stream and prices it on that many independently shifted
-pricing streams. `nPaths` is the pricing count **per replicate**; the total
-pricing budget is `lsmcRqmcReplicates_ * nPaths`. The training and optional
-validation budgets are paid once. Every stream uses a distinct, non-overlapping
-Sobol index block; the training/validation stream shares a shift but has
-disjoint blocks. A role bit, a 31-bit user seed, and the replicate index form
-a unique 64-bit scramble key; SplitMix64 expands each key into one 32-bit XOR
-mask per Sobol coordinate. Shifted integer points are mapped to bin midpoints
-before inverse-normal transformation, avoiding 0 and 1. Omitted training and
-pricing seeds use zero, but role separation keeps their stream identities
-distinct. Explicit seeds without a replicate count, and non-Sobol RQMC settings,
-are rejected. Unset RQMC settings retain the original deterministic Sobol path
-and numerical results.
-
-The RQMC price is the mean of replicate prices. Its
-`ReplicateMeanStandardError()` is the sample standard deviation of those prices
-divided by the square root of the replicate count. This error concerns pricing
-**conditional on the single frozen policy**; it excludes retraining variation,
-continuation approximation error, and optimal-policy bias. AAD replays the
-same pricing replicates against the same policy and averages their risks.
-Digital shifts are a reproducible pseudorandomization, not nested Owen
-scrambling. A finite number of replicates gives an estimated error bar, not a
-guaranteed confidence interval.
-
-The standalone [coverage experiment](../../dal-python/benchmarks/lsmc_rqmc_coverage.py)
-uses 256 pricing-seed groups, eight replicates per group, 8,192 fixed-policy
-training paths, and 2,048 pricing paths per replicate. With a mean ± two
-replicate-standard-error band, 233/256 European-put intervals covered the
-analytic value and 226/256 two-date Bermudan intervals covered an independent
-Crank–Nicolson PDE value. The refined PDE grid changed that value by 0.000179,
-and the one-date PDE differed from the analytic European price by 0.000056;
-the mean Bermudan price exceeded it by 0.000541. These are observed coverages
-for this policy, budget, and band, not universal nominal-coverage claims.
-
-Preparation runs `LsmcProcessor_`, a backward liveness visitor with local
-dispatch, before compiling the recording program. It does not extend the
-global visitor hierarchy or add storage to ordinary script nodes. It removes
-overwritten or unused assignments and empty branches, and unions the
-dependencies of both IF arms. Exercise expressions,
-conditions, and the selected receiver's cashflows remain roots. Other receivers
-remain live when the script reads them, but their payments do not enter the
-continuation value. Observation dates and the historical program are retained.
-After liveness, unused future model observation outputs are removed from the
-sample definitions and live request slots are compacted; the model is
-reallocated and reinitialized when this happens. Keeping all dates preserves
-Sobol dimensions and path-dependent model evolution. Historical fixings and
-model-index support are resolved before pruning, including references in dead
-statements.
-The payoff receiver must accumulate `PAYS` only, with an optional literal-zero
-initialization before any future payment. Historical receiver assignments
-must also be literal zero: a parameter-dependent expression can have zero
-value while carrying nonzero risk. Other assignments raise
-`UnsupportedExercisePayoff`, since they invalidate the additive cashflow
-recursion. Historical `PAYS` remain expired and do not seed the receiver.
-
-The default cubic standardized polynomial is a small one-dimensional approximation,
-not a universally optimal basis. Unweighted polynomial families of the same
-degree span the same space; changing their names does not add information.
-Increasing degree can increase variance and worsen conditioning. QR orthogonalizes
-the design columns for the solve but does not change the approximation span.
-The held-out selector is opt-in because it needs additional simulated paths and
-up to eight fits per exercise date; the fixed-degree moment solve remains the
-default. Use independent final pricing and a suitable benchmark to assess the
-selected policy. In particular, a single spot
-regressor does not capture all relevant state for general path-dependent claims
-(for example, a running average or barrier state). Such scripts can be evaluated,
-but their continuation approximation omits that additional state.
-
-The regressor is the product's single model-sourced future observation (the
-same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
-`regressor_index` in diagnostics. Exercise dates must be strictly after the
-evaluation date (`UnsupportedExerciseDate`), and history-only preparation
-cannot value an exercise product (`UnsupportedExecutionMode`). Preparation
-allows only `rsg = "sobol"`
-for exercise products (`UnsupportedRsgForExercise`): the driver seeks each
-batch's first path with `SkipTo`, and only Sobol's `SkipTo` reconstructs it
-exactly — see
-[Random and path generation](random.md#path-seeking).
-
-Training memory is roughly `nTrainingPaths × (nPaysEvents + 2 × nExerciseDates + 1) × 8B`
-for payments, regressor/exercise rows, and the backward working vector, plus
-one byte per path for each conditional exercise date and the inclusion mask.
-Enabling selection adds analogous storage for `nValidationPaths` until backward
-induction finishes.
-Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
-worker-local evaluator state. Reduce the training path count or event count to
-stay inside a memory budget.
-
-AAD valuation of exercise products uses the fuzzy driver described in the
-next section; the per-exercise-date statistics above are observable through
-the [simulation diagnostic](#simulation-diagnostic-full-valuation-with-exercise-statistics),
-and the acceptance suite anchors both engines against a test-only Bermudan
-PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
-stays European-only). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc/)
-compares the European closed form with ordinary Monte Carlo and its AAD
-version, and prices two-date Bermudan and weekly-exercise puts with both
-hard valuation and AAD. It also prints the diagnostic.
-Run `american_put_mc [pricing_paths [training_paths]]`
-to set the two counts independently. Pricing defaults to 131,072 paths; when
-`training_paths` is omitted, it defaults to `max(4096, pricing_paths / 8)`
-using integer division (16,384 paths with default pricing). For example,
-`american_put_mc 262144` uses 32,768 training paths, while
-`american_put_mc 262144 4096` explicitly uses 4,096. The result table reports
-`Pricing paths` and `Training paths` for each exercise Monte Carlo row.
-European Monte Carlo
-uses a terminal payment without regression, so its training count is `-`;
-closed-form and PDE rows show `-` for both counts. AAD rows report spot,
-volatility, rate, and dividend sensitivities. AAD and hard valuation use the
-same pricing count; both exercise AAD runs and the diagnostic also use the
-configured training count.
+`EXERCISE` products use the separate LSMC training, backward regression, and
+pricing driver. See [Least-Squares Monte Carlo](../monte-carlo/lsm.md) for path
+partitioning, basis, regression, visitor pruning, diagnostics, and examples.
 
 ## Core AAD/Tree Fixing Valuation
 
@@ -873,108 +689,12 @@ make `MCSimulation<double>` a fuzzy pricing entry; it rejects AAD-enabled settin
 
 ### Early-Exercise AAD
 
-Products containing `EXERCISE` divert to the fuzzy LSMC driver
-(`MCLsmcAadSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
-compiled execution. The forward storage and backward regression phases run
-exactly as the double driver, so the continuation coefficients `C_k` are the
-thread-count independent hard-decision artifact. Each replay worker then
-generates its batch from the disjoint pricing block on its own tape, records the per-event payments and the
-per-date exercise values and fuzzy condition degrees, and prices the path with
-the recursive blend
-
-$$V_k = d_k h_k + (1 - d_k)(p_k + D_{k,k+1} V_{k+1}),\qquad d_k = \mathrm{CSpr}(h_k - C_k(z_k), \varepsilon)\cdot\mathrm{CSpr}(h_k, 0, \varepsilon)\cdot c_k,$$
-
-where $c_k$ is the fuzzy condition degree (1 when unconditional), the second
-factor is the one-sided $h_k > 0$ exercise gate (degree 0 on the $h_k = 0$
-atom, matching the hard rule), the discount
-ratios come from the path's own numeraires, and $\varepsilon$ is the exercise
-statement's smoothing width resolved against `simulation.smooth_`. The blend
-is carried in event-date units, so the recursion ends with the explicit
-division by the first event's numeraire. As $\varepsilon \to 0$ the decision
-degrees degenerate to hard indicators and the fuzzy path value converges to
-the hard-mode payoff.
-
-By default (`lsmcPolicyRiskMode_ = "Frozen"`), the regression coefficients and
-normalization enter the replay as passive tape constants. The harvested adjoint
-is the exact pathwise gradient of the *frozen-policy* fuzzy price functional.
-It excludes the response of the fitted continuation to market parameters.
-`lsmcPolicyRiskMode_ = "RetrainedBump"` adds that response for model parameters
-and script constants: for each input, it retrains the hard policy at positive and negative bumps
-on the same training and optional validation paths, then reprices both policies
-with the unchanged base model and identical disjoint fuzzy pricing paths. The
-common-path policy secant is added to the frozen-policy adjoint. The step is
-`lsmcPolicyBumpRelative_ * max(1, abs(input))` (default `1e-3`); constrained
-spot/volatility parameters at their lower boundary use a forward policy secant.
-The price itself is identical in both modes. Historical script state is replayed
-when a script constant is bumped. This is a finite-step sensitivity of the fitted,
-smoothed estimator, not an analytic derivative through the regression solver.
-Changing path inclusion, selected degree, rank fallback, or a hard exercise
-decision can make the policy response nonsmooth and bump dependent. The policy
-retraining and value-only replays add roughly two training fits and two pricing
-passes per unconstrained input; they do not add an AAD tape for those
-passes. Bump tests that retrain the entire fuzzy valuation measure the full
-finite difference, which also includes finite-step curvature of the direct
-payoff response. An envelope argument at an optimal stopping rule does not
-provide a general second-order error guarantee for an approximate, smoothed
-policy. Adjoint accumulation and reduction follow the
-same thread-count independent batch layout and batch-index ordering as the
-double driver, so PV and every `d_<param>` are bitwise invariant across
-thread counts in AAD mode as well, and historical fixings replay into the
-seed exactly as for non-exercise products.
+The early-exercise AAD estimator, including frozen-policy and retrained-policy
+sensitivities, is documented in [LSM AAD](../monte-carlo/lsm.md#early-exercise-aad).
 
 ### LSMC Policy Sensitivity Validation
 
-`dal-python/benchmarks/compare_lsmc_policy_sensitivities.py` reproduces a
-six-case study with disjoint training/pricing streams, two independently
-digitally shifted pricing replicates per outer run, and eight independent
-training/pricing seed pairs. Each full-retraining finite difference shares
-its seed pair between bumps. The European case uses analytic Black-Scholes
-Greeks; regular Bermudan cases use an independent Crank-Nicolson PDE with
-exercise-date projection and CRR cross-check. The low-volatility case uses
-CRR as its reference because the PDE's central spatial stencil becomes
-convection dominated there. The script reports the hard-price error to the
-oracle (fitting plus residual QMC), fuzzy-minus-hard smoothing bias, policy
-contribution, empirical standard error across independent seed pairs, separate
-hard-price variation when only training or only pricing seeds change, and the
-change when the spot bump is halved. In the ATM case the training-only and
-pricing-only hard-price standard errors were `0.00022` and `0.00150`;
-the latter is close to the observed `0.00180` hard-price difference from the PDE.
-These quantities should be read separately: a closer Greek to the full-retraining bump is not necessarily
-closer to the continuous-model stopping oracle.
-
-For the default study (4,096 pricing paths per replicate, 4,096 training paths
-except 256 in the sparse case, smoothing `0.1`, relative bump `0.001`, compiled
-execution), representative spot sensitivities are:
-
-| Case                     | Frozen   | RetrainedBump | Full-retrain bump | Independent reference | Bump SE |
-|--------------------------|----------|---------------|-------------------|-----------------------|---------|
-| European                 | -0.33418 | -0.33418      | -0.33416          | -0.33416 analytic     | 0.00001 |
-| Bermudan ATM             | -0.36389 | -0.36404      | -0.36464          | -0.36246 PDE          | 0.00066 |
-| Bermudan deep ITM        | -0.89919 | -0.90067      | -0.89927          | -0.89615 PDE          | 0.00371 |
-| Bermudan deep OTM        | -0.07172 | -0.07120      | -0.06951          | -0.06965 PDE          | 0.00066 |
-| Bermudan sparse training | -0.36311 | -0.36269      | -0.36236          | -0.36246 PDE          | 0.00333 |
-| Bermudan low volatility  | -0.74700 | -0.74700      | -0.73789          | -0.75503 CRR          | 0.00002 |
-
-`dal-cpp/benchmarks/script_mc_perf/script_mc_perf.cpp` accepts `retrained` on
-the `--lsmc-replay` AAD profile. On a Linux i9-13900HX, GCC 15.2 Release,
-four DAL threads, 1,024 training paths, 2,048 pricing paths, the 1CD
-Black-Scholes compiled profile gave these best-of-five interleaved process
-measurements (milliseconds and peak RSS in KiB):
-
-| AAD backend | Frozen ms | Retrained ms | Time ratio | Frozen RSS | Retrained RSS |
-|-------------|-----------|--------------|------------|------------|---------------|
-| Native      | 282       | 741          | 2.62       | 16,424     | 18,576        |
-| XAD         | 288       | 742          | 2.58       | 46,892     | 46,752        |
-| Adept       | 479       | 945          | 1.97       | 16,752     | 16,932        |
-| CoDiPack    | 358       | 828          | 2.32       | 36,740     | 41,392        |
-
-Both modes record the same 2,048 AAD pricing paths. This profile has five
-live inputs (four model parameters and one script constant), so the retrained
-mode adds ten hard-policy fits and ten value-only pricing passes, with no
-additional AAD tape recordings. The peak RSS comparison includes tape and
-ordinary process allocations; it is not a backend-specific tape-byte count.
-Tree and compiled runs returned matching PV and all five risks to the printed
-precision on every backend.
+See [LSM validation](../monte-carlo/lsm.md#lsmc-policy-sensitivity-validation).
 
 ### Historical State and Recording Lifetime
 
@@ -1584,7 +1304,7 @@ tree.
 
 The script program feeds an events table to `ScriptProduct_`, which runs the
 parser and AST construction in its constructor, and then prints the debug walk
-of the processed tree. See [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/)
+of the processed tree. See [`dal-cpp/examples/script/`](../../dal-cpp/examples/script)
 for a runnable version; its events table and product construction are:
 
 ```cpp
@@ -1686,8 +1406,9 @@ the date constraint `F <= E`. It reads no historical data or global evaluation
 date, constructs no model, and submits no workers. It retains all dated events
 and syntax branches without a `phase` or `evaluation_date` field. A successful
 description does not establish historical availability, model support, or
-pricing validity: empty, definitions-only, and no-PAYS products can be
-described, but cannot be valued or explained.
+pricing validity: empty and definitions-only products can be described, but
+cannot be valued or explained. An `EXERCISE`-only product is priceable even
+without a `PAYS` receiver.
 
 The JSON includes:
 
@@ -1813,7 +1534,7 @@ Python exposes the same diagnostic as
 and Excel as `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
 [simulation])`, both returning the identical JSON contract (as a dictionary and
 as concatenated text chunks respectively). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc/)
+[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc)
 prices the European-limit, two-date Bermudan, and weekly-exercise puts off the
 same engine and prints the diagnostic.
 
@@ -1895,11 +1616,11 @@ uses the legacy text wrapper.
   — historical fixing, explicit date/snapshot, compiled AAD, Describe, and Explain.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
-- [Excel FIX settings](../excel-script-settings.md)
+- [Excel FIX settings](../excel/script-settings.md)
   — immutable handles, two-column ranges, JSON chunks, and the runnable workbook.
-- [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
+- [`dal-cpp/examples/script/`](../../dal-cpp/examples/script) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
-- [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree/) and
+- [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree) and
   [`dal-python/examples/008.script_tree.py`](../../dal-python/examples/008.script_tree.py)
   — runnable demos of the Unicode/ASCII tree dump at several width budgets.

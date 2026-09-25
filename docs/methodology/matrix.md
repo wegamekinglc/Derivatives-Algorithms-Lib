@@ -343,7 +343,7 @@ Sparse::CGSolve(*a, b, /*tolRel=*/1e-8, /*tolAbs=*/1e-10, /*maxIterations=*/200,
 
 - [Interpolation](interpolation.md) — the natural cubic-spline construction reduces to a
   tri-diagonal system solved by the Thomas algorithm.
-- [Log-discount curve](log_discount_curve.md) — the `LOG_CUBIC_NATURAL` scheme uses the
+- [Log-discount curve](../yield-curves/log-discount.md) — the `LOG_CUBIC_NATURAL` scheme uses the
   tri-diagonal solve to compute spline second derivatives.
 - [Underdetermined search](underdetermined_search.md) — Gauss-Newton steps can call on the
   Cholesky factorization of the normal-equations Hessian $J^{\top} J$.

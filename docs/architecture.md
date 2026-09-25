@@ -195,9 +195,9 @@ fit against distance from the reference parameters. Staged multi-curve calibrati
 solves stages in order; staged XCCY supplies the domestic and foreign curve blocks
 while fitting a basis curve, and joint XCCY stacks domestic, foreign, and basis
 declarations into one residual system. See
-[yield-curve construction](methodology/yield_curve.md),
-[yield-curve Jacobian](methodology/yield_curve_jacobian.md), and
-[cross-currency pricing and calibration](methodology/xccy_calibration.md).
+[yield-curve construction](yield-curves/construction.md),
+[yield-curve Jacobian](yield-curves/jacobian-risk.md), and
+[cross-currency pricing and calibration](ccy-curves/pricing-calibration.md).
 
 ## Generated Code
 

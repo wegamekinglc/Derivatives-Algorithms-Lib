@@ -794,7 +794,7 @@ curve-construction and calibration workflows:
 - **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`), `XccyNotionalMode` (`FIXED`, `RESETTABLE`, `MARK_TO_MARKET`)
 - **Spec builders** — `CurveCalibrationSpecBuilder_`, `CrossCurrencyCalibrationSpecBuilder_`, and `JointXccyCalibrationSpecBuilder_`
 
-The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in the [yield-curve guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve.md) and [Jacobian guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve_jacobian.md).
+The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in the [yield-curve guide](../docs/yield-curves/construction.md) and [Jacobian guide](../docs/yield-curves/jacobian-risk.md).
 
 ### Continuously Compounded Zero-Rate Curves
 
@@ -901,7 +901,7 @@ either diagnostic matrix. The `eff_jacobian_inverse` matrix has shape
 `totalParameters x totalResiduals` and is the weighted inverse of the solver's
 tolerance-scaled Jacobian. Transforming a raw decimal quote bump therefore
 requires division by the spec's `tolerance_`; see the
-[Jacobian methodology](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
+[Jacobian methodology](../docs/yield-curves/jacobian-risk.md#joint-xccy-jacobian-layout).
 
 The runnable [joint XCCY calibration example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/007.xccy_joint_calibration.py)
 uses an explicit fixing snapshot for a started MTM trade. It prints convergence,
@@ -1031,7 +1031,7 @@ curve maps. Its inverse request defaults to false; enabling it for an
 underdetermined EXACT system selects a fixed initial-Jacobian subspace and can
 change the selected solution. See the
 [generic joint example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/010.generic_joint_quote_risk.py)
-and [mapping contract](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/methodology/generic_joint_quote_risk.md).
+and [mapping contract](../docs/yield-curves/joint-quote-risk.md).
 The runnable
 [single-curve example](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/dal-python/examples/009.quote_risk.py)
 prints the policy, both fingerprints, and all buckets; the
@@ -1081,11 +1081,12 @@ MIT License. See the repository [LICENSE](https://github.com/wegamekinglc/Deriva
 
 Follow the repository [contributor guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/CONTRIBUTING.md). Binding changes
 should include Python tests and updates to the
-[public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md) when the supported surface changes.
+[Python interface chapter](../docs/python/README.md) when the supported surface changes.
 
 ## See Also
 
 - [DAL C++ Library](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib) — Workspace overview
 - [Installation guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/installation.md) — Canonical setup commands
-- [Public API guide](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/public-api.md) — C++, Python, and Excel entry points
+- [Python interface chapter](../docs/python/README.md) — Python entry points and examples
+- [C++ public API guide](../docs/public-api.md) — underlying public facade
 - [pybind11 Documentation](https://pybind11.readthedocs.io/) — pybind11 binding syntax

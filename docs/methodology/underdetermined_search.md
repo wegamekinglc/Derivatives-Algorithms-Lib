@@ -79,7 +79,7 @@ the local weighted response. This local mapping does not generally differentiate
 the solution selected by a nonlinear solve from a fixed initial guess. Generic
 joint quote risk therefore uses an explicitly requested fixed initial-Jacobian
 subspace for underdetermined systems; see
-[the selected-solution contract](generic_joint_quote_risk.md#calibration-and-the-selected-solution).
+[the selected-solution contract](../yield-curves/joint-quote-risk.md#calibration-and-the-selected-solution).
 
 ## Exact Fit: Iteration
 
@@ -407,7 +407,7 @@ directly. The example program constructs an instrument set and a denser knot
 grid, then calls the positional `CalibrateYieldCurve` overload from
 `dal-cpp/dal/curve/curveblock.hpp`, which assembles a `CurveCalibrationSpec_`,
 runs the residual function through `Underdetermined::Find`, and returns the
-fitted discount curve. See [`dal-cpp/examples/underdetermined/`](../../dal-cpp/examples/underdetermined/)
+fitted discount curve. See [`dal-cpp/examples/underdetermined/`](../../dal-cpp/examples/underdetermined)
 for a runnable version; its calibration entry point is:
 
 ```cpp
@@ -453,7 +453,7 @@ overload shown above.
 
 ## See Also
 
-- [Yield curve construction](yield_curve.md) — the primary consumer of this solver.
-- [Cross-currency calibration](xccy_calibration.md) — applies the same solver to a
+- [Yield curve construction](../yield-curves/construction.md) — the primary consumer of this solver.
+- [Cross-currency calibration](../ccy-curves/pricing-calibration.md) — applies the same solver to a
   basis curve.
 - [AAD methodology](aad.md) — supplies the analytic Jacobian used by the solver.

@@ -1,8 +1,9 @@
-# DAL Public API Guide
+# DAL C++ Public API Guide
 
-DAL exposes the same main workflows through C++, Python, and Excel. This guide
-identifies the supported entry points and their ownership contracts; it is not an
-exhaustive reference for every core numerical type.
+DAL exposes related workflows through C++, Python, and Excel. This guide
+focuses on the C++ public facade and points to the dedicated [Python](python/README.md)
+and [Excel](excel/README.md) chapters. It is not an exhaustive reference for
+every core numerical type.
 
 ## API Layers
 
@@ -70,7 +71,7 @@ when polishing is enabled, `precise` selects the precise CDF instead of the fast
 CDF for that correction. The default `false, false` path is Acklam-only, and the
 precise-CDF correction requires `precise = true, polish = true`. Python
 `dal.SobolRSG_New` and Excel `SOBOLRSG.NEW` use the same defaults and semantics.
-See the [random methodology policy table](methodology/random.md#normal-draw-inverse-cdf-modes)
+See the [random methodology policy table](monte-carlo/sampling.md#normal-draw-inverse-cdf-modes)
 for all four combinations.
 
 ### Scripted Monte Carlo
@@ -266,8 +267,8 @@ matrix is empty, so callers should inspect the availability field rather than
 infer the reason from its numeric carrier. For the solver-scaled effective
 inverse $E$, a raw decimal quote bump maps as
 $\Delta x = E\,\Delta q/\mathrm{residualTolerance}$. See
-[cross-currency pricing and calibration](methodology/xccy_calibration.md) and
-the [Jacobian methodology](methodology/yield_curve_jacobian.md#staged-xccy-jacobian-layout).
+[cross-currency pricing and calibration](ccy-curves/pricing-calibration.md) and
+the [Jacobian methodology](yield-curves/jacobian-risk.md#staged-xccy-jacobian-layout).
 
 Set `parameterization_ = CurveParameterization_::Value_::ZERO_RATE` to calibrate future
 zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuously
@@ -361,7 +362,7 @@ IRS/OIS/basis coupon geometry once. Its const `Price(market)` and
 result shapes and failure rules. Every call evaluates current curves, valuation
 time and fixing snapshots; trade changes require a new prepared object. Copies
 share immutable geometry and support concurrent const calls. See
-[prepared pricing](methodology/rate_node_risk.md#repeated-pricing-with-prepared-trades)
+[prepared pricing](yield-curves/node-risk.md#repeated-pricing-with-prepared-trades)
 for ownership, supported families and lifetime details.
 
 `AggregateRatePortfolioNodeRisk(trades, market, componentKeys)` runs the same
@@ -386,7 +387,7 @@ the currency grouping applies to PV totals and the parallel metadata. For node
 gradients separated by PV currency, group eligible batch cells by
 `(componentKey, actualPvCcy)` before summing. Duplicate requested keys retain
 their metadata cells but contribute once per trade and component. See the
-[node-risk methodology](methodology/rate_node_risk.md).
+[node-risk methodology](yield-curves/node-risk.md).
 
 The wiring is name-based: terms address curves through their `*ComponentKey_`
 fields, those keys must resolve in `RatePricingMarket_::curveComponents_`, and
@@ -504,7 +505,7 @@ simultaneous domestic/foreign/basis XCCY, staged XCCY basis, and generic
 same-currency joint calibration, respectively. The public
 `CalibrateJointMultiCurveBundle(spec, options)` facade exposes the generic
 joint result; its effective inverse request defaults to false. See the
-[generic joint mapping contract](methodology/generic_joint_quote_risk.md),
+[generic joint mapping contract](yield-curves/joint-quote-risk.md),
 including the explicit solution-selection semantics for underdetermined systems.
 Ordinary staged multi-curve chain rules do not have a provenance factory. Quote risk also
 requires an available effective inverse; unavailable results retain a stable
@@ -530,422 +531,19 @@ failures remain explicit in the parallel metadata. Provenance construction is
 the only calibration-time step: `AggregateRatePortfolioQuoteRisk` neither bumps
 quotes nor recalibrates curves.
 
-See the runnable [C++ quote-risk example](../dal-cpp/examples/quote_risk/) and
-the [Jacobian methodology](methodology/yield_curve_jacobian.md#production-quote-space-dv01).
+See the runnable [C++ quote-risk example](../dal-cpp/examples/quote_risk) and
+the [Jacobian methodology](yield-curves/jacobian-risk.md#production-quote-space-dv01).
 
 ## Python
 
-Import the installed package with:
-
-```python
-import dal
-```
-
-### Common workflows
-
-| Workflow                | Python entry points                                                                                                                                                                                                                                |
-|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                                                                        |
-| Script products         | `Product_New`, `Product_Describe`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                       |
-| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                                                                           |
-| Valuation               | `MonteCarlo_Value`, `MonteCarlo_ValueWithSettings`, `ScriptValuation_Explain`, `ScriptSimulation_Explain`                                                                                                                                          |
-| Script settings         | `ScriptProductSettings_`, `ScriptValuationSettings_`, `MonteCarloSettings_`, `TodayFixingPolicy_`                                                                                                                                                  |
-| Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                                                                                   |
-| Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                                                                     |
-| Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`                                                     |
-| XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                                                                         |
-| Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`, quote-risk provenance builders, `AggregateRatePortfolioQuoteRisk` |
-| Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                                                                                |
-
-The basic valuation shape is:
-
-```python
-import dal
-
-dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
-product = dal.Product_New(
-    ["STRIKE", dal.Date_(2023, 9, 25)],
-    ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
-)
-model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
-result = dal.MonteCarlo_Value(product, model, 2**16, enable_aad=True)
-```
-
-Both Python Value entries require an integer or valid `__index__` path count
-in `1..2147483647`, excluding bool and enums; floats such as `1.0` are rejected.
-The bindings copy settings and native handles before releasing the GIL for
-valuation. `EvaluationDate_Get` / `EvaluationDate_Set` also release it before
-native synchronization. A setter waits for an in-progress valuation; a getter
-can read the stable current date while valuation runs.
-
-For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
-
-```python
-rsg = dal.SobolRSG_New(i_path=0, ndim=3, precise=True, polish=True)
-normals = dal.SobolRSG_Get_Normal(rsg, 1024)
-```
-
-### Python FIX settings and diagnostics
-
-The settings entry points are:
-
-```text
-Product_New(events_dates, events, *, settings=None)
-MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)
-Product_Describe(product)
-ScriptValuation_Explain(product, modelData, *, valuation=None)
-ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None)
-```
-
-`settings`, `valuation`, and `simulation` take `ScriptProductSettings_`,
-`ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
-for fresh defaults. Their constructors use keyword-only fields. Product settings
-provide `default_index`; valuation settings provide `evaluation_date`,
-`today_fixing` and `fixings`; simulation settings provide
-`method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
-`lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
-`lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`, and
-`lsmc_policy_bump_relative`. `Frozen` is the default AAD sensitivity mode;
-`RetrainedBump` adds a common-path policy-retraining secant to model-parameter
-and script-constant risks. RQMC pricing uses one fitted
-policy and reports conditional replicate-mean uncertainty through
-`ScriptSimulation_Explain`.
-
-`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
-case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,
-`method`, and `today_fixing` reject foreign enums, including string-derived enum
-members, with `TypeError` on construction or assignment. Ordinary string
-subclasses, DAL `String_`, and the native today-policy members remain supported.
-Event text accepts string-derived enum members. Dates require a valid DAL
-`Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
-`fixings=None` captures current global history; an explicit empty snapshot
-never falls back to it. Global capture is sequential, not atomic across
-sequences, and requires callers to exclude concurrent fixing writes.
-
-The [FIX source rules](methodology/script_engine.md#dates-and-structural-validation)
-and [script model index](methodology/script_engine.md#the-script-model-index-and-legacy-spot)
-apply unchanged: past history, today's selected policy, future model, and no
-fixing after its event. The complete
-[Python example](../dal-python/examples/012.fix_settings.py) supplies a legal
-BS model and checks `PV=260` / `d_SCALE=80` for historical SCALE state plus a
-retained future fixing. See the
-[Python settings reference](../dal-python/README.md#script-settings-and-copies)
-for defaults, strict field types, setters, detached property copies and
-copy/deepcopy semantics. Snapshot handles share immutable data; workers use
-native copies without Python callbacks or mutable dictionaries.
-
-High-level Describe returns a `dal.script-product/2` dictionary without market
-I/O, global-date access or valuation phase. High-level Explain returns a
-`dal.script-valuation/1` dictionary from one independent default exact/tree
-price preparation. It may read history and initialize a model, but generates
-no paths or workers and accepts no simulation settings. It neither describes
-a preceding compiled/AAD call nor caches the next Value. High-level
-`ScriptSimulation_Explain` runs the full double valuation with the given
-`num_path` on exercise products (plain products skip the run, since their
-exercise events array is empty either way) and returns the
-`dal.script-simulation/1` exercise diagnostics dictionary. Low-level `dal._dal`
-and `dal.dal` diagnostics return raw JSON strings with the same schemas.
-Diagnostics are not loadable archives; Python has no public script-product
-serializer. Value results contain only already-normalized `PV` and optional
-`d_` parameter risks, with no fixing-risk or diagnostic keys.
-
-Existing three-to-eight-argument `MonteCarlo_Value` retains its original
-keywords/defaults and valid flag/float conversions. It cannot take the new
-settings, and the settings entry cannot take flat simulation options. The
-high-level product date keyword is `events_dates`; low-level `Product_New`
-uses `dates` and requires `Cell_` elements. High-level conversion leaves existing
-cells intact. Unknown keywords, wrong types or extra positional settings raise
-`TypeError`; unknown attributes raise `AttributeError`; invalid values and native
-failures raise `RuntimeError` with field/constraint and source context.
-`Product_DebugJson` remains a JSON string with schema /1 and rejects FIX or
-nonempty defaults with `DebugSchemaUnsupported`.
-
-### Matrix and Dupire surface input
-
-`DoubleMatrix_` supports all of the following:
-
-```python
-surface = dal.DoubleMatrix_(3, 2, 0.20)
-surface[1, 0] = 0.21
-
-surface = dal.DoubleMatrix_([
-    [0.24, 0.23],
-    [0.21, 0.20],
-    [0.22, 0.21],
-])
-```
-
-Rows must be rectangular numeric sequences. `DupireModelData_New` expects a
-spots-by-times matrix, so its shape must be
-`len(spots) × len(times)`.
-
-### Python curve calibration
-
-`dal.calibrate_curve(...)` covers the common single discount-curve path. Use
-`CurveCalibrationSpecBuilder_` directly for projection-curve inputs, staged
-multi-curve calibration, or lower-level solver settings. Python enum names are:
-
-- `CurveParameterization`: `PIECEWISE_LINEAR_FWD`,
-  `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`;
-- `CurveSolveMode`: `EXACT`, `APPROXIMATE`;
-- `CurveJacobianMode`: `ANALYTIC`, `BUMPED`; and
-- `LogDfScheme`: `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`.
-
-`ZERO_RATE` is supported by `CalibrateSingleCurve` and `dal.calibrate_curve`. Supply only
-strictly-future knots; the anchor is internal and contributes no solver or Jacobian
-column. The scalar `initialGuess_` is a decimal continuously compounded zero rate.
-`dal.calibrate_curve(..., base_curve=...)` treats the calibrated zero rates as spreads
-over that base.
-
-Direct construction uses:
-
-```python
-curve = dal.DiscountZeroRate_New(
-    "usd_zero", "USD", today, node_dates, zero_rates,
-    day_count=dal.DayBasis_("ACT_365F"),
-    log_df_scheme=dal.LogDfScheme.LOG_LINEAR,
-    base=None,
-)
-```
-
-The returned `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`,
-`zero_rates`, `day_count`, and `log_df_scheme` properties.
-
-Python staged XCCY exposes both `CalibrateXccyMarket(spec)` and
-`CalibrateXccyMarket(spec, options)`. `CrossCurrencyCalibrationOptions_`
-provides trailing-underscore and snake-case properties for the Jacobian mode
-and the two independent compute flags; its defaults are `ANALYTIC`, `True`, and
-`True`. The result keeps matrices under `result.diagnostics`, not at the result
-top level. That diagnostics object exposes the forward `jacobian`, the
-`eff_jacobian_inverse`, instrument-name and parameter-knot axes, residual
-tolerance, scaling labels, and availability states, with matching
-trailing-underscore aliases.
-
-Python joint XCCY exposes the declarations, builder,
-`JointXccyCalibrationOptions_`, calibration entry point, and result surface
-with both trailing-underscore and snake-case aliases.
-`JointXccyCalibrationResult_` provides `domestic_curve_block`,
-`foreign_curve_block`, `basis_curve`, `fx_forward_curve`, `fixings`, group
-diagnostics, `market_rates`, `model_rates`, `residuals`,
-`jacobian_at_solution`, `eff_jacobian_inverse`, `parameter_ranges`, and
-`residual_ranges`. `CalibrateJointXccyMarket(spec, options)` selects analytic or
-bumped Jacobians and optional matrix construction. The effective inverse has
-shape `totalParameters x totalResiduals`; applying it to a raw decimal quote
-bump requires division by the spec's `tolerance_`, as described in the
-[Jacobian methodology](methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
-
-### Python rate cashflow pricing
-
-Python exports the seven-family enum, all family-specific terms classes,
-`RateTradeDefinition_`, `RatePricingMarket_`, `PriceRateTrades`,
-`RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, and
-`AggregateRatePortfolioNodeRisk`. The pricing and sensitivity functions use
-keyword-only arguments and release the GIL around native work.
-Repeated pricing also exposes `PreparedRateTrades_New`,
-`PreparedRateTrades_Get_Prices` and `PreparedRateTrades_Get_NodeSensitivities`
-with keyword-only inputs and a read-only prepared `size` property.
-`component_keys` must be a Python `list` — a tuple is rejected with `TypeError`
-before any native work starts. The minimal single-trade call:
-
-```python
-r = dal.RateTradeNodeSensitivities(trade=trade, market=market, component_key="discount")
-# r.eligible, r.pv, list(r.gradient), r.reason
-```
-
-Results are read-only projections of the C++ shapes. A complete runnable
-deposit example covering the batch and aggregation calls is in the
-[dal-python README](../dal-python/README.md#rate-cashflow-pricing-and-node-risk).
-
-### Python quote-space DV01
-
-Python exposes `RateQuoteRiskProvenanceConfig_`, all four supported provenance
-builders, and `AggregateRatePortfolioQuoteRisk` as keyword-only calls. They
-release the GIL around native construction or aggregation and return read-only
-objects. The axis/state fingerprint schemes, stable availability reasons,
-price-per-decimal and DV01 units, and `UnconvertedByActualPvCcy` policy are
-identical to C++.
-
-The runnable [single-curve quote-risk example](../dal-python/examples/009.quote_risk.py)
-prints both fingerprints, the policy, and every bucket. The
-[joint XCCY example](../dal-python/examples/007.xccy_joint_calibration.py) also
-constructs joint provenance. The [generic joint example](../dal-python/examples/010.generic_joint_quote_risk.py)
-uses constructible spec/options, `CalibrateJointMultiCurveBundle`, owning result
-curves, and `BuildJointMultiCurveQuoteRiskProvenance`. Ordinary staged
-multi-curve chain rules remain outside the supported Python surface.
-
-`Storable_` exposes read-only `name` and `type` properties, and the native
-`YieldCurve_` / `CurveBlock_` / `Bag_` hierarchy is bound for archive
-compatibility with the standalone web application. `_StorableToJson`,
-`_StorableFromJson`, `_BagNew`, and `_BagContents` are private integration
-helpers rather than supported general serialization functions.
-
-See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
+See the dedicated [Python interface chapter](python/README.md) for binding names,
+valuation settings, curve calibration, and examples.
 
 ## Excel
 
-The Windows XLL exposes worksheet functions and stores constructed objects in an
-Excel-side repository. Constructors return handles; pass those handles into later
-functions rather than attempting to unpack native objects in cells.
-
-### Script valuation
-
-```text
-=PRODUCT.NEW("call", dates, events)
-=BSMODELDATA.NEW("bs", 100, 0.20, 0.05, 0.02)
-=MONTECARLO.VALUE(product_handle, model_handle, 65536, "sobol", FALSE, TRUE, 0.01)
-```
-
-For a local-volatility model, use
-`DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
-range must be a rectangular spots-by-times matrix. Both Excel Value functions
-require a finite integer path count in `1..2147483647`.
-
-The seven-input `MONTECARLO.VALUE` retains its argument order and has no
-compiled or script-settings argument. For explicit FIX settings, construct
-`SCRIPTPRODUCTSETTINGS.NEW(name, [settings])`,
-`SCRIPTVALUATIONSETTINGS.NEW(name, [settings], [fixings])`,
-and `MONTECARLOSETTINGS.NEW(name, [settings])` handles. Settings
-are strict two-column ranges with physical row/column errors. Use
-`PRODUCT.NEWWITHSETTINGS(name, dates, events, settings)` for a product default,
-then `MONTECARLO.VALUEWITHSETTINGS(product, modelData, n_paths, [valuation], [simulation])`.
-Square brackets mark optional arguments; omitted valuation/simulation handles
-select fresh native defaults. The product settings handle is required by
-`PRODUCT.NEWWITHSETTINGS`; `PRODUCT.NEW` remains available without it.
-
-Write unquoted `FIX(EQ[AAPL])` in event text. Model-sourced named FIX binds the
-model's `spot` output to one ordinary EQ, taken from the script's own index by
-name; a product default only gives legacy
-`SPOT()` an identity. Valuation settings accept an integral evaluation date,
-case-sensitive `Model` or `RequireHistorical` today-policy text (settings keys
-match case-insensitively), and an immutable snapshot.
-`MARKETFIXINGSNAPSHOT.NEW(,,)` creates an explicit empty snapshot, which never
-falls back to global history. Snapshot timestamps retain intraday fractions;
-daily FIX requires exact midnight. Old and new Value return the same headerless
-N×2 `PV`/`d_` key/value table, with already-normalized risks.
-
-`PRODUCT.DESCRIBE(product)` inspects contract syntax without history or date
-access. `SCRIPTVALUATION.EXPLAIN(product, modelData, [valuation])` performs
-fresh default price preparation without paths, workers, or a subsequent Value
-cache. `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
-[simulation])` runs the full double valuation on exercise products (plain
-products skip the run) and returns the
-`dal.script-simulation/1` exercise diagnostics. Their `dal.script-product/2`,
-`dal.script-valuation/1`, and `dal.script-simulation/1` JSON is returned
-as one column of text chunks: concatenate in order without separators before
-parsing. Functions are nonvolatile; explicitly recalculate after global-state
-changes. See the [Excel FIX guide](excel-script-settings.md) for exact defaults,
-matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracles.
-
-`SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
-normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
-correction; leaving both optional flags `FALSE` selects the Acklam-only default.
-
-### Curve workflows
-
-Primary worksheet families are:
-
-| Purpose         | Worksheet functions                                                                                                                                                                                                                                                                       |
-|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Conventions     | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*`                                                                                                                                                                                |
-| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW`                                                                                                                                                                                                                                     |
-| Instruments     | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW`                                                                                                                |
-| Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                                                                                                                                       |
-| Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                                                                                                                                    |
-| Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                                                                                                                                      |
-| Rate risk       | `RATETRADEHEADER.NEW`, `RATEFIXINGIDENTITY.NEW`, `RATEDEPOSITTRADE.NEW`, `RATEFRATRADE.NEW`, `RATEFUTURETRADE.NEW`, `RATEFIXEDFLOATTRADE.NEW`, `RATEBASISTRADE.NEW`, `RATEXCCYTRADE.NEW`, `RATEPRICINGMARKET.NEW`, `RATETRADENODESENSITIVITIESBATCH.SPILL`, `RATEPORTFOLIONODERISK.SPILL` |
-| Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                                                                                                                                  |
-
-`DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
-compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.
-`CALIBRATE.SINGLECURVE` accepts a two-column optional settings range. Supported keys
-include curve name, target, solve mode, parameterization (`ZERO_RATE` included), log-DF
-scheme, smoothing/tolerances, scalar initial guess, and evaluation budgets. Its optional
-`baseCurve` input is the curve multiplied under the calibrated curve; it is distinct from
-the `discountCurve` used to price a forward-curve calibration.
-
-`CALIBRATE.XCCYMARKET` accepts `jacobianMode`,
-`computeForwardJacobian`, and `computeEffJacobianInverse` in its optional
-two-column settings range. Omitting them preserves the `ANALYTIC`, `TRUE`,
-`TRUE` defaults. `XCCYCALIBRATIONRESULT.GET` exposes `instrumentNames`,
-`parameterKnotDates`, `jacobian`, `effJacobianInverse`,
-`residualTolerance`, both scaling labels, and both availability states in
-addition to the fit vectors and scalars. The staged matrix axes and scaling
-contract match C++ and Python.
-
-`CALIBRATE.JOINTXCCY` accepts one domestic discount-instrument/knot group, one
-foreign discount-instrument/knot group, configured XCCY instruments, basis
-knots, an optional immutable snapshot handle, and two-column settings. Dedicated
-result functions return the domestic block, foreign block, and basis curve
-handles.
-`JOINTXCCYCALIBRATIONRESULT.GET` returns `fxForwards`, `marketRates`,
-`modelRates`, `residuals`, `jacobian`, `effJacobianInverse`,
-`parameterRanges`, or `residualRanges`. Joint settings can request both matrix
-computations independently.
-
-### Rate risk
-
-The rate-risk family is handle-based: build the index convention, trade header,
-and trade with their constructors, assemble the market, then spill the results.
-A minimal deposit sequence:
-
-```text
-C1: =RATEINDEXCONVENTION.NEW("3M", "ACT_365F", "OIS")
-D1: =RATETRADEHEADER.NEW("deposit-1", DATE(2026,1,15), DATE(2026,1,15), DATE(2027,1,15), "USD")
-E1: =RATEDEPOSITTRADE.NEW(D1, 100, 0.05, TRUE, C1, "discount")
-F1: =DISCOUNTPWLF.NEW("flat-discount", "USD", DATE(2027,1,15), 0.04)
-F2: =DISCOUNTPWLF.NEW("flat-forecast", "USD", DATE(2027,1,15), 0.04)
-
-' the index convention's first three arguments are plain strings, not handles;
-' the component-key array and the curve-handle range must be equal-length
-' parallel arrays; the six trailing market arguments (fixings, domestic block,
-' foreign block, fxSpot, collateral currency, basis curve) stay empty for a
-' single-currency market, while an XCCY market requires both blocks, a positive
-' fxSpot, and a collateral currency
-G1: =RATEPRICINGMARKET.NEW(NOW(), "USD", {"discount","forecast"}, F1:F2, , , , , , )
-
-H1: =RATETRADENODESENSITIVITIESBATCH.SPILL(E1, {"discount","forecast"}, G1)
-I1: =RATEPORTFOLIONODERISK.SPILL(E1, {"discount"}, G1)
-```
-
-Both spill functions take `(trades, componentKeys, market)` and return long-form
-spills rather than node-gridded columns, since components can carry different
-node counts. `RATETRADENODESENSITIVITIESBATCH.SPILL` emits the six columns
-`trade, component, reason, pv, node, value` — one row per node of each eligible
-(trade, component) entry plus a reason row per failed entry.
-`RATEPORTFOLIONODERISK.SPILL` emits the same columns plus a trailing
-`currency`, with one aggregate row per actual PV currency. Only trades with
-past fixing dates need a fixing-snapshot handle, and XCCY additionally needs
-the domestic/foreign blocks and the basis curve.
-
-Quote-space DV01 uses provenance handles and a separate fixed-width spill:
-
-```text
-J1: =SINGLECURVEQUOTERISKPROVENANCE.NEW(calibrationResult, "usd-ois", parameterBlockKeys, componentKeys, G1)
-K1: =RATEPORTFOLIOQUOTERISK.SPILL(E1, G1, J1)
-```
-
-`JOINTXCCYQUOTERISKPROVENANCE.NEW` and
-`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW` cover the other supported calibration
-domains. Generic joint calibration has the dedicated
-`JOINTMULTICURVEQUOTERISKPROVENANCE.NEW` factory and a
-[complete worksheet construction path](../dal-excel/examples/009.generic_joint_quote_risk.md).
-The legacy `RATEQUOTERISKPROVENANCE.NEW(result, calibrationId,
-parameterBlockKeys, componentKeys, market)` dispatches from a result handle;
-ordinary staged chains and generic joint calibration produce explicit rows with
-`QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE` and
-`QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE` under its unchanged v1 contract.
-
-The quote-risk spill columns are `calibration`, `axis_fingerprint`,
-`quote_key`, `quote_name`, `block`, `currency`, `quote_sensitivity`, `dv01`,
-`availability`, and `reason`. Quote sensitivity is price per decimal quote;
-DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
-`UnconvertedByActualPvCcy`, with no FX conversion. A paste-ready worksheet
-recipe is in [dal-excel/examples/008.quote_risk.md](../dal-excel/examples/008.quote_risk.md).
-
-Generated function help under `dal-excel/auto/*.htm` is the argument-level
-catalog used by Excel registration.
-
-See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
+See the dedicated [Excel interface chapter](excel/README.md) for worksheet
+functions, handles, settings, and examples. The [FIX settings guide](excel/script-settings.md)
+covers the exact input matrices and diagnostics.
 
 ## Error and State Conventions
 

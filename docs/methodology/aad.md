@@ -483,7 +483,7 @@ relying on tape passivity, which is backend-dependent.
 The recording contract of the previous section is exercised end to end by the
 AAD benchmark program, which prices a Black payoff and reads back every Greek
 from a single reverse sweep. See
-[`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad/) for a runnable version;
+[`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad) for a runnable version;
 its core backend-neutral sweep is:
 
 ```cpp
@@ -551,7 +551,7 @@ library.
 
 ## See Also
 
-- [Yield curve construction](yield_curve.md) — uses AAD-computed sensitivities
+- [Yield curve construction](../yield-curves/construction.md) — uses AAD-computed sensitivities
   during calibration.
 - [Underdetermined search](underdetermined_search.md) — the calibration solver
   that consumes these Jacobians.
