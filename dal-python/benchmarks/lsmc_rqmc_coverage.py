@@ -121,7 +121,7 @@ def coverage_case(name, dates, reference, args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--outer-seeds", type=int, default=64)
+    parser.add_argument("--outer-seeds", type=int, default=256)
     parser.add_argument("--replicates", type=int, default=8)
     parser.add_argument("--training-paths", type=int, default=8192)
     parser.add_argument("--pricing-paths", type=int, default=2048)

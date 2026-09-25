@@ -463,21 +463,21 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    lsmc_pricing_seed=None)
 ```
 
-| Field                   | Accepted input / default                                                                                        | Property result                     |
-|-------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| `default_index`         | `str` or `String_`; empty means unbound                                                                         | `str`, preserving spelling          |
-| `evaluation_date`       | Valid DAL `Date_`, or `None` to capture global date at each call                                                | A date copy or `None`               |
-| `today_fixing`          | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`                                      | `TodayFixingPolicy_` member         |
-| `fixings`               | `MarketFixingSnapshot_`, or `None` for global capture                                                           | Immutable snapshot handle or `None` |
-| `method`                | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`                                  | `str`, preserving spelling          |
-| `use_bb`, `enable_aad`  | Python `bool` only; default `False`                                                                             | `bool`                              |
-| `smooth`                | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01`                                | `float`                             |
-| `compiled`              | Python `bool` or `None`; default `None` selects tree                                                            | `bool` or `None`                    |
-| `lsmc_basis_degree`     | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                              | `int`                               |
-| `lsmc_training_paths`   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path`    | `int` or `None`                     |
-| `lsmc_validation_paths` | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |
-| `lsmc_rqmc_replicates`  | Integer or valid `__index__` in `2..2**31-1`, excluding bool, enums, floats; `None` keeps deterministic Sobol | `int` or `None` |
-| `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode | `int` or `None` |
+| Field                                     | Accepted input / default                                                                                        | Property result                     |
+|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `default_index`                           | `str` or `String_`; empty means unbound                                                                         | `str`, preserving spelling          |
+| `evaluation_date`                         | Valid DAL `Date_`, or `None` to capture global date at each call                                                | A date copy or `None`               |
+| `today_fixing`                            | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`                                      | `TodayFixingPolicy_` member         |
+| `fixings`                                 | `MarketFixingSnapshot_`, or `None` for global capture                                                           | Immutable snapshot handle or `None` |
+| `method`                                  | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`                                  | `str`, preserving spelling          |
+| `use_bb`, `enable_aad`                    | Python `bool` only; default `False`                                                                             | `bool`                              |
+| `smooth`                                  | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01`                                | `float`                             |
+| `compiled`                                | Python `bool` or `None`; default `None` selects tree                                                            | `bool` or `None`                    |
+| `lsmc_basis_degree`                       | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                              | `int`                               |
+| `lsmc_training_paths`                     | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path`    | `int` or `None`                     |
+| `lsmc_validation_paths`                   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |
+| `lsmc_rqmc_replicates`                    | Integer or valid `__index__` in `2..2**31-1`, excluding bool, enums, floats; `None` keeps deterministic Sobol   | `int` or `None`                     |
+| `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode             | `int` or `None`                     |
 
 For exercise products, training and pricing counts can be set independently:
 
