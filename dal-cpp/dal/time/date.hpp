@@ -26,7 +26,7 @@ namespace Dal {
 
         Date_ FromExcel(int serial);
 
-        int ToExcel(const Date_& dt);
+        inline int ToExcel(const Date_& dt);
 
         String_ ToString(const Date_& dt);
 
@@ -43,12 +43,15 @@ namespace Dal {
     class Date_ {
         uint16_t serial_;
 
-        static constexpr long long MAX_SERIAL = std::numeric_limits<uint16_t>::max();
+        static constexpr int EXCEL_OFFSET = 25568; // Excel serial of the invalid serial 0
+        static constexpr int MAX_SERIAL = std::numeric_limits<uint16_t>::max();
 
         // Out of line so the inline arithmetic stays small on hot paths
         [[noreturn]] static void ThrowOutOfRange();
 
         friend Date_ Date::FromExcel(int);
+        friend Date_ Date::Minimum();
+        friend Date_ Date::Maximum();
 
         friend int Date::ToExcel(const Date_&);
         friend bool operator==(const Date_& lhs, const Date_& rhs);
@@ -89,13 +92,16 @@ namespace Dal {
         }
     };
 
+    // Inline: day differences sit on curve, schedule, and day-count hot paths
+    inline int Date::ToExcel(const Date_& dt) { return dt.serial_ + Date_::EXCEL_OFFSET; }
+
     inline bool operator==(const Date_& lhs, const Date_& rhs) { return lhs.serial_ == rhs.serial_; }
     inline bool operator!=(const Date_& lhs, const Date_& rhs) { return !(lhs == rhs); }
     inline bool operator<(const Date_& lhs, const Date_& rhs) { return lhs.serial_ < rhs.serial_; }
     inline bool operator>(const Date_& lhs, const Date_& rhs) { return rhs < lhs; }
     inline bool operator<=(const Date_& lhs, const Date_& rhs) { return !(rhs < lhs); }
     inline bool operator>=(const Date_& lhs, const Date_& rhs) { return !(lhs < rhs); }
-    int operator-(const Date_& lhs, const Date_& rhs);
+    inline int operator-(const Date_& lhs, const Date_& rhs) { return Date::ToExcel(lhs) - Date::ToExcel(rhs); }
 
     inline double NumericValueOf(const Date_& src) { return static_cast<double>(Date::ToExcel(src)); }
 } // namespace Dal
