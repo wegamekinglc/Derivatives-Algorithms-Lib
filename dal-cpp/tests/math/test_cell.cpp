@@ -149,6 +149,16 @@ TEST(CellTest, TestToStringKeepsPrecisionAndLargeValues) {
 }
 
 TEST(CellTest, TestIntegerQueriesOutsideIntRange) {
+    const double intMax = std::numeric_limits<int>::max();
+    const double intMin = std::numeric_limits<int>::min();
+    ASSERT_TRUE(Dal::Cell::IsInt(Cell_(intMax)));
+    ASSERT_TRUE(Dal::Cell::IsInt(Cell_(intMin)));
+    ASSERT_EQ(Dal::Cell::ToInt(Cell_(intMax)), std::numeric_limits<int>::max());
+    ASSERT_EQ(Dal::Cell::ToInt(Cell_(intMin)), std::numeric_limits<int>::min());
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(intMax)), "2147483647");
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMax + 1.0)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMin - 1.0)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMax - 0.5)));
     ASSERT_TRUE(Dal::Cell::IsInt(Cell_(2147483646.0)));
     ASSERT_FALSE(Dal::Cell::IsInt(Cell_(5e9)));
     ASSERT_FALSE(Dal::Cell::IsInt(Cell_(-5e9)));

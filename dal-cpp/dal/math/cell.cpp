@@ -3,23 +3,22 @@
 //
 
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/string/stringutils.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <dal/utilities/numerics.hpp>
 
 namespace Dal {
 
     namespace {
-        // Integral doubles outside the int range (and NaN) are not ints rather than conversion errors
+        // Doubles outside the inclusive int range, fractional values, and NaN are not ints rather than conversion errors
         std::optional<int> AsExactInt(double d) {
-            if (!(std::abs(d) < 2147483647.))
+            if (!(d >= std::numeric_limits<int>::min() && d <= std::numeric_limits<int>::max()) || std::trunc(d) != d)
                 return std::nullopt;
-            const int ii = AsInt(d);
-            return ii == d ? std::optional<int>(ii) : std::nullopt;
+            return static_cast<int>(d);
         }
 
         struct ToString_ {
