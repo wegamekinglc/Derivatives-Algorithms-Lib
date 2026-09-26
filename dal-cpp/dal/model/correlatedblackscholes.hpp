@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <memory>
 
+#include <dal/indice/parser/equity.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/model/base.hpp>
@@ -40,6 +42,20 @@ namespace Dal {
         double rate_ = 0.0;
         Matrix_<> correlations_;
     };
+
+    inline Vector_<String_> CanonicalCorrelatedBSAssetNames(const Vector_<String_>& names) {
+        Vector_<String_> canonical;
+        canonical.reserve(names.size());
+        for (const auto& name : names) {
+            REQUIRE(name.substr(0, 3) == "EQ[", "InvalidModelIndex: expected an ordinary EQ index: " + name);
+            const auto index = Index::EquityParser(name);
+            REQUIRE(index && AAD::IsPlainEquity(*index), "InvalidModelIndex: expected an ordinary EQ index: " + name);
+            const String_ canonicalName = index->Name();
+            REQUIRE(std::find(canonical.begin(), canonical.end(), canonicalName) == canonical.end(), "DuplicateModelIndex: " + canonicalName);
+            canonical.push_back(canonicalName);
+        }
+        return canonical;
+    }
 
     namespace AAD {
         template <class T_ = double> class CorrelatedBlackScholes_ : public Model_<T_> {
@@ -98,16 +114,6 @@ namespace Dal {
                 }
                 parameters_.push_back(&rate_);
                 parameterLabels_.push_back("rate");
-            }
-
-            void ValidateAssetNames() {
-                for (size_t i = 0; i < assetNames_.size(); ++i) {
-                    const Handle_<Index_> index(Index::Parse(assetNames_[i]));
-                    REQUIRE(index && IsPlainEquity(*index), "InvalidModelIndex: expected an ordinary EQ index: " + assetNames_[i]);
-                    assetNames_[i] = index->Name();
-                    for (size_t j = 0; j < i; ++j)
-                        REQUIRE(assetNames_[i] != assetNames_[j], "DuplicateModelIndex: " + assetNames_[i]);
-                }
             }
 
             void ValidateCorrelationMatrix(const Matrix_<>& correlations) const {
@@ -204,7 +210,7 @@ namespace Dal {
                 : assetNames_(std::move(assetNames)), spots_(std::move(spots)), vols_(std::move(vols)), divs_(std::move(divs)),
                   rate_(std::move(rate)) {
                 ValidateParameters();
-                ValidateAssetNames();
+                assetNames_ = CanonicalCorrelatedBSAssetNames(assetNames_);
                 ValidateCorrelationMatrix(correlations);
                 FactorCorrelation(correlations);
                 SetParamPointers();
@@ -317,6 +323,7 @@ namespace Dal {
 
     private:
         void SetParameterLabels() {
+            indices_ = CanonicalCorrelatedBSAssetNames(indices_);
             parameterLabels_.clear();
             for (const auto& index : indices_) {
                 parameterLabels_.push_back("spot:" + index);

@@ -56,7 +56,8 @@ list. The single `Sample_::spot_` compatibility field is the first configured
 asset; multi-asset consumers should use the named `observations_` slots. The
 model validates unknown or duplicate asset names, malformed correlation
 matrices, invalid parameters, and unsupported output indices before path
-generation.
+generation. Configured ordinary equity names are canonicalized when model data
+is constructed, so its parameter labels match the runtime model's risk labels.
 
 `CreateModel<AAD::Number_>` generates the same paths on an AAD tape. Risk
 parameters are ordered `spot:EQ[...]`, `vol:EQ[...]`, and `div:EQ[...]` for each

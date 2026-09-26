@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include <dal-public/src/models.hpp>
 
 using Dal::Matrix_;
@@ -49,7 +51,7 @@ TEST(ModelsTest, TestNewBSModelDataUsableByModelFactory) {
 
 TEST(ModelsTest, TestNewCorrelatedBSModelDataStoresOrderedAssets) {
     Dal::CorrelatedBSSettings_ settings;
-    settings.assets_ = {{"EQ[AAA]", 100.0, 0.2, 0.01}, {"EQ[BBB]", 120.0, 0.3, 0.02}};
+    settings.assets_ = {{"eq[AAA]", 100.0, 0.2, 0.01}, {"EQ[BBB]", 120.0, 0.3, 0.02}};
     settings.rate_ = 0.05;
     settings.correlations_ = Matrix_<>(2, 2, 0.0);
     settings.correlations_(0, 0) = settings.correlations_(1, 1) = 1.0;
@@ -59,6 +61,7 @@ TEST(ModelsTest, TestNewCorrelatedBSModelDataStoresOrderedAssets) {
     const auto* data = dynamic_cast<const Dal::CorrelatedBSModelData_*>(model.get());
     ASSERT_NE(data, nullptr);
     ASSERT_EQ(data->indices_, (Vector_<String_>{"EQ[AAA]", "EQ[BBB]"}));
+    ASSERT_EQ(std::string(data->indices_[0].c_str()), "EQ[AAA]");
     ASSERT_EQ(data->parameterLabels_,
               (Vector_<String_>{"spot:EQ[AAA]", "vol:EQ[AAA]", "div:EQ[AAA]", "spot:EQ[BBB]", "vol:EQ[BBB]", "div:EQ[BBB]", "rate"}));
 }

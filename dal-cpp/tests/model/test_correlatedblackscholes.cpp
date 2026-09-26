@@ -87,6 +87,14 @@ TEST(ModelTest, TestCorrelatedBlackScholesNamedOutputs) {
     ASSERT_NEAR(path[1].numeraire_, std::exp(0.05), 1e-10);
 }
 
+TEST(ModelTest, TestCorrelatedBlackScholesDataAndRuntimeUseCanonicalRiskLabels) {
+    const auto settings = Settings({{"eq[AAA]", 100.0, 0.2, 0.01}}, Matrix_<>(1, 1, 1.0));
+    const Handle_<ModelData_> data(std::make_shared<CorrelatedBSModelData_>("basket", settings));
+    const auto model = CreateModel<double>(data);
+    ASSERT_EQ(std::string(data->parameterLabels_[0].c_str()), "spot:EQ[AAA]");
+    ASSERT_EQ(data->parameterLabels_, model->ParameterLabels());
+}
+
 TEST(ModelTest, TestCorrelatedBlackScholesMatchesSingleAssetBS) {
     const auto settings = Settings({{"EQ[AAA]", 100.0, 0.2, 0.01}}, Matrix_<>(1, 1, 1.0));
     AAD::CorrelatedBlackScholes_<> multi({"EQ[AAA]"}, {100.0}, {0.2}, {0.01}, 0.05, settings.correlations_);
