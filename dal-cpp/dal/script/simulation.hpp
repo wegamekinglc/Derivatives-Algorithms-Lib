@@ -188,7 +188,9 @@ namespace Dal::Script {
     template <class T_>
     std::unique_ptr<Random_>
     CreateRNG(const String_& method, const AAD::Model_<T_>& model, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt) {
-        REQUIRE2(!useBb || model.SupportsBrownianBridge(), "UnsupportedBrownianBridge: multiple factors require a factor-aware bridge", ScriptError_);
+        REQUIRE2(!useBb || model.SupportsBrownianBridge(), "UnsupportedBrownianBridge: model does not support a factor-aware bridge", ScriptError_);
+        if (useBb && model.NumFactors() > 1 && model.SimDim() > 0)
+            return std::make_unique<FactorBrownianBridge_>(CreateRNG(method, model.SimDim(), false, scrambleKey), model.NumFactors());
         return CreateRNG(method, model.SimDim(), useBb, scrambleKey);
     }
 

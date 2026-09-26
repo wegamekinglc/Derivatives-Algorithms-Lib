@@ -62,7 +62,7 @@ variance modes accelerates convergence of the simulator's price estimate.
 
 ### Construction
 
-Given $N$ equally spaced unit-step times $t_i = i + 1$ (the constructor in
+Given $N$ equally spaced unit-step times $t_i = i + 1$ (the transform in
 `dal-cpp/dal/math/random/brownianbridge.cpp` sets `t_[i] = i + 1`), the
 constructor pre-computes, for each draw position $i = 0, \ldots, N-1$:
 
@@ -130,6 +130,17 @@ low-discrepancy sequence.
 
 `FillUniform` is `FillNormal` followed by `NCDF` applied element-wise, mapping
 the normalized increments back to $(0,1)$ marginals.
+
+### Multiple Factors
+
+`FactorBrownianBridge_` applies the same precomputed time transform to each
+independent factor separately. For $F$ factors and $N$ time steps, input
+Sobol coordinate `factor * N + bridgeCoordinate` drives that factor's bridge;
+the output increment is placed at `step * F + factor`. The model then applies
+the correlation Cholesky factor at each step. A one-factor model retains the
+original `BrownianBridge_` ordering and output. See the
+[hybrid model](hybrid-model.md#brownian-bridge-and-risks) for the composition
+contract.
 
 ## Sobol Sequence
 
