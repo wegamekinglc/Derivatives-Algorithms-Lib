@@ -42,7 +42,7 @@ TEST(ScriptPreprocessorTest, TestNumericVectorDefinition) {
 TEST(ScriptPreprocessorTest, TestVectorAndLoopKeywordsCannotBeDefinitions) {
     Preprocessor_ preprocessor;
     for (const String_ keyword : {"FOR", "APPEND", "SUM", "AVERAGE"})
-        ASSERT_THROW(preprocessor.Process({{Cell_(keyword), "1"}}), ScriptError_);
+        ASSERT_THROW((void)preprocessor.Process({{Cell_(keyword), "1"}}), ScriptError_);
 }
 
 TEST(ScriptPreprocessorTest, TestMacroExpansionIntoDatedEvent) {

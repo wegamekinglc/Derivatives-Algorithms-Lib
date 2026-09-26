@@ -485,3 +485,22 @@ TEST(ScriptTest, TestParseCondInvalidComparatorThrows) {
     String_ event = "IF x + 2 THEN y = 1 END";
     ASSERT_THROW(parser.Parse(event), ScriptError_);
 }
+
+TEST(ScriptTest, TestParseIfRejectsRepeatedElse) {
+    Parser_ parser;
+    try {
+        (void)parser.Parse("IF x > 2 THEN y = 1 ELSE y = 2 ELSE y = 3 END");
+        FAIL() << "expected DuplicateElse";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(std::string(error.what()).find("DuplicateElse"), std::string::npos) << error.what();
+    }
+}
+
+TEST(ScriptTest, TestParseVarRequiresLeadingLetter) {
+    Parser_ parser;
+    ASSERT_THROW((void)parser.Parse("^ = 1"), ScriptError_);
+    ASSERT_THROW((void)parser.Parse("x = ^"), ScriptError_);
+    ASSERT_THROW((void)parser.Parse("_x = 1"), ScriptError_);
+    ASSERT_NO_THROW((void)parser.Parse("x_1 = 1"));
+    ASSERT_NO_THROW((void)parser.Parse("Zeta = zeta + 1"));
+}
