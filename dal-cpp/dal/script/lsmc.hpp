@@ -48,8 +48,10 @@ namespace Dal::Script {
         return value;
     }
 
+    //  A default regression has no coefficients and predicts zero
     template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const T_& x) {
-        return PredictContinuation(&regression.coefficients_[0], regression.coefficients_.size(), regression.mean_, regression.sigma_, x);
+        const auto& coefficients = regression.coefficients_;
+        return PredictContinuation(coefficients.empty() ? nullptr : &coefficients[0], coefficients.size(), regression.mean_, regression.sigma_, x);
     }
 
     //  Per-exercise-event diagnostics projected into dal.script-simulation/1

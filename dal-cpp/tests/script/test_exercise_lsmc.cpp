@@ -427,6 +427,13 @@ TEST(ScriptExerciseLSMCTest, TestMaskedRegressionAcrossPathChunksMatchesHousehol
     }
 }
 
+TEST(ScriptExerciseLSMCTest, TestDefaultRegressionPredictsZero) {
+    const ExerciseRegression_ empty;
+    ASSERT_TRUE(empty.coefficients_.empty());
+    ASSERT_EQ(RegressionPredict(empty, 95.0), 0.0);
+    ASSERT_EQ(PredictContinuation(static_cast<const double*>(nullptr), 0, 0.0, 1.0, 95.0), 0.0);
+}
+
 TEST(ScriptExerciseLSMCTest, TestConstantRegressionAvoidsNormalizationOverflow) {
     const auto fit = SolveExerciseRegression(Vector_<>(100, 0.0), Vector_<>(100, 2.0), AllIncluded(100), 3);
     ASSERT_EQ(RegressionPredict(fit, std::numeric_limits<double>::max()), 2.0);
