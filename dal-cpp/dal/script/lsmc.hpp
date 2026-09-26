@@ -35,17 +35,23 @@ namespace Dal::Script {
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree);
 
-    //  Horner evaluation of the frozen coefficients on the z-normalized basis; the
+    //  Horner evaluation of frozen coefficients on the z-normalized basis; the
     //  arithmetic is identical for T_ = double (Phase B/C decisions) and AAD number
     //  types (the fuzzy replay differentiates through the frozen continuation)
-    template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const T_& x) {
-        if (regression.coefficients_.size() == 1)
-            return T_(regression.coefficients_[0]);
-        const T_ z = (x - regression.mean_) / regression.sigma_;
+    template <class T_> T_ PredictContinuation(const double* coefficients, size_t nCoefficients, double mean, double sigma, const T_& x) {
+        if (nCoefficients == 1)
+            return T_(coefficients[0]);
+        const T_ z = (x - mean) / sigma;
         T_ value(0.0);
-        for (size_t j = regression.coefficients_.size(); j-- > 0;)
-            value = value * z + regression.coefficients_[j];
+        for (size_t j = nCoefficients; j-- > 0;)
+            value = value * z + coefficients[j];
         return value;
+    }
+
+    //  A default regression has no coefficients and predicts zero
+    template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const T_& x) {
+        const auto& coefficients = regression.coefficients_;
+        return PredictContinuation(coefficients.empty() ? nullptr : &coefficients[0], coefficients.size(), regression.mean_, regression.sigma_, x);
     }
 
     //  Per-exercise-event diagnostics projected into dal.script-simulation/1

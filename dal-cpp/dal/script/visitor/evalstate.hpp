@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 #include <type_traits>
 
 #include <dal/math/stacks.hpp>
@@ -112,6 +113,30 @@ namespace Dal::Script {
         for (auto& varStore : *varStore1)
             varStore.Resize(numVars);
     }
+
+    //  Row-major recording rows of the LSMC driver's training block, one row of nPaths
+    //  values per PAYS event or exercise day. The memory is left uninitialized: each
+    //  forward worker zeroes its own path range first, so page faults and zero fill run
+    //  in parallel instead of on the calling thread.
+    class LsmcRows_ {
+        std::unique_ptr<double[]> data_;
+        size_t nRows_ = 0;
+        size_t nPaths_ = 0;
+
+    public:
+        LsmcRows_() = default;
+        LsmcRows_(size_t nRows, size_t nPaths) : data_(nRows * nPaths > 0 ? new double[nRows * nPaths] : nullptr), nRows_(nRows), nPaths_(nPaths) {}
+
+        [[nodiscard]] size_t Rows() const { return nRows_; }
+        [[nodiscard]] size_t Paths() const { return nPaths_; }
+        double* operator[](size_t row) { return data_.get() + row * nPaths_; }
+        const double* operator[](size_t row) const { return data_.get() + row * nPaths_; }
+
+        void ZeroPaths(size_t firstPath, size_t pathCount) {
+            for (size_t row = 0; row < nRows_; ++row)
+                std::fill_n((*this)[row] + firstPath, pathCount, 0.0);
+        }
+    };
 
     //  Per-path recording sinks of the LSMC driver's fuzzy (AAD) replay: one raw payment
     //  row per event of the current path plus the exercise value and fuzzy condition

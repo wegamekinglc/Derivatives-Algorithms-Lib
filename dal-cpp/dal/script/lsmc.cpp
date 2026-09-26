@@ -4,8 +4,16 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <cstring>
+#include <exception>
+#include <functional>
 #include <limits>
+#include <mutex>
+#include <optional>
+#include <thread>
 #include <type_traits>
 #include <utility>
 
@@ -57,17 +65,247 @@ namespace Dal::Script {
             return (static_cast<uint64_t>(pricing) << 63) | (static_cast<uint64_t>(seed) << 32) | static_cast<uint64_t>(replicate);
         }
 
-        double MeanOf(const Vector_<>& values, const Vector_<char>& included, size_t count) {
-            if (count == 0)
-                return 0.0;
-            double sum = 0.0;
-            for (size_t i = 0; i < values.size(); ++i)
-                if (included[i]) {
-                    REQUIRE(std::isfinite(values[i]), "InvalidRegressionInput: non-finite included target");
-                    sum += values[i];
+        template <class E_> const E_* RowData(const Vector_<E_>& row) { return row.empty() ? nullptr : &row[0]; }
+
+        //  One regression's rows; the backward phase regresses storage rows in place
+        struct RegressionRows_ {
+            const double* x_;
+            const double* targets_;
+            const char* included_;
+            size_t n_;
+        };
+
+        RegressionRows_ Rows(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included) {
+            return {RowData(x), RowData(targets), RowData(included), x.size()};
+        }
+
+        RegressionRows_ SubRows(const RegressionRows_& rows, const PathBatch_& chunk) {
+            return {rows.x_ + chunk.firstPath_, rows.targets_ + chunk.firstPath_, rows.included_ + chunk.firstPath_, chunk.pathCount_};
+        }
+
+        //  Fork-join team for the backward phase. A pool task group costs tens of
+        //  microseconds per task on virtualised hosts, more than one chunk of a sweep, so
+        //  helpers join once per phase and claim the chunks of each published pass through
+        //  atomics. The caller claims chunks too and can finish every pass alone, so a busy
+        //  pool only costs speed; it never waits on the pool while its team is active, so
+        //  helpers cannot form a wait cycle. A helper leaves after MAX_HELPER_IDLE without
+        //  work rather than hold a pool worker through a long sequential stretch.
+        class ChunkTeam_ {
+            using Work_ = std::function<void(size_t)>;
+            static constexpr int PASS_SHIFT = 32;
+            static constexpr uint64_t INDEX_MASK = (uint64_t(1) << PASS_SHIFT) - 1;
+            static constexpr size_t SPINS_BEFORE_YIELD = 1 << 14;
+            static constexpr std::chrono::microseconds MAX_HELPER_IDLE{1000};
+
+            //  Pass p lives in slot p & 1: the caller publishes pass p + 2 only after every
+            //  chunk of p + 1, and therefore of p, has finished
+            struct Pass_ {
+                std::atomic<size_t> chunkCount_{0};
+                std::atomic<const Work_*> work_{nullptr};
+            };
+
+            std::array<Pass_, 2> passes_;
+            std::atomic<uint64_t> claim_{0}; //  pass number << PASS_SHIFT | next chunk index
+            std::atomic<size_t> done_{0};
+            std::atomic<bool> finished_{false};
+            std::atomic<bool> failed_{false};
+            std::mutex failureMutex_;
+            std::exception_ptr failure_;
+            uint64_t pass_ = 0; //  caller only
+
+            static void Pause(size_t* spins) {
+                if (++*spins >= SPINS_BEFORE_YIELD)
+                    std::this_thread::yield();
+            }
+
+            bool RunOneChunk() {
+                uint64_t word = claim_.load(std::memory_order_acquire);
+                while (true) {
+                    const Pass_& pass = passes_[(word >> PASS_SHIFT) & 1];
+                    const size_t index = static_cast<size_t>(word & INDEX_MASK);
+                    const Work_* work = pass.work_.load(std::memory_order_relaxed);
+                    if (!work || index >= pass.chunkCount_.load(std::memory_order_relaxed))
+                        return false;
+                    //  success means the pass was still current, so the slot read above was its own
+                    if (claim_.compare_exchange_weak(word, word + 1, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                        try {
+                            (*work)(index);
+                        } catch (...) {
+                            std::lock_guard<std::mutex> lock(failureMutex_);
+                            if (!failure_)
+                                failure_ = std::current_exception();
+                            failed_.store(true, std::memory_order_relaxed);
+                        }
+                        done_.fetch_add(1, std::memory_order_release);
+                        return true;
+                    }
                 }
-            REQUIRE(std::isfinite(sum), "InvalidRegressionInput: target sum overflow");
-            return sum / static_cast<double>(count);
+            }
+
+        public:
+            void Help() {
+                size_t spins = 0;
+                std::chrono::steady_clock::time_point idleSince;
+                while (!finished_.load(std::memory_order_acquire)) {
+                    if (RunOneChunk()) {
+                        spins = 0;
+                        continue;
+                    }
+                    if (++spins < SPINS_BEFORE_YIELD)
+                        continue;
+                    const auto now = std::chrono::steady_clock::now();
+                    if (spins == SPINS_BEFORE_YIELD)
+                        idleSince = now;
+                    else if (now - idleSince > MAX_HELPER_IDLE)
+                        return;
+                    std::this_thread::yield();
+                }
+            }
+
+            void Finish() { finished_.store(true, std::memory_order_release); }
+
+            void Run(size_t chunkCount, const Work_& work) {
+                REQUIRE(chunkCount <= INDEX_MASK, "InvalidPathCount: too many path chunks");
+                ++pass_;
+                Pass_& pass = passes_[pass_ & 1];
+                pass.chunkCount_.store(chunkCount, std::memory_order_relaxed);
+                pass.work_.store(&work, std::memory_order_relaxed);
+                done_.store(0, std::memory_order_relaxed);
+                claim_.store(pass_ << PASS_SHIFT, std::memory_order_release);
+                while (RunOneChunk()) {
+                }
+                size_t spins = 0;
+                while (done_.load(std::memory_order_acquire) != chunkCount)
+                    Pause(&spins);
+                if (failed_.load(std::memory_order_relaxed))
+                    std::rethrow_exception(failure_);
+            }
+        };
+
+        //  Joins the pool's free workers to a team for one scope; the team finishes before
+        //  the helper tasks are drained, however the scope exits
+        class ChunkTeamScope_ {
+            ChunkTeam_ team_;
+            SimulationTaskGroup_ helpers_;
+            struct Finisher_ {
+                ChunkTeam_* team_;
+                ~Finisher_() { team_->Finish(); }
+            } finisher_;
+
+        public:
+            ChunkTeamScope_(size_t nHelpers) : helpers_(ThreadPool_::GetInstance(), nHelpers), finisher_{&team_} {
+                for (size_t k = 0; k < nHelpers; ++k)
+                    helpers_.Spawn([this]() {
+                        team_.Help();
+                        return true;
+                    });
+            }
+
+            ChunkTeamScope_(const ChunkTeamScope_&) = delete;
+            ChunkTeamScope_& operator=(const ChunkTeamScope_&) = delete;
+
+            ChunkTeam_* Team() { return &team_; }
+
+            void Complete() {
+                team_.Finish();
+                helpers_.Complete();
+            }
+        };
+
+        //  Fixed-size path chunks. Every regression sum is accumulated in path order within
+        //  a chunk and then across chunks in chunk order, so it does not depend on the
+        //  thread count (N9/N10); a set within one chunk sums in plain path order.
+        class PathChunks_ {
+            BatchPlan_ plan_;
+            ChunkTeam_* team_;
+
+        public:
+            explicit PathChunks_(size_t nPaths, ChunkTeam_* team = nullptr) : plan_(nPaths, 1), team_(plan_.BatchCount() > 1 ? team : nullptr) {}
+
+            [[nodiscard]] size_t Count() const { return plan_.BatchCount(); }
+
+            template <class R_, class F_> Vector_<R_> Map(const F_& fn) const {
+                Vector_<R_> results(plan_.BatchCount());
+                if (!team_) {
+                    for (size_t c = 0; c < results.size(); ++c)
+                        results[c] = fn(plan_.BatchAt(c));
+                    return results;
+                }
+                const std::function<void(size_t)> work = [&](size_t c) { results[c] = fn(plan_.BatchAt(c)); };
+                team_->Run(results.size(), work);
+                return results;
+            }
+        };
+
+        //  Bitwise selects. The included mask is close to a coin flip on real regression
+        //  sets, so branching on it mispredicts on about half of the paths. Adding the
+        //  +0.0 of an excluded path leaves a running sum bitwise unchanged, so the masked
+        //  passes reproduce the included-only arithmetic exactly.
+        FORCE_INLINE double Select(bool keepFirst, double first, double second) {
+            uint64_t a, b;
+            std::memcpy(&a, &first, sizeof(a));
+            std::memcpy(&b, &second, sizeof(b));
+            const uint64_t mask = uint64_t(0) - static_cast<uint64_t>(keepFirst);
+            const uint64_t bits = (a & mask) | (b & ~mask);
+            double result;
+            std::memcpy(&result, &bits, sizeof(result));
+            return result;
+        }
+
+        FORCE_INLINE double Masked(bool keep, double value) { return Select(keep, value, 0.0); }
+
+        struct IncludedSums_ {
+            size_t count_ = 0;
+            double sumX_ = 0.0;
+            double sumTargets_ = 0.0;
+        };
+
+        FORCE_INLINE void AddIncluded(bool included, double x, double target, IncludedSums_* sums) {
+            sums->count_ += static_cast<size_t>(included);
+            sums->sumX_ += Masked(included, x);
+            sums->sumTargets_ += Masked(included, target);
+        }
+
+        IncludedSums_ SumIncluded(const RegressionRows_& rows) {
+            IncludedSums_ sums;
+            for (size_t i = 0; i < rows.n_; ++i)
+                AddIncluded(rows.included_[i] != 0, rows.x_[i], rows.targets_[i], &sums);
+            return sums;
+        }
+
+        IncludedSums_ ReduceSums(const Vector_<IncludedSums_>& chunks) {
+            IncludedSums_ sums;
+            for (const auto& chunk : chunks) {
+                sums.count_ += chunk.count_;
+                sums.sumX_ += chunk.sumX_;
+                sums.sumTargets_ += chunk.sumTargets_;
+            }
+            return sums;
+        }
+
+        double SumSquaredDeviations(const RegressionRows_& rows, double mean) {
+            double sumSq = 0.0;
+            for (size_t i = 0; i < rows.n_; ++i) {
+                const double dev = Masked(rows.included_[i] != 0, rows.x_[i] - mean);
+                sumSq += dev * dev;
+            }
+            return sumSq;
+        }
+
+        //  Any non-finite included value makes its sum non-finite, so the per-path check
+        //  runs only to name the failure after a non-finite sum
+        void RequireFiniteIncluded(const double* values, const char* included, size_t n, const char* message) {
+            for (size_t i = 0; i < n; ++i)
+                REQUIRE(!included[i] || std::isfinite(values[i]), message);
+        }
+
+        double ConstantFit(const RegressionRows_& rows, const IncludedSums_& sums) {
+            if (sums.count_ == 0)
+                return 0.0;
+            if (!std::isfinite(sums.sumTargets_))
+                RequireFiniteIncluded(rows.targets_, rows.included_, rows.n_, "InvalidRegressionInput: non-finite included target");
+            REQUIRE(std::isfinite(sums.sumTargets_), "InvalidRegressionInput: target sum overflow");
+            return sums.sumTargets_ / static_cast<double>(sums.count_);
         }
 
         //  Count, mean and sigma of the regressor over the included paths, with the sigma floor
@@ -78,23 +316,17 @@ namespace Dal::Script {
             double sigmaFloor_ = 0.0;
         };
 
-        RegressionStats_ RegressionStats(const Vector_<>& x, const Vector_<char>& included) {
+        RegressionStats_ RegressionStats(const RegressionRows_& rows, const IncludedSums_& sums, const PathChunks_& chunks) {
             RegressionStats_ stats;
-            double sumX = 0.0;
-            for (size_t i = 0; i < x.size(); ++i)
-                if (included[i]) {
-                    REQUIRE(std::isfinite(x[i]), "InvalidRegressionInput: non-finite included regressor");
-                    ++stats.count_;
-                    sumX += x[i];
-                }
+            stats.count_ = sums.count_;
+            if (!std::isfinite(sums.sumX_))
+                RequireFiniteIncluded(rows.x_, rows.included_, rows.n_, "InvalidRegressionInput: non-finite included regressor");
             if (stats.count_ != 0) {
-                stats.mean_ = sumX / static_cast<double>(stats.count_);
+                stats.mean_ = sums.sumX_ / static_cast<double>(stats.count_);
+                const double mean = stats.mean_;
                 double sumSq = 0.0;
-                for (size_t i = 0; i < x.size(); ++i)
-                    if (included[i]) {
-                        const double dev = x[i] - stats.mean_;
-                        sumSq += dev * dev;
-                    }
+                for (double chunk : chunks.Map<double>([&](const PathBatch_& c) { return SumSquaredDeviations(SubRows(rows, c), mean); }))
+                    sumSq += chunk;
                 stats.sigma_ = std::sqrt(sumSq / static_cast<double>(stats.count_));
                 REQUIRE(std::isfinite(stats.mean_) && std::isfinite(stats.sigma_), "InvalidRegressionInput: regressor moments overflow");
             }
@@ -115,35 +347,74 @@ namespace Dal::Script {
             result->coefficients_[0] = constant;
         }
 
-        //  A[j,k] = sum(z^(j+k)): accumulate each moment once, O(N*d), then
-        //  expand the small Hankel matrix. The fit retains the monomial convention.
-        void AccumulateNormalEquations(const Vector_<>& x,
-                                       const Vector_<>& targets,
-                                       const Vector_<char>& included,
-                                       double mean,
-                                       double sigma,
-                                       SquareMatrix_<>* gram,
-                                       Vector_<>* rhs) {
-            const size_t nBasis = static_cast<size_t>(gram->Rows());
-            std::array<double, 17> moments{};
-            for (size_t i = 0; i < x.size(); ++i) {
-                if (!included[i])
-                    continue;
-                const double z = (x[i] - mean) / sigma;
-                double power = 1.0;
-                for (size_t j = 0; j < nBasis; ++j) {
-                    moments[j] += power;
-                    (*rhs)[j] += power * targets[i];
+        //  Hankel moments sum(z^k), k < 2 * nBasis_ - 1, and the right-hand side
+        //  sum(z^j * target), j < nBasis_: O(N*d), each moment accumulated in path order
+        //  within a chunk. Each sum is independent of nBasis_, so one pass serves every
+        //  lower degree.
+        struct Moments_ {
+            size_t nBasis_ = 0;
+            std::array<double, 17> hankel_{};
+            std::array<double, 9> rhs_{};
+        };
+
+        template <size_t N_BASIS> void AccumulateMoments(const RegressionRows_& rows, double mean, double sigma, Moments_* moments) {
+            std::array<double, 2 * N_BASIS - 1> hankel{};
+            std::array<double, N_BASIS> rhs{};
+            for (size_t i = 0; i < rows.n_; ++i) {
+                const bool included = rows.included_[i] != 0;
+                const double z = Masked(included, (rows.x_[i] - mean) / sigma);
+                const double target = Masked(included, rows.targets_[i]);
+                double power = Masked(included, 1.0);
+                for (size_t j = 0; j < N_BASIS; ++j) {
+                    hankel[j] += power;
+                    rhs[j] += power * target;
                     power *= z;
                 }
-                for (size_t j = nBasis; j < 2 * nBasis - 1; ++j) {
-                    moments[j] += power;
+                for (size_t j = N_BASIS; j < 2 * N_BASIS - 1; ++j) {
+                    hankel[j] += power;
                     power *= z;
                 }
             }
-            for (size_t j = 0; j < nBasis; ++j)
+            moments->nBasis_ = N_BASIS;
+            std::copy(hankel.begin(), hankel.end(), moments->hankel_.begin());
+            std::copy(rhs.begin(), rhs.end(), moments->rhs_.begin());
+        }
+
+        using MomentAccumulator_ = void (*)(const RegressionRows_&, double, double, Moments_*);
+
+        template <size_t... N_> constexpr std::array<MomentAccumulator_, sizeof...(N_)> MomentAccumulators(std::index_sequence<N_...>) {
+            return {&AccumulateMoments<N_ + 2>...};
+        }
+
+        Moments_ AccumulateChunkMoments(const RegressionRows_& rows, double mean, double sigma, size_t nBasis) {
+            //  degrees 1..8 have 2..9 basis functions
+            static constexpr auto ACCUMULATORS = MomentAccumulators(std::make_index_sequence<8>());
+            REQUIRE(nBasis >= 2 && nBasis - 2 < ACCUMULATORS.size(), "InvalidRegressionInput: unsupported basis size");
+            Moments_ moments;
+            ACCUMULATORS[nBasis - 2](rows, mean, sigma, &moments);
+            return moments;
+        }
+
+        Moments_ AccumulateMoments(const RegressionRows_& rows, double mean, double sigma, size_t nBasis, const PathChunks_& chunks) {
+            Moments_ moments;
+            moments.nBasis_ = nBasis;
+            for (const auto& chunk :
+                 chunks.Map<Moments_>([&](const PathBatch_& c) { return AccumulateChunkMoments(SubRows(rows, c), mean, sigma, nBasis); })) {
+                for (size_t k = 0; k < 2 * nBasis - 1; ++k)
+                    moments.hankel_[k] += chunk.hankel_[k];
+                for (size_t j = 0; j < nBasis; ++j)
+                    moments.rhs_[j] += chunk.rhs_[j];
+            }
+            return moments;
+        }
+
+        //  A[j,k] = sum(z^(j+k)) on the upper triangle; the fit retains the monomial convention
+        void NormalEquations(const Moments_& moments, size_t nBasis, SquareMatrix_<>* gram, Vector_<>* rhs) {
+            for (size_t j = 0; j < nBasis; ++j) {
+                (*rhs)[j] = moments.rhs_[j];
                 for (size_t k = j; k < nBasis; ++k)
-                    (*gram)(j, k) = moments[j + k];
+                    (*gram)(j, k) = moments.hankel_[j + k];
+            }
         }
 
         bool HasIndependentColumns(const SquareMatrix_<>& gram, const std::array<double, 9>& scale) {
@@ -199,22 +470,21 @@ namespace Dal::Script {
             Vector_<> response_;
         };
 
-        QrWorkspace_
-        MakeQrWorkspace(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, double mean, double sigma, int degree) {
+        QrWorkspace_ MakeQrWorkspace(const RegressionRows_& rows, double mean, double sigma, int degree) {
             QrWorkspace_ ws;
             ws.nBasis_ = static_cast<size_t>(degree + 1);
-            ws.nRows_ = static_cast<size_t>(std::count_if(included.begin(), included.end(), [](char value) { return value != 0; }));
+            ws.nRows_ = static_cast<size_t>(std::count_if(rows.included_, rows.included_ + rows.n_, [](char value) { return value != 0; }));
             ws.response_.Resize(ws.nRows_);
             for (size_t j = 0; j < ws.nBasis_; ++j) {
                 ws.columns_[j].Resize(ws.nRows_);
                 ws.permutation_[j] = j;
             }
             size_t row = 0;
-            for (size_t i = 0; i < x.size(); ++i) {
-                if (!included[i])
+            for (size_t i = 0; i < rows.n_; ++i) {
+                if (!rows.included_[i])
                     continue;
-                const double z = (x[i] - mean) / sigma;
-                ws.response_[row] = targets[i];
+                const double z = (rows.x_[i] - mean) / sigma;
+                ws.response_[row] = rows.targets_[i];
                 double power = 1.0;
                 for (size_t j = 0; j < ws.nBasis_; ++j) {
                     ws.columns_[j][row] = power;
@@ -296,14 +566,8 @@ namespace Dal::Script {
 
         //  Column-pivoted, twice-reorthogonalized QR on actual design rows runs
         //  only after the O(Md) moment solve rejects a fit.
-        size_t PivotedQrFit(const Vector_<>& x,
-                            const Vector_<>& targets,
-                            const Vector_<char>& included,
-                            double mean,
-                            double sigma,
-                            int degree,
-                            Vector_<>* coefficients) {
-            auto ws = MakeQrWorkspace(x, targets, included, mean, sigma, degree);
+        size_t PivotedQrFit(const RegressionRows_& rows, double mean, double sigma, int degree, Vector_<>* coefficients) {
+            auto ws = MakeQrWorkspace(rows, mean, sigma, degree);
             const size_t normalized = NormalizeQrColumns(&ws);
             if (normalized != ws.nBasis_)
                 return normalized;
@@ -319,6 +583,111 @@ namespace Dal::Script {
             if (rank == ws.nBasis_)
                 RecoverQrCoefficients(ws, coefficients);
             return rank;
+        }
+
+        bool AllFinite(const Vector_<>& values) {
+            return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); });
+        }
+
+        //  Guard order: sample size, then sigma floor; nullptr when the fit may proceed
+        const char* DegenerateReason(const RegressionStats_& stats, int degree) {
+            if (stats.count_ == 0)
+                return "ConditionPathsBelowMin";
+            if (stats.sigma_ < stats.sigmaFloor_)
+                return "SigmaFloor";
+            if (stats.count_ < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1))
+                return "ConditionPathsBelowMin";
+            return nullptr;
+        }
+
+        //  Rank-revealing fallback once the moment solve rejects the Gram matrix: lower
+        //  the degree to the recovered rank before falling back to a constant
+        void FitPivotedQr(const RegressionRows_& rows, int degree, const char* fallbackReason, double constantFit, ExerciseRegression_* result) {
+            result->solver_ = "PivotedQR";
+            result->fallbackReason_ = fallbackReason;
+            int fitDegree = degree;
+            size_t effectiveRank = static_cast<size_t>(degree) + 1;
+            while (fitDegree > 0) {
+                Vector_<> coefficients;
+                const size_t rank = PivotedQrFit(rows, result->mean_, result->sigma_, fitDegree, &coefficients);
+                effectiveRank = std::min(effectiveRank, rank);
+                if (rank == static_cast<size_t>(fitDegree + 1)) {
+                    if (!AllFinite(coefficients))
+                        break;
+                    result->coefficients_ = std::move(coefficients);
+                    result->basisDegree_ = fitDegree;
+                    result->effectiveRank_ = effectiveRank;
+                    if (fitDegree < degree)
+                        result->fallbackReason_ = "RankDeficient";
+                    return;
+                }
+                fitDegree = std::min(fitDegree - 1, static_cast<int>(rank) - 1);
+            }
+            DegradeToConstant(result, "IllConditioned", constantFit);
+        }
+
+        void FitMomentsCholesky(SquareMatrix_<>* gram, const Vector_<>& rhs, int degree, double constantFit, ExerciseRegression_* result) {
+            Vector_<Vector_<>> rhsWrapped(1, rhs);
+            CholeskySolve(gram, &rhsWrapped);
+            if (!AllFinite(rhsWrapped[0])) {
+                DegradeToConstant(result, "IllConditioned", constantFit);
+                return;
+            }
+            result->coefficients_ = rhsWrapped[0];
+            result->basisDegree_ = degree;
+            result->effectiveRank_ = static_cast<size_t>(degree) + 1;
+            result->solver_ = "MomentsCholesky";
+        }
+
+        ExerciseRegression_
+        FitFromMoments(const RegressionRows_& rows, const RegressionStats_& stats, double constantFit, const Moments_* moments, int degree) {
+            ExerciseRegression_ result;
+            result.numCondTrue_ = stats.count_;
+            result.mean_ = stats.mean_;
+            result.sigma_ = std::max(stats.sigma_, stats.sigmaFloor_);
+            if (const char* reason = DegenerateReason(stats, degree)) {
+                DegradeToConstant(&result, reason, constantFit);
+                return result;
+            }
+            const size_t nBasis = static_cast<size_t>(degree) + 1;
+            REQUIRE(moments && moments->nBasis_ >= nBasis, "InvalidRegressionInput: missing regression moments");
+            SquareMatrix_<> gram(static_cast<int>(nBasis), 0.0);
+            Vector_<> rhs(nBasis, 0.0);
+            NormalEquations(*moments, nBasis, &gram, &rhs);
+            //  Gram conditioning is the last guard
+            if (const char* fallbackReason = RidgeAndIllConditioned(&gram))
+                FitPivotedQr(rows, degree, fallbackReason, constantFit, &result);
+            else
+                FitMomentsCholesky(&gram, rhs, degree, constantFit, &result);
+            return result;
+        }
+
+        //  Shared inputs of every candidate degree fitted on one regression set
+        struct RegressionInputs_ {
+            RegressionStats_ stats_;
+            double constantFit_ = 0.0;
+            std::optional<Moments_> moments_;
+        };
+
+        //  One statistics pass and one moment pass cover all degrees up to maxDegree;
+        //  degrees that fail the sample-size guard never need the moments
+        RegressionInputs_ PrepareRegression(const RegressionRows_& rows, const IncludedSums_& sums, int maxDegree, const PathChunks_& chunks) {
+            RegressionInputs_ inputs;
+            inputs.stats_ = RegressionStats(rows, sums, chunks);
+            inputs.constantFit_ = ConstantFit(rows, sums);
+            const auto& stats = inputs.stats_;
+            if (stats.count_ == 0 || stats.sigma_ < stats.sigmaFloor_)
+                return inputs;
+            const size_t feasibleBasis = std::min(static_cast<size_t>(maxDegree) + 1, stats.count_ / PATHS_PER_BASIS_FUNCTION);
+            if (feasibleBasis >= 2)
+                inputs.moments_ = AccumulateMoments(rows, stats.mean_, std::max(stats.sigma_, stats.sigmaFloor_), feasibleBasis, chunks);
+            return inputs;
+        }
+
+        ExerciseRegression_ FitRegression(const RegressionRows_& rows, const IncludedSums_& sums, int degree, const PathChunks_& chunks) {
+            ValidateLsmcBasisDegree(degree);
+            const auto inputs = PrepareRegression(rows, sums, degree, chunks);
+            return FitFromMoments(rows, inputs.stats_, inputs.constantFit_, inputs.moments_ ? &*inputs.moments_ : nullptr, degree);
         }
 
         constexpr size_t NO_SLOT = static_cast<size_t>(-1);
@@ -375,24 +744,25 @@ namespace Dal::Script {
 
         //  Training keeps only regression inputs; hard pricing uses worker-local scalars.
         struct LsmcStorage_ {
-            Vector_<Vector_<>> pays_;
-            Vector_<Vector_<>> xByDay_;
-            Vector_<Vector_<>> hByDay_;
+            LsmcRows_ pays_;
+            LsmcRows_ xByDay_;
+            LsmcRows_ hByDay_;
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
-        };
 
-        Vector_<Vector_<>> PathRows(size_t nRows, size_t nPaths) {
-            Vector_<Vector_<>> rows(nRows);
-            for (auto& row : rows)
-                row = Vector_<>(nPaths, 0.0);
-            return rows;
-        }
+            //  Every recorded value of a path is rewritten by its forward evaluation;
+            //  the zero fill keeps the rows deterministic regardless
+            void ZeroPaths(size_t firstPath, size_t pathCount) {
+                pays_.ZeroPaths(firstPath, pathCount);
+                xByDay_.ZeroPaths(firstPath, pathCount);
+                hByDay_.ZeroPaths(firstPath, pathCount);
+            }
+        };
 
         LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths) {
             LsmcStorage_ storage;
-            storage.pays_ = PathRows(scan.paysEventIds_.size(), nPaths);
-            storage.xByDay_ = PathRows(scan.days_.size(), nPaths);
-            storage.hByDay_ = PathRows(scan.days_.size(), nPaths);
+            storage.pays_ = LsmcRows_(scan.paysEventIds_.size(), nPaths);
+            storage.xByDay_ = LsmcRows_(scan.days_.size(), nPaths);
+            storage.hByDay_ = LsmcRows_(scan.days_.size(), nPaths);
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
                 for (size_t k = 0; k < scan.days_.size(); ++k)
@@ -586,6 +956,7 @@ namespace Dal::Script {
                     if (!local)
                         local = std::make_unique<ThreadState_>(ctx);
                     ThreadState_& state = *local;
+                    ctx.storage_.ZeroPaths(batch.firstPath_, batch.pathCount_);
                     state.random_->SkipTo(pathOffset + batch.firstPath_);
                     for (size_t i = 0; i < batch.pathCount_; ++i)
                         EvaluateRecordedPath(state, ctx, batch.firstPath_ + i);
@@ -617,35 +988,134 @@ namespace Dal::Script {
             return eventNumeraire;
         }
 
-        //  Holding value of one event in date-i units: H = p + D * W (S3), W := H in place
-        void InductBackward(const Vector_<Vector_<>>& pays, size_t paysSlot, double dNext, bool hasNext, Vector_<>* w) {
-            for (size_t j = 0; j < w->size(); ++j)
-                (*w)[j] = (paysSlot == NO_SLOT ? 0.0 : pays[paysSlot][j]) + (hasNext ? dNext * (*w)[j] : 0.0);
-        }
-
-        //  Longstaff-Schwartz: the regression set is the in-the-money condition-true
-        //  paths (h > 0); deep-OTM paths carry no exercise information, and a
-        //  continuation estimate that undershoots below zero must not "exercise" a
-        //  worthless option on them
-        void FillIncluded(const Vector_<Vector_<char>>& condByDay, const Vector_<>& h, size_t day, Vector_<char>* included) {
-            const Vector_<char>* cond = condByDay.empty() || condByDay[day].empty() ? nullptr : &condByDay[day];
-            for (size_t j = 0; j < included->size(); ++j)
-                (*included)[j] = (!cond || (*cond)[j]) && h[j] > 0.0 ? 1 : 0;
-        }
-
-        //  S3/S4: exercise on strictly-better continuation estimates replaces the future
-        void
-        ApplyExerciseDecisions(const Vector_<>& h, const Vector_<>& x, const Vector_<char>& included, const ExerciseRegression_& c, Vector_<>* w) {
-            for (size_t j = 0; j < w->size(); ++j)
-                if (included[j] && h[j] > RegressionPredict(c, x[j]))
-                    (*w)[j] = h[j];
-        }
-
-        struct RegressionRows_ {
-            const Vector_<>& x_;
-            const Vector_<>& targets_;
-            const Vector_<char>& included_;
+        //  The exercise decisions of a later day, applied at the start of the next sweep
+        struct PendingDecision_ {
+            const ExerciseRegression_* regression_ = nullptr;
+            const double* h_ = nullptr;
+            const double* x_ = nullptr;
         };
+
+        //  The frozen fit copied into locals: the sweeps store chars, which may alias any
+        //  heap state, so the fit's fields would otherwise be reloaded on every path
+        struct LocalPredictor_ {
+            std::array<double, 9> coefficients_{};
+            size_t size_ = 0;
+            double mean_ = 0.0;
+            double sigma_ = 1.0;
+
+            explicit LocalPredictor_(const ExerciseRegression_& regression)
+                : size_(regression.coefficients_.size()), mean_(regression.mean_), sigma_(regression.sigma_) {
+                REQUIRE(size_ >= 1 && size_ <= coefficients_.size(), "InvalidRegressionInput: unsupported coefficient count");
+                std::copy(regression.coefficients_.begin(), regression.coefficients_.end(), coefficients_.begin());
+            }
+
+            FORCE_INLINE double operator()(double x) const { return PredictContinuation(coefficients_.data(), size_, mean_, sigma_, x); }
+        };
+
+        //  Backward holding values and the current regression set of one path block
+        //  (training or validation), walked through every event
+        struct BackwardRows_ {
+            const LsmcStorage_& storage_;
+            Vector_<> w_;
+            Vector_<char> included_;
+            PendingDecision_ pending_;
+            PathChunks_ chunks_;
+
+            BackwardRows_(const LsmcStorage_& storage, size_t nPaths, ChunkTeam_* team)
+                : storage_(storage), w_(nPaths, 0.0), included_(nPaths, 1), chunks_(nPaths, team) {}
+            [[nodiscard]] size_t Size() const { return w_.size(); }
+        };
+
+        //  One fused, branch-free sweep per event and path block:
+        //   1. S3/S4: exercise on strictly-better continuation estimates of the later day
+        //      replaces the future (W := h)
+        //   2. holding value in date-i units, H = p + D * W, W := H in place
+        //   3. Longstaff-Schwartz regression set of this day: the in-the-money
+        //      condition-true paths (h > 0). Deep-OTM paths carry no exercise
+        //      information, and a continuation estimate that undershoots below zero
+        //      must not "exercise" a worthless option on them.
+        //  Each path sees the per-path operations of the separate passes in the same
+        //  order, so the result is bitwise identical to running them one after another.
+        //  Storage rows one event's sweep reads; exercise rows stay null off exercise days
+        struct EventRows_ {
+            const double* pays_ = nullptr;
+            const double* h_ = nullptr;
+            const double* x_ = nullptr;
+            const char* cond_ = nullptr;
+        };
+
+        EventRows_ SweepRows(const LsmcStorage_& storage, const LsmcPlan_& scan, size_t event) {
+            EventRows_ rows;
+            const size_t paysSlot = scan.eventToPays_[event];
+            if (paysSlot != NO_SLOT)
+                rows.pays_ = storage.pays_[paysSlot];
+            const size_t day = scan.eventToExercise_[event];
+            if (day == NO_SLOT)
+                return rows;
+            rows.h_ = storage.hByDay_[day];
+            rows.x_ = storage.xByDay_[day];
+            if (!storage.condByDay_.empty() && !storage.condByDay_[day].empty())
+                rows.cond_ = RowData(storage.condByDay_[day]);
+            return rows;
+        }
+
+        FORCE_INLINE double HoldingValue(const double* pays, size_t path, double dNext, bool hasNext, double next) {
+            return (pays ? pays[path] : 0.0) + (hasNext ? dNext * next : 0.0);
+        }
+
+        FORCE_INLINE bool InRegressionSet(const char* cond, const double* h, size_t path) { return (!cond || cond[path] != 0) & (h[path] > 0.0); }
+
+        template <bool APPLY, bool RECORD>
+        IncludedSums_ SweepEvent(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, const PathBatch_& chunk, BackwardRows_* rows) {
+            const EventRows_ eventRows = SweepRows(rows->storage_, scan, event);
+            const double* pays = eventRows.pays_;
+            const double* h = eventRows.h_;
+            const double* x = eventRows.x_;
+            const char* cond = eventRows.cond_;
+            const PendingDecision_ pending = rows->pending_;
+            std::optional<LocalPredictor_> predict;
+            if constexpr (APPLY)
+                predict.emplace(*pending.regression_);
+            const double* pendingH = pending.h_;
+            const double* pendingX = pending.x_;
+            const size_t end = chunk.firstPath_ + chunk.pathCount_;
+            double* w = &rows->w_[0];
+            char* included = &rows->included_[0];
+            IncludedSums_ sums;
+            for (size_t j = chunk.firstPath_; j < end; ++j) {
+                double value = w[j];
+                if constexpr (APPLY)
+                    value = Select((included[j] != 0) & (pendingH[j] > (*predict)(pendingX[j])), pendingH[j], value);
+                value = HoldingValue(pays, j, dNext, hasNext, value);
+                w[j] = value;
+                if constexpr (RECORD) {
+                    const bool in = InRegressionSet(cond, h, j);
+                    included[j] = static_cast<char>(in);
+                    AddIncluded(in, x[j], value, &sums);
+                }
+            }
+            return sums;
+        }
+
+        IncludedSums_ SweepEvent(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, BackwardRows_* rows) {
+            using Sweep_ = IncludedSums_ (*)(const LsmcPlan_&, size_t, double, bool, const PathBatch_&, BackwardRows_*);
+            //  indexed by 2 * apply + record
+            static constexpr std::array<Sweep_, 4> SWEEPS = {&SweepEvent<false, false>, &SweepEvent<false, true>, &SweepEvent<true, false>,
+                                                             &SweepEvent<true, true>};
+            const bool apply = rows->pending_.regression_ != nullptr;
+            const bool record = scan.eventToExercise_[event] != NO_SLOT;
+            const Sweep_ sweep = SWEEPS[2 * static_cast<size_t>(apply) + static_cast<size_t>(record)];
+            return ReduceSums(
+                rows->chunks_.Map<IncludedSums_>([&](const PathBatch_& chunk) { return sweep(scan, event, dNext, hasNext, chunk, rows); }));
+        }
+
+        RegressionRows_ DayRows(const BackwardRows_& rows, size_t day) {
+            return {rows.storage_.xByDay_[day], RowData(rows.w_), RowData(rows.included_), rows.Size()};
+        }
+
+        void DeferDecision(const ExerciseRegression_& regression, size_t day, BackwardRows_* rows) {
+            rows->pending_ = {&regression, rows->storage_.hByDay_[day], rows->storage_.xByDay_[day]};
+        }
 
         struct ValidationLoss_ {
             double mse_ = std::numeric_limits<double>::infinity();
@@ -655,10 +1125,8 @@ namespace Dal::Script {
         ValidationLoss_ EvaluateValidationLoss(const ExerciseRegression_& candidate, const RegressionRows_& validation, size_t count) {
             double sumLoss = 0.0;
             double sumLossSq = 0.0;
-            for (size_t i = 0; i < validation.x_.size(); ++i) {
-                if (!validation.included_[i])
-                    continue;
-                const double error = RegressionPredict(candidate, validation.x_[i]) - validation.targets_[i];
+            for (size_t i = 0; i < validation.n_; ++i) {
+                const double error = Masked(validation.included_[i] != 0, RegressionPredict(candidate, validation.x_[i]) - validation.targets_[i]);
                 const double loss = error * error;
                 sumLoss += loss;
                 sumLossSq += loss * loss;
@@ -678,18 +1146,24 @@ namespace Dal::Script {
             return 0;
         }
 
-        ExerciseRegression_ SelectRegression(const RegressionRows_& training, const RegressionRows_& validation, int maxDegree) {
-            const size_t validationCount =
-                static_cast<size_t>(std::count_if(validation.included_.begin(), validation.included_.end(), [](char value) { return value != 0; }));
+        ExerciseRegression_ SelectRegression(const RegressionRows_& training,
+                                             const IncludedSums_& trainingSums,
+                                             const PathChunks_& trainingChunks,
+                                             const RegressionRows_& validation,
+                                             size_t validationCount,
+                                             int maxDegree) {
             if (validationCount == 0)
-                return SolveExerciseRegression(training.x_, training.targets_, training.included_, maxDegree);
+                return FitRegression(training, trainingSums, maxDegree, trainingChunks);
 
+            ValidateLsmcBasisDegree(maxDegree);
+            const auto inputs = PrepareRegression(training, trainingSums, maxDegree, trainingChunks);
+            const Moments_* moments = inputs.moments_ ? &*inputs.moments_ : nullptr;
             std::array<ExerciseRegression_, 8> candidates;
             std::array<ValidationLoss_, 8> losses;
             ValidationLoss_ best;
             for (int degree = 1; degree <= maxDegree; ++degree) {
                 auto& candidate = candidates[static_cast<size_t>(degree - 1)];
-                candidate = SolveExerciseRegression(training.x_, training.targets_, training.included_, degree);
+                candidate = FitFromMoments(training, inputs.stats_, inputs.constantFit_, moments, degree);
                 auto& loss = losses[static_cast<size_t>(degree - 1)];
                 loss = EvaluateValidationLoss(candidate, validation, validationCount);
                 if (std::isfinite(loss.mse_) && loss.mse_ < best.mse_)
@@ -702,8 +1176,31 @@ namespace Dal::Script {
             return selected;
         }
 
-        //  Phase B: backward induction and continuation regressions, single threaded in
-        //  global path order (thread-count independent by construction, N9/N10)
+        //  Phase B: backward induction and continuation regressions over fixed path
+        //  chunks on the pool, reduced in chunk order (thread-count independent, N9/N10).
+        //  Each exercise day's decisions are applied by the next event's sweep; nothing
+        //  reads the holding values after the first event, so its decisions are not applied.
+        //  One helper per chunk beyond the caller's, capped by the pool's workers
+        size_t HelperCount(size_t nPaths) {
+            const size_t chunks = PathChunks_(nPaths).Count();
+            return chunks > 1 ? std::min(ThreadPool_::GetInstance()->NumThreads(), chunks) - 1 : 0;
+        }
+
+        //  Sweeps one event over a path block, then leaves no decision pending
+        IncludedSums_ SweepAndClear(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, BackwardRows_* rows) {
+            const IncludedSums_ sums = SweepEvent(scan, event, dNext, hasNext, rows);
+            rows->pending_ = {};
+            return sums;
+        }
+
+        //  blocks[0] is the training block; an optional blocks[1] selects the degree
+        ExerciseRegression_ FitExerciseDay(const Vector_<BackwardRows_*>& blocks, const std::array<IncludedSums_, 2>& sums, size_t day, int degree) {
+            BackwardRows_& training = *blocks[0];
+            if (blocks.size() == 1)
+                return FitRegression(DayRows(training, day), sums[0], degree, training.chunks_);
+            return SelectRegression(DayRows(training, day), sums[0], training.chunks_, DayRows(*blocks[1], day), sums[1].count_, degree);
+        }
+
         Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx,
                                                       const Vector_<>& eventNumeraire,
                                                       size_t nPaths,
@@ -711,36 +1208,28 @@ namespace Dal::Script {
                                                       const LsmcStorage_* validationStorage = nullptr,
                                                       size_t nValidation = 0) {
             const auto& scan = ctx.scan_;
-            const auto& storage = ctx.storage_;
             const auto& events = ctx.Product().Events();
-            Vector_<> w(nPaths, 0.0);
             Vector_<ExerciseRegression_> regressions(scan.days_.size());
-            Vector_<char> included(nPaths, 1);
-            Vector_<> validationW(nValidation, 0.0);
-            Vector_<char> validationIncluded(nValidation, 1);
+            ChunkTeamScope_ team(HelperCount(std::max(nPaths, nValidation)));
+            BackwardRows_ training(ctx.storage_, nPaths, team.Team());
+            std::optional<BackwardRows_> validation;
+            Vector_<BackwardRows_*> blocks(1, &training);
+            if (validationStorage)
+                blocks.push_back(&validation.emplace(*validationStorage, nValidation, team.Team()));
             for (size_t ei = events.size(); ei-- > 0;) {
                 const bool hasNext = ei + 1 < events.size();
                 const double dNext = hasNext ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
-                InductBackward(storage.pays_, scan.eventToPays_[ei], dNext, hasNext, &w);
-                if (validationStorage)
-                    InductBackward(validationStorage->pays_, scan.eventToPays_[ei], dNext, hasNext, &validationW);
-
+                std::array<IncludedSums_, 2> sums;
+                for (size_t b = 0; b < blocks.size(); ++b)
+                    sums[b] = SweepAndClear(scan, ei, dNext, hasNext, blocks[b]);
                 const size_t day = scan.eventToExercise_[ei];
                 if (day == NO_SLOT)
                     continue;
-                FillIncluded(storage.condByDay_, storage.hByDay_[day], day, &included);
-                if (validationStorage) {
-                    FillIncluded(validationStorage->condByDay_, validationStorage->hByDay_[day], day, &validationIncluded);
-                    regressions[day] = SelectRegression({storage.xByDay_[day], w, included},
-                                                        {validationStorage->xByDay_[day], validationW, validationIncluded}, degree);
-                } else {
-                    regressions[day] = SolveExerciseRegression(storage.xByDay_[day], w, included, degree);
-                }
-                ApplyExerciseDecisions(storage.hByDay_[day], storage.xByDay_[day], included, regressions[day], &w);
-                if (validationStorage)
-                    ApplyExerciseDecisions(validationStorage->hByDay_[day], validationStorage->xByDay_[day], validationIncluded, regressions[day],
-                                           &validationW);
+                regressions[day] = FitExerciseDay(blocks, sums, day, degree);
+                for (BackwardRows_* rows : blocks)
+                    DeferDecision(regressions[day], day, rows);
             }
+            team.Complete();
             return regressions;
         }
 
@@ -1279,72 +1768,10 @@ namespace Dal::Script {
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
         ValidateLsmcBasisDegree(degree);
         REQUIRE(x.size() == targets.size() && x.size() == included.size(), "InvalidRegressionInput: mismatched regression vectors");
-
-        ExerciseRegression_ result;
-        const auto stats = RegressionStats(x, included);
-        result.numCondTrue_ = stats.count_;
-        result.mean_ = stats.mean_;
-        result.sigma_ = std::max(stats.sigma_, stats.sigmaFloor_);
-        const double constantFit = MeanOf(targets, included, stats.count_);
-
-        //  Guard order: sample size, then sigma floor, then Gram conditioning
-        if (stats.count_ == 0) {
-            DegradeToConstant(&result, "ConditionPathsBelowMin", 0.0);
-            return result;
-        }
-        if (stats.sigma_ < stats.sigmaFloor_) {
-            DegradeToConstant(&result, "SigmaFloor", constantFit);
-            return result;
-        }
-        if (stats.count_ < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1)) {
-            DegradeToConstant(&result, "ConditionPathsBelowMin", constantFit);
-            return result;
-        }
-
-        const size_t nBasis = static_cast<size_t>(degree) + 1;
-        SquareMatrix_<> gram(static_cast<int>(nBasis), 0.0);
-        Vector_<> rhs(nBasis, 0.0);
-        AccumulateNormalEquations(x, targets, included, result.mean_, result.sigma_, &gram, &rhs);
-        if (const char* fallbackReason = RidgeAndIllConditioned(&gram)) {
-            result.solver_ = "PivotedQR";
-            result.fallbackReason_ = fallbackReason;
-            int fitDegree = degree;
-            size_t effectiveRank = nBasis;
-            while (fitDegree > 0) {
-                Vector_<> coefficients;
-                const size_t rank = PivotedQrFit(x, targets, included, result.mean_, result.sigma_, fitDegree, &coefficients);
-                effectiveRank = std::min(effectiveRank, rank);
-                if (rank == static_cast<size_t>(fitDegree + 1)) {
-                    const bool finite = std::all_of(coefficients.begin(), coefficients.end(), [](double c) { return std::isfinite(c); });
-                    if (finite) {
-                        result.coefficients_ = std::move(coefficients);
-                        result.basisDegree_ = fitDegree;
-                        result.effectiveRank_ = effectiveRank;
-                        if (fitDegree < degree)
-                            result.fallbackReason_ = "RankDeficient";
-                        return result;
-                    }
-                    break;
-                }
-                fitDegree = std::min(fitDegree - 1, static_cast<int>(rank) - 1);
-            }
-            DegradeToConstant(&result, "IllConditioned", constantFit);
-            return result;
-        }
-
-        Vector_<Vector_<>> rhsWrapped(1);
-        rhsWrapped[0] = rhs;
-        CholeskySolve(&gram, &rhsWrapped);
-        for (double coefficient : rhsWrapped[0])
-            if (!std::isfinite(coefficient)) {
-                DegradeToConstant(&result, "IllConditioned", constantFit);
-                return result;
-            }
-        result.coefficients_ = rhsWrapped[0];
-        result.basisDegree_ = degree;
-        result.effectiveRank_ = nBasis;
-        result.solver_ = "MomentsCholesky";
-        return result;
+        const auto rows = Rows(x, targets, included);
+        const PathChunks_ chunks(rows.n_);
+        const auto sums = ReduceSums(chunks.Map<IncludedSums_>([&](const PathBatch_& c) { return SumIncluded(SubRows(rows, c)); }));
+        return FitRegression(rows, sums, degree, chunks);
     }
 
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics) {

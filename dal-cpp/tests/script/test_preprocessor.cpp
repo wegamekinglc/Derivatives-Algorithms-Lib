@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <regex>
 #include <dal/platform/platform.hpp>
 #include <dal/script/preprocessor.hpp>
 #include <dal/utilities/algorithms.hpp>
@@ -156,4 +157,42 @@ TEST(ScriptPreprocessorTest, TestExtensibilityViaOverride) {
     const auto& statement = result.events_.at(Date_(2023, 12, 1));
     ASSERT_NE(statement.find("0.05"), String_::npos);
     ASSERT_EQ(statement.find("RATE"), String_::npos);
+}
+
+namespace {
+    //  Reference macro expansion: the case-insensitive regex replacement outside index literals
+    String_ RegexReplacement(const String_& text, const String_& pattern, const String_& replacement) {
+        return String_(std::regex_replace(text, std::regex(pattern.c_str(), std::regex_constants::icase), replacement));
+    }
+
+    String_ ExpandedAt(const Vector_<Cell_>& dates, const Vector_<String_>& events, const Date_& date) {
+        return Preprocessor_().Process(MakeTable(dates, events)).events_.at(date);
+    }
+} // namespace
+
+TEST(ScriptPreprocessorTest, TestMacroExpansionMatchesRegexReplacement) {
+    const Date_ date(2023, 12, 1);
+    const String_ statement = "x PAYS PAYOFF + payoff+PAYOFFPAYOFF y = PayOff2 z = EQ[PAYOFF] w = FIX(EQ[PAYOFF]@2023-11-30)";
+    const String_ expanded = ExpandedAt({Cell_("PAYOFF"), Cell_(date)}, {"MAX(spot() - 100, 0)", statement}, date);
+    const auto index = statement.find("z = EQ[");
+    const String_ expected =
+        RegexReplacement(String_(statement.substr(0, index)), "PAYOFF", "MAX(spot() - 100, 0)") + "z = EQ[PAYOFF] w = FIX(EQ[PAYOFF]@2023-11-30)";
+    ASSERT_EQ(expanded, expected);
+    ASSERT_NE(expanded.find("EQ[PAYOFF]"), String_::npos);
+}
+
+TEST(ScriptPreprocessorTest, TestMacroExpansionKeepsRegexSemanticsForSpecialCharacters) {
+    const Date_ date(2023, 12, 1);
+    //  '$' format escapes in the replacement and regex metacharacters in the name keep the regex path
+    ASSERT_EQ(ExpandedAt({Cell_("M"), Cell_(date)}, {"$&_$$", "x = M + m"}, date), RegexReplacement("x = M + m", "M", "$&_$$"));
+    ASSERT_EQ(ExpandedAt({Cell_("A.B"), Cell_(date)}, {"B.A", "x = AxB + A.B"}, date), RegexReplacement("x = AxB + A.B", "A.B", "B.A"));
+}
+
+TEST(ScriptPreprocessorTest, TestSchedulePlaceholdersAreCaseInsensitive) {
+    Vector_<Cell_> dates = {Cell_("START: 2023-01-02 END: 2023-03-02 FREQ: 1M")};
+    Vector_<String_> events = {"acc = DCF(ACT365F, periodbegin, PERIODEND) + EQ[PeriodBegin]"};
+    const auto result = Preprocessor_().Process(MakeTable(dates, events));
+    ASSERT_EQ(result.events_.size(), 2);
+    ASSERT_EQ(result.events_.at(Date_(2023, 2, 2)), "acc = DCF(ACT365F, 2023-01-02, 2023-02-02) + EQ[PeriodBegin]");
+    ASSERT_EQ(result.events_.at(Date_(2023, 3, 2)), "acc = DCF(ACT365F, 2023-02-02, 2023-03-02) + EQ[PeriodBegin]");
 }
