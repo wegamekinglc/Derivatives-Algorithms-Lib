@@ -29,15 +29,10 @@ namespace {
         }
     }
 
-    bool TestTrue(const Dal::String_& c) {
-        return (c.size() == 4 && toupper(c[0]) == 'T' && toupper(c[1]) == 'R' && toupper(c[2]) == 'U' &&
-                toupper(c[3]) == 'E');
-    }
+    // String_ compares case-insensitively without <cctype>, so non-ASCII bytes are safe
+    bool TestTrue(const Dal::String_& c) { return c == "TRUE"; }
 
-    bool TestFalse(const Dal::String_& c) {
-        return (c.size() == 5 && toupper(c[0]) == 'F' && toupper(c[1]) == 'A' && toupper(c[2]) == 'L' &&
-                toupper(c[3]) == 'S' && toupper(c[4]) == 'E');
-    }
+    bool TestFalse(const Dal::String_& c) { return c == "FALSE"; }
 } // namespace
 
 namespace Dal {

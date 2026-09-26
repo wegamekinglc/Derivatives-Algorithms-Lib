@@ -845,7 +845,7 @@ namespace Dal::Script {
         void Visit(const NodeVar_& node) {
             DebugNode_ ir;
             ir.label =
-                String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' + String_(String::FromDouble(node.constVal_)) + ']';
+                String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' + String_(std::to_string(node.constVal_)) + ']';
             ir.kind = "var";
             ir.name = node.name_;
             ir.index = node.index_;
@@ -855,8 +855,8 @@ namespace Dal::Script {
 
         void Visit(const NodeConstVar_& node) {
             DebugNode_ ir;
-            ir.label = String_("CONST_VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' +
-                       String_(String::FromDouble(node.constVal_)) + ']';
+            ir.label =
+                String_("CONST_VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' + String_(std::to_string(node.constVal_)) + ']';
             ir.kind = "const_var";
             ir.name = node.name_;
             ir.index = node.index_;

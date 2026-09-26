@@ -2,6 +2,7 @@
 // Created by wegam on 2022/4/3.
 //
 
+#include <cctype>
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/cell.hpp>
@@ -239,9 +240,9 @@ namespace Dal {
                 return hl;
 
             // no commas:  just one element
-            if (toupper(format.back()) == 'T')
+            if (std::toupper(static_cast<unsigned char>(format.back())) == 'T')
                 return std::make_unique<TransposedWriter_>(NewWriter(format.substr(0, format.size() - 1)));
-            else if (toupper(format.back()) == 'I')
+            else if (std::toupper(static_cast<unsigned char>(format.back())) == 'I')
                 return std::make_unique<InvertedWriter_>(NewWriter(format.substr(0, format.size() - 1)));
             else if (format.back() == '*')
                 return std::make_unique<LinearWriter_>(NewWriter(format.substr(0, format.size() - 1)));

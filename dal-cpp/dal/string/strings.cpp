@@ -3,6 +3,8 @@
 //
 
 #include <bitset>
+#include <cctype>
+#include <charconv>
 #include <sstream>
 #include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
@@ -37,7 +39,12 @@ namespace Dal::String {
         }
     }
 
-    int ToInt(const String_& src) { return std::stoi(src.c_str()); }
+    int ToInt(const String_& src) {
+        size_t idx;
+        const auto val = std::stoi(src.c_str(), &idx);
+        REQUIRE(idx == src.size(), "Not a valid integer string");
+        return val;
+    }
 
     double ToDouble(const String_& src) {
         size_t idx;
@@ -46,7 +53,11 @@ namespace Dal::String {
         return val;
     }
 
-    String_ FromDouble(double src) { return String_(std::to_string(src)); }
+    String_ FromDouble(double src) {
+        char buffer[32];
+        const auto result = std::to_chars(buffer, buffer + sizeof(buffer), src);
+        return String_(buffer, result.ptr);
+    }
 
     String_ FromInt(int src) { return String_(std::to_string(src)); }
     String_ FromBool(bool src) {
@@ -69,7 +80,7 @@ namespace Dal::String {
         String_ ret_val;
         for (const auto& c : src) {
             if (!IsFluff(c))
-                ret_val.push_back(static_cast<char>(toupper(static_cast<int>(c))));
+                ret_val.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
         }
         return ret_val;
     }
@@ -88,7 +99,7 @@ namespace Dal::String {
         auto p = lhs.begin();
         auto q = rhs;
         while (true) {
-            while (p != lhs.end() && SKIP[*p])
+            while (p != lhs.end() && SKIP[static_cast<unsigned char>(*p)])
                 ++p;
             if (!*q || p == lhs.end())
                 return !*q && p == lhs.end();

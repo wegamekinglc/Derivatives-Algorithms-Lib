@@ -3,9 +3,11 @@
 //
 
 #include <gtest/gtest.h>
+#include <string>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using Dal::String_;
 using Dal::Vector_;
@@ -131,10 +133,23 @@ TEST(StringsTest, TestStringToInt) {
     ASSERT_EQ(1, ToInt(s1));
 }
 
+TEST(StringsTest, TestStringToIntRejectsTrailingCharacters) {
+    ASSERT_EQ(ToInt(String_("-42")), -42);
+    ASSERT_THROW(ToInt(String_("12abc")), Dal::Exception_);
+    ASSERT_THROW(ToInt(String_("1.5")), Dal::Exception_);
+}
+
 TEST(StringsTest, TestFromDouble) {
     double n1 = 1.;
     String_ s1 = FromDouble(n1);
     ASSERT_DOUBLE_EQ(ToDouble(s1), n1);
+}
+
+TEST(StringsTest, TestFromDoubleRoundTrips) {
+    for (double value : {1.5e-7, 0.1, 1.0 / 3.0, -2.5e300, 123456789.125, 5e9, 1.0})
+        ASSERT_EQ(ToDouble(FromDouble(value)), value);
+    ASSERT_EQ(FromDouble(1.5e-7), "1.5e-07");
+    ASSERT_EQ(FromDouble(2.5), "2.5");
 }
 
 TEST(StringsTest, TestFromInt) {
@@ -156,6 +171,14 @@ TEST(StringsTest, TestEquivalent) {
 
     flag = Equivalent(s1, "123,abc,\t");
     ASSERT_FALSE(flag);
+}
+
+TEST(StringsTest, TestNonAsciiBytesAreSafe) {
+    const String_ accented(std::string("a\xC3\xA9_z"));
+    ASSERT_EQ(std::string(Condensed(accented).c_str()), std::string("A\xC3\xA9Z"));
+    ASSERT_FALSE(Equivalent(accented, "AZ"));
+    ASSERT_FALSE(Equivalent(String_(std::string("\xFF\x80\xA0")), "A"));
+    ASSERT_TRUE(Equivalent(String_(std::string(" \xE4\xB8\xAD_")), "\xE4\xB8\xAD"));
 }
 
 TEST(StringsTest, TestNextName) {
