@@ -18,6 +18,20 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-26
 
+- **LSMC training is fused and parallel** — the backward phase takes one
+  branch-free sweep per event and one sum-of-squares and one moment pass per
+  regression, over fixed 8192-path chunks shared by idle pool workers. Training
+  rows are no longer zero-filled on the calling thread. The weekly Bermudan put
+  with 100k training and 100k pricing paths values in about 56-65 ms instead
+  of 170-185 ms. Results stay independent of the thread count; regression sums
+  over more than 8192 training paths now combine per chunk, so fitted
+  coefficients can differ from earlier releases in the last bits (hard-mode
+  PVs and exercise rates were unchanged on every configuration checked). See
+  [LSM](docs/monte-carlo/lsm.md#c-example-and-path-counts).
+- **Script construction skips regex compilation for identifier macros** —
+  macro and `PeriodBegin`/`PeriodEnd` substitution with identifier names uses a
+  case-insensitive literal replace, which cuts preprocessing of a weekly
+  three-year schedule from about 450 us to 40 us with byte-identical output.
 - **Day counts and dates are corrected at their edges** — `BOND`/`30_360` is
   now the 30/360 Bond Basis (ISDA 30/360), so accruals from or to the 31st
   change (for example 31 March to 30 June is 90 days, not 89). The new

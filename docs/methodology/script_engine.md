@@ -860,7 +860,11 @@ second argument expands to a date. A macro may expand into a complete index
 literal; each subsequent substitution rescans the result so the new literal is
 protected too. Outside these regions, macros retain their case-insensitive
 regular-expression replacement in map order, followed by `PeriodBegin` and
-`PeriodEnd` expansion for schedules.
+`PeriodEnd` expansion for schedules. When the name is an identifier and the
+replacement contains no `$` format escape, that replacement is literal, so the
+default implementation searches with the case-insensitive `String_` comparison
+instead of compiling a regular expression. Other names and replacements keep the
+regular expression.
 
 ## Domain Processor
 

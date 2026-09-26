@@ -67,7 +67,9 @@ All three blocks occupy distinct Sobol index ranges. With RQMC replicates,
   `EXERCISE` is a no-op forward. Each batch records, per path, the payments of
   each event's `PAYS` into the selected payoff receiver and, per exercise
   date, the regressor observation, the exercise value, and the condition
-  indicator (hard 0/1 in double mode).
+  indicator (hard 0/1 in double mode). The recording rows are allocated
+  uninitialized; each batch zeroes its own path range before evaluating it, so
+  page faults and zero fill run on the workers.
 - **Phase B** walks the events backward. The holding value is
   $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
   on each exercise date the driver regresses $H_k$ on the in-the-money
@@ -90,10 +92,20 @@ All three blocks occupy distinct Sobol index ranges. With RQMC replicates,
   are rejected. Constant fits bypass normalization during prediction. A path
   exercises when its condition holds, $h_k > 0$, and $h_k > C_k(z_k)$
   strictly; exercise replaces the day's and all later payments.
+  Each event takes one branch-free sweep over the training paths. The sweep
+  applies the later date's exercise decisions, updates the holding value,
+  selects the regression set, and accumulates its count, regressor sum, and
+  target sum. The fit then needs one sum-of-squares pass and one moment pass.
+  Excluded paths contribute an exact zero, so the in-the-money mask never
+  drives a branch. The finiteness checks run only when a sum is not finite.
+  Every pass runs over the same fixed chunks of 8192 paths: sums accumulate in
+  path order within a chunk and in chunk order across chunks. The results
+  therefore do not depend on the thread count. Idle pool workers join the
+  phase once and claim chunks of each pass.
 - **Optional held-out selection** records the next `lsmcValidationPaths_` paths
   and applies already selected later-date policies during backward induction.
   For each exercise date, candidate degrees 1 through `lsmcBasisDegree_` are
-  fitted on training paths. The smallest degree within one standard error of
+  fitted on training paths from one shared statistics and moment pass. The smallest degree within one standard error of
   the best held-out continuation mean-squared error is selected. This is a
   descriptive dispersion heuristic on deterministic QMC points, not a
   calibrated statistical confidence interval. Validation
