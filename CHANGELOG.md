@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-27
+
+- **Core Monte Carlo supports correlated equity Black-Scholes paths** — a
+  serializable multi-asset model with named sample outputs, ordered factors,
+  deterministic domestic numeraire, and AAD spot/vol/div/rate risks. Multi-factor
+  Brownian bridge requests are rejected pending a factor-aware implementation;
+  script/public multi-index valuation is not yet wired. See
+  [correlated equity Black-Scholes](docs/monte-carlo/correlated-bs.md).
+
 ## 2026-09-26
 
 - **LSMC training is fused and parallel** — the backward phase takes one

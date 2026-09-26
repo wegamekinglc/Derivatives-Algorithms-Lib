@@ -27,6 +27,8 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
 
+#include "correlatedbsperf.hpp"
+
 using namespace Dal;
 using namespace Dal::Script;
 
@@ -289,8 +291,14 @@ namespace {
 int main(int argc, char** argv) {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
-    if (argc > 1)
+    if (argc > 1) {
+        if (std::string(argv[1]) == "--correlated-bs") {
+            Bench::PrintHeader();
+            RunCorrelatedBSPathCases();
+            return 0;
+        }
         return std::string(argv[1]) == "--lsmc-replay" ? RunLsmcReplayProfile(argc, argv) : 2;
+    }
     constexpr int kRepeats = 3;
     Bench::PrintHeader();
 
@@ -314,6 +322,7 @@ int main(int argc, char** argv) {
     RunRegressionCase(8, kRepeats);
     RunMaskedRegressionCase(3, kRepeats);
     RunMaskedRegressionCase(8, kRepeats);
+    RunCorrelatedBSPathCases();
 
     return 0;
 }

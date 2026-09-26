@@ -185,6 +185,13 @@ namespace Dal::Script {
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt);
 
+    template <class T_>
+    std::unique_ptr<Random_>
+    CreateRNG(const String_& method, const AAD::Model_<T_>& model, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt) {
+        REQUIRE2(!useBb || model.SupportsBrownianBridge(), "UnsupportedBrownianBridge: multiple factors require a factor-aware bridge", ScriptError_);
+        return CreateRNG(method, model.SimDim(), useBb, scrambleKey);
+    }
+
     namespace Detail {
         template <class T_> void DiagnoseInvalidSimulationPath(const Scenario_<T_>& path) {
             for (const auto& sample : path) {
@@ -325,7 +332,7 @@ namespace Dal::Script {
             EvalState_<double> compiledState_;
 
             ThreadState_(const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb)
-                : random_(CreateRNG(rsg, model.SimDim(), useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
+                : random_(CreateRNG(rsg, model, useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
                   compiledState_(product.template BuildEvalState<double>()) {
                 if (typeid(model) == typeid(AAD::BlackScholes_<double>))
                     bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
@@ -412,7 +419,7 @@ namespace Dal::Script {
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
 
-            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, model->SimDim(), settings.useBb_);
+            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, *model, settings.useBb_);
             Vector_<> gVec(model->SimDim());
 
             Scenario_<AAD::Number_> path;

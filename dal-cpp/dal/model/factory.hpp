@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/dupire.hpp>
 
 
@@ -15,6 +16,14 @@ namespace Dal {
         for (int i = 0; i < src.Rows(); ++i)
             for (int j = 0; j < src.Cols(); ++j)
                 dst(i, j) = D_(src(i, j));
+        return dst;
+    }
+
+    template <class D_> Vector_<D_> CastVector(const Vector_<>& src) {
+        Vector_<D_> dst;
+        dst.reserve(src.size());
+        for (const double value : src)
+            dst.push_back(D_(value));
         return dst;
     }
 
@@ -36,7 +45,12 @@ namespace Dal {
                                                       modelDupireImp->times_,
                                                       CastMatrix<T_>(modelDupireImp->vols_));
 
+        auto modelCorrelatedImp = dynamic_cast<const CorrelatedBSModelData_*>(model_data.get());
+        if (modelCorrelatedImp)
+            return std::make_unique<AAD::CorrelatedBlackScholes_<T_>>(
+                modelCorrelatedImp->indices_, CastVector<T_>(modelCorrelatedImp->spots_), CastVector<T_>(modelCorrelatedImp->vols_),
+                CastVector<T_>(modelCorrelatedImp->divs_), T_(modelCorrelatedImp->rate_), modelCorrelatedImp->correlations_);
+
         THROW("can't find matched model type");
     }
 } // namespace Dal
-

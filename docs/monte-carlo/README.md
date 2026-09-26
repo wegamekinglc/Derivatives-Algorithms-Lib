@@ -15,6 +15,8 @@ live in [Python](../python/README.md) and [Excel](../excel/README.md).
 4. [Special techniques](special-techniques.md) — randomized QMC replicates,
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
+5. [Correlated equity Black-Scholes](correlated-bs.md) — core multi-asset
+   simulation, named observations, factor ordering, and AAD parameters.
 
 The [script language and preparation](../methodology/script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.

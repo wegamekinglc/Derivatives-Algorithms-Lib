@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/dupire.hpp>
 
 namespace Dal {
@@ -14,6 +15,10 @@ namespace Dal {
                                                     double rate,
                                                     double div) {
         return Handle_<ModelData_>(new BSModelData_(name, spot, vol, rate, div));
+    }
+
+    FORCE_INLINE Handle_<ModelData_> NewCorrelatedBSModelData(const String_& name, const CorrelatedBSSettings_& settings) {
+        return Handle_<ModelData_>(new CorrelatedBSModelData_(name, settings));
     }
 
     FORCE_INLINE Handle_<ModelData_> NewDupireModelData(const String_& name,
@@ -26,4 +31,3 @@ namespace Dal {
         return Handle_<ModelData_>(new DupireModelData_(name, spot, rate, repo, spots, times, vols));
     }
 } // namespace Dal
-
