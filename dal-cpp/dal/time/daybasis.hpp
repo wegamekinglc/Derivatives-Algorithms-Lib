@@ -15,7 +15,10 @@ alternative ACT_365L ACT/365L ISMA_Year
     Sometimes uses a 366-day year
 alternative ACT_360 ACT/360 MONEY ACTUAL/360
 alternative ACT_ACT ACT/ACT ACTUAL/ACTUAL
-alternative BOND 30_360 30/360 30_360_US
+alternative BOND 30_360 30/360 BOND_BASIS
+    30/360 Bond Basis, also known as ISDA 30/360
+alternative THIRTY_360_US 30_360_US 30U/360
+    30/360 US with the end-of-February rules
 method double operator()(const Date_& start_date, const Date_& end_date, const DayBasis::Context_* context) const;
 -IF---------------------------------------------------------*/
 

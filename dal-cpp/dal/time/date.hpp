@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <dal/string/strings.hpp>
 
 namespace Dal {
@@ -25,7 +26,7 @@ namespace Dal {
 
         Date_ FromExcel(int serial);
 
-        int ToExcel(const Date_& dt);
+        inline int ToExcel(const Date_& dt);
 
         String_ ToString(const Date_& dt);
 
@@ -38,10 +39,19 @@ namespace Dal {
         Date_ AddMonths(const Date_& dt, int nMonths, bool preserveEom = false);
     } // namespace Date
 
+    // Valid dates span serials [1, MAX_SERIAL], i.e. 1970-01-01 to 2149-06-05; serial 0 is the invalid default
     class Date_ {
         uint16_t serial_;
 
+        static constexpr int EXCEL_OFFSET = 25568; // Excel serial of the invalid serial 0
+        static constexpr int MAX_SERIAL = std::numeric_limits<uint16_t>::max();
+
+        // Out of line so the inline arithmetic stays small on hot paths
+        [[noreturn]] static void ThrowOutOfRange();
+
         friend Date_ Date::FromExcel(int);
+        friend Date_ Date::Minimum();
+        friend Date_ Date::Maximum();
 
         friend int Date::ToExcel(const Date_&);
         friend bool operator==(const Date_& lhs, const Date_& rhs);
@@ -59,21 +69,31 @@ namespace Dal {
         Date_& operator=(const Date_& rhs) = default;
 
         [[nodiscard]] Date_ AddDays(int days) const {
-            Date_ ret_val(*this);
-            ret_val.serial_ += static_cast<uint16_t>(days);
+            const long long serial = static_cast<long long>(serial_) + days;
+            if (serial < 1 || serial > MAX_SERIAL)
+                ThrowOutOfRange();
+            Date_ ret_val;
+            ret_val.serial_ = static_cast<uint16_t>(serial);
             return ret_val;
         }
 
         Date_& operator++() {
+            if (serial_ == MAX_SERIAL)
+                ThrowOutOfRange();
             ++serial_;
             return *this;
         }
 
         Date_& operator--() {
+            if (serial_ <= 1)
+                ThrowOutOfRange();
             --serial_;
             return *this;
         }
     };
+
+    // Inline: day differences sit on curve, schedule, and day-count hot paths
+    inline int Date::ToExcel(const Date_& dt) { return dt.serial_ + Date_::EXCEL_OFFSET; }
 
     inline bool operator==(const Date_& lhs, const Date_& rhs) { return lhs.serial_ == rhs.serial_; }
     inline bool operator!=(const Date_& lhs, const Date_& rhs) { return !(lhs == rhs); }
@@ -81,7 +101,7 @@ namespace Dal {
     inline bool operator>(const Date_& lhs, const Date_& rhs) { return rhs < lhs; }
     inline bool operator<=(const Date_& lhs, const Date_& rhs) { return !(rhs < lhs); }
     inline bool operator>=(const Date_& lhs, const Date_& rhs) { return !(lhs < rhs); }
-    int operator-(const Date_& lhs, const Date_& rhs);
+    inline int operator-(const Date_& lhs, const Date_& rhs) { return Date::ToExcel(lhs) - Date::ToExcel(rhs); }
 
     inline double NumericValueOf(const Date_& src) { return static_cast<double>(Date::ToExcel(src)); }
 } // namespace Dal

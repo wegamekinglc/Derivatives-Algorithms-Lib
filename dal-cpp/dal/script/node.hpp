@@ -166,6 +166,7 @@ namespace Dal::Script {
     };
 
     struct NodeVectorReduce_ : public Visitable_<ExprNode_, NodeVectorReduce_, VISITORS> {
+        // Hand-written, not Machinist: the compiled evaluator stores the value as an integer bytecode operand
         enum class Kind_ { Sum, Average, Minimum, Maximum };
 
         NodeVectorReduce_(String_ name, Kind_ kind, SourceLocation_ source) : name_(std::move(name)), kind_(kind), source_(source) {}

@@ -143,6 +143,18 @@ TEST(StorageTest, TestJSONWriterEscapesStringsAndUsesRoundTripDoubles) {
     ASSERT_EQ(restored->Name(), name);
 }
 
+TEST(StorageTest, TestJSONReadsIntegralDoublesBeyondIntRange) {
+    Vector_<> x = {1.0, 3.0e9};
+    Vector_<> f = {2.5, 5.0e12};
+    const Handle_<Interp1_> source(Interp::NewLinear("large", x, f));
+
+    const String_ written = JSON::WriteString(*source);
+    ASSERT_NE(written.find("3000000000"), String_::npos);
+    const Handle_<Interp1_> restored(std::dynamic_pointer_cast<const Interp1_>(JSON::ReadString(written, true)));
+    ASSERT_TRUE(restored.get() != nullptr);
+    ASSERT_DOUBLE_EQ((*restored)(3.0e9), 5.0e12);
+}
+
 TEST(StorageTest, TestDiscountPWCRoundTripsWithRecursiveBase) {
     const Vector_<Date_> knots{Date_(2026, 2, 15), Date_(2026, 7, 15), Date_(2027, 1, 15)};
     const Handle_<DiscountCurve_> base(NewDiscountPWC(

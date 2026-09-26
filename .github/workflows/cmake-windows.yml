@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 # Per-ref grouping: a new push cancels stale runs of the same ref only --
 # distinct PRs (refs/pull/N/merge) never cancel each other.
 concurrency:

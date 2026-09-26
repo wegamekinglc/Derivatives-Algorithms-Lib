@@ -401,12 +401,9 @@ def test_settings_constructor_and_transactional_setter_errors(
         assert getattr(instance, field) == previous
 
 
-def test_invalid_native_date_is_rejected_without_formatting_it():
-    invalid = dal.Date_(1900, 1, 1)
-    with pytest.raises(
-        RuntimeError, match=r"InvalidSetting.*valuation.evaluationDate_.*valid date"
-    ):
-        dal.ScriptValuationSettings_(evaluation_date=invalid)
+def test_out_of_range_native_date_is_rejected_at_construction():
+    with pytest.raises(RuntimeError, match="supported range"):
+        dal.Date_(1900, 1, 1)
 
 
 @pytest.mark.parametrize(
@@ -841,13 +838,6 @@ def test_field_reset_and_unicode_copy():
 def test_invalid_product_dates_and_default_are_native_validation():
     with pytest.raises(RuntimeError, match=r"InvalidSetting.*dates.size.*events.size"):
         dal.Product_New([dal.Date_(2026, 9, 22)], [])
-    invalid = dal.Product_New([dal.Date_(1900, 1, 1)], ["pay PAYS 1"])
-    with pytest.raises(RuntimeError) as error:
-        dal.Product_Describe(invalid)
-    assert all(
-        part in str(error.value)
-        for part in ("InvalidFixingDate", "row=1", "dates/events")
-    )
     settings = dal.ScriptProductSettings_(default_index="EQ[A]trailing")
     product = dal.Product_New(
         [dal.Date_(2026, 9, 22)], ["pay PAYS 1"], settings=settings

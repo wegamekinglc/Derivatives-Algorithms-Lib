@@ -1265,6 +1265,15 @@ namespace Dal::Script {
                 for (const auto& outcome : outcomes)
                     (*riskTotals)[j] += outcome.risks_[j];
         }
+
+        //  N5: the probe-path discount ratios are path-independent only for
+        //  deterministic-rate models; the model base class exposes no rate-kind
+        //  query, so the factory's two models are pinned here unconditionally --
+        //  a stochastic-rate model would otherwise be silently mis-discounted
+        void RequireDeterministicRateModel(const AAD::Model_<double>& model) {
+            REQUIRE2(typeid(model) == typeid(AAD::BlackScholes_<double>) || typeid(model) == typeid(AAD::Dupire_<double>),
+                     "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
+        }
     } // namespace
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
@@ -1344,12 +1353,7 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
-        //  N5: the probe-path discount ratios are path-independent only for
-        //  deterministic-rate models; the model base class exposes no rate-kind
-        //  query, so the factory's two models are pinned here unconditionally --
-        //  a stochastic-rate model would otherwise be silently mis-discounted
-        REQUIRE2(typeid(*mdl) == typeid(AAD::BlackScholes_<double>) || typeid(*mdl) == typeid(AAD::Dupire_<double>),
-                 "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
+        RequireDeterministicRateModel(*mdl);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
@@ -1397,6 +1401,7 @@ namespace Dal::Script {
         //  thread-count independent hard-decision artifact; the recording stream
         //  therefore lowers hard even though the replay itself is fuzzy
         auto doubleModel = CreateModel<double>(modelData);
+        RequireDeterministicRateModel(*doubleModel);
         doubleModel->Allocate(prepared.TimeLine(), prepared.DefLine());
         doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
 

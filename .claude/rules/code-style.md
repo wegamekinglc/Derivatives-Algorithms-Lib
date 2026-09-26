@@ -161,7 +161,7 @@ Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`,
 ## Error Handling
 
 - Custom `Exception_` (from `std::runtime_error`) capturing file/line/function
-- Macro-based: `THROW(msg)`, `ASSERT(cond, msg)` (debug-only), `REQUIRE(cond, msg)` (configurable)
+- Macro-based: `THROW(msg)`, `ASSERT(cond, msg)` (debug-only), `REQUIRE(cond, msg)` (always enabled: `dal-cpp/dal/platform/config.hpp` defines `DAL_USE_REQUIRE`)
 - Use `REQUIRE`, not `ASSERT`, for runtime state, precondition, or invariant checks that must also run in release builds
 - Stack context via `NOTICE(x)` / `NOTE(msg)` macros
 - Safe pointer ops: `ASSIGN(p, v)`, `DEREFERENCE(p, v)`

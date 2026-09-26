@@ -2,16 +2,16 @@
 // Created by Cheng Li on 2018/2/2.
 //
 
+#include <cstdio>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 
     namespace {
-        const uint16_t EXCEL_OFFSET = 25568;
-
         void ExcelDateToYMD(long serial, short* yy, short* mm, short* dd) {
             serial += 2415019;
             const auto alpha = static_cast<int>((serial - 1867216.25) / 36524.25);
@@ -35,38 +35,41 @@ namespace Dal {
                    (3 * ((yy + 4900 + (mm - 14) / 12) / 100)) / 4 + dd - 693894;
         }
 
+        constexpr const char* SUPPORTED_RANGE = "Date out of supported range [1970-01-01, 2149-06-05]";
+
         bool IsLeapYear(int yy) { return yy % 4 == 0 && (yy % 100 != 0 || yy % 400 == 0); }
 
-        // Date::DaysInMonth is unusable here: it constructs Date_ values, which would recurse back into SerialFromYMD.
-        int DaysInMonth(int yy, int mm) {
+        int MonthLength(int yy, int mm) {
             static const int DAYS_IN_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
             return DAYS_IN_MONTH[mm - 1] + (mm == 2 && IsLeapYear(yy) ? 1 : 0);
         }
 
-        uint16_t SerialFromYMD(int yy, int mm, int dd) {
-            REQUIRE(yy >= 1900 && yy <= 2199, "Year out of supported range [1900, 2199]");
+        // Calendar-field checks; the caller checks the resulting serial against the representable range
+        int CheckedExcelDateFromYMD(int yy, int mm, int dd) {
+            REQUIRE(yy >= 1970 && yy <= 2149, SUPPORTED_RANGE);
             REQUIRE(mm >= 1 && mm <= 12, "Month out of range [1, 12]");
             REQUIRE(dd >= 1 && dd <= 31, "Day out of range [1, 31]");
-            REQUIRE(dd <= DaysInMonth(yy, mm), "Day out of range for the given year and month");
-            const auto xl = ExcelDateFromYMD(yy, mm, dd);
-            const auto retval = static_cast<uint16_t>(xl - EXCEL_OFFSET);
-            return static_cast<int>(retval) + EXCEL_OFFSET == xl
-                       ? retval
-                       : uint16_t(0); // equality failure means overflow of uint16
+            REQUIRE(dd <= MonthLength(yy, mm), "Day out of range for the given year and month");
+            return ExcelDateFromYMD(yy, mm, dd);
         }
     } // namespace
 
-    Date_::Date_(int yyyy, int mm, int dd) : serial_(SerialFromYMD(yyyy, mm, dd)) {}
+    Date_::Date_(int yyyy, int mm, int dd) : serial_(0) {
+        const int serial = CheckedExcelDateFromYMD(yyyy, mm, dd) - EXCEL_OFFSET;
+        if (serial < 1 || serial > MAX_SERIAL)
+            ThrowOutOfRange();
+        serial_ = static_cast<uint16_t>(serial);
+    }
+
+    void Date_::ThrowOutOfRange() { THROW(SUPPORTED_RANGE); }
 
     Date_ Date::FromExcel(int serial) {
         Date_ ret_val;
-        if (serial > EXCEL_OFFSET && serial < EXCEL_OFFSET + (1 << 16))
-            ret_val.serial_ = static_cast<uint16_t>(serial - EXCEL_OFFSET);
+        if (serial > Date_::EXCEL_OFFSET && serial <= Date_::EXCEL_OFFSET + Date_::MAX_SERIAL)
+            ret_val.serial_ = static_cast<uint16_t>(serial - Date_::EXCEL_OFFSET);
         // otherwise leave it invalid
         return ret_val;
     }
-
-    int Date::ToExcel(const Date_& dt) { return dt.serial_ + EXCEL_OFFSET; }
 
     short Date::Year(const Date_& dt) {
         short yy;
@@ -89,9 +92,9 @@ namespace Dal {
     String_ Date::ToString(const Date_& dt) {
         short yy, mm, dd;
         ExcelDateToYMD(ToExcel(dt), &yy, &mm, &dd);
-        String_ ret_val("0000-00-00");
-        sprintf(&ret_val[0], "%4d-%02d-%02d", yy, mm, dd);
-        return ret_val;
+        char buffer[16];
+        const int length = std::snprintf(buffer, sizeof(buffer), "%4d-%02d-%02d", yy, mm, dd);
+        return String_(buffer, buffer + length);
     }
 
     short Date::DayOfWeek(const Date_& dt) {
@@ -100,14 +103,14 @@ namespace Dal {
     }
 
     short Date::DaysInMonth(int year, int month) {
-        return month == 12 ? static_cast<short>(31)
-                           : static_cast<short>(Date_(year, month + 1, 1) - Date_(year, month, 1));
+        REQUIRE(month >= 1 && month <= 12, "Month out of range [1, 12]");
+        return static_cast<short>(MonthLength(year, month));
     }
 
     Date_ Date::EndOfMonth(const Date_& dt) {
-        const auto yy = Year(dt);
-        const auto mm = Month(dt);
-        return mm == 12 ? Date_(yy + 1, 1, 1).AddDays(-1) : Date_(yy, mm + 1, 1).AddDays(-1);
+        short yy, mm;
+        ExcelDateToYMD(ToExcel(dt), &yy, &mm, nullptr);
+        return Date_(yy, mm, MonthLength(yy, mm));
     }
 
     Date_ Date::AddMonths(const Date_& dt, int nMonths, bool preserveEom) {
@@ -128,9 +131,7 @@ namespace Dal {
         return Date_(yy, mm, dd);
     }
 
-    int operator-(const Date_& lhs, const Date_& rhs) { return Date::ToExcel(lhs) - Date::ToExcel(rhs); }
+    Date_ Date::Minimum() { return FromExcel(Date_::EXCEL_OFFSET + 1); }
 
-    Date_ Date::Minimum() { return FromExcel(EXCEL_OFFSET + 1); }
-
-    Date_ Date::Maximum() { return Minimum().AddDays(0xFFF0); }
+    Date_ Date::Maximum() { return FromExcel(Date_::EXCEL_OFFSET + Date_::MAX_SERIAL); }
 } // namespace Dal

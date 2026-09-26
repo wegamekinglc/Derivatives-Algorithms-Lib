@@ -190,10 +190,10 @@ TEST(CurveInstrumentTest, TestCrossCurrencySwapConfigBuilderAndOverloadRoundTrip
     ASSERT_FALSE(actual.convention_.initialNotionalExchange_);
     ASSERT_TRUE(actual.convention_.finalNotionalExchange_);
     ASSERT_FALSE(actual.convention_.spreadOnForeignLeg_);
-    ASSERT_EQ(actual.convention_.domesticLeg_.paymentFrequency_.String(), builder.convention_.domesticLeg_.paymentFrequency_.String());
-    ASSERT_EQ(actual.convention_.domesticIndex_.forecastTenor_.String(), builder.convention_.domesticIndex_.forecastTenor_.String());
-    ASSERT_EQ(actual.convention_.foreignLeg_.paymentFrequency_.String(), builder.convention_.foreignLeg_.paymentFrequency_.String());
-    ASSERT_EQ(actual.convention_.foreignIndex_.forecastTenor_.String(), builder.convention_.foreignIndex_.forecastTenor_.String());
+    ASSERT_STREQ(actual.convention_.domesticLeg_.paymentFrequency_.String(), builder.convention_.domesticLeg_.paymentFrequency_.String());
+    ASSERT_STREQ(actual.convention_.domesticIndex_.forecastTenor_.String(), builder.convention_.domesticIndex_.forecastTenor_.String());
+    ASSERT_STREQ(actual.convention_.foreignLeg_.paymentFrequency_.String(), builder.convention_.foreignLeg_.paymentFrequency_.String());
+    ASSERT_STREQ(actual.convention_.foreignIndex_.forecastTenor_.String(), builder.convention_.foreignIndex_.forecastTenor_.String());
     ASSERT_EQ(actual.notionalMode_.Switch(), XccyNotionalMode_::Value_::RESETTABLE);
     ASSERT_EQ(actual.fxReset_.fixingLag_, 2);
     ASSERT_EQ(actual.fxReset_.fixingHolidays_, Dal::Holidays_(""));
@@ -223,8 +223,8 @@ TEST(CurveInstrumentTest, TestCrossCurrencySwapNewLegacyOverloadRemainsFixed) {
     ASSERT_TRUE(config.pair_ == pair);
     ASSERT_NEAR(config.domesticNotional_, 140.0, 1.0e-15);
     ASSERT_NEAR(config.foreignNotional_, 127.0, 1.0e-15);
-    ASSERT_EQ(config.convention_.domesticLeg_.paymentFrequency_.String(), domesticLeg.paymentFrequency_.String());
-    ASSERT_EQ(config.convention_.domesticIndex_.forecastTenor_.String(), domesticIndex.forecastTenor_.String());
-    ASSERT_EQ(config.convention_.foreignLeg_.paymentFrequency_.String(), foreignLeg.paymentFrequency_.String());
-    ASSERT_EQ(config.convention_.foreignIndex_.forecastTenor_.String(), foreignIndex.forecastTenor_.String());
+    ASSERT_STREQ(config.convention_.domesticLeg_.paymentFrequency_.String(), domesticLeg.paymentFrequency_.String());
+    ASSERT_STREQ(config.convention_.domesticIndex_.forecastTenor_.String(), domesticIndex.forecastTenor_.String());
+    ASSERT_STREQ(config.convention_.foreignLeg_.paymentFrequency_.String(), foreignLeg.paymentFrequency_.String());
+    ASSERT_STREQ(config.convention_.foreignIndex_.forecastTenor_.String(), foreignIndex.forecastTenor_.String());
 }

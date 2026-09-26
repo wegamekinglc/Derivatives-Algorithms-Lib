@@ -2,6 +2,9 @@
 // Created by wegamekinglc on 2020/5/2.
 //
 
+#include <cmath>
+#include <limits>
+#include <optional>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/cell.hpp>
@@ -11,10 +14,17 @@
 namespace Dal {
 
     namespace {
+        // Doubles outside the inclusive int range, fractional values, and NaN are not ints rather than conversion errors
+        std::optional<int> AsExactInt(double d) {
+            if (!(d >= std::numeric_limits<int>::min() && d <= std::numeric_limits<int>::max()) || std::trunc(d) != d)
+                return std::nullopt;
+            return static_cast<int>(d);
+        }
+
         struct ToString_ {
             String_ operator()(double d) const {
-                int ii = AsInt(d);
-                return ii == d ? String::FromInt(ii) : String::FromDouble(d);
+                const auto ii = AsExactInt(d);
+                return ii ? String::FromInt(*ii) : String::FromDouble(d);
             }
             String_ operator()(bool b) const { return b ? "TRUE" : "FALSE"; }
             String_ operator()(const String_& s) const { return s; }
@@ -32,19 +42,16 @@ namespace Dal {
 
         struct ToInt_ {
             int operator()(double d) const {
-                int ii = AsInt(d);
-                REQUIRE(ii == d, "Cell contains non-integer number");
-                return ii;
+                const auto ii = AsExactInt(d);
+                REQUIRE(ii, "Cell contains non-integer number");
+                return *ii;
             }
             int operator()(bool b) const { return b ? 1 : 0; }
             template <class E_> int operator()(E_) const { THROW("Cell must contain an integer value"); }
         };
 
         struct IsInt_ {
-            bool operator()(double d) const {
-                int ii = AsInt(d);
-                return ii == d;
-            }
+            bool operator()(double d) const { return AsExactInt(d).has_value(); }
             template <class E_> bool operator()(E_) const { return false; }
         };
     } // namespace

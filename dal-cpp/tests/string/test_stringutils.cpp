@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <string>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/string/stringutils.hpp>
@@ -55,4 +56,11 @@ TEST(StringUtilsTest, TestToBoolVector) {
     Vector_<bool> expected = {true, false, false, true};
 
     ASSERT_EQ(calculated, expected);
+}
+
+TEST(StringUtilsTest, TestToBoolRejectsNonAscii) {
+    ASSERT_THROW(ToBool(String_(std::string("\xD4RUE"))), Dal::Exception_);
+    ASSERT_THROW(ToBool(String_(std::string("F\xC1LSE"))), Dal::Exception_);
+    ASSERT_THROW(ToBool(String_(std::string("\xE9"))), Dal::Exception_);
+    ASSERT_TRUE(ToBool(String_("tRuE")));
 }

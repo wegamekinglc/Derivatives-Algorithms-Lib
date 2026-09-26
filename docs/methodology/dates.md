@@ -7,14 +7,15 @@ schedule generation, and day-count bases.
 ## Dates
 
 `Date_` (`dal-cpp/dal/time/date.hpp`) is a value type wrapping a `uint16_t`
-serial day count. Construction from year, month, and day checks calendar fields
-and requires a year in [1900, 2199], but that field check is wider than the
-representable range. Valid dates have Excel serials 25569 through 91103; a
-calendar-valid date outside that range produces an invalid value. A
-default-constructed `Date_` is also invalid (`IsValid()` returns false).
-Comparisons and `operator-` (a day difference) work directly on the serial.
-`AddDays`, `++`, and `--` shift by whole days without checking for overflow;
-callers must keep arithmetic within the valid range.
+serial day count. The supported range is 1970-01-01 through 2149-06-05 (Excel
+serials 25569 through 91103); `Date::Minimum()` and `Date::Maximum()` return
+those bounds. Construction from year, month, and day checks the calendar fields
+and throws `Exception_` for a date outside the supported range. A
+default-constructed `Date_` is invalid (`IsValid()` returns false), as is the
+result of `Date::FromExcel` for a serial outside the range. Comparisons and
+`operator-` (a day difference) work directly on the serial. `AddDays`, `++`,
+and `--` shift by whole days and throw when the result would leave the
+supported range.
 
 Free functions in `namespace Dal::Date` cover component access (`Year`,
 `Month`, `Day`, `DayOfWeek`), month arithmetic (`AddMonths` with optional
@@ -89,9 +90,26 @@ preserves its lifetime after the schedule is destroyed. Retaining even one
 period's context retains that schedule's complete context block.
 
 `DayBasis_` (`dal-cpp/dal/time/daybasis.hpp`) is the extensible day-count
-enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, and `BOND`
-(30/360). Calling a basis with start and end dates, plus an optional coupon
-context, returns the year fraction used for accrual.
+enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, `BOND` (30/360
+Bond Basis), and `THIRTY_360_US` (30/360 US). Calling a basis with start and
+end dates, plus an optional coupon context, returns the year fraction used for
+accrual.
+
+- `ACT_ACT` follows ISDA: each calendar year's share of the period is divided
+  by that year's length. A reversed period returns the negated forward value.
+- `ACT_365L` requires a `DayBasis::Context_`. With annual coupons
+  (`couponMonths_ == 12`) the denominator is 366 when a 29 February falls in
+  (accrual start, nominal end], and 365 otherwise. For other coupon frequencies
+  the denominator is 366 when the nominal end falls in a leap year.
+- `BOND` (also `30_360`, `30/360`, and `BOND_BASIS`) is the 30/360 Bond Basis,
+  also called ISDA 30/360, as QuantLib's `Thirty360::BondBasis`. A start on the
+  31st counts as the 30th, and an end on the 31st counts as the 30th when the
+  start day, after that rule, is the 30th.
+- `THIRTY_360_US` (also `30_360_US` and `30U/360`) is 30/360 US, as QuantLib's
+  `Thirty360::USA`. If the start is the last day of February, it counts as the
+  30th; if the end is also the last day of February, the end counts as the 30th
+  too. An end on the 31st counts as the 30th when the start day, after the
+  February rule, is the 30th or 31st. A start on the 31st counts as the 30th.
 
 ## Examples
 

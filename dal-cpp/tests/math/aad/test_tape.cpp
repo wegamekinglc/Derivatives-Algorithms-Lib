@@ -353,6 +353,29 @@ TEST(AADTapeTest, TestClearEmptiesAdjointsMultiAfterMultiToNonMultiToggle) {
     Clear(*tape);
 }
 
+TEST(AADTapeTest, TestEmptyPropagationWindowsAreNoOps) {
+    auto* tape = Dal::AAD::Tape();
+    Clear(*tape);
+    PropagateToStart(*tape);
+    PropagateToMark(*tape);
+    PropagateMarkToStart(*tape);
+    RewindToMark(*tape);
+
+    Number_ x = 2.0;
+    PutOnTape(x);
+    Number_ y = x * 3.0;
+    Mark(*tape);
+    Adjoint(y) = 1.0;
+    PropagateToMark(*tape);
+    ASSERT_DOUBLE_EQ(Adjoint(x), 0.0);
+    ASSERT_DOUBLE_EQ(Adjoint(y), 1.0);
+
+    PropagateMarkToStart(*tape);
+    ASSERT_DOUBLE_EQ(Adjoint(x), 3.0);
+
+    Clear(*tape);
+}
+
 TEST(AADTapeTest, TestSetNumResultsForAADRejectsOutOfRange) {
     ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, 0), Dal::Exception_);
     ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, Dal::AAD::ADJ_SIZE + 1), Dal::Exception_);

@@ -47,3 +47,23 @@ TEST(AADTest, TestBlockListEmplaceBackMultiRejectsOversizedN) {
     ASSERT_THROW(blocks.EmplaceBackMulti(11), Dal::Exception_);
     ASSERT_THROW(blocks.EmplaceBackMulti(0), Dal::Exception_);
 }
+
+TEST(AADTest, TestBlockListMarkDefaultsToStart) {
+    BlockList_<double, 4> blocks;
+    ASSERT_TRUE(blocks.Mark() == blocks.Begin());
+    blocks.EmplaceBackMulti(3);
+    blocks.RewindToMark();
+    ASSERT_EQ(blocks.Size(), 0);
+}
+
+TEST(AADTest, TestBlockListClearResetsMark) {
+    BlockList_<double, 4> blocks;
+    blocks.EmplaceBackMulti(4);
+    blocks.EmplaceBackMulti(2);
+    blocks.SetMark();
+    blocks.Clear();
+    ASSERT_TRUE(blocks.Mark() == blocks.Begin());
+    blocks.EmplaceBackMulti(3);
+    blocks.RewindToMark();
+    ASSERT_EQ(blocks.Size(), 0);
+}

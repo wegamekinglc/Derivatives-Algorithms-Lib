@@ -45,6 +45,11 @@ namespace Dal::AAD {
             lastSpace_ = currBlock_->end();
         }
 
+        void ResetMark() {
+            markedBlock_ = currBlock_;
+            markedSpace_ = nextSpace_;
+        }
+
         void NextBlock() {
             if (currBlock_ == lastBlock_)
                 NewBlock();
@@ -64,11 +69,15 @@ namespace Dal::AAD {
             BlockPosition_(iterator curr_block, block_iter next_space): currBlock_(curr_block), nextSpace_(next_space) {}
         };
 
-        BlockList_() { NewBlock(); }
+        BlockList_() {
+            NewBlock();
+            ResetMark();
+        }
 
         void Clear() {
             data_.clear();
             NewBlock();
+            ResetMark();
         }
 
         void Rewind() {
@@ -126,8 +135,7 @@ namespace Dal::AAD {
         void SetMark() {
             if (nextSpace_ == lastSpace_)
                 NextBlock();
-            markedBlock_ = currBlock_;
-            markedSpace_ = nextSpace_;
+            ResetMark();
         }
 
         auto GetPosition() {

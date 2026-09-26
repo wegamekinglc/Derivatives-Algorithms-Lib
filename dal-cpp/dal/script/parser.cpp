@@ -157,7 +157,9 @@ namespace Dal::Script {
         REQUIRE2(cur->Text() != "FIX", "ReservedIdentifier: FIX is a function; rename the variable; " + cur->source_.Describe(), ScriptError_);
         REQUIRE2(cur->Text() != "EXERCISE",
                  "ReservedIdentifier: EXERCISE is a statement; rename the variable; " + cur->source_.Describe(), ScriptError_);
-        REQUIRE2(cur->Text()[0] >= 'A' && cur->Text()[0] <= 'z', String_("Variable name ") + cur->Text() + " is invalid", ScriptError_);
+        const char first = cur->Text()[0];
+        REQUIRE2((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'), String_("Variable name ") + cur->Text() + " is invalid",
+                 ScriptError_);
         REQUIRE2(RESERVED_KEY_WORDS.find(cur->Text()) == RESERVED_KEY_WORDS.end(),
                  String_("Variable name ") + cur->Text() + " is conflicted with an existing key word", ScriptError_);
         String_ name(cur->Text());
@@ -365,11 +367,12 @@ namespace Dal::Script {
         REQUIRE2(cur != end, "`if/then` is not followed by `else` or `end`", ScriptError_);
         Vector_<Statement_> elseStats;
         int elseIdx = -1;
-        while (cur->Text() == "ELSE") {
+        if (cur->Text() == "ELSE") {
             ++cur;
-            while (cur != end && cur->Text() != "END")
+            while (cur != end && cur->Text() != "ELSE" && cur->Text() != "END")
                 elseStats.push_back(ParseStatement(cur, end));
             REQUIRE2(cur != end, "`if/then/else` is not followed by `end`", ScriptError_);
+            REQUIRE2(cur->Text() != "ELSE", "DuplicateElse: `if/then/else` admits a single `else` clause; " + cur->source_.Describe(), ScriptError_);
             elseIdx = static_cast<int>(stats.size()) + 1;
         }
         --ifLevel_;

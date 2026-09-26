@@ -18,6 +18,24 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-26
 
+- **Day counts and dates are corrected at their edges** — `BOND`/`30_360` is
+  now the 30/360 Bond Basis (ISDA 30/360), so accruals from or to the 31st
+  change (for example 31 March to 30 June is 90 days, not 89). The new
+  `THIRTY_360_US` basis, which now owns the `30_360_US` name, adds the 30/360
+  US end-of-February rules. Annual `ACT_365L` periods no longer hang and use
+  366 only when a 29 February falls in the period, and reversed `ACT_ACT`
+  periods return the negated forward value. The bases match QuantLib's
+  `Thirty360` BondBasis and USA conventions and `ActualActual` ISDA, and
+  OpenGamma Strata's Act/365L. `Date_` construction and `AddDays`/`++`/`--`
+  now throw outside 1970-01-01 to 2149-06-05 instead of returning invalid or
+  wrapped dates, and `Date::Maximum()` is 2149-06-05. `String::FromDouble` and
+  `Cell::ToString` use the shortest round-trip form (`1.5e-07`, not
+  `0.000000`). See
+  [dates and day counts](docs/methodology/dates.md#schedules-and-day-counts).
+- **Date differences are inlined** — `Date::ToExcel` and `Date_` subtraction
+  are now header-inline. In `ycinstrument_perf`, `curve_calibration_perf`,
+  and `xccy_perf`, instrument pricing and discount-factor queries run about
+  20-35% faster and curve calibrations about 5-30% faster.
 - **Script adds numeric vectors and bounded loops** — mutable path-local vectors
   support indexed entries, `APPEND`, and reductions; product tables can define
   immutable numeric vectors. `FOR(index, start, end) ... END` expands bounded,

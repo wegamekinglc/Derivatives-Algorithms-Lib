@@ -327,7 +327,7 @@ namespace Dal {
         }
 
         double EDouble(const element_t& doc) {
-            REQUIRE(doc.IsDouble() || doc.IsInt(), "Can't get a numeric value");
+            REQUIRE(doc.IsNumber(), "Can't get a numeric value");
             return doc.GetDouble();
         }
         int EInt(const element_t& doc) {
@@ -363,7 +363,7 @@ namespace Dal {
         Cell_ ECell(const element_t& doc) {
             static const std::regex DATE_PATTERN(R"(\d{4}-\d{2}-\d{2})");
             static const std::regex DATE_TIME_PATTERN(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})");
-            if (doc.IsDouble() || doc.IsInt())
+            if (doc.IsNumber())
                 return Cell_(doc.GetDouble());
             if (doc.IsBool())
                 return Cell_(doc.GetBool());

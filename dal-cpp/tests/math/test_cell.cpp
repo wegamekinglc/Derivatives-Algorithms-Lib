@@ -3,9 +3,11 @@
 //
 
 #include <gtest/gtest.h>
+#include <limits>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/math/cell.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using Dal::Cell_;
 using Dal::String_;
@@ -136,4 +138,33 @@ TEST(CellTest, TestIsEmpty) {
 
     cell = Cell_("not empty");
     ASSERT_FALSE(Dal::Cell::IsEmpty(cell));
+}
+
+TEST(CellTest, TestToStringKeepsPrecisionAndLargeValues) {
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(5.0)), "5");
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(-7.0)), "-7");
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(1.5e-7)), "1.5e-07");
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(2.25)), "2.25");
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(5e9)), "5e+09");
+}
+
+TEST(CellTest, TestIntegerQueriesOutsideIntRange) {
+    const double intMax = std::numeric_limits<int>::max();
+    const double intMin = std::numeric_limits<int>::min();
+    ASSERT_TRUE(Dal::Cell::IsInt(Cell_(intMax)));
+    ASSERT_TRUE(Dal::Cell::IsInt(Cell_(intMin)));
+    ASSERT_EQ(Dal::Cell::ToInt(Cell_(intMax)), std::numeric_limits<int>::max());
+    ASSERT_EQ(Dal::Cell::ToInt(Cell_(intMin)), std::numeric_limits<int>::min());
+    ASSERT_EQ(Dal::Cell::ToString(Cell_(intMax)), "2147483647");
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMax + 1.0)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMin - 1.0)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(intMax - 0.5)));
+    ASSERT_TRUE(Dal::Cell::IsInt(Cell_(2147483646.0)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(5e9)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(-5e9)));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(std::numeric_limits<double>::quiet_NaN())));
+    ASSERT_FALSE(Dal::Cell::IsInt(Cell_(2.5)));
+    ASSERT_EQ(Dal::Cell::ToInt(Cell_(-12.0)), -12);
+    ASSERT_THROW(Dal::Cell::ToInt(Cell_(5e9)), Dal::Exception_);
+    ASSERT_THROW(Dal::Cell::ToInt(Cell_(2.5)), Dal::Exception_);
 }
