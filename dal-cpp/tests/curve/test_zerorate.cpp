@@ -147,7 +147,8 @@ TEST(ZeroRateCurveTest, TestContextFreeDayCountAndGeometryValidation) {
                  Exception_);
     ASSERT_NO_THROW(Tape::DiscountZeroRate_<double>("actact", "USD", ANCHOR, dates, rates, DayBasis_("ACT_ACT"), LogDfScheme_::Value_::LOG_LINEAR));
     ASSERT_NO_THROW(Tape::DiscountZeroRate_<double>("bond", "USD", ANCHOR, dates, rates, DayBasis_("BOND"), LogDfScheme_::Value_::LOG_LINEAR));
-    ASSERT_THROW(Tape::DiscountZeroRate_<double>("bad_bond", "USD", Date_(2024, 1, 31), Vector_<Date_>{Date_(2024, 2, 1)}, Vector_<>{0.02},
+    // 30/360 US counts zero days from the 30th to the 31st, so this later node has no year fraction
+    ASSERT_THROW(Tape::DiscountZeroRate_<double>("bad_bond", "USD", Date_(2024, 1, 30), Vector_<Date_>{Date_(2024, 1, 31)}, Vector_<>{0.02},
                                                  DayBasis_("BOND"), LogDfScheme_::Value_::LOG_LINEAR),
                  Exception_);
 }
