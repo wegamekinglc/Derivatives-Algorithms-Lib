@@ -10,6 +10,7 @@ class  DayBasis_
      ACT_360,
      ACT_ACT,
      BOND,
+     THIRTY_360_US,
  _EXTENSION,
      _N_VALUES
     } val_;

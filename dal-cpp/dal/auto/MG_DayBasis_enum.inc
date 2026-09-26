@@ -42,6 +42,7 @@ Vector_<DayBasis_> DayBasisListAll()
 		retval.emplace_back("ACT_360");
 		retval.emplace_back("ACT_ACT");
 		retval.emplace_back("BOND");
+		retval.emplace_back("THIRTY_360_US");
         for (const auto& r : retval)
             exists.insert(r.String());
         auto more = TheDayBasisExtensions();
@@ -77,6 +78,8 @@ const char* DayBasis_::String() const {
         return "ACT_ACT";
     case Value_::BOND:
         return "BOND";
+    case Value_::THIRTY_360_US:
+        return "THIRTY_360_US";
         case Value_::_EXTENSION:
         return other_->String();
     }}
@@ -130,8 +133,15 @@ struct ReadStringDayBasis_
         *val = DayBasis_::Value_::BOND;
 	else if (String::Equivalent(src, "30/360"))
         *val = DayBasis_::Value_::BOND;
-	else if (String::Equivalent(src, "30360US"))
+	else if (String::Equivalent(src, "BONDBASIS"))
         *val = DayBasis_::Value_::BOND;
+
+	else if (String::Equivalent(src, "THIRTY360US"))
+        *val = DayBasis_::Value_::THIRTY_360_US;
+	else if (String::Equivalent(src, "30360US"))
+        *val = DayBasis_::Value_::THIRTY_360_US;
+	else if (String::Equivalent(src, "30U/360"))
+        *val = DayBasis_::Value_::THIRTY_360_US;
         else
             ret_val = false;
         return ret_val;

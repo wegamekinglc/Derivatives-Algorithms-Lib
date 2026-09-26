@@ -10,6 +10,7 @@ public class DayBasis
 		ACT360,
 		ACTACT,
 		BOND,
+		THIRTY360US,
         N_VALUES
     }
 }

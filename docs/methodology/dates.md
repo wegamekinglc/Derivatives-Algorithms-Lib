@@ -90,9 +90,10 @@ preserves its lifetime after the schedule is destroyed. Retaining even one
 period's context retains that schedule's complete context block.
 
 `DayBasis_` (`dal-cpp/dal/time/daybasis.hpp`) is the extensible day-count
-enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, and `BOND`
-(30/360). Calling a basis with start and end dates, plus an optional coupon
-context, returns the year fraction used for accrual.
+enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, `BOND` (30/360
+Bond Basis), and `THIRTY_360_US` (30/360 US). Calling a basis with start and
+end dates, plus an optional coupon context, returns the year fraction used for
+accrual.
 
 - `ACT_ACT` follows ISDA: each calendar year's share of the period is divided
   by that year's length. A reversed period returns the negated forward value.
@@ -100,11 +101,15 @@ context, returns the year fraction used for accrual.
   (`couponMonths_ == 12`) the denominator is 366 when a 29 February falls in
   (accrual start, nominal end], and 365 otherwise. For other coupon frequencies
   the denominator is 366 when the nominal end falls in a leap year.
-- `BOND` (also `30_360`, `30/360`, and `30_360_US`) follows 30/360 US. If the
-  start is the last day of February, it counts as the 30th; if the end is also
-  the last day of February, the end counts as the 30th too. An end on the 31st
-  counts as the 30th when the start day, after the February rule, is the 30th or
-  31st. A start on the 31st counts as the 30th.
+- `BOND` (also `30_360`, `30/360`, and `BOND_BASIS`) is the 30/360 Bond Basis,
+  also called ISDA 30/360, as QuantLib's `Thirty360::BondBasis`. A start on the
+  31st counts as the 30th, and an end on the 31st counts as the 30th when the
+  start day, after that rule, is the 30th.
+- `THIRTY_360_US` (also `30_360_US` and `30U/360`) is 30/360 US, as QuantLib's
+  `Thirty360::USA`. If the start is the last day of February, it counts as the
+  30th; if the end is also the last day of February, the end counts as the 30th
+  too. An end on the 31st counts as the 30th when the start day, after the
+  February rule, is the 30th or 31st. A start on the 31st counts as the 30th.
 
 ## Examples
 

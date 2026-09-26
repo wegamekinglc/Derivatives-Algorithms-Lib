@@ -45,17 +45,35 @@ namespace Dal {
             return (to - from) / (is_annual ? AnnualDaysL(from, end) : DaysL(end));
         }
 
-        double Bond(const Date_& from, const Date_& to) {
-            short y1 = Date::Year(from);
-            short m1 = Date::Month(from);
-            short d1 = Date::Day(from);
-            short y2 = Date::Year(to);
-            short m2 = Date::Month(to);
-            short d2 = Date::Day(to);
+        struct YMD_ {
+            short y_;
+            short m_;
+            short d_;
 
-            // 30/360 US: February end-of-month rules first, then the 31st rules
-            if (m1 == 2 && d1 == Date::DaysInMonth(y1, m1)) {
-                if (m2 == 2 && d2 == Date::DaysInMonth(y2, m2))
+            explicit YMD_(const Date_& dt) : y_(Date::Year(dt)), m_(Date::Month(dt)), d_(Date::Day(dt)) {}
+
+            [[nodiscard]] bool IsLastOfFebruary() const { return m_ == 2 && d_ == Date::DaysInMonth(y_, m_); }
+        };
+
+        double Thirty360(const YMD_& start, short d1, const YMD_& end, short d2) {
+            return (360 * (end.y_ - start.y_) + 30 * (end.m_ - start.m_) + (d2 - d1)) / 360.0;
+        }
+
+        // Bond Basis (ISDA 30/360), as QuantLib Thirty360::BondBasis
+        double BondBasis(const Date_& from, const Date_& to) {
+            const YMD_ start(from), end(to);
+            const short d1 = start.d_ == 31 ? 30 : start.d_;
+            const short d2 = end.d_ == 31 && d1 == 30 ? 30 : end.d_;
+            return Thirty360(start, d1, end, d2);
+        }
+
+        // 30/360 US, as QuantLib Thirty360::USA: February end-of-month rules first, then the 31st rules
+        double Thirty360US(const Date_& from, const Date_& to) {
+            const YMD_ start(from), end(to);
+            short d1 = start.d_;
+            short d2 = end.d_;
+            if (start.IsLastOfFebruary()) {
+                if (end.IsLastOfFebruary())
                     d2 = 30;
                 d1 = 30;
             }
@@ -63,7 +81,7 @@ namespace Dal {
                 d2 = 30;
             if (d1 == 31)
                 d1 = 30;
-            return (360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1)) / 360.0;
+            return Thirty360(start, d1, end, d2);
         }
     } // namespace
 
@@ -79,7 +97,9 @@ namespace Dal {
             REQUIRE(info, "ACT/365L day-count requires nominal end date");
             return Act365L(from, to, info->couponMonths_ == 12, info->nominalEnd_);
         case Value_::BOND:
-            return Bond(from, to);
+            return BondBasis(from, to);
+        case Value_::THIRTY_360_US:
+            return Thirty360US(from, to);
         default:
             THROW("Unrecognized day basis");
         }

@@ -44,8 +44,23 @@ TEST(DayBasisTest, TestAct_Act) {
     ASSERT_NEAR(basis(from, to, nullptr), 1.32626, 1e-4);
 }
 
-TEST(DayBasisTest, TestBondEndOfMonthRules) {
-    const DayBasis_ basis("30_360");
+// Reference day counts from QuantLib Thirty360(BondBasis) and Thirty360(USA)
+TEST(DayBasisTest, TestBondBasisRules) {
+    const DayBasis_ basis("BOND");
+    const auto days = [&basis](const Date_& from, const Date_& to) { return basis(from, to, nullptr) * 360.0; };
+
+    ASSERT_NEAR(days(Date_(2023, 3, 31), Date_(2023, 6, 30)), 90.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2024, 1, 31), Date_(2024, 2, 29)), 29.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2023, 3, 30), Date_(2023, 5, 31)), 60.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2023, 3, 31), Date_(2023, 5, 31)), 60.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2023, 1, 15), Date_(2023, 3, 31)), 76.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2023, 2, 28), Date_(2023, 8, 31)), 183.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2023, 2, 28), Date_(2023, 3, 31)), 33.0, 1e-10);
+    ASSERT_NEAR(days(Date_(2024, 2, 29), Date_(2025, 2, 28)), 359.0, 1e-10);
+}
+
+TEST(DayBasisTest, TestThirty360USEndOfMonthRules) {
+    const DayBasis_ basis("30_360_US");
     const auto days = [&basis](const Date_& from, const Date_& to) { return basis(from, to, nullptr) * 360.0; };
 
     ASSERT_NEAR(days(Date_(2023, 3, 31), Date_(2023, 6, 30)), 90.0, 1e-10);
@@ -58,12 +73,21 @@ TEST(DayBasisTest, TestBondEndOfMonthRules) {
     ASSERT_NEAR(days(Date_(2024, 2, 29), Date_(2025, 2, 28)), 360.0, 1e-10);
 }
 
-TEST(DayBasisTest, TestBondAliasesAgree) {
-    const Date_ from(2023, 3, 31);
-    const Date_ to(2023, 6, 30);
-    const double expected = DayBasis_("BOND")(from, to, nullptr);
-    for (const char* name : {"30_360", "30/360", "30_360_US"})
-        ASSERT_DOUBLE_EQ(DayBasis_(name)(from, to, nullptr), expected);
+TEST(DayBasisTest, TestThirty360AliasesAgree) {
+    const Date_ from(2023, 2, 28);
+    const Date_ to(2023, 8, 31);
+    const double bond = DayBasis_("BOND")(from, to, nullptr);
+    for (const char* name : {"30_360", "30/360", "BOND_BASIS"}) {
+        ASSERT_EQ(DayBasis_(name), DayBasis_("BOND"));
+        ASSERT_DOUBLE_EQ(DayBasis_(name)(from, to, nullptr), bond);
+    }
+    const double us = DayBasis_("THIRTY_360_US")(from, to, nullptr);
+    for (const char* name : {"30_360_US", "30U/360"}) {
+        ASSERT_EQ(DayBasis_(name), DayBasis_("THIRTY_360_US"));
+        ASSERT_DOUBLE_EQ(DayBasis_(name)(from, to, nullptr), us);
+    }
+    ASSERT_NE(bond, us);
+    ASSERT_STREQ(DayBasis_("30_360_US").String(), "THIRTY_360_US");
 }
 
 TEST(DayBasisTest, TestAct_365LAnnualCoupons) {
