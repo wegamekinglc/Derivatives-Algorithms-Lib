@@ -100,46 +100,101 @@ namespace Dal {
                 parameterLabels_.push_back("rate");
             }
 
-            void ValidateNamesAndCorrelations(const Matrix_<>& correlations) {
-                const size_t n = assetNames_.size();
-                REQUIRE(correlations.Rows() == static_cast<int>(n) && correlations.Cols() == static_cast<int>(n),
-                        "InvalidCorrelation: dimensions must match the number of assets");
-                lower_ = Matrix_<>(static_cast<int>(n), static_cast<int>(n), 0.0);
-                for (size_t i = 0; i < n; ++i) {
+            void ValidateAssetNames() {
+                for (size_t i = 0; i < assetNames_.size(); ++i) {
                     const Handle_<Index_> index(Index::Parse(assetNames_[i]));
                     REQUIRE(index && IsPlainEquity(*index), "InvalidModelIndex: expected an ordinary EQ index: " + assetNames_[i]);
                     assetNames_[i] = index->Name();
                     for (size_t j = 0; j < i; ++j)
                         REQUIRE(assetNames_[i] != assetNames_[j], "DuplicateModelIndex: " + assetNames_[i]);
-                    for (size_t j = 0; j < n; ++j) {
-                        REQUIRE(std::isfinite(correlations(static_cast<int>(i), static_cast<int>(j))), "InvalidCorrelation: non-finite entry");
-                        REQUIRE(std::abs(correlations(static_cast<int>(i), static_cast<int>(j)) -
-                                         correlations(static_cast<int>(j), static_cast<int>(i))) <= 1e-12,
-                                "InvalidCorrelation: matrix must be symmetric");
+                }
+            }
+
+            void ValidateCorrelationMatrix(const Matrix_<>& correlations) const {
+                const int n = static_cast<int>(assetNames_.size());
+                REQUIRE(correlations.Rows() == n && correlations.Cols() == n, "InvalidCorrelation: dimensions must match the number of assets");
+                for (int i = 0; i < n; ++i) {
+                    for (int j = 0; j < n; ++j) {
+                        REQUIRE(std::isfinite(correlations(i, j)), "InvalidCorrelation: non-finite entry");
+                        REQUIRE(std::abs(correlations(i, j) - correlations(j, i)) <= 1e-12, "InvalidCorrelation: matrix must be symmetric");
                     }
-                    REQUIRE(std::abs(correlations(static_cast<int>(i), static_cast<int>(i)) - 1.0) <= 1e-12,
-                            "InvalidCorrelation: diagonal entries must equal one");
-                    for (size_t j = 0; j <= i; ++j) {
-                        double sum = correlations(static_cast<int>(i), static_cast<int>(j));
-                        for (size_t k = 0; k < j; ++k)
-                            sum -= lower_(static_cast<int>(i), static_cast<int>(k)) * lower_(static_cast<int>(j), static_cast<int>(k));
+                    REQUIRE(std::abs(correlations(i, i) - 1.0) <= 1e-12, "InvalidCorrelation: diagonal entries must equal one");
+                }
+            }
+
+            void FactorCorrelation(const Matrix_<>& correlations) {
+                const int n = static_cast<int>(assetNames_.size());
+                lower_ = Matrix_<>(n, n, 0.0);
+                for (int i = 0; i < n; ++i)
+                    for (int j = 0; j <= i; ++j) {
+                        double sum = correlations(i, j);
+                        for (int k = 0; k < j; ++k)
+                            sum -= lower_(i, k) * lower_(j, k);
                         if (i == j) {
                             REQUIRE(std::isfinite(sum) && sum > 1e-14, "InvalidCorrelation: matrix must be positive definite");
-                            lower_(static_cast<int>(i), static_cast<int>(j)) = std::sqrt(sum);
+                            lower_(i, j) = std::sqrt(sum);
                         } else
-                            lower_(static_cast<int>(i), static_cast<int>(j)) = sum / lower_(static_cast<int>(j), static_cast<int>(j));
+                            lower_(i, j) = sum / lower_(j, j);
                     }
+            }
+
+            void InitializeStepConstants() {
+                const size_t n = assetNames_.size();
+                for (size_t step = 0; step + 1 < timeLine_.size(); ++step) {
+                    const double dt = timeLine_[step + 1] - timeLine_[step];
+                    for (size_t asset = 0; asset < n; ++asset) {
+                        const size_t id = step * n + asset;
+                        drifts_[id] = (rate_ - divs_[asset] - 0.5 * vols_[asset] * vols_[asset]) * dt;
+                        stds_[id] = vols_[asset] * Dal::sqrt(dt);
+                        REQUIRE(std::isfinite(Value(drifts_[id])) && std::isfinite(Value(stds_[id])),
+                                "InvalidModelParameter: non-finite correlated BS step");
+                    }
+                }
+            }
+
+            void InitializeNumeraires(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) {
+                for (size_t sample = 0; sample < productTimeLine.size(); ++sample)
+                    if (defLine[sample].numeraire_) {
+                        numeraires_[sample] = Dal::exp(rate_ * productTimeLine[sample]);
+                        REQUIRE(std::isfinite(Value(numeraires_[sample])) && Value(numeraires_[sample]) > 0.0,
+                                "InvalidModelParameter: non-finite or zero correlated BS numeraire");
+                    }
+            }
+
+            void ResetLogSpots(Vector_<T_>* logSpots) const {
+                if (logSpots->size() != assetNames_.size())
+                    logSpots->Resize(assetNames_.size());
+                for (size_t asset = 0; asset < assetNames_.size(); ++asset)
+                    (*logSpots)[asset] = initialLogSpots_[asset];
+            }
+
+            void AdvanceStep(size_t step, const Vector_<>& gaussVec, Vector_<T_>* logSpots) const {
+                const size_t n = assetNames_.size();
+                for (size_t asset = 0; asset < n; ++asset) {
+                    double correlated = 0.0;
+                    for (size_t factor = 0; factor <= asset; ++factor)
+                        correlated += lower_(static_cast<int>(asset), static_cast<int>(factor)) * gaussVec[step * n + factor];
+                    const size_t id = step * n + asset;
+                    (*logSpots)[asset] += drifts_[id] + stds_[id] * correlated;
                 }
             }
 
             void FillSample(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
                 if ((*defLine_)[sampleId].numeraire_)
                     sample->numeraire_ = numeraires_[sampleId];
-                sample->spot_ = isToday ? spots_[0] : Dal::exp(logSpots[0]);
+                if (isToday)
+                    sample->spot_ = spots_[0];
+                else
+                    sample->spot_ = Dal::exp(logSpots[0]);
                 const auto& slots = observationSlots_[sampleId];
                 for (size_t output = 0; output < slots.size(); ++output) {
                     const size_t asset = slots[output];
-                    sample->observations_[output] = asset == 0 ? sample->spot_ : (isToday ? spots_[asset] : Dal::exp(logSpots[asset]));
+                    if (asset == 0)
+                        sample->observations_[output] = sample->spot_;
+                    else if (isToday)
+                        sample->observations_[output] = spots_[asset];
+                    else
+                        sample->observations_[output] = Dal::exp(logSpots[asset]);
                 }
             }
 
@@ -149,7 +204,9 @@ namespace Dal {
                 : assetNames_(std::move(assetNames)), spots_(std::move(spots)), vols_(std::move(vols)), divs_(std::move(divs)),
                   rate_(std::move(rate)) {
                 ValidateParameters();
-                ValidateNamesAndCorrelations(correlations);
+                ValidateAssetNames();
+                ValidateCorrelationMatrix(correlations);
+                FactorCorrelation(correlations);
                 SetParamPointers();
             }
 
@@ -201,25 +258,10 @@ namespace Dal {
             void Init(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
                 ValidateParameters();
                 REQUIRE(defLine_ == &defLine && defLine.size() == productTimeLine.size(), "InvalidModelTimeline: call Allocate before Init");
-                const size_t n = assetNames_.size();
-                for (size_t asset = 0; asset < n; ++asset)
+                for (size_t asset = 0; asset < assetNames_.size(); ++asset)
                     initialLogSpots_[asset] = Dal::log(spots_[asset]);
-                for (size_t step = 0; step + 1 < timeLine_.size(); ++step) {
-                    const double dt = timeLine_[step + 1] - timeLine_[step];
-                    for (size_t asset = 0; asset < n; ++asset) {
-                        const size_t id = step * n + asset;
-                        drifts_[id] = (rate_ - divs_[asset] - 0.5 * vols_[asset] * vols_[asset]) * dt;
-                        stds_[id] = vols_[asset] * Dal::sqrt(dt);
-                        REQUIRE(std::isfinite(Value(drifts_[id])) && std::isfinite(Value(stds_[id])),
-                                "InvalidModelParameter: non-finite correlated BS step");
-                    }
-                }
-                for (size_t sample = 0; sample < productTimeLine.size(); ++sample)
-                    if (defLine[sample].numeraire_) {
-                        numeraires_[sample] = Dal::exp(rate_ * productTimeLine[sample]);
-                        REQUIRE(std::isfinite(Value(numeraires_[sample])) && Value(numeraires_[sample]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero correlated BS numeraire");
-                    }
+                InitializeStepConstants();
+                InitializeNumeraires(productTimeLine, defLine);
             }
 
             [[nodiscard]] size_t SimDim() const override { return (timeLine_.size() - 1) * assetNames_.size(); }
@@ -227,24 +269,14 @@ namespace Dal {
             void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
                 REQUIRE(defLine_ && path && path->size() == defLine_->size() && gaussVec.size() == SimDim(),
                         "InvalidModelPath: correlated BS path or Gaussian dimension mismatch");
-                const size_t n = assetNames_.size();
-                auto& logSpots = (*path)[0].modelScratch_;
-                if (logSpots.size() != n)
-                    logSpots.Resize(n);
-                for (size_t asset = 0; asset < n; ++asset)
-                    logSpots[asset] = initialLogSpots_[asset];
+                auto* logSpots = &(*path)[0].modelScratch_;
+                ResetLogSpots(logSpots);
                 size_t sample = 0;
                 if (todayOnTimeLine_)
-                    FillSample(sample++, logSpots, true, &(*path)[0]);
+                    FillSample(sample++, *logSpots, true, &(*path)[0]);
                 for (size_t step = 0; step + 1 < timeLine_.size(); ++step, ++sample) {
-                    for (size_t asset = 0; asset < n; ++asset) {
-                        double correlated = 0.0;
-                        for (size_t factor = 0; factor <= asset; ++factor)
-                            correlated += lower_(static_cast<int>(asset), static_cast<int>(factor)) * gaussVec[step * n + factor];
-                        const size_t id = step * n + asset;
-                        logSpots[asset] += drifts_[id] + stds_[id] * correlated;
-                    }
-                    FillSample(sample, logSpots, false, &(*path)[sample]);
+                    AdvanceStep(step, gaussVec, logSpots);
+                    FillSample(sample, *logSpots, false, &(*path)[sample]);
                 }
             }
         };

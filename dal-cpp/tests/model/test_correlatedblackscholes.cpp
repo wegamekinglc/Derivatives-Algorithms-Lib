@@ -211,8 +211,7 @@ TEST(ModelTest, TestCorrelatedBlackScholesTwoAssetCovarianceAndZeroVol) {
 
 TEST(ModelTest, TestCorrelatedBlackScholesMomentAndBasketPayoff) {
     Matrix_<> correlation(3, 3, 0.0);
-    for (int i = 0; i < 3; ++i)
-        correlation(i, i) = 1.0;
+    correlation(0, 0) = correlation(1, 1) = correlation(2, 2) = 1.0;
     correlation(0, 1) = correlation(1, 0) = 0.35;
     correlation(0, 2) = correlation(2, 0) = -0.2;
     correlation(1, 2) = correlation(2, 1) = 0.25;
@@ -236,28 +235,29 @@ TEST(ModelTest, TestCorrelatedBlackScholesMomentAndBasketPayoff) {
     constexpr std::array<double, 5> weights{0.0112574113277207, 0.222075922005613, 0.533333333333333, 0.222075922005613, 0.0112574113277207};
     std::array<double, 3> meanSpot{};
     std::array<double, 3> meanLog{};
-    std::array<std::array<double, 3>, 3> meanLogProducts{};
+    std::array<double, 3> pairLogProducts{};
     double basketValue = 0.0;
     for (size_t i = 0; i < nodes.size(); ++i)
         for (size_t j = 0; j < nodes.size(); ++j)
             for (size_t k = 0; k < nodes.size(); ++k) {
                 const double weight = weights[i] * weights[j] * weights[k];
                 model.GeneratePath({nodes[i], nodes[j], nodes[k]}, &path);
+                const auto& observations = path[0].observations_;
+                const std::array<double, 3> logs{std::log(observations[0]), std::log(observations[1]), std::log(observations[2])};
                 for (size_t asset = 0; asset < 3; ++asset) {
-                    meanSpot[asset] += weight * path[0].observations_[asset];
-                    meanLog[asset] += weight * std::log(path[0].observations_[asset]);
+                    meanSpot[asset] += weight * observations[asset];
+                    meanLog[asset] += weight * logs[asset];
                 }
-                for (size_t first = 0; first < 3; ++first)
-                    for (size_t second = first + 1; second < 3; ++second)
-                        meanLogProducts[first][second] += weight * std::log(path[0].observations_[first]) * std::log(path[0].observations_[second]);
-                basketValue += weight * path[0].observations_[0] * path[0].observations_[2] / path[0].numeraire_;
+                pairLogProducts[0] += weight * logs[0] * logs[1];
+                pairLogProducts[1] += weight * logs[0] * logs[2];
+                pairLogProducts[2] += weight * logs[1] * logs[2];
+                basketValue += weight * observations[0] * observations[2] / path[0].numeraire_;
             }
     for (size_t asset = 0; asset < 3; ++asset)
         ASSERT_NEAR(meanSpot[asset], spots[asset] * std::exp((0.05 - divs[asset]) * maturity), 1e-6);
-    for (size_t first = 0; first < 3; ++first)
-        for (size_t second = first + 1; second < 3; ++second)
-            ASSERT_NEAR(meanLogProducts[first][second] - meanLog[first] * meanLog[second],
-                        vols[first] * vols[second] * correlation(static_cast<int>(first), static_cast<int>(second)) * maturity, 1e-11);
+    ASSERT_NEAR(pairLogProducts[0] - meanLog[0] * meanLog[1], vols[0] * vols[1] * correlation(0, 1) * maturity, 1e-11);
+    ASSERT_NEAR(pairLogProducts[1] - meanLog[0] * meanLog[2], vols[0] * vols[2] * correlation(0, 2) * maturity, 1e-11);
+    ASSERT_NEAR(pairLogProducts[2] - meanLog[1] * meanLog[2], vols[1] * vols[2] * correlation(1, 2) * maturity, 1e-11);
     const double expectedBasket = spots[0] * spots[2] * std::exp((0.05 - divs[0] - divs[2] + vols[0] * vols[2] * correlation(0, 2)) * maturity);
     ASSERT_NEAR(basketValue, expectedBasket, 1e-5);
 }

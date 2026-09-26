@@ -4,8 +4,9 @@
 
 #include <dal/benchmarks/bench.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
-#include <dal/platform/initall.hpp>
 #include <dal/platform/platform.hpp>
+
+#include "correlatedbsperf.hpp"
 
 using namespace Dal;
 
@@ -58,10 +59,7 @@ namespace {
     }
 } // namespace
 
-int main() {
-    RegisterAll_::Init();
-    Bench::PrintHeader();
+void RunCorrelatedBSPathCases() {
     for (size_t assets : {1u, 2u, 3u})
         RunCase(assets);
-    return 0;
 }
