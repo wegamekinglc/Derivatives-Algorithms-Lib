@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <dal/string/strings.hpp>
 
 namespace Dal {
@@ -38,8 +39,14 @@ namespace Dal {
         Date_ AddMonths(const Date_& dt, int nMonths, bool preserveEom = false);
     } // namespace Date
 
+    // Valid dates span serials [1, MAX_SERIAL], i.e. 1970-01-01 to 2149-06-05; serial 0 is the invalid default
     class Date_ {
         uint16_t serial_;
+
+        static constexpr long long MAX_SERIAL = std::numeric_limits<uint16_t>::max();
+
+        // Out of line so the inline arithmetic stays small on hot paths
+        [[noreturn]] static void ThrowOutOfRange();
 
         friend Date_ Date::FromExcel(int);
 
@@ -59,17 +66,24 @@ namespace Dal {
         Date_& operator=(const Date_& rhs) = default;
 
         [[nodiscard]] Date_ AddDays(int days) const {
-            Date_ ret_val(*this);
-            ret_val.serial_ += static_cast<uint16_t>(days);
+            const long long serial = static_cast<long long>(serial_) + days;
+            if (serial < 1 || serial > MAX_SERIAL)
+                ThrowOutOfRange();
+            Date_ ret_val;
+            ret_val.serial_ = static_cast<uint16_t>(serial);
             return ret_val;
         }
 
         Date_& operator++() {
+            if (serial_ == MAX_SERIAL)
+                ThrowOutOfRange();
             ++serial_;
             return *this;
         }
 
         Date_& operator--() {
+            if (serial_ <= 1)
+                ThrowOutOfRange();
             --serial_;
             return *this;
         }

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <limits>
 #include <dal/platform/strict.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -158,7 +159,8 @@ TEST(DateTest, TestDateMinimum) {
 
 TEST(DateTest, TestDateMaximum) {
     const auto src = Maximum();
-    ASSERT_EQ(src, Date_(2149, 5, 22));
+    ASSERT_EQ(src, Date_(2149, 6, 5));
+    ASSERT_TRUE(src.IsValid());
 }
 
 TEST(DateTest, TestEndOfMonth) {
@@ -222,4 +224,63 @@ TEST(DateTest, TestOutOfRangeYMDThrows) {
     ASSERT_THROW(Date_(2023, 1, 32), Dal::Exception_);
     ASSERT_THROW(Date_(1899, 12, 31), Dal::Exception_);
     ASSERT_THROW(Date_(2200, 1, 1), Dal::Exception_);
+}
+
+TEST(DateTest, TestSupportedRangeEdges) {
+    ASSERT_THROW(Date_(1969, 12, 31), Dal::Exception_);
+    ASSERT_THROW(Date_(1965, 6, 30), Dal::Exception_);
+    ASSERT_NO_THROW(Date_(1970, 1, 1));
+    ASSERT_EQ(Date_(1970, 1, 1), Minimum());
+
+    ASSERT_NO_THROW(Date_(2149, 5, 22));
+    ASSERT_NO_THROW(Date_(2149, 6, 5));
+    ASSERT_THROW(Date_(2149, 6, 6), Dal::Exception_);
+    ASSERT_THROW(Date_(2149, 7, 1), Dal::Exception_);
+    ASSERT_THROW(Date_(2160, 1, 1), Dal::Exception_);
+    ASSERT_EQ(ToString(Date_(2149, 6, 5)), "2149-06-05");
+}
+
+TEST(DateTest, TestAddDaysRejectsOverflow) {
+    ASSERT_THROW((void)Minimum().AddDays(-1), Dal::Exception_);
+    ASSERT_THROW((void)Minimum().AddDays(-2), Dal::Exception_);
+    ASSERT_THROW((void)Maximum().AddDays(1), Dal::Exception_);
+    ASSERT_THROW((void)Minimum().AddDays(65535), Dal::Exception_);
+    ASSERT_THROW((void)Date_(2024, 1, 1).AddDays(std::numeric_limits<int>::max()), Dal::Exception_);
+    ASSERT_THROW((void)Date_(2024, 1, 1).AddDays(std::numeric_limits<int>::min()), Dal::Exception_);
+
+    ASSERT_EQ(Minimum().AddDays(65534), Maximum());
+    ASSERT_EQ(Maximum().AddDays(-65534), Minimum());
+    ASSERT_EQ(Date_(2024, 1, 1).AddDays(0), Date_(2024, 1, 1));
+}
+
+TEST(DateTest, TestIncrementDecrementRejectOverflow) {
+    auto last = Maximum();
+    ASSERT_THROW(++last, Dal::Exception_);
+    ASSERT_EQ(last, Maximum());
+
+    auto first = Minimum();
+    ASSERT_THROW(--first, Dal::Exception_);
+    ASSERT_EQ(first, Minimum());
+
+    auto beforeLast = Date_(2149, 6, 4);
+    ASSERT_EQ(++beforeLast, Maximum());
+    auto afterFirst = Date_(1970, 1, 2);
+    ASSERT_EQ(--afterFirst, Minimum());
+}
+
+TEST(DateTest, TestEndOfMonthAtUpperBound) {
+    ASSERT_EQ(EndOfMonth(Date_(2149, 5, 10)), Date_(2149, 5, 31));
+    ASSERT_THROW(EndOfMonth(Date_(2149, 6, 1)), Dal::Exception_);
+    ASSERT_EQ(EndOfMonth(Date_(2024, 12, 15)), Date_(2024, 12, 31));
+}
+
+TEST(DateTest, TestDaysInMonth) {
+    ASSERT_EQ(DaysInMonth(2024, 2), 29);
+    ASSERT_EQ(DaysInMonth(2023, 2), 28);
+    ASSERT_EQ(DaysInMonth(2100, 2), 28);
+    ASSERT_EQ(DaysInMonth(2000, 2), 29);
+    ASSERT_EQ(DaysInMonth(2149, 6), 30);
+    ASSERT_EQ(DaysInMonth(2023, 12), 31);
+    ASSERT_THROW(DaysInMonth(2023, 0), Dal::Exception_);
+    ASSERT_THROW(DaysInMonth(2023, 13), Dal::Exception_);
 }

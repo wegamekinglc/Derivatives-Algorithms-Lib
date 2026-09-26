@@ -21,9 +21,12 @@ namespace {
 
     Vector_<Date_> LargeHolidaySet() {
         Vector_<Date_> result;
-        for (Date_ date(2020, 1, 1); date <= Date::Maximum(); ++date) {
+        const Date_ last = Date::Maximum();
+        for (Date_ date(2020, 1, 1);; ++date) {
             if (!Date::IsWeekEnd(date))
                 result.push_back(date);
+            if (date == last)
+                break;
         }
         return result;
     }
