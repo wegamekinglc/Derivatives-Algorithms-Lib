@@ -39,40 +39,22 @@ namespace Dal {
         }
 
         class Cholesky_ : public Sparse::SymmetricDecomposition_ {
-            SquareMatrix_<>* lower_;
-            bool needKeep_;
+            std::unique_ptr<SquareMatrix_<>> owned_;
+            SquareMatrix_<>* lower_; // observes owned_ or the caller's in-place storage
 
         public:
-            explicit Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON) {
-                std::unique_ptr<SquareMatrix_<>> owned;
-                if (lower) {
-                    lower_ = lower;
-                    needKeep_ = true;
-                }
-                else {
-                    owned.reset(new SquareMatrix_<>(src.Rows(), src.Cols()));
-                    lower_ = owned.get();
-                    needKeep_ = false;
-                }
-
+            explicit Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON)
+                : owned_(lower ? nullptr : std::make_unique<SquareMatrix_<>>(src.Rows(), src.Cols())), lower_(lower ? lower : owned_.get()) {
                 const double meanDiag = CholeskyImpl(src, lower_, regularization);
                 const double reg = Square(regularization * meanDiag);
                 const int n = lower_->Rows();
                 REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
                 for (int ii = 0; ii < n; ++ii)
                     (*lower_)(ii, ii) /= reg + Square((*lower_)(ii, ii));
-                if (owned)
-                    lower_ = owned.release();
             }
 
             Cholesky_(const Cholesky_&) = delete;
             Cholesky_& operator=(const Cholesky_&) = delete;
-            Cholesky_(Cholesky_&&) = delete;
-            Cholesky_& operator=(Cholesky_&&) = delete;
-            ~Cholesky_() override {
-                if (!needKeep_)
-                    delete lower_;
-            }
 
             void XMultiply_af(const Vector_<>& x, Vector_<>* b) const override {
                 const int n = Size();
