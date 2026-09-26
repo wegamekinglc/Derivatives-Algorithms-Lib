@@ -40,12 +40,13 @@ namespace Dal::Script {
         //  An identifier pattern with a replacement free of '$' format escapes makes the
         //  case-insensitive regex replace a literal one; String_ already compares
         //  case-insensitively, so the literal path skips compiling a regex per call
+        bool IsIdentifierChar(char c) {
+            const auto byte = static_cast<unsigned char>(c);
+            return (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') || c == '_';
+        }
+
         bool IsLiteralReplacement(const String_& pattern, const String_& replacement) {
-            const auto isWord = [](char c) {
-                const auto byte = static_cast<unsigned char>(c);
-                return (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') || c == '_';
-            };
-            return !pattern.empty() && std::all_of(pattern.begin(), pattern.end(), isWord) && replacement.find('$') == String_::npos;
+            return !pattern.empty() && std::all_of(pattern.begin(), pattern.end(), IsIdentifierChar) && replacement.find('$') == String_::npos;
         }
 
         String_ ReplaceLiteral(const String_& text, const String_& pattern, const String_& replacement) {

@@ -585,70 +585,80 @@ namespace Dal::Script {
             return rank;
         }
 
-        //  Guard order: sample size, then sigma floor, then Gram conditioning
+        bool AllFinite(const Vector_<>& values) {
+            return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); });
+        }
+
+        //  Guard order: sample size, then sigma floor; nullptr when the fit may proceed
+        const char* DegenerateReason(const RegressionStats_& stats, int degree) {
+            if (stats.count_ == 0)
+                return "ConditionPathsBelowMin";
+            if (stats.sigma_ < stats.sigmaFloor_)
+                return "SigmaFloor";
+            if (stats.count_ < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1))
+                return "ConditionPathsBelowMin";
+            return nullptr;
+        }
+
+        //  Rank-revealing fallback once the moment solve rejects the Gram matrix: lower
+        //  the degree to the recovered rank before falling back to a constant
+        void FitPivotedQr(const RegressionRows_& rows, int degree, const char* fallbackReason, double constantFit, ExerciseRegression_* result) {
+            result->solver_ = "PivotedQR";
+            result->fallbackReason_ = fallbackReason;
+            int fitDegree = degree;
+            size_t effectiveRank = static_cast<size_t>(degree) + 1;
+            while (fitDegree > 0) {
+                Vector_<> coefficients;
+                const size_t rank = PivotedQrFit(rows, result->mean_, result->sigma_, fitDegree, &coefficients);
+                effectiveRank = std::min(effectiveRank, rank);
+                if (rank == static_cast<size_t>(fitDegree + 1)) {
+                    if (!AllFinite(coefficients))
+                        break;
+                    result->coefficients_ = std::move(coefficients);
+                    result->basisDegree_ = fitDegree;
+                    result->effectiveRank_ = effectiveRank;
+                    if (fitDegree < degree)
+                        result->fallbackReason_ = "RankDeficient";
+                    return;
+                }
+                fitDegree = std::min(fitDegree - 1, static_cast<int>(rank) - 1);
+            }
+            DegradeToConstant(result, "IllConditioned", constantFit);
+        }
+
+        void FitMomentsCholesky(SquareMatrix_<>* gram, const Vector_<>& rhs, int degree, double constantFit, ExerciseRegression_* result) {
+            Vector_<Vector_<>> rhsWrapped(1, rhs);
+            CholeskySolve(gram, &rhsWrapped);
+            if (!AllFinite(rhsWrapped[0])) {
+                DegradeToConstant(result, "IllConditioned", constantFit);
+                return;
+            }
+            result->coefficients_ = rhsWrapped[0];
+            result->basisDegree_ = degree;
+            result->effectiveRank_ = static_cast<size_t>(degree) + 1;
+            result->solver_ = "MomentsCholesky";
+        }
+
         ExerciseRegression_
         FitFromMoments(const RegressionRows_& rows, const RegressionStats_& stats, double constantFit, const Moments_* moments, int degree) {
             ExerciseRegression_ result;
             result.numCondTrue_ = stats.count_;
             result.mean_ = stats.mean_;
             result.sigma_ = std::max(stats.sigma_, stats.sigmaFloor_);
-            if (stats.count_ == 0) {
-                DegradeToConstant(&result, "ConditionPathsBelowMin", 0.0);
+            if (const char* reason = DegenerateReason(stats, degree)) {
+                DegradeToConstant(&result, reason, constantFit);
                 return result;
             }
-            if (stats.sigma_ < stats.sigmaFloor_) {
-                DegradeToConstant(&result, "SigmaFloor", constantFit);
-                return result;
-            }
-            if (stats.count_ < PATHS_PER_BASIS_FUNCTION * static_cast<size_t>(degree + 1)) {
-                DegradeToConstant(&result, "ConditionPathsBelowMin", constantFit);
-                return result;
-            }
-
             const size_t nBasis = static_cast<size_t>(degree) + 1;
             REQUIRE(moments && moments->nBasis_ >= nBasis, "InvalidRegressionInput: missing regression moments");
             SquareMatrix_<> gram(static_cast<int>(nBasis), 0.0);
             Vector_<> rhs(nBasis, 0.0);
             NormalEquations(*moments, nBasis, &gram, &rhs);
-            if (const char* fallbackReason = RidgeAndIllConditioned(&gram)) {
-                result.solver_ = "PivotedQR";
-                result.fallbackReason_ = fallbackReason;
-                int fitDegree = degree;
-                size_t effectiveRank = nBasis;
-                while (fitDegree > 0) {
-                    Vector_<> coefficients;
-                    const size_t rank = PivotedQrFit(rows, result.mean_, result.sigma_, fitDegree, &coefficients);
-                    effectiveRank = std::min(effectiveRank, rank);
-                    if (rank == static_cast<size_t>(fitDegree + 1)) {
-                        const bool finite = std::all_of(coefficients.begin(), coefficients.end(), [](double c) { return std::isfinite(c); });
-                        if (finite) {
-                            result.coefficients_ = std::move(coefficients);
-                            result.basisDegree_ = fitDegree;
-                            result.effectiveRank_ = effectiveRank;
-                            if (fitDegree < degree)
-                                result.fallbackReason_ = "RankDeficient";
-                            return result;
-                        }
-                        break;
-                    }
-                    fitDegree = std::min(fitDegree - 1, static_cast<int>(rank) - 1);
-                }
-                DegradeToConstant(&result, "IllConditioned", constantFit);
-                return result;
-            }
-
-            Vector_<Vector_<>> rhsWrapped(1);
-            rhsWrapped[0] = rhs;
-            CholeskySolve(&gram, &rhsWrapped);
-            for (double coefficient : rhsWrapped[0])
-                if (!std::isfinite(coefficient)) {
-                    DegradeToConstant(&result, "IllConditioned", constantFit);
-                    return result;
-                }
-            result.coefficients_ = rhsWrapped[0];
-            result.basisDegree_ = degree;
-            result.effectiveRank_ = nBasis;
-            result.solver_ = "MomentsCholesky";
+            //  Gram conditioning is the last guard
+            if (const char* fallbackReason = RidgeAndIllConditioned(&gram))
+                FitPivotedQr(rows, degree, fallbackReason, constantFit, &result);
+            else
+                FitMomentsCholesky(&gram, rhs, degree, constantFit, &result);
             return result;
         }
 
@@ -1026,21 +1036,42 @@ namespace Dal::Script {
         //      must not "exercise" a worthless option on them.
         //  Each path sees the per-path operations of the separate passes in the same
         //  order, so the result is bitwise identical to running them one after another.
+        //  Storage rows one event's sweep reads; exercise rows stay null off exercise days
+        struct EventRows_ {
+            const double* pays_ = nullptr;
+            const double* h_ = nullptr;
+            const double* x_ = nullptr;
+            const char* cond_ = nullptr;
+        };
+
+        EventRows_ SweepRows(const LsmcStorage_& storage, const LsmcPlan_& scan, size_t event) {
+            EventRows_ rows;
+            const size_t paysSlot = scan.eventToPays_[event];
+            if (paysSlot != NO_SLOT)
+                rows.pays_ = storage.pays_[paysSlot];
+            const size_t day = scan.eventToExercise_[event];
+            if (day == NO_SLOT)
+                return rows;
+            rows.h_ = storage.hByDay_[day];
+            rows.x_ = storage.xByDay_[day];
+            if (!storage.condByDay_.empty() && !storage.condByDay_[day].empty())
+                rows.cond_ = RowData(storage.condByDay_[day]);
+            return rows;
+        }
+
+        FORCE_INLINE double HoldingValue(const double* pays, size_t path, double dNext, bool hasNext, double next) {
+            return (pays ? pays[path] : 0.0) + (hasNext ? dNext * next : 0.0);
+        }
+
+        FORCE_INLINE bool InRegressionSet(const char* cond, const double* h, size_t path) { return (!cond || cond[path] != 0) & (h[path] > 0.0); }
+
         template <bool APPLY, bool RECORD>
         IncludedSums_ SweepEvent(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, const PathBatch_& chunk, BackwardRows_* rows) {
-            const auto& storage = rows->storage_;
-            const size_t paysSlot = scan.eventToPays_[event];
-            const double* pays = paysSlot == NO_SLOT ? nullptr : storage.pays_[paysSlot];
-            const size_t day = scan.eventToExercise_[event];
-            const double* h = nullptr;
-            const double* x = nullptr;
-            const char* cond = nullptr;
-            if constexpr (RECORD) {
-                h = storage.hByDay_[day];
-                x = storage.xByDay_[day];
-                if (!storage.condByDay_.empty() && !storage.condByDay_[day].empty())
-                    cond = RowData(storage.condByDay_[day]);
-            }
+            const EventRows_ eventRows = SweepRows(rows->storage_, scan, event);
+            const double* pays = eventRows.pays_;
+            const double* h = eventRows.h_;
+            const double* x = eventRows.x_;
+            const char* cond = eventRows.cond_;
             const PendingDecision_ pending = rows->pending_;
             std::optional<LocalPredictor_> predict;
             if constexpr (APPLY)
@@ -1053,14 +1084,12 @@ namespace Dal::Script {
             IncludedSums_ sums;
             for (size_t j = chunk.firstPath_; j < end; ++j) {
                 double value = w[j];
-                if constexpr (APPLY) {
-                    const double continuation = (*predict)(pendingX[j]);
-                    value = Select((included[j] != 0) & (pendingH[j] > continuation), pendingH[j], value);
-                }
-                value = (pays ? pays[j] : 0.0) + (hasNext ? dNext * value : 0.0);
+                if constexpr (APPLY)
+                    value = Select((included[j] != 0) & (pendingH[j] > (*predict)(pendingX[j])), pendingH[j], value);
+                value = HoldingValue(pays, j, dNext, hasNext, value);
                 w[j] = value;
                 if constexpr (RECORD) {
-                    const bool in = (!cond || cond[j] != 0) & (h[j] > 0.0);
+                    const bool in = InRegressionSet(cond, h, j);
                     included[j] = static_cast<char>(in);
                     AddIncluded(in, x[j], value, &sums);
                 }
@@ -1151,6 +1180,27 @@ namespace Dal::Script {
         //  chunks on the pool, reduced in chunk order (thread-count independent, N9/N10).
         //  Each exercise day's decisions are applied by the next event's sweep; nothing
         //  reads the holding values after the first event, so its decisions are not applied.
+        //  One helper per chunk beyond the caller's, capped by the pool's workers
+        size_t HelperCount(size_t nPaths) {
+            const size_t chunks = PathChunks_(nPaths).Count();
+            return chunks > 1 ? std::min(ThreadPool_::GetInstance()->NumThreads(), chunks) - 1 : 0;
+        }
+
+        //  Sweeps one event over a path block, then leaves no decision pending
+        IncludedSums_ SweepAndClear(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, BackwardRows_* rows) {
+            const IncludedSums_ sums = SweepEvent(scan, event, dNext, hasNext, rows);
+            rows->pending_ = {};
+            return sums;
+        }
+
+        //  blocks[0] is the training block; an optional blocks[1] selects the degree
+        ExerciseRegression_ FitExerciseDay(const Vector_<BackwardRows_*>& blocks, const std::array<IncludedSums_, 2>& sums, size_t day, int degree) {
+            BackwardRows_& training = *blocks[0];
+            if (blocks.size() == 1)
+                return FitRegression(DayRows(training, day), sums[0], degree, training.chunks_);
+            return SelectRegression(DayRows(training, day), sums[0], training.chunks_, DayRows(*blocks[1], day), sums[1].count_, degree);
+        }
+
         Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx,
                                                       const Vector_<>& eventNumeraire,
                                                       size_t nPaths,
@@ -1160,32 +1210,24 @@ namespace Dal::Script {
             const auto& scan = ctx.scan_;
             const auto& events = ctx.Product().Events();
             Vector_<ExerciseRegression_> regressions(scan.days_.size());
-            const size_t maxChunks = PathChunks_(std::max(nPaths, nValidation)).Count();
-            ChunkTeamScope_ team(maxChunks > 1 ? std::min(ThreadPool_::GetInstance()->NumThreads(), maxChunks) - 1 : 0);
+            ChunkTeamScope_ team(HelperCount(std::max(nPaths, nValidation)));
             BackwardRows_ training(ctx.storage_, nPaths, team.Team());
             std::optional<BackwardRows_> validation;
+            Vector_<BackwardRows_*> blocks(1, &training);
             if (validationStorage)
-                validation.emplace(*validationStorage, nValidation, team.Team());
+                blocks.push_back(&validation.emplace(*validationStorage, nValidation, team.Team()));
             for (size_t ei = events.size(); ei-- > 0;) {
                 const bool hasNext = ei + 1 < events.size();
                 const double dNext = hasNext ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
-                const IncludedSums_ trainingSums = SweepEvent(scan, ei, dNext, hasNext, &training);
-                training.pending_ = {};
-                IncludedSums_ validationSums;
-                if (validation) {
-                    validationSums = SweepEvent(scan, ei, dNext, hasNext, &*validation);
-                    validation->pending_ = {};
-                }
-
+                std::array<IncludedSums_, 2> sums;
+                for (size_t b = 0; b < blocks.size(); ++b)
+                    sums[b] = SweepAndClear(scan, ei, dNext, hasNext, blocks[b]);
                 const size_t day = scan.eventToExercise_[ei];
                 if (day == NO_SLOT)
                     continue;
-                regressions[day] = validation ? SelectRegression(DayRows(training, day), trainingSums, training.chunks_, DayRows(*validation, day),
-                                                                 validationSums.count_, degree)
-                                              : FitRegression(DayRows(training, day), trainingSums, degree, training.chunks_);
-                DeferDecision(regressions[day], day, &training);
-                if (validation)
-                    DeferDecision(regressions[day], day, &*validation);
+                regressions[day] = FitExerciseDay(blocks, sums, day, degree);
+                for (BackwardRows_* rows : blocks)
+                    DeferDecision(regressions[day], day, rows);
             }
             team.Complete();
             return regressions;
