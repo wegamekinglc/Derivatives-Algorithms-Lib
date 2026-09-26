@@ -33,9 +33,9 @@ namespace Dal::Script {
         //  Driver-installed recording sinks; storage rows are indexed by global path slot
         const Vector_<size_t>* eventToPays_ = nullptr;
         const Vector_<size_t>* eventToExercise_ = nullptr;
-        Vector_<Vector_<>>* paysStorage_ = nullptr;
-        Vector_<Vector_<>>* xStorage_ = nullptr;
-        Vector_<Vector_<>>* hStorage_ = nullptr;
+        LsmcRows_* paysStorage_ = nullptr;
+        LsmcRows_* xStorage_ = nullptr;
+        LsmcRows_* hStorage_ = nullptr;
         Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
         double pricingX_ = 0.0;
         double pricingH_ = 0.0;

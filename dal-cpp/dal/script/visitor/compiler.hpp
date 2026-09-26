@@ -40,9 +40,9 @@ namespace Dal::Script {
     struct LsmcSinks_ {
         const Vector_<size_t>* eventToPays_ = nullptr;
         const Vector_<size_t>* eventToExercise_ = nullptr;
-        Vector_<Vector_<>>* pays_ = nullptr;
-        Vector_<Vector_<>>* x_ = nullptr;
-        Vector_<Vector_<>>* h_ = nullptr;
+        LsmcRows_* pays_ = nullptr;
+        LsmcRows_* x_ = nullptr;
+        LsmcRows_* h_ = nullptr;
         Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
         double pricingX_ = 0.0;
         double pricingH_ = 0.0;

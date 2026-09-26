@@ -373,6 +373,60 @@ TEST(ScriptExerciseLSMCTest, TestRegressionRejectsNonFiniteIncludedData) {
     }
 }
 
+TEST(ScriptExerciseLSMCTest, TestRegressionIgnoresNonFiniteExcludedData) {
+    constexpr size_t N = 300;
+    Vector_<> x(N), targets(N);
+    Vector_<char> included(N, 0);
+    Vector_<> compactX, compactTargets;
+    for (size_t i = 0; i < N; ++i) {
+        x[i] = 60.0 + 0.2 * static_cast<double>(i);
+        targets[i] = std::max(100.0 - x[i], 0.0) + 0.01 * static_cast<double>(i % 7);
+        included[i] = static_cast<char>(i % 3 != 0);
+        if (included[i]) {
+            compactX.push_back(x[i]);
+            compactTargets.push_back(targets[i]);
+        } else {
+            x[i] = i % 2 ? std::numeric_limits<double>::quiet_NaN() : std::numeric_limits<double>::infinity();
+            targets[i] = -std::numeric_limits<double>::infinity();
+        }
+    }
+    const auto masked = SolveExerciseRegression(x, targets, included, 3);
+    const auto compact = SolveExerciseRegression(compactX, compactTargets, AllIncluded(compactX.size()), 3);
+    ASSERT_EQ(masked.numCondTrue_, compactX.size());
+    ASSERT_EQ(masked.solver_, compact.solver_);
+    ASSERT_EQ(masked.mean_, compact.mean_);
+    ASSERT_EQ(masked.sigma_, compact.sigma_);
+    ASSERT_EQ(masked.coefficients_, compact.coefficients_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestMaskedRegressionAcrossPathChunksMatchesHouseholderReference) {
+    //  Spans several 8192-path reduction chunks with a pseudo-random, roughly half-open mask
+    constexpr size_t N = 3 * 8192 + 17;
+    Vector_<> x(N), targets(N);
+    Vector_<char> included(N);
+    Vector_<> compactX, compactTargets;
+    uint64_t state = 12345;
+    for (size_t i = 0; i < N; ++i) {
+        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+        x[i] = 60.0 + 80.0 * static_cast<double>(state >> 11) / 9007199254740992.0;
+        targets[i] = std::max(100.0 - x[i], 0.0) + 0.5 * std::sin(x[i] / 7.0);
+        included[i] = static_cast<char>((state >> 7) & 1);
+        if (included[i]) {
+            compactX.push_back(x[i]);
+            compactTargets.push_back(targets[i]);
+        }
+    }
+    for (int degree : {1, 3, 5}) {
+        SCOPED_TRACE(degree);
+        const auto fit = SolveExerciseRegression(x, targets, included, degree);
+        ASSERT_EQ(fit.numCondTrue_, compactX.size());
+        ASSERT_EQ(fit.solver_, "MomentsCholesky");
+        const auto reference = HouseholderReference(compactX, compactTargets, degree, fit.mean_, fit.sigma_);
+        for (double spot : {62.0, 85.0, 100.0, 118.0, 139.0})
+            ASSERT_NEAR(RegressionPredict(fit, spot), Horner(reference, (spot - fit.mean_) / fit.sigma_), 1e-8);
+    }
+}
+
 TEST(ScriptExerciseLSMCTest, TestConstantRegressionAvoidsNormalizationOverflow) {
     const auto fit = SolveExerciseRegression(Vector_<>(100, 0.0), Vector_<>(100, 2.0), AllIncluded(100), 3);
     ASSERT_EQ(RegressionPredict(fit, std::numeric_limits<double>::max()), 2.0);
@@ -1069,6 +1123,29 @@ TEST(ScriptExerciseLSMCTest, TestRqmcThreadInvarianceBitwise) {
     ASSERT_EQ(BitsOf(aadOne.aggregated_), BitsOf(aadFour.aggregated_));
     for (size_t i = 0; i < aadOne.risks_.size(); ++i)
         ASSERT_EQ(BitsOf(aadOne.risks_[i]), BitsOf(aadFour.risks_[i]));
+}
+
+TEST(ScriptExerciseLSMCTest, TestConcurrentPoolValuationsShareHelpersBitwise) {
+    //  Several training chunks, so every backward phase starts a helper team; the
+    //  valuations run as pool tasks and pick up each other's helpers while they wait
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    PoolRestore_ pool;
+    pool.pool_->Start(4, true);
+    const auto product = ExerciseOnlyProduct(WeeklyDates(8));
+    const auto reference = RunLsmc(product, StandardModel(), 4096, 3, false, 3 * 8192);
+    for (int round = 0; round < 3; ++round) {
+        constexpr size_t N_VALUATIONS = 6;
+        Vector_<LsmcRun_> runs(N_VALUATIONS, LsmcRun_{0.0, {}});
+        SimulationTaskGroup_ tasks(pool.pool_, N_VALUATIONS);
+        for (size_t k = 0; k < N_VALUATIONS; ++k)
+            tasks.Spawn([&, k]() {
+                runs[k] = RunLsmc(product, StandardModel(), 4096, 3, false, 3 * 8192);
+                return true;
+            });
+        tasks.Complete();
+        for (const auto& run : runs)
+            AssertBitwiseEqual(reference, run);
+    }
 }
 
 TEST(ScriptExerciseLSMCTest, TestThreadInvarianceBitwise) {
