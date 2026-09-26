@@ -25,19 +25,33 @@ namespace Dal {
         Vector_<String_> factorNames_;
         Matrix_<> lower_;
 
-        static Matrix_<> OrderedMatrix(const Vector_<String_>& registry, const Vector_<String_>& inputNames, const Matrix_<>& input) {
+        static void ValidateDimensions(const Vector_<String_>& registry, const Vector_<String_>& inputNames, const Matrix_<>& input) {
             const int n = static_cast<int>(registry.size());
             REQUIRE(n > 0 && inputNames.size() == registry.size() && input.Rows() == n && input.Cols() == n,
                     "InvalidHybridCorrelation: factor names and matrix dimensions must match the registry");
+        }
+
+        static void ValidateUniqueNames(const Vector_<String_>& inputNames) {
             for (size_t i = 0; i < inputNames.size(); ++i)
                 for (size_t j = 0; j < i; ++j)
                     REQUIRE(inputNames[i] != inputNames[j], "InvalidHybridCorrelation: duplicate factor " + inputNames[i]);
+        }
+
+        static Vector_<int> InputSlots(const Vector_<String_>& registry, const Vector_<String_>& inputNames) {
             Vector_<int> slots;
             for (const auto& name : registry) {
                 const auto found = std::find(inputNames.begin(), inputNames.end(), name);
                 REQUIRE(found != inputNames.end(), "InvalidHybridCorrelation: missing factor " + name);
                 slots.push_back(static_cast<int>(found - inputNames.begin()));
             }
+            return slots;
+        }
+
+        static Matrix_<> OrderedMatrix(const Vector_<String_>& registry, const Vector_<String_>& inputNames, const Matrix_<>& input) {
+            ValidateDimensions(registry, inputNames, input);
+            ValidateUniqueNames(inputNames);
+            const auto slots = InputSlots(registry, inputNames);
+            const int n = static_cast<int>(registry.size());
             Matrix_<> ordered(n, n, 0.0);
             for (int i = 0; i < n; ++i)
                 for (int j = 0; j < n; ++j)
@@ -45,16 +59,24 @@ namespace Dal {
             return ordered;
         }
 
+        static void ValidateDiagonal(const Matrix_<>& correlations, int i) {
+            REQUIRE(std::isfinite(correlations(i, i)) && std::abs(correlations(i, i) - 1.0) <= 1e-12,
+                    "InvalidHybridCorrelation: diagonal entries must equal one");
+        }
+
+        static void ValidateSymmetricEntry(const Matrix_<>& correlations, int i, int j) {
+            REQUIRE(std::isfinite(correlations(i, j)) && std::isfinite(correlations(j, i)) &&
+                        std::abs(correlations(i, j) - correlations(j, i)) <= 1e-12,
+                    "InvalidHybridCorrelation: matrix must be finite and symmetric");
+        }
+
         static Matrix_<> Factorize(const Matrix_<>& correlations) {
             const int n = correlations.Rows();
             Matrix_<> lower(n, n, 0.0);
             for (int i = 0; i < n; ++i) {
-                REQUIRE(std::isfinite(correlations(i, i)) && std::abs(correlations(i, i) - 1.0) <= 1e-12,
-                        "InvalidHybridCorrelation: diagonal entries must equal one");
+                ValidateDiagonal(correlations, i);
                 for (int j = 0; j <= i; ++j) {
-                    REQUIRE(std::isfinite(correlations(i, j)) && std::isfinite(correlations(j, i)) &&
-                                std::abs(correlations(i, j) - correlations(j, i)) <= 1e-12,
-                            "InvalidHybridCorrelation: matrix must be finite and symmetric");
+                    ValidateSymmetricEntry(correlations, i, j);
                     double sum = correlations(i, j);
                     for (int k = 0; k < j; ++k)
                         sum -= lower(i, k) * lower(j, k);
@@ -241,35 +263,53 @@ namespace Dal {
                 BuildSlotsAndParameters();
             }
 
+            void ValidateComponentIdentity(size_t i) const {
+                const auto& component = *components_[i];
+                REQUIRE(!component.Name().empty() && component.Currency() == domesticCurrency_,
+                        "InvalidHybridCurrency: component " + component.Name() + " must use " + domesticCurrency_);
+                REQUIRE(i == 0 || component.Name() != components_[i - 1]->Name(), "DuplicateHybridComponent: " + component.Name());
+                REQUIRE(component.FactorNames().size() == component.FactorDim(),
+                        "InvalidHybridFactor: factor labels must match the component factor dimension for " + component.Name());
+                REQUIRE(component.Parameters().size() == component.ParameterLabels().size(),
+                        "InvalidHybridComponent: parameter labels must match parameters for " + component.Name());
+            }
+
+            void AddObservableNames(const HybridComponent_<T_>& component) {
+                for (const auto& name : component.ObservableNames()) {
+                    REQUIRE(std::find(assetNames_.begin(), assetNames_.end(), name) == assetNames_.end(), "DuplicateHybridObservable: " + name);
+                    assetNames_.push_back(name);
+                }
+            }
+
+            void AddFactorNames(const HybridComponent_<T_>& component) {
+                for (const auto& name : component.FactorNames()) {
+                    REQUIRE(!name.empty() && std::find(factorNames_.begin(), factorNames_.end(), name) == factorNames_.end(),
+                            "DuplicateHybridFactor: " + name);
+                    factorNames_.push_back(name);
+                }
+            }
+
+            void RegisterComponent(size_t i, size_t* numNumeraires) {
+                const auto& component = *components_[i];
+                ValidateComponentIdentity(i);
+                if (component.ProvidesNumeraire()) {
+                    rateSlot_ = i;
+                    ++*numNumeraires;
+                }
+                if (!component.ObservableNames().empty() && assetNames_.empty())
+                    spotSlot_ = i;
+                AddObservableNames(component);
+                AddFactorNames(component);
+            }
+
             void ValidateAndOrderComponents() {
                 REQUIRE(!components_.empty() && !domesticCurrency_.empty(), "InvalidHybridModel: components and domestic currency are required");
                 for (const auto& component : components_)
                     REQUIRE(component, "InvalidHybridComponent: null component");
                 std::sort(components_.begin(), components_.end(), [](const auto& lhs, const auto& rhs) { return lhs->Name() < rhs->Name(); });
                 size_t numNumeraires = 0;
-                for (size_t i = 0; i < components_.size(); ++i) {
-                    const auto& component = *components_[i];
-                    REQUIRE(!component.Name().empty() && component.Currency() == domesticCurrency_,
-                            "InvalidHybridCurrency: component " + component.Name() + " must use " + domesticCurrency_);
-                    REQUIRE(i == 0 || component.Name() != components_[i - 1]->Name(), "DuplicateHybridComponent: " + component.Name());
-                    REQUIRE(component.FactorNames().size() == component.FactorDim(),
-                            "InvalidHybridFactor: factor labels must match the component factor dimension for " + component.Name());
-                    if (component.ProvidesNumeraire()) {
-                        rateSlot_ = i;
-                        ++numNumeraires;
-                    }
-                    if (!component.ObservableNames().empty() && assetNames_.empty())
-                        spotSlot_ = i;
-                    for (const auto& name : component.ObservableNames()) {
-                        REQUIRE(std::find(assetNames_.begin(), assetNames_.end(), name) == assetNames_.end(), "DuplicateHybridObservable: " + name);
-                        assetNames_.push_back(name);
-                    }
-                    for (const auto& name : component.FactorNames()) {
-                        REQUIRE(!name.empty() && std::find(factorNames_.begin(), factorNames_.end(), name) == factorNames_.end(),
-                                "DuplicateHybridFactor: " + name);
-                        factorNames_.push_back(name);
-                    }
-                }
+                for (size_t i = 0; i < components_.size(); ++i)
+                    RegisterComponent(i, &numNumeraires);
                 REQUIRE(numNumeraires == 1, "InvalidHybridNumeraire: exactly one domestic numeraire provider is required");
                 REQUIRE(!assetNames_.empty(), "InvalidHybridModel: at least one observable is required");
                 std::sort(factorNames_.begin(), factorNames_.end());
