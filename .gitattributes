@@ -18,6 +18,10 @@
 *.ts   text eol=lf
 *.tsx  text eol=lf
 
+# Machinist emits a trailing tab after generated C++ blocks; keep generated
+# output byte-for-byte stable while excluding that whitespace from diff checks.
+dal-cpp/dal/auto/** whitespace=-trailing-space,-blank-at-eof
+
 # Binary payloads — never normalize.
 *.png  binary
 *.jpg  binary
