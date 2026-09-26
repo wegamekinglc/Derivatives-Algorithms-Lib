@@ -383,11 +383,29 @@ TEST(ModelTest, TestCorrelatedBlackScholesArchiveAndBridge) {
     const Vector_<> timeline{1.0};
     const Vector_<AAD::SampleDef_> definitions(1);
     model->Allocate(timeline, definitions);
-    ASSERT_THROW((void)Script::CreateRNG("sobol", *model, true), Exception_);
+    ASSERT_NO_THROW((void)Script::CreateRNG("sobol", *model, true));
     ASSERT_NO_THROW((void)Script::CreateRNG("sobol", *model, false));
     AAD::CorrelatedBlackScholes_<> oneAsset({"EQ[AAA]"}, {100.0}, {0.2}, {0.01}, 0.05, Matrix_<>(1, 1, 1.0));
     oneAsset.Allocate(timeline, definitions);
     ASSERT_NO_THROW((void)Script::CreateRNG("sobol", oneAsset, true));
+}
+
+TEST(ModelTest, TestCorrelatedBlackScholesFactorAwareBridgeSupportsMultipleFactors) {
+    AAD::CorrelatedBlackScholes_<> model({"EQ[AAA]", "EQ[BBB]"}, {100.0, 120.0}, {0.2, 0.3}, {0.01, 0.02}, 0.05, Correlation(0.35));
+    const Vector_<> timeline{0.0, 0.5, 1.0};
+    const Vector_<AAD::SampleDef_> definitions(3);
+    model.Allocate(timeline, definitions);
+    auto rng = Script::CreateRNG("sobol", model, true);
+    ASSERT_TRUE(rng);
+    ASSERT_EQ(rng->NDim(), model.SimDim());
+    Vector_<> gaussians;
+    rng->FillNormal(&gaussians);
+    ASSERT_EQ(gaussians.size(), 4);
+    AAD::CorrelatedBlackScholes_<> todayOnly({"EQ[AAA]", "EQ[BBB]"}, {100.0, 120.0}, {0.2, 0.3}, {0.01, 0.02}, 0.05, Correlation(0.35));
+    const Vector_<> today{0.0};
+    const Vector_<AAD::SampleDef_> todayDefinitions(1);
+    todayOnly.Allocate(today, todayDefinitions);
+    ASSERT_FALSE(Script::CreateRNG("sobol", todayOnly, true));
 }
 
 TEST(ModelTest, TestCorrelatedBlackScholesCloneThreadDeterminism) {

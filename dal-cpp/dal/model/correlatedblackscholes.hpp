@@ -228,6 +228,8 @@ namespace Dal {
             [[nodiscard]] size_t MaxObservedIndices() const override { return assetNames_.size(); }
             [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t NumFactors() const override { return assetNames_.size(); }
+            [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
+            [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
             [[nodiscard]] size_t NumAssets() const override { return assetNames_.size(); }
             [[nodiscard]] const Vector_<String_>& AssetNames() const override { return assetNames_; }
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }

@@ -35,8 +35,9 @@ namespace Dal::AAD {
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
         Vector_<Vector_<T_>> forwards_;
-        //  Reusable model-owned path state; only the first sample is used by correlated BS.
+        //  Reusable model-owned path state; correlated BS and hybrid models use the first sample.
         Vector_<T_> modelScratch_;
+        Vector_<> modelFactorScratch_;
 
         void Allocate(const SampleDef_& data) {
             observations_.Resize(data.indexNames_.size());

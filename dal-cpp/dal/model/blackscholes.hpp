@@ -145,6 +145,7 @@ namespace Dal {
             };
 
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
+            [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
 
             template <class U_>
             BlackScholes_(const U_& spot,
