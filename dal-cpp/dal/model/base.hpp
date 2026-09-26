@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -40,11 +43,12 @@ namespace Dal {
                 return defaultAssetNames_;
             }
 
-            //  validatedNames memoizes raw name -> canonical name for this timeline traversal: every
-            //  sample definition repeats the same observed index, and the batch drivers re-Allocate a
-            //  model per batch, so an unmemoized loop re-parses one constant string per sample date
-            void ValidateSampleOutputs(const SampleDef_& definition, String_* indexName, Vector_<std::pair<String_, String_>>* validatedNames) const {
-                REQUIRE(definition.indexNames_.size() <= 1, "UnsupportedModelObservation: one EQ output per sample");
+            //  Sample definitions commonly repeat observed names across dates. Cache each raw-to-canonical
+            //  name mapping during timeline validation so batch Allocate does not re-parse it per date.
+            void ValidateSampleOutputs(const SampleDef_& definition,
+                                       Vector_<String_>* seenIndices,
+                                       Vector_<std::pair<String_, String_>>* validatedNames) const {
+                REQUIRE(definition.indexNames_.size() <= MaxOutputSlotsPerSample(), "UnsupportedModelObservation: too many outputs per sample");
                 for (const auto& name : definition.indexNames_) {
                     String_ canonical;
                     bool known = false;
@@ -61,22 +65,27 @@ namespace Dal {
                         canonical = index->Name();
                         validatedNames->emplace_back(name, canonical);
                     }
-                    REQUIRE(indexName->empty() || *indexName == canonical, "UnsupportedModelObservation: multiple future indices");
-                    *indexName = canonical;
+                    if (std::find(seenIndices->begin(), seenIndices->end(), canonical) == seenIndices->end())
+                        seenIndices->push_back(canonical);
+                    REQUIRE(seenIndices->size() <= MaxObservedIndices(), "UnsupportedModelObservation: multiple future indices");
                 }
             }
 
         public:
             [[nodiscard]] virtual bool SupportsIndex(const Index_& index) const { return false; }
+            [[nodiscard]] virtual size_t MaxObservedIndices() const { return 1; }
+            [[nodiscard]] virtual size_t MaxOutputSlotsPerSample() const { return 1; }
+            [[nodiscard]] virtual size_t NumFactors() const { return 1; }
+            [[nodiscard]] virtual bool SupportsBrownianBridge() const { return NumFactors() == 1; }
 
             void ValidateTimeline(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) const {
                 REQUIRE(!timeline.empty() && timeline.size() == definitions.size(), "InvalidModelTimeline: sample definitions must match dates");
-                String_ indexName;
+                Vector_<String_> seenIndices;
                 Vector_<std::pair<String_, String_>> validatedNames;
                 for (size_t i = 0; i < timeline.size(); ++i) {
                     REQUIRE(std::isfinite(timeline[i]) && timeline[i] >= 0.0 && (i == 0 || timeline[i] > timeline[i - 1]),
                             "InvalidModelTimeline: times must be nonnegative, finite and strictly increasing");
-                    ValidateSampleOutputs(definitions[i], &indexName, &validatedNames);
+                    ValidateSampleOutputs(definitions[i], &seenIndices, &validatedNames);
                 }
             }
 

@@ -44,8 +44,11 @@ contribution is divided by the event's own numeraire. Historical `PAYS` are
 expired. The detailed binding and today-fixing rules are in
 [script preparation](../methodology/script_engine.md#historical-fixing-preparation).
 
-The factory currently constructs Black-Scholes and Dupire local-volatility
-models from public model data. Both provide deterministic rates for LSM. The
+The factory constructs Black-Scholes, Dupire local-volatility, and
+[correlated equity Black-Scholes](correlated-bs.md) models from model data.
+Script preparation and public valuation currently accept only the first two;
+multi-asset script binding is planned for the next stage. Both currently
+script-supported models provide deterministic rates for LSM. The
 future observation plan keeps exact event-to-sample mapping rather than
 assuming one model sample per script event. A model path with a non-finite or
 non-positive numeraire is rejected as `InvalidModelPath`.

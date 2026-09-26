@@ -11,6 +11,7 @@ set(DAL_BENCHMARK_TARGETS
     cholesky_perf
     specialfunctions_perf
     black_perf
+    correlated_bs_perf
     iv_brent_perf
     script_mc_perf
     xccy_perf
