@@ -1165,8 +1165,6 @@ namespace Dal::Script {
         template <bool Prepared_, bool Lsmc_, class T_>
         FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
-            if (op >= VectorRead && op <= VectorReduce)
-                return EvalCompiledVector(event, i, statePtr);
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
             if (op <= PaysConst)
@@ -1177,6 +1175,9 @@ namespace Dal::Script {
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
+            // Keep vector dispatch off the hot path for scalar-only scripts.
+            if (op >= VectorRead && op <= VectorReduce)
+                return EvalCompiledVector(event, i, statePtr);
             if constexpr (Prepared_) {
                 if (op > FuzzyIf)
                     return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
