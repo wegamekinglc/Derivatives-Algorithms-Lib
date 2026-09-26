@@ -141,15 +141,18 @@ namespace Dal {
             Vector_<String_> labels_;
 
             void SetParameterPointers() { parameters_ = {&spot_, &vol_, &div_}; }
+            void ValidateParameters() const {
+                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0 && std::isfinite(Value(vol_)) && Value(vol_) >= 0.0 &&
+                            std::isfinite(Value(div_)),
+                        "InvalidHybridComponent: invalid BS equity parameters for " + name_);
+            }
 
         public:
             explicit HybridBSEquity_(const HybridBSEquityData_& data)
                 : name_(data.Name()), currency_(data.currency_), factors_({data.factor_}), observables_({data.index_}), spot_(data.spot_),
                   vol_(data.vol_), div_(data.div_), labels_(data.RiskLabels()) {
                 SetParameterPointers();
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0 && std::isfinite(Value(vol_)) && Value(vol_) >= 0.0 &&
-                            std::isfinite(Value(div_)),
-                        "InvalidHybridComponent: invalid BS equity parameters for " + name_);
+                ValidateParameters();
             }
             [[nodiscard]] const String_& Name() const override { return name_; }
             [[nodiscard]] const String_& Currency() const override { return currency_; }
@@ -160,6 +163,7 @@ namespace Dal {
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
             [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
             void Prepare(const Vector_<>& timeline, const T_& domesticRate) override {
+                ValidateParameters();
                 drifts_.Resize(timeline.size() - 1);
                 stds_.Resize(timeline.size() - 1);
                 for (size_t step = 0; step + 1 < timeline.size(); ++step) {
@@ -198,12 +202,13 @@ namespace Dal {
             Vector_<String_> labels_;
 
             void SetParameterPointers() { parameters_ = {&rate_}; }
+            void ValidateRate() const { REQUIRE(std::isfinite(Value(rate_)), "InvalidHybridComponent: non-finite domestic rate for " + name_); }
 
         public:
             explicit HybridDeterministicRate_(const HybridDeterministicRateData_& data)
                 : name_(data.Name()), currency_(data.currency_), rate_(data.rate_), labels_(data.RiskLabels()) {
                 SetParameterPointers();
-                REQUIRE(std::isfinite(Value(rate_)), "InvalidHybridComponent: non-finite domestic rate for " + name_);
+                ValidateRate();
             }
             [[nodiscard]] const String_& Name() const override { return name_; }
             [[nodiscard]] const String_& Currency() const override { return currency_; }
@@ -215,7 +220,10 @@ namespace Dal {
             [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
             [[nodiscard]] bool ProvidesNumeraire() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
-            [[nodiscard]] T_ DomesticRate() const override { return rate_; }
+            [[nodiscard]] T_ DomesticRate() const override {
+                ValidateRate();
+                return rate_;
+            }
             [[nodiscard]] T_ Numeraire(double time) const override { return Dal::exp(rate_ * time); }
             void Prepare(const Vector_<>&, const T_&) override {}
             void ResetState(Vector_<T_>*, size_t) const override {}

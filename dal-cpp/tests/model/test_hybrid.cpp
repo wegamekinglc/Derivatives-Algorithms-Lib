@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <future>
+#include <limits>
 #include <string>
 
 #include <dal/curve/tapeguard.hpp>
@@ -210,6 +211,20 @@ TEST(ModelTest, TestHybridRejectsInvalidSetupBeforePathGeneration) {
     Vector_<AAD::SampleDef_> definitions(1);
     definitions[0].indexNames_ = {"EQ[CCC]"};
     ASSERT_THROW(model->Allocate(timeline, definitions), Exception_);
+}
+
+TEST(ModelTest, TestHybridRejectsParametersChangedAfterConstruction) {
+    const auto check = [](size_t parameterSlot, double invalidValue) {
+        auto model = CreateModel<double>(HybridData(TwoEquitySettings()));
+        *model->Parameters()[parameterSlot] = invalidValue;
+        const Vector_<> timeline{1.0};
+        Vector_<AAD::SampleDef_> definitions(1);
+        model->Allocate(timeline, definitions);
+        ASSERT_THROW(model->Init(timeline, definitions), Exception_);
+    };
+    check(0, -1.0);
+    check(1, -0.2);
+    check(6, std::numeric_limits<double>::quiet_NaN());
 }
 
 TEST(ModelTest, TestHybridAadComponentRisksAndCloneOwnership) {
