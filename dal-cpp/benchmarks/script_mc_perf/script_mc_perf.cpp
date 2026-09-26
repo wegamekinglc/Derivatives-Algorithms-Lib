@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <charconv>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
@@ -144,6 +146,20 @@ namespace {
         Bench::DoNotOptimize(&sink);
     }
 
+    void
+    RunRegressionCase(const std::string& name, const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree, int repeats) {
+        double sink = 0.0;
+        auto r = Bench::Run(
+            name,
+            [&]() {
+                const auto fit = SolveExerciseRegression(x, targets, included, degree);
+                sink += RegressionPredict(fit, 95.0);
+            },
+            1, repeats);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
+
     void RunRegressionCase(int degree, int repeats) {
         constexpr size_t N_PATHS = 100000;
         Vector_<> x(N_PATHS), targets(N_PATHS);
@@ -152,16 +168,23 @@ namespace {
             x[i] = 80.0 + 40.0 * static_cast<double>(i) / static_cast<double>(N_PATHS - 1);
             targets[i] = std::max(100.0 - x[i], 0.0);
         }
-        double sink = 0.0;
-        auto r = Bench::Run(
-            "LSMC regression degree=" + std::to_string(degree) + " (100000 paths)",
-            [&]() {
-                const auto fit = SolveExerciseRegression(x, targets, included, degree);
-                sink += RegressionPredict(fit, 95.0);
-            },
-            1, repeats);
-        Bench::Print(r);
-        Bench::DoNotOptimize(&sink);
+        RunRegressionCase("LSMC regression degree=" + std::to_string(degree) + " (100000 paths)", x, targets, included, degree, repeats);
+    }
+
+    //  Real regression sets are the in-the-money paths in path order: a mask of about
+    //  one half with no pattern a branch predictor can learn
+    void RunMaskedRegressionCase(int degree, int repeats) {
+        constexpr size_t N_PATHS = 100000;
+        Vector_<> x(N_PATHS), targets(N_PATHS);
+        Vector_<char> included(N_PATHS);
+        uint64_t state = 20260926;
+        for (size_t i = 0; i < N_PATHS; ++i) {
+            state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+            x[i] = 80.0 + 40.0 * static_cast<double>(state >> 11) / 9007199254740992.0;
+            targets[i] = std::max(100.0 - x[i], 0.0) + 0.1 * std::sin(x[i]);
+            included[i] = static_cast<char>(x[i] < 100.0);
+        }
+        RunRegressionCase("LSMC regression degree=" + std::to_string(degree) + " ITM mask (100000 paths)", x, targets, included, degree, repeats);
     }
 
     bool ParsePathCount(const char* text, size_t* count) {
@@ -289,6 +312,8 @@ int main(int argc, char** argv) {
     RunDoubleExerciseCase(true, 100000, kRepeats);
     RunRegressionCase(3, kRepeats);
     RunRegressionCase(8, kRepeats);
+    RunMaskedRegressionCase(3, kRepeats);
+    RunMaskedRegressionCase(8, kRepeats);
 
     return 0;
 }
