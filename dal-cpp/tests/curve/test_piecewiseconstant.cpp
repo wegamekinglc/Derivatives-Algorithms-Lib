@@ -61,7 +61,7 @@ TEST(PiecewiseConstantTest, TestDiscountPwcPersistenceRoundTrips) {
 
     ASSERT_TRUE(restored);
     ASSERT_EQ(restored->Name(), "pwc");
-    ASSERT_EQ(restored->ccy_.String(), "USD");
+    ASSERT_STREQ(restored->ccy_.String(), "USD");
     ASSERT_EQ(restored->KnotDates(), knots);
     ASSERT_EQ(restored->FRight(), right);
     ASSERT_DOUBLE_EQ(

@@ -329,7 +329,7 @@ TEST(XccyCalibrationTest, TestJointBuilderRoundTripsEveryField) {
     ASSERT_EQ(spec.collateralCurrency_, builder.collateralCurrency_);
     ASSERT_NEAR(spec.fxSpot_, 1.0825, 1.0e-15);
     ASSERT_EQ(spec.domestic_.ccy_, builder.domestic_.ccy_);
-    ASSERT_EQ(spec.domestic_.liborBasis_.String(), builder.domestic_.liborBasis_.String());
+    ASSERT_STREQ(spec.domestic_.liborBasis_.String(), builder.domestic_.liborBasis_.String());
     ASSERT_EQ(spec.domestic_.curves_.size(), static_cast<size_t>(1));
     ASSERT_EQ(spec.domestic_.curves_.front().curveName_, domesticDiscount.curveName_);
     ASSERT_EQ(spec.domestic_.curves_.front().instruments_.front().get(), domesticDiscount.instruments_.front().get());
@@ -343,7 +343,7 @@ TEST(XccyCalibrationTest, TestJointBuilderRoundTripsEveryField) {
     ASSERT_NEAR(spec.domestic_.curves_.front().smoothingWeight_, domesticDiscount.smoothingWeight_, 1.0e-15);
     ASSERT_EQ(spec.domestic_.curves_.front().initialGuessPerNode_, domesticDiscount.initialGuessPerNode_);
     ASSERT_EQ(spec.foreign_.ccy_, builder.foreign_.ccy_);
-    ASSERT_EQ(spec.foreign_.liborBasis_.String(), builder.foreign_.liborBasis_.String());
+    ASSERT_STREQ(spec.foreign_.liborBasis_.String(), builder.foreign_.liborBasis_.String());
     ASSERT_EQ(spec.foreign_.curves_.size(), static_cast<size_t>(1));
     ASSERT_EQ(spec.foreign_.curves_.front().curveName_, foreignForward.curveName_);
     ASSERT_EQ(spec.foreign_.curves_.front().instruments_.front().get(), foreignForward.instruments_.front().get());
