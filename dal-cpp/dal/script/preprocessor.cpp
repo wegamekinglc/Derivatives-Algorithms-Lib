@@ -2,7 +2,9 @@
 // Created by wegam on 2026/5/30.
 //
 
+#include <algorithm>
 #include <cmath>
+#include <optional>
 #include <regex>
 
 #include <dal/platform/platform.hpp>
@@ -35,16 +37,47 @@ namespace Dal::Script {
                 found->second += "\n" + statement;
         }
 
+        //  An identifier pattern with a replacement free of '$' format escapes makes the
+        //  case-insensitive regex replace a literal one; String_ already compares
+        //  case-insensitively, so the literal path skips compiling a regex per call
+        bool IsLiteralReplacement(const String_& pattern, const String_& replacement) {
+            const auto isWord = [](char c) {
+                const auto byte = static_cast<unsigned char>(c);
+                return (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') || c == '_';
+            };
+            return !pattern.empty() && std::all_of(pattern.begin(), pattern.end(), isWord) && replacement.find('$') == String_::npos;
+        }
+
+        String_ ReplaceLiteral(const String_& text, const String_& pattern, const String_& replacement) {
+            String_ result;
+            size_t start = 0;
+            for (size_t found = text.find(pattern); found != String_::npos; found = text.find(pattern, start)) {
+                result.append(text, start, found - start);
+                result += replacement;
+                start = found + pattern.size();
+            }
+            result.append(text, start, String_::npos);
+            return result;
+        }
+
         String_ ReplaceOutsideIndices(const String_& statement, const String_& pattern, const String_& replacement) {
-            const std::regex expression(pattern, std::regex_constants::icase);
+            const bool literal = IsLiteralReplacement(pattern, replacement);
+            if (literal && statement.find(pattern) == String_::npos)
+                return statement;
+            std::optional<std::regex> expression;
+            if (!literal)
+                expression.emplace(pattern.c_str(), std::regex_constants::icase);
+            const auto replace = [&](const String_& text) {
+                return literal ? ReplaceLiteral(text, pattern, replacement) : String_(std::regex_replace(text, *expression, replacement));
+            };
             String_ result;
             size_t start = 0;
             for (const auto& range : IndexLiteralRanges(statement)) {
-                result += std::regex_replace(String_(statement.substr(start, range.first - start)), expression, replacement);
+                result += replace(String_(statement.substr(start, range.first - start)));
                 result += statement.substr(range.first, range.second - range.first);
                 start = range.second;
             }
-            return result + std::regex_replace(String_(statement.substr(start)), expression, replacement);
+            return result + replace(String_(statement.substr(start)));
         }
 
         String_ TrimVectorToken(const String_& token) {
@@ -99,9 +132,11 @@ namespace Dal::Script {
     String_ Preprocessor_::ExpandSchedulePlaceholders(const String_& statement,
                                                       const Date_& begin,
                                                       const Date_& end) const {
-        String_ replaced = ReplaceOutsideIndices(statement, "PeriodBegin", Date::ToString(begin));
-        replaced = ReplaceOutsideIndices(replaced, "PeriodEnd", Date::ToString(end));
-        return replaced;
+        //  Most schedule rows name no placeholder, so their dates are formatted only on demand
+        const auto expand = [](const String_& text, const char* placeholder, const Date_& date) {
+            return text.find(placeholder) == String_::npos ? text : ReplaceOutsideIndices(text, placeholder, Date::ToString(date));
+        };
+        return expand(expand(statement, "PeriodBegin", begin), "PeriodEnd", end);
     }
 
     PreprocessedEvents_ Preprocessor_::Process(const Vector_<std::pair<Cell_, String_>>& events) const {
