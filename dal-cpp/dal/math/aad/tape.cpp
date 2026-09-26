@@ -37,6 +37,14 @@ namespace Dal::AAD {
                 sweep([](TapNode_& node) { node.PropagateOne(); });
         }
 
+        // Sweeps [propagateTo, propagateEnd) backwards. The empty-window guard stays outside the sweep, and
+        // is forced inline so PropagateAdjoints keeps its three call sites: folding either into one body
+        // measurably slowed propagation.
+        FORCE_INLINE void PropagateWindow(Tape_& tape, Tape_::Iterator_ propagateEnd, Tape_::Iterator_ propagateTo) {
+            if (propagateEnd != propagateTo)
+                PropagateAdjoints(tape, std::prev(propagateEnd), propagateTo);
+        }
+
         template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {
             if (tape.multi_)
                 fn(tape.adjointsMulti_);
@@ -55,17 +63,11 @@ namespace Dal::AAD {
         }
     } // namespace
 
-    void PropagateMarkToStart(Tape_& tape) {
-        PropagateAdjoints(tape, std::prev(MarkIt(tape)), Begin(tape));
-    }
+    void PropagateMarkToStart(Tape_& tape) { PropagateWindow(tape, MarkIt(tape), Begin(tape)); }
 
-    void PropagateToStart(Tape_& tape) {
-        PropagateAdjoints(tape, std::prev(End(tape)), Begin(tape));
-    }
+    void PropagateToStart(Tape_& tape) { PropagateWindow(tape, End(tape), Begin(tape)); }
 
-    void PropagateToMark(Tape_& tape) {
-        PropagateAdjoints(tape, std::prev(End(tape)), MarkIt(tape));
-    }
+    void PropagateToMark(Tape_& tape) { PropagateWindow(tape, End(tape), MarkIt(tape)); }
 
     void Clear(Tape_& tape) {
         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
