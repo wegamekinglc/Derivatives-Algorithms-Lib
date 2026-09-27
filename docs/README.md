@@ -15,16 +15,15 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 ## Quantitative Methods
 
-| Chapter | Contents |
-|---------|----------|
-| [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk |
-| [CCY curves](ccy-curves/README.md) | Cross-currency pricing, fixing snapshots, staged and joint calibration |
-| [Monte Carlo](monte-carlo/README.md) | Simulation, sampling, LSM exercise pricing, RQMC, AAD, and performance |
-| [PDE](pde/README.md) | One-dimensional theta rollback and European option example |
+| Chapter                                | Contents                                                                                     |
+|----------------------------------------|----------------------------------------------------------------------------------------------|
+| [Models](models/README.md)             | Black-Scholes/Bachelier, Dupire local volatility, correlated equities, and hybrid simulation |
+| [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk        |
+| [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                       |
+| [Monte Carlo](monte-carlo/README.md)   | Simulation, sampling, LSM exercise pricing, RQMC, AAD, and performance                       |
+| [PDE](pde/README.md)                   | One-dimensional theta rollback and European option example                                   |
 
 The remaining C++ methodology guides cover [AAD](methodology/aad.md),
-[Black/Bachelier pricing](methodology/black_scholes.md),
-[Dupire local volatility](methodology/dupire.md),
 [script syntax and preparation](methodology/script_engine.md),
 [interpolation](methodology/interpolation.md),
 [matrix algorithms](methodology/matrix.md),

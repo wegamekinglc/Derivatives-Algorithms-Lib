@@ -1,5 +1,7 @@
 # Correlated Equity Black-Scholes Model
 
+See the [models index](README.md) for the other supported simulation models.
+
 `CorrelatedBSModelData_` is the core model-data type for jointly simulating
 several ordinary `EQ[...]` indices. Each asset has its own spot $S_i(0)$,
 constant volatility $\sigma_i$, and dividend yield $q_i$. All assets use one

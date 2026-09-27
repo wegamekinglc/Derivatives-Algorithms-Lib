@@ -139,7 +139,7 @@ Sobol coordinate `factor * N + bridgeCoordinate` drives that factor's bridge;
 the output increment is placed at `step * F + factor`. The model then applies
 the correlation Cholesky factor at each step. A one-factor model retains the
 original `BrownianBridge_` ordering and output. See the
-[hybrid model](hybrid-model.md#brownian-bridge-and-risks) for the composition
+[hybrid model](../models/hybrid-model.md#brownian-bridge-and-risks) for the composition
 contract.
 
 ## Sobol Sequence

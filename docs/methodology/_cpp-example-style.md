@@ -172,27 +172,27 @@ std::cout << "PV = " << pv << "\n";
 
 Use exactly these paths. Every directory was verified against `dal-cpp/examples/` on this branch.
 
-| Methodology doc               | Example program(s)                                                                                                                                                                |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `aad.md`                      | `dal-cpp/examples/aad/`                                                                                                                                                           |
-| `black_scholes.md`            | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
-| `dupire.md`                   | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
-| `yield-curves/construction.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
-| `yield-curves/log-discount.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
-| `interpolation.md`            | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
-| `yield-curves/jacobian-risk.md` | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
-| `monte-carlo/sampling.md`     | `dal-cpp/examples/sobol/`                                                                                                                                                         |
-| `script_engine.md`            | `dal-cpp/examples/script/`                                                                                                                                                        |
-| `monte-carlo/lsm.md`          | `dal-cpp/examples/american_put_mc/`                                                                                                                                              |
-| `underdetermined_search.md`   | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
+| Documentation page                  | Example program(s)                                                                                                                                                                |
+|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `aad.md`                            | `dal-cpp/examples/aad/`                                                                                                                                                           |
+| `models/black-scholes.md`           | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
+| `models/dupire.md`                  | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
+| `yield-curves/construction.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
+| `yield-curves/log-discount.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
+| `interpolation.md`                  | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
+| `yield-curves/jacobian-risk.md`     | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
+| `monte-carlo/sampling.md`           | `dal-cpp/examples/sobol/`                                                                                                                                                         |
+| `script_engine.md`                  | `dal-cpp/examples/script/`                                                                                                                                                        |
+| `monte-carlo/lsm.md`                | `dal-cpp/examples/american_put_mc/`                                                                                                                                               |
+| `underdetermined_search.md`         | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
 | `ccy-curves/pricing-calibration.md` | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
-| `pde/option-pricing.md`       | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
-| `yield-curves/node-risk.md`   | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
-| `yield-curves/joint-quote-risk.md` | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
-| `matrix.md`                   | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
-| `dates.md`                    | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
-| `index_parsing.md`            | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
-| `quadrature.md`               | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
+| `pde/option-pricing.md`             | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
+| `yield-curves/node-risk.md`         | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
+| `yield-curves/joint-quote-risk.md`  | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
+| `matrix.md`                         | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
+| `dates.md`                          | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
+| `index_parsing.md`                  | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
+| `quadrature.md`                     | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
 
 ## Docs-lint notes for doc-writers
 

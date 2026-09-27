@@ -1,5 +1,7 @@
 # Hybrid Monte Carlo Model
 
+See the [models index](README.md) for the other supported simulation models.
+
 `HybridModel_<T>` composes model components under one domestic numeraire. The
 current components are ordinary Black-Scholes equities and a deterministic
 domestic rate. Each equity contributes one log-spot state, one Brownian factor,
