@@ -2,6 +2,7 @@
 // Created by Codex on 2026/9/27.
 //
 
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -34,14 +35,24 @@ int main() {
     std::cout << std::fixed << std::setprecision(4) << "PV=" << result.at("PV") << ", d_spot:EQ[A]=" << result.at("d_spot:EQ[A]")
               << ", d_spot:EQ[B]=" << result.at("d_spot:EQ[B]") << '\n';
 
+    const Vector_<Cell_> exerciseDates = {Cell_(Date_(2027, 3, 27)), Cell_(Date_(2027, 9, 27))};
+    const Vector_<String_> exerciseEvents = {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b + 60, 0)", "EXERCISE MAX(b - a + 60, 0)"};
     ScriptProductSettings_ exerciseSettings;
+    exerciseSettings.regressionFeatures_ = {"VAR[a]"};
+    const auto oneState = NewScriptProduct("one-state-bermudan", exerciseDates, exerciseEvents, exerciseSettings);
     exerciseSettings.regressionFeatures_ = {"VAR[a]", "VAR[b]"};
-    const auto bermudan =
-        NewScriptProduct("exchange-bermudan", {Cell_(Date_(2027, 3, 27)), Cell_(Date_(2027, 9, 27))},
-                         {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b, 0)", "EXERCISE MAX(b - 0.9 * a, 0)"}, exerciseSettings);
+    const auto bermudan = NewScriptProduct("two-state-bermudan", exerciseDates, exerciseEvents, exerciseSettings);
     simulation.lsmcTrainingPaths_ = 8192;
     simulation.lsmcValidationPaths_ = 2048;
+    auto hardSimulation = simulation;
+    hardSimulation.enableAad_ = false;
+    const double oneStatePv = ValueByMonteCarlo(oneState, model, 32768, ScriptValuationSettings_(), hardSimulation).at("PV");
     const auto exercise = ValueByMonteCarlo(bermudan, model, 32768, ScriptValuationSettings_(), simulation);
-    std::cout << "Bermudan PV=" << exercise.at("PV") << ", d_spot:EQ[A]=" << exercise.at("d_spot:EQ[A]")
-              << ", d_spot:EQ[B]=" << exercise.at("d_spot:EQ[B]") << '\n';
+    const double time = (Date_(2027, 3, 27) - Date_(2026, 9, 27)) / 365.0;
+    const double width = std::sqrt(0.20 * 0.20 + 0.30 * 0.30 - 2.0 * 0.35 * 0.20 * 0.30) * std::sqrt(time);
+    const double d1 = (std::log(120.0 / 100.0) + 0.5 * width * width) / width;
+    const auto cdf = [](double value) { return 0.5 * std::erfc(-value / std::sqrt(2.0)); };
+    const double reference = 60.0 + 100.0 - 120.0 + 2.0 * (120.0 * cdf(d1) - 100.0 * cdf(d1 - width));
+    std::cout << "Bermudan reference=" << reference << ", one-state PV=" << oneStatePv << ", two-state PV=" << exercise.at("PV")
+              << ", d_spot:EQ[A]=" << exercise.at("d_spot:EQ[A]") << ", d_spot:EQ[B]=" << exercise.at("d_spot:EQ[B]") << '\n';
 }

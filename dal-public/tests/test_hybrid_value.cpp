@@ -311,6 +311,37 @@ TEST(HybridValueTest, TestTwoStateBermudanMatchesExchangeReference) {
     ASSERT_EQ(event["basis_powers"].Size(), event["coefficients"].Size());
 }
 
+TEST(HybridValueTest, TestMissingRegressionStateLosesContinuationValue) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const Dal::Vector_<Dal::Cell_> dates = {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))};
+    const Dal::Vector_<Dal::String_> events = {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b + 60, 0)", "EXERCISE MAX(b - a + 60, 0)"};
+    Dal::MonteCarloSettings_ simulation;
+    simulation.useBb_ = true;
+    simulation.compiled_ = true;
+    simulation.lsmcTrainingPaths_ = 8192;
+    simulation.lsmcValidationPaths_ = 2048;
+    const auto model = CorrelatedModel(0.2, 0.3, 0.35);
+    Dal::ScriptProductSettings_ settings;
+    settings.regressionFeatures_ = {"VAR[a]"};
+    const double singleState =
+        Dal::ValueByMonteCarlo(Dal::NewScriptProduct("one-state", dates, events, settings), model, 32768, {}, simulation).at("PV");
+    settings.regressionFeatures_ = {"VAR[a]", "VAR[b]"};
+    const double twoState =
+        Dal::ValueByMonteCarlo(Dal::NewScriptProduct("two-state", dates, events, settings), model, 32768, {}, simulation).at("PV");
+
+    // The terminal payoff is frozen at the first date; the optimal value is
+    // E[60 + |A-B|] = 60 + A0-B0 + 2 E[(B-A)^+].
+    const double time = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
+    const double width = std::sqrt(0.2 * 0.2 + 0.3 * 0.3 - 2.0 * 0.35 * 0.2 * 0.3) * std::sqrt(time);
+    const double d1 = (std::log(120.0 / 100.0) + 0.5 * width * width) / width;
+    const double d2 = d1 - width;
+    const auto cdf = [](double value) { return 0.5 * std::erfc(-value / std::sqrt(2.0)); };
+    const double reference = 60.0 + 100.0 - 120.0 + 2.0 * (120.0 * cdf(d1) - 100.0 * cdf(d2));
+    ASSERT_NEAR(twoState, reference, 0.4);
+    ASSERT_GT(twoState, singleState + 0.8);
+}
+
 TEST(HybridValueTest, TestRetrainedPolicyRespectsEachParameterConstraint) {
     Dal::RegisterAll_::Init();
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));

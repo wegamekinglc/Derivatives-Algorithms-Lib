@@ -245,6 +245,17 @@ Optional held-out paths select the polynomial degree with the one-standard-error
 rule, using paths disjoint from both fitting and final pricing. The scalar
 single-state path retains its existing degree limit and fast solver.
 
+The runnable [C++ hybrid example](../../dal-public/examples/hybrid_script.cpp)
+and [Python equivalent](../../dal-python/examples/hybrid_script.py) compare
+one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
+the first exercise date's frozen equity values: `max(A-B+60, 0)` now and
+`max(B-A+60, 0)` later. With zero rates, the optimal value is the independently
+computable `E[60 + |A-B|]` (about 84.8144 for the example inputs). At 8,192
+training, 2,048 validation, and 32,768 pricing paths, selecting only `VAR[a]`
+prices about 83.08, while selecting both `VAR[a]` and `VAR[b]` prices about
+84.81. The gap illustrates lost continuation information; these numbers are
+fixed-seed Monte Carlo results, not general error bounds.
+
 Training memory is roughly `nTrainingPaths × (nPaysEvents + (nFeatures + 1) × nExerciseDates + 1) × 8B`
 for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
