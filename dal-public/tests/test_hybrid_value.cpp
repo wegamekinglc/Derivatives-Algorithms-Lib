@@ -280,20 +280,22 @@ TEST(HybridValueTest, TestTwoStateBermudanMatchesExchangeReference) {
     const auto cdf = [](double value) { return 0.5 * std::erfc(-value / std::sqrt(2.0)); };
     const double reference = 100.0 - 120.0 + 2.0 * 120.0 * cdf(d1) - 1.9 * 100.0 * cdf(d2);
     for (const auto& model : {CorrelatedModel(volA, volB, correlation), HybridModel(volA, volB, correlation)})
-        for (const bool compiled : {false, true})
-            for (const bool aad : {false, true}) {
-                Dal::MonteCarloSettings_ simulation;
-                simulation.compiled_ = compiled;
-                simulation.enableAad_ = aad;
-                simulation.lsmcTrainingPaths_ = 8192;
-                simulation.lsmcValidationPaths_ = 2048;
-                const auto result = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
-                ASSERT_NEAR(result.at("PV"), reference, 0.4);
-                if (aad) {
-                    ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[A]")));
-                    ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[B]")));
+        for (const bool bridge : {false, true})
+            for (const bool compiled : {false, true})
+                for (const bool aad : {false, true}) {
+                    Dal::MonteCarloSettings_ simulation;
+                    simulation.useBb_ = bridge;
+                    simulation.compiled_ = compiled;
+                    simulation.enableAad_ = aad;
+                    simulation.lsmcTrainingPaths_ = 8192;
+                    simulation.lsmcValidationPaths_ = 2048;
+                    const auto result = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
+                    ASSERT_NEAR(result.at("PV"), reference, 0.4);
+                    if (aad) {
+                        ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[A]")));
+                        ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[B]")));
+                    }
                 }
-            }
     Dal::MonteCarloSettings_ simulation;
     simulation.lsmcTrainingPaths_ = 4096;
     rapidjson::Document diagnostic;

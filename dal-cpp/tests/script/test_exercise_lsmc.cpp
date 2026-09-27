@@ -481,6 +481,17 @@ TEST(ScriptExerciseLSMCTest, TestMultivariateRegressionHandlesCollinearAndSmallS
     const auto small = SolveMultivariateExerciseRegression(rows, 3);
     ASSERT_TRUE(small.degenerate_);
     ASSERT_EQ(small.degenerateReason_, "ConditionPathsBelowMin");
+    ASSERT_EQ(small.fallbackReason_, "ConditionPathsBelowMin");
+    ASSERT_EQ(small.effectiveRank_, 1u);
+
+    Vector_<char> none(count, 0);
+    rows.included_ = &none[0];
+    rows.n_ = count;
+    const auto empty = SolveMultivariateExerciseRegression(rows, 3);
+    ASSERT_TRUE(empty.degenerate_);
+    ASSERT_EQ(empty.degenerateReason_, "ConditionPathsBelowMin");
+    ASSERT_EQ(empty.fallbackReason_, "ConditionPathsBelowMin");
+    ASSERT_EQ(empty.effectiveRank_, 0u);
 }
 
 TEST(ScriptExerciseLSMCTest, TestThreeStateRegressionRecoversCubicInteraction) {

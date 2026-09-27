@@ -291,6 +291,28 @@ namespace Dal::Script {
             }
         }
 
+        static RegressionFeature_
+        ResolveRegressionFeature(ObservationPlan_* plan, const ScriptProduct_& product, const AAD::Model_<double>& model, const String_& input) {
+            RegressionFeature_ feature;
+            if (input.size() > 5 && input.substr(0, 4) == "VAR[" && input.back() == ']') {
+                const String_ variable = input.substr(4, input.size() - 5);
+                const auto found = std::find(product.VarNames().begin(), product.VarNames().end(), variable);
+                REQUIRE2(found != product.VarNames().end(),
+                         "UnknownLsmcRegressionVariable: product.regressionFeatures_=" + input + "; expected a scalar script variable", ScriptError_);
+                feature.variableIndex_ = static_cast<size_t>(found - product.VarNames().begin());
+                feature.name_ = "VAR[" + *found + "]";
+            } else {
+                const auto index = ParseSettingIndex(input, "product.regressionFeatures_");
+                REQUIRE2(typeid(*index) == typeid(Index::Equity_) && model.SupportsIndex(*index),
+                         "UnsupportedLsmcRegressionFeature: product.regressionFeatures_=" + input + "; expected a model-supported ordinary EQ index",
+                         ScriptError_);
+                feature.name_ = index->Name();
+                if (std::find(plan->modelBindingNames_.begin(), plan->modelBindingNames_.end(), feature.name_) == plan->modelBindingNames_.end())
+                    plan->modelBindingNames_.push_back(feature.name_);
+            }
+            return feature;
+        }
+
         static void ConfigureRegressionFeatures(ObservationPlan_* plan,
                                                 const ScriptProduct_& product,
                                                 const AAD::Model_<double>& model,
@@ -301,25 +323,7 @@ namespace Dal::Script {
                      "InvalidLsmcFeatureBudget: product.regressionFeatures_ supports at most three features", ScriptError_);
             for (const auto& input : contract.regressionFeatures_) {
                 REQUIRE2(!input.empty(), "InvalidLsmcRegressionFeature: product.regressionFeatures_ contains an empty name", ScriptError_);
-                RegressionFeature_ feature;
-                if (input.size() > 5 && input.substr(0, 4) == "VAR[" && input.back() == ']') {
-                    const String_ variable = input.substr(4, input.size() - 5);
-                    const auto found = std::find(product.VarNames().begin(), product.VarNames().end(), variable);
-                    REQUIRE2(found != product.VarNames().end(),
-                             "UnknownLsmcRegressionVariable: product.regressionFeatures_=" + input + "; expected a scalar script variable",
-                             ScriptError_);
-                    feature.variableIndex_ = static_cast<size_t>(found - product.VarNames().begin());
-                    feature.name_ = "VAR[" + *found + "]";
-                } else {
-                    const auto index = ParseSettingIndex(input, "product.regressionFeatures_");
-                    REQUIRE2(typeid(*index) == typeid(Index::Equity_) && model.SupportsIndex(*index),
-                             "UnsupportedLsmcRegressionFeature: product.regressionFeatures_=" + input +
-                                 "; expected a model-supported ordinary EQ index",
-                             ScriptError_);
-                    feature.name_ = index->Name();
-                    if (std::find(plan->modelBindingNames_.begin(), plan->modelBindingNames_.end(), feature.name_) == plan->modelBindingNames_.end())
-                        plan->modelBindingNames_.push_back(feature.name_);
-                }
+                auto feature = ResolveRegressionFeature(plan, product, model, input);
                 REQUIRE2(std::none_of(plan->regressionFeatures_.begin(), plan->regressionFeatures_.end(),
                                       [&](const RegressionFeature_& existing) { return existing.name_ == feature.name_; }),
                          "DuplicateLsmcRegressionFeature: product.regressionFeatures_=" + input, ScriptError_);
