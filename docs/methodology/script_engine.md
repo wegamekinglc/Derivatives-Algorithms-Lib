@@ -1591,8 +1591,8 @@ Each exercise
 event carries `event_id`, `date`, the effective `basis_degree`
 (`0` marks the degenerate constant basis), `regressor_index` (the canonical
 index name of the model-sourced regressor — the same join space as Explain's
-`requests[].index_canonical`; null when the product has no model index, such
-as an unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
+`requests[].index_canonical`; null for a multivariate selection or a scalar
+script-state/unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
 condition-true path count entering the regression), `num_coefficients`
 with the frozen `coefficients` on the z-normalized monomial basis, the
 `basis` family (`NormalizedMonomial` or `Constant`), selected

@@ -252,6 +252,12 @@ TEST(HybridValueTest, TestTwoSelectedAssetsPriceWithoutDefaultIndex) {
     const auto prepared = Dal::Script::PrepareScript(*product, model.get(), {}, {});
     for (const auto& sample : prepared.DefLine())
         ASSERT_EQ(sample.indexNames_.size(), 2u);
+    settings.regressionFeatures_ = {"EQ[A]"};
+    const auto scalar = Dal::NewScriptProduct("one-selected", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"EXERCISE MAX(FIX(EQ[A]) - 100, 0)"}, settings);
+    rapidjson::Document diagnostic;
+    diagnostic.Parse(Dal::ExplainScriptSimulation(scalar, CorrelatedModel(), 128).c_str());
+    ASSERT_FALSE(diagnostic.HasParseError());
+    ASSERT_STREQ(diagnostic["exercise_events"][0]["regressor_index"].GetString(), "EQ[A]");
 }
 
 TEST(HybridValueTest, TestTwoStateBermudanMatchesExchangeReference) {

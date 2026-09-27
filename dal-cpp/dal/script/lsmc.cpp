@@ -1435,7 +1435,8 @@ namespace Dal::Script {
                 stats.regressorIndex_ = prepared.Plan().RegressionIndexName().empty() ? (bindings.empty() ? String_() : bindings.front())
                                                                                       : prepared.Plan().RegressionIndexName();
                 if (!prepared.Plan().RegressionFeatures().empty()) {
-                    stats.regressorIndex_ = String_();
+                    const auto& selected = prepared.Plan().RegressionFeatures();
+                    stats.regressorIndex_ = selected.size() == 1 && !selected.front().variableIndex_ ? selected.front().name_ : String_();
                     for (const auto& feature : prepared.Plan().RegressionFeatures())
                         stats.regressionFeatures_.push_back(feature.name_);
                 } else if (!stats.regressorIndex_.empty()) {
