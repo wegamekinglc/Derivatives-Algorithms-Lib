@@ -12,9 +12,19 @@
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
 
+namespace {
+    struct ExcelDateScope_ {
+        const Dal::Date_ previous_;
+        explicit ExcelDateScope_(const Dal::Date_& date) : previous_(Dal::Excel::ScriptTestSetDate(date)) {}
+        ~ExcelDateScope_() { Dal::Excel::ScriptTestSetDate(previous_); }
+    };
+} // namespace
+
 TEST(HybridExcelContractTest, TestTypedFactoriesValueNamedEquities) {
     Dal::InitGlobalData(1);
+    Dal::Excel::ScriptTestInitialize(1);
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const ExcelDateScope_ restoreExcel(Dal::Date_(2026, 9, 27));
     Dal::Matrix_<> correlations(2, 2, 0.0);
     correlations(0, 0) = correlations(1, 1) = 1.0;
     Dal::Handle_<Dal::ModelData_> correlated;
@@ -36,7 +46,9 @@ TEST(HybridExcelContractTest, TestTypedFactoriesValueNamedEquities) {
 
 TEST(HybridExcelContractTest, TestTwoStateBermudanThroughSettingsTable) {
     Dal::InitGlobalData(1);
+    Dal::Excel::ScriptTestInitialize(1);
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const ExcelDateScope_ restoreExcel(Dal::Date_(2026, 9, 27));
     Dal::Matrix_<> correlations(2, 2, 0.0);
     correlations(0, 0) = correlations(1, 1) = 1.0;
     Dal::Handle_<Dal::ModelData_> model;
