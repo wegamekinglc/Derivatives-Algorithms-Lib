@@ -766,18 +766,14 @@ TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
 
 namespace {
     bool IsOneOperandOpcode(int op) {
-        static const std::set<int> ops = {
-            AddConst, SubConst, ConstSub, MultiConst, DivConst, ConstDiv,
-            PowConst, ConstPow, Max2Const, Min2Const, Var, Const, ConstVar,
-            Assign, Pays, If, FuzzyEqual, FuzzyComp, LsmcPays, LsmcExercise
-        };
+        static const std::set<int> ops = {AddConst, SubConst,  ConstSub,   MultiConst, DivConst, ConstDiv,     PowConst,
+                                          ConstPow, Max2Const, Min2Const,  Var,        Const,    ConstVar,     Assign,
+                                          Pays,     If,        FuzzyEqual, FuzzyComp,  LsmcPays, LsmcExercise, VectorAppend};
         return ops.count(op) != 0;
     }
 
     bool IsTwoOperandOpcode(int op) {
-        static const std::set<int> ops = {
-            AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, LsmcPaysConst
-        };
+        static const std::set<int> ops = {AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, LsmcPaysConst, VectorAssign};
         return ops.count(op) != 0;
     }
 
@@ -787,8 +783,12 @@ namespace {
             return 2;
         if (IsTwoOperandOpcode(op))
             return 3;
-        if (op == FuzzyIf)
-            return 4 + stream[idx + 3];
+        if (op == FuzzyIf) {
+            const size_t nAff = static_cast<size_t>(stream[idx + 3]);
+            return 5 + nAff + static_cast<size_t>(stream[idx + 4 + nAff]);
+        }
+        if (op == VectorRead || op == VectorReduce)
+            return 6;
         return 1;
     }
 
@@ -861,6 +861,14 @@ namespace {
         NodeTrue_().Accept(literals);
         NodeFalse_().Accept(literals);
         CollectOpcodes(literals.NodeStream(), out);
+    }
+
+    void MergeFuzzyVectorProductOpcodes(std::set<int>* out) {
+        ScriptProduct_ product({Cell_(Date_(2023, 1, 28))}, {"APPEND(v, 1) IF SPOT() > 100 THEN v[0] = SPOT() END pay PAYS SUM(v) + v[0]"});
+        product.PreProcess(true, false);
+        const ScriptCompiled_ compiled = product.Compile(true);
+        for (const auto& stream : compiled.NodeStreams())
+            CollectOpcodes(stream, out);
     }
     //  Prepared EXERCISE product: coupons (const and live RHS, the latter inside IF),
     //  a conditional and an unconditional exercise date, and a maturity PAYS
@@ -1091,6 +1099,13 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
     MergeConstVarProductOpcodes(&seen);
 
     MergeFuzzyProductOpcodes(&seen);
+
+    std::set<int> fuzzyVectorSeen;
+    MergeFuzzyVectorProductOpcodes(&fuzzyVectorSeen);
+    ASSERT_EQ(fuzzyVectorSeen.count(AddConst), 0u) << "vector metadata must not be read as an opcode";
+    for (int op : {VectorRead, VectorAssign, VectorAppend, VectorReduce})
+        ASSERT_EQ(fuzzyVectorSeen.count(op), 1u) << "missing vector opcode " << op;
+    seen.insert(fuzzyVectorSeen.begin(), fuzzyVectorSeen.end());
 
     const std::set<int> unreachable = {31};
     for (int op = Add; op <= FuzzyIf; ++op) {
