@@ -1053,9 +1053,16 @@ namespace Dal::Script {
             const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
             (*sinks.h_)[slot] = value;
             (*sinks.cond_)[slot] = cond;
-            for (size_t feature = 0; feature < sinks.plan_->RegressionFeatureCount(); ++feature)
-                (*sinks.features_)[slot * sinks.plan_->RegressionFeatureCount() + feature] = sinks.plan_->RegressionFeatureValue(
-                    feature, sinks.plan_->EventToSample()[sinks.eventOrdinal_], *statePtr->scenario_, statePtr->variables_);
+            const auto* plan = sinks.plan_;
+            const size_t sample = plan->EventToSample()[sinks.eventOrdinal_];
+            if (plan->RegressionFeatures().empty()) {
+                (*sinks.features_)[slot] = plan->RegressionValue(sample, *statePtr->scenario_);
+            } else {
+                const size_t nFeatures = plan->RegressionFeatureCount();
+                for (size_t feature = 0; feature < nFeatures; ++feature)
+                    (*sinks.features_)[slot * nFeatures + feature] =
+                        plan->RegressionFeatureValue(feature, sample, *statePtr->scenario_, statePtr->variables_);
+            }
         }
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise
