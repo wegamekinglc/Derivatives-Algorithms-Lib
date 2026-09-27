@@ -9,6 +9,7 @@
 #include <string>
 
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
@@ -128,6 +129,7 @@ TEST(HybridValueTest, TestNonflatCurveCrossMomentAndNodeRisk) {
     const double middle = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
     const auto make = [&](double finalLogDF) { return HybridCurveModel({0.0, middle, 1.0}, {0.0, -0.01, finalLogDF}, 0.2, 0.3, 0.6); };
     {
+        const Dal::TapeGuard_ guard(Dal::AAD::Tape());
         auto direct = Dal::CreateModel<Dal::AAD::Number_>(make(-0.05));
         const Dal::Vector_<> timeline{1.0};
         Dal::Vector_<Dal::AAD::SampleDef_> definitions(1);
