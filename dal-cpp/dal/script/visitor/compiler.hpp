@@ -60,6 +60,8 @@ namespace Dal::Script {
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
+        Vector_<Vector_<Vector_<T_>>> vectorStore0_;
+        Vector_<Vector_<Vector_<T_>>> vectorStore1_;
         const ObservationPlan_* observations_ = nullptr;
         const AAD::Scenario_<T_>* scenario_ = nullptr;
         //  Engaged only while the LSMC driver evaluates a recording stream
@@ -72,8 +74,10 @@ namespace Dal::Script {
                             size_t maxNestedIfs = 0,
                             double defEps = 0.0,
                             const Vector_<size_t>& vectorCapacities = {})
-            : EvalStateCore_<T_>(variables, constVariables, vectorCapacities), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
+            : EvalStateCore_<T_>(variables, constVariables, vectorCapacities), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs),
+              vectorStore0_(maxNestedIfs), vectorStore1_(maxNestedIfs) {
             ResizeVarStores(&varStore0_, &varStore1_, variables.size());
+            ResizeVectorStores(&vectorStore0_, &vectorStore1_, this->vectors_.size());
         }
 
         void Init() {
@@ -134,7 +138,7 @@ namespace Dal::Script {
         FuzzyNot = 46,
         FuzzyTrue = 47,
         FuzzyFalse = 48,
-        FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff...
+        FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff..., nVec, vec...
         LoadObservation = 50,
         Discard = 51,
         //  LSMC recording opcodes (prepared streams only): the LSMC driver installs
@@ -423,13 +427,16 @@ namespace Dal::Script {
         }
 
         void CompileFuzzyIf(const NodeIf_& node, size_t lastTrue, size_t n) {
-            //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
+            //  Layout: FuzzyIf lastTrue lastFalse nAff aff... nVec vec... [true][false]
             nodeStream_.emplace_back(FuzzyIf);
             const size_t thisSpace = nodeStream_.size() - 1;
             nodeStream_.emplace_back(0);
             nodeStream_.emplace_back(0);
             nodeStream_.emplace_back(int(node.affectedVars_.size()));
             for (const auto idx : node.affectedVars_)
+                nodeStream_.emplace_back(int(idx));
+            nodeStream_.emplace_back(int(node.affectedVectors_.size()));
+            for (const auto idx : node.affectedVectors_)
                 nodeStream_.emplace_back(int(idx));
 
             for (size_t i = 1; i <= lastTrue; ++i)
@@ -937,12 +944,16 @@ namespace Dal::Script {
             auto& nodeStream = event.nodeStream_;
             auto& constStream = event.constStream_;
             auto& scenario = event.scenario_;
-            //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
+            //  Layout: FuzzyIf lastTrue lastFalse nAff aff... nVec vec... [true][false]
             const size_t lastTrue = nodeStream[i + 1];
             const size_t lastFalse = nodeStream[i + 2];
             const int nAff = nodeStream[i + 3];
             const size_t firstAff = i + 4;
-            const size_t firstTrue = firstAff + nAff;
+            const size_t nVecPos = firstAff + nAff;
+            const size_t firstVec = nVecPos + 1;
+            const size_t firstTrue = firstVec + nodeStream[nVecPos];
+            const auto vectorFirst = nodeStream.begin() + firstVec;
+            const auto vectorLast = nodeStream.begin() + firstTrue;
 
             const T_ t = dStack.TopAndPop();
             if (t > 1.0 - EPSILON) {
@@ -957,6 +968,7 @@ namespace Dal::Script {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore0_[lvl][idx] = state.variables_[idx];
                 }
+                SnapshotFuzzyVectors(state.vectors_, &state.vectorStore0_[lvl], vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
                 EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
@@ -965,6 +977,7 @@ namespace Dal::Script {
                     state.varStore1_[lvl][idx] = state.variables_[idx];
                     state.variables_[idx] = state.varStore0_[lvl][idx];
                 }
+                CaptureAndRestoreFuzzyVectors(&state.vectors_, state.vectorStore0_[lvl], &state.vectorStore1_[lvl], vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->CaptureBranchPayment(lvl);
                 EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
@@ -972,6 +985,7 @@ namespace Dal::Script {
                     const size_t idx = nodeStream[firstAff + k];
                     state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
                 }
+                BlendFuzzyVectors(&state.vectors_, state.vectorStore1_[lvl], t, vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->BlendBranchPayment(lvl, t);
                 --state.nestedIfLvl_;

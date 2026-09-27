@@ -22,6 +22,8 @@ namespace Dal::Script {
         // Preallocated for performance. [i][j] = nested if level i, variable j.
         Vector_<Vector_<T>> varStore0_;
         Vector_<Vector_<T>> varStore1_;
+        Vector_<Vector_<Vector_<T>>> vectorStore0_;
+        Vector_<Vector_<Vector_<T>>> vectorStore1_;
 
         // 0: not in an if, 1: outermost if, 2: nested once, etc.
         size_t nestedIfLvl_;
@@ -40,6 +42,7 @@ namespace Dal::Script {
         using Base::dStack_;
         using Base::scenario_;
         using Base::variables_;
+        using Base::vectors_;
         using Base::Visit;
         using Base::VisitNode;
 
@@ -49,14 +52,16 @@ namespace Dal::Script {
                         const double defEps = 0,
                         const Vector_<size_t>& vectorCapacities = {})
             : Base(variables, constVariables, vectorCapacities), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs),
-              nestedIfLvl_(0) {
+              vectorStore0_(maxNestedIfs), vectorStore1_(maxNestedIfs), nestedIfLvl_(0) {
             ResizeVarStores(&varStore0_, &varStore1_, variables.size());
+            ResizeVectorStores(&vectorStore0_, &vectorStore1_, vectors_.size());
         }
 
         FuzzyEvaluator_(const FuzzyEvaluator_& rhs)
             : Base(rhs), defEps_(rhs.defEps_), varStore0_(rhs.varStore0_.size()), varStore1_(rhs.varStore1_.size()),
-              nestedIfLvl_(0) {
+              vectorStore0_(rhs.vectorStore0_.size()), vectorStore1_(rhs.vectorStore1_.size()), nestedIfLvl_(0) {
             ResizeVarStores(&varStore0_, &varStore1_, variables_.size());
+            ResizeVectorStores(&vectorStore0_, &vectorStore1_, vectors_.size());
         }
 
         FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
@@ -67,18 +72,23 @@ namespace Dal::Script {
             varStore0_.Resize(rhs.varStore0_.size());
             varStore1_.Resize(rhs.varStore1_.size());
             ResizeVarStores(&varStore0_, &varStore1_, variables_.size());
+            vectorStore0_.Resize(rhs.vectorStore0_.size());
+            vectorStore1_.Resize(rhs.vectorStore1_.size());
+            ResizeVectorStores(&vectorStore0_, &vectorStore1_, vectors_.size());
             nestedIfLvl_ = 0;
             return *this;
         }
 
         FuzzyEvaluator_(FuzzyEvaluator_&& rhs) noexcept
             : Base(std::move(rhs)), defEps_(rhs.defEps_), varStore0_(std::move(rhs.varStore0_)), varStore1_(std::move(rhs.varStore1_)),
-              nestedIfLvl_(0) {}
-        FuzzyEvaluator_& operator = (FuzzyEvaluator_&& rhs) noexcept {
+              vectorStore0_(std::move(rhs.vectorStore0_)), vectorStore1_(std::move(rhs.vectorStore1_)), nestedIfLvl_(0) {}
+        FuzzyEvaluator_& operator=(FuzzyEvaluator_&& rhs) noexcept {
             Base::operator=(std::move(rhs));
             defEps_ = rhs.defEps_;
             varStore0_ = std::move(rhs.varStore0_);
             varStore1_ = std::move(rhs.varStore1_);
+            vectorStore0_ = std::move(rhs.vectorStore0_);
+            vectorStore1_ = std::move(rhs.vectorStore1_);
             nestedIfLvl_ = 0;
             return *this;
         }
@@ -120,14 +130,18 @@ namespace Dal::Script {
             REQUIRE(nestedIfLvl_ > 0 && nestedIfLvl_ <= varStore0_.size(), "fuzzy If nesting exceeds allocated var stores");
             const size_t lvl = nestedIfLvl_ - 1;
             StoreAffectedVars(node, lvl);
+            SnapshotFuzzyVectors(vectors_, &vectorStore0_[lvl], node.affectedVectors_.begin(), node.affectedVectors_.end());
             if (lsmcFuzzySinks_)
                 lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
             EvalTrueBranch(node, lastTrueStat);
             CaptureTrueBranchVars(node, lvl);
+            CaptureAndRestoreFuzzyVectors(&vectors_, vectorStore0_[lvl], &vectorStore1_[lvl], node.affectedVectors_.begin(),
+                                          node.affectedVectors_.end());
             if (lsmcFuzzySinks_)
                 lsmcFuzzySinks_->CaptureBranchPayment(lvl);
             EvalFalseBranch(node);
             BlendAffectedVars(node, lvl, dt);
+            BlendFuzzyVectors(&vectors_, vectorStore1_[lvl], dt, node.affectedVectors_.begin(), node.affectedVectors_.end());
             if (lsmcFuzzySinks_)
                 lsmcFuzzySinks_->BlendBranchPayment(lvl, dt);
         }

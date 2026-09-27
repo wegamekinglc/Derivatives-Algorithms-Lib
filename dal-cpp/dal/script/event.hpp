@@ -245,7 +245,6 @@ namespace Dal::Script {
         void ConstProcess();
         void ConstCondProcess();
         void OptimizeLsmc(const Vector_<size_t>& regressionVariables = {});
-        void ValidateFuzzyVectorMutations() const;
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;

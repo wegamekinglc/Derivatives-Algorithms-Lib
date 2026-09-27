@@ -115,6 +115,50 @@ namespace Dal::Script {
             varStore.Resize(numVars);
     }
 
+    //  Fuzzy branches retain complete vector values because APPEND can change their
+    //  lengths. Stores are indexed by [nested if level][vector index][entry].
+    template <class T_> void ResizeVectorStores(Vector_<Vector_<Vector_<T_>>>* before, Vector_<Vector_<Vector_<T_>>>* afterTrue, size_t numVectors) {
+        for (auto* levels : {before, afterTrue})
+            for (auto& level : *levels)
+                level.Resize(numVectors);
+    }
+
+    template <class T_, class I_> void SnapshotFuzzyVectors(const Vector_<Vector_<T_>>& vectors, Vector_<Vector_<T_>>* before, I_ first, I_ last) {
+        for (auto it = first; it != last; ++it) {
+            const size_t i = *it;
+            (*before)[i] = vectors[i];
+        }
+    }
+
+    template <class T_, class I_>
+    void CaptureAndRestoreFuzzyVectors(
+        Vector_<Vector_<T_>>* vectors, const Vector_<Vector_<T_>>& before, Vector_<Vector_<T_>>* afterTrue, I_ first, I_ last) {
+        for (auto it = first; it != last; ++it) {
+            const size_t i = *it;
+            (*afterTrue)[i] = (*vectors)[i];
+            (*vectors)[i] = before[i];
+        }
+    }
+
+    template <class T_, class I_>
+    void BlendFuzzyVectors(Vector_<Vector_<T_>>* vectors, const Vector_<Vector_<T_>>& afterTrue, const T_& degree, I_ first, I_ last) {
+        if (first == last)
+            return;
+        const T_ falseDegree = T_(1.0) - degree;
+        for (auto it = first; it != last; ++it) {
+            const size_t i = *it;
+            auto& afterFalse = (*vectors)[i];
+            const auto& trueValues = afterTrue[i];
+            const size_t falseSize = afterFalse.size();
+            afterFalse.Resize(std::max(falseSize, trueValues.size()));
+            for (size_t j = 0; j < afterFalse.size(); ++j) {
+                const T_ trueValue = j < trueValues.size() ? trueValues[j] : T_(0.0);
+                const T_ falseValue = j < falseSize ? afterFalse[j] : T_(0.0);
+                afterFalse[j] = degree * trueValue + falseDegree * falseValue;
+            }
+        }
+    }
+
     //  Row-major recording rows of the LSMC driver's training block, one row of nPaths
     //  values per PAYS event or exercise day. The memory is left uninitialized: each
     //  forward worker zeroes its own path range first, so page faults and zero fill run
