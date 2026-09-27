@@ -2,6 +2,7 @@
 // Created by Codex on 2026/9/27.
 //
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <iomanip>
@@ -160,9 +161,8 @@ int main() {
         const double aadPv = Price(aad, N_PATHS);
         const double aadDeltaA = aad["spot:EQ[AAA]"];
         const double aadDeltaB = aad["spot:EQ[BBB]"];
-        REQUIRE(std::isfinite(reference) && std::isfinite(plainPv) && std::isfinite(aadPv) && std::isfinite(fdDeltaA) && std::isfinite(fdDeltaB) &&
-                    std::isfinite(aadDeltaA) && std::isfinite(aadDeltaB),
-                "basket call result must be finite");
+        const std::array<double, 7> values = {reference, plainPv, aadPv, fdDeltaA, fdDeltaB, aadDeltaA, aadDeltaB};
+        REQUIRE(std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); }), "basket call result must be finite");
         REQUIRE(reference > previousReference && std::abs(plainPv - reference) < 0.20 && std::abs(aadPv - plainPv) < 1.0e-6 &&
                     std::abs(aadDeltaA - fdDeltaA) < 0.02 && std::abs(aadDeltaB - fdDeltaB) < 0.02,
                 "basket call correlation sweep must agree with the independent reference and finite differences");
