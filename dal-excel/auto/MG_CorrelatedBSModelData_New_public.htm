@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CorrelatedBSModelData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CorrelatedBSModelData_New (in Excel: CORRELATEDBSMODELDATA.NEW)</h1>
+Create correlated multi-equity Black-Scholes model data
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Model name</td></tr>
+<tr><td>indices</td><td>vector of strings</td><td></td><td>EQ index names in factor order</td></tr>
+<tr><td>spots</td><td>vector of numbers</td><td></td><td>Initial spots</td></tr>
+<tr><td>vols</td><td>vector of numbers</td><td></td><td>Volatilities</td></tr>
+<tr><td>divs</td><td>vector of numbers</td><td></td><td>Dividend yields</td></tr>
+<tr><td>rate</td><td>number</td><td></td><td>Domestic deterministic rate</td></tr>
+<tr><td>correlations</td><td>matrix of numbers</td><td></td><td>Correlation matrix in index order</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>model</td><td>handle of type ModelData</td><td>Model data handle</td></tr>
+</table>
+
+
+
+
+
+

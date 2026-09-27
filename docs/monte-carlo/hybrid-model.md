@@ -70,6 +70,16 @@ AAD parameter addresses. Correlations are passive inputs and have no AAD
 risk labels. The `NumeraireIsDeterministic()` capability distinguishes the
 current model from future stochastic-numeraire compositions.
 
-This stage supports direct core path generation. The script preparation and
-public valuation layers still reject multiple future model indices; their
-multi-index and LSM integration belongs to the next stage.
+`ValueByMonteCarlo` and `ExplainScriptValuation` accept `HybridModelData_`.
+Each future `FIX(EQ[...])` binds independently to its named component; requests
+on one date may use either order. Historical fixings retain their own index and
+never fall back to simulated values. A multi-equity `SPOT()` requires
+`ScriptProductSettings_::defaultIndex_`. Future FX and IR observations remain
+unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
+and [Python example](../../dal-python/examples/hybrid_script.py).
+
+The current deterministic-rate hybrid supports LSM early exercise with one
+explicitly selected regressor: set `defaultIndex_` to a supported `EQ[...]`
+name. The same named spot feeds training, fixed-policy hard pricing, and fuzzy
+AAD replay; `RetrainedBump` uses each component's parameter constraints.
+Several regression features and a multivariate basis are not yet available.

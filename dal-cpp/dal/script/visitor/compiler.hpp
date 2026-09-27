@@ -38,6 +38,7 @@ namespace Dal::Script {
     //  (x, h, condition) triple per exercise event land in the driver's storage
     //  rows; the driver advances eventOrdinal_ and pathSlot_ between events/paths.
     struct LsmcSinks_ {
+        const ObservationPlan_* plan_ = nullptr;
         const Vector_<size_t>* eventToPays_ = nullptr;
         const Vector_<size_t>* eventToExercise_ = nullptr;
         LsmcRows_* pays_ = nullptr;
@@ -1007,6 +1008,8 @@ namespace Dal::Script {
         template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
             REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite exercise value", ScriptError_);
             auto& sinks = RequireLsmcSinks(statePtr);
+            if (sinks.plan_)
+                spot = Value(sinks.plan_->RegressionValue(sinks.plan_->EventToSample()[sinks.eventOrdinal_], *statePtr->scenario_));
             if (sinks.x_) {
                 const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
                 (*sinks.x_)[slot][sinks.pathSlot_] = spot;

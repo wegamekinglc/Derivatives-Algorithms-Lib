@@ -386,7 +386,7 @@ it neither binds a model nor changes model spot/volatility inputs. Explicit
 and contract settings. It performs no parsing or market access. Full script
 and index validation occurs in description or preparation; pricing additionally
 requires dated events and a syntactic `PAYS` or `EXERCISE`. Product and model handles must
-be non-null, the model must be BS or Dupire, and `numPath` must be a positive
+be non-null, the model must be BS, Dupire, correlated BS, or hybrid, and `numPath` must be a positive
 `int`. C++ cannot detect fractional values already converted to `int` before
 entry, and these typed settings have no string-key dictionary interface.
 
@@ -578,10 +578,12 @@ settings of any kind. The named index declares which equity the caller's
 model inputs describe; the library cannot verify that the caller supplied the
 intended equity's market data.
 
-An unsupported model-observed index, or a second distinct future index
-(`MultipleModelIndices`), fails before history access or worker submission.
-Future FX, IR, composite, EQ delivery (`>` or `@`), and multi-asset
-outputs are unsupported. Historical EQ/FX observations need no model index;
+Each model-sourced request retains its canonical index and a separate sample
+output slot. Correlated BS and deterministic-rate hybrid models accept several
+future ordinary EQ indices. BS and Dupire still accept only one distinct
+future EQ index (`MultipleModelIndices`). An unsupported model-observed index
+fails before history access or worker submission. Future FX, IR, composite,
+and EQ delivery (`>` or `@`) outputs are unsupported. Historical EQ/FX observations need no model index;
 several historical equities, delivery identities, and FX directions can coexist
 with one future ordinary EQ. Historical inverse-FX lookup does not imply a
 future FX model or a reciprocal projection of model spot.
@@ -595,6 +597,11 @@ history value or model cell. A default index names SPOT; it does not change
 SPOT raises `UnboundHistoricalSpot`; mixing future-only SPOT with FIX raises
 `MissingDefaultIndex`. These checks include dead
 branches. SPOT takes no arguments, and `FIX()` is invalid.
+For a multi-asset model, unbound `SPOT()` always raises `MissingDefaultIndex`;
+the default identifies the intended asset. Multi-asset LSM exercise also
+requires this default as its single regression-state selection. The selected
+named output is used in training, hard policy pricing, and fuzzy AAD replay.
+Multivariate regression-state selection remains outside the current API.
 
 ### Retained Observations and Payment Dates
 
@@ -1516,8 +1523,10 @@ starts no workers, and creates no active AAD recording.
 
 The JSON reports `evaluation_date`, `today_fixing` (`Model` or
 `RequireHistorical`), `source_kind` (`GlobalSnapshot` or `ExplicitSnapshot`),
-effective `simulation`, `all_expired`, `observation_mode`, and the model's
-`spot` index in `model_bindings`. The source kind describes the selected historical input,
+effective `simulation`, `all_expired`, `observation_mode`, and the named model
+outputs in `model_bindings`. A single binding retains `asset: "spot"` for
+compatibility; multiple bindings use each canonical index as `asset`. The source
+kind describes the selected historical input,
 even if no history is needed; each request separately has source `Historical`
 or `Model`.
 

@@ -213,9 +213,14 @@ regressor does not capture all relevant state for general path-dependent claims
 (for example, a running average or barrier state). Such scripts can be evaluated,
 but their continuation approximation omits that additional state.
 
-The regressor is the product's single model-sourced future observation (the
-same index binding as `FIX`); an unbound `SPOT()` regressor keeps a null
-`regressor_index` in diagnostics. Exercise dates must be strictly after the
+For BS and Dupire, the regressor is the product's single model-sourced future
+observation; an unbound `SPOT()` keeps a null `regressor_index` in diagnostics.
+For correlated BS and deterministic-rate hybrid models with several equities,
+`ScriptProductSettings_::defaultIndex_` explicitly selects one supported EQ
+regressor. The selected named output feeds training, frozen hard pricing, and
+fuzzy AAD replay. Without it, multi-asset exercise fails as ambiguous. The
+current basis is still one-dimensional; selecting several states awaits the
+multivariate regression-state API. Exercise dates must be strictly after the
 evaluation date (`UnsupportedExerciseDate`), and history-only preparation
 cannot value an exercise product (`UnsupportedExecutionMode`). Preparation
 allows only `rsg = "sobol"`
@@ -290,7 +295,7 @@ on the same training and optional validation paths, then reprices both policies
 with the unchanged base model and identical disjoint fuzzy pricing paths. The
 common-path policy secant is added to the frozen-policy adjoint. The step is
 `lsmcPolicyBumpRelative_ * max(1, abs(input))` (default `1e-3`); constrained
-spot/volatility parameters at their lower boundary use a forward policy secant.
+parameters at their model-declared lower boundary use a forward policy secant.
 The price itself is identical in both modes. Historical script state is replayed
 when a script constant is bumped. This is a finite-step sensitivity of the fitted,
 smoothed estimator, not an analytic derivative through the regression solver.

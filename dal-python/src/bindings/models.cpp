@@ -1,5 +1,5 @@
 //
-// models.cpp - model data bindings (BSModelData_, DupireModelData_)
+// models.cpp - model data bindings for the script valuation models
 //
 
 #include "bindings.h"
@@ -13,6 +13,66 @@
 using namespace Dal;
 
 void init_bindings_models(py::module_& m) {
+    py::class_<HybridComponentData_, Storable_, std::shared_ptr<HybridComponentData_>>(m, "HybridComponentData_");
+    py::class_<HybridCorrelationData_, Storable_, std::shared_ptr<HybridCorrelationData_>>(m, "HybridCorrelationData_");
+
+    m.def(
+        "CorrelatedBSModelData_New",
+        [](const py::iterable& indices, const py::iterable& spots, const py::iterable& vols, const py::iterable& divs, double rate,
+           const Matrix_<>& correlations) -> std::shared_ptr<ModelData_> {
+            Vector_<String_> names;
+            Vector_<> spotValues, volValues, divValues;
+            for (const auto item : indices)
+                names.emplace_back(py::cast<std::string>(item));
+            for (const auto item : spots)
+                spotValues.push_back(py::cast<double>(item));
+            for (const auto item : vols)
+                volValues.push_back(py::cast<double>(item));
+            for (const auto item : divs)
+                divValues.push_back(py::cast<double>(item));
+            return std::const_pointer_cast<ModelData_>(Handle_<ModelData_>(
+                new CorrelatedBSModelData_("CorrelatedBSModelData_", names, spotValues, volValues, divValues, rate, correlations)));
+        },
+        py::arg("indices"), py::arg("spots"), py::arg("vols"), py::arg("divs"), py::arg("rate"), py::arg("correlations"));
+
+    m.def(
+        "HybridBSEquityData_New",
+        [](const std::string& name, const std::string& index, const std::string& currency, const std::string& factor, double spot, double vol,
+           double div) -> std::shared_ptr<HybridComponentData_> {
+            return std::make_shared<HybridBSEquityData_>(String_(name), String_(index), String_(currency), String_(factor), spot, vol, div);
+        },
+        py::arg("name"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("spot"), py::arg("vol"), py::arg("div"));
+
+    m.def(
+        "HybridDeterministicRateData_New",
+        [](const std::string& name, const std::string& currency, double rate) -> std::shared_ptr<HybridComponentData_> {
+            return std::make_shared<HybridDeterministicRateData_>(String_(name), String_(currency), rate);
+        },
+        py::arg("name"), py::arg("currency"), py::arg("rate"));
+
+    m.def(
+        "HybridConstantCorrelationData_New",
+        [](const std::string& name, const py::iterable& factors, const Matrix_<>& correlations) -> std::shared_ptr<HybridCorrelationData_> {
+            Vector_<String_> names;
+            for (const auto item : factors)
+                names.emplace_back(py::cast<std::string>(item));
+            return std::make_shared<HybridConstantCorrelationData_>(String_(name), names, correlations);
+        },
+        py::arg("name"), py::arg("factors"), py::arg("correlations"));
+
+    m.def(
+        "HybridModelData_New",
+        [](const std::string& name, const std::string& domesticCurrency, const py::iterable& components,
+           const std::shared_ptr<HybridCorrelationData_>& correlation) -> std::shared_ptr<ModelData_> {
+            Vector_<Handle_<HybridComponentData_>> handles;
+            for (const auto item : components)
+                handles.emplace_back(std::shared_ptr<const HybridComponentData_>(py::cast<std::shared_ptr<HybridComponentData_>>(item)));
+            const Handle_<HybridCorrelationData_> correlationHandle{std::shared_ptr<const HybridCorrelationData_>(correlation)};
+            return std::const_pointer_cast<ModelData_>(
+                NewHybridModelData(String_(name), HybridSettings_{String_(domesticCurrency), handles, correlationHandle}));
+        },
+        py::arg("name"), py::arg("domestic_currency"), py::arg("components"), py::arg("correlation"));
+
     m.def("BSModelData_New",
         [](double spot, double vol, double rate, double div)
             -> std::shared_ptr<ModelData_> {

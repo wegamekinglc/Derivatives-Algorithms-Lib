@@ -67,6 +67,9 @@ pointers. The core RNG helper now supports `useBb=true` with multiple factors:
 it bridges each independent factor along the time axis before the model
 applies its correlation transform. See the [hybrid model](hybrid-model.md).
 
-This stage exposes core model construction and direct path generation. The
-script preparation and public valuation layers still reject multiple future
-model indices; their integration is a later stage.
+`ValueByMonteCarlo` accepts this model data. Named `FIX(EQ[...])` expressions
+read their respective path outputs in tree, compiled, double, and AAD modes;
+`SPOT()` needs an explicit product default when the model has multiple assets.
+For early exercise, that default also selects the single LSM regression
+variable. The model supports a deterministic numeraire, so its paths can enter
+the existing LSM discounting contract. Correlation remains passive for AAD.

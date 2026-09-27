@@ -78,6 +78,8 @@ namespace Dal {
             Vector_<size_t> eventToSample_;
             Vector_<size_t> liveEventIds_;
             Vector_<String_> modelBindingNames_;
+            String_ regressionIndexName_;
+            Vector_<std::optional<size_t>> regressionOutputBySample_;
 
             friend class PreparedScript_;
             friend class PreparedScriptBuilder_;
@@ -93,6 +95,16 @@ namespace Dal {
             [[nodiscard]] const Vector_<size_t>& EventToSample() const { return eventToSample_; }
             [[nodiscard]] const Vector_<size_t>& LiveEventIds() const { return liveEventIds_; }
             [[nodiscard]] const Vector_<String_>& ModelBindingNames() const { return modelBindingNames_; }
+            [[nodiscard]] const String_& RegressionIndexName() const { return regressionIndexName_; }
+
+            template <class T_> T_ RegressionValue(size_t sampleId, const AAD::Scenario_<T_>& scenario) const {
+                REQUIRE2(sampleId < scenario.size(), "LsmcRegressionSampleOutOfRange", ScriptError_);
+                if (sampleId >= regressionOutputBySample_.size() || !regressionOutputBySample_[sampleId])
+                    return scenario[sampleId].spot_;
+                const size_t output = *regressionOutputBySample_[sampleId];
+                REQUIRE2(output < scenario[sampleId].observations_.size(), "LsmcRegressionOutputOutOfRange", ScriptError_);
+                return scenario[sampleId].observations_[output];
+            }
 
             template <class T_> T_ Read(size_t requestId, const AAD::Scenario_<T_>* scenario) const {
                 const auto& request = Request(requestId);

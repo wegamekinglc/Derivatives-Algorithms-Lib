@@ -183,7 +183,9 @@ namespace Dal::Script {
         out << ",\"all_expired\":" << (prepared.AllExpired() ? "true" : "false") << ",\"observation_mode\":\""
             << (plan.Requests().empty() ? "Legacy" : "Named") << "\",\"model_bindings\":";
         WriteArray(out, plan.ModelBindingNames(), [&](const auto& canonical, size_t) {
-            out << "{\"asset\":\"spot\",\"index_original\":";
+            out << "{\"asset\":";
+            JsonWriteString(plan.ModelBindingNames().size() == 1 ? "spot" : canonical, out);
+            out << ",\"index_original\":";
             JsonWriteString(canonical, out);
             out << ",\"index_canonical\":";
             JsonWriteString(canonical, out);

@@ -186,16 +186,25 @@ For evaluation date D, fixing date F, and event date E:
 - F > D uses the model. F > E always fails with `LookAheadObservation`, even
   in a dead branch.
 
-`default_index` only gives the legacy zero-argument `SPOT()` an identity.
-It does not change `FIX` literals or bind a model. For model-sourced
-named observations, the engine binds the model's `spot` output to one ordinary
-EQ, taken from the script's own future FIX index by name; several distinct
-future indices fail with `MultipleModelIndices`. BS and Dupire support that
-single equity; future FX, IR, composite,
-delivery indices, and multiple assets are unsupported. Historical EQ/FX observations
-need no model index and may contain multiple identities. A product default
-does not supply market data: the model inputs must describe
-the intended equity.
+`default_index` gives the legacy zero-argument `SPOT()` an identity. It does
+not change `FIX` literals. For model-sourced named observations, each ordinary
+EQ binds to its own model output. `CORRELATEDBSMODELDATA.NEW` and
+`HYBRIDMODELDATA.NEW` accept multiple named equities; BS and Dupire accept one
+distinct future index. Future FX, IR, composite, and delivery indices are
+unsupported. Historical EQ/FX observations need no model index and may contain
+multiple identities. A product default does not supply market data: the model
+inputs must describe the intended equity. In a multi-asset model, `SPOT()` and
+LSM exercise require an explicit `default_index`; LSM uses that named equity
+as its single regression state.
+
+A two-equity hybrid worksheet can create two components with
+`HYBRIDBSEQUITYDATA.NEW`, a domestic `HYBRIDDETERMINISTICRATEDATA.NEW`, and a
+`HYBRIDCONSTANTCORRELATIONDATA.NEW` using factor names in matrix order. Pass the
+three component handles and correlation handle to `HYBRIDMODELDATA.NEW`, then
+use `PRODUCT.NEW` with `pay PAYS FIX(EQ[A]) * FIX(EQ[B])` and
+`MONTECARLO.VALUEWITHSETTINGS`. The corresponding C++ and Python examples are
+[here](../../dal-public/examples/hybrid_script.cpp) and
+[here](../../dal-python/examples/hybrid_script.py).
 
 `SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
 for named observations in new worksheets. Future-only unbound `SPOT()` remains

@@ -15,8 +15,8 @@ live in [Python](../python/README.md) and [Excel](../excel/README.md).
 4. [Special techniques](special-techniques.md) — randomized QMC replicates,
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
-5. [Correlated equity Black-Scholes](correlated-bs.md) — core multi-asset
-   simulation, named observations, factor ordering, and AAD parameters.
+5. [Correlated equity Black-Scholes](correlated-bs.md) — multi-asset
+   simulation, named script observations, factor ordering, and AAD parameters.
 6. [Hybrid model](hybrid-model.md) — typed component composition, named-factor
    correlations, deterministic numeraire, and factor-aware Brownian bridge.
 
