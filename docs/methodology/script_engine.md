@@ -386,7 +386,7 @@ it neither binds a model nor changes model spot/volatility inputs. Explicit
 and contract settings. It performs no parsing or market access. Full script
 and index validation occurs in description or preparation; pricing additionally
 requires dated events and a syntactic `PAYS` or `EXERCISE`. Product and model handles must
-be non-null, the model must be BS or Dupire, and `numPath` must be a positive
+be non-null, the model must be BS, Dupire, correlated BS, or hybrid, and `numPath` must be a positive
 `int`. C++ cannot detect fractional values already converted to `int` before
 entry, and these typed settings have no string-key dictionary interface.
 
@@ -1523,8 +1523,10 @@ starts no workers, and creates no active AAD recording.
 
 The JSON reports `evaluation_date`, `today_fixing` (`Model` or
 `RequireHistorical`), `source_kind` (`GlobalSnapshot` or `ExplicitSnapshot`),
-effective `simulation`, `all_expired`, `observation_mode`, and the model's
-`spot` index in `model_bindings`. The source kind describes the selected historical input,
+effective `simulation`, `all_expired`, `observation_mode`, and the named model
+outputs in `model_bindings`. A single binding retains `asset: "spot"` for
+compatibility; multiple bindings use each canonical index as `asset`. The source
+kind describes the selected historical input,
 even if no history is needed; each request separately has source `Historical`
 or `Model`.
 

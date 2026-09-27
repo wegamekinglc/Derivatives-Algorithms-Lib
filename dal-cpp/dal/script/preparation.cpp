@@ -196,8 +196,8 @@ namespace Dal::Script {
                 if (!accept(dates[i]))
                     continue;
                 for (const auto& statement : events[i])
-                    if (const auto* exercise = dynamic_cast<const NodeExercise_*>(FindNode(
-                            *statement, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; })))
+                    if (const auto* exercise = dynamic_cast<const NodeExercise_*>(
+                            FindNode(*statement, [](const Node_& visited) { return dynamic_cast<const NodeExercise_*>(&visited) != nullptr; })))
                         return {exercise, dates[i]};
             }
             return {nullptr, Date_()};
@@ -277,7 +277,7 @@ namespace Dal::Script {
                 if (request.historical_)
                     continue;
                 REQUIRE2(model.SupportsIndex(*request.index_),
-                         "UnsupportedModelObservation: expected one plain EQ supported by the model" + Context(request), ScriptError_);
+                         "UnsupportedModelObservation: expected a plain EQ supported by the model" + Context(request), ScriptError_);
                 dates.insert(request.key_.fixingTime_.Date());
             }
             for (const auto& date : dates) {
@@ -432,7 +432,8 @@ namespace Dal::Script {
                     if (auto* observer = Detail::SimulationObserver())
                         observer->BeforeCompilation();
                     result.pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result.plan_, true);
-                    result.compiled_ = ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_, false, writable->ContainsExercise());
+                    result.compiled_ =
+                        ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_, false, writable->ContainsExercise());
                 }
                 result.executable_ = true;
             }

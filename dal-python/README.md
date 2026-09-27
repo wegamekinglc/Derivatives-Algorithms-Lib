@@ -4,7 +4,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 ## Features
 
-- **Black-Scholes and Dupire models** for equity derivatives pricing
+- **Black-Scholes, Dupire, correlated BS, and hybrid models** for equity derivatives pricing
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language

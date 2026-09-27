@@ -17,5 +17,6 @@ model = dal.HybridModelData_New("two-equity", "USD", components, provider)
 product = dal.Product_New([dal.Date_(2027, 9, 27)], ["pay PAYS FIX(EQ[A]) * FIX(EQ[B])"])
 simulation = dal.MonteCarloSettings_(use_bb=True, enable_aad=True, compiled=True)
 result = dal.MonteCarlo_ValueWithSettings(product, model, 16384, simulation=simulation)
-assert abs(result["PV"] - 12000.0 * math.exp(0.35 * 0.20 * 0.30)) < 50.0
+if abs(result["PV"] - 12000.0 * math.exp(0.35 * 0.20 * 0.30)) >= 50.0:
+    raise ValueError("hybrid cross-moment price exceeded its Monte Carlo tolerance")
 print(f"PV={result['PV']:.4f}, d_spot:EQ[A]={result['d_spot:EQ[A]']:.4f}, d_spot:EQ[B]={result['d_spot:EQ[B]']:.4f}")

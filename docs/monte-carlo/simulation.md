@@ -26,8 +26,8 @@ const auto result = Dal::Script::MCSimulation<double>(
 const double pv = result.aggregated_ / 32768.0;
 ```
 
-Here `product` is `ScriptProductData_` and `modelData` is a BS or Dupire model
-handle. `32768` counts pricing paths. For exercise products the separate
+Here `product` is `ScriptProductData_` and `modelData` is a Black-Scholes,
+Dupire, correlated BS, or hybrid model handle. `32768` counts pricing paths. For exercise products the separate
 training block has 4096 paths; see [path partitioning](lsm.md). The public
 `ValueByMonteCarlo` overload takes the analogous settings through its typed
 valuation and simulation arguments.

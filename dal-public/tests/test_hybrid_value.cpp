@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <rapidjson/document.h>
 
 #include <cmath>
 #include <string>
@@ -93,6 +94,19 @@ TEST(HybridValueTest, TestNamedObservationsShareAJointPath) {
                     ASSERT_NEAR(result.at("d_spot:EQ[B]"), 1.0, 1.0e-10);
                 }
             }
+}
+
+TEST(HybridValueTest, TestMultiAssetExplainNamesEachModelBinding) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const auto product = Dal::NewScriptProduct("joint", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"pay PAYS FIX(EQ[B]) + FIX(EQ[A])"});
+    rapidjson::Document json;
+    json.Parse(Dal::ExplainScriptValuation(product, CorrelatedModel()).c_str());
+    ASSERT_FALSE(json.HasParseError());
+    const auto& bindings = json["model_bindings"];
+    ASSERT_EQ(bindings.Size(), 2u);
+    ASSERT_STREQ(bindings[0]["asset"].GetString(), "EQ[B]");
+    ASSERT_STREQ(bindings[1]["asset"].GetString(), "EQ[A]");
 }
 
 TEST(HybridValueTest, TestCrossMomentWithBrownianBridgeAndAad) {
