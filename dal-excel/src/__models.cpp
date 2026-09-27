@@ -242,7 +242,7 @@ namespace Dal {
                                           const Vector_<Date_>& nodeDates,
                                           const String_& scheme,
                                           Handle_<HybridComponentData_>* component) {
-        REQUIRE(curve, "InvalidHybridCurve: source discount curve is required");
+        REQUIRE(curve && curve->val_, "InvalidHybridCurve: source discount curve is required");
         NewHybridLogDfRateDataFromCurve(name, *curve->val_, evaluationDate, nodeDates, scheme.empty() ? "LOG_LINEAR" : scheme).swap(*component);
     }
 

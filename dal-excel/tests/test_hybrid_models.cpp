@@ -117,3 +117,10 @@ TEST(HybridExcelContractTest, TestLogDfRateSnapshotFactoryUsesCurveDateAxis) {
     ASSERT_NEAR(typed->times_[1], 1.0, 1e-14);
     ASSERT_NEAR(typed->logDF_[1], std::log((*source)(today, maturity)), 1e-14);
 }
+
+TEST(HybridExcelContractTest, TestLogDfRateSnapshotFactoryRejectsEmptyCurveValue) {
+    const Dal::Date_ today(2026, 9, 27), maturity(2027, 9, 27);
+    const Dal::Handle_<Dal::StorableDiscountCurve_> curve(new Dal::StorableDiscountCurve_({}));
+    Dal::Handle_<Dal::HybridComponentData_> rate;
+    ASSERT_THROW(Dal::HybridLogDfRateDataFromCurve_New("RATE", curve, today, {today, maturity}, "LOG_LINEAR", &rate), Dal::Exception_);
+}
