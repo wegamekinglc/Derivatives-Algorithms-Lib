@@ -11,5 +11,5 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
    calibration grid, and local-volatility simulation.
 3. [Correlated equity Black-Scholes](correlated-bs.md) — named multi-asset
    observations, constant correlations, and AAD parameters.
-4. [Hybrid Monte Carlo](hybrid-model.md) — named equity and deterministic-rate
-   components, factor correlation, and model risks.
+4. [Hybrid Monte Carlo](hybrid-model.md) — named equity, constant or term-structure
+   deterministic rates, factor correlation, and model risks.

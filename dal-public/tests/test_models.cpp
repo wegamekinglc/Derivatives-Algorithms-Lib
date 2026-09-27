@@ -4,9 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <string>
 
 #include <dal-public/src/models.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/model/factory.hpp>
 
 using Dal::Matrix_;
 using Dal::String_;
@@ -81,4 +84,25 @@ TEST(ModelsTest, TestNewHybridModelDataStoresTypedComponents) {
     ASSERT_NE(data, nullptr);
     ASSERT_EQ(data->components_.size(), 2);
     ASSERT_EQ(data->parameterLabels_, (Vector_<String_>{"spot:EQ[AAA]", "vol:EQ[AAA]", "div:EQ[AAA]", "rate:USD"}));
+}
+
+TEST(ModelsTest, TestHybridLogDfRateSnapshotRebasesDatedCurveToModelTime) {
+    const Dal::Date_ anchor(2026, 3, 27);
+    const Dal::Date_ today(2026, 9, 27);
+    const Dal::Date_ first(2027, 3, 27);
+    const Dal::Date_ last(2027, 9, 27);
+    const Vector_<Dal::Date_> curveDates{anchor, today, first, last};
+    Vector_<> curveLogDF;
+    for (const auto& date : curveDates)
+        curveLogDF.push_back(-0.04 * (date - anchor) / 360.0);
+    const Dal::DiscountLogDF_ curve("calibrated", "USD", curveDates, curveLogDF, Dal::DayBasis_("ACT_360"), Dal::LogDfScheme_::Value_::LOG_LINEAR);
+    const auto component = Dal::NewHybridLogDfRateDataFromCurve("usd", curve, today, {today, first, last});
+    const auto* data = dynamic_cast<const Dal::HybridLogDfRateData_*>(component.get());
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->currency_, String_("USD"));
+    ASSERT_EQ(data->times_, (Vector_<>{0.0, (first - today) / 365.0, 1.0}));
+    ASSERT_NEAR(data->logDF_[1], -0.04 * (first - today) / 360.0, 1e-12);
+    ASSERT_NEAR(data->logDF_[2], -0.04 * (last - today) / 360.0, 1e-12);
+    ASSERT_THROW(Dal::NewHybridLogDfRateDataFromCurve("usd", curve, today, {first, last}), Dal::Exception_);
+    ASSERT_THROW(Dal::NewHybridLogDfRateDataFromCurve("usd", curve, today, {today, last, first}), Dal::Exception_);
 }

@@ -4,10 +4,14 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <dal/storage/globals.hpp>
 
+#include <dal-excel/src/__curve_storable.hpp>
 #include <dal-excel/src/__models_test_api.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
+#include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
@@ -80,4 +84,43 @@ TEST(HybridExcelContractTest, TestTwoStateBermudanThroughSettingsTable) {
                 }
             ASSERT_TRUE(found);
         }
+}
+
+TEST(HybridExcelContractTest, TestLogDfRateFactoryValuesAHybridModel) {
+    Dal::InitGlobalData(1);
+    Dal::Excel::ScriptTestInitialize(1);
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const ExcelDateScope_ restoreExcel(Dal::Date_(2026, 9, 27));
+    Dal::Handle_<Dal::HybridComponentData_> equity, rate;
+    Dal::HybridBSEquityData_New("A", "EQ[A]", "USD", "FA", 100.0, 0.0, 0.0, &equity);
+    Dal::HybridLogDfRateData_New("RATE", "USD", {0.0, 1.0}, {0.0, -0.08}, "LOG_LINEAR", &rate);
+    Dal::Matrix_<> correlations(1, 1, 1.0);
+    Dal::Handle_<Dal::HybridCorrelationData_> provider;
+    Dal::HybridConstantCorrelationData_New("corr", {"FA"}, correlations, &provider);
+    Dal::Handle_<Dal::ModelData_> model;
+    Dal::HybridModelData_New("hybrid_curve", "USD", {Dal::handle_cast<Dal::Storable_>(equity), Dal::handle_cast<Dal::Storable_>(rate)}, provider,
+                             &model);
+    const auto product = Dal::NewScriptProduct("rate", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"pay PAYS FIX(EQ[A]) + 25"});
+    const auto result = Dal::ValueByMonteCarlo(product, model, 16);
+    ASSERT_NEAR(result.at("PV"), 100.0 + 25.0 * std::exp(-0.08), 1e-10);
+}
+
+TEST(HybridExcelContractTest, TestLogDfRateSnapshotFactoryUsesCurveDateAxis) {
+    const Dal::Date_ today(2026, 9, 27), maturity(2027, 9, 27);
+    const auto source = Dal::DiscountZeroRateNew("source", "USD", today, {maturity}, {0.07});
+    const Dal::Handle_<Dal::StorableDiscountCurve_> curve(new Dal::StorableDiscountCurve_(source));
+    Dal::Handle_<Dal::HybridComponentData_> rate;
+    Dal::HybridLogDfRateDataFromCurve_New("RATE", curve, today, {today, maturity}, "LOG_LINEAR", &rate);
+    const auto* typed = dynamic_cast<const Dal::HybridLogDfRateData_*>(rate.get());
+    ASSERT_NE(typed, nullptr);
+    ASSERT_EQ(typed->currency_, "USD");
+    ASSERT_NEAR(typed->times_[1], 1.0, 1e-14);
+    ASSERT_NEAR(typed->logDF_[1], std::log((*source)(today, maturity)), 1e-14);
+}
+
+TEST(HybridExcelContractTest, TestLogDfRateSnapshotFactoryRejectsEmptyCurveValue) {
+    const Dal::Date_ today(2026, 9, 27), maturity(2027, 9, 27);
+    const Dal::Handle_<Dal::StorableDiscountCurve_> curve(new Dal::StorableDiscountCurve_({}));
+    Dal::Handle_<Dal::HybridComponentData_> rate;
+    ASSERT_THROW(Dal::HybridLogDfRateDataFromCurve_New("RATE", curve, today, {today, maturity}, "LOG_LINEAR", &rate), Dal::Exception_);
 }

@@ -5,7 +5,9 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 
+#include <dal/curve/logdfinterp.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/storage/archive.hpp>
 
@@ -31,6 +33,18 @@ version 1
 name is ?string
 currency is string
 rate is number
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+storable HybridLogDfRateData
+    Domestic deterministic log-discount-factor rate component of a hybrid model
+version 1
+&members
+name is ?string
+currency is string
+times is number[]
+logDF is number[]
+scheme is string
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -92,6 +106,37 @@ namespace Dal {
             REQUIRE(!name_.empty() && !currency_.empty(), "InvalidHybridComponent: rate name and currency must be nonempty");
         }
         [[nodiscard]] Vector_<String_> RiskLabels() const override { return {"rate:" + currency_}; }
+        [[nodiscard]] Vector_<String_> FactorNames() const override { return {}; }
+        [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
+        void Write(Archive::Store_& dst) const override;
+    };
+
+    struct HybridLogDfRateData_ : HybridComponentData_ {
+        Vector_<> times_;
+        Vector_<> logDF_;
+        String_ scheme_;
+
+        HybridLogDfRateData_(
+            const String_& name, const String_& currency, const Vector_<>& times, const Vector_<>& logDF, const String_& scheme = "LOG_LINEAR")
+            : HybridComponentData_("HybridLogDfRateData_", name, currency), times_(times), logDF_(logDF), scheme_(LogDfScheme_(scheme).String()) {
+            REQUIRE(!name_.empty() && !currency_.empty(), "InvalidHybridCurve: component name and currency must be nonempty");
+            REQUIRE(times_.size() == logDF_.size() && times_.size() >= 2,
+                    "InvalidHybridCurve: times and logDF must have equal length of at least two");
+            REQUIRE(times_[0] == 0.0 && logDF_[0] == 0.0, "InvalidHybridCurve: first node must be t=0, logDF=0");
+            for (size_t i = 0; i < times_.size(); ++i) {
+                REQUIRE(std::isfinite(times_[i]) && std::isfinite(logDF_[i]),
+                        "InvalidHybridCurve: non-finite time or logDF at node " + String::FromInt(static_cast<int>(i)));
+                REQUIRE(i == 0 || times_[i] > times_[i - 1],
+                        "InvalidHybridCurve: times must be strictly increasing at node " + String::FromInt(static_cast<int>(i)));
+            }
+            static_cast<void>(LogDfInterpolation_(times_, LogDfScheme_(scheme_)));
+        }
+        [[nodiscard]] Vector_<String_> RiskLabels() const override {
+            Vector_<String_> labels;
+            for (size_t i = 1; i < logDF_.size(); ++i)
+                labels.push_back("logdf:" + currency_ + ":" + String::FromInt(static_cast<int>(i)));
+            return labels;
+        }
         [[nodiscard]] Vector_<String_> FactorNames() const override { return {}; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
         void Write(Archive::Store_& dst) const override;

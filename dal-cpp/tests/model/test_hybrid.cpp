@@ -83,6 +83,217 @@ TEST(ModelTest, TestHybridTwoEquitiesMatchCorrelatedBSPath) {
     }
 }
 
+TEST(ModelTest, TestHybridFlatLogDfRateMatchesConstantRatePath) {
+    auto curveSettings = TwoEquitySettings();
+    curveSettings.components_[0] = Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", {0.0, 0.5, 1.5}, {0.0, -0.025, -0.075}));
+    auto curve = CreateModel<double>(HybridData(curveSettings));
+    auto constant = CreateModel<double>(HybridData(TwoEquitySettings()));
+    const Vector_<> timeline{0.0, 0.25, 1.0};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "EQ[BBB]"};
+    }
+    for (auto* model : {curve.get(), constant.get()}) {
+        model->Allocate(timeline, definitions);
+        model->Init(timeline, definitions);
+    }
+    AAD::Scenario_<> curvePath, constantPath;
+    AAD::AllocatePath(definitions, curvePath);
+    AAD::AllocatePath(definitions, constantPath);
+    const Vector_<> gaussian{0.4, -0.7, 0.2, 0.5};
+    curve->GeneratePath(gaussian, &curvePath);
+    constant->GeneratePath(gaussian, &constantPath);
+    for (size_t sample = 0; sample < timeline.size(); ++sample) {
+        ASSERT_NEAR(curvePath[sample].numeraire_, constantPath[sample].numeraire_, 1e-10);
+        for (size_t asset = 0; asset < 2; ++asset)
+            ASSERT_NEAR(curvePath[sample].observations_[asset], constantPath[sample].observations_[asset], 1e-10);
+    }
+    ASSERT_EQ(curve->ParameterLabels().back(), String_("logdf:USD:2"));
+}
+
+TEST(ModelTest, TestHybridNonFlatLogDfDrivesNumeraireAndEquityCarry) {
+    auto settings = TwoEquitySettings();
+    settings.components_[0] =
+        Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", {0.0, 0.5, 1.0, 2.0}, {0.0, -0.01, -0.035, -0.10}));
+    settings.components_[1] = Handle_<HybridComponentData_>(new HybridBSEquityData_("aaa", "EQ[AAA]", "USD", "W_AAA", 100.0, 0.0, 0.0));
+    settings.components_[2] = Handle_<HybridComponentData_>(new HybridBSEquityData_("bbb", "EQ[BBB]", "USD", "W_BBB", 120.0, 0.0, 0.0));
+    auto model = CreateModel<double>(HybridData(settings));
+    const Vector_<> timeline{0.0, 0.25, 0.75, 1.5, 2.5};
+    const std::array<double, 5> expectedLogDF{0.0, -0.005, -0.0225, -0.0675, -0.1325};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "EQ[BBB]"};
+    }
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.0), &path);
+    for (size_t sample = 0; sample < timeline.size(); ++sample) {
+        const double numeraire = std::exp(-expectedLogDF[sample]);
+        ASSERT_NEAR(path[sample].numeraire_, numeraire, 1e-10);
+        ASSERT_NEAR(path[sample].observations_[0], 100.0 * numeraire, 1e-10);
+        ASSERT_NEAR(path[sample].observations_[1], 120.0 * numeraire, 1e-10);
+    }
+}
+
+TEST(ModelTest, TestHybridLogDfInterpolationSchemesAndTailMatchCurveEngine) {
+    const Vector_<> nodes{0.0, 0.5, 1.0, 2.0};
+    const Vector_<> logDF{0.0, -0.01, -0.04, -0.10};
+    const Vector_<> timeline{0.25, 0.75, 1.5, 2.5};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions)
+        definition.numeraire_ = true;
+    for (const String_& scheme : {String_("LOG_LINEAR"), String_("LOG_CUBIC_NATURAL"), String_("MIXED")}) {
+        auto settings = TwoEquitySettings();
+        settings.components_[0] = Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", nodes, logDF, scheme));
+        auto model = CreateModel<double>(HybridData(settings));
+        model->Allocate(timeline, definitions);
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.0), &path);
+        const LogDfInterpolation_ interpolation(nodes, LogDfScheme_(scheme));
+        for (size_t i = 0; i < timeline.size(); ++i)
+            ASSERT_NEAR(path[i].numeraire_, std::exp(-interpolation.Evaluate(logDF, timeline[i])), 1e-12) << scheme;
+    }
+}
+
+TEST(ModelTest, TestHybridLogDfDataRejectsInvalidNodes) {
+    const auto expectInvalid = [](const Vector_<>& times, const Vector_<>& logDF, const String_& scheme, const std::string& message) {
+        try {
+            static_cast<void>(HybridLogDfRateData_("usd", "USD", times, logDF, scheme));
+            FAIL() << "invalid hybrid curve accepted";
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find(message), std::string::npos) << error.what();
+        }
+    };
+    expectInvalid({0.0}, {0.0}, "LOG_LINEAR", "equal length of at least two");
+    expectInvalid({0.0, 1.0}, {0.0}, "LOG_LINEAR", "equal length of at least two");
+    expectInvalid({0.1, 1.0}, {0.0, -0.02}, "LOG_LINEAR", "first node");
+    expectInvalid({0.0, 1.0}, {0.01, -0.02}, "LOG_LINEAR", "first node");
+    expectInvalid({0.0, 1.0, 1.0}, {0.0, -0.02, -0.04}, "LOG_LINEAR", "strictly increasing");
+    expectInvalid({0.0, 1.0, 0.5}, {0.0, -0.02, -0.04}, "LOG_LINEAR", "strictly increasing");
+    expectInvalid({0.0, std::numeric_limits<double>::infinity()}, {0.0, -0.02}, "LOG_LINEAR", "non-finite");
+    expectInvalid({0.0, 1.0}, {0.0, std::numeric_limits<double>::quiet_NaN()}, "LOG_LINEAR", "non-finite");
+    expectInvalid({0.0, 1.0}, {0.0, -0.02}, "LOG_CUBIC_NATURAL", "at least 3");
+    auto settings = TwoEquitySettings();
+    settings.components_[0] = Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "EUR", {0.0, 1.0}, {0.0, -0.02}));
+    ExpectHybridError(settings, "InvalidHybridCurrency");
+    ASSERT_NO_THROW(HybridLogDfRateData_("usd", "USD", {0.0, 1.0}, {0.0, 0.02}));
+}
+
+TEST(ModelTest, TestHybridLogDfArchiveAndRiskLabelsRoundTrip) {
+    auto settings = TwoEquitySettings();
+    settings.components_[0] =
+        Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", {0.0, 0.5, 1.0}, {0.0, -0.01, -0.03}, "LOG_CUBIC_NATURAL"));
+    const HybridModelData_ data("hybrid_curve", settings);
+    const auto restored = handle_cast<HybridModelData_>(JSON::ReadString(JSON::WriteString(data), false));
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->parameterLabels_, data.parameterLabels_);
+    ASSERT_EQ(restored->parameterLabels_.back(), String_("logdf:USD:2"));
+    auto model = CreateModel<double>(Handle_<ModelData_>(restored));
+    ASSERT_TRUE(model->NumeraireIsDeterministic());
+    ASSERT_EQ(model->NumParams(), 8);
+}
+
+TEST(ModelTest, TestHybridLogDfAadNodeRisksMatchCommonPathDifferences) {
+    auto settings = TwoEquitySettings();
+    settings.components_.pop_back();
+    settings.components_[0] = Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", {0.0, 0.5, 1.5}, {0.0, -0.01, -0.06}));
+    settings.components_[1] = Handle_<HybridComponentData_>(new HybridBSEquityData_("aaa", "EQ[AAA]", "USD", "W_AAA", 100.0, 0.0, 0.0));
+    settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", {"W_AAA"}, Matrix_<>(1, 1, 1.0)));
+    const auto data = HybridData(settings);
+    const Vector_<> timeline{0.75};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].numeraire_ = true;
+    definitions[0].indexNames_ = {"EQ[AAA]"};
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(data);
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    model->GeneratePath({0.0}, &path);
+    AAD::Number_ payoff = (path[0].observations_[0] - 90.0) / path[0].numeraire_;
+    AAD::Adjoint(payoff) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+    const double discount = std::exp(-0.0225);
+    ASSERT_NEAR(AAD::Value(payoff), 100.0 - 90.0 * discount, 1e-10);
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[3]), -90.0 * discount * 0.75, 1e-8);
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[4]), -90.0 * discount * 0.25, 1e-8);
+    auto bumpedPrice = [&](size_t parameter, double bump) {
+        auto bumped = CreateModel<double>(data);
+        *bumped->Parameters()[parameter] += bump;
+        bumped->Allocate(timeline, definitions);
+        bumped->Init(timeline, definitions);
+        AAD::Scenario_<> bumpedPath;
+        AAD::AllocatePath(definitions, bumpedPath);
+        bumped->GeneratePath({0.0}, &bumpedPath);
+        return (bumpedPath[0].observations_[0] - 90.0) / bumpedPath[0].numeraire_;
+    };
+    constexpr double BUMP = 1e-5;
+    for (size_t node = 3; node < 5; ++node)
+        ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[node]), (bumpedPrice(node, BUMP) - bumpedPrice(node, -BUMP)) / (2.0 * BUMP), 1e-7);
+    auto clone = model->Clone();
+    ASSERT_NE(clone->Parameters()[3], model->Parameters()[3]);
+    ASSERT_NE(clone->Parameters()[4], model->Parameters()[4]);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : clone->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    clone->Init(timeline, definitions);
+    AAD::InitializePath(path);
+    clone->GeneratePath({0.0}, &path);
+    AAD::Number_ clonedPayoff = (path[0].observations_[0] - 90.0) / path[0].numeraire_;
+    AAD::Adjoint(clonedPayoff) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+    ASSERT_NEAR(AAD::Adjoint(*clone->Parameters()[3]), -90.0 * discount * 0.75, 1e-8);
+    ASSERT_NEAR(AAD::Adjoint(*clone->Parameters()[4]), -90.0 * discount * 0.25, 1e-8);
+}
+
+TEST(ModelTest, TestHybridLogDfAadTwoStepCarryCancelsIntermediateNode) {
+    auto settings = TwoEquitySettings();
+    settings.components_[0] = Handle_<HybridComponentData_>(new HybridLogDfRateData_("usd", "USD", {0.0, 0.5, 1.0}, {0.0, -0.01, -0.05}));
+    settings.components_[1] = Handle_<HybridComponentData_>(new HybridBSEquityData_("aaa", "EQ[AAA]", "USD", "W_AAA", 100.0, 0.0, 0.0));
+    settings.components_[2] = Handle_<HybridComponentData_>(new HybridBSEquityData_("bbb", "EQ[BBB]", "USD", "W_BBB", 120.0, 0.0, 0.0));
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(HybridData(settings));
+    const Vector_<> timeline{0.5, 1.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "EQ[BBB]"};
+    }
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    AAD::InitializePath(path);
+    AAD::Mark(*AAD::Tape());
+    for (int i = 0; i < 2; ++i) {
+        AAD::RewindToMark(*AAD::Tape());
+        model->GeneratePath({0.0, 0.0, 0.0, 0.0}, &path);
+        AAD::Number_ payoff = path[1].observations_[0] * path[1].observations_[1] / path[1].numeraire_;
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToMark(*AAD::Tape());
+        ASSERT_NEAR(AAD::Value(payoff), 12000.0 * std::exp(0.05), 1e-8);
+    }
+    AAD::PropagateMarkToStart(*AAD::Tape());
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[6]), 0.0, 1e-8);
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[7]), -2.0 * 12000.0 * std::exp(0.05), 1e-8);
+}
+
 TEST(ModelTest, TestHybridComponentOrderAndNamedCorrelationAreStable) {
     auto forward = CreateModel<double>(HybridData(TwoEquitySettings()));
     auto reversedSettings = TwoEquitySettings(true);

@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-27
 
+- **Hybrid Monte Carlo accepts deterministic rate term structures** — a
+  serializable logDF rate component drives multi-asset equity carry and the
+  domestic numeraire, with node-level AAD risk, dated-curve snapshot factories,
+  and C++, Python, and Excel interfaces. See [hybrid model](docs/models/hybrid-model.md).
 - **Fuzzy AAD supports vector mutation inside `IF`** — tree and compiled
   script valuation now blend branch writes and `APPEND` results entry by entry,
   padding the shorter branch with zeros. See [script engine](docs/methodology/script_engine.md).

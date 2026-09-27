@@ -2,6 +2,7 @@
 // Created by wegam on 2022/11/20.
 //
 
+#include "__curve_storable.hpp"
 #include "__models_test_api.hpp"
 #include "__platform.hpp"
 #include <dal-public/src/models.hpp>
@@ -24,7 +25,6 @@ div is number
 model is handle ModelData
     The model data
 -IF-------------------------------------------------------------------------*/
-
 
 /*IF--------------------------------------------------------------------------
 public DupireModelData_New
@@ -111,6 +111,46 @@ component is handle HybridComponentData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
+public HybridLogDfRateData_New
+    Create a domestic rate component from model-time log discount factors
+&inputs
+name is string
+    Component name
+currency is string
+    Domestic currency
+times is number[]
+    ACT/365 times from the valuation date, starting at zero
+logDF is number[]
+    Log discount factors, starting at zero
+&optional
+scheme is string
+    Log discount-factor interpolation (default LOG_LINEAR)
+&outputs
+component is handle HybridComponentData
+    Component handle
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public HybridLogDfRateDataFromCurve_New
+    Snapshot a dated discount curve on the hybrid model time axis
+&inputs
+name is string
+    Component name
+curve is handle StorableDiscountCurve
+    Calibrated domestic discount curve
+evaluationDate is date
+    Model valuation date
+nodeDates is date[]
+    Increasing snapshot dates starting at the valuation date
+&optional
+scheme is string
+    Log discount-factor interpolation (default LOG_LINEAR)
+&outputs
+component is handle HybridComponentData
+    Component handle
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
 public HybridConstantCorrelationData_New
     Create a named constant-factor correlation provider
 &inputs
@@ -145,12 +185,7 @@ model is handle ModelData
 namespace Dal {
     using Dal::ModelData_;
     namespace {
-        void BSModelData_New(const String_& name,
-                             double spot,
-                             double vol,
-                             double rate,
-                             double div,
-                             Handle_<ModelData_>* model) {
+        void BSModelData_New(const String_& name, double spot, double vol, double rate, double div, Handle_<ModelData_>* model) {
             NewBSModelData(name, spot, vol, rate, div).swap(*model);
         }
 
@@ -192,6 +227,25 @@ namespace Dal {
         Handle_<HybridComponentData_>(new HybridDeterministicRateData_(name, currency, rate)).swap(*component);
     }
 
+    void HybridLogDfRateData_New(const String_& name,
+                                 const String_& currency,
+                                 const Vector_<>& times,
+                                 const Vector_<>& logDF,
+                                 const String_& scheme,
+                                 Handle_<HybridComponentData_>* component) {
+        NewHybridLogDfRateData(name, currency, times, logDF, scheme.empty() ? "LOG_LINEAR" : scheme).swap(*component);
+    }
+
+    void HybridLogDfRateDataFromCurve_New(const String_& name,
+                                          const Handle_<StorableDiscountCurve_>& curve,
+                                          const Date_& evaluationDate,
+                                          const Vector_<Date_>& nodeDates,
+                                          const String_& scheme,
+                                          Handle_<HybridComponentData_>* component) {
+        REQUIRE(curve && curve->val_, "InvalidHybridCurve: source discount curve is required");
+        NewHybridLogDfRateDataFromCurve(name, *curve->val_, evaluationDate, nodeDates, scheme.empty() ? "LOG_LINEAR" : scheme).swap(*component);
+    }
+
     void HybridConstantCorrelationData_New(const String_& name,
                                            const Vector_<String_>& factors,
                                            const Matrix_<>& correlations,
@@ -219,6 +273,8 @@ namespace Dal {
 #include <dal-excel/auto/MG_HybridBSEquityData_New_public.inc>
 #include <dal-excel/auto/MG_HybridConstantCorrelationData_New_public.inc>
 #include <dal-excel/auto/MG_HybridDeterministicRateData_New_public.inc>
+#include <dal-excel/auto/MG_HybridLogDfRateDataFromCurve_New_public.inc>
+#include <dal-excel/auto/MG_HybridLogDfRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridModelData_New_public.inc>
 #endif
 } // namespace Dal

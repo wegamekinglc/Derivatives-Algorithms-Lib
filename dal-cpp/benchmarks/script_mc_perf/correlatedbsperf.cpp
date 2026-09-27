@@ -66,7 +66,7 @@ namespace {
         RunPathCase(&model, selectedNames, "correlated BS path (100K x 12 steps x " + std::to_string(assets) + " assets)");
     }
 
-    void RunHybridCase() {
+    void RunHybridCase(bool termStructure) {
         HybridSettings_ settings;
         settings.domesticCurrency_ = "USD";
         settings.components_ = {
@@ -74,18 +74,23 @@ namespace {
             Handle_<HybridComponentData_>(new HybridBSEquityData_("aaa", "EQ[AAA]", "USD", "W_AAA", 100.0, 0.2, 0.01)),
             Handle_<HybridComponentData_>(new HybridBSEquityData_("bbb", "EQ[BBB]", "USD", "W_BBB", 110.0, 0.25, 0.01)),
         };
+        if (termStructure)
+            settings.components_[0] =
+                Handle_<HybridComponentData_>(new HybridLogDfRateData_("rate", "USD", {0.0, 0.25, 0.5, 1.0}, {0.0, -0.01, -0.023, -0.055}));
         Matrix_<> correlations(2, 2, 0.3);
         correlations(0, 0) = correlations(1, 1) = 1.0;
         settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", {"W_AAA", "W_BBB"}, correlations));
         auto model = CreateModel<double>(Handle_<ModelData_>(new HybridModelData_("hybrid", settings)));
         auto* hybrid = dynamic_cast<AAD::HybridModel_<double>*>(model.get());
         REQUIRE(hybrid, "hybrid benchmark model construction failed");
-        RunPathCase(hybrid, {"EQ[AAA]", "EQ[BBB]"}, "hybrid BS path (100K x 12 steps x 2 assets)");
+        RunPathCase(hybrid, {"EQ[AAA]", "EQ[BBB]"},
+                    termStructure ? "hybrid logDF path (100K x 12 steps x 2 assets)" : "hybrid flat-rate path (100K x 12 steps x 2 assets)");
     }
 } // namespace
 
 void RunCorrelatedBSPathCases() {
     for (size_t assets : {1u, 2u, 3u})
         RunCase(assets);
-    RunHybridCase();
+    RunHybridCase(false);
+    RunHybridCase(true);
 }

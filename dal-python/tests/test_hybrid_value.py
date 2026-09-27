@@ -1,4 +1,5 @@
 import copy
+import math
 
 import dal
 import pytest
@@ -68,3 +69,40 @@ def test_two_state_multi_asset_exercise(compiled, aad):
 def test_regression_features_reject_non_text_elements():
     with pytest.raises((TypeError, ValueError)):
         dal.ScriptProductSettings_(regression_features=["EQ[A]", 3])
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+def test_logdf_rate_factory_prices_and_differentiates(compiled):
+    dal.EvaluationDate_Set(dal.Date_(2026, 9, 27))
+    correlation = dal.DoubleMatrix_([[1.0]])
+    components = [
+        dal.HybridBSEquityData_New("A", "EQ[A]", "USD", "FA", 100.0, 0.0, 0.0),
+        dal.HybridLogDfRateData_New("RATE", "USD", [0.0, 1.0], [0.0, -0.08]),
+    ]
+    provider = dal.HybridConstantCorrelationData_New("corr", ["FA"], correlation)
+    model = dal.HybridModelData_New("hybrid_curve", "USD", components, provider)
+    product = dal.Product_New([dal.Date_(2027, 9, 27)], ["pay PAYS FIX(EQ[A]) + 25"])
+    simulation = dal.MonteCarloSettings_(compiled=compiled, enable_aad=True)
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 16, simulation=simulation)
+    assert result["PV"] == pytest.approx(100.0 + 25.0 * math.exp(-0.08), abs=1e-10)
+    assert result["d_logdf:USD:1"] == pytest.approx(25.0 * math.exp(-0.08), abs=1e-10)
+
+
+def test_logdf_rate_factory_rejects_bad_grid():
+    with pytest.raises(RuntimeError, match="InvalidHybridCurve"):
+        dal.HybridLogDfRateData_New("RATE", "USD", [0.0, 1.0, 1.0], [0.0, -0.02, -0.03])
+
+
+def test_logdf_rate_snapshot_uses_curve_dates_and_currency():
+    today = dal.Date_(2026, 9, 27)
+    first = dal.Date_(2027, 9, 27)
+    second = dal.Date_(2028, 9, 27)
+    curve = dal.DiscountLogDF_New("calibrated", "USD", [today, first, second], [0.0, -0.03, -0.08])
+    rate = dal.HybridLogDfRateDataFromCurve_New("RATE", curve, today, [today, first, second])
+    equity = dal.HybridBSEquityData_New("A", "EQ[A]", "USD", "FA", 100.0, 0.0, 0.0)
+    provider = dal.HybridConstantCorrelationData_New("corr", ["FA"], dal.DoubleMatrix_([[1.0]]))
+    model = dal.HybridModelData_New("hybrid_curve", "USD", [equity, rate], provider)
+    dal.EvaluationDate_Set(today)
+    product = dal.Product_New([second], ["pay PAYS 25"])
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 16)
+    assert result["PV"] == pytest.approx(25.0 * math.exp(-0.08), abs=1e-10)
