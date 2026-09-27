@@ -281,21 +281,24 @@ TEST(HybridValueTest, TestTwoStateBermudanMatchesExchangeReference) {
     const double reference = 100.0 - 120.0 + 2.0 * 120.0 * cdf(d1) - 1.9 * 100.0 * cdf(d2);
     for (const auto& model : {CorrelatedModel(volA, volB, correlation), HybridModel(volA, volB, correlation)})
         for (const bool bridge : {false, true})
-            for (const bool compiled : {false, true})
-                for (const bool aad : {false, true}) {
-                    Dal::MonteCarloSettings_ simulation;
-                    simulation.useBb_ = bridge;
-                    simulation.compiled_ = compiled;
-                    simulation.enableAad_ = aad;
-                    simulation.lsmcTrainingPaths_ = 8192;
-                    simulation.lsmcValidationPaths_ = 2048;
-                    const auto result = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
-                    ASSERT_NEAR(result.at("PV"), reference, 0.4);
-                    if (aad) {
-                        ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[A]")));
-                        ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[B]")));
+            for (const bool aad : {false, true}) {
+                Dal::MonteCarloSettings_ simulation;
+                simulation.useBb_ = bridge;
+                simulation.enableAad_ = aad;
+                simulation.lsmcTrainingPaths_ = 8192;
+                simulation.lsmcValidationPaths_ = 2048;
+                const auto tree = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
+                simulation.compiled_ = true;
+                const auto compiled = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
+                ASSERT_NEAR(tree.at("PV"), reference, 0.4);
+                ASSERT_NEAR(compiled.at("PV"), tree.at("PV"), 1e-8);
+                if (aad) {
+                    for (const auto& risk : {"d_spot:EQ[A]", "d_spot:EQ[B]"}) {
+                        ASSERT_TRUE(std::isfinite(tree.at(risk)));
+                        ASSERT_NEAR(compiled.at(risk), tree.at(risk), 1e-8);
                     }
                 }
+            }
     Dal::MonteCarloSettings_ simulation;
     simulation.lsmcTrainingPaths_ = 4096;
     rapidjson::Document diagnostic;

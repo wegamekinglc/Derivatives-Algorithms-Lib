@@ -232,9 +232,12 @@ namespace Dal::Script {
             (*lsmcFuzzySinks_->h_)[slot] = value;
             (*lsmcFuzzySinks_->cond_)[slot] = cond;
             const auto* plan = lsmcFuzzySinks_->plan_;
-            for (size_t feature = 0; feature < plan->RegressionFeatureCount(); ++feature)
-                (*lsmcFuzzySinks_->features_)[slot * plan->RegressionFeatureCount() + feature] =
-                    plan->RegressionFeatureValue(feature, curEvt_, *scenario_, variables_);
+            if (plan->RegressionFeatures().empty())
+                (*lsmcFuzzySinks_->features_)[slot] = plan->RegressionValue(curEvt_, *scenario_);
+            else
+                for (size_t feature = 0; feature < plan->RegressionFeatureCount(); ++feature)
+                    (*lsmcFuzzySinks_->features_)[slot * plan->RegressionFeatureCount() + feature] =
+                        plan->RegressionFeatureValue(feature, curEvt_, *scenario_, variables_);
         }
     };
 } // namespace Dal::Script

@@ -775,7 +775,7 @@ namespace Dal::Script {
         }
 
         struct PricingObservation_ {
-            std::array<double, 3> features_;
+            const std::array<double, 3>* features_;
             double h_;
             bool cond_;
         };
@@ -799,8 +799,8 @@ namespace Dal::Script {
             [[nodiscard]] const Scenario_<>& Path() const { return bsPaths_ ? bsPaths_->Path() : path_; }
             [[nodiscard]] PricingObservation_ PricingObservation() const {
                 if (compiledState_)
-                    return {sinks_.pricingFeatures_, sinks_.pricingH_, sinks_.pricingCond_};
-                return {evaluator_.pricingFeatures_, evaluator_.pricingH_, evaluator_.pricingCond_};
+                    return {&sinks_.pricingFeatures_, sinks_.pricingH_, sinks_.pricingCond_};
+                return {&evaluator_.pricingFeatures_, evaluator_.pricingH_, evaluator_.pricingCond_};
             }
         };
 
@@ -878,7 +878,12 @@ namespace Dal::Script {
             if (!ctx.policy_ || day == NO_SLOT)
                 return false;
             const auto observation = state->PricingObservation();
-            if (!(observation.cond_ && observation.h_ > 0.0 && observation.h_ > RegressionPredict((*ctx.policy_)[day], observation.features_)))
+            if (!(observation.cond_ && observation.h_ > 0.0))
+                return false;
+            const auto& regression = (*ctx.policy_)[day];
+            const double continuation = regression.powers_.empty() ? RegressionPredict(regression, (*observation.features_)[0])
+                                                                   : RegressionPredict(regression, *observation.features_);
+            if (!(observation.h_ > continuation))
                 return false;
             state->exercisedDay_ = day;
             state->exerciseValue_ = observation.h_;
@@ -1020,6 +1025,8 @@ namespace Dal::Script {
                 return regression_->powers_.empty() ? PredictContinuation(coefficients_.data(), size_, mean_, sigma_, features[0])
                                                     : RegressionPredict(*regression_, features);
             }
+
+            FORCE_INLINE double operator()(double feature) const { return PredictContinuation(coefficients_.data(), size_, mean_, sigma_, feature); }
         };
 
         //  Backward holding values and the current regression set of one path block
@@ -1088,6 +1095,7 @@ namespace Dal::Script {
                 predict.emplace(*pending.regression_);
             const double* pendingH = pending.h_;
             const auto pendingFeatures = pending.features_;
+            const bool scalarFit = APPLY && pending.nFeatures_ == 1 && pending.regression_->powers_.empty();
             const size_t end = chunk.firstPath_ + chunk.pathCount_;
             double* w = &rows->w_[0];
             char* included = &rows->included_[0];
@@ -1095,10 +1103,16 @@ namespace Dal::Script {
             for (size_t j = chunk.firstPath_; j < end; ++j) {
                 double value = w[j];
                 if constexpr (APPLY) {
-                    std::array<double, 3> features{};
-                    for (size_t feature = 0; feature < pending.nFeatures_; ++feature)
-                        features[feature] = pendingFeatures[feature][j];
-                    value = Select((included[j] != 0) & (pendingH[j] > (*predict)(features)), pendingH[j], value);
+                    double continuation;
+                    if (scalarFit) {
+                        continuation = (*predict)(pendingFeatures[0][j]);
+                    } else {
+                        std::array<double, 3> features{};
+                        for (size_t feature = 0; feature < pending.nFeatures_; ++feature)
+                            features[feature] = pendingFeatures[feature][j];
+                        continuation = (*predict)(features);
+                    }
+                    value = Select((included[j] != 0) & (pendingH[j] > continuation), pendingH[j], value);
                 }
                 value = HoldingValue(pays, j, dNext, hasNext, value);
                 w[j] = value;
