@@ -1,9 +1,10 @@
 # Monte Carlo Methods
 
 DAL's C++ script engine can price ordinary future cashflows and `EXERCISE`
-products under Black-Scholes or Dupire model data. The public facade is shown
-in [C++ API](../public-api.md#scripted-monte-carlo); binding-specific examples
-live in [Python](../python/README.md) and [Excel](../excel/README.md).
+products under the [supported simulation models](../models/README.md). The
+public facade is shown in [C++ API](../public-api.md#scripted-monte-carlo);
+binding-specific examples live in [Python](../python/README.md) and
+[Excel](../excel/README.md).
 
 1. [Simulation and evaluation](simulation.md) — path preparation, model
    observations, payments, batching, tree/compiled evaluation, and AAD.
@@ -15,10 +16,8 @@ live in [Python](../python/README.md) and [Excel](../excel/README.md).
 4. [Special techniques](special-techniques.md) — randomized QMC replicates,
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
-5. [Correlated equity Black-Scholes](correlated-bs.md) — multi-asset
-   simulation, named script observations, factor ordering, and AAD parameters.
-6. [Hybrid model](hybrid-model.md) — typed component composition, named-factor
-   correlations, deterministic numeraire, and factor-aware Brownian bridge.
 
-The [script language and preparation](../methodology/script_engine.md) guide
+The [models index](../models/README.md) covers Black-Scholes, Dupire,
+correlated equity Black-Scholes, and hybrid simulation. The
+[script language and preparation](../methodology/script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.

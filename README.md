@@ -206,7 +206,7 @@ Methodology notes (see the index above for the full list):
 - [PDE](docs/pde/README.md) — finite-difference framework and European option pricing
 - [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
 - [Monte Carlo](docs/monte-carlo/README.md) — simulation, LSM, sampling, RQMC, and AAD
-- [Black / Bachelier](docs/methodology/black_scholes.md) — vanilla option pricing
+- [Models](docs/models/README.md) — Black/Bachelier pricing and Black-Scholes, Dupire, correlated-equity, and hybrid simulation
 - [Matrix](docs/methodology/matrix.md) — matrix and linear algebra
 
 ## License

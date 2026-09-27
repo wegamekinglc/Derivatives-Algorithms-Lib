@@ -44,9 +44,10 @@ contribution is divided by the event's own numeraire. Historical `PAYS` are
 expired. The detailed binding and today-fixing rules are in
 [script preparation](../methodology/script_engine.md#historical-fixing-preparation).
 
-The factory constructs Black-Scholes, Dupire local-volatility,
-[correlated equity Black-Scholes](correlated-bs.md), and
-[hybrid](hybrid-model.md) models from model data. Script preparation and public
+The factory constructs [Black-Scholes](../models/black-scholes.md),
+[Dupire local-volatility](../models/dupire.md),
+[correlated equity Black-Scholes](../models/correlated-bs.md), and
+[hybrid](../models/hybrid-model.md) models from model data. Script preparation and public
 valuation accept all four. The model interface exposes whether its numeraire
 is deterministic. The future observation plan keeps exact event-to-sample
 mapping rather than assuming one model sample per script event. A model path
@@ -61,7 +62,7 @@ simulation dimension; a zero-dimensional model validates the method name but
 does not construct a generator or bridge. `useBb_` wraps draws in a Brownian
 bridge, changing the order in which normal variates drive time increments.
 Multi-factor models that declare bridge support bridge each factor's time
-series separately; see the [hybrid model](hybrid-model.md#brownian-bridge-and-risks).
+series separately; see the [hybrid model](../models/hybrid-model.md#brownian-bridge-and-risks).
 For direction numbers, normal transforms, path seeking, and the pseudo-random
 generators, see [sampling](sampling.md).
 

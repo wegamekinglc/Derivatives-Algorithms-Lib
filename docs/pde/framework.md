@@ -360,5 +360,5 @@ the framework.
 ## See Also
 
 - [Matrix and linear algebra](../methodology/matrix.md) — tridiagonal storage and decomposition.
-- [Black / Bachelier Vanilla Pricing](../methodology/black_scholes.md) — analytic benchmarks used by
+- [Black / Bachelier Vanilla Pricing](../models/black-scholes.md) — analytic benchmarks used by
   the PDE tests and examples.

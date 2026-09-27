@@ -29,19 +29,19 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   C++, Python, and Excel interfaces. Multi-asset `SPOT()` requires an explicit
   default index, which selects the single LSM regressor. LSM accepts models
   declaring a deterministic numeraire and uses model-declared parameter bounds
-  for retrained-policy bumps. See [hybrid model](docs/monte-carlo/hybrid-model.md)
+  for retrained-policy bumps. See [hybrid model](docs/models/hybrid-model.md)
   and [LSM](docs/monte-carlo/lsm.md).
 - **Core Monte Carlo composes named factors in a hybrid model** — typed,
   serializable BS equity and deterministic-rate components share a named
   correlation provider and one numeraire; factor-aware Brownian bridging
   now supports multiple factors. Script and LSM multi-index integration
-  remains a later stage. See [hybrid model](docs/monte-carlo/hybrid-model.md).
+  remains a later stage. See [hybrid model](docs/models/hybrid-model.md).
 - **Core Monte Carlo supports correlated equity Black-Scholes paths** — a
   serializable multi-asset model with named sample outputs, ordered factors,
   deterministic domestic numeraire, and AAD spot/vol/div/rate risks. Multi-factor
   Brownian bridge support was added in the subsequent hybrid-model stage;
   script/public multi-index valuation is not yet wired. See
-  [correlated equity Black-Scholes](docs/monte-carlo/correlated-bs.md).
+  [correlated equity Black-Scholes](docs/models/correlated-bs.md).
 
 ## 2026-09-26
 
@@ -679,8 +679,8 @@ here as the baseline rather than dated releases:
   $k=(c-b)/(a-2b+c)$ backtrack fraction; and Bachelier pricing/implied volatility
   now supports all real forward/strike pairs with a finite, nonnegative
   price-unit bracket and translation-invariant tolerances.
-  See `docs/methodology/dupire.md`, `docs/methodology/underdetermined_search.md`,
-  and `docs/methodology/black_scholes.md`.
+  See `docs/models/dupire.md`, `docs/methodology/underdetermined_search.md`,
+  and `docs/models/black-scholes.md`.
 - `runtime`: Made Monte Carlo reject non-positive path counts at the public boundary,
   made the DAL thread pool lazy and configurable with `DAL_NUM_THREADS`, and added
   size-safe batching with thread-local active AAD models and propagated task failures.

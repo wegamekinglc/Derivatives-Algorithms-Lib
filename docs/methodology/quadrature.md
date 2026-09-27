@@ -245,7 +245,7 @@ can be reused across several integrands without rebuilding the weights.
 
 ## See Also
 
-- [Black / Bachelier vanilla pricing](black_scholes.md) — the normal CDF/PDF at the
+- [Black / Bachelier vanilla pricing](../models/black-scholes.md) — the normal CDF/PDF at the
   heart of the closed forms is the distribution `NormalExpectation_` integrates
   against when a payoff is not available in closed form.
 - [Script engine](script_engine.md) — the Monte Carlo driver integrates payoffs
