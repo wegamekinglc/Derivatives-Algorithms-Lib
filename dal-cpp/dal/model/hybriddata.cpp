@@ -13,6 +13,8 @@ namespace Dal {
 #include <dal/auto/MG_HybridConstantCorrelationData_v1_Write.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Read.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Write.inc>
+#include <dal/auto/MG_HybridLogDfRateData_v1_Read.inc>
+#include <dal/auto/MG_HybridLogDfRateData_v1_Write.inc>
 #include <dal/auto/MG_HybridModelData_v1_Read.inc>
 #include <dal/auto/MG_HybridModelData_v1_Write.inc>
 
@@ -21,6 +23,8 @@ namespace Dal {
     }
 
     void HybridDeterministicRateData_::Write(Archive::Store_& dst) const { HybridDeterministicRateData_v1::XWrite(dst, name_, currency_, rate_); }
+
+    void HybridLogDfRateData_::Write(Archive::Store_& dst) const { HybridLogDfRateData_v1::XWrite(dst, name_, currency_, times_, logDF_, scheme_); }
 
     void HybridConstantCorrelationData_::Write(Archive::Store_& dst) const {
         HybridConstantCorrelationData_v1::XWrite(dst, name_, factorNames_, correlations_);

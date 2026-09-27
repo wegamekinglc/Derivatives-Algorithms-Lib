@@ -3,10 +3,11 @@
 See the [models index](README.md) for the other supported simulation models.
 
 `HybridModel_<T>` composes model components under one domestic numeraire. The
-current components are ordinary Black-Scholes equities and a deterministic
-domestic rate. Each equity contributes one log-spot state, one Brownian factor,
-and one named `EQ[...]` observation. The rate contributes no state or Brownian
-factor. Stochastic rates, FX, credit, foreign currencies, quanto drift, and
+current components are ordinary Black-Scholes equities and either a constant
+domestic rate or a deterministic log-discount-factor term structure. Each equity
+contributes one log-spot state, one Brownian factor, and one named `EQ[...]`
+observation. The rate contributes no state or Brownian factor. Stochastic
+rates, FX, credit, foreign currencies, quanto drift, and
 cross-currency discounting are not implemented.
 
 ## C++ construction
@@ -34,6 +35,38 @@ auto data = Dal::NewHybridModelData("hybrid", settings);
 auto model = Dal::CreateModel<double>(data);
 ```
 
+To use a deterministic term structure, replace the constant-rate component
+with `NewHybridLogDfRateData`:
+
+```cpp
+settings.components_[0] = Dal::NewHybridLogDfRateData(
+    "usd_curve", "USD", {0.0, 0.5, 1.0, 2.0},
+    {0.0, -0.018, -0.041, -0.089});
+auto termData = Dal::NewHybridModelData("hybrid_curve", settings);
+```
+
+The times are ACT/365 years from the script valuation date, matching the model
+simulation clock. Supply at least two nodes, beginning with `t=0, logDF=0`,
+then strictly increasing finite times and finite log discount factors. All
+components must use the domestic currency. The rate component remains
+deterministic and has no factors. It uses the existing `LogDfInterpolation_`
+schemes: `LOG_LINEAR` (default), `LOG_CUBIC_NATURAL`, or `MIXED`.
+Natural cubic needs at least three nodes and mixed needs at least four. Values
+beyond the last node use the final two-node secant. A negative logDF is usual
+for positive rates, but negative rates are allowed.
+
+For a calibrated dated `DiscountCurve_`, use
+`NewHybridLogDfRateDataFromCurve(name, *curve, evaluationDate, nodeDates)`.
+The first snapshot date must equal the valuation date. The helper samples
+`curve(evaluationDate, nodeDate)`, so the snapshot is rebased to that date,
+uses the curve's currency, and converts dates to the model ACT/365 axis even
+when the source curve uses another day count. The resulting component is a
+snapshot; recalibration of the source curve does not change it. Set the
+script valuation date to the same `evaluationDate`. The same raw-node and
+curve-snapshot factories are available in Python as
+`HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`, and in Excel
+as `HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`.
+
 The model data and each typed component are serializable. `CreateModel` also
 accepts the restored archive. Components are ordered by their stable names
 during setup, independent of declaration order. Factor labels are sorted
@@ -46,13 +79,18 @@ per-step lower factor for a future time-bucketed provider; no interpolation is
 performed by the current provider.
 
 `Allocate` resolves requested observation names into integer component and
-output slots. `Init` precomputes each equity's drift and volatility for every
-time step and the deterministic numeraire. The per-path loop does no name
-parsing or matrix factorization. `SimDim()` is the number of positive time
+output slots. `Init` samples logDF once per simulation time, precomputes each
+step's integrated rate `logDF(t_i) - logDF(t_{i+1})`, each equity's drift and
+volatility, and each event numeraire `N(t)=exp(-logDF(t))`. The per-path loop
+does no curve interpolation, name parsing, or matrix factorization. `SimDim()`
+is the number of positive time
 steps multiplied by the number of registered factors. Independent Gaussian
 inputs are time-major, with factors in sorted label order within each step.
 The output `Sample_::observations_` follows the requested name order;
 `Sample_::spot_` remains the first equity's compatibility field.
+The `script_mc_perf --correlated-bs` benchmark compares the constant-rate and
+logDF hybrid path loops at 100,000 paths, 12 steps, and two assets; model
+initialization is outside its timed section.
 
 ## Brownian bridge and risks
 
@@ -66,8 +104,11 @@ original bridge and preserves its ordering. The factor-aware wrapper forwards
 clone sequence guarantees.
 
 `CreateModel<AAD::Number_>` exposes `spot:EQ[...]`, `vol:EQ[...]`, and
-`div:EQ[...]` for each equity, plus `rate:USD` for the domestic rate. These
-parameters are owned by their components; cloned workers receive independent
+`div:EQ[...]` for each equity, plus `rate:USD` for a constant domestic rate.
+For a term structure, only nonzero-time logDF nodes are active AAD parameters;
+their labels are `logdf:USD:1`, `logdf:USD:2`, and so on in input order.
+The anchor node is fixed at zero. These parameters are owned by their
+components; cloned workers receive independent
 AAD parameter addresses. Correlations are passive inputs and have no AAD
 risk labels. The `NumeraireIsDeterministic()` capability distinguishes the
 current model from future stochastic-numeraire compositions.
@@ -80,7 +121,7 @@ never fall back to simulated values. A multi-equity `SPOT()` requires
 unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
 and [Python example](../../dal-python/examples/hybrid_script.py).
 
-The current deterministic-rate hybrid supports LSM early exercise with either
+The deterministic-rate hybrid supports LSM early exercise with either
 one `defaultIndex_` regressor or up to three explicit `regressionFeatures_`
 (`EQ[...]` model outputs or `VAR[...]` scalar script states). The selected
 coordinates feed training, frozen hard pricing, and fuzzy AAD replay;

@@ -18,9 +18,10 @@
 *.ts   text eol=lf
 *.tsx  text eol=lf
 
-# Machinist emits a trailing tab after generated C++ blocks; keep generated
-# output byte-for-byte stable while excluding that whitespace from diff checks.
+# Machinist emits trailing whitespace in generated C++ and Excel files; keep
+# output byte-for-byte stable while excluding it from diff checks.
 dal-cpp/dal/auto/** whitespace=-trailing-space,-blank-at-eof
+dal-excel/auto/** whitespace=-trailing-space,-blank-at-eof
 
 # Binary payloads — never normalize.
 *.png  binary

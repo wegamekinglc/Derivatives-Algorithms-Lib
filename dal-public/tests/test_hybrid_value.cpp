@@ -75,7 +75,125 @@ namespace {
         settings.correlation_ = Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("corr", {"FA", "FB"}, correlation));
         return Dal::NewHybridModelData("hybrid", settings);
     }
+
+    Dal::Handle_<Dal::ModelData_>
+    HybridCurveModel(const Dal::Vector_<>& times, const Dal::Vector_<>& logDF, double volA = 0.0, double volB = 0.0, double correlationValue = 0.0) {
+        Dal::HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("A", "EQ[A]", "USD", "FA", 100.0, volA, 0.0)),
+                                Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("B", "EQ[B]", "USD", "FB", 120.0, volB, 0.0)),
+                                Dal::NewHybridLogDfRateData("RATE", "USD", times, logDF)};
+        Dal::Matrix_<> correlation(2, 2, 0.0);
+        correlation(0, 0) = correlation(1, 1) = 1.0;
+        correlation(0, 1) = correlation(1, 0) = correlationValue;
+        settings.correlation_ = Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("corr", {"FA", "FB"}, correlation));
+        return Dal::NewHybridModelData("hybrid_curve", settings);
+    }
 } // namespace
+
+TEST(HybridValueTest, TestFlatLogDfMatchesConstantRatePvAndEquityGreeks) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const auto product = Dal::NewScriptProduct("call", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"x = FIX(EQ[A])", "pay PAYS MAX(FIX(EQ[B]) + x - 220, 0)"});
+    constexpr double rate = 0.05;
+    const double middle = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
+    const auto curve = HybridCurveModel({0.0, middle, 1.0}, {0.0, -rate * middle, -rate}, 0.2, 0.3, 0.35);
+    Dal::HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("A", "EQ[A]", "USD", "FA", 100.0, 0.2, 0.0)),
+                            Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("B", "EQ[B]", "USD", "FB", 120.0, 0.3, 0.0)),
+                            Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridDeterministicRateData_("RATE", "USD", rate))};
+    Dal::Matrix_<> correlation(2, 2, 0.35);
+    correlation(0, 0) = correlation(1, 1) = 1.0;
+    settings.correlation_ = Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("corr", {"FA", "FB"}, correlation));
+    const auto flat = Dal::NewHybridModelData("hybrid_flat", settings);
+    for (const bool compiled : {false, true}) {
+        Dal::MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        simulation.enableAad_ = true;
+        const auto oldResult = Dal::ValueByMonteCarlo(product, flat, 2048, Dal::ScriptValuationSettings_(), simulation);
+        const auto newResult = Dal::ValueByMonteCarlo(product, curve, 2048, Dal::ScriptValuationSettings_(), simulation);
+        for (const auto& key : {"PV", "d_spot:EQ[A]", "d_spot:EQ[B]", "d_vol:EQ[A]", "d_vol:EQ[B]", "d_div:EQ[A]", "d_div:EQ[B]"})
+            ASSERT_NEAR(newResult.at(key), oldResult.at(key), 1e-10) << key;
+        ASSERT_NEAR(oldResult.at("d_rate:USD"), -middle * newResult.at("d_logdf:USD:1") - newResult.at("d_logdf:USD:2"), 1e-10);
+    }
+}
+
+TEST(HybridValueTest, TestNonflatCurveCrossMomentAndNodeRisk) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const auto product = Dal::NewScriptProduct("cross", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"x = 0", "pay PAYS FIX(EQ[A]) * FIX(EQ[B])"});
+    const double middle = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
+    const auto make = [&](double finalLogDF) { return HybridCurveModel({0.0, middle, 1.0}, {0.0, -0.01, finalLogDF}, 0.2, 0.3, 0.6); };
+    {
+        auto direct = Dal::CreateModel<Dal::AAD::Number_>(make(-0.05));
+        const Dal::Vector_<> timeline{1.0};
+        Dal::Vector_<Dal::AAD::SampleDef_> definitions(1);
+        definitions[0].numeraire_ = true;
+        definitions[0].indexNames_ = {"EQ[A]", "EQ[B]"};
+        direct->Allocate(timeline, definitions);
+        Dal::AAD::Scenario_<Dal::AAD::Number_> path;
+        Dal::AAD::AllocatePath(definitions, path);
+        Dal::AAD::Rewind(*Dal::AAD::Tape());
+        for (auto* parameter : direct->Parameters())
+            Dal::AAD::PutOnTape(*parameter);
+        Dal::AAD::NewRecording(*Dal::AAD::Tape());
+        direct->Init(timeline, definitions);
+        direct->GeneratePath({0.0, 0.0}, &path);
+        Dal::AAD::Number_ value = path[0].observations_[0] * path[0].observations_[1] / path[0].numeraire_;
+        Dal::AAD::Adjoint(value) = 1.0;
+        Dal::AAD::PropagateToStart(*Dal::AAD::Tape());
+        ASSERT_NEAR(Dal::AAD::Adjoint(*direct->Parameters()[6]), 0.0, 1e-8);
+        ASSERT_NEAR(Dal::AAD::Adjoint(*direct->Parameters()[7]), -Dal::AAD::Value(value), 1e-8);
+    }
+    Dal::MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    constexpr size_t paths = 100000;
+    const auto result = Dal::ValueByMonteCarlo(product, make(-0.05), paths, Dal::ScriptValuationSettings_(), simulation);
+    const double analytic = 12000.0 * std::exp(0.05 + 0.6 * 0.2 * 0.3);
+    ASSERT_NEAR(result.at("PV"), analytic, 55.0);
+    ASSERT_NEAR(result.at("d_logdf:USD:2"), -result.at("PV"), 1e-8);
+    ASSERT_NEAR(result.at("d_logdf:USD:1"), 0.0, 1e-8);
+    simulation.enableAad_ = false;
+    const double epsilon = 1e-4;
+    const auto up = Dal::ValueByMonteCarlo(product, make(-0.05 + epsilon), paths, Dal::ScriptValuationSettings_(), simulation).at("PV");
+    const auto down = Dal::ValueByMonteCarlo(product, make(-0.05 - epsilon), paths, Dal::ScriptValuationSettings_(), simulation).at("PV");
+    ASSERT_NEAR(result.at("d_logdf:USD:2"), (up - down) / (2 * epsilon), 1e-4);
+    const auto middleUp = HybridCurveModel({0.0, middle, 1.0}, {0.0, -0.01 + epsilon, -0.05}, 0.2, 0.3, 0.6);
+    const auto middleDown = HybridCurveModel({0.0, middle, 1.0}, {0.0, -0.01 - epsilon, -0.05}, 0.2, 0.3, 0.6);
+    const auto middleUpPv = Dal::ValueByMonteCarlo(product, middleUp, paths, Dal::ScriptValuationSettings_(), simulation).at("PV");
+    const auto middleDownPv = Dal::ValueByMonteCarlo(product, middleDown, paths, Dal::ScriptValuationSettings_(), simulation).at("PV");
+    ASSERT_NEAR(result.at("d_logdf:USD:1"), (middleUpPv - middleDownPv) / (2 * epsilon), 1e-4);
+}
+
+TEST(HybridValueTest, TestNonflatCurveLsmTreeAndCompiledAad) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    Dal::ScriptProductSettings_ settings;
+    settings.defaultIndex_ = "EQ[A]";
+    const auto product = Dal::NewScriptProduct("bermudan", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"EXERCISE MAX(125 - FIX(EQ[A]), 0)", "EXERCISE MAX(125 - FIX(EQ[A]), 0)"}, settings);
+    const double middle = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
+    const auto make = [&](double firstLogDF) { return HybridCurveModel({0.0, middle, 1.0}, {0.0, firstLogDF, -0.08}); };
+    const auto model = make(-0.03);
+    for (const bool compiled : {false, true}) {
+        Dal::MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        simulation.enableAad_ = true;
+        simulation.lsmcTrainingPaths_ = 128;
+        const auto result = Dal::ValueByMonteCarlo(product, model, 128, Dal::ScriptValuationSettings_(), simulation);
+        ASSERT_NEAR(result.at("PV"), 125.0 * std::exp(-0.03) - 100.0, 1e-8);
+        ASSERT_NEAR(result.at("d_logdf:USD:1"), 125.0 * std::exp(-0.03), 1e-8);
+        ASSERT_NEAR(result.at("d_logdf:USD:2"), 0.0, 1e-8);
+        simulation.enableAad_ = false;
+        const double epsilon = 1e-5;
+        const auto up = Dal::ValueByMonteCarlo(product, make(-0.03 + epsilon), 128, Dal::ScriptValuationSettings_(), simulation).at("PV");
+        const auto down = Dal::ValueByMonteCarlo(product, make(-0.03 - epsilon), 128, Dal::ScriptValuationSettings_(), simulation).at("PV");
+        ASSERT_NEAR(result.at("d_logdf:USD:1"), (up - down) / (2 * epsilon), 1e-7);
+    }
+}
 
 TEST(HybridValueTest, TestNamedObservationsShareAJointPath) {
     Dal::RegisterAll_::Init();

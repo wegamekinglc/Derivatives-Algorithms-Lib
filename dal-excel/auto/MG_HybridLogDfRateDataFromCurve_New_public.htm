@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>HybridLogDfRateDataFromCurve_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>HybridLogDfRateDataFromCurve_New (in Excel: HYBRIDLOGDFRATEDATAFROMCURVE.NEW)</h1>
+Snapshot a dated discount curve on the hybrid model time axis
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Component name</td></tr>
+<tr><td>curve</td><td>handle of type StorableDiscountCurve</td><td></td><td>Calibrated domestic discount curve</td></tr>
+<tr><td>evaluationDate</td><td>date</td><td></td><td>Model valuation date</td></tr>
+<tr><td>nodeDates</td><td>vector of dates</td><td></td><td>Increasing snapshot dates starting at the valuation date</td></tr>
+<tr><td>scheme</td><td>string</td><td>yes</td><td>Log discount-factor interpolation (default LOG_LINEAR)</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>component</td><td>handle of type HybridComponentData</td><td>Component handle</td></tr>
+</table>
+
+
+
+
+
+

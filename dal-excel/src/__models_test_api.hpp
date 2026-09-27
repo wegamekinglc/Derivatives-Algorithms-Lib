@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal-excel/src/__curve_storable.hpp>
 #include <dal-public/src/models.hpp>
 
 #if defined(_WIN32) && defined(DAL_EXCEL_TEST_API_EXPORTS)
@@ -33,6 +34,18 @@ namespace Dal {
                                                    Handle_<HybridComponentData_>* component);
     DAL_EXCEL_TEST_API void
     HybridDeterministicRateData_New(const String_& name, const String_& currency, double rate, Handle_<HybridComponentData_>* component);
+    DAL_EXCEL_TEST_API void HybridLogDfRateData_New(const String_& name,
+                                                    const String_& currency,
+                                                    const Vector_<>& times,
+                                                    const Vector_<>& logDF,
+                                                    const String_& scheme,
+                                                    Handle_<HybridComponentData_>* component);
+    DAL_EXCEL_TEST_API void HybridLogDfRateDataFromCurve_New(const String_& name,
+                                                             const Handle_<StorableDiscountCurve_>& curve,
+                                                             const Date_& evaluationDate,
+                                                             const Vector_<Date_>& nodeDates,
+                                                             const String_& scheme,
+                                                             Handle_<HybridComponentData_>* component);
     DAL_EXCEL_TEST_API void HybridConstantCorrelationData_New(const String_& name,
                                                               const Vector_<String_>& factors,
                                                               const Matrix_<>& correlations,

@@ -51,6 +51,32 @@ void init_bindings_models(py::module_& m) {
         py::arg("name"), py::arg("currency"), py::arg("rate"));
 
     m.def(
+        "HybridLogDfRateData_New",
+        [](const std::string& name, const std::string& currency, const py::iterable& times, const py::iterable& logDF,
+           const std::string& scheme) -> std::shared_ptr<HybridComponentData_> {
+            Vector_<> modelTimes, nodeLogDF;
+            for (const auto item : times)
+                modelTimes.push_back(py::cast<double>(item));
+            for (const auto item : logDF)
+                nodeLogDF.push_back(py::cast<double>(item));
+            return std::make_shared<HybridLogDfRateData_>(String_(name), String_(currency), modelTimes, nodeLogDF, String_(scheme));
+        },
+        py::arg("name"), py::arg("currency"), py::arg("times"), py::arg("log_df"), py::arg("scheme") = "LOG_LINEAR");
+
+    m.def(
+        "HybridLogDfRateDataFromCurve_New",
+        [](const std::string& name, const std::shared_ptr<DiscountCurve_>& curve, const Date_& evaluationDate, const py::iterable& nodeDates,
+           const std::string& scheme) -> std::shared_ptr<HybridComponentData_> {
+            REQUIRE(curve, "InvalidHybridCurve: source discount curve is required");
+            Vector_<Date_> dates;
+            for (const auto item : nodeDates)
+                dates.push_back(py::cast<Date_>(item));
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridLogDfRateDataFromCurve(String_(name), *curve, evaluationDate, dates, String_(scheme)));
+        },
+        py::arg("name"), py::arg("curve"), py::arg("evaluation_date"), py::arg("node_dates"), py::arg("scheme") = "LOG_LINEAR");
+
+    m.def(
         "HybridConstantCorrelationData_New",
         [](const std::string& name, const py::iterable& factors, const Matrix_<>& correlations) -> std::shared_ptr<HybridCorrelationData_> {
             Vector_<String_> names;
@@ -73,20 +99,17 @@ void init_bindings_models(py::module_& m) {
         },
         py::arg("name"), py::arg("domestic_currency"), py::arg("components"), py::arg("correlation"));
 
-    m.def("BSModelData_New",
-        [](double spot, double vol, double rate, double div)
-            -> std::shared_ptr<ModelData_> {
-            return std::const_pointer_cast<ModelData_>(
-                NewBSModelData(String_("BSModelData_"), spot, vol, rate, div));
+    m.def(
+        "BSModelData_New",
+        [](double spot, double vol, double rate, double div) -> std::shared_ptr<ModelData_> {
+            return std::const_pointer_cast<ModelData_>(NewBSModelData(String_("BSModelData_"), spot, vol, rate, div));
         },
         py::arg("spot"), py::arg("vol"), py::arg("rate"), py::arg("div"));
 
-    m.def("DupireModelData_New",
-        [](double spot, double rate, double repo,
-           const py::iterable& spots,
-           const py::iterable& times,
+    m.def(
+        "DupireModelData_New",
+        [](double spot, double rate, double repo, const py::iterable& spots, const py::iterable& times,
            const Matrix_<>& vols) -> std::shared_ptr<ModelData_> {
-
             // Convert Python iterables to Vector_<> for the factory function
             Vector_<> new_spots;
             for (auto item : spots)
@@ -96,11 +119,7 @@ void init_bindings_models(py::module_& m) {
             for (auto item : times)
                 new_times.push_back(py::cast<double>(item));
 
-            return std::const_pointer_cast<ModelData_>(
-                NewDupireModelData(
-                    String_("DupireModelData_"), spot, rate, repo,
-                    new_spots, new_times, vols));
+            return std::const_pointer_cast<ModelData_>(NewDupireModelData(String_("DupireModelData_"), spot, rate, repo, new_spots, new_times, vols));
         },
-        py::arg("spot"), py::arg("rate"), py::arg("repo"),
-        py::arg("spots"), py::arg("times"), py::arg("vols"));
+        py::arg("spot"), py::arg("rate"), py::arg("repo"), py::arg("spots"), py::arg("times"), py::arg("vols"));
 }

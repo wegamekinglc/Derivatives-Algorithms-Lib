@@ -122,7 +122,8 @@ namespace Dal {
             [[nodiscard]] virtual bool NumeraireIsDeterministic() const { return false; }
             [[nodiscard]] virtual T_ DomesticRate() const { THROW("InvalidHybridNumeraire: component does not provide a rate"); }
             [[nodiscard]] virtual T_ Numeraire(double) const { THROW("InvalidHybridNumeraire: component does not provide a numeraire"); }
-            virtual void Prepare(const Vector_<>& timeline, const T_& domesticRate) = 0;
+            [[nodiscard]] virtual T_ LogDiscount(double time) const { return -DomesticRate() * time; }
+            virtual void Prepare(const Vector_<>& timeline, const Vector_<T_>& integratedCarry) = 0;
             virtual void ResetState(Vector_<T_>* state, size_t offset) const = 0;
             virtual void
             Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const = 0;
@@ -169,13 +170,14 @@ namespace Dal {
                 return HybridComponent_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) &&
                        (parameter != 1 || value >= 0.0);
             }
-            void Prepare(const Vector_<>& timeline, const T_& domesticRate) override {
+            void Prepare(const Vector_<>& timeline, const Vector_<T_>& integratedCarry) override {
                 ValidateParameters();
+                REQUIRE(integratedCarry.size() + 1 == timeline.size(), "InvalidHybridCurve: carry must match the model timeline");
                 drifts_.Resize(timeline.size() - 1);
                 stds_.Resize(timeline.size() - 1);
                 for (size_t step = 0; step + 1 < timeline.size(); ++step) {
                     const double dt = timeline[step + 1] - timeline[step];
-                    drifts_[step] = (domesticRate - div_ - 0.5 * vol_ * vol_) * dt;
+                    drifts_[step] = integratedCarry[step] - (div_ + 0.5 * vol_ * vol_) * dt;
                     stds_[step] = vol_ * Dal::sqrt(dt);
                     REQUIRE(std::isfinite(Value(drifts_[step])) && std::isfinite(Value(stds_[step])),
                             "InvalidHybridComponent: non-finite BS step for " + name_);
@@ -232,7 +234,7 @@ namespace Dal {
                 return rate_;
             }
             [[nodiscard]] T_ Numeraire(double time) const override { return Dal::exp(rate_ * time); }
-            void Prepare(const Vector_<>&, const T_&) override {}
+            void Prepare(const Vector_<>&, const Vector_<T_>&) override {}
             void ResetState(Vector_<T_>*, size_t) const override {}
             void Evolve(size_t, const Vector_<>&, const Vector_<size_t>&, Vector_<T_>*, size_t) const override {}
             [[nodiscard]] T_ Observe(size_t, const Vector_<T_>&, size_t, bool) const override {
@@ -240,6 +242,63 @@ namespace Dal {
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
                 auto copy = std::make_unique<HybridDeterministicRate_<T_>>(*this);
+                copy->SetParameterPointers();
+                return copy;
+            }
+        };
+
+        template <class T_> class HybridLogDfRate_ final : public HybridComponent_<T_> {
+            String_ name_;
+            String_ currency_;
+            Vector_<String_> factors_;
+            Vector_<String_> observables_;
+            Vector_<T_> logDF_;
+            std::shared_ptr<const LogDfInterpolation_> interpolation_;
+            Vector_<T_*> parameters_;
+            Vector_<String_> labels_;
+
+            void SetParameterPointers() {
+                parameters_.clear();
+                for (size_t i = 1; i < logDF_.size(); ++i)
+                    parameters_.push_back(&logDF_[i]);
+            }
+
+        public:
+            explicit HybridLogDfRate_(const HybridLogDfRateData_& data)
+                : name_(data.Name()), currency_(data.currency_),
+                  interpolation_(std::make_shared<LogDfInterpolation_>(data.times_, LogDfScheme_(data.scheme_))), labels_(data.RiskLabels()) {
+                logDF_.reserve(data.logDF_.size());
+                for (const double value : data.logDF_)
+                    logDF_.push_back(T_(value));
+                SetParameterPointers();
+            }
+            [[nodiscard]] const String_& Name() const override { return name_; }
+            [[nodiscard]] const String_& Currency() const override { return currency_; }
+            [[nodiscard]] size_t StateDim() const override { return 0; }
+            [[nodiscard]] size_t FactorDim() const override { return 0; }
+            [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
+            [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
+            [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
+            [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
+            [[nodiscard]] bool ProvidesNumeraire() const override { return true; }
+            [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
+            [[nodiscard]] T_ LogDiscount(double time) const override {
+                // The t=0 anchor is fixed, so it must not retain a tape node from model construction.
+                T_ result(0.0);
+                for (const auto& [index, weight] : interpolation_->WeightsAt(time))
+                    if (index > 0)
+                        result += weight * logDF_[index];
+                return result;
+            }
+            [[nodiscard]] T_ Numeraire(double time) const override { return Dal::exp(-LogDiscount(time)); }
+            void Prepare(const Vector_<>&, const Vector_<T_>&) override {}
+            void ResetState(Vector_<T_>*, size_t) const override {}
+            void Evolve(size_t, const Vector_<>&, const Vector_<size_t>&, Vector_<T_>*, size_t) const override {}
+            [[nodiscard]] T_ Observe(size_t, const Vector_<T_>&, size_t, bool) const override {
+                THROW("InvalidHybridObservation: rate component has no spot output");
+            }
+            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
+                auto copy = std::make_unique<HybridLogDfRate_<T_>>(*this);
                 copy->SetParameterPointers();
                 return copy;
             }
@@ -457,12 +516,20 @@ namespace Dal {
             }
             void Init(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
                 REQUIRE(defLine_ == &defLine && productTimeLine == productTimeLine_, "InvalidHybridTimeline: call Allocate before Init");
-                const T_ domesticRate = components_[rateSlot_]->DomesticRate();
+                Vector_<T_> logDiscounts(timeLine_.size());
+                for (size_t i = 0; i < timeLine_.size(); ++i) {
+                    logDiscounts[i] = components_[rateSlot_]->LogDiscount(timeLine_[i]);
+                    REQUIRE(std::isfinite(Value(logDiscounts[i])), "InvalidHybridCurve: non-finite logDF on model timeline");
+                }
+                Vector_<T_> integratedCarry(timeLine_.size() - 1);
+                for (size_t step = 0; step < integratedCarry.size(); ++step)
+                    integratedCarry[step] = logDiscounts[step] - logDiscounts[step + 1];
                 for (auto& component : components_)
-                    component->Prepare(timeLine_, domesticRate);
+                    component->Prepare(timeLine_, integratedCarry);
                 for (size_t sample = 0; sample < defLine.size(); ++sample)
                     if (defLine[sample].numeraire_) {
-                        numeraires_[sample] = components_[rateSlot_]->Numeraire(productTimeLine[sample]);
+                        const size_t gridIndex = sample + static_cast<size_t>(!todayOnTimeLine_);
+                        numeraires_[sample] = Dal::exp(-logDiscounts[gridIndex]);
                         REQUIRE(std::isfinite(Value(numeraires_[sample])) && Value(numeraires_[sample]) > 0.0,
                                 "InvalidHybridNumeraire: non-finite or zero domestic numeraire");
                     }
@@ -492,6 +559,8 @@ namespace Dal {
                 return std::make_unique<HybridBSEquity_<T_>>(*equity);
             if (const auto* rate = dynamic_cast<const HybridDeterministicRateData_*>(&data))
                 return std::make_unique<HybridDeterministicRate_<T_>>(*rate);
+            if (const auto* curve = dynamic_cast<const HybridLogDfRateData_*>(&data))
+                return std::make_unique<HybridLogDfRate_<T_>>(*curve);
             THROW("UnsupportedHybridComponent: " + data.Type());
         }
     } // namespace AAD

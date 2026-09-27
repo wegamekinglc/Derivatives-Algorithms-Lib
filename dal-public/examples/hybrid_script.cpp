@@ -35,6 +35,14 @@ int main() {
     std::cout << std::fixed << std::setprecision(4) << "PV=" << result.at("PV") << ", d_spot:EQ[A]=" << result.at("d_spot:EQ[A]")
               << ", d_spot:EQ[B]=" << result.at("d_spot:EQ[B]") << '\n';
 
+    auto termSettings = settings;
+    const double middleTime = (Date_(2027, 3, 27) - Date_(2026, 9, 27)) / DAYS_PER_YEAR;
+    termSettings.components_[2] = NewHybridLogDfRateData("RATE_CURVE", "USD", {0.0, middleTime, 1.0}, {0.0, -0.015, -0.06});
+    const auto termModel = NewHybridModelData("two-equity-term-rate", termSettings);
+    const auto termProduct = NewScriptProduct("term-rate", {Cell_(Date_(2027, 9, 27))}, {"pay PAYS FIX(EQ[A]) + 25"});
+    const auto termResult = ValueByMonteCarlo(termProduct, termModel, 16384, ScriptValuationSettings_(), simulation);
+    std::cout << "Term rate PV=" << termResult.at("PV") << ", d_logdf:USD:2=" << termResult.at("d_logdf:USD:2") << '\n';
+
     const Vector_<Cell_> exerciseDates = {Cell_(Date_(2027, 3, 27)), Cell_(Date_(2027, 9, 27))};
     const Vector_<String_> exerciseEvents = {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b + 60, 0)", "EXERCISE MAX(b - a + 60, 0)"};
     ScriptProductSettings_ exerciseSettings;

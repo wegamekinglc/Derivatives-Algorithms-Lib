@@ -21,6 +21,17 @@ if abs(result["PV"] - 12000.0 * math.exp(0.35 * 0.20 * 0.30)) >= 50.0:
     raise ValueError("hybrid cross-moment price exceeded its Monte Carlo tolerance")
 print(f"PV={result['PV']:.4f}, d_spot:EQ[A]={result['d_spot:EQ[A]']:.4f}, d_spot:EQ[B]={result['d_spot:EQ[B]']:.4f}")
 
+today = dal.Date_(2026, 9, 27)
+middle = dal.Date_(2027, 3, 27)
+maturity = dal.Date_(2027, 9, 27)
+discount_curve = dal.DiscountLogDF_New("usd_discount", "USD", [today, middle, maturity], [0.0, -0.015, -0.06])
+term_components = components.copy()
+term_components[2] = dal.HybridLogDfRateDataFromCurve_New("RATE_CURVE", discount_curve, today, [today, middle, maturity])
+term_model = dal.HybridModelData_New("two-equity-term-rate", "USD", term_components, provider)
+term_product = dal.Product_New([maturity], ["pay PAYS FIX(EQ[A]) + 25"])
+term_result = dal.MonteCarlo_ValueWithSettings(term_product, term_model, 16384, simulation=simulation)
+print(f"Term rate PV={term_result['PV']:.4f}, d_logdf:USD:2={term_result['d_logdf:USD:2']:.4f}")
+
 exercise_dates = [dal.Date_(2027, 3, 27), dal.Date_(2027, 9, 27)]
 exercise_events = [
     "a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b + 60, 0)",
