@@ -157,6 +157,29 @@ runnable [C++ script example](../../dal-cpp/examples/script/script.cpp) for
 the events-table construction and valuation. Mutable vectors retain values
 across events and historical replay, reset between Monte Carlo paths, and are
 preallocated from the indexed entries and number of `APPEND` statements.
+The runnable [average call example](../../dal-cpp/examples/average_option_script/)
+uses four dated events to append observed spots to `fixings`, then pays
+`MAX(AVERAGE(fixings) - STRIKE, 0)` at the last observation date.
+It compares compiled double and AAD Monte Carlo valuation with a
+central-difference spot Delta and a reference calculation. The reference
+conditions on the first three fixings, applies the Black call formula to the
+fourth, then uses 48-point normal Gauss–Hermite quadrature in each of the
+remaining three dimensions. The example uses an initial spot of 100, 20%
+volatility, a 5% rate, a strike of 100, and four roughly quarterly observations
+over one year. MC uses $2^{18}$ Sobol paths and a 0.01 spot bump for finite
+differences.
+
+| Method                 | PV       | dPV/dS0 |
+|------------------------|----------|----------|
+| Conditional GH + Black | 6.923579 | 0.602816 |
+| MC double              | 6.922953 | —        |
+| MC double + FD         | 6.922953 | 0.602524 |
+| MC AAD                 | 6.922953 | 0.602533 |
+
+The finite differences reuse the Sobol sequence. MC values are numerical
+estimates; the executable also reports differences from the reference and
+elapsed times.
+
 Tree and compiled double/AAD evaluators share their reduction semantics.
 Both hard and fuzzy `IF` branches may use `APPEND` and indexed assignments.
 For a fuzzy branch, each side starts with the same incoming vectors. The
@@ -1701,6 +1724,8 @@ uses the legacy text wrapper.
 - [`dal-cpp/examples/script/`](../../dal-cpp/examples/script) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
+- [`dal-cpp/examples/average_option_script/`](../../dal-cpp/examples/average_option_script/)
+  — four-observation arithmetic-average call with a path-local vector.
 - [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree) and
   [`dal-python/examples/008.script_tree.py`](../../dal-python/examples/008.script_tree.py)
   — runnable demos of the Unicode/ASCII tree dump at several width budgets.
