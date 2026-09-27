@@ -185,7 +185,10 @@ preflight call and two warmups per case, and records one full-scale sample. Base
 order alternates on every process pair. Two confirmation rounds each contain ten
 pairs: 20 processes per side, with 20 samples for every case on each side. A case
 fails only when its head minimum exceeds its base minimum by strictly more than
-4% in both rounds. Exactly +4% passes.
+4% in both rounds **and** at least nine of ten matched process pairs exceed 4%
+in each round. A minimum-only signal appears as unconfirmed in the report, so
+an unusually fast sample on one side does not become a regression verdict.
+Exactly +4% passes.
 
 After a Python gate failure, CI also runs the complete suite twice as A/A controls:
 once with the baseline module on both sides and once with the head module on both
@@ -194,7 +197,7 @@ their own module hashes and raw reports in `python-baseline-aa` and `python-head
 Each control copies the selected package and build configuration into a separate
 root, preserving the gate's directory checks; it is not an independent rebuild.
 They help diagnose timing variability on that runner; they never replace or clear
-the original base/head failure. The artifact also retains both built `dal` packages
+a confirmed base/head failure. The artifact also retains both built `dal` packages
 under `python-reproduction` for binary-level investigation. These packages use the
 recorded CI interpreter, platform and native CPU flags; they are diagnostic build
 outputs, not portable distribution wheels.

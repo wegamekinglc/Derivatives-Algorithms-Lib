@@ -117,6 +117,47 @@ python3() {
         self.assertEqual(failures, [])
         self.assertEqual(rows[0]["round_delta_percent"], [4.0, 4.0])
 
+    def test_fast_baseline_outlier_does_not_confirm_regression(self):
+        base = [report(value) for value in ([90] + [100] * 9) * 2]
+        head = [report(value) for value in ([95] + [100] * 9) * 2]
+        rows, failures = GATE.evaluate(base, head, 10, 2, 4)
+        self.assertEqual(failures, [])
+        self.assertTrue(rows[0]["unconfirmed"])
+        self.assertEqual(rows[0]["round_paired_exceedances"], [1, 1])
+
+    def test_sustained_paired_regression_requires_nine_of_ten_per_round(self):
+        base = [report(value) for value in ([100] * 9 + [110]) * 2]
+        head = [report(value) for value in ([105] * 9 + [111]) * 2]
+        rows, failures = GATE.evaluate(base, head, 10, 2, 4)
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(rows[0]["round_paired_exceedances"], [9, 9])
+        base[8] = report(110)
+        head[8] = report(111)
+        rows, failures = GATE.evaluate(base, head, 10, 2, 4)
+        self.assertEqual(failures, [])
+        self.assertTrue(rows[0]["unconfirmed"])
+
+    def test_report_displays_unconfirmed_timing_signal(self):
+        base = [report(value) for value in ([90] + [100] * 9) * 2]
+        head = [report(value) for value in ([95] + [100] * 9) * 2]
+        rows, failures = GATE.evaluate(base, head, 10, 2, 4)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            GATE.write_report(
+                output,
+                {
+                    "status": "passed",
+                    "rounds": 2,
+                    "samples": 10,
+                    "threshold_percent": 4,
+                    "comparisons": rows,
+                    "failures": failures,
+                },
+            )
+            summary = (output / "summary.md").read_text()
+            self.assertIn("Unconfirmed minimum-only signals: 1", summary)
+            self.assertIn("1/10, 1/10 | unconfirmed", summary)
+
     def test_rejects_missing_processes_cases_and_mismatched_workloads(self):
         with self.assertRaisesRegex(ValueError, "process samples"):
             GATE.evaluate([report()] * 19, [report()] * 20, 10, 2, 4)
