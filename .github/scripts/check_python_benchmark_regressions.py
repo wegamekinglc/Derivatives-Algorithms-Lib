@@ -203,6 +203,7 @@ def evaluate(base, head, samples, rounds, threshold):
     require(samples > 0 and rounds > 0, "empty sampling schedule")
     values = comparable_samples(base, head)
     rows, failures = [], []
+    required_pairs = (9 * samples + 9) // 10
     for name in sorted(values["base"]):
         base_values, head_values = values["base"][name], values["head"][name]
         round_minima = [
@@ -213,8 +214,19 @@ def evaluate(base, head, samples, rounds, threshold):
             for i in range(rounds)
         ]
         deltas = [100 * (h - b) / b for b, h in round_minima]
-        # Cross multiplication preserves the strict boundary at exactly +4%.
-        passed = not all(100 * h > (100 + threshold) * b for b, h in round_minima)
+        # A minimum from each side can come from different load conditions. Require
+        # the slowdown in the interleaved process pairs as well as both minima.
+        paired_exceedances = [
+            sum(
+                100 * head_values[i] > (100 + threshold) * base_values[i]
+                for i in range(start, start + samples)
+            )
+            for start in range(0, samples * rounds, samples)
+        ]
+        minima_exceed = all(100 * h > (100 + threshold) * b for b, h in round_minima)
+        confirmed = minima_exceed and all(
+            count >= required_pairs for count in paired_exceedances
+        )
         rows.append(
             {
                 "case": name,
@@ -222,12 +234,17 @@ def evaluate(base, head, samples, rounds, threshold):
                 "head_ns": min(head_values),
                 "round_delta_percent": deltas,
                 "round_minima_ns": round_minima,
-                "passed": passed,
+                "round_paired_exceedances": paired_exceedances,
+                "required_paired_exceedances": required_pairs,
+                "unconfirmed": minima_exceed and not confirmed,
+                "passed": not confirmed,
             }
         )
-        if not passed:
+        if confirmed:
             failures.append(
-                f"{name}: every confirmation round exceeds +{threshold:g}% ({', '.join(f'{x:+.2f}%' for x in deltas)})"
+                f"{name}: every confirmation round exceeds +{threshold:g}% "
+                f"({', '.join(f'{x:+.2f}%' for x in deltas)}); "
+                f"paired support {', '.join(str(count) for count in paired_exceedances)}/{samples}"
             )
     return rows, failures
 
@@ -293,17 +310,27 @@ def write_report(output, result, summary_file=None):
         "",
         f"Status: **{result['status']}**.",
         "",
-        f"{result['rounds']} rounds x {result['samples']} interleaved processes per side; best-of-N, strict +{result['threshold_percent']:g}% in every round.",
+        f"Unconfirmed minimum-only signals: {sum(row.get('unconfirmed', False) for row in result.get('comparisons', []))}.",
+        "",
+        f"{result['rounds']} rounds x {result['samples']} interleaved processes per side; best-of-N, strict +{result['threshold_percent']:g}% in every round, confirmed by at least 90% of process pairs per round.",
         "",
         "Both native builds run the same head benchmark suite at full scale. Every current case is compared, including on first introduction.",
         "",
-        "| Case | Base min (ms) | Head min (ms) | Round changes | Result |",
-        "|---|---:|---:|---|---|",
+        "| Case | Base min (ms) | Head min (ms) | Round changes | Paired support | Result |",
+        "|---|---:|---:|---|---|---|",
     ]
     for row in result.get("comparisons", []):
         changes = ", ".join(f"{value:+.2f}%" for value in row["round_delta_percent"])
+        support = ", ".join(
+            f"{count}/{result['samples']}" for count in row["round_paired_exceedances"]
+        )
+        verdict = (
+            "FAIL"
+            if not row["passed"]
+            else "unconfirmed" if row["unconfirmed"] else "pass"
+        )
         lines.append(
-            f"| {row['case']} | {row['base_ns'] / 1e6:.6f} | {row['head_ns'] / 1e6:.6f} | {changes} | {'pass' if row['passed'] else 'FAIL'} |"
+            f"| {row['case']} | {row['base_ns'] / 1e6:.6f} | {row['head_ns'] / 1e6:.6f} | {changes} | {support} | {verdict} |"
         )
     lines += [
         "",
