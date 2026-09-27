@@ -158,10 +158,12 @@ the events-table construction and valuation. Mutable vectors retain values
 across events and historical replay, reset between Monte Carlo paths, and are
 preallocated from the indexed entries and number of `APPEND` statements.
 Tree and compiled double/AAD evaluators share their reduction semantics.
-Hard `IF` branches may mutate vectors. Fuzzy/AAD valuation rejects an
-`APPEND` or indexed assignment inside `IF` with
-`UnsupportedFuzzyVectorMutation`; it cannot blend vector lengths or branch
-mutations. LSMC supports vector reads and writes, retaining all script
+Both hard and fuzzy `IF` branches may use `APPEND` and indexed assignments.
+For a fuzzy branch, each side starts with the same incoming vectors. The
+result length is the longer branch length; missing entries on either side
+count as zero, and each entry is blended by the fuzzy branch weight. Vector
+reductions such as `AVERAGE`, `MIN`, and `MAX` include these padded entries.
+LSMC supports vector reads and writes, retaining all script
 statements for vector products rather than applying scalar-only liveness
 pruning.
 

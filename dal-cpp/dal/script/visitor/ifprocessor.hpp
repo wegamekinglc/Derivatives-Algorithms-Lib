@@ -14,8 +14,9 @@
 namespace Dal::Script {
     class IFProcessor_ : public Visitor_<IFProcessor_> {
         // Top of the stack: current (possibly nested) if being processed
-        // Each element in stack: set of indices of variables modified by the corresponding if and nested ifs
+        // Each stack element records indices modified by an if and its nested ifs.
         StaticStack_<std::set<size_t>> varStack_;
+        StaticStack_<std::set<size_t>> vectorStack_;
 
         // Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
         size_t nestedIfLvl_;
@@ -40,6 +41,7 @@ namespace Dal::Script {
 
             //	Put new element on the stack
             varStack_.Push(std::set<size_t>());
+            vectorStack_.Push(std::set<size_t>());
 
             //	Visit arguments_, excluding condition
             for (size_t i = 1; i < node.arguments_.size(); ++i)
@@ -48,18 +50,22 @@ namespace Dal::Script {
             //	Copy the Top of the stack into the node
             node.affectedVars_.clear();
             copy(varStack_.Top().begin(), varStack_.Top().end(), back_inserter(node.affectedVars_));
+            node.affectedVectors_.clear();
+            copy(vectorStack_.Top().begin(), vectorStack_.Top().end(), back_inserter(node.affectedVectors_));
 
             //	Pop
             varStack_.Pop();
+            vectorStack_.Pop();
 
             //	Decrease nested if level
             --nestedIfLvl_;
 
             //	If not out-most if, copy changed vars into the immediately outer if
             //	Variables changed in a nested if are also changed in the encompassing if
-            if (nestedIfLvl_)
-                copy(node.affectedVars_.begin(), node.affectedVars_.end(),
-                     inserter(varStack_.Top(), varStack_.Top().end()));
+            if (nestedIfLvl_) {
+                copy(node.affectedVars_.begin(), node.affectedVars_.end(), inserter(varStack_.Top(), varStack_.Top().end()));
+                copy(node.affectedVectors_.begin(), node.affectedVectors_.end(), inserter(vectorStack_.Top(), vectorStack_.Top().end()));
+            }
         }
 
         void VisitLhsIfNested(Node_& node) {
@@ -69,6 +75,14 @@ namespace Dal::Script {
 
         void Visit(NodeAssign_& node) { VisitLhsIfNested(node); }
         void Visit(NodePays_& node) { VisitLhsIfNested(node); }
+        void Visit(NodeVectorAssign_& node) {
+            if (nestedIfLvl_)
+                vectorStack_.Top().insert(Downcast<NodeVectorEntry_>(node.arguments_[0])->index_);
+        }
+        void Visit(NodeVectorAppend_& node) {
+            if (nestedIfLvl_)
+                vectorStack_.Top().insert(node.index_);
+        }
 
         void Visit(NodeVar_& node) {
             //	Insert the var idx

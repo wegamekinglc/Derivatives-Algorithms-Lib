@@ -149,3 +149,23 @@ TEST(IFProcessorTest, TestConditionVarsAreNotAffected) {
 
     ASSERT_EQ(dynamic_cast<NodeIf_*>(statements[0].get())->affectedVars_, Vector_<size_t>({2}));
 }
+
+TEST(IFProcessorTest, TestNestedVectorWritesExcludeReadOnlyVectors) {
+    const auto [statements, ifProc] = ProcessIfs(R"(
+        APPEND(readonly, 3)
+        IF x > 0 THEN
+            target[0] = 1
+            IF x > 1 THEN APPEND(other, 2) END
+        ELSE
+            z = SUM(readonly)
+        END
+    )");
+
+    ASSERT_EQ(ifProc.MaxNestedIFs(), 2u);
+    const auto* outer = dynamic_cast<NodeIf_*>(statements[1].get());
+    ASSERT_NE(outer, nullptr);
+    ASSERT_EQ(outer->affectedVectors_, Vector_<size_t>({1, 2}));
+    const auto* inner = dynamic_cast<NodeIf_*>(outer->arguments_[2].get());
+    ASSERT_NE(inner, nullptr);
+    ASSERT_EQ(inner->affectedVectors_, Vector_<size_t>({2}));
+}

@@ -68,15 +68,52 @@ TEST(ScriptCompiledParityTest, TestForBasketUsesPredefinedVectors) {
     ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 24.0);
 }
 
-TEST(ScriptCompiledParityTest, TestFuzzyVectorMutationInsideIfFailsClearly) {
+TEST(ScriptCompiledParityTest, TestFuzzyVectorAppendInsideIfBlendsAndDifferentiates) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"IF SPOT() > 0 THEN APPEND(v, SPOT()) END pay PAYS SUM(v)"});
-    try {
-        product.PreProcess(true, false);
-        FAIL() << "fuzzy conditional append must fail before valuation";
-    } catch (const ScriptError_& error) {
-        ASSERT_NE(std::string(error.what()).find("UnsupportedFuzzyVectorMutation"), std::string::npos);
+    const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 22))}, {"IF SPOT() > 100 THEN APPEND(v, SPOT()) END pay PAYS SUM(v)"});
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0, 0.0, 0.0));
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        settings.smooth_ = 20.0;
+        const auto result = MCSimulation<AAD::Number_>(product, model, 16, {}, settings);
+        // This entry point returns the sum of path values and the mean path risk.
+        ASSERT_NEAR(result.aggregated_, 800.0, 1.0e-9);
+        ASSERT_NEAR(result.risks_[0], 5.5, 1.0e-10);
     }
+}
+
+TEST(ScriptCompiledParityTest, TestNestedFuzzyVectorWritesPadAndDifferentiate) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 22))},
+                                     {"APPEND(v, 10) IF SPOT() > 100 THEN v[0] = 2 * SPOT() "
+                                      "IF SPOT() > 100 THEN v[1] = SPOT() END "
+                                      "ELSE v[0] = 20 END pay PAYS AVERAGE(v)"});
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0, 0.0, 0.0));
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = compiled;
+        settings.smooth_ = 20.0;
+        const auto result = MCSimulation<AAD::Number_>(product, model, 1, {}, settings);
+        ASSERT_NEAR(result.aggregated_, 67.5, 1.0e-10);
+        ASSERT_NEAR(result.risks_[0], 7.625, 1.0e-10);
+    }
+}
+
+TEST(ScriptCompiledParityTest, TestFuzzyVectorElseStartsFromOriginalState) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"APPEND(v, 1) IF SPOT() > 100 THEN APPEND(v, SPOT()) "
+                                                         "ELSE APPEND(v, 2) END pay PAYS v[1]"});
+    const int depth = static_cast<int>(product.PreProcess(true, false));
+    Scenario_<double> path(1);
+    path[0].spot_ = 100.0;
+    path[0].numeraire_ = 1.0;
+    auto tree = product.BuildFuzzyEvaluator<double>(depth, 20.0);
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], 51.0);
+    auto compiled = product.BuildEvalState<double>(depth, 20.0);
+    product.Compile(true).Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 51.0);
 }
 
 TEST(ScriptCompiledParityTest, TestVectorAadSpotRiskMatchesScalar) {
