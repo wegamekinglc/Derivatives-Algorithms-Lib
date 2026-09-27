@@ -39,8 +39,10 @@ The remaining C++ methodology guides cover [AAD](methodology/aad.md),
 - [Excel FIX settings](excel/script-settings.md) — worksheet matrices, dates,
   snapshots, diagnostics, and executable workbook.
 
-The [experimental studies](experimental/) are reference explorations rather
-than supported methodology.
+The [PTIRDS replication note](experimental/replicate-ptirds-single-currency-curve.md)
+compares supported curve behavior with an external benchmark. The
+[analytic-Jacobian pointer](experimental/aad-analytic-jacobian-curve-calibration.md)
+links to the supported calibration methodology.
 
 ## Documentation Conventions
 
