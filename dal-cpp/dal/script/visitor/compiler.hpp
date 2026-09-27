@@ -20,6 +20,7 @@ As long as this comment is preserved at the Top of the file
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
@@ -45,7 +46,7 @@ namespace Dal::Script {
         LsmcRows_* x_ = nullptr;
         LsmcRows_* h_ = nullptr;
         Vector_<Vector_<char>>* cond_ = nullptr; //  empty row = unconditional day
-        double pricingX_ = 0.0;
+        std::array<double, 3> pricingFeatures_{};
         double pricingH_ = 0.0;
         bool pricingCond_ = true;
         size_t eventOrdinal_ = 0;
@@ -1008,11 +1009,16 @@ namespace Dal::Script {
         template <class T_> FORCE_INLINE void RecordLsmcExercise(EvalState_<T_>* statePtr, double value, double cond, double spot) {
             REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite exercise value", ScriptError_);
             auto& sinks = RequireLsmcSinks(statePtr);
+            std::array<double, 3> features{};
+            features[0] = spot;
             if (sinks.plan_)
-                spot = Value(sinks.plan_->RegressionValue(sinks.plan_->EventToSample()[sinks.eventOrdinal_], *statePtr->scenario_));
+                for (size_t feature = 0; feature < sinks.plan_->RegressionFeatureCount(); ++feature)
+                    features[feature] = Value(sinks.plan_->RegressionFeatureValue(feature, sinks.plan_->EventToSample()[sinks.eventOrdinal_],
+                                                                                  *statePtr->scenario_, statePtr->variables_));
             if (sinks.x_) {
                 const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
-                (*sinks.x_)[slot][sinks.pathSlot_] = spot;
+                for (size_t feature = 0; feature < (sinks.plan_ ? sinks.plan_->RegressionFeatureCount() : 1); ++feature)
+                    (*sinks.x_)[slot * (sinks.plan_ ? sinks.plan_->RegressionFeatureCount() : 1) + feature][sinks.pathSlot_] = features[feature];
                 (*sinks.h_)[slot][sinks.pathSlot_] = value;
                 if (sinks.cond_) {
                     auto& row = (*sinks.cond_)[slot];
@@ -1020,7 +1026,7 @@ namespace Dal::Script {
                         row[sinks.pathSlot_] = static_cast<char>(cond);
                 }
             } else {
-                sinks.pricingX_ = spot;
+                sinks.pricingFeatures_ = features;
                 sinks.pricingH_ = value;
                 sinks.pricingCond_ = cond != 0.0;
             }
@@ -1038,6 +1044,9 @@ namespace Dal::Script {
             const size_t slot = (*sinks.eventToExercise_)[sinks.eventOrdinal_];
             (*sinks.h_)[slot] = value;
             (*sinks.cond_)[slot] = cond;
+            for (size_t feature = 0; feature < sinks.plan_->RegressionFeatureCount(); ++feature)
+                (*sinks.features_)[slot * sinks.plan_->RegressionFeatureCount() + feature] = sinks.plan_->RegressionFeatureValue(
+                    feature, sinks.plan_->EventToSample()[sinks.eventOrdinal_], *statePtr->scenario_, statePtr->variables_);
         }
 
         //  LSMC recording tier of the prepared tail zone: payments and exercise

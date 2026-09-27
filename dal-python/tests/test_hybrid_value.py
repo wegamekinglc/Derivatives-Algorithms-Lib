@@ -1,3 +1,5 @@
+import copy
+
 import dal
 import pytest
 
@@ -42,3 +44,27 @@ def test_selected_multi_asset_exercise():
             dal.MonteCarlo_ValueWithSettings(ambiguous, model, 64)
         result = dal.MonteCarlo_ValueWithSettings(selected, model, 64)
         assert result["PV"] == pytest.approx(30.0)
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("aad", [False, True])
+def test_two_state_multi_asset_exercise(compiled, aad):
+    dal.EvaluationDate_Set(dal.Date_(2026, 9, 27))
+    settings = dal.ScriptProductSettings_(regression_features=["EQ[A]", "EQ[B]"])
+    assert settings.regression_features == ["EQ[A]", "EQ[B]"]
+    assert copy.deepcopy(settings).regression_features == ["EQ[A]", "EQ[B]"]
+    product = dal.Product_New(
+        [dal.Date_(2027, 3, 27), dal.Date_(2027, 9, 27)],
+        ["EXERCISE MAX(FIX(EQ[A]) - FIX(EQ[B]), 0)", "EXERCISE MAX(FIX(EQ[B]) - FIX(EQ[A]), 0)"],
+        settings=settings,
+    )
+    assert dal.Product_Describe(product)["regression_features"] == ["EQ[A]", "EQ[B]"]
+    simulation = dal.MonteCarloSettings_(compiled=compiled, enable_aad=aad, lsmc_training_paths=128)
+    for model in models():
+        result = dal.MonteCarlo_ValueWithSettings(product, model, 128, simulation=simulation)
+        assert result["PV"] == pytest.approx(20.0)
+
+
+def test_regression_features_reject_non_text_elements():
+    with pytest.raises((TypeError, ValueError)):
+        dal.ScriptProductSettings_(regression_features=["EQ[A]", 3])

@@ -8,6 +8,8 @@ endif()
 set(DAL_CALIBRATION_GENERATED_PATHS
     "dal-cpp/dal/auto/MG_ScriptProductData_v2_Read.inc"
     "dal-cpp/dal/auto/MG_ScriptProductData_v2_Write.inc"
+    "dal-cpp/dal/auto/MG_ScriptProductData_v3_Read.inc"
+    "dal-cpp/dal/auto/MG_ScriptProductData_v3_Write.inc"
     "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.hpp"
     "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.inc"
     "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.hpp"

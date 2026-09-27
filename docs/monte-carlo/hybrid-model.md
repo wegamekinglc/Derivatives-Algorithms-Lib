@@ -78,8 +78,9 @@ never fall back to simulated values. A multi-equity `SPOT()` requires
 unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
 and [Python example](../../dal-python/examples/hybrid_script.py).
 
-The current deterministic-rate hybrid supports LSM early exercise with one
-explicitly selected regressor: set `defaultIndex_` to a supported `EQ[...]`
-name. The same named spot feeds training, fixed-policy hard pricing, and fuzzy
-AAD replay; `RetrainedBump` uses each component's parameter constraints.
-Several regression features and a multivariate basis are not yet available.
+The current deterministic-rate hybrid supports LSM early exercise with either
+one `defaultIndex_` regressor or up to three explicit `regressionFeatures_`
+(`EQ[...]` model outputs or `VAR[...]` scalar script states). The selected
+coordinates feed training, frozen hard pricing, and fuzzy AAD replay;
+`RetrainedBump` uses each component's parameter constraints. The linked C++
+and Python examples above include a two-state Bermudan exchange claim.

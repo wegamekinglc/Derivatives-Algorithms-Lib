@@ -153,7 +153,7 @@ namespace Dal::Script {
         return ifProc.MaxNestedIFs();
     }
 
-    void ScriptProduct_::OptimizeLsmc() {
+    void ScriptProduct_::OptimizeLsmc(const Vector_<size_t>& regressionVariables) {
         if (HasPays()) {
             REQUIRE2(variableValues_[payoffIdx_] == 0.0, "UnsupportedExercisePayoff: EXERCISE requires a zero initial payoff receiver", ScriptError_);
             // A zero historical value can still carry live parameter risk on the AAD tape.
@@ -162,7 +162,7 @@ namespace Dal::Script {
         }
         if (!vectorNames_.empty())
             return;
-        LsmcProcessor_ processor(variables_.size(), HasPays() ? static_cast<size_t>(payoffIdx_) : static_cast<size_t>(-1));
+        LsmcProcessor_ processor(variables_.size(), HasPays() ? static_cast<size_t>(payoffIdx_) : static_cast<size_t>(-1), regressionVariables);
         processor.Process(&events_);
     }
 
@@ -387,13 +387,18 @@ namespace Dal::Script {
 
 #include <dal/auto/MG_ScriptProductData_v1_Read.inc>
 #include <dal/auto/MG_ScriptProductData_v2_Read.inc>
-#include <dal/auto/MG_ScriptProductData_v2_Write.inc>
+#include <dal/auto/MG_ScriptProductData_v3_Read.inc>
+#include <dal/auto/MG_ScriptProductData_v3_Write.inc>
 
     Storable_* ScriptProductData_v2::Reader_::Build() const {
         return new ScriptProductData_(name_, dates_, events_, ScriptProductSettings_{default_index_});
     }
 
+    Storable_* ScriptProductData_v3::Reader_::Build() const {
+        return new ScriptProductData_(name_, dates_, events_, ScriptProductSettings_{default_index_, regression_features_});
+    }
+
     void ScriptProductData_::Write(Archive::Store_& dst) const {
-        ScriptProductData_v2::XWrite(dst, name_, eventDates_, eventDesc_, settings_.defaultIndex_);
+        ScriptProductData_v3::XWrite(dst, name_, eventDates_, eventDesc_, settings_.defaultIndex_, settings_.regressionFeatures_);
     }
 } // namespace Dal::Script

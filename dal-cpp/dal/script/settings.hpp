@@ -7,6 +7,7 @@
 #include <optional>
 
 #include <dal/indice/fixingsnapshot.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
@@ -32,6 +33,7 @@ namespace Dal {
 
         struct ScriptProductSettings_ {
             String_ defaultIndex_;
+            Vector_<String_> regressionFeatures_;
         };
 
         struct MonteCarloSettings_ {

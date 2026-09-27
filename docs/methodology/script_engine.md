@@ -598,10 +598,10 @@ SPOT raises `UnboundHistoricalSpot`; mixing future-only SPOT with FIX raises
 `MissingDefaultIndex`. These checks include dead
 branches. SPOT takes no arguments, and `FIX()` is invalid.
 For a multi-asset model, unbound `SPOT()` always raises `MissingDefaultIndex`;
-the default identifies the intended asset. Multi-asset LSM exercise also
-requires this default as its single regression-state selection. The selected
-named output is used in training, hard policy pricing, and fuzzy AAD replay.
-Multivariate regression-state selection remains outside the current API.
+the default identifies the intended asset. Multi-asset LSM exercise selects
+either this single default or an explicit `regressionFeatures_` list of up to
+three supported `EQ[...]` model outputs and scalar `VAR[...]` script variables.
+The selected values feed training, frozen hard pricing, and fuzzy AAD replay.
 
 ### Retained Observations and Payment Dates
 
@@ -1446,18 +1446,19 @@ independently versioned formats:
 | Format                   | Entry or archive type                                   | Meaning                                                                 |
 |--------------------------|---------------------------------------------------------|-------------------------------------------------------------------------|
 | Archive v1 reader        | `ScriptProductData_v1`                                  | Read name/dates/events with an empty default index.                     |
-| Archive v2 reader/writer | `ScriptProductData_v2`                                  | Persist the contract with optional `default_index`.                     |
+| Archive v2 reader        | `ScriptProductData_v2`                                  | Read the contract with optional `default_index`.                        |
+| Archive v3 reader/writer | `ScriptProductData_v3`                                  | Persist `default_index` and selected `regression_features`.             |
 | Contract JSON /2         | `DescribeScriptProduct(product)`                        | Describe all parsed syntax without market or valuation-date access.     |
 | Valuation JSON /1        | `ExplainScriptValuation(product, modelData, valuation)` | Prepare once with default price settings and report the resulting plan. |
 | Legacy debug JSON /1     | `DebugScriptProductJson(product)`                       | Date-partitioned legacy AST; reject FIX and nonempty defaults.          |
 
 ### Contract Archive
 
-The default writer emits `ScriptProductData_v2`. Its fields are `name`,
-`dates`, `events`, and optional `default_index`, alongside the archive type
-tag. Omitted or empty `default_index` means an unbound product. The v1 reader
-remains available; reading v1 and writing it again produces v2. No public v1
-export is provided.
+The default writer emits `ScriptProductData_v3`. Its fields are `name`,
+`dates`, `events`, optional `default_index`, and `regression_features`, alongside
+the archive type tag. Omitted or empty `default_index` means an unbound product.
+The v1 and v2 readers remain available; reading either and writing again
+produces v3. No public v1 export is provided.
 
 Archive roundtrips preserve the original product name, event cells, unexpanded
 script text, default-index spelling, and unquoted FIX literals, including FX
@@ -1484,7 +1485,7 @@ without a `PAYS` receiver.
 
 The JSON includes:
 
-- `name`, `default_index` with `original` and `canonical`, and `input_rows`
+- `name`, `default_index` with `original` and `canonical`, `regression_features`, and `input_rows`
   containing the original `row`, `date_or_definition`, and `text`.
 - `variables`, `constants`, and `payoff_index` (null when no payoff variable
   exists: EXERCISE-only products pass the payoff gate — `EXERCISE` is a payoff —
@@ -1590,11 +1591,14 @@ Each exercise
 event carries `event_id`, `date`, the effective `basis_degree`
 (`0` marks the degenerate constant basis), `regressor_index` (the canonical
 index name of the model-sourced regressor — the same join space as Explain's
-`requests[].index_canonical`; null when the product has no model index, such
-as an unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
+`requests[].index_canonical`; null for a multivariate selection or a scalar
+script-state/unbound `SPOT()` regressor), `num_cond_true_paths` (the in-the-money
 condition-true path count entering the regression), `num_coefficients`
 with the frozen `coefficients` on the z-normalized monomial basis, the
-`basis` family (`NormalizedMonomial` or `Constant`), `effective_rank`, `solver`
+`basis` family (`NormalizedMonomial` or `Constant`), selected
+`regression_features`, `normalization_means`, `normalization_sigmas`, and
+`basis_powers` (one exponent tuple per coefficient for multivariate fits),
+`effective_rank`, `solver`
 (`MomentsCholesky`, `PivotedQR`, or `Constant`), `fallback_reason`, and
 `validation_mse` (null without held-out selection), the
 `degenerate` flag with its PascalCase `degenerate_reason`

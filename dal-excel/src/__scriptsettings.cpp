@@ -22,7 +22,7 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "ScriptProductSettings_New", "settings");
 &optional
 settings is cell[][]+
-    Two columns key/value: default_index. Blank selects no default index.
+    Two columns key/value: default_index, regression_features (semicolon-separated names). Blank selects no default index.
 &outputs
 productSettings is handle StorableScriptProductSettings
     Immutable script product settings
@@ -245,8 +245,23 @@ namespace Dal {
         Script::ScriptProductSettings_ value;
         ReadRows(settings, "ScriptProductSettings_New", "settings",
                  [&](const String_& key, const Cell_& cell, const String_& keyContext, const String_& valueContext) {
-                     REQUIRE(key == "default_index", keyContext + "unknown key " + key + "; expected default_index");
-                     value.defaultIndex_ = TextValue(cell, valueContext);
+                     if (key == "default_index") {
+                         value.defaultIndex_ = TextValue(cell, valueContext);
+                     } else if (key == "regression_features") {
+                         const String_ names = TextValue(cell, valueContext);
+                         size_t first = 0;
+                         while (first <= names.size()) {
+                             const size_t end = names.find(';', first);
+                             const String_ feature = names.substr(first, end == String_::npos ? String_::npos : end - first);
+                             REQUIRE(!feature.empty(), valueContext + "expected semicolon-separated non-empty regression features");
+                             value.regressionFeatures_.push_back(feature);
+                             if (end == String_::npos)
+                                 break;
+                             first = end + 1;
+                         }
+                     } else {
+                         REQUIRE(false, keyContext + "unknown key " + key + "; expected default_index or regression_features");
+                     }
                  });
         productSettings->reset(new StorableScriptProductSettings_(name, value));
     }

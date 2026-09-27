@@ -70,6 +70,8 @@ applies its correlation transform. See the [hybrid model](hybrid-model.md).
 `ValueByMonteCarlo` accepts this model data. Named `FIX(EQ[...])` expressions
 read their respective path outputs in tree, compiled, double, and AAD modes;
 `SPOT()` needs an explicit product default when the model has multiple assets.
-For early exercise, that default also selects the single LSM regression
-variable. The model supports a deterministic numeraire, so its paths can enter
+For early exercise, that default selects the legacy single LSM state;
+`regressionFeatures_` can instead select two or three equity and scalar script
+states for a multivariate continuation fit. The model supports a deterministic
+numeraire, so its paths can enter
 the existing LSM discounting contract. Correlation remains passive for AAD.

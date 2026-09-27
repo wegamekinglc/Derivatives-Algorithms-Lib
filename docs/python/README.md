@@ -72,7 +72,7 @@ ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simula
 `settings`, `valuation`, and `simulation` take `ScriptProductSettings_`,
 `ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
 for fresh defaults. Their constructors use keyword-only fields. Product settings
-provide `default_index`; valuation settings provide `evaluation_date`,
+provide `default_index` and `regression_features`; valuation settings provide `evaluation_date`,
 `today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
 `lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
@@ -82,6 +82,13 @@ provide `default_index`; valuation settings provide `evaluation_date`,
 and script-constant risks. RQMC pricing uses one fitted
 policy and reports conditional replicate-mean uncertainty through
 `ScriptSimulation_Explain`.
+
+For multi-asset `EXERCISE`, pass a list of at most three state names, such as
+`ScriptProductSettings_(regression_features=["EQ[A]", "VAR[runningAverage]"])`.
+`EQ[...]` samples a model equity at each exercise date; `VAR[...]` reads a
+scalar script variable at that event. The list is stored with the product and
+is available in `Product_Describe`. With no list, `default_index` remains the
+single regression state for a multi-asset exercise product.
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
 case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <optional>
 
 #include <dal/math/vectors.hpp>
@@ -15,12 +16,15 @@
 namespace Dal::Script {
     struct SimResults_;
 
-    //  Frozen continuation regression of one exercise date: coefficients live on the
-    //  z-normalized monomial basis [1, z, ..., z^d], z = (x - mean_) / sigma_. A
-    //  degenerate day carries the constant fit (intercept only). A rank-revealing
-    //  QR fallback may lower the degree while retaining nonconstant state.
+    //  Frozen continuation regression of one exercise date. Scalar fits use
+    //  [1, z, ..., z^d], z = (x - mean_) / sigma_; multivariate fits use
+    //  total-degree monomials with per-coordinate means_/sigmas_ and powers_.
+    //  A degenerate day carries only the constant continuation.
     struct ExerciseRegression_ {
         Vector_<> coefficients_;
+        Vector_<> means_;
+        Vector_<> sigmas_;
+        Vector_<std::array<unsigned char, 3>> powers_;
         int basisDegree_ = 0;
         bool degenerate_ = false;
         String_ degenerateReason_;
@@ -34,6 +38,16 @@ namespace Dal::Script {
     };
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree);
+
+    struct MultivariateRegressionRows_ {
+        std::array<const double*, 3> features_{};
+        const double* targets_ = nullptr;
+        const char* included_ = nullptr;
+        size_t n_ = 0;
+        size_t nFeatures_ = 0;
+    };
+
+    ExerciseRegression_ SolveMultivariateExerciseRegression(const MultivariateRegressionRows_& rows, int degree);
 
     //  Horner evaluation of frozen coefficients on the z-normalized basis; the
     //  arithmetic is identical for T_ = double (Phase B/C decisions) and AAD number
@@ -54,6 +68,26 @@ namespace Dal::Script {
         return PredictContinuation(coefficients.empty() ? nullptr : &coefficients[0], coefficients.size(), regression.mean_, regression.sigma_, x);
     }
 
+    template <class T_> T_ RegressionPredict(const ExerciseRegression_& regression, const std::array<T_, 3>& features) {
+        if (regression.powers_.empty())
+            return RegressionPredict(regression, features[0]);
+        std::array<std::array<T_, 4>, 3> featurePowers{};
+        for (size_t feature = 0; feature < regression.means_.size(); ++feature) {
+            featurePowers[feature][0] = T_(1.0);
+            const T_ normalized = (features[feature] - regression.means_[feature]) / regression.sigmas_[feature];
+            for (size_t power = 1; power <= static_cast<size_t>(regression.basisDegree_); ++power)
+                featurePowers[feature][power] = featurePowers[feature][power - 1] * normalized;
+        }
+        T_ result(0.0);
+        for (size_t term = 0; term < regression.coefficients_.size(); ++term) {
+            T_ value(regression.coefficients_[term]);
+            for (size_t feature = 0; feature < regression.means_.size(); ++feature)
+                value *= featurePowers[feature][regression.powers_[term][feature]];
+            result += value;
+        }
+        return result;
+    }
+
     //  Per-exercise-event diagnostics projected into dal.script-simulation/1
     struct ExerciseEventStats_ {
         size_t eventId_ = 0;
@@ -61,6 +95,10 @@ namespace Dal::Script {
         int requestedDegree_ = 0;
         int basisDegree_ = 0;    //  0 marks the degenerate constant basis
         String_ regressorIndex_; //  canonical index name; empty when no model binding exists
+        Vector_<String_> regressionFeatures_;
+        Vector_<> normalizationMeans_;
+        Vector_<> normalizationSigmas_;
+        Vector_<std::array<unsigned char, 3>> basisPowers_;
         size_t numCondTruePaths_ = 0;
         Vector_<> coefficients_;
         bool degenerate_ = false;

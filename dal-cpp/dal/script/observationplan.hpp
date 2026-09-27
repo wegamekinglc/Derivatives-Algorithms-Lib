@@ -69,6 +69,12 @@ namespace Dal {
             bool historical_ = false;
         };
 
+        struct RegressionFeature_ {
+            String_ name_;
+            std::optional<size_t> variableIndex_;
+            Vector_<std::optional<size_t>> outputBySample_;
+        };
+
         class ObservationPlan_ {
             Vector_<ObservationRequest_> requests_;
             Vector_<> knownValues_;
@@ -80,6 +86,7 @@ namespace Dal {
             Vector_<String_> modelBindingNames_;
             String_ regressionIndexName_;
             Vector_<std::optional<size_t>> regressionOutputBySample_;
+            Vector_<RegressionFeature_> regressionFeatures_;
 
             friend class PreparedScript_;
             friend class PreparedScriptBuilder_;
@@ -96,6 +103,35 @@ namespace Dal {
             [[nodiscard]] const Vector_<size_t>& LiveEventIds() const { return liveEventIds_; }
             [[nodiscard]] const Vector_<String_>& ModelBindingNames() const { return modelBindingNames_; }
             [[nodiscard]] const String_& RegressionIndexName() const { return regressionIndexName_; }
+            [[nodiscard]] const Vector_<RegressionFeature_>& RegressionFeatures() const { return regressionFeatures_; }
+            [[nodiscard]] size_t RegressionFeatureCount() const { return regressionFeatures_.empty() ? 1 : regressionFeatures_.size(); }
+
+            [[nodiscard]] Vector_<size_t> RegressionVariableIndices() const {
+                Vector_<size_t> result;
+                for (const auto& feature : regressionFeatures_)
+                    if (feature.variableIndex_)
+                        result.push_back(*feature.variableIndex_);
+                return result;
+            }
+
+            template <class T_>
+            T_ RegressionFeatureValue(size_t featureId, size_t sampleId, const AAD::Scenario_<T_>& scenario, const Vector_<T_>& variables) const {
+                if (regressionFeatures_.empty()) {
+                    REQUIRE2(featureId == 0, "LsmcRegressionFeatureOutOfRange", ScriptError_);
+                    return RegressionValue(sampleId, scenario);
+                }
+                REQUIRE2(featureId < regressionFeatures_.size(), "LsmcRegressionFeatureOutOfRange", ScriptError_);
+                const auto& feature = regressionFeatures_[featureId];
+                if (feature.variableIndex_) {
+                    REQUIRE2(*feature.variableIndex_ < variables.size(), "LsmcRegressionVariableOutOfRange", ScriptError_);
+                    return variables[*feature.variableIndex_];
+                }
+                REQUIRE2(sampleId < scenario.size() && sampleId < feature.outputBySample_.size() && feature.outputBySample_[sampleId],
+                         "LsmcRegressionSampleOutOfRange", ScriptError_);
+                const size_t output = *feature.outputBySample_[sampleId];
+                REQUIRE2(output < scenario[sampleId].observations_.size(), "LsmcRegressionOutputOutOfRange", ScriptError_);
+                return scenario[sampleId].observations_[output];
+            }
 
             template <class T_> T_ RegressionValue(size_t sampleId, const AAD::Scenario_<T_>& scenario) const {
                 REQUIRE2(sampleId < scenario.size(), "LsmcRegressionSampleOutOfRange", ScriptError_);

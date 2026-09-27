@@ -37,7 +37,7 @@ struct XlRegister_ScriptProductSettings_New_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Object name");
-        argHelp.push_back("Two columns key/value: default_index. Blank selects no default index.");
+        argHelp.push_back("Two columns key/value: default_index, regression_features (semicolon-separated names). Blank selects no default index.");
         Excel::Register("Base", "xl_ScriptProductSettings_New", "SCRIPTPRODUCTSETTINGS.NEW", "Create immutable script contract settings; no market reads", "QQQ", "name,[settings]", argHelp, false);
     }
 };

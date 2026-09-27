@@ -206,7 +206,7 @@ degree span the same space; changing their names does not add information.
 Increasing degree can increase variance and worsen conditioning. QR orthogonalizes
 the design columns for the solve but does not change the approximation span.
 The held-out selector is opt-in because it needs additional simulated paths and
-up to eight fits per exercise date; the fixed-degree moment solve remains the
+up to eight scalar fits or three multivariate fits per exercise date; the fixed-degree solve remains the
 default. Use independent final pricing and a suitable benchmark to assess the
 selected policy. In particular, a single spot
 regressor does not capture all relevant state for general path-dependent claims
@@ -216,11 +216,17 @@ but their continuation approximation omits that additional state.
 For BS and Dupire, the regressor is the product's single model-sourced future
 observation; an unbound `SPOT()` keeps a null `regressor_index` in diagnostics.
 For correlated BS and deterministic-rate hybrid models with several equities,
-`ScriptProductSettings_::defaultIndex_` explicitly selects one supported EQ
-regressor. The selected named output feeds training, frozen hard pricing, and
-fuzzy AAD replay. Without it, multi-asset exercise fails as ambiguous. The
-current basis is still one-dimensional; selecting several states awaits the
-multivariate regression-state API. Exercise dates must be strictly after the
+`ScriptProductSettings_::defaultIndex_` selects one supported EQ regressor.
+Alternatively, `regressionFeatures_` explicitly selects up to three state
+coordinates, for example `{"EQ[A]", "EQ[B]"}` or
+`{"VAR[runningAverage]", "EQ[B]"}`. `VAR[...]` reads a scalar script variable
+at each exercise event, after the preceding statements have run. This lets a
+path-dependent payoff retain its running state in the continuation fit.
+Each named EQ coordinate requests a model output at exercise dates; neither
+form needs a default SPOT binding unless the script itself calls `SPOT()`.
+With no explicit features, the original single-state behavior remains: a
+multi-asset exercise requires `defaultIndex_` and otherwise fails as ambiguous.
+Exercise dates must be strictly after the
 evaluation date (`UnsupportedExerciseDate`), and history-only preparation
 cannot value an exercise product (`UnsupportedExecutionMode`). Preparation
 allows only `rsg = "sobol"`
@@ -229,14 +235,41 @@ batch's first path with `SkipTo`, and only Sobol's `SkipTo` reconstructs it
 exactly — see
 [Random and path generation](sampling.md#path-seeking).
 
-Training memory is roughly `nTrainingPaths × (nPaysEvents + 2 × nExerciseDates + 1) × 8B`
+For two or three coordinates, the regression uses standardized total-degree
+monomials of degree 1–3, including cross terms (at most 20 columns). A
+rank-revealing pivoted QR solve keeps independent columns when states are
+correlated. Each fit needs at least ten eligible training paths per basis
+column; otherwise it lowers the degree or uses the constant continuation.
+Zero-variance coordinates receive a safe scale and a rank diagnostic.
+Optional held-out paths select the polynomial degree with the one-standard-error
+rule, using paths disjoint from both fitting and final pricing. The scalar
+single-state path retains its existing degree limit and fast solver.
+
+The runnable [C++ hybrid example](../../dal-public/examples/hybrid_script.cpp)
+and [Python equivalent](../../dal-python/examples/hybrid_script.py) compare
+one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
+the first exercise date's frozen equity values: `max(A-B+60, 0)` now and
+`max(B-A+60, 0)` later. With zero rates, the optimal value is the independently
+computable `E[60 + |A-B|]` (about 84.8144 for the example inputs). At 8,192
+training, 2,048 validation, and 32,768 pricing paths, selecting only `VAR[a]`
+prices about 83.08, while selecting both `VAR[a]` and `VAR[b]` prices about
+84.81. The gap illustrates lost continuation information; these numbers are
+fixed-seed Monte Carlo results, not general error bounds.
+
+Training memory is roughly `nTrainingPaths × (nPaysEvents + (nFeatures + 1) × nExerciseDates + 1) × 8B`
 for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
 Enabling selection adds analogous storage for `nValidationPaths` until backward
-induction finishes.
+induction finishes. Each multivariate QR fit temporarily holds up to
+`nEligibleTrainingPaths × nBasisColumns × 8B` of design columns (at most 20),
+in addition to the recorded rows.
 Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
 worker-local evaluator state. Reduce the training path count or event count to
 stay inside a memory budget.
+
+`script_mc_perf --lsmc-multi-regression` reports masked 100,000-path fit times
+for two-state quadratic, two-state cubic, and three-state cubic bases. This
+separates regression cost from model path generation and hard/AAD replay.
 
 AAD valuation of exercise products uses the fuzzy driver described below. The
 per-exercise-date statistics are observable through

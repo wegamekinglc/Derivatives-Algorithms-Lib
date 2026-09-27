@@ -13,6 +13,7 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::Script {
+    class ObservationPlan_;
     template <class T_> struct HistoricalSeedStorage_ {
         Vector_<T_> historicalSeed_;
     };
@@ -143,10 +144,12 @@ namespace Dal::Script {
     //  degree per exercise date, all live on the worker's tape. The driver resets the
     //  payment rows and advances eventOrdinal_ between paths/events.
     template <class T_> struct LsmcFuzzySinks_ {
+        const ObservationPlan_* plan_ = nullptr;
         const Vector_<size_t>* eventToExercise_ = nullptr;
         Vector_<T_>* pays_ = nullptr; //  indexed by event ordinal
         Vector_<T_>* h_ = nullptr;
         Vector_<T_>* cond_ = nullptr;
+        Vector_<T_>* features_ = nullptr;
         size_t eventOrdinal_ = 0;
         size_t payoffIdx_ = static_cast<size_t>(-1);
 
