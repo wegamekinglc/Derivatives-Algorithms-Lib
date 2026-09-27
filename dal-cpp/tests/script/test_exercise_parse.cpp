@@ -253,7 +253,7 @@ TEST(ScriptExerciseParseTest, TestDescribeExerciseProductJsonGolden) {
     const ScriptProductData_ data("ex", {Cell_(Date_(2026, 9, 22))}, {"EXERCISE 1.5"});
     ASSERT_EQ(DescribeScriptProductData(data),
               String_("{\"schema\":\"dal.script-product/2\",\"name\":\"ex\",\"default_index\":{\"original\":\"\",\"canonical\":null},"
-                      "\"input_rows\":[{\"row\":1,\"date_or_definition\":\"2026-09-22\",\"text\":\"EXERCISE 1.5\"}],"
+                      "\"regression_features\":[],\"input_rows\":[{\"row\":1,\"date_or_definition\":\"2026-09-22\",\"text\":\"EXERCISE 1.5\"}],"
                       "\"variables\":[],\"constants\":[],\"payoff_index\":null,"
                       "\"events\":[{\"event_id\":0,\"date\":\"2026-09-22\",\"origins\":[{\"row\":1,\"offset\":0,\"event_date\":\"2026-09-22\"}],"
                       "\"statements\":[{\"id\":\"n0\",\"kind\":\"exercise\",\"mode\":\"continuous\",\"eps\":-1,\"children\":["

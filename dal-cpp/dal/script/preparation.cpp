@@ -18,17 +18,25 @@
 namespace Dal::Script {
     namespace {
         ScriptProductSettings_ ResolveContract(const ScriptProductSettings_& product, const ScriptProductSettings_& legacy) {
-            if (legacy.defaultIndex_.empty())
+            if (legacy.defaultIndex_.empty() && legacy.regressionFeatures_.empty())
                 return product;
-            if (product.defaultIndex_.empty())
-                return legacy;
-            const auto original = ParseSettingIndex(product.defaultIndex_, "product.defaultIndex_");
-            const auto overrideIndex = ParseSettingIndex(legacy.defaultIndex_, "contract.defaultIndex_");
-            REQUIRE2(original->Name() == overrideIndex->Name(),
-                     "InvalidSetting: product.defaultIndex_=" + product.defaultIndex_ + "; contract.defaultIndex_=" + legacy.defaultIndex_ +
-                         "; expected the same canonical identity",
-                     ScriptError_);
-            return product;
+            ScriptProductSettings_ result = product;
+            if (result.defaultIndex_.empty())
+                result.defaultIndex_ = legacy.defaultIndex_;
+            else if (!legacy.defaultIndex_.empty()) {
+                const auto original = ParseSettingIndex(product.defaultIndex_, "product.defaultIndex_");
+                const auto overrideIndex = ParseSettingIndex(legacy.defaultIndex_, "contract.defaultIndex_");
+                REQUIRE2(original->Name() == overrideIndex->Name(),
+                         "InvalidSetting: product.defaultIndex_=" + product.defaultIndex_ + "; contract.defaultIndex_=" + legacy.defaultIndex_ +
+                             "; expected the same canonical identity",
+                         ScriptError_);
+            }
+            REQUIRE2(legacy.regressionFeatures_.empty() || product.regressionFeatures_.empty() ||
+                         legacy.regressionFeatures_ == product.regressionFeatures_,
+                     "InvalidSetting: product.regressionFeatures_ and contract.regressionFeatures_ disagree", ScriptError_);
+            if (result.regressionFeatures_.empty())
+                result.regressionFeatures_ = legacy.regressionFeatures_;
+            return result;
         }
 
         String_ Context(const ObservationRequest_& request) {
@@ -249,9 +257,11 @@ namespace Dal::Script {
         }
 
         static void AddRegressionOutputs(ObservationPlan_* plan, const ScriptProduct_& product) {
-            if (plan->regressionIndexName_.empty())
+            if (plan->regressionIndexName_.empty() && plan->regressionFeatures_.empty())
                 return;
             plan->regressionOutputBySample_.Resize(plan->defLine_.size());
+            for (auto& feature : plan->regressionFeatures_)
+                feature.outputBySample_.Resize(plan->defLine_.size());
             for (size_t event = 0; event < product.Events().size(); ++event) {
                 bool exercise = false;
                 for (const auto& statement : product.Events()[event])
@@ -259,11 +269,61 @@ namespace Dal::Script {
                 if (!exercise)
                     continue;
                 const size_t sample = plan->eventToSample_[event];
+                if (!plan->regressionFeatures_.empty()) {
+                    for (auto& feature : plan->regressionFeatures_) {
+                        if (feature.variableIndex_ || feature.outputBySample_[sample])
+                            continue;
+                        auto& outputs = plan->defLine_[sample].indexNames_;
+                        const auto found = std::find(outputs.begin(), outputs.end(), feature.name_);
+                        feature.outputBySample_[sample] = static_cast<size_t>(found - outputs.begin());
+                        if (found == outputs.end())
+                            outputs.push_back(feature.name_);
+                    }
+                    continue;
+                }
                 if (plan->regressionOutputBySample_[sample])
                     continue;
                 auto& outputs = plan->defLine_[sample].indexNames_;
-                plan->regressionOutputBySample_[sample] = outputs.size();
-                outputs.push_back(plan->regressionIndexName_);
+                const auto found = std::find(outputs.begin(), outputs.end(), plan->regressionIndexName_);
+                plan->regressionOutputBySample_[sample] = static_cast<size_t>(found - outputs.begin());
+                if (found == outputs.end())
+                    outputs.push_back(plan->regressionIndexName_);
+            }
+        }
+
+        static void ConfigureRegressionFeatures(ObservationPlan_* plan,
+                                                const ScriptProduct_& product,
+                                                const AAD::Model_<double>& model,
+                                                const ScriptProductSettings_& contract) {
+            if (!product.ContainsExercise() || contract.regressionFeatures_.empty())
+                return;
+            REQUIRE2(contract.regressionFeatures_.size() <= 3,
+                     "InvalidLsmcFeatureBudget: product.regressionFeatures_ supports at most three features", ScriptError_);
+            for (const auto& input : contract.regressionFeatures_) {
+                REQUIRE2(!input.empty(), "InvalidLsmcRegressionFeature: product.regressionFeatures_ contains an empty name", ScriptError_);
+                RegressionFeature_ feature;
+                if (input.size() > 5 && input.substr(0, 4) == "VAR[" && input.back() == ']') {
+                    const String_ variable = input.substr(4, input.size() - 5);
+                    const auto found = std::find(product.VarNames().begin(), product.VarNames().end(), variable);
+                    REQUIRE2(found != product.VarNames().end(),
+                             "UnknownLsmcRegressionVariable: product.regressionFeatures_=" + input + "; expected a scalar script variable",
+                             ScriptError_);
+                    feature.variableIndex_ = static_cast<size_t>(found - product.VarNames().begin());
+                    feature.name_ = "VAR[" + *found + "]";
+                } else {
+                    const auto index = ParseSettingIndex(input, "product.regressionFeatures_");
+                    REQUIRE2(typeid(*index) == typeid(Index::Equity_) && model.SupportsIndex(*index),
+                             "UnsupportedLsmcRegressionFeature: product.regressionFeatures_=" + input +
+                                 "; expected a model-supported ordinary EQ index",
+                             ScriptError_);
+                    feature.name_ = index->Name();
+                    if (std::find(plan->modelBindingNames_.begin(), plan->modelBindingNames_.end(), feature.name_) == plan->modelBindingNames_.end())
+                        plan->modelBindingNames_.push_back(feature.name_);
+                }
+                REQUIRE2(std::none_of(plan->regressionFeatures_.begin(), plan->regressionFeatures_.end(),
+                                      [&](const RegressionFeature_& existing) { return existing.name_ == feature.name_; }),
+                         "DuplicateLsmcRegressionFeature: product.regressionFeatures_=" + input, ScriptError_);
+                plan->regressionFeatures_.push_back(std::move(feature));
             }
         }
 
@@ -288,7 +348,8 @@ namespace Dal::Script {
                 plan->defLine_.push_back(def);
             }
             BindModelObservations(plan, product, evaluationDate);
-            if (model.NumAssets() > 1 && product.ContainsExercise()) {
+            ConfigureRegressionFeatures(plan, product, model, contract);
+            if (model.NumAssets() > 1 && product.ContainsExercise() && plan->regressionFeatures_.empty()) {
                 REQUIRE2(!contract.defaultIndex_.empty(), "AmbiguousLsmcRegressor: multi-asset exercise requires product.defaultIndex_",
                          ScriptError_);
                 const auto index = ParseSettingIndex(contract.defaultIndex_, "product.defaultIndex_");
@@ -296,8 +357,8 @@ namespace Dal::Script {
                          "UnsupportedLsmcRegressor: product.defaultIndex_=" + contract.defaultIndex_ + "; expected a model-supported EQ",
                          ScriptError_);
                 plan->regressionIndexName_ = index->Name();
-                AddRegressionOutputs(plan, product);
             }
+            AddRegressionOutputs(plan, product);
         }
 
         static void MarkLiveObservations(const Node_& node, Vector_<char>* live) {
@@ -333,6 +394,8 @@ namespace Dal::Script {
             for (auto& def : plan->defLine_)
                 def.indexNames_.clear();
             plan->regressionOutputBySample_.clear();
+            for (auto& feature : plan->regressionFeatures_)
+                feature.outputBySample_.clear();
             for (size_t id = 0; id < live.size(); ++id) {
                 auto& request = plan->requests_[id];
                 if (!request.modelSlot_)
@@ -408,6 +471,8 @@ namespace Dal::Script {
                 return result;
             if (model) {
                 ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model, contract);
+                REQUIRE2(result.plan_->RegressionFeatureCount() == 1 || simulation.lsmcBasisDegree_ <= 3,
+                         "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
@@ -421,7 +486,7 @@ namespace Dal::Script {
                 constants.StartFuture();
                 writable->Visit(constants, false, true);
                 if (writable->ContainsExercise()) {
-                    writable->OptimizeLsmc();
+                    writable->OptimizeLsmc(result.plan_->RegressionVariableIndices());
                     result.maxNestedIfs_ = writable->IFProcess();
                     if (PruneDeadModelObservations(result.plan_.get(), *writable)) {
                         model->Allocate(result.TimeLine(), result.DefLine());

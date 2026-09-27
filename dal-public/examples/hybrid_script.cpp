@@ -33,4 +33,15 @@ int main() {
     const auto result = ValueByMonteCarlo(product, model, 16384, ScriptValuationSettings_(), simulation);
     std::cout << std::fixed << std::setprecision(4) << "PV=" << result.at("PV") << ", d_spot:EQ[A]=" << result.at("d_spot:EQ[A]")
               << ", d_spot:EQ[B]=" << result.at("d_spot:EQ[B]") << '\n';
+
+    ScriptProductSettings_ exerciseSettings;
+    exerciseSettings.regressionFeatures_ = {"VAR[a]", "VAR[b]"};
+    const auto bermudan =
+        NewScriptProduct("exchange-bermudan", {Cell_(Date_(2027, 3, 27)), Cell_(Date_(2027, 9, 27))},
+                         {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b, 0)", "EXERCISE MAX(b - 0.9 * a, 0)"}, exerciseSettings);
+    simulation.lsmcTrainingPaths_ = 8192;
+    simulation.lsmcValidationPaths_ = 2048;
+    const auto exercise = ValueByMonteCarlo(bermudan, model, 32768, ScriptValuationSettings_(), simulation);
+    std::cout << "Bermudan PV=" << exercise.at("PV") << ", d_spot:EQ[A]=" << exercise.at("d_spot:EQ[A]")
+              << ", d_spot:EQ[B]=" << exercise.at("d_spot:EQ[B]") << '\n';
 }

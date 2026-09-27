@@ -434,6 +434,77 @@ TEST(ScriptExerciseLSMCTest, TestDefaultRegressionPredictsZero) {
     ASSERT_EQ(PredictContinuation(static_cast<const double*>(nullptr), 0, 0.0, 1.0, 95.0), 0.0);
 }
 
+TEST(ScriptExerciseLSMCTest, TestTwoStateRegressionRecoversCrossTerm) {
+    constexpr size_t count = 400;
+    Vector_<> first(count), second(count), targets(count);
+    Vector_<char> included(count, 1);
+    for (size_t i = 0; i < count; ++i) {
+        first[i] = 80.0 + 0.05 * static_cast<double>(i);
+        second[i] = 100.0 + 5.0 * std::sin(0.13 * static_cast<double>(i));
+        targets[i] = 3.0 + 2.0 * first[i] - 0.5 * second[i] + 0.1 * first[i] * second[i];
+    }
+    MultivariateRegressionRows_ rows;
+    rows.features_ = {&first[0], &second[0], nullptr};
+    rows.nFeatures_ = 2;
+    rows.targets_ = &targets[0];
+    rows.included_ = &included[0];
+    rows.n_ = count;
+    const auto fit = SolveMultivariateExerciseRegression(rows, 2);
+    ASSERT_EQ(fit.basisDegree_, 2);
+    ASSERT_EQ(fit.effectiveRank_, 6u);
+    for (size_t i = 0; i < count; ++i)
+        ASSERT_NEAR(RegressionPredict(fit, std::array<double, 3>{first[i], second[i], 0.0}), targets[i], 1e-8);
+}
+
+TEST(ScriptExerciseLSMCTest, TestMultivariateRegressionHandlesCollinearAndSmallSamples) {
+    constexpr size_t count = 200;
+    Vector_<> first(count), second(count), targets(count);
+    Vector_<char> included(count, 1);
+    for (size_t i = 0; i < count; ++i) {
+        first[i] = 80.0 + 0.1 * static_cast<double>(i);
+        second[i] = 2.0 * first[i];
+        targets[i] = 4.0 + first[i];
+    }
+    MultivariateRegressionRows_ rows;
+    rows.features_ = {&first[0], &second[0], nullptr};
+    rows.nFeatures_ = 2;
+    rows.targets_ = &targets[0];
+    rows.included_ = &included[0];
+    rows.n_ = count;
+    const auto fit = SolveMultivariateExerciseRegression(rows, 3);
+    ASSERT_EQ(fit.solver_, "PivotedQR");
+    ASSERT_LT(fit.effectiveRank_, fit.coefficients_.size());
+    ASSERT_EQ(fit.fallbackReason_, "RankDeficient");
+    ASSERT_NEAR(RegressionPredict(fit, std::array<double, 3>{90.0, 180.0, 0.0}), 94.0, 1e-8);
+
+    rows.n_ = 20;
+    const auto small = SolveMultivariateExerciseRegression(rows, 3);
+    ASSERT_TRUE(small.degenerate_);
+    ASSERT_EQ(small.degenerateReason_, "ConditionPathsBelowMin");
+}
+
+TEST(ScriptExerciseLSMCTest, TestThreeStateRegressionRecoversCubicInteraction) {
+    constexpr size_t count = 1000;
+    Vector_<> first(count), second(count), third(count), targets(count);
+    Vector_<char> included(count, 1);
+    for (size_t i = 0; i < count; ++i) {
+        first[i] = static_cast<double>(i % 10) - 4.5;
+        second[i] = static_cast<double>((i / 10) % 10) - 4.5;
+        third[i] = static_cast<double>(i / 100) - 4.5;
+        targets[i] = 7.0 + 0.2 * first[i] - 0.1 * second[i] + 0.3 * third[i] + 0.02 * first[i] * second[i] * third[i];
+    }
+    MultivariateRegressionRows_ rows;
+    rows.features_ = {&first[0], &second[0], &third[0]};
+    rows.nFeatures_ = 3;
+    rows.targets_ = &targets[0];
+    rows.included_ = &included[0];
+    rows.n_ = count;
+    const auto fit = SolveMultivariateExerciseRegression(rows, 3);
+    ASSERT_EQ(fit.effectiveRank_, 20u);
+    ASSERT_EQ(fit.basisDegree_, 3);
+    ASSERT_NEAR(RegressionPredict(fit, std::array<double, 3>{1.25, -2.5, 3.0}), 7.0 + 0.2 * 1.25 + 0.25 + 0.9 - 0.1875, 1e-9);
+}
+
 TEST(ScriptExerciseLSMCTest, TestConstantRegressionAvoidsNormalizationOverflow) {
     const auto fit = SolveExerciseRegression(Vector_<>(100, 0.0), Vector_<>(100, 2.0), AllIncluded(100), 3);
     ASSERT_EQ(RegressionPredict(fit, std::numeric_limits<double>::max()), 2.0);

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <dal/script/visitor/evaluator.hpp>
 
 namespace Dal::Script {
@@ -38,7 +40,7 @@ namespace Dal::Script {
         LsmcRows_* xStorage_ = nullptr;
         LsmcRows_* hStorage_ = nullptr;
         Vector_<Vector_<char>>* condStorage_ = nullptr; //  empty row = unconditional day
-        double pricingX_ = 0.0;
+        std::array<double, 3> pricingFeatures_{};
         double pricingH_ = 0.0;
         bool pricingCond_ = true;
         size_t pathSlot_ = 0;
@@ -67,7 +69,9 @@ namespace Dal::Script {
             }
             if (xStorage_) {
                 const size_t slot = (*eventToExercise_)[eventOrdinal_];
-                (*xStorage_)[slot][pathSlot_] = observations_->RegressionValue(curEvt_, *scenario_);
+                for (size_t feature = 0; feature < observations_->RegressionFeatureCount(); ++feature)
+                    (*xStorage_)[slot * observations_->RegressionFeatureCount() + feature][pathSlot_] =
+                        observations_->RegressionFeatureValue(feature, curEvt_, *scenario_, variables_);
                 (*hStorage_)[slot][pathSlot_] = value;
                 if (condStorage_) {
                     auto& row = (*condStorage_)[slot];
@@ -75,7 +79,8 @@ namespace Dal::Script {
                         row[pathSlot_] = static_cast<char>(cond);
                 }
             } else {
-                pricingX_ = observations_->RegressionValue(curEvt_, *scenario_);
+                for (size_t feature = 0; feature < observations_->RegressionFeatureCount(); ++feature)
+                    pricingFeatures_[feature] = observations_->RegressionFeatureValue(feature, curEvt_, *scenario_, variables_);
                 pricingH_ = value;
                 pricingCond_ = cond != 0.0;
             }

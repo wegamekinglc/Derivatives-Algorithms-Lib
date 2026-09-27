@@ -748,6 +748,7 @@ namespace Dal::Script {
             LsmcRows_ xByDay_;
             LsmcRows_ hByDay_;
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
+            size_t nFeatures_ = 1;
 
             //  Every recorded value of a path is rewritten by its forward evaluation;
             //  the zero fill keeps the rows deterministic regardless
@@ -758,10 +759,11 @@ namespace Dal::Script {
             }
         };
 
-        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths) {
+        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, size_t nFeatures) {
             LsmcStorage_ storage;
+            storage.nFeatures_ = nFeatures;
             storage.pays_ = LsmcRows_(scan.paysEventIds_.size(), nPaths);
-            storage.xByDay_ = LsmcRows_(scan.days_.size(), nPaths);
+            storage.xByDay_ = LsmcRows_(scan.days_.size() * nFeatures, nPaths);
             storage.hByDay_ = LsmcRows_(scan.days_.size(), nPaths);
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
@@ -773,7 +775,7 @@ namespace Dal::Script {
         }
 
         struct PricingObservation_ {
-            double x_;
+            std::array<double, 3> features_;
             double h_;
             bool cond_;
         };
@@ -797,8 +799,8 @@ namespace Dal::Script {
             [[nodiscard]] const Scenario_<>& Path() const { return bsPaths_ ? bsPaths_->Path() : path_; }
             [[nodiscard]] PricingObservation_ PricingObservation() const {
                 if (compiledState_)
-                    return {sinks_.pricingX_, sinks_.pricingH_, sinks_.pricingCond_};
-                return {evaluator_.pricingX_, evaluator_.pricingH_, evaluator_.pricingCond_};
+                    return {sinks_.pricingFeatures_, sinks_.pricingH_, sinks_.pricingCond_};
+                return {evaluator_.pricingFeatures_, evaluator_.pricingH_, evaluator_.pricingCond_};
             }
         };
 
@@ -876,7 +878,7 @@ namespace Dal::Script {
             if (!ctx.policy_ || day == NO_SLOT)
                 return false;
             const auto observation = state->PricingObservation();
-            if (!(observation.cond_ && observation.h_ > 0.0 && observation.h_ > RegressionPredict((*ctx.policy_)[day], observation.x_)))
+            if (!(observation.cond_ && observation.h_ > 0.0 && observation.h_ > RegressionPredict((*ctx.policy_)[day], observation.features_)))
                 return false;
             state->exercisedDay_ = day;
             state->exerciseValue_ = observation.h_;
@@ -993,24 +995,31 @@ namespace Dal::Script {
         struct PendingDecision_ {
             const ExerciseRegression_* regression_ = nullptr;
             const double* h_ = nullptr;
-            const double* x_ = nullptr;
+            std::array<const double*, 3> features_{};
+            size_t nFeatures_ = 1;
         };
 
         //  The frozen fit copied into locals: the sweeps store chars, which may alias any
         //  heap state, so the fit's fields would otherwise be reloaded on every path
         struct LocalPredictor_ {
+            const ExerciseRegression_* regression_ = nullptr;
             std::array<double, 9> coefficients_{};
             size_t size_ = 0;
             double mean_ = 0.0;
             double sigma_ = 1.0;
 
             explicit LocalPredictor_(const ExerciseRegression_& regression)
-                : size_(regression.coefficients_.size()), mean_(regression.mean_), sigma_(regression.sigma_) {
-                REQUIRE(size_ >= 1 && size_ <= coefficients_.size(), "InvalidRegressionInput: unsupported coefficient count");
-                std::copy(regression.coefficients_.begin(), regression.coefficients_.end(), coefficients_.begin());
+                : regression_(&regression), size_(regression.coefficients_.size()), mean_(regression.mean_), sigma_(regression.sigma_) {
+                REQUIRE(size_ >= 1 && (regression.powers_.empty() ? size_ <= coefficients_.size() : size_ <= 20),
+                        "InvalidRegressionInput: unsupported coefficient count");
+                if (regression.powers_.empty())
+                    std::copy(regression.coefficients_.begin(), regression.coefficients_.end(), coefficients_.begin());
             }
 
-            FORCE_INLINE double operator()(double x) const { return PredictContinuation(coefficients_.data(), size_, mean_, sigma_, x); }
+            FORCE_INLINE double operator()(const std::array<double, 3>& features) const {
+                return regression_->powers_.empty() ? PredictContinuation(coefficients_.data(), size_, mean_, sigma_, features[0])
+                                                    : RegressionPredict(*regression_, features);
+            }
         };
 
         //  Backward holding values and the current regression set of one path block
@@ -1054,7 +1063,7 @@ namespace Dal::Script {
             if (day == NO_SLOT)
                 return rows;
             rows.h_ = storage.hByDay_[day];
-            rows.x_ = storage.xByDay_[day];
+            rows.x_ = storage.xByDay_[day * storage.nFeatures_];
             if (!storage.condByDay_.empty() && !storage.condByDay_[day].empty())
                 rows.cond_ = RowData(storage.condByDay_[day]);
             return rows;
@@ -1078,15 +1087,19 @@ namespace Dal::Script {
             if constexpr (APPLY)
                 predict.emplace(*pending.regression_);
             const double* pendingH = pending.h_;
-            const double* pendingX = pending.x_;
+            const auto pendingFeatures = pending.features_;
             const size_t end = chunk.firstPath_ + chunk.pathCount_;
             double* w = &rows->w_[0];
             char* included = &rows->included_[0];
             IncludedSums_ sums;
             for (size_t j = chunk.firstPath_; j < end; ++j) {
                 double value = w[j];
-                if constexpr (APPLY)
-                    value = Select((included[j] != 0) & (pendingH[j] > (*predict)(pendingX[j])), pendingH[j], value);
+                if constexpr (APPLY) {
+                    std::array<double, 3> features{};
+                    for (size_t feature = 0; feature < pending.nFeatures_; ++feature)
+                        features[feature] = pendingFeatures[feature][j];
+                    value = Select((included[j] != 0) & (pendingH[j] > (*predict)(features)), pendingH[j], value);
+                }
                 value = HoldingValue(pays, j, dNext, hasNext, value);
                 w[j] = value;
                 if constexpr (RECORD) {
@@ -1111,11 +1124,28 @@ namespace Dal::Script {
         }
 
         RegressionRows_ DayRows(const BackwardRows_& rows, size_t day) {
-            return {rows.storage_.xByDay_[day], RowData(rows.w_), RowData(rows.included_), rows.Size()};
+            return {rows.storage_.xByDay_[day * rows.storage_.nFeatures_], RowData(rows.w_), RowData(rows.included_), rows.Size()};
+        }
+
+        MultivariateRegressionRows_ MultiDayRows(const BackwardRows_& rows, size_t day) {
+            MultivariateRegressionRows_ result;
+            result.nFeatures_ = rows.storage_.nFeatures_;
+            result.targets_ = RowData(rows.w_);
+            result.included_ = RowData(rows.included_);
+            result.n_ = rows.Size();
+            for (size_t feature = 0; feature < result.nFeatures_; ++feature)
+                result.features_[feature] = rows.storage_.xByDay_[day * result.nFeatures_ + feature];
+            return result;
         }
 
         void DeferDecision(const ExerciseRegression_& regression, size_t day, BackwardRows_* rows) {
-            rows->pending_ = {&regression, rows->storage_.hByDay_[day], rows->storage_.xByDay_[day]};
+            PendingDecision_ pending;
+            pending.regression_ = &regression;
+            pending.h_ = rows->storage_.hByDay_[day];
+            pending.nFeatures_ = rows->storage_.nFeatures_;
+            for (size_t feature = 0; feature < pending.nFeatures_; ++feature)
+                pending.features_[feature] = rows->storage_.xByDay_[day * pending.nFeatures_ + feature];
+            rows->pending_ = pending;
         }
 
         struct ValidationLoss_ {
@@ -1135,6 +1165,24 @@ namespace Dal::Script {
             const double mse = sumLoss / static_cast<double>(count);
             const double secondMoment = sumLossSq / static_cast<double>(count);
             return {mse, std::sqrt(std::max(0.0, secondMoment - mse * mse) / static_cast<double>(count))};
+        }
+
+        ValidationLoss_ EvaluateValidationLoss(const ExerciseRegression_& candidate, const MultivariateRegressionRows_& validation, size_t count) {
+            double sumLoss = 0.0;
+            double sumLossSq = 0.0;
+            for (size_t i = 0; i < validation.n_; ++i) {
+                if (!validation.included_[i])
+                    continue;
+                std::array<double, 3> features{};
+                for (size_t j = 0; j < validation.nFeatures_; ++j)
+                    features[j] = validation.features_[j][i];
+                const double error = RegressionPredict(candidate, features) - validation.targets_[i];
+                const double loss = error * error;
+                sumLoss += loss;
+                sumLossSq += loss * loss;
+            }
+            const double mse = sumLoss / static_cast<double>(count);
+            return {mse, std::sqrt(std::max(0.0, sumLossSq / static_cast<double>(count) - mse * mse) / static_cast<double>(count))};
         }
 
         int ChooseValidationDegree(const std::array<ValidationLoss_, 8>& losses, int maxDegree, const ValidationLoss_& best) {
@@ -1197,6 +1245,27 @@ namespace Dal::Script {
         //  blocks[0] is the training block; an optional blocks[1] selects the degree
         ExerciseRegression_ FitExerciseDay(const Vector_<BackwardRows_*>& blocks, const std::array<IncludedSums_, 2>& sums, size_t day, int degree) {
             BackwardRows_& training = *blocks[0];
+            if (training.storage_.nFeatures_ > 1) {
+                const auto trainingRows = MultiDayRows(training, day);
+                if (blocks.size() == 1 || sums[1].count_ == 0)
+                    return SolveMultivariateExerciseRegression(trainingRows, degree);
+                const auto validationRows = MultiDayRows(*blocks[1], day);
+                std::array<ExerciseRegression_, 8> candidates;
+                std::array<ValidationLoss_, 8> losses;
+                ValidationLoss_ best;
+                for (int d = 1; d <= degree; ++d) {
+                    const size_t index = static_cast<size_t>(d - 1);
+                    candidates[index] = SolveMultivariateExerciseRegression(trainingRows, d);
+                    losses[index] = EvaluateValidationLoss(candidates[index], validationRows, sums[1].count_);
+                    if (std::isfinite(losses[index].mse_) && losses[index].mse_ < best.mse_)
+                        best = losses[index];
+                }
+                const int chosen = ChooseValidationDegree(losses, degree, best);
+                auto selected = std::move(candidates[static_cast<size_t>(chosen)]);
+                if (std::isfinite(best.mse_))
+                    selected.validationMse_ = losses[static_cast<size_t>(chosen)].mse_;
+                return selected;
+            }
             if (blocks.size() == 1)
                 return FitRegression(DayRows(training, day), sums[0], degree, training.chunks_);
             return SelectRegression(DayRows(training, day), sums[0], training.chunks_, DayRows(*blocks[1], day), sums[1].count_, degree);
@@ -1244,7 +1313,7 @@ namespace Dal::Script {
             auto eventNumeraire = SampleGridNumeraires(ctx);
             LsmcStorage_ validationStorage;
             if (counts.validation_) {
-                validationStorage = MakeStorage(ctx.scan_, counts.validation_);
+                validationStorage = MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount());
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
                 validationCtx.constValues_ = ctx.constValues_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
@@ -1365,6 +1434,27 @@ namespace Dal::Script {
                 stats.basisDegree_ = regressions[k].basisDegree_;
                 stats.regressorIndex_ = prepared.Plan().RegressionIndexName().empty() ? (bindings.empty() ? String_() : bindings.front())
                                                                                       : prepared.Plan().RegressionIndexName();
+                if (!prepared.Plan().RegressionFeatures().empty()) {
+                    stats.regressorIndex_ = String_();
+                    for (const auto& feature : prepared.Plan().RegressionFeatures())
+                        stats.regressionFeatures_.push_back(feature.name_);
+                } else if (!stats.regressorIndex_.empty()) {
+                    stats.regressionFeatures_.push_back(stats.regressorIndex_);
+                } else {
+                    stats.regressionFeatures_.push_back("SPOT()");
+                }
+                stats.normalizationMeans_ = regressions[k].means_;
+                stats.normalizationSigmas_ = regressions[k].sigmas_;
+                stats.basisPowers_ = regressions[k].powers_;
+                if (stats.basisPowers_.empty()) {
+                    const bool scalar = prepared.Plan().RegressionFeatureCount() == 1;
+                    if (scalar) {
+                        stats.normalizationMeans_ = {regressions[k].mean_};
+                        stats.normalizationSigmas_ = {regressions[k].sigma_};
+                    }
+                    for (size_t term = 0; term < regressions[k].coefficients_.size(); ++term)
+                        stats.basisPowers_.push_back({static_cast<unsigned char>(scalar ? term : 0), 0, 0});
+                }
                 stats.numCondTruePaths_ = regressions[k].numCondTrue_;
                 stats.coefficients_ = regressions[k].coefficients_;
                 stats.degenerate_ = regressions[k].degenerate_;
@@ -1389,6 +1479,7 @@ namespace Dal::Script {
                           const Vector_<T_>& pays,
                           const Vector_<T_>& h,
                           const Vector_<T_>& cond,
+                          const Vector_<T_>& features,
                           const Vector_<ExerciseRegression_>& regressions,
                           const ObservationPlan_& plan,
                           const Scenario_<T_>& path) {
@@ -1404,7 +1495,11 @@ namespace Dal::Script {
                 if (day != NO_SLOT) {
                     //  materialize the continuation gap: CSpr's early-return constants need a
                     //  value type, not an expression proxy
-                    const T_ continuation = RegressionPredict(regressions[day], plan.RegressionValue(eventToSample[e], path));
+                    std::array<T_, 3> state{};
+                    const size_t nFeatures = plan.RegressionFeatureCount();
+                    for (size_t feature = 0; feature < nFeatures; ++feature)
+                        state[feature] = features[day * nFeatures + feature];
+                    const T_ continuation = RegressionPredict(regressions[day], state);
                     const T_ gap = h[day] - continuation;
                     const T_ degree = CSpr(gap, scan.days_[day].eps_) * CSpr(h[day], 0.0, scan.days_[day].eps_) * cond[day];
                     value = degree * h[day] + (1.0 - degree) * value;
@@ -1430,6 +1525,7 @@ namespace Dal::Script {
             Vector_<T_> pays_;
             Vector_<T_> h_;
             Vector_<T_> cond_;
+            Vector_<T_> features_;
         };
 
         template <class T_>
@@ -1452,9 +1548,11 @@ namespace Dal::Script {
                 ws.random_->SkipTo(batch.firstPath_);
             ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
             ws.sinks_.payoffIdx_ = prepared.PayOffIdx();
+            ws.sinks_.plan_ = &prepared.Plan();
             ws.pays_ = Vector_<T_>(scan.eventToPays_.size(), 0.0);
             ws.h_ = Vector_<T_>(scan.days_.size(), 0.0);
             ws.cond_ = Vector_<T_>(scan.days_.size(), 1.0);
+            ws.features_ = Vector_<T_>(scan.days_.size() * prepared.Plan().RegressionFeatureCount(), 0.0);
             return ws;
         }
 
@@ -1514,7 +1612,7 @@ namespace Dal::Script {
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
                 evaluate(ws, prepared, evaluator);
-                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan(), ws.path_);
+                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
                 Adjoint(value) = 1.0;
                 AAD::PropagateToMark(*AAD::Tape());
@@ -1543,6 +1641,7 @@ namespace Dal::Script {
             ws.sinks_.pays_ = &ws.pays_;
             ws.sinks_.h_ = &ws.h_;
             ws.sinks_.cond_ = &ws.cond_;
+            ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
                 FuzzyReplayPaths(
@@ -1572,7 +1671,7 @@ namespace Dal::Script {
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
                 evaluate(ws, prepared, evaluator);
-                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan(), ws.path_);
+                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
                 sum += value;
             }
@@ -1590,6 +1689,7 @@ namespace Dal::Script {
             ws.sinks_.pays_ = &ws.pays_;
             ws.sinks_.h_ = &ws.h_;
             ws.sinks_.cond_ = &ws.cond_;
+            ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 auto state = prepared.BuildEvalState<double>(0, prepared.Simulation().smooth_);
                 return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, state,
@@ -1644,7 +1744,7 @@ namespace Dal::Script {
             auto model = baseModel.Clone();
             *model->Parameters()[parameter] += bump;
             model->Init(prepared.TimeLine(), prepared.DefLine());
-            auto storage = MakeStorage(scan, counts.training_);
+            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
             LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey};
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
@@ -1659,7 +1759,7 @@ namespace Dal::Script {
                                                                double bump) {
             auto constants = prepared.Product().ConstVarValues();
             constants[constant] += bump;
-            auto storage = MakeStorage(scan, counts.training_);
+            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
             LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
@@ -1776,7 +1876,7 @@ namespace Dal::Script {
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_);
+        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
         const BatchPlan_ batchPlan(nPaths, 1);
         const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
         const std::optional<uint64_t> trainingKey =
@@ -1826,7 +1926,7 @@ namespace Dal::Script {
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_);
+        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
         const BatchPlan_ batchPlan(nPaths, 1);
         std::optional<ScriptCompiled_> hardCompiled;
         if (simulation.compiled_.value_or(false))

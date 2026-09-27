@@ -55,6 +55,7 @@ to the script's future FIX index.
 | Settings handle | Key                         | Default                                         | Accepted value                                                  |
 |-----------------|-----------------------------|-------------------------------------------------|-----------------------------------------------------------------|
 | Product         | `default_index`             | No default                                      | Nonempty index-name text                                        |
+| Product         | `regression_features`       | No explicit states                             | Semicolon-separated EQ indices or `VAR[name]`, up to three      |
 | Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                |
 | Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                       |
 | Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                 |
@@ -194,8 +195,12 @@ distinct future index. Future FX, IR, composite, and delivery indices are
 unsupported. Historical EQ/FX observations need no model index and may contain
 multiple identities. A product default does not supply market data: the model
 inputs must describe the intended equity. In a multi-asset model, `SPOT()` and
-LSM exercise require an explicit `default_index`; LSM uses that named equity
-as its single regression state.
+`SPOT()` requires an explicit `default_index`. LSM exercise requires either
+that single-state default or a `regression_features` row, for example
+`EQ[A];EQ[B]` or `EQ[A];VAR[runningAverage]`. The named model outputs or scalar
+script variables are recorded at every exercise date for continuation
+regression. A `VAR[...]` name must refer to a scalar script variable; the
+product may still need `default_index` if its script calls `SPOT()`.
 
 A two-equity hybrid worksheet can create two components with
 `HYBRIDBSEQUITYDATA.NEW`, a domestic `HYBRIDDETERMINISTICRATEDATA.NEW`, and a

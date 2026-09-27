@@ -18,15 +18,38 @@ using namespace Dal;
 using namespace Dal::Python;
 
 void init_bindings_script(py::module_& m) {
+    const auto regressionFeatures = [](const py::object& values) {
+        Vector_<String_> result;
+        if (values.is_none())
+            return result;
+        if (!py::isinstance<py::list>(values) && !py::isinstance<py::tuple>(values))
+            throw py::type_error("ScriptProductSettings_; regression_features must be a list or tuple of strings");
+        for (const auto& value : py::reinterpret_borrow<py::iterable>(values))
+            result.push_back(SettingStringInput(py::reinterpret_borrow<py::object>(value), "ScriptProductSettings_; regression_features"));
+        return result;
+    };
     WithCopies(py::class_<ScriptProductSettings_>(m, "ScriptProductSettings_"))
-        .def(py::init([](const py::object& defaultIndex) {
-                 return ScriptProductSettings_{SettingStringInput(defaultIndex, "ScriptProductSettings_; default_index / product.defaultIndex_")};
+        .def(py::init([regressionFeatures](const py::object& defaultIndex, const py::object& features) {
+                 return ScriptProductSettings_{SettingStringInput(defaultIndex, "ScriptProductSettings_; default_index / product.defaultIndex_"),
+                                               regressionFeatures(features)};
              }),
-             py::kw_only(), py::arg("default_index") = "")
+             py::kw_only(), py::arg("default_index") = "", py::arg("regression_features") = py::none())
         .def_property(
             "default_index", [](const ScriptProductSettings_& settings) { return Text(settings.defaultIndex_); },
             [](ScriptProductSettings_* settings, const py::object& value) {
                 settings->defaultIndex_ = SettingStringInput(value, "ScriptProductSettings_; default_index / product.defaultIndex_");
+            })
+        .def_property(
+            "regression_features",
+            [](const ScriptProductSettings_& settings) {
+                std::vector<std::string> result;
+                result.reserve(settings.regressionFeatures_.size());
+                for (const auto& feature : settings.regressionFeatures_)
+                    result.emplace_back(feature.data(), feature.size());
+                return result;
+            },
+            [regressionFeatures](ScriptProductSettings_* settings, const py::object& values) {
+                settings->regressionFeatures_ = regressionFeatures(values);
             });
 
     m.def(

@@ -227,6 +227,82 @@ TEST(HybridValueTest, TestMultiAssetExerciseUsesSelectedRegressor) {
             }
 }
 
+TEST(HybridValueTest, TestTwoSelectedAssetsPriceWithoutDefaultIndex) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    Dal::ScriptProductSettings_ settings;
+    settings.regressionFeatures_ = {"EQ[A]", "EQ[B]"};
+    const auto product = Dal::NewScriptProduct("two-state", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"EXERCISE MAX(FIX(EQ[A]) - FIX(EQ[B]), 0)", "EXERCISE MAX(FIX(EQ[B]) - FIX(EQ[A]), 0)"}, settings);
+    for (const auto& model : {CorrelatedModel(), HybridModel()})
+        for (const bool compiled : {false, true})
+            for (const bool aad : {false, true}) {
+                Dal::MonteCarloSettings_ simulation;
+                simulation.compiled_ = compiled;
+                simulation.enableAad_ = aad;
+                simulation.lsmcTrainingPaths_ = 128;
+                const auto result = Dal::ValueByMonteCarlo(product, model, 128, {}, simulation);
+                ASSERT_NEAR(result.at("PV"), 20.0, 1e-10);
+                if (aad) {
+                    ASSERT_NEAR(result.at("d_spot:EQ[A]"), -1.0, 1e-10);
+                    ASSERT_NEAR(result.at("d_spot:EQ[B]"), 1.0, 1e-10);
+                }
+            }
+    auto model = Dal::CreateModel<double>(CorrelatedModel());
+    const auto prepared = Dal::Script::PrepareScript(*product, model.get(), {}, {});
+    for (const auto& sample : prepared.DefLine())
+        ASSERT_EQ(sample.indexNames_.size(), 2u);
+}
+
+TEST(HybridValueTest, TestTwoStateBermudanMatchesExchangeReference) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    Dal::ScriptProductSettings_ settings;
+    settings.regressionFeatures_ = {"VAR[a]", "VAR[b]"};
+    const auto product = Dal::NewScriptProduct("exchange-bermudan", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b, 0)", "EXERCISE MAX(b - 0.9 * a, 0)"}, settings);
+    const double volA = 0.2;
+    const double volB = 0.3;
+    const double correlation = 0.35;
+    //  The second exercise uses the frozen first-date state, so the optimal
+    //  first-date payoff is max(A-B, B-0.9A) = A-B + (2B-1.9A)^+.
+    const double time = (Dal::Date_(2027, 3, 27) - Dal::Date_(2026, 9, 27)) / 365.0;
+    const double exchangeVol = std::sqrt(volA * volA + volB * volB - 2.0 * correlation * volA * volB);
+    const double width = exchangeVol * std::sqrt(time);
+    const double d1 = (std::log((2.0 * 120.0) / (1.9 * 100.0)) + 0.5 * width * width) / width;
+    const double d2 = d1 - width;
+    const auto cdf = [](double value) { return 0.5 * std::erfc(-value / std::sqrt(2.0)); };
+    const double reference = 100.0 - 120.0 + 2.0 * 120.0 * cdf(d1) - 1.9 * 100.0 * cdf(d2);
+    for (const auto& model : {CorrelatedModel(volA, volB, correlation), HybridModel(volA, volB, correlation)})
+        for (const bool compiled : {false, true})
+            for (const bool aad : {false, true}) {
+                Dal::MonteCarloSettings_ simulation;
+                simulation.compiled_ = compiled;
+                simulation.enableAad_ = aad;
+                simulation.lsmcTrainingPaths_ = 8192;
+                simulation.lsmcValidationPaths_ = 2048;
+                const auto result = Dal::ValueByMonteCarlo(product, model, 16384, {}, simulation);
+                ASSERT_NEAR(result.at("PV"), reference, 0.4);
+                if (aad) {
+                    ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[A]")));
+                    ASSERT_TRUE(std::isfinite(result.at("d_spot:EQ[B]")));
+                }
+            }
+    Dal::MonteCarloSettings_ simulation;
+    simulation.lsmcTrainingPaths_ = 4096;
+    rapidjson::Document diagnostic;
+    diagnostic.Parse(Dal::ExplainScriptSimulation(product, CorrelatedModel(volA, volB, correlation), 4096, {}, simulation).c_str());
+    ASSERT_FALSE(diagnostic.HasParseError());
+    const auto& event = diagnostic["exercise_events"][0];
+    ASSERT_TRUE(event["regressor_index"].IsNull());
+    ASSERT_EQ(event["regression_features"].Size(), 2u);
+    ASSERT_STREQ(event["regression_features"][0].GetString(), "VAR[a]");
+    ASSERT_STREQ(event["regression_features"][1].GetString(), "VAR[b]");
+    ASSERT_EQ(event["normalization_means"].Size(), 2u);
+    ASSERT_EQ(event["normalization_sigmas"].Size(), 2u);
+    ASSERT_EQ(event["basis_powers"].Size(), event["coefficients"].Size());
+}
+
 TEST(HybridValueTest, TestRetrainedPolicyRespectsEachParameterConstraint) {
     Dal::RegisterAll_::Init();
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
@@ -272,6 +348,54 @@ TEST(HybridValueTest, TestMultiAssetExerciseIsThreadInvariant) {
             const auto four = Dal::ValueByMonteCarlo(product, model, 1024, Dal::ScriptValuationSettings_(), simulation);
             ASSERT_EQ(one, four);
         }
+}
+
+TEST(HybridValueTest, TestTwoStateExerciseIsThreadInvariant) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    ThreadPoolRestore_ threads;
+    Dal::ScriptProductSettings_ settings;
+    settings.regressionFeatures_ = {"EQ[A]", "EQ[B]"};
+    const auto product = Dal::NewScriptProduct("two-state-thread", {Dal::Cell_(Dal::Date_(2027, 3, 27)), Dal::Cell_(Dal::Date_(2027, 9, 27))},
+                                               {"EXERCISE MAX(FIX(EQ[A]) - FIX(EQ[B]), 0)", "EXERCISE MAX(FIX(EQ[B]) - FIX(EQ[A]), 0)"}, settings);
+    const auto model = HybridModel(0.2, 0.3, 0.35);
+    for (const bool compiled : {false, true})
+        for (const bool aad : {false, true}) {
+            Dal::MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            simulation.enableAad_ = aad;
+            simulation.lsmcTrainingPaths_ = 4096;
+            simulation.lsmcValidationPaths_ = 1024;
+            threads.pool_->Start(1, true);
+            const auto one = Dal::ValueByMonteCarlo(product, model, 4096, {}, simulation);
+            threads.pool_->Start(4, true);
+            const auto four = Dal::ValueByMonteCarlo(product, model, 4096, {}, simulation);
+            ASSERT_EQ(one, four);
+        }
+}
+
+TEST(HybridValueTest, TestInvalidRegressionFeaturesFailBeforeWorkerSubmission) {
+    Dal::RegisterAll_::Init();
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
+    const auto model = CorrelatedModel();
+    SubmissionCounter_ counter;
+    const Dal::Script::Detail::ScopedSimulationObserver_ observe(&counter);
+    for (const Dal::Vector_<Dal::String_>& features :
+         {Dal::Vector_<Dal::String_>{"EQ[A]", "EQ[B]", "EQ[A]"}, Dal::Vector_<Dal::String_>{"EQ[A]", "VAR[missing]"},
+          Dal::Vector_<Dal::String_>{"EQ[A]", "FX[EUR/USD]"}, Dal::Vector_<Dal::String_>{"EQ[A]", "EQ[B]", "EQ[C]", "EQ[D]"}}) {
+        Dal::ScriptProductSettings_ settings;
+        settings.regressionFeatures_ = features;
+        const auto product = Dal::NewScriptProduct("invalid-states", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"EXERCISE 1"}, settings);
+        ASSERT_THROW(Dal::ValueByMonteCarlo(product, model, 128), Dal::ScriptError_);
+        ASSERT_EQ(counter.count_, 0u);
+    }
+    Dal::ScriptProductSettings_ settings;
+    settings.regressionFeatures_ = {"EQ[A]", "EQ[B]"};
+    const auto product = Dal::NewScriptProduct("too-high-degree", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"EXERCISE 1"}, settings);
+    Dal::MonteCarloSettings_ simulation;
+    simulation.lsmcBasisDegree_ = 4;
+    ASSERT_THROW(Dal::ValueByMonteCarlo(product, model, 128, {}, simulation), Dal::ScriptError_);
+    ASSERT_EQ(counter.count_, 0u);
 }
 
 TEST(HybridValueTest, TestUnprovenNumeraireFailsBeforeWorkerSubmission) {

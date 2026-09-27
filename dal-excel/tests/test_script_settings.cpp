@@ -50,6 +50,14 @@ TEST(ScriptExcelContractTest, TestProductSettingsPreserveRowsAndCopyValues) {
     ASSERT_EQ(std::string(settings->val_.defaultIndex_.c_str()), "eq[MiXeD]");
 }
 
+TEST(ScriptExcelContractTest, TestProductSettingsReadRegressionFeatures) {
+    Handle_<StorableScriptProductSettings_> settings;
+    ScriptProductSettings_New("multi", Rows({{Cell_("regression_features"), Cell_("EQ[A];VAR[average];EQ[B]")}}), &settings);
+    ASSERT_EQ(settings->val_.regressionFeatures_, (Vector_<String_>{"EQ[A]", "VAR[average]", "EQ[B]"}));
+    AssertError([&] { ScriptProductSettings_New("bad", Rows({{Cell_("regression_features"), Cell_("EQ[A];")}}), &settings); },
+                {"regression_features", "non-empty"});
+}
+
 TEST(ScriptExcelContractTest, TestProductSettingsRejectBadRows) {
     Handle_<StorableScriptProductSettings_> settings;
     const auto check = [&](const Matrix_<Cell_>& input, const Vector_<String_>& fields) {

@@ -18,13 +18,14 @@
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData
    data for script product from an events table
-version 2
+version 3
 manual
 &members
 name is ?string
 dates is cell[]
 events is string[]
 default_index is ?string
+regression_features is string[]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal::Script {
@@ -243,7 +244,7 @@ namespace Dal::Script {
         void DomainProcess(bool fuzzy);
         void ConstProcess();
         void ConstCondProcess();
-        void OptimizeLsmc();
+        void OptimizeLsmc(const Vector_<size_t>& regressionVariables = {});
         void ValidateFuzzyVectorMutations() const;
 
         size_t PreProcess(bool fuzzy, bool skip_domain);

@@ -4,6 +4,7 @@
 // Script-engine tree-walk vs compiled evaluator benchmarks.
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -21,6 +22,7 @@
 #include <dal/platform/initall.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/lsmc.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
@@ -189,6 +191,41 @@ namespace {
         RunRegressionCase("LSMC regression degree=" + std::to_string(degree) + " ITM mask (100000 paths)", x, targets, included, degree, repeats);
     }
 
+    void RunMultivariateRegressionCase(size_t features, int degree, int repeats) {
+        constexpr size_t N_PATHS = 100000;
+        std::array<Vector_<>, 3> x;
+        for (size_t feature = 0; feature < features; ++feature)
+            x[feature].Resize(N_PATHS);
+        Vector_<> targets(N_PATHS);
+        Vector_<char> included(N_PATHS);
+        uint64_t state = 20260927;
+        for (size_t i = 0; i < N_PATHS; ++i) {
+            for (size_t feature = 0; feature < features; ++feature) {
+                state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+                x[feature][i] = 80.0 + 40.0 * static_cast<double>(state >> 11) / 9007199254740992.0;
+            }
+            targets[i] = std::max(x[0][i] - x[1][i], 0.0) + (features == 3 ? 0.1 * x[2][i] : 0.0);
+            included[i] = static_cast<char>(x[0][i] > x[1][i]);
+        }
+        MultivariateRegressionRows_ rows;
+        rows.nFeatures_ = features;
+        rows.n_ = N_PATHS;
+        rows.targets_ = &targets[0];
+        rows.included_ = &included[0];
+        for (size_t feature = 0; feature < features; ++feature)
+            rows.features_[feature] = &x[feature][0];
+        double sink = 0.0;
+        const auto result = Bench::Run(
+            "LSMC regression features=" + std::to_string(features) + " degree=" + std::to_string(degree) + " ITM mask (100000 paths)",
+            [&]() {
+                const auto fit = SolveMultivariateExerciseRegression(rows, degree);
+                sink += RegressionPredict(fit, std::array<double, 3>{95.0, 105.0, 100.0});
+            },
+            1, repeats);
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
+
     bool ParsePathCount(const char* text, size_t* count) {
         const char* end = text + std::char_traits<char>::length(text);
         const auto parsed = std::from_chars(text, end, *count);
@@ -297,6 +334,13 @@ int main(int argc, char** argv) {
             RunCorrelatedBSPathCases();
             return 0;
         }
+        if (std::string(argv[1]) == "--lsmc-multi-regression") {
+            Bench::PrintHeader();
+            RunMultivariateRegressionCase(2, 2, 3);
+            RunMultivariateRegressionCase(2, 3, 3);
+            RunMultivariateRegressionCase(3, 3, 3);
+            return 0;
+        }
         return std::string(argv[1]) == "--lsmc-replay" ? RunLsmcReplayProfile(argc, argv) : 2;
     }
     constexpr int kRepeats = 3;
@@ -322,6 +366,9 @@ int main(int argc, char** argv) {
     RunRegressionCase(8, kRepeats);
     RunMaskedRegressionCase(3, kRepeats);
     RunMaskedRegressionCase(8, kRepeats);
+    RunMultivariateRegressionCase(2, 2, kRepeats);
+    RunMultivariateRegressionCase(2, 3, kRepeats);
+    RunMultivariateRegressionCase(3, 3, kRepeats);
     RunCorrelatedBSPathCases();
 
     return 0;

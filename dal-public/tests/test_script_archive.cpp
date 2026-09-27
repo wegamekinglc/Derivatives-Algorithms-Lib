@@ -19,7 +19,7 @@ TEST(ScriptArchiveTest, TestIndexVersioning) {
     ASSERT_TRUE(legacy);
     ASSERT_TRUE(legacy->Settings().defaultIndex_.empty());
     ASSERT_EQ(legacy->EventTexts(), Vector_<String_>{"pay PAYS SPOT()"});
-    ASSERT_NE(JSON::WriteString(*legacy).find("ScriptProductData_v2"), String_::npos);
+    ASSERT_NE(JSON::WriteString(*legacy).find("ScriptProductData_v3"), String_::npos);
 
     const auto original = NewScriptProduct("raw\"contract", {Cell_("OBS"), Cell_(Date_(2026, 9, 22))},
                                            {"FIX(eq[MiXeD]@2026-12-31, 2026-09-11)", "pay PAYS OBS + SPOT()"}, {"eq[MiXeD]"});
@@ -27,9 +27,10 @@ TEST(ScriptArchiveTest, TestIndexVersioning) {
     rapidjson::Document json;
     json.Parse(blob.c_str());
     ASSERT_FALSE(json.HasParseError());
-    ASSERT_EQ(json.MemberCount(), 5u);
-    ASSERT_STREQ(json["~type"].GetString(), "ScriptProductData_v2");
+    ASSERT_EQ(json.MemberCount(), 6u);
+    ASSERT_STREQ(json["~type"].GetString(), "ScriptProductData_v3");
     ASSERT_STREQ(json["default_index"].GetString(), "eq[MiXeD]");
+    ASSERT_TRUE(json["regression_features"].IsArray());
     const auto restored = handle_cast<ScriptProductData_>(JSON::ReadString(blob, false));
     ASSERT_TRUE(restored);
     ASSERT_EQ(std::string(restored->Name().c_str()), "raw\"contract");
@@ -39,6 +40,12 @@ TEST(ScriptArchiveTest, TestIndexVersioning) {
     for (size_t i = 0; i < original->EventTexts().size(); ++i)
         ASSERT_EQ(std::string(restored->EventTexts()[i].c_str()), std::string(original->EventTexts()[i].c_str()));
     ASSERT_EQ(std::string(restored->Settings().defaultIndex_.c_str()), "eq[MiXeD]");
+
+    ScriptProductSettings_ selected;
+    selected.regressionFeatures_ = {"EQ[A]", "VAR[average]"};
+    const auto selectedProduct = NewScriptProduct("selected", {Cell_(Date_(2027, 9, 22))}, {"EXERCISE 1"}, selected);
+    const auto selectedRestored = handle_cast<ScriptProductData_>(JSON::ReadString(JSON::WriteString(*selectedProduct), false));
+    ASSERT_EQ(selectedRestored->Settings().regressionFeatures_, selected.regressionFeatures_);
 
     for (const String_ field : {String_(), String_(R"(,"default_index":"")")}) {
         const String_ emptyDefault = R"({"~type":"ScriptProductData_v2","dates":[],"events":[])" + field + "}";

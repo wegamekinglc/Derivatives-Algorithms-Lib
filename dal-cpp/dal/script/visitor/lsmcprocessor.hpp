@@ -15,6 +15,7 @@ namespace Dal::Script {
     //  Accept overload would add a vptr/base subobject to every script node.
     class LsmcProcessor_ {
         Vector_<char> live_;
+        Vector_<size_t> regressionVariables_;
         size_t payoffIdx_;
         bool keep_ = true;
 
@@ -25,6 +26,8 @@ namespace Dal::Script {
                 Visit(*assign);
             else if (auto* pays = dynamic_cast<NodePays_*>(&node))
                 Visit(*pays);
+            else if (auto* exercise = dynamic_cast<NodeExercise_*>(&node))
+                Visit(*exercise);
             else if (auto* branch = dynamic_cast<NodeIf_*>(&node))
                 Visit(*branch);
             else if (auto* collect = dynamic_cast<NodeCollect_*>(&node))
@@ -55,7 +58,8 @@ namespace Dal::Script {
         }
 
     public:
-        LsmcProcessor_(size_t nVariables, size_t payoffIdx) : live_(nVariables, 0), payoffIdx_(payoffIdx) {
+        LsmcProcessor_(size_t nVariables, size_t payoffIdx, Vector_<size_t> regressionVariables = {})
+            : live_(nVariables, 0), regressionVariables_(std::move(regressionVariables)), payoffIdx_(payoffIdx) {
             if (payoffIdx < nVariables)
                 live_[payoffIdx] = 1;
         }
@@ -83,6 +87,13 @@ namespace Dal::Script {
             keep_ = index == payoffIdx_ || live_[index];
             if (keep_)
                 VisitNode(*node.arguments_[1]);
+        }
+
+        void Visit(NodeExercise_& node) {
+            for (size_t variable : regressionVariables_)
+                live_[variable] = 1;
+            for (auto& argument : node.arguments_)
+                VisitNode(*argument);
         }
 
         void Visit(NodeIf_& node) {

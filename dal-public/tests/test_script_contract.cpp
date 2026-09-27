@@ -138,9 +138,10 @@ TEST(ScriptContractTest, TestArchiveStaysContractOnlyAfterExplainAndAadRepricing
     rapidjson::Document archive;
     archive.Parse(original.c_str());
     ASSERT_FALSE(archive.HasParseError());
-    ASSERT_EQ(archive.MemberCount(), 5u);
-    ASSERT_STREQ(archive["~type"].GetString(), "ScriptProductData_v2");
+    ASSERT_EQ(archive.MemberCount(), 6u);
+    ASSERT_STREQ(archive["~type"].GetString(), "ScriptProductData_v3");
     ASSERT_STREQ(archive["default_index"].GetString(), "eq[Contract]");
+    ASSERT_TRUE(archive["regression_features"].IsArray());
     const auto restored = Dal::handle_cast<Dal::ScriptProductData_>(Dal::JSON::ReadString(original, false));
     ASSERT_TRUE(restored);
     ASSERT_EQ(std::string(Dal::JSON::WriteString(*restored).c_str()), std::string(original.c_str()));

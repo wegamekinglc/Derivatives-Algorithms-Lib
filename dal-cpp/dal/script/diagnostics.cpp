@@ -119,7 +119,9 @@ namespace Dal::Script {
             JsonWriteString(defaultIndex->Name(), out);
         else
             out << "null";
-        out << "},\"input_rows\":";
+        out << "},\"regression_features\":";
+        WriteArray(out, data.Settings().regressionFeatures_, [&](const auto& name, size_t) { JsonWriteString(name, out); });
+        out << ",\"input_rows\":";
         WriteArray(out, data.Dates(), [&](const auto& date, size_t i) {
             out << "{\"row\":" << i + 1 << ",\"date_or_definition\":";
             WriteCell(out, date);
@@ -263,6 +265,22 @@ namespace Dal::Script {
                 out << "null";
             out << ",\"regressor_index\":";
             JsonWriteStringOrNull(event.regressorIndex_, out);
+            out << ",\"regression_features\":";
+            WriteArray(out, event.regressionFeatures_, [&](const auto& name, size_t) { JsonWriteString(name, out); });
+            out << ",\"normalization_means\":";
+            WriteArray(out, event.normalizationMeans_, [&](double value, size_t) { out << DebugNumber(value); });
+            out << ",\"normalization_sigmas\":";
+            WriteArray(out, event.normalizationSigmas_, [&](double value, size_t) { out << DebugNumber(value); });
+            out << ",\"basis_powers\":";
+            WriteArray(out, event.basisPowers_, [&](const auto& powers, size_t) {
+                out << '[';
+                for (size_t i = 0; i < event.regressionFeatures_.size(); ++i) {
+                    if (i)
+                        out << ',';
+                    out << static_cast<int>(powers[i]);
+                }
+                out << ']';
+            });
             out << ",\"num_cond_true_paths\":" << event.numCondTruePaths_ << ",\"num_coefficients\":" << event.coefficients_.size()
                 << ",\"coefficients\":";
             WriteArray(out, event.coefficients_, [&](double coefficient, size_t) { out << DebugNumber(coefficient); });

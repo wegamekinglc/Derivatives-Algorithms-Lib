@@ -20,3 +20,19 @@ result = dal.MonteCarlo_ValueWithSettings(product, model, 16384, simulation=simu
 if abs(result["PV"] - 12000.0 * math.exp(0.35 * 0.20 * 0.30)) >= 50.0:
     raise ValueError("hybrid cross-moment price exceeded its Monte Carlo tolerance")
 print(f"PV={result['PV']:.4f}, d_spot:EQ[A]={result['d_spot:EQ[A]']:.4f}, d_spot:EQ[B]={result['d_spot:EQ[B]']:.4f}")
+
+bermudan = dal.Product_New(
+    [dal.Date_(2027, 3, 27), dal.Date_(2027, 9, 27)],
+    ["a = FIX(EQ[A])\nb = FIX(EQ[B])\nEXERCISE MAX(a - b, 0)", "EXERCISE MAX(b - 0.9 * a, 0)"],
+    settings=dal.ScriptProductSettings_(regression_features=["VAR[a]", "VAR[b]"]),
+)
+simulation = dal.MonteCarloSettings_(
+    use_bb=True, enable_aad=True, compiled=True,
+    lsmc_training_paths=8192, lsmc_validation_paths=2048,
+)
+exercise = dal.MonteCarlo_ValueWithSettings(bermudan, model, 32768, simulation=simulation)
+print(
+    f"Bermudan PV={exercise['PV']:.4f}, "
+    f"d_spot:EQ[A]={exercise['d_spot:EQ[A]']:.4f}, "
+    f"d_spot:EQ[B]={exercise['d_spot:EQ[B]']:.4f}"
+)
