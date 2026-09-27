@@ -44,14 +44,14 @@ contribution is divided by the event's own numeraire. Historical `PAYS` are
 expired. The detailed binding and today-fixing rules are in
 [script preparation](../methodology/script_engine.md#historical-fixing-preparation).
 
-The factory constructs Black-Scholes, Dupire local-volatility, and
-[correlated equity Black-Scholes](correlated-bs.md) models from model data.
-Script preparation and public valuation currently accept only the first two;
-multi-asset script binding is planned for the next stage. Both currently
-script-supported models provide deterministic rates for LSM. The
-future observation plan keeps exact event-to-sample mapping rather than
-assuming one model sample per script event. A model path with a non-finite or
-non-positive numeraire is rejected as `InvalidModelPath`.
+The factory constructs Black-Scholes, Dupire local-volatility,
+[correlated equity Black-Scholes](correlated-bs.md), and
+[hybrid](hybrid-model.md) models from model data. Script preparation and public
+valuation currently accept only the first two; multi-asset script binding is
+planned for the next stage. The model interface exposes whether its numeraire
+is deterministic. The future observation plan keeps exact event-to-sample
+mapping rather than assuming one model sample per script event. A model path
+with a non-finite or non-positive numeraire is rejected as `InvalidModelPath`.
 
 ## Random Draws and Paths
 
@@ -61,6 +61,8 @@ accepts `mrg32` and `irn`. `CreateRNG` sizes the generator to the model's
 simulation dimension; a zero-dimensional model validates the method name but
 does not construct a generator or bridge. `useBb_` wraps draws in a Brownian
 bridge, changing the order in which normal variates drive time increments.
+Multi-factor models that declare bridge support bridge each factor's time
+series separately; see the [hybrid model](hybrid-model.md#brownian-bridge-and-risks).
 For direction numbers, normal transforms, path seeking, and the pseudo-random
 generators, see [sampling](sampling.md).
 

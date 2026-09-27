@@ -18,10 +18,15 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-27
 
+- **Core Monte Carlo composes named factors in a hybrid model** — typed,
+  serializable BS equity and deterministic-rate components share a named
+  correlation provider and one numeraire; factor-aware Brownian bridging
+  now supports multiple factors. Script and LSM multi-index integration
+  remains a later stage. See [hybrid model](docs/monte-carlo/hybrid-model.md).
 - **Core Monte Carlo supports correlated equity Black-Scholes paths** — a
   serializable multi-asset model with named sample outputs, ordered factors,
   deterministic domestic numeraire, and AAD spot/vol/div/rate risks. Multi-factor
-  Brownian bridge requests are rejected pending a factor-aware implementation;
+  Brownian bridge support was added in the subsequent hybrid-model stage;
   script/public multi-index valuation is not yet wired. See
   [correlated equity Black-Scholes](docs/monte-carlo/correlated-bs.md).
 

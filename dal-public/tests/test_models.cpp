@@ -65,3 +65,20 @@ TEST(ModelsTest, TestNewCorrelatedBSModelDataStoresOrderedAssets) {
     ASSERT_EQ(data->parameterLabels_,
               (Vector_<String_>{"spot:EQ[AAA]", "vol:EQ[AAA]", "div:EQ[AAA]", "spot:EQ[BBB]", "vol:EQ[BBB]", "div:EQ[BBB]", "rate"}));
 }
+
+TEST(ModelsTest, TestNewHybridModelDataStoresTypedComponents) {
+    Dal::HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {
+        Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridDeterministicRateData_("usd", "USD", 0.05)),
+        Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("aaa", "eq[AAA]", "USD", "W_AAA", 100.0, 0.2, 0.01)),
+    };
+    settings.correlation_ =
+        Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("corr", {"W_AAA"}, Matrix_<>(1, 1, 1.0)));
+    const auto model = Dal::NewHybridModelData("hybrid", settings);
+    ASSERT_EQ(model->Type(), String_("HybridModelData_"));
+    const auto* data = dynamic_cast<const Dal::HybridModelData_*>(model.get());
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->components_.size(), 2);
+    ASSERT_EQ(data->parameterLabels_, (Vector_<String_>{"spot:EQ[AAA]", "vol:EQ[AAA]", "div:EQ[AAA]", "rate:USD"}));
+}

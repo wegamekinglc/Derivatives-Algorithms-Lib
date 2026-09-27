@@ -17,6 +17,8 @@ live in [Python](../python/README.md) and [Excel](../excel/README.md).
    performance choices.
 5. [Correlated equity Black-Scholes](correlated-bs.md) — core multi-asset
    simulation, named observations, factor ordering, and AAD parameters.
+6. [Hybrid model](hybrid-model.md) — typed component composition, named-factor
+   correlations, deterministic numeraire, and factor-aware Brownian bridge.
 
 The [script language and preparation](../methodology/script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.

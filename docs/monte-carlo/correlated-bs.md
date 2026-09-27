@@ -63,9 +63,9 @@ is constructed, so its parameter labels match the runtime model's risk labels.
 parameters are ordered `spot:EQ[...]`, `vol:EQ[...]`, and `div:EQ[...]` for each
 configured asset, followed by `rate`. Correlations are passive inputs and do
 not appear in the AAD risk vector. `Clone()` owns independent parameter
-pointers. The core RNG helper rejects `useBb=true` for this model when it has
-more than one factor: the current Brownian bridge expects one time series, and
-a factor-aware bridge is planned for the hybrid model stage.
+pointers. The core RNG helper now supports `useBb=true` with multiple factors:
+it bridges each independent factor along the time axis before the model
+applies its correlation transform. See the [hybrid model](hybrid-model.md).
 
 This stage exposes core model construction and direct path generation. The
 script preparation and public valuation layers still reject multiple future

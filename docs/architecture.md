@@ -43,7 +43,7 @@ The main core namespaces live under `dal-cpp/dal/`:
 | `math/aad/`             | Native and adapter-backed reverse-mode AAD facade                                                            |
 | `curve/`                | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
 | `script/`               | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
-| `model/`                | Black-Scholes, Dupire, implied- and local-volatility machinery                                               |
+| `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire, implied/local volatility                    |
 | `time/`                 | Dates, calendars, schedules, and day-count bases                                                             |
 | `protocol/`             | Market and contract conventions: accrual, payment, coupon, option types, collateral                          |
 | `currency/`             | Currency definitions and static data                                                                         |

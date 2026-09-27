@@ -58,6 +58,7 @@ namespace Dal {
 
         public:
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
+            [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
 
             template <class U_>
             Dupire_(const U_& spot,
