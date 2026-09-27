@@ -838,6 +838,7 @@ namespace Dal::Script {
             if (ctx.compiled_) {
                 compiledState_.emplace(ctx.prepared_.BuildEvalState<double>());
                 sinks_.eventToPays_ = &ctx.scan_.eventToPays_;
+                sinks_.plan_ = &ctx.Plan();
                 sinks_.payoffIdx_ = ctx.PayOffIdx();
                 sinks_.eventToExercise_ = &ctx.scan_.eventToExercise_;
                 sinks_.pays_ = ctx.policy_ ? nullptr : &ctx.storage_.pays_;
@@ -1362,7 +1363,8 @@ namespace Dal::Script {
                 stats.date_ = prepared.Product().EventDates()[scan.days_[k].eventId_];
                 stats.requestedDegree_ = prepared.Simulation().lsmcBasisDegree_;
                 stats.basisDegree_ = regressions[k].basisDegree_;
-                stats.regressorIndex_ = bindings.empty() ? String_() : bindings.front();
+                stats.regressorIndex_ = prepared.Plan().RegressionIndexName().empty() ? (bindings.empty() ? String_() : bindings.front())
+                                                                                      : prepared.Plan().RegressionIndexName();
                 stats.numCondTruePaths_ = regressions[k].numCondTrue_;
                 stats.coefficients_ = regressions[k].coefficients_;
                 stats.degenerate_ = regressions[k].degenerate_;
@@ -1388,8 +1390,9 @@ namespace Dal::Script {
                           const Vector_<T_>& h,
                           const Vector_<T_>& cond,
                           const Vector_<ExerciseRegression_>& regressions,
-                          const Vector_<size_t>& eventToSample,
+                          const ObservationPlan_& plan,
                           const Scenario_<T_>& path) {
+            const auto& eventToSample = plan.EventToSample();
             T_ value(0.0);
             if (eventToSample.empty())
                 return value;
@@ -1401,7 +1404,7 @@ namespace Dal::Script {
                 if (day != NO_SLOT) {
                     //  materialize the continuation gap: CSpr's early-return constants need a
                     //  value type, not an expression proxy
-                    const T_ continuation = RegressionPredict(regressions[day], path[eventToSample[e]].spot_);
+                    const T_ continuation = RegressionPredict(regressions[day], plan.RegressionValue(eventToSample[e], path));
                     const T_ gap = h[day] - continuation;
                     const T_ degree = CSpr(gap, scan.days_[day].eps_) * CSpr(h[day], 0.0, scan.days_[day].eps_) * cond[day];
                     value = degree * h[day] + (1.0 - degree) * value;
@@ -1511,7 +1514,7 @@ namespace Dal::Script {
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
                 evaluate(ws, prepared, evaluator);
-                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan().EventToSample(), ws.path_);
+                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
                 Adjoint(value) = 1.0;
                 AAD::PropagateToMark(*AAD::Tape());
@@ -1569,7 +1572,7 @@ namespace Dal::Script {
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
                 evaluate(ws, prepared, evaluator);
-                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan().EventToSample(), ws.path_);
+                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
                 sum += value;
             }
@@ -1661,14 +1664,6 @@ namespace Dal::Script {
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
-        bool InvalidLowerModelBump(const AAD::Model_<double>& model, size_t parameter, double lower) {
-            if (parameter == 0)
-                return lower <= 0.0;
-            if (typeid(model) == typeid(AAD::BlackScholes_<double>))
-                return parameter == 1 && lower < 0.0;
-            return parameter >= 3 && lower < 0.0; // Dupire local-volatility grid
-        }
-
         bool ValidModelPolicyBump(double parameter, double step) {
             return std::isfinite(step) && std::isfinite(parameter + step) && parameter + step != parameter;
         }
@@ -1696,11 +1691,13 @@ namespace Dal::Script {
                 const double parameter = *baseModel.Parameters()[j];
                 const double step = relative * std::max(1.0, std::abs(parameter));
                 REQUIRE2(ValidModelPolicyBump(parameter, step), "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
+                REQUIRE2(baseModel.ValidParameterValue(j, parameter + step), "InvalidLsmcPolicyBump: upper model parameter violates its constraint",
+                         ScriptError_);
                 const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step);
                 const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
                 double down;
                 double denominator = 2.0 * step;
-                if (InvalidLowerModelBump(baseModel, j, parameter - step)) {
+                if (!baseModel.ValidParameterValue(j, parameter - step)) {
                     if (!basePolicyValue)
                         basePolicyValue = ValueFuzzyPolicy(prepared, modelData, scan, basePolicy, fuzzyCompiled, batchPlan, counts, nPaths);
                     down = *basePolicyValue;
@@ -1755,13 +1752,8 @@ namespace Dal::Script {
                     (*riskTotals)[j] += outcome.risks_[j];
         }
 
-        //  N5: the probe-path discount ratios are path-independent only for
-        //  deterministic-rate models; the model base class exposes no rate-kind
-        //  query, so the factory's two models are pinned here unconditionally --
-        //  a stochastic-rate model would otherwise be silently mis-discounted
         void RequireDeterministicRateModel(const AAD::Model_<double>& model) {
-            REQUIRE2(typeid(model) == typeid(AAD::BlackScholes_<double>) || typeid(model) == typeid(AAD::Dupire_<double>),
-                     "UnsupportedModel: LSMC requires a deterministic-rate model (BlackScholes or Dupire)", ScriptError_);
+            REQUIRE2(model.NumeraireIsDeterministic(), "UnsupportedModel: LSMC requires a deterministic numeraire", ScriptError_);
         }
     } // namespace
 

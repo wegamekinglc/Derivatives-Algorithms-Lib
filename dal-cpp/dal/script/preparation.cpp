@@ -54,6 +54,7 @@ namespace Dal::Script {
         class Collector_ {
             const Date_ evaluationDate_;
             const ScriptValuationSettings_ settings_;
+            const AAD::Model_<double>* model_;
             std::map<ObservationKey_, size_t> ids_;
             size_t nodeId_ = 0;
             Handle_<Index_> defaultIndex_;
@@ -94,8 +95,11 @@ namespace Dal::Script {
 
         public:
             Vector_<ObservationRequest_> requests_;
-            Collector_(const Date_& evaluationDate, const ScriptValuationSettings_& settings, const ScriptProductSettings_& contract)
-                : evaluationDate_(evaluationDate), settings_(settings), defaultOriginal_(contract.defaultIndex_) {
+            Collector_(const Date_& evaluationDate,
+                       const ScriptValuationSettings_& settings,
+                       const ScriptProductSettings_& contract,
+                       const AAD::Model_<double>* model)
+                : evaluationDate_(evaluationDate), settings_(settings), model_(model), defaultOriginal_(contract.defaultIndex_) {
                 if (!contract.defaultIndex_.empty()) {
                     defaultIndex_ = ParseSettingIndex(contract.defaultIndex_, "product.defaultIndex_");
                 }
@@ -113,6 +117,7 @@ namespace Dal::Script {
                     if (!use.source_.eventDate_)
                         THROW2("InvalidFixingDate: observation source has no event date" + context, ScriptError_);
                     REQUIRE2(!IsHistorical(*use.source_.eventDate_, evaluationDate_, settings_), "UnboundHistoricalSpot" + context, ScriptError_);
+                    REQUIRE2(!model_ || model_->NumAssets() == 1, "MissingDefaultIndex: ambiguous multi-asset SPOT()" + context, ScriptError_);
                     REQUIRE2(requests_.empty(), "MissingDefaultIndex" + context, ScriptError_);
                 }
             }
@@ -205,19 +210,18 @@ namespace Dal::Script {
     } // namespace
 
     class PreparedScriptBuilder_ {
-        //  The model's spot output binds to the script's own model-observed index
-        static Handle_<Index_> InferBinding(const Vector_<ObservationRequest_>& requests) {
-            Handle_<Index_> result;
+        static Vector_<String_> InferBindings(const Vector_<ObservationRequest_>& requests, const AAD::Model_<double>* model) {
+            Vector_<String_> result;
             for (const auto& request : requests) {
                 if (request.historical_)
                     continue;
-                if (!result) {
-                    result = request.index_;
+                if (std::find(result.begin(), result.end(), request.key_.canonicalIndex_) != result.end())
                     continue;
-                }
-                REQUIRE2(result->Name() == request.key_.canonicalIndex_,
-                         "MultipleModelIndices: expected one model-observed EQ; first=" + result->Name() + Context(request),
+                REQUIRE2(!model || result.size() < model->MaxObservedIndices(),
+                         "MultipleModelIndices: expected no more model-observed indices than the model supports; first=" +
+                             (result.empty() ? String_() : result.front()) + Context(request),
                          ScriptError_);
+                result.push_back(request.key_.canonicalIndex_);
             }
             return result;
         }
@@ -244,10 +248,30 @@ namespace Dal::Script {
             }
         }
 
+        static void AddRegressionOutputs(ObservationPlan_* plan, const ScriptProduct_& product) {
+            if (plan->regressionIndexName_.empty())
+                return;
+            plan->regressionOutputBySample_.Resize(plan->defLine_.size());
+            for (size_t event = 0; event < product.Events().size(); ++event) {
+                bool exercise = false;
+                for (const auto& statement : product.Events()[event])
+                    exercise |= dynamic_cast<const NodeExercise_*>(statement.get()) != nullptr;
+                if (!exercise)
+                    continue;
+                const size_t sample = plan->eventToSample_[event];
+                if (plan->regressionOutputBySample_[sample])
+                    continue;
+                auto& outputs = plan->defLine_[sample].indexNames_;
+                plan->regressionOutputBySample_[sample] = outputs.size();
+                outputs.push_back(plan->regressionIndexName_);
+            }
+        }
+
         static void ModelPlan(ObservationPlan_* plan,
                               const ScriptProduct_& product,
                               const Date_& evaluationDate,
-                              const AAD::Model_<double>& model) {
+                              const AAD::Model_<double>& model,
+                              const ScriptProductSettings_& contract) {
             std::set<Date_> dates(product.EventDates().begin(), product.EventDates().end());
             for (const auto& request : plan->requests_) {
                 if (request.historical_)
@@ -264,6 +288,16 @@ namespace Dal::Script {
                 plan->defLine_.push_back(def);
             }
             BindModelObservations(plan, product, evaluationDate);
+            if (model.NumAssets() > 1 && product.ContainsExercise()) {
+                REQUIRE2(!contract.defaultIndex_.empty(), "AmbiguousLsmcRegressor: multi-asset exercise requires product.defaultIndex_",
+                         ScriptError_);
+                const auto index = ParseSettingIndex(contract.defaultIndex_, "product.defaultIndex_");
+                REQUIRE2(model.SupportsIndex(*index),
+                         "UnsupportedLsmcRegressor: product.defaultIndex_=" + contract.defaultIndex_ + "; expected a model-supported EQ",
+                         ScriptError_);
+                plan->regressionIndexName_ = index->Name();
+                AddRegressionOutputs(plan, product);
+            }
         }
 
         static void MarkLiveObservations(const Node_& node, Vector_<char>* live) {
@@ -298,6 +332,7 @@ namespace Dal::Script {
         static void CompactModelOutputs(ObservationPlan_* plan, const Vector_<char>& live) {
             for (auto& def : plan->defLine_)
                 def.indexNames_.clear();
+            plan->regressionOutputBySample_.clear();
             for (size_t id = 0; id < live.size(); ++id) {
                 auto& request = plan->requests_[id];
                 if (!request.modelSlot_)
@@ -320,6 +355,7 @@ namespace Dal::Script {
             if (!HasDeadModelObservations(*plan, live))
                 return false;
             CompactModelOutputs(plan, live);
+            AddRegressionOutputs(plan, product);
             return true;
         }
 
@@ -337,7 +373,7 @@ namespace Dal::Script {
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
-            Collector_ collector(evaluationDate, settings, contract);
+            Collector_ collector(evaluationDate, settings, contract, model);
             collector.Collect(*product);
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
@@ -362,17 +398,16 @@ namespace Dal::Script {
             product->IndexVariables();
             if (simulation.enableAad_)
                 product->ValidateFuzzyVectorMutations();
-            const auto boundIndex = InferBinding(collector.requests_);
+            const auto boundIndices = InferBindings(collector.requests_, model);
             ObservationPlan_ plan(std::move(collector.requests_), {});
-            if (boundIndex)
-                plan.modelBindingNames_.push_back(boundIndex->Name());
+            plan.modelBindingNames_ = boundIndices;
             auto* writable = product.get();
             PreparedScript_ result(std::move(product), evaluationDate, settings, std::move(plan));
             result.simulation_ = simulation;
             if (result.AllExpired())
                 return result;
             if (model) {
-                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model);
+                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model, contract);
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }

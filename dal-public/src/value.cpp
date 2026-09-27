@@ -15,7 +15,7 @@ namespace Dal {
     using Script::SimResults_;
 
     namespace {
-        const std::set<String_> MODEL_STORE = {"BSModelData_", "DupireModelData_"};
+        const std::set<String_> MODEL_STORE = {"BSModelData_", "DupireModelData_", "CorrelatedBSModelData_", "HybridModelData_"};
 
         ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
                                                   const Handle_<ModelData_>& modelData,
@@ -24,7 +24,9 @@ namespace Dal {
             REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
             const auto modelType = modelData->Type();
             REQUIRE2(MODEL_STORE.find(modelType) != MODEL_STORE.end(),
-                     "InvalidSetting: modelData.Type=" + modelType + "; expected BSModelData_ or DupireModelData_", ScriptError_);
+                     "InvalidSetting: modelData.Type=" + modelType +
+                         "; expected BSModelData_, DupireModelData_, CorrelatedBSModelData_, or HybridModelData_",
+                     ScriptError_);
             return Script::ResolveValuationSettings(valuation);
         }
     } // namespace

@@ -78,6 +78,9 @@ namespace Dal {
             [[nodiscard]] virtual size_t NumFactors() const { return 1; }
             [[nodiscard]] virtual bool SupportsBrownianBridge() const { return NumFactors() == 1; }
             [[nodiscard]] virtual bool NumeraireIsDeterministic() const { return false; }
+            [[nodiscard]] virtual bool ValidParameterValue(size_t parameter, double value) const {
+                return parameter < NumParams() && std::isfinite(value);
+            }
 
             void ValidateTimeline(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) const {
                 REQUIRE(!timeline.empty() && timeline.size() == definitions.size(), "InvalidModelTimeline: sample definitions must match dates");

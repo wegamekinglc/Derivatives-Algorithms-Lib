@@ -50,9 +50,9 @@ three-argument form and accepts a typed contract as a fourth argument;
 required typed valuation argument with optional simulation settings.
 Explicit dates avoid global date access, and non-null fixing snapshots are
 authoritative even when empty. Product defaults identify legacy `SPOT()`;
-model-sourced named fixings bind the model's `spot` output to the script's
-own future FIX index by name, and several distinct future indices fail with
-`MultipleModelIndices`. See the
+model-sourced named fixings bind to their own model output by index name.
+Correlated BS and deterministic-rate hybrid models accept several future EQ
+indices; BS and Dupire accept one. See the
 [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
 and executable [settings example](examples/script_settings.cpp).
 

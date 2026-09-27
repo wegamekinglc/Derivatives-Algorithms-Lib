@@ -146,6 +146,9 @@ namespace Dal {
 
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
+            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
+                return Model_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) && (parameter != 1 || value >= 0.0);
+            }
 
             template <class U_>
             BlackScholes_(const U_& spot,

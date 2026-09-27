@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-27
 
+- **Named multi-asset scripts and deterministic-rate LSM** — correlated BS and
+  hybrid models now value separate `FIX(EQ[...])` observations through public
+  C++, Python, and Excel interfaces. Multi-asset `SPOT()` requires an explicit
+  default index, which selects the single LSM regressor. LSM accepts models
+  declaring a deterministic numeraire and uses model-declared parameter bounds
+  for retrained-policy bumps. See [hybrid model](docs/monte-carlo/hybrid-model.md)
+  and [LSM](docs/monte-carlo/lsm.md).
 - **Core Monte Carlo composes named factors in a hybrid model** — typed,
   serializable BS equity and deterministic-rate components share a named
   correlation provider and one numeraire; factor-aware Brownian bridging

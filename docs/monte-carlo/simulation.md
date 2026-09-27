@@ -47,8 +47,7 @@ expired. The detailed binding and today-fixing rules are in
 The factory constructs Black-Scholes, Dupire local-volatility,
 [correlated equity Black-Scholes](correlated-bs.md), and
 [hybrid](hybrid-model.md) models from model data. Script preparation and public
-valuation currently accept only the first two; multi-asset script binding is
-planned for the next stage. The model interface exposes whether its numeraire
+valuation accept all four. The model interface exposes whether its numeraire
 is deterministic. The future observation plan keeps exact event-to-sample
 mapping rather than assuming one model sample per script event. A model path
 with a non-finite or non-positive numeraire is rejected as `InvalidModelPath`.

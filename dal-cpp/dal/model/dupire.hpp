@@ -59,6 +59,9 @@ namespace Dal {
         public:
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
+            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
+                return Model_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) && (parameter < 3 || value >= 0.0);
+            }
 
             template <class U_>
             Dupire_(const U_& spot,

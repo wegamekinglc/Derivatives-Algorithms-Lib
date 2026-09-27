@@ -22,6 +22,7 @@ namespace Dal::Script {
         using Base::bStack_;
         using Base::curEvt_;
         using Base::dStack_;
+        using Base::observations_;
         using Base::scenario_;
         using Base::variables_;
         using Base::Visit;
@@ -66,7 +67,7 @@ namespace Dal::Script {
             }
             if (xStorage_) {
                 const size_t slot = (*eventToExercise_)[eventOrdinal_];
-                (*xStorage_)[slot][pathSlot_] = (*scenario_)[curEvt_].spot_;
+                (*xStorage_)[slot][pathSlot_] = observations_->RegressionValue(curEvt_, *scenario_);
                 (*hStorage_)[slot][pathSlot_] = value;
                 if (condStorage_) {
                     auto& row = (*condStorage_)[slot];
@@ -74,7 +75,7 @@ namespace Dal::Script {
                         row[pathSlot_] = static_cast<char>(cond);
                 }
             } else {
-                pricingX_ = (*scenario_)[curEvt_].spot_;
+                pricingX_ = observations_->RegressionValue(curEvt_, *scenario_);
                 pricingH_ = value;
                 pricingCond_ = cond != 0.0;
             }

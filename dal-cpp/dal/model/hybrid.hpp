@@ -115,6 +115,9 @@ namespace Dal {
             [[nodiscard]] virtual const Vector_<String_>& ObservableNames() const = 0;
             [[nodiscard]] virtual const Vector_<T_*>& Parameters() const = 0;
             [[nodiscard]] virtual const Vector_<String_>& ParameterLabels() const = 0;
+            [[nodiscard]] virtual bool ValidParameterValue(size_t parameter, double value) const {
+                return parameter < Parameters().size() && std::isfinite(value);
+            }
             [[nodiscard]] virtual bool ProvidesNumeraire() const { return false; }
             [[nodiscard]] virtual bool NumeraireIsDeterministic() const { return false; }
             [[nodiscard]] virtual T_ DomesticRate() const { THROW("InvalidHybridNumeraire: component does not provide a rate"); }
@@ -162,6 +165,10 @@ namespace Dal {
             [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
             [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
+            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
+                return HybridComponent_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) &&
+                       (parameter != 1 || value >= 0.0);
+            }
             void Prepare(const Vector_<>& timeline, const T_& domesticRate) override {
                 ValidateParameters();
                 drifts_.Resize(timeline.size() - 1);
@@ -403,6 +410,16 @@ namespace Dal {
             [[nodiscard]] size_t NumFactors() const override { return factorNames_.size(); }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return components_[rateSlot_]->NumeraireIsDeterministic(); }
+            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
+                if (!Model_<T_>::ValidParameterValue(parameter, value))
+                    return false;
+                for (const auto& component : components_) {
+                    if (parameter < component->Parameters().size())
+                        return component->ValidParameterValue(parameter, value);
+                    parameter -= component->Parameters().size();
+                }
+                return false;
+            }
             [[nodiscard]] size_t NumAssets() const override { return assetNames_.size(); }
             [[nodiscard]] const Vector_<String_>& AssetNames() const override { return assetNames_; }
             [[nodiscard]] const Vector_<String_>& FactorNames() const { return factorNames_; }

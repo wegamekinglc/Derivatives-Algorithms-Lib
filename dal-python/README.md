@@ -316,12 +316,15 @@ history reads and return zero. Empty or no-PAYS products fail valuation.
 
 Historical EQ/FX observations can coexist. A model-sourced FIX, including today
 under `Model`, is always bound to the script's own future FIX index by name; the
-`model_bindings` settings argument was removed. Two or more distinct future FIX
-indices fail with `MultipleModelIndices`. Future FX, IR, composite, and
-delivery-suffixed EQ remain unsupported. `default_index` gives legacy `SPOT()`
-an identity; it does not affect the model binding. Unbound future-only `SPOT()`
-remains supported. Historical SPOT requires a default, and mixing SPOT with FIX
-requires one too. `SPOT(index)` and `FIX()` are invalid.
+`model_bindings` settings argument was removed. Correlated BS and hybrid models
+accept several named future EQ indices; BS and Dupire accept one distinct index.
+Future FX, IR, composite, and delivery-suffixed EQ remain unsupported.
+`default_index` gives legacy `SPOT()` an identity; it does not affect `FIX`
+literals. Unbound future-only `SPOT()` remains supported for one-asset models.
+Multi-asset `SPOT()` always requires a default, which also selects the one LSM
+regressor for early exercise. Historical SPOT requires a default, and mixing
+SPOT with FIX requires one too. `SPOT(index)` and `FIX()` are invalid. See
+[`examples/hybrid_script.py`](examples/hybrid_script.py) for two-equity valuation.
 
 Snapshot keys are native `DateTime_` values. Use `dal.DateTime_(date, 0)` for
 midnight; a quote at 11:00 cannot satisfy a daily FIX. Python `datetime` objects
@@ -406,6 +409,8 @@ dupire_model = dal.DupireModelData_New(
 
 - `dal.BSModelData_New(spot, vol, rate, div)` — Black-Scholes model
 - `dal.DupireModelData_New(spot, rate, repo, spots, times, vols)` — Dupire local vol model
+- `dal.CorrelatedBSModelData_New(indices, spots, vols, divs, rate, correlations)` — named correlated equities
+- `dal.HybridModelData_New(name, domestic_currency, components, correlation)` — composed named equities and deterministic rate; create components and provider with `HybridBSEquityData_New`, `HybridDeterministicRateData_New`, and `HybridConstantCorrelationData_New`
 
 ### Products
 
@@ -424,7 +429,7 @@ dupire_model = dal.DupireModelData_New(
 
 **Parameters:**
 - `product` — Script product (from `Product_New`)
-- `modelData` — Model data (from `BSModelData_New` or `DupireModelData_New`)
+- `modelData` — Model data from any of the four factories above
 - `num_path` — Integer or valid `__index__` value in `1..2147483647`, excluding booleans and enums; floats such as `1.0` are rejected in both Value entries
 - `method` — Random generator: `"sobol"` (default), `"mrg32"`, or `"irn"`
 - `use_bb` — Use Brownian bridge construction (default `False`)
