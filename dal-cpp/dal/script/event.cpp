@@ -55,20 +55,6 @@ namespace Dal::Script {
                 for (const auto& statement : event)
                     paid = ValidateLsmcPayoffNode(*statement, payoffIdx, historical, paid);
         }
-
-        void CheckFuzzyVectorMutation(const Node_& node, bool conditional) {
-            if (conditional) {
-                if (const auto* append = dynamic_cast<const NodeVectorAppend_*>(&node))
-                    THROW2("UnsupportedFuzzyVectorMutation: APPEND inside IF; " + append->source_.Describe(), ScriptError_);
-                if (const auto* assign = dynamic_cast<const NodeVectorAssign_*>(&node)) {
-                    const auto* entry = Downcast<NodeVectorEntry_>(assign->arguments_[0]);
-                    THROW2("UnsupportedFuzzyVectorMutation: indexed assignment inside IF; " + entry->source_.Describe(), ScriptError_);
-                }
-            }
-            const bool insideIf = conditional || dynamic_cast<const NodeIf_*>(&node);
-            for (const auto& argument : node.arguments_)
-                CheckFuzzyVectorMutation(*argument, insideIf);
-        }
     } // namespace
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
@@ -166,13 +152,6 @@ namespace Dal::Script {
         processor.Process(&events_);
     }
 
-    void ScriptProduct_::ValidateFuzzyVectorMutations() const {
-        for (const auto& events : {&pastEvents_, &events_})
-            for (const auto& event : *events)
-                for (const auto& statement : event)
-                    CheckFuzzyVectorMutation(*statement, false);
-    }
-
     void ScriptProduct_::DomainProcess(bool fuzzy) {
         DomainProcessor_ domProc(variables_.size(), fuzzy);
         Visit(domProc);
@@ -201,8 +180,6 @@ namespace Dal::Script {
             for (const auto& statement : event)
                 RequireBoundPastSpots(*statement);
         IndexVariables();
-        if (fuzzy)
-            ValidateFuzzyVectorMutations();
         REQUIRE2(!variables_.empty(), "InvalidScriptStructure: script has no payoff variable", ScriptError_);
         PastEvaluator_<double> past(Vector_<>(variables_.size(), 0.0), consVariablesValues_, vectorCapacities_);
         Visit(past, true, false);

@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-09-27
 
+- **Fuzzy AAD supports vector mutation inside `IF`** — tree and compiled
+  script valuation now blend branch writes and `APPEND` results entry by entry,
+  padding the shorter branch with zeros. See [script engine](docs/methodology/script_engine.md).
 - **Multi-state Monte Carlo exercise policies** — script products can select
   up to three named equity outputs or scalar script variables for Bermudan
   continuation regression. Standardized cross-term bases, pivoted QR, held-out

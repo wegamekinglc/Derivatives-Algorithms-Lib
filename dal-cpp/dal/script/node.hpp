@@ -208,6 +208,7 @@ namespace Dal::Script {
         int firstElse_ = -1;
         //	For fuzzy eval: indices of variables affected in statements, including nested
         Vector_<size_t> affectedVars_;
+        Vector_<size_t> affectedVectors_;
         //	Always true/false as per domain processor
         bool alwaysTrue_ = false;
         bool alwaysFalse_ = false;
