@@ -75,5 +75,37 @@ read their respective path outputs in tree, compiled, double, and AAD modes;
 For early exercise, that default selects the legacy single LSM state;
 `regressionFeatures_` can instead select two or three equity and scalar script
 states for a multivariate continuation fit. The model supports a deterministic
-numeraire, so its paths can enter
-the existing LSM discounting contract. Correlation remains passive for AAD.
+numeraire, so its paths can enter the existing LSM discounting contract.
+Correlation remains passive for AAD.
+
+The runnable [basket call example](../../dal-cpp/examples/basket_mc/) prices
+`max(0.5 S_A(T) + 0.5 S_B(T) - 110, 0)` with two correlated equity paths and
+named `FIX` observations. It averages discounted path payoffs over $2^{18}$
+Sobol paths. The program compares compiled double and AAD valuation, double
+valuation with central-difference Delta, and a reference obtained by
+conditioning on the first asset and integrating the second asset's Black call
+value with 48-point normal Gauss–Hermite quadrature. The example uses spots of
+100 and 120, volatilities of 20% and 30%, zero dividends, a 5% rate, and a
+one-year expiry. It repeats the same Sobol sequence at correlations of -0.60,
+0, 0.40, and 0.80 so the prices can be compared directly:
+
+| Correlation | Reference PV | MC double PV | MC AAD PV | AAD dPV/dS_A | AAD dPV/dS_B |
+|-------------|--------------|--------------|-----------|--------------|--------------|
+| -0.60       | 8.672015     | 8.671933     | 8.671933  | 0.305711     | 0.345761     |
+| 0.00        | 10.958546    | 10.957995    | 10.957995 | 0.301603     | 0.330575     |
+| 0.40        | 12.167945    | 12.167312    | 12.167312 | 0.301353     | 0.325646     |
+| 0.80        | 13.242248    | 13.241683    | 13.241683 | 0.301793     | 0.322374     |
+
+For the 0.40 correlation case, the program also compares AAD Delta with a
+central-difference estimate from non-AAD Monte Carlo:
+
+| Method                 | PV        | dPV/dS_A | dPV/dS_B |
+|------------------------|-----------|----------|----------|
+| Conditional GH + Black | 12.167945 | 0.301358 | 0.325651 |
+| MC double              | 12.167312 | —        | —        |
+| MC double + FD         | 12.167312 | 0.301349 | 0.325645 |
+| MC AAD                 | 12.167312 | 0.301353 | 0.325646 |
+
+The finite differences bump each starting spot by 0.01 and reuse the Sobol
+sequence. MC values are numerical estimates; the executable also reports
+their differences from the reference and elapsed times.

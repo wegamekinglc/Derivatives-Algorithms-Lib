@@ -21,3 +21,7 @@ The [models index](../models/README.md) covers Black-Scholes, Dupire,
 correlated equity Black-Scholes, and hybrid simulation. The
 [script language and preparation](../methodology/script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.
+
+Runnable C++ pricing examples include a [two-asset basket call](../../dal-cpp/examples/basket_mc/)
+under correlated Black-Scholes and a [four-fixing average call](../../dal-cpp/examples/average_option_script/)
+whose script accumulates observations in a vector.
