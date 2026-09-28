@@ -92,22 +92,22 @@ namespace Dal {
         Cube_(int sizeI, int sizeJ, int sizeK): ArrayN_<E_>(Vector_<int>({ sizeI, sizeJ, sizeK })) {}
 
         // support lookups without constructing a temporary vector
-        const double& operator()(int ii, int jj, int kk) const {
+        const E_& operator()(int ii, int jj, int kk) const {
             return ArrayN_<E_>::At(ArrayN_<E_>::Goto()(ii)(jj)(kk));
         }
-        double& operator()(int ii, int jj, int kk) {
+        E_& operator()(int ii, int jj, int kk) {
             return ArrayN_<E_>::At(ArrayN_<E_>::Goto()(ii)(jj)(kk));
         }
         // allow access to slices (last dimension)
-        [[nodiscard]] inline double* SliceBegin(int ii, int jj) {
+        [[nodiscard]] inline E_* SliceBegin(int ii, int jj) {
             return &operator()(ii, jj, 0);
         }
 
-        [[nodiscard]] inline const double* SliceBegin(int ii, int jj) const {
+        [[nodiscard]] inline const E_* SliceBegin(int ii, int jj) const {
             return &operator()(ii, jj, 0);
         }
 
-        [[nodiscard]] inline const double* SliceEnd(int ii, int jj) const {
+        [[nodiscard]] inline const E_* SliceEnd(int ii, int jj) const {
             return SliceBegin(ii, jj) + ArrayN_<E_>::Goto()(0)(1)(0).Offset();
         }
 
