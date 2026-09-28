@@ -60,7 +60,7 @@ def test_explicit_barrier_inputs_do_not_depend_on_defaults(
 
 def test_new_families_preserve_historical_inventory_and_cover_both_sizes():
     inventory = cases()
-    assert len(inventory) == 39
+    assert len(inventory) == 43
     assert [case["name"] for case in inventory[:13]][-1] == "irs_cold_pv_256"
 
 

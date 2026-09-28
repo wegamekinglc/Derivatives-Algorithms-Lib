@@ -16,6 +16,19 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-29
+
+- **Gaussian Short Rate model naming** — the one-factor rate model and its
+  curve and volatility data are now named GSR across C++, Python, Excel, and
+  serialized type identifiers. Existing code using VHW names must use the GSR
+  names; archives with VHW type identifiers require migration before loading. See
+  [Gaussian Short Rate model](docs/models/gaussian-short-rate.md).
+- **GSR benchmark comparison** — the standard swap is priced through DAL,
+  QuantLib, and rateslib with reused and fresh cashflows. The GSR European
+  swaption retains both QuantLib Sobol Monte Carlo and Gaussian1d integration
+  comparisons. Independent curve and Gaussian option oracles check results. See the
+  [comparison benchmark](dal-python/benchmarks/README.md#gsr-swap-and-swaption).
+
 ## 2026-09-28
 
 - **One-factor Vasicek–Hull–White interest-rate Monte Carlo** — dated OIS and
@@ -24,7 +37,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   through C++, Python, and Excel. Script `FIX` accepts rate indices, and the
   existing LSM engine now discounts each stochastic-rate path for Bermudan
   bond options and cash-settled swaptions. See
-  [Vasicek–Hull–White model](docs/models/vasicek-hull-white.md).
+  [Gaussian Short Rate model](docs/models/gaussian-short-rate.md).
 
 ## 2026-09-27
 

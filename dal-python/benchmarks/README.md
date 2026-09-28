@@ -250,13 +250,14 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 
 ## Third-party comparison
 
-The Linux `Benchmarks` job also runs 39 workloads against DAL,
+The Linux `Benchmarks` job also runs 43 workloads against DAL,
 QuantLib-Python and rateslib. Every supported backend/case pair must execute and pass
 its independent oracle. Only declared unsupported capabilities are reported as
-`unsupported` with a reason and no timings: rateslib equity MC, and QuantLib
-simultaneous joint calibration. This gives 39 DAL, 35 QuantLib and 23 rateslib
-measured cases. Missing dependencies, incorrect results, incomplete
-reports, changed workloads/binaries or process timeouts fail the job and therefore
+`unsupported` with a reason and no timings: rateslib equity MC and GSR
+swaption, and QuantLib simultaneous joint calibration. This gives 43 DAL,
+39 QuantLib and 25 rateslib measured cases. Missing dependencies, incorrect
+results, incomplete reports, changed workloads/binaries or process timeouts
+fail the job and therefore
 the existing `Linux CI gate`. Relative speed is reported without an absolute
 competitor speed threshold; the separate base/head gate still enforces the 4% DAL
 regression rule.
@@ -518,7 +519,63 @@ case explicitly measures invalidation and fresh pricing. These are comparisons
 of the available Python APIs, not isolated
 identical native kernels.
 
-`results.json` (`dal.python-comparisons/4`) retains raw timings, minimum and median,
+### GSR swap and swaption
+
+Four cases reproduce the [GSR example](../examples/014.gsr_swap_swaption.py) on
+2026-09-28 with unit notional, a 2.5% continuously compounded input OIS curve,
+`g = 0.02`, `H = 1`, a 3% fixed strike, and a one-year forward start:
+
+| Case | Timed operation | Backends |
+|------|-----------------|----------|
+| `gsr_swap_reused_cashflows_32` | Price 32 standard IRS trades with cashflows and instruments prepared before timing | DAL, QuantLib, rateslib |
+| `gsr_swap_fresh_cashflows_32` | Price the same 32 IRS trades while rebuilding cashflows or instruments inside timing | DAL, QuantLib, rateslib |
+| `gsr_swaption_price_65536` | Reprice the European option with 65,536 Sobol paths in both DAL and QuantLib | DAL, QuantLib |
+| `gsr_swaption_gaussian1d_128` | Reprice the same option with DAL's 65,536-path MC and QuantLib's 128-point Gaussian1d integration | DAL, QuantLib |
+
+Smoke mode uses four swaps and 4,096 Monte Carlo paths for each MC backend.
+The underlying swap pays floating quarterly ACT/360 and fixed semiannually
+on 30/360. Curves, DAL scripts, and short-rate models are built before timing.
+Reused-swap mode prepares DAL `PreparedRateTrades_`, QuantLib `VanillaSwap`
+objects, and rateslib `IRS` objects before timing. Fresh-swap mode calls DAL
+`PriceRateTrades`, constructs each QuantLib swap, or constructs each rateslib
+IRS during timing; raw trade terms and the curve are prepared beforehand.
+QuantLib `recalculate()` forces its reused swap's pricing engine to run, but
+unchanged floating coupons may keep cached rates. Each MC invocation restarts
+its Sobol stream and generates all paths. The
+static swap oracle is the discount-curve cashflow identity. The swaption oracle
+integrates the GSR exercise payoff analytically under the expiry-forward
+Gaussian measure; it does not use either backend's price. Static prices must
+agree within `1e-10` per unit notional. The swaption bound is `2e-4` for MC
+and `5e-6` for QuantLib Gaussian1d integration.
+
+QuantLib uses its [`Gsr` model](https://github.com/lballabio/QuantLib/blob/master/ql/models/shortrate/onefactormodels/gsr.cpp)
+with zero mean reversion and 2% state volatility. Its Python bindings expose
+the Gsr state process and Sobol path generator, but no GSR swaption MC pricing
+engine. The adapter drives one-step Gsr paths through the QuantLib generator,
+then calls QuantLib bond and numeraire methods for each path. Under this
+single-curve fixture, the floating leg telescopes to one minus the final
+discount bond; the fixed coupon amounts come from a standard QuantLib swap.
+The terminal-measure payoff is divided by the expiry numeraire and multiplied
+by the initial numeraire. This is the DAL script's cash exercise value.
+QuantLib's path payoff is assembled in Python, so Python/SWIG calls are part
+of its measured MC cost; this is an API-level comparison, not a comparison of
+two native C++ MC kernels. The Sobol implementations may draw different
+sequences even with the same path budget.
+The Gaussian1d case restores QuantLib's deterministic
+[`Gaussian1dSwaptionEngine`](https://github.com/lballabio/QuantLib/blob/master/ql/pricingengines/swaption/gaussian1dswaptionengine.cpp)
+with 128 integration points. DAL repeats its MC valuation as a common price
+baseline in that row; the `Pricing N` column is DAL's path count, not the
+QuantLib integration-point count.
+[rateslib's IRS](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRS.html)
+matches the static swap; its [swaption API](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRSCall.html)
+uses implied volatility models rather than a GSR short-rate process, so that
+cell is explicitly unsupported. Static IRS pricing is deterministic on all
+backends. The two swap rows retain the effect of cashflow preparation and
+instrument construction. Timings are reported as informational API comparisons.
+Rateslib's 30E/360 and DAL's 30/360 fixed coupons are both exactly 0.5 for
+these dates.
+
+`results.json` (`dal.python-comparisons/7`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
 hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the

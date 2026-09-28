@@ -318,13 +318,21 @@ Historical EQ/FX observations can coexist. A model-sourced FIX, including today
 under `Model`, is always bound to the script's own future FIX index by name; the
 `model_bindings` settings argument was removed. Correlated BS and hybrid models
 accept several named future EQ indices; BS and Dupire accept one distinct index.
-Future FX, IR, composite, and delivery-suffixed EQ remain unsupported.
+Future IR discount-factor, Libor, and swap observations are supported by the
+single-currency GSR model. Future FX, composite, and delivery-suffixed EQ remain
+unsupported.
 `default_index` gives legacy `SPOT()` an identity; it does not affect `FIX`
 literals. Unbound future-only `SPOT()` remains supported for one-asset models.
 Multi-asset `SPOT()` always requires a default, which also selects the one LSM
 regressor for early exercise. Historical SPOT requires a default, and mixing
 SPOT with FIX requires one too. `SPOT(index)` and `FIX()` are invalid. See
 [`examples/hybrid_script.py`](examples/hybrid_script.py) for two-equity valuation.
+The [GSR swap and swaption example](examples/014.gsr_swap_swaption.py) snapshots
+an input USD OIS yield curve, supplies `g/H`, prints both products' script
+trees, and reports curve fit and prices in tables. Its standard coupon-paying
+swap compares GSR Monte Carlo PV with static pricing from the same input yield
+curve; its swaption settles in cash. The
+[model guide](../docs/models/gaussian-short-rate.md) links the matching C++ example.
 
 Snapshot keys are native `DateTime_` values. Use `dal.DateTime_(date, 0)` for
 midnight; a quote at 11:00 cannot satisfy a daily FIX. Python `datetime` objects
@@ -707,7 +715,7 @@ Tests are located in `tests/` and cover:
 
 ## Performance Benchmarks
 
-The [Python benchmark suite](benchmarks/README.md) provides 90 public-interface
+The [Python benchmark suite](benchmarks/README.md) provides 98 public-interface
 workloads mapped to the C++ benchmark inventory: RNG, script construction and MC,
 single/multi-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
 It records raw samples, workload sizes, native-module identity, and a Markdown summary.
@@ -721,16 +729,18 @@ python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
 ```
 
 The normal pytest suite checks every workload at smoke scale without a speed
-threshold. Linux CI also gates all 90 full-scale cases against independent base/head
+threshold. Linux CI also gates all 98 full-scale cases against independent base/head
 builds, using two rounds of ten interleaved processes and a strict 4% threshold in
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
-The Linux gate also checks 31 comparison workloads against DAL,
+The Linux gate also checks 43 comparison workloads against DAL,
 QuantLib-Python and rateslib with independent numerical oracles. Its report covers
 discount queries, IRS PV and DV01, Monte Carlo vanilla/barrier prices and
-Delta/Vega/Rho, plus single, staged/joint multi-curve and XCCY calibration.
-Rateslib equity MC and QuantLib simultaneous joint calibration are explicitly
+Delta/Vega/Rho, single, staged/joint multi-curve and XCCY calibration, and the
+GSR example's standard swap with and without cashflow reuse and its European
+swaption under QuantLib MC and Gaussian1d integration. Rateslib equity MC and GSR
+swaption, and QuantLib simultaneous joint calibration are explicitly
 unsupported; every other case must complete successfully.
 Node risk uses DAL reverse AAD, rateslib forward AD and QuantLib finite differences,
 with each algorithm identified in the evidence. Third-party dependencies are pinned

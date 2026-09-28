@@ -1,9 +1,9 @@
-# One-factor Vasicek–Hull–White model
+# Gaussian Short Rate (GSR) model
 
-`VHWModelData_` supplies a single-currency, one-factor Gaussian interest-rate
+`GSRModelData_` supplies a single-currency, one-factor Gaussian short-rate
 model to the script Monte Carlo engine. It uses the time-dependent `g(t)` and
-`H(t)` parameterization of the Vasicek–Hull–White construction in *Derivatives
-Algorithms*, Volume 1. Both functions are piecewise constant on dated knots.
+`H(t)` parameterization described in *Derivatives Algorithms*, Volume 1. Both
+functions are piecewise constant on dated knots.
 The model fits a supplied initial OIS discount curve exactly at its nodes;
 between nodes it interpolates log discount factors linearly on an ACT/365 time
 axis. The first curve node and both first volatility knots must equal the
@@ -41,13 +41,19 @@ should be evaluated with a positive bump instead.
 
 ## Curves and observations
 
-Create `VHWCurveData_` from dated OIS log discount factors and, optionally,
+Create `GSRCurveData_` from dated OIS log discount factors and, optionally,
 one row of projection log discount factors per tenor. The C++ helper
-`NewVHWCurveDataFromYieldCurve` snapshots a `YieldCurve_` at requested dates;
-Python exposes `VHWCurveDataFromYieldCurve_New` and Excel exposes
-`VHWCurveDataFromCurveBlock_New`. Snapshot all dates needed by exercise,
-fixings, accruals, and payments. The model rejects observations beyond the
-last curve node rather than extrapolating them.
+`NewGSRCurveDataFromYieldCurve` snapshots a `YieldCurve_` at requested dates;
+Python exposes `GSRCurveDataFromYieldCurve_New` and Excel exposes
+`GSRCurveDataFromCurveBlock_New`. The snapshot's date range must cover all
+exercise, fixing, accrual, and payment dates; intermediate dates are
+interpolated. Include dates as nodes when their exact source-curve discount
+factors must be preserved. The model rejects observations beyond the last
+curve node rather than extrapolating them.
+
+Pair the curve with `GSRVolData_` in `GSRModelData_`. The C++ public factories
+are `NewGSRCurveData`, `NewGSRVolData`, and `NewGSRModelData`. Python and Excel
+expose `GSRCurveData_New`, `GSRVolData_New`, and `GSRModelData_New`.
 
 Script `FIX` supports these single-currency observations:
 
@@ -81,8 +87,52 @@ schedule with the currency's swap convention, and use
 annuity value at exercise. It does not create a delivered swap or future
 floating and fixed cashflows after exercise.
 
-VHW accepts a valuation date matching the curve's evaluation date. Historical
+GSR accepts a valuation date matching the curve's evaluation date. Historical
 Libor fixings can be supplied through the existing fixing snapshot path;
 future observations come from simulated model paths. The model presently has
 one rate factor and one currency. Volatility calibration and cross-currency or
 equity-rate hybrid composition are separate features.
+
+## C++ and Python examples
+
+The [C++ example](../../dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption.cpp)
+and [Python example](../../dal-python/examples/014.gsr_swap_swaption.py) build
+an input USD OIS `YieldCurve_`, snapshot it into `GSRCurveData_`, and supply
+piecewise constant `g = 0.02` and `H = 1.0`. Their curve tables compare input
+discount factors with GSR bond prices at every non-anchor node. This is an
+exact initial-curve fit; the example does not calibrate the volatility inputs.
+
+Both examples price a standard one-year forward payer swap starting on
+2027-09-28, with unit notional and a 3% fixed rate. Its floating leg fixes two
+business days before each quarter starts and pays ACT/360 Libor coupons on
+2027-12-28, 2028-03-28, 2028-06-28, and 2028-09-28. Its fixed leg pays
+semiannual 30/360 coupons on 2028-03-28 and 2028-09-28. The swap script has
+four payment events; it does not settle the entire swap at its start.
+
+The examples also price a cash-settled European payer swaption expiring on
+2027-09-28. Its exercise payoff uses the matching one-year swap rate and fixed
+annuity. The examples print each script with `DebugScriptProductTree` in C++ or
+`Product_DebugTree` in Python. Their tables show the input and GSR discount
+factors, volatility, and product PVs. For the standard swap, they compare GSR
+Monte Carlo PV with `PriceRateTrade`/`PriceRateTrades` using the original
+`YieldCurve_` discount curve for both discounting and 3M forwarding. The
+static price is also checked against
+`P(0,start) - P(0,maturity) - K * sum(fixed DCF * P(0,payment))`.
+The GSR and static swap prices agree within a Monte Carlo tolerance of
+`2e-4` per unit notional.
+
+The [third-party comparison benchmark](../../dal-python/benchmarks/README.md#gsr-swap-and-swaption)
+reuses this curve and standard swap to compare static IRS pricing with
+QuantLib and rateslib, both with reused cashflows and fresh cashflows. It also
+compares the GSR European swaption with QuantLib's GSR Sobol Monte Carlo and
+Gaussian1d numerical integration. Rateslib has no
+corresponding GSR short-rate swaption engine, so that benchmark reports it as
+unsupported.
+
+After building the Release-linux workspace, run:
+
+```bash
+build/Release-linux/dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption
+DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
+```

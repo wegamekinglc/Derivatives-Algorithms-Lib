@@ -13,7 +13,7 @@
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/model/factory.hpp>
-#include <dal/model/vhwdata.hpp>
+#include <dal/model/gsrdata.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/time/schedules.hpp>
@@ -41,14 +41,14 @@ namespace {
 
 using namespace Dal;
 
-TEST(ModelTest, TestVhwZeroVolatilityRepricesInitialCurve) {
+TEST(ModelTest, TestGsrZeroVolatilityRepricesInitialCurve) {
     const Date_ today(2026, 9, 28);
     const Date_ oneYear(2027, 9, 28);
     const Date_ twoYears(2028, 9, 28);
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.0}, {today}, {1.0}));
-    const Handle_<ModelData_> data(new VHWModelData_("vhw", curve, vol));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    const Handle_<ModelData_> data(new GSRModelData_("gsr", curve, vol));
     auto model = CreateModel<double>(data);
     const Vector_<> timeline{0.0, 1.0};
     Vector_<AAD::SampleDef_> defs(2);
@@ -61,20 +61,20 @@ TEST(ModelTest, TestVhwZeroVolatilityRepricesInitialCurve) {
     ASSERT_NEAR(path[1].numeraire_, std::exp(0.03), 1e-10);
 }
 
-TEST(ModelTest, TestVhwRateIndexNamesParseToExistingCanonicalNames) {
+TEST(ModelTest, TestGsrRateIndexNamesParseToExistingCanonicalNames) {
     ASSERT_EQ(Index::Parse("IR[USD,DF,2028-09-28]")->Name(), String_("IR[DF]:USD,2028-09-28"));
     ASSERT_EQ(Index::Parse("IR[USD,LIBOR_3M_LCH]")->Name(), String_("IR:USD,LIBOR_3M_LCH"));
     ASSERT_EQ(Index::Parse("IR[USD,SWAP,5Y]")->Name(), String_("IR:USD,5Y"));
 }
 
-TEST(ModelTest, TestVhwScriptBondPayoffRepricesInitialCurve) {
+TEST(ModelTest, TestGsrScriptBondPayoffRepricesInitialCurve) {
     const Date_ today(2026, 9, 28);
     const Date_ oneYear(2027, 9, 28);
     const Date_ twoYears(2028, 9, 28);
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.0}, {today}, {1.0}));
-    const Handle_<ModelData_> model(new VHWModelData_("vhw", curve, vol));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    const Handle_<ModelData_> model(new GSRModelData_("gsr", curve, vol));
     const Script::ScriptProductData_ product("bond", {Cell_(oneYear)}, {"pay PAYS FIX(IR[USD,DF,2028-09-28])"});
     Script::ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = today;
@@ -82,15 +82,15 @@ TEST(ModelTest, TestVhwScriptBondPayoffRepricesInitialCurve) {
     ASSERT_NEAR(results.aggregated_, std::exp(-0.06), 1e-10);
 }
 
-TEST(ModelTest, TestVhwBermudanBondOptionUsesStochasticDiscounting) {
+TEST(ModelTest, TestGsrBermudanBondOptionUsesStochasticDiscounting) {
     const Date_ today(2026, 9, 28);
     const Date_ first(2027, 3, 28);
     const Date_ second(2027, 9, 28);
     const Date_ maturity(2028, 9, 28);
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, first, second, maturity}, {0.0, -0.015, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.02}, {today}, {1.0}));
-    const Handle_<ModelData_> model(new VHWModelData_("vhw", curve, vol));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, first, second, maturity}, {0.0, -0.015, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.02}, {today}, {1.0}));
+    const Handle_<ModelData_> model(new GSRModelData_("gsr", curve, vol));
     Script::ScriptProductSettings_ contract;
     contract.regressionFeatures_ = {"IR[USD,DF,2028-09-28]"};
     const Script::ScriptProductData_ product(
@@ -117,14 +117,14 @@ TEST(ModelTest, TestVhwBermudanBondOptionUsesStochasticDiscounting) {
         ASSERT_TRUE(std::isfinite(risk));
 }
 
-TEST(ModelTest, TestVhwConditionalBondAndDiscountStepMatchGaussianFormula) {
+TEST(ModelTest, TestGsrConditionalBondAndDiscountStepMatchGaussianFormula) {
     const Date_ today(2025, 1, 1);
     const Date_ oneYear(2026, 1, 1);
     const Date_ twoYears(2027, 1, 1);
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.01}, {today}, {1.0}));
-    auto model = CreateModel<double>(Handle_<ModelData_>(new VHWModelData_("vhw", curve, vol)));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.01}, {today}, {1.0}));
+    auto model = CreateModel<double>(Handle_<ModelData_>(new GSRModelData_("gsr", curve, vol)));
     Vector_<AAD::SampleDef_> defs(2);
     defs[1].indexNames_ = {"IR[USD,DF,2027-01-01]"};
     model->Allocate({0.0, 1.0}, defs);
@@ -136,14 +136,14 @@ TEST(ModelTest, TestVhwConditionalBondAndDiscountStepMatchGaussianFormula) {
     ASSERT_NEAR(path[1].observations_[0], std::exp(-0.03 - 0.0001), 1e-12);
 }
 
-TEST(ModelTest, TestVhwDiscountedBondsAreMartingalesOnEventGrid) {
+TEST(ModelTest, TestGsrDiscountedBondsAreMartingalesOnEventGrid) {
     const Date_ today(2025, 1, 1);
     const Date_ oneYear(2026, 1, 1);
     const Date_ twoYears(2027, 1, 1);
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.02}, {today}, {1.0}));
-    auto model = CreateModel<double>(Handle_<ModelData_>(new VHWModelData_("vhw", curve, vol)));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.02}, {today}, {1.0}));
+    auto model = CreateModel<double>(Handle_<ModelData_>(new GSRModelData_("gsr", curve, vol)));
     Vector_<AAD::SampleDef_> defs(2);
     defs[1].indexNames_ = {"IR[USD,DF,2027-01-01]"};
     model->Allocate({0.0, 1.0}, defs);
@@ -163,13 +163,13 @@ TEST(ModelTest, TestVhwDiscountedBondsAreMartingalesOnEventGrid) {
     ASSERT_NEAR(discountedBond, std::exp(-0.06), 1e-10);
 }
 
-TEST(ModelTest, TestVhwNumeraireCarriesCurveNodeAdjoint) {
+TEST(ModelTest, TestGsrNumeraireCarriesCurveNodeAdjoint) {
     const Date_ today(2026, 9, 28);
     const Date_ oneYear(2027, 9, 28);
-    const Handle_<VHWCurveData_> curve(new VHWCurveData_("curve", today, "USD", {today, oneYear}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, oneYear}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
     const TapeGuard_ guard(AAD::Tape());
-    auto model = CreateModel<AAD::Number_>(Handle_<ModelData_>(new VHWModelData_("vhw", curve, vol)));
+    auto model = CreateModel<AAD::Number_>(Handle_<ModelData_>(new GSRModelData_("gsr", curve, vol)));
     Vector_<AAD::SampleDef_> defs(2);
     model->Allocate({0.0, 1.0}, defs);
     AAD::Scenario_<AAD::Number_> path;
@@ -187,7 +187,7 @@ TEST(ModelTest, TestVhwNumeraireCarriesCurveNodeAdjoint) {
     ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[0]), std::exp(-0.03), 1e-10);
 }
 
-TEST(ModelTest, TestVhwProjectionLiborAndSwapUseRateCurve) {
+TEST(ModelTest, TestGsrProjectionLiborAndSwapUseRateCurve) {
     const Date_ today(2026, 9, 28);
     const Date_ observation(2027, 9, 28);
     const Date_ horizon(2037, 9, 28);
@@ -195,10 +195,10 @@ TEST(ModelTest, TestVhwProjectionLiborAndSwapUseRateCurve) {
     Matrix_<> projection(1, 3, 0.0);
     projection(0, 1) = -0.03;
     projection(0, 2) = -0.03 * years;
-    const Handle_<VHWCurveData_> curve(
-        new VHWCurveData_("curve", today, "USD", {today, observation, horizon}, {0.0, -0.02, -0.02 * years}, {"3M"}, projection));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.0}, {today}, {1.0}));
-    auto model = CreateModel<double>(Handle_<ModelData_>(new VHWModelData_("vhw", curve, vol)));
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, observation, horizon}, {0.0, -0.02, -0.02 * years}, {"3M"}, projection));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    auto model = CreateModel<double>(Handle_<ModelData_>(new GSRModelData_("gsr", curve, vol)));
     Vector_<AAD::SampleDef_> defs(2);
     defs[1].indexNames_ = {"IR[USD,LIBOR_3M_LCH]", "IR[USD,SWAP,5Y]"};
     model->Allocate({0.0, 1.0}, defs);
@@ -217,7 +217,7 @@ TEST(ModelTest, TestVhwProjectionLiborAndSwapUseRateCurve) {
     ASSERT_LT(path[1].observations_[1], 0.04);
 }
 
-TEST(ModelTest, TestVhwBermudanCashSettledSwaptionUsesExistingLsmExercise) {
+TEST(ModelTest, TestGsrBermudanCashSettledSwaptionUsesExistingLsmExercise) {
     const Date_ today(2026, 9, 28);
     const Date_ first(2027, 3, 28);
     const Date_ second(2027, 9, 28);
@@ -225,9 +225,9 @@ TEST(ModelTest, TestVhwBermudanCashSettledSwaptionUsesExistingLsmExercise) {
     const double years = (horizon - today) / DAYS_PER_YEAR;
     Matrix_<> projection(1, 2, 0.0);
     projection(0, 1) = -0.03 * years;
-    const Handle_<VHWCurveData_> curve(new VHWCurveData_("curve", today, "USD", {today, horizon}, {0.0, -0.02 * years}, {"3M"}, projection));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.01}, {today}, {1.0}));
-    const Handle_<ModelData_> model(new VHWModelData_("vhw", curve, vol));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, horizon}, {0.0, -0.02 * years}, {"3M"}, projection));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.01}, {today}, {1.0}));
+    const Handle_<ModelData_> model(new GSRModelData_("gsr", curve, vol));
     Script::ScriptProductSettings_ contract;
     contract.regressionFeatures_ = {"IR[USD,SWAP,5Y]"};
     const Script::ScriptProductData_ product("bermudan_swaption", {Cell_(first), Cell_(second)},
@@ -244,17 +244,17 @@ TEST(ModelTest, TestVhwBermudanCashSettledSwaptionUsesExistingLsmExercise) {
     ASSERT_NEAR(compiled, tree, 1e-10);
 }
 
-TEST(ModelTest, TestVhwRejectsInvalidTenorsDatesAndVolatility) {
+TEST(ModelTest, TestGsrRejectsInvalidTenorsDatesAndVolatility) {
     const Date_ today(2026, 9, 28);
     const Date_ year(2027, 9, 28);
     Matrix_<> duplicateProjection(2, 2, 0.0);
-    ASSERT_THROW(VHWCurveData_("duplicate", today, "USD", {today, year}, {0.0, -0.03}, {"3M", "QUARTERLY"}, duplicateProjection), Exception_);
-    ASSERT_THROW(VHWVolData_("negative", {today}, {-0.01}, {today}, {1.0}), Exception_);
-    ASSERT_THROW(VHWVolData_("mean_reversion", {today}, {0.01}, {today}, {0.0}), Exception_);
+    ASSERT_THROW(GSRCurveData_("duplicate", today, "USD", {today, year}, {0.0, -0.03}, {"3M", "QUARTERLY"}, duplicateProjection), Exception_);
+    ASSERT_THROW(GSRVolData_("negative", {today}, {-0.01}, {today}, {1.0}), Exception_);
+    ASSERT_THROW(GSRVolData_("mean_reversion", {today}, {0.01}, {today}, {0.0}), Exception_);
 
-    const Handle_<VHWCurveData_> curve(new VHWCurveData_("curve", today, "USD", {today, year}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.01}, {today}, {1.0}));
-    const Handle_<ModelData_> data(new VHWModelData_("vhw", curve, vol));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, year}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.01}, {today}, {1.0}));
+    const Handle_<ModelData_> data(new GSRModelData_("gsr", curve, vol));
     auto model = CreateModel<double>(data);
     Vector_<AAD::SampleDef_> defs(2);
     defs[1].indexNames_ = {"IR[USD,DF,2028-09-28]"};
@@ -267,15 +267,18 @@ TEST(ModelTest, TestVhwRejectsInvalidTenorsDatesAndVolatility) {
     ASSERT_THROW(Script::MCSimulation<double>(product, data, 16, valuation), Exception_);
 }
 
-TEST(ModelTest, TestVhwModelDataRoundTripsCurveAndVolatility) {
+TEST(ModelTest, TestGsrModelDataRoundTripsCurveAndVolatility) {
     const Date_ today(2026, 9, 28);
     const Date_ year(2027, 9, 28);
     Matrix_<> projection(1, 2, 0.0);
     projection(0, 1) = -0.04;
-    const Handle_<VHWCurveData_> curve(new VHWCurveData_("curve", today, "USD", {today, year}, {0.0, -0.03}, {"3M"}, projection));
-    const Handle_<VHWVolData_> vol(new VHWVolData_("vol", {today}, {0.01}, {today}, {1.0}));
-    const Handle_<VHWModelData_> data(new VHWModelData_("vhw", curve, vol));
-    const auto restored = handle_cast<VHWModelData_>(JSON::ReadString(JSON::WriteString(*data), false));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, year}, {0.0, -0.03}, {"3M"}, projection));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.01}, {today}, {1.0}));
+    const Handle_<GSRModelData_> data(new GSRModelData_("gsr", curve, vol));
+    ASSERT_EQ(curve->Type(), String_("GSRCurveData"));
+    ASSERT_EQ(vol->Type(), String_("GSRVolData"));
+    ASSERT_EQ(data->Type(), String_("GSRModelData"));
+    const auto restored = handle_cast<GSRModelData_>(JSON::ReadString(JSON::WriteString(*data), false));
     ASSERT_TRUE(restored);
     ASSERT_EQ(restored->curve_->evaluationDate_, today);
     ASSERT_EQ(restored->curve_->currency_, String_("USD"));

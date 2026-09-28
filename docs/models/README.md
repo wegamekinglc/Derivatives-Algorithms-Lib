@@ -13,6 +13,6 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
    observations, constant correlations, and AAD parameters.
 4. [Hybrid Monte Carlo](hybrid-model.md) — named equity, constant or term-structure
    deterministic rates, factor correlation, and model risks.
-5. [One-factor Vasicek–Hull–White](vasicek-hull-white.md) — dated OIS and
-   projection curves, stochastic discounting, rate observations, and Bermudan
-   exercise.
+5. [Gaussian Short Rate (GSR)](gaussian-short-rate.md) — dated OIS and
+   projection curves, stochastic discounting, rate observations, swaps,
+   swaptions, and Bermudan exercise.

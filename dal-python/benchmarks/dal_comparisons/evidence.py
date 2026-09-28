@@ -17,7 +17,7 @@ from .scenarios import (
     validate,
 )
 
-SCHEMA = "dal.python-comparisons/4"
+SCHEMA = "dal.python-comparisons/7"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -80,7 +80,7 @@ def check_row(row, case, backend):
     durations = row["samples_ns"]
     require(len(durations) == 1, "worker must return one sample")
     require(type(durations[0]) is int and durations[0] > 0, "invalid timing sample")
-    validate(row["values"], expected(case), abs_tol=tolerance(case))
+    validate(row["values"], expected(case), abs_tol=tolerance(case, backend))
 
 
 def check_report(report, backend, smoke, hashes):

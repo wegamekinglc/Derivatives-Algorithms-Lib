@@ -183,8 +183,8 @@ model is handle ModelData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public VHWCurveData_New
-    Dated initial discount and projection curve nodes for a VHW model
+public GSRCurveData_New
+    Dated initial discount and projection curve nodes for a GSR model
 &inputs
 name is string
     Curve snapshot name
@@ -201,13 +201,13 @@ projectionTenors is string[]
 projectionLogDF is number[][]
     One log discount factor row per projection tenor
 &outputs
-curve is handle VHWCurveData
-    VHW curve snapshot
+curve is handle GSRCurveData
+    GSR curve snapshot
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public VHWCurveDataFromCurveBlock_New
-    Snapshot a curve block on specified dates for a VHW model
+public GSRCurveDataFromCurveBlock_New
+    Snapshot a curve block on specified dates for a GSR model
 &inputs
 name is string
     Curve snapshot name
@@ -220,13 +220,13 @@ nodeDates is date[]
 projectionTenors is string[]
     Projection tenors to snapshot
 &outputs
-curve is handle VHWCurveData
-    VHW curve snapshot
+curve is handle GSRCurveData
+    GSR curve snapshot
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public VHWVolData_New
-    Piecewise-constant g and H inputs for a VHW model
+public GSRVolData_New
+    Piecewise-constant g and H inputs for a GSR model
 &inputs
 name is string
     Volatility data name
@@ -239,23 +239,23 @@ hKnotDates is date[]
 hValues is number[]
     Positive bond loading values
 &outputs
-vol is handle VHWVolData
-    VHW volatility data
+vol is handle GSRVolData
+    GSR volatility data
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public VHWModelData_New
-    Compose a one-factor VHW rate model
+public GSRModelData_New
+    Compose a one-factor GSR rate model
 &inputs
 name is string
     Model name
-curve is handle VHWCurveData
+curve is handle GSRCurveData
     Initial curve snapshot
-vol is handle VHWVolData
+vol is handle GSRVolData
     Piecewise-constant g and H
 &outputs
 model is handle ModelData
-    VHW model data
+    GSR model data
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
@@ -343,41 +343,41 @@ namespace Dal {
         NewHybridModelData(name, HybridSettings_{domesticCurrency, typed, correlation}).swap(*model);
     }
 
-    void VHWCurveData_New(const String_& name,
+    void GSRCurveData_New(const String_& name,
                           const Date_& evaluationDate,
                           const String_& currency,
                           const Vector_<Date_>& nodeDates,
                           const Vector_<>& discountLogDF,
                           const Vector_<String_>& projectionTenors,
                           const Matrix_<>& projectionLogDF,
-                          Handle_<VHWCurveData_>* curve) {
-        NewVHWCurveData(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors, projectionLogDF).swap(*curve);
+                          Handle_<GSRCurveData_>* curve) {
+        NewGSRCurveData(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors, projectionLogDF).swap(*curve);
     }
 
-    void VHWCurveDataFromCurveBlock_New(const String_& name,
+    void GSRCurveDataFromCurveBlock_New(const String_& name,
                                         const Handle_<StorableCurveBlock_>& block,
                                         const Date_& evaluationDate,
                                         const Vector_<Date_>& nodeDates,
                                         const Vector_<String_>& projectionTenors,
-                                        Handle_<VHWCurveData_>* curve) {
-        REQUIRE(block && block->val_, "InvalidVHWCurve: source curve block is required");
-        NewVHWCurveDataFromYieldCurve(name, *block->val_, evaluationDate, nodeDates, projectionTenors).swap(*curve);
+                                        Handle_<GSRCurveData_>* curve) {
+        REQUIRE(block && block->val_, "InvalidGSRCurve: source curve block is required");
+        NewGSRCurveDataFromYieldCurve(name, *block->val_, evaluationDate, nodeDates, projectionTenors).swap(*curve);
     }
 
-    void VHWVolData_New(const String_& name,
+    void GSRVolData_New(const String_& name,
                         const Vector_<Date_>& gKnotDates,
                         const Vector_<>& gValues,
                         const Vector_<Date_>& hKnotDates,
                         const Vector_<>& hValues,
-                        Handle_<VHWVolData_>* vol) {
-        NewVHWVolData(name, gKnotDates, gValues, hKnotDates, hValues).swap(*vol);
+                        Handle_<GSRVolData_>* vol) {
+        NewGSRVolData(name, gKnotDates, gValues, hKnotDates, hValues).swap(*vol);
     }
 
-    void VHWModelData_New(const String_& name,
-                           const Handle_<VHWCurveData_>& curve,
-                           const Handle_<VHWVolData_>& vol,
+    void GSRModelData_New(const String_& name,
+                           const Handle_<GSRCurveData_>& curve,
+                           const Handle_<GSRVolData_>& vol,
                            Handle_<ModelData_>* model) {
-        NewVHWModelData(name, curve, vol).swap(*model);
+        NewGSRModelData(name, curve, vol).swap(*model);
     }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_BSModelData_New_public.inc>
@@ -389,9 +389,9 @@ namespace Dal {
 #include <dal-excel/auto/MG_HybridLogDfRateDataFromCurve_New_public.inc>
 #include <dal-excel/auto/MG_HybridLogDfRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridModelData_New_public.inc>
-#include <dal-excel/auto/MG_VHWCurveData_New_public.inc>
-#include <dal-excel/auto/MG_VHWCurveDataFromCurveBlock_New_public.inc>
-#include <dal-excel/auto/MG_VHWVolData_New_public.inc>
-#include <dal-excel/auto/MG_VHWModelData_New_public.inc>
+#include <dal-excel/auto/MG_GSRCurveData_New_public.inc>
+#include <dal-excel/auto/MG_GSRCurveDataFromCurveBlock_New_public.inc>
+#include <dal-excel/auto/MG_GSRVolData_New_public.inc>
+#include <dal-excel/auto/MG_GSRModelData_New_public.inc>
 #endif
 } // namespace Dal

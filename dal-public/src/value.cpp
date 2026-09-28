@@ -16,7 +16,7 @@ namespace Dal {
 
     namespace {
         const std::set<String_> MODEL_STORE = {"BSModelData_", "DupireModelData_", "CorrelatedBSModelData_", "HybridModelData_",
-                                                "VHWModelData"};
+                                                "GSRModelData"};
 
         ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
                                                   const Handle_<ModelData_>& modelData,
@@ -26,7 +26,7 @@ namespace Dal {
             const auto modelType = modelData->Type();
             REQUIRE2(MODEL_STORE.find(modelType) != MODEL_STORE.end(),
                      "InvalidSetting: modelData.Type=" + modelType +
-                         "; expected BSModelData_, DupireModelData_, CorrelatedBSModelData_, HybridModelData_, or VHWModelData",
+                         "; expected BSModelData_, DupireModelData_, CorrelatedBSModelData_, HybridModelData_, or GSRModelData",
                      ScriptError_);
             return Script::ResolveValuationSettings(valuation);
         }
