@@ -23,6 +23,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   serialized type identifiers. Existing code using VHW names must use the GSR
   names; archives with VHW type identifiers require migration before loading. See
   [Gaussian Short Rate model](docs/models/gaussian-short-rate.md).
+- **GSR benchmark comparison** — the standard swap is priced through DAL,
+  QuantLib, and rateslib, while the GSR European swaption is compared with
+  QuantLib's one-factor Gaussian engine. An independent curve and Gaussian
+  option oracle checks results before timing. See the
+  [comparison benchmark](dal-python/benchmarks/README.md#gsr-swap-and-swaption).
 
 ## 2026-09-28
 

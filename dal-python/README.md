@@ -715,7 +715,7 @@ Tests are located in `tests/` and cover:
 
 ## Performance Benchmarks
 
-The [Python benchmark suite](benchmarks/README.md) provides 90 public-interface
+The [Python benchmark suite](benchmarks/README.md) provides 98 public-interface
 workloads mapped to the C++ benchmark inventory: RNG, script construction and MC,
 single/multi-curve and XCCY calibration, node risk, and quote-risk provenance/aggregation.
 It records raw samples, workload sizes, native-module identity, and a Markdown summary.
@@ -729,16 +729,17 @@ python benchmarks/run_benchmarks.py --group rate_risk_perf --filter generic
 ```
 
 The normal pytest suite checks every workload at smoke scale without a speed
-threshold. Linux CI also gates all 90 full-scale cases against independent base/head
+threshold. Linux CI also gates all 98 full-scale cases against independent base/head
 builds, using two rounds of ten interleaved processes and a strict 4% threshold in
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
-The Linux gate also checks 31 comparison workloads against DAL,
+The Linux gate also checks 41 comparison workloads against DAL,
 QuantLib-Python and rateslib with independent numerical oracles. Its report covers
 discount queries, IRS PV and DV01, Monte Carlo vanilla/barrier prices and
-Delta/Vega/Rho, plus single, staged/joint multi-curve and XCCY calibration.
-Rateslib equity MC and QuantLib simultaneous joint calibration are explicitly
+Delta/Vega/Rho, single, staged/joint multi-curve and XCCY calibration, and the
+GSR example's standard swap and European swaption. Rateslib equity MC and GSR
+swaption, and QuantLib simultaneous joint calibration are explicitly
 unsupported; every other case must complete successfully.
 Node risk uses DAL reverse AAD, rateslib forward AD and QuantLib finite differences,
 with each algorithm identified in the evidence. Third-party dependencies are pinned

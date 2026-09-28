@@ -23,9 +23,14 @@ def prepare(backend, case):
     if reason:
         raise ValueError(reason)
     reference = expected(case)
-    if case["operation"].startswith("mc_") or case["operation"] == "calibration":
+    if (
+        case["operation"].startswith(("mc_", "gsr_"))
+        or case["operation"] == "calibration"
+    ):
         family = "calibration" if case["operation"] == "calibration" else "option"
-        if case["kind"] in ("bermudan", "american"):
+        if case["operation"].startswith("gsr_"):
+            family = "gsr"
+        elif case["kind"] in ("bermudan", "american"):
             family = "exercise"
         adapter = import_module(f"dal_comparisons.{family}_{backend}")
         run = adapter.runner(case)
@@ -33,7 +38,8 @@ def prepare(backend, case):
         adapter = import_module(f"dal_comparisons.{backend}_adapter")
         run = rate_runner(adapter, case)
     return Workload(
-        run, lambda result: validate(result, reference, abs_tol=tolerance(case))
+        run,
+        lambda result: validate(result, reference, abs_tol=tolerance(case, backend)),
     )
 
 

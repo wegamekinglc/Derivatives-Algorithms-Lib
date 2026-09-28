@@ -4,7 +4,7 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 import math
 
-from . import calibration_scenarios, exercise_scenarios, option_scenarios
+from . import calibration_scenarios, exercise_scenarios, gsr_scenarios, option_scenarios
 from .constants import DAY_COUNT, TODAY
 
 NODES = [datetime(2025 + year, 1, 15) for year in range(22)]
@@ -46,6 +46,7 @@ CONVENTIONS = {
     "monte_carlo": option_scenarios.CONVENTIONS,
     "early_exercise": exercise_scenarios.CONVENTIONS,
     "calibration": calibration_scenarios.CONVENTIONS,
+    "gaussian_short_rate": gsr_scenarios.CONVENTIONS,
 }
 
 
@@ -69,10 +70,17 @@ def cases(smoke=False):
             )
     if smoke:
         result = [dict(case, size=4) for case in result]
-    return result + option_scenarios.cases(smoke) + calibration_scenarios.cases(smoke)
+    return (
+        result
+        + option_scenarios.cases(smoke)
+        + calibration_scenarios.cases(smoke)
+        + gsr_scenarios.cases(smoke)
+    )
 
 
 def unsupported_reason(backend, case):
+    if backend == "rateslib" and case["operation"] == "gsr_swaption":
+        return "rateslib has no GSR short-rate swaption pricing engine"
     if backend == "rateslib" and case["operation"].startswith("mc_"):
         return "rateslib has no equity-option Monte Carlo engine"
     if (
@@ -149,6 +157,8 @@ def node_dv01(trade):
 
 
 def method(backend, case):
+    if case["operation"].startswith("gsr_"):
+        return gsr_scenarios.method(backend, case)
     if case["operation"].startswith("mc_"):
         return option_scenarios.method(backend, case)
     if case["operation"] == "calibration":
@@ -163,7 +173,9 @@ def method(backend, case):
     return "passive"
 
 
-def tolerance(case):
+def tolerance(case, backend=None):
+    if case["operation"].startswith("gsr_"):
+        return gsr_scenarios.tolerance(case, backend)
     if case["operation"].startswith("mc_"):
         return option_scenarios.tolerance(case)
     if case["operation"] == "calibration":
@@ -172,6 +184,8 @@ def tolerance(case):
 
 
 def expected(case):
+    if case["operation"].startswith("gsr_"):
+        return gsr_scenarios.expected(case)
     if case["operation"].startswith("mc_"):
         return option_scenarios.expected(case)
     if case["operation"] == "calibration":

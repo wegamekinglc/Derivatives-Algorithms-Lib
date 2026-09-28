@@ -250,13 +250,14 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 
 ## Third-party comparison
 
-The Linux `Benchmarks` job also runs 39 workloads against DAL,
+The Linux `Benchmarks` job also runs 41 workloads against DAL,
 QuantLib-Python and rateslib. Every supported backend/case pair must execute and pass
 its independent oracle. Only declared unsupported capabilities are reported as
-`unsupported` with a reason and no timings: rateslib equity MC, and QuantLib
-simultaneous joint calibration. This gives 39 DAL, 35 QuantLib and 23 rateslib
-measured cases. Missing dependencies, incorrect results, incomplete
-reports, changed workloads/binaries or process timeouts fail the job and therefore
+`unsupported` with a reason and no timings: rateslib equity MC and GSR
+swaption, and QuantLib simultaneous joint calibration. This gives 41 DAL,
+37 QuantLib and 24 rateslib measured cases. Missing dependencies, incorrect
+results, incomplete reports, changed workloads/binaries or process timeouts
+fail the job and therefore
 the existing `Linux CI gate`. Relative speed is reported without an absolute
 competitor speed threshold; the separate base/head gate still enforces the 4% DAL
 regression rule.
@@ -518,7 +519,40 @@ case explicitly measures invalidation and fresh pricing. These are comparisons
 of the available Python APIs, not isolated
 identical native kernels.
 
-`results.json` (`dal.python-comparisons/4`) retains raw timings, minimum and median,
+### GSR swap and swaption
+
+Two cases reproduce the [GSR example](../examples/014.gsr_swap_swaption.py) on
+2026-09-28 with unit notional, a 2.5% continuously compounded input OIS curve,
+`g = 0.02`, `H = 1`, a 3% fixed strike, and a one-year forward start:
+
+| Case | Timed operation | Backends |
+|------|-----------------|----------|
+| `gsr_swap_static_pv_32` | Price 32 identical standard IRS trades with quarterly ACT/360 floating coupons and semiannual 30/360 fixed coupons | DAL, QuantLib, rateslib |
+| `gsr_swaption_price_65536` | Reprice the European option on that swap with 65,536 DAL Sobol paths or 128 QuantLib Gaussian quadrature points | DAL, QuantLib |
+
+Smoke mode uses four swaps and 4,096 Monte Carlo paths. Curves, swaps, DAL
+scripts, and short-rate models are built before timing. Every invocation
+reprices the instruments through a public API. The static swap oracle is the
+discount-curve cashflow identity. The swaption oracle integrates the GSR
+exercise payoff analytically under the expiry-forward Gaussian measure; it
+does not use either backend's price. Static prices must agree within `1e-10`
+per unit notional; the swaption bounds are `2e-4` for DAL Monte Carlo and
+`5e-6` for QuantLib quadrature.
+
+QuantLib's [`Gsr` model and Gaussian1d swaption engine](https://github.com/lballabio/QuantLib-SWIG/blob/master/Python/examples/gaussian1d-models.py)
+use zero mean reversion and 2% state volatility. Its physically settled
+swaption has the same **exercise value** as the DAL script, which pays that
+value at expiry; [QuantLib's Gaussian1d engine does not implement cash
+settlement](https://github.com/lballabio/QuantLib/blob/master/ql/pricingengines/swaption/gaussian1dswaptionengine.hpp).
+[rateslib's IRS](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRS.html)
+matches the static swap; its [swaption API](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRSCall.html)
+uses implied volatility models rather than a GSR short-rate process, so that
+cell is explicitly unsupported. Static IRS and GSR option timings measure
+different algorithms and are reported as informational API comparisons.
+Rateslib's 30E/360 and DAL's 30/360 fixed coupons are both exactly 0.5 for
+these dates.
+
+`results.json` (`dal.python-comparisons/5`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
 hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the

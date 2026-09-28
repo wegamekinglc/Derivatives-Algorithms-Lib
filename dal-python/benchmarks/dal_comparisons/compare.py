@@ -213,8 +213,18 @@ def summary(report):
         "method label: DAL tolerance 1e-12 (fit 1e-10 where applicable), "
         "QuantLib bootstrap accuracy 1e-12, rateslib func/conv 1e-20, grad 1e-16.",
         "",
-        "N/A: declared unsupported capabilities only (rateslib equity MC; "
-        "QuantLib simultaneous joint calibration). Missing packages or failed "
+        "GSR example: static coupon-paying IRS uses the same USD input curve "
+        "across all three libraries (32 trades full; four smoke). The European "
+        "swaption compares DAL Sobol MC (65,536 paths full; 4,096 smoke) with "
+        "QuantLib's one-factor Gsr quadrature (128 integration points); model "
+        "and instruments are prepared before timing. "
+        "The cash exercise value equals the physical swaption exercise value. "
+        "Rateslib has no corresponding short-rate swaption engine. "
+        "These prices use independent curve and Gaussian option oracles; "
+        "different pricing algorithms make raw speed ratios informational.",
+        "",
+        "N/A: declared unsupported capabilities only (rateslib equity MC and "
+        "GSR swaption; QuantLib simultaneous joint calibration). Missing packages or failed "
         "supported cases fail the comparison.",
         "",
     ]
@@ -253,6 +263,8 @@ def summary(report):
 
 
 def path_counts(case):
+    if case["operation"] == "gsr_swaption":
+        return f"{case['size']} | —"
     if not case["operation"].startswith("mc_"):
         return "— | —"
     return f"{case['size']} | {case.get('training_paths', '—')}"
