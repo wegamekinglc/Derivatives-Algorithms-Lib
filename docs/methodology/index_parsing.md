@@ -53,7 +53,7 @@ mutex. The built-in registrations are installed once by
 `IndexParsers_::Init()` (`dal-cpp/dal/indice/parser/init.cpp`), which runs as
 part of `RegisterAll_::Init` at library initialization:
 
-+| Prefix | Parser                                                         | Produces                                         |
+| Prefix | Parser                                                         | Produces                                         |
 |--------|----------------------------------------------------------------|--------------------------------------------------|
 | `EQ`   | `Index::EquityParser` (`dal-cpp/dal/indice/parser/equity.cpp`) | `Index::Equity_`                                 |
 | `FX`   | `Index::FxParser` (`dal-cpp/dal/indice/parser/fx.cpp`)         | `Index::Fx_`                                     |
