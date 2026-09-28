@@ -182,6 +182,82 @@ model is handle ModelData
     Hybrid model data handle
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public VHWCurveData_New
+    Dated initial discount and projection curve nodes for a VHW model
+&inputs
+name is string
+    Curve snapshot name
+evaluationDate is date
+    Valuation date and first node
+currency is string
+    Model currency
+nodeDates is date[]
+    Strictly increasing node dates beginning at the valuation date
+discountLogDF is number[]
+    OIS log discount factors beginning at zero
+projectionTenors is string[]
+    Optional projection tenors
+projectionLogDF is number[][]
+    One log discount factor row per projection tenor
+&outputs
+curve is handle VHWCurveData
+    VHW curve snapshot
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public VHWCurveDataFromCurveBlock_New
+    Snapshot a curve block on specified dates for a VHW model
+&inputs
+name is string
+    Curve snapshot name
+block is handle StorableCurveBlock
+    Source yield curve block
+evaluationDate is date
+    Valuation date and first node
+nodeDates is date[]
+    Snapshot node dates
+projectionTenors is string[]
+    Projection tenors to snapshot
+&outputs
+curve is handle VHWCurveData
+    VHW curve snapshot
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public VHWVolData_New
+    Piecewise-constant g and H inputs for a VHW model
+&inputs
+name is string
+    Volatility data name
+gKnotDates is date[]
+    State volatility knot dates
+gValues is number[]
+    Nonnegative state volatility values
+hKnotDates is date[]
+    Bond loading knot dates
+hValues is number[]
+    Positive bond loading values
+&outputs
+vol is handle VHWVolData
+    VHW volatility data
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public VHWModelData_New
+    Compose a one-factor VHW rate model
+&inputs
+name is string
+    Model name
+curve is handle VHWCurveData
+    Initial curve snapshot
+vol is handle VHWVolData
+    Piecewise-constant g and H
+&outputs
+model is handle ModelData
+    VHW model data
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     using Dal::ModelData_;
     namespace {
@@ -266,6 +342,43 @@ namespace Dal {
         }
         NewHybridModelData(name, HybridSettings_{domesticCurrency, typed, correlation}).swap(*model);
     }
+
+    void VHWCurveData_New(const String_& name,
+                          const Date_& evaluationDate,
+                          const String_& currency,
+                          const Vector_<Date_>& nodeDates,
+                          const Vector_<>& discountLogDF,
+                          const Vector_<String_>& projectionTenors,
+                          const Matrix_<>& projectionLogDF,
+                          Handle_<VHWCurveData_>* curve) {
+        NewVHWCurveData(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors, projectionLogDF).swap(*curve);
+    }
+
+    void VHWCurveDataFromCurveBlock_New(const String_& name,
+                                        const Handle_<StorableCurveBlock_>& block,
+                                        const Date_& evaluationDate,
+                                        const Vector_<Date_>& nodeDates,
+                                        const Vector_<String_>& projectionTenors,
+                                        Handle_<VHWCurveData_>* curve) {
+        REQUIRE(block && block->val_, "InvalidVHWCurve: source curve block is required");
+        NewVHWCurveDataFromYieldCurve(name, *block->val_, evaluationDate, nodeDates, projectionTenors).swap(*curve);
+    }
+
+    void VHWVolData_New(const String_& name,
+                        const Vector_<Date_>& gKnotDates,
+                        const Vector_<>& gValues,
+                        const Vector_<Date_>& hKnotDates,
+                        const Vector_<>& hValues,
+                        Handle_<VHWVolData_>* vol) {
+        NewVHWVolData(name, gKnotDates, gValues, hKnotDates, hValues).swap(*vol);
+    }
+
+    void VHWModelData_New(const String_& name,
+                           const Handle_<VHWCurveData_>& curve,
+                           const Handle_<VHWVolData_>& vol,
+                           Handle_<ModelData_>* model) {
+        NewVHWModelData(name, curve, vol).swap(*model);
+    }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_BSModelData_New_public.inc>
 #include <dal-excel/auto/MG_CorrelatedBSModelData_New_public.inc>
@@ -276,5 +389,9 @@ namespace Dal {
 #include <dal-excel/auto/MG_HybridLogDfRateDataFromCurve_New_public.inc>
 #include <dal-excel/auto/MG_HybridLogDfRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridModelData_New_public.inc>
+#include <dal-excel/auto/MG_VHWCurveData_New_public.inc>
+#include <dal-excel/auto/MG_VHWCurveDataFromCurveBlock_New_public.inc>
+#include <dal-excel/auto/MG_VHWVolData_New_public.inc>
+#include <dal-excel/auto/MG_VHWModelData_New_public.inc>
 #endif
 } // namespace Dal

@@ -9,6 +9,7 @@
 #include <dal/indice/indexparse.hpp>
 #include <dal/indice/parser/equity.hpp>
 #include <dal/indice/parser/fx.hpp>
+#include <dal/indice/parser/ir.hpp>
 
 namespace Dal {
 
@@ -18,6 +19,7 @@ namespace Dal {
         if (!init_) {
             Index::RegisterParser("EQ", Index::EquityParser);
             Index::RegisterParser("FX", Index::FxParser);
+            Index::RegisterParser("IR", Index::IRParser);
             init_ = true;
         }
     }

@@ -53,10 +53,11 @@ mutex. The built-in registrations are installed once by
 `IndexParsers_::Init()` (`dal-cpp/dal/indice/parser/init.cpp`), which runs as
 part of `RegisterAll_::Init` at library initialization:
 
-| Prefix | Parser                                                         | Produces         |
-|--------|----------------------------------------------------------------|------------------|
-| `EQ`   | `Index::EquityParser` (`dal-cpp/dal/indice/parser/equity.cpp`) | `Index::Equity_` |
-| `FX`   | `Index::FxParser` (`dal-cpp/dal/indice/parser/fx.cpp`)         | `Index::Fx_`     |
+| Prefix | Parser                                                         | Produces                                         |
+|--------|----------------------------------------------------------------|--------------------------------------------------|
+| `EQ`   | `Index::EquityParser` (`dal-cpp/dal/indice/parser/equity.cpp`) | `Index::Equity_`                                 |
+| `FX`   | `Index::FxParser` (`dal-cpp/dal/indice/parser/fx.cpp`)         | `Index::Fx_`                                     |
+| `IR`   | `Index::IRParser` (`dal-cpp/dal/indice/parser/ir.cpp`)         | `Index::DF_`, `Index::Libor_`, or `Index::Swap_` |
 
 `Index::Clone` re-parses `src.Name()`, so round-tripping an index through its
 name works only for families with a registered parser.
@@ -93,7 +94,7 @@ The two FX directions retain distinct names.
 The script [named fixing syntax](script_engine.md#named-fixing-syntax) passes
 these complete index literals to `Index::Parse`. Successful parsing establishes
 index identity only. Core [historical preparation](script_engine.md#historical-fixing-preparation)
-admits the built-in EQ and FX types and preserves their virtual `Fixing`
+admits the built-in EQ, FX, and Libor types and preserves their virtual `Fixing`
 behavior through a snapshot-backed environment. It does not admit arbitrary
 registered index types as historical adapters. Core
 [double/tree](script_engine.md#core-doubletree-fixing-valuation) and
@@ -110,17 +111,19 @@ same preparation, explicit dates, and snapshots. Python and Excel
 project the same settings and the Describe/Explain diagnostics in their own
 forms — Python keyword-only settings and Excel settings handles.
 
-## IR indices are constructed, not parsed
+## Interest-rate indices
 
 Interest-rate indices (`dal-cpp/dal/indice/index/ir.hpp`) have canonical name
-formats but no registered string parser: `Libor_`, `Swap_`, and `DF_` are
-built directly in C++:
+formats. `Libor_`, `Swap_`, and `DF_` can be built directly in C++ or parsed
+from these canonical names:
 
 - `Libor_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` (for example,
   `Libor_(Ccy_("USD"), TradedRate_("LIBOR3MLCH"))` produces
   `IR:USD,LIBOR_3M_LCH`);
-- `Swap_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` with a numeric-leading
-  tenor (for example `IR:USD,5Y`);
+- `Swap_(ccy, tenor)` uses `IR:<ccy>,<tenor>` for year tenors (for example
+  `IR:USD,5Y`). A month tenor keeps the explicit form
+  `IR[<ccy>,SWAP,<tenor>]` (for example `IR[USD,SWAP,18M]`) so parsing the
+  name preserves its swap type;
 - `DF_(ccy, maturity)` names itself `IR[DF]:<ccy>,<maturity>`.
 
 Start and maturity offsets are `Cell_` values resolved against the fixing
@@ -128,6 +131,11 @@ date: empty means the fixing date itself, an integer is a day offset, a date
 or datetime is absolute, and a string is applied as a date increment.
 `Libor_` and `Swap_` start dates then roll by the currency's spot-lag
 convention (`Libor::StartFromFix` in `dal-cpp/dal/protocol/conventions.cpp`).
+The script-friendly aliases `IR[USD,DF,2028-09-28]`,
+`IR[USD,LIBOR_3M_LCH]`, and `IR[USD,SWAP,5Y]` parse to those same canonical
+objects. An optional start date or date increment follows the maturity or
+tenor. The [Vasicek–Hull–White model](../models/vasicek-hull-white.md) supplies
+future values for these names in one currency.
 
 ## Composites and historical paths
 
@@ -160,7 +168,7 @@ signatures in `index.hpp`, `indexparse.hpp`, `index/equity.hpp`,
 
 using namespace Dal;
 
-// Registered parsers: 'EQ[...]' -> Index::Equity_, 'FX[...]' -> Index::Fx_.
+// Registered parsers: EQ, FX, and IR.
 // Index::Parse returns std::unique_ptr<Index_>; the prefix before ':' or '['
 // selects the parser, and an unregistered prefix throws.
 std::unique_ptr<Index_> spotEq = Index::Parse("EQ[SPX]");
@@ -168,8 +176,8 @@ std::unique_ptr<Index_> fwdEq  = Index::Parse("EQ[SPX]>3M");
 std::unique_ptr<Index_> usdJpy = Index::Parse("FX[USD/JPY]");
 const String_ fxCanonical      = usdJpy->Name();     // "FX[USD/JPY]"
 
-// IR indices have canonical names but no registered parser; they are built
-// directly. Libor_ takes a TradedRate_ tenor; Swap_ takes a swap-tenor string.
+// IR indices may also be built directly. Libor_ takes a TradedRate_ tenor;
+// Swap_ takes a swap-tenor string.
 const Index::Libor_ libor(Ccy_("USD"), TradedRate_("LIBOR3MLCH"));
 const Index::Swap_  swap(Ccy_("USD"), "5Y");
 const Index::DF_    df(Ccy_("USD"), Cell_(Date_(2027, 6, 18)));

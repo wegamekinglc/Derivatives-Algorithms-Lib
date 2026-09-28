@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>VHWCurveDataFromCurveBlock_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>VHWCurveDataFromCurveBlock_New (in Excel: VHWCURVEDATAFROMCURVEBLOCK.NEW)</h1>
+Snapshot a curve block on specified dates for a VHW model
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Curve snapshot name</td></tr>
+<tr><td>block</td><td>handle of type StorableCurveBlock</td><td></td><td>Source yield curve block</td></tr>
+<tr><td>evaluationDate</td><td>date</td><td></td><td>Valuation date and first node</td></tr>
+<tr><td>nodeDates</td><td>vector of dates</td><td></td><td>Snapshot node dates</td></tr>
+<tr><td>projectionTenors</td><td>vector of strings</td><td></td><td>Projection tenors to snapshot</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>curve</td><td>handle of type VHWCurveData</td><td>VHW curve snapshot</td></tr>
+</table>
+
+
+
+
+
+

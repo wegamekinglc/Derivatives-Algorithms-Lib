@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>VHWVolData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>VHWVolData_New (in Excel: VHWVOLDATA.NEW)</h1>
+Piecewise-constant g and H inputs for a VHW model
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Volatility data name</td></tr>
+<tr><td>gKnotDates</td><td>vector of dates</td><td></td><td>State volatility knot dates</td></tr>
+<tr><td>gValues</td><td>vector of numbers</td><td></td><td>Nonnegative state volatility values</td></tr>
+<tr><td>hKnotDates</td><td>vector of dates</td><td></td><td>Bond loading knot dates</td></tr>
+<tr><td>hValues</td><td>vector of numbers</td><td></td><td>Positive bond loading values</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>vol</td><td>handle of type VHWVolData</td><td>VHW volatility data</td></tr>
+</table>
+
+
+
+
+
+

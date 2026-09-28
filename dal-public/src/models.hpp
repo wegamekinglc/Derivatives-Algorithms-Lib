@@ -11,6 +11,9 @@
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/dupire.hpp>
 #include <dal/model/hybriddata.hpp>
+#include <dal/model/vhwdata.hpp>
+#include <dal/curve/yc.hpp>
+#include <dal/protocol/collateraltype.hpp>
 #include <dal/platform/consts.hpp>
 
 namespace Dal {
@@ -24,6 +27,62 @@ namespace Dal {
 
     FORCE_INLINE Handle_<ModelData_> NewHybridModelData(const String_& name, const HybridSettings_& settings) {
         return Handle_<ModelData_>(new HybridModelData_(name, settings));
+    }
+
+    FORCE_INLINE Handle_<VHWCurveData_> NewVHWCurveData(const String_& name,
+                                                        const Date_& evaluationDate,
+                                                        const String_& currency,
+                                                        const Vector_<Date_>& nodeDates,
+                                                        const Vector_<>& discountLogDF,
+                                                        const Vector_<String_>& projectionTenors,
+                                                        const Matrix_<>& projectionLogDF) {
+        return Handle_<VHWCurveData_>(new VHWCurveData_(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors,
+                                                       projectionLogDF));
+    }
+
+    FORCE_INLINE Handle_<VHWVolData_> NewVHWVolData(const String_& name,
+                                                    const Vector_<Date_>& gKnotDates,
+                                                    const Vector_<>& gValues,
+                                                    const Vector_<Date_>& hKnotDates,
+                                                    const Vector_<>& hValues) {
+        return Handle_<VHWVolData_>(new VHWVolData_(name, gKnotDates, gValues, hKnotDates, hValues));
+    }
+
+    FORCE_INLINE Handle_<ModelData_> NewVHWModelData(const String_& name,
+                                                    const Handle_<VHWCurveData_>& curve,
+                                                    const Handle_<VHWVolData_>& vol) {
+        return Handle_<ModelData_>(new VHWModelData_(name, curve, vol));
+    }
+
+    FORCE_INLINE Handle_<VHWCurveData_> NewVHWCurveDataFromYieldCurve(const String_& name,
+                                                                       const YieldCurve_& source,
+                                                                       const Date_& evaluationDate,
+                                                                       const Vector_<Date_>& nodeDates,
+                                                                       const Vector_<String_>& projectionTenors) {
+        REQUIRE(nodeDates.size() >= 2 && nodeDates.front() == evaluationDate,
+                "InvalidVHWCurve: snapshot nodes must start at the evaluation date and contain at least two dates");
+        const CollateralType_ collateral(CollateralType_::Value_::OIS);
+        REQUIRE(source.HasDiscount(collateral), "InvalidVHWCurve: source has no OIS discount curve");
+        const auto snapshot = [&](const DiscountCurve_& curve) {
+            Vector_<> values(nodeDates.size(), 0.0);
+            for (size_t i = 1; i < nodeDates.size(); ++i) {
+                REQUIRE(nodeDates[i] > nodeDates[i - 1], "InvalidVHWCurve: snapshot dates must be strictly increasing");
+                const double discount = curve(evaluationDate, nodeDates[i]);
+                REQUIRE(std::isfinite(discount) && discount > 0.0, "InvalidVHWCurve: source discount factor must be finite and positive");
+                values[i] = std::log(discount);
+            }
+            return values;
+        };
+        const auto discount = snapshot(source.Discount(collateral));
+        Matrix_<> projection(static_cast<int>(projectionTenors.size()), static_cast<int>(nodeDates.size()), 0.0);
+        for (size_t row = 0; row < projectionTenors.size(); ++row) {
+            const PeriodLength_ tenor(projectionTenors[row]);
+            REQUIRE(source.HasForward(tenor), "InvalidVHWCurve: source has no requested projection tenor " + projectionTenors[row]);
+            const auto values = snapshot(source.Forward(tenor, collateral));
+            for (size_t col = 0; col < values.size(); ++col)
+                projection(static_cast<int>(row), static_cast<int>(col)) = values[col];
+        }
+        return NewVHWCurveData(name, evaluationDate, source.ccy_.String(), nodeDates, discount, projectionTenors, projection);
     }
 
     FORCE_INLINE Handle_<HybridComponentData_> NewHybridLogDfRateData(

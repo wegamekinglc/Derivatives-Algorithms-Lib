@@ -55,4 +55,28 @@ namespace Dal {
                                                 const Vector_<Handle_<Storable_>>& components,
                                                 const Handle_<HybridCorrelationData_>& correlation,
                                                 Handle_<ModelData_>* model);
+    DAL_EXCEL_TEST_API void VHWCurveData_New(const String_& name,
+                                            const Date_& evaluationDate,
+                                            const String_& currency,
+                                            const Vector_<Date_>& nodeDates,
+                                            const Vector_<>& discountLogDF,
+                                            const Vector_<String_>& projectionTenors,
+                                            const Matrix_<>& projectionLogDF,
+                                            Handle_<VHWCurveData_>* curve);
+    DAL_EXCEL_TEST_API void VHWCurveDataFromCurveBlock_New(const String_& name,
+                                                          const Handle_<StorableCurveBlock_>& block,
+                                                          const Date_& evaluationDate,
+                                                          const Vector_<Date_>& nodeDates,
+                                                          const Vector_<String_>& projectionTenors,
+                                                          Handle_<VHWCurveData_>* curve);
+    DAL_EXCEL_TEST_API void VHWVolData_New(const String_& name,
+                                          const Vector_<Date_>& gKnotDates,
+                                          const Vector_<>& gValues,
+                                          const Vector_<Date_>& hKnotDates,
+                                          const Vector_<>& hValues,
+                                          Handle_<VHWVolData_>* vol);
+    DAL_EXCEL_TEST_API void VHWModelData_New(const String_& name,
+                                             const Handle_<VHWCurveData_>& curve,
+                                             const Handle_<VHWVolData_>& vol,
+                                             Handle_<ModelData_>* model);
 } // namespace Dal

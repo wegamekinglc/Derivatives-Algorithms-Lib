@@ -48,6 +48,24 @@ TEST(HybridExcelContractTest, TestTypedFactoriesValueNamedEquities) {
         ASSERT_NEAR(Dal::ValueByMonteCarlo(product, model, 16).at("PV"), 320.0, 1.0e-10);
 }
 
+TEST(HybridExcelContractTest, TestVhwFactoriesValueDatedBondObservation) {
+    Dal::InitGlobalData(1);
+    Dal::Excel::ScriptTestInitialize(1);
+    const Dal::Date_ today(2026, 9, 28);
+    const Dal::Date_ exercise(2027, 9, 28);
+    const Dal::Date_ maturity(2028, 9, 28);
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(today);
+    const ExcelDateScope_ restoreExcel(today);
+    Dal::Handle_<Dal::VHWCurveData_> curve;
+    Dal::VHWCurveData_New("curve", today, "USD", {today, exercise, maturity}, {0.0, -0.03, -0.06}, {}, Dal::Matrix_<>(0, 0), &curve);
+    Dal::Handle_<Dal::VHWVolData_> vol;
+    Dal::VHWVolData_New("vol", {today}, {0.0}, {today}, {1.0}, &vol);
+    Dal::Handle_<Dal::ModelData_> model;
+    Dal::VHWModelData_New("vhw", curve, vol, &model);
+    const auto product = Dal::NewScriptProduct("bond", {Dal::Cell_(exercise)}, {"pay PAYS FIX(IR[USD,DF,2028-09-28])"});
+    ASSERT_NEAR(Dal::ValueByMonteCarlo(product, model, 16).at("PV"), std::exp(-0.06), 1e-10);
+}
+
 TEST(HybridExcelContractTest, TestTwoStateBermudanThroughSettingsTable) {
     Dal::InitGlobalData(1);
     Dal::Excel::ScriptTestInitialize(1);

@@ -747,6 +747,7 @@ namespace Dal::Script {
             LsmcRows_ pays_;
             LsmcRows_ xByDay_;
             LsmcRows_ hByDay_;
+            LsmcRows_ discountByEvent_; // stochastic numeraire: N(event)/N(next event), one row per interval
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
             size_t nFeatures_ = 1;
 
@@ -756,15 +757,18 @@ namespace Dal::Script {
                 pays_.ZeroPaths(firstPath, pathCount);
                 xByDay_.ZeroPaths(firstPath, pathCount);
                 hByDay_.ZeroPaths(firstPath, pathCount);
+                discountByEvent_.ZeroPaths(firstPath, pathCount);
             }
         };
 
-        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, size_t nFeatures) {
+        LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, size_t nFeatures, bool stochasticNumeraire) {
             LsmcStorage_ storage;
             storage.nFeatures_ = nFeatures;
             storage.pays_ = LsmcRows_(scan.paysEventIds_.size(), nPaths);
             storage.xByDay_ = LsmcRows_(scan.days_.size() * nFeatures, nPaths);
             storage.hByDay_ = LsmcRows_(scan.days_.size(), nPaths);
+            if (stochasticNumeraire && scan.eventToExercise_.size() > 1)
+                storage.discountByEvent_ = LsmcRows_(scan.eventToExercise_.size() - 1, nPaths);
             if (scan.anyConditional_) {
                 storage.condByDay_.Resize(scan.days_.size());
                 for (size_t k = 0; k < scan.days_.size(); ++k)
@@ -946,6 +950,13 @@ namespace Dal::Script {
                 ctx.model_->GeneratePath(state.gauss_, &state.path_);
                 ValidateSimulationPath(state.path_);
             }
+            if (ctx.storage_.discountByEvent_.Rows()) {
+                const auto& eventToSample = ctx.Plan().EventToSample();
+                const auto& path = state.Path();
+                for (size_t event = 0; event + 1 < eventToSample.size(); ++event)
+                    ctx.storage_.discountByEvent_[event][pathSlot] =
+                        path[eventToSample[event]].numeraire_ / path[eventToSample[event + 1]].numeraire_;
+            }
             if (state.compiledState_)
                 CompiledEvaluateRecordedPath(state, ctx, pathSlot);
             else
@@ -974,11 +985,7 @@ namespace Dal::Script {
             tasks.Complete();
         }
 
-        //  N5: the backward discounting ratios anchor on one probe path's numeraires;
-        //  Black-Scholes and Dupire, the only models the factory constructs, carry
-        //  deterministic rates, so the numeraire is path-independent and any path
-        //  pins the same ratios. The entry point debug-asserts that model set, and the
-        //  probe goes through the same validation as every worker path
+        // Deterministic-rate models retain the scalar discount-ratio fast path.
         Vector_<> SampleGridNumeraires(const LsmcContext_& ctx) {
             const auto& simulation = ctx.prepared_.Simulation();
             const auto& events = ctx.Product().Events();
@@ -1056,6 +1063,7 @@ namespace Dal::Script {
         //  Storage rows one event's sweep reads; exercise rows stay null off exercise days
         struct EventRows_ {
             const double* pays_ = nullptr;
+            const double* discount_ = nullptr;
             const double* h_ = nullptr;
             const double* x_ = nullptr;
             const char* cond_ = nullptr;
@@ -1063,6 +1071,8 @@ namespace Dal::Script {
 
         EventRows_ SweepRows(const LsmcStorage_& storage, const LsmcPlan_& scan, size_t event) {
             EventRows_ rows;
+            if (event < storage.discountByEvent_.Rows())
+                rows.discount_ = storage.discountByEvent_[event];
             const size_t paysSlot = scan.eventToPays_[event];
             if (paysSlot != NO_SLOT)
                 rows.pays_ = storage.pays_[paysSlot];
@@ -1086,6 +1096,7 @@ namespace Dal::Script {
         IncludedSums_ SweepEvent(const LsmcPlan_& scan, size_t event, double dNext, bool hasNext, const PathBatch_& chunk, BackwardRows_* rows) {
             const EventRows_ eventRows = SweepRows(rows->storage_, scan, event);
             const double* pays = eventRows.pays_;
+            const double* discount = eventRows.discount_;
             const double* h = eventRows.h_;
             const double* x = eventRows.x_;
             const char* cond = eventRows.cond_;
@@ -1114,7 +1125,7 @@ namespace Dal::Script {
                     }
                     value = Select((included[j] != 0) & (pendingH[j] > continuation), pendingH[j], value);
                 }
-                value = HoldingValue(pays, j, dNext, hasNext, value);
+                value = HoldingValue(pays, j, discount ? discount[j] : dNext, hasNext, value);
                 w[j] = value;
                 if constexpr (RECORD) {
                     const bool in = InRegressionSet(cond, h, j);
@@ -1302,7 +1313,7 @@ namespace Dal::Script {
                 blocks.push_back(&validation.emplace(*validationStorage, nValidation, team.Team()));
             for (size_t ei = events.size(); ei-- > 0;) {
                 const bool hasNext = ei + 1 < events.size();
-                const double dNext = hasNext ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
+                const double dNext = hasNext && !eventNumeraire.empty() ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
                 std::array<IncludedSums_, 2> sums;
                 for (size_t b = 0; b < blocks.size(); ++b)
                     sums[b] = SweepAndClear(scan, ei, dNext, hasNext, blocks[b]);
@@ -1324,10 +1335,11 @@ namespace Dal::Script {
 
         TrainingOutcome_ TrainFrozenPolicy(LsmcContext_& ctx, const PathCounts_& counts) {
             RunForwardPhase(ctx, BatchPlan_(counts.training_, 1));
-            auto eventNumeraire = SampleGridNumeraires(ctx);
+            auto eventNumeraire = ctx.model_->NumeraireIsDeterministic() ? SampleGridNumeraires(ctx) : Vector_<>();
             LsmcStorage_ validationStorage;
             if (counts.validation_) {
-                validationStorage = MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount());
+                validationStorage = MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(),
+                                                !ctx.model_->NumeraireIsDeterministic());
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
                 validationCtx.constValues_ = ctx.constValues_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
@@ -1338,11 +1350,13 @@ namespace Dal::Script {
         }
 
         //  First exercise wins (S3/S4): the earliest true decision replaces the payoff
-        double PathPayoff(const LsmcContext_& ctx, const Vector_<>& eventNumeraire, const ThreadState_& state, Vector_<size_t>* exerciseCounts) {
+        double PathPayoff(const LsmcContext_& ctx, const ThreadState_& state, Vector_<size_t>* exerciseCounts) {
             if (state.exercisedDay_ != NO_SLOT) {
                 //  The event loop already selected the first exercise. Reusing it
                 //  avoids a second scan and a second polynomial evaluation per date.
-                const double payoff = state.preExercise_ + state.exerciseValue_ / eventNumeraire[ctx.scan_.days_[state.exercisedDay_].eventId_];
+                const size_t event = ctx.scan_.days_[state.exercisedDay_].eventId_;
+                const double numeraire = state.Path()[ctx.Plan().EventToSample()[event]].numeraire_;
+                const double payoff = state.preExercise_ + state.exerciseValue_ / numeraire;
                 REQUIRE2(std::isfinite(payoff), "InvalidPayoff: non-finite exercise value", ScriptError_);
                 ++(*exerciseCounts)[state.exercisedDay_];
                 return payoff;
@@ -1373,7 +1387,6 @@ namespace Dal::Script {
         //  worker reuses its evaluator and scalar state; batch-index reduction
         //  preserves thread invariance.
         ReplayOutcome_ RunReplayPhase(const LsmcContext_& ctx,
-                                      const Vector_<>& eventNumeraire,
                                       const BatchPlan_& batchPlan,
                                       size_t pricingPathOffset,
                                       const Vector_<ExerciseRegression_>& regressions) {
@@ -1396,7 +1409,7 @@ namespace Dal::Script {
                     state.random_->SkipTo(pricingPathOffset + batch.firstPath_);
                     for (size_t i = 0; i < batch.pathCount_; ++i) {
                         EvaluateRecordedPath(state, pricing, 0);
-                        const double payoff = PathPayoff(pricing, eventNumeraire, state, &outcome.exerciseCounts_);
+                        const double payoff = PathPayoff(pricing, state, &outcome.exerciseCounts_);
                         outcome.sum_ += payoff;
                         outcome.sumSq_ += payoff * payoff;
                     }
@@ -1759,7 +1772,7 @@ namespace Dal::Script {
             auto model = baseModel.Clone();
             *model->Parameters()[parameter] += bump;
             model->Init(prepared.TimeLine(), prepared.DefLine());
-            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
+            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
             LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey};
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
@@ -1774,7 +1787,7 @@ namespace Dal::Script {
                                                                double bump) {
             auto constants = prepared.Product().ConstVarValues();
             constants[constant] += bump;
-            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
+            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
             LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
@@ -1867,9 +1880,6 @@ namespace Dal::Script {
                     (*riskTotals)[j] += outcome.risks_[j];
         }
 
-        void RequireDeterministicRateModel(const AAD::Model_<double>& model) {
-            REQUIRE2(model.NumeraireIsDeterministic(), "UnsupportedModel: LSMC requires a deterministic numeraire", ScriptError_);
-        }
     } // namespace
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
@@ -1887,11 +1897,10 @@ namespace Dal::Script {
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
         REQUIRE2(!simulation.enableAad_,
                  "UnsupportedExecutionMode: the double LSMC driver values hard decisions only; AAD products route to the fuzzy driver", ScriptError_);
-        RequireDeterministicRateModel(*mdl);
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
+        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !mdl->NumeraireIsDeterministic());
         const BatchPlan_ batchPlan(nPaths, 1);
         const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
         const std::optional<uint64_t> trainingKey =
@@ -1902,14 +1911,14 @@ namespace Dal::Script {
         ReplayOutcome_ reduction;
         Vector_<> replicateMeans;
         if (counts.replicates_ == 1) {
-            reduction = RunReplayPhase(ctx, trained.eventNumeraire_, batchPlan, counts.pricingOffset_, trained.regressions_);
+            reduction = RunReplayPhase(ctx, batchPlan, counts.pricingOffset_, trained.regressions_);
         } else {
             reduction.exerciseCounts_ = Vector_<size_t>(scan.days_.size(), 0);
             for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
                 auto pricingCtx = ctx;
                 pricingCtx.scrambleKey_ = LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate);
                 const auto one =
-                    RunReplayPhase(pricingCtx, trained.eventNumeraire_, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
+                    RunReplayPhase(pricingCtx, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
                 replicateMeans.push_back(one.sum_ / static_cast<double>(nPaths));
                 reduction.sum_ += one.sum_;
                 reduction.sumSq_ += one.sumSq_;
@@ -1935,13 +1944,12 @@ namespace Dal::Script {
         //  thread-count independent hard-decision artifact; the recording stream
         //  therefore lowers hard even though the replay itself is fuzzy
         auto doubleModel = CreateModel<double>(modelData);
-        RequireDeterministicRateModel(*doubleModel);
         doubleModel->Allocate(prepared.TimeLine(), prepared.DefLine());
         doubleModel->Init(prepared.TimeLine(), prepared.DefLine());
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount());
+        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !doubleModel->NumeraireIsDeterministic());
         const BatchPlan_ batchPlan(nPaths, 1);
         std::optional<ScriptCompiled_> hardCompiled;
         if (simulation.compiled_.value_or(false))

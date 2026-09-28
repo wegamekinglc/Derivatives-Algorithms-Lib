@@ -9,6 +9,7 @@
 
 #include <dal-public/src/models.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/curve/curveblock.hpp>
 #include <dal/model/factory.hpp>
 
 using Dal::Matrix_;
@@ -105,4 +106,25 @@ TEST(ModelsTest, TestHybridLogDfRateSnapshotRebasesDatedCurveToModelTime) {
     ASSERT_NEAR(data->logDF_[2], -0.04 * (last - today) / 360.0, 1e-12);
     ASSERT_THROW(Dal::NewHybridLogDfRateDataFromCurve("usd", curve, today, {first, last}), Dal::Exception_);
     ASSERT_THROW(Dal::NewHybridLogDfRateDataFromCurve("usd", curve, today, {today, last, first}), Dal::Exception_);
+}
+
+TEST(ModelsTest, TestVhwFactoriesPreserveCurveNodesAndModelParameters) {
+    const Dal::Date_ today(2026, 9, 28);
+    const Dal::Date_ year(2027, 9, 28);
+    const auto curve = Dal::NewVHWCurveData("curve", today, "USD", {today, year}, {0.0, -0.03}, {}, Matrix_<>(0, 0));
+    const auto vol = Dal::NewVHWVolData("vol", {today}, {0.01}, {today}, {1.0});
+    const auto data = Dal::NewVHWModelData("vhw", curve, vol);
+    const auto model = Dal::CreateModel<double>(data);
+    ASSERT_EQ(model->NumParams(), 3);
+    ASSERT_EQ(model->ParameterLabels()[0], String_("logdf:OIS:2027-09-28"));
+}
+
+TEST(ModelsTest, TestVhwCurveSnapshotUsesYieldCurveAtSelectedDates) {
+    const Dal::Date_ today(2026, 9, 28);
+    const Dal::Date_ year(2027, 9, 28);
+    const Dal::DiscountLogDF_ discount("source", "USD", {today, year}, {0.0, -0.03}, Dal::DayBasis::Act365F(),
+                                       Dal::LogDfScheme_::Value_::LOG_LINEAR);
+    const Dal::CurveBlock_ source(discount);
+    const auto snapshot = Dal::NewVHWCurveDataFromYieldCurve("curve", source, today, {today, year}, {});
+    ASSERT_NEAR(snapshot->discountLogDF_[1], -0.03, 1e-12);
 }
