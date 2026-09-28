@@ -2,12 +2,12 @@
 // Created by wegam on 2022/2/2.
 //
 
+#include <dal/indice/index/ir.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/indice/index/ir.hpp>
-#include <dal/utilities/exceptions.hpp>
-#include <dal/time/dateincrement.hpp>
 #include <dal/protocol/conventions.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     namespace {
@@ -53,26 +53,19 @@ namespace Dal {
             return Libor::StartFromFix(ccy_, temp);
         }
 
-        String_ Index::Libor_::Name() const {
-            return "IR:" + String_(ccy_.String()) + "," + String_(tenor_.String()) + StartPostfix(start_);
-        }
+        String_ Index::Libor_::Name() const { return "IR:" + String_(ccy_.String()) + "," + String_(tenor_.String()) + StartPostfix(start_); }
 
         String_ Index::Swap_::Name() const {
-            // note ",5Y" is a swap, ",Libor3M" is a Libor -- numeric first digit indicates a swap
+            if (!IsSwapTenor(tenor_))
+                return "IR[" + String_(ccy_.String()) + ",SWAP," + tenor_ + StartPostfix(start_) + "]";
             return "IR:" + String_(ccy_.String()) + "," + tenor_ + StartPostfix(start_);
         }
 
-        String_ Index::DF_::Name() const {
-            return "IR[DF]:" + String_(ccy_.String()) + StartPostfix(start_) + "," + MatPostfix(maturity_);
-        }
+        String_ Index::DF_::Name() const { return "IR[DF]:" + String_(ccy_.String()) + StartPostfix(start_) + "," + MatPostfix(maturity_); }
 
-        Date_ Index::DF_::StartDate(const DateTime_& fixingTime) const {
-            return DateFromCell(start_, fixingTime.Date());
-        }
+        Date_ Index::DF_::StartDate(const DateTime_& fixingTime) const { return DateFromCell(start_, fixingTime.Date()); }
 
-        Date_ Index::DF_::Maturity(const DateTime_& fixingTime) const {
-            return DateFromCell(maturity_, fixingTime.Date());
-        }
+        Date_ Index::DF_::Maturity(const DateTime_& fixingTime) const { return DateFromCell(maturity_, fixingTime.Date()); }
 
     } // namespace Index
 } // namespace Dal

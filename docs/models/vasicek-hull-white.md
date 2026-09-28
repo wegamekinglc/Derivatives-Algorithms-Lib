@@ -51,11 +51,11 @@ last curve node rather than extrapolating them.
 
 Script `FIX` supports these single-currency observations:
 
-| Script name | Value at the event date |
-|------------|-------------------------|
-| `IR[USD,DF,2028-09-28]` | OIS bond price to the dated maturity |
-| `IR[USD,LIBOR_3M_LCH]` | Forward Libor using the 3M projection row, if supplied |
-| `IR[USD,SWAP,5Y]` | Par swap rate using currency fixed and floating schedules |
+| Script name             | Value at the event date                                   |
+|-------------------------|-----------------------------------------------------------|
+| `IR[USD,DF,2028-09-28]` | OIS bond price to the dated maturity                      |
+| `IR[USD,LIBOR_3M_LCH]`  | Forward Libor using the 3M projection row, if supplied    |
+| `IR[USD,SWAP,5Y]`       | Par swap rate using currency fixed and floating schedules |
 
 Libor and swap forwards fall back to the OIS curve when their projection tenor
 is absent. Projection curves enter through the deterministic initial forward

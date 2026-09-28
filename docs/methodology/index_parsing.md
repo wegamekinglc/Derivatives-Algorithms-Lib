@@ -120,8 +120,10 @@ from these canonical names:
 - `Libor_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` (for example,
   `Libor_(Ccy_("USD"), TradedRate_("LIBOR3MLCH"))` produces
   `IR:USD,LIBOR_3M_LCH`);
-- `Swap_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` with a numeric-leading
-  tenor (for example `IR:USD,5Y`);
+- `Swap_(ccy, tenor)` uses `IR:<ccy>,<tenor>` for year tenors (for example
+  `IR:USD,5Y`). A month tenor keeps the explicit form
+  `IR[<ccy>,SWAP,<tenor>]` (for example `IR[USD,SWAP,18M]`) so parsing the
+  name preserves its swap type;
 - `DF_(ccy, maturity)` names itself `IR[DF]:<ccy>,<maturity>`.
 
 Start and maturity offsets are `Cell_` values resolved against the fixing

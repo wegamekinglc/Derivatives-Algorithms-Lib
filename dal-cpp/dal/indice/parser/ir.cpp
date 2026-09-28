@@ -61,18 +61,17 @@ namespace Dal::Index {
         std::unique_ptr<Index_> BracketedDiscount(const Vector_<String_>& values) {
             REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: discount requires maturity and optional start");
             Vector_<String_> discount{values[0]};
-            for (size_t i = 2; i < values.size(); ++i)
-                discount.push_back(values[i]);
+            if (values.size() == 4)
+                discount.push_back(values[3]);
+            discount.push_back(values[2]);
             return Discount(discount, 0);
         }
 
         std::unique_ptr<Index_> BracketedSwap(const Vector_<String_>& values) {
             REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: swap requires a tenor and optional start");
-            REQUIRE(IsSwapTenor(values[2]), "InvalidIndex: unsupported swap tenor " + values[2]);
-            Vector_<String_> rate{values[0], values[2]};
-            if (values.size() == 4)
-                rate.push_back(values[3]);
-            return Rate(rate);
+            REQUIRE(!Date::ParseIncrement(values[2]).IsEmpty(), "InvalidIndex: unsupported swap tenor " + values[2]);
+            const Cell_ start = values.size() == 4 ? DateOrIncrement(values[3]) : Cell_();
+            return std::make_unique<Swap_>(Ccy_(values[0]), values[2], start);
         }
 
         std::unique_ptr<Index_> Bracketed(const Vector_<String_>& values) {
