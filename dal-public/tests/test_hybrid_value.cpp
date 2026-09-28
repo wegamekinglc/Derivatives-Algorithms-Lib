@@ -560,7 +560,7 @@ TEST(HybridValueTest, TestInvalidRegressionFeaturesFailBeforeWorkerSubmission) {
     ASSERT_EQ(counter.count_, 0u);
 }
 
-TEST(HybridValueTest, TestUnprovenNumeraireFailsBeforeWorkerSubmission) {
+TEST(HybridValueTest, TestUndeclaredNumeraireUsesPathDiscounts) {
     Dal::RegisterAll_::Init();
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2026, 9, 27));
     const Dal::Script::ScriptProductData_ product("unproven", {Dal::Cell_(Dal::Date_(2027, 9, 27))}, {"EXERCISE MAX(100 - FIX(EQ[A]), 0)"});
@@ -568,6 +568,8 @@ TEST(HybridValueTest, TestUnprovenNumeraireFailsBeforeWorkerSubmission) {
     const auto prepared = Dal::Script::PrepareScript(product, &model, {}, {});
     SubmissionCounter_ counter;
     const Dal::Script::Detail::ScopedSimulationObserver_ observe(&counter);
-    ASSERT_THROW(Dal::Script::MCLsmcSimulation(prepared, &model, 64), Dal::ScriptError_);
-    ASSERT_EQ(counter.count_, 0u);
+    const auto result = Dal::Script::MCLsmcSimulation(prepared, &model, 64);
+    ASSERT_TRUE(std::isfinite(result.aggregated_));
+    ASSERT_GT(result.aggregated_, 0.0);
+    ASSERT_GT(counter.count_, 0u);
 }

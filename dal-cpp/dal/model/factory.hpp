@@ -8,6 +8,7 @@
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/dupire.hpp>
 #include <dal/model/hybrid.hpp>
+#include <dal/model/vhw.hpp>
 
 namespace Dal {
 
@@ -53,6 +54,9 @@ namespace Dal {
             }
             return std::make_unique<AAD::HybridModel_<T_>>(modelHybridImp->domesticCurrency_, std::move(components), *modelHybridImp->correlation_);
         }
+
+        if (const auto* vhw = dynamic_cast<const VHWModelData_*>(model_data.get()))
+            return std::make_unique<AAD::VHW_<T_>>(*vhw);
 
         THROW("can't find matched model type");
     }

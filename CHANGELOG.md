@@ -16,6 +16,16 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-28
+
+- **One-factor Vasicek–Hull–White interest-rate Monte Carlo** — dated OIS and
+  optional projection snapshots, piecewise `g/H`, exact event-grid conditional
+  bond and discount calculations, and curve/volatility AAD risks are available
+  through C++, Python, and Excel. Script `FIX` accepts rate indices, and the
+  existing LSM engine now discounts each stochastic-rate path for Bermudan
+  bond options and cash-settled swaptions. See
+  [Vasicek–Hull–White model](docs/models/vasicek-hull-white.md).
+
 ## 2026-09-27
 
 - **Hybrid Monte Carlo accepts deterministic rate term structures** — a

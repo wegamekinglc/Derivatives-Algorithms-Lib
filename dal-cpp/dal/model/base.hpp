@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/indexparse.hpp>
@@ -13,6 +14,7 @@
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/storable.hpp>
+#include <dal/time/date.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -78,6 +80,7 @@ namespace Dal {
             [[nodiscard]] virtual size_t NumFactors() const { return 1; }
             [[nodiscard]] virtual bool SupportsBrownianBridge() const { return NumFactors() == 1; }
             [[nodiscard]] virtual bool NumeraireIsDeterministic() const { return false; }
+            [[nodiscard]] virtual std::optional<Date_> EvaluationDate() const { return std::nullopt; }
             [[nodiscard]] virtual bool ValidParameterValue(size_t parameter, double value) const {
                 return parameter < NumParams() && std::isfinite(value);
             }

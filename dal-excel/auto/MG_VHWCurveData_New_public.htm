@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>VHWCurveData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>VHWCurveData_New (in Excel: VHWCURVEDATA.NEW)</h1>
+Dated initial discount and projection curve nodes for a VHW model
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Curve snapshot name</td></tr>
+<tr><td>evaluationDate</td><td>date</td><td></td><td>Valuation date and first node</td></tr>
+<tr><td>currency</td><td>string</td><td></td><td>Model currency</td></tr>
+<tr><td>nodeDates</td><td>vector of dates</td><td></td><td>Strictly increasing node dates beginning at the valuation date</td></tr>
+<tr><td>discountLogDF</td><td>vector of numbers</td><td></td><td>OIS log discount factors beginning at zero</td></tr>
+<tr><td>projectionTenors</td><td>vector of strings</td><td></td><td>Optional projection tenors</td></tr>
+<tr><td>projectionLogDF</td><td>matrix of numbers</td><td></td><td>One log discount factor row per projection tenor</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>curve</td><td>handle of type VHWCurveData</td><td>VHW curve snapshot</td></tr>
+</table>
+
+
+
+
+
+

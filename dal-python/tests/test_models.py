@@ -1,6 +1,8 @@
 """Tests for Black-Scholes and Dupire model data creation."""
 
 import dal
+import math
+import pytest
 
 
 # ---- BSModelData -------------------------------------------------------------
@@ -114,3 +116,72 @@ def test_dupire_model_single_spot_single_time():
         vols=vols,
     )
     assert model is not None  # nosec B101 - pytest assertions are intentional
+
+
+def test_vhw_curve_vol_and_model_price_zero_vol_bond():
+    today = dal.Date_(2026, 9, 28)
+    exercise = dal.Date_(2027, 9, 28)
+    maturity = dal.Date_(2028, 9, 28)
+    curve = dal.VHWCurveData_New(
+        "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
+    )
+    vol = dal.VHWVolData_New("vol", [today], [0.0], [today], [1.0])
+    model = dal.VHWModelData_New("vhw", curve, vol)
+    dal.EvaluationDate_Set(today)
+    product = dal.Product_New([exercise], ["pay PAYS FIX(IR[USD,DF,2028-09-28])"])
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=True))
+    assert result["PV"] == pytest.approx(math.exp(-0.06), abs=1e-10)
+    assert result["d_logdf:OIS:2028-09-28"] == pytest.approx(math.exp(-0.06), abs=1e-10)
+
+
+def test_vhw_aad_matches_second_bond_moment_and_model_parameter_risks():
+    today = dal.Date_(2026, 9, 28)
+    exercise = dal.Date_(2027, 9, 28)
+    maturity = dal.Date_(2028, 9, 28)
+    curve = dal.VHWCurveData_New(
+        "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
+    )
+    g = 0.05
+    h = 1.2
+    vol = dal.VHWVolData_New("vol", [today], [g], [today], [h])
+    model = dal.VHWModelData_New("vhw", curve, vol)
+    dal.EvaluationDate_Set(today)
+    product = dal.Product_New(
+        [exercise],
+        ["pay PAYS FIX(IR[USD,DF,2028-09-28]) * FIX(IR[USD,DF,2028-09-28])"],
+    )
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 1048576, simulation=dal.MonteCarloSettings_(enable_aad=True))
+    tenor = 366.0 / 365.0
+    variance = g * g
+    bond_loading = h * tenor
+    expected = math.exp(-0.09 + bond_loading * bond_loading * variance)
+    assert result["PV"] == pytest.approx(expected, abs=2e-5)
+    assert result["d_logdf:OIS:2027-09-28"] == pytest.approx(-expected, abs=2e-5)
+    assert result["d_logdf:OIS:2028-09-28"] == pytest.approx(2.0 * expected, abs=2e-5)
+    assert result["d_g:2026-09-28"] == pytest.approx(expected * 2.0 * bond_loading * bond_loading * g, abs=2e-5)
+    assert result["d_H:2026-09-28"] == pytest.approx(expected * 2.0 * h * tenor * tenor * variance, abs=2e-5)
+
+
+def test_vhw_projection_node_risk_matches_central_difference():
+    today = dal.Date_(2026, 9, 28)
+    fixing = dal.Date_(2027, 9, 28)
+    horizon = dal.Date_(2028, 9, 28)
+    dal.EvaluationDate_Set(today)
+    product = dal.Product_New([fixing], ["pay PAYS FIX(IR[USD,LIBOR_3M_LCH])"])
+    vol = dal.VHWVolData_New("vol", [today], [0.0], [today], [1.0])
+
+    def value(last_projection_node, enable_aad):
+        curve = dal.VHWCurveData_New(
+            "curve", today, "USD", [today, fixing, horizon], [0.0, -0.03, -0.06],
+            ["3M"], dal.DoubleMatrix_([[0.0, -0.04, last_projection_node]]),
+        )
+        model = dal.VHWModelData_New("vhw", curve, vol)
+        return dal.MonteCarlo_ValueWithSettings(
+            product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=enable_aad)
+        )
+
+    aad = value(-0.08, True)
+    bump = 1e-5
+    difference = (value(-0.08 + bump, False)["PV"] - value(-0.08 - bump, False)["PV"]) / (2.0 * bump)
+    assert aad["d_logdf:3M:2028-09-28"] == pytest.approx(difference, abs=1e-7)
+    assert math.isfinite(aad["d_g:2026-09-28"])

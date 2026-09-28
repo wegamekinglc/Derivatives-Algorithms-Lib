@@ -72,6 +72,10 @@ All three blocks occupy distinct Sobol index ranges. With RQMC replicates,
   page faults and zero fill run on the workers.
 - **Phase B** walks the events backward. The holding value is
   $H_k = p_k + D_{k,k+1} W_{k+1}$ — the day's `PAYS` enter the hold side — and
+  `D` is the path's event-to-event numeraire ratio for stochastic-rate models;
+  deterministic-rate models reuse one ratio per event interval. Thus the
+  same LSM machinery handles rate-model exercise without a separate policy
+  engine.
   on each exercise date the driver regresses $H_k$ on the in-the-money
   ($h_k > 0$) condition-true path subset over the z-normalized monomial basis
   $z=(x-\hat\mu)/\hat\sigma$ of
@@ -116,8 +120,8 @@ All three blocks occupy distinct Sobol index ranges. With RQMC replicates,
   deterministic mode,
   starting at `SkipTo(nTrainingPaths + nValidationPaths)`. Training, validation,
   and pricing blocks do not overlap; the deterministic total generated path count is
-  `nTrainingPaths + nValidationPaths + nPaths`, plus one
-  numeraire probe. Training and validation storage is released
+  `nTrainingPaths + nValidationPaths + nPaths`. Deterministic-numeraire models
+  also use one numeraire probe. Training and validation storage is released
   first. Hard pricing shares the immutable compiled program and reuses one
   evaluator, path generator, and scalar decision state per worker across batches;
   it does not allocate per-exercise-date recording rows.

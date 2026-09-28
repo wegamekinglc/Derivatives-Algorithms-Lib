@@ -325,7 +325,13 @@ if(DAL_PYTHON_BUILD_TESTS)
             "$<TARGET_FILE:_dal>"
             "${CMAKE_CURRENT_BINARY_DIR}/dal/")
 
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('purelib'))"
+        OUTPUT_VARIABLE DAL_PYTHON_TEST_SITE_PACKAGES
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY)
     add_test(NAME dal_python_pytest
-             COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/tests -v
+             COMMAND ${Python3_EXECUTABLE} -S ${CMAKE_CURRENT_SOURCE_DIR}/tests/run_build_pytest.py
+                     ${CMAKE_CURRENT_BINARY_DIR} ${DAL_PYTHON_TEST_SITE_PACKAGES} ${CMAKE_CURRENT_SOURCE_DIR}/tests -v
              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()

@@ -15,6 +15,63 @@ using namespace Dal;
 void init_bindings_models(py::module_& m) {
     py::class_<HybridComponentData_, Storable_, std::shared_ptr<HybridComponentData_>>(m, "HybridComponentData_");
     py::class_<HybridCorrelationData_, Storable_, std::shared_ptr<HybridCorrelationData_>>(m, "HybridCorrelationData_");
+    py::class_<VHWCurveData_, Storable_, std::shared_ptr<VHWCurveData_>>(m, "VHWCurveData_");
+    py::class_<VHWVolData_, Storable_, std::shared_ptr<VHWVolData_>>(m, "VHWVolData_");
+
+    const auto dates = [](const py::iterable& input) {
+        Vector_<Date_> result;
+        for (const auto item : input)
+            result.push_back(py::cast<Date_>(item));
+        return result;
+    };
+    const auto numbers = [](const py::iterable& input) {
+        Vector_<> result;
+        for (const auto item : input)
+            result.push_back(py::cast<double>(item));
+        return result;
+    };
+    const auto strings = [](const py::iterable& input) {
+        Vector_<String_> result;
+        for (const auto item : input)
+            result.emplace_back(py::cast<std::string>(item));
+        return result;
+    };
+
+    m.def("VHWCurveData_New",
+          [=](const std::string& name, const Date_& evaluationDate, const std::string& currency, const py::iterable& nodeDates,
+              const py::iterable& discountLogDF, const py::iterable& projectionTenors, const Matrix_<>& projectionLogDF) {
+              return std::const_pointer_cast<VHWCurveData_>(NewVHWCurveData(String_(name), evaluationDate, String_(currency), dates(nodeDates),
+                                                                          numbers(discountLogDF), strings(projectionTenors), projectionLogDF));
+          },
+          py::arg("name"), py::arg("evaluation_date"), py::arg("currency"), py::arg("node_dates"), py::arg("discount_log_df"),
+          py::arg("projection_tenors"), py::arg("projection_log_df"));
+
+    m.def("VHWCurveDataFromYieldCurve_New",
+          [=](const std::string& name, const std::shared_ptr<YieldCurve_>& source, const Date_& evaluationDate,
+              const py::iterable& nodeDates, const py::iterable& projectionTenors) {
+              REQUIRE(source, "InvalidVHWCurve: source yield curve is required");
+              return std::const_pointer_cast<VHWCurveData_>(NewVHWCurveDataFromYieldCurve(
+                  String_(name), *source, evaluationDate, dates(nodeDates), strings(projectionTenors)));
+          },
+          py::arg("name"), py::arg("source"), py::arg("evaluation_date"), py::arg("node_dates"), py::arg("projection_tenors"));
+
+    m.def("VHWVolData_New",
+          [=](const std::string& name, const py::iterable& gKnotDates, const py::iterable& gValues, const py::iterable& hKnotDates,
+              const py::iterable& hValues) {
+              return std::const_pointer_cast<VHWVolData_>(NewVHWVolData(String_(name), dates(gKnotDates), numbers(gValues), dates(hKnotDates),
+                                                                        numbers(hValues)));
+          },
+          py::arg("name"), py::arg("g_knot_dates"), py::arg("g_values"), py::arg("h_knot_dates"), py::arg("h_values"));
+
+    m.def("VHWModelData_New",
+          [](const std::string& name, const std::shared_ptr<VHWCurveData_>& curve,
+             const std::shared_ptr<VHWVolData_>& vol) -> std::shared_ptr<ModelData_> {
+              REQUIRE(curve && vol, "InvalidVHWModel: curve and volatility data are required");
+              return std::const_pointer_cast<ModelData_>(NewVHWModelData(
+                  String_(name), Handle_<VHWCurveData_>(std::shared_ptr<const VHWCurveData_>(curve)),
+                  Handle_<VHWVolData_>(std::shared_ptr<const VHWVolData_>(vol))));
+          },
+          py::arg("name"), py::arg("curve"), py::arg("vol"));
 
     m.def(
         "CorrelatedBSModelData_New",

@@ -11,6 +11,7 @@
 #include <dal/indice/detail/snapshoterror.hpp>
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/index/fx.hpp>
+#include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/preparation.hpp>
@@ -54,7 +55,7 @@ namespace Dal::Script {
             REQUIRE2(node.index_, "InvalidIndex: null parsed index; " + node.source_.Describe(), ScriptError_);
             if (historical) {
                 const auto& type = typeid(*node.index_);
-                REQUIRE2(type == typeid(Index::Equity_) || type == typeid(Index::Fx_),
+                REQUIRE2(type == typeid(Index::Equity_) || type == typeid(Index::Fx_) || type == typeid(Index::Libor_),
                          "UnsupportedHistoricalIndex: " + node.literal_.raw_ + "; " + node.source_.Describe(), ScriptError_);
             }
         }
@@ -303,8 +304,10 @@ namespace Dal::Script {
                 feature.name_ = "VAR[" + *found + "]";
             } else {
                 const auto index = ParseSettingIndex(input, "product.regressionFeatures_");
-                REQUIRE2(typeid(*index) == typeid(Index::Equity_) && model.SupportsIndex(*index),
-                         "UnsupportedLsmcRegressionFeature: product.regressionFeatures_=" + input + "; expected a model-supported ordinary EQ index",
+                const bool supportedType = typeid(*index) == typeid(Index::Equity_) || typeid(*index) == typeid(Index::DF_) ||
+                                           typeid(*index) == typeid(Index::Libor_) || typeid(*index) == typeid(Index::Swap_);
+                REQUIRE2(supportedType && model.SupportsIndex(*index),
+                         "UnsupportedLsmcRegressionFeature: product.regressionFeatures_=" + input + "; expected a model-supported EQ or IR index",
                          ScriptError_);
                 feature.name_ = index->Name();
                 if (std::find(plan->modelBindingNames_.begin(), plan->modelBindingNames_.end(), feature.name_) == plan->modelBindingNames_.end())
@@ -353,6 +356,8 @@ namespace Dal::Script {
             }
             BindModelObservations(plan, product, evaluationDate);
             ConfigureRegressionFeatures(plan, product, model, contract);
+            REQUIRE2(model.NumAssets() != 0 || !product.ContainsExercise() || !plan->regressionFeatures_.empty(),
+                     "MissingLsmcRegressionFeature: rate-model exercise requires product.regressionFeatures_", ScriptError_);
             if (model.NumAssets() > 1 && product.ContainsExercise() && plan->regressionFeatures_.empty()) {
                 REQUIRE2(!contract.defaultIndex_.empty(), "AmbiguousLsmcRegressor: multi-asset exercise requires product.defaultIndex_",
                          ScriptError_);
@@ -437,6 +442,9 @@ namespace Dal::Script {
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
+            if (model && model->EvaluationDate())
+                REQUIRE2(*model->EvaluationDate() == evaluationDate,
+                         "InvalidModelEvaluationDate: model curve date must match script valuation date", ScriptError_);
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
