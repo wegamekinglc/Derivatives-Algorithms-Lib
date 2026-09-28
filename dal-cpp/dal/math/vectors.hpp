@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <utility>
 #include <vector>
 #include <dal/platform/host.hpp>
 
@@ -98,7 +99,7 @@ namespace Dal {
         const E_& operator()(size_t i) const { return (*this)[i];}
 
         // emplace_back is a special case; because it is not part of std::vector<bool>, we have to explicitly forward
-        template <class... ValType> void emplace_back(ValType&&... Val) { base_t::emplace_back(Val...); }
+        template <class... ValType> void emplace_back(ValType&&... Val) { base_t::emplace_back(std::forward<ValType>(Val)...); }
     };
 
     template <class C1_, class C2_> bool EqualElements(const C1_& lhs, const C2_& rhs) {

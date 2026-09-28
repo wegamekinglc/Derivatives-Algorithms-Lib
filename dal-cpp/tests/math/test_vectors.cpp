@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -231,4 +232,13 @@ TEST(VectorTest, TestVectorAddSizeMismatch) {
     vector_t s2 = {1., 2.};
     ASSERT_THROW(s1 += s2, Dal::Exception_);
     ASSERT_THROW((void)(s1 * s2), Dal::Exception_);
+}
+
+TEST(VectorTest, TestEmplaceBackMovesRvalue) {
+    Dal::Vector_<std::unique_ptr<int>> v;
+    auto p = std::make_unique<int>(42);
+    v.emplace_back(std::move(p));
+    ASSERT_EQ(v.size(), 1);
+    ASSERT_EQ(*v[0], 42);
+    ASSERT_EQ(p, nullptr);
 }

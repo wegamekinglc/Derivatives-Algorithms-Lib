@@ -42,3 +42,16 @@ TEST(NDArrayTest, TestCubeLoc) {
     cube(1, 2, 3) = 2.0;
     ASSERT_DOUBLE_EQ(cube(1, 2, 3), 2.0);
 }
+
+TEST(NDArrayTest, TestCubeElementAccessNonDouble) {
+    Cube_<int> cube(2, 3, 4);
+    cube(1, 2, 3) = 7;
+    const Cube_<int>& ccube = cube;
+    ASSERT_EQ(ccube(1, 2, 3), 7);
+    ASSERT_EQ(ccube(0, 0, 0), 0);
+
+    int* slice = cube.SliceBegin(1, 2);
+    slice[0] = 9;
+    ASSERT_EQ(cube(1, 2, 0), 9);
+    ASSERT_EQ(cube.SliceEnd(1, 2) - cube.SliceBegin(1, 2), 4);
+}
