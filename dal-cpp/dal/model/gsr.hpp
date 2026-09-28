@@ -16,14 +16,14 @@
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
-#include <dal/model/vhwdata.hpp>
+#include <dal/model/gsrdata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/conventions.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
 
 namespace Dal::AAD {
-    template <class T_ = double> class VHW_ final : public Model_<T_> {
+    template <class T_ = double> class GSR_ final : public Model_<T_> {
         struct Step_ {
             T_ sigma_ = T_(0.0);
             T_ a_ = T_(0.0);
@@ -63,15 +63,15 @@ namespace Dal::AAD {
         Vector_<Vector_<Observation_>> observations_;
 
         [[nodiscard]] double Time(const Date_& date) const {
-            REQUIRE(date >= evaluationDate_, "InvalidVHWDate: date precedes evaluation date");
-            REQUIRE(date <= nodeDates_.back(), "InvalidVHWDate: date exceeds last curve node");
+            REQUIRE(date >= evaluationDate_, "InvalidGSRDate: date precedes evaluation date");
+            REQUIRE(date <= nodeDates_.back(), "InvalidGSRDate: date exceeds last curve node");
             return (date - evaluationDate_) / DAYS_PER_YEAR;
         }
 
         [[nodiscard]] Date_ DateAt(double time) const {
             const double days = time * DAYS_PER_YEAR;
             const auto rounded = static_cast<int>(std::llround(days));
-            REQUIRE(std::abs(days - rounded) <= 1e-7, "InvalidVHWTimeline: expected whole calendar days on ACT/365 axis");
+            REQUIRE(std::abs(days - rounded) <= 1e-7, "InvalidGSRTimeline: expected whole calendar days on ACT/365 axis");
             return evaluationDate_.AddDays(rounded);
         }
 
@@ -109,7 +109,7 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] T_ StateVariance(double from, double to) const {
-            REQUIRE(from <= to, "InvalidVHWInterval: state variance requires from <= to");
+            REQUIRE(from <= to, "InvalidGSRInterval: state variance requires from <= to");
             T_ result(0.0);
             const auto knots = IntervalKnots(from, to);
             for (size_t i = 1; i < knots.size(); ++i) {
@@ -120,7 +120,7 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] T_ BondLoading(double from, double to) const {
-            REQUIRE(from <= to, "InvalidVHWInterval: bond loading requires from <= to");
+            REQUIRE(from <= to, "InvalidGSRInterval: bond loading requires from <= to");
             T_ result(0.0);
             const auto knots = IntervalKnots(from, to);
             for (size_t i = 1; i < knots.size(); ++i)
@@ -130,7 +130,7 @@ namespace Dal::AAD {
 
         // Integral of g(u)^2 B(u,to), accumulated backward over the merged knot grid.
         [[nodiscard]] T_ StateDiscountCovariance(double from, double to) const {
-            REQUIRE(from <= to, "InvalidVHWInterval: covariance requires from <= to");
+            REQUIRE(from <= to, "InvalidGSRInterval: covariance requires from <= to");
             T_ result(0.0);
             T_ loading(0.0);
             const auto knots = IntervalKnots(from, to);
@@ -148,7 +148,7 @@ namespace Dal::AAD {
 
         [[nodiscard]] T_ Bond(double time, const Date_& maturity, const T_& state) const {
             const double finalTime = Time(maturity);
-            REQUIRE(finalTime >= time, "InvalidVHWObservation: bond maturity precedes observation");
+            REQUIRE(finalTime >= time, "InvalidGSRObservation: bond maturity precedes observation");
             const T_ loading = BondLoading(time, finalTime);
             return Dal::exp(LogDF(finalTime) - LogDF(time) - loading * (state - DiscountedStateMean(time)) -
                             0.5 * loading * loading * StateVariance(0.0, time));
@@ -157,7 +157,7 @@ namespace Dal::AAD {
         [[nodiscard]] T_
         Libor(double time, const Date_& start, const Date_& maturity, const String_& tenor, const DayBasis_& basis, const T_& state) const {
             const double accrual = basis(start, maturity, nullptr);
-            REQUIRE(accrual > 0.0 && start < maturity, "InvalidVHWObservation: invalid Libor accrual");
+            REQUIRE(accrual > 0.0 && start < maturity, "InvalidGSRObservation: invalid Libor accrual");
             const auto& projection = Projection(tenor);
             const T_ initialProjectionRatio = Dal::exp(LogDF(Time(start), projection) - LogDF(Time(maturity), projection));
             const T_ initialDiscountRatio = Dal::exp(LogDF(start) - LogDF(maturity));
@@ -171,7 +171,7 @@ namespace Dal::AAD {
             for (const auto& period : request.fixedPeriods_)
                 annuity += request.fixedBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get()) *
                            Bond(time, period.paymentDate_, state);
-            REQUIRE(Value(annuity) > 0.0, "InvalidVHWObservation: non-positive swap annuity");
+            REQUIRE(Value(annuity) > 0.0, "InvalidGSRObservation: non-positive swap annuity");
             for (const auto& period : request.floatPeriods_) {
                 const T_ fixing = Libor(time, period.accrualStart_, period.accrualEnd_, request.projectionTenor_, request.indexBasis_, state);
                 floatPv += fixing * request.floatBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get()) *
@@ -214,9 +214,9 @@ namespace Dal::AAD {
                                         floatLeg.paymentLag_, floatLeg.paymentHolidays_, DateGeneration_("Forward"), floatLeg.businessDayConvention_,
                                         floatLeg.paymentConvention_, floatLeg.endOfMonth_);
             } else
-                THROW("UnsupportedVHWObservation: " + name);
+                THROW("UnsupportedGSRObservation: " + name);
             REQUIRE(result.start_ >= sampleDate && result.maturity_ > result.start_,
-                    "InvalidVHWObservation: start/maturity must follow the observation date");
+                    "InvalidGSRObservation: start/maturity must follow the observation date");
             static_cast<void>(Time(result.maturity_));
             if (result.kind_ == Observation_::Kind_::SWAP) {
                 for (const auto& period : result.fixedPeriods_)
@@ -282,11 +282,11 @@ namespace Dal::AAD {
             case Observation_::Kind_::SWAP:
                 return SwapRate(time, request, state);
             }
-            THROW("UnsupportedVHWObservation: unknown observation kind");
+            THROW("UnsupportedGSRObservation: unknown observation kind");
         }
 
     public:
-        explicit VHW_(const VHWModelData_& data)
+        explicit GSR_(const GSRModelData_& data)
             : evaluationDate_(data.curve_->evaluationDate_), currency_(data.curve_->currency_), nodeDates_(data.curve_->nodeDates_),
               projectionTenors_(data.curve_->projectionTenors_) {
             Vector_<> curveTimes;
@@ -341,7 +341,7 @@ namespace Dal::AAD {
         [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
         [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
         [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override {
-            auto clone = std::make_unique<VHW_<T_>>(*this);
+            auto clone = std::make_unique<GSR_<T_>>(*this);
             clone->SetParameterPointers();
             return clone;
         }
@@ -352,7 +352,7 @@ namespace Dal::AAD {
             observations_.Resize(timeline.size());
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
-            REQUIRE(timeline == productTimeLine_, "InvalidVHWTimeline: Allocate and Init timelines differ");
+            REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
             if constexpr (!std::is_same_v<T_, double>) {
                 // Anchors are not risk parameters. Recreate their constant tape nodes after NewRecording.
                 discountLogDF_[0] = T_(0.0);
@@ -377,7 +377,7 @@ namespace Dal::AAD {
         [[nodiscard]] size_t SimDim() const override { return productTimeLine_.size() - static_cast<size_t>(productTimeLine_.front() == 0.0); }
         void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
             REQUIRE(gaussian.size() == SimDim() && path && path->size() == productTimeLine_.size(),
-                    "InvalidVHWPath: Gaussian or scenario dimension mismatch");
+                    "InvalidGSRPath: Gaussian or scenario dimension mismatch");
             T_ state(0.0);
             T_ logNumeraire(0.0);
             size_t gaussianSlot = 0;

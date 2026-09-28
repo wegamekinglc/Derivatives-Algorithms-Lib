@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_VHWVolData_New
+extern "C" __declspec(dllexport) OPER_* xl_GSRVolData_New
     (const OPER_* xl_name, const OPER_* xl_gKnotDates, const OPER_* xl_gValues, const OPER_* xl_hKnotDates, const OPER_* xl_hValues)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("VHWVolData_New");        
+        Logging::Write("GSRVolData_New");        
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
         argName = "gKnotDates (input #2)";
@@ -20,8 +20,8 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "hValues (input #5)";
         const Vector_<double> hValues = Excel::ToDoubleVector(xl_hValues);
         argName = 0;
-		Handle_<VHWVolData_> vol;
-        VHWVolData_New(name, gKnotDates, gValues, hKnotDates, hValues, &vol);
+		Handle_<GSRVolData_> vol;
+        GSRVolData_New(name, gKnotDates, gValues, hKnotDates, hValues, &vol);
         Excel::Retval_ retval;
         retval.Load(_env, vol);
         return retval.ToXloper();
@@ -36,9 +36,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_VHWVolData_New_
+struct XlRegister_GSRVolData_New_
 {
-    XlRegister_VHWVolData_New_()
+    XlRegister_GSRVolData_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Volatility data name");
@@ -46,7 +46,7 @@ struct XlRegister_VHWVolData_New_
         argHelp.push_back("Nonnegative state volatility values");
         argHelp.push_back("Bond loading knot dates");
         argHelp.push_back("Positive bond loading values");
-        Excel::Register("Base", "xl_VHWVolData_New", "VHWVOLDATA.NEW", "Piecewise-constant g and H inputs for a VHW model", "QQQQQQ", "name,gKnotDates,gValues,hKnotDates,hValues", argHelp, false);
+        Excel::Register("Base", "xl_GSRVolData_New", "GSRVOLDATA.NEW", "Piecewise-constant g and H inputs for a GSR model", "QQQQQQ", "name,gKnotDates,gValues,hKnotDates,hValues", argHelp, false);
     }
 };
-static XlRegister_VHWVolData_New_ The_VHWVolData_New_XlRegisterer;
+static XlRegister_GSRVolData_New_ The_GSRVolData_New_XlRegisterer;

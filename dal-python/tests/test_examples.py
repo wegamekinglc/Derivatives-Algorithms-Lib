@@ -28,6 +28,7 @@ _PACKAGE_ROOT = str(Path(dal.__file__).resolve().parent.parent)
             {"DAL_EXAMPLE_NPATHS": "4096"},
             "Early-exercise premium",
         ),
+        ("014.gsr_swap_swaption.py", {}, "Static YieldCurve PV"),
     ],
 )
 def test_example_runs_through_its_guards(name, env, marker):
@@ -37,7 +38,7 @@ def test_example_runs_through_its_guards(name, env, marker):
         os.pathsep + child_env["PYTHONPATH"] if child_env.get("PYTHONPATH") else ""
     )
     result = subprocess.run(
-        [sys.executable, str(EXAMPLES / name)],
+        [sys.executable, "-S", str(EXAMPLES / name)],
         capture_output=True,
         text=True,
         env=child_env,

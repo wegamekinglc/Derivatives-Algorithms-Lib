@@ -15,6 +15,9 @@ add_subdirectory(basket_mc)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
 add_subdirectory(fix_mc)
+if(DAL_BUILD_PUBLIC)
+    add_subdirectory(gsr_swap_swaption)
+endif()
 add_subdirectory(snowball)
 add_subdirectory(sobol)
 add_subdirectory(script)
@@ -84,6 +87,10 @@ set(DAL_EXAMPLE_TARGETS
     uoc
     vanilla
     yield_curve_jacobian)
+
+if(DAL_BUILD_PUBLIC)
+    list(APPEND DAL_EXAMPLE_TARGETS gsr_swap_swaption)
+endif()
 
 if(DAL_HAS_EXCEL)
     list(APPEND DAL_EXAMPLE_TARGETS excelwriter)

@@ -15,8 +15,8 @@ using namespace Dal;
 void init_bindings_models(py::module_& m) {
     py::class_<HybridComponentData_, Storable_, std::shared_ptr<HybridComponentData_>>(m, "HybridComponentData_");
     py::class_<HybridCorrelationData_, Storable_, std::shared_ptr<HybridCorrelationData_>>(m, "HybridCorrelationData_");
-    py::class_<VHWCurveData_, Storable_, std::shared_ptr<VHWCurveData_>>(m, "VHWCurveData_");
-    py::class_<VHWVolData_, Storable_, std::shared_ptr<VHWVolData_>>(m, "VHWVolData_");
+    py::class_<GSRCurveData_, Storable_, std::shared_ptr<GSRCurveData_>>(m, "GSRCurveData_");
+    py::class_<GSRVolData_, Storable_, std::shared_ptr<GSRVolData_>>(m, "GSRVolData_");
 
     const auto dates = [](const py::iterable& input) {
         Vector_<Date_> result;
@@ -37,39 +37,39 @@ void init_bindings_models(py::module_& m) {
         return result;
     };
 
-    m.def("VHWCurveData_New",
+    m.def("GSRCurveData_New",
           [=](const std::string& name, const Date_& evaluationDate, const std::string& currency, const py::iterable& nodeDates,
               const py::iterable& discountLogDF, const py::iterable& projectionTenors, const Matrix_<>& projectionLogDF) {
-              return std::const_pointer_cast<VHWCurveData_>(NewVHWCurveData(String_(name), evaluationDate, String_(currency), dates(nodeDates),
+              return std::const_pointer_cast<GSRCurveData_>(NewGSRCurveData(String_(name), evaluationDate, String_(currency), dates(nodeDates),
                                                                           numbers(discountLogDF), strings(projectionTenors), projectionLogDF));
           },
           py::arg("name"), py::arg("evaluation_date"), py::arg("currency"), py::arg("node_dates"), py::arg("discount_log_df"),
           py::arg("projection_tenors"), py::arg("projection_log_df"));
 
-    m.def("VHWCurveDataFromYieldCurve_New",
+    m.def("GSRCurveDataFromYieldCurve_New",
           [=](const std::string& name, const std::shared_ptr<YieldCurve_>& source, const Date_& evaluationDate,
               const py::iterable& nodeDates, const py::iterable& projectionTenors) {
-              REQUIRE(source, "InvalidVHWCurve: source yield curve is required");
-              return std::const_pointer_cast<VHWCurveData_>(NewVHWCurveDataFromYieldCurve(
+              REQUIRE(source, "InvalidGSRCurve: source yield curve is required");
+              return std::const_pointer_cast<GSRCurveData_>(NewGSRCurveDataFromYieldCurve(
                   String_(name), *source, evaluationDate, dates(nodeDates), strings(projectionTenors)));
           },
           py::arg("name"), py::arg("source"), py::arg("evaluation_date"), py::arg("node_dates"), py::arg("projection_tenors"));
 
-    m.def("VHWVolData_New",
+    m.def("GSRVolData_New",
           [=](const std::string& name, const py::iterable& gKnotDates, const py::iterable& gValues, const py::iterable& hKnotDates,
               const py::iterable& hValues) {
-              return std::const_pointer_cast<VHWVolData_>(NewVHWVolData(String_(name), dates(gKnotDates), numbers(gValues), dates(hKnotDates),
+              return std::const_pointer_cast<GSRVolData_>(NewGSRVolData(String_(name), dates(gKnotDates), numbers(gValues), dates(hKnotDates),
                                                                         numbers(hValues)));
           },
           py::arg("name"), py::arg("g_knot_dates"), py::arg("g_values"), py::arg("h_knot_dates"), py::arg("h_values"));
 
-    m.def("VHWModelData_New",
-          [](const std::string& name, const std::shared_ptr<VHWCurveData_>& curve,
-             const std::shared_ptr<VHWVolData_>& vol) -> std::shared_ptr<ModelData_> {
-              REQUIRE(curve && vol, "InvalidVHWModel: curve and volatility data are required");
-              return std::const_pointer_cast<ModelData_>(NewVHWModelData(
-                  String_(name), Handle_<VHWCurveData_>(std::shared_ptr<const VHWCurveData_>(curve)),
-                  Handle_<VHWVolData_>(std::shared_ptr<const VHWVolData_>(vol))));
+    m.def("GSRModelData_New",
+          [](const std::string& name, const std::shared_ptr<GSRCurveData_>& curve,
+             const std::shared_ptr<GSRVolData_>& vol) -> std::shared_ptr<ModelData_> {
+              REQUIRE(curve && vol, "InvalidGSRModel: curve and volatility data are required");
+              return std::const_pointer_cast<ModelData_>(NewGSRModelData(
+                  String_(name), Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
+                  Handle_<GSRVolData_>(std::shared_ptr<const GSRVolData_>(vol))));
           },
           py::arg("name"), py::arg("curve"), py::arg("vol"));
 

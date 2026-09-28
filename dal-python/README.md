@@ -318,13 +318,21 @@ Historical EQ/FX observations can coexist. A model-sourced FIX, including today
 under `Model`, is always bound to the script's own future FIX index by name; the
 `model_bindings` settings argument was removed. Correlated BS and hybrid models
 accept several named future EQ indices; BS and Dupire accept one distinct index.
-Future FX, IR, composite, and delivery-suffixed EQ remain unsupported.
+Future IR discount-factor, Libor, and swap observations are supported by the
+single-currency GSR model. Future FX, composite, and delivery-suffixed EQ remain
+unsupported.
 `default_index` gives legacy `SPOT()` an identity; it does not affect `FIX`
 literals. Unbound future-only `SPOT()` remains supported for one-asset models.
 Multi-asset `SPOT()` always requires a default, which also selects the one LSM
 regressor for early exercise. Historical SPOT requires a default, and mixing
 SPOT with FIX requires one too. `SPOT(index)` and `FIX()` are invalid. See
 [`examples/hybrid_script.py`](examples/hybrid_script.py) for two-equity valuation.
+The [GSR swap and swaption example](examples/014.gsr_swap_swaption.py) snapshots
+an input USD OIS yield curve, supplies `g/H`, prints both products' script
+trees, and reports curve fit and prices in tables. Its standard coupon-paying
+swap compares GSR Monte Carlo PV with static pricing from the same input yield
+curve; its swaption settles in cash. The
+[model guide](../docs/models/gaussian-short-rate.md) links the matching C++ example.
 
 Snapshot keys are native `DateTime_` values. Use `dal.DateTime_(date, 0)` for
 midnight; a quote at 11:00 cannot satisfy a daily FIX. Python `datetime` objects

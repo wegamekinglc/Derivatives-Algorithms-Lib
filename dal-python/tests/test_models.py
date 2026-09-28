@@ -118,15 +118,15 @@ def test_dupire_model_single_spot_single_time():
     assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
-def test_vhw_curve_vol_and_model_price_zero_vol_bond():
+def test_gsr_curve_vol_and_model_price_zero_vol_bond():
     today = dal.Date_(2026, 9, 28)
     exercise = dal.Date_(2027, 9, 28)
     maturity = dal.Date_(2028, 9, 28)
-    curve = dal.VHWCurveData_New(
+    curve = dal.GSRCurveData_New(
         "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
     )
-    vol = dal.VHWVolData_New("vol", [today], [0.0], [today], [1.0])
-    model = dal.VHWModelData_New("vhw", curve, vol)
+    vol = dal.GSRVolData_New("vol", [today], [0.0], [today], [1.0])
+    model = dal.GSRModelData_New("gsr", curve, vol)
     dal.EvaluationDate_Set(today)
     product = dal.Product_New([exercise], ["pay PAYS FIX(IR[USD,DF,2028-09-28])"])
     result = dal.MonteCarlo_ValueWithSettings(product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=True))
@@ -134,17 +134,17 @@ def test_vhw_curve_vol_and_model_price_zero_vol_bond():
     assert result["d_logdf:OIS:2028-09-28"] == pytest.approx(math.exp(-0.06), abs=1e-10)
 
 
-def test_vhw_aad_matches_second_bond_moment_and_model_parameter_risks():
+def test_gsr_aad_matches_second_bond_moment_and_model_parameter_risks():
     today = dal.Date_(2026, 9, 28)
     exercise = dal.Date_(2027, 9, 28)
     maturity = dal.Date_(2028, 9, 28)
-    curve = dal.VHWCurveData_New(
+    curve = dal.GSRCurveData_New(
         "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
     )
     g = 0.05
     h = 1.2
-    vol = dal.VHWVolData_New("vol", [today], [g], [today], [h])
-    model = dal.VHWModelData_New("vhw", curve, vol)
+    vol = dal.GSRVolData_New("vol", [today], [g], [today], [h])
+    model = dal.GSRModelData_New("gsr", curve, vol)
     dal.EvaluationDate_Set(today)
     product = dal.Product_New(
         [exercise],
@@ -162,20 +162,20 @@ def test_vhw_aad_matches_second_bond_moment_and_model_parameter_risks():
     assert result["d_H:2026-09-28"] == pytest.approx(expected * 2.0 * h * tenor * tenor * variance, abs=2e-5)
 
 
-def test_vhw_projection_node_risk_matches_central_difference():
+def test_gsr_projection_node_risk_matches_central_difference():
     today = dal.Date_(2026, 9, 28)
     fixing = dal.Date_(2027, 9, 28)
     horizon = dal.Date_(2028, 9, 28)
     dal.EvaluationDate_Set(today)
     product = dal.Product_New([fixing], ["pay PAYS FIX(IR[USD,LIBOR_3M_LCH])"])
-    vol = dal.VHWVolData_New("vol", [today], [0.0], [today], [1.0])
+    vol = dal.GSRVolData_New("vol", [today], [0.0], [today], [1.0])
 
     def value(last_projection_node, enable_aad):
-        curve = dal.VHWCurveData_New(
+        curve = dal.GSRCurveData_New(
             "curve", today, "USD", [today, fixing, horizon], [0.0, -0.03, -0.06],
             ["3M"], dal.DoubleMatrix_([[0.0, -0.04, last_projection_node]]),
         )
-        model = dal.VHWModelData_New("vhw", curve, vol)
+        model = dal.GSRModelData_New("gsr", curve, vol)
         return dal.MonteCarlo_ValueWithSettings(
             product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=enable_aad)
         )

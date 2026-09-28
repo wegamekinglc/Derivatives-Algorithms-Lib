@@ -134,7 +134,7 @@ convention (`Libor::StartFromFix` in `dal-cpp/dal/protocol/conventions.cpp`).
 The script-friendly aliases `IR[USD,DF,2028-09-28]`,
 `IR[USD,LIBOR_3M_LCH]`, and `IR[USD,SWAP,5Y]` parse to those same canonical
 objects. An optional start date or date increment follows the maturity or
-tenor. The [Vasicek–Hull–White model](../models/vasicek-hull-white.md) supplies
+tenor. The [Gaussian Short Rate model](../models/gaussian-short-rate.md) supplies
 future values for these names in one currency.
 
 ## Composites and historical paths
