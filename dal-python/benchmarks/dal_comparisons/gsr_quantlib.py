@@ -65,25 +65,22 @@ def quote_handles(value):
     return result
 
 
-def runner(case):
-    ql.Settings.instance().evaluationDate = date(inputs.TODAY)
-    handle = ql.YieldTermStructureHandle(curve())
-    if case["operation"] in inputs.SWAP_OPERATIONS:
-        if case["operation"] == "gsr_swap_fresh":
-            return lambda: [swap(handle).NPV() for _ in range(case["size"])]
-        instruments = [swap(handle) for _ in range(case["size"])]
+def static_swap_runner(case, handle):
+    if case["operation"] == "gsr_swap_fresh":
+        return lambda: [swap(handle).NPV() for _ in range(case["size"])]
+    instruments = [swap(handle) for _ in range(case["size"])]
 
-        def price_swaps():
-            values = []
-            for instrument in instruments:
-                instrument.recalculate()
-                values.append(instrument.NPV())
-            return values
+    def price_reused_swaps():
+        values = []
+        for instrument in instruments:
+            instrument.recalculate()
+            values.append(instrument.NPV())
+        return values
 
-        return price_swaps
+    return price_reused_swaps
 
-    if case["operation"] not in inputs.SWAPTION_OPERATIONS:
-        raise ValueError(f"unknown GSR operation: {case['operation']}")
+
+def swaption_runner(case, handle):
     model = ql.Gsr(
         handle,
         ql.DateVector(),
@@ -101,11 +98,11 @@ def runner(case):
             )
         )
 
-        def price_swaption():
+        def price_integrated_swaption():
             instrument.recalculate()
             return [instrument.NPV()]
 
-        return price_swaption
+        return price_integrated_swaption
 
     fixed_cashflows = underlying.fixedLeg()
     if len(fixed_cashflows) != 2 or fixed_cashflows[-1].date() != date(inputs.MATURITY):
@@ -118,7 +115,7 @@ def runner(case):
     state_scale = process.stdDeviation(0.0, 0.0, expiry_time)
     initial_numeraire = model.numeraire(0.0)
 
-    def price_swaption():
+    def price_monte_carlo_swaption():
         sequence = ql.GaussianLowDiscrepancySequenceGenerator(
             ql.UniformLowDiscrepancySequenceGenerator(1, 0)
         )
@@ -136,4 +133,14 @@ def runner(case):
             payoff_sum += max(exercise_value, 0.0) / model.numeraire(expiry_time, state)
         return [initial_numeraire * payoff_sum / case["size"]]
 
-    return price_swaption
+    return price_monte_carlo_swaption
+
+
+def runner(case):
+    ql.Settings.instance().evaluationDate = date(inputs.TODAY)
+    handle = ql.YieldTermStructureHandle(curve())
+    if case["operation"] in inputs.SWAP_OPERATIONS:
+        return static_swap_runner(case, handle)
+    if case["operation"] in inputs.SWAPTION_OPERATIONS:
+        return swaption_runner(case, handle)
+    raise ValueError(f"unknown GSR operation: {case['operation']}")

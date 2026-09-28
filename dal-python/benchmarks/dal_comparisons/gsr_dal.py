@@ -71,19 +71,19 @@ def runner(case):
         if case["operation"] == "gsr_swap_reused":
             prepared = dal.PreparedRateTrades_New(trades=trades)
 
-            def price_swaps():
+            def price_reused_swaps():
                 rows = dal.PreparedRateTrades_Get_Prices(
                     prepared=prepared, market=market
                 )
                 return [row.pv if row.succeeded else float("nan") for row in rows]
 
-            return price_swaps
+            return price_reused_swaps
 
-        def price_swaps():
+        def price_fresh_swaps():
             rows = dal.PriceRateTrades(trades=trades, market=market)
             return [row.pv if row.succeeded else float("nan") for row in rows]
 
-        return price_swaps
+        return price_fresh_swaps
 
     if case["operation"] not in inputs.SWAPTION_OPERATIONS:
         raise ValueError(f"unknown GSR operation: {case['operation']}")

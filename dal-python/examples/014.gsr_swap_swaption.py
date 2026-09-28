@@ -5,7 +5,6 @@ import math
 
 import dal
 
-
 TODAY = dal.Date_(2026, 9, 28)
 EXPIRY = dal.Date_(2027, 9, 28)
 FIRST_FLOAT_COUPON = dal.Date_(2027, 12, 28)
@@ -38,7 +37,9 @@ def standard_payer_swap():
     dates = [EXPIRY, FIRST_FLOAT_COUPON, FIRST_COUPON, THIRD_FLOAT_COUPON, MATURITY]
     fixing_dates = ["2027-09-24", "2027-12-24", "2028-03-24", "2028-06-26"]
     scripts = [f"{STRIKE}"]
-    for i, (start, end, fixing) in enumerate(zip(dates[:-1], dates[1:], fixing_dates), 1):
+    for i, (start, end, fixing) in enumerate(
+        zip(dates[:-1], dates[1:], fixing_dates), 1
+    ):
         fixed_coupon = " - 0.5 * STRIKE" if i % 2 == 0 else ""
         scripts.append(
             f"pay PAYS ({end - start}.0 / 360.0) * "
@@ -55,7 +56,9 @@ def static_swap_price(discount_curve):
         dal.PeriodLength_New("3M"), dal.DayBasis_New("ACT_360")
     )
     float_index = dal.RateIndexConvention_New(
-        dal.PeriodLength_New("3M"), dal.DayBasis_New("ACT_360"), dal.CollateralType_OIS()
+        dal.PeriodLength_New("3M"),
+        dal.DayBasis_New("ACT_360"),
+        dal.CollateralType_OIS(),
     )
     float_index.fixing_lag = 2
     identity = dal.FixingIdentity_()
@@ -93,18 +96,7 @@ def static_swap_price(discount_curve):
     return result.pv
 
 
-def main():
-    dal.EvaluationDate_Set(TODAY)
-    dates = [TODAY, EXPIRY, FIRST_COUPON, MATURITY]
-    log_discount_factors = [-INPUT_RATE * (date - TODAY) / 365.0 for date in dates]
-    discount_curve = dal.DiscountLogDF_New("input_usd_ois", "USD", dates, log_discount_factors)
-    yield_curve = dal.CurveBlock_New(discount_curve)
-    curve = dal.GSRCurveDataFromYieldCurve_New("gsr_curve", yield_curve, TODAY, dates, [])
-    vol = dal.GSRVolData_New("gsr_vol", [TODAY], [0.02], [TODAY], [1.0])
-    model = dal.GSRModelData_New("gsr", curve, vol)
-
-    print("# GSR swap and swaption example\n")
-    print("The GSR curve snapshots the input USD OIS yield curve; g and H are supplied, not calibrated.\n")
+def report_curve_fit(discount_curve, model, dates):
     print("| Curve node | Input DF | GSR P(0,T) |\n|---|---:|---:|")
     for date in dates[1:]:
         bond = dal.Product_New([TODAY], [f"pay PAYS FIX(IR[USD,DF,{date}])"])
@@ -114,13 +106,19 @@ def main():
             raise RuntimeError(f"GSR did not fit the input discount curve at {date}")
         print(f"| {date} | {input_df:.9f} | {model_df:.9f} |")
 
-    print(f"\n| g knot | g | H knot | H |\n|---|---:|---|---:|\n| {TODAY} | 0.020000 | {TODAY} | 1.000000 |\n")
+
+def report_products(discount_curve, model):
+    print(
+        f"\n| g knot | g | H knot | H |\n|---|---:|---|---:|\n| {TODAY} | 0.020000 | {TODAY} | 1.000000 |\n"
+    )
 
     # The swaption's cash payoff uses the present value of the standard swap's fixed annuity.
     annuity = "0.5 * FIX(IR[USD,DF,2028-03-28]) + 0.5 * FIX(IR[USD,DF,2028-09-28])"
     swap_value = f"(FIX(IR[USD,SWAP,1Y,2027-09-28]) - STRIKE) * ({annuity})"
     swap = standard_payer_swap()
-    swaption = dal.Product_New(["STRIKE", EXPIRY], [f"{STRIKE}", f"pay PAYS MAX({swap_value}, 0)"])
+    swaption = dal.Product_New(
+        ["STRIKE", EXPIRY], [f"{STRIKE}", f"pay PAYS MAX({swap_value}, 0)"]
+    )
 
     print_script("Standard forward payer swap", swap)
     print_script("Cash-settled European payer swaption", swaption)
@@ -133,18 +131,46 @@ def main():
     curve_identity = (
         discount_curve(TODAY, EXPIRY)
         - discount_curve(TODAY, MATURITY)
-        - STRIKE * 0.5 * (discount_curve(TODAY, FIRST_COUPON) + discount_curve(TODAY, MATURITY))
+        - STRIKE
+        * 0.5
+        * (discount_curve(TODAY, FIRST_COUPON) + discount_curve(TODAY, MATURITY))
     )
     if not math.isclose(static_swap_pv, curve_identity, rel_tol=0.0, abs_tol=1e-10):
         raise RuntimeError("Static IRS PV differs from the yield-curve identity")
     if not math.isclose(swap_pv, static_swap_pv, rel_tol=0.0, abs_tol=2e-4):
         raise RuntimeError("Standard swap GSR PV differs from its input-curve PV")
     print(f"Forward start {EXPIRY}; unit notional; fixed rate {STRIKE:.2f}. ")
-    print("The swap pays coupons on their scheduled dates; the swaption settles in cash at expiry.\n")
+    print(
+        "The swap pays coupons on their scheduled dates; the swaption settles in cash at expiry.\n"
+    )
     print("| Product | GSR Monte Carlo PV | Static YieldCurve PV | Difference |")
     print("|---|---:|---:|---:|")
-    print(f"| Standard forward payer swap | {swap_pv:.9f} | {static_swap_pv:.9f} | {swap_pv - static_swap_pv:.9f} |")
+    print(
+        f"| Standard forward payer swap | {swap_pv:.9f} | {static_swap_pv:.9f} | {swap_pv - static_swap_pv:.9f} |"
+    )
     print(f"| Cash-settled European payer swaption | {swaption_pv:.9f} | N/A | N/A |")
+
+
+def main():
+    dal.EvaluationDate_Set(TODAY)
+    dates = [TODAY, EXPIRY, FIRST_COUPON, MATURITY]
+    log_discount_factors = [-INPUT_RATE * (date - TODAY) / 365.0 for date in dates]
+    discount_curve = dal.DiscountLogDF_New(
+        "input_usd_ois", "USD", dates, log_discount_factors
+    )
+    yield_curve = dal.CurveBlock_New(discount_curve)
+    curve = dal.GSRCurveDataFromYieldCurve_New(
+        "gsr_curve", yield_curve, TODAY, dates, []
+    )
+    vol = dal.GSRVolData_New("gsr_vol", [TODAY], [0.02], [TODAY], [1.0])
+    model = dal.GSRModelData_New("gsr", curve, vol)
+
+    print("# GSR swap and swaption example\n")
+    print(
+        "The GSR curve snapshots the input USD OIS yield curve; g and H are supplied, not calibrated.\n"
+    )
+    report_curve_fit(discount_curve, model, dates)
+    report_products(discount_curve, model)
     return 0
 
 
