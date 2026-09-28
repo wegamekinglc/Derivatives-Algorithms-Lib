@@ -27,7 +27,7 @@ CONVENTIONS = {
     "timing_boundary": "curves, swaps, model and script prepared before repeated pricing",
     "pricing_methods": {
         "swap": "DAL, QuantLib and rateslib deterministic single-curve IRS pricing",
-        "swaption": "DAL Sobol script MC versus QuantLib Gsr Gaussian1d quadrature; rateslib unsupported",
+        "swaption": "DAL Sobol script MC versus QuantLib Gsr Sobol path MC; rateslib unsupported",
     },
 }
 
@@ -120,10 +120,10 @@ def method(backend, case):
         return "single-curve IRS pricing"
     if backend == "dal":
         return "Sobol script Monte Carlo"
-    return "Gsr Gaussian1dSwaptionEngine, 128 integration points"
+    return "Gsr process Sobol Monte Carlo, Python path payoff"
 
 
 def tolerance(case, backend=None):
     if case["operation"] == "gsr_static_swap":
         return 1e-10
-    return 5e-6 if backend == "quantlib" else 2e-4
+    return 2e-4

@@ -528,31 +528,42 @@ Two cases reproduce the [GSR example](../examples/014.gsr_swap_swaption.py) on
 | Case | Timed operation | Backends |
 |------|-----------------|----------|
 | `gsr_swap_static_pv_32` | Price 32 identical standard IRS trades with quarterly ACT/360 floating coupons and semiannual 30/360 fixed coupons | DAL, QuantLib, rateslib |
-| `gsr_swaption_price_65536` | Reprice the European option on that swap with 65,536 DAL Sobol paths or 128 QuantLib Gaussian quadrature points | DAL, QuantLib |
+| `gsr_swaption_price_65536` | Reprice the European option on that swap with 65,536 Sobol paths for both DAL and QuantLib | DAL, QuantLib |
 
-Smoke mode uses four swaps and 4,096 Monte Carlo paths. Curves, swaps, DAL
-scripts, and short-rate models are built before timing. Every invocation
-reprices the instruments through a public API. The static swap oracle is the
-discount-curve cashflow identity. The swaption oracle integrates the GSR
-exercise payoff analytically under the expiry-forward Gaussian measure; it
+Smoke mode uses four swaps and 4,096 Monte Carlo paths for each MC backend.
+Curves, swaps, DAL scripts, and short-rate models are built before timing.
+Each MC invocation restarts its Sobol stream and generates all paths. The
+static swap oracle is the discount-curve cashflow identity. The swaption oracle
+integrates the GSR exercise payoff analytically under the expiry-forward
+Gaussian measure; it
 does not use either backend's price. Static prices must agree within `1e-10`
-per unit notional; the swaption bounds are `2e-4` for DAL Monte Carlo and
-`5e-6` for QuantLib quadrature.
+per unit notional; the swaption bound is `2e-4` for both MC implementations.
 
-QuantLib's [`Gsr` model and Gaussian1d swaption engine](https://github.com/lballabio/QuantLib-SWIG/blob/master/Python/examples/gaussian1d-models.py)
-use zero mean reversion and 2% state volatility. Its physically settled
-swaption has the same **exercise value** as the DAL script, which pays that
-value at expiry; [QuantLib's Gaussian1d engine does not implement cash
-settlement](https://github.com/lballabio/QuantLib/blob/master/ql/pricingengines/swaption/gaussian1dswaptionengine.hpp).
+QuantLib uses its [`Gsr` model](https://github.com/lballabio/QuantLib/blob/master/ql/models/shortrate/onefactormodels/gsr.cpp)
+with zero mean reversion and 2% state volatility. Its Python bindings expose
+the Gsr state process and Sobol path generator, but no GSR swaption MC pricing
+engine. The adapter drives one-step Gsr paths through the QuantLib generator,
+then calls QuantLib bond and numeraire methods for each path. Under this
+single-curve fixture, the floating leg telescopes to one minus the final
+discount bond; the fixed coupon amounts come from a standard QuantLib swap.
+The terminal-measure payoff is divided by the expiry numeraire and multiplied
+by the initial numeraire. This is the DAL script's cash exercise value.
+QuantLib's path payoff is assembled in Python, so Python/SWIG calls are part
+of its measured MC cost; this is an API-level comparison, not a comparison of
+two native C++ MC kernels. The Sobol implementations may draw different
+sequences even with the same path budget.
 [rateslib's IRS](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRS.html)
 matches the static swap; its [swaption API](https://rateslib.com/py/en/2.7.x/api/rateslib.instruments.IRSCall.html)
 uses implied volatility models rather than a GSR short-rate process, so that
-cell is explicitly unsupported. Static IRS and GSR option timings measure
-different algorithms and are reported as informational API comparisons.
+cell is explicitly unsupported. Static IRS pricing is deterministic on both
+backends. QuantLib reuses constructed schedules and coupons; DAL's
+`PriceRateTrades` prepares coupon cashflows inside every timed call. Thus
+the static timing also compares preparation and caching behavior, not only
+discounting arithmetic. Timings are reported as informational API comparisons.
 Rateslib's 30E/360 and DAL's 30/360 fixed coupons are both exactly 0.5 for
 these dates.
 
-`results.json` (`dal.python-comparisons/5`) retains raw timings, minimum and median,
+`results.json` (`dal.python-comparisons/6`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
 hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the

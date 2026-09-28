@@ -124,8 +124,9 @@ The GSR and static swap prices agree within a Monte Carlo tolerance of
 The [third-party comparison benchmark](../../dal-python/benchmarks/README.md#gsr-swap-and-swaption)
 reuses this curve and standard swap to compare static IRS pricing with
 QuantLib and rateslib. It also compares the GSR European swaption with
-QuantLib's one-factor Gaussian engine. Rateslib has no corresponding GSR
-short-rate swaption engine, so that benchmark reports it as unsupported.
+QuantLib's GSR process and Sobol Monte Carlo paths. Rateslib has no
+corresponding GSR short-rate swaption engine, so that benchmark reports it as
+unsupported.
 
 After building the Release-linux workspace, run:
 

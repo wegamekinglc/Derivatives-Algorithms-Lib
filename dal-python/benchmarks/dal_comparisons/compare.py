@@ -215,13 +215,16 @@ def summary(report):
         "",
         "GSR example: static coupon-paying IRS uses the same USD input curve "
         "across all three libraries (32 trades full; four smoke). The European "
-        "swaption compares DAL Sobol MC (65,536 paths full; 4,096 smoke) with "
-        "QuantLib's one-factor Gsr quadrature (128 integration points); model "
-        "and instruments are prepared before timing. "
-        "The cash exercise value equals the physical swaption exercise value. "
+        "swaption compares DAL script Sobol MC with QuantLib Gsr-process Sobol "
+        "MC (65,536 paths full; 4,096 smoke). Curves, model, instruments and "
+        "DAL script are prepared before timing; both rebuild Sobol streams per "
+        "invocation. QuantLib evaluates each path's payoff through Python/SWIG. "
+        "The cash exercise value is the underlying single-curve swap PV. "
+        "For static IRS, QuantLib reuses schedules/coupons, while DAL "
+        "PriceRateTrades prepares cashflows on every invocation. "
         "Rateslib has no corresponding short-rate swaption engine. "
         "These prices use independent curve and Gaussian option oracles; "
-        "different pricing algorithms make raw speed ratios informational.",
+        "different API and preparation costs make raw speed ratios informational.",
         "",
         "N/A: declared unsupported capabilities only (rateslib equity MC and "
         "GSR swaption; QuantLib simultaneous joint calibration). Missing packages or failed "

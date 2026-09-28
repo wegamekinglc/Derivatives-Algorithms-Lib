@@ -17,7 +17,7 @@ from .scenarios import (
     validate,
 )
 
-SCHEMA = "dal.python-comparisons/5"
+SCHEMA = "dal.python-comparisons/6"
 ROOT = Path(__file__).resolve().parents[1]
 
 

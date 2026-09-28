@@ -1,4 +1,4 @@
-"""QuantLib single-curve swap and one-factor Gaussian swaption counterparts."""
+"""QuantLib single-curve swap and GSR Sobol swaption counterparts."""
 
 import QuantLib as ql
 
@@ -89,15 +89,35 @@ def runner(case):
         quote_handles(0.0),
         ql.Actual365Fixed().yearFraction(date(inputs.TODAY), date(inputs.MATURITY)),
     )
-    # DAL pays the underlying swap's exercise value at expiry, matching a
-    # physically settled option's expiry value under this single-curve model.
-    instrument = ql.Swaption(swap(handle), ql.EuropeanExercise(date(inputs.EXPIRY)))
-    instrument.setPricingEngine(
-        ql.Gaussian1dSwaptionEngine(model, 128, 7.0, True, False, handle)
-    )
+    underlying = swap(handle)
+    fixed_cashflows = underlying.fixedLeg()
+    if len(fixed_cashflows) != 2 or fixed_cashflows[-1].date() != date(inputs.MATURITY):
+        raise ValueError("GSR comparison expects two fixed coupons ending at maturity")
+    first_coupon = (fixed_cashflows[0].date(), fixed_cashflows[0].amount())
+    last_coupon = (fixed_cashflows[1].date(), fixed_cashflows[1].amount())
+    expiry = date(inputs.EXPIRY)
+    expiry_time = ql.Actual365Fixed().yearFraction(date(inputs.TODAY), expiry)
+    process = model.stateProcess()
+    state_mean = process.expectation(0.0, 0.0, expiry_time)
+    state_scale = process.stdDeviation(0.0, 0.0, expiry_time)
+    initial_numeraire = model.numeraire(0.0)
 
     def price_swaption():
-        instrument.recalculate()
-        return [instrument.NPV()]
+        sequence = ql.GaussianLowDiscrepancySequenceGenerator(
+            ql.UniformLowDiscrepancySequenceGenerator(1, 0)
+        )
+        paths = ql.GaussianSobolPathGenerator(process, expiry_time, 1, sequence, False)
+        payoff_sum = 0.0
+        for _ in range(case["size"]):
+            state = (paths.next().value().back() - state_mean) / state_scale
+            first_bond = model.zerobond(first_coupon[0], expiry, state)
+            last_bond = model.zerobond(last_coupon[0], expiry, state)
+            # With one forecast/discount curve, the floating leg telescopes to
+            # 1 - P(expiry, maturity). The Gsr process uses a terminal measure.
+            exercise_value = (
+                1.0 - first_coupon[1] * first_bond - (1.0 + last_coupon[1]) * last_bond
+            )
+            payoff_sum += max(exercise_value, 0.0) / model.numeraire(expiry_time, state)
+        return [initial_numeraire * payoff_sum / case["size"]]
 
     return price_swaption
