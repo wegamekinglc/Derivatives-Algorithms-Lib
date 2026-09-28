@@ -47,18 +47,41 @@ namespace Dal::Index {
             return std::make_unique<DF_>(ccy, DateOrIncrement(values[offset + 2]), &start);
         }
 
-        std::unique_ptr<Index_> Rate(const Vector_<String_>& values, bool explicitSwap) {
-            const size_t offset = explicitSwap ? 1 : 0;
-            REQUIRE(values.size() == offset + 2 || values.size() == offset + 3, "InvalidIndex: IR rate requires currency, tenor and optional start");
-            const Ccy_ ccy(values[offset]);
-            const String_ tenor = values[offset + 1];
-            const Cell_ start = values.size() == offset + 3 ? DateOrIncrement(values[offset + 2]) : Cell_();
-            if (explicitSwap || IsSwapTenor(tenor)) {
-                REQUIRE(IsSwapTenor(tenor), "InvalidIndex: unsupported swap tenor " + tenor);
+        std::unique_ptr<Index_> Rate(const Vector_<String_>& values) {
+            REQUIRE(values.size() == 2 || values.size() == 3, "InvalidIndex: IR rate requires currency, tenor and optional start");
+            const Ccy_ ccy(values[0]);
+            const String_ tenor = values[1];
+            const Cell_ start = values.size() == 3 ? DateOrIncrement(values[2]) : Cell_();
+            if (IsSwapTenor(tenor))
                 return std::make_unique<Swap_>(ccy, tenor, start);
-            }
             REQUIRE(IsLiborTenor(tenor), "InvalidIndex: unsupported IR tenor " + tenor);
             return std::make_unique<Libor_>(ccy, TradedRate_(tenor), start);
+        }
+
+        std::unique_ptr<Index_> BracketedDiscount(const Vector_<String_>& values) {
+            REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: discount requires maturity and optional start");
+            Vector_<String_> discount{values[0]};
+            for (size_t i = 2; i < values.size(); ++i)
+                discount.push_back(values[i]);
+            return Discount(discount, 0);
+        }
+
+        std::unique_ptr<Index_> BracketedSwap(const Vector_<String_>& values) {
+            REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: swap requires a tenor and optional start");
+            REQUIRE(IsSwapTenor(values[2]), "InvalidIndex: unsupported swap tenor " + values[2]);
+            Vector_<String_> rate{values[0], values[2]};
+            if (values.size() == 4)
+                rate.push_back(values[3]);
+            return Rate(rate);
+        }
+
+        std::unique_ptr<Index_> Bracketed(const Vector_<String_>& values) {
+            REQUIRE(values.size() >= 2, "InvalidIndex: incomplete IR index");
+            if (values[1] == "DF")
+                return BracketedDiscount(values);
+            if (values[1] == "SWAP")
+                return BracketedSwap(values);
+            return Rate(values);
         }
     } // namespace
 
@@ -66,25 +89,9 @@ namespace Dal::Index {
         if (name.substr(0, 7) == "IR[DF]:")
             return Discount(Parts(name.substr(7)), 0);
         if (name.substr(0, 3) == "IR:")
-            return Rate(Parts(name.substr(3)), false);
+            return Rate(Parts(name.substr(3)));
         REQUIRE(name.substr(0, 3) == "IR[" && name.back() == ']',
                 "InvalidIndex: expected IR[currency,DF,maturity], IR[currency,rate] or a canonical IR name");
-        const auto values = Parts(name.substr(3, name.size() - 4));
-        REQUIRE(values.size() >= 2, "InvalidIndex: incomplete IR index");
-        if (values[1] == "DF") {
-            REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: discount requires maturity and optional start");
-            Vector_<String_> discount{values[0]};
-            for (size_t i = 2; i < values.size(); ++i)
-                discount.push_back(values[i]);
-            return Discount(discount, 0);
-        }
-        if (values[1] == "SWAP") {
-            REQUIRE(values.size() == 3 || values.size() == 4, "InvalidIndex: swap requires a tenor and optional start");
-            Vector_<String_> rate{values[0], values[2]};
-            if (values.size() == 4)
-                rate.push_back(values[3]);
-            return Rate(rate, false);
-        }
-        return Rate(values, false);
+        return Bracketed(Parts(name.substr(3, name.size() - 4)));
     }
 } // namespace Dal::Index

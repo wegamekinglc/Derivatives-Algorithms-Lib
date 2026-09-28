@@ -249,14 +249,40 @@ namespace Dal::AAD {
             const T_ variance = StateVariance(previous, current);
             const T_ loading = BondLoading(previous, current);
             const T_ covariance = StateDiscountCovariance(previous, current);
-            step->sigma_ = Value(variance) > 0.0 ? Dal::sqrt(variance) : T_(0.0);
-            step->bPlus_ = Value(variance) > 0.0 ? covariance / variance : T_(0.0);
+            if (Value(variance) > 0.0) {
+                step->sigma_ = Dal::sqrt(variance);
+                step->bPlus_ = covariance / variance;
+            } else {
+                step->sigma_ = T_(0.0);
+                step->bPlus_ = T_(0.0);
+            }
             step->bMinus_ = loading - step->bPlus_;
             step->a_ = LogDF(current) - LogDF(previous);
             step->a_ += loading * DiscountedStateMean(previous);
             step->a_ -= 0.5 * loading * loading * StateVariance(0.0, previous);
             step->a_ -= 0.5 * step->bPlus_ * step->bPlus_ * variance;
             step->advances_ = true;
+        }
+
+        void AdvancePath(const Step_& step, double gaussian, T_* state, T_* logNumeraire) const {
+            const T_ nextState = *state + step.sigma_ * gaussian;
+            if (NumeraireIsDeterministic())
+                *logNumeraire -= step.a_;
+            else
+                *logNumeraire -= step.a_ - step.bMinus_ * *state - step.bPlus_ * nextState;
+            *state = nextState;
+        }
+
+        [[nodiscard]] T_ Observe(double time, const Observation_& request, const T_& state) const {
+            switch (request.kind_) {
+            case Observation_::Kind_::DF:
+                return Bond(time, request.maturity_, state) / Bond(time, request.start_, state);
+            case Observation_::Kind_::LIBOR:
+                return Libor(time, request.start_, request.maturity_, request.projectionTenor_, request.indexBasis_, state);
+            case Observation_::Kind_::SWAP:
+                return SwapRate(time, request, state);
+            }
+            THROW("UnsupportedVHWObservation: unknown observation kind");
         }
 
     public:
@@ -357,33 +383,13 @@ namespace Dal::AAD {
             size_t gaussianSlot = 0;
             for (size_t i = 0; i < productTimeLine_.size(); ++i) {
                 const auto& step = steps_[i];
-                if (step.advances_) {
-                    const T_ nextState = state + step.sigma_ * gaussian[gaussianSlot++];
-                    if (NumeraireIsDeterministic())
-                        logNumeraire -= step.a_;
-                    else
-                        logNumeraire -= step.a_ - step.bMinus_ * state - step.bPlus_ * nextState;
-                    state = nextState;
-                }
+                if (step.advances_)
+                    AdvancePath(step, gaussian[gaussianSlot++], &state, &logNumeraire);
                 auto& sample = (*path)[i];
                 sample.spot_ = T_(0.0);
                 sample.numeraire_ = Dal::exp(logNumeraire);
-                for (size_t j = 0; j < observations_[i].size(); ++j) {
-                    const auto& request = observations_[i][j];
-                    switch (request.kind_) {
-                    case Observation_::Kind_::DF:
-                        sample.observations_[j] =
-                            Bond(productTimeLine_[i], request.maturity_, state) / Bond(productTimeLine_[i], request.start_, state);
-                        break;
-                    case Observation_::Kind_::LIBOR:
-                        sample.observations_[j] =
-                            Libor(productTimeLine_[i], request.start_, request.maturity_, request.projectionTenor_, request.indexBasis_, state);
-                        break;
-                    case Observation_::Kind_::SWAP:
-                        sample.observations_[j] = SwapRate(productTimeLine_[i], request, state);
-                        break;
-                    }
-                }
+                for (size_t j = 0; j < observations_[i].size(); ++j)
+                    sample.observations_[j] = Observe(productTimeLine_[i], observations_[i][j], state);
             }
         }
     };
