@@ -24,9 +24,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   names; archives with VHW type identifiers require migration before loading. See
   [Gaussian Short Rate model](docs/models/gaussian-short-rate.md).
 - **GSR benchmark comparison** — the standard swap is priced through DAL,
-  QuantLib, and rateslib, while the GSR European swaption is compared with
-  QuantLib's GSR Sobol Monte Carlo path valuation. Independent curve and Gaussian
-  option oracles check results before timing. See the
+  QuantLib, and rateslib with reused and fresh cashflows. The GSR European
+  swaption retains both QuantLib Sobol Monte Carlo and Gaussian1d integration
+  comparisons. Independent curve and Gaussian option oracles check results. See the
   [comparison benchmark](dal-python/benchmarks/README.md#gsr-swap-and-swaption).
 
 ## 2026-09-28

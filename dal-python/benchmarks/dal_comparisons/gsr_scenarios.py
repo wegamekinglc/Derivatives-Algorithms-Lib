@@ -11,6 +11,8 @@ CURVE_DATES = (TODAY, EXPIRY, FIRST_COUPON, MATURITY)
 INPUT_RATE = 0.025
 STRIKE = 0.03
 VOLATILITY = 0.02
+SWAP_OPERATIONS = ("gsr_swap_reused", "gsr_swap_fresh")
+SWAPTION_OPERATIONS = ("gsr_swaption_mc", "gsr_swaption_gaussian1d")
 
 CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
@@ -24,10 +26,10 @@ CONVENTIONS = {
     "notional": 1.0,
     "volatility": "g=0.02 and H=1.0; QuantLib Gsr reversion=0 and volatility=0.02",
     "swaption_payoff": "max(value of underlying payer swap at expiry, 0)",
-    "timing_boundary": "curves, swaps, model and script prepared before repeated pricing",
+    "timing_boundary": "curves and models prepared; reused swaps or freshly constructed cashflows are separate cases",
     "pricing_methods": {
-        "swap": "DAL, QuantLib and rateslib deterministic single-curve IRS pricing",
-        "swaption": "DAL Sobol script MC versus QuantLib Gsr Sobol path MC; rateslib unsupported",
+        "swap": "DAL, QuantLib and rateslib deterministic single-curve IRS pricing with and without cashflow reuse",
+        "swaption": "DAL Sobol script MC compared with QuantLib Gsr Sobol path MC and Gaussian1d integration; rateslib unsupported",
     },
 }
 
@@ -35,14 +37,25 @@ CONVENTIONS = {
 def cases(smoke=False):
     return [
         {
-            "name": "gsr_swap_static_pv_32",
-            "operation": "gsr_static_swap",
+            "name": "gsr_swap_reused_cashflows_32",
+            "operation": "gsr_swap_reused",
+            "size": 4 if smoke else 32,
+        },
+        {
+            "name": "gsr_swap_fresh_cashflows_32",
+            "operation": "gsr_swap_fresh",
             "size": 4 if smoke else 32,
         },
         {
             "name": "gsr_swaption_price_65536",
-            "operation": "gsr_swaption",
+            "operation": "gsr_swaption_mc",
             "size": 4096 if smoke else 65536,
+        },
+        {
+            "name": "gsr_swaption_gaussian1d_128",
+            "operation": "gsr_swaption_gaussian1d",
+            "size": 4096 if smoke else 65536,
+            "integration_points": 128,
         },
     ]
 
@@ -108,22 +121,27 @@ def swaption_pv():
 
 
 def expected(case):
-    if case["operation"] == "gsr_static_swap":
+    if case["operation"] in SWAP_OPERATIONS:
         return [swap_pv()] * case["size"]
-    if case["operation"] == "gsr_swaption":
+    if case["operation"] in SWAPTION_OPERATIONS:
         return [swaption_pv()]
     raise ValueError(f"unknown GSR operation: {case['operation']}")
 
 
 def method(backend, case):
-    if case["operation"] == "gsr_static_swap":
-        return "single-curve IRS pricing"
+    if case["operation"] in SWAP_OPERATIONS:
+        reuse = "reused" if case["operation"] == "gsr_swap_reused" else "fresh"
+        return f"single-curve IRS pricing, {reuse} cashflows"
     if backend == "dal":
         return "Sobol script Monte Carlo"
-    return "Gsr process Sobol Monte Carlo, Python path payoff"
+    if case["operation"] == "gsr_swaption_mc":
+        return "Gsr process Sobol Monte Carlo, Python path payoff"
+    return "Gsr Gaussian1dSwaptionEngine, 128 integration points"
 
 
 def tolerance(case, backend=None):
-    if case["operation"] == "gsr_static_swap":
+    if case["operation"] in SWAP_OPERATIONS:
         return 1e-10
+    if backend == "quantlib" and case["operation"] == "gsr_swaption_gaussian1d":
+        return 5e-6
     return 2e-4

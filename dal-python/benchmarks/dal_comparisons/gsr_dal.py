@@ -60,7 +60,7 @@ def runner(case):
     today = date(inputs.TODAY)
     dal.EvaluationDate_Set(today)
     source = curve()
-    if case["operation"] == "gsr_static_swap":
+    if case["operation"] in inputs.SWAP_OPERATIONS:
         market = dal.RatePricingMarket_(
             valuation_time=dal.DateTime_(today, 9, 0),
             result_currency="USD",
@@ -68,6 +68,16 @@ def runner(case):
             fixings=dal.MarketFixingSnapshot_New({}),
         )
         trades = [trade(i) for i in range(case["size"])]
+        if case["operation"] == "gsr_swap_reused":
+            prepared = dal.PreparedRateTrades_New(trades=trades)
+
+            def price_swaps():
+                rows = dal.PreparedRateTrades_Get_Prices(
+                    prepared=prepared, market=market
+                )
+                return [row.pv if row.succeeded else float("nan") for row in rows]
+
+            return price_swaps
 
         def price_swaps():
             rows = dal.PriceRateTrades(trades=trades, market=market)
@@ -75,7 +85,7 @@ def runner(case):
 
         return price_swaps
 
-    if case["operation"] != "gsr_swaption":
+    if case["operation"] not in inputs.SWAPTION_OPERATIONS:
         raise ValueError(f"unknown GSR operation: {case['operation']}")
     dates = [date(value) for value in inputs.CURVE_DATES]
     snapshot = dal.GSRCurveDataFromYieldCurve_New(

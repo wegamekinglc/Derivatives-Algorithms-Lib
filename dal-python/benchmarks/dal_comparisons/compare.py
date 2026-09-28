@@ -214,17 +214,18 @@ def summary(report):
         "QuantLib bootstrap accuracy 1e-12, rateslib func/conv 1e-20, grad 1e-16.",
         "",
         "GSR example: static coupon-paying IRS uses the same USD input curve "
-        "across all three libraries (32 trades full; four smoke). The European "
-        "swaption compares DAL script Sobol MC with QuantLib Gsr-process Sobol "
-        "MC (65,536 paths full; 4,096 smoke). Curves, model, instruments and "
-        "DAL script are prepared before timing; both rebuild Sobol streams per "
-        "invocation. QuantLib evaluates each path's payoff through Python/SWIG. "
+        "across all three libraries (32 trades full; four smoke). Reused mode "
+        "prepares DAL cashflows and third-party swaps before timing; fresh mode "
+        "rebuilds them inside timing. The European swaption retains both "
+        "QuantLib Gsr-process Sobol MC (65,536 paths full; 4,096 smoke) and "
+        "Gaussian1d integration (128 points), each compared with DAL script "
+        "Sobol MC at the corresponding path budget. Curves, model and DAL "
+        "script are prepared before timing; MC streams restart per invocation. "
+        "QuantLib MC evaluates each path payoff through Python/SWIG. "
         "The cash exercise value is the underlying single-curve swap PV. "
-        "For static IRS, QuantLib reuses schedules/coupons, while DAL "
-        "PriceRateTrades prepares cashflows on every invocation. "
         "Rateslib has no corresponding short-rate swaption engine. "
         "These prices use independent curve and Gaussian option oracles; "
-        "different API and preparation costs make raw speed ratios informational.",
+        "different APIs and pricing methods make raw speed ratios informational.",
         "",
         "N/A: declared unsupported capabilities only (rateslib equity MC and "
         "GSR swaption; QuantLib simultaneous joint calibration). Missing packages or failed "
@@ -266,7 +267,7 @@ def summary(report):
 
 
 def path_counts(case):
-    if case["operation"] == "gsr_swaption":
+    if case["operation"] in ("gsr_swaption_mc", "gsr_swaption_gaussian1d"):
         return f"{case['size']} | —"
     if not case["operation"].startswith("mc_"):
         return "— | —"

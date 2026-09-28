@@ -68,7 +68,9 @@ def quote_handles(value):
 def runner(case):
     ql.Settings.instance().evaluationDate = date(inputs.TODAY)
     handle = ql.YieldTermStructureHandle(curve())
-    if case["operation"] == "gsr_static_swap":
+    if case["operation"] in inputs.SWAP_OPERATIONS:
+        if case["operation"] == "gsr_swap_fresh":
+            return lambda: [swap(handle).NPV() for _ in range(case["size"])]
         instruments = [swap(handle) for _ in range(case["size"])]
 
         def price_swaps():
@@ -80,7 +82,7 @@ def runner(case):
 
         return price_swaps
 
-    if case["operation"] != "gsr_swaption":
+    if case["operation"] not in inputs.SWAPTION_OPERATIONS:
         raise ValueError(f"unknown GSR operation: {case['operation']}")
     model = ql.Gsr(
         handle,
@@ -90,12 +92,26 @@ def runner(case):
         ql.Actual365Fixed().yearFraction(date(inputs.TODAY), date(inputs.MATURITY)),
     )
     underlying = swap(handle)
+    expiry = date(inputs.EXPIRY)
+    if case["operation"] == "gsr_swaption_gaussian1d":
+        instrument = ql.Swaption(underlying, ql.EuropeanExercise(expiry))
+        instrument.setPricingEngine(
+            ql.Gaussian1dSwaptionEngine(
+                model, case["integration_points"], 7.0, True, False, handle
+            )
+        )
+
+        def price_swaption():
+            instrument.recalculate()
+            return [instrument.NPV()]
+
+        return price_swaption
+
     fixed_cashflows = underlying.fixedLeg()
     if len(fixed_cashflows) != 2 or fixed_cashflows[-1].date() != date(inputs.MATURITY):
         raise ValueError("GSR comparison expects two fixed coupons ending at maturity")
     first_coupon = (fixed_cashflows[0].date(), fixed_cashflows[0].amount())
     last_coupon = (fixed_cashflows[1].date(), fixed_cashflows[1].amount())
-    expiry = date(inputs.EXPIRY)
     expiry_time = ql.Actual365Fixed().yearFraction(date(inputs.TODAY), expiry)
     process = model.stateProcess()
     state_mean = process.expectation(0.0, 0.0, expiry_time)

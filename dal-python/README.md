@@ -734,11 +734,12 @@ builds, using two rounds of ten interleaved processes and a strict 4% threshold 
 both rounds. The coverage map explicitly records unbound C++ kernels and fixture
 differences; Python timings include binding and result-conversion costs.
 
-The Linux gate also checks 41 comparison workloads against DAL,
+The Linux gate also checks 43 comparison workloads against DAL,
 QuantLib-Python and rateslib with independent numerical oracles. Its report covers
 discount queries, IRS PV and DV01, Monte Carlo vanilla/barrier prices and
 Delta/Vega/Rho, single, staged/joint multi-curve and XCCY calibration, and the
-GSR example's standard swap and European swaption. Rateslib equity MC and GSR
+GSR example's standard swap with and without cashflow reuse and its European
+swaption under QuantLib MC and Gaussian1d integration. Rateslib equity MC and GSR
 swaption, and QuantLib simultaneous joint calibration are explicitly
 unsupported; every other case must complete successfully.
 Node risk uses DAL reverse AAD, rateslib forward AD and QuantLib finite differences,

@@ -79,7 +79,7 @@ def cases(smoke=False):
 
 
 def unsupported_reason(backend, case):
-    if backend == "rateslib" and case["operation"] == "gsr_swaption":
+    if backend == "rateslib" and case["operation"] in gsr_scenarios.SWAPTION_OPERATIONS:
         return "rateslib has no GSR short-rate swaption pricing engine"
     if backend == "rateslib" and case["operation"].startswith("mc_"):
         return "rateslib has no equity-option Monte Carlo engine"
