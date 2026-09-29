@@ -110,7 +110,8 @@ int main() {
 
     std::cout << "# GSR swap and swaption example\n\n"
               << "The GSR curve snapshots the input USD OIS yield curve; g and H are supplied, not calibrated.\n\n"
-              << "| Curve node | Input DF | GSR P(0,T) |\n|---|---:|---:|\n";
+              << std::left << std::setw(15) << "Curve node" << std::right << std::setw(17) << "Input DF" << std::setw(17) << "GSR P(0,T)" << '\n'
+              << std::string(49, '-') << '\n';
     std::cout << std::fixed << std::setprecision(9);
     for (size_t i = 1; i < nodes.size(); ++i) {
         const String_ maturity = Date::ToString(nodes[i]);
@@ -118,11 +119,16 @@ int main() {
         const double inputDf = (*discountCurve)(TODAY, nodes[i]);
         const double modelDf = Price(bond, model);
         REQUIRE(std::abs(modelDf - inputDf) < 1e-10, "GSR did not fit the input discount curve at a node");
-        std::cout << "| " << maturity.c_str() << " | " << inputDf << " | " << modelDf << " |\n";
+        std::cout << std::left << std::setw(15) << maturity.c_str() << std::right << std::setw(17) << inputDf << std::setw(17) << modelDf << '\n';
     }
 
-    std::cout << "\n| g knot | g | H knot | H |\n|---|---:|---|---:|\n| " << Date::ToString(TODAY).c_str() << " | 0.020000 | "
-              << Date::ToString(TODAY).c_str() << " | 1.000000 |\n\n";
+    std::cout << std::string(49, '-') << "\n\n"
+              << std::left << std::setw(15) << "g knot" << std::right << std::setw(12) << "g" << "  " << std::left << std::setw(15) << "H knot"
+              << std::right << std::setw(12) << "H" << '\n'
+              << std::string(56, '-') << '\n'
+              << std::left << std::setw(15) << Date::ToString(TODAY).c_str() << std::right << std::setw(12) << "0.020000" << "  " << std::left
+              << std::setw(15) << Date::ToString(TODAY).c_str() << std::right << std::setw(12) << "1.000000" << '\n'
+              << std::string(56, '-') << "\n\n";
 
     // The delivered swap pays four 3M ACT/360 Libor coupons and two 6M 30/360 fixed coupons.
     const String_ annuity = "0.5 * FIX(IR[USD,DF,2028-03-28]) + 0.5 * FIX(IR[USD,DF,2028-09-28])";
@@ -143,7 +149,12 @@ int main() {
     REQUIRE(std::abs(swapPv - staticSwapPv) < 2e-4, "Standard swap GSR PV differs from its input-curve PV");
     std::cout << "Forward start " << Date::ToString(EXPIRY).c_str() << "; unit notional; fixed rate " << std::setprecision(2) << STRIKE
               << std::setprecision(9) << ". The swap pays coupons on their scheduled dates; the swaption settles in cash at expiry.\n\n"
-              << "| Product | GSR Monte Carlo PV | Static YieldCurve PV | Difference |\n|---|---:|---:|---:|\n"
-              << "| Standard forward payer swap | " << swapPv << " | " << staticSwapPv << " | " << swapPv - staticSwapPv << " |\n"
-              << "| Cash-settled European payer swaption | " << swaptionPv << " | N/A | N/A |\n";
+              << std::left << std::setw(41) << "Product" << std::right << std::setw(23) << "GSR Monte Carlo PV" << std::setw(23)
+              << "Static YieldCurve PV" << std::setw(18) << "Difference" << '\n'
+              << std::string(105, '-') << '\n'
+              << std::left << std::setw(41) << "Standard forward payer swap" << std::right << std::setw(23) << swapPv << std::setw(23) << staticSwapPv
+              << std::setw(18) << swapPv - staticSwapPv << '\n'
+              << std::left << std::setw(41) << "Cash-settled European payer swaption" << std::right << std::setw(23) << swaptionPv << std::setw(23)
+              << "N/A" << std::setw(18) << "N/A" << '\n'
+              << std::string(105, '-') << '\n';
 }
