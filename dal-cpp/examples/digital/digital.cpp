@@ -2,6 +2,10 @@
 // Created by wegam on 2020/12/21.
 //
 
+#include <iomanip>
+#include <iostream>
+#include <string>
+
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
@@ -10,9 +14,6 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/utilities/timer.hpp>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 using namespace std;
 using namespace Dal;

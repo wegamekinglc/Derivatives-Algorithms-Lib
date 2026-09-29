@@ -149,6 +149,68 @@ TEST(ModelTest, TestHybridGsrAndLocalVolShareNumeraireAndRateObservations) {
     ASSERT_NEAR(hybridPath[1].observations_[0] / hybridPath[1].numeraire_, 100.0 * std::exp(-0.02 + 0.20 * 0.3), 1e-10);
 }
 
+TEST(ModelTest, TestHybridGsrLocalVolAadRisksAndRealizedCarry) {
+    const Date_ today(2026, 9, 28);
+    const Date_ oneYear(2027, 9, 28);
+    const Date_ twoYears(2028, 9, 28);
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, oneYear, twoYears}, {0.0, -0.03, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> rateVol(new GSRVolData_("rate_vol", {today}, {0.02}, {today}, {1.0}));
+    const Handle_<LocalVolSurfaceData_> equityVol(new LocalVolSurfaceData_("equity_vol", {100.0}, {0.0}, Matrix_<>(1, 1, 0.20)));
+    HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {
+        Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "W_RATE", curve, rateVol)),
+        Handle_<HybridComponentData_>(new HybridLocalVolEquityData_("equity", "EQ[A]", "USD", "W_EQ", 100.0, 0.01, equityVol, 1.0))};
+    Matrix_<> correlation(2, 2, 0.0);
+    correlation(0, 0) = correlation(1, 1) = 1.0;
+    correlation(0, 1) = correlation(1, 0) = 0.5;
+    settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", {"W_EQ", "W_RATE"}, correlation));
+    const Handle_<ModelData_> data(new HybridModelData_("hybrid", settings));
+    const Vector_<> timeline{0.0, 1.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    definitions[1].indexNames_ = {"EQ[A]", "IR[USD,DF,2028-09-28]"};
+    const Vector_<> gaussian{0.3, 0.4};
+
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(data);
+    ASSERT_EQ(model->ParameterLabels()[2], "lvol:EQ[A]:0:0");
+    ASSERT_EQ(model->ParameterLabels()[4], "logdf:OIS:2028-09-28");
+    ASSERT_EQ(model->ParameterLabels()[5], "g:2026-09-28");
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    model->GeneratePath(gaussian, &path);
+    const auto discountedSpot = path[1].observations_[0] / path[1].numeraire_;
+    ASSERT_NEAR(AAD::Value(discountedSpot), 100.0 * std::exp(-0.01 - 0.5 * 0.20 * 0.20 + 0.20 * gaussian[0]), 1e-10);
+    ASSERT_GT(std::abs(AAD::Value(path[1].numeraire_) - std::exp(0.03)), 1e-4);
+    AAD::Number_ payoff = (path[1].observations_[0] + 10.0 * path[1].observations_[1]) / path[1].numeraire_;
+    AAD::Adjoint(payoff) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+
+    const auto bumpedValue = [&](size_t parameter, double shift) {
+        auto bumped = CreateModel<double>(data);
+        bumped->Allocate(timeline, definitions);
+        *bumped->Parameters()[parameter] += shift;
+        bumped->Init(timeline, definitions);
+        AAD::Scenario_<> bumpedPath;
+        AAD::AllocatePath(definitions, bumpedPath);
+        bumped->GeneratePath(gaussian, &bumpedPath);
+        return (bumpedPath[1].observations_[0] + 10.0 * bumpedPath[1].observations_[1]) / bumpedPath[1].numeraire_;
+    };
+    constexpr double bump = 1e-5;
+    for (const size_t parameter : {size_t{2}, size_t{4}, size_t{5}}) {
+        const double difference = (bumpedValue(parameter, bump) - bumpedValue(parameter, -bump)) / (2.0 * bump);
+        ASSERT_GT(std::abs(difference), 1e-5);
+        ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[parameter]), difference, 1e-5);
+    }
+}
+
 TEST(ModelTest, TestHybridLocalVolAadSpotAndVolRisk) {
     const Handle_<LocalVolSurfaceData_> surface(new LocalVolSurfaceData_("flat", {100.0}, {0.0}, Matrix_<>(1, 1, 0.20)));
     HybridSettings_ settings;

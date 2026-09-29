@@ -411,7 +411,7 @@ it neither binds a model nor changes model spot/volatility inputs. Explicit
 and contract settings. It performs no parsing or market access. Full script
 and index validation occurs in description or preparation; pricing additionally
 requires dated events and a syntactic `PAYS` or `EXERCISE`. Product and model handles must
-be non-null, the model must be BS, correlated BS, or hybrid, and `numPath` must be a positive
+be non-null, the model must be BS, correlated BS, GSR, or hybrid, and `numPath` must be a positive
 `int`. C++ cannot detect fractional values already converted to `int` before
 entry, and these typed settings have no string-key dictionary interface.
 
@@ -606,8 +606,9 @@ intended equity's market data.
 Each model-sourced request retains its canonical index and a separate sample
 output slot. Correlated BS and hybrid models accept several configured
 future ordinary EQ indices. BS still accepts only one distinct
-future EQ index (`MultipleModelIndices`). An unsupported model-observed index
-fails before history access or worker submission. Future FX, IR, composite,
+future EQ index (`MultipleModelIndices`). GSR and a Hybrid GSR rate component
+support compatible future IR requests. An unsupported model-observed index
+fails before history access or worker submission. Future FX, composite,
 and EQ delivery (`>` or `@`) outputs are unsupported. Historical EQ/FX observations need no model index;
 several historical equities, delivery identities, and FX directions can coexist
 with one future ordinary EQ. Historical inverse-FX lookup does not imply a
