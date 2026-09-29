@@ -29,21 +29,7 @@ namespace Dal {
         Vector_<> times_;
         Matrix_<> vols_;
 
-        LocalVolSurfaceData_(const String_& name, const Vector_<>& spots, const Vector_<>& times, const Matrix_<>& vols)
-            : Storable_("LocalVolSurfaceData", name), spots_(spots), times_(times), vols_(vols) {
-            REQUIRE(!spots_.empty() && !times_.empty() && vols_.Rows() == static_cast<int>(spots_.size()) &&
-                        vols_.Cols() == static_cast<int>(times_.size()),
-                    "InvalidLocalVolSurface: grid dimensions must match nonempty spot and time axes");
-            for (size_t i = 0; i < spots_.size(); ++i)
-                REQUIRE(std::isfinite(spots_[i]) && spots_[i] > 0.0 && (i == 0 || spots_[i] > spots_[i - 1]),
-                        "InvalidLocalVolSurface: spots must be finite, positive, and strictly increasing");
-            for (size_t j = 0; j < times_.size(); ++j)
-                REQUIRE(std::isfinite(times_[j]) && times_[j] >= 0.0 && (j == 0 || times_[j] > times_[j - 1]),
-                        "InvalidLocalVolSurface: times must be finite, nonnegative, and strictly increasing");
-            for (int i = 0; i < vols_.Rows(); ++i)
-                for (int j = 0; j < vols_.Cols(); ++j)
-                    REQUIRE(std::isfinite(vols_(i, j)) && vols_(i, j) >= 0.0, "InvalidLocalVolSurface: volatilities must be finite and nonnegative");
-        }
+        LocalVolSurfaceData_(const String_& name, const Vector_<>& spots, const Vector_<>& times, const Matrix_<>& vols);
         void Write(Archive::Store_& dst) const override;
     };
 

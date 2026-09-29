@@ -284,7 +284,9 @@ namespace Dal {
             }
             [[nodiscard]] T_ Observe(size_t, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const override {
                 REQUIRE(slot == 0, "InvalidHybridObservation: local-vol equity has one output");
-                return today ? spot_ : Dal::exp(state[stateOffset]);
+                if (today)
+                    return spot_;
+                return Dal::exp(state[stateOffset]);
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
                 auto copy = std::make_unique<HybridLocalVolEquity_<T_>>(*this);
@@ -581,11 +583,13 @@ namespace Dal {
 
             void FillSample(size_t sample, const Vector_<T_>& state, bool today, Sample_<T_>* output) const {
                 const size_t gridIndex = productGridIndices_[sample];
-                if ((*defLine_)[sample].numeraire_)
-                    output->numeraire_ =
-                        NumeraireIsDeterministic()
-                            ? numeraires_[sample]
-                            : Dal::exp(components_[rateSlot_]->PathLogNumeraire(timeLine_[gridIndex], state, stateOffsets_[rateSlot_]));
+                if ((*defLine_)[sample].numeraire_) {
+                    if (NumeraireIsDeterministic())
+                        output->numeraire_ = numeraires_[sample];
+                    else
+                        output->numeraire_ =
+                            Dal::exp(components_[rateSlot_]->PathLogNumeraire(timeLine_[gridIndex], state, stateOffsets_[rateSlot_]));
+                }
                 output->spot_ = components_[spotSlot_]->Observe(gridIndex, 0, state, stateOffsets_[spotSlot_], today);
                 for (size_t i = 0; i < outputSlots_[sample].size(); ++i) {
                     const auto slot = outputSlots_[sample][i];
