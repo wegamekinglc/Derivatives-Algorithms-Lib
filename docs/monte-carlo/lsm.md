@@ -217,9 +217,9 @@ regressor does not capture all relevant state for general path-dependent claims
 (for example, a running average or barrier state). Such scripts can be evaluated,
 but their continuation approximation omits that additional state.
 
-For BS and Dupire, the regressor is the product's single model-sourced future
+For BS, the regressor is the product's single model-sourced future
 observation; an unbound `SPOT()` keeps a null `regressor_index` in diagnostics.
-For correlated BS and deterministic-rate hybrid models with several equities,
+For correlated BS and hybrid models with several equities,
 `ScriptProductSettings_::defaultIndex_` selects one supported EQ regressor.
 Alternatively, `regressionFeatures_` explicitly selects up to three state
 coordinates, for example `{"EQ[A]", "EQ[B]"}` or

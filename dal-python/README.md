@@ -4,7 +4,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 ## Features
 
-- **Black-Scholes, Dupire, correlated BS, and hybrid models** for equity derivatives pricing
+- **Black-Scholes, correlated BS, GSR, and hybrid local-vol models** for derivatives pricing
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
@@ -317,7 +317,7 @@ history reads and return zero. Empty or no-PAYS products fail valuation.
 Historical EQ/FX observations can coexist. A model-sourced FIX, including today
 under `Model`, is always bound to the script's own future FIX index by name; the
 `model_bindings` settings argument was removed. Correlated BS and hybrid models
-accept several named future EQ indices; BS and Dupire accept one distinct index.
+accept several named future EQ indices; BS accepts one distinct index.
 Future IR discount-factor, Libor, and swap observations are supported by the
 single-currency GSR model. Future FX, composite, and delivery-suffixed EQ remain
 unsupported.
@@ -382,7 +382,7 @@ precise_sobol = dal.SobolRSG_New(
 )  # opt in to the precise-CDF Newton correction
 ```
 
-### Dupire Local Volatility Model
+### Local Volatility in Hybrid
 
 ```python
 # Define a local volatility surface with flat 20% vol
@@ -390,13 +390,10 @@ spots = [80.0, 90.0, 100.0, 110.0, 120.0]
 times = [0.5, 1.0, 2.0]
 vols = dal.DoubleMatrix_(len(spots), len(times), 0.2)  # Fill with 20% vol
 
-dupire_model = dal.DupireModelData_New(
-    spot=100.0,
-    rate=0.05,
-    repo=0.01,
-    spots=spots,
-    times=times,
-    vols=vols
+surface = dal.LocalVolSurfaceData_New("equity_vol", spots, times, vols)
+bs = dal.BSModelData_New(100.0, 0.20, 0.05, 0.01)
+local_vol_model = dal.BSLocalVolModelData_New(
+    "local_vol", "EQ[A]", "USD", "W_EQ", bs, surface
 )
 ```
 
@@ -416,7 +413,8 @@ dupire_model = dal.DupireModelData_New(
 ### Models
 
 - `dal.BSModelData_New(spot, vol, rate, div)` — Black-Scholes model
-- `dal.DupireModelData_New(spot, rate, repo, spots, times, vols)` — Dupire local vol model
+- `dal.LocalVolSurfaceData_New(name, spots, times, vols)` — serializable local-vol surface
+- `dal.BSLocalVolModelData_New(name, index, currency, factor, bs, surface)` — Hybrid Local Vol with flat BS rate
 - `dal.CorrelatedBSModelData_New(indices, spots, vols, divs, rate, correlations)` — named correlated equities
 - `dal.HybridModelData_New(name, domestic_currency, components, correlation)` — composed named equities and deterministic rate; create components and provider with `HybridBSEquityData_New`, `HybridDeterministicRateData_New`, and `HybridConstantCorrelationData_New`
 
@@ -703,7 +701,7 @@ Tests are located in `tests/` and cover:
 
 - Date arithmetic and comparisons
 - Vector and matrix operations
-- Model construction (BS, Dupire)
+- Model construction (BS, Hybrid Local Vol)
 - Monte Carlo pricing accuracy vs Black-Scholes analytical formulas
 - AAD Greek computation and validation
 - Random number generator properties

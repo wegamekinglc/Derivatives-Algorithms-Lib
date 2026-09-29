@@ -4,309 +4,77 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/model/base.hpp>
-#include <dal/model/ivs.hpp>
-#include <dal/model/utilities.hpp>
-#include <dal/math/interp/interp.hpp>
-#include <dal/math/matrix/matrixs.hpp>
+#include <algorithm>
+#include <cmath>
+#include <iterator>
+
 #include <dal/math/matrix/matrixutils.hpp>
-#include <dal/math/vectors.hpp>
-#include <dal/storage/archive.hpp>
+#include <dal/model/ivs.hpp>
+#include <dal/model/surface/lvmodel.hpp>
+#include <dal/model/utilities.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
-    // year-fraction (1/730)
-    constexpr double HALF_DAY_YF = 0.00136986301369863;
-} // namespace Dal::AAD
+    // Calibrate a local-volatility grid from an implied-volatility surface.
+    // This file owns calibration only; simulation uses HybridLocalVolEquity_.
+    template <class IT_, class OT_, class T_ = double>
+    void DupireCalibMaturity(
+        const IVS_& ivs, double maturity, IT_ spotsBegin, IT_ spotsEnd, OT_ lVolsBegin, const RiskView_<T_>& riskView = RiskView_<T_>()) {
+        const size_t nSpots = static_cast<size_t>(std::distance(spotsBegin, spotsEnd));
+        REQUIRE(nSpots > 0, "DupireCalib: spot grid must be nonempty");
 
-/*IF--------------------------------------------------------------------------
-storable DupireModelData
-    Dupire local volatility model data
-version 1
-&members
-name is ?string
-spot is number
-rate is number
-repo is number
-spots is number[]
-times is number[]
-vols is number[][]
--IF-------------------------------------------------------------------------*/
+        const double atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
+        const double width = 2.5 * atmCall * M_SQRT_2_PI;
+        size_t low = 0;
+        while (low < nSpots && spotsBegin[low] < ivs.Spot() - width)
+            ++low;
+        size_t high = nSpots;
+        while (high > 0 && spotsBegin[high - 1] > ivs.Spot() + width)
+            --high;
+        REQUIRE(low < high, "DupireCalib: no spot nodes inside stable calibration band");
+
+        for (size_t i = low; i < high; ++i)
+            lVolsBegin[i] = ivs.LocalVol(spotsBegin[i], maturity, &riskView);
+        for (size_t i = 0; i < low; ++i)
+            lVolsBegin[i] = lVolsBegin[low];
+        for (size_t i = high; i < nSpots; ++i)
+            lVolsBegin[i] = lVolsBegin[high - 1];
+    }
+
+    template <class T_ = double>
+    auto DupireCalib(const IVS_& ivs,
+                     const Vector_<>& inclSpots,
+                     double maxDs,
+                     const Vector_<>& inclTimes,
+                     double maxDt,
+                     const RiskView_<T_>& riskView = RiskView_<T_>()) {
+        struct {
+            Vector_<> spots_;
+            Vector_<> times_;
+            Matrix_<T_> lVols_;
+        } results;
+
+        REQUIRE(!inclSpots.empty() && std::is_sorted(inclSpots.begin(), inclSpots.end()), "DupireCalib: inclusion spots must be nonempty and sorted");
+        REQUIRE(!inclTimes.empty() && std::is_sorted(inclTimes.begin(), inclTimes.end()), "DupireCalib: inclusion times must be nonempty and sorted");
+
+        // The one-hour floor avoids a degenerate maturity grid near zero.
+        constexpr double ONE_HOUR_YF = 0.000114469;
+        results.spots_ = FillData(inclSpots, maxDs, 0.01);
+        results.times_ = FillData(inclTimes, maxDt, ONE_HOUR_YF, &maxDt, &maxDt + 1);
+        Matrix_<T_> timeMajor(results.times_.size(), results.spots_.size());
+        for (size_t j = 0; j < results.times_.size(); ++j)
+            DupireCalibMaturity(ivs, results.times_[j], results.spots_.begin(), results.spots_.end(), timeMajor[j], riskView);
+        results.lVols_ = Matrix::MakeTranspose(timeMajor);
+        return results;
+    }
+} // namespace Dal::AAD
 
 namespace Dal {
-    namespace AAD {
-        template <class T_ = double> class Dupire_ : public Model_<T_> {
-            T_ spot_;
-            T_ r_;
-            T_ q_;
-            const Vector_<SampleDef_>* defLine_;
-            const Vector_<> spots_;
-            Vector_<> logSpots_;
-            const Vector_<> times_;
-            Matrix_<T_> vols_;
-            const double maxDt_;
-            Vector_<> timeLine_;
-            Vector_<bool> commonSteps_;
-
-            Matrix_<T_> interpVols_;
-            Vector_<T_> drifts_;
-            Vector_<T_> numeraires_;
-            Vector_<Vector_<T_>> discounts_;
-            Vector_<T_*> parameters_;
-            Vector_<String_> parameterLabels_;
-
-        public:
-            [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
-            [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
-            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
-                return Model_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) && (parameter < 3 || value >= 0.0);
-            }
-
-            template <class U_>
-            Dupire_(const U_& spot,
-                    const U_& r,
-                    const U_& q,
-                    const Vector_<>& spots,
-                    const Vector_<>& times,
-                    const Matrix_<U_>& vols,
-                    double maxDt = 1.0)
-                : spot_(spot), r_(r), q_(q), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
-                  parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3), defLine_(nullptr) {
-                ValidateScalarParameters();
-                REQUIRE(std::isfinite(maxDt_) && maxDt_ > 0.0, "InvalidModelParameter: maxDt must be finite and positive");
-                REQUIRE(!spots_.empty() && !times_.empty() && vols_.Rows() == spots_.size() && vols_.Cols() == times_.size(),
-                        "InvalidModelParameter: Dupire grid shape");
-                for (size_t i = 0; i < spots_.size(); ++i)
-                    REQUIRE(std::isfinite(spots_[i]) && spots_[i] > 0.0 && (i == 0 || spots_[i] > spots_[i - 1]),
-                            "InvalidModelParameter: Dupire spots must be positive and strictly increasing");
-                for (size_t j = 0; j < times_.size(); ++j)
-                    REQUIRE(std::isfinite(times_[j]) && times_[j] >= 0.0 && (j == 0 || times_[j] > times_[j - 1]),
-                            "InvalidModelParameter: Dupire times must be nonnegative and strictly increasing");
-                ValidateVolatilities();
-                Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
-                parameterLabels_[0] = "spot";
-                parameterLabels_[1] = "rate";
-                parameterLabels_[2] = "repo";
-                size_t p = 2;
-                for (size_t i = 0; i < vols_.Rows(); ++i)
-                    for (size_t j = 0; j < vols_.Cols(); ++j) {
-                        std::ostringstream ost;
-                        ost << std::setprecision(2) << std::fixed;
-                        ost << "lvol " << spots_[i] << " " << times_[j];
-                        parameterLabels_[++p] = String_(ost.str());
-                    }
-
-                SetParameterPointers();
-            }
-
-            T_ Spot() const { return spot_; }
-
-            [[nodiscard]] const Vector_<>& Spots() const { return spots_; }
-
-            [[nodiscard]] const Vector_<>& Times() const { return times_; }
-
-            const Vector_<T_>& Vols() const { return vols_; }
-
-            [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
-
-            [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
-
-            std::unique_ptr<Model_<T_>> Clone() const override {
-                auto cloned = std::make_unique<Dupire_<T_>>(*this);
-                cloned->SetParameterPointers();
-                return cloned;
-            }
-
-            //  Initialize timeline
-            void Allocate(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-                this->ValidateTimeline(productTimeline, defLine);
-                Vector_<> added(1, 0); // just to add 0
-                timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY_YF, added.begin(), added.end());
-                commonSteps_.Resize(timeLine_.size());
-                Transform(timeLine_, [&productTimeline](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); }, &commonSteps_);
-                defLine_ = &defLine;
-                interpVols_.Resize(timeLine_.size() - 1, spots_.size());
-                drifts_.Resize(timeLine_.size() - 1);
-
-                const size_t n = productTimeline.size();
-                numeraires_.Resize(n);
-                discounts_.Resize(n);
-                for (size_t j = 0; j < n; ++j)
-                    discounts_[j].Resize(defLine[j].discountMats_.size());
-            }
-
-            void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-                ValidateScalarParameters();
-                ValidateVolatilities();
-                const size_t n = timeLine_.size() - 1;
-                const size_t m = logSpots_.size();
-                for (size_t i = 0; i < n; ++i) {
-                    const double dt = timeLine_[i + 1] - timeLine_[i];
-                    const double sqrtDt = Dal::sqrt(dt);
-                    drifts_[i] = dt * (r_ - q_);
-                    REQUIRE(std::isfinite(Value(drifts_[i])), "InvalidModelParameter: non-finite Dupire drift");
-                    for (size_t j = 0; j < m; ++j) {
-                        interpVols_(i, j) = sqrtDt * InterpLinearImplX<T_>(times_, vols_.Row(j), T_(timeLine_[i]));
-                        REQUIRE(std::isfinite(Value(interpVols_(i, j))), "InvalidModelParameter: non-finite Dupire volatility step");
-                    }
-                }
-
-                const size_t k = productTimeline.size();
-                for (size_t i = 0; i < k; ++i) {
-                    if (defLine[i].numeraire_) {
-                        numeraires_[i] = Dal::exp(r_ * productTimeline[i]);
-                        REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero Dupire numeraire");
-                    }
-
-                    const size_t pDF = defLine[i].discountMats_.size();
-                    for (size_t j = 0; j < pDF; ++j)
-                        discounts_[i][j] = Dal::exp(-r_ * (defLine[i].discountMats_[j] - productTimeline[i]));
-                }
-            }
-
-            [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
-
-            void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
-                T_ logSpot = Dal::log(spot_);
-                size_t idx = 0;
-                if (commonSteps_[idx]) {
-                    FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
-                    ++idx;
-                }
-
-                //  Iterate through timeline
-                const size_t n = timeLine_.size() - 1;
-                for (size_t i = 0; i < n; ++i) {
-                    T_ vol = InterpLinearImplX<T_>(logSpots_, interpVols_.Row(i), logSpot);
-                    logSpot += drifts_[i] + vol * (-0.5 * vol + gaussVec[i]);
-                    if (commonSteps_[i + 1]) {
-                        FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
-                        ++idx;
-                    }
-                }
-            }
-
-        private:
-            void ValidateScalarParameters() const {
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
-                REQUIRE(std::isfinite(Value(r_)) && std::isfinite(Value(q_)), "InvalidModelParameter: rate and repo must be finite");
-            }
-
-            void ValidateVolatilities() const {
-                for (size_t i = 0; i < vols_.Rows(); ++i)
-                    for (size_t j = 0; j < vols_.Cols(); ++j)
-                        REQUIRE(std::isfinite(Value(vols_(i, j))) && Value(vols_(i, j)) >= 0.0,
-                                "InvalidModelParameter: local volatility must be finite and nonnegative");
-            }
-
-            void SetParameterPointers() {
-                parameters_[0] = &spot_;
-                parameters_[1] = &r_;
-                parameters_[2] = &q_;
-                int k = 2;
-                for(size_t i = 0; i < vols_.Rows(); ++i) {
-                    for (size_t j = 0; j < vols_.Cols(); ++j) {
-                        ++k;
-                        parameters_[k] = &vols_(i, j);
-                    }
-                }
-            }
-
-            //  Helper function, fills a sample given the spot
-            inline void FillScenario(const size_t& idx, const T_& spot, Sample_<T_>& scenario, const SampleDef_& def) const {
-                if (def.numeraire_)
-                    scenario.numeraire_ = numeraires_[idx];
-                scenario.spot_ = spot;
-                std::fill(scenario.observations_.begin(), scenario.observations_.end(), spot);
-                for (auto& forwards : scenario.forwards_)
-                    std::fill(forwards.begin(), forwards.end(), spot);
-                Copy(discounts_[idx], &scenario.discounts_);
-            }
-        };
-
-        // Dupire local-vol calibration grid; see docs/methodology/dupire.md.
-        template <class IT_, class OT_, class T_ = double>
-        void DupireCalibMaturity(const IVS_& ivs,
-                                 double maturity,
-                                 IT_ spotsBegin,
-                                 IT_ spotsEnd,
-                                 OT_ lVolsBegin,
-                                 const RiskView_<T_>& riskView = RiskView_<double>()) {
-            IT_ spots = spotsBegin;
-            const size_t nSpots = distance(spotsBegin, spotsEnd);
-
-            const auto atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
-            const double std = atmCall * M_SQRT_2_PI;
-
-            int il = 0;
-            while (il < nSpots && spots[il] < ivs.Spot() - 2.5 * std)
-                ++il;
-            int ih = nSpots - 1;
-            while (ih >= 0 && spots[ih] > ivs.Spot() + 2.5 * std)
-                --ih;
-
-            for (int i = il; i <= ih; ++i) {
-                lVolsBegin[i] = ivs.LocalVol(spots[i], maturity, &riskView);
-            }
-
-            for (int i = 0; i < il; ++i)
-                lVolsBegin[i] = lVolsBegin[il];
-            for (int i = ih + 1; i < nSpots; ++i)
-                lVolsBegin[i] = lVolsBegin[ih];
-        }
-
-        template <class T_ = double>
-        inline auto DupireCalib(const IVS_& ivs, const Vector_<>& inclSpots, double maxDs, const Vector_<>& inclTimes, double maxDt, const RiskView_<T_>& riskView = RiskView_<double>()) {
-            struct {
-                Vector_<> spots_;
-                Vector_<> times_;
-                Matrix_<T_> lVols_;
-            } results;
-
-            REQUIRE(!inclSpots.empty(), "DupireCalib: inclSpots must not be empty");
-            REQUIRE(std::is_sorted(inclSpots.begin(), inclSpots.end()), "DupireCalib: inclSpots must be sorted");
-            REQUIRE(!inclTimes.empty(), "DupireCalib: inclTimes must not be empty");
-            REQUIRE(std::is_sorted(inclTimes.begin(), inclTimes.end()), "DupireCalib: inclTimes must be sorted");
-
-            // year-fraction (1/8760)
-            constexpr double ONE_HOUR_YF = 0.000114469;
-            results.spots_ = FillData(inclSpots, maxDs, 0.01);
-            results.times_ = FillData(inclTimes, maxDt, ONE_HOUR_YF, &maxDt, &maxDt + 1);
-
-            Matrix_<T_> lVolsT(results.times_.size(), results.spots_.size());
-
-            const size_t n = results.times_.size();
-            for (size_t j = 0; j < n; ++j) {
-                DupireCalibMaturity(ivs, results.times_[j], results.spots_.begin(), results.spots_.end(), lVolsT[j], riskView);
-            }
-
-            results.lVols_ = Dal::Matrix::MakeTranspose(lVolsT);
-            return results;
-        }
-    } // namespace AAD
-
-    struct DupireModelData_: ModelData_ {
-        double spot_;
-        double rate_;
-        double repo_;
-        Vector_<> spots_;
-        Vector_<> times_;
-        Matrix_<> vols_;
-
-        DupireModelData_(const String_& name,
-                         double spot,
-                         double rate,
-                         double repo,
-                         const Vector_<>& spots,
-                         const Vector_<>& times,
-                         const Matrix_<>& vols)
-                : ModelData_("DupireModelData_", name), spot_(spot), rate_(rate), repo_(repo), spots_(spots), times_(times), vols_(vols) {}
-
-        void Write(Archive::Store_& dst) const override;
-
-    private:
-        std::unique_ptr<ModelData_> MutantModel(const String_* newName, const Slide_* slide) const override;
-    };
-} // namespace Dal::AAD
+    // Snapshot a calibrated surface; it can be archived and attached to Hybrid.
+    Handle_<LocalVolSurfaceData_> CalibrateDupireLocalVolSurface(const String_& name,
+                                                                 const AAD::IVS_& ivs,
+                                                                 const Vector_<>& inclusionSpots,
+                                                                 double maxSpotSpacing,
+                                                                 const Vector_<>& inclusionTimes,
+                                                                 double maxTimeSpacing);
+} // namespace Dal

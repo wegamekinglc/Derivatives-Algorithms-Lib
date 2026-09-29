@@ -19,7 +19,7 @@ import dal
 |-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                                                                        |
 | Script products         | `Product_New`, `Product_Describe`, `Product_Debug`, `Product_DebugJson`, `Product_DebugTree`                                                                                                                                                       |
-| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                                                                           |
+| Models                  | `BSModelData_New`, `LocalVolSurfaceData_New`, `BSLocalVolModelData_New`, `HybridModelData_New`                                                                                                                                                       |
 | Valuation               | `MonteCarlo_Value`, `MonteCarlo_ValueWithSettings`, `ScriptValuation_Explain`, `ScriptSimulation_Explain`                                                                                                                                          |
 | Script settings         | `ScriptProductSettings_`, `ScriptValuationSettings_`, `MonteCarloSettings_`, `TodayFixingPolicy_`                                                                                                                                                  |
 | Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                                                                                   |
@@ -139,7 +139,7 @@ failures raise `RuntimeError` with field/constraint and source context.
 `Product_DebugJson` remains a JSON string with schema /1 and rejects FIX or
 nonempty defaults with `DebugSchemaUnsupported`.
 
-## Matrix and Dupire surface input
+## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:
 
@@ -154,7 +154,7 @@ surface = dal.DoubleMatrix_([
 ])
 ```
 
-Rows must be rectangular numeric sequences. `DupireModelData_New` expects a
+Rows must be rectangular numeric sequences. `LocalVolSurfaceData_New` expects a
 spots-by-times matrix, so its shape must be
 `len(spots) × len(times)`.
 

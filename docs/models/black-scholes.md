@@ -299,7 +299,7 @@ Additional example programs that price off the Black/Bachelier kernels:
 - [`dal-cpp/examples/digital/`](../../dal-cpp/examples/digital) — a digital
   payoff priced analytically, by finite-difference bumps, and by pathwise AAD.
 - [`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) — an up-and-out call
-  priced on a `Dupire_<T_>` local-volatility model fed by a flat vol surface.
+  priced on a Hybrid Local Vol equity fed by a flat volatility surface.
 - [`dal-cpp/examples/snowball/`](../../dal-cpp/examples/snowball) — a snowball
   autocallable priced on a `BlackScholes_<T_>` model with scripted monitoring.
 

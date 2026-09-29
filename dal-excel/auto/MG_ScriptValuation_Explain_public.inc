@@ -39,7 +39,7 @@ struct XlRegister_ScriptValuation_Explain_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Script product handle");
-        argHelp.push_back("BS or Dupire model data handle");
+        argHelp.push_back("BS, correlated BS, or hybrid model data handle");
         argHelp.push_back("Valuation settings handle; blank selects per-call defaults");
         Excel::Register("Base", "xl_ScriptValuation_Explain", "SCRIPTVALUATION.EXPLAIN", "Prepare once with default price settings; no paths, workers or cache", "QQQQ", "product,modelData,[valuation]", argHelp, false);
     }

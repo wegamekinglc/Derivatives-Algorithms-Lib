@@ -42,7 +42,7 @@ on other toolchains.
 |----------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
 | `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
-| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                                                |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                            |
 | `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
@@ -101,8 +101,8 @@ const auto model = Dal::NewBSModelData(Dal::String_("bs"), 100.0, 0.2, 0.05, 0.0
 const auto result = Dal::ValueByMonteCarlo(product, model, 1 << 16);
 ```
 
-`ValueByMonteCarlo` requires non-null product/model handles, a BS or Dupire
-model, and a positive `int` path count. The original three-to-eight-argument
+`ValueByMonteCarlo` requires non-null product/model handles, a supported model,
+and a positive `int` path count. The original three-to-eight-argument
 overload retains random-generator, Brownian-bridge, AAD, smoothing, and compiled
 arguments and defaults. It forwards to the same preparation used by
 `ValueByMonteCarlo(product, modelData, numPath, valuation, simulation)`.

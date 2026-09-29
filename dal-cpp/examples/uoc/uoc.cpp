@@ -10,7 +10,7 @@
 #include <string_view>
 
 #include <dal/model/blackscholes.hpp>
-#include <dal/model/dupire.hpp>
+#include <dal/model/hybriddata.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
@@ -22,7 +22,6 @@
 using namespace std;
 using namespace Dal;
 using namespace Dal::Script;
-using Dal::AAD::Dupire_;
 using Dal::AAD::Model_;
 
 namespace {
@@ -61,9 +60,17 @@ namespace {
         return (valueUp - valueDown) / denominator;
     }
 
+    double ParallelLocalVega(const SimResults_& results) {
+        double vega = 0.0;
+        for (size_t i = 0; i < results.names_.size(); ++i)
+            if (results.names_[i].find("lvol:") == 0)
+                vega += results.risks_[i];
+        return vega;
+    }
+
     double ModelValue(const FdmInputs_& input, const ScriptProduct_& product, double spot, double rate, double div) {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel", spot, rate, div, input.spots_, input.times_,
-                                                           Matrix_<double>(input.spots_.size(), input.times_.size(), input.vol_)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, input.spots_, input.times_,
+                                                             Matrix_<double>(input.spots_.size(), input.times_.size(), input.vol_));
         return MCSimulation<double>(product, modelData, input.numPath_, String_("sobol"), false).aggregated_ / static_cast<double>(input.numPath_);
     }
 
@@ -90,8 +97,8 @@ namespace {
         const double strike = input.strike_;
         const double barrier = input.barrier_;
 
-        Handle_<ModelData_> modelData(
-            new DupireModelData_("dupiremodel", spot, rate, div, spots, times, Matrix_<double>(spots.size(), times.size(), vol)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, spots, times,
+                                                             Matrix_<double>(spots.size(), times.size(), vol));
         Timer_ timer;
         timer.Reset();
 
@@ -190,13 +197,8 @@ int main(int argc, char* argv[]) {
               << std::endl;
     std::cout << std::string(154, '-') << '\n';
     {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, spots, times,
+                                                             Matrix_<double>(spots.size(), times.size(), vol));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
@@ -220,13 +222,8 @@ int main(int argc, char* argv[]) {
     }
 
     {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, spots, times,
+                                                             Matrix_<double>(spots.size(), times.size(), vol));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
@@ -252,13 +249,8 @@ int main(int argc, char* argv[]) {
     PrintFiniteDifferences({eventDates, events, spots, times, widths, numPath, numObs, spot, vol, rate, div, strike, barrier});
 
     {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, spots, times,
+                                                             Matrix_<double>(spots.size(), times.size(), vol));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
@@ -266,34 +258,19 @@ int main(int argc, char* argv[]) {
         SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, false, maxNestedIfs);
 
         auto calculated = results.aggregated_ / static_cast<double>(numPath);
-        const int volLength = 31 * 61;
-        double vega = 0.0;
+        const double vega = ParallelLocalVega(results);
 
-        for (auto i = 3; i < 3 + volLength; ++i)
-            vega += results.risks_[i];
-
-        std::cout << std::setw(widths[0]) << std::left << "AAD"
-                  << std::setw(widths[1]) << std::right << numPath
-                  << std::setw(widths[2]) << std::right << numObs
-                  << std::fixed << std::setprecision(6)
-                  << std::setw(widths[3]) << std::right << calculated
-                  << std::setw(widths[4]) << std::right << results.risks_[0]
-                  << std::setw(widths[5]) << std::right << results.risks_[1]
-                  << std::setw(widths[6]) << std::right << results.risks_[2]
-                  << std::setw(widths[7]) << std::right << vega
-                  << std::setw(widths[8]) << std::right << results.risks_[3 + volLength]
-                  << std::setw(widths[9]) << std::right << results.risks_[3 + volLength + 1]
-                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+        std::cout << std::setw(widths[0]) << std::left << "AAD" << std::setw(widths[1]) << std::right << numPath << std::setw(widths[2]) << std::right
+                  << numObs << std::fixed << std::setprecision(6) << std::setw(widths[3]) << std::right << calculated << std::setw(widths[4])
+                  << std::right << results["spot:EQ[UOC]"] << std::setw(widths[5]) << std::right << results["rate:USD"] << std::setw(widths[6])
+                  << std::right << results["div:EQ[UOC]"] << std::setw(widths[7]) << std::right << vega << std::setw(widths[8]) << std::right
+                  << results["BARRIER"] << std::setw(widths[9]) << std::right << results["STRIKE"] << std::setw(widths[10]) << std::right
+                  << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
     {
-        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                                      spot,
-                                                                      rate,
-                                                                      div,
-                                                                      spots,
-                                                                      times,
-                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
+        auto modelData = MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[UOC]", spot, rate, div, spots, times,
+                                                             Matrix_<double>(spots.size(), times.size(), vol));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
@@ -301,23 +278,13 @@ int main(int argc, char* argv[]) {
         SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, true, maxNestedIfs);
 
         auto calculated = results.aggregated_ / static_cast<double>(numPath);
-        const int volLength = 31 * 61;
-        double vega = 0.0;
+        const double vega = ParallelLocalVega(results);
 
-        for (auto i = 3; i < 3 + volLength; ++i)
-            vega += results.risks_[i];
-
-        std::cout << std::setw(widths[0]) << std::left << "AAD Comp"
-                  << std::setw(widths[1]) << std::right << numPath
-                  << std::setw(widths[2]) << std::right << numObs
-                  << std::fixed << std::setprecision(6)
-                  << std::setw(widths[3]) << std::right << calculated
-                  << std::setw(widths[4]) << std::right << results.risks_[0]
-                  << std::setw(widths[5]) << std::right << results.risks_[1]
-                  << std::setw(widths[6]) << std::right << results.risks_[2]
-                  << std::setw(widths[7]) << std::right << vega
-                  << std::setw(widths[8]) << std::right << results.risks_[3 + volLength]
-                  << std::setw(widths[9]) << std::right << results.risks_[3 + volLength + 1]
+        std::cout << std::setw(widths[0]) << std::left << "AAD Comp" << std::setw(widths[1]) << std::right << numPath << std::setw(widths[2])
+                  << std::right << numObs << std::fixed << std::setprecision(6) << std::setw(widths[3]) << std::right << calculated
+                  << std::setw(widths[4]) << std::right << results["spot:EQ[UOC]"] << std::setw(widths[5]) << std::right << results["rate:USD"]
+                  << std::setw(widths[6]) << std::right << results["div:EQ[UOC]"] << std::setw(widths[7]) << std::right << vega
+                  << std::setw(widths[8]) << std::right << results["BARRIER"] << std::setw(widths[9]) << std::right << results["STRIKE"]
                   << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
     std::cout << std::string(154, '-') << "\n\n";

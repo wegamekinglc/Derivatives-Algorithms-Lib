@@ -1,4 +1,4 @@
-# Dupire Local Volatility
+# Dupire Surface Calibration
 
 This note describes the **Dupire local volatility** surface: what it is, how the
 library inverts an implied-volatility surface (IVS) to obtain it, and the
@@ -6,6 +6,8 @@ grid-construction conventions used when calibrating a discrete local-volatility
 matrix. The IVS inversion and the calibration grid are the load-bearing
 numerical content of `dal-cpp/dal/model/ivs.hpp` (`IVS_::LocalVol`) and
 `dal-cpp/dal/model/dupire.hpp` (`DupireCalibMaturity`, `DupireCalib`).
+To store the result independently of rates and spot and combine it with BS or
+GSR dynamics, use the [local-volatility Hybrid component](local-volatility.md).
 
 ## From Implied Volatility to Local Volatility
 
@@ -145,9 +147,8 @@ explicit additions, and whenever two consecutive points are farther apart than
 the maximum step it inserts uniformly spaced fill points so no gap exceeds the
 step. The maturity axis is densified with a minimum step floor of `ONE_HOUR_YF`
 (the literal `0.000114469`, i.e. a $1/8760$ year fraction), and the strike axis
-with a minimum step floor of `0.01`. The `Dupire_` simulation timeline itself is
-densified against `HALF_DAY_YF` (`0.00136986301369863`, i.e. $1/730$ year) via
-the same helper.
+with a minimum step floor of `0.01`. Simulation time stepping belongs to the
+[Hybrid Local Vol component](local-volatility.md), which has its own `maxStep`.
 
 The dense grid is then evaluated maturity-by-maturity: each maturity slice is
 filled by one call to `DupireCalibMaturity`, which applies the 2.5-$\Sigma$
@@ -155,62 +156,33 @@ cutoff and flat-extrapolation policy described above. The result is returned as
 a struct of (`spots_`, `times_`, `lVols_`) with `lVols_` indexed
 `[strike_index, time_index]` — the matrix is built time-major during the slice
 loop and transposed once at the end. Each returned row contains times for one
-strike. `Dupire_<T_>` first interpolates those rows in time into a separate
-step-by-strike matrix, whose rows support log-spot interpolation during simulation.
+strike. `CalibrateDupireLocalVolSurface` stores this output as a
+`LocalVolSurfaceData_`, which Hybrid interpolates in time and log spot.
 
 ## Examples
 
-The local-volatility model is driven by `DupireModelData_`, which stores the
-spot, rates, and a dense strike-by-maturity local-volatility matrix. The
-up-and-out call program builds a flat 31-by-61 surface by hand and prices the
-barrier option on a `Dupire_<T_>` model via the script Monte Carlo driver; a
-calibrated run would fill the same matrix from `DupireCalib`. See
-[`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) for a runnable version;
-its model construction and pricing call are:
+Dupire is a calibration method. It produces a surface that can be archived and
+attached to a Hybrid equity component. The up-and-out call example constructs
+a flat surface and uses the Hybrid Monte Carlo driver. See
+[`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) for the runnable version.
 
 ```cpp
-// from dal-cpp/examples/uoc/uoc.cpp
-#include <dal/platform/platform.hpp>
-#include <dal/model/blackscholes.hpp>
+// Calibration from an IVS_ into reusable surface data.
 #include <dal/model/dupire.hpp>
-#include <dal/script/event.hpp>
-#include <dal/script/simulation.hpp>
-#include <dal/storage/globals.hpp>
+#include <dal/model/hybriddata.hpp>
 
-using namespace Dal;
-using namespace Dal::Script;
-using Dal::AAD::Dupire_;
-
-RegisterAll_::Init();
-Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
-
-const double spot = 100.0;
-const double rate = 0.0;
-const double div = 0.0;
-const double vol = 0.15;
-
-// dense strike/time grid; DupireCalib would produce this from an IVS_
-auto times = Vector::XRange(0.0, 5.0, 61);
-auto spots = Vector::XRange(50.0, 200.0, 31);
-
-Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
-                                                   spot,
-                                                   rate,
-                                                   div,
-                                                   spots,
-                                                   times,
-                                                   Matrix_<double>(spots.size(), times.size(), vol)));
-ScriptProduct_ product(eventDates, events);
-product.PreProcess(false, false);
-SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, false);
+auto surface = Dal::CalibrateDupireLocalVolSurface(
+    "calibrated", ivs, {80.0, 100.0, 120.0}, 5.0, {0.25, 1.0}, 0.25);
+auto equity = Dal::Handle_<Dal::HybridComponentData_>(
+    new Dal::HybridLocalVolEquityData_(
+        "equity", "EQ[A]", "USD", "W_EQ", 100.0, 0.01, surface));
+// Add equity, one domestic rate component, and factor correlation to HybridSettings_.
 ```
 
-The same program also runs the pricing with finite-difference bumps and with
-pathwise AAD (`MCSimulation<Number_>`), so the local-volatility vega in the AAD
-output is a dense grid adjoint rather than a single scalar.
+The example also runs finite-difference and pathwise AAD valuations. Each
+surface grid value has its own Hybrid risk label.
 
-Related example programs used as flat-volatility baselines against the Dupire
-pricer:
+Related flat-volatility baselines:
 
 - [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla) — European call
   priced analytically and by Monte Carlo on a `BlackScholes_<T_>` model.
@@ -225,5 +197,5 @@ pricer:
 - [AAD methodology](../methodology/aad.md) — the reverse-mode machinery that makes a
   local-volatility calibration (and the resulting Monte Carlo pricer)
   differentiable end-to-end.
-- [Interpolation](../methodology/interpolation.md) — the bilinear-on-log-spot interpolation
-  the `Dupire_<T_>` model uses to read the calibrated surface during simulation.
+- [Local volatility in Hybrid](local-volatility.md) — simulation, interpolation,
+  storage, and composition with BS or GSR rates.

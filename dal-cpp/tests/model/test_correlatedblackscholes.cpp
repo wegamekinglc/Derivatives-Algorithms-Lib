@@ -12,7 +12,6 @@
 #include <dal/curve/tapeguard.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
-#include <dal/model/dupire.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
@@ -158,14 +157,12 @@ TEST(ModelTest, TestCorrelatedBlackScholesValidatesInputsAndOutputs) {
                  Exception_);
 }
 
-TEST(ModelTest, TestLegacyModelsStillRejectMultipleOutputSlots) {
+TEST(ModelTest, TestBlackScholesStillRejectsMultipleOutputSlots) {
     AAD::BlackScholes_<> blackScholes(100.0, 0.2, 0.05, 0.01);
-    AAD::Dupire_<> dupire(100.0, 0.05, 0.01, {80.0, 120.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2));
     const Vector_<> timeline{0.0, 1.0};
     Vector_<AAD::SampleDef_> definitions(2);
     definitions[1].indexNames_ = {"EQ[AAA]", "EQ[BBB]"};
     ASSERT_THROW(blackScholes.Allocate(timeline, definitions), Exception_);
-    ASSERT_THROW(dupire.Allocate(timeline, definitions), Exception_);
 }
 
 TEST(ModelTest, TestCorrelatedBlackScholesTwoAssetCovarianceAndZeroVol) {

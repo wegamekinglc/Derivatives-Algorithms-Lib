@@ -9,6 +9,7 @@
 
 #include <dal/math/integral/quadrature.hpp>
 #include <dal/model/dupire.hpp>
+#include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -62,14 +63,11 @@ namespace {
         return std::exp(-rate * expiry) * (forward * NormalCdf(d1) - strike * NormalCdf(d1 - stdDev));
     }
 
-    // Gauss-Hermite price of a European call on a (possibly multi-step) Dupire_ model. With a
+    // Gauss-Hermite price of a European call on a Hybrid local-vol model. With a
     // flat local-vol surface every log-Euler step is exact, so feeding gaussian[j] = x / sqrt(N)
     // across the N = SimDim() uniform steps reproduces the exact N(0, T) terminal move and the
     // one-dimensional quadrature remains exact up to its own (tiny) truncation error.
-    double DupireQuadratureCallPrice(AAD::Dupire_<>* model,
-                                     const Vector_<AAD::SampleDef_>& definitions,
-                                     double strike,
-                                     double gaussianScale) {
+    double DupireQuadratureCallPrice(AAD::Model_<>* model, const Vector_<AAD::SampleDef_>& definitions, double strike, double gaussianScale) {
         AAD::Scenario_<> path;
         AAD::AllocatePath(definitions, path);
         AAD::InitializePath(path);
@@ -95,36 +93,6 @@ namespace {
     }
 } // namespace
 
-TEST(ModelTest, TestDupireModelData) {
-    auto model_data = DupireModelData_("my_model", 100.0, 0.05, 0.01, Vector_<>(1), Vector_<>(1), Matrix_<>(1, 1));
-    auto dst = JSON::WriteString(model_data);
-
-    Handle_<Storable_> rtn = JSON::ReadString(dst, true);
-    ASSERT_NEAR(std::dynamic_pointer_cast<const DupireModelData_>(rtn)->spot_, 100.0, 1e-8);
-    ASSERT_NEAR(std::dynamic_pointer_cast<const DupireModelData_>(rtn)->rate_, 0.05, 1e-8);
-}
-
-TEST(ModelTest, TestDupireMutantModelRename) {
-    Vector_<> spots = {90.0, 100.0, 110.0};
-    Vector_<> times = {0.25, 0.5, 1.0};
-    Matrix_<> vols(3, 3, 0.2);
-    DupireModelData_ model_data("my_model", 100.0, 0.05, 0.01, spots, times, vols);
-    ModelData_& base = model_data;
-    Vector_<Handle_<Slide_>> noSlides;
-    std::unique_ptr<ModelData_> renamed(base.MutantModel(String_("renamed"), noSlides));
-    auto dup = dynamic_cast<const DupireModelData_*>(renamed.get());
-    ASSERT_TRUE(dup != nullptr);
-    ASSERT_EQ(dup->Name(), String_("renamed"));
-    ASSERT_NEAR(dup->spot_, 100.0, 1e-10);
-    ASSERT_NEAR(dup->rate_, 0.05, 1e-10);
-    ASSERT_NEAR(dup->repo_, 0.01, 1e-10);
-    ASSERT_EQ(dup->spots_, spots);
-    ASSERT_EQ(dup->times_, times);
-    ASSERT_EQ(dup->vols_.Rows(), vols.Rows());
-    ASSERT_EQ(dup->vols_.Cols(), vols.Cols());
-    ASSERT_NEAR(dup->vols_(0, 0), 0.2, 1e-10);
-}
-
 TEST(ModelTest, TestDupireRateAwareFlatVolRepricesVanillas) {
     constexpr double spot = 100.0;
     constexpr double rate = 0.05;
@@ -141,13 +109,16 @@ TEST(ModelTest, TestDupireRateAwareFlatVolRepricesVanillas) {
 
     // A single exact log-Euler step makes the DAL model expectation one-dimensional. The deterministic
     // quadrature tolerance covers the vanilla payoff kink and is far smaller than a carry-formula error.
-    AAD::Dupire_<> model(spot, rate, repo, calibration.spots_, calibration.times_, calibration.lVols_, expiry);
+    const auto data = MakeFlatRateLocalVolHybridModelData("calibrated", "EQ[A]", spot, rate, repo, calibration.spots_, calibration.times_,
+                                                          calibration.lVols_, expiry);
+    auto model = CreateModel<double>(data);
     const Vector_<> timeline{expiry};
     Vector_<AAD::SampleDef_> definitions(1);
-    definitions[0].forwardMats_ = Vector_<Vector_<>>(1, Vector_<>{expiry});
-    model.Allocate(timeline, definitions);
-    model.Init(timeline, definitions);
-    ASSERT_EQ(model.SimDim(), 1u);
+    definitions[0].numeraire_ = true;
+    definitions[0].indexNames_ = {"EQ[A]"};
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    ASSERT_EQ(model->SimDim(), 1u);
 
     AAD::Scenario_<> path;
     AAD::AllocatePath(definitions, path);
@@ -159,10 +130,10 @@ TEST(ModelTest, TestDupireRateAwareFlatVolRepricesVanillas) {
     Quadrature::NCDFGaussHermiteWeights(&nodes, &weights);
     const Vector_<> strikes{80.0, 100.0, 120.0};
     Vector_<> modelPrices(strikes.size(), 0.0);
-    Vector_<> gaussian(model.SimDim());
+    Vector_<> gaussian(model->SimDim());
     for (int i = 0; i < numQuadratureNodes; ++i) {
         gaussian[0] = nodes[i];
-        model.GeneratePath(gaussian, &path);
+        model->GeneratePath(gaussian, &path);
         for (size_t j = 0; j < strikes.size(); ++j)
             modelPrices[j] += weights[i] * std::max(path[0].spot_ - strikes[j], 0.0) / path[0].numeraire_;
     }
@@ -269,32 +240,23 @@ TEST(ModelTest, TestDupireRepricingStableAcrossTimeSteps) {
     Vector_<> prices;
     for (const int numSteps : {1, 4, 16}) {
         const double maxDt = expiry / numSteps;
-        AAD::Dupire_<> model(spot, rate, repo, calibration.spots_, calibration.times_, calibration.lVols_, maxDt);
+        const auto data = MakeFlatRateLocalVolHybridModelData("calibrated", "EQ[A]", spot, rate, repo, calibration.spots_, calibration.times_,
+                                                              calibration.lVols_, maxDt);
+        auto model = CreateModel<double>(data);
         const Vector_<> timeline{expiry};
         Vector_<AAD::SampleDef_> definitions(1);
-        definitions[0].forwardMats_ = Vector_<Vector_<>>(1, Vector_<>{expiry});
-        model.Allocate(timeline, definitions);
-        model.Init(timeline, definitions);
-        ASSERT_EQ(model.SimDim(), static_cast<size_t>(numSteps));
+        definitions[0].numeraire_ = true;
+        definitions[0].indexNames_ = {"EQ[A]"};
+        model->Allocate(timeline, definitions);
+        model->Init(timeline, definitions);
+        ASSERT_EQ(model->SimDim(), static_cast<size_t>(numSteps));
 
-        const double price = DupireQuadratureCallPrice(&model, definitions, strike, 1.0 / std::sqrt(numSteps));
+        const double price = DupireQuadratureCallPrice(model.get(), definitions, strike, 1.0 / std::sqrt(numSteps));
         ASSERT_NEAR(price, oracle, repricingTolerance) << "numSteps=" << numSteps;
         prices.push_back(price);
     }
     ASSERT_NEAR(prices[0], prices[1], stabilityTolerance);
     ASSERT_NEAR(prices[1], prices[2], stabilityTolerance);
-}
-
-TEST(ModelTest, TestDupireMutantModelRejectsSlides) {
-    Vector_<> spots = {90.0, 100.0, 110.0};
-    Vector_<> times = {0.25, 0.5, 1.0};
-    Matrix_<> vols(3, 3, 0.2);
-    DupireModelData_ model_data("my_model", 100.0, 0.05, 0.01, spots, times, vols);
-    ModelData_& base = model_data;
-
-    Vector_<Handle_<Slide_>> slides;
-    slides.push_back(Handle_<Slide_>(new Slide_));
-    ASSERT_THROW(static_cast<void>(base.MutantModel(String_("renamed"), slides)), Dal::Exception_);
 }
 
 TEST(ModelTest, TestDupireCalibRejectsInvalidAxes) {

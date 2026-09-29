@@ -3,12 +3,14 @@
 See the [models index](README.md) for the other supported simulation models.
 
 `HybridModel_<T>` composes model components under one domestic numeraire. The
-current components are ordinary Black-Scholes equities and either a constant
-domestic rate or a deterministic log-discount-factor term structure. Each equity
-contributes one log-spot state, one Brownian factor, and one named `EQ[...]`
-observation. The rate contributes no state or Brownian factor. Stochastic
-rates, FX, credit, foreign currencies, quanto drift, and
-cross-currency discounting are not implemented.
+supported equity components are ordinary Black-Scholes and
+[local-volatility equities](local-volatility.md). The domestic rate can be
+constant, a deterministic log-discount-factor term structure, or a stochastic
+[GSR](gaussian-short-rate.md) component. Each equity contributes one log-spot
+state, one Brownian factor, and one named `EQ[...]` observation. The GSR rate
+contributes one Brownian factor and supplies `IR[...]` observations. FX,
+credit, foreign currencies, quanto drift, and cross-currency discounting are
+not implemented.
 
 ## C++ construction
 
@@ -67,7 +69,7 @@ curve-snapshot factories are available in Python as
 `HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`, and in Excel
 as `HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`.
 
-The model data and each typed component are serializable. `CreateModel` also
+The model data, local-vol surface, and each typed component are serializable. `CreateModel` also
 accepts the restored archive. Components are ordered by their stable names
 during setup, independent of declaration order. Factor labels are sorted
 case-insensitively; the correlation matrix is keyed by its own explicit
@@ -79,11 +81,13 @@ per-step lower factor for a future time-bucketed provider; no interpolation is
 performed by the current provider.
 
 `Allocate` resolves requested observation names into integer component and
-output slots. `Init` samples logDF once per simulation time, precomputes each
-step's integrated rate `logDF(t_i) - logDF(t_{i+1})`, each equity's drift and
-volatility, and each event numeraire `N(t)=exp(-logDF(t))`. The per-path loop
-does no curve interpolation, name parsing, or matrix factorization. `SimDim()`
-is the number of positive time
+output slots. A local-vol component inserts internal time steps up to its
+configured `maxStep`; GSR uses whole ACT/365 days on this internal grid. `Init`
+samples initial logDF once per simulation time and precomputes each step's
+initial integrated carry. Deterministic-rate paths use
+`N(t)=exp(-logDF(t))`; GSR paths use their realized numeraire and conditional
+rate observations. The path loop does no name parsing or matrix factorization.
+`SimDim()` is the number of internal positive time
 steps multiplied by the number of registered factors. Independent Gaussian
 inputs are time-major, with factors in sorted label order within each step.
 The output `Sample_::observations_` follows the requested name order;
@@ -109,16 +113,17 @@ For a term structure, only nonzero-time logDF nodes are active AAD parameters;
 their labels are `logdf:USD:1`, `logdf:USD:2`, and so on in input order.
 The anchor node is fixed at zero. These parameters are owned by their
 components; cloned workers receive independent
-AAD parameter addresses. Correlations are passive inputs and have no AAD
-risk labels. The `NumeraireIsDeterministic()` capability distinguishes the
-current model from future stochastic-numeraire compositions.
+AAD parameter addresses. Local-vol equity exposes `lvol:EQ[...]:i:j` grid
+risks and GSR contributes its curve and volatility risks. Correlations are
+passive inputs and have no AAD risk labels. `NumeraireIsDeterministic()`
+reports the selected rate component's behavior.
 
 `ValueByMonteCarlo` and `ExplainScriptValuation` accept `HybridModelData_`.
 Each future `FIX(EQ[...])` binds independently to its named component; requests
 on one date may use either order. Historical fixings retain their own index and
 never fall back to simulated values. A multi-equity `SPOT()` requires
-`ScriptProductSettings_::defaultIndex_`. Future FX and IR observations remain
-unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
+`ScriptProductSettings_::defaultIndex_`. GSR supplies future `IR[...]`
+observations; FX remains unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
 and [Python example](../../dal-python/examples/hybrid_script.py).
 
 The deterministic-rate hybrid supports LSM early exercise with either

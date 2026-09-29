@@ -1,9 +1,8 @@
-"""Tests for Black-Scholes and Dupire model data creation."""
+"""Tests for Black-Scholes and local-volatility model data creation."""
 
 import dal
 import math
 import pytest
-
 
 # ---- BSModelData -------------------------------------------------------------
 
@@ -39,16 +38,22 @@ def test_bs_model_various_spots():
         assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
-# ---- DupireModelData ---------------------------------------------------------
+# ---- Hybrid local volatility -------------------------------------------------
 
 
-def test_dupire_model_new():
-    """DupireModelData_New creates a valid model handle."""
+def local_vol_model(spot, rate, repo, spots, times, vols):
+    surface = dal.LocalVolSurfaceData_New("surface", spots, times, vols)
+    bs = dal.BSModelData_New(spot, 0.2, rate, repo)
+    return dal.BSLocalVolModelData_New("local_vol", "EQ[A]", "USD", "W_EQ", bs, surface)
+
+
+def test_local_vol_model_new():
+    """A local-vol surface composes into a Hybrid model."""
     spots = [80.0, 90.0, 100.0, 110.0, 120.0]
     times = [0.5, 1.0, 2.0]
     vols = dal.DoubleMatrix_(len(spots), len(times), 0.2)
 
-    model = dal.DupireModelData_New(
+    model = local_vol_model(
         spot=100.0,
         rate=0.05,
         repo=0.01,
@@ -59,13 +64,13 @@ def test_dupire_model_new():
     assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
-def test_dupire_model_flat_surface():
-    """Dupire with a flat vol surface (constant across strikes and times)."""
+def test_local_vol_model_flat_surface():
+    """A flat local-vol surface is accepted."""
     spots = [90.0, 100.0, 110.0]
     times = [0.25, 0.5, 1.0]
     vols = dal.DoubleMatrix_(len(spots), len(times), 0.15)
 
-    model = dal.DupireModelData_New(
+    model = local_vol_model(
         spot=100.0,
         rate=0.03,
         repo=0.0,
@@ -76,8 +81,8 @@ def test_dupire_model_flat_surface():
     assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
-def test_dupire_model_skewed_surface():
-    """Dupire accepts a non-flat volatility surface from nested Python rows."""
+def test_local_vol_model_skewed_surface():
+    """A non-flat local-vol surface accepts nested Python rows."""
     spots = [80.0, 90.0, 100.0, 110.0, 120.0]
     times = [0.5, 1.0]
     vols = dal.DoubleMatrix_(
@@ -90,7 +95,7 @@ def test_dupire_model_skewed_surface():
         ]
     )
 
-    model = dal.DupireModelData_New(
+    model = local_vol_model(
         spot=100.0,
         rate=0.05,
         repo=0.01,
@@ -101,13 +106,13 @@ def test_dupire_model_skewed_surface():
     assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
-def test_dupire_model_single_spot_single_time():
-    """Dupire with minimal surface (1 spot, 1 time)."""
+def test_local_vol_model_single_spot_single_time():
+    """A one-by-one local-vol surface is accepted."""
     spots = [100.0]
     times = [1.0]
     vols = dal.DoubleMatrix_(1, 1, 0.2)
 
-    model = dal.DupireModelData_New(
+    model = local_vol_model(
         spot=100.0,
         rate=0.05,
         repo=0.0,
@@ -123,13 +128,21 @@ def test_gsr_curve_vol_and_model_price_zero_vol_bond():
     exercise = dal.Date_(2027, 9, 28)
     maturity = dal.Date_(2028, 9, 28)
     curve = dal.GSRCurveData_New(
-        "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
+        "curve",
+        today,
+        "USD",
+        [today, exercise, maturity],
+        [0.0, -0.03, -0.06],
+        [],
+        dal.DoubleMatrix_(0, 0),
     )
     vol = dal.GSRVolData_New("vol", [today], [0.0], [today], [1.0])
     model = dal.GSRModelData_New("gsr", curve, vol)
     dal.EvaluationDate_Set(today)
     product = dal.Product_New([exercise], ["pay PAYS FIX(IR[USD,DF,2028-09-28])"])
-    result = dal.MonteCarlo_ValueWithSettings(product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=True))
+    result = dal.MonteCarlo_ValueWithSettings(
+        product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=True)
+    )
     assert result["PV"] == pytest.approx(math.exp(-0.06), abs=1e-10)
     assert result["d_logdf:OIS:2028-09-28"] == pytest.approx(math.exp(-0.06), abs=1e-10)
 
@@ -139,7 +152,13 @@ def test_gsr_aad_matches_second_bond_moment_and_model_parameter_risks():
     exercise = dal.Date_(2027, 9, 28)
     maturity = dal.Date_(2028, 9, 28)
     curve = dal.GSRCurveData_New(
-        "curve", today, "USD", [today, exercise, maturity], [0.0, -0.03, -0.06], [], dal.DoubleMatrix_(0, 0)
+        "curve",
+        today,
+        "USD",
+        [today, exercise, maturity],
+        [0.0, -0.03, -0.06],
+        [],
+        dal.DoubleMatrix_(0, 0),
     )
     g = 0.05
     h = 1.2
@@ -150,7 +169,9 @@ def test_gsr_aad_matches_second_bond_moment_and_model_parameter_risks():
         [exercise],
         ["pay PAYS FIX(IR[USD,DF,2028-09-28]) * FIX(IR[USD,DF,2028-09-28])"],
     )
-    result = dal.MonteCarlo_ValueWithSettings(product, model, 1048576, simulation=dal.MonteCarloSettings_(enable_aad=True))
+    result = dal.MonteCarlo_ValueWithSettings(
+        product, model, 1048576, simulation=dal.MonteCarloSettings_(enable_aad=True)
+    )
     tenor = 366.0 / 365.0
     variance = g * g
     bond_loading = h * tenor
@@ -158,8 +179,12 @@ def test_gsr_aad_matches_second_bond_moment_and_model_parameter_risks():
     assert result["PV"] == pytest.approx(expected, abs=2e-5)
     assert result["d_logdf:OIS:2027-09-28"] == pytest.approx(-expected, abs=2e-5)
     assert result["d_logdf:OIS:2028-09-28"] == pytest.approx(2.0 * expected, abs=2e-5)
-    assert result["d_g:2026-09-28"] == pytest.approx(expected * 2.0 * bond_loading * bond_loading * g, abs=2e-5)
-    assert result["d_H:2026-09-28"] == pytest.approx(expected * 2.0 * h * tenor * tenor * variance, abs=2e-5)
+    assert result["d_g:2026-09-28"] == pytest.approx(
+        expected * 2.0 * bond_loading * bond_loading * g, abs=2e-5
+    )
+    assert result["d_H:2026-09-28"] == pytest.approx(
+        expected * 2.0 * h * tenor * tenor * variance, abs=2e-5
+    )
 
 
 def test_gsr_projection_node_risk_matches_central_difference():
@@ -172,16 +197,26 @@ def test_gsr_projection_node_risk_matches_central_difference():
 
     def value(last_projection_node, enable_aad):
         curve = dal.GSRCurveData_New(
-            "curve", today, "USD", [today, fixing, horizon], [0.0, -0.03, -0.06],
-            ["3M"], dal.DoubleMatrix_([[0.0, -0.04, last_projection_node]]),
+            "curve",
+            today,
+            "USD",
+            [today, fixing, horizon],
+            [0.0, -0.03, -0.06],
+            ["3M"],
+            dal.DoubleMatrix_([[0.0, -0.04, last_projection_node]]),
         )
         model = dal.GSRModelData_New("gsr", curve, vol)
         return dal.MonteCarlo_ValueWithSettings(
-            product, model, 16, simulation=dal.MonteCarloSettings_(enable_aad=enable_aad)
+            product,
+            model,
+            16,
+            simulation=dal.MonteCarloSettings_(enable_aad=enable_aad),
         )
 
     aad = value(-0.08, True)
     bump = 1e-5
-    difference = (value(-0.08 + bump, False)["PV"] - value(-0.08 - bump, False)["PV"]) / (2.0 * bump)
+    difference = (
+        value(-0.08 + bump, False)["PV"] - value(-0.08 - bump, False)["PV"]
+    ) / (2.0 * bump)
     assert aad["d_logdf:3M:2028-09-28"] == pytest.approx(difference, abs=1e-7)
     assert math.isfinite(aad["d_g:2026-09-28"])

@@ -13,6 +13,10 @@ namespace Dal {
 #include <dal/auto/MG_HybridConstantCorrelationData_v1_Write.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Read.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Write.inc>
+#include <dal/auto/MG_HybridGSRRateData_v1_Read.inc>
+#include <dal/auto/MG_HybridGSRRateData_v1_Write.inc>
+#include <dal/auto/MG_HybridLocalVolEquityData_v1_Read.inc>
+#include <dal/auto/MG_HybridLocalVolEquityData_v1_Write.inc>
 #include <dal/auto/MG_HybridLogDfRateData_v1_Read.inc>
 #include <dal/auto/MG_HybridLogDfRateData_v1_Write.inc>
 #include <dal/auto/MG_HybridModelData_v1_Read.inc>
@@ -21,6 +25,12 @@ namespace Dal {
     void HybridBSEquityData_::Write(Archive::Store_& dst) const {
         HybridBSEquityData_v1::XWrite(dst, name_, index_, currency_, factor_, spot_, vol_, div_);
     }
+
+    void HybridLocalVolEquityData_::Write(Archive::Store_& dst) const {
+        HybridLocalVolEquityData_v1::XWrite(dst, name_, index_, currency_, factor_, spot_, div_, surface_, maxStep_);
+    }
+
+    void HybridGSRRateData_::Write(Archive::Store_& dst) const { HybridGSRRateData_v1::XWrite(dst, name_, factor_, curve_, vol_); }
 
     void HybridDeterministicRateData_::Write(Archive::Store_& dst) const { HybridDeterministicRateData_v1::XWrite(dst, name_, currency_, rate_); }
 

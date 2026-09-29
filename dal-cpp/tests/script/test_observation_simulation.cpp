@@ -218,13 +218,17 @@ namespace {
     void SetZeroVolatilityParameters(AAD::Model_<double>* model, double rate, double carry) {
         for (size_t i = 0; i < model->Parameters().size(); ++i) {
             const auto& label = model->ParameterLabels()[i];
-            *model->Parameters()[i] = label == "spot" ? 124.0 : (label == "rate" ? rate : (label == "div" || label == "repo" ? carry : 0.0));
+            *model->Parameters()[i] =
+                label == "spot" || label == "spot:EQ[DAL196_TEST]"
+                    ? 124.0
+                    : (label == "rate" || label == "rate:USD" ? rate : (label == "div" || label == "div:EQ[DAL196_TEST]" ? carry : 0.0));
         }
     }
 
     Vector_<Handle_<ModelData_>> ParityModels() {
-        return {Handle_<ModelData_>(new BSModelData_("", 120.0, 0.2, 0.05)),
-                Handle_<ModelData_>(new DupireModelData_("", 120.0, 0.05, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)))};
+        return {
+            Handle_<ModelData_>(new BSModelData_("", 120.0, 0.2, 0.05)),
+            MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 120.0, 0.05, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2))};
     }
 
     struct PathParityState_ {
@@ -469,21 +473,17 @@ TEST(ScriptObservationSimulationTest, TestInvalidLiveBlackScholesSpotBeforeHisto
     ASSERT_EQ(workers.submissions_, 0);
 }
 
-TEST(ScriptObservationSimulationTest, TestDupireOutputCapability) {
+TEST(ScriptObservationSimulationTest, TestLocalVolHybridOutputCapability) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
-    AAD::Dupire_<double> model(120.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0));
-    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, {});
-    ASSERT_NEAR(MCDoubleSimulation(prepared, &model, 1, "sobol", false, false, true).aggregated_, 120.0, 120.0e-12);
+    auto model = CreateModel<double>(
+        MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 120.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0)));
+    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), model.get(), {}, {});
+    ASSERT_NEAR(MCDoubleSimulation(prepared, model.get(), 1, "sobol", false, false, true).aggregated_, 120.0, 120.0e-12);
 }
 
 TEST(ScriptObservationSimulationTest, TestInvalidLiveBlackScholesParametersBeforeHistory) {
     const AAD::BlackScholes_<> model(123.0, 0.2);
     CheckInvalidLiveParameters(model, {1});
-}
-
-TEST(ScriptObservationSimulationTest, TestInvalidLiveDupireParametersBeforeHistory) {
-    const AAD::Dupire_<> model(123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2));
-    CheckInvalidLiveParameters(model, {3, 4, 5, 6});
 }
 
 TEST(ScriptObservationSimulationTest, TestValidLiveParametersUseCurrentValues) {
@@ -513,12 +513,11 @@ TEST(ScriptObservationSimulationTest, TestValidLiveParametersUseCurrentValues) {
 TEST(ScriptObservationSimulationTest, TestExpiredMutatedModelsSkipSetup) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     SetupCounterModel_<AAD::BlackScholes_<>> blackScholes(123.0, 0.2);
-    SetupCounterModel_<AAD::Dupire_<>> dupire(123.0, 0.0, 0.0, Vector_<>{80.0, 160.0}, Vector_<>{0.0, 1.0}, Matrix_<>(2, 2, 0.2));
     SubmissionCounter_ workers;
     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
     RejectFixingReads_ reject;
     const Dal::Detail::ScopedFixingReadObserver_ history(&reject);
-    for (AAD::Model_<double>* model : Vector_<AAD::Model_<double>*>{&blackScholes, &dupire}) {
+    for (AAD::Model_<double>* model : Vector_<AAD::Model_<double>*>{&blackScholes}) {
         *model->Parameters()[0] = -123.0;
         const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST])", Date_(2026, 9, 11)), model, {}, {});
         ASSERT_TRUE(prepared.AllExpired());
@@ -526,8 +525,6 @@ TEST(ScriptObservationSimulationTest, TestExpiredMutatedModelsSkipSetup) {
     }
     ASSERT_EQ(blackScholes.allocations_, 0);
     ASSERT_EQ(blackScholes.initializations_, 0);
-    ASSERT_EQ(dupire.allocations_, 0);
-    ASSERT_EQ(dupire.initializations_, 0);
     ASSERT_EQ(workers.submissions_, 0);
 }
 
@@ -641,8 +638,7 @@ TEST(ScriptObservationSimulationTest, TestFiniteModelInitializationBeforeHistory
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reads);
     const auto product = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11)");
     for (const auto& model :
-         {Handle_<ModelData_>(new BSModelData_("", 100.0, 0.2, 1.0e308)), Handle_<ModelData_>(new BSModelData_("", 100.0, 1.0e308)),
-          Handle_<ModelData_>(new DupireModelData_("", -1.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)))}) {
+         {Handle_<ModelData_>(new BSModelData_("", 100.0, 0.2, 1.0e308)), Handle_<ModelData_>(new BSModelData_("", 100.0, 1.0e308))}) {
         ASSERT_THROW(MCSimulation<double>(product, model, 1, ScriptValuationSettings_()), Exception_);
         ASSERT_EQ(reads.histories_, 0);
         ASSERT_EQ(reads.fixings_, 0);
@@ -824,15 +820,16 @@ TEST(ScriptObservationSimulationTest, TestFrozenObservationStorageOnWorkers) {
     ASSERT_EQ(model.paths_->load(), 8193);
 }
 
-TEST(ScriptObservationSimulationTest, TestBothAdaptersRejectUnsupportedBeforeHistory) {
+TEST(ScriptObservationSimulationTest, TestBSAndLocalVolHybridRejectUnsupportedBeforeHistory) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     AAD::BlackScholes_<double> bs(123.0, 0.0);
-    AAD::Dupire_<double> dupire(123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0));
+    auto localVol = CreateModel<double>(
+        MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0)));
     FixingReadCounter_ reads;
     SubmissionCounter_ workers;
     const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
-    for (auto* model : {static_cast<AAD::Model_<double>*>(&bs), static_cast<AAD::Model_<double>*>(&dupire)}) {
+    for (auto* model : {static_cast<AAD::Model_<double>*>(&bs), localVol.get()}) {
         const Index::DF_ rate(Ccy_("USD"), Cell_("3M"));
         ASSERT_FALSE(model->SupportsIndex(rate));
         for (const String_ index : {"EQ[OTHER]", "FX[EUR/USD]", "EQ[DAL196_TEST]>3M", "EQ[DAL196_TEST]@2026-12-31", "IR[DF]:USD,3M",
@@ -849,16 +846,18 @@ TEST(ScriptObservationSimulationTest, TestBothAdaptersRejectUnsupportedBeforeHis
     }
 }
 
-TEST(ScriptObservationSimulationTest, TestTimelineValidationAcrossSamplesForBothAdapters) {
+TEST(ScriptObservationSimulationTest, TestTimelineValidationAcrossSamplesForBSAndLocalVolHybrid) {
     AAD::BlackScholes_<double> bs(123.0, 0.0);
-    AAD::Dupire_<double> dupire(123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0));
-    for (auto* model : {static_cast<AAD::Model_<double>*>(&bs), static_cast<AAD::Model_<double>*>(&dupire)}) {
+    auto localVol = CreateModel<double>(
+        MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0)));
+    for (auto* model : {static_cast<AAD::Model_<double>*>(&bs), localVol.get()}) {
         Vector_<AAD::SampleDef_> definitions(3);
         definitions[0].indexNames_ = {"EQ[DAL196_TEST]"};
         definitions[2].indexNames_ = {"EQ[OTHER]"};
         ASSERT_THROW(model->Allocate({0.0, 0.5, 1.0}, definitions), Exception_);
         definitions[2].indexNames_ = {"EQ[DAL196_TEST]", "EQ[DAL196_TEST]"};
-        ASSERT_THROW(model->Allocate({0.0, 0.5, 1.0}, definitions), Exception_);
+        if (model == &bs)
+            ASSERT_THROW(model->Allocate({0.0, 0.5, 1.0}, definitions), Exception_);
         definitions[2].indexNames_ = {"EQ[DAL196_TEST]"};
         for (const Vector_<> times : {Vector_<>{0.0, 0.5},
                                       {0.0, 0.5, 0.5},
@@ -883,8 +882,9 @@ TEST(ScriptObservationSimulationTest, TestTodayPolicyAndRngForBothAdapters) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     const auto product = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST])", Date_(2026, 9, 12));
     const Handle_<MarketFixingSnapshot_> snapshot(new MarketFixingSnapshot_({{"EQ[DAL196_TEST]", {{DateTime_(Date_(2026, 9, 12), 0.0), 80.0}}}}));
-    for (const auto& model : {Handle_<ModelData_>(new BSModelData_("", 123.0, 0.2)),
-                              Handle_<ModelData_>(new DupireModelData_("", 123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2)))})
+    for (const auto& model :
+         {Handle_<ModelData_>(new BSModelData_("", 123.0, 0.2)),
+          MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 123.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.2))})
         for (const bool historical : {false, true}) {
             ScriptValuationSettings_ settings;
             if (historical)

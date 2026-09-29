@@ -16,13 +16,15 @@ INDEX = "EQ[DAL196_TEST]"
 def model(adapter="bs", rate=0.0, div=0.0):
     if adapter == "bs":
         return dal.BSModelData_New(100.0, 0.0, rate, div)
-    return dal.DupireModelData_New(
-        100.0,
-        rate,
-        div,
+    surface = dal.LocalVolSurfaceData_New(
+        "surface",
         [80.0, 120.0],
         [0.0, 1.0],
         dal.DoubleMatrix_([[0.0, 0.0], [0.0, 0.0]]),
+    )
+    bs = dal.BSModelData_New(100.0, 0.0, rate, div)
+    return dal.BSLocalVolModelData_New(
+        "local_vol", INDEX, "USD", "W_EQ", bs, surface, max_step=1.0
     )
 
 
@@ -32,7 +34,7 @@ def assert_pv(result, expected):
     assert all(isinstance(value, float) for value in result.values())
 
 
-@pytest.mark.parametrize("adapter", ["bs", "dupire"])
+@pytest.mark.parametrize("adapter", ["bs", "local_vol"])
 @pytest.mark.parametrize("method", ["sobol", "mrg32", "irn"])
 @pytest.mark.parametrize("use_bb", [False, True])
 @pytest.mark.parametrize("compiled", [False, True])
@@ -96,7 +98,7 @@ def test_historical_aad_batches_and_repricing(compiled, paths, historical_fix):
         assert set(result) == {"PV", "d_SCALE", "d_spot", "d_vol", "d_rate", "d_div"}
 
 
-@pytest.mark.parametrize("adapter", ["bs", "dupire"])
+@pytest.mark.parametrize("adapter", ["bs", "local_vol"])
 @pytest.mark.parametrize("compiled", [False, True])
 @pytest.mark.parametrize("aad", [False, True])
 def test_future_observation_and_payment_have_distinct_dates(
@@ -199,7 +201,9 @@ def test_multiple_future_indices_fail_with_multiple_model_indices():
     )
     valuation = dal.ScriptValuationSettings_(evaluation_date=D)
     for action in (
-        lambda: dal.MonteCarlo_ValueWithSettings(product, model(), 1, valuation=valuation),
+        lambda: dal.MonteCarlo_ValueWithSettings(
+            product, model(), 1, valuation=valuation
+        ),
         lambda: dal.ScriptValuation_Explain(product, model(), valuation=valuation),
     ):
         with pytest.raises(RuntimeError) as error:

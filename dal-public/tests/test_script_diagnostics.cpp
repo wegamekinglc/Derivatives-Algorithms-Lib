@@ -45,9 +45,9 @@ namespace {
         XGLOBAL::StoreFixings("EQ[DAL196_TEST]", history, false);
     }
 
-    Vector_<Handle_<ModelData_>> DeterministicModels() {
+    Vector_<Handle_<ModelData_>> DeterministicModels(const String_& index = "EQ[MiXeD]") {
         return {Handle_<ModelData_>(new BSModelData_("BS", 100.0, 0.0, 0.0, 0.0)),
-                Handle_<ModelData_>(new DupireModelData_("Dupire", 100.0, 0.0, 0.0, {80.0, 120.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0)))};
+                MakeFlatRateLocalVolHybridModelData("local_vol", index, 100.0, 0.0, 0.0, {80.0, 120.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0))};
     }
 
     template <class F_> void AssertInvalidVolatility(F_ action) {
@@ -266,7 +266,7 @@ TEST(ScriptApiTest, TestTodayPolicy) {
     const auto product = NewScriptProduct("today", {Cell_(Date_(2026, 9, 12))}, {"pay PAYS FIX(EQ[DAL196_TEST])"});
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
-    for (const auto& model : DeterministicModels()) {
+    for (const auto& model : DeterministicModels("EQ[DAL196_TEST]")) {
         for (const bool compiled : {false, true}) {
             for (const bool aad : {false, true}) {
                 const MonteCarloSettings_ simulation{"sobol", true, aad, 0.01, compiled};

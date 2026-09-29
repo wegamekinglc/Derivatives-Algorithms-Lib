@@ -9,6 +9,8 @@
 
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
+#include <dal/model/gsrdata.hpp>
+#include <dal/model/surface/lvmodel.hpp>
 #include <dal/storage/archive.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -23,6 +25,32 @@ factor is string
 spot is number
 vol is number
 div is number
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+storable HybridLocalVolEquityData
+    Equity component driven by a reusable local-volatility surface
+version 1
+&members
+name is ?string
+index is string
+currency is string
+factor is string
+spot is number
+div is number
+surface is handle LocalVolSurfaceData
+maxStep is number
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+storable HybridGSRRateData
+    Stochastic domestic GSR rate component of a hybrid model
+version 1
+&members
+name is ?string
+factor is string
+curve is handle GSRCurveData
+vol is handle GSRVolData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -95,6 +123,71 @@ namespace Dal {
         [[nodiscard]] Vector_<String_> RiskLabels() const override { return {"spot:" + index_, "vol:" + index_, "div:" + index_}; }
         [[nodiscard]] Vector_<String_> FactorNames() const override { return {factor_}; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {index_}; }
+        void Write(Archive::Store_& dst) const override;
+    };
+
+    struct HybridLocalVolEquityData_ : HybridComponentData_ {
+        String_ index_;
+        String_ factor_;
+        double spot_;
+        double div_;
+        Handle_<LocalVolSurfaceData_> surface_;
+        double maxStep_;
+
+        HybridLocalVolEquityData_(const String_& name,
+                                  const String_& index,
+                                  const String_& currency,
+                                  const String_& factor,
+                                  double spot,
+                                  double div,
+                                  const Handle_<LocalVolSurfaceData_>& surface,
+                                  double maxStep = 1.0 / 12.0)
+            : HybridComponentData_("HybridLocalVolEquityData_", name, currency), index_(CanonicalCorrelatedBSAssetNames({index})[0]), factor_(factor),
+              spot_(spot), div_(div), surface_(surface), maxStep_(maxStep) {
+            REQUIRE(!name_.empty() && !currency_.empty() && !factor_.empty() && surface_,
+                    "InvalidHybridComponent: local-vol equity name, currency, factor, and surface are required");
+            REQUIRE(std::isfinite(spot_) && spot_ > 0.0 && std::isfinite(div_),
+                    "InvalidHybridComponent: local-vol equity spot must be positive and dividend finite");
+            REQUIRE(std::isfinite(maxStep_) && maxStep_ > 0.0, "InvalidHybridComponent: local-vol maximum step must be positive and finite");
+        }
+        [[nodiscard]] Vector_<String_> RiskLabels() const override {
+            Vector_<String_> labels{"spot:" + index_, "div:" + index_};
+            for (int i = 0; i < surface_->vols_.Rows(); ++i)
+                for (int j = 0; j < surface_->vols_.Cols(); ++j)
+                    labels.push_back("lvol:" + index_ + ":" + String::FromInt(i) + ":" + String::FromInt(j));
+            return labels;
+        }
+        [[nodiscard]] Vector_<String_> FactorNames() const override { return {factor_}; }
+        [[nodiscard]] Vector_<String_> ObservableNames() const override { return {index_}; }
+        void Write(Archive::Store_& dst) const override;
+    };
+
+    struct HybridGSRRateData_ : HybridComponentData_ {
+        String_ factor_;
+        Handle_<GSRCurveData_> curve_;
+        Handle_<GSRVolData_> vol_;
+
+        HybridGSRRateData_(const String_& name, const String_& factor, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol)
+            : HybridComponentData_("HybridGSRRateData_", name, curve ? curve->currency_ : String_()), factor_(factor), curve_(curve), vol_(vol) {
+            REQUIRE(!name_.empty() && !factor_.empty() && curve_ && vol_,
+                    "InvalidHybridComponent: GSR rate name, factor, curve, and volatility are required");
+            static_cast<void>(GSRModelData_(name, curve_, vol_));
+        }
+        [[nodiscard]] Vector_<String_> RiskLabels() const override {
+            Vector_<String_> labels;
+            for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
+                labels.push_back("logdf:OIS:" + Date::ToString(curve_->nodeDates_[i]));
+            for (size_t row = 0; row < curve_->projectionTenors_.size(); ++row)
+                for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
+                    labels.push_back("logdf:" + curve_->projectionTenors_[row] + ":" + Date::ToString(curve_->nodeDates_[i]));
+            for (const auto& date : vol_->gKnotDates_)
+                labels.push_back("g:" + Date::ToString(date));
+            for (const auto& date : vol_->hKnotDates_)
+                labels.push_back("H:" + Date::ToString(date));
+            return labels;
+        }
+        [[nodiscard]] Vector_<String_> FactorNames() const override { return {factor_}; }
+        [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
         void Write(Archive::Store_& dst) const override;
     };
 
@@ -192,4 +285,23 @@ namespace Dal {
     private:
         std::unique_ptr<ModelData_> MutantModel(const String_* newName, const Slide_* slide) const override;
     };
+
+    // Convenience construction still yields HybridModelData_: local volatility
+    // remains an equity component, not a separate simulation model.
+    inline Handle_<ModelData_> MakeFlatRateLocalVolHybridModelData(const String_& name,
+                                                                   const String_& index,
+                                                                   double spot,
+                                                                   double rate,
+                                                                   double div,
+                                                                   const Vector_<>& spots,
+                                                                   const Vector_<>& times,
+                                                                   const Matrix_<>& vols,
+                                                                   double maxStep = 1.0) {
+        const Handle_<LocalVolSurfaceData_> surface(new LocalVolSurfaceData_(name + "_vol", spots, times, vols));
+        const Vector_<Handle_<HybridComponentData_>> components = {
+            Handle_<HybridComponentData_>(new HybridLocalVolEquityData_("equity", index, "USD", "W_EQ", spot, div, surface, maxStep)),
+            Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", "USD", rate))};
+        const Handle_<HybridCorrelationData_> correlation(new HybridConstantCorrelationData_("correlation", {"W_EQ"}, Matrix_<>(1, 1, 1.0)));
+        return Handle_<ModelData_>(new HybridModelData_(name, "USD", components, correlation));
+    }
 } // namespace Dal

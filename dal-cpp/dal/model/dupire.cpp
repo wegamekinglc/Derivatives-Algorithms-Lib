@@ -2,20 +2,17 @@
 // Created by wegam on 2022/12/4.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/model/dupire.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal {
-#include <dal/auto/MG_DupireModelData_v1_Read.inc>
-#include <dal/auto/MG_DupireModelData_v1_Write.inc>
-
-    void DupireModelData_::Write(Archive::Store_& dst) const {
-        DupireModelData_v1::XWrite(dst, name_, spot_, rate_, repo_, spots_, times_, vols_);
-    }
-
-    std::unique_ptr<ModelData_> DupireModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
-        REQUIRE(!slide, "slides are not supported for DupireModelData");
-        return std::make_unique<DupireModelData_>(*newName, spot_, rate_, repo_, spots_, times_, vols_);
+    Handle_<LocalVolSurfaceData_> CalibrateDupireLocalVolSurface(const String_& name,
+                                                                 const AAD::IVS_& ivs,
+                                                                 const Vector_<>& inclusionSpots,
+                                                                 double maxSpotSpacing,
+                                                                 const Vector_<>& inclusionTimes,
+                                                                 double maxTimeSpacing) {
+        const auto calibrated = AAD::DupireCalib<double>(ivs, inclusionSpots, maxSpotSpacing, inclusionTimes, maxTimeSpacing);
+        return Handle_<LocalVolSurfaceData_>(new LocalVolSurfaceData_(name, calibrated.spots_, calibrated.times_, calibrated.lVols_));
     }
 } // namespace Dal

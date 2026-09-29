@@ -2,25 +2,22 @@
 // Created by wegam on 2020/12/21.
 //
 
+#include <dal/model/blackscholes.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/script/event.hpp>
+#include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/time/schedules.hpp>
+#include <dal/utilities/timer.hpp>
+#include <iomanip>
 #include <iostream>
 #include <string>
-#include <iomanip>
-#include <dal/platform/platform.hpp>
-#include <dal/time/schedules.hpp>
-#include <dal/time/dateincrement.hpp>
-#include <dal/script/event.hpp>
-#include <dal/model/blackscholes.hpp>
-#include <dal/model/dupire.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/utilities/timer.hpp>
-#include <dal/script/simulation.hpp>
 
 using namespace std;
 using namespace Dal;
 using namespace Dal::Script;
 using Dal::AAD::Model_;
-using Dal::AAD::Dupire_;
-
 
 template <class T_>
 T_ DigitalTest(const T_& spot, const T_& vol, const T_& rate, const T_& div, const T_& strike, const T_& expiry) {

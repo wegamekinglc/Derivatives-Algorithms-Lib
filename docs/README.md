@@ -17,7 +17,7 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 | Chapter                                | Contents                                                                                     |
 |----------------------------------------|----------------------------------------------------------------------------------------------|
-| [Models](models/README.md)             | Black-Scholes/Bachelier, Dupire local volatility, correlated equities, and hybrid simulation |
+| [Models](models/README.md)             | Black-Scholes/Bachelier, Dupire calibration, local volatility, correlated equities, and hybrid simulation |
 | [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk        |
 | [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                       |
 | [Monte Carlo](monte-carlo/README.md)   | Simulation, sampling, LSM exercise pricing, RQMC, AAD, and performance                       |

@@ -17,6 +17,7 @@ void init_bindings_models(py::module_& m) {
     py::class_<HybridCorrelationData_, Storable_, std::shared_ptr<HybridCorrelationData_>>(m, "HybridCorrelationData_");
     py::class_<GSRCurveData_, Storable_, std::shared_ptr<GSRCurveData_>>(m, "GSRCurveData_");
     py::class_<GSRVolData_, Storable_, std::shared_ptr<GSRVolData_>>(m, "GSRVolData_");
+    py::class_<LocalVolSurfaceData_, Storable_, std::shared_ptr<LocalVolSurfaceData_>>(m, "LocalVolSurfaceData_");
 
     const auto dates = [](const py::iterable& input) {
         Vector_<Date_> result;
@@ -101,6 +102,51 @@ void init_bindings_models(py::module_& m) {
         py::arg("name"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("spot"), py::arg("vol"), py::arg("div"));
 
     m.def(
+        "LocalVolSurfaceData_New",
+        [=](const std::string& name, const py::iterable& spots, const py::iterable& times,
+            const Matrix_<>& vols) -> std::shared_ptr<LocalVolSurfaceData_> {
+            return std::const_pointer_cast<LocalVolSurfaceData_>(NewLocalVolSurfaceData(String_(name), numbers(spots), numbers(times), vols));
+        },
+        py::arg("name"), py::arg("spots"), py::arg("times"), py::arg("vols"));
+
+    m.def(
+        "HybridLocalVolEquityData_New",
+        [](const std::string& name, const std::string& index, const std::string& currency, const std::string& factor, double spot, double div,
+           const std::shared_ptr<LocalVolSurfaceData_>& surface, double maxStep) -> std::shared_ptr<HybridComponentData_> {
+            REQUIRE(surface, "InvalidHybridComponent: local-vol surface is required");
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridLocalVolEquityData(String_(name), String_(index), String_(currency), String_(factor), spot, div,
+                                            Handle_<LocalVolSurfaceData_>(std::shared_ptr<const LocalVolSurfaceData_>(surface)), maxStep));
+        },
+        py::arg("name"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("spot"), py::arg("div"), py::arg("surface"),
+        py::arg("max_step") = 1.0 / 12.0);
+
+    m.def(
+        "HybridGSRRateData_New",
+        [](const std::string& name, const std::string& factor, const std::shared_ptr<GSRCurveData_>& curve,
+           const std::shared_ptr<GSRVolData_>& vol) -> std::shared_ptr<HybridComponentData_> {
+            REQUIRE(curve && vol, "InvalidHybridComponent: GSR curve and volatility are required");
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridGSRRateData(String_(name), String_(factor), Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
+                                     Handle_<GSRVolData_>(std::shared_ptr<const GSRVolData_>(vol))));
+        },
+        py::arg("name"), py::arg("factor"), py::arg("curve"), py::arg("vol"));
+
+    m.def(
+        "BSLocalVolModelData_New",
+        [](const std::string& name, const std::string& index, const std::string& currency, const std::string& factor,
+           const std::shared_ptr<ModelData_>& bs, const std::shared_ptr<LocalVolSurfaceData_>& surface,
+           double maxStep) -> std::shared_ptr<ModelData_> {
+            const auto* base = dynamic_cast<const BSModelData_*>(bs.get());
+            REQUIRE(base && surface, "InvalidLocalVolModel: BS model and local-vol surface are required");
+            return std::const_pointer_cast<ModelData_>(
+                NewBSLocalVolModelData(String_(name), String_(index), String_(currency), String_(factor), *base,
+                                       Handle_<LocalVolSurfaceData_>(std::shared_ptr<const LocalVolSurfaceData_>(surface)), maxStep));
+        },
+        py::arg("name"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("bs"), py::arg("surface"),
+        py::arg("max_step") = 1.0 / 12.0);
+
+    m.def(
         "HybridDeterministicRateData_New",
         [](const std::string& name, const std::string& currency, double rate) -> std::shared_ptr<HybridComponentData_> {
             return std::make_shared<HybridDeterministicRateData_>(String_(name), String_(currency), rate);
@@ -162,21 +208,4 @@ void init_bindings_models(py::module_& m) {
             return std::const_pointer_cast<ModelData_>(NewBSModelData(String_("BSModelData_"), spot, vol, rate, div));
         },
         py::arg("spot"), py::arg("vol"), py::arg("rate"), py::arg("div"));
-
-    m.def(
-        "DupireModelData_New",
-        [](double spot, double rate, double repo, const py::iterable& spots, const py::iterable& times,
-           const Matrix_<>& vols) -> std::shared_ptr<ModelData_> {
-            // Convert Python iterables to Vector_<> for the factory function
-            Vector_<> new_spots;
-            for (auto item : spots)
-                new_spots.push_back(py::cast<double>(item));
-
-            Vector_<> new_times;
-            for (auto item : times)
-                new_times.push_back(py::cast<double>(item));
-
-            return std::const_pointer_cast<ModelData_>(NewDupireModelData(String_("DupireModelData_"), spot, rate, repo, new_spots, new_times, vols));
-        },
-        py::arg("spot"), py::arg("rate"), py::arg("repo"), py::arg("spots"), py::arg("times"), py::arg("vols"));
 }
