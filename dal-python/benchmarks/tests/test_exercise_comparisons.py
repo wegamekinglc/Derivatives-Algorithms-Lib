@@ -7,6 +7,10 @@ import pytest
 from dal_comparisons import exercise_scenarios as inputs
 
 
+def normal_cdf(value):
+    return math.erfc(-value / math.sqrt(2)) / 2
+
+
 def test_exercise_profiles_keep_training_budget_separate():
     full, smoke = inputs.cases(), inputs.cases(True)
     assert len(full) == 8
@@ -26,16 +30,62 @@ def test_exercise_dates_are_nested_and_include_maturity():
     assert set(quarterly) <= set(weekly)
 
 
+@pytest.mark.parametrize("kind", ["bermudan", "american"])
+def test_comparison_reference_uses_pde_at_every_greek_bump(kind, monkeypatch):
+    days = inputs.exercise_days(kind)
+    calls = []
+
+    def priced(used_days, spot=inputs.SPOT, vol=inputs.VOL, rate=inputs.RATE):
+        calls.append((used_days, spot, vol, rate))
+        return spot + 100 * vol + 1000 * rate
+
+    monkeypatch.setattr(inputs, "pde_price", priced)
+    case = {"kind": kind, "operation": "mc_greeks"}
+    assert inputs.expected(case) == pytest.approx([170, 1, 100, 1000])
+    assert inputs.expected({"kind": kind, "operation": "mc_price"}) == [170]
+    assert len(calls) == 8
+    assert all(used_days == days for used_days, *_ in calls)
+
+
+@pytest.mark.parametrize("kind", ["bermudan", "american"])
+def test_pde_reference_converges_across_price_and_greeks(kind):
+    days = inputs.exercise_days(kind)
+    dense = inputs.bumped_values(lambda s, v, r: inputs.pde_price(days, s, v, r))
+    coarse = inputs.bumped_values(
+        lambda s, v, r: inputs.pde_price(
+            days, s, v, r, grid_points=1201, steps_per_day=2
+        )
+    )
+    for value, estimate, tolerance in zip(
+        dense, coarse, (0.0005, 0.0001, 0.005, 0.005)
+    ):
+        assert value == pytest.approx(estimate, abs=tolerance)
+    assert dense[0] == pytest.approx(
+        inputs.tree_price(days, steps_per_day=16), abs=0.003
+    )
+
+
 def test_lattice_european_limit_and_early_exercise_premium():
     t = 546 / 365
     sd = 0.2 * math.sqrt(t)
     d1 = (0.05 * t + sd * sd / 2) / sd
-    cdf = lambda x: math.erfc(-x / math.sqrt(2)) / 2
-    european = 100 * (math.exp(-0.05 * t) * cdf(sd - d1) - cdf(-d1))
+    european = 100 * (math.exp(-0.05 * t) * normal_cdf(sd - d1) - normal_cdf(-d1))
     assert inputs.tree_price((546,)) == pytest.approx(european, abs=0.002)
     bermudan = inputs.tree_price(inputs.exercise_days("bermudan"))
     american = inputs.tree_price(inputs.exercise_days("american"))
     assert european + 0.5 < bermudan < american
+
+
+def test_pde_european_limit_and_early_exercise_premium():
+    t = 546 / 365
+    sd = 0.2 * math.sqrt(t)
+    d1 = (0.05 * t + sd * sd / 2) / sd
+    european = 100 * (math.exp(-0.05 * t) * normal_cdf(sd - d1) - normal_cdf(-d1))
+    pde_european = inputs.pde_price((546,))
+    bermudan = inputs.pde_price(inputs.exercise_days("bermudan"))
+    american = inputs.pde_price(inputs.exercise_days("american"))
+    assert pde_european == pytest.approx(european, abs=0.001)
+    assert pde_european + 0.5 < bermudan < american
 
 
 @pytest.mark.parametrize("kind", ["bermudan", "american"])

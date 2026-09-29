@@ -455,11 +455,16 @@ and tests. Every invocation times product/model/engine construction, preprocessi
 training, pricing and conversion; a Greek row includes seven complete valuations.
 Equal path budgets do not imply equal accuracy or equal-error timing ratios.
 
-An independent NumPy CRR tree uses eight steps per calendar day and permits
-exercise only on the matching dates. Tests compare it with sixteen steps per day
-at the base market and all six Greek bumps (PV differences below 0.003), verify
-the European limit against Black-Scholes, and check the early-exercise premium.
-The reference Greeks use the same finite bumps as the MC engines. Absolute
+Both benchmark references use an independent NumPy Crank-Nicolson PDE rollback
+with 2,401 uniform spot nodes from 0 to 400 and four time steps per calendar
+day. Exercise is projected only on each workload's matching Bermudan or weekly
+American dates; the American reference therefore prices the same discrete
+approximation as the MC engines. The PDE factors its tridiagonal system once
+per exercise interval and caches each market's solution grid for spot bumps.
+Tests compare the reference with a 1,201-node, two-step-per-day grid across
+the price and Greek bumps, check the European limit against Black-Scholes,
+and cross-check the price against a sixteen-step-per-day CRR tree. The
+reference Greeks use the same finite bumps as the MC engines. Absolute
 `[PV, Delta, Vega, Rho]` bounds are
 `[0.25, 0.02, 1, 1.5] * sqrt(16384/N) + [0.05, 0.01, 0.5, 1] * sqrt(16384/M)`.
 The training term retains an allowance for policy error when N increases.
@@ -467,7 +472,7 @@ These empirical accuracy bounds are not confidence intervals. Tests also reject
 perturbed outputs and verify separate calibration/pricing settings and fresh fits.
 
 The timing table shows actual N and M (including reduced smoke sizes). A second
-table shows DAL/QuantLib values and the discrete-exercise CRR reference; Greek
+table shows DAL/QuantLib values and the discrete-exercise PDE reference; Greek
 rows show `[PV, Delta, Vega, Rho]`. Values shown are from each round's first
 checked sample, while every sample is validated and retained in worker JSON.
 Rateslib has no corresponding equity MC engine and is explicitly unsupported.

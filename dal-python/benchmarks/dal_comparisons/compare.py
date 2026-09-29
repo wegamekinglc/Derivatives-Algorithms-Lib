@@ -201,8 +201,9 @@ def summary(report):
         "with pricing seed 42 and calibration seed 43. Both refit policies for "
         "central-difference Greeks (common random numbers), with training included "
         "in timing. Degree 3 monomials; QuantLib adds a payoff column; "
-        "normalization and solvers differ. CRR "
-        "references use identical exercise dates. Equal path budgets do not imply "
+        "normalization and solvers differ. Independent Crank-Nicolson PDE "
+        "references use identical discrete exercise dates, 2,401 spot nodes and "
+        "four time steps per day. Equal path budgets do not imply "
         "equal precision. Rateslib equity MC remains unsupported.",
         "",
         "Calibration: fresh non-flat annual IRS/XCCY markets, log-linear DFs; "
@@ -279,9 +280,9 @@ def exercise_values_summary(report):
         "",
         "Early-exercise values from the first checked sample of each round "
         "(all samples validated): price rows show PV; Greek rows show "
-        "[PV, Delta, Vega, Rho]. Reference is the matching discrete-exercise CRR tree.",
+        "[PV, Delta, Vega, Rho]. Reference is the matching discrete-exercise PDE.",
         "",
-        "| Round | Case | DAL | QuantLib | CRR reference |",
+        "| Round | Case | DAL | QuantLib | PDE reference |",
         "| ----- | ---- | --- | -------- | ------------- |",
     ]
     for index, result in enumerate(report["rounds"], 1):
