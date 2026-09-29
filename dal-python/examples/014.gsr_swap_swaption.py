@@ -97,20 +97,23 @@ def static_swap_price(discount_curve):
 
 
 def report_curve_fit(discount_curve, model, dates):
-    print("| Curve node | Input DF | GSR P(0,T) |\n|---|---:|---:|")
+    print(f"{'Curve node':<15}{'Input DF':>17}{'GSR P(0,T)':>17}")
+    print("-" * 49)
     for date in dates[1:]:
         bond = dal.Product_New([TODAY], [f"pay PAYS FIX(IR[USD,DF,{date}])"])
         input_df = discount_curve(TODAY, date)
         model_df = price(bond, model)
         if not math.isclose(model_df, input_df, rel_tol=0.0, abs_tol=1e-10):
             raise RuntimeError(f"GSR did not fit the input discount curve at {date}")
-        print(f"| {date} | {input_df:.9f} | {model_df:.9f} |")
+        print(f"{str(date):<15}{input_df:>17.9f}{model_df:>17.9f}")
+    print("-" * 49)
 
 
 def report_products(discount_curve, model):
-    print(
-        f"\n| g knot | g | H knot | H |\n|---|---:|---|---:|\n| {TODAY} | 0.020000 | {TODAY} | 1.000000 |\n"
-    )
+    print(f"\n{'g knot':<15}{'g':>12}  {'H knot':<15}{'H':>12}")
+    print("-" * 56)
+    print(f"{str(TODAY):<15}{'0.020000':>12}  {str(TODAY):<15}{'1.000000':>12}")
+    print("-" * 56, end="\n\n")
 
     # The swaption's cash payoff uses the present value of the standard swap's fixed annuity.
     annuity = "0.5 * FIX(IR[USD,DF,2028-03-28]) + 0.5 * FIX(IR[USD,DF,2028-09-28])"
@@ -143,12 +146,20 @@ def report_products(discount_curve, model):
     print(
         "The swap pays coupons on their scheduled dates; the swaption settles in cash at expiry.\n"
     )
-    print("| Product | GSR Monte Carlo PV | Static YieldCurve PV | Difference |")
-    print("|---|---:|---:|---:|")
     print(
-        f"| Standard forward payer swap | {swap_pv:.9f} | {static_swap_pv:.9f} | {swap_pv - static_swap_pv:.9f} |"
+        f"{'Product':<41}{'GSR Monte Carlo PV':>23}"
+        f"{'Static YieldCurve PV':>23}{'Difference':>18}"
     )
-    print(f"| Cash-settled European payer swaption | {swaption_pv:.9f} | N/A | N/A |")
+    print("-" * 105)
+    print(
+        f"{'Standard forward payer swap':<41}{swap_pv:>23.9f}"
+        f"{static_swap_pv:>23.9f}{swap_pv - static_swap_pv:>18.9f}"
+    )
+    print(
+        f"{'Cash-settled European payer swaption':<41}{swaption_pv:>23.9f}"
+        f"{'N/A':>23}{'N/A':>18}"
+    )
+    print("-" * 105)
 
 
 def main():
