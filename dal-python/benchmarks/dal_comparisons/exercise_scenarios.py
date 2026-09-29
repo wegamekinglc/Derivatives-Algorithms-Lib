@@ -1,16 +1,21 @@
-"""Early-exercise put workloads and an independent CRR stopping oracle."""
+"""Early-exercise put workloads and independent PDE stopping references."""
 
 from datetime import timedelta
 from functools import lru_cache
 import math
 
+import numpy as np
+
 from .constants import DAY_COUNT, TODAY
+from .exercise_pde import put_surface
 
 SPOT, VOL, RATE, DIVIDEND, STRIKE = 100.0, 0.2, 0.05, 0.0, 100.0
 MATURITY_DAYS = 546
 MATURITY = TODAY + timedelta(days=MATURITY_DAYS)
 BUMPS = (1.0, 0.01, 0.01)
 KINDS = ("bermudan", "american")
+PDE_GRID_POINTS = 2401
+PDE_STEPS_PER_DAY = 4
 CONVENTIONS = {
     "model": "Black-Scholes put; S=K=100, vol=0.2, r=0.05, q=0",
     "dates": [TODAY.isoformat(), MATURITY.isoformat()],
@@ -23,7 +28,7 @@ CONVENTIONS = {
     "greeks": "PV, Delta, Vega, Rho per unit spot/decimal vol/decimal rate; both use refitted-policy central differences with common random numbers; DAL frozen-policy AAD is a different estimator and is not used here",
     "bumps": list(BUMPS),
     "boundary": "fresh product/model/engine construction, preprocessing, training, pricing and output conversion; oracle excluded",
-    "oracle": "independent CRR tree, 8 steps/day, exercise only on matching dates; Greeks use identical finite bumps; not a continuous-exercise American oracle",
+    "oracle": "independent Crank-Nicolson PDE, 2401 spot nodes and 4 time steps/day, exercise only on matching dates; Greeks use identical finite bumps; American rows approximate weekly exercise, not continuous exercise",
     "interpretation": "equal path budgets, different sampling/solvers; timings do not imply equal precision; tolerances include fixed-training policy error",
 }
 
@@ -70,6 +75,32 @@ def tree_price(days, spot=SPOT, vol=VOL, rate=RATE, steps_per_day=8):
     return float(values[0])
 
 
+@lru_cache(maxsize=32)
+def pde_surface(days, vol, rate, grid_points, steps_per_day):
+    intervals = tuple(day - previous for previous, day in zip((0, *days), days))
+    return put_surface(
+        tuple(day / 365.0 for day in days),
+        grid_points,
+        tuple(interval * steps_per_day for interval in intervals),
+        vol,
+        rate,
+        STRIKE,
+        DIVIDEND,
+    )
+
+
+def pde_price(
+    days,
+    spot=SPOT,
+    vol=VOL,
+    rate=RATE,
+    grid_points=PDE_GRID_POINTS,
+    steps_per_day=PDE_STEPS_PER_DAY,
+):
+    grid, values = pde_surface(days, vol, rate, grid_points, steps_per_day)
+    return float(np.interp(spot, grid, values))
+
+
 def bumped_values(price):
     values = [price(SPOT, VOL, RATE)]
     for index, bump in enumerate(BUMPS):
@@ -83,8 +114,8 @@ def bumped_values(price):
 def expected(case):
     days = exercise_days(case["kind"])
     if case["operation"] == "mc_price":
-        return [tree_price(days)]
-    return bumped_values(lambda s, v, r: tree_price(days, s, v, r))
+        return [pde_price(days)]
+    return bumped_values(lambda s, v, r: pde_price(days, s, v, r))
 
 
 def tolerance(case):
