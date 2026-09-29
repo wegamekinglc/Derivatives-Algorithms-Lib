@@ -41,7 +41,7 @@ snippet is wrong.
 | Yield-curve Jacobian             | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, `<dal/math/matrix/matrixs.hpp>`, `<dal/math/matrix/matrixarithmetic.hpp>`                 |
 | Cross-currency calibration       | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, plus the xccy public wrapper when relevant                                                |
 | Script engine                    | `<dal/platform/platform.hpp>`, `<dal/script/event.hpp>`, `<dal/script/simulation.hpp>`, `<dal/storage/globals.hpp>`                                    |
-| Black / Dupire / MC / FD         | `<dal/model/blackscholes.hpp>`, `<dal/math/distribution/black.hpp>`, `<dal/storage/globals.hpp>`                                                       |
+| Black / Local Vol / MC / FD      | `<dal/model/blackscholes.hpp>`, `<dal/math/distribution/black.hpp>`, `<dal/storage/globals.hpp>`                                                       |
 | Dates                            | `<dal/time/date.hpp>`, `<dal/time/dateincrement.hpp>`, `<dal/time/daybasis.hpp>`, `<dal/time/holidays.hpp>`, `<dal/time/periodlength.hpp>`             |
 | Index parsing                    | the indice headers under `<dal/indice/...>`                                                                                                            |
 | Quadrature                       | the quadrature headers under `<dal/math/...>`                                                                                                          |
@@ -176,7 +176,7 @@ Use exactly these paths. Every directory was verified against `dal-cpp/examples/
 |-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `aad.md`                            | `dal-cpp/examples/aad/`                                                                                                                                                           |
 | `models/black-scholes.md`           | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
-| `models/dupire.md`                  | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
+| `models/dupire.md`                  | `dal-cpp/examples/uoc/` (Hybrid local-volatility simulation)                                                                                                                       |
 | `models/correlated-bs.md`           | `dal-cpp/examples/basket_mc/`                                                                                                                                                     |
 | `yield-curves/construction.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
 | `yield-curves/log-discount.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |

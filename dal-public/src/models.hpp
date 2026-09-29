@@ -29,6 +29,48 @@ namespace Dal {
         return Handle_<ModelData_>(new HybridModelData_(name, settings));
     }
 
+    FORCE_INLINE Handle_<LocalVolSurfaceData_>
+    NewLocalVolSurfaceData(const String_& name, const Vector_<>& spots, const Vector_<>& times, const Matrix_<>& vols) {
+        return Handle_<LocalVolSurfaceData_>(new LocalVolSurfaceData_(name, spots, times, vols));
+    }
+
+    FORCE_INLINE Handle_<LocalVolSurfaceData_> NewLocalVolSurfaceDataFromIVS(
+        const String_& name, const AAD::IVS_& ivs, const Vector_<>& spots, double maxSpotSpacing, const Vector_<>& times, double maxTimeSpacing) {
+        return CalibrateDupireLocalVolSurface(name, ivs, spots, maxSpotSpacing, times, maxTimeSpacing);
+    }
+
+    FORCE_INLINE Handle_<HybridComponentData_> NewHybridLocalVolEquityData(const String_& name,
+                                                                           const String_& index,
+                                                                           const String_& currency,
+                                                                           const String_& factor,
+                                                                           double spot,
+                                                                           double div,
+                                                                           const Handle_<LocalVolSurfaceData_>& surface,
+                                                                           double maxStep = 1.0 / 12.0) {
+        return Handle_<HybridComponentData_>(new HybridLocalVolEquityData_(name, index, currency, factor, spot, div, surface, maxStep));
+    }
+
+    FORCE_INLINE Handle_<HybridComponentData_>
+    NewHybridGSRRateData(const String_& name, const String_& factor, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol) {
+        return Handle_<HybridComponentData_>(new HybridGSRRateData_(name, factor, curve, vol));
+    }
+
+    FORCE_INLINE Handle_<ModelData_> NewBSLocalVolModelData(const String_& name,
+                                                            const String_& index,
+                                                            const String_& currency,
+                                                            const String_& factor,
+                                                            const BSModelData_& bs,
+                                                            const Handle_<LocalVolSurfaceData_>& surface,
+                                                            double maxStep = 1.0 / 12.0) {
+        Matrix_<> identity(1, 1, 1.0);
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = currency;
+        settings.components_ = {NewHybridLocalVolEquityData("equity", index, currency, factor, bs.spot_, bs.div_, surface, maxStep),
+                                Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", currency, bs.rate_))};
+        settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("correlation", {factor}, identity));
+        return NewHybridModelData(name, settings);
+    }
+
     FORCE_INLINE Handle_<GSRCurveData_> NewGSRCurveData(const String_& name,
                                                         const Date_& evaluationDate,
                                                         const String_& currency,
@@ -116,8 +158,4 @@ namespace Dal {
         return NewHybridLogDfRateData(name, curve.ccy_.String(), times, logDF, scheme);
     }
 
-    FORCE_INLINE Handle_<ModelData_> NewDupireModelData(
-        const String_& name, double spot, double rate, double repo, const Vector_<>& spots, const Vector_<>& times, const Matrix_<>& vols) {
-        return Handle_<ModelData_>(new DupireModelData_(name, spot, rate, repo, spots, times, vols));
-    }
 } // namespace Dal

@@ -5,7 +5,7 @@
 // Builds a cubic interpolator on 50 knots and measures the full sweep over
 // 10K monotonically-increasing query points, the dominant inner loop in
 // PDE/spline evaluation paths. Also exercises the inlined InterpLinearImplX
-// template the Dupire model calls once per MC step (1e5 paths x 200 steps over
+// template the local-volatility model calls once per MC step (1e5 paths x 200 steps over
 // a 200-knot spot grid) -- the Interp1_ virtual interface the other cases use
 // is NOT what the LV path touches.
 
@@ -71,7 +71,7 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
-    // Inlined linear (LV-style): the Dupire model calls InterpLinearImplX once per MC
+    // Inlined linear (LV-style): the local-volatility model calls InterpLinearImplX once per MC
     // step to pick the local vol before evolving logSpot -- N_steps x N_paths. This is
     // the FORCE_INLINE template the model actually links against, not the Interp1_
     // virtual interface the cases above exercise.

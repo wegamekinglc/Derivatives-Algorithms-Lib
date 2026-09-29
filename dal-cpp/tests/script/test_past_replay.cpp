@@ -251,7 +251,8 @@ TEST(ScriptPastReplayTest, TestCompiledEveryPathRebuildAcrossBatches) {
     simulation.compiled_ = true;
     ScriptValuationSettings_ settings;
     Vector_<Handle_<ModelData_>> models{Model()};
-    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    models.push_back(MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 100.0, 0.03, 0.01, {50.0, 100.0, 150.0}, {0.0, 0.5, 1.0},
+                                                         Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {
         auto model = CreateModel<double>(data);
         const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());
@@ -416,7 +417,8 @@ TEST(ScriptPastReplayTest, TestEveryPathRebuildOracle) {
     simulation.enableAad_ = true;
     ScriptValuationSettings_ settings;
     Vector_<Handle_<ModelData_>> models{Model()};
-    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    models.push_back(MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 100.0, 0.03, 0.01, {50.0, 100.0, 150.0}, {0.0, 0.5, 1.0},
+                                                         Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {
         auto model = CreateModel<double>(data);
         const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());
@@ -540,7 +542,8 @@ TEST(ScriptPastReplayTest, TestEveryPathRebuildAcrossBatchBoundary) {
     simulation.enableAad_ = true;
     ScriptValuationSettings_ settings;
     Vector_<Handle_<ModelData_>> models{Model()};
-    models.emplace_back(new DupireModelData_("", 100.0, 0.03, 0.01, Vector_<>{50.0, 100.0, 150.0}, Vector_<>{0.0, 0.5, 1.0}, Matrix_<>(3, 3, 0.2)));
+    models.push_back(MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 100.0, 0.03, 0.01, {50.0, 100.0, 150.0}, {0.0, 0.5, 1.0},
+                                                         Matrix_<>(3, 3, 0.2)));
     for (const auto& data : models) {
         auto model = CreateModel<double>(data);
         const auto prepared = PrepareScript(product, model.get(), settings, simulation, History());

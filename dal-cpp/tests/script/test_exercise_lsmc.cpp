@@ -21,7 +21,6 @@
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/model/blackscholes.hpp>
-#include <dal/model/dupire.hpp>
 #include <dal/script/diagnostics.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
@@ -658,13 +657,14 @@ TEST(ScriptExerciseLSMCTest, TestValidationPathsStayBetweenTrainingAndPricing) {
     }
 }
 
-TEST(ScriptExerciseLSMCTest, TestFlatDupireMatchesBlackScholesWithSeparatePathBudgets) {
+TEST(ScriptExerciseLSMCTest, TestFlatLocalVolHybridMatchesBlackScholesWithSeparatePathBudgets) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     constexpr size_t N_PATHS = 8197;
     const auto product = ExerciseOnlyProduct({Date_(2027, 3, 20), Date_(2027, 9, 20), Date_(2028, 3, 20)});
-    const Handle_<ModelData_> dupire(new DupireModelData_("dupire", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL)));
+    const auto localVol =
+        MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL418_TEST]", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL));
     // Flat local volatility has the same pathwise law and aggregate vega as BS,
-    // while exercising the generic path generator and the Dupire AAD workspace.
+    // while exercising the Hybrid path generator and local-vol AAD parameters.
     for (const int trainingPaths : {73, 16391}) {
         SCOPED_TRACE(trainingPaths);
         for (const bool bridge : {false, true}) {
@@ -679,18 +679,19 @@ TEST(ScriptExerciseLSMCTest, TestFlatDupireMatchesBlackScholesWithSeparatePathBu
                 SCOPED_TRACE(compiled);
                 settings.compiled_ = compiled;
                 settings.enableAad_ = false;
-                const auto hard = MCSimulation<double>(product, dupire, N_PATHS, {}, settings);
+                const auto hard = MCSimulation<double>(product, localVol, N_PATHS, {}, settings);
                 ASSERT_NEAR(hard.aggregated_ / N_PATHS, expectedHard.aggregated_ / N_PATHS, 1e-8);
                 settings.enableAad_ = true;
-                const auto aad = MCSimulation<AAD::Number_>(product, dupire, N_PATHS, {}, settings);
+                const auto aad = MCSimulation<AAD::Number_>(product, localVol, N_PATHS, {}, settings);
                 ASSERT_NEAR(aad.aggregated_ / N_PATHS, expectedAad.aggregated_ / N_PATHS, 1e-8);
-                ASSERT_NEAR(aad["spot"], expectedAad["spot"], 1e-8);
-                ASSERT_NEAR(aad["rate"], expectedAad["rate"], 1e-8);
-                ASSERT_NEAR(aad["repo"], expectedAad["div"], 1e-8);
+                ASSERT_NEAR(aad["spot:EQ[DAL418_TEST]"], expectedAad["spot"], 1e-8);
+                ASSERT_NEAR(aad["rate:USD"], expectedAad["rate"], 1e-8);
+                ASSERT_NEAR(aad["div:EQ[DAL418_TEST]"], expectedAad["div"], 1e-8);
                 ASSERT_EQ(aad.risks_.size(), 7u);
                 double parallelVega = 0.0;
-                for (size_t i = 3; i < aad.risks_.size(); ++i)
-                    parallelVega += aad.risks_[i];
+                for (size_t i = 0; i < aad.risks_.size(); ++i)
+                    if (aad.names_[i].find("lvol:") == 0)
+                        parallelVega += aad.risks_[i];
                 ASSERT_NEAR(parallelVega, expectedAad["vol"], 1e-8);
             }
         }
@@ -952,11 +953,11 @@ TEST(ScriptExerciseLSMCTest, TestDeadFutureFixDoesNotAllocateModelObservation) {
     ASSERT_TRUE(offGridPrepared.DefLine()[1].indexNames_.empty());
     ASSERT_EQ(offGridModel->SimDim(), 3u);
 
-    for (const bool dupire : {false, true}) {
-        SCOPED_TRACE(dupire);
-        const Handle_<ModelData_> modelData =
-            dupire ? Handle_<ModelData_>(new DupireModelData_("dupire", SPOT, RATE, DIV, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL)))
-                   : StandardModel();
+    for (const bool localVol : {false, true}) {
+        SCOPED_TRACE(localVol);
+        const Handle_<ModelData_> modelData = localVol ? MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL418_TEST]", SPOT, RATE, DIV,
+                                                                                             {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, VOL))
+                                                       : StandardModel();
         for (const bool compiled : {false, true}) {
             for (const bool aad : {false, true}) {
                 MonteCarloSettings_ settings;
@@ -1488,19 +1489,19 @@ namespace {
         return BumpModel(SPOT, VOL, RATE, 0.03 + bump);
     }
 
-    Handle_<ModelData_> BumpedDupireModel(size_t parameter, double bump) {
+    Handle_<ModelData_> BumpedLocalVolModel(size_t parameter, double bump) {
         Matrix_<> vols(2, 2, VOL);
         vols(0, 0) = 0.0; // first grid volatility exercises the one-sided lower-bound rule
-        double spot = SPOT, rate = RATE, repo = 0.03;
+        double spot = SPOT, rate = RATE, div = 0.03;
         if (parameter == 0)
             spot += bump;
         else if (parameter == 1)
+            div += bump;
+        else if (parameter == 6)
             rate += bump;
-        else if (parameter == 2)
-            repo += bump;
         else
-            vols((parameter - 3) / 2, (parameter - 3) % 2) += bump;
-        return Handle_<ModelData_>(new DupireModelData_("dupire", spot, rate, repo, {50.0, 150.0}, {0.0, 2.0}, vols));
+            vols((parameter - 2) / 2, (parameter - 2) % 2) += bump;
+        return MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL418_TEST]", spot, rate, div, {50.0, 150.0}, {0.0, 2.0}, vols);
     }
 
     double PvOf(const SimResults_& results, size_t nPaths) { return results.aggregated_ / static_cast<double>(nPaths); }
@@ -1554,7 +1555,7 @@ TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskMatchesFuzzyRepricing) {
     }
 }
 
-TEST(ScriptExerciseLSMCTest, TestRetrainedDupirePolicyRiskParameterIndexAndVolBoundary) {
+TEST(ScriptExerciseLSMCTest, TestRetrainedLocalVolPolicyRiskParameterIndexAndVolBoundary) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
     constexpr size_t N_PATHS = 2048;
@@ -1562,24 +1563,24 @@ TEST(ScriptExerciseLSMCTest, TestRetrainedDupirePolicyRiskParameterIndexAndVolBo
     auto settings = AadSettings(false, 2.0);
     settings.lsmcTrainingPaths_ = 1024;
     settings.lsmcPolicyRiskMode_ = "RetrainedBump";
-    const auto baseModel = BumpedDupireModel(0, 0.0);
+    const auto baseModel = BumpedLocalVolModel(0, 0.0);
     const auto total = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
     settings.lsmcPolicyRiskMode_ = "Frozen";
     const auto frozen = MCSimulation<AAD::Number_>(product, baseModel, N_PATHS, {}, settings);
     ASSERT_DOUBLE_EQ(total.aggregated_, frozen.aggregated_);
     ASSERT_EQ(total.names_.size(), 7u);
-    ASSERT_EQ(total.names_[3], String_("lvol 50.00 0.00"));
-    ASSERT_EQ(total.names_[6], String_("lvol 150.00 2.00"));
-    for (const size_t parameter : {1u, 2u, 3u, 6u}) {
+    ASSERT_EQ(total.names_[2], String_("lvol:EQ[DAL418_TEST]:0:0"));
+    ASSERT_EQ(total.names_[5], String_("lvol:EQ[DAL418_TEST]:1:1"));
+    for (const size_t parameter : {1u, 2u, 5u, 6u}) {
         SCOPED_TRACE(parameter);
-        const double up = PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, STEP), N_PATHS, {}, settings), N_PATHS);
-        const double down = parameter == 3
+        const double up = PvOf(MCSimulation<AAD::Number_>(product, BumpedLocalVolModel(parameter, STEP), N_PATHS, {}, settings), N_PATHS);
+        const double down = parameter == 2
                                 ? PvOf(frozen, N_PATHS)
-                                : PvOf(MCSimulation<AAD::Number_>(product, BumpedDupireModel(parameter, -STEP), N_PATHS, {}, settings), N_PATHS);
-        const double reference = (up - down) / (parameter == 3 ? STEP : 2.0 * STEP);
+                                : PvOf(MCSimulation<AAD::Number_>(product, BumpedLocalVolModel(parameter, -STEP), N_PATHS, {}, settings), N_PATHS);
+        const double reference = (up - down) / (parameter == 2 ? STEP : 2.0 * STEP);
         ASSERT_TRUE(std::isfinite(total.risks_[parameter]));
         //  Sparse hard-policy retraining makes the full-repricing drift secant noisier than the direct grid-volatility secants.
-        const double tolerance = parameter < 3 ? 0.03 * std::abs(reference) : 3e-2;
+        const double tolerance = parameter == 1 || parameter == 6 ? 0.03 * std::abs(reference) : 3e-2;
         ASSERT_NEAR(total.risks_[parameter], reference, tolerance);
     }
 }

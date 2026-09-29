@@ -27,29 +27,6 @@ model is handle ModelData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public DupireModelData_New
-    Dupire local volality model's data description
-&inputs
-name is string
-    A name for the object being created
-spot is number
-    current spot value
-rate is number
-    risk-free rate
-repo is number
-    repo rate including dividend
-spots is number[]
-    local vol surface spots data
-times is number[]
-    local vol surface times data
-vols is number[][]
-    local vol surface data
-&outputs
-model is handle ModelData
-    The model data
--IF-------------------------------------------------------------------------*/
-
-/*IF--------------------------------------------------------------------------
 public CorrelatedBSModelData_New
     Create correlated multi-equity Black-Scholes model data
 &inputs
@@ -265,16 +242,6 @@ namespace Dal {
             NewBSModelData(name, spot, vol, rate, div).swap(*model);
         }
 
-        void DupireModelData_New(const String_& name,
-                                 double spot,
-                                 double rate,
-                                 double repo,
-                                 const Vector_<>& spots,
-                                 const Vector_<>& times,
-                                 const Matrix_<>& vols,
-                                 Handle_<ModelData_>* model) {
-            NewDupireModelData(name, spot, rate, repo, spots, times, vols).swap(*model);
-        }
     } // namespace
 
     void CorrelatedBSModelData_New(const String_& name,
@@ -382,16 +349,15 @@ namespace Dal {
 #ifdef _WIN32
 #include <dal-excel/auto/MG_BSModelData_New_public.inc>
 #include <dal-excel/auto/MG_CorrelatedBSModelData_New_public.inc>
-#include <dal-excel/auto/MG_DupireModelData_New_public.inc>
+#include <dal-excel/auto/MG_GSRCurveDataFromCurveBlock_New_public.inc>
+#include <dal-excel/auto/MG_GSRCurveData_New_public.inc>
+#include <dal-excel/auto/MG_GSRModelData_New_public.inc>
+#include <dal-excel/auto/MG_GSRVolData_New_public.inc>
 #include <dal-excel/auto/MG_HybridBSEquityData_New_public.inc>
 #include <dal-excel/auto/MG_HybridConstantCorrelationData_New_public.inc>
 #include <dal-excel/auto/MG_HybridDeterministicRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridLogDfRateDataFromCurve_New_public.inc>
 #include <dal-excel/auto/MG_HybridLogDfRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridModelData_New_public.inc>
-#include <dal-excel/auto/MG_GSRCurveData_New_public.inc>
-#include <dal-excel/auto/MG_GSRCurveDataFromCurveBlock_New_public.inc>
-#include <dal-excel/auto/MG_GSRVolData_New_public.inc>
-#include <dal-excel/auto/MG_GSRModelData_New_public.inc>
 #endif
 } // namespace Dal

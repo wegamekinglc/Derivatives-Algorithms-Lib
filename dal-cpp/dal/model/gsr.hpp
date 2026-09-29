@@ -312,6 +312,25 @@ namespace Dal::AAD {
             SetParameterPointers();
         }
 
+        // The hybrid rate component uses the same transition and observation kernel as standalone GSR.
+        [[nodiscard]] T_ InitialLogDiscount(double time) const { return LogDF(time); }
+        void ResetAnchorsForRecording() {
+            if constexpr (!std::is_same_v<T_, double>) {
+                discountLogDF_[0] = T_(0.0);
+                for (auto& projection : projectionLogDF_)
+                    projection[0] = T_(0.0);
+            }
+        }
+        void AdvanceHybrid(size_t sample, double gaussian, T_* state, T_* logNumeraire) const {
+            REQUIRE(sample < steps_.size() && steps_[sample].advances_, "InvalidGSRPath: hybrid step was not prepared");
+            AdvancePath(steps_[sample], gaussian, state, logNumeraire);
+        }
+        [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_& state) const {
+            REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
+                    "InvalidGSRObservation: hybrid observation was not prepared");
+            return Observe(productTimeLine_[sample], observations_[sample][slot], state);
+        }
+
         [[nodiscard]] size_t NumAssets() const override { return 0; }
         [[nodiscard]] std::optional<Date_> EvaluationDate() const override { return evaluationDate_; }
         [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
@@ -353,12 +372,8 @@ namespace Dal::AAD {
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
             REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
-            if constexpr (!std::is_same_v<T_, double>) {
-                // Anchors are not risk parameters. Recreate their constant tape nodes after NewRecording.
-                discountLogDF_[0] = T_(0.0);
-                for (auto& projection : projectionLogDF_)
-                    projection[0] = T_(0.0);
-            }
+            // Anchors are not risk parameters. Recreate their constant tape nodes after NewRecording.
+            ResetAnchorsForRecording();
             double previous = 0.0;
             for (size_t i = 0; i < timeline.size(); ++i) {
                 const double current = timeline[i];

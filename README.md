@@ -84,7 +84,7 @@ Core domains in `dal-cpp/dal/`:
 - **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
 - **script/** — Expression scripting engine for exotic payoffs, with tree-walk and compiled evaluation modes
-- **model/** — Financial models (Black-Scholes, Dupire local volatility, etc.)
+- **model/** — Financial models (Black-Scholes, GSR, Hybrid), local-volatility surfaces, and Dupire calibration
 - **time/** — Dates, calendars, schedules, and day-count bases
 - **protocol/**, **currency/**, **indice/** — Market/contract conventions, currency data, and index/fixing management
 - **risk/** — Risk report types and aggregation
@@ -142,7 +142,7 @@ bash ./build_linux.sh --benchmarks
 ### Script FIX Settings and Diagnostics
 
 Public C++ supports typed product and valuation settings for unquoted
-`FIX(index[,date])`, explicit dates/snapshots, and BS/Dupire EQ bindings while
+`FIX(index[,date])`, explicit dates/snapshots, and BS/Hybrid EQ bindings while
 preserving old call signatures. See the
 [settings contract](docs/methodology/script_engine.md#public-c-settings) and
 [runnable C++ example](dal-public/examples/script_settings.cpp).
@@ -206,7 +206,7 @@ Methodology notes (see the index above for the full list):
 - [PDE](docs/pde/README.md) — finite-difference framework and European option pricing
 - [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
 - [Monte Carlo](docs/monte-carlo/README.md) — simulation, LSM, sampling, RQMC, and AAD
-- [Models](docs/models/README.md) — Black/Bachelier pricing and Black-Scholes, Dupire, correlated-equity, and hybrid simulation
+- [Models](docs/models/README.md) — Black/Bachelier pricing, Black-Scholes, correlated-equity and hybrid simulation, and Dupire calibration
 - [Matrix](docs/methodology/matrix.md) — matrix and linear algebra
 
 ## License

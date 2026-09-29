@@ -17,8 +17,8 @@ binding-specific examples live in [Python](../python/README.md) and
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
 
-The [models index](../models/README.md) covers Black-Scholes, Dupire,
-correlated equity Black-Scholes, and hybrid simulation. The
+The [models index](../models/README.md) covers Black-Scholes, Dupire surface
+calibration, correlated equity Black-Scholes, and hybrid simulation. The
 [script language and preparation](../methodology/script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.
 

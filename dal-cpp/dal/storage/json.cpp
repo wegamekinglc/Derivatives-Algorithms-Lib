@@ -29,6 +29,7 @@ namespace Dal {
     namespace {
         const char* TYPE_LABEL = "~type";
         const char* TAG_LABEL = "$tag";
+        const char* ROWS_LABEL = "rows";
         const char* COLS_LABEL = "cols";
         const char* VALS_LABEL = "vals";
         using element_t = rapidjson::GenericValue<rapidjson::UTF8<>>;
@@ -317,9 +318,8 @@ namespace Dal {
                 ret_val[ii] = extract(doc[ii]);
             return ret_val;
         }
-        template <class E_> Matrix_<E_> AsMatrix(int cols, const Vector_<E_>& vals) {
-            REQUIRE(cols > 0 && !(vals.size() % cols), "Invalid number of matrix columns");
-            const int rows = vals.size() / cols;
+        template <class E_> Matrix_<E_> AsMatrix(int rows, int cols, const Vector_<E_>& vals) {
+            REQUIRE(rows >= 0 && cols >= 0 && static_cast<size_t>(rows) * static_cast<size_t>(cols) == vals.size(), "Invalid matrix dimensions");
             Matrix_<E_> ret_val(rows, cols);
             for (int ir = 0; ir < rows; ++ir)
                 std::copy(vals.begin() + ir * cols, vals.begin() + (ir + 1) * cols, ret_val.Row(ir).begin());
@@ -423,15 +423,15 @@ namespace Dal {
             Vector_<DateTime_> AsDateTimeVector() const override { return AsVector(doc_, EDateTime); }
             Vector_<Cell_> AsCellVector() const override { return AsVector(doc_, ECell); }
 
-            // Matrix stored as child "cols" + child "vals" (row-major)
+            // Matrix stored as child "rows", "cols", and "vals" (row-major).
             Matrix_<> AsDoubleMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EDouble));
+                return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EDouble));
             }
             Matrix_<String_> AsStringMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EString));
+                return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EString));
             }
             Matrix_<Cell_> AsCellMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], ECell));
+                return AsMatrix(EInt(doc_[ROWS_LABEL]), EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], ECell));
             }
 
             String_ Type() const override {

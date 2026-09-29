@@ -40,7 +40,7 @@ public MonteCarlo_ValueWithSettings
 product is handle ScriptProductData
     Script product handle
 modelData is handle ModelData
-    BS or Dupire model data handle
+    BS, correlated BS, GSR, or hybrid model data handle
 n_paths is number
     Finite integer from 1 to INT_MAX
 +xl_valuation = Excel::ScriptScalarInput(xl_valuation); xl_simulation = Excel::ScriptScalarInput(xl_simulation);
@@ -61,7 +61,7 @@ public ScriptValuation_Explain
 product is handle ScriptProductData
     Script product handle
 modelData is handle ModelData
-    BS or Dupire model data handle
+    BS, correlated BS, GSR, or hybrid model data handle
 +xl_valuation = Excel::ScriptScalarInput(xl_valuation);
 &optional
 valuation is handle StorableScriptValuationSettings
@@ -78,7 +78,7 @@ public ScriptSimulation_Explain
 product is handle ScriptProductData
     Script product handle
 modelData is handle ModelData
-    BS or Dupire model data handle
+    BS, correlated BS, GSR, or hybrid model data handle
 n_paths is number
     Finite integer from 1 to INT_MAX
 +xl_valuation = Excel::ScriptScalarInput(xl_valuation); xl_simulation = Excel::ScriptScalarInput(xl_simulation);

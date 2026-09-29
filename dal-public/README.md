@@ -51,8 +51,8 @@ required typed valuation argument with optional simulation settings.
 Explicit dates avoid global date access, and non-null fixing snapshots are
 authoritative even when empty. Product defaults identify legacy `SPOT()`;
 model-sourced named fixings bind to their own model output by index name.
-Correlated BS and deterministic-rate hybrid models accept several future EQ
-indices; BS and Dupire accept one. See the
+Correlated BS and hybrid models accept several configured future EQ indices;
+BS accepts one. See the
 [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
 and executable [settings example](examples/script_settings.cpp).
 

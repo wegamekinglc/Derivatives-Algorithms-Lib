@@ -6,19 +6,10 @@
 
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
-#include <dal/model/dupire.hpp>
-#include <dal/model/hybrid.hpp>
 #include <dal/model/gsr.hpp>
+#include <dal/model/hybrid.hpp>
 
 namespace Dal {
-
-    template <class D_> Matrix_<D_> CastMatrix(const Matrix_<>& src) {
-        Matrix_<D_> dst(src.Rows(), src.Cols());
-        for (int i = 0; i < src.Rows(); ++i)
-            for (int j = 0; j < src.Cols(); ++j)
-                dst(i, j) = D_(src(i, j));
-        return dst;
-    }
 
     template <class D_> Vector_<D_> CastVector(const Vector_<>& src) {
         Vector_<D_> dst;
@@ -32,11 +23,6 @@ namespace Dal {
         auto modelBSImp = dynamic_cast<const BSModelData_*>(model_data.get());
         if (modelBSImp)
             return std::make_unique<AAD::BlackScholes_<T_>>(T_(modelBSImp->spot_), T_(modelBSImp->vol_), T_(modelBSImp->rate_), T_(modelBSImp->div_));
-
-        auto modelDupireImp = dynamic_cast<const DupireModelData_*>(model_data.get());
-        if (modelDupireImp)
-            return std::make_unique<AAD::Dupire_<T_>>(T_(modelDupireImp->spot_), T_(modelDupireImp->rate_), T_(modelDupireImp->repo_),
-                                                      modelDupireImp->spots_, modelDupireImp->times_, CastMatrix<T_>(modelDupireImp->vols_));
 
         auto modelCorrelatedImp = dynamic_cast<const CorrelatedBSModelData_*>(model_data.get());
         if (modelCorrelatedImp)

@@ -7,8 +7,8 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
 
 1. [Black-Scholes and Bachelier](black-scholes.md) — lognormal and normal
    vanilla pricing, implied volatility, and Black-Scholes model examples.
-2. [Dupire local volatility](dupire.md) — implied-volatility inversion,
-   calibration grid, and local-volatility simulation.
+2. [Dupire surface calibration](dupire.md) — implied-volatility inversion and
+   calibration grid for reusable local-volatility data.
 3. [Correlated equity Black-Scholes](correlated-bs.md) — named multi-asset
    observations, constant correlations, and AAD parameters.
 4. [Hybrid Monte Carlo](hybrid-model.md) — named equity, constant or term-structure
@@ -16,3 +16,5 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
 5. [Gaussian Short Rate (GSR)](gaussian-short-rate.md) — dated OIS and
    projection curves, stochastic discounting, rate observations, swaps,
    swaptions, and Bermudan exercise.
+6. [Local volatility in hybrid models](local-volatility.md) — reusable and
+   serializable local-vol grids with BS or stochastic GSR rates.

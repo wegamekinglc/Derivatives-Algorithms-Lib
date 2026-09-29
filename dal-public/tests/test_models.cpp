@@ -24,22 +24,24 @@ TEST(ModelsTest, TestNewBSModelDataStoresTypeAndName) {
     ASSERT_TRUE(model->Name() == "dal_public_bs_model");
 }
 
-TEST(ModelsTest, TestNewDupireModelDataStoresTypeAndName) {
+TEST(ModelsTest, TestNewBSLocalVolModelDataStoresHybridTypeAndName) {
     const Vector_<> spots = {80.0, 100.0, 120.0};
     const Vector_<> times = {0.5, 1.0};
-    Matrix_<> vols(2, 3);
+    Matrix_<> vols(3, 2);
     vols(0, 0) = 0.22;
     vols(0, 1) = 0.20;
-    vols(0, 2) = 0.18;
     vols(1, 0) = 0.24;
     vols(1, 1) = 0.21;
-    vols(1, 2) = 0.19;
+    vols(2, 0) = 0.19;
+    vols(2, 1) = 0.18;
 
-    const auto model = Dal::NewDupireModelData(String_("dal_public_dupire_model"), 100.0, 0.05, 0.02, spots, times, vols);
+    const auto surface = Dal::NewLocalVolSurfaceData("surface", spots, times, vols);
+    const auto bs = Dal::BSModelData_("bs", 100.0, 0.20, 0.05, 0.02);
+    const auto model = Dal::NewBSLocalVolModelData("dal_public_local_vol", "EQ[A]", "USD", "W_EQ", bs, surface);
 
     ASSERT_FALSE(model.IsEmpty());
-    ASSERT_TRUE(model->Type() == "DupireModelData_");
-    ASSERT_TRUE(model->Name() == "dal_public_dupire_model");
+    ASSERT_TRUE(model->Type() == "HybridModelData_");
+    ASSERT_TRUE(model->Name() == "dal_public_local_vol");
 }
 
 TEST(ModelsTest, TestNewBSModelDataUsableByModelFactory) {

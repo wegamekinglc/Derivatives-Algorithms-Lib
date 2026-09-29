@@ -38,8 +38,8 @@ MONTECARLO.VALUE(product, modelData, n_paths, rsg, use_bb, enable_aad, smooth)
 
 It uses default valuation settings and has no compiled-selection argument.
 Both Value functions require a finite integer `n_paths` in `1..2147483647`
-and use the same native preparation. Model data must be Black-Scholes or
-Dupire. Both return a headerless two-column table: column 1 contains `PV` and
+and use the same native preparation. Model data must be Black-Scholes,
+correlated BS, GSR, or Hybrid. Both return a headerless two-column table: column 1 contains `PV` and
 optional `d_<parameter>` keys; column 2 contains their numeric values. Look up
 keys instead of assuming PV is the first row. AAD adds model and script-constant
 risks; risks are already normalized, and there are no fixing-risk or diagnostic
@@ -190,8 +190,9 @@ For evaluation date D, fixing date F, and event date E:
 `default_index` gives the legacy zero-argument `SPOT()` an identity. It does
 not change `FIX` literals. For model-sourced named observations, each ordinary
 EQ binds to its own model output. `CORRELATEDBSMODELDATA.NEW` and
-`HYBRIDMODELDATA.NEW` accept multiple named equities; BS and Dupire accept one
-distinct future index. Future FX, IR, composite, and delivery indices are
+`HYBRIDMODELDATA.NEW` accept multiple named equities; BS accepts one
+distinct future EQ index. GSR and a Hybrid GSR rate component support
+compatible future IR observations. Future FX, composite, and delivery indices are
 unsupported. Historical EQ/FX observations need no model index and may contain
 multiple identities. A product default does not supply market data: the model
 inputs must describe the intended equity. In a multi-asset model, `SPOT()` and

@@ -43,7 +43,7 @@ struct XlRegister_MonteCarlo_ValueWithSettings_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Script product handle");
-        argHelp.push_back("BS or Dupire model data handle");
+        argHelp.push_back("BS, correlated BS, GSR, or hybrid model data handle");
         argHelp.push_back("Finite integer from 1 to INT_MAX");
         argHelp.push_back("Valuation settings handle; blank captures the global date and required history for this call");
         argHelp.push_back("Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree");

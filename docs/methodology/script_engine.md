@@ -411,7 +411,7 @@ it neither binds a model nor changes model spot/volatility inputs. Explicit
 and contract settings. It performs no parsing or market access. Full script
 and index validation occurs in description or preparation; pricing additionally
 requires dated events and a syntactic `PAYS` or `EXERCISE`. Product and model handles must
-be non-null, the model must be BS, Dupire, correlated BS, or hybrid, and `numPath` must be a positive
+be non-null, the model must be BS, correlated BS, GSR, or hybrid, and `numPath` must be a positive
 `int`. C++ cannot detect fractional values already converted to `int` before
 entry, and these typed settings have no string-key dictionary interface.
 
@@ -595,7 +595,7 @@ definitions. Moving the prepared object preserves that storage.
 
 ### The Script Model Index and Legacy SPOT
 
-Black-Scholes and Dupire are single-asset models. A model-sourced `FIX`,
+Black-Scholes is a single-asset model. A model-sourced `FIX`,
 including today under `MODEL`, is managed purely by its index name: the
 script's single model-observed ordinary EQ supplies the identity, so
 `pay PAYS FIX(EQ[AAPL])` binds the model's spot output to `EQ[AAPL]` with no
@@ -604,10 +604,11 @@ model inputs describe; the library cannot verify that the caller supplied the
 intended equity's market data.
 
 Each model-sourced request retains its canonical index and a separate sample
-output slot. Correlated BS and deterministic-rate hybrid models accept several
-future ordinary EQ indices. BS and Dupire still accept only one distinct
-future EQ index (`MultipleModelIndices`). An unsupported model-observed index
-fails before history access or worker submission. Future FX, IR, composite,
+output slot. Correlated BS and hybrid models accept several configured
+future ordinary EQ indices. BS still accepts only one distinct
+future EQ index (`MultipleModelIndices`). GSR and a Hybrid GSR rate component
+support compatible future IR requests. An unsupported model-observed index
+fails before history access or worker submission. Future FX, composite,
 and EQ delivery (`>` or `@`) outputs are unsupported. Historical EQ/FX observations need no model index;
 several historical equities, delivery identities, and FX directions can coexist
 with one future ordinary EQ. Historical inverse-FX lookup does not imply a
@@ -1309,7 +1310,7 @@ generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark
 `dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
 `compiled=true` runs across simple and schedule-heavy products for both
 `double` and `AAD::Number_`. Its optional `--lsmc-replay TRAINING PRICING
-1W|1CD hard|aad bs|dupire tree|compiled [deadfix]` mode runs one valuation
+1W|1CD hard|aad bs|local_vol tree|compiled [deadfix]` mode runs one valuation
 per process, printing elapsed time, PV, and AAD risks so paired runs can
 compare equal budgets and peak process memory. The `deadfix` workload puts
 dead future FIX requests on each exercise row to measure observation pruning.

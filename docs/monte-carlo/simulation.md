@@ -27,7 +27,7 @@ const double pv = result.aggregated_ / 32768.0;
 ```
 
 Here `product` is `ScriptProductData_` and `modelData` is a Black-Scholes,
-Dupire, correlated BS, or hybrid model handle. `32768` counts pricing paths. For exercise products the separate
+correlated BS, GSR, or hybrid model handle. `32768` counts pricing paths. For exercise products the separate
 training block has 4096 paths; see [path partitioning](lsm.md). The public
 `ValueByMonteCarlo` overload takes the analogous settings through its typed
 valuation and simulation arguments.
@@ -45,10 +45,12 @@ expired. The detailed binding and today-fixing rules are in
 [script preparation](../methodology/script_engine.md#historical-fixing-preparation).
 
 The factory constructs [Black-Scholes](../models/black-scholes.md),
-[Dupire local-volatility](../models/dupire.md),
-[correlated equity Black-Scholes](../models/correlated-bs.md), and
-[hybrid](../models/hybrid-model.md) models from model data. Script preparation and public
-valuation accept all four. The model interface exposes whether its numeraire
+[correlated equity Black-Scholes](../models/correlated-bs.md),
+[GSR](../models/gaussian-short-rate.md), and
+[hybrid](../models/hybrid-model.md) models from model data. A
+[Dupire calibration](../models/dupire.md) supplies a local-volatility surface
+for a hybrid equity component. Script preparation and public
+valuation accept all four models. The model interface exposes whether its numeraire
 is deterministic. The future observation plan keeps exact event-to-sample
 mapping rather than assuming one model sample per script event. A model path
 with a non-finite or non-positive numeraire is rejected as `InvalidModelPath`.

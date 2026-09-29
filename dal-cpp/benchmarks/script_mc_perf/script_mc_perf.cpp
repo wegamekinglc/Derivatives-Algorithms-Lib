@@ -18,7 +18,7 @@
 #include <dal/benchmarks/bench.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/blackscholes.hpp>
-#include <dal/model/dupire.hpp>
+#include <dal/model/hybriddata.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
@@ -248,7 +248,7 @@ namespace {
     }
 
     bool ValidReplayOptions(int argc, char** argv) {
-        if (!IsAllowed(argv[4], {"1W", "1CD"}) || !IsAllowed(argv[5], {"hard", "aad"}) || !IsAllowed(argv[6], {"bs", "dupire"}) ||
+        if (!IsAllowed(argv[4], {"1W", "1CD"}) || !IsAllowed(argv[5], {"hard", "aad"}) || !IsAllowed(argv[6], {"bs", "local_vol"}) ||
             !IsAllowed(argv[7], {"tree", "compiled"}))
             return false;
         bool deadFix = false, retrained = false;
@@ -297,13 +297,13 @@ namespace {
     int RunLsmcReplayProfile(int argc, char** argv) {
         ReplayProfile_ profile;
         if (!ParseReplayProfile(argc, argv, &profile)) {
-            std::cerr << "usage: script_mc_perf --lsmc-replay TRAINING PRICING 1W|1CD hard|aad bs|dupire tree|compiled [deadfix] [retrained]\n";
+            std::cerr << "usage: script_mc_perf --lsmc-replay TRAINING PRICING 1W|1CD hard|aad bs|local_vol tree|compiled [deadfix] [retrained]\n";
             return 2;
         }
-        const Handle_<ModelData_> model =
-            profile.model_ == "bs"
-                ? BuildModelData()
-                : Handle_<ModelData_>(new DupireModelData_("dupire", 100.0, 0.05, 0.02, {50.0, 150.0}, {0.0, 2.0}, Matrix_<>(2, 2, 0.20)));
+        const Handle_<ModelData_> model = profile.model_ == "bs"
+                                              ? BuildModelData()
+                                              : MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL418_TEST]", 100.0, 0.05, 0.02, {50.0, 150.0},
+                                                                                    {0.0, 2.0}, Matrix_<>(2, 2, 0.20));
         MonteCarloSettings_ simulation;
         simulation.compiled_ = profile.engine_ == "compiled";
         simulation.lsmcTrainingPaths_ = profile.trainingPaths_;

@@ -9,6 +9,7 @@
 #include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/model/hybriddata.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/storage/globals.hpp>
 
@@ -171,7 +172,7 @@ TEST(ScriptExcelContractTest, TestTodayPolicyAcrossExecutionModes) {
     const ObserverScope_ observe(&reads);
     Vector_<Handle_<ModelData_>> models = {
         Handle_<ModelData_>(new BSModelData_("bs", 100., 0., 0., 0.)),
-        Handle_<ModelData_>(new DupireModelData_("dupire", 100., 0., 0., {80., 120.}, {0., 1.}, Matrix_<>(2, 2, 0.)))};
+        MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[AAPL]", 100., 0., 0., {80., 120.}, {0., 1.}, Matrix_<>(2, 2, 0.))};
     Handle_<ScriptProductData_> today;
     Product_New("today", {Cell_(double(Date::ToExcel(D)))}, {"pay PAYS FIX(EQ[AAPL])"}, &today);
     for (const auto& model : models)

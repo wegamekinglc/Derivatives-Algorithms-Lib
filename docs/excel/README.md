@@ -16,10 +16,11 @@ in the [method chapters](../README.md#quantitative-methods).
 =MONTECARLO.VALUE(product_handle, model_handle, 65536, "sobol", FALSE, TRUE, 0.01)
 ```
 
-For a local-volatility model, use
-`DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
-range must be a rectangular spots-by-times matrix. Both Excel Value functions
-require a finite integer path count in `1..2147483647`.
+For local-volatility pricing, calibrate or provide a surface in C++ or Python
+and compose the equity with a rate component in `HybridModelData_`. Excel's
+model constructors do not currently expose the local-volatility component.
+Both Excel Value functions require a finite integer path count in
+`1..2147483647`.
 
 The seven-input `MONTECARLO.VALUE` retains its argument order and has no
 compiled or script-settings argument. For explicit FIX settings, construct

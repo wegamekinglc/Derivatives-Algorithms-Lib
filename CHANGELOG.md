@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-09-30
+
+- **Composable local volatility** — serializable spot/time local-vol surfaces
+  and equity components now run inside the Hybrid model with deterministic
+  or stochastic GSR domestic rates, shared factor correlation, internal
+  time stepping, and AAD grid risks. Dupire now calibrates surfaces only;
+  its standalone model and C++, Python, and Excel construction APIs are removed.
+  See [local volatility in hybrid models](docs/models/local-volatility.md).
+
 ## 2026-09-29
 
 - **Gaussian Short Rate model naming** — the one-factor rate model and its

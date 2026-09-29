@@ -36,18 +36,16 @@ TEST(ModelTest, TestCreateModelBuildsBlackScholes) {
     ASSERT_NEAR(bs->Div(), 0.01, 1e-10);
 }
 
-TEST(ModelTest, TestCreateModelBuildsDupire) {
+TEST(ModelTest, TestCreateModelBuildsHybridLocalVol) {
     const Vector_<> spots = {90.0, 100.0, 110.0};
     const Vector_<> times = {0.25, 0.5, 1.0};
     const Matrix_<> vols(3, 3, 0.2);
-    const Handle_<ModelData_> model_data(std::make_shared<DupireModelData_>("my_model", 100.0, 0.05, 0.01, spots, times, vols));
+    const Handle_<ModelData_> model_data = MakeFlatRateLocalVolHybridModelData("my_model", "EQ[A]", 100.0, 0.05, 0.01, spots, times, vols);
     std::unique_ptr<AAD::Model_<>> model = CreateModel<double>(model_data);
 
-    auto dupire = dynamic_cast<const AAD::Dupire_<>*>(model.get());
-    ASSERT_TRUE(dupire != nullptr);
-    ASSERT_NEAR(dupire->Spot(), 100.0, 1e-10);
-    ASSERT_EQ(dupire->Spots(), spots);
-    ASSERT_EQ(dupire->Times(), times);
+    ASSERT_TRUE(dynamic_cast<const AAD::HybridModel_<>*>(model.get()) != nullptr);
+    ASSERT_EQ(model->AssetNames(), Vector_<String_>{"EQ[A]"});
+    ASSERT_EQ(model->ParameterLabels().size(), 12u);
 }
 
 TEST(ModelTest, TestCreateModelRejectsUnknownModelData) {

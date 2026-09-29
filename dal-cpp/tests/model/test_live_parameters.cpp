@@ -14,9 +14,7 @@ using namespace Dal;
 
 namespace {
     Vector_<Handle_<ModelData_>> ParameterModels(const Vector_<>& values) {
-        return {
-            Handle_<ModelData_>(new BSModelData_("", values[0], values[1], values[2], values[3])),
-            Handle_<ModelData_>(new DupireModelData_("", values[0], values[2], values[3], {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, values[1])))};
+        return {Handle_<ModelData_>(new BSModelData_("", values[0], values[1], values[2], values[3]))};
     }
 
     Vector_<> InvalidValues(const String_& label) {
