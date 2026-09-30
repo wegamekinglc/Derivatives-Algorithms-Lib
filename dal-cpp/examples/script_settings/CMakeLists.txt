@@ -1,0 +1,2 @@
+add_executable(dal_script_settings_example script_settings.cpp)
+target_link_libraries(dal_script_settings_example PRIVATE DAL::cpp)

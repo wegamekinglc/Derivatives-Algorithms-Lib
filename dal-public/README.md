@@ -54,7 +54,7 @@ model-sourced named fixings bind to their own model output by index name.
 Correlated BS and hybrid models accept several configured future EQ indices;
 BS accepts one. See the
 [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
-and executable [settings example](examples/script_settings.cpp).
+and executable [core settings example in `dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/).
 
 `DescribeScriptProduct` provides contract JSON /2 without historical, model,
 or global-date access. `ExplainScriptValuation` provides valuation JSON /1

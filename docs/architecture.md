@@ -33,6 +33,10 @@ available. These exercise binding contracts without building the Windows XLL.
 concrete value types, so consumers remain coupled to compatible core headers and
 libraries.
 
+All repository C++ examples live under `dal-cpp/examples/` and use core APIs.
+Their DAL dependency is `DAL::cpp`; `DAL_CPP_BUILD_EXAMPLES=ON` enables them
+independently of `DAL_BUILD_PUBLIC`.
+
 ## Core Organization
 
 The main core namespaces live under `dal-cpp/dal/`:

@@ -256,7 +256,7 @@ installed Google Test package:
 ```bash
 cmake -S dal-public -B build/public-standalone \
   "-DCMAKE_PREFIX_PATH=$PWD/build/stage/core-dev;/path/to/gtest/install" \
-  -DDAL_PUBLIC_BUILD_TESTS=ON -DDAL_CPP_BUILD_EXAMPLES=ON
+  -DDAL_PUBLIC_BUILD_TESTS=ON
 cmake --build build/public-standalone --parallel
 ctest --test-dir build/public-standalone --output-on-failure
 ```
@@ -279,15 +279,17 @@ are private to `dal_public_tests`; `DAL::cpp` and `DAL::public` exports do not
 require them. With `DAL_PUBLIC_BUILD_TESTS=OFF`, these test dependencies are
 neither discovered nor required.
 
-`DAL_CPP_BUILD_EXAMPLES=ON` also builds `dal_script_settings_example` from
-`dal-public/examples/script_settings.cpp`. With public tests enabled, CTest
-registers `ScriptSettingsExample` and the legacy/typed-signature consumer
-`ScriptApiConsumer`. After a normal core profile build, run just these existing
-programs with:
+In a workspace build, `DAL_CPP_BUILD_EXAMPLES=ON` builds all C++ examples
+under `dal-cpp/examples/` using core APIs and `DAL::cpp`. They also build with
+`DAL_BUILD_PUBLIC=OFF`. The `dal_script_settings_example` and
+`dal_hybrid_script_example` targets register `ScriptSettingsExample` and
+`HybridScriptExample` under the `examples` label independently of public
+tests. Public tests register the legacy/typed-signature consumer
+`ScriptApiConsumer`. After a normal core profile build, run these programs with:
 
 ```bash
 ctest --test-dir build/core-dev \
-  -R '^(ScriptApiConsumer|ScriptSettingsExample)$' --output-on-failure
+  -R '^(ScriptApiConsumer|ScriptSettingsExample|HybridScriptExample)$' --output-on-failure
 ```
 
 ## Python Bindings

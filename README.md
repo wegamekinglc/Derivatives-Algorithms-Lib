@@ -145,7 +145,7 @@ Public C++ supports typed product and valuation settings for unquoted
 `FIX(index[,date])`, explicit dates/snapshots, and BS/Hybrid EQ bindings while
 preserving old call signatures. See the
 [settings contract](docs/methodology/script_engine.md#public-c-settings) and
-[runnable C++ example](dal-public/examples/script_settings.cpp).
+[runnable core C++ example in `dal-cpp/examples/script_settings/`](dal-cpp/examples/script_settings/).
 [fix_mc](dal-cpp/examples/fix_mc) is a runnable Monte Carlo example covering
 historical fixings (global store or explicit snapshot), future fixings
 (simulated model paths), mixed payoffs, and the evaluation-date fixing policy.

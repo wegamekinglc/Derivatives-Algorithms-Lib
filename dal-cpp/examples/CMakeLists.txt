@@ -15,10 +15,13 @@ add_subdirectory(basket_mc)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
 add_subdirectory(fix_mc)
+add_subdirectory(gsr_swap_swaption)
+add_subdirectory(hybrid_script)
 add_subdirectory(snowball)
 add_subdirectory(sobol)
 add_subdirectory(script)
 add_subdirectory(script_tree)
+add_subdirectory(script_settings)
 add_subdirectory(underdetermined)
 add_subdirectory(uoc)
 add_subdirectory(vanilla)
@@ -76,10 +79,13 @@ set(DAL_EXAMPLE_TARGETS
     european_mc
     european_fd
     fix_mc
+    gsr_swap_swaption
+    dal_hybrid_script_example
     snowball
     sobol
     script
     script_tree
+    dal_script_settings_example
     underdetermined
     uoc
     vanilla
@@ -111,6 +117,12 @@ foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
     else()
         set(example_label examples)
     endif()
+    set(example_test_name ${example_target})
+    if(example_target STREQUAL "dal_script_settings_example")
+        set(example_test_name ScriptSettingsExample)
+    elseif(example_target STREQUAL "dal_hybrid_script_example")
+        set(example_test_name HybridScriptExample)
+    endif()
     if(example_target STREQUAL "uoc")
         add_test(NAME uoc COMMAND uoc 32768)
         set_tests_properties(uoc PROPERTIES TIMEOUT 60)
@@ -130,7 +142,7 @@ foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
             uoc_rejects_zero uoc_rejects_invalid uoc_rejects_overflow uoc_rejects_extra_args
             PROPERTIES LABELS examples WILL_FAIL TRUE TIMEOUT 5)
     else()
-        add_test(NAME ${example_target} COMMAND ${example_target})
+        add_test(NAME ${example_test_name} COMMAND ${example_target})
     endif()
-    set_tests_properties(${example_target} PROPERTIES LABELS ${example_label})
+    set_tests_properties(${example_test_name} PROPERTIES LABELS ${example_label})
 endforeach()

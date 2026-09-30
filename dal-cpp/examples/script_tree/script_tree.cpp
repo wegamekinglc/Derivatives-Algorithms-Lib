@@ -60,9 +60,7 @@ int main() {
     events.emplace_back("uoc pays alive * MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
-    //  Resolve the variable/constant tables and the payoff slot, so the dump
-    //  header shows `Variables:`/`Constants:` -- mirroring what the dal-public
-    //  wrapper DebugScriptProductTree does on its private copy
+    //  Resolve the variable/constant tables and payoff slot for the dump header.
     product.IndexVariables();
 
     //  Unicode style: statements inline while they fit the width budget
