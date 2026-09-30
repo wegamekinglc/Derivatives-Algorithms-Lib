@@ -123,7 +123,7 @@ Each future `FIX(EQ[...])` binds independently to its named component; requests
 on one date may use either order. Historical fixings retain their own index and
 never fall back to simulated values. A multi-equity `SPOT()` requires
 `ScriptProductSettings_::defaultIndex_`. GSR supplies future `IR[...]`
-observations; FX remains unsupported. See the executable [two-equity C++ example](../../dal-public/examples/hybrid_script.cpp)
+observations; FX remains unsupported. See the executable [two-equity core C++ example](../../dal-cpp/examples/hybrid_script/hybrid_script.cpp)
 and [Python example](../../dal-python/examples/hybrid_script.py).
 
 The deterministic-rate hybrid supports LSM early exercise with either

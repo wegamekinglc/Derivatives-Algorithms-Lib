@@ -1,0 +1,2 @@
+add_executable(dal_hybrid_script_example hybrid_script.cpp)
+target_link_libraries(dal_hybrid_script_example PRIVATE DAL::cpp)

@@ -6,20 +6,21 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include <dal/platform/platform.hpp>
 
+#include <dal/curve/curveblock.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/model/gsrdata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/platform/initall.hpp>
+#include <dal/script/event.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/dateincrement.hpp>
-
-#include <dal-public/src/curvedata.hpp>
-#include <dal-public/src/models.hpp>
-#include <dal-public/src/script.hpp>
-#include <dal-public/src/value.hpp>
 
 using namespace Dal;
 
@@ -34,22 +35,28 @@ namespace {
     constexpr double STRIKE = 0.03;
     constexpr int PATHS = 1 << 16;
 
-    double Price(const Handle_<Script::ScriptProductData_>& product, const Handle_<ModelData_>& model) {
+    double Price(const Script::ScriptProductData_& product, const Handle_<ModelData_>& model) {
         Script::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = TODAY;
         Script::MonteCarloSettings_ simulation;
         simulation.compiled_ = true;
-        return ValueByMonteCarlo(product, model, PATHS, valuation, simulation).at("PV");
+        const auto result = Script::MCSimulation<double>(product, model, PATHS, valuation, simulation);
+        return result.aggregated_ / PATHS;
     }
 
-    void PrintScript(const char* name, const Handle_<Script::ScriptProductData_>& product) {
-        std::string tree = DebugScriptProductTree(product, true, 100).c_str();
+    void PrintScript(const char* name, const Script::ScriptProductData_& product) {
+        auto parsed = product.Product();
+        parsed.PartitionEvents(TODAY);
+        parsed.IndexVariables();
+        std::ostringstream out;
+        parsed.DebugTree(out, true, 100);
+        std::string tree = out.str();
         while (!tree.empty() && tree.back() == '\n')
             tree.pop_back();
         std::cout << "### " << name << "\n\n```text\n" << tree << "\n```\n\n";
     }
 
-    Handle_<Script::ScriptProductData_> StandardPayerSwap() {
+    Script::ScriptProductData_ StandardPayerSwap() {
         const std::array<Date_, 5> dates{EXPIRY, FIRST_FLOAT_COUPON, FIRST_COUPON, THIRD_FLOAT_COUPON, MATURITY};
         Vector_<Cell_> eventDates{Cell_("STRIKE")};
         Vector_<String_> scripts{String_(std::to_string(STRIKE))};
@@ -62,7 +69,7 @@ namespace {
             eventDates.push_back(Cell_(dates[i]));
             scripts.push_back("pay PAYS " + floating + fixed);
         }
-        return NewScriptProduct("payer_swap", eventDates, scripts);
+        return {"payer_swap", eventDates, scripts};
     }
 
     double StaticSwapPrice(const Handle_<DiscountCurve_>& discountCurve) {
@@ -102,11 +109,16 @@ int main() {
     for (const auto& date : nodes)
         logDiscountFactors.push_back(-INPUT_RATE * (date - TODAY) / DAYS_PER_YEAR);
 
-    const auto discountCurve = DiscountLogDFNew("input_usd_ois", "USD", nodeDates, logDiscountFactors);
-    const auto yieldCurve = CurveBlockNew(discountCurve);
-    const auto curve = NewGSRCurveDataFromYieldCurve("gsr_curve", *yieldCurve, TODAY, nodeDates, {});
-    const auto vol = NewGSRVolData("gsr_vol", {TODAY}, {0.02}, {TODAY}, {1.0});
-    const auto model = NewGSRModelData("gsr", curve, vol);
+    const Handle_<DiscountCurve_> discountCurve(
+        NewDiscountLogDF("input_usd_ois", "USD", nodeDates, logDiscountFactors, DayBasis_("ACT_365F"), LogDfScheme_::Value_::LOG_LINEAR));
+    const CurveBlock_ yieldCurve(discountCurve);
+    const auto& oisCurve = yieldCurve.Discount(CollateralType_::Value_::OIS);
+    Vector_<> snapshotLogDF;
+    for (const auto& date : nodeDates)
+        snapshotLogDF.push_back(std::log(oisCurve(TODAY, date)));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("gsr_curve", TODAY, "USD", nodeDates, snapshotLogDF, {}, {}));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("gsr_vol", {TODAY}, {0.02}, {TODAY}, {1.0}));
+    const Handle_<ModelData_> model(new GSRModelData_("gsr", curve, vol));
 
     std::cout << "# GSR swap and swaption example\n\n"
               << "The GSR curve snapshots the input USD OIS yield curve; g and H are supplied, not calibrated.\n\n"
@@ -115,7 +127,7 @@ int main() {
     std::cout << std::fixed << std::setprecision(9);
     for (size_t i = 1; i < nodes.size(); ++i) {
         const String_ maturity = Date::ToString(nodes[i]);
-        const auto bond = NewScriptProduct("bond", {Cell_(TODAY)}, {"pay PAYS FIX(IR[USD,DF," + maturity + "])"});
+        const Script::ScriptProductData_ bond("bond", {Cell_(TODAY)}, {"pay PAYS FIX(IR[USD,DF," + maturity + "])"});
         const double inputDf = (*discountCurve)(TODAY, nodes[i]);
         const double modelDf = Price(bond, model);
         REQUIRE(std::abs(modelDf - inputDf) < 1e-10, "GSR did not fit the input discount curve at a node");
@@ -134,7 +146,7 @@ int main() {
     const String_ annuity = "0.5 * FIX(IR[USD,DF,2028-03-28]) + 0.5 * FIX(IR[USD,DF,2028-09-28])";
     const String_ swapValue = "(FIX(IR[USD,SWAP,1Y,2027-09-28]) - STRIKE) * (" + annuity + ")";
     const auto swap = StandardPayerSwap();
-    const auto swaption = NewScriptProduct("payer_swaption", {Cell_("STRIKE"), Cell_(EXPIRY)}, {"0.03", "pay PAYS MAX(" + swapValue + ", 0)"});
+    const Script::ScriptProductData_ swaption("payer_swaption", {Cell_("STRIKE"), Cell_(EXPIRY)}, {"0.03", "pay PAYS MAX(" + swapValue + ", 0)"});
 
     PrintScript("Standard forward payer swap", swap);
     PrintScript("Cash-settled European payer swaption", swaption);

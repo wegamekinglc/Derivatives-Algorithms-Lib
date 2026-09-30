@@ -452,10 +452,10 @@ The returned map contains `PV` and, with AAD, `d_<model parameter>` and
 `d_<script constant parameter>` only. PV is a path mean; risks are already
 normalized. There are no fixing-risk, preparation, or diagnostic result keys.
 
-The executable [settings example](../../dal-public/examples/script_settings.cpp)
+The executable [core settings example](../../dal-cpp/examples/script_settings/script_settings.cpp)
 uses an explicit date and snapshot, historical `SCALE * FIX(EQ[DAL196_TEST])`,
 and compiled AAD. With history 80, SCALE 2 and zero rates, it checks `PV=160`
-and `d_SCALE=80`, then prints Describe and Explain. The
+and `d_SCALE=80`, then prints product and prepared-valuation diagnostics. The
 [signature consumer](../../dal-public/test-consumer/script.cpp) exercises old
 three-to-eight-argument calls and typed settings.
 
@@ -1716,8 +1716,8 @@ uses the legacy text wrapper.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- [Public C++ settings example](../../dal-public/examples/script_settings.cpp)
-  — historical fixing, explicit date/snapshot, compiled AAD, Describe, and Explain.
+- [Core C++ settings example](../../dal-cpp/examples/script_settings/script_settings.cpp)
+  — historical fixing, explicit date/snapshot, compiled AAD, and product/valuation diagnostics.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
 - [Excel FIX settings](../excel/script-settings.md)

@@ -97,10 +97,6 @@ add_subdirectory(dal-cpp)
 
 if(DAL_BUILD_PUBLIC)
     add_subdirectory(dal-public)
-    if(DAL_CPP_BUILD_EXAMPLES)
-        # This example links DAL::public, so register it after dal_public exists.
-        add_subdirectory(dal-cpp/examples/gsr_swap_swaption)
-    endif()
 endif()
 
 if(DAL_BUILD_PYTHON)

@@ -209,7 +209,7 @@ A two-equity hybrid worksheet can create two components with
 three component handles and correlation handle to `HYBRIDMODELDATA.NEW`, then
 use `PRODUCT.NEW` with `pay PAYS FIX(EQ[A]) * FIX(EQ[B])` and
 `MONTECARLO.VALUEWITHSETTINGS`. The corresponding C++ and Python examples are
-[here](../../dal-public/examples/hybrid_script.cpp) and
+[here](../../dal-cpp/examples/hybrid_script/hybrid_script.cpp) and
 [here](../../dal-python/examples/hybrid_script.py).
 
 `SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
