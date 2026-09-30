@@ -95,7 +95,7 @@ equity-rate hybrid composition are separate features.
 
 ## C++ and Python examples
 
-The [C++ example](../../dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption.cpp)
+The C++ example in [`dal-cpp/examples/gsr_swap_swaption/`](../../dal-cpp/examples/gsr_swap_swaption/)
 and [Python example](../../dal-python/examples/014.gsr_swap_swaption.py) build
 an input USD OIS `YieldCurve_`, snapshot it into `GSRCurveData_`, and supply
 piecewise constant `g = 0.02` and `H = 1.0`. Their curve tables compare input

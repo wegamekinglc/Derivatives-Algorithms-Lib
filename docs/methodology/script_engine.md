@@ -452,7 +452,7 @@ The returned map contains `PV` and, with AAD, `d_<model parameter>` and
 `d_<script constant parameter>` only. PV is a path mean; risks are already
 normalized. There are no fixing-risk, preparation, or diagnostic result keys.
 
-The executable [core settings example](../../dal-cpp/examples/script_settings/script_settings.cpp)
+The example in [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
 uses an explicit date and snapshot, historical `SCALE * FIX(EQ[DAL196_TEST])`,
 and compiled AAD. With history 80, SCALE 2 and zero rates, it checks `PV=160`
 and `d_SCALE=80`, then prints product and prepared-valuation diagnostics. The
@@ -1716,7 +1716,7 @@ uses the legacy text wrapper.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- [Core C++ settings example](../../dal-cpp/examples/script_settings/script_settings.cpp)
+- [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
   — historical fixing, explicit date/snapshot, compiled AAD, and product/valuation diagnostics.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.

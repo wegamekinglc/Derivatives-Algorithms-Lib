@@ -249,7 +249,7 @@ Optional held-out paths select the polynomial degree with the one-standard-error
 rule, using paths disjoint from both fitting and final pricing. The scalar
 single-state path retains its existing degree limit and fast solver.
 
-The runnable [core C++ hybrid example](../../dal-cpp/examples/hybrid_script/hybrid_script.cpp)
+The runnable example in [`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/)
 and [Python equivalent](../../dal-python/examples/hybrid_script.py) compare
 one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
 the first exercise date's frozen equity values: `max(A-B+60, 0)` now and

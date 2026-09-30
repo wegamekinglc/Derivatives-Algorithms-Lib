@@ -148,7 +148,7 @@ global capture, which is sequential rather than an atomic cross-series snapshot.
 Native Value and Explain retain the valuation/mutation barrier, so public calls
 serialize even with explicit dates. Global date setters wait for them; getters
 remain available. The executable
-[core settings example](../dal-cpp/examples/script_settings/script_settings.cpp) checks historical
+[`dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/) checks historical
 compiled-AAD `PV=160` and `d_SCALE=80` with an explicit date/snapshot and zero rates.
 
 `DescribeScriptProduct(product)` returns `dal.script-product/2`: original and
