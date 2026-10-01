@@ -71,8 +71,10 @@ generators, see [sampling](sampling.md).
 ## Batches, Compiled Scripts, and AAD
 
 Ordinary paths use batches of size `min(8192, ceil(nPaths / nThreads))`.
-Worker-owned RNG, Gaussian vector, scenario, and evaluator are reused across
-batches in one valuation. Value-only `double` evaluation can walk the AST or
+In value-only `double` evaluation, worker-owned RNG, Gaussian vector, scenario,
+and evaluator are reused across batches in one valuation. Each batch calls
+`SkipNormalTo(firstPath)` before generating its assigned normal substream.
+Value-only evaluation can walk the AST or
 execute a compiled per-event opcode stream. `compiled_` defaults to tree mode;
 compiled mode is an opt-in execution choice and must preserve the same
 cashflow and error semantics. Preparation compiles once before dispatch.

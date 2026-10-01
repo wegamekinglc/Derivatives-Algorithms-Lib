@@ -238,7 +238,7 @@ namespace Dal::Script {
         double EvaluateDoubleBatch(
             const AAD::Model_<double>& model, S_* state, E_* evaluator, const PathBatch_& batch, size_t payoffIndex, const F_& evaluate) {
             if (state->random_)
-                state->random_->SkipTo(batch.firstPath_);
+                state->random_->SkipNormalTo(batch.firstPath_);
             auto run = [&](const auto& generate) {
                 double sumValue = 0.0;
                 for (size_t i = 0; i < batch.pathCount_; ++i) {
@@ -428,7 +428,7 @@ namespace Dal::Script {
             AllocatePath(product.DefLine(), path);
             InitializePath(path);
             if (random)
-                random->SkipTo(batch.firstPath_);
+                random->SkipNormalTo(batch.firstPath_);
 
             double sumValue = 0.0;
 

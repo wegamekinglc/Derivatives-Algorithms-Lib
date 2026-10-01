@@ -10,6 +10,56 @@
 
 using namespace Dal;
 
+TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
+    for (const auto* name : {"IRN", "MRG32"}) {
+        for (size_t dimension : {1, 3, 10}) {
+            for (const bool normal : {false, true}) {
+                auto sought = New(RNGType_(name), 1024, dimension, false);
+                Vector_<> actual(dimension), expected(dimension);
+                for (size_t offset : {0, 1, 2, 17, 32, 3, 0}) {
+                    auto replay = New(RNGType_(name), 1024, dimension, false);
+                    auto fill = [&](Random_* random, Vector_<>* output) {
+                        if (normal)
+                            random->FillNormal(output);
+                        else
+                            random->FillUniform(output);
+                    };
+                    for (size_t path = 0; path < offset; ++path)
+                        fill(replay.get(), &expected);
+                    if (normal)
+                        sought->SkipNormalTo(offset);
+                    else
+                        sought->SkipTo(offset);
+                    for (int path = 0; path < 4; ++path) {
+                        fill(replay.get(), &expected);
+                        fill(sought.get(), &actual);
+                        ASSERT_EQ(actual, expected) << name << "; normal=" << normal << "; offset=" << offset;
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST(PseudoRandomTest, TestClonePreservesStateAndPrecision) {
+    for (const auto* name : {"IRN", "MRG32"}) {
+        for (const bool precise : {false, true}) {
+            auto generator = New(RNGType_(name), 1024, 3, precise);
+            Vector_<> actual(3), expected(3);
+            generator->FillUniform(&actual);
+            generator->FillNormal(&actual);
+            auto clone = generator->Clone();
+            for (int path = 0; path < 4; ++path) {
+                generator->FillUniform(&expected);
+                clone->FillUniform(&actual);
+                ASSERT_EQ(actual, expected);
+                generator->FillNormal(&expected);
+                clone->FillNormal(&actual);
+                ASSERT_EQ(actual, expected);
+            }
+        }
+    }
+}
 
 TEST(RandomTest, TestNewPseudoRandomIRN) {
     auto n_dim = 10;

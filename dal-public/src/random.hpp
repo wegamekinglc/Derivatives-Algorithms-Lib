@@ -21,6 +21,9 @@ namespace Dal {
 
     template <class RSG_>
     FORCE_INLINE void FillRSG_(const Handle_<RSG_>& f, int numPath, void (RSG_::*fill)(Vector_<>* ) const, Matrix_<>* y) {
+        REQUIRE(f.get() != nullptr, "Random generator handle must not be null");
+        REQUIRE(y != nullptr, "Random generation requires an output matrix");
+        REQUIRE(numPath >= 0, "Random path count must be nonnegative");
         int n_dim = f->NDim();
         y->Resize(numPath, n_dim);
         Vector_<> deviates(n_dim);

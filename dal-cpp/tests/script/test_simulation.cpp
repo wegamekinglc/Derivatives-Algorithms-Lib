@@ -101,6 +101,38 @@ TEST(SimulationTest, TestDeterministicWithFixedSeed) {
     ASSERT_DOUBLE_EQ(first.aggregated_, second.aggregated_);
 }
 
+TEST(SimulationTest, TestPseudoBatchesMatchSequentialPaths) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    auto product = VanillaCallProduct(Date_(2024, 6, 21), 11.0);
+    product.PreProcess(false, false);
+    const auto modelData = StandardBSModel();
+    auto model = CreateModel<double>(modelData);
+    model->Allocate(product.TimeLine(), product.DefLine());
+    model->Init(product.TimeLine(), product.DefLine());
+    const size_t paths = 2 * BATCH_SIZE + 17;
+    for (const auto* method : {"irn", "mrg32"}) {
+        for (const bool useBb : {false, true}) {
+            auto random = CreateRNG(method, *model, useBb);
+            Vector_<> gauss(model->SimDim());
+            Scenario_<> path;
+            AllocatePath(product.DefLine(), path);
+            InitializePath(path);
+            auto evaluator = product.BuildEvaluator<double>();
+            double sequential = 0.0;
+            for (size_t i = 0; i < paths; ++i) {
+                random->FillNormal(&gauss);
+                model->GeneratePath(gauss, &path);
+                product.Evaluate(path, evaluator);
+                sequential += evaluator.VarVals()[product.PayOffIdx()];
+            }
+            for (const bool compiled : {false, true}) {
+                const auto result = MCSimulation<double>(product, modelData, paths, method, useBb, compiled);
+                ASSERT_NEAR(result.aggregated_, sequential, 1e-8) << method << "; bb=" << useBb;
+            }
+        }
+    }
+}
+
 TEST(SimulationTest, TestDeterministicWithMrg32) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     ScriptProduct_ product = VanillaCallProduct(Date_(2024, 6, 21), 11.0);
@@ -125,7 +157,7 @@ TEST(SimulationTest, TestParallelDoubleStateMatchesSerialAcrossRequests) {
     const size_t originalThreads = pool->NumThreads();
     Vector_<SimulationObservation_> observations;
     try {
-        for (const auto* method : {"sobol", "mrg32"}) {
+        for (const auto* method : {"sobol", "mrg32", "irn"}) {
             for (const bool compiled : {false, true}) {
                 const auto value = [&](const ScriptProduct_& product) {
                     return MCSimulation<double>(product, model, paths, method, false, compiled).aggregated_;
@@ -149,6 +181,25 @@ TEST(SimulationTest, TestParallelDoubleStateMatchesSerialAcrossRequests) {
         ASSERT_DOUBLE_EQ(observed.serialFirst_, observed.parallelFirst_);
         ASSERT_DOUBLE_EQ(observed.serialSecond_, observed.parallelSecond_);
         ASSERT_DOUBLE_EQ(observed.serialFirst_, observed.repeatedFirst_);
+    }
+}
+
+TEST(SimulationTest, TestPseudoAadMatchesValueAndDeltaAcrossBatches) {
+    TapeGuard_ tapeGuard(AAD::Tape());
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
+    const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));
+    const auto model = StandardBSModel();
+    const size_t paths = 2 * BATCH_SIZE + 17;
+    for (const auto* method : {"irn", "mrg32"}) {
+        for (const bool useBb : {false, true}) {
+            for (const bool compiled : {false, true}) {
+                const auto plain = MCSimulation<double>(product, model, paths, method, useBb, compiled);
+                const auto active = MCSimulation<AAD::Number_>(product, model, paths, method, useBb, compiled, maxNestedIfs);
+                ASSERT_NEAR(active.aggregated_ / paths, plain.aggregated_ / paths, 1e-10);
+                ASSERT_NEAR(active["spot"], plain.aggregated_ / paths / 10.0, 1e-10);
+            }
+        }
     }
 }
 

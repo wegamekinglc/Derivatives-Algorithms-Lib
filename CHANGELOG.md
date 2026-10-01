@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-01
+
+- **Pseudo-random stream positioning** — `Random_::SkipNormalTo` positions
+  normal paths independently of antithetic uniform paths. Ordinary IRN and
+  MRG32 Monte Carlo batches reproduce the sequential stream; multi-batch
+  estimates and risks can therefore change. `SkipTo` reconstructs odd and even
+  uniform offsets on reused generators, and pseudo-random clones preserve the
+  current state and precision. See [sampling](docs/monte-carlo/sampling.md).
+
 ## 2026-09-30
 
 - **Composable local volatility** — serializable spot/time local-vol surfaces

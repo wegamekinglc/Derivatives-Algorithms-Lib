@@ -9,6 +9,22 @@
 using Dal::Matrix_;
 using Dal::String_;
 
+TEST(RandomTest, TestGetRandomRejectsNullHandleAndNegativePaths) {
+    Matrix_<> output;
+    ASSERT_THROW(Dal::GetPseudoRSGUniform({}, 1, &output), Dal::Exception_);
+    ASSERT_THROW(Dal::GetPseudoRSGNormal({}, 1, &output), Dal::Exception_);
+    ASSERT_THROW(Dal::GetSobolRSGUniform({}, 1, &output), Dal::Exception_);
+    ASSERT_THROW(Dal::GetSobolRSGNormal({}, 1, &output), Dal::Exception_);
+    const auto pseudo = Dal::NewPseudoRSG("MRG32", 42, 3);
+    const auto sobol = Dal::NewSobolRSG("sobol", 0, 3);
+    ASSERT_THROW(Dal::GetPseudoRSGNormal(pseudo, -1, &output), Dal::Exception_);
+    ASSERT_THROW(Dal::GetSobolRSGUniform(sobol, -1, &output), Dal::Exception_);
+    ASSERT_THROW(Dal::GetPseudoRSGNormal(pseudo, 1, nullptr), Dal::Exception_);
+    Dal::GetPseudoRSGNormal(pseudo, 0, &output);
+    ASSERT_EQ(output.Rows(), 0);
+    ASSERT_EQ(output.Cols(), 3);
+}
+
 TEST(RandomTest, TestPseudoUniformDeterministicForSameSeed) {
     const auto first = Dal::NewPseudoRSG(String_("MRG32"), 42, 3);
     const auto second = Dal::NewPseudoRSG(String_("MRG32"), 42, 3);

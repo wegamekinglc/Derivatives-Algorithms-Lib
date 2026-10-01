@@ -1,6 +1,21 @@
 """Tests for PseudoRSG_ and SobolRSG_ random sequence generators."""
 
 import dal
+import pytest
+
+
+@pytest.mark.parametrize("getter", [dal.PseudoRSG_Get_Uniform, dal.PseudoRSG_Get_Normal,
+                                    dal.SobolRSG_Get_Uniform, dal.SobolRSG_Get_Normal])
+def test_random_getter_rejects_none(getter):
+    with pytest.raises(RuntimeError, match="handle must not be null"):
+        getter(None, 1)
+
+
+@pytest.mark.parametrize("factory,getter", [(dal.PseudoRSG_New, dal.PseudoRSG_Get_Normal),
+                                           (dal.SobolRSG_New, dal.SobolRSG_Get_Uniform)])
+def test_random_getter_rejects_negative_paths(factory, getter):
+    with pytest.raises(RuntimeError, match="path count must be nonnegative"):
+        getter(factory(42), -1)
 
 
 # ---- PseudoRSG ---------------------------------------------------------------
