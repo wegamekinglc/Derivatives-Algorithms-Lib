@@ -5,7 +5,7 @@ keyword-only settings. See [installation](../installation.md#python-bindings)
 for supported interpreters and wheel platforms; the examples below are Python
 specific. The numerical methods themselves are documented with C++ examples
 in [yield curves](../yield-curves/README.md), [CCY curves](../ccy-curves/README.md),
-[Monte Carlo](../monte-carlo/README.md), and [PDE](../pde/README.md).
+[Monte Carlo](../methodology/monte-carlo/README.md), and [PDE](../methodology/pde/README.md).
 
 Import the installed package with:
 

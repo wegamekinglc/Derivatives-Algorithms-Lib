@@ -23,7 +23,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   MRG32 Monte Carlo batches reproduce the sequential stream; multi-batch
   estimates and risks can therefore change. `SkipTo` reconstructs odd and even
   uniform offsets on reused generators, and pseudo-random clones preserve the
-  current state and precision. See [sampling](docs/monte-carlo/sampling.md).
+  current state and precision. See [sampling](docs/methodology/monte-carlo/sampling.md).
 
 ## 2026-09-30
 
@@ -71,14 +71,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   continuation regression. Standardized cross-term bases, pivoted QR, held-out
   degree selection, frozen hard pricing, and fuzzy AAD work across C++, Python,
   and Excel; the product archive now preserves selected states in v3. See
-  [LSM](docs/monte-carlo/lsm.md).
+  [LSM](docs/methodology/monte-carlo/lsm.md).
 - **Named multi-asset scripts and deterministic-rate LSM** — correlated BS and
   hybrid models now value separate `FIX(EQ[...])` observations through public
   C++, Python, and Excel interfaces. Multi-asset `SPOT()` requires an explicit
   default index, which selects the single LSM regressor. LSM accepts models
   declaring a deterministic numeraire and uses model-declared parameter bounds
   for retrained-policy bumps. See [hybrid model](docs/models/hybrid-model.md)
-  and [LSM](docs/monte-carlo/lsm.md).
+  and [LSM](docs/methodology/monte-carlo/lsm.md).
 - **Core Monte Carlo composes named factors in a hybrid model** — typed,
   serializable BS equity and deterministic-rate components share a named
   correlation provider and one numeraire; factor-aware Brownian bridging
@@ -102,7 +102,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   over more than 8192 training paths now combine per chunk, so fitted
   coefficients can differ from earlier releases in the last bits (hard-mode
   PVs and exercise rates were unchanged on every configuration checked). See
-  [LSM](docs/monte-carlo/lsm.md#c-example-and-path-counts).
+  [LSM](docs/methodology/monte-carlo/lsm.md#c-example-and-path-counts).
 - **Script construction skips regex compilation for identifier macros** —
   macro and `PeriodBegin`/`PeriodEnd` substitution with identifier names uses a
   case-insensitive literal replace, which cuts preprocessing of a weekly
@@ -311,7 +311,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   authoritative empty snapshot. `PRODUCT.DESCRIBE` and `SCRIPTVALUATION.EXPLAIN`
   return complete native JSON in text-column chunks. Existing product and
   seven-input Value formulas keep their signatures and two-column PV/risk
-  output. See the [Excel FIX guide](docs/excel-script-settings.md).
+  output. See the [Excel FIX guide](docs/excel/script-settings.md).
 
 - **Python FIX settings and diagnostics** — added keyword-only product settings,
   `MonteCarlo_ValueWithSettings`, and three native settings classes with validated
@@ -428,7 +428,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   coupon geometry across PV and AAD node-risk calls while evaluating current
   markets and fixings on every call. Third-party performance comparisons include
   prepared, market-update and cold-construction PV cases. See the
-  [prepared pricing contract](docs/methodology/rate_node_risk.md#repeated-pricing-with-prepared-trades).
+  [prepared pricing contract](docs/yield-curves/node-risk.md#repeated-pricing-with-prepared-trades).
 
 ## 2026-09-11
 
@@ -438,7 +438,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   builtin curve types. This intentionally makes opaque unit-discount leaves
   and builtin subclasses ineligible even when their previous numerical results
   were correct; standalone node risk and v1 quote-risk semantics are unchanged.
-  See the [graph contract](docs/methodology/generic_joint_quote_risk.md#aggregation-and-failures).
+  See the [graph contract](docs/yield-curves/joint-quote-risk.md#aggregation-and-failures).
 
 ## 2026-09-08
 
@@ -447,7 +447,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   provenance through C++, Python, and Excel. Explicit inverse requests define
   a fixed initial-Jacobian subspace for underdetermined systems; default solves
   and existing v1 domains retain their behavior. See the
-  [mapping and units contract](docs/methodology/generic_joint_quote_risk.md).
+  [mapping and units contract](docs/yield-curves/joint-quote-risk.md).
 
 ## Existing methodology and capabilities
 
@@ -457,22 +457,22 @@ here as the baseline rather than dated releases:
 - **Automatic Adjoint Differentiation (AAD)** — reverse-mode AD for risk sensitivities, with
   Adept/XAD/CoDiPack backends. See `docs/methodology/aad.md`.
 - **Yield Curve Construction** — discount-factor / forward-rate parameterised curves
-  calibrated to market instruments. See `docs/methodology/yield_curve.md`.
+  calibrated to market instruments. See `docs/yield-curves/construction.md`.
 - **Underdetermined Search** — constrained least-change solver for over-parameterised
   nonlinear calibration. See `docs/methodology/underdetermined_search.md`.
 - **Cross-Currency Pricing and Calibration** — fixed, resettable, and mark-to-market
   swap pricing with immutable timestamped rate/FX fixing snapshots, staged basis
   fitting, simultaneous domestic/foreign/basis calibration, and named joint
-  parameter/residual ranges. See `docs/methodology/xccy_calibration.md`.
+  parameter/residual ranges. See `docs/ccy-curves/pricing-calibration.md`.
 - **Interpolation** — linear, log-linear, cubic-spline, and mixed 1D interpolators plus
   bilinear 2D interpolation. See `docs/methodology/interpolation.md`.
 - **Log-Discount Curve** — node log-discount-factor parameterisation with `LogDfScheme_`
   interpolation schemes and scalar-generic passive/AAD evaluation. See
-  `docs/methodology/log_discount_curve.md`.
+  `docs/yield-curves/log-discount.md`.
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — AAD forward Jacobians for every
   implemented curve representation subject to the normal eligibility gates, plus the
   inverse-Jacobian IR-risk transform and its `effJacobianInverse_` unit convention. See
-  `docs/methodology/yield_curve_jacobian.md`.
+  `docs/yield-curves/jacobian-risk.md`.
 - **Script Engine** — events-table to AST pipeline, visitor passes (domain analysis,
   constant-condition folding), and the fuzzy evaluator for pathwise AAD through
   discontinuous payoffs. See `docs/methodology/script_engine.md`.
@@ -488,7 +488,7 @@ here as the baseline rather than dated releases:
   full-recalibration oracles gate every quote for 5/10/16-width ANALYTIC and
   BUMPED fixtures, and `rate_risk_perf` gates single, joint-XCCY, and staged-basis
   steady-state aggregation. See `docs/public-api.md` and
-  `docs/methodology/yield_curve_jacobian.md`.
+  `docs/yield-curves/jacobian-risk.md`.
 
 ## 2026-08
 
@@ -628,8 +628,8 @@ here as the baseline rather than dated releases:
   scaling metadata; the effective inverse is `solver_scaled`, so raw decimal
   quote bumps map as `dx = E * dq / tolerance`. Public C++ and Excel also expose
   the retained joint XCCY effective inverse. See
-  `docs/methodology/xccy_calibration.md`,
-  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+  `docs/ccy-curves/pricing-calibration.md`,
+  `docs/yield-curves/jacobian-risk.md`, and `docs/public-api.md`.
 
 - `curve`: Made calibration settings dictionaries strict on the Python and Excel
   surfaces. `dal.calibrate_curve` raises `ValueError` on an unknown settings key,
@@ -693,8 +693,8 @@ here as the baseline rather than dated releases:
   `CrossCurrencyConvention_` booleans `resettableNotional_` and
   `markToMarketNotional_` are replaced by the enum in
   `CrossCurrencySwapConfig_`. The legacy fixed-notional convenience constructor
-  and builder remain compatible. See `docs/methodology/xccy_calibration.md`,
-  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+  and builder remain compatible. See `docs/ccy-curves/pricing-calibration.md`,
+  `docs/yield-curves/jacobian-risk.md`, and `docs/public-api.md`.
 
 - `curve`: Added persistent continuously compounded `ZERO_RATE` curves. Future-node
   rates map to `logDF = -z * YearFrac(anchor,node)` and reuse all shared log-DF
@@ -703,8 +703,8 @@ here as the baseline rather than dated releases:
   layering and AAD analytical Jacobians in future-node zero-rate order. The additive
   `DiscountZeroRate_v1` archive preserves representation and bump coordinates, and direct
   factories are available in core C++, public C++, Python (`DiscountZeroRate_New`), and
-  Excel (`DISCOUNTZERORATE.NEW`). See `docs/methodology/yield_curve.md`,
-  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+  Excel (`DISCOUNTZERORATE.NEW`). See `docs/yield-curves/construction.md`,
+  `docs/yield-curves/jacobian-risk.md`, and `docs/public-api.md`.
 
 - `curve`: Unified passive and AAD curve construction across piecewise-constant forwards,
   piecewise-linear forwards, and log-discount curves. Linear and natural-cubic interpolation
@@ -718,8 +718,8 @@ here as the baseline rather than dated releases:
   historical curve-level reproduction must select `BUMPED`. At that point, `ZERO_RATE` was
   deliberately outside the unified factory; the later entry above adds it without changing
   the other representation contracts.
-  See `docs/methodology/interpolation.md`, `docs/methodology/log_discount_curve.md`, and
-  `docs/methodology/yield_curve_jacobian.md`.
+  See `docs/methodology/interpolation.md`, `docs/yield-curves/log-discount.md`, and
+  `docs/yield-curves/jacobian-risk.md`.
 
 - `numerics`: Corrected three output-affecting quantitative contracts: rate-aware
   Dupire now prices a discounted spot call and includes the strike in
@@ -760,13 +760,13 @@ here as the baseline rather than dated releases:
   `CurveCalibrationOptions_::computeForwardJacobian_`, and
   `JointMultiCurveCalibrationOptions_::computeJacobianAtSolution_`. Defaults preserve the existing
   diagnostics surface, while performance-sensitive callers can run solve-only calibrations. See
-  `docs/methodology/yield_curve.md` and `docs/methodology/yield_curve_jacobian.md`.
+  `docs/yield-curves/construction.md` and `docs/yield-curves/jacobian-risk.md`.
 
 - `pde`: Implemented the `Rollback_`-based PDE framework: coefficient factories and callable
   adapters, endpoint-exact concentrating coordinate maps, grid materialization, node-location
   derivative operators, and `ThetaScheme_` with explicit `Prepare`/decomposition reuse. The old
   mesher/`FD1D_` stack was removed, and `european_fd` plus `pde_perf` now use the new framework.
-  See `docs/methodology/pde.md`. Breaking for direct `dal-cpp` PDE internals only; no
+  See `docs/methodology/pde/framework.md`. Breaking for direct `dal-cpp` PDE internals only; no
   `dal-public`/Python/Excel surface changed.
 
 - `script`: The compiled (flat-stream) evaluator is now at strict capability
@@ -797,7 +797,7 @@ here as the baseline rather than dated releases:
   polish=true` on the core, public C++, Python, and Excel constructors. Fast-CDF
   Newton polish (`precise=false, polish=true`) remains separately opt-in, and
   Sobol clones preserve sequence state and both policy flags. Pseudo-random
-  normal draws retain their precise default. See `docs/methodology/random.md`.
+  normal draws retain their precise default. See `docs/methodology/monte-carlo/sampling.md`.
 
 ## 2026-06
 
@@ -807,7 +807,7 @@ here as the baseline rather than dated releases:
   `d(params)·tolerance_ / d(decimal-rate perturbation)` (the underdetermined solver scales
   residuals by `1/tolerance_` before forming the pseudoinverse, so consumers must divide by
   `tolerance_` when transforming a sensitivity vector: `r = gᵀ · effJacobianInverse_ / tolerance_`).
-  See `docs/methodology/yield_curve_jacobian.md` and the example at
+  See `docs/yield-curves/jacobian-risk.md` and the example at
   `dal-cpp/examples/yield_curve_jacobian/`. Non-breaking (new example + diagnostics-only test).
 - `curve`: Exposed the calibration forward Jacobian on the public diagnostics struct as
   `CurveCalibrationDiagnostics_::jacobian_` (and the `CrossCurrencyCalibrationDiagnostics_` mirror,
@@ -833,7 +833,7 @@ here as the baseline rather than dated releases:
   `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) serves both the single-curve and joint
   paths. All four AAD backends (native, Adept, XAD, CoDiPack) verified with 750/750 tests passing,
   including 4 new oracle tests at `dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.
-  See `docs/methodology/yield_curve.md` and `docs/methodology/aad.md`. Non-breaking (additive
+  See `docs/yield-curves/construction.md` and `docs/methodology/aad.md`. Non-breaking (additive
   public surface; existing single-arg callers exercise the AAD path by default on eligible specs).
 
 <!-- Add new qualifying changes below as dated sections, e.g. -->

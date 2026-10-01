@@ -15,22 +15,12 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 ## Quantitative Methods
 
-| Chapter                                | Contents                                                                                     |
-|----------------------------------------|----------------------------------------------------------------------------------------------|
-| [Models](models/README.md)             | Black-Scholes, GSR, Hybrid, local volatility, and Dupire calibration                         |
-| [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk        |
-| [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                       |
-| [Monte Carlo](monte-carlo/README.md)   | Simulation, sampling, LSM exercise pricing, RQMC, AAD, and performance                       |
-| [PDE](pde/README.md)                   | One-dimensional theta rollback and European option example                                   |
-
-The remaining C++ methodology guides cover [AAD](methodology/aad.md),
-[script syntax and preparation](methodology/script_engine.md),
-[interpolation](methodology/interpolation.md),
-[matrix algorithms](methodology/matrix.md),
-[quadrature](methodology/quadrature.md),
-[underdetermined search](methodology/underdetermined_search.md),
-[dates and calendars](methodology/dates.md), and
-[index parsing](methodology/index_parsing.md).
+| Chapter                                | Contents                                                                              |
+|----------------------------------------|---------------------------------------------------------------------------------------|
+| [Models](models/README.md)             | Black-Scholes, GSR, Hybrid, local volatility, and Dupire calibration                  |
+| [Yield curves](yield-curves/README.md) | Construction, log-discount representation, calibration Jacobians, node and quote risk |
+| [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                |
+| [Methodology](methodology/README.md)   | Monte Carlo, PDE, AAD, script evaluation, numerical routines, and market conventions  |
 
 ## Component Guides
 
@@ -40,13 +30,13 @@ The remaining C++ methodology guides cover [AAD](methodology/aad.md),
   snapshots, diagnostics, and executable workbook.
 
 The [PTIRDS replication note](experimental/replicate-ptirds-single-currency-curve.md)
-compares supported curve behavior with an external benchmark. The
-[analytic-Jacobian pointer](experimental/aad-analytic-jacobian-curve-calibration.md)
-links to the supported calibration methodology.
+compares supported curve behavior with an external benchmark.
 
 ## Documentation Conventions
 
 Use relative links between guides and repo-relative paths when naming source
 files. Mathematical notation uses `$...$` and `$$...$$`. Put reusable method
 explanations in the corresponding chapter and update this index when adding a
-chapter. Source comments should retain local implementation constraints.
+chapter. Use one canonical page per topic and link to it directly; remove obsolete
+redirect pages when reorganizing guides. Source comments should retain local
+implementation constraints.

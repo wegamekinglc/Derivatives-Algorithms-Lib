@@ -22,7 +22,7 @@ namespace Dal {
 
     FORCE_INLINE CollateralType_ CollateralType_Libor(const PeriodLength_& tenor) {
         (void)tenor;
-        // Tenor routing lives on RateIndexConvention_; see docs/methodology/yield_curve.md (Multi-Curve Framework).
+        // Tenor routing lives on RateIndexConvention_; see docs/yield-curves/construction.md (Multi-Curve Framework).
         return CollateralType_(CollateralType_::Value_::GC);
     }
 

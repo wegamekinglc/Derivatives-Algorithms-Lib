@@ -299,7 +299,7 @@ fresh `Cube_<>(1, 1, n)`; the implementation does not resize cubes in place.
 ## Example Roll Loop
 
 The European finite-difference example in
-[`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd) runs explicit,
+[`dal-cpp/examples/european_fd/`](../../../dal-cpp/examples/european_fd) runs explicit,
 Crank-Nicolson, and fully implicit scheme configurations through the same rollback helper.
 The explicit configuration uses a finer time grid because explicit rollback is
 conditionally stable. After the base scheme comparison, the example continues the
@@ -359,6 +359,6 @@ the framework.
 
 ## See Also
 
-- [Matrix and linear algebra](../methodology/matrix.md) — tridiagonal storage and decomposition.
-- [Black / Bachelier Vanilla Pricing](../models/black-scholes.md) — analytic benchmarks used by
+- [Matrix and linear algebra](../matrix.md) — tridiagonal storage and decomposition.
+- [Black / Bachelier Vanilla Pricing](../../models/black-scholes.md) — analytic benchmarks used by
   the PDE tests and examples.

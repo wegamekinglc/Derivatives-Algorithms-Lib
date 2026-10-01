@@ -55,7 +55,7 @@ to the script's future FIX index.
 | Settings handle | Key                         | Default                                         | Accepted value                                                  |
 |-----------------|-----------------------------|-------------------------------------------------|-----------------------------------------------------------------|
 | Product         | `default_index`             | No default                                      | Nonempty index-name text                                        |
-| Product         | `regression_features`       | No explicit states                             | Semicolon-separated EQ indices or `VAR[name]`, up to three      |
+| Product         | `regression_features`       | No explicit states                              | Semicolon-separated EQ indices or `VAR[name]`, up to three      |
 | Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                |
 | Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                       |
 | Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                 |
@@ -94,7 +94,7 @@ bias and retraining uncertainty.
 `lsmc_policy_risk_mode=RetrainedBump` adds a common-path retrained-policy
 secant for model-parameter and script-constant AAD risks.
 `lsmc_policy_bump_relative` sets the relative input bump; see
-[early-exercise AAD](../monte-carlo/lsm.md#early-exercise-aad) for the
+[early-exercise AAD](../methodology/monte-carlo/lsm.md#early-exercise-aad) for the
 exact derivative semantics and boundary behavior.
 
 Omitting a matrix, passing `""`, or referencing one blank cell selects defaults.
@@ -140,12 +140,12 @@ The optional `valuation`, `simulation`, and `fixings` handles accept omitted
 arguments, `""`, or a single blank-cell reference. Zero, `FALSE`, an invalid
 tag, or a handle of the wrong type is an error. The following states differ:
 
-| Input                                                      | Meaning                                                                          |
-|------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Omitted valuation                                          | Default policy, global date and required history captured for this call          |
-| Valuation constructed with blank settings/fixings          | Same defaults; construction captures neither date nor history                    |
-| Explicit valuation date, omitted fixings                   | Fixed date, current required global history at each call                         |
-| Snapshot handle, including an empty snapshot               | Use only that snapshot; missing required history fails                           |
+| Input                                             | Meaning                                                                 |
+|---------------------------------------------------|-------------------------------------------------------------------------|
+| Omitted valuation                                 | Default policy, global date and required history captured for this call |
+| Valuation constructed with blank settings/fixings | Same defaults; construction captures neither date nor history           |
+| Explicit valuation date, omitted fixings          | Fixed date, current required global history at each call                |
+| Snapshot handle, including an empty snapshot      | Use only that snapshot; missing required history fails                  |
 
 For an explicit empty snapshot, use `=MARKETFIXINGSNAPSHOT.NEW(,,)` and pass
 its nonempty handle as the valuation constructor's third argument. It selects

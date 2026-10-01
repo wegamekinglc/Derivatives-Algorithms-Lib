@@ -9,8 +9,8 @@ the separate [LSM driver](lsm.md); the ordinary driver does no regression.
 ## A C++ Valuation
 
 The full runnable public-facade pattern is in the
-[C++ API guide](../public-api.md#scripted-monte-carlo). At core level, the
-[American put example](../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+[C++ API guide](../../public-api.md#scripted-monte-carlo). At core level, the
+[American put example](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
 uses this call for both a terminal European payment and early exercise:
 
 ```cpp
@@ -42,13 +42,13 @@ The model is allocated and initialized against that timeline and the retained
 observation definitions. A future `PAYS` adds a cashflow to a receiver; its
 contribution is divided by the event's own numeraire. Historical `PAYS` are
 expired. The detailed binding and today-fixing rules are in
-[script preparation](../methodology/script_engine.md#historical-fixing-preparation).
+[script preparation](../script_engine.md#historical-fixing-preparation).
 
-The factory constructs [Black-Scholes](../models/black-scholes.md),
-[correlated equity Black-Scholes](../models/correlated-bs.md),
-[GSR](../models/gaussian-short-rate.md), and
-[hybrid](../models/hybrid-model.md) models from model data. A
-[Dupire calibration](../models/dupire.md) supplies a local-volatility surface
+The factory constructs [Black-Scholes](../../models/black-scholes.md),
+[correlated equity Black-Scholes](../../models/correlated-bs.md),
+[GSR](../../models/gaussian-short-rate.md), and
+[hybrid](../../models/hybrid-model.md) models from model data. A
+[Dupire calibration](../../models/dupire.md) supplies a local-volatility surface
 for a hybrid equity component. Script preparation and public
 valuation accept all four models. The model interface exposes whether its numeraire
 is deterministic. The future observation plan keeps exact event-to-sample
@@ -64,7 +64,7 @@ simulation dimension; a zero-dimensional model validates the method name but
 does not construct a generator or bridge. `useBb_` wraps draws in a Brownian
 bridge, changing the order in which normal variates drive time increments.
 Multi-factor models that declare bridge support bridge each factor's time
-series separately; see the [hybrid model](../models/hybrid-model.md#brownian-bridge-and-risks).
+series separately; see the [hybrid model](../../models/hybrid-model.md#brownian-bridge-and-risks).
 For direction numbers, normal transforms, path seeking, and the pseudo-random
 generators, see [sampling](sampling.md).
 
@@ -79,13 +79,13 @@ execute a compiled per-event opcode stream. `compiled_` defaults to tree mode;
 compiled mode is an opt-in execution choice and must preserve the same
 cashflow and error semantics. Preparation compiles once before dispatch.
 The detailed opcode and observation contracts are in
-[script evaluation](../methodology/script_engine.md#tree-walk-and-compiled-evaluation).
+[script evaluation](../script_engine.md#tree-walk-and-compiled-evaluation).
 
 With `enableAad_ = true`, `MCSimulation<AAD::Number_>` creates an active model
 and tape on each worker. Model parameters and script constants are registered
 once per batch; each path rewinds to a tape mark, evaluates fuzzy future
 conditions, and back-propagates the path payoff. Batch adjoints are reduced
-into the risk vector. The [AAD guide](../methodology/aad.md#pathwise-adjoints-in-monte-carlo)
+into the risk vector. The [AAD guide](../aad.md#pathwise-adjoints-in-monte-carlo)
 explains tape ownership and smoothing. For `EXERCISE`, the AAD meaning depends
 on the [frozen or retrained policy mode](lsm.md#early-exercise-aad).
 
@@ -101,4 +101,4 @@ contract. For exercise products, regression samples are excluded from pricing;
 for ordinary products there is no training block. `ExplainScriptValuation`
 describes preparation without simulating paths, while
 `ExplainScriptSimulation` runs the double LSM valuation to report exercise
-statistics. See [diagnostics](../methodology/script_engine.md#product-archive-and-diagnostics).
+statistics. See [diagnostics](../script_engine.md#product-archive-and-diagnostics).

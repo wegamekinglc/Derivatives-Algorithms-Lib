@@ -169,7 +169,7 @@ volatility, a 5% rate, a strike of 100, and four roughly quarterly observations
 over one year. MC uses $2^{18}$ Sobol paths and a 0.01 spot bump for finite
 differences.
 
-| Method                 | PV       | dPV/dS0 |
+| Method                 | PV       | dPV/dS0  |
 |------------------------|----------|----------|
 | Conditional GH + Black | 6.923579 | 0.602816 |
 | MC double              | 6.922953 | —        |
@@ -248,9 +248,9 @@ always the event date:
 
 | Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                       |
 |------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|-----------------------------------------------|
-| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model, bound to the script's EQ index by name              |
+| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model, bound to the script's EQ index by name |
 | Unbound `SPOT()`       | Model spot at event date | `UnboundHistoricalSpot`                    | Model, or `UnboundHistoricalSpot` under `REQUIREHISTORICAL` | Legacy model path; no binding                 |
-| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; same script index as `FIX`            |
+| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; same script index as `FIX`             |
 
 The compatibility rules are:
 
@@ -382,7 +382,7 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 ### Fields and Defaults
 
 | Settings type              | Field                     | Default                             | Contract                                                                                                              |
-| -------------------------- | ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+|----------------------------|---------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `ScriptProductSettings_`   | `defaultIndex_`           | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
 | `ScriptValuationSettings_` | `todayFixingPolicy_`      | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
 | `ScriptValuationSettings_` | `evaluationDate_`         | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
@@ -745,7 +745,7 @@ date/time rules, and the executable workbook.
 ## Early-Exercise Valuation (LSMC)
 
 `EXERCISE` products use the separate LSMC training, backward regression, and
-pricing driver. See [Least-Squares Monte Carlo](../monte-carlo/lsm.md) for path
+pricing driver. See [Least-Squares Monte Carlo](monte-carlo/lsm.md) for path
 partitioning, basis, regression, visitor pruning, diagnostics, and examples.
 
 ## Core AAD/Tree Fixing Valuation
@@ -783,11 +783,11 @@ make `MCSimulation<double>` a fuzzy pricing entry; it rejects AAD-enabled settin
 ### Early-Exercise AAD
 
 The early-exercise AAD estimator, including frozen-policy and retrained-policy
-sensitivities, is documented in [LSM AAD](../monte-carlo/lsm.md#early-exercise-aad).
+sensitivities, is documented in [LSM AAD](monte-carlo/lsm.md#early-exercise-aad).
 
 ### LSMC Policy Sensitivity Validation
 
-See [LSM validation](../monte-carlo/lsm.md#lsmc-policy-sensitivity-validation).
+See [LSM validation](monte-carlo/lsm.md#lsmc-policy-sensitivity-validation).
 
 ### Historical State and Recording Lifetime
 

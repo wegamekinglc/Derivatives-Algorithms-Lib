@@ -1,7 +1,7 @@
 //
 // Created by dal-implementer on 2026-6-28.
 //
-// Random-number-generator micro-benchmark; see docs/methodology/random.md
+// Random-number-generator micro-benchmark; see docs/methodology/monte-carlo/sampling.md
 // (Benchmark Coverage) for the fast/precise Sobol case split and the
 // precise=false pinning of the BrownianBridge / pseudo-random cases.
 

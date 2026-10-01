@@ -96,7 +96,7 @@ when polishing is enabled, `precise` selects the precise CDF instead of the fast
 CDF for that correction. The default `false, false` path is Acklam-only, and the
 precise-CDF correction requires `precise = true, polish = true`. Python
 `dal.SobolRSG_New` and Excel `SOBOLRSG.NEW` use the same defaults and semantics.
-See the [random methodology policy table](monte-carlo/sampling.md#normal-draw-inverse-cdf-modes)
+See the [random methodology policy table](methodology/monte-carlo/sampling.md#normal-draw-inverse-cdf-modes)
 for all four combinations.
 
 ### Scripted Monte Carlo

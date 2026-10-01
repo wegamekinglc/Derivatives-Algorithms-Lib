@@ -1,10 +1,10 @@
 # Monte Carlo Methods
 
 DAL's C++ script engine can price ordinary future cashflows and `EXERCISE`
-products under the [supported simulation models](../models/README.md). The
-public facade is shown in [C++ API](../public-api.md#scripted-monte-carlo);
-binding-specific examples live in [Python](../python/README.md) and
-[Excel](../excel/README.md).
+products under the [supported simulation models](../../models/README.md). The
+public facade is shown in [C++ API](../../public-api.md#scripted-monte-carlo);
+binding-specific examples live in [Python](../../python/README.md) and
+[Excel](../../excel/README.md).
 
 1. [Simulation and evaluation](simulation.md) — path preparation, model
    observations, payments, batching, tree/compiled evaluation, and AAD.
@@ -17,11 +17,11 @@ binding-specific examples live in [Python](../python/README.md) and
    variance and sensitivity interpretation, held-out selection, and
    performance choices.
 
-The [models index](../models/README.md) covers Black-Scholes, Dupire surface
+The [models index](../../models/README.md) covers Black-Scholes, Dupire surface
 calibration, correlated equity Black-Scholes, and hybrid simulation. The
-[script language and preparation](../methodology/script_engine.md) guide
+[script language and preparation](../script_engine.md) guide
 documents syntax, FIX history, AST passes, and diagnostic JSON.
 
-Runnable C++ pricing examples include a [two-asset basket call](../../dal-cpp/examples/basket_mc/)
-under correlated Black-Scholes and a [four-fixing average call](../../dal-cpp/examples/average_option_script/)
+Runnable C++ pricing examples include a [two-asset basket call](../../../dal-cpp/examples/basket_mc)
+under correlated Black-Scholes and a [four-fixing average call](../../../dal-cpp/examples/average_option_script)
 whose script accumulates observations in a vector.

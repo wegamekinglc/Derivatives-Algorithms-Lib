@@ -46,7 +46,7 @@ namespace {
 
     // BAR-A is the sole PASS gate (both paths reprice to 10 * fitTolerance_). BAR-B and BAR-C are
     // INFORMATIONAL joint-vs-staged DF-drift measurements, printed for teaching, NOT pass/fail bars
-    // (the drift is expected and is NOT a bug -- see docs/methodology/yield_curve.md,
+    // (the drift is expected and is NOT a bug -- see docs/yield-curves/construction.md,
     // "Joint simultaneous calibration"). Both paths run EXACT and base-layer the 3M forward over
     // the OIS discount curve (joint via baseLayeredOverDiscount_, staged via ApplyStageDefaults),
     // so the stored 3M curves are structurally identical (DiscountPWLF_ with base = OIS).
@@ -335,7 +335,7 @@ namespace {
 
         // BAR-B (informational, OIS): joint-vs-staged OIS DF drift -- NOT a pass/fail bar. Reported,
         // not gated. Driven by joint OIS<->3M-spread cross-curve coupling (see
-        // docs/methodology/yield_curve.md, "Joint simultaneous calibration").
+        // docs/yield-curves/construction.md, "Joint simultaneous calibration").
         double maxOisDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);

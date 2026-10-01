@@ -43,7 +43,7 @@ namespace Dal::Index {
     class DF_ : public Index_ {
     public:
         const Ccy_ ccy_;
-        // maturity/start offsets are from the fixing date; see docs/methodology/yield_curve.md §"Multi-Curve Framework".
+        // maturity/start offsets are from the fixing date; see docs/yield-curves/construction.md §"Multi-Curve Framework".
         const Cell_ maturity_;
         const CollateralType_ collateral_;
         Cell_ start_;
