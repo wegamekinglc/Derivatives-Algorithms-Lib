@@ -6,7 +6,8 @@
 
 #include <string>
 
-#include <dal/string/strings.hpp>
+// Parse DAL's VOID enum before Windows.h defines its VOID macro.
+#include <dal-excel/src/__excel_test_api.hpp>
 
 namespace {
     std::string CaseSensitive(const Dal::String_& value) { return std::string(value.c_str()); }
@@ -24,8 +25,6 @@ TEST(ExcelRegistrationPortableTest, TestCaseSensitiveComparisonRejectsLowercaseE
 #include <algorithm>
 #include <cctype>
 #include <set>
-
-#include <dal-excel/src/__excel_test_api.hpp>
 
 using namespace Dal;
 
