@@ -3,8 +3,8 @@
 //
 
 #include "__platform.hpp"
-#include <dal/math/cell.hpp>
 #include <dal-public/src/global.hpp>
+#include <dal-public/src/types.hpp>
 
 /*IF--------------------------------------------------------------------------
 public EvaluationDate_Set

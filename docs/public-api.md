@@ -22,7 +22,6 @@ paths. See the [installation guide](installation.md#installed-cmake-packages).
 ### CMake consumption
 
 ```cmake
-find_package(dal-cpp 1.0 CONFIG REQUIRED)
 find_package(dal-public 1.0 CONFIG REQUIRED)
 
 add_executable(my_pricer main.cpp)
@@ -42,7 +41,7 @@ on other toolchains.
 |----------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
 | `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
-| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                            |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                           |
 | `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
@@ -51,11 +50,37 @@ on other toolchains.
 | `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                                   |
 | `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                                          |
 | `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                                    |
-| `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                                          |
-| `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                                            |
+| `<dal-public/src/interp.hpp>`          | Linear, smoothed-linear, cubic, and bilinear factories; batched evaluation                                            |
+| `<dal-public/src/calendar.hpp>`        | Business-day checks, stepping, adjustment, and counting                                                               |
+| `<dal-public/src/storage.hpp>`         | JSON serialization/deserialization and bag construction                                                               |
+| `<dal-public/src/repository.hpp>`      | Repository store, fetch, find, erase, and size helpers                                                                |
+| `<dal-public/src/types.hpp>`           | Shared scalar, container, dictionary, and storable types                                                              |
+| `<dal-public/src/host.hpp>`            | Environment, row-reader, and host-conversion contracts                                                                |
 
-The installed include path intentionally retains `dal-public/src/`. The facade
-also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
+The installed include path intentionally retains `dal-public/src/`. Python and
+Excel adapters include DAL headers through this facade and link `DAL::public`;
+the installed package supplies `dal_public_check_binding` for the CMake boundary
+check. Native test instrumentation may access core internals from test sources.
+The facade also uses core `Handle_`, `Date_`, curve, model, and diagnostics types
+directly.
+
+`calendar.hpp` exposes `IsBusinessDay`, `NextBusinessDay`, `PreviousBusinessDay`,
+`AdjustBusinessDate`, and `CountBusinessDays`. Counting includes `begin` and
+excludes `end`, returning zero when `end <= begin`.
+
+`interp.hpp` exposes linear, smoothed-linear, and cubic one-dimensional factories,
+a bilinear two-dimensional factory, and batched `Interp1Get` / `Interp2Get`
+evaluation. Output-pointer overloads reuse caller storage. Cubic boundaries
+default to third derivative zero on both ends; one supplied order or value
+applies to both ends. Smoothing weights default to one per knot.
+
+`storage.hpp` exposes `WriteObjectJson`, length-aware `ReadObjectJson`, and
+`NewBag`. `types.hpp` exposes shared value/container types, and `host.hpp` exposes
+the environment, row-reader, and conversion contracts used by host adapters.
+`repository.hpp` also provides explicit-environment `StoreRepository` /
+`FetchRepository` and pattern-based `EraseRepositoryMatching`. Storing retains
+earlier tags, including objects with the same type and name, preserving the
+Excel adapter's current generated-default policy.
 
 ### Sobol normal-draw policy
 

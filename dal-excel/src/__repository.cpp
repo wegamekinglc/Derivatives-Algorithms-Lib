@@ -2,9 +2,9 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <dal/platform/platform.hpp>
 #include "__platform.hpp"
 #include <dal-public/src/repository.hpp>
+#include <dal-public/src/types.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Repository_Erase

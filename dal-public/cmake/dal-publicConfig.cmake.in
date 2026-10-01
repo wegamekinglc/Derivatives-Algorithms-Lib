@@ -4,4 +4,5 @@ include(CMakeFindDependencyMacro)
 find_dependency(dal-cpp 1.0 CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/dal-publicTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/DALBindingBoundary.cmake")
 check_required_components(dal-public)

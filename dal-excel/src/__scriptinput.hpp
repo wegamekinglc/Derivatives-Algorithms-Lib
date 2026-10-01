@@ -6,8 +6,7 @@
 
 #include <vector>
 
-#include <dal/string/strings.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal-public/src/types.hpp>
 
 #ifdef _WIN32
 #include "_excel.hpp"

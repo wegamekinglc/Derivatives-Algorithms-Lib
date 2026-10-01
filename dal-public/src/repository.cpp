@@ -10,11 +10,15 @@
 namespace Dal {
 
     namespace {
-        const ObjectAccess_* RequireRepo_() {
-            ENV_SEED_TYPE(ObjectAccess_); // POSTPONED -- mark this function as taking _ENV input
-            const auto* repo = Environment::Find<ObjectAccess_>(_env);
+        const ObjectAccess_* RequireRepo_(const Environment_* environment) {
+            const auto* repo = Environment::Find<ObjectAccess_>(environment);
             REQUIRE(repo, "no repo found in the environment");
             return repo;
+        }
+
+        const ObjectAccess_* RequireRepo_() {
+            ENV_SEED_TYPE(ObjectAccess_);
+            return RequireRepo_(_env);
         }
     } // namespace
 
@@ -37,5 +41,14 @@ namespace Dal {
     int SizeRepository() {
         auto* repo = RequireRepo_();
         return repo->Size();
+    }
+
+    int EraseRepositoryMatching(const String_& pattern) { return RequireRepo_()->Erase(pattern); }
+
+    Handle_<Storable_> FetchRepository(_ENV, const String_& tag) { return RequireRepo_(_env)->Fetch(tag); }
+
+    String_ StoreRepository(_ENV, const Handle_<Storable_>& object) {
+        REQUIRE(object, "Output handle is NULL");
+        return RequireRepo_(_env)->Add(object, RepositoryErase_());
     }
 } // namespace Dal

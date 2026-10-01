@@ -9,9 +9,11 @@
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/logdfscheme.hpp>
+#include <dal/math/optimization/underdetermined.hpp>
 #include <dal/platform/platform.hpp>
 
 namespace Dal {
+    using CalibrationConvergenceError_ = Underdetermined::ConvergenceError_;
 
     // Shared solver-tuning knobs and single-curve defaults. Not embedded in the builders: they
     // keep flat fields so dal-python's member-pointer bindings stay source-compatible. The xccy

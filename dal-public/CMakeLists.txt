@@ -2,8 +2,8 @@
 #
 # Collects common construction, calibration, valuation, and repository entry
 # points over dal-cpp. Its headers expose core DAL types and do not provide an
-# ABI-isolated boundary; downstream bindings consume both this facade and those
-# exposed core contracts.
+# ABI-isolated boundary; downstream bindings include contracts through this
+# facade and link only DAL::public.
 #
 # Target: dal_public (alias DAL::public)
 
@@ -15,6 +15,7 @@ project(dal-public LANGUAGES CXX
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DALBindingBoundary.cmake")
 
 option(DAL_PUBLIC_BUILD_TESTS "Build dal-public tests" ON)
 
@@ -92,6 +93,7 @@ install(EXPORT DALPublicTargets
         NAMESPACE DAL::
         DESTINATION ${DAL_PUBLIC_CONFIG_INSTALL_DIR})
 install(FILES
+        ${PROJECT_SOURCE_DIR}/cmake/DALBindingBoundary.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/dal-publicConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/dal-publicConfigVersion.cmake
         DESTINATION ${DAL_PUBLIC_CONFIG_INSTALL_DIR})
@@ -103,6 +105,11 @@ if(DAL_PUBLIC_BUILD_TESTS)
     if(PROJECT_IS_TOP_LEVEL)
         enable_testing()
     endif()
+    add_test(NAME dal_binding_boundary
+        COMMAND ${CMAKE_COMMAND}
+            "-DDAL_BOUNDARY_MODULE=${PROJECT_SOURCE_DIR}/cmake/DALBindingBoundary.cmake"
+            "-DDAL_BOUNDARY_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/boundary-tests"
+            -P "${PROJECT_SOURCE_DIR}/../tests/binding-boundary/run.cmake")
 
     if(NOT TARGET GTest::gtest_main)
         if(TARGET gtest_main)

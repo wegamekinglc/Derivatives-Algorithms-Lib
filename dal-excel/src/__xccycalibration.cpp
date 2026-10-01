@@ -2,14 +2,13 @@
 // Created by wegam on 2026/6/20.
 //
 
-#include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include "__platform.hpp"
 #include "__settingskeys.hpp"
 #include "__xccy_test_api.hpp"
 #include <cmath>
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/xccycalibration.hpp>
-#include <dal/math/cell.hpp>
-#include <dal/utilities/dictionary.hpp>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------

@@ -6,12 +6,8 @@
 
 #include "__script_storable.hpp"
 #include <dal-public/src/script.hpp>
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/value.hpp>
-#include <dal/indice/detail/fixingobserver.hpp>
-#include <dal/math/cell.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/script/detail/simulationobserver.hpp>
-#include <dal/storage/globals.hpp>
 
 #if defined(_WIN32) && defined(DAL_EXCEL_TEST_API_EXPORTS)
 #define DAL_SCRIPT_TEST_API __declspec(dllexport)
@@ -22,6 +18,13 @@
 #endif
 
 namespace Dal {
+    struct FixHistory_;
+    namespace Detail {
+        struct FixingReadObserver_;
+    }
+    namespace Script::Detail {
+        struct SimulationObserver_;
+    }
     struct StorableMarketFixingSnapshot_;
     DAL_SCRIPT_TEST_API void
     ScriptProductSettings_New(const String_& name, const Matrix_<Cell_>& settings, Handle_<StorableScriptProductSettings_>* productSettings);

@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 
-#include <dal/utilities/exceptions.hpp>
+#include <dal-public/src/types.hpp>
 
 namespace Dal {
     namespace Excel {

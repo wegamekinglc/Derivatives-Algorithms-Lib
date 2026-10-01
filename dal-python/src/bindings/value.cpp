@@ -7,8 +7,7 @@
 #include <limits>
 #include <pybind11/stl.h>
 
-#include <dal/platform/platform.hpp>
-
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/value.hpp>
 
 #include "scriptsettings.hpp"

@@ -6,11 +6,8 @@
 
 #include <pybind11/stl.h>
 
-#include <dal/math/cell.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/string/strings.hpp>
-
 #include <dal-public/src/script.hpp>
+#include <dal-public/src/types.hpp>
 
 #include "scriptsettings.hpp"
 

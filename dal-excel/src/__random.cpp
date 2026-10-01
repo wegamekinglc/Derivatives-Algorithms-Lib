@@ -6,8 +6,7 @@
 #include "__random_test_api.hpp"
 #include "__value.hpp"
 #include <dal-public/src/random.hpp>
-#include <dal/math/random/pseudorandom.hpp>
-#include <dal/math/random/sobol.hpp>
+#include <dal-public/src/types.hpp>
 
 /*IF--------------------------------------------------------------------------
 public PseudoRSG_New

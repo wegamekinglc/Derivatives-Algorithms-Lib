@@ -13,6 +13,7 @@
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>

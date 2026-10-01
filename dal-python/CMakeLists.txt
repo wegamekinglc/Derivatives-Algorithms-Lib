@@ -249,6 +249,7 @@ endif()
 if(DAL_PUBLIC_TARGET)
     target_link_libraries(_dal PRIVATE ${DAL_PUBLIC_TARGET})
 endif()
+dal_public_check_binding(_dal "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Set Python module properties
 target_include_directories(_dal PRIVATE ${Python3_INCLUDE_DIRS})

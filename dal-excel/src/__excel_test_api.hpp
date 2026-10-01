@@ -4,9 +4,7 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/vectors.hpp>
-#include <dal/string/strings.hpp>
+#include <dal-public/src/types.hpp>
 
 #if defined(_WIN32) && defined(DAL_EXCEL_TEST_API_EXPORTS)
 #define DAL_EXCEL_TEST_API __declspec(dllexport)

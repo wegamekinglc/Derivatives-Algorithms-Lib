@@ -252,7 +252,7 @@ namespace Dal {
                                    double rate,
                                    const Matrix_<>& correlations,
                                    Handle_<ModelData_>* model) {
-        Handle_<ModelData_>(new CorrelatedBSModelData_(name, indices, spots, vols, divs, rate, correlations)).swap(*model);
+        NewCorrelatedBSModelData(name, indices, spots, vols, divs, rate, correlations).swap(*model);
     }
 
     void HybridBSEquityData_New(const String_& name,
@@ -263,11 +263,11 @@ namespace Dal {
                                 double vol,
                                 double div,
                                 Handle_<HybridComponentData_>* component) {
-        Handle_<HybridComponentData_>(new HybridBSEquityData_(name, index, currency, factor, spot, vol, div)).swap(*component);
+        NewHybridBSEquityData(name, index, currency, factor, spot, vol, div).swap(*component);
     }
 
     void HybridDeterministicRateData_New(const String_& name, const String_& currency, double rate, Handle_<HybridComponentData_>* component) {
-        Handle_<HybridComponentData_>(new HybridDeterministicRateData_(name, currency, rate)).swap(*component);
+        NewHybridDeterministicRateData(name, currency, rate).swap(*component);
     }
 
     void HybridLogDfRateData_New(const String_& name,
@@ -293,7 +293,7 @@ namespace Dal {
                                            const Vector_<String_>& factors,
                                            const Matrix_<>& correlations,
                                            Handle_<HybridCorrelationData_>* provider) {
-        Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_(name, factors, correlations)).swap(*provider);
+        NewHybridConstantCorrelationData(name, factors, correlations).swap(*provider);
     }
 
     void HybridModelData_New(const String_& name,

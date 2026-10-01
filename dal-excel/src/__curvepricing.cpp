@@ -9,9 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <dal-public/src/curvepricing.hpp>
-#include <dal/curve/curveblock.hpp>
-#include <dal/math/cell.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal-public/src/types.hpp>
 #include <set>
 
 // clang-format off
@@ -487,11 +485,8 @@ namespace Dal {
                                                               const Handle_<StorableDiscountCurve_>& basisCurve,
                                                               const DateTime_& valuationTime,
                                                               const Handle_<MarketFixingSnapshot_>& fixings) {
-            auto native = std::make_shared<CrossCurrencyMarket_>(domesticBlock->val_, foreignBlock->val_, fxSpot, valuationTime,
-                                                                 Ccy_(collateralCurrency), fixings);
-            if (basisCurve && basisCurve->val_)
-                native->SetBasisCurve(basisCurve->val_);
-            return native;
+            return NewCrossCurrencyMarket(domesticBlock->val_, foreignBlock->val_, fxSpot, valuationTime, Ccy_(collateralCurrency), fixings,
+                                          basisCurve ? basisCurve->val_ : Handle_<DiscountCurve_>());
         }
 
         // Optional XCCY market: both blocks and a positive FX spot are required once any XCCY
