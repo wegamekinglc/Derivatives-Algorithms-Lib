@@ -21295,7 +21295,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
             // Preserve both caller-selected inverse-CDF policy flags unchanged.
-            auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->polish_); };
+            auto func = [precise = precise_, polish = polish_](double x) { return InverseNCDF(x, precise, polish); };
             FillUniform(dst);
             Transform(dst, func);
         }
