@@ -24,7 +24,7 @@ TEST(DateTimeTest, TestRejectsInvalidFractionsAndFields) {
     ASSERT_THROW(DateTime_(date, 0, 0, 60), Exception_);
     ASSERT_THROW(DateTime_(date, std::numeric_limits<int>::max(), 0, 0), Exception_);
     ASSERT_THROW(DateTime_(-1LL), Exception_);
-    ASSERT_THROW(DateTime_(std::numeric_limits<long long>::max()), Exception_);
+    ASSERT_THROW((DateTime_(std::numeric_limits<long long>::max())), Exception_);
 }
 
 TEST(DateTimeTest, TestAdditionRejectsNonfiniteAndOutOfRangeWithoutMutation) {
