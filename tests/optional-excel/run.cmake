@@ -26,6 +26,7 @@ function(check_case name mode platform public excel portable tests gtest expecte
         "-DDAL_OPTIONAL_EXCEL_PLATFORM=${platform}"
         "-DDAL_OPTIONAL_EXCEL_PUBLIC=${public}"
         "-DDAL_OPTIONAL_EXCEL_GTEST=${gtest}"
+        "-DDAL_OPTIONAL_EXCEL_CHECK_PRIVATE_HEADERS=${ARGV10}"
         "-DDAL_BUILD_PUBLIC=${public}" "-DDAL_BUILD_EXCEL=${excel}"
         "-DDAL_BUILD_EXCEL_PORTABLE_TESTS=${portable}" "-DDAL_EXCEL_BUILD_TESTS=${tests}"
         -DDAL_CPP_BUILD_TESTS=OFF -DDAL_PUBLIC_BUILD_TESTS=OFF
@@ -140,6 +141,7 @@ check_case(standalone_portable standalone posix package OFF ON ON package "dal_e
 check_case(standalone_windows_public_missing standalone windows OFF ON OFF OFF poison "" "Could not find a package configuration file provided by")
 check_case(standalone_windows_xll standalone windows package ON OFF OFF poison "dal_excel;DAL::excel" "")
 check_case(standalone_windows_tests standalone windows package ON OFF ON package "dal_excel;DAL::excel;dal_excel_tests" "")
+check_case(standalone_windows_private_headers standalone windows package ON OFF ON package "dal_excel;DAL::excel;dal_excel_tests" "" ON)
 check_case(standalone_windows_gtest_missing standalone windows package ON OFF ON missing "dal_excel;DAL::excel" "Could NOT find GTest")
 check_case(sibling_alias sibling posix alias OFF ON ON target "dal_excel_portable_tests" "")
 check_case(sibling_plain sibling posix plain OFF ON ON target "dal_excel_portable_tests" "")
