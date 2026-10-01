@@ -151,6 +151,10 @@ remainder. The constructor therefore forces the requested point count odd with
 a bitwise OR (`n | 1`). A caller passing an even $n$ gets $n+1$ points rather
 than a parity error. With the resulting point count $N$, the spacing is
 $h=(hi-lo)/(N-1)$.
+The requested count must be at least two, giving at least three actual points;
+invalid counts throw before allocation. Bounds must be finite. `SimpsonWeights`
+resizes its two distinct output vectors to the actual point count, so callers
+may pass empty vectors.
 
 The result is exact for cubic polynomials and has global error $O(h^4)$ for a
 sufficiently smooth integrand. Halving $h$ therefore reduces the leading error
