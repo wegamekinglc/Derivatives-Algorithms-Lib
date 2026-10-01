@@ -4,14 +4,7 @@
 
 #include "bindings.h"
 
-#include <dal/platform/platform.hpp>
-#include <dal/time/date.hpp>
-#include <dal/time/holidays.hpp>
-#include <dal/utilities/exceptions.hpp>
-
-namespace Dal {
-#include <dal/auto/MG_BizDayConvention_enum.hpp>
-} // namespace Dal
+#include <dal-public/src/calendar.hpp>
 
 using namespace Dal;
 
@@ -38,16 +31,13 @@ void init_bindings_calendar(py::module_& m) {
         .def(py::init<const Holidays_&>(), py::arg("holidays"))
         .def("__call__", &CountBusDays_::operator(), py::arg("begin"), py::arg("end"));
 
-    m.def("Is_BizDay", &Holidays::IsBusinessDay,
-          py::arg("holidays"), py::arg("date"));
-    m.def("NextBizDay", &Holidays::NextBus,
-          py::arg("holidays"), py::arg("date"));
-    m.def("PrevBizDay", &Holidays::PrevBus,
-          py::arg("holidays"), py::arg("date"));
-    m.def("Adjust", [](const Holidays_& hols, const Date_& date,
-                          BizDayConvention_::Value_ convention) -> Date_ {
-            return Holidays::Adjust(hols, date, BizDayConvention_(convention));
+    m.def("Is_BizDay", &IsBusinessDay, py::arg("holidays"), py::arg("date"));
+    m.def("NextBizDay", &NextBusinessDay, py::arg("holidays"), py::arg("date"));
+    m.def("PrevBizDay", &PreviousBusinessDay, py::arg("holidays"), py::arg("date"));
+    m.def(
+        "Adjust",
+        [](const Holidays_& hols, const Date_& date, BizDayConvention_::Value_ convention) -> Date_ {
+            return AdjustBusinessDate(hols, date, BizDayConvention_(convention));
         },
-        py::arg("holidays"), py::arg("date"),
-        py::arg("convention"));
+        py::arg("holidays"), py::arg("date"), py::arg("convention"));
 }

@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.21)
 
 project(dal-installed-consumer LANGUAGES CXX)
 
-find_package(dal-cpp 1.0 CONFIG REQUIRED)
 find_package(dal-public 1.0 CONFIG REQUIRED)
 
 if(NOT DEFINED DAL_CPP_MSVC_RUNTIME_LIBRARY)
@@ -14,7 +13,7 @@ endif()
 
 add_executable(dal_installed_consumer main.cpp)
 dal_cpp_apply_msvc_runtime(dal_installed_consumer)
-target_link_libraries(dal_installed_consumer PRIVATE DAL::cpp DAL::public)
+target_link_libraries(dal_installed_consumer PRIVATE DAL::public)
 
 if(MSVC)
     get_target_property(consumer_runtime dal_installed_consumer MSVC_RUNTIME_LIBRARY)

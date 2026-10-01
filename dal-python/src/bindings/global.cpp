@@ -4,14 +4,11 @@
 
 #include "bindings.h"
 
-#include <dal/platform/platform.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/time/date.hpp>
-
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/random.hpp>
 #include <dal-public/src/script.hpp>
+#include <dal-public/src/types.hpp>
 
 using namespace Dal;
 
@@ -48,7 +45,6 @@ void init_bindings_global(py::module_& m) {
 
     m.def("_EvaluationDateBarrier_AvailableForTesting", []() {
         py::gil_scoped_release release;
-        XGLOBAL::ValuationMutationGuard_ probe(std::try_to_lock);
-        return probe.OwnsLock();
+        return IsEvaluationDateMutationAvailable();
     });
 }

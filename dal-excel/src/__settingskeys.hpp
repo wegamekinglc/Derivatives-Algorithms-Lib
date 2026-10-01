@@ -5,9 +5,8 @@
 #pragma once
 
 #include <algorithm>
-#include <dal/math/vectors.hpp>
-#include <dal/string/strings.hpp>
-#include <dal/utilities/exceptions.hpp>
+
+#include <dal-public/src/types.hpp>
 
 namespace Dal {
     // Calibration settings dictionaries must not silently drop misspelled keys:

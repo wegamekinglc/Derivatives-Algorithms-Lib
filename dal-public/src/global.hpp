@@ -11,4 +11,5 @@ namespace Dal {
     void InitGlobalData(int nThreads = 0);
     void SetEvaluationDate(const Date_& d);
     Date_ GetEvaluationDate();
+    bool IsEvaluationDateMutationAvailable();
 } // namespace Dal

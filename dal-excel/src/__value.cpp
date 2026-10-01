@@ -6,9 +6,9 @@
 #include "__platform.hpp"
 #include "__script_test_api.hpp"
 #include "__scriptinput.hpp"
+#include <dal-public/src/strict.hpp>
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/value.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/platform/strict.hpp>
 
 /*IF--------------------------------------------------------------------------
 public MonteCarlo_Value

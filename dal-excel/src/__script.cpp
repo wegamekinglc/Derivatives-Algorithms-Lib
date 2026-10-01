@@ -5,7 +5,7 @@
 #include "__platform.hpp"
 #include "__script_test_api.hpp"
 #include <dal-public/src/script.hpp>
-#include <dal/script/event.hpp>
+#include <dal-public/src/types.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Product_New

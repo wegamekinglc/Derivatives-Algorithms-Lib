@@ -5,12 +5,13 @@
 #include <cmath>
 #include <limits>
 
-#include <dal/script/settings.hpp>
-
 #include "__curve_storable.hpp"
 #include "__platform.hpp"
 #include "__script_test_api.hpp"
 #include "__scriptinput.hpp"
+
+#include <dal-public/src/types.hpp>
+#include <dal-public/src/value.hpp>
 
 /*IF--------------------------------------------------------------------------
 public ScriptProductSettings_New

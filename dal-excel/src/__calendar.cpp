@@ -3,11 +3,9 @@
 //
 
 #include "__platform.hpp"
-#include <dal/time/date.hpp>
-#include <dal/time/holidays.hpp>
-namespace Dal {
-#include <dal/auto/MG_BizDayConvention_enum.hpp>
-} // namespace Dal
+#include "__utilities_test_api.hpp"
+
+#include <dal-public/src/calendar.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Is_BizDay
@@ -79,34 +77,32 @@ result is integer
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    namespace {
-        void Is_BizDay(const String_& center, const Date_& date, bool* result) {
-            Holidays_ hols(center);
-            *result = Holidays::IsBusinessDay(hols, date);
-        }
-
-        void Next_BizDay(const String_& center, const Date_& date, Date_* result) {
-            Holidays_ hols(center);
-            *result = Holidays::NextBus(hols, date);
-        }
-
-        void Prev_BizDay(const String_& center, const Date_& date, Date_* result) {
-            Holidays_ hols(center);
-            *result = Holidays::PrevBus(hols, date);
-        }
-
-        void Adjust_Date(const String_& center, const Date_& date, const String_& convention, Date_* result) {
-            Holidays_ hols(center);
-            BizDayConvention_ conv(convention);
-            *result = Holidays::Adjust(hols, date, conv);
-        }
-
-        void Count_BusDays(const String_& center, const Date_& begin, const Date_& end, int* result) {
-            Holidays_ hols(center);
-            CountBusDays_ counter(hols);
-            *result = counter(begin, end);
-        }
+    void Is_BizDay(const String_& center, const Date_& date, bool* result) {
+        Holidays_ hols(center);
+        *result = IsBusinessDay(hols, date);
     }
+
+    void Next_BizDay(const String_& center, const Date_& date, Date_* result) {
+        Holidays_ hols(center);
+        *result = NextBusinessDay(hols, date);
+    }
+
+    void Prev_BizDay(const String_& center, const Date_& date, Date_* result) {
+        Holidays_ hols(center);
+        *result = PreviousBusinessDay(hols, date);
+    }
+
+    void Adjust_Date(const String_& center, const Date_& date, const String_& convention, Date_* result) {
+        Holidays_ hols(center);
+        BizDayConvention_ conv(convention);
+        *result = AdjustBusinessDate(hols, date, conv);
+    }
+
+    void Count_BusDays(const String_& center, const Date_& begin, const Date_& end, int* result) {
+        Holidays_ hols(center);
+        *result = CountBusinessDays(hols, begin, end);
+    }
+
 #ifdef _WIN32
 #include <dal-excel/auto/MG_Is_BizDay_public.inc>
 #include <dal-excel/auto/MG_Next_BizDay_public.inc>

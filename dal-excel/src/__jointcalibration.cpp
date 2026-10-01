@@ -4,8 +4,9 @@
 #include "__settingskeys.hpp"
 
 #include <cmath>
-#include <dal/utilities/dictionary.hpp>
 #include <optional>
+
+#include <dal-public/src/types.hpp>
 
 // clang-format off
 /*IF--------------------------------------------------------------------------

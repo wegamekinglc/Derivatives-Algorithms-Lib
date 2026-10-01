@@ -33,6 +33,17 @@ available. These exercise binding contracts without building the Windows XLL.
 concrete value types, so consumers remain coupled to compatible core headers and
 libraries.
 
+Python and Excel production sources include DAL contracts only through
+`dal-public/src/` and link `DAL::public`. Shared calendar operations,
+interpolation construction/evaluation, model construction, serialization, and
+repository access belong to that facade. Bindings convert arguments and results
+and expose methods on the facade's value types. `types.hpp` provides shared
+values; `host.hpp` provides environment and conversion contracts for generated
+Excel adapters. CMake checks production and generated sources for direct core
+includes and rejects direct core links. Native observer hooks used by Excel
+tests live under `dal-excel/tests/support/` and are compiled into the XLL only
+when tests are enabled.
+
 All repository C++ examples live under `dal-cpp/examples/` and use core APIs.
 Their DAL dependency is `DAL::cpp`; `DAL_CPP_BUILD_EXAMPLES=ON` enables them
 independently of `DAL_BUILD_PUBLIC`.

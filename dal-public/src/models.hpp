@@ -17,6 +17,19 @@
 #include <dal/platform/consts.hpp>
 
 namespace Dal {
+    Handle_<ModelData_> NewCorrelatedBSModelData(const String_& name,
+                                                 const Vector_<String_>& indices,
+                                                 const Vector_<>& spots,
+                                                 const Vector_<>& vols,
+                                                 const Vector_<>& divs,
+                                                 double rate,
+                                                 const Matrix_<>& correlations);
+    Handle_<HybridComponentData_> NewHybridBSEquityData(
+        const String_& name, const String_& index, const String_& currency, const String_& factor, double spot, double vol, double div);
+    Handle_<HybridComponentData_> NewHybridDeterministicRateData(const String_& name, const String_& currency, double rate);
+    Handle_<HybridCorrelationData_>
+    NewHybridConstantCorrelationData(const String_& name, const Vector_<String_>& factors, const Matrix_<>& correlations);
+
     FORCE_INLINE Handle_<ModelData_> NewBSModelData(const String_& name, double spot, double vol, double rate, double div) {
         return Handle_<ModelData_>(new BSModelData_(name, spot, vol, rate, div));
     }
@@ -129,7 +142,7 @@ namespace Dal {
 
     FORCE_INLINE Handle_<HybridComponentData_> NewHybridLogDfRateData(
         const String_& name, const String_& currency, const Vector_<>& times, const Vector_<>& logDF, const String_& scheme = "LOG_LINEAR") {
-        return Handle_<HybridComponentData_>(new HybridLogDfRateData_(name, currency, times, logDF, scheme));
+        return Handle_<HybridComponentData_>(std::make_shared<HybridLogDfRateData_>(name, currency, times, logDF, scheme));
     }
 
     FORCE_INLINE Handle_<HybridComponentData_> NewHybridLogDfRateDataFromCurve(const String_& name,

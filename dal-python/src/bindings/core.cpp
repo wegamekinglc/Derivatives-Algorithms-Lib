@@ -8,15 +8,11 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-#include <dal/math/cell.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/string/strings.hpp>
-#include <dal/time/date.hpp>
-
 #include <cmath>
 #include <limits>
 #include <sstream>
+
+#include <dal-public/src/types.hpp>
 
 using namespace Dal;
 

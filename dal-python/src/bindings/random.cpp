@@ -4,9 +4,8 @@
 
 #include "bindings.h"
 
-#include <dal/math/matrix/matrixs.hpp>
-
 #include <dal-public/src/random.hpp>
+#include <dal-public/src/types.hpp>
 
 using namespace Dal;
 

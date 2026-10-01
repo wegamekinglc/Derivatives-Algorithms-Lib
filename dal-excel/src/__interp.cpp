@@ -3,11 +3,9 @@
 //
 
 #include "__platform.hpp"
+#include "__utilities_test_api.hpp"
 #include <dal-public/src/interp.hpp>
-#include <dal/math/interp/interplinear.hpp>
-#include <dal/math/interp/interp2d.hpp>
-#include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/smooth.hpp>
+#include <dal-public/src/types.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Interp1_New_Linear
@@ -128,65 +126,31 @@ z is number[][]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    namespace {
-        void Interp1_New_Linear(const String_& name, const Vector_<>& x, const Vector_<>& y, Handle_<Interp1_>* f) {
-            Interp1NewLinear(name, x, y).swap(*f);
-        }
+    void Interp1_New_Linear(const String_& name, const Vector_<>& x, const Vector_<>& y, Handle_<Interp1_>* f) {
+        Interp1NewLinear(name, x, y).swap(*f);
+    }
 
-        double CheckedInterp(const Interp1_& f, double x) {
-            REQUIRE(f.IsInBounds(x), "X (= " + std::to_string(x) + ") is outside interpolation domain");
-            return f(x);
-        }
+    void Interp1_Get(const Handle_<Interp1_>& f, const Vector_<>& x, Vector_<>* y) { Interp1Get(f, x, y); }
 
-        void Interp1_Get(const Handle_<Interp1_>& f, const Vector_<>& x, Vector_<>* y) {
-            y->Resize(x.size());
-            Transform(x, [&](double x_i) { return CheckedInterp(*f, x_i); }, y);
-        }
+    void Interp1_New_Linear_Smoothed(
+        const String_& name, const Vector_<>& x, const Vector_<>& y, double smoothing, const Vector_<>& fit_weights, Handle_<Interp1_>* f) {
+        *f = Interp1NewLinearSmoothed(name, x, y, smoothing, fit_weights);
+    }
 
-        void Interp1_New_Linear_Smoothed(const String_& name, const Vector_<>& x, const Vector_<>& y, double smoothing, const Vector_<>& fit_weights, Handle_<Interp1_>* f) {
-            Vector_<> z = SmoothedVals(x, y, fit_weights, smoothing);
-            *f = Handle_<Interp1_>(Interp::NewLinear(name, x, z));
-        }
+    void Interp1_New_Cubic(const String_& name,
+                           const Vector_<>& x,
+                           const Vector_<>& y,
+                           const Vector_<int>& boundary_order,
+                           const Vector_<>& boundary_value,
+                           Handle_<Interp1_>* f) {
+        *f = Interp1NewCubic(name, x, y, boundary_order, boundary_value);
+    }
 
-        void Interp1_New_Cubic(const String_& name,
-                               const Vector_<>& x,
-                               const Vector_<>& y,
-                               const Vector_<int>& boundary_order,
-                               const Vector_<>& boundary_value,
-                               Handle_<Interp1_>* f) {
-            Interp::Boundary_ left(3.0, 0), right(3.0, 0);
-            if (!boundary_order.empty()) {
-                left.order_ = boundary_order.front();
-                right.order_ = boundary_order.back();
-                if (!boundary_value.empty()) {
-                    left.value_ = boundary_value.front();
-                    right.value_ = boundary_value.back();
-                }
-            }
-            *f = Handle_<Interp1_>(Interp::NewCubic(name, x, y, left, right));
-        }
+    void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) { Interp2Get(f, x, y, z); }
 
-        double CheckedInterp2(const Interp2_& f, double x, double y) {
-            REQUIRE(f.IsInBounds(x, y), "X (= " + std::to_string(x) + ")" + " Y (= " + std::to_string(y) + ") is outside interpolation domain");
-            return f(x, y);
-        }
-
-        void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) {
-            z->Resize(x.size(), y.size());
-            for (size_t i = 0; i != x.size(); ++i) {
-                for (int j = 0; j != y.size(); ++j)
-                    (*z)(i, j) = CheckedInterp2(*f, x[i], y[j]);
-            }
-        }
-
-        void Interp2_New_Linear(const String_& name,
-                                const Vector_<>& x,
-                                const Vector_<>& y,
-                                const Matrix_<>& z,
-                                Handle_<Interp2_>* f) {
-            *f = Handle_<Interp2_>(Interp::NewLinear2(name, x, y, z));
-        }
-    } // namespace
+    void Interp2_New_Linear(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& z, Handle_<Interp2_>* f) {
+        *f = Interp2NewLinear(name, x, y, z);
+    }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_Interp1_Get_public.inc>
 #include <dal-excel/auto/MG_Interp1_New_Cubic_public.inc>

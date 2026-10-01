@@ -4,9 +4,8 @@
 
 #include <gtest/gtest.h>
 
-#include <dal/math/interp/interplinear.hpp>
-#include <dal/storage/_repository.hpp>
-
+#include <dal-public/src/host.hpp>
+#include <dal-public/src/interp.hpp>
 #include <dal-public/src/repository.hpp>
 
 using Dal::Handle_;
@@ -19,8 +18,9 @@ namespace {
     Handle_<Storable_> InsertInterp(const char* name) {
         const Vector_<> x = {1., 2., 3.};
         const Vector_<> y = {2.5, 3.5, 1.7};
-        Handle_<Storable_> object(Dal::Interp::NewLinear(String_(name), x, y));
-        Dal::ObjectAccess_::Add(object, Dal::RepositoryErase_::Value_::NONE);
+        const Handle_<Storable_> object(Dal::Interp1NewLinear(String_(name), x, y));
+        ENV_SEED_TYPE(Dal::ObjectAccess_);
+        Dal::StoreRepository(_env, object);
         return object;
     }
 } // namespace
@@ -70,10 +70,28 @@ TEST(RepositoryTest, TestEraseEmptyVectorRemovesNothing) {
 TEST(RepositoryTest, TestEraseObjectNeverInsertedReturnsZero) {
     const Vector_<> x = {1., 2., 3.};
     const Vector_<> y = {2.5, 3.5, 1.7};
-    const Handle_<Storable_> notStored(Dal::Interp::NewLinear(String_("dal_public_repo_never_stored"), x, y));
+    const Handle_<Storable_> notStored(Dal::Interp1NewLinear(String_("dal_public_repo_never_stored"), x, y));
     const int baseline = Dal::SizeRepository();
 
     const Vector_<Handle_<Storable_>> objects = {notStored};
     ASSERT_EQ(Dal::EraseRepository(objects), 0);
     ASSERT_EQ(Dal::SizeRepository(), baseline);
+}
+
+TEST(RepositoryTest, TestPublicStoreFetchAndErase) {
+    ENV_SEED_TYPE(Dal::ObjectAccess_);
+    const String_ name("dal_public_repo_replace");
+    const int baseline = Dal::SizeRepository();
+    const Handle_<Storable_> first(Dal::Interp1NewLinear(name, {0.0, 1.0}, {1.0, 2.0}));
+    const String_ firstTag = Dal::StoreRepository(_env, first);
+    ASSERT_EQ(first.get(), Dal::FetchRepository(_env, firstTag).get());
+    const Handle_<Storable_> second(Dal::Interp1NewLinear(name, {0.0, 1.0}, {3.0, 4.0}));
+    const String_ secondTag = Dal::StoreRepository(_env, second);
+    ASSERT_EQ(second.get(), Dal::FetchRepository(_env, secondTag).get());
+    ASSERT_EQ(first.get(), Dal::FetchRepository(_env, firstTag).get());
+    ASSERT_EQ(baseline + 2, Dal::SizeRepository());
+    ASSERT_EQ(2, Dal::EraseRepositoryMatching(name));
+    ASSERT_EQ(baseline, Dal::SizeRepository());
+    ASSERT_THROW(Dal::FetchRepository(nullptr, secondTag), Dal::Exception_);
+    ASSERT_THROW(Dal::StoreRepository(_env, {}), Dal::Exception_);
 }

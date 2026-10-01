@@ -6,8 +6,8 @@
 
 #include <pybind11/pybind11.h>
 
-#include <dal/platform/platform.hpp>
-#include <dal/script/settings.hpp>
+#include <dal-public/src/types.hpp>
+#include <dal-public/src/value.hpp>
 
 namespace Dal::Python {
     namespace py = pybind11;

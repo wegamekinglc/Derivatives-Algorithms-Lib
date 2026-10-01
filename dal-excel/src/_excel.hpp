@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <dal-public/src/host.hpp>
+
 #ifdef _WIN32
 
 // Framework for Excel interface
@@ -16,14 +18,6 @@
 #define cchMaxStz (255)
 #define MAXSHORTINT 0x7fff
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/platform/optionals.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/storage/_reader.hpp>
-#include <dal/storage/storable.hpp>
-#include <dal/utilities/dictionary.hpp>
-#include <dal/utilities/environment.hpp>
 
 #define XL_CALLBACK Excel12v
 

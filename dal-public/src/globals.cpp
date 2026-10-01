@@ -20,4 +20,9 @@ namespace Dal {
     Date_ GetEvaluationDate() {
         return Global::Dates_::EvaluationDate();
     }
+
+    bool IsEvaluationDateMutationAvailable() {
+        XGLOBAL::ValuationMutationGuard_ probe(std::try_to_lock);
+        return probe.OwnsLock();
+    }
 } // namespace Dal

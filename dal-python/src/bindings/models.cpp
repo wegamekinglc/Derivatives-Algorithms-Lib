@@ -6,9 +6,8 @@
 
 #include <pybind11/stl.h>
 
-#include <dal/math/matrix/matrixs.hpp>
-
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/types.hpp>
 
 using namespace Dal;
 
@@ -88,8 +87,8 @@ void init_bindings_models(py::module_& m) {
                 volValues.push_back(py::cast<double>(item));
             for (const auto item : divs)
                 divValues.push_back(py::cast<double>(item));
-            return std::const_pointer_cast<ModelData_>(Handle_<ModelData_>(
-                new CorrelatedBSModelData_("CorrelatedBSModelData_", names, spotValues, volValues, divValues, rate, correlations)));
+            return std::const_pointer_cast<ModelData_>(
+                NewCorrelatedBSModelData("CorrelatedBSModelData_", names, spotValues, volValues, divValues, rate, correlations));
         },
         py::arg("indices"), py::arg("spots"), py::arg("vols"), py::arg("divs"), py::arg("rate"), py::arg("correlations"));
 
@@ -97,7 +96,8 @@ void init_bindings_models(py::module_& m) {
         "HybridBSEquityData_New",
         [](const std::string& name, const std::string& index, const std::string& currency, const std::string& factor, double spot, double vol,
            double div) -> std::shared_ptr<HybridComponentData_> {
-            return std::make_shared<HybridBSEquityData_>(String_(name), String_(index), String_(currency), String_(factor), spot, vol, div);
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridBSEquityData(String_(name), String_(index), String_(currency), String_(factor), spot, vol, div));
         },
         py::arg("name"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::arg("spot"), py::arg("vol"), py::arg("div"));
 
@@ -149,7 +149,7 @@ void init_bindings_models(py::module_& m) {
     m.def(
         "HybridDeterministicRateData_New",
         [](const std::string& name, const std::string& currency, double rate) -> std::shared_ptr<HybridComponentData_> {
-            return std::make_shared<HybridDeterministicRateData_>(String_(name), String_(currency), rate);
+            return std::const_pointer_cast<HybridComponentData_>(NewHybridDeterministicRateData(String_(name), String_(currency), rate));
         },
         py::arg("name"), py::arg("currency"), py::arg("rate"));
 
@@ -162,7 +162,8 @@ void init_bindings_models(py::module_& m) {
                 modelTimes.push_back(py::cast<double>(item));
             for (const auto item : logDF)
                 nodeLogDF.push_back(py::cast<double>(item));
-            return std::make_shared<HybridLogDfRateData_>(String_(name), String_(currency), modelTimes, nodeLogDF, String_(scheme));
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridLogDfRateData(String_(name), String_(currency), modelTimes, nodeLogDF, String_(scheme)));
         },
         py::arg("name"), py::arg("currency"), py::arg("times"), py::arg("log_df"), py::arg("scheme") = "LOG_LINEAR");
 
@@ -185,7 +186,7 @@ void init_bindings_models(py::module_& m) {
             Vector_<String_> names;
             for (const auto item : factors)
                 names.emplace_back(py::cast<std::string>(item));
-            return std::make_shared<HybridConstantCorrelationData_>(String_(name), names, correlations);
+            return std::const_pointer_cast<HybridCorrelationData_>(NewHybridConstantCorrelationData(String_(name), names, correlations));
         },
         py::arg("name"), py::arg("factors"), py::arg("correlations"));
 

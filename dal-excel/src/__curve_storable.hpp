@@ -12,16 +12,8 @@
 #include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/xccycalibration.hpp>
-#include <dal/curve/calibration.hpp>
-#include <dal/curve/curveblock.hpp>
-#include <dal/curve/jointcalibration.hpp>
-#include <dal/curve/xccycalibration.hpp>
-#include <dal/curve/xccyinstrument.hpp>
-#include <dal/curve/yc.hpp>
-#include <dal/curve/ycinstrument.hpp>
-#include <dal/math/cell.hpp>
-#include <dal/storage/storable.hpp>
 
 namespace Dal {
 

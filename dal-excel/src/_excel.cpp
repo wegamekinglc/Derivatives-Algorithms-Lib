@@ -4,17 +4,14 @@
 #include "_excel.hpp"
 #include "__excel_test_api.hpp"
 #include "_xlcall.hpp"
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 #include <algorithm>
 #include <deque>
 #include <functional>
 
-#include <dal/math/cellutils.hpp>
-#include <dal/storage/_repository.hpp>
-#include <dal/utilities/exceptions.hpp>
-#include <dal/utilities/numerics.hpp>
 #include <dal-public/src/global.hpp>
+#include <dal-public/src/host.hpp>
+#include <dal-public/src/repository.hpp>
+#include <dal-public/src/strict.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
@@ -82,11 +79,6 @@
 #include <regex>
 #include <Windows.h>
 
-#include "dal/math/matrix/matrixutils.hpp"
-#include "dal/platform/optionals.hpp"
-#include "dal/string/strings.hpp"
-#include "dal/utilities/algorithms.hpp"
-#include "dal/utilities/dictionary.hpp"
 
 namespace Dal {
     using Matrix::M1x1;
@@ -922,9 +914,7 @@ namespace Dal {
             REQUIRE(optional, "Missing input handle");
             return Handle_<Storable_>();
         }
-        auto repo = Environment::Find<ObjectAccess_>(_env);
-        assert(repo);
-        return repo->Fetch(tag);
+        return FetchRepository(_env, tag);
     }
 
     namespace {
@@ -1223,13 +1213,7 @@ namespace Dal {
         values_.push_back(M1x1(s));
     }
 
-    void Excel::Retval_::LoadBase(_ENV, const Handle_<Storable_>& s) {
-        static const RepositoryErase_ ERASE; // defaults to NAME_NONEMPTY
-        REQUIRE(s, "Output handle is NULL");
-        auto repo = Environment::Find<ObjectAccess_>(_env);
-        REQUIRE(repo, "no repo found");
-        Load(repo->Add(s, ERASE)); // Excel can't tell the difference
-    }
+    void Excel::Retval_::LoadBase(_ENV, const Handle_<Storable_>& s) { Load(StoreRepository(_env, s)); }
 
     void Excel::Retval_::Load(const Vector_<>& v) {
         vectors_.push_back(values_.size());
@@ -1252,12 +1236,8 @@ namespace Dal {
     }
 
     void Excel::Retval_::LoadBase(_ENV, const Vector_<Handle_<Storable_>>& v) {
-        static const RepositoryErase_ ERASE; // defaults to NAME_NONEMPTY
-        auto repo = Environment::Find<ObjectAccess_>(_env);
-        REQUIRE(repo, "no repo found");
         Vector_<Cell_> toStore(v.size());
-        Transform(
-            v, [&](const Handle_<Storable_>& h) -> String_ { return repo->Add(h, ERASE); }, &toStore);
+        Transform(v, [&](const Handle_<Storable_>& h) -> String_ { return StoreRepository(_env, h); }, &toStore);
         Load(toStore);
     }
 
@@ -1458,10 +1438,7 @@ namespace Dal {
 
         // Delete menu
         // Excel(xlfDeleteMenu, 0, 2, TempNum(1), TempStr(" MyMenu"));
-        ENV_SEED_TYPE(ObjectAccess_);
-        auto repo = Environment::Find<ObjectAccess_>(_env);
-        assert(repo);
-        auto num = repo->Erase(""); // everything should match empty pattern
+        EraseRepositoryMatching(String_());
 
         Vector_<XLFunc_>().Swap(&TheFunctions());
         TheFunctions().clear();

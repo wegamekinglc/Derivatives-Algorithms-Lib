@@ -14,27 +14,13 @@
 #include <type_traits>
 #include <utility>
 
-#include <dal/curve/calibration.hpp>
-#include <dal/curve/xccycalibration.hpp>
-#include <dal/curve/xccynotionalmode.hpp>
-#include <dal/curve/xccypricing.hpp>
-#include <dal/curve/yc.hpp>
-#include <dal/curve/yccomponent.hpp>
-#include <dal/curve/ycpwlf.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/math/optimization/underdetermined.hpp>
-#include <dal/protocol/collateraltype.hpp>
-#include <dal/storage/bag.hpp>
-#include <dal/storage/json.hpp>
-#include <dal/time/datetime.hpp>
-#include <dal/time/daybasis.hpp>
-#include <dal/time/periodlength.hpp>
-
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
 #include <dal-public/src/curvepricing.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
+#include <dal-public/src/storage.hpp>
+#include <dal-public/src/types.hpp>
 #include <dal-public/src/xccycalibration.hpp>
 
 using namespace Dal;
@@ -271,10 +257,8 @@ namespace {
         {
             py::gil_scoped_release release;
             for (int index = 0; index < static_cast<int>(instruments.size()); ++index) {
-                const auto span = instruments[index]->TimeSpan();
-                const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, instruments[index]->Config());
-                const Vector_<FixingRequest_> required = RequiredHistoricalFixings(plan, valuationTime);
-                for (const auto& item : required)
+                const Handle_<CrossCurrencySwap_> instrument(std::shared_ptr<const CrossCurrencySwap_>(instruments[index]));
+                for (const auto& item : RequiredHistoricalXccyFixings(instrument, valuationTime))
                     result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
             }
         }
@@ -287,8 +271,7 @@ namespace {
         {
             py::gil_scoped_release release;
             for (int index = 0; index < static_cast<int>(trades.size()); ++index) {
-                const RateCashflowPlan_ plan = BuildRateCashflowPlan(trades[index], valuationTime);
-                for (const auto& item : plan.requiredHistoricalFixings_)
+                for (const auto& item : RequiredHistoricalRateTradeFixings(trades[index], valuationTime))
                     result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
             }
         }
@@ -362,7 +345,7 @@ namespace {
                 String_ payload;
                 {
                     py::gil_scoped_release release;
-                    payload = JSON::WriteString(*value);
+                    payload = WriteObjectJson(*value);
                 }
                 return py::bytes(payload.data(), payload.size());
             },
@@ -379,7 +362,7 @@ namespace {
                 Handle_<Storable_> restored;
                 {
                     py::gil_scoped_release release;
-                    restored = JSON::ReadString(data, static_cast<std::size_t>(length), JSONReadOptions_());
+                    restored = ReadObjectJson(data, static_cast<std::size_t>(length));
                 }
                 return std::const_pointer_cast<Storable_>(restored);
             },
@@ -396,7 +379,7 @@ namespace {
                     native.emplace(String_(key), Handle_<Storable_>(std::const_pointer_cast<const Storable_>(value)));
                 }
                 py::gil_scoped_release release;
-                return std::make_shared<Bag_>(String_(name), native);
+                return std::const_pointer_cast<Bag_>(NewBag(String_(name), native));
             },
             py::arg("name"), py::arg("contents"));
         m.def(
@@ -1005,13 +988,10 @@ namespace {
             [](const std::shared_ptr<CurveBlock_>& domesticBlock, const std::shared_ptr<CurveBlock_>& foreignBlock, double fxSpot,
                const DateTime_& valuationTime, const std::string& collateralCurrency, const std::shared_ptr<MarketFixingSnapshot_>& fixings,
                const std::shared_ptr<DiscountCurve_>& basisCurve) {
-                auto result =
-                    std::make_shared<CrossCurrencyMarket_>(Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(domesticBlock)),
-                                                           Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(foreignBlock)), fxSpot,
-                                                           valuationTime, Ccy_(String_(collateralCurrency)), ConstSnapshot(fixings));
-                if (basisCurve)
-                    result->SetBasisCurve(Handle_<DiscountCurve_>(std::const_pointer_cast<const DiscountCurve_>(basisCurve)));
-                return result;
+                return NewCrossCurrencyMarket(Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(domesticBlock)),
+                                              Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(foreignBlock)), fxSpot, valuationTime,
+                                              Ccy_(String_(collateralCurrency)), ConstSnapshot(fixings),
+                                              Handle_<DiscountCurve_>(std::const_pointer_cast<const DiscountCurve_>(basisCurve)));
             },
             py::kw_only(), py::arg("domestic_block"), py::arg("foreign_block"), py::arg("fx_spot"), py::arg("valuation_time"),
             py::arg("collateral_currency"), py::arg("fixings") = std::shared_ptr<MarketFixingSnapshot_>(),
@@ -1589,7 +1569,7 @@ namespace {
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
-        py::register_exception<Underdetermined::ConvergenceError_>(m, "_CalibrationConvergenceError", PyExc_RuntimeError);
+        py::register_exception<CalibrationConvergenceError_>(m, "_CalibrationConvergenceError", PyExc_RuntimeError);
         auto xccyBuilder = py::class_<CrossCurrencyCalibrationSpecBuilder_>(m, "CrossCurrencyCalibrationSpecBuilder_");
         xccyBuilder.def(py::init<>());
         DefReadWriteAliases(xccyBuilder, "today_", "today", &CrossCurrencyCalibrationSpecBuilder_::today_);

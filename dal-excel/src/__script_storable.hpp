@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/script/settings.hpp>
-#include <dal/storage/storable.hpp>
+#include <dal-public/src/types.hpp>
+#include <dal-public/src/value.hpp>
 
 namespace Dal {
     namespace Excel {

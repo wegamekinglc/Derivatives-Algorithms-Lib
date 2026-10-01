@@ -2,8 +2,11 @@
 // Created by Codex on 2026/9/15.
 //
 
-#include "__script_test_api.hpp"
+#include <dal-excel/src/__script_test_api.hpp>
 #include <dal-public/src/global.hpp>
+#include <dal/indice/detail/fixingobserver.hpp>
+#include <dal/script/detail/simulationobserver.hpp>
+#include <dal/storage/globals.hpp>
 
 #if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
 namespace Dal::Excel {
