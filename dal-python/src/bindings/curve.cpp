@@ -257,7 +257,7 @@ namespace {
         {
             py::gil_scoped_release release;
             for (int index = 0; index < static_cast<int>(instruments.size()); ++index) {
-                const Handle_<CrossCurrencySwap_> instrument(std::shared_ptr<const CrossCurrencySwap_>(instruments[index]));
+                const Handle_<CrossCurrencySwap_> instrument{std::shared_ptr<const CrossCurrencySwap_>(instruments[index])};
                 for (const auto& item : RequiredHistoricalXccyFixings(instrument, valuationTime))
                     result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
             }
