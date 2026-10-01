@@ -106,3 +106,15 @@ endif()
 if(DAL_BUILD_EXCEL OR (NOT WIN32 AND DAL_BUILD_EXCEL_PORTABLE_TESTS))
     add_subdirectory(dal-excel)
 endif()
+
+if(DAL_CPP_BUILD_TESTS OR (DAL_BUILD_PUBLIC AND DAL_PUBLIC_BUILD_TESTS))
+    add_test(NAME dal_optional_excel_configuration
+        COMMAND ${CMAKE_COMMAND}
+            "-DDAL_OPTIONAL_EXCEL_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            "-DDAL_OPTIONAL_EXCEL_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/optional-excel"
+            "-DDAL_GENERATOR=${CMAKE_GENERATOR}"
+            "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+            "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/optional-excel/run.cmake")
+    set_tests_properties(dal_optional_excel_configuration PROPERTIES TIMEOUT 300)
+endif()
