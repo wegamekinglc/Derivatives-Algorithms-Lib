@@ -44,12 +44,7 @@ namespace {
             THROW(msg);                                                                                                                              \
     } while (false)
 
-    // BAR-A is the sole PASS gate (both paths reprice to 10 * fitTolerance_). BAR-B and BAR-C are
-    // INFORMATIONAL joint-vs-staged DF-drift measurements, printed for teaching, NOT pass/fail bars
-    // (the drift is expected and is NOT a bug -- see docs/yield-curves/construction.md,
-    // "Joint simultaneous calibration"). Both paths run EXACT and base-layer the 3M forward over
-    // the OIS discount curve (joint via baseLayeredOverDiscount_, staged via ApplyStageDefaults),
-    // so the stored 3M curves are structurally identical (DiscountPWLF_ with base = OIS).
+    // Only repricing is a pass gate; joint/staged curve drift is informational.
     constexpr double BAR_A_TOLERANCE = 1.0e-7;  // PASS gate: 10 * fitTolerance_, both paths
     constexpr double BAR_B_REFERENCE = 1.0e-6;  // measured EXACT OIS drift 6.42e-7, rounded up (informational)
     constexpr double BAR_C_REFERENCE = 5.0e-5;  // measured EXACT 3M drift 2.39e-5, rounded up (informational)
@@ -333,9 +328,7 @@ namespace {
             }
         }
 
-        // BAR-B (informational, OIS): joint-vs-staged OIS DF drift -- NOT a pass/fail bar. Reported,
-        // not gated. Driven by joint OIS<->3M-spread cross-curve coupling (see
-        // docs/yield-curves/construction.md, "Joint simultaneous calibration").
+        // Cross-curve coupling makes joint/staged OIS drift informational.
         double maxOisDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);

@@ -96,9 +96,7 @@ STALE_DOCUMENTATION = {
     "--gtest_filter=CurveTest.*": "the CurveTest suite does not exist",
 }
 
-# LaTeX macros GitHub's math renderer fails to display, mapped to a renderable
-# replacement. Governed by the macro allow-list rule in .claude/rules/code-style.md
-# (Documentation section): math uses only macros GitHub renders.
+# Map unsupported GitHub math macros to renderable replacements.
 FORBIDDEN_MATH_MACROS = {
     r"\operatorname": r"\mathrm",
 }

@@ -64,8 +64,5 @@ namespace Dal::Script {
     //  Base Node_ must inherit visitableBase
     //      so it (automatically) declares pure virtual Accept methods for all visitors on the list
 
-    //  Concrete Nodes must inherit Visitable_
-    //      so they (automatically) declare overrides accepts for all visitors on the list
-
-    //  Visitor/CRTP machinery: see docs/methodology/script_engine.md §Visitor Machinery.
+    // Nodes inherit Visitable_ to implement every visitor overload.
 } // namespace Dal::Script

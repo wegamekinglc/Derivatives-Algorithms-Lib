@@ -121,13 +121,7 @@ namespace {
     }
 } // namespace
 
-// FR6 nonlinear re-solve: bump instrument i's market quote by +1bp, re-run CalibrateYieldCurve, and
-// assert the linear prediction effJacobianInverse_(:,i) * 1e-4 / tolerance_ matches the true
-// rebumped parameter delta to 1e-6 relative. The /tolerance_ factor is the unit correction on
-// effJacobianInverse_ (the solver-scaled pseudoinverse); dropping it makes the prediction off by
-// ~1e10. The 1e-6 bar reflects the genuine curvature of the nonlinear re-solve (per spec
-// yield-curve-jacobian-example.md FR6). Runs on every AAD backend because the analytic Jacobian and
-// the EXACT-solve pseudoinverse are backend-neutral.
+// Dividing by tolerance_ converts the solver-scaled inverse to quote units.
 TEST(InverseJacobianRiskTest, TestReSolveMatchesLinearPrediction) {
     const auto spec = MakeSquarePhaseASpec();
     const int nInst = static_cast<int>(spec.instruments_.size());

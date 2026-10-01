@@ -149,11 +149,7 @@ namespace Dal {
             return FixingDateTime(FixingDate(accrualStart, index), identity);
         }
 
-        // Curve reference for the pricing kernels: the target component as an active
-        // DiscountCurve_<T_>, every other component as its passive double curve, so mixed
-        // active/passive arithmetic type-checks without registering passive parameters
-        // (docs/yield-curves/node-risk.md#aad-and-passive-dependencies).
-        // T_ = double keeps every reference passive.
+        // Only the target curve registers active parameters.
         template <class T_> struct CurveRef_ {
             const Tape::DiscountCurve_<T_>* active_ = nullptr;
             const Tape::DiscountCurve_<double>* passive_ = nullptr;

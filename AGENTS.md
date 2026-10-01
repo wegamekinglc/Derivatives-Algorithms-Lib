@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-09-07
+Last updated: 2026-10-01
 
 Codex-native guidance for this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
@@ -63,8 +63,12 @@ The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution
 - Follow the red-green-refactor cycle.
 - Use `apply_patch` for manual edits.
 - Follow `.clang-format`.
+- Keep code comments brief and limited to local constraints or non-obvious reasons. Do not
+  reference documentation files from code; documentation may reference source files.
 - For reviews, lead with findings and file/line references.
 - Keep published docs current-state only.
+- Favor readable documentation over exhaustive coverage. Keep reusable explanations in
+  focused guides and use direct links instead of repeating them in code comments.
 - Put public history in `CHANGELOG.md`, use Git history for delivery records, and reserve
   `.codex/artifacts/` for work that is still active.
 

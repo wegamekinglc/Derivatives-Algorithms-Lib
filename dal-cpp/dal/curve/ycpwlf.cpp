@@ -115,7 +115,6 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
-            // See docs/yield-curves/jacobian-risk.md §Joint Multi-Curve Analytic Jacobian.
             for (int k = 0; k < static_cast<int>(fLeftT_.size()); ++k) {
                 fLeftT_[k] += static_cast<double>(leverage) * *dx++;
                 fRightT_[k] += static_cast<double>(leverage) * *dx++;
@@ -140,7 +139,6 @@ namespace Dal {
             return std::make_unique<DiscountPWLF_<T_, B_>>(new_name, this->ccy_.String(), knotDates_, fLeftT_, fRightT_, this->NewBase(base_changes));
         }
 
-        // See docs/yield-curves/jacobian-risk.md §Joint Multi-Curve Analytic Jacobian.
         template class DiscountPWLF_<double>;
         template class DiscountPWLF_<Dal::AAD::Number_>;
         template class DiscountPWLF_<Dal::AAD::Number_, DiscountCurve_<Dal::AAD::Number_>>;

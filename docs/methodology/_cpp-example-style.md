@@ -26,7 +26,7 @@ snippet is wrong.
 
 - Fenced code blocks only: open with ` ```cpp ` and close with ` ``` `.
 - Show a minimal-but-compilable include set at the top of each snippet. Order follows
-  `.claude/rules/code-style.md`: standard/system headers first, then `<dal/...>` headers, then
+  `.codex/references/code-style.md`: standard/system headers first, then `<dal/...>` headers, then
   local headers. The example programs place `<dal/platform/platform.hpp>` before other `<dal/>`
   headers; match that.
 - Draw includes from the real headers. Do not invent headers. The per-topic include sets observed
@@ -58,7 +58,7 @@ snippet is wrong.
 
 ## Naming
 
-Follow `.claude/rules/code-style.md` exactly. The rows that matter most for snippets:
+Follow `.codex/references/code-style.md` exactly. The rows that matter most for snippets:
 
 | Element           | Convention                | Example                                                         |
 |-------------------|---------------------------|-----------------------------------------------------------------|
@@ -128,10 +128,10 @@ Notes on example filenames:
 
 ## Comment density
 
-Sparse, "why" not "what", per `.claude/rules/code-style.md`. A one-line `// why` pointer is the
-ceiling for inline comments. Do not paste multi-paragraph derivations into a snippet; methodology
-prose belongs in the doc text, not in the code block. If a snippet needs setup context, put it in
-the doc paragraph immediately before the fence.
+Keep comments brief and explain only a local constraint or non-obvious reason.
+Code files must not reference documentation; documentation may point to source.
+Put derivations and reusable explanations in the guide's prose. Introduce snippet
+setup in the preceding paragraph, and favor a clear example over exhaustive coverage.
 
 ## Output illustration
 

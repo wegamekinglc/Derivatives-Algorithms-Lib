@@ -38,5 +38,7 @@ Use relative links between guides and repo-relative paths when naming source
 files. Mathematical notation uses `$...$` and `$$...$$`. Put reusable method
 explanations in the corresponding chapter and update this index when adding a
 chapter. Use one canonical page per topic and link to it directly; remove obsolete
-redirect pages when reorganizing guides. Source comments should retain local
-implementation constraints.
+redirect pages when reorganizing guides. Favor readable explanations and useful
+examples over exhaustive detail. Source comments should stay brief and explain
+local constraints; references run from documentation to code, not from code to
+documentation.

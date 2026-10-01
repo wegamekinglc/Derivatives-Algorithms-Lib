@@ -78,7 +78,6 @@ namespace Dal {
             }
             const RateIndexConvention_& conv = *convPtr;
             if (IsSupportedInstrumentType(inst)) {
-                // See docs/yield-curves/jacobian-risk.md §Joint Multi-Curve Analytic Jacobian.
                 if (onDiscountDeclaration && conv.useProjectionCurve_) {
                     const String_ msg = String_("Joint AAD Jacobian requires discount-declaration instruments to forecast off "
                                                 "the discount curve; instrument '") +
