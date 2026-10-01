@@ -205,6 +205,7 @@ if(DAL_EXCEL_BUILD_TESTS)
 
     if(TEST_FILES)
         add_executable(dal_excel_tests ${TEST_FILES})
+        target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/test-support")
         target_compile_definitions(dal_excel_tests PRIVATE DAL_EXCEL_TEST_API_IMPORTS)
