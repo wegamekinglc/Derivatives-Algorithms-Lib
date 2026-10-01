@@ -30,13 +30,15 @@ namespace {
 } // namespace
 
 TEST(ExcelRandomTest, TestPseudoGettersValidateWorksheetCountsBeforeConversion) {
-    const auto generator = NewPseudoRSG("IRN", 1024, 3);
+    Handle_<PseudoRSG_> generator;
+    PseudoRSG_New("IRN", 1024, 3, &generator);
     for (const auto get : {PseudoRSG_Get_Uniform, PseudoRSG_Get_Normal})
         AssertRandomGetterInputs(generator, get);
 }
 
 TEST(ExcelRandomTest, TestSobolGettersValidateWorksheetCountsBeforeConversion) {
-    const auto generator = NewSobolRSG("Sobol", 0, 3);
+    Handle_<SobolRSG_> generator;
+    SobolRSG_New("Sobol", 0, 3, false, false, &generator);
     for (const auto get : {SobolRSG_Get_Uniform, SobolRSG_Get_Normal})
         AssertRandomGetterInputs(generator, get);
 }
