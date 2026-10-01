@@ -48,10 +48,8 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
         for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
             it->Adjoint() = 0.0;
@@ -72,10 +70,8 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.ZeroGradientArray(); }
 
 } // namespace Dal::AAD
@@ -94,7 +90,6 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         auto* t = Tape();
         REQUIRE(t->tape_.isActive(), "Dal::AAD::RegisterIndependent: XAD tape is not active");
@@ -119,7 +114,6 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         Tape()->tape_.registerInput(n);
         n.setValue(v);

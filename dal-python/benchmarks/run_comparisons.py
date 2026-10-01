@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare DAL with QuantLib-Python and rateslib; see benchmarks/README.md."""
+"""Compare DAL with QuantLib-Python and rateslib."""
 
 from dal_comparisons.compare import main
 

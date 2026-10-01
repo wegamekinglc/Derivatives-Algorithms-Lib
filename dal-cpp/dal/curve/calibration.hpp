@@ -257,7 +257,7 @@ namespace Dal {
         Vector_<> modelRates_;
         Vector_<> residuals_;
         Matrix_<> effJacobianInverse_;
-        // Unscaled at-solution forward Jacobian; see docs/methodology/yield_curve_jacobian.md §"The Forward Jacobian, Two Ways".
+        // Unscaled at-solution forward Jacobian.
         Matrix_<> jacobian_;
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;

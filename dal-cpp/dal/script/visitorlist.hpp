@@ -38,7 +38,6 @@ namespace Dal::Script {
 
     //  Is V_ a const visitor?
 
-    // Compile-time visitor traits; see docs/methodology/script_engine.md §"Visit-Trait Dispatch".
     template <class V_> inline constexpr bool IsVisitorConst() { return Pack_<CONST_VISITORS>::Includes<V_>(); }
 
     //  Does V_ have a Visit for a const N_? A non-const N_?

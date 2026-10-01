@@ -1,7 +1,7 @@
 # PDE Solver Framework Reimplementation - Specification
 
 > **Artifact status: implemented history.** The PDE framework reimplementation has shipped.
-> Current supported behavior is documented in `docs/methodology/pde.md`.
+> Current supported behavior is documented in `docs/methodology/pde/framework.md`.
 > References to the retired PDE stack and staged acceptance plan below describe the implementation baseline.
 
 ## Source

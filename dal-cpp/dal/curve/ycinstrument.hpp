@@ -18,7 +18,6 @@ namespace Dal {
     class String_;
 
     namespace Tape {
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         template <class T_> struct Rate_ : noncopyable {
             virtual ~Rate_() = default;
             virtual T_ operator()(const YCCtx_<T_>& ctx) const = 0;
@@ -48,8 +47,6 @@ namespace Dal {
         };
 
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
-
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     };
 
     class Deposit_ : public YCInstrument_ {

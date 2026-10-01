@@ -15,7 +15,6 @@
 namespace Dal {
     namespace {
         // Composite interpolator: linear on log(DF) up to cutoffYf_, natural cubic on log(DF) beyond.
-        // C0-continuity invariant: see docs/methodology/interpolation.md §Mixed Log-DF.
         class MixedLogDF_ : public Interp1_ {
             Vector_<> yf_;
             Vector_<> logDF_;
@@ -37,7 +36,7 @@ namespace Dal {
                 REQUIRE(yf_.size() == logDF_.size(), "Mixed log-DF interpolator: yf and logDF must have equal length");
                 REQUIRE(yf_.size() >= 4, "Mixed log-DF interpolator: need at least 4 abscissae (cutoff + 3 cubic points)");
                 REQUIRE(IsMonotonic(yf_), "Mixed log-DF interpolator: yf must be strictly increasing");
-                // Cutoff must equal a knot abscissa (C0 continuity): see docs/methodology/interpolation.md §Mixed Log-DF.
+                // Sharing the cutoff knot keeps the linear head and cubic tail continuous.
                 for (int i = 0; i < static_cast<int>(yf_.size()); ++i) {
                     if (yf_[i] == cutoffYf_)
                         cutoffIndex_ = i;
@@ -67,10 +66,7 @@ namespace Dal {
                 return x >= yf_.front() && x <= yf_.back();
             }
 
-            // MixedLogDF_ is never serialised on its own: its parent DiscountLogDF_ writes the
-            // scheme by name plus the (nodeDates, logDF) knots and rebuilds the interpolator on
-            // read (see DiscountLogDF_v2). A direct Write would need its own storable; we refuse
-            // here with a clear message rather than a TODO so callers know the supported path.
+            // Only the owning DiscountLogDF_ serializes this interpolator.
             void Write(Archive::Store_& dst) const override {
                 THROW("MixedLogDF_ is not directly serialisable; serialise the owning DiscountLogDF_ instead");
             }

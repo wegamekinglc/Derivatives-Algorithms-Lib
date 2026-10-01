@@ -41,8 +41,8 @@ so any dedup that touches the builder has a natural twin in the underlying `Spec
 - Collapse the duplicated solver-option field list into one shared definition.
 - Do not break existing callers in `dal-public/tests/`, `dal-python/`, `dal-excel/`,
   `dal-cpp/examples/`, or `dal-cpp/tests/`.
-- Do not invent new vocabulary that contradicts `docs/methodology/yield_curve.md` or
-  `docs/methodology/xccy_calibration.md`.
+- Do not invent new vocabulary that contradicts `docs/yield-curves/construction.md` or
+  `docs/ccy-curves/pricing-calibration.md`.
 
 ## Non-Goals
 
@@ -307,7 +307,7 @@ future major-version change. Specifically:
    `// keep in sync with CurveSolverOptions_ (curvespec.hpp) and the Spec_ struct`.
 4. Leave the per-builder `tolerance_` and `initialGuess_` defaults as they are
    (`1e-8`/`0.05` for single-curve, `1e-10`/`0.0` for xccy). The xccy defaults are
-   documented as deliberate divergences in `docs/methodology/xccy_calibration.md`.
+   documented as deliberate divergences in `docs/ccy-curves/pricing-calibration.md`.
 
 This delivers the field-copy safety win immediately, establishes the vocabulary anchor for
 the shared knobs, and leaves the door open for a later structural collapse without forcing
@@ -464,8 +464,8 @@ single-curve builder's defaults (`1.0`, `1e-8`, `1e-6`, `0.05`, `200`, `20`, `EX
 ## Documentation
 
 No methodology doc needs updating: the dedup is a structural cleanup of the builder layer,
-not a methodology change. The `docs/methodology/yield_curve.md` and
-`docs/methodology/xccy_calibration.md` code snippets reference the `Spec_` structs
+not a methodology change. The `docs/yield-curves/construction.md` and
+`docs/ccy-curves/pricing-calibration.md` code snippets reference the `Spec_` structs
 directly (which are unchanged), so they remain accurate.
 
 A CHANGELOG.md entry is borderline: this is a refactor with no behaviour change and no

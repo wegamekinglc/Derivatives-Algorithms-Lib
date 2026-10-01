@@ -18,7 +18,6 @@
 
 namespace Dal {
 
-    // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     struct JointCurveDeclaration_ {
         String_ curveName_ = "joint";
         Vector_<Handle_<YCInstrument_>> instruments_;
@@ -79,7 +78,6 @@ namespace Dal {
         // CalibrateYieldCurve). Retained for a future non-throwing overload.
         bool converged_ = false;
         int solverEvaluations_ = 0; // informational
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         Matrix_<> jacobianAtSolution_;
         // Passive M by N response: dx = E * dQuote / spec.tolerance_. No tape ownership.
         Matrix_<> effJacobianInverse_;
@@ -92,14 +90,11 @@ namespace Dal {
         String_ effJacobianInverseMapping_ = "local_weighted";
     };
 
-    // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     struct JointMultiCurveCalibrationOptions_ {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
         // Analytic at-solution residual Jacobian; ignored unless ANALYTIC + EXACT + eligible.
         bool computeJacobianAtSolution_ = true;
-        // EXACT only. For M>N, explicitly selects the fixed initial-Jacobian affine
-        // chart and can change the selected underdetermined solution. Default solves
-        // retain their existing behavior. See docs/methodology/generic_joint_quote_risk.md.
+        // For M>N in EXACT mode, the fixed initial-Jacobian chart can change the solution.
         bool computeEffJacobianInverse_ = false;
     };
 

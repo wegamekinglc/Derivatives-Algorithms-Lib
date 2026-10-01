@@ -23,7 +23,7 @@ invariant across thread counts.
 
 ## C++ Example and Path Counts
 
-The runnable [American put comparison](../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+The runnable [American put comparison](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
 constructs a product with `EXERCISE` on each allowed date and calls the core
 C++ simulation for both hard pricing and AAD. This excerpt follows its
 settings and call pattern:
@@ -53,11 +53,11 @@ is **the pricing path count**. The example's command-line convenience default
 is different: it computes `max(4096, pricing_paths / 8)` and passes that
 number explicitly into the setting. These are separate contracts.
 
-| Path block | Setting | Default in core API | Used for |
-|------------|---------|---------------------|----------|
-| Training | `lsmcTrainingPaths_` | `nPaths` | Regression coefficients |
-| Validation | `lsmcValidationPaths_` | Absent | Optional degree selection |
-| Pricing | `nPaths` | Required argument | Reported PV and exercise rates |
+| Path block | Setting                | Default in core API | Used for                       |
+|------------|------------------------|---------------------|--------------------------------|
+| Training   | `lsmcTrainingPaths_`   | `nPaths`            | Regression coefficients        |
+| Validation | `lsmcValidationPaths_` | Absent              | Optional degree selection      |
+| Pricing    | `nPaths`               | Required argument   | Reported PV and exercise rates |
 
 All three blocks occupy distinct Sobol index ranges. With RQMC replicates,
 `nPaths` is per pricing replicate; see
@@ -169,7 +169,7 @@ Digital shifts are a reproducible pseudorandomization, not nested Owen
 scrambling. A finite number of replicates gives an estimated error bar, not a
 guaranteed confidence interval.
 
-The standalone [coverage experiment](../../dal-python/benchmarks/lsmc_rqmc_coverage.py)
+The standalone [coverage experiment](../../../dal-python/benchmarks/lsmc_rqmc_coverage.py)
 uses 256 pricing-seed groups, eight replicates per group, 8,192 fixed-policy
 training paths, and 2,048 pricing paths per replicate. With a mean ± two
 replicate-standard-error band, 233/256 European-put intervals covered the
@@ -249,8 +249,8 @@ Optional held-out paths select the polynomial degree with the one-standard-error
 rule, using paths disjoint from both fitting and final pricing. The scalar
 single-state path retains its existing degree limit and fast solver.
 
-The runnable example in [`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/)
-and [Python equivalent](../../dal-python/examples/hybrid_script.py) compare
+The runnable example in [`dal-cpp/examples/hybrid_script/`](../../../dal-cpp/examples/hybrid_script)
+and [Python equivalent](../../../dal-python/examples/hybrid_script.py) compare
 one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
 the first exercise date's frozen equity values: `max(A-B+60, 0)` now and
 `max(B-A+60, 0)` later. With zero rates, the optimal value is the independently
@@ -277,11 +277,11 @@ separates regression cost from model path generation and hard/AAD replay.
 
 AAD valuation of exercise products uses the fuzzy driver described below. The
 per-exercise-date statistics are observable through
-the [simulation diagnostic](../methodology/script_engine.md#simulation-diagnostic-full-valuation-with-exercise-statistics),
+the [simulation diagnostic](../script_engine.md#simulation-diagnostic-full-valuation-with-exercise-statistics),
 and the acceptance suite anchors both engines against a test-only Bermudan
 PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
 stays European-only). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc)
+[`dal-cpp/examples/american_put_mc/`](../../../dal-cpp/examples/american_put_mc)
 compares the European closed form with ordinary Monte Carlo and its AAD
 version, and prices two-date Bermudan and weekly-exercise puts with both
 hard valuation and AAD. It also prints the diagnostic.

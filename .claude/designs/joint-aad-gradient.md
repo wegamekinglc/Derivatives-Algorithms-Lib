@@ -2,8 +2,8 @@
 
 > **Artifact status: implemented history.** The joint analytic-Jacobian design has shipped.
 > Current supported behavior is documented in
-> `docs/methodology/yield_curve.md` and
-> `docs/methodology/yield_curve_jacobian.md`. Paths, line citations, and staged
+> `docs/yield-curves/construction.md` and
+> `docs/yield-curves/jacobian-risk.md`. Paths, line citations, and staged
 > decisions below describe the implementation baseline and are retained as historical evidence.
 
 > Status: **REVISED (third pass) — 2026-06-20.** This pass DROPS the second-pass

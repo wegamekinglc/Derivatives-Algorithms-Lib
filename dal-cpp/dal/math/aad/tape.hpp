@@ -163,7 +163,6 @@ namespace Dal::AAD {
             }
         }
 
-        // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
         void ZeroGradientArray() { initialize_gradients(); }
     };
 

@@ -3,7 +3,7 @@
 These guides describe DAL's option-pricing models and their simulation data.
 The Black/Bachelier guide also covers the closed-form kernels used as vanilla
 benchmarks. For path generation, regression, and Monte Carlo evaluation, see
-[Monte Carlo methods](../monte-carlo/README.md).
+[Monte Carlo methods](../methodology/monte-carlo/README.md).
 
 1. [Black-Scholes and Bachelier](black-scholes.md) — lognormal and normal
    vanilla pricing, implied volatility, and Black-Scholes model examples.

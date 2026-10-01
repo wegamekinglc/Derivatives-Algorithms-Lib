@@ -163,7 +163,7 @@ Sobol coordinate `factor * N + bridgeCoordinate` drives that factor's bridge;
 the output increment is placed at `step * F + factor`. The model then applies
 the correlation Cholesky factor at each step. A one-factor model retains the
 original `BrownianBridge_` ordering and output. See the
-[hybrid model](../models/hybrid-model.md#brownian-bridge-and-risks) for the composition
+[hybrid model](../../models/hybrid-model.md#brownian-bridge-and-risks) for the composition
 contract.
 
 ## Sobol Sequence
@@ -371,7 +371,7 @@ and linear replay costs, but do not measure whole multi-batch valuations.
 The Sobol benchmark program drives every generator through the same
 `FillUniform` / `FillNormal` inner loop and times the `precise` / `polish`
 inverse-CDF modes separately. See
-[`dal-cpp/examples/sobol/`](../../dal-cpp/examples/sobol) for a runnable
+[`dal-cpp/examples/sobol/`](../../../dal-cpp/examples/sobol) for a runnable
 version; its per-configuration construction and draw loop is:
 
 ```cpp
@@ -401,9 +401,9 @@ identically.
 
 ## See Also
 
-- [Script engine](../methodology/script_engine.md) — the Monte Carlo driver that consumes these
+- [Script engine](../script_engine.md) — the Monte Carlo driver that consumes these
   generators; the Brownian bridge is most effective when wrapped around a Sobol
   sequence for path-dependent payoffs.
-- [AAD methodology](../methodology/aad.md) — Sobol's direct `SkipTo` and the per-thread tape make
+- [AAD methodology](../aad.md) — Sobol's direct `SkipTo` and the per-thread tape make
   pathwise-adjoint Monte Carlo parallelisable without synchronisation during the
   forward or reverse passes.

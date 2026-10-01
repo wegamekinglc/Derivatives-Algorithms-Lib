@@ -43,18 +43,8 @@ using namespace Dal;
             THROW(msg);                                                                                                                             \
     } while (false)
 
-// Demonstrates two arcs on a single-curve Phase A calibration (methodology in
-// docs/methodology/yield_curve_jacobian.md): (a) the residual Jacobian d(modelRate_i)/d(logDF_k)
-// computed two independent ways -- a central-difference bump oracle and the analytic AAD reverse
-// sweep read from diagnostics_.jacobian_ -- and shown to agree; (b) the inverse-Jacobian IR-risk
-// transform turning a portfolio par-rate sensitivity into bucketed risk per market quote.
-
 namespace {
-    // Self-check bars (tolerance derivation in docs/methodology/yield_curve_jacobian.md). The 1e-9
-    // AAD-vs-bump bar is set by the central-difference round-off floor at h=1e-6 (~eps/h ~= 2e-10
-    // relative for O(1) entries). The FR6 re-solve bar is looser because the nonlinear re-solve
-    // accumulates second-order terms the linear prediction cannot capture; it scales with ladder
-    // length, so re-measure if the instrument count changes.
+    // The re-solve bound includes nonlinear curvature; retune it for a different ladder.
     constexpr double BUMP_STEP = 1.0e-6;
     constexpr double AAD_TOL = 1.0e-9;
     constexpr double RE_SOLVE_TOL = 1.0e-4;
@@ -480,9 +470,7 @@ namespace {
             std::cout << "  Verdict : PASS  (all rel <= " << ExampleFloat(RE_SOLVE_TOL) << ")\n";
     }
 
-    // (i) Calibration elapsed time -- BUMPED vs ANALYTIC (both EXACT Phase A solves; ANALYTIC also
-    // pays the single at-solution forward-J eval that populates diagnostics_.jacobian_). See the
-    // timing caveat in docs/methodology/yield_curve_jacobian.md.
+    // ANALYTIC timing includes the at-solution forward Jacobian.
     void RunCalibrationTimingComparison(const CurveCalibrationSpec_& spec) {
         constexpr int nRuns = 5;
         CurveCalibrationOptions_ optsBumped;

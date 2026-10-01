@@ -1,7 +1,7 @@
 # Joint Multi-Curve Calibration + Example - Specification
 
 > **Artifact status: implemented history.** Joint simultaneous calibration and its example have shipped.
-> Current supported behavior is documented in `docs/methodology/yield_curve.md`.
+> Current supported behavior is documented in `docs/yield-curves/construction.md`.
 > Paths, measured baselines, acceptance checkboxes, and staged hand-offs below are retained as historical evidence.
 
 ## Amendment (2026-06-20): optional base layering for the joint forward curves

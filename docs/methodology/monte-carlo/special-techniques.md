@@ -92,7 +92,7 @@ first exercised event. The fixed-degree moment solve is the fast regression
 path; rank loss invokes a pivoted QR fallback. The
 [LSM guide](lsm.md#basis-and-regression-choice) gives its guards and memory
 cost. Use the runnable
-[American put comparison](../../dal-cpp/examples/american_put_mc/) and the
-independent [Bermudan PDE test oracle](../../dal-cpp/test-support/bermudan_pde.hpp)
+[American put comparison](../../../dal-cpp/examples/american_put_mc) and the
+independent [Bermudan PDE test oracle](../../../dal-cpp/test-support/bermudan_pde.hpp)
 to assess pricing error separately from simulation dispersion. Benchmark
 runs are handled by the separate scheduled workflow, not ordinary PR CI.

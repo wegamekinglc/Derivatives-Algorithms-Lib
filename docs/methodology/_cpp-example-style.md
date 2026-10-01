@@ -1,8 +1,8 @@
 # C++ Example Style Guide for Methodology Docs
 
 This is the internal style guide for C++ examples in quantitative-method docs.
-It applies to `docs/methodology/`, `docs/yield-curves/`, `docs/ccy-curves/`,
-`docs/monte-carlo/`, and `docs/pde/`. It is not itself a methodology note.
+It applies to `docs/methodology/`, `docs/models/`, `docs/yield-curves/`, and
+`docs/ccy-curves/`. It is not itself a methodology note.
 
 Its goal is consistency: a reader moving from AAD to yield curves to the script engine
 should see the same include style, the same naming, the same way of pointing at a runnable program,
@@ -26,7 +26,7 @@ snippet is wrong.
 
 - Fenced code blocks only: open with ` ```cpp ` and close with ` ``` `.
 - Show a minimal-but-compilable include set at the top of each snippet. Order follows
-  `.claude/rules/code-style.md`: standard/system headers first, then `<dal/...>` headers, then
+  `.codex/references/code-style.md`: standard/system headers first, then `<dal/...>` headers, then
   local headers. The example programs place `<dal/platform/platform.hpp>` before other `<dal/>`
   headers; match that.
 - Draw includes from the real headers. Do not invent headers. The per-topic include sets observed
@@ -58,7 +58,7 @@ snippet is wrong.
 
 ## Naming
 
-Follow `.claude/rules/code-style.md` exactly. The rows that matter most for snippets:
+Follow `.codex/references/code-style.md` exactly. The rows that matter most for snippets:
 
 | Element           | Convention                | Example                                                         |
 |-------------------|---------------------------|-----------------------------------------------------------------|
@@ -101,9 +101,11 @@ following:
    See [`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad) for a runnable version.
    ```
 
-   Use exactly the relative form `../../dal-cpp/examples/<name>/` from any file in
-   `docs/methodology/` (the lint resolves markdown links, and directory links with no fragment
-   pass). Keep the backtick path inside the link text so the project-relative path is visible.
+   Resolve the link relative to the guide's directory: use
+   `../../dal-cpp/examples/<name>/` for pages directly under `docs/methodology/`, and
+   `../../../dal-cpp/examples/<name>/` for pages under `docs/methodology/monte-carlo/`
+   or `docs/methodology/pde/`. Directory links with no fragment pass the link checker.
+   Keep the backtick path inside the link text so the project-relative path is visible.
 
 2. Show a one-line excerpt pointer at the top of any snippet copied from or mirroring an example
    program, using a `// from dal-cpp/examples/<name>/<file>.cpp` comment:
@@ -126,10 +128,10 @@ Notes on example filenames:
 
 ## Comment density
 
-Sparse, "why" not "what", per `.claude/rules/code-style.md`. A one-line `// why` pointer is the
-ceiling for inline comments. Do not paste multi-paragraph derivations into a snippet; methodology
-prose belongs in the doc text, not in the code block. If a snippet needs setup context, put it in
-the doc paragraph immediately before the fence.
+Keep comments brief and explain only a local constraint or non-obvious reason.
+Code files must not reference documentation; documentation may point to source.
+Put derivations and reusable explanations in the guide's prose. Introduce snippet
+setup in the preceding paragraph, and favor a clear example over exhaustive coverage.
 
 ## Output illustration
 
@@ -170,39 +172,40 @@ std::cout << "PV = " << pv << "\n";
 
 ## Canonical example-program to doc mapping
 
-Use exactly these paths. Every directory was verified against `dal-cpp/examples/` on this branch.
+Documentation-page paths are relative to `docs/`. Use exactly these example paths;
+every directory was verified against `dal-cpp/examples/` on this branch.
 
-| Documentation page                  | Example program(s)                                                                                                                                                                |
-|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `aad.md`                            | `dal-cpp/examples/aad/`                                                                                                                                                           |
-| `models/black-scholes.md`           | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
-| `models/dupire.md`                  | `dal-cpp/examples/uoc/` (Hybrid local-volatility simulation)                                                                                                                      |
-| `models/correlated-bs.md`           | `dal-cpp/examples/basket_mc/`                                                                                                                                                     |
-| `models/hybrid-model.md`            | `dal-cpp/examples/hybrid_script/`                                                                                                                                                 |
-| `models/gaussian-short-rate.md`     | `dal-cpp/examples/gsr_swap_swaption/`                                                                                                                                             |
-| `yield-curves/construction.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
-| `yield-curves/log-discount.md`      | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
-| `interpolation.md`                  | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
-| `yield-curves/jacobian-risk.md`     | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
-| `monte-carlo/sampling.md`           | `dal-cpp/examples/sobol/`                                                                                                                                                         |
-| `script_engine.md`                  | `dal-cpp/examples/script/`, `dal-cpp/examples/average_option_script/`, `dal-cpp/examples/script_settings/`                                                                        |
-| `monte-carlo/lsm.md`                | `dal-cpp/examples/american_put_mc/`, `dal-cpp/examples/hybrid_script/`                                                                                                            |
-| `underdetermined_search.md`         | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
-| `ccy-curves/pricing-calibration.md` | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
-| `pde/option-pricing.md`             | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
-| `yield-curves/node-risk.md`         | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
-| `yield-curves/joint-quote-risk.md`  | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
-| `matrix.md`                         | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
-| `dates.md`                          | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
-| `index_parsing.md`                  | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
-| `quadrature.md`                     | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
+| Documentation page                      | Example program(s)                                                                                                                                                                |
+|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `methodology/aad.md`                    | `dal-cpp/examples/aad/`                                                                                                                                                           |
+| `models/black-scholes.md`               | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
+| `models/dupire.md`                      | `dal-cpp/examples/uoc/` (Hybrid local-volatility simulation)                                                                                                                      |
+| `models/correlated-bs.md`               | `dal-cpp/examples/basket_mc/`                                                                                                                                                     |
+| `models/hybrid-model.md`                | `dal-cpp/examples/hybrid_script/`                                                                                                                                                 |
+| `models/gaussian-short-rate.md`         | `dal-cpp/examples/gsr_swap_swaption/`                                                                                                                                             |
+| `yield-curves/construction.md`          | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
+| `yield-curves/log-discount.md`          | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
+| `methodology/interpolation.md`          | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
+| `yield-curves/jacobian-risk.md`         | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
+| `methodology/monte-carlo/sampling.md`   | `dal-cpp/examples/sobol/`                                                                                                                                                         |
+| `methodology/script_engine.md`          | `dal-cpp/examples/script/`, `dal-cpp/examples/average_option_script/`, `dal-cpp/examples/script_settings/`                                                                        |
+| `methodology/monte-carlo/lsm.md`        | `dal-cpp/examples/american_put_mc/`, `dal-cpp/examples/hybrid_script/`                                                                                                            |
+| `methodology/underdetermined_search.md` | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
+| `ccy-curves/pricing-calibration.md`     | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
+| `methodology/pde/option-pricing.md`     | `dal-cpp/examples/european_fd/`                                                                                                                                                   |
+| `yield-curves/node-risk.md`             | public facade snippets from `dal-public/src/curvepricing.hpp`; executable contracts in `dal-public/tests/`                                                                        |
+| `yield-curves/joint-quote-risk.md`      | public facade snippets from `dal-public/src/curvespec.hpp` and `dal-public/src/curvepricing.hpp`                                                                                  |
+| `methodology/matrix.md`                 | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
+| `methodology/dates.md`                  | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
+| `methodology/index_parsing.md`          | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
+| `methodology/quadrature.md`             | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
 
 ## Docs-lint notes for doc-writers
 
 `.github/scripts/check_docs.py` runs on every `*.md` under `docs/` and fails the build on:
 
-- Markdown links that do not resolve (including missing `#anchor` targets). Use the
-  `../../dal-cpp/examples/<name>/` form for example-program links from any file in this directory.
+- Markdown links that do not resolve (including missing `#anchor` targets). Resolve
+  example-program links relative to the guide's directory, including its subdirectory depth.
 - Pipe tables whose header, delimiter, or body rows have differing cell counts.
 - Trailing whitespace on any line.
 - Stale command strings anywhere in the file, including inside fenced code blocks, such as

@@ -45,6 +45,5 @@ namespace Dal::Script {
 
     Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins = {});
     Vector_<std::pair<size_t, size_t>> IndexLiteralRanges(const String_& str);
-    // Shared tokenizer for the preprocessor and parser; see docs/methodology/script_engine.md §"Lexer".
     Vector_<String_> Tokenize(const String_& str);
 } // namespace Dal::Script
