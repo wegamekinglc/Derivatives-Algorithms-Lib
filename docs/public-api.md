@@ -41,7 +41,7 @@ on other toolchains.
 |----------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
 | `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
-| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                            |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                           |
 | `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
 | `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
@@ -50,10 +50,10 @@ on other toolchains.
 | `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                                   |
 | `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                                          |
 | `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                                    |
-| `<dal-public/src/interp.hpp>`          | Linear, smoothed-linear, cubic, and bilinear factories; batched evaluation                                              |
+| `<dal-public/src/interp.hpp>`          | Linear, smoothed-linear, cubic, and bilinear factories; batched evaluation                                            |
 | `<dal-public/src/calendar.hpp>`        | Business-day checks, stepping, adjustment, and counting                                                               |
-| `<dal-public/src/storage.hpp>`         | JSON serialization/deserialization and bag construction                                                              |
-| `<dal-public/src/repository.hpp>`      | Repository store, fetch, find, erase, and size helpers                                                                 |
+| `<dal-public/src/storage.hpp>`         | JSON serialization/deserialization and bag construction                                                               |
+| `<dal-public/src/repository.hpp>`      | Repository store, fetch, find, erase, and size helpers                                                                |
 | `<dal-public/src/types.hpp>`           | Shared scalar, container, dictionary, and storable types                                                              |
 | `<dal-public/src/host.hpp>`            | Environment, row-reader, and host-conversion contracts                                                                |
 

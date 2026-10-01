@@ -204,14 +204,14 @@ bin/                         # installed runtime/example targets when enabled
 An out-of-tree consumer can use:
 
 ```cmake
-find_package(dal-cpp 1.0 CONFIG REQUIRED)
 find_package(dal-public 1.0 CONFIG REQUIRED)
 
 add_executable(my_pricer main.cpp)
 dal_cpp_apply_msvc_runtime(my_pricer)
-target_link_libraries(my_pricer PRIVATE DAL::cpp DAL::public)
+target_link_libraries(my_pricer PRIVATE DAL::public)
 ```
 
+The public package resolves `dal-cpp` transitively, including the runtime helper.
 The core package publishes its runtime ABI as
 `DAL_CPP_MSVC_RUNTIME_LIBRARY`. Call `dal_cpp_apply_msvc_runtime` for each
 consumer target that links the installed static libraries. The helper applies
