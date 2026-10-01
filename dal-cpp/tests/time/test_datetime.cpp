@@ -3,6 +3,9 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <limits>
+
 #include <dal/platform/platform.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -10,6 +13,28 @@
 using Dal::DateTime_;
 using namespace Dal;
 using namespace Dal::DateTime;
+
+TEST(DateTimeTest, TestRejectsInvalidFractionsAndFields) {
+    const Date_ date(2017, 1, 1);
+    for (double fraction :
+         {-0.5, 1.0, std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()})
+        ASSERT_THROW(DateTime_(date, fraction), Exception_);
+    ASSERT_THROW(DateTime_(date, -1, 60, 0), Exception_);
+    ASSERT_THROW(DateTime_(date, 0, 60, 0), Exception_);
+    ASSERT_THROW(DateTime_(date, 0, 0, 60), Exception_);
+    ASSERT_THROW(DateTime_(date, std::numeric_limits<int>::max(), 0, 0), Exception_);
+    ASSERT_THROW(DateTime_(-1LL), Exception_);
+    ASSERT_THROW(DateTime_(std::numeric_limits<long long>::max()), Exception_);
+}
+
+TEST(DateTimeTest, TestAdditionRejectsNonfiniteAndOutOfRangeWithoutMutation) {
+    DateTime_ date(Date_(2017, 1, 1), 0.5);
+    const auto original = date;
+    for (double fraction : {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN(), 1e20}) {
+        ASSERT_THROW(date += fraction, Exception_);
+        ASSERT_EQ(date, original);
+    }
+}
 
 TEST(DateTimeTest, TestNullDateTime) {
     DateTime_ dt;
