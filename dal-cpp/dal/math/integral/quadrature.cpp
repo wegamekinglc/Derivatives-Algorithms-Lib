@@ -88,7 +88,11 @@ namespace Dal {
     }
 
     void Quadrature::SimpsonWeights(int n, double lo, double hi, Vector_<>* x, Vector_<>* w) {
-        n |= 1;
+        n = SimpsonPointCount(n);
+        REQUIRE(x != nullptr && w != nullptr && x != w, "Simpson quadrature requires distinct output vectors");
+        REQUIRE(std::isfinite(lo) && std::isfinite(hi), "Simpson bounds must be finite");
+        x->Resize(n);
+        w->Resize(n);
         const double dx = (hi - lo) / (n - 1);
         for (int ii = 0; ii < n; ++ii) {
             (*x)[ii] = lo + ii * dx;

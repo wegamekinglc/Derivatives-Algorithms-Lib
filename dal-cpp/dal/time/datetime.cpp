@@ -17,30 +17,32 @@ namespace Dal {
     } // namespace
 
     DateTime_::DateTime_(const Date_& date, double frac) : date_(date), frac_(frac) {
-        REQUIRE(frac_ < 1., "DateTime fraction exceeds or equal to 1");
+        REQUIRE(frac_ >= 0.0 && frac_ < 1.0, "DateTime fraction must be in [0, 1)");
     }
 
     DateTime_::DateTime_(const Date_& date, int h, int m, int s) : date_(date) {
+        REQUIRE(h >= 0 && h < 24 && m >= 0 && m < 60 && s >= 0 && s < 60, "DateTime requires hour in [0, 24), minute and second in [0, 60)");
         const auto secs = 60 * (60 * h + m) + s;
-        REQUIRE(secs >= 0 && secs < 86400, "DateTime fraction exceeds maximum seconds in one day");
         frac_ = secs / 86400.;
     }
 
     DateTime_::DateTime_(long long msec) {
+        REQUIRE(msec >= 0, "DateTime milliseconds must be nonnegative");
         const auto whole = msec / 86400000;
+        REQUIRE(whole <= Date::Maximum() - Date::Minimum(), "DateTime milliseconds exceed the supported date range");
         frac_ = static_cast<double>(msec - 86400000 * whole) / 86400000.;
-        REQUIRE(frac_ < 1., "DateTime fraction exceeds maximum seconds in one day");
         date_ = Date::Minimum().AddDays(static_cast<int>(whole));
     }
 
     DateTime_& DateTime_::operator+=(double frac) {
-        REQUIRE(frac > 0.0, "frac must be positive");
-        frac_ += frac;
-        const auto dt = static_cast<int>(std::floor(frac_));
-        if (dt > 0) {
-            date_ = date_.AddDays(dt);
-            frac_ -= dt;
-        }
+        REQUIRE(IsValid(), "DateTime addition requires a valid date and fraction");
+        REQUIRE(std::isfinite(frac) && frac > 0.0, "DateTime increment must be finite and positive");
+        const double total = frac_ + frac;
+        REQUIRE(total < static_cast<double>(Date::Maximum() - date_) + 1.0, "DateTime increment exceeds the supported date range");
+        const auto days = static_cast<int>(std::floor(total));
+        const auto date = date_.AddDays(days);
+        date_ = date;
+        frac_ = total - days;
         return *this;
     }
 

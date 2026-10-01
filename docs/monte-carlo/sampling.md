@@ -18,14 +18,36 @@ $$
 $$
 
 $$
-\texttt{void SkipTo(size\_t n)}, \qquad \texttt{std::unique\_ptr<Random\_> Clone() const}, \qquad \texttt{size\_t NDim() const}.
+\texttt{void SkipTo(size\_t n)}, \qquad \texttt{void SkipNormalTo(size\_t n)},
+$$
+
+$$
+\texttt{std::unique\_ptr<Random\_> Clone() const}, \qquad \texttt{size\_t NDim() const}.
 $$
 
 `NDim()` is the number of variates produced per call (one draw of a
-multi-dimensional point). `SkipTo(n)` behavior is implementation-specific:
-Sobol reconstructs its state directly, `ShuffledIRN_::SkipTo` is a no-op, and
-MRG32 replays `FillUniform` only for even path offsets on a fresh generator; its
-current accounting is not a general replay-equivalent path contract.
+multi-dimensional point). `SkipTo(n)` positions the uniform stream at absolute
+path offset `n`; `SkipNormalTo(n)` positions the normal stream. For pseudo-random
+engines, each operation reproduces `n` paths generated from the seed in its
+selected mode. Sobol uses its absolute Sobol index, independent of the factory's
+starting index, and applies the same state reconstruction for both modes.
+Pseudo-random generators account
+for the antithetic uniform cache separately from fresh normal draws. Seeking
+is absolute and works on fresh or reused generators. Switching seek modes
+starts from the selected stream's initial state, rather than continuing a
+mixed uniform/normal history. `Clone()` preserves the current engine state,
+antithetic cache, and precision settings.
+`Random_::SkipNormalTo` defaults to `SkipTo` for generators whose uniform and
+normal paths consume identical engine draws. Custom pseudo-random engines
+implement `SkipUniformDraws` to participate in the shared seek logic; its
+default throws if seeking is unsupported.
+
+The public C++, Python, and Excel random getters require a non-null generator
+and a nonnegative path count. A zero path count returns a zero-row matrix with
+the generator's dimension; invalid requests throw `Exception_` (a Python
+`RuntimeError`).
+Excel getters validate that the worksheet path count is finite, exactly
+integral, and within `[0, INT_MAX]` before converting it to a native integer.
 `FillUniform` writes variates in $(0,1)$; `FillNormal` writes standard normal
 variates, obtained either by inverse-CDF inversion of the uniform variates or
 by a direct transformation, depending on the generator.
@@ -43,6 +65,8 @@ any `Random_` and reorders its variates into the path increments a simulator
 consumes. It is most effective when the wrapped generator is quasi-random,
 because the reorder aligns the lowest-discrepancy leading dimensions with the
 largest-variance path modes.
+Both bridge wrappers construct uniform output from their normal increments,
+so their `SkipTo` and `SkipNormalTo` both position the wrapped normal stream.
 
 ## Brownian Bridge
 
@@ -247,13 +271,12 @@ The pseudo-random family (`PseudoRandom_` in
 enum, whose alternatives are `IRN` and `MRG32`.
 
 - **`IRN`:** implemented by `ShuffledIRN_<55,31,128>`, a Knuth-style lagged
-  additive IRN55 generator with shuffling and modulus $2^{30}$. `SkipTo` is a
-  no-op; `Clone` restarts from the original seed, and `Branch` creates another
-  seeded generator.
+  additive IRN55 generator with shuffling and modulus $2^{30}$. Seeking replays
+  engine draws, resetting to the seed when moving backwards; `Branch` creates
+  another seeded generator.
 - **`MRG32`:** implemented by `MRG32k32a_`, L'Ecuyer's combined multiple
   recursive MRG32k32a generator with period approximately $2^{191}$. `SkipTo`
-  uses a matrix jump; on a fresh generator it replays `FillUniform` only at even
-  path offsets, and it does not replay normal paths.
+  uses a matrix jump for both uniform and normal offsets.
 
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
@@ -271,9 +294,11 @@ a length-128 shuffle table that returns the entry indexed by the new state,
 replacing it with the state before output. Shuffling breaks the short-range
 correlations that plain lagged generators exhibit. The output is the shuffled
 value mapped to $(0,1)$ as `(2 * ret_val + 1) / 2^31`, which keeps both
-endpoints excluded. `SkipTo` is a no-op for this engine.
-`Clone` reconstructs the generator from its original seed instead of preserving
-the advanced state; `Branch` creates another seeded generator.
+endpoints excluded. Seeking advances from the current engine position when
+possible and replays from the seed for backwards seeks. Its cost is linear in
+the number of engine draws replayed; AAD batches create fresh generators, so
+many batches can incur substantial replay overhead. Prefer MRG32 or Sobol
+for large batched valuations requiring efficient seeking.
 
 ### `MRG32` — Combined Multiple Recursive
 
@@ -291,17 +316,13 @@ $$
 
 The equality case therefore returns $m_1/(m_1+1)$ rather than zero. `SkipTo`
 uses binary exponentiation of the $3 \times 3$ companion matrices to jump from
-the initial recurrence state. On a fresh generator, `SkipTo(n)` is replay-equivalent
-for `FillUniform` only when $n$ is an even path offset: the skipped paths then form
-complete generated/antithetic pairs, so the recurrence jump consumes
-$n\,\text{NDim}/2$ engine values. An odd offset would require the cached uniform
-vector and antithetic toggle from the preceding generated path. `SkipTo` calls
-`Reset()` for the recurrence but does not reset or reconstruct `anti_` or `cache_`,
-so odd offsets are not replay-equivalent; for the same reason, seeking on a reused
-generator has no replay-equivalent contract. `FillNormal` consumes a fresh uniform
-for every component and bypasses the cache entirely, so MRG32 seeking is not
-replay-equivalent for normal-path substreams. Sobol remains the verified normal-path
-seeking surface.
+the initial recurrence state. `SkipTo(n)` jumps over
+$\lfloor n/2 \rfloor\,\text{NDim}$ engine draws and resets the antithetic state.
+For an odd offset it generates the preceding uniform vector into the cache,
+so the next uniform path emits its antithetic partner. `SkipNormalTo(n)` jumps
+over $n\,\text{NDim}$ draws and clears the antithetic toggle. Both operations
+reproduce their respective sequential streams, including when seeking backwards.
+The matrix jump takes logarithmic time in the number of skipped draws.
 
 ## Selection Guidance
 
@@ -314,16 +335,15 @@ seeking surface.
   reduction techniques that rely on statistical independence (antithetic,
   control variates with estimated coefficients), and for regression-based
   estimators where low-discrepancy bias is undesirable. Between the two
-  engines, `MRG32` has the stronger theoretical recurrence, and its current
-  `SkipTo` accounting replays `FillUniform` only at even path offsets on a fresh
-  generator, not on odd offsets, reused generators, or normal-path substreams;
-  `IRN` is retained as a lightweight Knuth-style alternative with no seek
-  implementation. Use Sobol when direct normal-path seeking is required.
+  engines, `MRG32` has the stronger theoretical recurrence and efficient
+  matrix-based seeking; `IRN` is a Knuth-style alternative with linear replay.
+  Ordinary Monte Carlo uses `SkipNormalTo` to give each batch its sequential
+  normal substream for either engine.
 - **Script `EXERCISE` products** accept only `sobol` (`UnsupportedRsgForExercise`
   otherwise): their LSMC driver seeks each batch's first path with `SkipTo` —
   in the recording pass and, for AAD risks, in the on-tape replay of the
-  frozen policy — consuming normal-path substreams, exactly the replay
-  guarantee only Sobol's direct state reconstruction provides. See
+  frozen policy — consuming normal-path substreams. This driver retains its
+  Sobol-only input contract. See
   [the LSMC driver](lsm.md).
 
 ## Benchmark Coverage
@@ -332,6 +352,9 @@ The `rng_perf` benchmark (`dal-cpp/benchmarks/rng_perf/rng_perf.cpp`) isolates
 the per-deviate inverse-CDF cost and the generator-specific overhead. Each case
 builds the generator at dimension 10 and drives `FillNormal` / `FillUniform`
 over a 100K-path batch, the dominant Monte Carlo inner loop.
+Separate MRG32 and IRN seek cases position a fresh generator at normal path
+100K in 10 dimensions and draw the next path. These expose logarithmic jumps
+and linear replay costs, but do not measure whole multi-batch valuations.
 
 - **Sobol fast** (`precise=false`, `polish=false`, Acklam-only) and **Sobol
   precise opt-in** (`precise=true`, `polish=true`, Acklam plus the Newton step)

@@ -3,7 +3,9 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <cmath>
+#include <numeric>
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/integral/quadrature.hpp>
@@ -29,6 +31,23 @@ namespace {
         return quad.Result();
     }
 } // namespace
+
+TEST(QuadratureTest, TestSimpsonRejectsInsufficientPointsBeforeAllocation) {
+    for (int n : {-3, -1, 0, 1}) {
+        ASSERT_THROW(QuadSimpson_<>(n, 0.0, 1.0), Dal::Exception_);
+        Vector_<> x(1), w(1);
+        ASSERT_THROW(SimpsonWeights(n, 0.0, 1.0, &x, &w), Dal::Exception_);
+    }
+}
+
+TEST(QuadratureTest, TestSimpsonWeightsResizesOutputs) {
+    Vector_<> x, w;
+    SimpsonWeights(4, 0.0, 1.0, &x, &w);
+    ASSERT_EQ(x.size(), 5);
+    ASSERT_EQ(w.size(), 5);
+    ASSERT_DOUBLE_EQ(x.back(), 1.0);
+    ASSERT_NEAR(std::accumulate(w.begin(), w.end(), 0.0), 1.0, 1e-10);
+}
 
 TEST(QuadratureTest, TestIncrementScalar) {
     double dst = 1.0;

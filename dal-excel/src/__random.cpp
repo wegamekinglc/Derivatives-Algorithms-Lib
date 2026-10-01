@@ -3,6 +3,8 @@
 //
 
 #include "__platform.hpp"
+#include "__random_test_api.hpp"
+#include "__value.hpp"
 #include <dal-public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
@@ -97,30 +99,26 @@ y is number[][]
 
 
 namespace Dal {
-    namespace {
-        void PseudoRSG_New(const String_& name, double seed, double ndim, Handle_<PseudoRSG_>* f) {
-            NewPseudoRSG(name, seed, ndim).swap(*f);
-        }
+    void PseudoRSG_New(const String_& name, double seed, double ndim, Handle_<PseudoRSG_>* f) { NewPseudoRSG(name, seed, ndim).swap(*f); }
 
-        void PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& f, double num_path, Matrix_<>* y) {
-            GetPseudoRSGUniform(f, num_path, y);
-        }
+    void SobolRSG_New(const String_& name, double iPath, double ndim, bool precise, bool polish, Handle_<SobolRSG_>* f) {
+        NewSobolRSG(name, iPath, ndim, precise, polish).swap(*f);
+    }
 
-        void PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& f, double num_path, Matrix_<>* y) {
-            GetPseudoRSGNormal(f, num_path, y);
-        }
+    void PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& f, double numPaths, Matrix_<>* y) {
+        GetPseudoRSGUniform(f, Excel::CheckedPathCount(numPaths, 0), y);
+    }
 
-        void SobolRSG_New(const String_& name, double i_path, double ndim, bool precise, bool polish, Handle_<SobolRSG_>* f) {
-            NewSobolRSG(name, i_path, ndim, precise, polish).swap(*f);
-        }
+    void PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& f, double numPaths, Matrix_<>* y) {
+        GetPseudoRSGNormal(f, Excel::CheckedPathCount(numPaths, 0), y);
+    }
 
-        void SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& f, double num_path, Matrix_<>* y) {
-            GetSobolRSGUniform(f, num_path, y);
-        }
+    void SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& f, double numPaths, Matrix_<>* y) {
+        GetSobolRSGUniform(f, Excel::CheckedPathCount(numPaths, 0), y);
+    }
 
-        void SobolRSG_Get_Normal(const Handle_<SobolRSG_>& f, double num_path, Matrix_<>* y) {
-            GetSobolRSGNormal(f, num_path, y);
-        }
+    void SobolRSG_Get_Normal(const Handle_<SobolRSG_>& f, double numPaths, Matrix_<>* y) {
+        GetSobolRSGNormal(f, Excel::CheckedPathCount(numPaths, 0), y);
     }
 
 #ifdef _WIN32
@@ -131,4 +129,4 @@ namespace Dal {
 #include <dal-excel/auto/MG_SobolRSG_Get_Uniform_public.inc>
 #include <dal-excel/auto/MG_SobolRSG_Get_Normal_public.inc>
 #endif
-}
+} // namespace Dal

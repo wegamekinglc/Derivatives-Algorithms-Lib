@@ -31,6 +31,14 @@ TEST(ModelTest, TestEmptyRiskViewHasZeroSpread) {
     ASSERT_NEAR(risk_view.Spread(50.0, 5.0), 0.0, 1e-10);
 }
 
+TEST(ModelTest, TestRiskViewRejectsInvalidAxes) {
+    ASSERT_THROW((AAD::RiskView_<double>({}, {})), Exception_);
+    ASSERT_THROW((AAD::RiskView_<double>({}, {1.0})), Exception_);
+    ASSERT_THROW((AAD::RiskView_<double>({100.0}, {})), Exception_);
+    ASSERT_THROW((AAD::RiskView_<double>({100.0, 90.0}, {1.0})), Exception_);
+    ASSERT_THROW((AAD::RiskView_<double>({100.0}, {2.0, 1.0})), Exception_);
+}
+
 TEST(ModelTest, TestRiskViewGridAccessors) {
     const Vector_<> strikes{90.0, 100.0, 110.0};
     const Vector_<> mats{1.0, 2.0};

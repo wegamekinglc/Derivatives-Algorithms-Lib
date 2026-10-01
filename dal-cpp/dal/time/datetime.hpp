@@ -23,7 +23,7 @@ namespace Dal {
         [[nodiscard]] Date_ Date() const { return date_; }
         [[nodiscard]] double Frac() const { return frac_; }
         bool operator==(const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_; }
-        [[nodiscard]] bool IsValid() const { return date_.IsValid() && frac_ < 1.; }
+        [[nodiscard]] bool IsValid() const { return date_.IsValid() && frac_ >= 0.0 && frac_ < 1.0; }
 
         DateTime_& operator+=(double frac);
         DateTime_ operator+(double frac);

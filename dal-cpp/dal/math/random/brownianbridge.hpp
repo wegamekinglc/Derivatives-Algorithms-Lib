@@ -39,7 +39,8 @@ namespace Dal {
         void FillUniform(Vector_<>* deviates) override;
         void FillNormal(Vector_<>* deviates) override;
 
-        void SkipTo(size_t nPoints) override { rsg_->SkipTo(nPoints); }
+        void SkipTo(size_t nPoints) override { SkipNormalTo(nPoints); }
+        void SkipNormalTo(size_t nPoints) override { rsg_->SkipNormalTo(nPoints); }
 
         [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<BrownianBridge_>(rsg_->Clone()); }
 
@@ -59,7 +60,8 @@ namespace Dal {
         FactorBrownianBridge_(std::unique_ptr<Random_>&& rsg, size_t nFactors);
         void FillUniform(Vector_<>* deviates) override;
         void FillNormal(Vector_<>* deviates) override;
-        void SkipTo(size_t nPoints) override { rsg_->SkipTo(nPoints); }
+        void SkipTo(size_t nPoints) override { SkipNormalTo(nPoints); }
+        void SkipNormalTo(size_t nPoints) override { rsg_->SkipNormalTo(nPoints); }
         [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<FactorBrownianBridge_>(rsg_->Clone(), nFactors_); }
         [[nodiscard]] size_t NDim() const override { return rsg_->NDim(); }
     };

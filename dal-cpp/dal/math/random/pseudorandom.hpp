@@ -34,6 +34,7 @@ namespace Dal {
 
     protected:
         Vector_<> cache_;
+        virtual void SkipUniformDraws(size_t nDraws) { THROW("Pseudo-random engine does not support draw seeking"); }
 
     public:
         explicit PseudoRandom_(size_t nDim, bool precise = true) : cache_(nDim), precise_(precise) {}
@@ -41,6 +42,8 @@ namespace Dal {
         virtual double NextUniform() = 0;
         void FillUniform(Vector_<>* deviates) override;
         void FillNormal(Vector_<>* deviates) override;
+        void SkipTo(size_t nPaths) override;
+        void SkipNormalTo(size_t nPaths) override;
         [[nodiscard]] size_t NDim() const override { return cache_.size(); }
         [[nodiscard]] virtual std::unique_ptr<PseudoRandom_> Branch(int iChild) const = 0;
         const bool precise_;

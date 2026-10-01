@@ -35,6 +35,14 @@ When the matrix is symmetric, `DecomposeSymmetric()` returns the narrower
 $L$ to i.i.d. deviates) and `QForm` (form $J^{\top} A^{-1} J$ for a given $J$, used to
 build Gauss-Newton Hessian proxies from a Jacobian).
 
+Dense Cholesky solves resize their output vector to the decomposition size;
+empty output vectors and in-place right-hand sides are supported. Dense
+`Matrix_::Swap` also supports empty matrices. The adjacent `ArrayN_` and `Cube_`
+containers preserve all overlapping coordinates during resize, including the
+origin, and default-initialize new cells. Array dimensions must be nonnegative,
+their strides and extent must fit in `int`, and resize preserves the dimension
+count. A zero extent produces an empty array.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the

@@ -209,10 +209,7 @@ namespace Dal {
 
         void Swap(Matrix_<E_>* other) {
             REQUIRE(other != nullptr, "can't swap with null");
-            vals_.Swap(&other->vals_);
-            hooks_.Swap(&other->hooks_);
-            std::swap(cols_, other->cols_);
-            REQUIRE(hooks_.front() == vals_.begin(), "hooks front should be same with vals begin");
+            swap(*other);
         }
 
         void Fill(const E_& val) { vals_.Fill(val); }

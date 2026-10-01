@@ -11,6 +11,13 @@
 
 using namespace Dal;
 
+TEST(InterpTest, TestCubicArchiveRejectsInvalidData) {
+    for (const auto* payload :
+         {R"({"~type":"Cubic1","x":[0,1,2],"f":[],"fpp":[]})", R"({"~type":"Cubic1","x":[0,1,2],"f":[1,2,3],"fpp":[0,0]})",
+          R"({"~type":"Cubic1","x":[0,0,2],"f":[1,2,3],"fpp":[0,0,0]})", R"({"~type":"Cubic1","x":[0,1],"f":[1,2],"fpp":[0,0]})"})
+        ASSERT_THROW(JSON::ReadString(String_(payload), true), Exception_);
+}
+
 Vector_<> Gaussian(const Vector_<>& x) {
     Vector_<> y(x.size());
     for (int i = 0; i < x.size(); ++i)

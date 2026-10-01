@@ -29,6 +29,12 @@ matches one of those formats.
 
 `DateTime_` (`dal-cpp/dal/time/datetime.hpp`) pairs a `Date_` with a `double`
 day fraction, giving roughly one-second resolution for fixing times.
+The fraction must lie in `[0, 1)`; negative and non-finite values throw.
+The hour/minute/second constructor requires hour in `[0, 24)` and minute and
+second in `[0, 60)`. Millisecond offsets from `Date::Minimum()` must be
+nonnegative and stay within the supported date range. Addition accepts only
+finite positive day increments and preserves the original value if the result
+would leave that range.
 
 ## Holiday centers and business days
 

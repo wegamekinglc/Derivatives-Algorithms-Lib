@@ -10,6 +10,57 @@
 
 using namespace Dal;
 
+namespace {
+    struct RandomStreamMode_ {
+        const char* name_;
+        void (Random_::*fill_)(Vector_<>*);
+        void (Random_::*seek_)(size_t);
+    };
+} // namespace
+
+TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
+    const RandomStreamMode_ modes[] = {{"uniform", &Random_::FillUniform, &Random_::SkipTo},
+                                       {"normal", &Random_::FillNormal, &Random_::SkipNormalTo}};
+    for (const auto* name : {"IRN", "MRG32"}) {
+        for (size_t dimension : {1, 3, 10}) {
+            for (const auto& mode : modes) {
+                auto sought = New(RNGType_(name), 1024, dimension, false);
+                Vector_<> actual(dimension), expected(dimension);
+                for (size_t offset : {0, 1, 2, 17, 32, 3, 0}) {
+                    auto replay = New(RNGType_(name), 1024, dimension, false);
+                    for (size_t path = 0; path < offset; ++path)
+                        (replay.get()->*mode.fill_)(&expected);
+                    (sought.get()->*mode.seek_)(offset);
+                    for (int path = 0; path < 4; ++path) {
+                        (replay.get()->*mode.fill_)(&expected);
+                        (sought.get()->*mode.fill_)(&actual);
+                        ASSERT_EQ(actual, expected) << name << "; mode=" << mode.name_ << "; offset=" << offset;
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST(PseudoRandomTest, TestClonePreservesStateAndPrecision) {
+    for (const auto* name : {"IRN", "MRG32"}) {
+        for (const bool precise : {false, true}) {
+            auto generator = New(RNGType_(name), 1024, 3, precise);
+            Vector_<> actual(3), expected(3);
+            generator->FillUniform(&actual);
+            generator->FillNormal(&actual);
+            auto clone = generator->Clone();
+            for (int path = 0; path < 4; ++path) {
+                generator->FillUniform(&expected);
+                clone->FillUniform(&actual);
+                ASSERT_EQ(actual, expected);
+                generator->FillNormal(&expected);
+                clone->FillNormal(&actual);
+                ASSERT_EQ(actual, expected);
+            }
+        }
+    }
+}
 
 TEST(RandomTest, TestNewPseudoRandomIRN) {
     auto n_dim = 10;

@@ -22,6 +22,10 @@ namespace Dal {
         }
 
         void NCDFGaussHermiteWeights(Vector_<>* x, Vector_<>* w);
+        inline int SimpsonPointCount(int n) {
+            REQUIRE(n >= 2, "Simpson quadrature requires at least two requested points");
+            return n | 1;
+        }
         void SimpsonWeights(int n, double lo, double hi, Vector_<>* x, Vector_<>* w);
     } // namespace Quadrature
 
@@ -82,7 +86,7 @@ namespace Dal {
     template <class T_ = double>
     class QuadSimpson_ : public Quad1DFixed_<T_> {
     public:
-        QuadSimpson_(int n, double lo, double hi, const T_& initial = 0.0) : Quad1DFixed_<T_>(n | 1, initial) {
+        QuadSimpson_(int n, double lo, double hi, const T_& initial = 0.0) : Quad1DFixed_<T_>(Quadrature::SimpsonPointCount(n), initial) {
             Quadrature::SimpsonWeights(n, lo, hi, &this->x_, &this->w_);
         }
     };

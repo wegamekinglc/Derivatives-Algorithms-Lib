@@ -2,15 +2,36 @@
 // Created by wegam on 2020/12/19.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include <limits>
+
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    namespace {
+        size_t DrawCount(size_t nPaths, size_t nDim) {
+            REQUIRE(nDim == 0 || nPaths <= std::numeric_limits<size_t>::max() / nDim, "Random path offset exceeds draw-count range");
+            return nPaths * nDim;
+        }
+    } // namespace
+
+    void PseudoRandom_::SkipTo(size_t nPaths) {
+        SkipUniformDraws(DrawCount(nPaths / 2, NDim()));
+        anti_ = false;
+        if (nPaths & 1)
+            FillUniform(&cache_);
+    }
+
+    void PseudoRandom_::SkipNormalTo(size_t nPaths) {
+        SkipUniformDraws(DrawCount(nPaths, NDim()));
+        anti_ = false;
+    }
+
     void PseudoRandom_::FillUniform(Vector_<>* devs) {
         if (anti_) {
             for (size_t i = 0; i < devs->size(); ++i)
@@ -25,17 +46,19 @@ namespace Dal {
 
     namespace {
         namespace RWT {
-            template <class SRC_>
-            FORCE_INLINE void Fill(SRC_* src, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
+            template <class F_>
+            FORCE_INLINE void Fill(const F_& nextUniform, bool precise, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
                 for (auto pn = dst_begin; pn != dst_end; ++pn) {
-                    double f = src->NextUniform();
-                    *pn = InverseNCDF(f, src->precise_, src->precise_);
+                    const double f = nextUniform();
+                    *pn = InverseNCDF(f, precise, precise);
                 }
             }
         } // namespace RWT
     }     // namespace
 
-    void PseudoRandom_::FillNormal(Vector_<>* deviates) { RWT::Fill(this, deviates->begin(), deviates->end()); }
+    void PseudoRandom_::FillNormal(Vector_<>* deviates) {
+        RWT::Fill([this]() { return NextUniform(); }, precise_, deviates->begin(), deviates->end());
+    }
 
     namespace {
         // Generators similar to Knuth's IRN55, with shuffling
@@ -45,6 +68,7 @@ namespace Dal {
             Vector_<unsigned> irn_, shuffle_;
             int irl_;
             const int seed_;
+            size_t nDraws_ = 0;
 
             unsigned IRN() {
                 if (--irl_ < 0)
@@ -54,7 +78,7 @@ namespace Dal {
                 irn_[irl_] %= DE_NOM;
                 return irn_[irl_];
             }
-            double NextUniform() override {
+            double DrawUniform() {
                 static const double MUL = 0.5 / DE_NOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
@@ -63,11 +87,28 @@ namespace Dal {
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
 
+            double NextUniform() override {
+                ++nDraws_;
+                return DrawUniform();
+            }
+
+            void FillNormal(Vector_<>* deviates) override {
+                // Count once per path to avoid a bookkeeping store on every normal draw.
+                RWT::Fill([this]() { return DrawUniform(); }, precise_, deviates->begin(), deviates->end());
+                nDraws_ += deviates->size();
+            }
+
             explicit ShuffledIRN_(int seed, size_t nDim = 1, bool precise = false)
                 : PseudoRandom_(nDim, precise), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
+                Reset();
+            }
+
+            void Reset() {
+                irl_ = 0;
+                nDraws_ = 0;
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
-                irn_[0] = seed;
+                irn_[0] = seed_;
                 for (int ii = 1; ii < M_; ++ii)
                     irn_[ii] = ((MUL * irn_[ii - 1]) % DE_NOM) ^ MASK;
                 for (int ii = 0; ii < S_; ++ii)
@@ -78,9 +119,14 @@ namespace Dal {
                 return std::make_unique<ShuffledIRN_<M_, L_, S_>>(irn_[0] ^ irn_[1]);
             }
 
-            [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<ShuffledIRN_>(seed_, cache_.size()); }
+            [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<ShuffledIRN_>(*this); }
 
-            void SkipTo(size_t nPaths) override {}
+            void SkipUniformDraws(size_t nDraws) override {
+                if (nDraws < nDraws_)
+                    Reset();
+                while (nDraws_ < nDraws)
+                    NextUniform();
+            }
         };
 
         constexpr const double m1_ = 4294967087;
@@ -128,18 +174,10 @@ namespace Dal {
 
             [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override { return std::make_unique<MRG32k32a_>(); }
 
-            [[nodiscard]] std::unique_ptr<Random_> Clone() const override {
-                return std::make_unique<MRG32k32a_>(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
-            }
+            [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<MRG32k32a_>(*this); }
 
-            void SkipTo(size_t nPaths) override {
-                size_t nPoints = nPaths * NDim();
+            void SkipUniformDraws(size_t nPoints) override {
                 Reset();
-
-                if (nPoints & 1)
-                    nPoints = (nPoints - 1) / 2;
-                else
-                    nPoints /= 2;
 
                 static constexpr size_t m1l = static_cast<size_t>(m1_);
                 static constexpr size_t m2l = static_cast<size_t>(m2_);
@@ -224,7 +262,7 @@ namespace Dal {
         if (type == RNGType_("IRN"))
             return std::make_unique<ShuffledIRN_<55, 31, 128>>(seed, nDim, precise);
         if (type == RNGType_("MRG32"))
-            return std::make_unique<MRG32k32a_>(seed, seed + 1, nDim, precise);
+            return std::make_unique<MRG32k32a_>(static_cast<unsigned>(seed), static_cast<unsigned>(seed) + 1U, nDim, precise);
         THROW("RNG type is not recognized");
     }
 
