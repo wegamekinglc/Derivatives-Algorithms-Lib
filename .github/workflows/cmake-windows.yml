@@ -214,6 +214,17 @@ jobs:
             -DDAL_PYTHON_BUILD_TESTS=OFF
           cmake --build $pythonBuild --target _dal --parallel
 
+      - name: Test standalone Excel against installed DAL
+        if: matrix.aad-backend == 'aadet'
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path .\build\stage\Release-windows).Path
+          $excelBuild = Join-Path $env:RUNNER_TEMP "dal-excel-installed"
+          cmake `
+            "-DDAL_INSTALL_PREFIX=$stage" `
+            "-DDAL_OPTIONAL_EXCEL_BINARY_DIR=$excelBuild" `
+            -P tests/optional-excel/windows-installed.cmake
+
   # Smoke-test the build_windows.bat entry point so it stops rotting. The
   # --configure-only mode exercises everything the script owns -- vswhere
   # discovery, the Machinist build plus code generation, and the CMake
