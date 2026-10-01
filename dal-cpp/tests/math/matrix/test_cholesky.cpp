@@ -3,16 +3,46 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/math/matrix/decompositions.hpp>
-#include <dal/math/matrix/squarematrix.hpp>
-#include <dal/math/matrix/matrixutils.hpp>
-#include <dal/math/matrix/matrixarithmetic.hpp>
+
 #include <dal/math/matrix/cholesky.hpp>
+#include <dal/math/matrix/decompositions.hpp>
+#include <dal/math/matrix/decompositionsmisc.hpp>
+#include <dal/math/matrix/matrixarithmetic.hpp>
+#include <dal/math/matrix/matrixutils.hpp>
+#include <dal/math/matrix/squarematrix.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
 
 using namespace Dal;
+
+TEST(MatrixTest, TestLowerTriangularMultiplyIncludesDiagonal) {
+    SquareMatrix_<> matrix(2);
+    matrix(0, 0) = 2.0;
+    matrix(1, 0) = 3.0;
+    matrix(1, 1) = 4.0;
+    const auto decomposition = LowerTriangularAsDecomposition(matrix);
+    Vector_<> x{3.0, 5.0}, result;
+    decomposition->MultiplyLeft(x, &result);
+    ASSERT_EQ(result, (Vector_<>{6.0, 29.0}));
+    decomposition->MultiplyRight(x, &result);
+    ASSERT_EQ(result, (Vector_<>{21.0, 20.0}));
+    decomposition->MultiplyLeft(x, &x);
+    ASSERT_EQ(x, (Vector_<>{6.0, 29.0}));
+}
+
+TEST(MatrixTest, TestCholeskySolveResizesOutput) {
+    SquareMatrix_<> matrix(1);
+    matrix(0, 0) = 4.0;
+    const auto decomposition = CholeskyDecomposition(matrix);
+    const Vector_<> b{8.0};
+    for (int size : {0, 3}) {
+        Vector_<> x(size);
+        decomposition->Solve(b, &x);
+        ASSERT_EQ(x.size(), 1);
+        ASSERT_NEAR(x[0], 2.0, 1e-10);
+    }
+}
 
 TEST(MatrixTest, TestCholeskyDecomposition) {
     const int n = 11;

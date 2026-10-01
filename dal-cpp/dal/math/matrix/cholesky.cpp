@@ -75,6 +75,7 @@ namespace Dal {
 
             void XSolve_af(const Vector_<>& b, Vector_<>* x) const override {
                 const int n = Size();
+                x->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
                     (*x)[ii] = b[ii] - std::inner_product(x->begin(), x->begin() + ii, lower_->Row(ii).begin(), 0.0);
                     (*x)[ii] *= (*lower_)(ii, ii);

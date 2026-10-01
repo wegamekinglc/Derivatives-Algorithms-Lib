@@ -56,12 +56,14 @@ namespace Dal {
 
         // Resize() requires computation of element mapping; take it out-of-line
         void Resize(const Vector_<int>& new_sizes) {
-            const Vector_<pair<int, int>>& moves = ArrayN::Moves(sizes_, new_sizes);
-            Vector_<E_> new_values(sizes_[0] * strides_[0], E_());
-            sizes_ = new_sizes;
-            strides_ = ArrayN::Strides(sizes_);
+            auto newSizes = CheckedSizes(new_sizes);
+            auto newStrides = ArrayN::Strides(newSizes);
+            const auto moves = ArrayN::Moves(sizes_, newSizes);
+            Vector_<E_> new_values(newSizes[0] * newStrides[0], E_());
             for (const auto& move : moves)
                 new_values[move.second] = vals_[move.first];
+            sizes_.Swap(&newSizes);
+            strides_.Swap(&newStrides);
             vals_.Swap(&new_values);
         }
         // allow enough access for Cube_

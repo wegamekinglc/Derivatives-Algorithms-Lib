@@ -11,6 +11,19 @@
 
 using matrix_t = Dal::Matrix_<>;
 
+TEST(MatrixTest, TestSwapWithEmptyMatrix) {
+    matrix_t full(2, 3), empty;
+    full(1, 2) = 7.0;
+    full.Swap(&empty);
+    ASSERT_EQ(full.Rows(), 0);
+    ASSERT_EQ(full.Cols(), 0);
+    ASSERT_DOUBLE_EQ(empty(1, 2), 7.0);
+    full.Swap(&empty);
+    ASSERT_DOUBLE_EQ(full(1, 2), 7.0);
+    empty.Swap(&empty);
+    ASSERT_THROW(full.Swap(nullptr), Dal::Exception_);
+}
+
 static_assert(!std::is_nothrow_copy_assignable<matrix_t>::value, "Matrix_ copy assignment allocates and must not be noexcept");
 
 TEST(MatrixTest, TestMatrixNullConstructor) {

@@ -3,15 +3,23 @@
 //
 
 #include <functional>
+#include <limits>
+
+#include <dal/math/ndarray.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/ndarray.hpp>
 
 namespace Dal::ArrayN {
     Vector_<int> Strides(const Vector_<int>& sizes) {
+        REQUIRE(!sizes.empty(), "ArrayN_ requires at least one dimension");
         Vector_<int> ret_val(sizes.size(), 1);
-        for (int ii = sizes.size() - 1; ii > 0; --ii)
-            ret_val[ii - 1] = ret_val[ii] * sizes[ii];
+        int extent = 1;
+        for (int ii = sizes.size() - 1; ii >= 0; --ii) {
+            REQUIRE(sizes[ii] >= 0, "Array dimensions must be nonnegative");
+            REQUIRE(sizes[ii] == 0 || extent <= std::numeric_limits<int>::max() / sizes[ii], "Array extent exceeds integer range");
+            ret_val[ii] = extent;
+            extent *= sizes[ii];
+        }
         return ret_val;
     }
 
@@ -23,7 +31,10 @@ namespace Dal::ArrayN {
         Vector_<int> mins = Apply(func, old_sizes, new_sizes);
         Vector_<int> loc(nd, 0);
         Vector_<pair<int, int>> ret_val;
+        if (std::find(mins.begin(), mins.end(), 0) != mins.end())
+            return ret_val;
         for (;;) {
+            ret_val.emplace_back(InnerProduct(loc, oldStrides), InnerProduct(loc, newStrides));
             int depth;
             for (depth = 0; depth < nd; ++depth) {
                 if (++loc[depth] < mins[depth])
@@ -32,8 +43,6 @@ namespace Dal::ArrayN {
             }
             if (depth == nd)
                 return ret_val;
-            ret_val.emplace_back(InnerProduct(loc, oldStrides), InnerProduct(loc, newStrides));
         }
-        return ret_val;
     }
 } // namespace Dal::ArrayN

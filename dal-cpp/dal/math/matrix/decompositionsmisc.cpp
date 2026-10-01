@@ -66,7 +66,7 @@ namespace Dal {
                 const int n = Size();
                 b->Resize(n);
                 for (int ii = 0; ii < n; ++ii)
-                    (*b)[ii] = std::inner_product(x.begin(), x.begin() + ii, vals_.Row(ii).begin(), 0.0);
+                    (*b)[ii] = std::inner_product(x.begin(), x.begin() + ii + 1, vals_.Row(ii).begin(), 0.0);
             }
 
             void XMultiplyRight_af(const Vector_<> &x, Vector_<> *b) const override {
