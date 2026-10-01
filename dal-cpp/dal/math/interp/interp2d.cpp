@@ -27,6 +27,7 @@ namespace {
 namespace Dal {
     Interp2Linear_::Interp2Linear_(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f)
         : Interp2_(name), x_(x), y_(y), f_(f) {
+        REQUIRE(!x_.empty() && !y_.empty(), "Bilinear interpolation requires nonempty x and y axes");
         REQUIRE((x_.size() == f_.Rows()) && (y_.size() == f_.Cols()), "x_, y_ size must be equal to f_ size");
         REQUIRE(IsMonotonic(x_, std::less_equal<>()), "x_ array should be monotonic");
         REQUIRE(IsMonotonic(y_, std::less_equal<>()), "y_ array should be monotonic");

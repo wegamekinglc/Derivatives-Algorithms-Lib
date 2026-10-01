@@ -15,8 +15,9 @@ $$
 \texttt{double operator()(double x) const}, \qquad \texttt{bool IsInBounds(double x) const}.
 $$
 
-The abscissae $x_1 \le x_2 \le \dots \le x_N$ must be non-decreasing (`IsMonotonic` is
-checked at construction). Evaluation is by `LowerBound` on the knot vector followed by a
+Linear abscissae must be non-decreasing; cubic and log-linear abscissae must be
+strictly increasing. Construction checks the scheme's knot count and requires
+matching abscissa and ordinate sizes. Evaluation is by `LowerBound` on the knot vector followed by a
 scheme-specific local formula; values exactly at a knot return the knot's $f$ value
 without rounding error. The shared linear kernel used internally is
 
@@ -65,8 +66,8 @@ yield-curve layer; it prevents passive and AAD paths from maintaining separate f
 
 Piecewise-linear interpolation between knots — the degree-one, piecewise-affine kernel
 above. It is exact at knots, continuous, and has $O(h^2)$ interpolation error for a
-sufficiently smooth scalar function. `IsInBounds` returns true on
-$[x_1, x_N]$; outside that range the kernel clamps to the nearest endpoint value (flat
+sufficiently smooth scalar function. `IsInBounds` returns true for every query;
+outside $[x_1, x_N]$ the kernel clamps to the nearest endpoint value (flat
 extrapolation via the `LowerBound` edge cases).
 
 Factory: `Interp::NewLinear(name, x, f)` (`dal-cpp/dal/math/interp/interplinear.hpp`).
@@ -120,6 +121,8 @@ lies in the knot range; it does not guard evaluation. Outside that range,
 `operator()` extends the first or last cubic segment. The curve-specific
 natural-cubic weight geometry uses the same polynomial definition. Log-DF curves
 apply their own explicit boundary policy; see [Log-discount curve](../yield-curves/log-discount.md).
+Archive reconstruction checks the same knot constraints and requires `fpp`
+to have one second derivative per knot; malformed archives throw `Exception_`.
 
 ## Mixed Log-DF
 
@@ -151,18 +154,20 @@ identical weights to passive and AAD-active ordinates.
 
 ## Bilinear (2D)
 
-Tensor-product linear interpolation on a rectilinear grid: linear in $x$ along each row,
-then linear in $y$ across the two bracketing rows,
+Tensor-product linear interpolation on a rectilinear grid: linear in $y$ along each row,
+then linear in $x$ across the two bracketing rows,
 
 $$
-f(x, y) = (1-t)\,f(x, y_{\text{lo}}) + t\,f(x, y_{\text{hi}}), \qquad
-t = \frac{y - y_{\text{lo}}}{y_{\text{hi}} - y_{\text{lo}}},
+f(x, y) = (1-t)\,f(x_{\text{lo}}, y) + t\,f(x_{\text{hi}}, y), \qquad
+t = \frac{x - x_{\text{lo}}}{x_{\text{hi}} - x_{\text{lo}}},
 $$
 
-with the per-row $f(x, y_{\text{lo}})$ and $f(x, y_{\text{hi}})$ obtained by the same
+with the per-row $f(x_{\text{lo}}, y)$ and $f(x_{\text{hi}}, y)$ obtained by the same
 linear kernel as the 1D case. It is implemented by `Interp2Linear_` and constructed through
 `Interp::NewLinear2(name, x, y, f)` where `f` is a row-major `Matrix_<>` of shape
 $(N_x, N_y)$ (`dal-cpp/dal/math/interp/interp2d.hpp`).
+Both axes must be nonempty and non-decreasing. A singleton axis is supported;
+queries outside the grid clamp to its boundary values.
 
 ## Selection Guidance
 

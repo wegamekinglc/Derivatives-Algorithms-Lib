@@ -13,6 +13,14 @@ using Dal::Interp2_;
 using Dal::Handle_;
 using Dal::Interp::NewLinear2;
 
+TEST(InterpTest, TestInterp2LinearRejectsEmptyAxes) {
+    ASSERT_THROW(NewLinear2("empty", {}, {}, Matrix_<>()), Dal::Exception_);
+    ASSERT_THROW(NewLinear2("empty x", {}, {1.0}, Matrix_<>(0, 1)), Dal::Exception_);
+    ASSERT_THROW(NewLinear2("empty y", {1.0}, {}, Matrix_<>(1, 0)), Dal::Exception_);
+    const auto singleton = NewLinear2("singleton", {1.0}, {2.0}, Matrix_<>(1, 1, 7.0));
+    ASSERT_DOUBLE_EQ((*singleton)(0.0, 3.0), 7.0);
+}
+
 TEST(InterpTest, TestInterp2Linear) {
     Vector_<> x = {1., 2.};
     Vector_<> y = {1., 2.};

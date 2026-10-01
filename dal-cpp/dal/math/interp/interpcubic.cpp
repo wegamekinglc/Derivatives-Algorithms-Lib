@@ -28,6 +28,11 @@ namespace {
 
 namespace Dal {
     namespace {
+        void ValidateCubicData(const Vector_<>& x, const Vector_<>& f) {
+            REQUIRE(x.size() > 2 && IsMonotonic(x), "Cubic x must have at least three strictly increasing knots");
+            REQUIRE(x.size() == f.size(), "Cubic x and f must have the same size");
+        }
+
         struct Cubic1_ : Interp1_ {
             Vector_<> x_, f_, fpp_;
             double operator()(double x) const override;
@@ -41,8 +46,10 @@ namespace Dal {
                     const Interp::Boundary_& lhs,
                     const Interp::Boundary_& rhs);
 
-            Cubic1_(const String_& name, const Vector_<>& x, const Vector_<>& f, const Vector_<>& fpp)
-                : Interp1_(name), x_(x), f_(f), fpp_(fpp) {}
+            Cubic1_(const String_& name, const Vector_<>& x, const Vector_<>& f, const Vector_<>& fpp) : Interp1_(name), x_(x), f_(f), fpp_(fpp) {
+                ValidateCubicData(x_, f_);
+                REQUIRE(x_.size() == fpp_.size(), "Cubic x and fpp must have the same size");
+            }
 
             void Write(Archive::Store_& dst) const override;
         };
@@ -68,8 +75,7 @@ namespace Dal {
                          const Interp::Boundary_& lhs,
                          const Interp::Boundary_& rhs)
             : Interp1_(name), x_(x), f_(f), fpp_(f_.size()) {
-            REQUIRE(x_.size() > 2 && IsMonotonic(x_), "x size should be greater than 2 and monotonic");
-            REQUIRE(x_.size() == f_.size(), "x and f size should be same");
+            ValidateCubicData(x_, f_);
             const int n = static_cast<int>(x_.size());
             Vector_<> u(n - 1);
             switch (lhs.order_) // set left boundary
