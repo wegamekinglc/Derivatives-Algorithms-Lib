@@ -18,7 +18,11 @@ $$
 $$
 
 $$
-\texttt{void SkipTo(size\_t n)}, \qquad \texttt{std::unique\_ptr<Random\_> Clone() const}, \qquad \texttt{size\_t NDim() const}.
+\texttt{void SkipTo(size\_t n)}, \qquad \texttt{void SkipNormalTo(size\_t n)},
+$$
+
+$$
+\texttt{std::unique\_ptr<Random\_> Clone() const}, \qquad \texttt{size\_t NDim() const}.
 $$
 
 `NDim()` is the number of variates produced per call (one draw of a
@@ -42,6 +46,8 @@ The public C++, Python, and Excel random getters require a non-null generator
 and a nonnegative path count. A zero path count returns a zero-row matrix with
 the generator's dimension; invalid requests throw `Exception_` (a Python
 `RuntimeError`).
+Excel getters validate that the worksheet path count is finite, exactly
+integral, and within `[0, INT_MAX]` before converting it to a native integer.
 `FillUniform` writes variates in $(0,1)$; `FillNormal` writes standard normal
 variates, obtained either by inverse-CDF inversion of the uniform variates or
 by a direct transformation, depending on the generator.
@@ -59,6 +65,8 @@ any `Random_` and reorders its variates into the path increments a simulator
 consumes. It is most effective when the wrapped generator is quasi-random,
 because the reorder aligns the lowest-discrepancy leading dimensions with the
 largest-variance path modes.
+Both bridge wrappers construct uniform output from their normal increments,
+so their `SkipTo` and `SkipNormalTo` both position the wrapped normal stream.
 
 ## Brownian Bridge
 

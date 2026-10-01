@@ -7,11 +7,25 @@
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/brownianbridge.hpp>
+#include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
 
 using namespace Dal;
 
 namespace {
+    struct BridgeStreamMode_ {
+        const char* name_;
+        void (Random_::*fill_)(Vector_<>*);
+        void (Random_::*seek_)(size_t);
+    };
+
+    std::unique_ptr<Random_> NewTestBridge(const char* engine, bool factorAware) {
+        auto random = New(RNGType_(engine), 1024, 6, false);
+        if (factorAware)
+            return std::make_unique<FactorBrownianBridge_>(std::move(random), 2);
+        return std::make_unique<BrownianBridge_>(std::move(random));
+    }
+
     class FixedBridgeRandom_ : public Random_ {
         Vector_<> values_;
 
@@ -24,6 +38,30 @@ namespace {
         [[nodiscard]] size_t NDim() const override { return values_.size(); }
     };
 } // namespace
+
+TEST(RandomTest, TestBridgePseudoSeekingMatchesSequentialPaths) {
+    const BridgeStreamMode_ modes[] = {{"uniform", &Random_::FillUniform, &Random_::SkipTo},
+                                       {"normal", &Random_::FillNormal, &Random_::SkipNormalTo}};
+    for (const auto* engine : {"IRN", "MRG32"}) {
+        for (const bool factorAware : {false, true}) {
+            for (const auto& mode : modes) {
+                auto skipped = NewTestBridge(engine, factorAware);
+                Vector_<> expected, actual;
+                for (size_t offset : {0, 1, 2, 17, 32, 3, 0}) {
+                    auto replay = NewTestBridge(engine, factorAware);
+                    for (size_t path = 0; path < offset; ++path)
+                        (replay.get()->*mode.fill_)(&expected);
+                    (skipped.get()->*mode.seek_)(offset);
+                    for (int path = 0; path < 4; ++path) {
+                        (replay.get()->*mode.fill_)(&expected);
+                        (skipped.get()->*mode.fill_)(&actual);
+                        ASSERT_EQ(actual, expected) << engine << "; factorAware=" << factorAware << "; mode=" << mode.name_ << "; offset=" << offset;
+                    }
+                }
+            }
+        }
+    }
+}
 
 TEST(RandomTest, TestBrownBridgeFillNormal) {
     int ndim = 10;
