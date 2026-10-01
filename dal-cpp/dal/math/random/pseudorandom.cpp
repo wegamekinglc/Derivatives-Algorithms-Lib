@@ -46,17 +46,19 @@ namespace Dal {
 
     namespace {
         namespace RWT {
-            template <class SRC_>
-            FORCE_INLINE void Fill(SRC_* src, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
+            template <class F_>
+            FORCE_INLINE void Fill(const F_& nextUniform, bool precise, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
                 for (auto pn = dst_begin; pn != dst_end; ++pn) {
-                    double f = src->NextUniform();
-                    *pn = InverseNCDF(f, src->precise_, src->precise_);
+                    const double f = nextUniform();
+                    *pn = InverseNCDF(f, precise, precise);
                 }
             }
         } // namespace RWT
     }     // namespace
 
-    void PseudoRandom_::FillNormal(Vector_<>* deviates) { RWT::Fill(this, deviates->begin(), deviates->end()); }
+    void PseudoRandom_::FillNormal(Vector_<>* deviates) {
+        RWT::Fill([this]() { return NextUniform(); }, precise_, deviates->begin(), deviates->end());
+    }
 
     namespace {
         // Generators similar to Knuth's IRN55, with shuffling
@@ -76,14 +78,24 @@ namespace Dal {
                 irn_[irl_] %= DE_NOM;
                 return irn_[irl_];
             }
-            double NextUniform() override {
-                ++nDraws_;
+            double DrawUniform() {
                 static const double MUL = 0.5 / DE_NOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
                 int ret_val = shuffle_[sLoc];
                 shuffle_[sLoc] = irn;
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
+            }
+
+            double NextUniform() override {
+                ++nDraws_;
+                return DrawUniform();
+            }
+
+            void FillNormal(Vector_<>* deviates) override {
+                // Count once per path to avoid a bookkeeping store on every normal draw.
+                RWT::Fill([this]() { return DrawUniform(); }, precise_, deviates->begin(), deviates->end());
+                nDraws_ += deviates->size();
             }
 
             explicit ShuffledIRN_(int seed, size_t nDim = 1, bool precise = false)

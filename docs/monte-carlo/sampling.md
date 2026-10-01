@@ -22,10 +22,12 @@ $$
 $$
 
 `NDim()` is the number of variates produced per call (one draw of a
-multi-dimensional point). `SkipTo(n)` positions the uniform stream as if `n`
-uniform paths had been generated from the initial state. `SkipNormalTo(n)`
-positions the normal stream as if `n` normal paths had been generated. Sobol
-uses the same state reconstruction for both; pseudo-random generators account
+multi-dimensional point). `SkipTo(n)` positions the uniform stream at absolute
+path offset `n`; `SkipNormalTo(n)` positions the normal stream. For pseudo-random
+engines, each operation reproduces `n` paths generated from the seed in its
+selected mode. Sobol uses its absolute Sobol index, independent of the factory's
+starting index, and applies the same state reconstruction for both modes.
+Pseudo-random generators account
 for the antithetic uniform cache separately from fresh normal draws. Seeking
 is absolute and works on fresh or reused generators. Switching seek modes
 starts from the selected stream's initial state, rather than continuing a
