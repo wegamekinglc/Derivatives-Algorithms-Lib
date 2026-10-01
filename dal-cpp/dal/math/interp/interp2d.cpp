@@ -11,6 +11,12 @@ namespace Dal {
     Interp2_::Interp2_(const String_& name) : Storable_("Interp2", name) {}
 
     namespace Interp {
+        void ValidateLinear2Axes(const Vector_<>& x, const Vector_<>& y) {
+            REQUIRE(!x.empty() && !y.empty(), "Bilinear interpolation requires nonempty x and y axes");
+            REQUIRE(IsMonotonic(x, std::less_equal<>()), "Bilinear x axis must be non-decreasing");
+            REQUIRE(IsMonotonic(y, std::less_equal<>()), "Bilinear y axis must be non-decreasing");
+        }
+
         std::unique_ptr<Interp2_> NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f) {
             return std::make_unique<Interp2Linear_>(name, x, y, f);
         }
@@ -27,10 +33,8 @@ namespace {
 namespace Dal {
     Interp2Linear_::Interp2Linear_(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f)
         : Interp2_(name), x_(x), y_(y), f_(f) {
-        REQUIRE(!x_.empty() && !y_.empty(), "Bilinear interpolation requires nonempty x and y axes");
+        Interp::ValidateLinear2Axes(x_, y_);
         REQUIRE((x_.size() == f_.Rows()) && (y_.size() == f_.Cols()), "x_, y_ size must be equal to f_ size");
-        REQUIRE(IsMonotonic(x_, std::less_equal<>()), "x_ array should be monotonic");
-        REQUIRE(IsMonotonic(y_, std::less_equal<>()), "y_ array should be monotonic");
     }
 
     double Interp2Linear_::operator()(double x, double y) const {

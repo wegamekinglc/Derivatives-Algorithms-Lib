@@ -168,6 +168,8 @@ linear kernel as the 1D case. It is implemented by `Interp2Linear_` and construc
 $(N_x, N_y)$ (`dal-cpp/dal/math/interp/interp2d.hpp`).
 Both axes must be nonempty and non-decreasing. A singleton axis is supported;
 queries outside the grid clamp to its boundary values.
+`AAD::RiskView_` applies the same axis validation when constructed from a grid;
+its default constructor represents an empty risk view and returns zero spread.
 
 ## Selection Guidance
 
