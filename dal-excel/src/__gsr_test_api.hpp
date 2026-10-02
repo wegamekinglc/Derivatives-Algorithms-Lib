@@ -57,7 +57,7 @@ namespace Dal {
                                            Handle_<StorableGSREuropeanOption_>* option);
     DAL_EXCEL_GSR_API void GSR_EuropeanOptionPrice(const Handle_<ModelData_>& model,
                                                    const Handle_<StorableGSREuropeanOption_>& option,
-                                                   int quadratureOrder,
+                                                   const Matrix_<Cell_>& settings,
                                                    Matrix_<Cell_>* result);
     DAL_EXCEL_GSR_API void GSRCalibrationQuote_New(const String_& name,
                                                    const Handle_<StorableGSREuropeanOption_>& option,

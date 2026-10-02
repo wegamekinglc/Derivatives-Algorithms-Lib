@@ -215,6 +215,7 @@ Use `GSRCALIBRATIONQUOTE.NEW`, `CALIBRATE.GSRVOLATILITY`, and
 columns factor, knot, lower, upper. `GSRCALIBRATIONRESULT.GET.MODEL` returns a
 model usable for both option pricing and Monte Carlo. Worksheet value/result
 handles are process-local; fitted model data retains archive support.
+The optional pricing settings table accepts `quadratureOrder` and `estimateError`.
 
 ## C++ and Python examples
 

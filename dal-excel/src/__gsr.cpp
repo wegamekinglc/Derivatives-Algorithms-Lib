@@ -106,8 +106,8 @@ model is handle ModelData
 option is handle StorableGSREuropeanOption
     Bond option, caplet or swaption
 &optional
-quadratureOrder is integer default 16
-    Outer Gaussian quadrature order; refinement uses twice this order
+settings is cell[][]
+    Key/value rows: quadratureOrder (16), estimateError (true)
 &outputs
 result is cell[][]
     One row: price, numerical refinement estimate
@@ -221,6 +221,24 @@ namespace Dal {
             return settings;
         }
 
+        GSRPricingSettings_ PricingSettings(const Matrix_<Cell_>& cells) {
+            REQUIRE(cells.Empty() || cells.Cols() == 2, "InvalidGSRWorksheet: settings must have two columns");
+            GSRPricingSettings_ settings;
+            Dictionary_ values;
+            for (int row = 0; row < cells.Rows(); ++row)
+                values.Insert(Cell::ToString(cells(row, 0)), cells(row, 1));
+            for (const auto& [key, value] : values) {
+                if (key == "quadratureOrder")
+                    settings.quadratureOrder_ = Integer(Cell::ToDouble(value));
+                else if (key == "estimateError") {
+                    REQUIRE(Cell::IsBool(value), "InvalidGSRWorksheet: estimateError must be boolean");
+                    settings.estimateError_ = Cell::ToBool(value);
+                } else
+                    THROW("InvalidGSRWorksheet: unknown pricing settings key " + key);
+            }
+            return settings;
+        }
+
         template <class T_> Matrix_<Cell_> Column(const Vector_<T_>& values) {
             Matrix_<Cell_> result(static_cast<int>(values.size()), 1);
             for (size_t i = 0; i < values.size(); ++i)
@@ -274,10 +292,10 @@ namespace Dal {
 
     void GSR_EuropeanOptionPrice(const Handle_<ModelData_>& model,
                                  const Handle_<StorableGSREuropeanOption_>& option,
-                                 int quadratureOrder,
+                                 const Matrix_<Cell_>& settings,
                                  Matrix_<Cell_>* result) {
         REQUIRE(option, "InvalidGSRWorksheet: option is required");
-        const auto priced = PriceGSREuropeanOption(model, option->option_, {quadratureOrder, true});
+        const auto priced = PriceGSREuropeanOption(model, option->option_, PricingSettings(settings));
         *result = Matrix_<Cell_>(1, 2);
         (*result)(0, 0) = Cell_(priced.price_);
         (*result)(0, 1) = Cell_(priced.numericalError_);
