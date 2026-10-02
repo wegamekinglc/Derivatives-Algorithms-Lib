@@ -420,6 +420,9 @@ namespace Dal::AAD {
                    false) {}
 
         [[nodiscard]] T_ InitialLogDiscount(double time) const { return LogDF(time); }
+        [[nodiscard]] T_ InitialLogProjection(double time, const String_& tenor) const { return LogDF(time, Projection(tenor)); }
+        [[nodiscard]] Matrix_<T_> GaussianVariance(double time) const { return StateVariance(0.0, time); }
+        [[nodiscard]] Vector_<T_> GaussianBondLoading(double expiry, double maturity) const { return BondLoading(expiry, maturity); }
         void ResetAnchorsForRecording() {
             if constexpr (!std::is_same_v<T_, double>) {
                 discountLogDF_[0] = T_(0.0);

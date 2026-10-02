@@ -126,9 +126,95 @@ GSR accepts a valuation date matching the curve's evaluation date. Historical
 Libor fixings can be supplied through the existing fixing snapshot path;
 future observations come from simulated model paths. For multiple factors,
 choose regression observations that capture the exercise decision; a single
-swap rate need not capture every relevant factor. Volatility calibration and
-cross-currency dynamics are separate features. The existing
+swap rate need not capture every relevant factor. Cross-currency dynamics are
+separate features. The existing
 [equity-rate Hybrid](hybrid-model.md) accepts the one-factor GSR component.
+
+## European option pricing
+
+`PriceGSREuropeanOption` in [dal-public](../../dal-public/src/gsr.hpp) prices
+unit-notional bond calls/puts, caplets/floorlets and physically settled European
+swaptions. Python exposes `GSR_EuropeanOptionPrice`; Excel exposes
+`GSR.EUROPEANOPTIONPRICE`. `CALL` means bond call, caplet or payer swaption;
+`PUT` means bond put, floorlet or receiver swaption.
+
+Dates and accrual fractions are explicit. A floating coupon specifies fixing,
+accrual start/end, payment, index accrual, coupon accrual and projection tenor.
+Require `expiry <= fixing <= start < end <= payment`; a caplet's expiry is its
+fixing date. Fixed coupons specify payment and accrual. Curves must cover every
+date. Negative rates and strikes, zero volatility and singular correlations are
+supported. Already fixed coupons and cash-settlement conventions are excluded.
+
+Bond options and caplets use analytic Black expectations of positive bond ratios.
+Payment lag changes the forward under the payment measure; the pricer includes
+this adjustment, including future fixing dates in a swaption's floating leg.
+A swaption is the positive part of floating PV minus strike times fixed annuity,
+with the sign reversed for receivers. Under the expiry-forward measure this is
+a sum of exponentials of normal variables. The pricer finds all exercise intervals
+and integrates one normal direction analytically. Gaussian quadrature handles the
+remaining directions, supporting at most three effective directions for swaptions.
+Analytic bond options and caplets have no factor-count restriction.
+
+`GSRPricingSettings_` selects the quadrature order (2–64, default 16) and refinement.
+With refinement enabled, the result uses twice the requested outer order and
+reports the price difference as `numericalError_`. This is an estimate, not a
+guaranteed error bound; check stability with a larger order when accuracy matters.
+The one-direction integration also reports its negligible Gaussian-tail bound.
+
+## Gaussian volatility calibration
+
+`CalibrateGSRVolatility` fits selected entries of a `MultiFactorGSRModelData_`
+g matrix. Curves, H, correlations and other g entries remain fixed. Each quote
+contains an option, nonnegative price, positive price error scale and unique name.
+Each selected parameter contains zero-based factor/knot indices and finite bounds
+`0 <= lower < upper`; the initial value must lie inside them.
+
+The bounded damped Gauss–Newton solver minimizes
+
+`sum((modelPrice - quotePrice)/priceScale)^2 + priorWeight * sum(dx^2)`
+
+plus `smoothingWeight * sum((dx[j] - dx[j-1])^2 / knotGapYears)` for adjacent
+g buckets touched by calibration. Here `dx` is the change from the initial g,
+divided by `parameterScale` (default 0.01). Unselected neighbors have zero change.
+The prior and smoothing weights default to zero. These explicit penalties follow
+Hyer's section 7.4 approach of choosing among underdetermined solutions through
+a metric on parameter changes.
+
+Calibration uses a fixed quadrature order (default 16, allowed 2–32) and checks the
+fitted model with finer integration. Results own a new model and report three
+separate checks: optimizer convergence, prices within quote scales, and numerical
+errors within `numericalErrorFraction * priceScale` (default fraction 0.25).
+Failure returns diagnostics and a fitted candidate; it does not imply a successful
+calibration. Inspect the termination reason, bounds, residuals and all three checks.
+
+`quoteJacobian_` has quote rows and selected-parameter columns, with derivatives
+of the fixed-order calibration price with respect to g. Rank and condition diagnostics use price-scaled
+residuals and normalized parameters; the condition estimate is a pivoted QR
+diagonal ratio, with infinity for deficient rank. It is an identifiability
+diagnostic, not a calibrated quote sensitivity. These pricing/calibration APIs
+use doubles; the script Monte Carlo API still supplies model-input AAD.
+
+For example, with an existing multi-factor model:
+
+```python
+option = dal.GSRBondOption_(expiry, maturity, 0.97, "CALL")
+quote = dal.GSRCalibrationQuote_("1Y bond", option, market_price, 1e-6)
+parameter = dal.GSRCalibrationParameter_(0, 0, 0.0, 0.10)
+settings = dal.GSRCalibrationSettings_()
+settings.prior_weight = 0.01
+result = dal.Calibrate_GSRVolatility(model, [quote], [parameter], settings)
+assert result.converged and result.fit_within_tolerance
+assert result.numerical_validation_passed
+price = dal.GSR_EuropeanOptionPrice(result.model, option).price
+```
+
+Excel builds coupon/option handles with `GSRFIXEDCOUPON.NEW`,
+`GSRFLOATINGCOUPON.NEW`, `GSRBONDOPTION.NEW`, `GSRCAPLET.NEW` and `GSRSWAPTION.NEW`.
+Use `GSRCALIBRATIONQUOTE.NEW`, `CALIBRATE.GSRVOLATILITY`, and
+`GSRCALIBRATIONRESULT.GET` to fit and inspect results; parameter tables have
+columns factor, knot, lower, upper. `GSRCALIBRATIONRESULT.GET.MODEL` returns a
+model usable for both option pricing and Monte Carlo. Worksheet value/result
+handles are process-local; fitted model data retains archive support.
 
 ## C++ and Python examples
 
@@ -182,4 +268,5 @@ To measure the path kernels, enable benchmarks and build the target:
 cmake --preset=Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --build build/Release-linux --target script_mc_perf
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
+build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-european
 ```

@@ -219,6 +219,7 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/core.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/curve.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/global.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/gsr.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
