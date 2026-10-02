@@ -63,7 +63,8 @@ TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndNativeCurveQuoteRis
     pricing(0, 0) = Cell_("paths");
     pricing(0, 1) = Cell_(512.0);
     GSRSLV_EuropeanOptionPrices(initial, options, pricing, &prices);
-    ASSERT_EQ(prices.Cols(), 2);
+    ASSERT_EQ(prices.Cols(), 3);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(prices(0, 2)), 0.0);
     Handle_<StorableGSRCalibrationQuote_> quote;
     GSRCalibrationQuote_New("bond", option, Cell::ToDouble(prices(0, 0)), 0.01, &quote);
     const Vector_<Handle_<Storable_>> quotes{Handle_<Storable_>(quote)};
@@ -111,6 +112,23 @@ TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndNativeCurveQuoteRis
     ASSERT_THROW(GSRCurveQuoteRisk_Get(bridge, "unknown", &value), Exception_);
     ASSERT_THROW(GSRSLVCalibrationResult_Get(result, "unknown", &value), Exception_);
     ASSERT_THROW(GSRSLV_QuoteRisk({}, quotes, parameters, options, settings, Matrix_<Cell_>(0, 0), {}, &risk), Exception_);
+    Handle_<StorableGSRFloatingCoupon_> coupon;
+    GSRFloatingCoupon_New(today.AddDays(365), today.AddDays(365), today.AddDays(730), today.AddDays(730), 1.0, 1.0, "12M", &coupon);
+    GSRCaplet_New(today.AddDays(365), coupon, 0.03, "CALL", &option);
+    Handle_<StorableGSRMarketQuote_> marketQuote;
+    GSRMarketQuote_New("normal", option, 0.02, 0.01, "NORMAL", 0.0, &marketQuote);
+    const Vector_<Handle_<Storable_>> marketQuotes{Handle_<Storable_>(marketQuote)};
+    GSRMarketQuotes_Get_Prices(curve, marketQuotes, &value);
+    ASSERT_EQ(value.Cols(), 4);
+    ASSERT_GT(Cell::ToDouble(value(0, 2)), 0.0);
+    Calibrate_GSRSLVMarket(initial, marketQuotes, parameters, settings, {}, &result);
+    ASSERT_TRUE(result->value_.converged_);
+    GSRSLV_MarketQuoteRisk(initial, marketQuotes, parameters, {Handle_<Storable_>(option)}, settings, Matrix_<Cell_>(0, 0), bridge, &risk);
+    ASSERT_EQ(risk->value_.quoteUnits_[0], "NORMAL_VOL");
+    ASSERT_EQ(risk->value_.quoteUnits_[1], "DECIMAL_QUOTE");
+    ASSERT_GT(risk->value_.sensitivities_(0, 0), 0.0);
+    GSRSLVCalibrationResult_Get(result, "conditionalErrors", &value);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(value(0, 0)), 0.0);
     settings(2, 0) = Cell_("unknown");
     ASSERT_THROW(Calibrate_GSRSLV(initial, quotes, parameters, settings, {}, &result), Exception_);
 }

@@ -18,10 +18,10 @@ options is handle[]
     European option handles
 &optional
 settings is cell[][]
-    Key/value rows: paths (4096), seed (1729)
+    Key/value rows: paths (4096), seed (1729), conditionalPaths (64)
 &outputs
 result is cell[][]
-    One row per option: price, pair standard error
+    One row per option: price, pair standard error, conditional refinement difference
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -149,6 +149,85 @@ value is cell[][]
     Column vector or snapshot-node-by-quote matrix
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public GSRMarketQuote_New
+    Create a market volatility quote for a caplet or physical swaption
+&inputs
+name is string
+    Unique quote name
+option is handle StorableGSREuropeanOption
+    Caplet or swaption
+volatility is number
+    Annualized decimal volatility
+priceScale is number
+    Positive price residual scale
+&optional
+convention is string
+    NORMAL (default), BLACK or SHIFTED_BLACK
+shift is number (0.0)
+    Shift for SHIFTED_BLACK
+&outputs
+quote is handle StorableGSRMarketQuote
+    Market quote handle
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public GSRMarketQuotes_Get_Prices
+    Convert market volatility quotes on a curve snapshot
+&inputs
+snapshot is handle GSRCurveData
+    Discount and projection curve snapshot
+quotes is handle[]
+    Market quote handles
+&outputs
+result is cell[][]
+    One row per quote: forward, annuity, price, annualized-volatility vega
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public Calibrate_GSRSLVMarket
+    Calibrate SLV to market volatility quotes
+&inputs
+initial is handle ModelData
+    Initial GSRSLVModelData
+quotes is handle[]
+    Market quote handles
+parameters is cell[][]
+    Label, lower, upper, scale
+&optional
+settings is cell[][]
+    Solver and Monte Carlo settings
+heldOut is handle[]
+    Held-out market quote handles
+&outputs
+result is handle StorableGSRSLVCalibrationResult
+    Fitted model and diagnostics
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public GSRSLV_MarketQuoteRisk
+    Recalibrate market volatility and curve quote bumps
+&inputs
+initial is handle ModelData
+    Original GSRSLVModelData
+quotes is handle[]
+    Market quote handles
+parameters is cell[][]
+    Label, lower, upper, scale
+targets is handle[]
+    European target option handles
+&optional
+settings is cell[][]
+    Calibration settings
+riskSettings is cell[][]
+    relativeBump, absoluteBump, stabilityTolerance
+curveRisk is handle StorableGSRCurveQuoteRisk
+    Curve quote provenance bridge
+&outputs
+result is handle StorableGSRSLVQuoteRiskResult
+    Quote risk and stability diagnostics
+-IF-------------------------------------------------------------------------*/
+
 // clang-format on
 
 namespace Dal {
@@ -170,6 +249,8 @@ namespace Dal {
                     settings.paths_ = Integer(Cell::ToDouble(value));
                 else if (key == "seed")
                     settings.seed_ = Integer(Cell::ToDouble(value));
+                else if (key == "conditionalPaths")
+                    settings.conditionalPaths_ = Integer(Cell::ToDouble(value));
                 else
                     THROW("InvalidGSRWorksheet: unknown pricing setting " + key);
             }
@@ -180,8 +261,11 @@ namespace Dal {
             GSRSLVCalibrationSettings_ settings;
             const std::map<String_, int*> integers{{"paths", &settings.pricing_.paths_},
                                                    {"seed", &settings.pricing_.seed_},
+                                                   {"conditionalPaths", &settings.pricing_.conditionalPaths_},
                                                    {"validationPaths", &settings.validation_.paths_},
-                                                   {"validationSeed", &settings.validation_.seed_}};
+                                                   {"validationSeed", &settings.validation_.seed_},
+                                                   {"validationConditionalPaths", &settings.validation_.conditionalPaths_}};
+            const std::map<String_, bool*> booleans{{"staged", &settings.staged_}, {"useAADJacobian", &settings.useAADJacobian_}};
             for (const auto& [key, value] : SettingsDictionary(cells)) {
                 if (AssignSolver(&settings.solver_, key, value))
                     continue;
@@ -190,9 +274,9 @@ namespace Dal {
                     *integer->second = Integer(Cell::ToDouble(value));
                 else if (key == "validationSigma")
                     settings.validationSigma_ = Cell::ToDouble(value);
-                else if (key == "staged") {
-                    REQUIRE(Cell::IsBool(value), "InvalidGSRWorksheet: staged must be boolean");
-                    settings.staged_ = Cell::ToBool(value);
+                else if (booleans.count(key)) {
+                    REQUIRE(Cell::IsBool(value), "InvalidGSRWorksheet: " + key + " must be boolean");
+                    *booleans.at(key) = Cell::ToBool(value);
                 } else
                     THROW("InvalidGSRWorksheet: unknown calibration setting " + key);
             }
@@ -239,10 +323,11 @@ namespace Dal {
                                      const Matrix_<Cell_>& settings,
                                      Matrix_<Cell_>* result) {
         const auto prices = PriceGSRSLVEuropeanOptions(model, Options(options), Pricing(settings));
-        *result = Matrix_<Cell_>(prices.size(), 2);
+        *result = Matrix_<Cell_>(prices.size(), 3);
         for (size_t i = 0; i < prices.size(); ++i) {
             (*result)(i, 0) = Cell_(prices[i].price_);
             (*result)(i, 1) = Cell_(prices[i].standardError_);
+            (*result)(i, 2) = Cell_(prices[i].conditionalError_);
         }
     }
 
@@ -260,12 +345,19 @@ namespace Dal {
     void GSRSLVCalibrationResult_Get(const Handle_<StorableGSRSLVCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
         REQUIRE(result, "InvalidGSRWorksheet: calibration result required");
         const auto& r = result->value_;
-        const std::map<String_, const Vector_<>*> vectors{
-            {"modelPrices", &r.modelPrices_},           {"residuals", &r.residuals_},
-            {"standardErrors", &r.standardErrors_},     {"parameters", &r.parameters_},
-            {"validationPrices", &r.validationPrices_}, {"validationStandardErrors", &r.validationStandardErrors_},
-            {"numericalErrors", &r.numericalErrors_},   {"heldOutPrices", &r.heldOutPrices_},
-            {"heldOutResiduals", &r.heldOutResiduals_}, {"heldOutStandardErrors", &r.heldOutStandardErrors_}};
+        const std::map<String_, const Vector_<>*> vectors{{"modelPrices", &r.modelPrices_},
+                                                          {"residuals", &r.residuals_},
+                                                          {"standardErrors", &r.standardErrors_},
+                                                          {"parameters", &r.parameters_},
+                                                          {"validationPrices", &r.validationPrices_},
+                                                          {"validationStandardErrors", &r.validationStandardErrors_},
+                                                          {"numericalErrors", &r.numericalErrors_},
+                                                          {"heldOutPrices", &r.heldOutPrices_},
+                                                          {"heldOutResiduals", &r.heldOutResiduals_},
+                                                          {"heldOutStandardErrors", &r.heldOutStandardErrors_},
+                                                          {"conditionalErrors", &r.conditionalErrors_},
+                                                          {"validationConditionalErrors", &r.validationConditionalErrors_},
+                                                          {"heldOutConditionalErrors", &r.heldOutConditionalErrors_}};
         const auto vector = vectors.find(attribute);
         if (vector != vectors.end()) {
             *value = Column(*vector->second);
@@ -366,7 +458,59 @@ namespace Dal {
             THROW("InvalidGSRWorksheet: unknown curve risk attribute " + attribute);
     }
 
+    void GSRMarketQuote_New(const String_& name,
+                            const Handle_<StorableGSREuropeanOption_>& option,
+                            double volatility,
+                            double priceScale,
+                            const String_& convention,
+                            double shift,
+                            Handle_<StorableGSRMarketQuote_>* quote) {
+        REQUIRE(option, "InvalidGSRWorksheet: European option required");
+        *quote = Handle_<StorableGSRMarketQuote_>(new StorableGSRMarketQuote_(
+            "GSRMarketQuote", {name, option->option_, volatility, priceScale, convention.empty() ? String_("NORMAL") : convention, shift}));
+    }
+
+    void GSRMarketQuotes_Get_Prices(const Handle_<GSRCurveData_>& snapshot, const Vector_<Handle_<Storable_>>& quotes, Matrix_<Cell_>* result) {
+        const auto values = ConvertGSRMarketQuotes(Handle_<Storable_>(snapshot), Values<GSRMarketQuote_>(quotes));
+        *result = Matrix_<Cell_>(values.size(), 4);
+        for (size_t i = 0; i < values.size(); ++i) {
+            (*result)(i, 0) = Cell_(values[i].forward_);
+            (*result)(i, 1) = Cell_(values[i].annuity_);
+            (*result)(i, 2) = Cell_(values[i].price_);
+            (*result)(i, 3) = Cell_(values[i].vega_);
+        }
+    }
+
+    void Calibrate_GSRSLVMarket(const Handle_<ModelData_>& initial,
+                                const Vector_<Handle_<Storable_>>& quotes,
+                                const Matrix_<Cell_>& parameters,
+                                const Matrix_<Cell_>& settings,
+                                const Vector_<Handle_<Storable_>>& heldOut,
+                                Handle_<StorableGSRSLVCalibrationResult_>* result) {
+        *result = Handle_<StorableGSRSLVCalibrationResult_>(new StorableGSRSLVCalibrationResult_(
+            "GSRSLVCalibrationResult", CalibrateGSRSLVMarket(initial, Values<GSRMarketQuote_>(quotes), Parameters(parameters), Settings(settings),
+                                                             Values<GSRMarketQuote_>(heldOut))));
+    }
+
+    void GSRSLV_MarketQuoteRisk(const Handle_<ModelData_>& initial,
+                                const Vector_<Handle_<Storable_>>& quotes,
+                                const Matrix_<Cell_>& parameters,
+                                const Vector_<Handle_<Storable_>>& targets,
+                                const Matrix_<Cell_>& settings,
+                                const Matrix_<Cell_>& riskSettings,
+                                const Handle_<StorableGSRCurveQuoteRisk_>& curveRisk,
+                                Handle_<StorableGSRSLVQuoteRiskResult_>* result) {
+        *result = Handle_<StorableGSRSLVQuoteRiskResult_>(new StorableGSRSLVQuoteRiskResult_(
+            "GSRSLVQuoteRiskResult",
+            GSRSLVMarketQuoteRisk(initial, Values<GSRMarketQuote_>(quotes), Parameters(parameters), Options(targets), Settings(settings),
+                                  RiskSettings(riskSettings), curveRisk ? &curveRisk->value_ : nullptr)));
+    }
+
 #ifdef _WIN32
+#include <dal-excel/auto/MG_GSRMarketQuote_New_public.inc>
+#include <dal-excel/auto/MG_GSRMarketQuotes_Get_Prices_public.inc>
+#include <dal-excel/auto/MG_Calibrate_GSRSLVMarket_public.inc>
+#include <dal-excel/auto/MG_GSRSLV_MarketQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_Calibrate_GSRSLV_public.inc>
 #include <dal-excel/auto/MG_GSRCurveQuoteRisk_Get_public.inc>
 #include <dal-excel/auto/MG_GSRCurveQuoteRisk_New_public.inc>

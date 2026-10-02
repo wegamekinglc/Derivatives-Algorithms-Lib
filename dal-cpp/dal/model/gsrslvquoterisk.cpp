@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include <dal/model/gsrslvcalibrationinternal.hpp>
+#include <dal/model/gsrmarketcalibrationinternal.hpp>
 
 namespace Dal {
     namespace {
@@ -63,7 +64,13 @@ namespace Dal {
         RiskCoordinate_ Coordinate(size_t col,
                                    const Vector_<GSRCalibrationQuote_>& quotes,
                                    const GSRCurveQuoteRisk_* curveRisk,
-                                   const GSRSLVQuoteRiskSettings_& settings) {
+                                   const GSRSLVQuoteRiskSettings_& settings,
+                                   const Vector_<GSRMarketQuote_>* marketQuotes) {
+            if (marketQuotes && col < quotes.size()) {
+                const auto& quote = (*marketQuotes)[col];
+                return {quote.name_, quote.convention_ == "NORMAL" ? "NORMAL_VOL" : "LOGNORMAL_VOL",
+                        std::max(settings.absoluteBump_, settings.relativeBump_ * quote.volatility_)};
+            }
             if (col < quotes.size())
                 return {quotes[col].name_, "PRICE_PER_NOTIONAL", std::max(settings.absoluteBump_, settings.relativeBump_ * quotes[col].priceScale_)};
             const size_t curveQuote = col - quotes.size();
@@ -88,19 +95,33 @@ namespace Dal {
             const Vector_<GSREuropeanOption_>& targets_;
             const GSRSLVCalibrationSettings_& settings_;
             const GSRCurveQuoteRisk_* curveRisk_;
+            const Vector_<GSRMarketQuote_>* marketQuotes_;
 
             BumpedInputs_ Inputs(size_t col, double bump) const {
                 BumpedInputs_ inputs{quotes_, quotes_, {}, {}, 2.0 * bump};
                 if (col < quotes_.size()) {
-                    inputs.up_[col].price_ += bump;
-                    inputs.down_[col].price_ = std::max(0.0, inputs.down_[col].price_ - bump);
-                    REQUIRE(std::isfinite(inputs.up_[col].price_) && inputs.up_[col].price_ > inputs.down_[col].price_,
-                            "InvalidGSRSLVQuoteRisk: quote bump is unresolved or overflows");
-                    inputs.denominator_ = inputs.up_[col].price_ - inputs.down_[col].price_;
+                    const double base = marketQuotes_ ? (*marketQuotes_)[col].volatility_ : quotes_[col].price_;
+                    const double high = base + bump, low = std::max(0.0, base - bump);
+                    REQUIRE(std::isfinite(high) && high > low, "InvalidGSRSLVQuoteRisk: quote bump is unresolved or overflows");
+                    inputs.denominator_ = high - low;
+                    if (marketQuotes_) {
+                        auto up = *marketQuotes_, down = *marketQuotes_;
+                        up[col].volatility_ = high;
+                        down[col].volatility_ = low;
+                        inputs.up_ = GSRSLVCalibrationInternal::PriceQuotes(*initial_.gaussian_->curve_, up);
+                        inputs.down_ = GSRSLVCalibrationInternal::PriceQuotes(*initial_.gaussian_->curve_, down);
+                    } else {
+                        inputs.up_[col].price_ = high;
+                        inputs.down_[col].price_ = low;
+                    }
                 } else {
                     const size_t quote = col - quotes_.size();
                     inputs.highInitial_ = WithCurve(initial_, curveRisk_->Shifted(quote, bump));
                     inputs.lowInitial_ = WithCurve(initial_, curveRisk_->Shifted(quote, -bump));
+                    if (marketQuotes_) {
+                        inputs.up_ = GSRSLVCalibrationInternal::PriceQuotes(*inputs.highInitial_->gaussian_->curve_, *marketQuotes_);
+                        inputs.down_ = GSRSLVCalibrationInternal::PriceQuotes(*inputs.lowInitial_->gaussian_->curve_, *marketQuotes_);
+                    }
                 }
                 REQUIRE(std::isfinite(inputs.denominator_) && inputs.denominator_ > 0.0,
                         "InvalidGSRSLVQuoteRisk: bump denominator is unresolved or nonfinite");
@@ -119,8 +140,10 @@ namespace Dal {
                          const Vector_<GSRSLVCalibrationParameter_>& parameters,
                          const Vector_<GSREuropeanOption_>& targets,
                          const GSRSLVCalibrationSettings_& settings,
-                         const GSRCurveQuoteRisk_* curveRisk)
-                : initial_(initial), quotes_(quotes), parameters_(parameters), targets_(targets), settings_(settings), curveRisk_(curveRisk) {}
+                         const GSRCurveQuoteRisk_* curveRisk,
+                         const Vector_<GSRMarketQuote_>* marketQuotes)
+                : initial_(initial), quotes_(quotes), parameters_(parameters), targets_(targets), settings_(settings), curveRisk_(curveRisk),
+                  marketQuotes_(marketQuotes) {}
 
             BumpedRisk_ Bump(size_t col, double step, const Vector_<bool>& baseBounds) const {
                 const auto inputs = Inputs(col, step);
@@ -149,6 +172,30 @@ namespace Dal {
             result->activeSetStable_.push_back(activeStable);
             result->stable_.push_back(stable && activeStable);
         }
+        GSRSLVQuoteRiskResult_ CalculateRisk(const GSRSLVModelData_& initial,
+                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                             const Vector_<GSREuropeanOption_>& targets,
+                                             const GSRSLVCalibrationSettings_& calibrationSettings,
+                                             const GSRSLVQuoteRiskSettings_& riskSettings,
+                                             const GSRCurveQuoteRisk_* curveRisk,
+                                             const Vector_<GSRMarketQuote_>* marketQuotes) {
+            for (double value : {riskSettings.relativeBump_, riskSettings.absoluteBump_, riskSettings.stabilityTolerance_})
+                REQUIRE(std::isfinite(value) && value > 0.0, "InvalidGSRSLVQuoteRisk: bumps and stability tolerance must be finite and positive");
+            auto result = BaseRisk(initial, quotes, parameters, targets, calibrationSettings, curveRisk);
+            const RiskProblem_ problem(initial, quotes, parameters, targets, calibrationSettings, curveRisk, marketQuotes);
+            for (int col = 0; col < result.sensitivities_.Cols(); ++col) {
+                const auto coordinate = Coordinate(col, quotes, curveRisk, riskSettings, marketQuotes);
+                REQUIRE(std::find(result.quoteNames_.begin(), result.quoteNames_.end(), coordinate.name_) == result.quoteNames_.end(),
+                        "InvalidGSRSLVQuoteRisk: duplicate quote coordinate name");
+                result.quoteNames_.push_back(coordinate.name_);
+                result.quoteUnits_.push_back(coordinate.unit_);
+                const auto coarse = problem.Bump(col, coordinate.step_, result.calibration_.activeBounds_);
+                const auto fine = problem.Bump(col, coordinate.step_ / 2.0, result.calibration_.activeBounds_);
+                StoreColumn(col, coarse, fine, riskSettings.stabilityTolerance_, &result);
+            }
+            return result;
+        }
     } // namespace
 
     GSRSLVQuoteRiskResult_ GSRSLVQuoteRisk(const GSRSLVModelData_& initial,
@@ -158,20 +205,17 @@ namespace Dal {
                                            const GSRSLVCalibrationSettings_& calibrationSettings,
                                            const GSRSLVQuoteRiskSettings_& riskSettings,
                                            const GSRCurveQuoteRisk_* curveRisk) {
-        for (double value : {riskSettings.relativeBump_, riskSettings.absoluteBump_, riskSettings.stabilityTolerance_})
-            REQUIRE(std::isfinite(value) && value > 0.0, "InvalidGSRSLVQuoteRisk: bumps and stability tolerance must be finite and positive");
-        auto result = BaseRisk(initial, quotes, parameters, targets, calibrationSettings, curveRisk);
-        const RiskProblem_ problem(initial, quotes, parameters, targets, calibrationSettings, curveRisk);
-        for (int col = 0; col < result.sensitivities_.Cols(); ++col) {
-            const auto coordinate = Coordinate(col, quotes, curveRisk, riskSettings);
-            REQUIRE(std::find(result.quoteNames_.begin(), result.quoteNames_.end(), coordinate.name_) == result.quoteNames_.end(),
-                    "InvalidGSRSLVQuoteRisk: duplicate quote coordinate name");
-            result.quoteNames_.push_back(coordinate.name_);
-            result.quoteUnits_.push_back(coordinate.unit_);
-            const auto coarse = problem.Bump(col, coordinate.step_, result.calibration_.activeBounds_);
-            const auto fine = problem.Bump(col, coordinate.step_ / 2.0, result.calibration_.activeBounds_);
-            StoreColumn(col, coarse, fine, riskSettings.stabilityTolerance_, &result);
-        }
-        return result;
+        return CalculateRisk(initial, quotes, parameters, targets, calibrationSettings, riskSettings, curveRisk, nullptr);
+    }
+
+    GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const GSRSLVModelData_& initial,
+                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const GSRSLVCalibrationSettings_& calibrationSettings,
+                                                 const GSRSLVQuoteRiskSettings_& riskSettings,
+                                                 const GSRCurveQuoteRisk_* curveRisk) {
+        const auto prices = GSRSLVCalibrationInternal::PriceQuotes(*initial.gaussian_->curve_, quotes);
+        return CalculateRisk(initial, prices, parameters, targets, calibrationSettings, riskSettings, curveRisk, &quotes);
     }
 } // namespace Dal

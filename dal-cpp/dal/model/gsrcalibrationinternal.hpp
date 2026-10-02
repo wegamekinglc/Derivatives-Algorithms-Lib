@@ -131,7 +131,7 @@ namespace Dal::GSRCalibrationInternal {
         for (int iteration = 0; iteration < settings.maxIterations_; ++iteration) {
             result->iterations_ = iteration + 1;
             const auto jacobian = problem.Jacobian(*x, residuals.size());
-            result->evaluations_ += 2 * static_cast<int>(x->size());
+            result->evaluations_ += problem.JacobianEvaluations(x->size());
             const auto gradient = Gradient(jacobian, residuals);
             if (ProjectedGradient(problem, *x, gradient) <=
                 settings.gradientTolerance_ * GradientScale(jacobian) * std::max(1.0, std::sqrt(objective))) {

@@ -291,11 +291,24 @@ SLV uses the Monte Carlo interfaces below.
 ### European pricing and calibration
 
 `GSRSLV_EuropeanOptionPrices` prices existing bond-option, caplet and physically
-settled swaption contracts on common antithetic paths. It returns price and standard
-error, estimated from independent **pairs**, per option. Caplets can have payment
-lags. Future swap coupons must fix at their accrual start and pay at their accrual
-end; coupons fixing at exercise can also have payment lags. Other future floating
-lags need conditional valuation and are rejected.
+settled swaption contracts on common antithetic paths. It returns price, standard
+error estimated from independent **pairs**, and a conditional refinement diagnostic.
+Excel returns those quantities in three columns, in that order.
+
+Future fixing/start or end/payment lags use conditional simulation from the full
+exercise state: rate factors, covariance state, latent CIR variance and bank account.
+At a future fixing, the coupon's payment bond discounts its cashflow; the bank-account
+ratio brings it back to exercise. Average these signed values **before** taking the
+option's positive part. Coupons fixing at exercise and future coupons fixing at
+start and paying at end use direct bond formulas. Fixings between evaluation and
+exercise are retained; historical fixings before evaluation require supplied data
+and are outside this interface.
+
+`conditional_paths` defaults to 64 and must be divisible by four. Independent
+inner antithetic pairs vary across outer pairs; calibration and bumps reproduce the
+same streams. `conditional_error` compares the full inner estimate with the average
+of two half-budget option values. It indicates finite-inner Jensen bias, rather than
+bounding it. Increase the inner budget and check refinement for lagged instruments.
 
 Start with the Gaussian g-bucket fit, then construct the SLV model.
 `Calibrate_GSRSLV` fits selected `kappa`, `volOfVol` and
@@ -308,8 +321,9 @@ The objective is the sum of `((modelPrice - marketPrice) / priceScale)^2`, plus 
 prior and smoothing penalties. Priors measure normalized changes from the original
 input. Smoothing compares neighboring normalized leverage changes, weighted by the
 inverse shift/time gap; unselected nodes have scale one. The anchor remains fixed
-through every pass and quote bump. This follows Hyer's regularization design in
-section 7.4 and stable calibration choices in section 14.7. The
+through every pass and quote bump. Hyer's section 7.4 motivates the metric and prior;
+section 14.7 also warns that trade-dependent calibration can weaken cross-product
+price and risk consistency. The
 [Quasi-Gaussian Monte Carlo calibrator](https://github.com/sschlenkrich/QuantLib/blob/7353bf8e84f981934163fa7fb07fae2e68b5d4d3/ql/experimental/templatemodels/qgaussian2/mccalibrator.hpp)
 is a reference for bounded coordinates and explicit calibration instruments.
 
@@ -329,13 +343,42 @@ fit = dal.Calibrate_GSRSLV(smile, quotes, parameters, fit_settings,
 ```
 
 Inspect convergence, fit tolerance, numerical validation and held-out tolerance
-separately. Validation uses a distinct seed and half `maxStep`. Its numerical
-estimate combines the fit/fine price difference and sampling uncertainty at
+separately. Validation uses a distinct seed, half `maxStep`, and at least twice the
+fit's inner budget. Its numerical estimate combines the fit/fine price difference,
+conditional refinement differences and sampling uncertainty at
 `validation_sigma` standard deviations (default three); it is not a rigorous bound
 on continuous-time bias. Tight price scales need more paths and smaller steps.
 Results also expose residuals, sampling errors, active bounds and quote-Jacobian
 rank/conditioning. Weakly identified parameters, especially kappa with few
 expiries, need fewer selected coordinates or a prior.
+
+Set `use_aad_jacobian = True` to differentiate frozen-path prices and combine them
+with exact prior and smoothing derivatives. Finite differences remain the default
+and an independent check. AAD uses local subgradients at payoff, truncation and
+interpolation boundaries; compare bumps when the fit approaches these boundaries.
+These kinks can stall high-dimensional fits at coarse path budgets. Increase paths,
+simplify selected coordinates and inspect convergence before using the fitted model.
+
+### Market volatility quotes
+
+`GSRMarketQuote_(name, option, volatility, price_scale, convention="NORMAL", shift=0)`
+accepts caplets and physical swaptions with fixed strikes. Volatilities are annualized
+decimals: 0.01 Normal means 100 rate basis points; 0.20 Black means 20%. `BLACK`
+requires positive forward and strike; `SHIFTED_BLACK` requires both to be positive
+after adding the explicit shift. A shift is allowed only with `SHIFTED_BLACK`.
+Bond options continue to use price quotes.
+
+`GSRMarketQuotes_Get_Prices(snapshot, quotes)` reports forward, discounted annuity,
+price and annualized-volatility vega. Discount/projection cashflows define the market
+forward and annuity, independently of model convexity. Quote schedules have future
+fixings at or after exercise. `Calibrate_GSRSLVMarket` accepts these quotes and optional
+held-out quotes with the same parameter/settings objects and diagnostics as the
+price-based fit. Residual scales remain explicit prices per unit notional.
+
+```python
+market_quotes = [dal.GSRMarketQuote_("caplet", caplet, 0.01, 0.0005)]
+fit = dal.Calibrate_GSRSLVMarket(smile, market_quotes, parameters, fit_settings)
+```
 
 ### Calibrated quote risk
 
@@ -354,11 +397,18 @@ For curve market-quote risk, construct `GSRCurveQuoteRisk_New` from the exact
 checks source fingerprints, snapshot values and parameter coordinates, and restores
 the curve inverse's tolerance normalization. Pass it as `curve_risk` to include
 both direct curve effects and SLV recalibration. Snapshot nodes alone provide no
-curve market-quote provenance. Strikes and schedules stay fixed; converting
-implied-volatility quotes is a separate responsibility.
+curve market-quote provenance. Strikes and schedules stay fixed.
+
+`GSRSLV_MarketQuoteRisk` instead bumps annualized volatility quotes, with units
+`NORMAL_VOL` or `LOGNORMAL_VOL`. On curve bumps, it converts the unchanged volatility
+quotes on each shifted discount/projection snapshot before recalibrating. Price
+scales and the original prior stay fixed. Zero volatility uses nonnegative one-sided
+bumps. Both risk APIs use full refits; a Gauss-Newton inverse alone omits the
+residual-curvature term of the regularized objective.
 
 In C++, the corresponding dal-public calls are `PriceGSRSLVEuropeanOptions`,
-`CalibrateGSRSLV`, `BuildGSRCurveQuoteRisk` and `GSRSLVQuoteRisk`. Excel uses existing
+`CalibrateGSRSLV`, `BuildGSRCurveQuoteRisk`, `GSRSLVQuoteRisk`, `ConvertGSRMarketQuotes`,
+`CalibrateGSRSLVMarket` and `GSRSLVMarketQuoteRisk`. Excel uses existing
 option/quote handles, four-column label/lower/upper/scale tables and key/value
 settings. `GSRSLVCALIBRATIONRESULT.GET` and `GSRSLVQUOTERISKRESULT.GET` expose
 diagnostics; their model/calibration getters return reusable handles. Result and
@@ -418,4 +468,6 @@ cmake --build build/Release-linux --target script_mc_perf
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-european
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-slv
+build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-slv-calibration
+build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-market-calibration
 ```

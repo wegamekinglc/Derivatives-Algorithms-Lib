@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-02
 
+- **GSR-SLV market calibration** — physical swaptions support conditional valuation
+  of future floating lags and retained fixings since evaluation. Normal, Black and
+  shifted-Black market quotes, volatility/curve recalibration risk and selectable
+  AAD calibration Jacobians are available through dal-public, Python and Excel.
+  Excel SLV option prices now return three columns: price, pair standard error and
+  conditional refinement difference. See [GSR](docs/models/gaussian-short-rate.md#market-volatility-quotes).
+
 - **GSR-SLV calibration and quote risk** — bounded stochastic-volatility/leverage
   fitting, independent-path and finer-grid validation, held-out diagnostics and
   recalibrated price/curve quote sensitivities are available through dal-public,

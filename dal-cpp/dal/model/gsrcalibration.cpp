@@ -127,6 +127,7 @@ namespace Dal {
                 return result;
             }
 
+            int JacobianEvaluations(size_t columns) const { return 2 * static_cast<int>(columns); }
             [[nodiscard]] Matrix_<> Jacobian(const Vector_<>& x, size_t rows) const {
                 return DifferenceJacobian(*this, x, rows, settings_.finiteDifferenceStep_);
             }
