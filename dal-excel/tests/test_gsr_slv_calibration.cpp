@@ -4,18 +4,43 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
+#include <dal-excel/src/__curvepricing_test_api.hpp>
 #include <dal-excel/src/__gsrslv_test_api.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
+#include <dal-public/src/curveinstrument.hpp>
+#include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/global.hpp>
 
 using namespace Dal;
 
-TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndQuoteRisk) {
+TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndNativeCurveQuoteRisk) {
     InitGlobalData(1);
     Excel::ScriptTestInitialize(1);
     const Date_ today(2026, 10, 2);
-    const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
+    CurveCalibrationSpecBuilder_ builder;
+    builder.today_ = today;
+    builder.ccy_ = "USD";
+    builder.curveName_ = "curve";
+    builder.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    builder.knotDates_ = {today, today.AddDays(1095)};
+    builder.tolerance_ = 1e-10;
+    const auto index = RateIndexConvention_New(PeriodLength_New("12M"), DayBasis_New("ACT_365F"), CollateralType_OIS());
+    builder.instruments_ = {DepositNew(today, today, builder.knotDates_.back(), std::expm1(0.09) / 3.0, index)};
+    const auto spec = builder.Build();
+    CurveCalibrationOptions_ curveOptions;
+    curveOptions.computeEffJacobianInverse_ = true;
+    const auto calibrated = CalibrateSingleCurve(spec, curveOptions);
+    const Handle_<StorableCurveCalibrationResult_> curveResult(new StorableCurveCalibrationResult_(calibrated, spec, curveOptions));
+    Handle_<StorableRatePricingMarket_> market;
+    const Handle_<Storable_> discount(new StorableDiscountCurve_(calibrated.curve_));
+    RatePricingMarket_New(Cell_(DateTime_(today, 9, 0)), "USD", {"discount"}, {discount}, {}, {}, {}, 0.0, "", {}, &market);
+    Handle_<StorableRateQuoteRiskProvenance_> provenance;
+    SingleCurveQuoteRiskProvenance_New(curveResult, "curve-fit", {"curve"}, {"discount"}, market, &provenance);
+    const auto curve = NewGSRCurveData("curve", today, "USD", builder.knotDates_,
+                                       {0.0, std::log((*calibrated.curve_)(today, builder.knotDates_.back()))}, {}, Matrix_<>(0, 0));
     MultiFactorGSRVolSettings_ vol;
     vol.factorNames_ = {"level"};
     vol.gKnotDates_ = vol.hKnotDates_ = {today};
@@ -61,6 +86,29 @@ TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndQuoteRisk) {
     GSRSLV_QuoteRisk(initial, quotes, parameters, options, settings, Matrix_<Cell_>(0, 0), {}, &risk);
     GSRSLVQuoteRiskResult_Get(risk, "sensitivities", &value);
     ASSERT_GT(Cell::ToDouble(value(0, 0)), 0.0);
+    Handle_<StorableGSRCurveQuoteRisk_> bridge;
+    GSRCurveQuoteRisk_New(curve, market, provenance, "discount", {}, &bridge);
+    GSRCurveQuoteRisk_Get(bridge, "quoteNames", &value);
+    ASSERT_EQ(value.Rows(), 1);
+    GSRCurveQuoteRisk_Get(bridge, "quoteUnits", &value);
+    ASSERT_EQ(Cell::ToString(value(0, 0)), "DECIMAL_QUOTE");
+    GSRCurveQuoteRisk_Get(bridge, "logDFQuoteJacobian", &value);
+    ASSERT_EQ(value.Rows(), 2);
+    ASSERT_EQ(value.Cols(), 1);
+    ASSERT_NEAR(Cell::ToDouble(value(0, 0)), 0.0, 1e-12);
+    ASSERT_NEAR(Cell::ToDouble(value(1, 0)), -3.0 * std::exp(-0.09), 1e-7);
+    GSRSLV_QuoteRisk(initial, quotes, parameters, options, settings, Matrix_<Cell_>(0, 0), bridge, &risk);
+    GSRSLVQuoteRiskResult_Get(risk, "curveRiskIncluded", &value);
+    ASSERT_TRUE(Cell::ToBool(value(0, 0)));
+    GSRSLVQuoteRiskResult_Get(risk, "quoteUnits", &value);
+    ASSERT_EQ(value.Rows(), 2);
+    ASSERT_EQ(Cell::ToString(value(1, 0)), "DECIMAL_QUOTE");
+    GSRSLVQuoteRiskResult_Get(risk, "sensitivities", &value);
+    ASSERT_EQ(value.Rows(), 1);
+    ASSERT_EQ(value.Cols(), 2);
+    ASSERT_GT(std::abs(Cell::ToDouble(value(0, 1))), 1e-4);
+    ASSERT_THROW(GSRCurveQuoteRisk_New(curve, market, {}, "discount", {}, &bridge), Exception_);
+    ASSERT_THROW(GSRCurveQuoteRisk_Get(bridge, "unknown", &value), Exception_);
     ASSERT_THROW(GSRSLVCalibrationResult_Get(result, "unknown", &value), Exception_);
     ASSERT_THROW(GSRSLV_QuoteRisk({}, quotes, parameters, options, settings, Matrix_<Cell_>(0, 0), {}, &risk), Exception_);
     settings(2, 0) = Cell_("unknown");
