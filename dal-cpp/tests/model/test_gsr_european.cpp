@@ -162,6 +162,22 @@ TEST(GSREuropeanTest, TestRejectsInvalidOptionInputs) {
     ASSERT_THROW(PriceGSREuropeanOption(model, Swaption(), {1, false}), Exception_);
 }
 
+TEST(GSREuropeanTest, TestRejectsDatesBeyondCurveCoverage) {
+    const auto model = EuropeanModel();
+    const Date_ beyond = TODAY.AddDays(1826);
+    ASSERT_THROW(PriceGSREuropeanOption(model, GSRBondOption_({beyond, beyond.AddDays(365), 0.97, OptionType_("CALL")})), Exception_);
+    ASSERT_THROW(PriceGSREuropeanOption(model, GSRBondOption_({TODAY.AddDays(365), beyond, 0.97, OptionType_("CALL")})), Exception_);
+    auto swaption = Swaption();
+    swaption.fixed_.back().payment_ = beyond;
+    ASSERT_THROW(PriceGSREuropeanOption(model, swaption), Exception_);
+    const GSRCaplet_ caplet{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), beyond, 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
+    ASSERT_THROW(PriceGSREuropeanOption(model, caplet), Exception_);
+    swaption = Swaption();
+    swaption.floating_.back().fixing_ = swaption.floating_.back().start_ = beyond;
+    swaption.floating_.back().end_ = swaption.floating_.back().payment_ = beyond.AddDays(365);
+    ASSERT_THROW(PriceGSREuropeanOption(model, swaption), Exception_);
+}
+
 TEST(GSREuropeanTest, TestSignedLoadingsRetainBothExerciseBoundaries) {
     const Handle_<GSRCurveData_> curve(new GSRCurveData_("zero", TODAY, "USD", {TODAY, TODAY.AddDays(1095)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
     Matrix_<> h(1, 2);

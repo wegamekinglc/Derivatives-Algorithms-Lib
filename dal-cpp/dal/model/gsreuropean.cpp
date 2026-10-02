@@ -148,12 +148,13 @@ namespace Dal {
 
         class Pricer_ {
             AAD::GSR_<double> model_;
-            Date_ today_;
+            Date_ today_, lastDate_;
             double expiry_, discount_;
             Matrix_<> variance_, lower_;
 
             [[nodiscard]] double Time(const Date_& date) const {
-                REQUIRE(date.IsValid() && date >= today_, "InvalidGSROption: dates must be valid and on or after the evaluation date");
+                REQUIRE(date.IsValid() && date >= today_ && date <= lastDate_,
+                        "InvalidGSROption: dates must lie within the curve evaluation date and final node");
                 return (date - today_) / DAYS_PER_YEAR;
             }
 
@@ -242,7 +243,8 @@ namespace Dal {
 
         public:
             template <class D_>
-            Pricer_(const D_& data, const Date_& expiry) : model_(data), today_(data.curve_->evaluationDate_), expiry_(Time(expiry)) {
+            Pricer_(const D_& data, const Date_& expiry)
+                : model_(data), today_(data.curve_->evaluationDate_), lastDate_(data.curve_->nodeDates_.back()), expiry_(Time(expiry)) {
                 variance_ = model_.GaussianVariance(expiry_);
                 lower_ = AAD::CovarianceFactor(variance_);
                 discount_ = std::exp(model_.InitialLogDiscount(expiry_));
