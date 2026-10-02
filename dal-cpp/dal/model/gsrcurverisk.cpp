@@ -85,6 +85,120 @@ namespace Dal {
                 result.push_back(build(curve));
             return result;
         }
+        void ValidateProvenance(const GSRCurveData_& snapshot,
+                                const RatePricingMarket_& market,
+                                const RateQuoteRiskProvenance_& provenance,
+                                size_t projectionCount) {
+            REQUIRE(provenance.Available(), "InvalidGSRCurveRisk: curve quote provenance unavailable: " + provenance.Reason());
+            REQUIRE(market.valuationTime_.Date() == snapshot.evaluationDate_ && market.resultCurrency_.String() == snapshot.currency_,
+                    "InvalidGSRCurveRisk: market date or currency mismatch");
+            REQUIRE(projectionCount == snapshot.projectionTenors_.size(), "InvalidGSRCurveRisk: projection component count mismatch");
+            for (const auto& state : provenance.State().components_)
+                REQUIRE(CurrentRateQuoteRiskComponentState(state.componentKey_, market, provenance.State().scheme_).fingerprint_ ==
+                            state.fingerprint_,
+                        "InvalidGSRCurveRisk: stale curve quote provenance");
+            const auto& axis = provenance.Axis();
+            const auto& inverse = provenance.EffectiveInverse();
+            REQUIRE(std::isfinite(provenance.Tolerance()) && provenance.Tolerance() > 0.0, "InvalidGSRCurveRisk: curve residual tolerance invalid");
+            REQUIRE(inverse.Rows() == static_cast<int>(axis.parameters_.size()) && inverse.Cols() == static_cast<int>(axis.quotes_.size()) &&
+                        inverse.Cols() > 0,
+                    "InvalidGSRCurveRisk: quote inverse dimensions mismatch");
+        }
+
+        void ValidateCoordinate(const RateQuoteRiskParameterCoordinate_& coordinate,
+                                size_t row,
+                                const Vector_<CurveFreeParameter_>& descriptors,
+                                const Vector_<bool>& seen) {
+            const int local = coordinate.blockOrdinal_;
+            REQUIRE(coordinate.globalOrdinal_ == static_cast<int>(row) && local >= 0 && local < static_cast<int>(descriptors.size()) &&
+                        !seen[local] && coordinate.date_ == descriptors[local].date_ && coordinate.component_ == descriptors[local].component_,
+                    "InvalidGSRCurveRisk: curve parameter axis mismatch");
+        }
+
+        Matrix_<> QuoteDirections(const CurveParameterState_& state, const RateQuoteRiskProvenance_& provenance, const String_& block) {
+            const auto& axis = provenance.Axis();
+            const auto& inverse = provenance.EffectiveInverse();
+            const auto descriptors = DescribeCurveFreeParameters(state.definition_);
+            Matrix_<> directions(descriptors.size(), inverse.Cols(), 0.0);
+            Vector_<bool> seen(descriptors.size(), false);
+            for (size_t row = 0; row < axis.parameters_.size(); ++row) {
+                const auto& coordinate = axis.parameters_[row];
+                if (coordinate.blockKey_ != block)
+                    continue;
+                ValidateCoordinate(coordinate, row, descriptors, seen);
+                const int local = coordinate.blockOrdinal_;
+                seen[local] = true;
+                for (int col = 0; col < inverse.Cols(); ++col) {
+                    REQUIRE(std::isfinite(inverse(row, col)), "InvalidGSRCurveRisk: nonfinite quote inverse");
+                    directions(local, col) = inverse(row, col) / provenance.Tolerance();
+                    REQUIRE(std::isfinite(directions(local, col)), "InvalidGSRCurveRisk: quote direction overflow");
+                }
+            }
+            REQUIRE(std::all_of(seen.begin(), seen.end(), [](bool value) { return value; }), "InvalidGSRCurveRisk: incomplete parameter axis");
+            return directions;
+        }
+
+        std::map<const DiscountCurve_*, Component_>
+        BoundComponents(const GSRCurveData_& snapshot, const RatePricingMarket_& market, const RateQuoteRiskProvenance_& provenance) {
+            std::map<const DiscountCurve_*, Component_> components;
+            for (const auto& [block, key] : provenance.ComponentKeyByParameterBlock()) {
+                const auto found = market.curveComponents_.find(key);
+                REQUIRE(found != market.curveComponents_.end() && found->second, "InvalidGSRCurveRisk: bound curve component missing");
+                Component_ component{found->second, InspectCurveParameters(*found->second, snapshot.evaluationDate_), {}};
+                component.quoteDirections_ = QuoteDirections(component.parameters_, provenance, block);
+                REQUIRE(components.emplace(found->second.get(), std::move(component)).second, "InvalidGSRCurveRisk: duplicate curve bindings");
+            }
+            return components;
+        }
+
+        Vector_<Handle_<DiscountCurve_>> SnapshotCurves(const RatePricingMarket_& market,
+                                                        const std::map<const DiscountCurve_*, Component_>& components,
+                                                        const String_& discountComponent,
+                                                        const Vector_<String_>& projectionComponents) {
+            Vector_<Handle_<DiscountCurve_>> roles;
+            Vector_<String_> keys{discountComponent};
+            keys.Append(projectionComponents);
+            for (const auto& key : keys) {
+                const auto found = market.curveComponents_.find(key);
+                REQUIRE(found != market.curveComponents_.end() && found->second && components.count(found->second.get()),
+                        "InvalidGSRCurveRisk: snapshot component missing from quote provenance");
+                roles.push_back(found->second);
+            }
+            return roles;
+        }
+
+        void ValidateSnapshotValues(const GSRCurveData_& snapshot, const Vector_<Handle_<DiscountCurve_>>& roles) {
+            const auto original = Flatten(snapshot), sampled = Sample(snapshot, roles);
+            for (size_t i = 0; i < original.size(); ++i)
+                REQUIRE(std::abs(original[i] - sampled[i]) <= 1e-11, "InvalidGSRCurveRisk: snapshot does not match bound market");
+        }
+
+        Matrix_<> SnapshotJacobian(const GSRCurveData_& snapshot,
+                                   const Vector_<Handle_<DiscountCurve_>>& roles,
+                                   const std::map<const DiscountCurve_*, Component_>& components,
+                                   const RateQuoteRiskProvenance_& provenance,
+                                   Vector_<String_>* names,
+                                   Vector_<String_>* units) {
+            const auto& axis = provenance.Axis();
+            const auto& inverse = provenance.EffectiveInverse();
+            const auto nodes = Flatten(snapshot).size();
+            Matrix_<> jacobian(nodes, axis.quotes_.size(), 0.0);
+            for (int col = 0; col < inverse.Cols(); ++col) {
+                const auto& quote = axis.quotes_[col];
+                REQUIRE(quote.globalOrdinal_ == col, "InvalidGSRCurveRisk: quote axis ordering mismatch");
+                names->push_back("curve:" + provenance.CalibrationId() + ":" + quote.blockKey_ + ":" + String::FromInt(quote.blockOrdinal_) + ":" +
+                                 quote.displayName_);
+                units->push_back(quote.unit_);
+                const double step = 1e-6;
+                const auto up = Sample(snapshot, Rebuild(roles, components, col, step));
+                const auto down = Sample(snapshot, Rebuild(roles, components, col, -step));
+                for (size_t row = 0; row < nodes; ++row) {
+                    jacobian(row, col) = (up[row] - down[row]) / (2.0 * step);
+                    REQUIRE(std::isfinite(jacobian(row, col)), "InvalidGSRCurveRisk: nonfinite snapshot Jacobian");
+                }
+            }
+            return jacobian;
+        }
     } // namespace
 
     GSRCurveQuoteRisk_ BuildGSRCurveQuoteRisk(const GSRCurveData_& snapshot,
@@ -92,74 +206,13 @@ namespace Dal {
                                               const RateQuoteRiskProvenance_& provenance,
                                               const String_& discountComponent,
                                               const Vector_<String_>& projectionComponents) {
-        REQUIRE(provenance.Available(), "InvalidGSRCurveRisk: curve quote provenance unavailable: " + provenance.Reason());
-        REQUIRE(market.valuationTime_.Date() == snapshot.evaluationDate_ && market.resultCurrency_.String() == snapshot.currency_,
-                "InvalidGSRCurveRisk: market date or currency mismatch");
-        REQUIRE(projectionComponents.size() == snapshot.projectionTenors_.size(), "InvalidGSRCurveRisk: projection component count mismatch");
-        for (const auto& state : provenance.State().components_)
-            REQUIRE(CurrentRateQuoteRiskComponentState(state.componentKey_, market, provenance.State().scheme_).fingerprint_ == state.fingerprint_,
-                    "InvalidGSRCurveRisk: stale curve quote provenance");
-        const auto& axis = provenance.Axis();
-        const auto& inverse = provenance.EffectiveInverse();
-        REQUIRE(std::isfinite(provenance.Tolerance()) && provenance.Tolerance() > 0.0, "InvalidGSRCurveRisk: curve residual tolerance invalid");
-        REQUIRE(inverse.Rows() == static_cast<int>(axis.parameters_.size()) && inverse.Cols() == static_cast<int>(axis.quotes_.size()) &&
-                    inverse.Cols() > 0,
-                "InvalidGSRCurveRisk: quote inverse dimensions mismatch");
-        std::map<const DiscountCurve_*, Component_> components;
-        for (const auto& [block, key] : provenance.ComponentKeyByParameterBlock()) {
-            const auto found = market.curveComponents_.find(key);
-            REQUIRE(found != market.curveComponents_.end() && found->second, "InvalidGSRCurveRisk: bound curve component missing");
-            Component_ component{found->second, InspectCurveParameters(*found->second, snapshot.evaluationDate_), {}};
-            const auto descriptors = DescribeCurveFreeParameters(component.parameters_.definition_);
-            component.quoteDirections_ = Matrix_<>(descriptors.size(), inverse.Cols(), 0.0);
-            Vector_<bool> seen(descriptors.size(), false);
-            for (size_t row = 0; row < axis.parameters_.size(); ++row) {
-                const auto& coordinate = axis.parameters_[row];
-                if (coordinate.blockKey_ != block)
-                    continue;
-                const int local = coordinate.blockOrdinal_;
-                REQUIRE(coordinate.globalOrdinal_ == static_cast<int>(row) && local >= 0 && local < static_cast<int>(descriptors.size()) &&
-                            !seen[local] && coordinate.date_ == descriptors[local].date_ && coordinate.component_ == descriptors[local].component_,
-                        "InvalidGSRCurveRisk: curve parameter axis mismatch");
-                seen[local] = true;
-                for (int col = 0; col < inverse.Cols(); ++col) {
-                    REQUIRE(std::isfinite(inverse(row, col)), "InvalidGSRCurveRisk: nonfinite quote inverse");
-                    component.quoteDirections_(local, col) = inverse(row, col) / provenance.Tolerance();
-                    REQUIRE(std::isfinite(component.quoteDirections_(local, col)), "InvalidGSRCurveRisk: quote direction overflow");
-                }
-            }
-            REQUIRE(std::all_of(seen.begin(), seen.end(), [](bool value) { return value; }), "InvalidGSRCurveRisk: incomplete parameter axis");
-            REQUIRE(components.emplace(found->second.get(), std::move(component)).second, "InvalidGSRCurveRisk: duplicate curve bindings");
-        }
-        Vector_<Handle_<DiscountCurve_>> roles;
-        Vector_<String_> keys{discountComponent};
-        keys.Append(projectionComponents);
-        for (const auto& key : keys) {
-            const auto found = market.curveComponents_.find(key);
-            REQUIRE(found != market.curveComponents_.end() && found->second && components.count(found->second.get()),
-                    "InvalidGSRCurveRisk: snapshot component missing from quote provenance");
-            roles.push_back(found->second);
-        }
-        const auto original = Flatten(snapshot), sampled = Sample(snapshot, roles);
-        for (size_t i = 0; i < original.size(); ++i)
-            REQUIRE(std::abs(original[i] - sampled[i]) <= 1e-11, "InvalidGSRCurveRisk: snapshot does not match bound market");
-        Matrix_<> jacobian(original.size(), axis.quotes_.size(), 0.0);
+        ValidateProvenance(snapshot, market, provenance, projectionComponents.size());
+        const auto components = BoundComponents(snapshot, market, provenance);
+        const auto roles = SnapshotCurves(market, components, discountComponent, projectionComponents);
+        ValidateSnapshotValues(snapshot, roles);
         Vector_<String_> names, units;
-        for (int col = 0; col < inverse.Cols(); ++col) {
-            const auto& quote = axis.quotes_[col];
-            REQUIRE(quote.globalOrdinal_ == col, "InvalidGSRCurveRisk: quote axis ordering mismatch");
-            names.push_back("curve:" + provenance.CalibrationId() + ":" + quote.blockKey_ + ":" + String::FromInt(quote.blockOrdinal_) + ":" +
-                            quote.displayName_);
-            units.push_back(quote.unit_);
-            const double step = 1e-6;
-            const auto up = Sample(snapshot, Rebuild(roles, components, col, step));
-            const auto down = Sample(snapshot, Rebuild(roles, components, col, -step));
-            for (size_t row = 0; row < original.size(); ++row) {
-                jacobian(row, col) = (up[row] - down[row]) / (2.0 * step);
-                REQUIRE(std::isfinite(jacobian(row, col)), "InvalidGSRCurveRisk: nonfinite snapshot Jacobian");
-            }
-        }
-        return GSRCurveQuoteRisk_(Snapshot(snapshot, original), names, units, jacobian);
+        const auto jacobian = SnapshotJacobian(snapshot, roles, components, provenance, &names, &units);
+        return GSRCurveQuoteRisk_(Snapshot(snapshot, Flatten(snapshot)), names, units, jacobian);
     }
 
     Handle_<GSRCurveData_> GSRCurveQuoteRisk_::Shifted(size_t quote, double bump) const {

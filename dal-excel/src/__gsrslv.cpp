@@ -178,17 +178,16 @@ namespace Dal {
 
         GSRSLVCalibrationSettings_ Settings(const Matrix_<Cell_>& cells) {
             GSRSLVCalibrationSettings_ settings;
+            const std::map<String_, int*> integers{{"paths", &settings.pricing_.paths_},
+                                                   {"seed", &settings.pricing_.seed_},
+                                                   {"validationPaths", &settings.validation_.paths_},
+                                                   {"validationSeed", &settings.validation_.seed_}};
             for (const auto& [key, value] : SettingsDictionary(cells)) {
                 if (AssignSolver(&settings.solver_, key, value))
                     continue;
-                if (key == "paths")
-                    settings.pricing_.paths_ = Integer(Cell::ToDouble(value));
-                else if (key == "seed")
-                    settings.pricing_.seed_ = Integer(Cell::ToDouble(value));
-                else if (key == "validationPaths")
-                    settings.validation_.paths_ = Integer(Cell::ToDouble(value));
-                else if (key == "validationSeed")
-                    settings.validation_.seed_ = Integer(Cell::ToDouble(value));
+                const auto integer = integers.find(key);
+                if (integer != integers.end())
+                    *integer->second = Integer(Cell::ToDouble(value));
                 else if (key == "validationSigma")
                     settings.validationSigma_ = Cell::ToDouble(value);
                 else if (key == "staged") {
@@ -316,10 +315,10 @@ namespace Dal {
     void GSRSLVQuoteRiskResult_Get(const Handle_<StorableGSRSLVQuoteRiskResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
         REQUIRE(result, "InvalidGSRWorksheet: quote risk result required");
         const auto& r = result->value_;
-        if (attribute == "sensitivities")
-            *value = Cells(r.sensitivities_);
-        else if (attribute == "refinementErrors")
-            *value = Cells(r.refinementErrors_);
+        const std::map<String_, const Matrix_<>*> matrices{{"sensitivities", &r.sensitivities_}, {"refinementErrors", &r.refinementErrors_}};
+        const auto matrix = matrices.find(attribute);
+        if (matrix != matrices.end())
+            *value = Cells(*matrix->second);
         else if (attribute == "prices")
             *value = Column(r.prices_);
         else if (attribute == "quoteNames")

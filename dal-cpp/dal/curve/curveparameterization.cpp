@@ -91,6 +91,42 @@ namespace Dal {
                     "Curve parameter layout count must match its descriptors");
             return result;
         }
+
+        template <class T_> CurveParameterState_ DescribeParameters(const T_* taggedCurve, const Date_& valuationDate) {
+            using curve_t = std::decay_t<decltype(taggedCurve)>;
+            CurveParameterState_ result;
+            if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWC_<double>*>) {
+                result.definition_ =
+                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
+                                        LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
+                result.passiveParameters_ = taggedCurve->FRight();
+            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWLF_<double>*>) {
+                result.definition_ =
+                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
+                                        LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
+                const Vector_<> left = taggedCurve->FLeft();
+                const Vector_<> right = taggedCurve->FRight();
+                result.passiveParameters_ = Vector_<>(2 * left.size());
+                for (int i = 0; i < static_cast<int>(left.size()); ++i) {
+                    result.passiveParameters_[2 * i] = left[i];
+                    result.passiveParameters_[2 * i + 1] = right[i];
+                }
+            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountLogDF_<double>*>) {
+                result.definition_ =
+                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::LOG_DISCOUNT,
+                                        taggedCurve->Scheme(), taggedCurve->NodeDates(), taggedCurve->NodeDates().front(), taggedCurve->DayCount());
+                const Vector_<> stored = taggedCurve->NodeLogDF();
+                result.passiveParameters_ = Vector_<>(stored.begin() + 1, stored.end());
+            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountZeroRate_<double>*>) {
+                result.definition_ =
+                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::ZERO_RATE,
+                                        taggedCurve->Scheme(), taggedCurve->NodeDates(), taggedCurve->AnchorDate(), taggedCurve->DayCount());
+                result.passiveParameters_ = taggedCurve->NodeZeroRates();
+            }
+            result.passiveBase_ = taggedCurve->Base();
+            result.expectedParameterCount_ = BuildCurveParameterLayout(result.definition_).parameterCount_;
+            return result;
+        }
     } // namespace
 
     CurveDefinition_ MakeCurveDefinition(const String_& name,
@@ -138,49 +174,14 @@ namespace Dal {
     }
 
     CurveParameterState_ InspectCurveParameters(const DiscountCurve_& curve, const Date_& valuationDate) {
-        const auto read = [&](const auto* taggedCurve) {
-            using curve_t = std::decay_t<decltype(taggedCurve)>;
-            CurveParameterState_ result;
-            if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWC_<double>*>) {
-                result.definition_ =
-                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
-                                        LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
-                result.passiveParameters_ = taggedCurve->FRight();
-            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWLF_<double>*>) {
-                result.definition_ =
-                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                        LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
-                const Vector_<> left = taggedCurve->FLeft();
-                const Vector_<> right = taggedCurve->FRight();
-                result.passiveParameters_ = Vector_<>(2 * left.size());
-                for (int i = 0; i < static_cast<int>(left.size()); ++i) {
-                    result.passiveParameters_[2 * i] = left[i];
-                    result.passiveParameters_[2 * i + 1] = right[i];
-                }
-            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountLogDF_<double>*>) {
-                result.definition_ =
-                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::LOG_DISCOUNT,
-                                        taggedCurve->Scheme(), taggedCurve->NodeDates(), taggedCurve->NodeDates().front(), taggedCurve->DayCount());
-                const Vector_<> stored = taggedCurve->NodeLogDF();
-                result.passiveParameters_ = Vector_<>(stored.begin() + 1, stored.end());
-            } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountZeroRate_<double>*>) {
-                result.definition_ =
-                    MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::ZERO_RATE,
-                                        taggedCurve->Scheme(), taggedCurve->NodeDates(), taggedCurve->AnchorDate(), taggedCurve->DayCount());
-                result.passiveParameters_ = taggedCurve->NodeZeroRates();
-            }
-            result.passiveBase_ = taggedCurve->Base();
-            result.expectedParameterCount_ = BuildCurveParameterLayout(result.definition_).parameterCount_;
-            return result;
-        };
         if (const auto* typed = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve))
-            return read(typed);
+            return DescribeParameters(typed, valuationDate);
         if (const auto* typed = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve))
-            return read(typed);
+            return DescribeParameters(typed, valuationDate);
         if (const auto* typed = dynamic_cast<const Tape::DiscountLogDF_<double>*>(&curve))
-            return read(typed);
+            return DescribeParameters(typed, valuationDate);
         if (const auto* typed = dynamic_cast<const Tape::DiscountZeroRate_<double>*>(&curve))
-            return read(typed);
+            return DescribeParameters(typed, valuationDate);
         THROW("InspectCurveParameters: unsupported curve representation");
     }
     Vector_<AAD::Number_> RegisterCurveParameters(const Vector_<>& parameters) {

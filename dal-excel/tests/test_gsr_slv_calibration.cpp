@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <dal-excel/src/__gsrslv_test_api.hpp>
+#include <dal-excel/src/__script_test_api.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/global.hpp>
 
@@ -12,6 +13,7 @@ using namespace Dal;
 
 TEST(ExcelGSRSLVCalibrationTest, TestPricingFitDiagnosticsAndQuoteRisk) {
     InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
     const Date_ today(2026, 10, 2);
     const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
     MultiFactorGSRVolSettings_ vol;

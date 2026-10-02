@@ -41,6 +41,17 @@ namespace Dal {
             }
         };
 
+        Vector_<GSRMonteCarloPrice_> SamplingPrices(const Vector_<>& means, const Vector_<>& squares, int pairs) {
+            Vector_<GSRMonteCarloPrice_> result;
+            for (size_t i = 0; i < means.size(); ++i) {
+                const double error = std::sqrt(std::max(0.0, squares[i]) / (pairs * static_cast<double>(pairs - 1)));
+                REQUIRE(std::isfinite(means[i]) && std::isfinite(squares[i]) && std::isfinite(error),
+                        "InvalidGSRSLVPricing: sampling moments overflow");
+                result.push_back({means[i], error});
+            }
+            return result;
+        }
+
         class PayoffBuilder_ {
             const GSRSLVModelData_& data_;
             AAD::GSR_<> rates_;
@@ -218,14 +229,7 @@ namespace Dal {
                     squares[i] += delta * (value - means[i]);
                 }
             }
-            Vector_<GSRMonteCarloPrice_> result;
-            for (size_t i = 0; i < payoffs.size(); ++i) {
-                const double error = std::sqrt(std::max(0.0, squares[i]) / (pairs * static_cast<double>(pairs - 1)));
-                REQUIRE(std::isfinite(means[i]) && std::isfinite(squares[i]) && std::isfinite(error),
-                        "InvalidGSRSLVPricing: sampling moments overflow");
-                result.push_back({means[i], error});
-            }
-            return result;
+            return SamplingPrices(means, squares, pairs);
         }
 
     } // namespace GSRSLVPricingInternal

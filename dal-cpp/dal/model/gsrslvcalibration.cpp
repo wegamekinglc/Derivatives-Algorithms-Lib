@@ -34,20 +34,53 @@ namespace Dal {
             }
         }
 
-        void ValidateSettings(const GSRSLVCalibrationSettings_& settings) {
-            REQUIRE(settings.solver_.maxIterations_ > 0, "InvalidGSRSLVCalibration: max iterations must be positive");
-            for (double value : {settings.solver_.gradientTolerance_, settings.solver_.stepTolerance_, settings.solver_.finiteDifferenceStep_,
-                                 settings.validationSigma_})
-                REQUIRE(std::isfinite(value) && value > 0.0, "InvalidGSRSLVCalibration: tolerances and validation sigma must be finite and positive");
-            for (double value : {settings.solver_.priorWeight_, settings.solver_.smoothingWeight_, settings.solver_.numericalErrorFraction_})
+        void ValidateSolverSettings(const GSRCalibrationSettings_& settings) {
+            REQUIRE(settings.maxIterations_ > 0, "InvalidGSRSLVCalibration: max iterations must be positive");
+            for (double value : {settings.gradientTolerance_, settings.stepTolerance_, settings.finiteDifferenceStep_})
+                REQUIRE(std::isfinite(value) && value > 0.0, "InvalidGSRSLVCalibration: tolerances must be finite and positive");
+            for (double value : {settings.priorWeight_, settings.smoothingWeight_, settings.numericalErrorFraction_})
                 REQUIRE(std::isfinite(value) && value >= 0.0,
                         "InvalidGSRSLVCalibration: penalty weights and numerical error fraction must be finite and nonnegative");
-            REQUIRE(settings.pricing_.paths_ >= 4 && settings.pricing_.paths_ % 2 == 0 && settings.validation_.paths_ >= 4 &&
-                        settings.validation_.paths_ % 2 == 0,
+        }
+
+        void ValidateMonteCarloSettings(const GSRMonteCarloSettings_& settings) {
+            REQUIRE(settings.paths_ >= 4 && settings.paths_ % 2 == 0,
                     "InvalidGSRSLVCalibration: fit and validation paths must be even and at least four");
-            REQUIRE(settings.pricing_.seed_ >= 0 && settings.validation_.seed_ >= 0 && settings.pricing_.seed_ != settings.validation_.seed_,
+            REQUIRE(settings.seed_ >= 0, "InvalidGSRSLVCalibration: seeds must be nonnegative");
+        }
+
+        void ValidateSettings(const GSRSLVCalibrationSettings_& settings) {
+            ValidateSolverSettings(settings.solver_);
+            ValidateMonteCarloSettings(settings.pricing_);
+            ValidateMonteCarloSettings(settings.validation_);
+            REQUIRE(std::isfinite(settings.validationSigma_) && settings.validationSigma_ > 0.0,
+                    "InvalidGSRSLVCalibration: validation sigma must be finite and positive");
+            REQUIRE(settings.pricing_.seed_ != settings.validation_.seed_,
                     "InvalidGSRSLVCalibration: fit and validation seeds must be distinct and nonnegative");
         }
+
+        void ValidateParameterBounds(const GSRSLVCalibrationParameter_& parameter) {
+            REQUIRE(std::isfinite(parameter.lower_) && std::isfinite(parameter.upper_) && parameter.lower_ >= 0.0 &&
+                        parameter.upper_ > parameter.lower_ && std::isfinite(parameter.scale_) && parameter.scale_ > 0.0 &&
+                        std::isfinite(parameter.upper_ / parameter.scale_),
+                    "InvalidGSRSLVCalibration: bounds must satisfy 0 <= lower < upper, with a positive finite scale");
+        }
+
+        double NormalizeParameter(const GSRSLVCalibrationParameter_& parameter, double value, bool leverage) {
+            if (leverage)
+                REQUIRE(parameter.lower_ / parameter.scale_ > 0.0,
+                        "InvalidGSRSLVCalibration: normalized leverage lower bound must be strictly positive");
+            REQUIRE(value >= parameter.lower_ && value <= parameter.upper_, "InvalidGSRSLVCalibration: initial parameter outside bounds");
+            REQUIRE(parameter.upper_ / parameter.scale_ > parameter.lower_ / parameter.scale_ && std::isfinite(value / parameter.scale_) &&
+                        (value == 0.0 || value / parameter.scale_ > 0.0),
+                    "InvalidGSRSLVCalibration: parameter normalization is unresolved or nonfinite");
+            return value / parameter.scale_;
+        }
+
+        struct ParameterValue_ {
+            std::pair<int, int> coordinate_;
+            double value_;
+        };
 
         class Problem_ {
             const GSRSLVModelData_& initial_;
@@ -67,6 +100,37 @@ namespace Dal {
                 return std::find(coordinates_.begin(), coordinates_.end(), std::make_pair(row, col)) != coordinates_.end();
             }
 
+            ParameterValue_ Locate(const String_& label) const {
+                if (label == "kappa")
+                    return {{-1, 0}, initial_.kappa_};
+                if (label == "volOfVol")
+                    return {{-1, 1}, initial_.volOfVol_};
+                for (int row = 0; row < nodeScales_.Rows(); ++row)
+                    for (int col = 0; col < nodeScales_.Cols(); ++col)
+                        if (label == "leverage:" + String::FromInt(row) + ":" + String::FromInt(col))
+                            return {{row, col}, initial_.leverage_->values_(row, col)};
+                THROW("InvalidGSRSLVCalibration: unknown parameter " + label);
+            }
+
+            void SmoothingEdge(const Matrix_<>& values, int row, int col, int otherRow, int otherCol, double gap, Vector_<>* residuals) const {
+                if (!Selected(row, col) && !Selected(otherRow, otherCol))
+                    return;
+                residuals->push_back(std::sqrt(settings_.solver_.smoothingWeight_ / gap) *
+                                     (Change(values, row, col) - Change(values, otherRow, otherCol)));
+            }
+
+            void AddSmoothing(const Matrix_<>& values, Vector_<>* residuals) const {
+                for (int row = 0; row < values.Rows(); ++row)
+                    for (int col = 0; col < values.Cols(); ++col) {
+                        if (row > 0)
+                            SmoothingEdge(values, row, col, row - 1, col,
+                                          initial_.leverage_->rateShifts_[row] - initial_.leverage_->rateShifts_[row - 1], residuals);
+                        if (col > 0)
+                            SmoothingEdge(values, row, col, row, col - 1, initial_.leverage_->times_[col] - initial_.leverage_->times_[col - 1],
+                                          residuals);
+                    }
+            }
+
         public:
             Problem_(const GSRSLVModelData_& initial,
                      const Vector_<GSRCalibrationQuote_>& quotes,
@@ -79,37 +143,13 @@ namespace Dal {
                 std::set<String_> labels;
                 for (const auto& parameter : parameters) {
                     REQUIRE(labels.insert(parameter.label_).second, "InvalidGSRSLVCalibration: duplicate parameter label");
-                    REQUIRE(std::isfinite(parameter.lower_) && std::isfinite(parameter.upper_) && parameter.lower_ >= 0.0 &&
-                                parameter.upper_ > parameter.lower_ && std::isfinite(parameter.scale_) && parameter.scale_ > 0.0 &&
-                                std::isfinite(parameter.upper_ / parameter.scale_),
-                            "InvalidGSRSLVCalibration: bounds must satisfy 0 <= lower < upper, with a positive finite scale");
-                    std::pair<int, int> coordinate{-2, -2};
-                    double value = 0.0;
-                    if (parameter.label_ == "kappa") {
-                        coordinate = {-1, 0};
-                        value = initial.kappa_;
-                    } else if (parameter.label_ == "volOfVol") {
-                        coordinate = {-1, 1};
-                        value = initial.volOfVol_;
-                    } else {
-                        for (int row = 0; row < nodeScales_.Rows(); ++row)
-                            for (int col = 0; col < nodeScales_.Cols(); ++col)
-                                if (parameter.label_ == "leverage:" + String::FromInt(row) + ":" + String::FromInt(col)) {
-                                    coordinate = {row, col};
-                                    value = initial.leverage_->values_(row, col);
-                                    nodeScales_(row, col) = parameter.scale_;
-                                }
-                    }
-                    REQUIRE(coordinate.first != -2, "InvalidGSRSLVCalibration: unknown parameter " + parameter.label_);
+                    ValidateParameterBounds(parameter);
+                    const auto location = Locate(parameter.label_);
+                    const auto& coordinate = location.coordinate_;
+                    guess_.push_back(NormalizeParameter(parameter, location.value_, coordinate.first >= 0));
                     if (coordinate.first >= 0)
-                        REQUIRE(parameter.lower_ / parameter.scale_ > 0.0,
-                                "InvalidGSRSLVCalibration: normalized leverage lower bound must be strictly positive");
-                    REQUIRE(value >= parameter.lower_ && value <= parameter.upper_, "InvalidGSRSLVCalibration: initial parameter outside bounds");
-                    REQUIRE(parameter.upper_ / parameter.scale_ > parameter.lower_ / parameter.scale_ && std::isfinite(value / parameter.scale_) &&
-                                (value == 0.0 || value / parameter.scale_ > 0.0),
-                            "InvalidGSRSLVCalibration: parameter normalization is unresolved or nonfinite");
+                        nodeScales_(coordinate.first, coordinate.second) = parameter.scale_;
                     coordinates_.push_back(coordinate);
-                    guess_.push_back(value / parameter.scale_);
                 }
             }
 
@@ -143,20 +183,8 @@ namespace Dal {
                 if (settings_.solver_.priorWeight_ > 0.0)
                     for (size_t i = 0; i < x.size(); ++i)
                         result.push_back(std::sqrt(settings_.solver_.priorWeight_) * (x[i] - guess_[i]));
-                if (settings_.solver_.smoothingWeight_ > 0.0) {
-                    const auto& values = model->leverage_->values_;
-                    for (int row = 0; row < values.Rows(); ++row)
-                        for (int col = 0; col < values.Cols(); ++col) {
-                            if (row > 0 && (Selected(row, col) || Selected(row - 1, col)))
-                                result.push_back(std::sqrt(settings_.solver_.smoothingWeight_ /
-                                                           (initial_.leverage_->rateShifts_[row] - initial_.leverage_->rateShifts_[row - 1])) *
-                                                 (Change(values, row, col) - Change(values, row - 1, col)));
-                            if (col > 0 && (Selected(row, col) || Selected(row, col - 1)))
-                                result.push_back(std::sqrt(settings_.solver_.smoothingWeight_ /
-                                                           (initial_.leverage_->times_[col] - initial_.leverage_->times_[col - 1])) *
-                                                 (Change(values, row, col) - Change(values, row, col - 1)));
-                        }
-                }
+                if (settings_.solver_.smoothingWeight_ > 0.0)
+                    AddSmoothing(model->leverage_->values_, &result);
                 return result;
             }
 
@@ -185,6 +213,54 @@ namespace Dal {
             Matrix_<> Jacobian(const Vector_<>& x, size_t rows) const { return DifferenceJacobian(*this, x, rows, differenceStep_); }
         };
 
+        int WarmStart(const Problem_& problem, const GSRSLVCalibrationSettings_& settings, Vector_<>* x, GSRSLVCalibrationResult_* result) {
+            int warmIterations = 0;
+            if (settings.staged_) {
+                Vector_<size_t> stochastic, leverage;
+                for (size_t i = 0; i < x->size(); ++i)
+                    (problem.Stochastic(i) ? stochastic : leverage).push_back(i);
+                if (!stochastic.empty() && !leverage.empty())
+                    for (const auto& selected : {stochastic, leverage}) {
+                        const SubsetProblem_ subset(problem, *x, selected, settings.solver_.finiteDifferenceStep_);
+                        Vector_<> values;
+                        for (size_t i : selected)
+                            values.push_back((*x)[i]);
+                        GSRSLVCalibrationResult_ warm;
+                        Fit(subset, settings.solver_, &values, &warm);
+                        *x = subset.Expand(values);
+                        warmIterations += warm.iterations_;
+                        result->evaluations_ += warm.evaluations_;
+                    }
+            }
+            return warmIterations;
+        }
+
+        void FitDiagnostics(const Problem_& problem,
+                            const Vector_<>& x,
+                            const Vector_<GSRCalibrationQuote_>& quotes,
+                            const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                            const GSRSLVCalibrationSettings_& settings,
+                            GSRSLVCalibrationResult_* result) {
+            result->fitWithinTolerance_ = true;
+            const auto prices = PriceGSRSLVEuropeanOptions(*result->model_, Options(quotes), settings.pricing_);
+            for (size_t i = 0; i < prices.size(); ++i) {
+                result->modelPrices_.push_back(prices[i].price_);
+                result->standardErrors_.push_back(prices[i].standardError_);
+                result->residuals_.push_back(prices[i].price_ - quotes[i].price_);
+                result->fitWithinTolerance_ = result->fitWithinTolerance_ && std::abs(result->residuals_.back()) <= quotes[i].priceScale_;
+            }
+            for (size_t i = 0; i < x.size(); ++i) {
+                result->parameters_.push_back(x[i] * parameters[i].scale_);
+                result->activeBounds_.push_back(x[i] == problem.Bound(i, false) || x[i] == problem.Bound(i, true));
+            }
+            result->quoteJacobian_ = problem.Jacobian(x, quotes.size());
+            result->evaluations_ += 2 * static_cast<int>(x.size());
+            RankDiagnostics(result->quoteJacobian_, result);
+            for (int row = 0; row < result->quoteJacobian_.Rows(); ++row)
+                for (int col = 0; col < result->quoteJacobian_.Cols(); ++col)
+                    result->quoteJacobian_(row, col) *= quotes[row].priceScale_ / parameters[col].scale_;
+        }
+
         GSRSLVCalibrationResult_ FitOnly(const GSRSLVModelData_& initial,
                                          const Vector_<GSRCalibrationQuote_>& quotes,
                                          const Vector_<GSRSLVCalibrationParameter_>& parameters,
@@ -194,49 +270,54 @@ namespace Dal {
             const Problem_ problem(initial, quotes, parameters, settings);
             auto x = problem.Guess();
             GSRSLVCalibrationResult_ result;
-            int warmIterations = 0;
-            if (settings.staged_) {
-                Vector_<size_t> stochastic, leverage;
-                for (size_t i = 0; i < x.size(); ++i)
-                    (problem.Stochastic(i) ? stochastic : leverage).push_back(i);
-                if (!stochastic.empty() && !leverage.empty())
-                    for (const auto& selected : {stochastic, leverage}) {
-                        const SubsetProblem_ subset(problem, x, selected, settings.solver_.finiteDifferenceStep_);
-                        Vector_<> values;
-                        for (size_t i : selected)
-                            values.push_back(x[i]);
-                        GSRSLVCalibrationResult_ warm;
-                        Fit(subset, settings.solver_, &values, &warm);
-                        x = subset.Expand(values);
-                        warmIterations += warm.iterations_;
-                        result.evaluations_ += warm.evaluations_;
-                    }
-            }
+            const int warmIterations = WarmStart(problem, settings, &x, &result);
             Fit(problem, settings.solver_, &x, &result);
             result.iterations_ += warmIterations;
             result.model_ = problem.Model(x);
-            result.fitWithinTolerance_ = true;
-            Vector_<GSREuropeanOption_> options;
-            for (const auto& quote : quotes)
-                options.push_back(quote.option_);
-            const auto prices = PriceGSRSLVEuropeanOptions(*result.model_, options, settings.pricing_);
-            for (size_t i = 0; i < prices.size(); ++i) {
-                result.modelPrices_.push_back(prices[i].price_);
-                result.standardErrors_.push_back(prices[i].standardError_);
-                result.residuals_.push_back(prices[i].price_ - quotes[i].price_);
-                result.fitWithinTolerance_ = result.fitWithinTolerance_ && std::abs(result.residuals_.back()) <= quotes[i].priceScale_;
-            }
-            for (size_t i = 0; i < x.size(); ++i) {
-                result.parameters_.push_back(x[i] * parameters[i].scale_);
-                result.activeBounds_.push_back(x[i] == problem.Bound(i, false) || x[i] == problem.Bound(i, true));
-            }
-            result.quoteJacobian_ = problem.Jacobian(x, quotes.size());
-            result.evaluations_ += 2 * static_cast<int>(x.size());
-            RankDiagnostics(result.quoteJacobian_, &result);
-            for (int row = 0; row < result.quoteJacobian_.Rows(); ++row)
-                for (int col = 0; col < result.quoteJacobian_.Cols(); ++col)
-                    result.quoteJacobian_(row, col) *= quotes[row].priceScale_ / parameters[col].scale_;
+            FitDiagnostics(problem, x, quotes, parameters, settings, &result);
             return result;
+        }
+
+        void ValidateHeldOutQuotes(const Vector_<GSRCalibrationQuote_>& heldOut, const Vector_<GSRCalibrationQuote_>& quotes) {
+            ValidateQuotes(heldOut, true);
+            for (const auto& quote : heldOut)
+                for (const auto& fitted : quotes)
+                    REQUIRE(quote.name_ != fitted.name_, "InvalidGSRSLVCalibration: held-out quote overlaps fit names");
+        }
+
+        void NumericalValidation(const GSRSLVModelData_& validation,
+                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                 const GSRSLVCalibrationSettings_& settings,
+                                 GSRSLVCalibrationResult_* result) {
+            const auto refined = PriceGSRSLVEuropeanOptions(validation, Options(quotes), settings.validation_);
+            result->numericalValidationPassed_ = true;
+            for (size_t i = 0; i < quotes.size(); ++i) {
+                result->validationPrices_.push_back(refined[i].price_);
+                result->validationStandardErrors_.push_back(refined[i].standardError_);
+                const double error = std::abs(refined[i].price_ - result->modelPrices_[i]) +
+                                     settings.validationSigma_ * std::hypot(refined[i].standardError_, result->standardErrors_[i]);
+                result->numericalErrors_.push_back(error);
+                result->numericalValidationPassed_ =
+                    result->numericalValidationPassed_ && error <= settings.solver_.numericalErrorFraction_ * quotes[i].priceScale_;
+            }
+        }
+
+        void HeldOutValidation(const GSRSLVModelData_& validation,
+                               const Vector_<GSRCalibrationQuote_>& heldOut,
+                               const GSRSLVCalibrationSettings_& settings,
+                               GSRSLVCalibrationResult_* result) {
+            result->heldOutWithinTolerance_ = true;
+            if (heldOut.empty())
+                return;
+            const auto prices = PriceGSRSLVEuropeanOptions(validation, Options(heldOut), settings.validation_);
+            for (size_t i = 0; i < prices.size(); ++i) {
+                result->heldOutPrices_.push_back(prices[i].price_);
+                result->heldOutResiduals_.push_back(prices[i].price_ - heldOut[i].price_);
+                result->heldOutStandardErrors_.push_back(prices[i].standardError_);
+                result->heldOutWithinTolerance_ =
+                    result->heldOutWithinTolerance_ &&
+                    std::abs(result->heldOutResiduals_.back()) + settings.validationSigma_ * prices[i].standardError_ <= heldOut[i].priceScale_;
+            }
         }
     } // namespace
 
@@ -254,42 +335,12 @@ namespace Dal {
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                              const GSRSLVCalibrationSettings_& settings,
                                              const Vector_<GSRCalibrationQuote_>& heldOut) {
-        ValidateQuotes(heldOut, true);
-        for (const auto& quote : heldOut)
-            for (const auto& fitted : quotes)
-                REQUIRE(quote.name_ != fitted.name_, "InvalidGSRSLVCalibration: held-out quote overlaps fit names");
+        ValidateHeldOutQuotes(heldOut, quotes);
         auto result = FitOnly(initial, quotes, parameters, settings);
         GSRSLVSettings_ fine{result.model_->kappa_, result.model_->volOfVol_, result.model_->varianceCorrelations_, result.model_->maxStep_ / 2.0};
         const GSRSLVModelData_ validation("validation", result.model_->gaussian_, result.model_->leverage_, fine);
-        Vector_<GSREuropeanOption_> options;
-        for (const auto& quote : quotes)
-            options.push_back(quote.option_);
-        const auto refined = PriceGSRSLVEuropeanOptions(validation, options, settings.validation_);
-        result.numericalValidationPassed_ = true;
-        for (size_t i = 0; i < quotes.size(); ++i) {
-            result.validationPrices_.push_back(refined[i].price_);
-            result.validationStandardErrors_.push_back(refined[i].standardError_);
-            const double error = std::abs(refined[i].price_ - result.modelPrices_[i]) +
-                                 settings.validationSigma_ * std::hypot(refined[i].standardError_, result.standardErrors_[i]);
-            result.numericalErrors_.push_back(error);
-            result.numericalValidationPassed_ =
-                result.numericalValidationPassed_ && error <= settings.solver_.numericalErrorFraction_ * quotes[i].priceScale_;
-        }
-        result.heldOutWithinTolerance_ = true;
-        if (!heldOut.empty()) {
-            options.clear();
-            for (const auto& quote : heldOut)
-                options.push_back(quote.option_);
-            const auto prices = PriceGSRSLVEuropeanOptions(validation, options, settings.validation_);
-            for (size_t i = 0; i < prices.size(); ++i) {
-                result.heldOutPrices_.push_back(prices[i].price_);
-                result.heldOutResiduals_.push_back(prices[i].price_ - heldOut[i].price_);
-                result.heldOutStandardErrors_.push_back(prices[i].standardError_);
-                result.heldOutWithinTolerance_ =
-                    result.heldOutWithinTolerance_ &&
-                    std::abs(result.heldOutResiduals_.back()) + settings.validationSigma_ * prices[i].standardError_ <= heldOut[i].priceScale_;
-            }
-        }
+        NumericalValidation(validation, quotes, settings, &result);
+        HeldOutValidation(validation, heldOut, settings, &result);
         return result;
     }
 } // namespace Dal
