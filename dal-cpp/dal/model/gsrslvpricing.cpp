@@ -205,6 +205,20 @@ namespace Dal {
                 value = -value;
         }
 
+        std::unique_ptr<PseudoRandom_> Generator(int seed, size_t dimension, size_t firstPair) {
+            auto generator = New(RNGType_("MRG32"), seed, dimension, true);
+            if (firstPair)
+                generator->SkipNormalTo(firstPair);
+            return generator;
+        }
+
+        size_t InnerOffset(int firstPair, int conditionalPaths) {
+            const size_t draws = conditionalPaths / 2;
+            REQUIRE(static_cast<size_t>(firstPair) <= std::numeric_limits<size_t>::max() / draws,
+                    "InvalidGSRSLVPricing: inner random offset overflows");
+            return firstPair * draws;
+        }
+
         using SelectedParameters_ = Vector_<Vector_<AAD::Number_*>>;
 
         void RegisterParameters(AAD::GSRSLV_<AAD::Number_>* outer,
@@ -329,10 +343,12 @@ namespace Dal {
                        const Vector_<AAD::SampleDef_>& outerDefinitions,
                        M_ mark,
                        R_ reset,
-                       F_ consume) const {
-                auto generator = normals_.empty() ? New(RNGType_("MRG32"), settings_.seed_, dimension_, true) : nullptr;
-                auto innerGenerator = inner ? New(RNGType_("MRG32"), static_cast<int>((static_cast<uint64_t>(settings_.seed_) + 104729) % 2147483647),
-                                                  inner->SimDim(), true)
+                       F_ consume,
+                       int firstPair,
+                       int lastPair) const {
+                auto generator = normals_.empty() ? Generator(settings_.seed_, dimension_, firstPair) : nullptr;
+                auto innerGenerator = inner ? Generator(static_cast<int>((static_cast<uint64_t>(settings_.seed_) + 104729) % 2147483647),
+                                                        inner->SimDim(), InnerOffset(firstPair, settings_.conditionalPaths_))
                                             : nullptr;
                 Vector_<Vector_<>> draws;
                 if (inner)
@@ -340,7 +356,7 @@ namespace Dal {
                 Vector_<> normals(dimension_);
                 PathBuffer_<T_> buffer(outerDefinitions, definitions_, payoffs_.size());
                 mark();
-                for (int pair = 0; pair < settings_.paths_ / 2; ++pair) {
+                for (int pair = firstPair; pair < lastPair; ++pair) {
                     FillNormals(generator.get(), pair, &normals);
                     for (auto& draw : draws)
                         innerGenerator->FillNormal(&draw);
@@ -355,7 +371,7 @@ namespace Dal {
             }
 
             template <class T_, class I_, class M_, class R_, class F_>
-            void Samples(const GSRSLVModelData_& data, I_ initialize, M_ mark, R_ reset, F_ consume) const {
+            void Samples(const GSRSLVModelData_& data, I_ initialize, M_ mark, R_ reset, F_ consume, int firstPair, int lastPair) const {
                 AAD::GSRSLV_<T_> model(data);
                 const Vector_<> outerTimeline(timeline_.begin(), timeline_.begin() + outerSamples_);
                 const Vector_<AAD::SampleDef_> outerDefinitions(definitions_.begin(), definitions_.begin() + outerSamples_);
@@ -370,7 +386,7 @@ namespace Dal {
                 if (inner)
                     inner->Init(timeline_, definitions_);
                 REQUIRE(model.SimDim() == dimension_, "InvalidGSRSLVPricing: prepared integration grid changed");
-                Paths(model, inner.get(), outerDefinitions, mark, reset, consume);
+                Paths(model, inner.get(), outerDefinitions, mark, reset, consume, firstPair, lastPair);
             }
         };
 
@@ -426,7 +442,8 @@ namespace Dal {
                         squares[i] += delta * (value - means[i]);
                         conditional[i] += (0.5 * (firstConditional[i] + errors[i]) - conditional[i]) / (pair + 1);
                     }
-                });
+                },
+                0, data_->settings_.paths_ / 2);
             return SamplingPrices(means, squares, conditional, data_->settings_.paths_ / 2);
         }
 
@@ -435,12 +452,24 @@ namespace Dal {
             for (const auto& label : labels)
                 REQUIRE(unique.insert(label).second, "InvalidGSRSLVPricing: duplicate Jacobian parameter " + label);
             const TapeGuard_ guard(AAD::Tape());
-            SelectedParameters_ selected(labels.size());
             Matrix_<> result(data_->payoffs_.size(), labels.size(), 0.0);
-            const auto initialize = [&](auto* outer, auto* inner) { RegisterParameters(outer, inner, labels, &selected); };
-            data_->Samples<AAD::Number_>(
-                data, initialize, [] { AAD::Mark(*AAD::Tape()); }, [] { AAD::RewindToMark(*AAD::Tape()); },
-                [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); });
+            const int pairs = data_->settings_.paths_ / 2;
+#if defined(DAL_USE_XAD_AAD)
+            const int batchPairs = 16;
+#else
+            const int batchPairs = pairs;
+#endif
+            for (int first = 0; first < pairs; first += batchPairs) {
+#if defined(DAL_USE_XAD_AAD)
+                AAD::Clear(*AAD::Tape());
+#endif
+                SelectedParameters_ selected(labels.size());
+                const auto initialize = [&](auto* outer, auto* inner) { RegisterParameters(outer, inner, labels, &selected); };
+                data_->Samples<AAD::Number_>(
+                    data, initialize, [] { AAD::Mark(*AAD::Tape()); }, [] { AAD::RewindToMark(*AAD::Tape()); },
+                    [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); }, first,
+                    std::min(pairs, first + batchPairs));
+            }
             return result;
         }
 
