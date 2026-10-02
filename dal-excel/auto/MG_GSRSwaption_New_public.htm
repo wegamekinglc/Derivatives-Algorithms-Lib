@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRSwaption_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRSwaption_New (in Excel: GSRSWAPTION.NEW)</h1>
+Create a physically settled European swaption
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>expiry</td><td>date</td><td></td><td>Exercise date</td></tr>
+<tr><td>fixed</td><td>vector of handles</td><td></td><td>GSRFixedCoupon handles</td></tr>
+<tr><td>floating</td><td>vector of handles</td><td></td><td>GSRFloatingCoupon handles</td></tr>
+<tr><td>strike</td><td>number</td><td></td><td>Fixed rate strike</td></tr>
+<tr><td>type</td><td>string</td><td></td><td>CALL for payer or PUT for receiver</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>option</td><td>handle of type StorableGSREuropeanOption</td><td>Option handle</td></tr>
+</table>
+
+
+
+
+
+

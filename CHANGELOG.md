@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-02
 
+- **European GSR calibration** — analytic bond options and caplets, multi-factor
+  physically settled European swaptions, and bounded regularized g-bucket
+  calibration with fit, numerical-error and rank diagnostics are available
+  through dal-public, Python and Excel. See [GSR](docs/models/gaussian-short-rate.md).
 - **Multi-factor Gaussian short rates** — named factors with dated g/H matrices,
   PSD correlations, exact Gaussian event transitions and conditional discounting,
   factor-qualified AAD risks, and archives are available through dal-public,

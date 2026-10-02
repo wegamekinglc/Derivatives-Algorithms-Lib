@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRFloatingCoupon_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRFloatingCoupon_New (in Excel: GSRFLOATINGCOUPON.NEW)</h1>
+Create one projected floating coupon
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>fixing</td><td>date</td><td></td><td>Index fixing date, on or before start</td></tr>
+<tr><td>start</td><td>date</td><td></td><td>Accrual start date</td></tr>
+<tr><td>end</td><td>date</td><td></td><td>Accrual end date</td></tr>
+<tr><td>payment</td><td>date</td><td></td><td>Payment date, on or after end</td></tr>
+<tr><td>indexAccrual</td><td>number</td><td></td><td>Index accrual fraction</td></tr>
+<tr><td>couponAccrual</td><td>number</td><td></td><td>Payment accrual fraction</td></tr>
+<tr><td>tenor</td><td>string</td><td></td><td>Projection tenor such as 3M</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>coupon</td><td>handle of type StorableGSRFloatingCoupon</td><td>Coupon handle</td></tr>
+</table>
+
+
+
+
+
+

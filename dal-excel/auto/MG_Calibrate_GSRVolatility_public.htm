@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Calibrate_GSRVolatility</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Calibrate_GSRVolatility (in Excel: CALIBRATE.GSRVOLATILITY)</h1>
+Fit selected g buckets with curves, H and correlations fixed
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>initial</td><td>handle of type ModelData</td><td></td><td>Initial MultiFactorGSRModelData</td></tr>
+<tr><td>quotes</td><td>vector of handles</td><td></td><td>GSRCalibrationQuote handles in residual order</td></tr>
+<tr><td>parameters</td><td>matrix of numbers</td><td></td><td>Four columns: factor index, knot index, lower bound, upper bound</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Key/value rows: maxIterations, quadratureOrder, gradientTolerance, stepTolerance, finiteDifferenceStep, parameterScale, priorWeight, smoothingWeight, numericalErrorFraction</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableGSRCalibrationResult</td><td>Fitted model and diagnostics</td></tr>
+</table>
+
+
+
+
+
+

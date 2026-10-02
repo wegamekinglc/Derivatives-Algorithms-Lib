@@ -22,6 +22,9 @@ Reject empty/duplicate names, nonfinite numbers, unordered dates, shape mismatch
 negative g, nonunit/asymmetric/indefinite correlation, null model inputs, and
 curve/volatility anchor mismatch. Preserve old one-factor error contracts.
 
-Calibration will have typed quote/config/result objects. Results contain fitted
-model data, per-quote model prices/residuals, convergence status, numerical error,
-and sensitivity provenance. Model-input AAD is not labeled as market quote risk.
+Gaussian calibration uses typed quote/config/result objects exposed through
+dal-public, Python and Excel. It fits selected g entries with H/R fixed and reports
+fit, numerical refinement and rank diagnostics. New analytic APIs use doubles;
+the existing simulation APIs supply model-input AAD. Stochastic-volatility and
+local-leverage calibration still need calibrated quote-risk provenance and optimum
+derivatives. Model-input AAD is not labeled as market quote risk.

@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSR_EuropeanOptionPrice</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSR_EuropeanOptionPrice (in Excel: GSR.EUROPEANOPTIONPRICE)</h1>
+Price a European rate option in a Gaussian short rate model
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>model</td><td>handle of type ModelData</td><td></td><td>GSRModelData or MultiFactorGSRModelData</td></tr>
+<tr><td>option</td><td>handle of type StorableGSREuropeanOption</td><td></td><td>Bond option, caplet or swaption</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Key/value rows: quadratureOrder (16), estimateError (true)</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>matrix of cells</td><td>One row: price, numerical refinement estimate</td></tr>
+</table>
+
+
+
+
+
+

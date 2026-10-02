@@ -30,6 +30,7 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_curve(m);
 
     init_bindings_models(m);
+    init_bindings_gsr(m);
 
     init_bindings_random(m);
 
