@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-02
+
+- **Multi-factor Gaussian short rates** — named factors with dated g/H matrices,
+  PSD correlations, exact Gaussian event transitions and conditional discounting,
+  factor-qualified AAD risks, and archives are available through dal-public,
+  Python, and Excel. One-factor factories and risk labels remain compatible.
+  See [GSR](docs/models/gaussian-short-rate.md).
+
 ## 2026-10-01
 
 - **Pseudo-random stream positioning** — `Random_::SkipNormalTo` positions

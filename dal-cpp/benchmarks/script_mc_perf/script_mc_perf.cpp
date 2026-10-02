@@ -30,6 +30,7 @@
 #include <dal/time/schedules.hpp>
 
 #include "correlatedbsperf.hpp"
+#include "gsrperf.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -57,18 +58,14 @@ namespace {
         events.push_back("150.0");
         eventDates.push_back(Cell_(start));
         events.push_back("alive = 1");
-        eventDates.push_back(Cell_("START: " + Date::ToString(start) +
-                                   " END: " + Date::ToString(maturity) +
-                                   " FREQ: 1W"));
+        eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
         events.push_back("if spot() >= BARRIER:0.1 then alive = 0 end");
         eventDates.push_back(Cell_(maturity));
         events.push_back(String_("uoc pays alive * MAX(spot() - STRIKE, 0.0)"));
         return {eventDates, events, "uoc"};
     }
 
-    Handle_<ModelData_> BuildModelData() {
-        return Handle_<ModelData_>(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02));
-    }
+    Handle_<ModelData_> BuildModelData() { return Handle_<ModelData_>(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02)); }
 
     //  Weekly-exercise Bermudan put: every schedule row may exercise into the put
     //  intrinsic (the END row covers maturity), the maturity event pays the vanilla
@@ -95,57 +92,56 @@ namespace {
         int eventCount_;
     };
 
-    std::string CaseName(const ScriptBenchmarkCase_& scriptCase,
-                         const char* valueType,
-                         bool compiled,
-                         size_t paths) {
-        return std::string("script engine ") + scriptCase.name_ + " " + valueType +
-               " compiled=" + (compiled ? "true" : "false") +
-               " (" + std::to_string(paths) + " paths x " +
-               std::to_string(scriptCase.eventCount_) + " events)";
+    std::string CaseName(const ScriptBenchmarkCase_& scriptCase, const char* valueType, bool compiled, size_t paths) {
+        return std::string("script engine ") + scriptCase.name_ + " " + valueType + " compiled=" + (compiled ? "true" : "false") + " (" +
+               std::to_string(paths) + " paths x " + std::to_string(scriptCase.eventCount_) + " events)";
     }
 
     void RunDoubleCase(const ScriptBenchmarkCase_& scriptCase, bool compiled, int repeats) {
         double sink = 0.0;
-        auto r = Bench::Run(CaseName(scriptCase, "double", compiled, scriptCase.doublePaths_), [&]() {
-            ScriptProduct_ product = scriptCase.buildProduct_();
-            (void) product.PreProcess(false, false);
-            auto results = MCSimulation<double>(
-                product, BuildModelData(), scriptCase.doublePaths_, "sobol", false, compiled);
-            sink += results.aggregated_;
-        }, 1, repeats);
+        auto r = Bench::Run(
+            CaseName(scriptCase, "double", compiled, scriptCase.doublePaths_),
+            [&]() {
+                ScriptProduct_ product = scriptCase.buildProduct_();
+                (void)product.PreProcess(false, false);
+                auto results = MCSimulation<double>(product, BuildModelData(), scriptCase.doublePaths_, "sobol", false, compiled);
+                sink += results.aggregated_;
+            },
+            1, repeats);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
 
     void RunAadCase(const ScriptBenchmarkCase_& scriptCase, bool compiled, int repeats) {
         double sink = 0.0;
-        auto r = Bench::Run(CaseName(scriptCase, "Number_", compiled, scriptCase.aadPaths_), [&]() {
-            ScriptProduct_ product = scriptCase.buildProduct_();
-            int maxNestedIfs = product.PreProcess(true, true);
-            auto results = MCSimulation<Number_>(
-                product, BuildModelData(), scriptCase.aadPaths_, "sobol",
-                false, compiled, maxNestedIfs, 0.01);
-            sink += results.aggregated_;
-            if (!results.risks_.empty())
-                sink += results.risks_[0];
-        }, 1, repeats);
+        auto r = Bench::Run(
+            CaseName(scriptCase, "Number_", compiled, scriptCase.aadPaths_),
+            [&]() {
+                ScriptProduct_ product = scriptCase.buildProduct_();
+                int maxNestedIfs = product.PreProcess(true, true);
+                auto results = MCSimulation<Number_>(product, BuildModelData(), scriptCase.aadPaths_, "sobol", false, compiled, maxNestedIfs, 0.01);
+                sink += results.aggregated_;
+                if (!results.risks_.empty())
+                    sink += results.risks_[0];
+            },
+            1, repeats);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
 
     void RunDoubleExerciseCase(bool compiled, size_t paths, int repeats) {
         double sink = 0.0;
-        const std::string name = std::string("script engine bermudan exercise double compiled=") +
-                                 (compiled ? "true" : "false") + " (" + std::to_string(paths) + " paths x 54 events)";
-        auto r = Bench::Run(name, [&]() {
-            MonteCarloSettings_ simulation;
-            simulation.compiled_ = compiled;
-            auto results = MCSimulation<double>(
-                BuildBermudanExerciseProduct(), BuildModelData(), paths,
-                ScriptValuationSettings_(), simulation);
-            sink += results.aggregated_;
-        }, 1, repeats);
+        const std::string name = std::string("script engine bermudan exercise double compiled=") + (compiled ? "true" : "false") + " (" +
+                                 std::to_string(paths) + " paths x 54 events)";
+        auto r = Bench::Run(
+            name,
+            [&]() {
+                MonteCarloSettings_ simulation;
+                simulation.compiled_ = compiled;
+                auto results = MCSimulation<double>(BuildBermudanExerciseProduct(), BuildModelData(), paths, ScriptValuationSettings_(), simulation);
+                sink += results.aggregated_;
+            },
+            1, repeats);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
@@ -329,6 +325,11 @@ int main(int argc, char** argv) {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--gsr") {
+            Bench::PrintHeader();
+            RunGSRPathCases();
+            return 0;
+        }
         if (std::string(argv[1]) == "--correlated-bs") {
             Bench::PrintHeader();
             RunCorrelatedBSPathCases();
@@ -351,7 +352,7 @@ int main(int argc, char** argv) {
         {"weekly barrier", BuildWeeklyBarrierProduct, 100000, 10000, 52},
     };
 
-    for (const auto& scriptCase: scriptCases) {
+    for (const auto& scriptCase : scriptCases) {
         RunDoubleCase(scriptCase, false, kRepeats);
         RunDoubleCase(scriptCase, true, kRepeats);
         RunAadCase(scriptCase, false, kRepeats);
@@ -370,6 +371,7 @@ int main(int argc, char** argv) {
     RunMultivariateRegressionCase(2, 3, kRepeats);
     RunMultivariateRegressionCase(3, 3, kRepeats);
     RunCorrelatedBSPathCases();
+    RunGSRPathCases();
 
     return 0;
 }

@@ -235,6 +235,44 @@ model is handle ModelData
     GSR model data
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public MultiFactorGSRVolData_New
+    Named multi-factor Gaussian rate volatility
+&inputs
+name is string
+    Volatility data name
+factorNames is string[]
+    Factor names in Brownian order
+gKnotDates is date[]
+    State volatility knot dates
+gValues is number[][]
+    Nonnegative volatility, factor rows and date columns
+hKnotDates is date[]
+    Bond loading knot dates
+hValues is number[][]
+    Signed loading, factor rows and date columns
+correlations is number[][]
+    Positive semidefinite factor correlation matrix
+&outputs
+vol is handle MultiFactorGSRVolData
+    GSR volatility data
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public MultiFactorGSRModelData_New
+    Compose a multi-factor Gaussian short rate model
+&inputs
+name is string
+    Model name
+curve is handle GSRCurveData
+    Initial curve snapshot
+vol is handle MultiFactorGSRVolData
+    Named g and H factor inputs
+&outputs
+model is handle ModelData
+    GSR model data
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     using Dal::ModelData_;
     namespace {
@@ -340,11 +378,31 @@ namespace Dal {
         NewGSRVolData(name, gKnotDates, gValues, hKnotDates, hValues).swap(*vol);
     }
 
-    void GSRModelData_New(const String_& name,
-                           const Handle_<GSRCurveData_>& curve,
-                           const Handle_<GSRVolData_>& vol,
-                           Handle_<ModelData_>* model) {
+    void GSRModelData_New(const String_& name, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol, Handle_<ModelData_>* model) {
         NewGSRModelData(name, curve, vol).swap(*model);
+    }
+    void MultiFactorGSRVolData_New(const String_& name,
+                                   const Vector_<String_>& factorNames,
+                                   const Vector_<Date_>& gKnotDates,
+                                   const Matrix_<>& gValues,
+                                   const Vector_<Date_>& hKnotDates,
+                                   const Matrix_<>& hValues,
+                                   const Matrix_<>& correlations,
+                                   Handle_<MultiFactorGSRVolData_>* vol) {
+        MultiFactorGSRVolSettings_ settings;
+        settings.factorNames_ = factorNames;
+        settings.gKnotDates_ = gKnotDates;
+        settings.gValues_ = gValues;
+        settings.hKnotDates_ = hKnotDates;
+        settings.hValues_ = hValues;
+        settings.correlations_ = correlations;
+        NewMultiFactorGSRVolData(name, settings).swap(*vol);
+    }
+    void MultiFactorGSRModelData_New(const String_& name,
+                                     const Handle_<GSRCurveData_>& curve,
+                                     const Handle_<MultiFactorGSRVolData_>& vol,
+                                     Handle_<ModelData_>* model) {
+        NewMultiFactorGSRModelData(name, curve, vol).swap(*model);
     }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_BSModelData_New_public.inc>
@@ -359,5 +417,7 @@ namespace Dal {
 #include <dal-excel/auto/MG_HybridLogDfRateDataFromCurve_New_public.inc>
 #include <dal-excel/auto/MG_HybridLogDfRateData_New_public.inc>
 #include <dal-excel/auto/MG_HybridModelData_New_public.inc>
+#include <dal-excel/auto/MG_MultiFactorGSRModelData_New_public.inc>
+#include <dal-excel/auto/MG_MultiFactorGSRVolData_New_public.inc>
 #endif
 } // namespace Dal

@@ -7,14 +7,15 @@
 #include <cmath>
 
 #include <dal/curve/discount.hpp>
+#include <dal/curve/yc.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/dupire.hpp>
-#include <dal/model/hybriddata.hpp>
 #include <dal/model/gsrdata.hpp>
-#include <dal/curve/yc.hpp>
-#include <dal/protocol/collateraltype.hpp>
+#include <dal/model/gsrmultidata.hpp>
+#include <dal/model/hybriddata.hpp>
 #include <dal/platform/consts.hpp>
+#include <dal/protocol/collateraltype.hpp>
 
 namespace Dal {
     Handle_<ModelData_> NewCorrelatedBSModelData(const String_& name,
@@ -91,29 +92,32 @@ namespace Dal {
                                                         const Vector_<>& discountLogDF,
                                                         const Vector_<String_>& projectionTenors,
                                                         const Matrix_<>& projectionLogDF) {
-        return Handle_<GSRCurveData_>(new GSRCurveData_(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors,
-                                                       projectionLogDF));
+        return Handle_<GSRCurveData_>(new GSRCurveData_(name, evaluationDate, currency, nodeDates, discountLogDF, projectionTenors, projectionLogDF));
     }
 
-    FORCE_INLINE Handle_<GSRVolData_> NewGSRVolData(const String_& name,
-                                                    const Vector_<Date_>& gKnotDates,
-                                                    const Vector_<>& gValues,
-                                                    const Vector_<Date_>& hKnotDates,
-                                                    const Vector_<>& hValues) {
+    FORCE_INLINE Handle_<GSRVolData_> NewGSRVolData(
+        const String_& name, const Vector_<Date_>& gKnotDates, const Vector_<>& gValues, const Vector_<Date_>& hKnotDates, const Vector_<>& hValues) {
         return Handle_<GSRVolData_>(new GSRVolData_(name, gKnotDates, gValues, hKnotDates, hValues));
     }
 
-    FORCE_INLINE Handle_<ModelData_> NewGSRModelData(const String_& name,
-                                                    const Handle_<GSRCurveData_>& curve,
-                                                    const Handle_<GSRVolData_>& vol) {
+    FORCE_INLINE Handle_<ModelData_> NewGSRModelData(const String_& name, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol) {
         return Handle_<ModelData_>(new GSRModelData_(name, curve, vol));
     }
 
+    FORCE_INLINE Handle_<MultiFactorGSRVolData_> NewMultiFactorGSRVolData(const String_& name, const MultiFactorGSRVolSettings_& settings) {
+        return Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_(name, settings));
+    }
+
+    FORCE_INLINE Handle_<ModelData_>
+    NewMultiFactorGSRModelData(const String_& name, const Handle_<GSRCurveData_>& curve, const Handle_<MultiFactorGSRVolData_>& vol) {
+        return Handle_<ModelData_>(new MultiFactorGSRModelData_(name, curve, vol));
+    }
+
     FORCE_INLINE Handle_<GSRCurveData_> NewGSRCurveDataFromYieldCurve(const String_& name,
-                                                                       const YieldCurve_& source,
-                                                                       const Date_& evaluationDate,
-                                                                       const Vector_<Date_>& nodeDates,
-                                                                       const Vector_<String_>& projectionTenors) {
+                                                                      const YieldCurve_& source,
+                                                                      const Date_& evaluationDate,
+                                                                      const Vector_<Date_>& nodeDates,
+                                                                      const Vector_<String_>& projectionTenors) {
         REQUIRE(nodeDates.size() >= 2 && nodeDates.front() == evaluationDate,
                 "InvalidGSRCurve: snapshot nodes must start at the evaluation date and contain at least two dates");
         const CollateralType_ collateral(CollateralType_::Value_::OIS);

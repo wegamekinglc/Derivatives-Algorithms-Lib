@@ -44,6 +44,9 @@ namespace Dal {
         if (const auto* gsr = dynamic_cast<const GSRModelData_*>(model_data.get()))
             return std::make_unique<AAD::GSR_<T_>>(*gsr);
 
+        if (const auto* gsr = dynamic_cast<const MultiFactorGSRModelData_*>(model_data.get()))
+            return std::make_unique<AAD::GSR_<T_>>(*gsr);
+
         THROW("can't find matched model type");
     }
 } // namespace Dal

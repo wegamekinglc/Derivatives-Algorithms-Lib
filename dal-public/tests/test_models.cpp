@@ -8,8 +8,8 @@
 #include <string>
 
 #include <dal-public/src/models.hpp>
-#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/model/factory.hpp>
 
 using Dal::Matrix_;
@@ -121,11 +121,30 @@ TEST(ModelsTest, TestGsrFactoriesPreserveCurveNodesAndModelParameters) {
     ASSERT_EQ(model->ParameterLabels()[0], String_("logdf:OIS:2027-09-28"));
 }
 
+TEST(ModelsTest, TestMultiFactorGsrFactoriesKeepOrderedFactorsAndRiskLabels) {
+    const Dal::Date_ today(2026, 10, 2);
+    const auto curve = Dal::NewGSRCurveData("curve", today, "USD", {today, today.AddDays(730)}, {0.0, -0.06}, {}, Matrix_<>(0, 0));
+    Dal::MultiFactorGSRVolSettings_ settings;
+    settings.factorNames_ = {"level", "slope"};
+    settings.gKnotDates_ = settings.hKnotDates_ = {today};
+    settings.gValues_ = Matrix_<>(2, 1, 0.01);
+    settings.hValues_ = Matrix_<>(2, 1, 1.0);
+    settings.correlations_ = Matrix_<>(2, 2, 0.0);
+    settings.correlations_(0, 0) = settings.correlations_(1, 1) = 1.0;
+    const auto vol = Dal::NewMultiFactorGSRVolData("vol", settings);
+    const auto data = Dal::NewMultiFactorGSRModelData("rates", curve, vol);
+    const auto model = Dal::CreateModel<double>(data);
+    ASSERT_EQ(model->NumFactors(), 2U);
+    ASSERT_EQ(vol->factorNames_, settings.factorNames_);
+    ASSERT_EQ(model->ParameterLabels(),
+              (Vector_<String_>{"logdf:OIS:2028-10-01", "g:level:2026-10-02", "g:slope:2026-10-02", "H:level:2026-10-02", "H:slope:2026-10-02"}));
+    ASSERT_THROW(Dal::NewMultiFactorGSRModelData("invalid", {}, vol), Dal::Exception_);
+}
+
 TEST(ModelsTest, TestGsrCurveSnapshotUsesYieldCurveAtSelectedDates) {
     const Dal::Date_ today(2026, 9, 28);
     const Dal::Date_ year(2027, 9, 28);
-    const Dal::DiscountLogDF_ discount("source", "USD", {today, year}, {0.0, -0.03}, Dal::DayBasis::Act365F(),
-                                       Dal::LogDfScheme_::Value_::LOG_LINEAR);
+    const Dal::DiscountLogDF_ discount("source", "USD", {today, year}, {0.0, -0.03}, Dal::DayBasis::Act365F(), Dal::LogDfScheme_::Value_::LOG_LINEAR);
     const Dal::CurveBlock_ source(discount);
     const auto snapshot = Dal::NewGSRCurveDataFromYieldCurve("curve", source, today, {today, year}, {});
     ASSERT_NEAR(snapshot->discountLogDF_[1], -0.03, 1e-12);

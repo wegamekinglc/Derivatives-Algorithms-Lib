@@ -9,6 +9,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <variant>
 
 #include <dal/platform/platform.hpp>
 
@@ -16,7 +17,7 @@
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
-#include <dal/model/gsrdata.hpp>
+#include <dal/model/gsrmultidata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/conventions.hpp>
 #include <dal/time/dateincrement.hpp>
@@ -25,25 +26,39 @@
 namespace Dal::AAD {
     template <class T_ = double> class GSR_ final : public Model_<T_> {
         struct Step_ {
-            T_ sigma_ = T_(0.0);
+            Matrix_<T_> lower_;
+            Vector_<T_> loading_;
+            Vector_<T_> discountNormals_;
             T_ a_ = T_(0.0);
-            T_ bMinus_ = T_(0.0);
-            T_ bPlus_ = T_(0.0);
             bool advances_ = false;
         };
 
-        struct Observation_ {
-            enum class Kind_ { DF, LIBOR, SWAP };
-            Kind_ kind_ = Kind_::DF;
-            Date_ start_;
-            Date_ maturity_;
-            String_ projectionTenor_;
-            Vector_<SchedulePeriod_> fixedPeriods_;
-            Vector_<SchedulePeriod_> floatPeriods_;
-            DayBasis_ indexBasis_ = DayBasis::Act365F();
-            DayBasis_ fixedBasis_ = DayBasis::Act365F();
-            DayBasis_ floatBasis_ = DayBasis::Act365F();
+        struct Bond_ {
+            Vector_<T_> loading_;
+            T_ intercept_;
         };
+        struct DiscountObservation_ {
+            Bond_ start_, end_;
+        };
+        struct LiborObservation_ {
+            Bond_ start_, end_;
+            T_ scale_;
+            double accrual_;
+        };
+        struct FixedCoupon_ {
+            Bond_ payment_;
+            double accrual_;
+        };
+        struct FloatCoupon_ {
+            LiborObservation_ fixing_;
+            Bond_ payment_;
+            double accrual_;
+        };
+        struct SwapObservation_ {
+            Vector_<FixedCoupon_> fixed_;
+            Vector_<FloatCoupon_> floating_;
+        };
+        using Observation_ = std::variant<DiscountObservation_, LiborObservation_, SwapObservation_>;
 
         Date_ evaluationDate_;
         String_ currency_;
@@ -54,8 +69,11 @@ namespace Dal::AAD {
         Vector_<Vector_<T_>> projectionLogDF_;
         Vector_<> gTimes_;
         Vector_<> hTimes_;
-        Vector_<T_> gValues_;
-        Vector_<T_> hValues_;
+        Vector_<String_> factorNames_;
+        Matrix_<> correlations_;
+        Vector_<Vector_<T_>> gValues_;
+        Vector_<Vector_<T_>> hValues_;
+        bool legacy_ = false;
         Vector_<T_*> parameters_;
         Vector_<String_> parameterLabels_;
         Vector_<> productTimeLine_;
@@ -92,8 +110,30 @@ namespace Dal::AAD {
             return upper == times.begin() ? 0 : static_cast<size_t>(upper - times.begin() - 1);
         }
 
-        [[nodiscard]] T_ G(double time) const { return gValues_[PieceAt(gTimes_, time)]; }
-        [[nodiscard]] T_ H(double time) const { return hValues_[PieceAt(hTimes_, time)]; }
+        [[nodiscard]] T_ G(size_t factor, double time) const { return gValues_[factor][PieceAt(gTimes_, time)]; }
+        [[nodiscard]] T_ H(size_t factor, double time) const { return hValues_[factor][PieceAt(hTimes_, time)]; }
+
+        [[nodiscard]] static Matrix_<> SingleRow(const Vector_<>& values) {
+            Matrix_<> result(1, static_cast<int>(values.size()));
+            for (size_t i = 0; i < values.size(); ++i)
+                result(0, static_cast<int>(i)) = values[i];
+            return result;
+        }
+
+        [[nodiscard]] static T_ Dot(const Vector_<T_>& lhs, const Vector_<T_>& rhs) {
+            T_ result(0.0);
+            for (size_t i = 0; i < lhs.size(); ++i)
+                result += lhs[i] * rhs[i];
+            return result;
+        }
+
+        [[nodiscard]] static T_ Quadratic(const Vector_<T_>& vector, const Matrix_<T_>& matrix) {
+            T_ result(0.0);
+            for (int i = 0; i < matrix.Rows(); ++i)
+                for (int j = 0; j < matrix.Cols(); ++j)
+                    result += vector[i] * matrix(i, j) * vector[j];
+            return result;
+        }
 
         [[nodiscard]] Vector_<> IntervalKnots(double from, double to) const {
             Vector_<> knots{from, to};
@@ -108,123 +148,126 @@ namespace Dal::AAD {
             return knots;
         }
 
-        [[nodiscard]] T_ StateVariance(double from, double to) const {
+        [[nodiscard]] Matrix_<T_> StateVariance(double from, double to) const {
             REQUIRE(from <= to, "InvalidGSRInterval: state variance requires from <= to");
-            T_ result(0.0);
+            const int n = static_cast<int>(NumFactors());
+            Matrix_<T_> result(n, n, T_(0.0));
             const auto knots = IntervalKnots(from, to);
-            for (size_t i = 1; i < knots.size(); ++i) {
-                const T_ g = G(knots[i - 1]);
-                result += g * g * (knots[i] - knots[i - 1]);
-            }
+            for (size_t piece = 1; piece < knots.size(); ++piece)
+                for (int i = 0; i < n; ++i)
+                    for (int j = 0; j < n; ++j)
+                        result(i, j) += G(i, knots[piece - 1]) * G(j, knots[piece - 1]) * correlations_(i, j) * (knots[piece] - knots[piece - 1]);
             return result;
         }
 
-        [[nodiscard]] T_ BondLoading(double from, double to) const {
+        [[nodiscard]] Vector_<T_> BondLoading(double from, double to) const {
             REQUIRE(from <= to, "InvalidGSRInterval: bond loading requires from <= to");
-            T_ result(0.0);
+            Vector_<T_> result(NumFactors(), T_(0.0));
             const auto knots = IntervalKnots(from, to);
             for (size_t i = 1; i < knots.size(); ++i)
-                result += H(knots[i - 1]) * (knots[i] - knots[i - 1]);
+                for (size_t factor = 0; factor < NumFactors(); ++factor)
+                    result[factor] += H(factor, knots[i - 1]) * (knots[i] - knots[i - 1]);
             return result;
         }
 
-        // Integral of g(u)^2 B(u,to), accumulated backward over the merged knot grid.
-        [[nodiscard]] T_ StateDiscountCovariance(double from, double to) const {
+        [[nodiscard]] Vector_<T_> StateDiscountCovariance(double from, double to) const {
             REQUIRE(from <= to, "InvalidGSRInterval: covariance requires from <= to");
-            T_ result(0.0);
-            T_ loading(0.0);
+            const size_t n = NumFactors();
+            Vector_<T_> result(n, T_(0.0));
+            Vector_<T_> loading(n, T_(0.0));
             const auto knots = IntervalKnots(from, to);
-            for (size_t i = knots.size(); i-- > 1;) {
-                const double width = knots[i] - knots[i - 1];
-                const T_ g = G(knots[i - 1]);
-                const T_ h = H(knots[i - 1]);
-                result += g * g * (width * loading + 0.5 * width * width * h);
-                loading += width * h;
+            for (size_t piece = knots.size(); piece-- > 1;) {
+                const double width = knots[piece] - knots[piece - 1];
+                for (size_t i = 0; i < n; ++i)
+                    for (size_t j = 0; j < n; ++j)
+                        result[i] += G(i, knots[piece - 1]) * G(j, knots[piece - 1]) * correlations_(static_cast<int>(i), static_cast<int>(j)) *
+                                     (width * loading[j] + 0.5 * width * width * H(j, knots[piece - 1]));
+                for (size_t i = 0; i < n; ++i)
+                    loading[i] += width * H(i, knots[piece - 1]);
             }
             return result;
         }
 
-        [[nodiscard]] T_ DiscountedStateMean(double time) const { return -StateDiscountCovariance(0.0, time); }
-
-        [[nodiscard]] T_ Bond(double time, const Date_& maturity, const T_& state) const {
-            const double finalTime = Time(maturity);
-            REQUIRE(finalTime >= time, "InvalidGSRObservation: bond maturity precedes observation");
-            const T_ loading = BondLoading(time, finalTime);
-            return Dal::exp(LogDF(finalTime) - LogDF(time) - loading * (state - DiscountedStateMean(time)) -
-                            0.5 * loading * loading * StateVariance(0.0, time));
+        [[nodiscard]] Vector_<T_> DiscountedStateMean(double time) const {
+            auto result = StateDiscountCovariance(0.0, time);
+            for (auto& value : result)
+                value = -value;
+            return result;
         }
 
-        [[nodiscard]] T_
-        Libor(double time, const Date_& start, const Date_& maturity, const String_& tenor, const DayBasis_& basis, const T_& state) const {
+        [[nodiscard]] Bond_ PrepareBond(double time, const Date_& maturity, const Matrix_<T_>& variance, const Vector_<T_>& mean) const {
+            const double finalTime = Time(maturity);
+            REQUIRE(finalTime >= time, "InvalidGSRObservation: bond maturity precedes observation");
+            auto loading = BondLoading(time, finalTime);
+            const T_ intercept = LogDF(finalTime) - LogDF(time) + Dot(loading, mean) - 0.5 * Quadratic(loading, variance);
+            return {std::move(loading), intercept};
+        }
+
+        [[nodiscard]] static T_ Bond(const Bond_& bond, const T_* state) {
+            T_ exponent = bond.intercept_;
+            for (size_t i = 0; i < bond.loading_.size(); ++i)
+                exponent -= bond.loading_[i] * state[i];
+            return Dal::exp(exponent);
+        }
+
+        [[nodiscard]] LiborObservation_ PrepareLibor(double time,
+                                                     const Date_& start,
+                                                     const Date_& maturity,
+                                                     const String_& tenor,
+                                                     const DayBasis_& basis,
+                                                     const Matrix_<T_>& variance,
+                                                     const Vector_<T_>& mean) const {
             const double accrual = basis(start, maturity, nullptr);
             REQUIRE(accrual > 0.0 && start < maturity, "InvalidGSRObservation: invalid Libor accrual");
             const auto& projection = Projection(tenor);
-            const T_ initialProjectionRatio = Dal::exp(LogDF(Time(start), projection) - LogDF(Time(maturity), projection));
-            const T_ initialDiscountRatio = Dal::exp(LogDF(start) - LogDF(maturity));
-            const T_ stochasticRatio = Bond(time, start, state) / Bond(time, maturity, state);
-            return (initialProjectionRatio * stochasticRatio / initialDiscountRatio - 1.0) / accrual;
+            const T_ scale = Dal::exp(LogDF(Time(start), projection) - LogDF(Time(maturity), projection) - LogDF(start) + LogDF(maturity));
+            return {PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean), scale, accrual};
         }
 
-        [[nodiscard]] T_ SwapRate(double time, const Observation_& request, const T_& state) const {
-            T_ annuity(0.0);
-            T_ floatPv(0.0);
-            for (const auto& period : request.fixedPeriods_)
-                annuity += request.fixedBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get()) *
-                           Bond(time, period.paymentDate_, state);
-            REQUIRE(Value(annuity) > 0.0, "InvalidGSRObservation: non-positive swap annuity");
-            for (const auto& period : request.floatPeriods_) {
-                const T_ fixing = Libor(time, period.accrualStart_, period.accrualEnd_, request.projectionTenor_, request.indexBasis_, state);
-                floatPv += fixing * request.floatBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get()) *
-                           Bond(time, period.paymentDate_, state);
-            }
-            return floatPv / annuity;
+        [[nodiscard]] static T_ Libor(const LiborObservation_& request, const T_* state) {
+            return (request.scale_ * Bond(request.start_, state) / Bond(request.end_, state) - 1.0) / request.accrual_;
         }
 
-        [[nodiscard]] Observation_ PrepareObservation(const String_& name, const Date_& sampleDate) const {
+        [[nodiscard]] Observation_
+        PrepareObservation(const String_& name, const Date_& sampleDate, const Matrix_<T_>& variance, const Vector_<T_>& mean) const {
             const Handle_<Index_> index(Index::Parse(name));
             const DateTime_ eventTime(sampleDate, 0.0);
-            Observation_ result;
+            const double time = Time(sampleDate);
             if (const auto* df = dynamic_cast<const Index::DF_*>(index.get())) {
-                result.kind_ = Observation_::Kind_::DF;
-                result.start_ = df->StartDate(eventTime);
-                result.maturity_ = df->Maturity(eventTime);
+                const Date_ start = df->StartDate(eventTime), maturity = df->Maturity(eventTime);
+                REQUIRE(start >= sampleDate && maturity > start, "InvalidGSRObservation: invalid discount interval");
+                return DiscountObservation_{PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean)};
             } else if (const auto* libor = dynamic_cast<const Index::Libor_*>(index.get())) {
-                result.kind_ = Observation_::Kind_::LIBOR;
-                result.start_ = libor->StartDate(eventTime);
-                result.maturity_ = Date::NominalMaturity(result.start_, libor->tenor_.Period(), libor->ccy_);
-                result.projectionTenor_ = libor->tenor_.Period().String();
-                result.indexBasis_ = Ccy::Conventions::LiborDayBasis()(libor->ccy_);
+                const Date_ start = libor->StartDate(eventTime);
+                const Date_ maturity = Date::NominalMaturity(start, libor->tenor_.Period(), libor->ccy_);
+                return PrepareLibor(time, start, maturity, libor->tenor_.Period().String(), Ccy::Conventions::LiborDayBasis()(libor->ccy_), variance,
+                                    mean);
             } else if (const auto* swap = dynamic_cast<const Index::Swap_*>(index.get())) {
-                result.kind_ = Observation_::Kind_::SWAP;
-                result.start_ = swap->StartDate(eventTime);
-                result.maturity_ = Date::ParseIncrement(swap->tenor_)->FwdFrom(result.start_);
+                const Date_ start = swap->StartDate(eventTime);
+                const Date_ maturity = Date::ParseIncrement(swap->tenor_)->FwdFrom(start);
                 const auto& fixedLeg = Ccy::Conventions::SwapFixedLeg()(swap->ccy_);
                 const auto& floatLeg = Ccy::Conventions::SwapFloatLeg()(swap->ccy_);
                 const auto floatIndex = Ccy::Conventions::SwapFloatIndex()(swap->ccy_);
-                result.projectionTenor_ = floatIndex.Period().String();
-                result.indexBasis_ = Ccy::Conventions::LiborDayBasis()(swap->ccy_);
-                result.fixedBasis_ = fixedLeg.dayBasis_;
-                result.floatBasis_ = floatLeg.dayBasis_;
-                result.fixedPeriods_ =
-                    MakeSchedulePeriods(result.start_, result.maturity_, fixedLeg.paymentFrequency_, fixedLeg.accrualHolidays_, 0, Holidays::None(),
+                const auto fixedPeriods =
+                    MakeSchedulePeriods(start, maturity, fixedLeg.paymentFrequency_, fixedLeg.accrualHolidays_, 0, Holidays::None(),
                                         fixedLeg.paymentLag_, fixedLeg.paymentHolidays_, DateGeneration_("Forward"), fixedLeg.businessDayConvention_,
                                         fixedLeg.paymentConvention_, fixedLeg.endOfMonth_);
-                result.floatPeriods_ =
-                    MakeSchedulePeriods(result.start_, result.maturity_, floatLeg.paymentFrequency_, floatLeg.accrualHolidays_, 0, Holidays::None(),
+                const auto floatPeriods =
+                    MakeSchedulePeriods(start, maturity, floatLeg.paymentFrequency_, floatLeg.accrualHolidays_, 0, Holidays::None(),
                                         floatLeg.paymentLag_, floatLeg.paymentHolidays_, DateGeneration_("Forward"), floatLeg.businessDayConvention_,
                                         floatLeg.paymentConvention_, floatLeg.endOfMonth_);
+                SwapObservation_ result;
+                for (const auto& period : fixedPeriods)
+                    result.fixed_.push_back({PrepareBond(time, period.paymentDate_, variance, mean),
+                                             fixedLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
+                for (const auto& period : floatPeriods)
+                    result.floating_.push_back({PrepareLibor(time, period.accrualStart_, period.accrualEnd_, floatIndex.Period().String(),
+                                                             Ccy::Conventions::LiborDayBasis()(swap->ccy_), variance, mean),
+                                                PrepareBond(time, period.paymentDate_, variance, mean),
+                                                floatLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
+                return result;
             } else
                 THROW("UnsupportedGSRObservation: " + name);
-            REQUIRE(result.start_ >= sampleDate && result.maturity_ > result.start_,
-                    "InvalidGSRObservation: start/maturity must follow the observation date");
-            static_cast<void>(Time(result.maturity_));
-            if (result.kind_ == Observation_::Kind_::SWAP) {
-                for (const auto& period : result.fixedPeriods_)
-                    static_cast<void>(Time(period.paymentDate_));
-                for (const auto& period : result.floatPeriods_)
-                    static_cast<void>(Time(period.paymentDate_));
-            }
-            return result;
         }
 
         void SetParameterPointers() {
@@ -239,80 +282,143 @@ namespace Dal::AAD {
             for (size_t row = 0; row < projectionLogDF_.size(); ++row)
                 for (size_t i = 1; i < projectionLogDF_[row].size(); ++i)
                     add(&projectionLogDF_[row][i], "logdf:" + projectionTenors_[row] + ":" + Date::ToString(nodeDates_[i]));
-            for (size_t i = 0; i < gValues_.size(); ++i)
-                add(&gValues_[i], "g:" + Date::ToString(evaluationDate_.AddDays(static_cast<int>(std::llround(gTimes_[i] * DAYS_PER_YEAR)))));
-            for (size_t i = 0; i < hValues_.size(); ++i)
-                add(&hValues_[i], "H:" + Date::ToString(evaluationDate_.AddDays(static_cast<int>(std::llround(hTimes_[i] * DAYS_PER_YEAR)))));
+            const auto addPieces = [&](Vector_<Vector_<T_>>* values, const Vector_<>& times, const String_& prefix) {
+                for (size_t factor = 0; factor < values->size(); ++factor)
+                    for (size_t i = 0; i < times.size(); ++i)
+                        add(&(*values)[factor][i],
+                            prefix + (legacy_ ? String_() : factorNames_[factor] + ":") +
+                                Date::ToString(evaluationDate_.AddDays(static_cast<int>(std::llround(times[i] * DAYS_PER_YEAR)))));
+            };
+            addPieces(&gValues_, gTimes_, "g:");
+            addPieces(&hValues_, hTimes_, "H:");
         }
 
         void ComputeStep(double previous, double current, Step_* step) const {
-            const T_ variance = StateVariance(previous, current);
-            const T_ loading = BondLoading(previous, current);
-            const T_ covariance = StateDiscountCovariance(previous, current);
-            if (Value(variance) > 0.0) {
-                step->sigma_ = Dal::sqrt(variance);
-                step->bPlus_ = covariance / variance;
-            } else {
-                step->sigma_ = T_(0.0);
-                step->bPlus_ = T_(0.0);
+            const auto variance = StateVariance(previous, current);
+            const auto covariance = StateDiscountCovariance(previous, current);
+            step->lower_ = CovarianceFactor(variance);
+            step->loading_ = BondLoading(previous, current);
+            step->discountNormals_ = Vector_<T_>(NumFactors(), T_(0.0));
+            for (size_t i = 0; i < NumFactors(); ++i) {
+                T_ residual = covariance[i];
+                for (size_t j = 0; j < i; ++j)
+                    residual -= step->lower_(static_cast<int>(i), static_cast<int>(j)) * step->discountNormals_[j];
+                const T_ diagonal = step->lower_(static_cast<int>(i), static_cast<int>(i));
+                if (Value(diagonal) > 0.0)
+                    step->discountNormals_[i] = residual / diagonal;
             }
-            step->bMinus_ = loading - step->bPlus_;
             step->a_ = LogDF(current) - LogDF(previous);
-            step->a_ += loading * DiscountedStateMean(previous);
-            step->a_ -= 0.5 * loading * loading * StateVariance(0.0, previous);
-            step->a_ -= 0.5 * step->bPlus_ * step->bPlus_ * variance;
+            step->a_ += Dot(step->loading_, DiscountedStateMean(previous));
+            step->a_ -= 0.5 * Quadratic(step->loading_, StateVariance(0.0, previous));
+            step->a_ -= 0.5 * Dot(step->discountNormals_, step->discountNormals_);
             step->advances_ = true;
         }
 
-        void AdvancePath(const Step_& step, double gaussian, T_* state, T_* logNumeraire) const {
-            const T_ nextState = *state + step.sigma_ * gaussian;
-            if (NumeraireIsDeterministic())
-                *logNumeraire -= step.a_;
-            else
-                *logNumeraire -= step.a_ - step.bMinus_ * *state - step.bPlus_ * nextState;
-            *state = nextState;
+        void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
+            T_ logDiscount = step.a_;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                logDiscount -= step.loading_[i] * state[i] + step.discountNormals_[i] * gaussian[i];
+            *logNumeraire -= logDiscount;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                for (size_t j = 0; j <= i; ++j)
+                    state[i] += step.lower_(static_cast<int>(i), static_cast<int>(j)) * gaussian[j];
         }
 
-        [[nodiscard]] T_ Observe(double time, const Observation_& request, const T_& state) const {
-            switch (request.kind_) {
-            case Observation_::Kind_::DF:
-                return Bond(time, request.maturity_, state) / Bond(time, request.start_, state);
-            case Observation_::Kind_::LIBOR:
-                return Libor(time, request.start_, request.maturity_, request.projectionTenor_, request.indexBasis_, state);
-            case Observation_::Kind_::SWAP:
-                return SwapRate(time, request, state);
+        [[nodiscard]] static T_ Observe(const Observation_& request, const T_* state) {
+            return std::visit(
+                [&](const auto& observation) -> T_ {
+                    using O_ = std::decay_t<decltype(observation)>;
+                    if constexpr (std::is_same_v<O_, DiscountObservation_>)
+                        return Bond(observation.end_, state) / Bond(observation.start_, state);
+                    else if constexpr (std::is_same_v<O_, LiborObservation_>)
+                        return Libor(observation, state);
+                    else {
+                        T_ annuity(0.0), floating(0.0);
+                        for (const auto& coupon : observation.fixed_)
+                            annuity += coupon.accrual_ * Bond(coupon.payment_, state);
+                        REQUIRE(Value(annuity) > 0.0, "InvalidGSRObservation: non-positive swap annuity");
+                        for (const auto& coupon : observation.floating_)
+                            floating += coupon.accrual_ * Libor(coupon.fixing_, state) * Bond(coupon.payment_, state);
+                        return floating / annuity;
+                    }
+                },
+                request);
+        }
+
+        void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
+            T_ logNumeraire(0.0);
+            size_t gaussianSlot = 0;
+            for (size_t i = 0; i < productTimeLine_.size(); ++i) {
+                const auto& step = steps_[i];
+                if (step.advances_) {
+                    AdvancePath(step, &gaussian[gaussianSlot], state, &logNumeraire);
+                    gaussianSlot += NumFactors();
+                }
+                auto& sample = (*path)[i];
+                sample.spot_ = T_(0.0);
+                sample.numeraire_ = Dal::exp(logNumeraire);
+                for (size_t j = 0; j < observations_[i].size(); ++j)
+                    sample.observations_[j] = Observe(observations_[i][j], state);
             }
-            THROW("UnsupportedGSRObservation: unknown observation kind");
         }
 
-    public:
-        explicit GSR_(const GSRModelData_& data)
-            : evaluationDate_(data.curve_->evaluationDate_), currency_(data.curve_->currency_), nodeDates_(data.curve_->nodeDates_),
-              projectionTenors_(data.curve_->projectionTenors_) {
+        GSR_(const GSRCurveData_& curve,
+             const Vector_<String_>& factorNames,
+             const Vector_<Date_>& gDates,
+             const Matrix_<>& gValues,
+             const Vector_<Date_>& hDates,
+             const Matrix_<>& hValues,
+             const Matrix_<>& correlations,
+             bool legacy)
+            : evaluationDate_(curve.evaluationDate_), currency_(curve.currency_), nodeDates_(curve.nodeDates_),
+              projectionTenors_(curve.projectionTenors_), factorNames_(factorNames), correlations_(correlations), legacy_(legacy) {
             Vector_<> curveTimes;
             for (const auto& date : nodeDates_)
                 curveTimes.push_back((date - evaluationDate_) / DAYS_PER_YEAR);
             interpolation_ = std::make_shared<LogDfInterpolation_>(curveTimes, LogDfScheme_("LOG_LINEAR"));
-            for (const double value : data.curve_->discountLogDF_)
+            for (const double value : curve.discountLogDF_)
                 discountLogDF_.push_back(T_(value));
             for (size_t row = 0; row < projectionTenors_.size(); ++row) {
                 Vector_<T_> values;
                 for (size_t col = 0; col < nodeDates_.size(); ++col)
-                    values.push_back(T_(data.curve_->projectionLogDF_(static_cast<int>(row), static_cast<int>(col))));
+                    values.push_back(T_(curve.projectionLogDF_(static_cast<int>(row), static_cast<int>(col))));
                 projectionLogDF_.push_back(std::move(values));
             }
-            for (size_t i = 0; i < data.vol_->gKnotDates_.size(); ++i) {
-                gTimes_.push_back((data.vol_->gKnotDates_[i] - evaluationDate_) / DAYS_PER_YEAR);
-                gValues_.push_back(T_(data.vol_->gValues_[i]));
-            }
-            for (size_t i = 0; i < data.vol_->hKnotDates_.size(); ++i) {
-                hTimes_.push_back((data.vol_->hKnotDates_[i] - evaluationDate_) / DAYS_PER_YEAR);
-                hValues_.push_back(T_(data.vol_->hValues_[i]));
-            }
+            const auto loadPieces = [&](const Vector_<Date_>& dates, const Matrix_<>& values, Vector_<>* times, Vector_<Vector_<T_>>* pieces) {
+                for (const auto& date : dates)
+                    times->push_back((date - evaluationDate_) / DAYS_PER_YEAR);
+                for (int row = 0; row < values.Rows(); ++row) {
+                    Vector_<T_> factor;
+                    for (int col = 0; col < values.Cols(); ++col)
+                        factor.push_back(T_(values(row, col)));
+                    pieces->push_back(std::move(factor));
+                }
+            };
+            loadPieces(gDates, gValues, &gTimes_, &gValues_);
+            loadPieces(hDates, hValues, &hTimes_, &hValues_);
             SetParameterPointers();
         }
 
-        // The hybrid rate component uses the same transition and observation kernel as standalone GSR.
+    public:
+        explicit GSR_(const GSRModelData_& data)
+            : GSR_(*data.curve_,
+                   {""},
+                   data.vol_->gKnotDates_,
+                   SingleRow(data.vol_->gValues_),
+                   data.vol_->hKnotDates_,
+                   SingleRow(data.vol_->hValues_),
+                   Matrix_<>(1, 1, 1.0),
+                   true) {}
+        explicit GSR_(const MultiFactorGSRModelData_& data)
+            : GSR_(*data.curve_,
+                   data.vol_->factorNames_,
+                   data.vol_->gKnotDates_,
+                   data.vol_->gValues_,
+                   data.vol_->hKnotDates_,
+                   data.vol_->hValues_,
+                   data.vol_->correlations_,
+                   false) {}
+
         [[nodiscard]] T_ InitialLogDiscount(double time) const { return LogDF(time); }
         void ResetAnchorsForRecording() {
             if constexpr (!std::is_same_v<T_, double>) {
@@ -322,21 +428,27 @@ namespace Dal::AAD {
             }
         }
         void AdvanceHybrid(size_t sample, double gaussian, T_* state, T_* logNumeraire) const {
+            REQUIRE(NumFactors() == 1, "InvalidGSRPath: scalar hybrid stepping requires one factor");
             REQUIRE(sample < steps_.size() && steps_[sample].advances_, "InvalidGSRPath: hybrid step was not prepared");
-            AdvancePath(steps_[sample], gaussian, state, logNumeraire);
+            AdvancePath(steps_[sample], &gaussian, state, logNumeraire);
         }
         [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_& state) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: hybrid observation was not prepared");
-            return Observe(productTimeLine_[sample], observations_[sample][slot], state);
+            REQUIRE(NumFactors() == 1, "InvalidGSRPath: scalar hybrid observation requires one factor");
+            return Observe(observations_[sample][slot], &state);
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }
+        [[nodiscard]] size_t NumFactors() const override { return factorNames_.size(); }
+        [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
         [[nodiscard]] std::optional<Date_> EvaluationDate() const override { return evaluationDate_; }
         [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
         [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
         [[nodiscard]] bool NumeraireIsDeterministic() const override {
-            return std::all_of(gValues_.begin(), gValues_.end(), [](const T_& value) { return Value(value) == 0.0; });
+            return std::all_of(gValues_.begin(), gValues_.end(), [](const auto& factor) {
+                return std::all_of(factor.begin(), factor.end(), [](const T_& value) { return Value(value) == 0.0; });
+            });
         }
         [[nodiscard]] bool SupportsIndex(const Index_& index) const override {
             if (const auto* df = dynamic_cast<const Index::DF_*>(&index))
@@ -353,9 +465,9 @@ namespace Dal::AAD {
             const size_t curveCount = nodeDates_.size() - 1 + projectionTenors_.size() * (nodeDates_.size() - 1);
             if (parameter < curveCount)
                 return true;
-            if (parameter < curveCount + gValues_.size())
+            if (parameter < curveCount + NumFactors() * gTimes_.size())
                 return value >= 0.0;
-            return value > 0.0;
+            return !legacy_ || value > 0.0;
         }
         [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
         [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
@@ -372,6 +484,7 @@ namespace Dal::AAD {
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
             REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
+            this->ValidateTimeline(timeline, definitions);
             // Anchors are not risk parameters. Recreate their constant tape nodes after NewRecording.
             ResetAnchorsForRecording();
             double previous = 0.0;
@@ -384,27 +497,25 @@ namespace Dal::AAD {
                 else
                     steps_[i] = Step_();
                 observations_[i].clear();
+                const auto variance = StateVariance(0.0, current);
+                const auto mean = DiscountedStateMean(current);
                 for (const auto& name : definitions[i].indexNames_)
-                    observations_[i].push_back(PrepareObservation(name, sampleDate));
+                    observations_[i].push_back(PrepareObservation(name, sampleDate, variance, mean));
                 previous = current;
             }
         }
-        [[nodiscard]] size_t SimDim() const override { return productTimeLine_.size() - static_cast<size_t>(productTimeLine_.front() == 0.0); }
+        [[nodiscard]] size_t SimDim() const override {
+            return productTimeLine_.empty() ? 0 : NumFactors() * (productTimeLine_.size() - static_cast<size_t>(productTimeLine_.front() == 0.0));
+        }
         void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
             REQUIRE(gaussian.size() == SimDim() && path && path->size() == productTimeLine_.size(),
                     "InvalidGSRPath: Gaussian or scenario dimension mismatch");
-            T_ state(0.0);
-            T_ logNumeraire(0.0);
-            size_t gaussianSlot = 0;
-            for (size_t i = 0; i < productTimeLine_.size(); ++i) {
-                const auto& step = steps_[i];
-                if (step.advances_)
-                    AdvancePath(step, gaussian[gaussianSlot++], &state, &logNumeraire);
-                auto& sample = (*path)[i];
-                sample.spot_ = T_(0.0);
-                sample.numeraire_ = Dal::exp(logNumeraire);
-                for (size_t j = 0; j < observations_[i].size(); ++j)
-                    sample.observations_[j] = Observe(productTimeLine_[i], observations_[i][j], state);
+            if (NumFactors() == 1) {
+                T_ state(0.0);
+                GeneratePathWithState(gaussian, path, &state);
+            } else {
+                Vector_<T_> state(NumFactors(), T_(0.0));
+                GeneratePathWithState(gaussian, path, &state[0]);
             }
         }
     };
