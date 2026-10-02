@@ -326,6 +326,10 @@ int main(int argc, char** argv) {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--gsr-slv") {
+            RunGSRSLVPathCases();
+            return 0;
+        }
         if (std::string(argv[1]) == "--gsr-european") {
             Bench::PrintHeader();
             RunGSREuropeanCases();

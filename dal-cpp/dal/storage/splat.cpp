@@ -53,7 +53,7 @@ namespace Dal {
                     return val_.Cols();
                 int ret_val = 0;
                 for (const auto& c : children_)
-                    ret_val += max(ret_val, c.second->Cols());
+                    ret_val = max(ret_val, c.second->Cols());
                 return 2 + ret_val;
             }
 
@@ -98,12 +98,22 @@ namespace Dal {
             }
 
             template <class E_> void SetVector(const Vector_<E_>& v) {
+                if (v.empty()) {
+                    val_.Resize(1, 1);
+                    val_(0, 0) = Cell_();
+                    return;
+                }
                 val_.Resize(1, static_cast<int>(v.size()));
                 auto dst = val_.Row(0);
                 Copy(v, &dst);
             }
 
             template <class E_> void SetMatrix(const Matrix_<E_>& m) {
+                if (m.Empty()) {
+                    val_.Resize(1, 1);
+                    val_(0, 0) = Cell_();
+                    return;
+                }
                 val_.Resize(m.Rows(), m.Cols());
                 for (auto ir = 0; ir < m.Rows(); ++ir) {
                     auto dst = val_.Row(ir);
@@ -289,8 +299,11 @@ namespace Dal {
             Date_ AsDate() const override { return ExtractDate(GetScalar()); }
             String_ AsString() const override { return ExtractString(GetScalar()); }
 
-            pair<Matrix_<Cell_>::Row_::const_iterator, Matrix_<Cell_>::Row_::const_iterator> VectorRange() const {
+            pair<Matrix_<Cell_>::Row_::const_iterator, Matrix_<Cell_>::Row_::const_iterator> VectorRange(bool blankIsEmpty = true) const {
                 REQUIRE(rowStop_ == rowStart_ + 1, "Can't get a vector value from a multi-line entry");
+                const auto first = data_.Row(rowStart_).begin() + colStart_;
+                if (blankIsEmpty && std::holds_alternative<std::monostate>(first->val_))
+                    return make_pair(first, first);
                 int colStop = colStart_ + 1;
                 while (colStop < data_.Cols() && !Cell::IsEmpty(data_(rowStart_, colStop)))
                     ++colStop;
@@ -305,7 +318,7 @@ namespace Dal {
             Vector_<DateTime_> AsDateTimeVector() const override {
                 return TranslateRange(VectorRange(), ExtractDateTime);
             }
-            Vector_<Cell_> AsCellVector() const override { return TranslateRange(VectorRange(), Identity_<Cell_>()); }
+            Vector_<Cell_> AsCellVector() const override { return TranslateRange(VectorRange(false), Identity_<Cell_>()); }
 
             int MatrixStop() const {
                 for (int ret_val = colStart_ + 1;;) {
@@ -328,7 +341,12 @@ namespace Dal {
                 return ret_val;
             }
 
-            Matrix_<> AsDoubleMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractDouble); }
+            Matrix_<> AsDoubleMatrix() const override {
+                if (rowStop_ == rowStart_ + 1 && std::holds_alternative<std::monostate>(data_(rowStart_, colStart_).val_) &&
+                    (colStart_ + 1 == data_.Cols() || Cell::IsEmpty(data_(rowStart_, colStart_ + 1))))
+                    return Matrix_<>(0, 0);
+                return TranslateMatrix(MatrixStop(), ExtractDouble);
+            }
 
             Matrix_<String_> AsStringMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractString); }
 

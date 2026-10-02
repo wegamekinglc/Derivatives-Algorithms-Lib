@@ -13,6 +13,7 @@
 #include <dal/model/dupire.hpp>
 #include <dal/model/gsrdata.hpp>
 #include <dal/model/gsrmultidata.hpp>
+#include <dal/model/gsrslvdata.hpp>
 #include <dal/model/hybriddata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -111,6 +112,20 @@ namespace Dal {
     FORCE_INLINE Handle_<ModelData_>
     NewMultiFactorGSRModelData(const String_& name, const Handle_<GSRCurveData_>& curve, const Handle_<MultiFactorGSRVolData_>& vol) {
         return Handle_<ModelData_>(new MultiFactorGSRModelData_(name, curve, vol));
+    }
+
+    FORCE_INLINE Handle_<GSRLeverageData_>
+    NewGSRLeverageData(const String_& name, const Vector_<>& rateShifts, const Vector_<>& times, const Matrix_<>& values) {
+        return Handle_<GSRLeverageData_>(new GSRLeverageData_(name, rateShifts, times, values));
+    }
+
+    FORCE_INLINE Handle_<ModelData_> NewGSRSLVModelData(const String_& name,
+                                                        const Handle_<ModelData_>& gaussian,
+                                                        const Handle_<GSRLeverageData_>& leverage,
+                                                        const GSRSLVSettings_& settings = {}) {
+        const auto rates = handle_cast<MultiFactorGSRModelData_>(gaussian);
+        REQUIRE(rates, "InvalidGSRSLVModel: MultiFactorGSRModelData is required");
+        return Handle_<ModelData_>(new GSRSLVModelData_(name, rates, leverage, settings));
     }
 
     FORCE_INLINE Handle_<GSRCurveData_> NewGSRCurveDataFromYieldCurve(const String_& name,

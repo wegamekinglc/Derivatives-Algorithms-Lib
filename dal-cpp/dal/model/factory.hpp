@@ -7,6 +7,7 @@
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/gsr.hpp>
+#include <dal/model/gsrslv.hpp>
 #include <dal/model/hybrid.hpp>
 
 namespace Dal {
@@ -46,6 +47,9 @@ namespace Dal {
 
         if (const auto* gsr = dynamic_cast<const MultiFactorGSRModelData_*>(model_data.get()))
             return std::make_unique<AAD::GSR_<T_>>(*gsr);
+
+        if (const auto* gsr = dynamic_cast<const GSRSLVModelData_*>(model_data.get()))
+            return std::make_unique<AAD::GSRSLV_<T_>>(*gsr);
 
         THROW("can't find matched model type");
     }

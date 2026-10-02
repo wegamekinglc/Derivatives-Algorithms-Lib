@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRLeverageData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRLeverageData_New (in Excel: GSRLEVERAGEDATA.NEW)</h1>
+Positive rate-shift leverage surface
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Leverage data name</td></tr>
+<tr><td>rateShifts</td><td>vector of numbers</td><td></td><td>Increasing short-rate shifts, including negative values</td></tr>
+<tr><td>times</td><td>vector of numbers</td><td></td><td>Increasing nonnegative ACT/365 times</td></tr>
+<tr><td>values</td><td>matrix of numbers</td><td></td><td>Positive leverage, rate-shift rows and time columns</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>leverage</td><td>handle of type GSRLeverageData</td><td>Leverage surface</td></tr>
+</table>
+
+
+
+
+
+

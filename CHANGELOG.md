@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-02
 
+- **GSR stochastic local volatility** — multi-factor Markovian HJM with normalized
+  CIR variance, rate-shift leverage, bank-account discounting and model-input AAD
+  is available through dal-public, Python and Excel. See [GSR](docs/models/gaussian-short-rate.md#stochastic-local-volatility).
 - **European GSR calibration** — analytic bond options and caplets, multi-factor
   physically settled European swaptions, and bounded regularized g-bucket
   calibration with fit, numerical-error and rank diagnostics are available

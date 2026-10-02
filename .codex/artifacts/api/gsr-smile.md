@@ -16,6 +16,10 @@ positional C++ signature. Python/Excel use `MultiFactorGSRVolData_New` and
 `MultiFactorGSRModelData_New`, matching the existing model factory convention.
 Binding conversions delegate construction and validation to dal-public.
 
+The implemented stochastic-volatility inputs and binding conventions are in the
+[GSR guide](../../../docs/models/gaussian-short-rate.md#stochastic-local-volatility).
+Smile calibration should return GSRSLVModelData through the same public factories.
+
 New model errors use `InvalidGSR...` prefixes with a concrete failed constraint;
 the shared PSD factorization reports `InvalidCovariance...` errors.
 Reject empty/duplicate names, nonfinite numbers, unordered dates, shape mismatch,

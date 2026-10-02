@@ -15,7 +15,8 @@ namespace Dal {
     using Script::SimResults_;
 
     namespace {
-        const std::set<String_> MODEL_STORE = {"BSModelData_", "CorrelatedBSModelData_", "HybridModelData_", "GSRModelData", "MultiFactorGSRModelData"};
+        const std::set<String_> MODEL_STORE = {"BSModelData_", "CorrelatedBSModelData_",  "HybridModelData_",
+                                               "GSRModelData", "MultiFactorGSRModelData", "GSRSLVModelData"};
 
         ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
                                                   const Handle_<ModelData_>& modelData,
@@ -23,10 +24,11 @@ namespace Dal {
             REQUIRE2(product, "InvalidSetting: product=null; expected a non-null product", ScriptError_);
             REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
             const auto modelType = modelData->Type();
-            REQUIRE2(MODEL_STORE.find(modelType) != MODEL_STORE.end(),
-                     "InvalidSetting: modelData.Type=" + modelType +
-                         "; expected BSModelData_, CorrelatedBSModelData_, HybridModelData_, GSRModelData, or MultiFactorGSRModelData",
-                     ScriptError_);
+            REQUIRE2(
+                MODEL_STORE.find(modelType) != MODEL_STORE.end(),
+                "InvalidSetting: modelData.Type=" + modelType +
+                    "; expected BSModelData_, CorrelatedBSModelData_, HybridModelData_, GSRModelData, MultiFactorGSRModelData, or GSRSLVModelData",
+                ScriptError_);
             return Script::ResolveValuationSettings(valuation);
         }
     } // namespace

@@ -16,6 +16,14 @@
 #endif
 
 namespace Dal {
+    DAL_EXCEL_TEST_API void GSRLeverageData_New(
+        const String_& name, const Vector_<>& rateShifts, const Vector_<>& times, const Matrix_<>& values, Handle_<GSRLeverageData_>* leverage);
+    DAL_EXCEL_TEST_API void GSRSLVModelData_New(const String_& name,
+                                                const Handle_<ModelData_>& gaussian,
+                                                const Handle_<GSRLeverageData_>& leverage,
+                                                const Vector_<>& varianceCorrelations,
+                                                const Matrix_<Cell_>& settings,
+                                                Handle_<ModelData_>* model);
     DAL_EXCEL_TEST_API void CorrelatedBSModelData_New(const String_& name,
                                                       const Vector_<String_>& indices,
                                                       const Vector_<>& spots,

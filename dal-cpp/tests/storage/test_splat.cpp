@@ -12,6 +12,7 @@
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/model/gsrdata.hpp>
 #include <dal/storage/bag.hpp>
 #include <dal/storage/box.hpp>
 #include <dal/storage/splat.hpp>
@@ -48,6 +49,18 @@ TEST(StorageTest, TestSplatAndUnSplat) {
     Handle_<Interp1_> val(std::dynamic_pointer_cast<const Interp1_>(rtn));
     ASSERT_TRUE(val.get() != nullptr);
     ASSERT_DOUBLE_EQ((*src)(2.5), (*val)(2.5));
+}
+
+TEST(StorageTest, TestSplatEmptyRateProjectionFields) {
+    const Date_ today(2026, 10, 2);
+    const GSRCurveData_ curve("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0));
+    const auto restored = handle_cast<GSRCurveData_>(UnSplat(Splat(curve), true));
+    ASSERT_TRUE(restored);
+    ASSERT_TRUE(restored->projectionTenors_.empty());
+    ASSERT_EQ(restored->projectionLogDF_.Rows(), 0);
+    ASSERT_EQ(restored->projectionLogDF_.Cols(), 0);
+    ASSERT_EQ(restored->nodeDates_, curve.nodeDates_);
+    ASSERT_EQ(Splat(curve).Cols(), 4);
 }
 
 TEST(StorageTest, TestSplatFileAndUnSplatFile) {
