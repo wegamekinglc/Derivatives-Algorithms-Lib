@@ -50,6 +50,8 @@ namespace {
 
     std::string DiagnosticValue(double value) { return ExampleFloat(std::abs(value) < 1e-12 ? 0.0 : value); }
 
+    std::string Status(bool passed) { return passed ? "true" : "false"; }
+
     std::string Precise(double value) {
         std::ostringstream result;
         result << std::setprecision(17) << value;
@@ -147,13 +149,13 @@ namespace {
     }
 
     template <class F_> void ReportDiagnostics(const std::string& title, const F_& fit, const std::optional<bool>& heldOut = std::nullopt) {
-        Rows_ rows{{"Converged", fit.converged_ ? "true" : "false"},
-                   {"Price fit passed", fit.fitWithinTolerance_ ? "true" : "false"},
-                   {"Numerical validation passed", fit.numericalValidationPassed_ ? "true" : "false"},
+        Rows_ rows{{"Converged", Status(fit.converged_)},
+                   {"Price fit passed", Status(fit.fitWithinTolerance_)},
+                   {"Numerical validation passed", Status(fit.numericalValidationPassed_)},
                    {"Jacobian rank", std::to_string(fit.jacobianRank_)},
                    {"Iterations", std::to_string(fit.iterations_)}};
         if (heldOut)
-            rows.push_back({"Held-out passed", *heldOut ? "true" : "false"});
+            rows.push_back({"Held-out passed", Status(*heldOut)});
         PrintTable(title, {"Diagnostic", "Result"}, rows);
         REQUIRE(fit.converged_ && fit.fitWithinTolerance_ && fit.numericalValidationPassed_,
                 "Calibration diagnostics failed: " + fit.terminationReason_);
@@ -230,6 +232,46 @@ namespace {
         return Handle_<ModelData_>(fit.model_);
     }
 
+    struct ScriptValues_ {
+        double plain_;
+        std::map<std::string, double> adjoint_;
+    };
+
+    ScriptValues_
+    ValueScript(const Handle_<ScriptProductData_>& product, const Handle_<ModelData_>& model, const GSRMonteCarloPrice_& reference, int paths) {
+        ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = TODAY;
+        MonteCarloSettings_ execution;
+        execution.compiled_ = true;
+        execution.useBb_ = true;
+        execution.smooth_ = 1e-8;
+        const auto plain = ValueByMonteCarlo(product, model, paths, valuation, execution);
+        execution.enableAad_ = true;
+        const auto adjoint = ValueByMonteCarlo(product, model, paths, valuation, execution);
+        REQUIRE(std::abs(adjoint.at("PV") - plain.at("PV")) <= 1e-10, "AAD and plain PV differ");
+        REQUIRE(std::abs(adjoint.at("PV") - reference.price_) <= 5 * reference.standardError_ + 0.0001, "Script and European pricer differ");
+        std::map<std::string, double> risks;
+        for (const auto& entry : adjoint) {
+            REQUIRE(std::isfinite(entry.second), "Non-finite AAD result");
+            risks.emplace(Text(entry.first), entry.second);
+        }
+        return {plain.at("PV"), std::move(risks)};
+    }
+
+    void ReportRisks(const std::array<std::map<std::string, double>, 2>& risks, const Date_& expiry) {
+        Rows_ rows;
+        for (const auto& entry : risks[0])
+            if (entry.first != "PV" && std::max(std::abs(entry.second), std::abs(risks[1].at(entry.first))) >= 1e-12) {
+                rows.push_back({entry.first, DiagnosticValue(entry.second), DiagnosticValue(risks[1].at(entry.first))});
+            }
+        std::vector<std::string> required{"d_logdf:OIS:" + Text(Date::ToString(expiry)), "d_kappa", "d_volOfVol", "d_leverage:1:0", "d_STRIKE"};
+        for (const auto& factor : {"level", "slope", "curvature"})
+            required.push_back(std::string("d_g:") + factor + ":" + Text(Date::ToString(TODAY)));
+        for (const auto& key : required)
+            REQUIRE(risks[0].count(key) && std::abs(risks[0].at(key)) >= 1e-12, "Expected model-input AAD risk is missing: " + String_(key));
+        PrintTable("AAD input derivatives; calibration held fixed; active inputs", {"Risk", "1Y ATM caplet", "1Y into 2Y payer"}, rows);
+    }
+
     void PriceProducts(const DiscountCurve_& discount, const Handle_<ModelData_>& model) {
         const auto expiry = TODAY.AddDays(365), first = expiry.AddDays(365), end = first.AddDays(365);
         const double strike = (discount(TODAY, expiry) - discount(TODAY, end)) / (discount(TODAY, first) + discount(TODAY, end));
@@ -253,37 +295,15 @@ namespace {
         const std::array<Handle_<ScriptProductData_>, 2> products{{capletScript, swaptionScript}};
         std::array<std::map<std::string, double>, 2> risks;
         Rows_ rows;
-        ScriptValuationSettings_ valuation;
-        valuation.evaluationDate_ = TODAY;
         for (size_t i = 0; i < products.size(); ++i) {
-            MonteCarloSettings_ execution;
-            execution.compiled_ = true;
-            execution.useBb_ = true;
-            execution.smooth_ = 1e-8;
-            const auto plain = ValueByMonteCarlo(products[i], model, settings.paths_, valuation, execution);
-            execution.enableAad_ = true;
-            const auto adjoint = ValueByMonteCarlo(products[i], model, settings.paths_, valuation, execution);
-            REQUIRE(std::abs(adjoint.at("PV") - plain.at("PV")) <= 1e-10, "AAD and plain PV differ");
-            REQUIRE(std::abs(adjoint.at("PV") - prices[i].price_) <= 5 * prices[i].standardError_ + 0.0001, "Script and European pricer differ");
-            for (const auto& entry : adjoint) {
-                REQUIRE(std::isfinite(entry.second), "Non-finite AAD result");
-                risks[i].emplace(Text(entry.first), entry.second);
-            }
-            rows.push_back({names[i], ExampleFloat(prices[i].price_), ExampleFloat(prices[i].standardError_), ExampleFloat(plain.at("PV")),
-                            ExampleFloat(adjoint.at("PV")), DiagnosticValue(adjoint.at("PV") - plain.at("PV"))});
+            const auto values = ValueScript(products[i], model, prices[i], settings.paths_);
+            const double adjoint = values.adjoint_.at("PV");
+            risks[i] = values.adjoint_;
+            rows.push_back({names[i], ExampleFloat(prices[i].price_), ExampleFloat(prices[i].standardError_), ExampleFloat(values.plain_),
+                            ExampleFloat(adjoint), DiagnosticValue(adjoint - values.plain_)});
         }
         PrintTable("Product values: unit notional; identical contracts", {"Product", "MRG32 PV", "Pair SE", "Sobol PV", "AAD PV", "AAD-plain"}, rows);
-        rows.clear();
-        for (const auto& entry : risks[0])
-            if (entry.first != "PV" && std::max(std::abs(entry.second), std::abs(risks[1].at(entry.first))) >= 1e-12) {
-                rows.push_back({entry.first, DiagnosticValue(entry.second), DiagnosticValue(risks[1].at(entry.first))});
-            }
-        std::vector<std::string> required{"d_logdf:OIS:" + Text(Date::ToString(expiry)), "d_kappa", "d_volOfVol", "d_leverage:1:0", "d_STRIKE"};
-        for (const auto& factor : {"level", "slope", "curvature"})
-            required.push_back(std::string("d_g:") + factor + ":" + Text(Date::ToString(TODAY)));
-        for (const auto& key : required)
-            REQUIRE(risks[0].count(key) && std::abs(risks[0].at(key)) >= 1e-12, "Expected model-input AAD risk is missing: " + String_(key));
-        PrintTable("AAD input derivatives; calibration held fixed; active inputs", {"Risk", "1Y ATM caplet", "1Y into 2Y payer"}, rows);
+        ReportRisks(risks, expiry);
     }
 } // namespace
 

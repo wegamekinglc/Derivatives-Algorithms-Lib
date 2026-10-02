@@ -23,6 +23,11 @@ def diagnostic_value(value):
     return format_float(0.0 if abs(value) < 1e-12 else value)
 
 
+def print_row(row, widths):
+    print("".join(f"{value:<{width}}" if i == 0 else f"{value:>{width}}"
+                  for i, (value, width) in enumerate(zip(row, widths))))
+
+
 def print_table(title, headers, rows):
     rows = [[str(value) for value in row] for row in rows]
     widths = [max(len(header), *(len(row[i]) for row in rows)) + 2 for i, header in enumerate(headers)]
@@ -31,31 +36,43 @@ def print_table(title, headers, rows):
     print("\n" + heading)
     print(title)
     print(heading)
-    for row in [headers, *rows]:
-        print("".join(f"{value:<{width}}" if i == 0 else f"{value:>{width}}"
-                      for i, (value, width) in enumerate(zip(row, widths))))
-        if row is headers:
-            print(line)
+    print_row(headers, widths)
     print(line)
+    for row in rows:
+        print_row(row, widths)
+    print(line)
+
+
+def curve_instruments(knots, rates):
+    fixed = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_365F"))
+    floating = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_360"))
+    index = dal.RateIndexConvention_New(dal.PeriodLength_("1M"), dal.DayBasis_("ACT_360"), dal.CollateralType_OIS())
+    return [
+        dal.Deposit_New(TODAY, TODAY, date, rate, index) if i < 3
+        else dal.OISSwap_New(TODAY, TODAY, date, rate, fixed, index, floating)
+        for i, (date, rate) in enumerate(zip(knots, rates))
+    ]
+
+
+def curve_snapshot(discount, knots):
+    nodes = [TODAY, *knots]
+    for days, _ in VOL_EXPIRIES:
+        expiry = TODAY.AddDays(days)
+        nodes.extend([expiry, *(expiry.AddDays(day) for day, _ in CAPLET_TENORS)])
+    nodes = sorted({str(date): date for date in nodes}.values())
+    source = dal.CurveBlock_New(discount)
+    return dal.GSRCurveDataFromYieldCurve_New("gsr_curve", source, TODAY, nodes, [])
 
 
 def calibrate_curve():
     days = [30, 90, 180, 365, 730, 1095, 1825, 2555, 3650]
     rates = [0.0270, 0.0280, 0.0290, 0.0302, 0.0310, 0.0315, 0.0322, 0.0325, 0.0328]
     knots = [TODAY.AddDays(day) for day in days]
-    fixed = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_365F"))
-    floating = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_360"))
-    index = dal.RateIndexConvention_New(dal.PeriodLength_("1M"), dal.DayBasis_("ACT_360"), dal.CollateralType_OIS())
-    instruments = [
-        dal.Deposit_New(TODAY, TODAY, date, rate, index) if i < 3
-        else dal.OISSwap_New(TODAY, TODAY, date, rate, fixed, index, floating)
-        for i, (date, rate) in enumerate(zip(knots, rates))
-    ]
     builder = dal.CurveCalibrationSpecBuilder_()
     builder.today_ = TODAY
     builder.ccy_ = dal.String_("USD")
     builder.curveName_ = dal.String_("calibrated_ois")
-    builder.instruments_ = instruments
+    builder.instruments_ = curve_instruments(knots, rates)
     builder.knotDates_ = knots
     spec = builder.Build()
     if not dal.ValidateSingleCurveAnalyticEligibility(spec).eligible:
@@ -70,14 +87,7 @@ def calibrate_curve():
                   format_float(error * 10000), format_float(fit.curve_(TODAY, date))]
                  for i, (date, market, model, error) in enumerate(zip(knots, diagnostics.marketRates_,
                                                                     diagnostics.modelRates_, diagnostics.residuals_))])
-    nodes = [TODAY, *knots]
-    for days, _ in VOL_EXPIRIES:
-        expiry = TODAY.AddDays(days)
-        nodes.extend([expiry, *(expiry.AddDays(day) for day, _ in CAPLET_TENORS)])
-    nodes = sorted({str(date): date for date in nodes}.values())
-    source = dal.CurveBlock_New(fit.curve_)
-    snapshot = dal.GSRCurveDataFromYieldCurve_New("gsr_curve", source, TODAY, nodes, [])
-    return fit.curve_, snapshot
+    return fit.curve_, curve_snapshot(fit.curve_, knots)
 
 
 def forward(curve, expiry, days):
@@ -190,7 +200,7 @@ def calibrate_slv(discount, snapshot, gaussian):
     return fit.model
 
 
-def price_products(discount, model):
+def product_contracts(discount):
     expiry = TODAY.AddDays(365)
     first = expiry.AddDays(365)
     end = first.AddDays(365)
@@ -200,10 +210,6 @@ def price_products(discount, model):
         [dal.GSRFloatingCoupon_(expiry, expiry, first, first, 1.0, 1.0, "12M"),
          dal.GSRFloatingCoupon_(first, first, end, end, 1.0, 1.0, "12M")], strike,
     )
-    settings = dal.GSRMonteCarloSettings_()
-    settings.paths = 16384
-    settings.seed = 27183
-    prices = dal.GSRSLV_EuropeanOptionPrices(model, [caplet(discount, 365), swaption], settings)
     caplet_strike = forward(discount, expiry, 182)
     caplet_script = dal.Product_New(
         ["STRIKE", expiry], [repr(caplet_strike),
@@ -214,35 +220,57 @@ def price_products(discount, model):
                             f"pay PAYS MAX(1 - FIX(IR[USD,DF,{end}]) - STRIKE * "
                             f"(FIX(IR[USD,DF,{first}]) + FIX(IR[USD,DF,{end}])), 0)"],
     )
+    return expiry, [("1Y ATM caplet", caplet(discount, 365), caplet_script),
+                    ("1Y into 2Y ATM payer", swaption, swaption_script)]
+
+
+def value_script(name, product, model, price, paths):
+    values = []
+    for aad in [False, True]:
+        execution = dal.MonteCarloSettings_(method="sobol", compiled=True, enable_aad=aad, use_bb=True, smooth=1e-8)
+        values.append(dal.MonteCarlo_ValueWithSettings(
+            product, model, paths,
+            valuation=dal.ScriptValuationSettings_(evaluation_date=TODAY), simulation=execution))
+    plain, adjoint = values
+    if not math.isclose(plain["PV"], adjoint["PV"], rel_tol=0.0, abs_tol=1e-10):
+        raise RuntimeError(f"AAD and plain PV differ for {name}")
+    if abs(adjoint["PV"] - price.price) > 5 * price.standard_error + 0.0001:
+        raise RuntimeError(f"Script and European pricer differ for {name}")
+    if not all(math.isfinite(value) for value in adjoint.values()):
+        raise RuntimeError(f"Non-finite AAD result for {name}")
+    return plain["PV"], adjoint
+
+
+def validate_risks(risks, expiry):
+    required = [f"d_g:{factor}:{TODAY}" for factor in ["level", "slope", "curvature"]]
+    required.extend([f"d_logdf:OIS:{expiry}", "d_kappa", "d_volOfVol", "d_leverage:1:0", "d_STRIKE"])
+    if any(key not in risks[0] or abs(risks[0][key]) < 1e-12 for key in required):
+        raise RuntimeError("Expected model-input AAD risks are missing")
+
+
+def report_risks(risks, expiry):
+    validate_risks(risks, expiry)
+    labels = sorted(key for key in risks[0] if key != "PV" and max(abs(risk[key]) for risk in risks) >= 1e-12)
+    print_table("AAD input derivatives; calibration held fixed; active inputs",
+                ["Risk", "1Y ATM caplet", "1Y into 2Y payer"],
+                [[label, diagnostic_value(risks[0][label]), diagnostic_value(risks[1][label])] for label in labels])
+
+
+def price_products(discount, model):
+    expiry, contracts = product_contracts(discount)
+    settings = dal.GSRMonteCarloSettings_()
+    settings.paths = 16384
+    settings.seed = 27183
+    prices = dal.GSRSLV_EuropeanOptionPrices(model, [option for _, option, _ in contracts], settings)
     rows, risks = [], []
-    for name, product, price in zip(["1Y ATM caplet", "1Y into 2Y ATM payer"], [caplet_script, swaption_script], prices):
-        values = []
-        for aad in [False, True]:
-            execution = dal.MonteCarloSettings_(method="sobol", compiled=True, enable_aad=aad, use_bb=True, smooth=1e-8)
-            values.append(dal.MonteCarlo_ValueWithSettings(
-                product, model, settings.paths,
-                valuation=dal.ScriptValuationSettings_(evaluation_date=TODAY), simulation=execution))
-        plain, adjoint = values
-        if not math.isclose(plain["PV"], adjoint["PV"], rel_tol=0.0, abs_tol=1e-10):
-            raise RuntimeError(f"AAD and plain PV differ for {name}")
-        if abs(adjoint["PV"] - price.price) > 5 * price.standard_error + 0.0001:
-            raise RuntimeError(f"Script and European pricer differ for {name}")
-        if not all(math.isfinite(value) for value in adjoint.values()):
-            raise RuntimeError(f"Non-finite AAD result for {name}")
+    for (name, _, product), price in zip(contracts, prices):
+        plain, adjoint = value_script(name, product, model, price, settings.paths)
         rows.append([name, format_float(price.price), format_float(price.standard_error),
-                     format_float(plain["PV"]), format_float(adjoint["PV"]), diagnostic_value(adjoint["PV"] - plain["PV"])])
+                     format_float(plain), format_float(adjoint["PV"]), diagnostic_value(adjoint["PV"] - plain)])
         risks.append(adjoint)
     print_table("Product values: unit notional; identical contracts",
                 ["Product", "MRG32 PV", "Pair SE", "Sobol PV", "AAD PV", "AAD-plain"], rows)
-    labels = sorted(key for key in risks[0] if key != "PV" and max(abs(risk[key]) for risk in risks) >= 1e-12)
-    required = [f"d_g:{factor}:{TODAY}" for factor in ["level", "slope", "curvature"]]
-    required.extend([f"d_logdf:OIS:{expiry}", "d_kappa", "d_volOfVol", "d_leverage:1:0", "d_STRIKE"])
-    if not labels or any(key not in risks[0] or abs(risks[0][key]) < 1e-12 for key in required):
-        raise RuntimeError("Expected model-input AAD risks are missing")
-    print_table("AAD input derivatives; calibration held fixed; active inputs",
-                ["Risk", "1Y ATM caplet", "1Y into 2Y payer"],
-                [[label, *(diagnostic_value(risk[label]) for risk in risks)]
-                 for label in labels])
+    report_risks(risks, expiry)
 
 
 def main():
