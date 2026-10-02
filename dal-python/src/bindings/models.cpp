@@ -16,6 +16,7 @@ void init_bindings_models(py::module_& m) {
     py::class_<HybridCorrelationData_, Storable_, std::shared_ptr<HybridCorrelationData_>>(m, "HybridCorrelationData_");
     py::class_<GSRCurveData_, Storable_, std::shared_ptr<GSRCurveData_>>(m, "GSRCurveData_");
     py::class_<GSRVolData_, Storable_, std::shared_ptr<GSRVolData_>>(m, "GSRVolData_");
+    py::class_<MultiFactorGSRVolData_, Storable_, std::shared_ptr<MultiFactorGSRVolData_>>(m, "MultiFactorGSRVolData_");
     py::class_<LocalVolSurfaceData_, Storable_, std::shared_ptr<LocalVolSurfaceData_>>(m, "LocalVolSurfaceData_");
 
     const auto dates = [](const py::iterable& input) {
@@ -37,41 +38,71 @@ void init_bindings_models(py::module_& m) {
         return result;
     };
 
-    m.def("GSRCurveData_New",
-          [=](const std::string& name, const Date_& evaluationDate, const std::string& currency, const py::iterable& nodeDates,
-              const py::iterable& discountLogDF, const py::iterable& projectionTenors, const Matrix_<>& projectionLogDF) {
-              return std::const_pointer_cast<GSRCurveData_>(NewGSRCurveData(String_(name), evaluationDate, String_(currency), dates(nodeDates),
+    m.def(
+        "GSRCurveData_New",
+        [=](const std::string& name, const Date_& evaluationDate, const std::string& currency, const py::iterable& nodeDates,
+            const py::iterable& discountLogDF, const py::iterable& projectionTenors, const Matrix_<>& projectionLogDF) {
+            return std::const_pointer_cast<GSRCurveData_>(NewGSRCurveData(String_(name), evaluationDate, String_(currency), dates(nodeDates),
                                                                           numbers(discountLogDF), strings(projectionTenors), projectionLogDF));
-          },
-          py::arg("name"), py::arg("evaluation_date"), py::arg("currency"), py::arg("node_dates"), py::arg("discount_log_df"),
-          py::arg("projection_tenors"), py::arg("projection_log_df"));
+        },
+        py::arg("name"), py::arg("evaluation_date"), py::arg("currency"), py::arg("node_dates"), py::arg("discount_log_df"),
+        py::arg("projection_tenors"), py::arg("projection_log_df"));
 
-    m.def("GSRCurveDataFromYieldCurve_New",
-          [=](const std::string& name, const std::shared_ptr<YieldCurve_>& source, const Date_& evaluationDate,
-              const py::iterable& nodeDates, const py::iterable& projectionTenors) {
-              REQUIRE(source, "InvalidGSRCurve: source yield curve is required");
-              return std::const_pointer_cast<GSRCurveData_>(NewGSRCurveDataFromYieldCurve(
-                  String_(name), *source, evaluationDate, dates(nodeDates), strings(projectionTenors)));
-          },
-          py::arg("name"), py::arg("source"), py::arg("evaluation_date"), py::arg("node_dates"), py::arg("projection_tenors"));
+    m.def(
+        "GSRCurveDataFromYieldCurve_New",
+        [=](const std::string& name, const std::shared_ptr<YieldCurve_>& source, const Date_& evaluationDate, const py::iterable& nodeDates,
+            const py::iterable& projectionTenors) {
+            REQUIRE(source, "InvalidGSRCurve: source yield curve is required");
+            return std::const_pointer_cast<GSRCurveData_>(
+                NewGSRCurveDataFromYieldCurve(String_(name), *source, evaluationDate, dates(nodeDates), strings(projectionTenors)));
+        },
+        py::arg("name"), py::arg("source"), py::arg("evaluation_date"), py::arg("node_dates"), py::arg("projection_tenors"));
 
-    m.def("GSRVolData_New",
-          [=](const std::string& name, const py::iterable& gKnotDates, const py::iterable& gValues, const py::iterable& hKnotDates,
-              const py::iterable& hValues) {
-              return std::const_pointer_cast<GSRVolData_>(NewGSRVolData(String_(name), dates(gKnotDates), numbers(gValues), dates(hKnotDates),
-                                                                        numbers(hValues)));
-          },
-          py::arg("name"), py::arg("g_knot_dates"), py::arg("g_values"), py::arg("h_knot_dates"), py::arg("h_values"));
+    m.def(
+        "GSRVolData_New",
+        [=](const std::string& name, const py::iterable& gKnotDates, const py::iterable& gValues, const py::iterable& hKnotDates,
+            const py::iterable& hValues) {
+            return std::const_pointer_cast<GSRVolData_>(
+                NewGSRVolData(String_(name), dates(gKnotDates), numbers(gValues), dates(hKnotDates), numbers(hValues)));
+        },
+        py::arg("name"), py::arg("g_knot_dates"), py::arg("g_values"), py::arg("h_knot_dates"), py::arg("h_values"));
 
-    m.def("GSRModelData_New",
-          [](const std::string& name, const std::shared_ptr<GSRCurveData_>& curve,
-             const std::shared_ptr<GSRVolData_>& vol) -> std::shared_ptr<ModelData_> {
-              REQUIRE(curve && vol, "InvalidGSRModel: curve and volatility data are required");
-              return std::const_pointer_cast<ModelData_>(NewGSRModelData(
-                  String_(name), Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
-                  Handle_<GSRVolData_>(std::shared_ptr<const GSRVolData_>(vol))));
-          },
-          py::arg("name"), py::arg("curve"), py::arg("vol"));
+    m.def(
+        "GSRModelData_New",
+        [](const std::string& name, const std::shared_ptr<GSRCurveData_>& curve,
+           const std::shared_ptr<GSRVolData_>& vol) -> std::shared_ptr<ModelData_> {
+            REQUIRE(curve && vol, "InvalidGSRModel: curve and volatility data are required");
+            return std::const_pointer_cast<ModelData_>(NewGSRModelData(String_(name),
+                                                                       Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
+                                                                       Handle_<GSRVolData_>(std::shared_ptr<const GSRVolData_>(vol))));
+        },
+        py::arg("name"), py::arg("curve"), py::arg("vol"));
+
+    m.def(
+        "MultiFactorGSRVolData_New",
+        [=](const std::string& name, const py::iterable& factorNames, const py::iterable& gKnotDates, const Matrix_<>& gValues,
+            const py::iterable& hKnotDates, const Matrix_<>& hValues, const Matrix_<>& correlations) {
+            MultiFactorGSRVolSettings_ settings;
+            settings.factorNames_ = strings(factorNames);
+            settings.gKnotDates_ = dates(gKnotDates);
+            settings.gValues_ = gValues;
+            settings.hKnotDates_ = dates(hKnotDates);
+            settings.hValues_ = hValues;
+            settings.correlations_ = correlations;
+            return std::const_pointer_cast<MultiFactorGSRVolData_>(NewMultiFactorGSRVolData(String_(name), settings));
+        },
+        py::arg("name"), py::arg("factor_names"), py::arg("g_knot_dates"), py::arg("g_values"), py::arg("h_knot_dates"), py::arg("h_values"),
+        py::arg("correlations"));
+
+    m.def(
+        "MultiFactorGSRModelData_New",
+        [](const std::string& name, const std::shared_ptr<GSRCurveData_>& curve,
+           const std::shared_ptr<MultiFactorGSRVolData_>& vol) -> std::shared_ptr<ModelData_> {
+            return std::const_pointer_cast<ModelData_>(
+                NewMultiFactorGSRModelData(String_(name), Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
+                                           Handle_<MultiFactorGSRVolData_>(std::shared_ptr<const MultiFactorGSRVolData_>(vol))));
+        },
+        py::arg("name"), py::arg("curve"), py::arg("vol"));
 
     m.def(
         "CorrelatedBSModelData_New",

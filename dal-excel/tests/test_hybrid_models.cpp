@@ -66,6 +66,29 @@ TEST(HybridExcelContractTest, TestGsrFactoriesValueDatedBondObservation) {
     ASSERT_NEAR(Dal::ValueByMonteCarlo(product, model, 16).at("PV"), std::exp(-0.06), 1e-10);
 }
 
+TEST(HybridExcelContractTest, TestMultiFactorGsrFactoriesValueDatedBondAndRejectInvalidCorrelation) {
+    Dal::InitGlobalData(1);
+    Dal::Excel::ScriptTestInitialize(1);
+    const Dal::Date_ today(2026, 10, 2), exercise(2027, 10, 2), maturity(2028, 10, 1);
+    const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(today);
+    const ExcelDateScope_ restoreExcel(today);
+    Dal::Handle_<Dal::GSRCurveData_> curve;
+    Dal::GSRCurveData_New("curve", today, "USD", {today, exercise, maturity}, {0.0, -0.03, -0.06}, {}, Dal::Matrix_<>(0, 0), &curve);
+    Dal::Matrix_<> correlation(2, 2, 0.3);
+    correlation(0, 0) = correlation(1, 1) = 1.0;
+    Dal::Handle_<Dal::MultiFactorGSRVolData_> vol;
+    Dal::MultiFactorGSRVolData_New("vol", {"level", "slope"}, {today}, Dal::Matrix_<>(2, 1, 0.0), {today}, Dal::Matrix_<>(2, 1, 1.0), correlation,
+                                   &vol);
+    Dal::Handle_<Dal::ModelData_> model;
+    Dal::MultiFactorGSRModelData_New("rates", curve, vol, &model);
+    const auto product = Dal::NewScriptProduct("bond", {Dal::Cell_(exercise)}, {"pay PAYS FIX(IR[USD,DF,2028-10-01])"});
+    ASSERT_NEAR(Dal::ValueByMonteCarlo(product, model, 16).at("PV"), std::exp(-0.06), 1e-12);
+    correlation(0, 1) = correlation(1, 0) = 1.01;
+    ASSERT_THROW(Dal::MultiFactorGSRVolData_New("invalid", {"level", "slope"}, {today}, Dal::Matrix_<>(2, 1, 0.0), {today}, Dal::Matrix_<>(2, 1, 1.0),
+                                                correlation, &vol),
+                 Dal::Exception_);
+}
+
 TEST(HybridExcelContractTest, TestTwoStateBermudanThroughSettingsTable) {
     Dal::InitGlobalData(1);
     Dal::Excel::ScriptTestInitialize(1);
