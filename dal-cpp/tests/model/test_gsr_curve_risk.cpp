@@ -12,6 +12,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/model/gsrcurverisk.hpp>
 #include <dal/model/gsrslvcalibration.hpp>
+#include <dal/model/gsrmarketcalibration.hpp>
 
 using namespace Dal;
 
@@ -167,4 +168,44 @@ TEST(GSRCurveRiskTest, TestCurveAndSmileRecalibrationMatchIndependentQuoteBumps)
     ASSERT_GT(std::abs(reference), 1e-3);
     ASSERT_NEAR(risk.sensitivities_(0, 1), reference, 2e-4);
     ASSERT_TRUE(risk.stable_[1]);
+}
+
+TEST(GSRCurveRiskTest, TestMarketVolatilityRiskRepricesQuotesOnShiftedCurves) {
+    const CurveInput_ base;
+    const auto snapshot = base.Snapshot();
+    const auto initial = Smile(snapshot);
+    const auto bridge = BuildGSRCurveQuoteRisk(snapshot, base.market_, base.Provenance(), "discount");
+    const auto expiry = snapshot.nodeDates_[1], end = snapshot.nodeDates_[2];
+    const GSRCaplet_ option{expiry, expiry, end, end, 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
+    GSRSLVCalibrationSettings_ settings;
+    settings.pricing_ = {512, 1729};
+    settings.validation_ = {512, 81173};
+    settings.solver_.priorWeight_ = 0.5;
+    settings.solver_.gradientTolerance_ = 1e-8;
+    const Vector_<GSRMarketQuote_> quotes{{"normal", option, 0.02, 0.005}};
+    const Vector_<GSRSLVCalibrationParameter_> parameters{{"leverage:0:0", 0.2, 2.0, 1.0}};
+    const auto risk = GSRSLVMarketQuoteRisk(*initial, quotes, parameters, {option}, settings, {}, &bridge);
+    ASSERT_EQ(risk.quoteUnits_[0], "NORMAL_VOL");
+    ASSERT_EQ(risk.sensitivities_.Cols(), 3);
+    for (int coordinate = 0; coordinate <= 1; ++coordinate) {
+        auto upQuotes = quotes, downQuotes = quotes;
+        Handle_<GSRSLVModelData_> upModel = initial, downModel = initial;
+        const double step = coordinate == 0 ? 1e-4 : 5e-7;
+        if (coordinate == 0) {
+            upQuotes[0].volatility_ += step;
+            downQuotes[0].volatility_ -= step;
+        } else {
+            upModel = Smile(CurveInput_(0.03, 0, step).Snapshot());
+            downModel = Smile(CurveInput_(0.03, 0, -step).Snapshot());
+        }
+        const auto high = CalibrateGSRSLVMarket(*upModel, upQuotes, parameters, settings),
+                   low = CalibrateGSRSLVMarket(*downModel, downQuotes, parameters, settings);
+        ASSERT_TRUE(high.converged_);
+        ASSERT_TRUE(low.converged_);
+        const double reference = (PriceGSRSLVEuropeanOptions(*high.model_, {option}, settings.pricing_)[0].price_ -
+                                  PriceGSRSLVEuropeanOptions(*low.model_, {option}, settings.pricing_)[0].price_) /
+                                 (2.0 * step);
+        ASSERT_NEAR(risk.sensitivities_(0, coordinate), reference, 2e-4);
+        ASSERT_TRUE(risk.stable_[coordinate]);
+    }
 }

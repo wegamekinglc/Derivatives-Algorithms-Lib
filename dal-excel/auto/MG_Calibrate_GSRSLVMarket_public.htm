@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Calibrate_GSRSLVMarket</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Calibrate_GSRSLVMarket (in Excel: CALIBRATE.GSRSLVMARKET)</h1>
+Calibrate SLV to market volatility quotes
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>initial</td><td>handle of type ModelData</td><td></td><td>Initial GSRSLVModelData</td></tr>
+<tr><td>quotes</td><td>vector of handles</td><td></td><td>Market quote handles</td></tr>
+<tr><td>parameters</td><td>matrix of cells</td><td></td><td>Label, lower, upper, scale</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Solver and Monte Carlo settings</td></tr>
+<tr><td>heldOut</td><td>vector of handles</td><td>yes</td><td>Held-out market quote handles</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableGSRSLVCalibrationResult</td><td>Fitted model and diagnostics</td></tr>
+</table>
+
+
+
+
+
+

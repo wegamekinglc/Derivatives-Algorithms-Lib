@@ -39,7 +39,7 @@ struct XlRegister_GSRSLV_EuropeanOptionPrices_
         Vector_<String_> argHelp;        
         argHelp.push_back("GSRSLVModelData");
         argHelp.push_back("European option handles");
-        argHelp.push_back("Key/value rows: paths (4096), seed (1729)");
+        argHelp.push_back("Key/value rows: paths (4096), seed (1729), conditionalPaths (64)");
         Excel::Register("Base", "xl_GSRSLV_EuropeanOptionPrices", "GSRSLV.EUROPEANOPTIONPRICES", "Price SLV European options on common antithetic paths", "QQQQ", "model,options,[settings]", argHelp, false);
     }
 };

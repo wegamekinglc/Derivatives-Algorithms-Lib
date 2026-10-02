@@ -89,3 +89,44 @@ def test_curve_quote_bridge_validates_snapshot_and_adds_curve_risk():
     assert any(abs(risk.sensitivities[0, col]) > 1e-4 for col in range(1, 4))
     with pytest.raises(RuntimeError, match="snapshot mismatch"):
         dal.GSRSLV_QuoteRisk(slv(), quotes, parameters, [option], settings, curve_risk=bridge)
+
+
+def test_market_volatility_conversion_calibration_and_risk():
+    today = dal.Date_(2026, 10, 2)
+    exercise, end = today.AddDays(365), today.AddDays(730)
+    curve = dal.GSRCurveData_New("market", today, "USD", [today, today.AddDays(1825)],
+        [0.0, -0.15], [], dal.DoubleMatrix_(0, 0))
+    vol = dal.MultiFactorGSRVolData_New("vol", ["level"], [today], dal.DoubleMatrix_([[0.02]]),
+        [today], dal.DoubleMatrix_([[1.0]]), dal.DoubleMatrix_([[1.0]]))
+    initial = slv(gaussian=dal.MultiFactorGSRModelData_New("rates", curve, vol))
+    option = dal.GSRCaplet_(exercise, exercise, end, end, 1.0, 1.0, "12M", math.expm1(0.03))
+    quote = dal.GSRMarketQuote_("normal", option, 0.02, 0.01)
+    converted = dal.GSRMarketQuotes_Get_Prices(curve, [quote])[0]
+    assert converted.price == pytest.approx(math.exp(-0.06) * 0.02 / math.sqrt(2 * math.pi), abs=1e-14)
+    settings = calibration_settings()
+    settings.use_aad_jacobian = True
+    settings.solver.prior_weight = 1.0
+    parameters = [dal.GSRSLVCalibrationParameter_("leverage:0:0", 0.2, 2.0)]
+    fit = dal.Calibrate_GSRSLVMarket(initial, [quote], parameters, settings)
+    assert fit.converged
+    assert fit.conditional_errors == [0.0]
+    risk = dal.GSRSLV_MarketQuoteRisk(initial, [quote], parameters, [option], settings)
+    assert risk.quote_units == ["NORMAL_VOL"]
+    assert risk.sensitivities[0, 0] > 0
+    with pytest.raises(RuntimeError, match="bond options"):
+        dal.GSRMarketQuotes_Get_Prices(curve, [dal.GSRMarketQuote_("bad", bond_option(), 0.02, 0.01)])
+
+
+def test_conditional_lagged_swaption_diagnostics():
+    today = dal.Date_(2026, 10, 2)
+    exercise, fixing = today.AddDays(365), today.AddDays(540)
+    start, end, pay = fixing.AddDays(2), fixing.AddDays(367), fixing.AddDays(369)
+    option = dal.GSRSwaption_(exercise, [dal.GSRFixedCoupon_(pay, 1.0)],
+        [dal.GSRFloatingCoupon_(fixing, start, end, pay, 1.0, 1.0, "12M")], 0.03)
+    settings = dal.GSRMonteCarloSettings_()
+    settings.paths = 256
+    settings.conditional_paths = 16
+    price = dal.GSRSLV_EuropeanOptionPrices(slv(), [option], settings)[0]
+    assert price.price > 0
+    assert price.standard_error > 0
+    assert price.conditional_error >= 0

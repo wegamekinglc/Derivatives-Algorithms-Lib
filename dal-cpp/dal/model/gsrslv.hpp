@@ -196,7 +196,7 @@ namespace Dal::AAD {
             }
         }
 
-        [[nodiscard]] State_ Generate(const Vector_<>& gaussian, Scenario_<T_>* path) const {
+        [[nodiscard]] State_ Generate(const Vector_<>& gaussian, Scenario_<T_>* path, Vector_<State_>* states = nullptr) const {
             REQUIRE(gaussian.size() == SimDim() && !timeline_.empty() && sampleEnds_.size() == timeline_.size() && steps_.size() + 1 == grid_.size(),
                     "InvalidGSRSLVPath: Gaussian dimension mismatch or model not initialized");
             REQUIRE(std::all_of(gaussian.begin(), gaussian.end(), [](double x) { return std::isfinite(x); }),
@@ -215,6 +215,8 @@ namespace Dal::AAD {
                         "InvalidGSRSLVPath: nonfinite variance or bank account; refine the integration step");
                 if (path)
                     WriteSample(sample, state, path);
+                if (states)
+                    states->push_back(state);
             }
             return state;
         }
@@ -289,6 +291,44 @@ namespace Dal::AAD {
         void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
             REQUIRE(path && path->size() == timeline_.size(), "InvalidGSRSLVPath: scenario dimension mismatch");
             static_cast<void>(Generate(gaussian, path));
+        }
+        void GeneratePathWithStates(const Vector_<>& gaussian, Scenario_<T_>* path, Vector_<State_>* states) const {
+            REQUIRE(path && path->size() == timeline_.size() && states, "InvalidGSRSLVPath: scenario and state output required");
+            states->clear();
+            static_cast<void>(Generate(gaussian, path, states));
+        }
+        [[nodiscard]] size_t SimDimFrom(size_t sample) const {
+            REQUIRE(sample < sampleEnds_.size() && steps_.size() + 1 == grid_.size(), "InvalidGSRSLVPath: invalid continuation sample");
+            return (steps_.size() - sampleEnds_[sample]) * NumFactors();
+        }
+        void GeneratePathFrom(size_t sample, const State_& initial, const Vector_<>& gaussian, Scenario_<T_>* path) const {
+            REQUIRE(gaussian.size() == SimDimFrom(sample) && path && path->size() == timeline_.size(),
+                    "InvalidGSRSLVPath: continuation dimensions mismatch");
+            const size_t n = rates_->NumFactors();
+            REQUIRE(initial.x_.size() == n && initial.y_.Rows() == n && initial.y_.Cols() == n,
+                    "InvalidGSRSLVPath: continuation state dimensions mismatch");
+            REQUIRE(std::isfinite(Value(initial.latentVariance_)) && std::isfinite(Value(initial.logNumeraire_)) &&
+                        Value(initial.variance_) == std::max(0.0, Value(initial.latentVariance_)),
+                    "InvalidGSRSLVPath: invalid continuation variance or bank account");
+            for (const auto& x : initial.x_)
+                REQUIRE(std::isfinite(Value(x)), "InvalidGSRSLVPath: nonfinite continuation state");
+            for (const auto& y : initial.y_)
+                REQUIRE(std::isfinite(Value(y)), "InvalidGSRSLVPath: nonfinite continuation state");
+            REQUIRE(std::all_of(gaussian.begin(), gaussian.end(), [](double x) { return std::isfinite(x); }),
+                    "InvalidGSRSLVPath: Gaussian values must be finite");
+            auto state = initial;
+            Vector_<> correlated(n + 1);
+            size_t cursor = sampleEnds_[sample], offset = 0;
+            for (; sample < timeline_.size(); ++sample) {
+                while (cursor < sampleEnds_[sample]) {
+                    const auto* normal = &gaussian[offset];
+                    Correlate(normal, &correlated);
+                    Advance(steps_[cursor], correlated, normal[NumFactors() - 1], &state);
+                    ++cursor;
+                    offset += NumFactors();
+                }
+                WriteSample(sample, state, path);
+            }
         }
     };
 } // namespace Dal::AAD

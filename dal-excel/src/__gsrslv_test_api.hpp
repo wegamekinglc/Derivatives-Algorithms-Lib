@@ -16,9 +16,34 @@
 #endif
 
 namespace Dal {
+    using StorableGSRMarketQuote_ = GSRValueHandle_<GSRMarketQuote_>;
     using StorableGSRSLVCalibrationResult_ = GSRValueHandle_<GSRSLVCalibrationResult_>;
     using StorableGSRSLVQuoteRiskResult_ = GSRValueHandle_<GSRSLVQuoteRiskResult_>;
     using StorableGSRCurveQuoteRisk_ = GSRValueHandle_<GSRCurveQuoteRisk_>;
+
+    DAL_EXCEL_GSRSLV_API void GSRMarketQuote_New(const String_& name,
+                                                 const Handle_<StorableGSREuropeanOption_>& option,
+                                                 double volatility,
+                                                 double priceScale,
+                                                 const String_& convention,
+                                                 double shift,
+                                                 Handle_<StorableGSRMarketQuote_>* quote);
+    DAL_EXCEL_GSRSLV_API void
+    GSRMarketQuotes_Get_Prices(const Handle_<GSRCurveData_>& snapshot, const Vector_<Handle_<Storable_>>& quotes, Matrix_<Cell_>* result);
+    DAL_EXCEL_GSRSLV_API void Calibrate_GSRSLVMarket(const Handle_<ModelData_>& initial,
+                                                     const Vector_<Handle_<Storable_>>& quotes,
+                                                     const Matrix_<Cell_>& parameters,
+                                                     const Matrix_<Cell_>& settings,
+                                                     const Vector_<Handle_<Storable_>>& heldOut,
+                                                     Handle_<StorableGSRSLVCalibrationResult_>* result);
+    DAL_EXCEL_GSRSLV_API void GSRSLV_MarketQuoteRisk(const Handle_<ModelData_>& initial,
+                                                     const Vector_<Handle_<Storable_>>& quotes,
+                                                     const Matrix_<Cell_>& parameters,
+                                                     const Vector_<Handle_<Storable_>>& targets,
+                                                     const Matrix_<Cell_>& settings,
+                                                     const Matrix_<Cell_>& riskSettings,
+                                                     const Handle_<StorableGSRCurveQuoteRisk_>& curveRisk,
+                                                     Handle_<StorableGSRSLVQuoteRiskResult_>* result);
 
     DAL_EXCEL_GSRSLV_API void GSRSLV_EuropeanOptionPrices(const Handle_<ModelData_>& model,
                                                           const Vector_<Handle_<Storable_>>& options,

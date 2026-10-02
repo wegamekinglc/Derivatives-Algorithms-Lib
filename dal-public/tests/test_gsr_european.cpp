@@ -6,10 +6,12 @@
 
 #include <dal-public/src/gsr.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal/platform/initall.hpp>
 
 using namespace Dal;
 
 TEST(PublicGSREuropeanTest, TestPricingAndCalibrationFacade) {
+    RegisterAll_::Init();
     const Date_ today(2026, 10, 2);
     const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
     MultiFactorGSRVolSettings_ settings;
@@ -30,4 +32,18 @@ TEST(PublicGSREuropeanTest, TestPricingAndCalibrationFacade) {
     const auto legacy = NewGSRModelData("legacy", curve, NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
     ASSERT_NEAR(PriceGSREuropeanOption(legacy, option).price_, priced.price_, 1e-12);
     ASSERT_THROW(CalibrateGSRVolatility(legacy, quotes, {{0, 0, 0.0, 0.1}}), Exception_);
+    const auto smile = NewGSRSLVModelData("smile", model, NewGSRLeverageData("leverage", {0.0}, {0.0}, Matrix_<>(1, 1, 1.0)));
+    const GSRCaplet_ caplet{option.expiry_, option.expiry_, option.maturity_, option.maturity_, 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
+    const Vector_<GSRMarketQuote_> marketQuotes{{"normal", caplet, 0.02, 0.01}};
+    const auto converted = ConvertGSRMarketQuotes(Handle_<Storable_>(curve), marketQuotes);
+    ASSERT_GT(converted[0].price_, 0.0);
+    GSRSLVCalibrationSettings_ calibration;
+    calibration.pricing_.paths_ = calibration.validation_.paths_ = 512;
+    calibration.solver_.priorWeight_ = 1.0;
+    calibration.useAADJacobian_ = true;
+    const Vector_<GSRSLVCalibrationParameter_> parameters{{"leverage:0:0", 0.2, 2.0, 1.0}};
+    ASSERT_TRUE(CalibrateGSRSLVMarket(smile, marketQuotes, parameters, calibration).converged_);
+    ASSERT_GT(GSRSLVMarketQuoteRisk(smile, marketQuotes, parameters, {caplet}, calibration).sensitivities_(0, 0), 0.0);
+    ASSERT_THROW(ConvertGSRMarketQuotes(Handle_<Storable_>(), marketQuotes), Exception_);
+    ASSERT_THROW(CalibrateGSRSLVMarket(model, marketQuotes, parameters, calibration), Exception_);
 }

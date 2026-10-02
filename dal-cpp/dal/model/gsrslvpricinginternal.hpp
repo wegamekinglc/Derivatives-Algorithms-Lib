@@ -16,5 +16,6 @@ namespace Dal::GSRSLVPricingInternal {
     public:
         PreparedPricer_(const GSRSLVModelData_& model, const Vector_<GSREuropeanOption_>& options, const GSRMonteCarloSettings_& settings);
         Vector_<GSRMonteCarloPrice_> Price(const GSRSLVModelData_& model) const;
+        Matrix_<> Jacobian(const GSRSLVModelData_& model, const Vector_<String_>& labels) const;
     };
 } // namespace Dal::GSRSLVPricingInternal

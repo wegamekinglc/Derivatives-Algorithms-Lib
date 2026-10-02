@@ -15,6 +15,29 @@ namespace Dal {
             return *typed;
         }
     } // namespace
+    Vector_<GSRMarketQuoteValue_> ConvertGSRMarketQuotes(const Handle_<Storable_>& snapshot, const Vector_<GSRMarketQuote_>& quotes) {
+        const auto typed = handle_cast<GSRCurveData_>(snapshot);
+        REQUIRE(typed, "InvalidGSRMarketQuote: snapshot must be GSRCurveData");
+        return ConvertGSRMarketQuotes(*typed, quotes);
+    }
+
+    GSRSLVCalibrationResult_ CalibrateGSRSLVMarket(const Handle_<ModelData_>& initial,
+                                                   const Vector_<GSRMarketQuote_>& quotes,
+                                                   const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                                   const GSRSLVCalibrationSettings_& settings,
+                                                   const Vector_<GSRMarketQuote_>& heldOut) {
+        return CalibrateGSRSLVMarket(SLV(initial), quotes, parameters, settings, heldOut);
+    }
+
+    GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const Handle_<ModelData_>& initial,
+                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const GSRSLVCalibrationSettings_& settings,
+                                                 const GSRSLVQuoteRiskSettings_& riskSettings,
+                                                 const GSRCurveQuoteRisk_* curveRisk) {
+        return GSRSLVMarketQuoteRisk(SLV(initial), quotes, parameters, targets, settings, riskSettings, curveRisk);
+    }
     GSRPriceResult_ PriceGSREuropeanOption(const Handle_<ModelData_>& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
         REQUIRE(model, "InvalidGSRPricing: model is required");
         if (const auto* data = dynamic_cast<const MultiFactorGSRModelData_*>(model.get()))

@@ -11,11 +11,13 @@ namespace Dal {
     struct GSRMonteCarloSettings_ {
         int paths_ = 4096;
         int seed_ = 1729;
+        int conditionalPaths_ = 64;
     };
 
     struct GSRMonteCarloPrice_ {
         double price_ = 0.0;
         double standardError_ = 0.0;
+        double conditionalError_ = 0.0;
     };
 
     Vector_<GSRMonteCarloPrice_> PriceGSRSLVEuropeanOptions(const GSRSLVModelData_& model,

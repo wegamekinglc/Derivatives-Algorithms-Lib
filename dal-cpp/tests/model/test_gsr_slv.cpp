@@ -400,3 +400,33 @@ TEST(GSRSLVTest, TestAdjointsMatchReinitializedBumpsAndCloneOwnsParameters) {
     clone->GeneratePath(normals, &bumpedPath);
     ASSERT_DOUBLE_EQ(*bumped->Parameters().back(), original);
 }
+
+TEST(GSRSLVTest, TestContinuationReproducesFullPathAndRejectsMalformedState) {
+    Dal::GSRSLVSettings_ settings;
+    settings.maxStep_ = 0.25;
+    Dal::AAD::GSRSLV_<> model(Dal::GSRSLVModelData_("smile", Gaussian(), Leverage(), settings));
+    const Vector_<> timeline{180.0 / 365.0, 360.0 / 365.0};
+    auto definitions = Definitions();
+    definitions.push_back(definitions.front());
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    const Vector_<> normals{0.7, 0.2, -0.4, -0.3, 0.5, 0.1, 0.4, -0.2, 0.3, 0.2, 0.1, -0.3};
+    Dal::AAD::Scenario_<> full, continued;
+    Dal::AAD::AllocatePath(definitions, full);
+    Dal::AAD::AllocatePath(definitions, continued);
+    Vector_<Dal::AAD::GSRSLV_<>::State_> states;
+    model.GeneratePathWithStates(normals, &full, &states);
+    ASSERT_EQ(states.size(), 2U);
+    ASSERT_EQ(model.SimDimFrom(0), 6U);
+    const Vector_<> suffix(normals.begin() + 6, normals.end());
+    model.GeneratePathFrom(0, states[0], suffix, &continued);
+    for (size_t i = 0; i < 2; ++i) {
+        ASSERT_DOUBLE_EQ(full[i].numeraire_, continued[i].numeraire_);
+        ASSERT_DOUBLE_EQ(full[i].observations_[0], continued[i].observations_[0]);
+    }
+    ASSERT_THROW(model.GeneratePathFrom(2, states[0], suffix, &continued), Dal::Exception_);
+    ASSERT_THROW(model.GeneratePathFrom(0, states[0], {}, &continued), Dal::Exception_);
+    auto bad = states[0];
+    bad.x_.clear();
+    ASSERT_THROW(model.GeneratePathFrom(0, bad, suffix, &continued), Dal::Exception_);
+}

@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRMarketQuotes_Get_Prices</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRMarketQuotes_Get_Prices (in Excel: GSRMARKETQUOTES.GET.PRICES)</h1>
+Convert market volatility quotes on a curve snapshot
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>snapshot</td><td>handle of type GSRCurveData</td><td></td><td>Discount and projection curve snapshot</td></tr>
+<tr><td>quotes</td><td>vector of handles</td><td></td><td>Market quote handles</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>matrix of cells</td><td>One row per quote: forward, annuity, price, annualized-volatility vega</td></tr>
+</table>
+
+
+
+
+
+

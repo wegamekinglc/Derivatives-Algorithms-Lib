@@ -47,6 +47,8 @@ namespace Dal {
             REQUIRE(settings.paths_ >= 4 && settings.paths_ % 2 == 0,
                     "InvalidGSRSLVCalibration: fit and validation paths must be even and at least four");
             REQUIRE(settings.seed_ >= 0, "InvalidGSRSLVCalibration: seeds must be nonnegative");
+            REQUIRE(settings.conditionalPaths_ >= 4 && settings.conditionalPaths_ % 4 == 0,
+                    "InvalidGSRSLVCalibration: conditional paths must be divisible by four and at least four");
         }
 
         void ValidateSettings(const GSRSLVCalibrationSettings_& settings) {
@@ -91,8 +93,14 @@ namespace Dal {
             Vector_<std::pair<int, int>> coordinates_;
             Vector_<> guess_;
             Matrix_<> nodeScales_;
+            struct Edge_ {
+                std::pair<int, int> first_, second_;
+                double weight_;
+            };
+            Vector_<Edge_> smoothing_;
 
-            double Change(const Matrix_<>& values, int row, int col) const {
+            double Change(const Matrix_<>& values, const std::pair<int, int>& coordinate) const {
+                const auto [row, col] = coordinate;
                 return (values(row, col) - initial_.leverage_->values_(row, col)) / nodeScales_(row, col);
             }
 
@@ -112,23 +120,42 @@ namespace Dal {
                 THROW("InvalidGSRSLVCalibration: unknown parameter " + label);
             }
 
-            void SmoothingEdge(const Matrix_<>& values, int row, int col, int otherRow, int otherCol, double gap, Vector_<>* residuals) const {
-                if (!Selected(row, col) && !Selected(otherRow, otherCol))
+            void SmoothingEdge(int row, int col, int otherRow, int otherCol, double gap) {
+                if (Selected(row, col) || Selected(otherRow, otherCol))
+                    smoothing_.push_back({{row, col}, {otherRow, otherCol}, std::sqrt(settings_.solver_.smoothingWeight_ / gap)});
+            }
+
+            void PrepareSmoothing() {
+                if (settings_.solver_.smoothingWeight_ == 0.0)
                     return;
-                residuals->push_back(std::sqrt(settings_.solver_.smoothingWeight_ / gap) *
-                                     (Change(values, row, col) - Change(values, otherRow, otherCol)));
+                for (int row = 0; row < nodeScales_.Rows(); ++row)
+                    for (int col = 0; col < nodeScales_.Cols(); ++col) {
+                        if (row > 0)
+                            SmoothingEdge(row, col, row - 1, col, initial_.leverage_->rateShifts_[row] - initial_.leverage_->rateShifts_[row - 1]);
+                        if (col > 0)
+                            SmoothingEdge(row, col, row, col - 1, initial_.leverage_->times_[col] - initial_.leverage_->times_[col - 1]);
+                    }
             }
 
             void AddSmoothing(const Matrix_<>& values, Vector_<>* residuals) const {
-                for (int row = 0; row < values.Rows(); ++row)
-                    for (int col = 0; col < values.Cols(); ++col) {
-                        if (row > 0)
-                            SmoothingEdge(values, row, col, row - 1, col,
-                                          initial_.leverage_->rateShifts_[row] - initial_.leverage_->rateShifts_[row - 1], residuals);
-                        if (col > 0)
-                            SmoothingEdge(values, row, col, row, col - 1, initial_.leverage_->times_[col] - initial_.leverage_->times_[col - 1],
-                                          residuals);
-                    }
+                for (const auto& edge : smoothing_)
+                    residuals->push_back(edge.weight_ * (Change(values, edge.first_) - Change(values, edge.second_)));
+            }
+
+            void AddPenaltyJacobian(Matrix_<>* result) const {
+                size_t row = quotes_.size();
+                if (settings_.solver_.priorWeight_ > 0.0)
+                    for (size_t col = 0; col < parameters_.size(); ++col, ++row)
+                        if (row < static_cast<size_t>(result->Rows()))
+                            (*result)(row, col) = std::sqrt(settings_.solver_.priorWeight_);
+                for (const auto& edge : smoothing_) {
+                    if (row >= static_cast<size_t>(result->Rows()))
+                        break;
+                    for (size_t col = 0; col < coordinates_.size(); ++col)
+                        (*result)(row, col) =
+                            edge.weight_ * ((coordinates_[col] == edge.first_ ? 1.0 : 0.0) - (coordinates_[col] == edge.second_ ? 1.0 : 0.0));
+                    ++row;
+                }
             }
 
         public:
@@ -151,11 +178,14 @@ namespace Dal {
                         nodeScales_(coordinate.first, coordinate.second) = parameter.scale_;
                     coordinates_.push_back(coordinate);
                 }
+                PrepareSmoothing();
             }
 
             const Vector_<>& Guess() const { return guess_; }
             double Bound(size_t i, bool upper) const { return (upper ? parameters_[i].upper_ : parameters_[i].lower_) / parameters_[i].scale_; }
             bool Stochastic(size_t i) const { return coordinates_[i].first < 0; }
+            bool UseAAD() const { return settings_.useAADJacobian_; }
+            int JacobianEvaluations(size_t columns) const { return UseAAD() ? 1 : 2 * static_cast<int>(columns); }
 
             Handle_<GSRSLVModelData_> Model(const Vector_<>& x) const {
                 auto values = initial_.leverage_->values_;
@@ -189,7 +219,18 @@ namespace Dal {
             }
 
             Matrix_<> Jacobian(const Vector_<>& x, size_t rows) const {
-                return DifferenceJacobian(*this, x, rows, settings_.solver_.finiteDifferenceStep_);
+                if (!UseAAD())
+                    return DifferenceJacobian(*this, x, rows, settings_.solver_.finiteDifferenceStep_);
+                Vector_<String_> labels;
+                for (const auto& parameter : parameters_)
+                    labels.push_back(parameter.label_);
+                const auto prices = pricer_.Jacobian(*Model(x), labels);
+                Matrix_<> result(rows, x.size(), 0.0);
+                for (size_t row = 0; row < std::min(rows, quotes_.size()); ++row)
+                    for (size_t col = 0; col < x.size(); ++col)
+                        result(row, col) = prices(row, col) * parameters_[col].scale_ / quotes_[row].priceScale_;
+                AddPenaltyJacobian(&result);
+                return result;
             }
         };
 
@@ -210,7 +251,17 @@ namespace Dal {
             }
             double Bound(size_t i, bool upper) const { return problem_.Bound(selected_[i], upper); }
             Vector_<> Residuals(const Vector_<>& x) const { return problem_.Residuals(Expand(x)); }
-            Matrix_<> Jacobian(const Vector_<>& x, size_t rows) const { return DifferenceJacobian(*this, x, rows, differenceStep_); }
+            int JacobianEvaluations(size_t columns) const { return problem_.JacobianEvaluations(columns); }
+            Matrix_<> Jacobian(const Vector_<>& x, size_t rows) const {
+                if (!problem_.UseAAD())
+                    return DifferenceJacobian(*this, x, rows, differenceStep_);
+                const auto full = problem_.Jacobian(Expand(x), rows);
+                Matrix_<> result(rows, selected_.size());
+                for (size_t row = 0; row < rows; ++row)
+                    for (size_t col = 0; col < selected_.size(); ++col)
+                        result(row, col) = full(row, selected_[col]);
+                return result;
+            }
         };
 
         int WarmStart(const Problem_& problem, const GSRSLVCalibrationSettings_& settings, Vector_<>* x, GSRSLVCalibrationResult_* result) {
@@ -246,6 +297,7 @@ namespace Dal {
             for (size_t i = 0; i < prices.size(); ++i) {
                 result->modelPrices_.push_back(prices[i].price_);
                 result->standardErrors_.push_back(prices[i].standardError_);
+                result->conditionalErrors_.push_back(prices[i].conditionalError_);
                 result->residuals_.push_back(prices[i].price_ - quotes[i].price_);
                 result->fitWithinTolerance_ = result->fitWithinTolerance_ && std::abs(result->residuals_.back()) <= quotes[i].priceScale_;
             }
@@ -254,7 +306,7 @@ namespace Dal {
                 result->activeBounds_.push_back(x[i] == problem.Bound(i, false) || x[i] == problem.Bound(i, true));
             }
             result->quoteJacobian_ = problem.Jacobian(x, quotes.size());
-            result->evaluations_ += 2 * static_cast<int>(x.size());
+            result->evaluations_ += problem.JacobianEvaluations(x.size());
             RankDiagnostics(result->quoteJacobian_, result);
             for (int row = 0; row < result->quoteJacobian_.Rows(); ++row)
                 for (int col = 0; col < result->quoteJacobian_.Cols(); ++col)
@@ -294,8 +346,10 @@ namespace Dal {
             for (size_t i = 0; i < quotes.size(); ++i) {
                 result->validationPrices_.push_back(refined[i].price_);
                 result->validationStandardErrors_.push_back(refined[i].standardError_);
+                result->validationConditionalErrors_.push_back(refined[i].conditionalError_);
                 const double error = std::abs(refined[i].price_ - result->modelPrices_[i]) +
-                                     settings.validationSigma_ * std::hypot(refined[i].standardError_, result->standardErrors_[i]);
+                                     settings.validationSigma_ * std::hypot(refined[i].standardError_, result->standardErrors_[i]) +
+                                     refined[i].conditionalError_ + result->conditionalErrors_[i];
                 result->numericalErrors_.push_back(error);
                 result->numericalValidationPassed_ =
                     result->numericalValidationPassed_ && error <= settings.solver_.numericalErrorFraction_ * quotes[i].priceScale_;
@@ -314,9 +368,11 @@ namespace Dal {
                 result->heldOutPrices_.push_back(prices[i].price_);
                 result->heldOutResiduals_.push_back(prices[i].price_ - heldOut[i].price_);
                 result->heldOutStandardErrors_.push_back(prices[i].standardError_);
+                result->heldOutConditionalErrors_.push_back(prices[i].conditionalError_);
                 result->heldOutWithinTolerance_ =
                     result->heldOutWithinTolerance_ &&
-                    std::abs(result->heldOutResiduals_.back()) + settings.validationSigma_ * prices[i].standardError_ <= heldOut[i].priceScale_;
+                    std::abs(result->heldOutResiduals_.back()) + settings.validationSigma_ * prices[i].standardError_ + prices[i].conditionalError_ <=
+                        heldOut[i].priceScale_;
             }
         }
     } // namespace
@@ -339,8 +395,12 @@ namespace Dal {
         auto result = FitOnly(initial, quotes, parameters, settings);
         GSRSLVSettings_ fine{result.model_->kappa_, result.model_->volOfVol_, result.model_->varianceCorrelations_, result.model_->maxStep_ / 2.0};
         const GSRSLVModelData_ validation("validation", result.model_->gaussian_, result.model_->leverage_, fine);
-        NumericalValidation(validation, quotes, settings, &result);
-        HeldOutValidation(validation, heldOut, settings, &result);
+        auto refinedSettings = settings;
+        REQUIRE(settings.pricing_.conditionalPaths_ <= std::numeric_limits<int>::max() / 2,
+                "InvalidGSRSLVCalibration: validation conditional budget overflows");
+        refinedSettings.validation_.conditionalPaths_ = std::max(settings.validation_.conditionalPaths_, 2 * settings.pricing_.conditionalPaths_);
+        NumericalValidation(validation, quotes, refinedSettings, &result);
+        HeldOutValidation(validation, heldOut, refinedSettings, &result);
         return result;
     }
 } // namespace Dal

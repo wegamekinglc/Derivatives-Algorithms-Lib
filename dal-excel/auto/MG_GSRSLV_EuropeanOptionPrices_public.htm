@@ -17,7 +17,7 @@ Price SLV European options on common antithetic paths
 
 <tr><td>model</td><td>handle of type ModelData</td><td></td><td>GSRSLVModelData</td></tr>
 <tr><td>options</td><td>vector of handles</td><td></td><td>European option handles</td></tr>
-<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Key/value rows: paths (4096), seed (1729)</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Key/value rows: paths (4096), seed (1729), conditionalPaths (64)</td></tr>
 
 </table>
 
@@ -29,7 +29,7 @@ Price SLV European options on common antithetic paths
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>result</td><td>matrix of cells</td><td>One row per option: price, pair standard error</td></tr>
+<tr><td>result</td><td>matrix of cells</td><td>One row per option: price, pair standard error, conditional refinement difference</td></tr>
 </table>
 
 

@@ -20,12 +20,14 @@ namespace Dal {
         GSRMonteCarloSettings_ validation_{8192, 81173};
         double validationSigma_ = 3.0;
         bool staged_ = true;
+        bool useAADJacobian_ = false;
     };
 
     struct GSRSLVCalibrationResult_ {
         Handle_<GSRSLVModelData_> model_;
         Vector_<> modelPrices_, residuals_, standardErrors_, parameters_;
         Vector_<> validationPrices_, validationStandardErrors_, numericalErrors_;
+        Vector_<> conditionalErrors_, validationConditionalErrors_, heldOutConditionalErrors_;
         Vector_<> heldOutPrices_, heldOutResiduals_, heldOutStandardErrors_;
         Vector_<bool> activeBounds_;
         Matrix_<> quoteJacobian_;

@@ -6,8 +6,22 @@
 
 #include <dal/model/gsrcalibration.hpp>
 #include <dal/model/gsrslvcalibration.hpp>
+#include <dal/model/gsrmarketcalibration.hpp>
 
 namespace Dal {
+    Vector_<GSRMarketQuoteValue_> ConvertGSRMarketQuotes(const Handle_<Storable_>& snapshot, const Vector_<GSRMarketQuote_>& quotes);
+    GSRSLVCalibrationResult_ CalibrateGSRSLVMarket(const Handle_<ModelData_>& initial,
+                                                   const Vector_<GSRMarketQuote_>& quotes,
+                                                   const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                                   const GSRSLVCalibrationSettings_& settings = {},
+                                                   const Vector_<GSRMarketQuote_>& heldOut = {});
+    GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const Handle_<ModelData_>& initial,
+                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<GSRSLVCalibrationParameter_>& parameters,
+                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const GSRSLVCalibrationSettings_& calibrationSettings = {},
+                                                 const GSRSLVQuoteRiskSettings_& riskSettings = {},
+                                                 const GSRCurveQuoteRisk_* curveRisk = nullptr);
     GSRPriceResult_
     PriceGSREuropeanOption(const Handle_<ModelData_>& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings = {});
     GSRCalibrationResult_ CalibrateGSRVolatility(const Handle_<ModelData_>& initial,
