@@ -131,7 +131,7 @@ namespace {
         return (curve(TODAY, expiry) / curve(TODAY, expiry.AddDays(days)) - 1.0) / (days / 365.0);
     }
 
-    GSRCaplet_ Caplet(const DiscountCurve_& curve, int expiryDays, double offset = 0.0, int days = 182, const String_& tenor = "6M") {
+    Caplet_ Caplet(const DiscountCurve_& curve, int expiryDays, double offset = 0.0, int days = 182, const String_& tenor = "6M") {
         const auto expiry = TODAY.AddDays(expiryDays), end = expiry.AddDays(days);
         const double accrual = days / 365.0;
         return {expiry, expiry, end, end, accrual, accrual, tenor, Forward(curve, expiry, days) + offset, OptionType_("CALL")};
@@ -163,13 +163,13 @@ namespace {
     }
 
     Handle_<ModelData_> CalibrateGaussian(const CurveInputs_& curve) {
-        Vector_<GSRMarketQuote_> market;
+        Vector_<VolQuote_> market;
         for (size_t i = 0; i < VOL_EXPIRIES.size(); ++i)
             for (const auto& tenor : CAPLET_TENORS)
                 market.push_back({String_(VOL_EXPIRIES[i].second) + " " + tenor.second + " ATM",
                                   Caplet(*curve.discount_, VOL_EXPIRIES[i].first, 0.0, tenor.first, tenor.second), SMILE_VOLS[i][1], GAUSSIAN_SCALE});
-        const auto prices = ConvertGSRMarketQuotes(Handle_<Storable_>(curve.snapshot_), market);
-        Vector_<GSRCalibrationQuote_> quotes;
+        const auto prices = ConvertVolQuotes(Handle_<Storable_>(curve.snapshot_), market);
+        Vector_<CalibrationQuote_> quotes;
         for (size_t i = 0; i < market.size(); ++i)
             quotes.push_back({market[i].name_, market[i].option_, prices[i].price_, GAUSSIAN_SCALE});
         const auto fit =
@@ -202,16 +202,16 @@ namespace {
         settings.solver_.smoothingWeight_ = 0.0001;
         const Vector_<GSRSLVCalibrationParameter_> parameters{{"leverage:0:0", 0.2, 2.0}, {"leverage:1:0", 0.2, 2.0}, {"leverage:2:0", 0.2, 2.0}};
         const std::array<double, 3> offsets{{-0.005, 0.0, 0.005}};
-        Vector_<GSRMarketQuote_> quotes;
+        Vector_<VolQuote_> quotes;
         for (size_t i = 0; i < VOL_EXPIRIES.size(); ++i)
             for (size_t j = 0; j < offsets.size(); ++j) {
                 std::ostringstream name;
                 name << VOL_EXPIRIES[i].second << ' ' << std::showpos << std::fixed << std::setprecision(3) << offsets[j];
                 quotes.push_back({String_(name.str()), Caplet(*curve.discount_, VOL_EXPIRIES[i].first, offsets[j]), SMILE_VOLS[i][j], PRICE_SCALE});
             }
-        const Vector_<GSRMarketQuote_> heldOut{{"2Y +0.0025 held-out", Caplet(*curve.discount_, 730, 0.0025), 0.01120, PRICE_SCALE}};
+        const Vector_<VolQuote_> heldOut{{"2Y +0.0025 held-out", Caplet(*curve.discount_, 730, 0.0025), 0.01120, PRICE_SCALE}};
         const auto fit = CalibrateGSRSLVMarket(initial, quotes, parameters, settings, heldOut);
-        const auto prices = ConvertGSRMarketQuotes(Handle_<Storable_>(curve.snapshot_), quotes);
+        const auto prices = ConvertVolQuotes(Handle_<Storable_>(curve.snapshot_), quotes);
         Rows_ rows;
         for (size_t i = 0; i < quotes.size(); ++i)
             rows.push_back({Text(quotes[i].name_), ExampleFloat(quotes[i].volatility_ * 10000), ExampleFloat(prices[i].price_),
@@ -275,11 +275,11 @@ namespace {
     void PriceProducts(const DiscountCurve_& discount, const Handle_<ModelData_>& model) {
         const auto expiry = TODAY.AddDays(365), first = expiry.AddDays(365), end = first.AddDays(365);
         const double strike = (discount(TODAY, expiry) - discount(TODAY, end)) / (discount(TODAY, first) + discount(TODAY, end));
-        const GSRSwaption_ swaption{expiry,
-                                    {{first, 1.0}, {end, 1.0}},
-                                    {{expiry, expiry, first, first, 1.0, 1.0, "12M"}, {first, first, end, end, 1.0, 1.0, "12M"}},
-                                    strike,
-                                    OptionType_("CALL")};
+        const Swaption_ swaption{expiry,
+                                 {{first, 1.0}, {end, 1.0}},
+                                 {{expiry, expiry, first, first, 1.0, 1.0, "12M"}, {first, first, end, end, 1.0, 1.0, "12M"}},
+                                 strike,
+                                 OptionType_("CALL")};
         const GSRMonteCarloSettings_ settings{16384, 27183};
         const auto caplet = Caplet(discount, 365);
         const auto prices = PriceGSRSLVEuropeanOptions(model, {caplet, swaption}, settings);

@@ -16,7 +16,7 @@ def model(g=0.02):
 
 
 def bond_option():
-    return dal.GSRBondOption_(dal.Date_(2027, 10, 2), dal.Date_(2028, 10, 1), 0.97, "CALL")
+    return dal.BondOption_(dal.Date_(2027, 10, 2), dal.Date_(2028, 10, 1), 0.97, "CALL")
 
 
 def test_bond_price_and_calibration_recover_volatility():
@@ -24,7 +24,7 @@ def test_bond_price_and_calibration_recover_volatility():
     target = dal.GSR_EuropeanOptionPrice(model(), option)
     assert target.price > 0
     assert target.numerical_error == 0
-    quote = dal.GSRCalibrationQuote_("bond", option, target.price, 1e-6)
+    quote = dal.CalibrationQuote_("bond", option, target.price, 1e-6)
     parameter = dal.GSRCalibrationParameter_(0, 0, 0.0, 0.1)
     result = dal.Calibrate_GSRVolatility(model(0.009), [quote], [parameter])
     assert result.converged
@@ -37,9 +37,9 @@ def test_bond_price_and_calibration_recover_volatility():
 
 def test_one_period_swaption_matches_caplet():
     expiry, end = dal.Date_(2027, 10, 2), dal.Date_(2028, 10, 1)
-    swaption = dal.GSRSwaption_(expiry, [dal.GSRFixedCoupon_(end, 1.0)],
-                              [dal.GSRFloatingCoupon_(expiry, expiry, end, end, 1.0, 1.0, "12M")], 0.03, "CALL")
-    caplet = dal.GSRCaplet_(expiry, expiry, end, end, 1.0, 1.0, "12M", 0.03, "CALL")
+    swaption = dal.Swaption_(expiry, [dal.FixedCoupon_(end, 1.0)],
+                              [dal.FloatingCoupon_(expiry, expiry, end, end, 1.0, 1.0, "12M")], 0.03, "CALL")
+    caplet = dal.Caplet_(expiry, expiry, end, end, 1.0, 1.0, "12M", 0.03, "CALL")
     assert dal.GSR_EuropeanOptionPrice(model(), swaption).price == pytest.approx(
         dal.GSR_EuropeanOptionPrice(model(), caplet).price, abs=1e-12)
 
@@ -47,6 +47,6 @@ def test_one_period_swaption_matches_caplet():
 def test_public_errors_identify_invalid_inputs():
     with pytest.raises(RuntimeError, match="model is required"):
         dal.GSR_EuropeanOptionPrice(None, bond_option())
-    quote = dal.GSRCalibrationQuote_("bond", bond_option(), 0.01, 0.0)
+    quote = dal.CalibrationQuote_("bond", bond_option(), 0.01, 0.0)
     with pytest.raises(RuntimeError, match="price scales"):
         dal.Calibrate_GSRVolatility(model(), [quote], [dal.GSRCalibrationParameter_(0, 0, 0.0, 0.1)])

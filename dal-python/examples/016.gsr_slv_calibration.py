@@ -99,7 +99,7 @@ def caplet(curve, expiry_days, offset=0.0, days=182, tenor="6M"):
     expiry = TODAY.AddDays(expiry_days)
     end = expiry.AddDays(days)
     accrual = days / 365.0
-    return dal.GSRCaplet_(expiry, expiry, end, end, accrual, accrual, tenor,
+    return dal.Caplet_(expiry, expiry, end, end, accrual, accrual, tenor,
                           forward(curve, expiry, days) + offset)
 
 
@@ -134,9 +134,9 @@ def calibrate_gaussian(discount, snapshot):
         for (expiry_days, label), smile in zip(VOL_EXPIRIES, SMILE_VOLS)
         for days, tenor in CAPLET_TENORS
     ]
-    market = [dal.GSRMarketQuote_(name, option, vol, GAUSSIAN_SCALE) for name, option, vol in inputs]
-    prices = dal.GSRMarketQuotes_Get_Prices(snapshot, market)
-    quotes = [dal.GSRCalibrationQuote_(name, option, price.price, GAUSSIAN_SCALE)
+    market = [dal.VolQuote_(name, option, vol, GAUSSIAN_SCALE) for name, option, vol in inputs]
+    prices = dal.VolQuotes_Get_Prices(snapshot, market)
+    quotes = [dal.CalibrationQuote_(name, option, price.price, GAUSSIAN_SCALE)
               for (name, option, _), price in zip(inputs, prices)]
     parameters = [dal.GSRCalibrationParameter_(0, knot, 0.001, 0.04) for knot in range(3)]
     fit = dal.Calibrate_GSRVolatility(gaussian_model(snapshot), quotes, parameters)
@@ -174,10 +174,10 @@ def calibrate_slv(discount, snapshot, gaussian):
     inputs = [(f"{label} {offset:+.3f}", caplet(discount, expiry_days, offset), vol)
               for (expiry_days, label), row in zip(VOL_EXPIRIES, SMILE_VOLS)
               for offset, vol in zip([-0.005, 0.0, 0.005], row)]
-    quotes = [dal.GSRMarketQuote_(name, option, vol, PRICE_SCALE) for name, option, vol in inputs]
-    held_out = [dal.GSRMarketQuote_("2Y +0.0025 held-out", caplet(discount, 730, 0.0025), 0.01120, PRICE_SCALE)]
+    quotes = [dal.VolQuote_(name, option, vol, PRICE_SCALE) for name, option, vol in inputs]
+    held_out = [dal.VolQuote_("2Y +0.0025 held-out", caplet(discount, 730, 0.0025), 0.01120, PRICE_SCALE)]
     fit = dal.Calibrate_GSRSLVMarket(initial, quotes, parameters, settings, held_out=held_out)
-    prices = dal.GSRMarketQuotes_Get_Prices(snapshot, quotes)
+    prices = dal.VolQuotes_Get_Prices(snapshot, quotes)
     print_table("SLV volatility calibration: 15 smile caplets",
                 ["Instrument", "Normal(bp)", "Market PV", "Fitted PV", "Error/scale", "Pair SE"],
                 [[name, format_float(vol * 10000), format_float(price.price), format_float(value),
@@ -205,10 +205,10 @@ def product_contracts(discount):
     first = expiry.AddDays(365)
     end = first.AddDays(365)
     strike = (discount(TODAY, expiry) - discount(TODAY, end)) / (discount(TODAY, first) + discount(TODAY, end))
-    swaption = dal.GSRSwaption_(
-        expiry, [dal.GSRFixedCoupon_(first, 1.0), dal.GSRFixedCoupon_(end, 1.0)],
-        [dal.GSRFloatingCoupon_(expiry, expiry, first, first, 1.0, 1.0, "12M"),
-         dal.GSRFloatingCoupon_(first, first, end, end, 1.0, 1.0, "12M")], strike,
+    swaption = dal.Swaption_(
+        expiry, [dal.FixedCoupon_(first, 1.0), dal.FixedCoupon_(end, 1.0)],
+        [dal.FloatingCoupon_(expiry, expiry, first, first, 1.0, 1.0, "12M"),
+         dal.FloatingCoupon_(first, first, end, end, 1.0, 1.0, "12M")], strike,
     )
     caplet_strike = forward(discount, expiry, 182)
     caplet_script = dal.Product_New(

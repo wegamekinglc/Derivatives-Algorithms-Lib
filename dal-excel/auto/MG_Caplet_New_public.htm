@@ -2,23 +2,23 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>GSRBondOption_New</title>
+<title>Caplet_New</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>GSRBondOption_New (in Excel: GSRBONDOPTION.NEW)</h1>
-Create a European zero-coupon bond option
+<h1>Caplet_New (in Excel: CAPLET.NEW)</h1>
+Create a caplet or floorlet
 
 <h2>Inputs:</h2>
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
-<tr><td>expiry</td><td>date</td><td></td><td>Exercise date</td></tr>
-<tr><td>maturity</td><td>date</td><td></td><td>Bond maturity</td></tr>
-<tr><td>strike</td><td>number</td><td></td><td>Bond-price strike per unit face value</td></tr>
-<tr><td>type</td><td>string</td><td></td><td>CALL or PUT</td></tr>
+<tr><td>expiry</td><td>date</td><td></td><td>Index fixing date, on or before accrual start</td></tr>
+<tr><td>coupon</td><td>handle of type StorableGSRFloatingCoupon</td><td></td><td>Underlying coupon</td></tr>
+<tr><td>strike</td><td>number</td><td></td><td>Rate strike</td></tr>
+<tr><td>type</td><td>string</td><td></td><td>CALL for caplet or PUT for floorlet</td></tr>
 
 </table>
 

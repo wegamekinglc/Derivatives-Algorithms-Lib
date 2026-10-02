@@ -340,7 +340,7 @@ TEST(GSRSLVTest, TestGaussianOptionMatchesIndependentAnalyticPrice) {
         model.GeneratePath(normals, path);
         return std::max(0.0, (*path)[0].observations_[0] - 0.97) / (*path)[0].numeraire_;
     });
-    const Dal::GSRBondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, Dal::OptionType_("CALL")};
+    const Dal::BondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, Dal::OptionType_("CALL")};
     ASSERT_NEAR(moments.mean_, Dal::PriceGSREuropeanOption(*gaussian, option).price_, 5.0 * std::sqrt(moments.variance_ / count));
 }
 

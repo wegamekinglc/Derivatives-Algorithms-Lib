@@ -8,12 +8,12 @@
 #include <cmath>
 #include <numeric>
 
-#include <dal/model/gsrcalibrationinternal.hpp>
+#include <dal/math/optimization/boundedgn.hpp>
 #include <dal/model/gsrcalibration.hpp>
 
 namespace Dal {
     namespace {
-        using namespace GSRCalibrationInternal;
+        using namespace BoundedGaussNewton;
 
         void ValidateSettings(const GSRCalibrationSettings_& settings) {
             REQUIRE(settings.maxIterations_ > 0, "InvalidGSRCalibration: max iterations must be positive");
@@ -27,7 +27,7 @@ namespace Dal {
                     "InvalidGSRCalibration: pricing quadrature order must be between 2 and 32");
         }
 
-        void ValidateQuotes(const Vector_<GSRCalibrationQuote_>& quotes) {
+        void ValidateQuotes(const Vector_<CalibrationQuote_>& quotes) {
             REQUIRE(!quotes.empty(), "InvalidGSRCalibration: quotes must be nonempty");
             Vector_<String_> names;
             for (const auto& quote : quotes) {
@@ -59,7 +59,7 @@ namespace Dal {
 
         class Problem_ {
             const MultiFactorGSRModelData_& initial_;
-            const Vector_<GSRCalibrationQuote_>& quotes_;
+            const Vector_<CalibrationQuote_>& quotes_;
             const Vector_<GSRCalibrationParameter_>& parameters_;
             const GSRCalibrationSettings_& settings_;
             Vector_<> guess_;
@@ -67,7 +67,7 @@ namespace Dal {
 
         public:
             Problem_(const MultiFactorGSRModelData_& initial,
-                     const Vector_<GSRCalibrationQuote_>& quotes,
+                     const Vector_<CalibrationQuote_>& quotes,
                      const Vector_<GSRCalibrationParameter_>& parameters,
                      const GSRCalibrationSettings_& settings)
                 : initial_(initial), quotes_(quotes), parameters_(parameters), settings_(settings) {
@@ -136,7 +136,7 @@ namespace Dal {
     } // namespace
 
     GSRCalibrationResult_ CalibrateGSRVolatility(const MultiFactorGSRModelData_& initial,
-                                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                                 const Vector_<CalibrationQuote_>& quotes,
                                                  const Vector_<GSRCalibrationParameter_>& parameters,
                                                  const GSRCalibrationSettings_& settings) {
         ValidateSettings(settings);
@@ -144,7 +144,7 @@ namespace Dal {
         const Problem_ problem(initial, quotes, parameters, settings);
         GSRCalibrationResult_ result;
         auto x = problem.Guess();
-        Fit(problem, settings, &x, &result);
+        Fit(problem, {settings.maxIterations_, settings.gradientTolerance_, settings.stepTolerance_}, &x, &result);
         result.model_ = problem.Model(x);
         result.fitWithinTolerance_ = result.numericalValidationPassed_ = true;
         for (size_t i = 0; i < x.size(); ++i) {

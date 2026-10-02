@@ -150,7 +150,7 @@ value is cell[][]
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRMarketQuote_New
+public VolQuote_New
     Create a market volatility quote for a caplet or physical swaption
 &inputs
 name is string
@@ -167,12 +167,12 @@ convention is string
 shift is number (0.0)
     Shift for SHIFTED_BLACK
 &outputs
-quote is handle StorableGSRMarketQuote
+quote is handle StorableVolQuote
     Market quote handle
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRMarketQuotes_Get_Prices
+public VolQuotes_Get_Prices
     Convert market volatility quotes on a curve snapshot
 &inputs
 snapshot is handle GSRCurveData
@@ -307,10 +307,10 @@ namespace Dal {
             return result;
         }
 
-        Vector_<GSREuropeanOption_> Options(const Vector_<Handle_<Storable_>>& handles) {
-            Vector_<GSREuropeanOption_> result;
+        Vector_<EuropeanRateOption_> Options(const Vector_<Handle_<Storable_>>& handles) {
+            Vector_<EuropeanRateOption_> result;
             for (const auto& handle : handles) {
-                const auto option = handle_cast<StorableGSREuropeanOption_>(handle);
+                const auto option = handle_cast<StorableEuropeanRateOption_>(handle);
                 REQUIRE(option, "InvalidGSRWorksheet: European option handle required");
                 result.push_back(option->option_);
             }
@@ -338,8 +338,8 @@ namespace Dal {
                           const Vector_<Handle_<Storable_>>& heldOut,
                           Handle_<StorableGSRSLVCalibrationResult_>* result) {
         *result = Handle_<StorableGSRSLVCalibrationResult_>(new StorableGSRSLVCalibrationResult_(
-            "GSRSLVCalibrationResult", CalibrateGSRSLV(initial, Values<GSRCalibrationQuote_>(quotes), Parameters(parameters), Settings(settings),
-                                                       Values<GSRCalibrationQuote_>(heldOut))));
+            "GSRSLVCalibrationResult", CalibrateGSRSLV(initial, Values<CalibrationQuote_>(quotes), Parameters(parameters), Settings(settings),
+                                                       Values<CalibrationQuote_>(heldOut))));
     }
 
     void GSRSLVCalibrationResult_Get(const Handle_<StorableGSRSLVCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
@@ -400,7 +400,7 @@ namespace Dal {
                           const Handle_<StorableGSRCurveQuoteRisk_>& curveRisk,
                           Handle_<StorableGSRSLVQuoteRiskResult_>* result) {
         *result = Handle_<StorableGSRSLVQuoteRiskResult_>(new StorableGSRSLVQuoteRiskResult_(
-            "GSRSLVQuoteRiskResult", GSRSLVQuoteRisk(initial, Values<GSRCalibrationQuote_>(quotes), Parameters(parameters), Options(targets),
+            "GSRSLVQuoteRiskResult", GSRSLVQuoteRisk(initial, Values<CalibrationQuote_>(quotes), Parameters(parameters), Options(targets),
                                                      Settings(settings), RiskSettings(riskSettings), curveRisk ? &curveRisk->value_ : nullptr)));
     }
 
@@ -458,20 +458,20 @@ namespace Dal {
             THROW("InvalidGSRWorksheet: unknown curve risk attribute " + attribute);
     }
 
-    void GSRMarketQuote_New(const String_& name,
-                            const Handle_<StorableGSREuropeanOption_>& option,
-                            double volatility,
-                            double priceScale,
-                            const String_& convention,
-                            double shift,
-                            Handle_<StorableGSRMarketQuote_>* quote) {
+    void VolQuote_New(const String_& name,
+                      const Handle_<StorableEuropeanRateOption_>& option,
+                      double volatility,
+                      double priceScale,
+                      const String_& convention,
+                      double shift,
+                      Handle_<StorableVolQuote_>* quote) {
         REQUIRE(option, "InvalidGSRWorksheet: European option required");
-        *quote = Handle_<StorableGSRMarketQuote_>(new StorableGSRMarketQuote_(
-            "GSRMarketQuote", {name, option->option_, volatility, priceScale, convention.empty() ? String_("NORMAL") : convention, shift}));
+        *quote = Handle_<StorableVolQuote_>(new StorableVolQuote_(
+            "VolQuote", {name, option->option_, volatility, priceScale, VolConvention_(convention.empty() ? String_("NORMAL") : convention), shift}));
     }
 
-    void GSRMarketQuotes_Get_Prices(const Handle_<GSRCurveData_>& snapshot, const Vector_<Handle_<Storable_>>& quotes, Matrix_<Cell_>* result) {
-        const auto values = ConvertGSRMarketQuotes(Handle_<Storable_>(snapshot), Values<GSRMarketQuote_>(quotes));
+    void VolQuotes_Get_Prices(const Handle_<GSRCurveData_>& snapshot, const Vector_<Handle_<Storable_>>& quotes, Matrix_<Cell_>* result) {
+        const auto values = ConvertVolQuotes(Handle_<Storable_>(snapshot), Values<VolQuote_>(quotes));
         *result = Matrix_<Cell_>(values.size(), 4);
         for (size_t i = 0; i < values.size(); ++i) {
             (*result)(i, 0) = Cell_(values[i].forward_);
@@ -488,8 +488,8 @@ namespace Dal {
                                 const Vector_<Handle_<Storable_>>& heldOut,
                                 Handle_<StorableGSRSLVCalibrationResult_>* result) {
         *result = Handle_<StorableGSRSLVCalibrationResult_>(new StorableGSRSLVCalibrationResult_(
-            "GSRSLVCalibrationResult", CalibrateGSRSLVMarket(initial, Values<GSRMarketQuote_>(quotes), Parameters(parameters), Settings(settings),
-                                                             Values<GSRMarketQuote_>(heldOut))));
+            "GSRSLVCalibrationResult",
+            CalibrateGSRSLVMarket(initial, Values<VolQuote_>(quotes), Parameters(parameters), Settings(settings), Values<VolQuote_>(heldOut))));
     }
 
     void GSRSLV_MarketQuoteRisk(const Handle_<ModelData_>& initial,
@@ -502,15 +502,12 @@ namespace Dal {
                                 Handle_<StorableGSRSLVQuoteRiskResult_>* result) {
         *result = Handle_<StorableGSRSLVQuoteRiskResult_>(new StorableGSRSLVQuoteRiskResult_(
             "GSRSLVQuoteRiskResult",
-            GSRSLVMarketQuoteRisk(initial, Values<GSRMarketQuote_>(quotes), Parameters(parameters), Options(targets), Settings(settings),
+            GSRSLVMarketQuoteRisk(initial, Values<VolQuote_>(quotes), Parameters(parameters), Options(targets), Settings(settings),
                                   RiskSettings(riskSettings), curveRisk ? &curveRisk->value_ : nullptr)));
     }
 
 #ifdef _WIN32
-#include <dal-excel/auto/MG_GSRMarketQuote_New_public.inc>
-#include <dal-excel/auto/MG_GSRMarketQuotes_Get_Prices_public.inc>
 #include <dal-excel/auto/MG_Calibrate_GSRSLVMarket_public.inc>
-#include <dal-excel/auto/MG_GSRSLV_MarketQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_Calibrate_GSRSLV_public.inc>
 #include <dal-excel/auto/MG_GSRCurveQuoteRisk_Get_public.inc>
 #include <dal-excel/auto/MG_GSRCurveQuoteRisk_New_public.inc>
@@ -519,6 +516,9 @@ namespace Dal {
 #include <dal-excel/auto/MG_GSRSLVQuoteRiskResult_Get_Calibration_public.inc>
 #include <dal-excel/auto/MG_GSRSLVQuoteRiskResult_Get_public.inc>
 #include <dal-excel/auto/MG_GSRSLV_EuropeanOptionPrices_public.inc>
+#include <dal-excel/auto/MG_GSRSLV_MarketQuoteRisk_public.inc>
 #include <dal-excel/auto/MG_GSRSLV_QuoteRisk_public.inc>
+#include <dal-excel/auto/MG_VolQuote_New_public.inc>
+#include <dal-excel/auto/MG_VolQuotes_Get_Prices_public.inc>
 #endif
 } // namespace Dal

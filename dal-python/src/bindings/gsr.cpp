@@ -28,32 +28,30 @@ namespace {
 } // namespace
 
 void init_bindings_gsr(py::module_& m) {
-    py::class_<GSRBondOption_>(m, "GSRBondOption_")
+    py::class_<BondOption_>(m, "BondOption_")
         .def(py::init([](const Date_& expiry, const Date_& maturity, double strike, const std::string& type) {
-                 return GSRBondOption_{expiry, maturity, strike, OptionType_(String_(type))};
+                 return BondOption_{expiry, maturity, strike, OptionType_(String_(type))};
              }),
              py::arg("expiry"), py::arg("maturity"), py::arg("strike"), py::arg("type") = "CALL");
-    py::class_<GSRFixedCoupon_>(m, "GSRFixedCoupon_")
-        .def(py::init([](const Date_& payment, double accrual) { return GSRFixedCoupon_{payment, accrual}; }), py::arg("payment"),
-             py::arg("accrual"));
-    py::class_<GSRFloatingCoupon_>(m, "GSRFloatingCoupon_")
-        .def(py::init([](const Date_& fixing, const Date_& start, const Date_& end, const Date_& payment, double indexAccrual, double couponAccrual,
-                         const std::string& tenor) {
-                 return GSRFloatingCoupon_{fixing, start, end, payment, indexAccrual, couponAccrual, String_(tenor)};
-             }),
+    py::class_<FixedCoupon_>(m, "FixedCoupon_")
+        .def(py::init([](const Date_& payment, double accrual) { return FixedCoupon_{payment, accrual}; }), py::arg("payment"), py::arg("accrual"));
+    py::class_<FloatingCoupon_>(m, "FloatingCoupon_")
+        .def(py::init(
+                 [](const Date_& fixing, const Date_& start, const Date_& end, const Date_& payment, double indexAccrual, double couponAccrual,
+                    const std::string& tenor) { return FloatingCoupon_{fixing, start, end, payment, indexAccrual, couponAccrual, String_(tenor)}; }),
              py::arg("fixing"), py::arg("start"), py::arg("end"), py::arg("payment"), py::arg("index_accrual"), py::arg("coupon_accrual"),
              py::arg("tenor"));
-    py::class_<GSRCaplet_>(m, "GSRCaplet_")
+    py::class_<Caplet_>(m, "Caplet_")
         .def(py::init([](const Date_& expiry, const Date_& start, const Date_& end, const Date_& payment, double indexAccrual, double couponAccrual,
                          const std::string& tenor, double strike, const std::string& type) {
-                 return GSRCaplet_{expiry, start, end, payment, indexAccrual, couponAccrual, String_(tenor), strike, OptionType_(String_(type))};
+                 return Caplet_{expiry, start, end, payment, indexAccrual, couponAccrual, String_(tenor), strike, OptionType_(String_(type))};
              }),
              py::arg("expiry"), py::arg("start"), py::arg("end"), py::arg("payment"), py::arg("index_accrual"), py::arg("coupon_accrual"),
              py::arg("tenor"), py::arg("strike"), py::arg("type") = "CALL");
-    py::class_<GSRSwaption_>(m, "GSRSwaption_")
-        .def(py::init([](const Date_& expiry, const std::vector<GSRFixedCoupon_>& fixed, const std::vector<GSRFloatingCoupon_>& floating,
-                         double strike, const std::string& type) {
-                 return GSRSwaption_{expiry, {fixed.begin(), fixed.end()}, {floating.begin(), floating.end()}, strike, OptionType_(String_(type))};
+    py::class_<Swaption_>(m, "Swaption_")
+        .def(py::init([](const Date_& expiry, const std::vector<FixedCoupon_>& fixed, const std::vector<FloatingCoupon_>& floating, double strike,
+                         const std::string& type) {
+                 return Swaption_{expiry, {fixed.begin(), fixed.end()}, {floating.begin(), floating.end()}, strike, OptionType_(String_(type))};
              }),
              py::arg("expiry"), py::arg("fixed"), py::arg("floating"), py::arg("strike"), py::arg("type") = "CALL");
     py::class_<GSRPricingSettings_>(m, "GSRPricingSettings_")
@@ -63,9 +61,9 @@ void init_bindings_gsr(py::module_& m) {
     py::class_<GSRPriceResult_>(m, "GSRPriceResult_")
         .def_readonly("price", &GSRPriceResult_::price_)
         .def_readonly("numerical_error", &GSRPriceResult_::numericalError_);
-    py::class_<GSRCalibrationQuote_>(m, "GSRCalibrationQuote_")
-        .def(py::init([](const std::string& name, const GSREuropeanOption_& option, double price, double priceScale) {
-                 return GSRCalibrationQuote_{String_(name), option, price, priceScale};
+    py::class_<CalibrationQuote_>(m, "CalibrationQuote_")
+        .def(py::init([](const std::string& name, const EuropeanRateOption_& option, double price, double priceScale) {
+                 return CalibrationQuote_{String_(name), option, price, priceScale};
              }),
              py::arg("name"), py::arg("option"), py::arg("price"), py::arg("price_scale"));
     py::class_<GSRCalibrationParameter_>(m, "GSRCalibrationParameter_")
@@ -105,13 +103,13 @@ void init_bindings_gsr(py::module_& m) {
                                [](const GSRCalibrationResult_& result) { return std::string(result.terminationReason_.c_str()); });
     m.def(
         "GSR_EuropeanOptionPrice",
-        [](const std::shared_ptr<ModelData_>& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
+        [](const std::shared_ptr<ModelData_>& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings) {
             return PriceGSREuropeanOption(Model(model), option, settings);
         },
         py::arg("model"), py::arg("option"), py::arg("settings") = GSRPricingSettings_{});
     m.def(
         "Calibrate_GSRVolatility",
-        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRCalibrationQuote_>& quotes,
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<CalibrationQuote_>& quotes,
            const std::vector<GSRCalibrationParameter_>& parameters, const GSRCalibrationSettings_& settings) {
             return CalibrateGSRVolatility(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()}, settings);
         },
@@ -191,7 +189,7 @@ void init_bindings_gsr(py::module_& m) {
         .def_property_readonly("log_df_quote_jacobian", [](const GSRCurveQuoteRisk_& r) { return Matrix_<>(r.LogDFQuoteJacobian()); });
     m.def(
         "GSRSLV_EuropeanOptionPrices",
-        [](const std::shared_ptr<ModelData_>& model, const std::vector<GSREuropeanOption_>& options, GSRMonteCarloSettings_ settings) {
+        [](const std::shared_ptr<ModelData_>& model, const std::vector<EuropeanRateOption_>& options, GSRMonteCarloSettings_ settings) {
             Vector_<GSRMonteCarloPrice_> result;
             {
                 py::gil_scoped_release release;
@@ -202,19 +200,19 @@ void init_bindings_gsr(py::module_& m) {
         py::arg("model"), py::arg("options"), py::arg("settings") = GSRMonteCarloSettings_{});
     m.def(
         "Calibrate_GSRSLV",
-        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRCalibrationQuote_>& quotes,
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<CalibrationQuote_>& quotes,
            const std::vector<GSRSLVCalibrationParameter_>& parameters, GSRSLVCalibrationSettings_ settings,
-           const std::vector<GSRCalibrationQuote_>& heldOut) {
+           const std::vector<CalibrationQuote_>& heldOut) {
             py::gil_scoped_release release;
             return CalibrateGSRSLV(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()}, settings,
                                    {heldOut.begin(), heldOut.end()});
         },
         py::arg("initial"), py::arg("quotes"), py::arg("parameters"), py::arg("settings") = GSRSLVCalibrationSettings_{},
-        py::arg("held_out") = std::vector<GSRCalibrationQuote_>{});
+        py::arg("held_out") = std::vector<CalibrationQuote_>{});
     m.def(
         "GSRSLV_QuoteRisk",
-        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRCalibrationQuote_>& quotes,
-           const std::vector<GSRSLVCalibrationParameter_>& parameters, const std::vector<GSREuropeanOption_>& targets,
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<CalibrationQuote_>& quotes,
+           const std::vector<GSRSLVCalibrationParameter_>& parameters, const std::vector<EuropeanRateOption_>& targets,
            GSRSLVCalibrationSettings_ settings, GSRSLVQuoteRiskSettings_ riskSettings, const GSRCurveQuoteRisk_* curveRisk) {
             py::gil_scoped_release release;
             return GSRSLVQuoteRisk(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()},
@@ -234,38 +232,37 @@ void init_bindings_gsr(py::module_& m) {
         },
         py::arg("snapshot"), py::arg("market"), py::arg("provenance"), py::arg("discount_component"), py::arg("projection_components") = py::tuple{});
 
-    py::class_<GSRMarketQuote_>(m, "GSRMarketQuote_")
-        .def(py::init([](const std::string& name, const GSREuropeanOption_& option, double volatility, double priceScale,
-                         const std::string& convention,
-                         double shift) { return GSRMarketQuote_{String_(name), option, volatility, priceScale, String_(convention), shift}; }),
+    py::class_<VolQuote_>(m, "VolQuote_")
+        .def(py::init(
+                 [](const std::string& name, const EuropeanRateOption_& option, double volatility, double priceScale, const std::string& convention,
+                    double shift) { return VolQuote_{String_(name), option, volatility, priceScale, VolConvention_(String_(convention)), shift}; }),
              py::arg("name"), py::arg("option"), py::arg("volatility"), py::arg("price_scale"), py::arg("convention") = "NORMAL",
              py::arg("shift") = 0.0);
-    py::class_<GSRMarketQuoteValue_>(m, "GSRMarketQuoteValue_")
-        .def_readonly("forward", &GSRMarketQuoteValue_::forward_)
-        .def_readonly("annuity", &GSRMarketQuoteValue_::annuity_)
-        .def_readonly("price", &GSRMarketQuoteValue_::price_)
-        .def_readonly("vega", &GSRMarketQuoteValue_::vega_);
+    py::class_<VolQuoteValue_>(m, "VolQuoteValue_")
+        .def_readonly("forward", &VolQuoteValue_::forward_)
+        .def_readonly("annuity", &VolQuoteValue_::annuity_)
+        .def_readonly("price", &VolQuoteValue_::price_)
+        .def_readonly("vega", &VolQuoteValue_::vega_);
     m.def(
-        "GSRMarketQuotes_Get_Prices",
-        [](const std::shared_ptr<Storable_>& snapshot, const std::vector<GSRMarketQuote_>& quotes) {
-            return List(ConvertGSRMarketQuotes(Handle_<Storable_>(std::shared_ptr<const Storable_>(snapshot)), {quotes.begin(), quotes.end()}));
+        "VolQuotes_Get_Prices",
+        [](const std::shared_ptr<Storable_>& snapshot, const std::vector<VolQuote_>& quotes) {
+            return List(ConvertVolQuotes(Handle_<Storable_>(std::shared_ptr<const Storable_>(snapshot)), {quotes.begin(), quotes.end()}));
         },
         py::arg("snapshot"), py::arg("quotes"));
     m.def(
         "Calibrate_GSRSLVMarket",
-        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRMarketQuote_>& quotes,
-           const std::vector<GSRSLVCalibrationParameter_>& parameters, GSRSLVCalibrationSettings_ settings,
-           const std::vector<GSRMarketQuote_>& heldOut) {
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<VolQuote_>& quotes,
+           const std::vector<GSRSLVCalibrationParameter_>& parameters, GSRSLVCalibrationSettings_ settings, const std::vector<VolQuote_>& heldOut) {
             py::gil_scoped_release release;
             return CalibrateGSRSLVMarket(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()}, settings,
                                          {heldOut.begin(), heldOut.end()});
         },
         py::arg("initial"), py::arg("quotes"), py::arg("parameters"), py::arg("settings") = GSRSLVCalibrationSettings_{},
-        py::arg("held_out") = std::vector<GSRMarketQuote_>{});
+        py::arg("held_out") = std::vector<VolQuote_>{});
     m.def(
         "GSRSLV_MarketQuoteRisk",
-        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRMarketQuote_>& quotes,
-           const std::vector<GSRSLVCalibrationParameter_>& parameters, const std::vector<GSREuropeanOption_>& targets,
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<VolQuote_>& quotes,
+           const std::vector<GSRSLVCalibrationParameter_>& parameters, const std::vector<EuropeanRateOption_>& targets,
            GSRSLVCalibrationSettings_ settings, GSRSLVQuoteRiskSettings_ riskSettings, const GSRCurveQuoteRisk_* curveRisk) {
             py::gil_scoped_release release;
             return GSRSLVMarketQuoteRisk(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()},

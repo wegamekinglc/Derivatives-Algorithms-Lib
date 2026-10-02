@@ -9,7 +9,7 @@
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
-public GSRBondOption_New
+public BondOption_New
     Create a European zero-coupon bond option
 &inputs
 expiry is date
@@ -26,7 +26,7 @@ option is handle StorableGSREuropeanOption
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRFixedCoupon_New
+public FixedCoupon_New
     Create one fixed swap coupon
 &inputs
 payment is date
@@ -39,7 +39,7 @@ coupon is handle StorableGSRFixedCoupon
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRFloatingCoupon_New
+public FloatingCoupon_New
     Create one projected floating coupon
 &inputs
 fixing is date
@@ -62,7 +62,7 @@ coupon is handle StorableGSRFloatingCoupon
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRCaplet_New
+public Caplet_New
     Create a caplet or floorlet
 &inputs
 expiry is date
@@ -79,7 +79,7 @@ option is handle StorableGSREuropeanOption
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRSwaption_New
+public Swaption_New
     Create a physically settled European swaption
 &inputs
 expiry is date
@@ -114,7 +114,7 @@ result is cell[][]
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public GSRCalibrationQuote_New
+public CalibrationQuote_New
     Create a price quote for Gaussian volatility calibration
 &inputs
 name is string
@@ -218,50 +218,50 @@ namespace Dal {
     } // namespace
 
     void
-    GSRBondOption_New(const Date_& expiry, const Date_& maturity, double strike, const String_& type, Handle_<StorableGSREuropeanOption_>* option) {
-        *option = Handle_<StorableGSREuropeanOption_>(new StorableGSREuropeanOption_(GSRBondOption_{expiry, maturity, strike, OptionType_(type)}));
+    BondOption_New(const Date_& expiry, const Date_& maturity, double strike, const String_& type, Handle_<StorableEuropeanRateOption_>* option) {
+        *option = Handle_<StorableEuropeanRateOption_>(new StorableEuropeanRateOption_(BondOption_{expiry, maturity, strike, OptionType_(type)}));
     }
 
-    void GSRFixedCoupon_New(const Date_& payment, double accrual, Handle_<StorableGSRFixedCoupon_>* coupon) {
-        *coupon = Handle_<StorableGSRFixedCoupon_>(new StorableGSRFixedCoupon_("GSRFixedCoupon", {payment, accrual}));
+    void FixedCoupon_New(const Date_& payment, double accrual, Handle_<StorableFixedCoupon_>* coupon) {
+        *coupon = Handle_<StorableFixedCoupon_>(new StorableFixedCoupon_("FixedCoupon", {payment, accrual}));
     }
 
-    void GSRFloatingCoupon_New(const Date_& fixing,
-                               const Date_& start,
-                               const Date_& end,
-                               const Date_& payment,
-                               double indexAccrual,
-                               double couponAccrual,
-                               const String_& tenor,
-                               Handle_<StorableGSRFloatingCoupon_>* coupon) {
-        *coupon = Handle_<StorableGSRFloatingCoupon_>(
-            new StorableGSRFloatingCoupon_("GSRFloatingCoupon", {fixing, start, end, payment, indexAccrual, couponAccrual, tenor}));
+    void FloatingCoupon_New(const Date_& fixing,
+                            const Date_& start,
+                            const Date_& end,
+                            const Date_& payment,
+                            double indexAccrual,
+                            double couponAccrual,
+                            const String_& tenor,
+                            Handle_<StorableFloatingCoupon_>* coupon) {
+        *coupon = Handle_<StorableFloatingCoupon_>(
+            new StorableFloatingCoupon_("FloatingCoupon", {fixing, start, end, payment, indexAccrual, couponAccrual, tenor}));
     }
 
-    void GSRCaplet_New(const Date_& expiry,
-                       const Handle_<StorableGSRFloatingCoupon_>& coupon,
-                       double strike,
-                       const String_& type,
-                       Handle_<StorableGSREuropeanOption_>* option) {
+    void Caplet_New(const Date_& expiry,
+                    const Handle_<StorableFloatingCoupon_>& coupon,
+                    double strike,
+                    const String_& type,
+                    Handle_<StorableEuropeanRateOption_>* option) {
         REQUIRE(coupon, "InvalidGSRWorksheet: coupon is required");
         const auto& value = coupon->value_;
         REQUIRE(value.fixing_ == expiry, "InvalidGSRWorksheet: caplet expiry must equal coupon fixing date");
-        *option = Handle_<StorableGSREuropeanOption_>(new StorableGSREuropeanOption_(GSRCaplet_{
+        *option = Handle_<StorableEuropeanRateOption_>(new StorableEuropeanRateOption_(Caplet_{
             expiry, value.start_, value.end_, value.payment_, value.indexAccrual_, value.couponAccrual_, value.tenor_, strike, OptionType_(type)}));
     }
 
-    void GSRSwaption_New(const Date_& expiry,
-                         const Vector_<Handle_<Storable_>>& fixed,
-                         const Vector_<Handle_<Storable_>>& floating,
-                         double strike,
-                         const String_& type,
-                         Handle_<StorableGSREuropeanOption_>* option) {
-        *option = Handle_<StorableGSREuropeanOption_>(new StorableGSREuropeanOption_(
-            GSRSwaption_{expiry, Values<GSRFixedCoupon_>(fixed), Values<GSRFloatingCoupon_>(floating), strike, OptionType_(type)}));
+    void Swaption_New(const Date_& expiry,
+                      const Vector_<Handle_<Storable_>>& fixed,
+                      const Vector_<Handle_<Storable_>>& floating,
+                      double strike,
+                      const String_& type,
+                      Handle_<StorableEuropeanRateOption_>* option) {
+        *option = Handle_<StorableEuropeanRateOption_>(new StorableEuropeanRateOption_(
+            Swaption_{expiry, Values<FixedCoupon_>(fixed), Values<FloatingCoupon_>(floating), strike, OptionType_(type)}));
     }
 
     void GSR_EuropeanOptionPrice(const Handle_<ModelData_>& model,
-                                 const Handle_<StorableGSREuropeanOption_>& option,
+                                 const Handle_<StorableEuropeanRateOption_>& option,
                                  const Matrix_<Cell_>& settings,
                                  Matrix_<Cell_>* result) {
         REQUIRE(option, "InvalidGSRWorksheet: option is required");
@@ -271,14 +271,13 @@ namespace Dal {
         (*result)(0, 1) = Cell_(priced.numericalError_);
     }
 
-    void GSRCalibrationQuote_New(const String_& name,
-                                 const Handle_<StorableGSREuropeanOption_>& option,
-                                 double price,
-                                 double priceScale,
-                                 Handle_<StorableGSRCalibrationQuote_>* quote) {
+    void CalibrationQuote_New(const String_& name,
+                              const Handle_<StorableEuropeanRateOption_>& option,
+                              double price,
+                              double priceScale,
+                              Handle_<StorableCalibrationQuote_>* quote) {
         REQUIRE(option, "InvalidGSRWorksheet: option is required");
-        *quote = Handle_<StorableGSRCalibrationQuote_>(
-            new StorableGSRCalibrationQuote_("GSRCalibrationQuote", {name, option->option_, price, priceScale}));
+        *quote = Handle_<StorableCalibrationQuote_>(new StorableCalibrationQuote_("CalibrationQuote", {name, option->option_, price, priceScale}));
     }
 
     void Calibrate_GSRVolatility(const Handle_<ModelData_>& initial,
@@ -291,7 +290,7 @@ namespace Dal {
         for (int row = 0; row < parameters.Rows(); ++row)
             selected.push_back({Integer(parameters(row, 0)), Integer(parameters(row, 1)), parameters(row, 2), parameters(row, 3)});
         *result = Handle_<StorableGSRCalibrationResult_>(new StorableGSRCalibrationResult_(
-            "GSRCalibrationResult", CalibrateGSRVolatility(initial, Values<GSRCalibrationQuote_>(quotes), selected, Settings(settings))));
+            "GSRCalibrationResult", CalibrateGSRVolatility(initial, Values<CalibrationQuote_>(quotes), selected, Settings(settings))));
     }
 
     void GSRCalibrationResult_Get(const Handle_<StorableGSRCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
@@ -337,15 +336,15 @@ namespace Dal {
     }
 
 #ifdef _WIN32
+#include <dal-excel/auto/MG_BondOption_New_public.inc>
 #include <dal-excel/auto/MG_Calibrate_GSRVolatility_public.inc>
-#include <dal-excel/auto/MG_GSRBondOption_New_public.inc>
-#include <dal-excel/auto/MG_GSRCalibrationQuote_New_public.inc>
+#include <dal-excel/auto/MG_CalibrationQuote_New_public.inc>
+#include <dal-excel/auto/MG_Caplet_New_public.inc>
+#include <dal-excel/auto/MG_FixedCoupon_New_public.inc>
+#include <dal-excel/auto/MG_FloatingCoupon_New_public.inc>
 #include <dal-excel/auto/MG_GSRCalibrationResult_Get_Model_public.inc>
 #include <dal-excel/auto/MG_GSRCalibrationResult_Get_public.inc>
-#include <dal-excel/auto/MG_GSRCaplet_New_public.inc>
-#include <dal-excel/auto/MG_GSRFixedCoupon_New_public.inc>
-#include <dal-excel/auto/MG_GSRFloatingCoupon_New_public.inc>
-#include <dal-excel/auto/MG_GSRSwaption_New_public.inc>
 #include <dal-excel/auto/MG_GSR_EuropeanOptionPrice_public.inc>
+#include <dal-excel/auto/MG_Swaption_New_public.inc>
 #endif
 } // namespace Dal

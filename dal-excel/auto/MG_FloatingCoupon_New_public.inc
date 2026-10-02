@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_GSRFloatingCoupon_New
+extern "C" __declspec(dllexport) OPER_* xl_FloatingCoupon_New
     (const OPER_* xl_fixing, const OPER_* xl_start, const OPER_* xl_end, const OPER_* xl_payment, const OPER_* xl_indexAccrual, const OPER_* xl_couponAccrual, const OPER_* xl_tenor)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("GSRFloatingCoupon_New");        
+        Logging::Write("FloatingCoupon_New");        
         argName = "fixing (input #1)";
         const Date_ fixing = Excel::ToDate(xl_fixing);
         argName = "start (input #2)";
@@ -25,7 +25,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const String_ tenor = Excel::ToString(xl_tenor);
         argName = 0;
 		Handle_<StorableGSRFloatingCoupon_> coupon;
-        GSRFloatingCoupon_New(fixing, start, end, payment, indexAccrual, couponAccrual, tenor, &coupon);
+        FloatingCoupon_New(fixing, start, end, payment, indexAccrual, couponAccrual, tenor, &coupon);
         Excel::Retval_ retval;
         retval.Load(_env, coupon);
         return retval.ToXloper();
@@ -40,9 +40,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_GSRFloatingCoupon_New_
+struct XlRegister_FloatingCoupon_New_
 {
-    XlRegister_GSRFloatingCoupon_New_()
+    XlRegister_FloatingCoupon_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Index fixing date, on or before start");
@@ -52,7 +52,7 @@ struct XlRegister_GSRFloatingCoupon_New_
         argHelp.push_back("Index accrual fraction");
         argHelp.push_back("Payment accrual fraction");
         argHelp.push_back("Projection tenor such as 3M");
-        Excel::Register("Base", "xl_GSRFloatingCoupon_New", "GSRFLOATINGCOUPON.NEW", "Create one projected floating coupon", "QQQQQQQQ", "fixing,start,end,payment,indexAccrual,couponAccrual,tenor", argHelp, false);
+        Excel::Register("Base", "xl_FloatingCoupon_New", "FLOATINGCOUPON.NEW", "Create one projected floating coupon", "QQQQQQQQ", "fixing,start,end,payment,indexAccrual,couponAccrual,tenor", argHelp, false);
     }
 };
-static XlRegister_GSRFloatingCoupon_New_ The_GSRFloatingCoupon_New_XlRegisterer;
+static XlRegister_FloatingCoupon_New_ The_FloatingCoupon_New_XlRegisterer;

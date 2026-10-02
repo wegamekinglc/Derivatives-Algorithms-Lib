@@ -2,21 +2,23 @@
 namespace HybridGSRRateData_v1 {
     struct Reader_ : Archive::Reader_ {
         String_ name_;
-        String_ factor_;
+        Vector_<String_> factors_;
         Handle_<GSRCurveData_> curve_;
         Handle_<GSRVolData_> vol_;
+        Handle_<MultiFactorGSRVolData_> multiVol_;
         Reader_(const Archive::View_& src, Archive::Built_& share) {
             using namespace Archive::Utils;
             NOTE("Reading HybridGSRRateData_v1 from store");
             assert(src.Type() == "HybridGSRRateData_v1");
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
-            Get(src, "factor", &factor_, std::mem_fn(&Archive::View_::AsString));
+            Get(src, "factors", &factors_, std::mem_fn(&Archive::View_::AsStringVector));
             Get(src, "curve", &curve_, Archive::Builder_<GSRCurveData_>(share, "curve", "GSRCurveData"));
-            Get(src, "vol", &vol_, Archive::Builder_<GSRVolData_>(share, "vol", "GSRVolData"));
+            GetOptional(src, "vol", &vol_, Archive::Builder_<GSRVolData_>(share, "vol", "GSRVolData"));
+            GetOptional(src, "multiVol", &multiVol_, Archive::Builder_<MultiFactorGSRVolData_>(share, "multiVol", "MultiFactorGSRVolData"));
         }
         HybridGSRRateData_* Build() const
         {
-         return new HybridGSRRateData_(name_, factor_, curve_, vol_);
+         return new HybridGSRRateData_(name_, factors_, curve_, vol_, multiVol_);
         }
         HybridGSRRateData_* Build(const Archive::View_& src, Archive::Built_& share) const {
             return Reader_(src, share).Build();

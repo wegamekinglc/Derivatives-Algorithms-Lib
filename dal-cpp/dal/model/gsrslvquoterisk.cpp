@@ -36,9 +36,9 @@ namespace Dal {
         }
 
         GSRSLVQuoteRiskResult_ BaseRisk(const GSRSLVModelData_& initial,
-                                        const Vector_<GSRCalibrationQuote_>& quotes,
+                                        const Vector_<CalibrationQuote_>& quotes,
                                         const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                        const Vector_<GSREuropeanOption_>& targets,
+                                        const Vector_<EuropeanRateOption_>& targets,
                                         const GSRSLVCalibrationSettings_& settings,
                                         const GSRCurveQuoteRisk_* curveRisk) {
             GSRSLVQuoteRiskResult_ result;
@@ -62,13 +62,13 @@ namespace Dal {
         };
 
         RiskCoordinate_ Coordinate(size_t col,
-                                   const Vector_<GSRCalibrationQuote_>& quotes,
+                                   const Vector_<CalibrationQuote_>& quotes,
                                    const GSRCurveQuoteRisk_* curveRisk,
                                    const GSRSLVQuoteRiskSettings_& settings,
-                                   const Vector_<GSRMarketQuote_>* marketQuotes) {
+                                   const Vector_<VolQuote_>* marketQuotes) {
             if (marketQuotes && col < quotes.size()) {
                 const auto& quote = (*marketQuotes)[col];
-                return {quote.name_, quote.convention_ == "NORMAL" ? "NORMAL_VOL" : "LOGNORMAL_VOL",
+                return {quote.name_, quote.convention_ == VolConvention_::Value_::NORMAL ? "NORMAL_VOL" : "LOGNORMAL_VOL",
                         std::max(settings.absoluteBump_, settings.relativeBump_ * quote.volatility_)};
             }
             if (col < quotes.size())
@@ -78,7 +78,7 @@ namespace Dal {
         }
 
         struct BumpedInputs_ {
-            Vector_<GSRCalibrationQuote_> up_, down_;
+            Vector_<CalibrationQuote_> up_, down_;
             Handle_<GSRSLVModelData_> highInitial_, lowInitial_;
             double denominator_;
         };
@@ -90,12 +90,12 @@ namespace Dal {
 
         class RiskProblem_ {
             const GSRSLVModelData_& initial_;
-            const Vector_<GSRCalibrationQuote_>& quotes_;
+            const Vector_<CalibrationQuote_>& quotes_;
             const Vector_<GSRSLVCalibrationParameter_>& parameters_;
-            const Vector_<GSREuropeanOption_>& targets_;
+            const Vector_<EuropeanRateOption_>& targets_;
             const GSRSLVCalibrationSettings_& settings_;
             const GSRCurveQuoteRisk_* curveRisk_;
-            const Vector_<GSRMarketQuote_>* marketQuotes_;
+            const Vector_<VolQuote_>* marketQuotes_;
 
             BumpedInputs_ Inputs(size_t col, double bump) const {
                 BumpedInputs_ inputs{quotes_, quotes_, {}, {}, 2.0 * bump};
@@ -128,7 +128,7 @@ namespace Dal {
                 return inputs;
             }
 
-            GSRSLVCalibrationResult_ Fit(const Handle_<GSRSLVModelData_>& overrideInitial, const Vector_<GSRCalibrationQuote_>& quotes) const {
+            GSRSLVCalibrationResult_ Fit(const Handle_<GSRSLVModelData_>& overrideInitial, const Vector_<CalibrationQuote_>& quotes) const {
                 auto fit = GSRSLVCalibrationInternal::FitModel(overrideInitial ? *overrideInitial : initial_, quotes, parameters_, settings_);
                 REQUIRE(fit.converged_, "InvalidGSRSLVQuoteRisk: bumped calibration did not converge");
                 return fit;
@@ -136,12 +136,12 @@ namespace Dal {
 
         public:
             RiskProblem_(const GSRSLVModelData_& initial,
-                         const Vector_<GSRCalibrationQuote_>& quotes,
+                         const Vector_<CalibrationQuote_>& quotes,
                          const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                         const Vector_<GSREuropeanOption_>& targets,
+                         const Vector_<EuropeanRateOption_>& targets,
                          const GSRSLVCalibrationSettings_& settings,
                          const GSRCurveQuoteRisk_* curveRisk,
-                         const Vector_<GSRMarketQuote_>* marketQuotes)
+                         const Vector_<VolQuote_>* marketQuotes)
                 : initial_(initial), quotes_(quotes), parameters_(parameters), targets_(targets), settings_(settings), curveRisk_(curveRisk),
                   marketQuotes_(marketQuotes) {}
 
@@ -173,13 +173,13 @@ namespace Dal {
             result->stable_.push_back(stable && activeStable);
         }
         GSRSLVQuoteRiskResult_ CalculateRisk(const GSRSLVModelData_& initial,
-                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<CalibrationQuote_>& quotes,
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                             const Vector_<GSREuropeanOption_>& targets,
+                                             const Vector_<EuropeanRateOption_>& targets,
                                              const GSRSLVCalibrationSettings_& calibrationSettings,
                                              const GSRSLVQuoteRiskSettings_& riskSettings,
                                              const GSRCurveQuoteRisk_* curveRisk,
-                                             const Vector_<GSRMarketQuote_>* marketQuotes) {
+                                             const Vector_<VolQuote_>* marketQuotes) {
             for (double value : {riskSettings.relativeBump_, riskSettings.absoluteBump_, riskSettings.stabilityTolerance_})
                 REQUIRE(std::isfinite(value) && value > 0.0, "InvalidGSRSLVQuoteRisk: bumps and stability tolerance must be finite and positive");
             auto result = BaseRisk(initial, quotes, parameters, targets, calibrationSettings, curveRisk);
@@ -199,9 +199,9 @@ namespace Dal {
     } // namespace
 
     GSRSLVQuoteRiskResult_ GSRSLVQuoteRisk(const GSRSLVModelData_& initial,
-                                           const Vector_<GSRCalibrationQuote_>& quotes,
+                                           const Vector_<CalibrationQuote_>& quotes,
                                            const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                           const Vector_<GSREuropeanOption_>& targets,
+                                           const Vector_<EuropeanRateOption_>& targets,
                                            const GSRSLVCalibrationSettings_& calibrationSettings,
                                            const GSRSLVQuoteRiskSettings_& riskSettings,
                                            const GSRCurveQuoteRisk_* curveRisk) {
@@ -209,9 +209,9 @@ namespace Dal {
     }
 
     GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const GSRSLVModelData_& initial,
-                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<VolQuote_>& quotes,
                                                  const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const Vector_<EuropeanRateOption_>& targets,
                                                  const GSRSLVCalibrationSettings_& calibrationSettings,
                                                  const GSRSLVQuoteRiskSettings_& riskSettings,
                                                  const GSRCurveQuoteRisk_* curveRisk) {
