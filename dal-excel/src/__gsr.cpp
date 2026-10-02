@@ -2,7 +2,7 @@
 // Created by Codex on 2026/10/2.
 //
 
-#include "__gsr_test_api.hpp"
+#include "__gsr_helpers.hpp"
 
 #include <cmath>
 #include <map>
@@ -175,44 +175,21 @@ model is handle ModelData
 
 namespace Dal {
     namespace {
-        int Integer(double value) {
-            REQUIRE(std::isfinite(value) && value >= 0.0 && value <= std::numeric_limits<int>::max() && std::floor(value) == value,
-                    "InvalidGSRWorksheet: indices and integer settings must be nonnegative integers");
-            return static_cast<int>(value);
-        }
-
-        template <class T_> Vector_<T_> Values(const Vector_<Handle_<Storable_>>& handles) {
-            Vector_<T_> values;
-            for (const auto& handle : handles) {
-                const auto typed = handle_cast<GSRValueHandle_<T_>>(handle);
-                REQUIRE(typed, "InvalidGSRWorksheet: wrong handle type");
-                values.push_back(typed->value_);
-            }
-            return values;
-        }
+        using namespace GSRWorksheet;
 
         GSRCalibrationSettings_ Settings(const Matrix_<Cell_>& cells) {
             REQUIRE(cells.Empty() || cells.Cols() == 2, "InvalidGSRWorksheet: settings must have two columns");
             GSRCalibrationSettings_ settings;
-            const std::map<String_, double GSRCalibrationSettings_::*> numeric{
-                {"gradientTolerance", &GSRCalibrationSettings_::gradientTolerance_},
-                {"stepTolerance", &GSRCalibrationSettings_::stepTolerance_},
-                {"finiteDifferenceStep", &GSRCalibrationSettings_::finiteDifferenceStep_},
-                {"parameterScale", &GSRCalibrationSettings_::parameterScale_},
-                {"priorWeight", &GSRCalibrationSettings_::priorWeight_},
-                {"smoothingWeight", &GSRCalibrationSettings_::smoothingWeight_},
-                {"numericalErrorFraction", &GSRCalibrationSettings_::numericalErrorFraction_}};
             Vector_<String_> used;
             for (int row = 0; row < cells.Rows(); ++row) {
                 const String_ key = Cell::ToString(cells(row, 0));
                 REQUIRE(std::find(used.begin(), used.end(), key) == used.end(), "InvalidGSRWorksheet: duplicate settings key " + key);
                 used.push_back(key);
                 const double number = Cell::ToDouble(cells(row, 1));
-                const auto found = numeric.find(key);
-                if (found != numeric.end())
-                    settings.*found->second = number;
-                else if (key == "maxIterations")
-                    settings.maxIterations_ = Integer(number);
+                if (AssignSolver(&settings, key, cells(row, 1)))
+                    continue;
+                else if (key == "parameterScale")
+                    settings.parameterScale_ = number;
                 else if (key == "quadratureOrder")
                     settings.pricing_.quadratureOrder_ = Integer(number);
                 else
@@ -237,13 +214,6 @@ namespace Dal {
                     THROW("InvalidGSRWorksheet: unknown pricing settings key " + key);
             }
             return settings;
-        }
-
-        template <class T_> Matrix_<Cell_> Column(const Vector_<T_>& values) {
-            Matrix_<Cell_> result(static_cast<int>(values.size()), 1);
-            for (size_t i = 0; i < values.size(); ++i)
-                result(static_cast<int>(i), 0) = Cell_(static_cast<T_>(values[i]));
-            return result;
         }
     } // namespace
 

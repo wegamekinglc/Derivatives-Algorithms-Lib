@@ -41,6 +41,15 @@ namespace Dal {
     CurveParameterLayout_ BuildCurveParameterLayout(const CurveDefinition_& definition);
     Vector_<CurveFreeParameter_> DescribeCurveFreeParameters(const CurveDefinition_& definition);
 
+    struct CurveParameterState_ {
+        CurveDefinition_ definition_;
+        Vector_<> passiveParameters_;
+        Handle_<DiscountCurve_> passiveBase_;
+        int expectedParameterCount_ = 0;
+    };
+
+    CurveParameterState_ InspectCurveParameters(const DiscountCurve_& curve, const Date_& valuationDate);
+
     Vector_<AAD::Number_> RegisterCurveParameters(const Vector_<>& parameters);
 
     template <class T_, class B_ = Tape::DiscountCurve_<double>>

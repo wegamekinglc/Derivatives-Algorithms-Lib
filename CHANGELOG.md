@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-02
 
+- **GSR-SLV calibration and quote risk** — bounded stochastic-volatility/leverage
+  fitting, independent-path and finer-grid validation, held-out diagnostics and
+  recalibrated price/curve quote sensitivities are available through dal-public,
+  Python and Excel. See [GSR](docs/models/gaussian-short-rate.md#european-pricing-and-calibration).
+
 - **GSR stochastic local volatility** — multi-factor Markovian HJM with normalized
   CIR variance, rate-shift leverage, bank-account discounting and model-input AAD
   is available through dal-public, Python and Excel. See [GSR](docs/models/gaussian-short-rate.md#stochastic-local-volatility).

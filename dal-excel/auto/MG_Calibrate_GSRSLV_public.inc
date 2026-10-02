@@ -1,0 +1,52 @@
+
+
+extern "C" __declspec(dllexport) OPER_* xl_Calibrate_GSRSLV
+    (const OPER_* xl_initial, const OPER_* xl_quotes, const OPER_* xl_parameters, const OPER_* xl_settings, const OPER_* xl_heldOut)	
+{
+    Excel::InitializeSessionIfNeeded();
+ENV_SEED_TYPE(ObjectAccess_);
+    const char* argName = 0;
+    try
+    {	
+        Logging::Write("Calibrate_GSRSLV");        
+        argName = "initial (input #1)";
+        const Handle_<ModelData_> initial = Excel::ToHandle<ModelData_>(_env, xl_initial);
+        argName = "quotes (input #2)";
+        const Vector_<Handle_<Storable_>> quotes = Excel::ToHandleBaseVector(_env, xl_quotes);
+        argName = "parameters (input #3)";
+        const Matrix_<Cell_> parameters = Excel::ToCellMatrix(xl_parameters);
+        argName = "settings (input #4)";
+        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true);
+        argName = "heldOut (input #5)";
+        const Vector_<Handle_<Storable_>> heldOut = Excel::ToHandleBaseVector(_env, xl_heldOut, true);
+        argName = 0;
+		Handle_<StorableGSRSLVCalibrationResult_> result;
+        Calibrate_GSRSLV(initial, quotes, parameters, settings, heldOut, &result);
+        Excel::Retval_ retval;
+        retval.Load(_env, result);
+        return retval.ToXloper();
+    }
+    catch (std::exception& e)
+    {
+        return Excel::Error(e.what(), argName);
+    }
+    catch (...)
+    {
+        return Excel::Error("Unknown error", argName);
+    }
+}
+
+struct XlRegister_Calibrate_GSRSLV_
+{
+    XlRegister_Calibrate_GSRSLV_()
+    {
+        Vector_<String_> argHelp;        
+        argHelp.push_back("Initial GSRSLVModelData");
+        argHelp.push_back("Price quote handles");
+        argHelp.push_back("Label, lower, upper, scale");
+        argHelp.push_back("Solver and Monte Carlo settings");
+        argHelp.push_back("Optional held-out price quote handles");
+        Excel::Register("Base", "xl_Calibrate_GSRSLV", "CALIBRATE.GSRSLV", "Calibrate selected SLV parameters with independent validation", "QQQQQQ", "initial,quotes,parameters,[settings],[heldOut]", argHelp, false);
+    }
+};
+static XlRegister_Calibrate_GSRSLV_ The_Calibrate_GSRSLV_XlRegisterer;

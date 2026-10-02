@@ -586,57 +586,20 @@ namespace Dal {
         template double Price(const RateTradeDefinition_&, const RateMarketView_<double>&, RatePricingTradeResult_*, RequestCashflows_*);
         template AAD::Number_ Price(const RateTradeDefinition_&, const RateMarketView_<AAD::Number_>&, RatePricingTradeResult_*, RequestCashflows_*);
 
-        struct NodeSensitivityPreparation_ {
-            CurveDefinition_ definition_;
-            Vector_<> passiveParameters_;
-            Handle_<DiscountCurve_> passiveBase_;
-            int expectedParameterCount_ = 0;
-        };
+        using NodeSensitivityPreparation_ = CurveParameterState_;
 
         NodeSensitivityPreparation_ PrepareNodeSensitivityCurve(const RateCashflowPricingInternal::NodeSensitivityCurve_& classifiedCurve,
                                                                 const Date_& valuationDate) {
-            NodeSensitivityPreparation_ result;
-            std::visit(
-                [&](const auto& taggedCurve) {
-                    using curve_t = std::decay_t<decltype(taggedCurve)>;
-                    if constexpr (std::is_same_v<curve_t, std::monostate>) {
-                        REQUIRE(false, "Node sensitivity curve representation is unsupported");
+            return std::visit(
+                [&](const auto& curve) -> NodeSensitivityPreparation_ {
+                    if constexpr (std::is_same_v<std::decay_t<decltype(curve)>, std::monostate>) {
+                        THROW("Node sensitivity curve representation is unsupported");
                     } else {
-                        REQUIRE(taggedCurve, "Node sensitivity curve classification is empty");
-                        if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWC_<double>*>) {
-                            result.definition_ = MakeCurveDefinition(
-                                taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
-                            result.passiveParameters_ = taggedCurve->FRight();
-                        } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountPWLF_<double>*>) {
-                            result.definition_ = MakeCurveDefinition(
-                                taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                LogDfScheme_::Value_::LOG_LINEAR, taggedCurve->KnotDates(), valuationDate, DayBasis::Act365F());
-                            const Vector_<> left = taggedCurve->FLeft();
-                            const Vector_<> right = taggedCurve->FRight();
-                            result.passiveParameters_ = Vector_<>(2 * left.size());
-                            for (int i = 0; i < static_cast<int>(left.size()); ++i) {
-                                result.passiveParameters_[2 * i] = left[i];
-                                result.passiveParameters_[2 * i + 1] = right[i];
-                            }
-                        } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountLogDF_<double>*>) {
-                            result.definition_ = MakeCurveDefinition(
-                                taggedCurve->Name(), taggedCurve->ccy_.String(), CurveParameterization_::Value_::LOG_DISCOUNT, taggedCurve->Scheme(),
-                                taggedCurve->NodeDates(), taggedCurve->NodeDates().front(), taggedCurve->DayCount());
-                            const Vector_<> stored = taggedCurve->NodeLogDF();
-                            result.passiveParameters_ = Vector_<>(stored.begin() + 1, stored.end());
-                        } else if constexpr (std::is_same_v<curve_t, const Tape::DiscountZeroRate_<double>*>) {
-                            result.definition_ = MakeCurveDefinition(taggedCurve->Name(), taggedCurve->ccy_.String(),
-                                                                     CurveParameterization_::Value_::ZERO_RATE, taggedCurve->Scheme(),
-                                                                     taggedCurve->NodeDates(), taggedCurve->AnchorDate(), taggedCurve->DayCount());
-                            result.passiveParameters_ = taggedCurve->NodeZeroRates();
-                        }
-                        result.passiveBase_ = taggedCurve->Base();
+                        REQUIRE(curve, "Node sensitivity curve classification is empty");
+                        return InspectCurveParameters(*curve, valuationDate);
                     }
                 },
                 classifiedCurve);
-            result.expectedParameterCount_ = BuildCurveParameterLayout(result.definition_).parameterCount_;
-            return result;
         }
 
         void AddUniqueCurve(const DiscountCurve_* curve, Vector_<const DiscountCurve_*>* curves) {
