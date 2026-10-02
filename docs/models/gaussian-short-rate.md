@@ -460,10 +460,43 @@ DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepac
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
 ```
 
+### Three-factor SLV calibration and pricing
+
+The [C++ example](../../dal-cpp/examples/gsr_slv_calibration/)
+and [Python example](../../dal-python/examples/016.gsr_slv_calibration.py) use the
+same three-factor GSR inputs: level, slope and curvature, with distinct maturity
+loadings and nonzero correlations. All three factors drive prices. Two ATM Normal
+caplet quotes determine the two level-factor g buckets; slope/curvature g, H and
+correlations remain fixed. The examples then fit three leverage nodes to six
+caplet smile quotes, keeping the Gaussian inputs and CIR parameters fixed.
+These are illustrative quotes on a flat 3% discount/forecast curve, with unit
+notional. Normal volatilities are annualized decimals; SLV quote scales are
+`0.0005` in PV, or five basis points of notional.
+
+The SLV fit uses 16,384 paths and validates with 32,768 independently seeded
+paths and half the time step. Both programs check convergence, fit tolerance,
+numerical validation and a held-out strike. They print fitted parameters, scaled
+residuals and antithetic-pair standard errors, then price a 1Y ATM caplet and a
+physically settled 1Y into 2Y payer swaption. The swaption's annual floating
+coupons have two-calendar-day fixing/start and end/payment lags; its future
+lagged coupon exercises conditional simulation. The output includes the inner
+refinement diagnostic. Real-market use needs suitable quote scales, schedules
+and further path/step refinement.
+
+The C++ target requires `DAL_BUILD_PUBLIC=ON` and links dal-public. After building
+the workspace with Python enabled, run:
+
+```bash
+cmake --build build/Release-linux --target gsr_slv_calibration
+build/Release-linux/dal-cpp/examples/gsr_slv_calibration/gsr_slv_calibration
+DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/016.gsr_slv_calibration.py
+```
+
 To measure the path kernels, enable benchmarks and build the target:
 
 ```bash
-cmake --preset=Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --build build/Release-linux --target script_mc_perf
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-european
