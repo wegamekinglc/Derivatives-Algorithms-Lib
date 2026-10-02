@@ -191,12 +191,13 @@ TEST(GSREuropeanTest, TestSignedLoadingsRetainBothExerciseBoundaries) {
     option.fixed_ = {{option.expiry_, 1.0}};
     option.floating_ = {{option.expiry_, option.expiry_, TODAY.AddDays(730), TODAY.AddDays(730), 1.0, 1.0, "12M"},
                         {option.expiry_, option.expiry_, TODAY.AddDays(1095), TODAY.AddDays(1095), 2.0, 2.0, "12M"}};
-    option.strike_ = 0.0001;
-    const double coshBoundary = (2.0 - option.strike_) * std::exp(0.5 * 0.02 * 0.02) / 2.0;
+    const double strike = 0.0001;
+    option.strike_ = strike;
+    const double coshBoundary = (2.0 - strike) * std::exp(0.5 * 0.02 * 0.02) / 2.0;
     ASSERT_GT(coshBoundary, 1.0);
     const double boundary = std::acosh(coshBoundary) / 0.02;
     const auto cdf = [](double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); };
-    const double expected = (2.0 - option.strike_) * (cdf(boundary) - cdf(-boundary)) - 2.0 * (cdf(boundary - 0.02) - cdf(-boundary - 0.02));
+    const double expected = (2.0 - strike) * (cdf(boundary) - cdf(-boundary)) - 2.0 * (cdf(boundary - 0.02) - cdf(-boundary - 0.02));
     ASSERT_NEAR(PriceGSREuropeanOption(model, option).price_, expected, 1e-12);
 }
 
