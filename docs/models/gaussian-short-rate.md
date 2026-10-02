@@ -281,7 +281,7 @@ Excel's optional settings table uses `kappa`, `volOfVol` and `maxStep`; pass
 rate/variance correlations as a separate optional vector (default zero).
 Model and leverage data support archive round trips. Script Monte Carlo reports
 the Gaussian input risks plus `kappa`, `volOfVol` and `leverage:<row>:<column>`.
-Correlations and step size are passive. Truncation and zero diffusion use zero
+Correlations and step size are passive. Square-root and truncation boundaries use zero
 subgradients; interpolation knots and payoff kinks need bump checks.
 
 The [solver](../../dal-cpp/dal/model/gsrslv.hpp) supplies model-input AAD.

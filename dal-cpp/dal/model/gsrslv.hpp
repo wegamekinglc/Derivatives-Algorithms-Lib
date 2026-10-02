@@ -79,11 +79,11 @@ namespace Dal::AAD {
             }
             step.bankBase_ = rates_->InitialLogDiscount(from) - rates_->InitialLogDiscount(to);
             step.bridgeStd_ =
-                Value(step.bridgeVariance_) > 0.0 ? Dal::sqrt(step.bridgeVariance_ * (step.width_ * step.width_ * step.width_ / 12.0)) : T_(0.0);
+                Value(step.bridgeVariance_) > 0.0 ? T_(Dal::sqrt(step.bridgeVariance_ * (step.width_ * step.width_ * step.width_ / 12.0))) : T_(0.0);
             return step;
         }
 
-        [[nodiscard]] Vector_<> Grid() const {
+        [[nodiscard]] Vector_<> IntegrationKnots() const {
             auto knots = rates_->RateKnots(timeline_.back());
             for (double time : timeline_)
                 knots.push_back(time);
@@ -92,6 +92,11 @@ namespace Dal::AAD {
                     knots.push_back(time);
             std::sort(knots.begin(), knots.end());
             knots.erase(std::unique(knots.begin(), knots.end()), knots.end());
+            return knots;
+        }
+
+        [[nodiscard]] Vector_<> Grid() const {
+            const auto knots = IntegrationKnots();
             Vector_<> grid{0.0};
             for (size_t i = 1; i < knots.size(); ++i) {
                 const double count = std::max(1.0, std::ceil((knots[i] - knots[i - 1]) / maxStep_));
@@ -168,7 +173,7 @@ namespace Dal::AAD {
             const T_ shift = Shift(step, *state);
             const T_ leverage = LocalLeverage(step.time_, shift);
             const T_ varianceScale = leverage * leverage * state->variance_;
-            const T_ sqrtVariance = Value(state->variance_) > 0.0 ? Dal::sqrt(state->variance_) : T_(0.0);
+            const T_ sqrtVariance = Value(state->variance_) > 0.0 ? T_(Dal::sqrt(state->variance_)) : T_(0.0);
             const T_ diffusion = leverage * sqrtVariance;
             AdvanceBank(step, correlated, bridge, shift, varianceScale, diffusion, state);
             AdvanceRates(step, correlated, varianceScale, diffusion, state);
