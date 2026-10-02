@@ -172,7 +172,14 @@ After building the Release-linux workspace, run:
 
 ```bash
 build/Release-linux/dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption
-build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
+```
+
+To measure the path kernels, enable benchmarks and build the target:
+
+```bash
+cmake --preset=Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --build build/Release-linux --target script_mc_perf
+build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 ```
