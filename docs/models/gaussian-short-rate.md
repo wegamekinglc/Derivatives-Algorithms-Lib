@@ -460,10 +460,60 @@ DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepac
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
 ```
 
+### Three-factor SLV calibration and pricing
+
+The [C++ example](../../dal-cpp/examples/gsr_slv_calibration/)
+and [Python example](../../dal-python/examples/016.gsr_slv_calibration.py) use the
+inputs and print aligned tables for the complete workflow:
+
+1. Calibrate an OIS yield curve from three deposits and six OIS swaps, using the
+   AAD Jacobian. Snapshot the **calibrated result** at curve and product dates;
+   discounting and forecasting both use this curve.
+2. Build three correlated GSR factors: level, slope and curvature, with distinct
+   maturity loadings. Fit three level-factor g buckets to **15 ATM caplets**:
+   five expiries from 1Y to 3Y, each with 3M, 6M and 12M accruals. Slope/curvature g,
+   H and correlations remain fixed.
+3. Fit three leverage nodes to **15 smile caplets**: the same five expiries at
+   ATM and strikes 50 rate basis points above/below the initial forward.
+   Gaussian inputs and CIR parameters remain fixed.
+
+Both volatility stages share their 6M ATM quotes. These are illustrative market
+quotes with unit notional. Normal volatilities are
+annualized decimals, displayed in rate basis points. Gaussian/SLV price scales are
+`0.0001` / `0.0005` per unit notional. Dates and ACT/365 accruals are explicit;
+the 18M and 30M expiry labels use 547 and 912 calendar days.
+
+The SLV fit uses 16,384 paths and validates with 32,768 independently seeded
+paths and half the time step. Both programs check convergence, fit tolerance,
+numerical validation and a held-out strike. The held-out error estimate adds
+three pair standard errors to the absolute residual. Tables show fitted parameters,
+quote residuals and antithetic-pair standard errors. Both programs then price a
+1Y ATM caplet and a physically settled 1Y into 2Y ATM payer swaption. The swap
+starts at exercise, with annual coupons fixing at period start and paying at
+period end; its floating PV telescopes to `1 - P(expiry,end)`.
+
+The product table compares the European MRG32 estimate with plain and AAD script
+prices on identical Sobol paths and contracts. Scripts pay the exercise-date
+value of those same claims. The AAD table reports active curve-node, g/H, CIR,
+leverage and strike derivatives **holding calibration fixed**. Calibrated quote
+DV01 requires the calibration chain rule. Derivatives smaller than `1e-12` are
+omitted; smaller displayed price differences are rounded to zero. Real-market
+use needs suitable conventions, quote scales and further path/step refinement.
+
+The C++ target requires `DAL_BUILD_PUBLIC=ON` and links dal-public. After building
+the workspace with Python enabled, run:
+
+```bash
+cmake --build build/Release-linux --target gsr_slv_calibration
+build/Release-linux/dal-cpp/examples/gsr_slv_calibration/gsr_slv_calibration
+DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/016.gsr_slv_calibration.py
+```
+
 To measure the path kernels, enable benchmarks and build the target:
 
 ```bash
-cmake --preset=Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --build build/Release-linux --target script_mc_perf
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-european
