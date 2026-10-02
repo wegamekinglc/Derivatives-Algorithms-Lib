@@ -130,6 +130,30 @@ namespace Dal::AAD {
             return shift;
         }
 
+        template <bool Indirect>
+        void AdvanceRatesCore(const Step_& step,
+                              const Vector_<>& drivers,
+                              const Vector_<size_t>* driverSlots,
+                              const T_& varianceScale,
+                              const T_& diffusion,
+                              T_* x,
+                              T_* y) const {
+            const size_t n = rates_->NumFactors();
+            const auto driver = [&](size_t i) -> double { return Indirect ? drivers[(*driverSlots)[i]] : drivers[i]; };
+            const double dt = step.width_;
+            for (size_t i = 0; i < n; ++i) {
+                T_ drift(0.0);
+                for (size_t j = 0; j < n; ++j)
+                    drift += y[i * n + j] * step.h_[j];
+                x[i] += dt * drift + 0.5 * dt * dt * varianceScale * step.covarianceH_[i] + diffusion * step.sqrtWidth_ * step.g_[i] * driver(i);
+            }
+            for (size_t i = 0; i < n; ++i)
+                for (size_t j = 0; j <= i; ++j) {
+                    y[i * n + j] += dt * varianceScale * step.covariance_(i, j);
+                    y[j * n + i] = y[i * n + j];
+                }
+        }
+
         // Shared evolution on a flat state layout: x[n], y[n*n] row-major, variance, latentVariance,
         // logNumeraire. Drivers come either contiguously (standalone correlated vector) or through a
         // hybrid factor-slot indirection; the flag is a compile-time constant in both callers.
@@ -159,17 +183,7 @@ namespace Dal::AAD {
             }
             *logNumeraire += step.bankBase_ + dt * shift + 0.5 * dt * dt * yHH + varianceScale * step.bridgeVariance_ * (dt * dt * dt / 6.0) +
                              diffusion * (0.5 * dt * step.sqrtWidth_ * noiseH + step.bridgeStd_ * bridge);
-            for (size_t i = 0; i < n; ++i) {
-                T_ drift(0.0);
-                for (size_t j = 0; j < n; ++j)
-                    drift += y[i * n + j] * step.h_[j];
-                x[i] += dt * drift + 0.5 * dt * dt * varianceScale * step.covarianceH_[i] + diffusion * step.sqrtWidth_ * step.g_[i] * driver(i);
-            }
-            for (size_t i = 0; i < n; ++i)
-                for (size_t j = 0; j <= i; ++j) {
-                    y[i * n + j] += dt * varianceScale * step.covariance_(i, j);
-                    y[j * n + i] = y[i * n + j];
-                }
+            AdvanceRatesCore<Indirect>(step, drivers, driverSlots, varianceScale, diffusion, x, y);
             *latentVariance += dt * kappa_ * (1.0 - *variance) + volOfVol_ * step.sqrtWidth_ * sqrtVariance * driver(n);
             REQUIRE(std::isfinite(Value(*latentVariance)), "InvalidGSRSLVPath: nonfinite latent variance");
             *variance = Value(*latentVariance) > 0.0 ? *latentVariance : T_(0.0);

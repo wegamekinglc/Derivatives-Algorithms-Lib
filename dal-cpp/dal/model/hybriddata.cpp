@@ -7,6 +7,30 @@
 #include <dal/platform/strict.hpp>
 
 namespace Dal {
+    namespace {
+        void AppendCurveLabels(const GSRCurveData_& curve, Vector_<String_>* labels) {
+            for (size_t i = 1; i < curve.nodeDates_.size(); ++i)
+                labels->push_back("logdf:OIS:" + Date::ToString(curve.nodeDates_[i]));
+            for (size_t row = 0; row < curve.projectionTenors_.size(); ++row)
+                for (size_t i = 1; i < curve.nodeDates_.size(); ++i)
+                    labels->push_back("logdf:" + curve.projectionTenors_[row] + ":" + Date::ToString(curve.nodeDates_[i]));
+        }
+
+        void AppendFactorLabels(const Vector_<String_>& factorNames,
+                                const Vector_<Date_>& gDates,
+                                const Vector_<Date_>& hDates,
+                                Vector_<String_>* labels) {
+            const auto prefix = [&](size_t factor) { return factorNames.empty() ? String_() : factorNames[factor] + ":"; };
+            const size_t factors = factorNames.empty() ? size_t(1) : factorNames.size();
+            for (size_t factor = 0; factor < factors; ++factor)
+                for (const auto& date : gDates)
+                    labels->push_back("g:" + prefix(factor) + Date::ToString(date));
+            for (size_t factor = 0; factor < factors; ++factor)
+                for (const auto& date : hDates)
+                    labels->push_back("H:" + prefix(factor) + Date::ToString(date));
+        }
+    } // namespace
+
 #include <dal/auto/MG_HybridBSEquityData_v1_Read.inc>
 #include <dal/auto/MG_HybridBSEquityData_v1_Write.inc>
 #include <dal/auto/MG_HybridConstantCorrelationData_v1_Read.inc>
@@ -35,25 +59,25 @@ namespace Dal {
     void HybridGSRRateData_::Write(Archive::Store_& dst) const { HybridGSRRateData_v2::XWrite(dst, name_, factors_, curve_, vol_, multiVol_); }
 
     Vector_<String_> HybridGSRSLVRateData_::RiskLabels() const {
-        const auto& curve = *model_->gaussian_->curve_;
-        const auto& vol = *model_->gaussian_->vol_;
+        const auto& gaussian = *model_->gaussian_;
         Vector_<String_> labels;
-        for (size_t i = 1; i < curve.nodeDates_.size(); ++i)
-            labels.push_back("logdf:OIS:" + Date::ToString(curve.nodeDates_[i]));
-        for (size_t row = 0; row < curve.projectionTenors_.size(); ++row)
-            for (size_t i = 1; i < curve.nodeDates_.size(); ++i)
-                labels.push_back("logdf:" + curve.projectionTenors_[row] + ":" + Date::ToString(curve.nodeDates_[i]));
-        for (size_t factor = 0; factor < vol.factorNames_.size(); ++factor)
-            for (const auto& date : vol.gKnotDates_)
-                labels.push_back("g:" + vol.factorNames_[factor] + ":" + Date::ToString(date));
-        for (size_t factor = 0; factor < vol.factorNames_.size(); ++factor)
-            for (const auto& date : vol.hKnotDates_)
-                labels.push_back("H:" + vol.factorNames_[factor] + ":" + Date::ToString(date));
+        AppendCurveLabels(*gaussian.curve_, &labels);
+        AppendFactorLabels(gaussian.vol_->factorNames_, gaussian.vol_->gKnotDates_, gaussian.vol_->hKnotDates_, &labels);
         labels.push_back("kappa");
         labels.push_back("volOfVol");
         for (int row = 0; row < model_->leverage_->values_.Rows(); ++row)
             for (int col = 0; col < model_->leverage_->values_.Cols(); ++col)
                 labels.push_back("leverage:" + String::FromInt(row) + ":" + String::FromInt(col));
+        return labels;
+    }
+
+    Vector_<String_> HybridGSRRateData_::RiskLabels() const {
+        Vector_<String_> labels;
+        AppendCurveLabels(*curve_, &labels);
+        if (multiVol_)
+            AppendFactorLabels(multiVol_->factorNames_, multiVol_->gKnotDates_, multiVol_->hKnotDates_, &labels);
+        else
+            AppendFactorLabels(Vector_<String_>(), vol_->gKnotDates_, vol_->hKnotDates_, &labels);
         return labels;
     }
 

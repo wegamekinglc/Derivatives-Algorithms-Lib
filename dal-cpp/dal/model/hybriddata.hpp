@@ -211,22 +211,7 @@ namespace Dal {
                            const Handle_<MultiFactorGSRVolData_>& multiVol)
             : HybridGSRRateData_(name, factors, curve, Handle_<GSRVolData_>(), multiVol) {}
         [[nodiscard]] size_t NumFactors() const { return multiVol_ ? multiVol_->factorNames_.size() : size_t(1); }
-        [[nodiscard]] Vector_<String_> RiskLabels() const override {
-            Vector_<String_> labels;
-            for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
-                labels.push_back("logdf:OIS:" + Date::ToString(curve_->nodeDates_[i]));
-            for (size_t row = 0; row < curve_->projectionTenors_.size(); ++row)
-                for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
-                    labels.push_back("logdf:" + curve_->projectionTenors_[row] + ":" + Date::ToString(curve_->nodeDates_[i]));
-            const auto prefix = [&](size_t factor) { return multiVol_ ? multiVol_->factorNames_[factor] + ":" : String_(); };
-            for (size_t factor = 0; factor < NumFactors(); ++factor)
-                for (const auto& date : multiVol_ ? multiVol_->gKnotDates_ : vol_->gKnotDates_)
-                    labels.push_back("g:" + prefix(factor) + Date::ToString(date));
-            for (size_t factor = 0; factor < NumFactors(); ++factor)
-                for (const auto& date : multiVol_ ? multiVol_->hKnotDates_ : vol_->hKnotDates_)
-                    labels.push_back("H:" + prefix(factor) + Date::ToString(date));
-            return labels;
-        }
+        [[nodiscard]] Vector_<String_> RiskLabels() const override;
         [[nodiscard]] Vector_<String_> FactorNames() const override { return factors_; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
         void Write(Archive::Store_& dst) const override;
