@@ -237,7 +237,6 @@ namespace Dal {
                 result->jacobianRank_ == jacobian.Cols() ? largest / smallest : std::numeric_limits<double>::infinity();
         }
 
-        // Calibration updates the bounded working vector in place.
         void Fit(const Problem_& problem, const GSRCalibrationSettings_& settings, Vector_<>* x, GSRCalibrationResult_* result) {
             auto residuals = problem.Residuals(*x);
             ++result->evaluations_;
