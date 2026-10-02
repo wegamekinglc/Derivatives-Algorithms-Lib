@@ -139,6 +139,14 @@ namespace Dal::AAD {
             return result;
         }
 
+        // Empty when the factor Cholesky has a zero pivot: singular kernels keep working standalone.
+        [[nodiscard]] static Matrix_<> TryLowerInverse(const Matrix_<>& lower) {
+            for (int i = 0; i < lower.Rows(); ++i)
+                if (!(lower(i, i) > 1e-14))
+                    return {};
+            return LowerInverse(lower);
+        }
+
         [[nodiscard]] static Matrix_<> LowerInverse(const Matrix_<>& lower) {
             const int n = lower.Rows();
             Matrix_<> inverse(n, n, 0.0);
@@ -331,25 +339,29 @@ namespace Dal::AAD {
             step->a_ -= 0.5 * Quadratic(step->loading_, StateVariance(0.0, previous));
             step->a_ -= 0.5 * Dot(step->discountNormals_, step->discountNormals_);
             step->advances_ = true;
-            if (NumFactors() > 1 && factorLowerInverse_.Rows() == static_cast<int>(NumFactors())) {
-                // Hybrid stepping receives globally correlated factors, so the kernel applies R = L S
-                // (S inverts the factor Cholesky) and q = S^T d instead of its own Cholesky L and d.
-                const int n = static_cast<int>(NumFactors());
-                step->hybridLower_ = Matrix_<T_>(n, n, T_(0.0));
-                for (int i = 0; i < n; ++i)
-                    for (int j = 0; j < n; ++j) {
-                        T_ value(0.0);
-                        for (int k = j; k <= i; ++k)
-                            value += step->lower_(i, k) * T_(factorLowerInverse_(k, j));
-                        step->hybridLower_(i, j) = value;
-                    }
-                step->hybridNormals_.Resize(n);
+            FillHybridCoefficients(step);
+        }
+
+        // Hybrid stepping receives globally correlated factors, so the kernel applies R = L S
+        // (S inverts the factor Cholesky) and q = S^T d instead of its own Cholesky L and d.
+        void FillHybridCoefficients(Step_* step) const {
+            const int n = static_cast<int>(NumFactors());
+            if (n == 1 || factorLowerInverse_.Rows() != n)
+                return;
+            step->hybridLower_ = Matrix_<T_>(n, n, T_(0.0));
+            for (int i = 0; i < n; ++i)
                 for (int j = 0; j < n; ++j) {
                     T_ value(0.0);
-                    for (int i = j; i < n; ++i)
-                        value += T_(factorLowerInverse_(i, j)) * step->discountNormals_[i];
-                    step->hybridNormals_[j] = value;
+                    for (int k = j; k <= i; ++k)
+                        value += step->lower_(i, k) * T_(factorLowerInverse_(k, j));
+                    step->hybridLower_(i, j) = value;
                 }
+            step->hybridNormals_.Resize(n);
+            for (int j = 0; j < n; ++j) {
+                T_ value(0.0);
+                for (int i = j; i < n; ++i)
+                    value += T_(factorLowerInverse_(i, j)) * step->discountNormals_[i];
+                step->hybridNormals_[j] = value;
             }
         }
 
@@ -412,13 +424,7 @@ namespace Dal::AAD {
             : evaluationDate_(curve.evaluationDate_), currency_(curve.currency_), nodeDates_(curve.nodeDates_),
               projectionTenors_(curve.projectionTenors_), factorNames_(factorNames), correlations_(correlations), legacy_(legacy) {
             factorLower_ = CovarianceFactor(correlations_);
-            // The hybrid factor transform inverts this Cholesky. Singular kernels keep working
-            // standalone, so the inverse exists only when every pivot is strictly positive.
-            bool invertible = true;
-            for (int i = 0; i < factorLower_.Rows(); ++i)
-                invertible = invertible && factorLower_(i, i) > 1e-14;
-            if (invertible)
-                factorLowerInverse_ = LowerInverse(factorLower_);
+            factorLowerInverse_ = TryLowerInverse(factorLower_);
             Vector_<> curveTimes;
             for (const auto& date : nodeDates_)
                 curveTimes.push_back((date - evaluationDate_) / DAYS_PER_YEAR);
