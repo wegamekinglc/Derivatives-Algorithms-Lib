@@ -88,8 +88,9 @@ namespace Dal {
 
     private:
         void ValidatePieces(const Vector_<Date_>& dates, const Matrix_<>& values, bool nonnegative) const {
-            REQUIRE(!dates.empty() && values.Rows() == static_cast<int>(factorNames_.size()) && values.Cols() == static_cast<int>(dates.size()),
-                    "InvalidGSRVol: rows must match factors and columns must match nonempty dates");
+            REQUIRE(!dates.empty(), "InvalidGSRVol: knot dates must be nonempty");
+            REQUIRE(values.Rows() == static_cast<int>(factorNames_.size()) && values.Cols() == static_cast<int>(dates.size()),
+                    "InvalidGSRVol: rows must match factors and columns must match dates");
             for (size_t i = 0; i < dates.size(); ++i) {
                 REQUIRE(dates[i].IsValid() && (i == 0 || dates[i] > dates[i - 1]), "InvalidGSRVol: dates must be valid and strictly increasing");
                 for (int row = 0; row < values.Rows(); ++row)

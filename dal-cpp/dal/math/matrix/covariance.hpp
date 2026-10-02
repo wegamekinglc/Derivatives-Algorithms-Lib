@@ -13,19 +13,30 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
+    namespace CovarianceDetail {
+        template <class T_> double Validate(const Matrix_<T_>& covariance) {
+            const int n = covariance.Rows();
+            REQUIRE(n > 0 && covariance.Cols() == n, "InvalidCovariance: matrix must be nonempty and square");
+            double scale = 0.0;
+            for (int i = 0; i < n; ++i)
+                scale = std::max(scale, std::abs(Value(covariance(i, i))));
+            const double tolerance = 64.0 * n * std::numeric_limits<double>::epsilon() * scale;
+            for (int i = 0; i < n; ++i)
+                for (int j = 0; j <= i; ++j) {
+                    REQUIRE(std::isfinite(Value(covariance(i, j))) && std::isfinite(Value(covariance(j, i))),
+                            "InvalidCovariance: matrix must be finite");
+                    REQUIRE(std::abs(Value(covariance(i, j)) - Value(covariance(j, i))) <= tolerance, "InvalidCovariance: matrix must be symmetric");
+                }
+            return tolerance;
+        }
+    } // namespace CovarianceDetail
+
     template <class T_> Matrix_<T_> CovarianceFactor(const Matrix_<T_>& covariance) {
+        const double tolerance = CovarianceDetail::Validate(covariance);
         const int n = covariance.Rows();
-        REQUIRE(n > 0 && covariance.Cols() == n, "InvalidCovariance: matrix must be nonempty and square");
-        double scale = 0.0;
-        for (int i = 0; i < n; ++i)
-            scale = std::max(scale, std::abs(Value(covariance(i, i))));
-        const double tolerance = 64.0 * n * std::numeric_limits<double>::epsilon() * scale;
         Matrix_<T_> lower(n, n, T_(0.0));
         for (int i = 0; i < n; ++i) {
             for (int j = 0; j <= i; ++j) {
-                REQUIRE(std::isfinite(Value(covariance(i, j))) && std::isfinite(Value(covariance(j, i))) &&
-                            std::abs(Value(covariance(i, j)) - Value(covariance(j, i))) <= tolerance,
-                        "InvalidCovariance: matrix must be finite and symmetric");
                 T_ residual = covariance(i, j);
                 for (int k = 0; k < j; ++k)
                     residual -= lower(i, k) * lower(j, k);
