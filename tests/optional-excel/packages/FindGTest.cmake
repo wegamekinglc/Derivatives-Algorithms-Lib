@@ -1,0 +1,17 @@
+file(APPEND "${CMAKE_BINARY_DIR}/package-probes.txt" "GTest\n")
+if(DAL_OPTIONAL_EXCEL_GTEST STREQUAL "poison")
+    message(FATAL_ERROR "Unexpected GTest lookup in a no-target case")
+endif()
+if(DAL_OPTIONAL_EXCEL_GTEST STREQUAL "reported")
+    # FOUND alone is insufficient: the Excel contract requires gtest_main.
+    set(GTest_FOUND TRUE)
+    return()
+endif()
+
+set(OPTIONAL_EXCEL_GTEST_AVAILABLE FALSE)
+if(DAL_OPTIONAL_EXCEL_GTEST STREQUAL "package")
+    set(OPTIONAL_EXCEL_GTEST_AVAILABLE TRUE)
+    add_library(GTest::gtest_main INTERFACE IMPORTED)
+endif()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(GTest REQUIRED_VARS OPTIONAL_EXCEL_GTEST_AVAILABLE)

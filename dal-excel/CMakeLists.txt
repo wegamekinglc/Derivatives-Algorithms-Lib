@@ -49,6 +49,24 @@ endif()
 # ---------------------------------------------------------------------------
 option(DAL_EXCEL_BUILD_TESTS "Build dal-excel tests" ON)
 
+# Resolve optional portable tests before requiring their public dependency.
+# Windows always builds the XLL, including when its tests are disabled.
+if(NOT WIN32)
+    if(DAL_EXCEL_BUILD_TESTS)
+        enable_testing()
+        if(NOT TARGET GTest::gtest_main)
+            find_package(GTest QUIET)
+        endif()
+        if(NOT TARGET GTest::gtest_main)
+            message(STATUS "dal-excel: GTest not found, skipping portable contract tests")
+        endif()
+    endif()
+    if(NOT DAL_EXCEL_BUILD_TESTS OR NOT TARGET GTest::gtest_main)
+        message(STATUS "dal-excel: skipping XLL build (requires Windows + Office COM DLLs)")
+        return()
+    endif()
+endif()
+
 # ---------------------------------------------------------------------------
 # Find the DAL public library
 # ---------------------------------------------------------------------------
@@ -77,32 +95,21 @@ endif()
 # storable handles and long-form spills -- without Excel.
 # ---------------------------------------------------------------------------
 if(NOT WIN32)
-    if(DAL_EXCEL_BUILD_TESTS)
-        enable_testing()
-        # Jobs that build without the test suites (warning-clean, benchmarks) have no GTest;
-        # skip the portable tests there rather than failing to configure.
-        if(NOT TARGET GTest::gtest_main)
-            find_package(GTest QUIET)
-        endif()
-        if(TARGET GTest::gtest_main)
-            include(GoogleTest)
-            file(GLOB_RECURSE PORTABLE_BINDING_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-            list(FILTER PORTABLE_BINDING_SOURCES EXCLUDE REGEX "(_excel|_xlcall)\.cpp$")
-            file(GLOB_RECURSE PORTABLE_TEST_FILES CONFIGURE_DEPENDS
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp")
-            add_executable(dal_excel_portable_tests ${PORTABLE_BINDING_SOURCES} ${PORTABLE_TEST_FILES})
-            target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
-            target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
-            target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/test-support")
-            target_compile_definitions(dal_excel_portable_tests PRIVATE DAL_EXCEL_API_TESTS_PORTABLE)
-            target_link_libraries(dal_excel_portable_tests PRIVATE ${DAL_PUBLIC_TARGET} GTest::gtest_main)
-            dal_public_check_binding(dal_excel_portable_tests "${CMAKE_CURRENT_SOURCE_DIR}")
-            gtest_discover_tests(dal_excel_portable_tests)
-        else()
-            message(STATUS "dal-excel: GTest not found, skipping portable contract tests")
-        endif()
-    endif()
+    include(GoogleTest)
+    file(GLOB_RECURSE PORTABLE_BINDING_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+    list(FILTER PORTABLE_BINDING_SOURCES EXCLUDE REGEX "(_excel|_xlcall)\.cpp$")
+    file(GLOB_RECURSE PORTABLE_TEST_FILES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp")
+    add_executable(dal_excel_portable_tests ${PORTABLE_BINDING_SOURCES} ${PORTABLE_TEST_FILES})
+    target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp")
+    target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
+    target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/test-support")
+    target_compile_definitions(dal_excel_portable_tests PRIVATE DAL_EXCEL_API_TESTS_PORTABLE)
+    target_link_libraries(dal_excel_portable_tests PRIVATE ${DAL_PUBLIC_TARGET} GTest::gtest_main)
+    dal_public_check_binding(dal_excel_portable_tests "${CMAKE_CURRENT_SOURCE_DIR}")
+    gtest_discover_tests(dal_excel_portable_tests)
     message(STATUS "dal-excel: skipping XLL build (requires Windows + Office COM DLLs)")
     return()
 endif()
@@ -199,6 +206,8 @@ if(DAL_EXCEL_BUILD_TESTS)
 
     if(TEST_FILES)
         add_executable(dal_excel_tests ${TEST_FILES})
+        target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+        target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/test-support")
         target_compile_definitions(dal_excel_tests PRIVATE DAL_EXCEL_TEST_API_IMPORTS)

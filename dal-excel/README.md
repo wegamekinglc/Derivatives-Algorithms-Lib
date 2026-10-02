@@ -21,7 +21,9 @@ and test commands.
 
 On non-Windows hosts, the default core workspace can build
 `dal_excel_portable_tests` from the binding sources and tests. It requires
-`DAL_BUILD_EXCEL_PORTABLE_TESTS=ON`, `DAL_EXCEL_BUILD_TESTS=ON`, and Google Test.
+`DAL_BUILD_EXCEL_PORTABLE_TESTS=ON`, `DAL_EXCEL_BUILD_TESTS=ON`, Google Test,
+and the public facade. See [optional Excel targets](../docs/installation.md#optional-excel-targets)
+for the skip and dependency rules.
 These tests cover handles and worksheet spill contracts; the XLL itself remains
 Windows-only. For a configured core build:
 

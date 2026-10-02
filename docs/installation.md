@@ -159,11 +159,24 @@ the Python GIL. A `Number_`, `Tape_`, or tape position remains thread-affine;
 create, record, propagate, and clear it on the same thread instead of moving it
 to another thread.
 
+### Optional Excel targets
+
 The default non-Windows core workflow also builds and registers
 `dal_excel_portable_tests` when Google Test is available. These tests exercise
 binding functions, repository handles, and spill contracts without Microsoft
-Excel. Set `DAL_BUILD_EXCEL_PORTABLE_TESTS=OFF` to omit this component;
+Excel and require the public facade. Set `DAL_BUILD_EXCEL_PORTABLE_TESTS=OFF`
+to omit this component;
 `DAL_BUILD_EXCEL=OFF` alone does not disable the portable tests.
+
+On non-Windows hosts, `DAL_EXCEL_BUILD_TESTS=OFF`, or an unavailable
+`GTest::gtest_main` after Google Test discovery, skips all Excel targets before
+resolving the public library. A core build with `DAL_BUILD_PUBLIC=OFF` can
+therefore keep the default portable entry enabled when Excel tests are disabled.
+When portable tests are enabled and Google Test supplies that target, a missing
+public target is a configuration error.
+
+On Windows, enabling the Excel component builds the XLL and requires the public
+facade even with `DAL_EXCEL_BUILD_TESTS=OFF`.
 
 ## Windows C++ and Excel
 
