@@ -128,13 +128,18 @@ future observations come from simulated model paths. For multiple factors,
 choose regression observations that capture the exercise decision; a single
 swap rate need not capture every relevant factor. Cross-currency dynamics are
 separate features. The existing
-[equity-rate Hybrid](hybrid-model.md) accepts the one-factor GSR component.
+[equity-rate Hybrid](hybrid-model.md) accepts the GSR rate component with any
+number of factors, and the GSR stochastic-local-volatility model plugs in as one
+component through the same interface.
 
 ## European option pricing
 
 `PriceGSREuropeanOption` in [dal-public](../../dal-public/src/gsr.hpp) prices
 unit-notional bond calls/puts, caplets/floorlets and physically settled European
-swaptions. Python exposes `GSR_EuropeanOptionPrice`; Excel exposes
+swaptions. The instruments and quotes are model-agnostic protocol types
+(`BondOption_`, `Caplet_`, `Swaption_`, `CalibrationQuote_`, `VolQuote_` in
+[dal-cpp](../../dal-cpp/dal/protocol/rateoption.hpp)); any rate model can price or
+calibrate to them. Python exposes `GSR_EuropeanOptionPrice`; Excel exposes
 `GSR.EUROPEANOPTIONPRICE`. `CALL` means bond call, caplet or payer swaption;
 `PUT` means bond put, floorlet or receiver swaption.
 
@@ -197,8 +202,8 @@ use doubles; the script Monte Carlo API still supplies model-input AAD.
 For example, with an existing multi-factor model:
 
 ```python
-option = dal.GSRBondOption_(expiry, maturity, 0.97, "CALL")
-quote = dal.GSRCalibrationQuote_("1Y bond", option, market_price, 1e-6)
+option = dal.BondOption_(expiry, maturity, 0.97, "CALL")
+quote = dal.CalibrationQuote_("1Y bond", option, market_price, 1e-6)
 parameter = dal.GSRCalibrationParameter_(0, 0, 0.0, 0.10)
 settings = dal.GSRCalibrationSettings_()
 settings.prior_weight = 0.01
@@ -361,14 +366,14 @@ simplify selected coordinates and inspect convergence before using the fitted mo
 
 ### Market volatility quotes
 
-`GSRMarketQuote_(name, option, volatility, price_scale, convention="NORMAL", shift=0)`
+`VolQuote_(name, option, volatility, price_scale, convention="NORMAL", shift=0)`
 accepts caplets and physical swaptions with fixed strikes. Volatilities are annualized
 decimals: 0.01 Normal means 100 rate basis points; 0.20 Black means 20%. `BLACK`
 requires positive forward and strike; `SHIFTED_BLACK` requires both to be positive
 after adding the explicit shift. A shift is allowed only with `SHIFTED_BLACK`.
 Bond options continue to use price quotes.
 
-`GSRMarketQuotes_Get_Prices(snapshot, quotes)` reports forward, discounted annuity,
+`VolQuotes_Get_Prices(snapshot, quotes)` reports forward, discounted annuity,
 price and annualized-volatility vega. Discount/projection cashflows define the market
 forward and annuity, independently of model convexity. Quote schedules have future
 fixings at or after exercise. `Calibrate_GSRSLVMarket` accepts these quotes and optional
@@ -376,7 +381,7 @@ held-out quotes with the same parameter/settings objects and diagnostics as the
 price-based fit. Residual scales remain explicit prices per unit notional.
 
 ```python
-market_quotes = [dal.GSRMarketQuote_("caplet", caplet, 0.01, 0.0005)]
+market_quotes = [dal.VolQuote_("caplet", caplet, 0.01, 0.0005)]
 fit = dal.Calibrate_GSRSLVMarket(smile, market_quotes, parameters, fit_settings)
 ```
 
@@ -407,7 +412,7 @@ bumps. Both risk APIs use full refits; a Gauss-Newton inverse alone omits the
 residual-curvature term of the regularized objective.
 
 In C++, the corresponding dal-public calls are `PriceGSRSLVEuropeanOptions`,
-`CalibrateGSRSLV`, `BuildGSRCurveQuoteRisk`, `GSRSLVQuoteRisk`, `ConvertGSRMarketQuotes`,
+`CalibrateGSRSLV`, `BuildGSRCurveQuoteRisk`, `GSRSLVQuoteRisk`, `ConvertVolQuotes`,
 `CalibrateGSRSLVMarket` and `GSRSLVMarketQuoteRisk`. Excel uses existing
 option/quote handles, four-column label/lower/upper/scale tables and key/value
 settings. `GSRSLVCALIBRATIONRESULT.GET` and `GSRSLVQUOTERISKRESULT.GET` expose

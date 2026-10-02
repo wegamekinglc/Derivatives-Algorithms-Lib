@@ -16,6 +16,29 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-03
+
+- **Standard rate instruments and quotes** — bond options, caplets/floorlets,
+  physically settled swaptions and dated coupons are model-agnostic protocol
+  types (`BondOption_`, `Caplet_`, `Swaption_`, `EuropeanRateOption_`), and
+  calibration/market quotes moved to standard `CalibrationQuote_` and `VolQuote_`
+  with a `VolConvention_` enum (NORMAL, BLACK, SHIFTED_BLACK). GSR pricing and
+  calibration consume the standard types; the previously GSR-prefixed Python and
+  Excel bindings were renamed accordingly (for example `Caplet_New`,
+  `CalibrationQuote_New`, `VolQuote_New`, `VolQuotes_Get_Prices`). See
+  [GSR](docs/models/gaussian-short-rate.md).
+
+- **Hybrid stochastic rate components** — the hybrid model accepts multi-factor
+  GSR rate components and the GSR stochastic-local-volatility model as a single
+  component. Standalone GSR and GSR-SLV models are unchanged; the hybrid adapter
+  adds co-evolution with named-factor correlations (validated against the kernel)
+  and the SLV Euler breakpoints on the shared timeline. See
+  [Hybrid](docs/models/hybrid-model.md#stochastic-rate-components).
+
+- **Shared bounded Gauss-Newton solver** — the bounded, damped Gauss-Newton fit
+  used by GSR calibrations moved to `dal-cpp/dal/math/optimization/boundedgn.hpp`
+  as a reusable component for any bounded least-squares problem.
+
 ## 2026-10-02
 
 - **GSR-SLV market calibration** — physical swaptions support conditional valuation
