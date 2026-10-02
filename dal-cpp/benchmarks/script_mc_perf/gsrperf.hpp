@@ -47,3 +47,4 @@ inline void RunGSRPathCase(Dal::AAD::Model_<double>* model, bool swap, const std
 }
 
 void RunGSRPathCases();
+void RunGSRSLVPathCases();

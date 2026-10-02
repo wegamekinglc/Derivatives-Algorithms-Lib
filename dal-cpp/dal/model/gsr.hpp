@@ -224,8 +224,8 @@ namespace Dal::AAD {
             return {PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean), scale, accrual};
         }
 
-        [[nodiscard]] static T_ Libor(const LiborObservation_& request, const T_* state) {
-            return (request.scale_ * Bond(request.start_, state) / Bond(request.end_, state) - 1.0) / request.accrual_;
+        template <class F_> [[nodiscard]] static T_ Libor(const LiborObservation_& request, const F_& price) {
+            return (request.scale_ * price(request.start_) / price(request.end_) - 1.0) / request.accrual_;
         }
 
         [[nodiscard]] Observation_
@@ -324,21 +324,21 @@ namespace Dal::AAD {
                     state[i] += step.lower_(static_cast<int>(i), static_cast<int>(j)) * gaussian[j];
         }
 
-        [[nodiscard]] static T_ Observe(const Observation_& request, const T_* state) {
+        template <class F_> [[nodiscard]] static T_ Observe(const Observation_& request, const F_& price) {
             return std::visit(
                 [&](const auto& observation) -> T_ {
                     using O_ = std::decay_t<decltype(observation)>;
                     if constexpr (std::is_same_v<O_, DiscountObservation_>)
-                        return Bond(observation.end_, state) / Bond(observation.start_, state);
+                        return price(observation.end_) / price(observation.start_);
                     else if constexpr (std::is_same_v<O_, LiborObservation_>)
-                        return Libor(observation, state);
+                        return Libor(observation, price);
                     else {
                         T_ annuity(0.0), floating(0.0);
                         for (const auto& coupon : observation.fixed_)
-                            annuity += coupon.accrual_ * Bond(coupon.payment_, state);
+                            annuity += coupon.accrual_ * price(coupon.payment_);
                         REQUIRE(Value(annuity) > 0.0, "InvalidGSRObservation: non-positive swap annuity");
                         for (const auto& coupon : observation.floating_)
-                            floating += coupon.accrual_ * Libor(coupon.fixing_, state) * Bond(coupon.payment_, state);
+                            floating += coupon.accrual_ * Libor(coupon.fixing_, price) * price(coupon.payment_);
                         return floating / annuity;
                     }
                 },
@@ -358,7 +358,7 @@ namespace Dal::AAD {
                 sample.spot_ = T_(0.0);
                 sample.numeraire_ = Dal::exp(logNumeraire);
                 for (size_t j = 0; j < observations_[i].size(); ++j)
-                    sample.observations_[j] = Observe(observations_[i][j], state);
+                    sample.observations_[j] = Observe(observations_[i][j], [&](const Bond_& bond) { return Bond(bond, state); });
             }
         }
 
@@ -423,6 +423,27 @@ namespace Dal::AAD {
         [[nodiscard]] T_ InitialLogProjection(double time, const String_& tenor) const { return LogDF(time, Projection(tenor)); }
         [[nodiscard]] Matrix_<T_> GaussianVariance(double time) const { return StateVariance(0.0, time); }
         [[nodiscard]] Vector_<T_> GaussianBondLoading(double expiry, double maturity) const { return BondLoading(expiry, maturity); }
+        [[nodiscard]] Vector_<T_> FactorVolatilities(double time) const {
+            Vector_<T_> values;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                values.push_back(G(i, time));
+            return values;
+        }
+        [[nodiscard]] Vector_<T_> ShortRateLoadings(double time) const {
+            Vector_<T_> values;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                values.push_back(H(i, time));
+            return values;
+        }
+        [[nodiscard]] Vector_<> RateKnots(double end) const { return IntervalKnots(0.0, end); }
+        [[nodiscard]] T_ ObserveHJM(size_t sample, size_t slot, const Vector_<T_>& state, const Matrix_<T_>& covariance) const {
+            REQUIRE(sample < observations_.size() && slot < observations_[sample].size() && state.size() == NumFactors() &&
+                        covariance.Rows() == static_cast<int>(NumFactors()) && covariance.Cols() == static_cast<int>(NumFactors()),
+                    "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
+                return Dal::exp(bond.intercept_ - Dot(bond.loading_, state) - 0.5 * Quadratic(bond.loading_, covariance));
+            });
+        }
         void ResetAnchorsForRecording() {
             if constexpr (!std::is_same_v<T_, double>) {
                 discountLogDF_[0] = T_(0.0);
@@ -439,7 +460,7 @@ namespace Dal::AAD {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: hybrid observation was not prepared");
             REQUIRE(NumFactors() == 1, "InvalidGSRPath: scalar hybrid observation requires one factor");
-            return Observe(observations_[sample][slot], &state);
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return Bond(bond, &state); });
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }
@@ -474,7 +495,8 @@ namespace Dal::AAD {
         }
         [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
         [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
-        [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override {
+        [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return CloneRateKernel(); }
+        [[nodiscard]] std::unique_ptr<GSR_<T_>> CloneRateKernel() const {
             auto clone = std::make_unique<GSR_<T_>>(*this);
             clone->SetParameterPointers();
             return clone;
@@ -485,7 +507,11 @@ namespace Dal::AAD {
             steps_.Resize(timeline.size());
             observations_.Resize(timeline.size());
         }
-        void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
+        void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override { InitObservations(timeline, definitions, true); }
+        void InitHJM(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) { InitObservations(timeline, definitions, false); }
+
+    private:
+        void InitObservations(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions, bool gaussian) {
             REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
             this->ValidateTimeline(timeline, definitions);
             // Anchors are not risk parameters. Recreate their constant tape nodes after NewRecording.
@@ -495,18 +521,20 @@ namespace Dal::AAD {
                 const double current = timeline[i];
                 const Date_ sampleDate = DateAt(current);
                 static_cast<void>(Time(sampleDate));
-                if (current > previous)
+                if (gaussian && current > previous)
                     ComputeStep(previous, current, &steps_[i]);
                 else
                     steps_[i] = Step_();
                 observations_[i].clear();
-                const auto variance = StateVariance(0.0, current);
-                const auto mean = DiscountedStateMean(current);
+                const auto variance = gaussian ? StateVariance(0.0, current) : Matrix_<T_>(NumFactors(), NumFactors(), T_(0.0));
+                const auto mean = gaussian ? DiscountedStateMean(current) : Vector_<T_>(NumFactors(), T_(0.0));
                 for (const auto& name : definitions[i].indexNames_)
                     observations_[i].push_back(PrepareObservation(name, sampleDate, variance, mean));
                 previous = current;
             }
         }
+
+    public:
         [[nodiscard]] size_t SimDim() const override {
             return productTimeLine_.empty() ? 0 : NumFactors() * (productTimeLine_.size() - static_cast<size_t>(productTimeLine_.front() == 0.0));
         }

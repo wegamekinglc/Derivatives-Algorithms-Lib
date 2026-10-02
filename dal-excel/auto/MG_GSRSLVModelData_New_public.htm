@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRSLVModelData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRSLVModelData_New (in Excel: GSRSLVMODELDATA.NEW)</h1>
+Compose GSR stochastic local volatility with normalized CIR variance
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Model name</td></tr>
+<tr><td>gaussian</td><td>handle of type ModelData</td><td></td><td>MultiFactorGSRModelData with initial curves and g/H inputs</td></tr>
+<tr><td>leverage</td><td>handle of type GSRLeverageData</td><td></td><td>Positive rate-shift leverage</td></tr>
+<tr><td>varianceCorrelations</td><td>vector of numbers</td><td>yes</td><td>One rate/variance correlation per factor; default zero</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Key/value rows: kappa (1), volOfVol (0.5), maxStep (1/52 years)</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>model</td><td>handle of type ModelData</td><td>GSR stochastic local volatility model data</td></tr>
+</table>
+
+
+
+
+
+

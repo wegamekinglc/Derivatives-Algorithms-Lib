@@ -2,10 +2,11 @@
 // Created by wegam on 2022/11/20.
 //
 
+#include <map>
+#include <dal-public/src/models.hpp>
 #include "__curve_storable.hpp"
 #include "__models_test_api.hpp"
 #include "__platform.hpp"
-#include <dal-public/src/models.hpp>
 
 /*IF--------------------------------------------------------------------------
 public BSModelData_New
@@ -273,9 +274,64 @@ model is handle ModelData
     GSR model data
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+public GSRLeverageData_New
+    Positive rate-shift leverage surface
+&inputs
+name is string
+    Leverage data name
+rateShifts is number[]
+    Increasing short-rate shifts, including negative values
+times is number[]
+    Increasing nonnegative ACT/365 times
+values is number[][]
+    Positive leverage, rate-shift rows and time columns
+&outputs
+leverage is handle GSRLeverageData
+    Leverage surface
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public GSRSLVModelData_New
+    Compose GSR stochastic local volatility with normalized CIR variance
+&inputs
+name is string
+    Model name
+gaussian is handle ModelData
+    MultiFactorGSRModelData with initial curves and g/H inputs
+leverage is handle GSRLeverageData
+    Positive rate-shift leverage
+&optional
+varianceCorrelations is number[]
+    One rate/variance correlation per factor; default zero
+settings is cell[][]
+    Key/value rows: kappa (1), volOfVol (0.5), maxStep (1/52 years)
+&outputs
+model is handle ModelData
+    GSR stochastic local volatility model data
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     using Dal::ModelData_;
     namespace {
+        GSRSLVSettings_ SLVSettings(const Matrix_<Cell_>& cells, const Vector_<>& correlations) {
+            REQUIRE(cells.Empty() || cells.Cols() == 2, "InvalidGSRSLVWorksheet: settings must have two columns");
+            GSRSLVSettings_ settings;
+            settings.varianceCorrelations_ = correlations;
+            const std::map<String_, double GSRSLVSettings_::*> fields{
+                {"kappa", &GSRSLVSettings_::kappa_}, {"volOfVol", &GSRSLVSettings_::volOfVol_}, {"maxStep", &GSRSLVSettings_::maxStep_}};
+            Vector_<String_> used;
+            for (int row = 0; row < cells.Rows(); ++row) {
+                const String_ key = Cell::ToString(cells(row, 0));
+                REQUIRE(std::find(used.begin(), used.end(), key) == used.end(), "InvalidGSRSLVWorksheet: duplicate settings key " + key);
+                used.push_back(key);
+                const auto found = fields.find(key);
+                REQUIRE(found != fields.end(), "InvalidGSRSLVWorksheet: unknown settings key " + key);
+                settings.*found->second = Cell::ToDouble(cells(row, 1));
+            }
+            return settings;
+        }
+
         void BSModelData_New(const String_& name, double spot, double vol, double rate, double div, Handle_<ModelData_>* model) {
             NewBSModelData(name, spot, vol, rate, div).swap(*model);
         }
@@ -404,12 +460,27 @@ namespace Dal {
                                      Handle_<ModelData_>* model) {
         NewMultiFactorGSRModelData(name, curve, vol).swap(*model);
     }
+    void GSRLeverageData_New(
+        const String_& name, const Vector_<>& rateShifts, const Vector_<>& times, const Matrix_<>& values, Handle_<GSRLeverageData_>* leverage) {
+        NewGSRLeverageData(name, rateShifts, times, values).swap(*leverage);
+    }
+
+    void GSRSLVModelData_New(const String_& name,
+                             const Handle_<ModelData_>& gaussian,
+                             const Handle_<GSRLeverageData_>& leverage,
+                             const Vector_<>& varianceCorrelations,
+                             const Matrix_<Cell_>& settings,
+                             Handle_<ModelData_>* model) {
+        NewGSRSLVModelData(name, gaussian, leverage, SLVSettings(settings, varianceCorrelations)).swap(*model);
+    }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_BSModelData_New_public.inc>
 #include <dal-excel/auto/MG_CorrelatedBSModelData_New_public.inc>
 #include <dal-excel/auto/MG_GSRCurveDataFromCurveBlock_New_public.inc>
 #include <dal-excel/auto/MG_GSRCurveData_New_public.inc>
+#include <dal-excel/auto/MG_GSRLeverageData_New_public.inc>
 #include <dal-excel/auto/MG_GSRModelData_New_public.inc>
+#include <dal-excel/auto/MG_GSRSLVModelData_New_public.inc>
 #include <dal-excel/auto/MG_GSRVolData_New_public.inc>
 #include <dal-excel/auto/MG_HybridBSEquityData_New_public.inc>
 #include <dal-excel/auto/MG_HybridConstantCorrelationData_New_public.inc>

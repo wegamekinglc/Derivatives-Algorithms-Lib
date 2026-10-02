@@ -217,6 +217,77 @@ model usable for both option pricing and Monte Carlo. Worksheet value/result
 handles are process-local; fitted model data retains archive support.
 The optional pricing settings table accepts `quadratureOrder` and `estimateError`.
 
+## Stochastic local volatility
+
+`GSRSLVModelData_` extends a `MultiFactorGSRModelData_` with normalized
+CIR variance and a positive local leverage surface. It shares dated curves,
+g/H inputs, projection spreads and rate observations with the Gaussian model.
+This is a single-currency rates model; equity/FX composition and SABR dynamics
+require separate models.
+
+Under the bank-account measure its state is
+
+`dx = Y H dt + Sigma dW`, `dY = Sigma Sigma' dt`,
+`Sigma = L(t,H'x) sqrt(v) diag(g)`,
+`dv = kappa (1-v) dt + volOfVol sqrt(v) dZ`.
+
+Here rate drivers have correlation R, x and Y start at zero, and variance starts
+at its long-run mean of one. The full joint rate/variance correlation must be
+PSD; singular matrices are supported. Bond prices are
+`P(t,T) = P0(T)/P0(t) exp(-B'x - B'YB/2)` and the short rate is `f0(t) + H'x`.
+Leverage changes both diffusion and the HJM drift through Y. The construction
+follows Hyer's curve-state design in section 13.7; the normalized variance and
+full-truncation scheme are also used in Schlenkrich's
+[quasi-Gaussian implementation](https://github.com/sschlenkrich/QuantLib/blob/7353bf8e84f981934163fa7fb07fae2e68b5d4d3/ql/experimental/templatemodels/qgaussian/quasigaussianmodelT.hpp).
+
+`GSRLeverageData_` stores leverage values with **short-rate shift rows** and
+**ACT/365 time columns**. Both axes increase strictly; times are nonnegative and
+values are strictly positive. Negative shifts are valid. Interpolation is bilinear
+with flat boundary extrapolation. The shift is H'x, so it excludes f0(t).
+
+The solver freezes leverage and variance at each internal step, integrates the
+resulting Gaussian x/Y and bank-account increment exactly, then updates variance
+with full-truncation Euler. It retains the latent variance, uses its positive part
+in drift/diffusion, and reports nonnegative variance. It accepts Feller-violating
+inputs without imposing a floor. The stochastic-variance transition is approximate;
+check price stability by reducing `maxStep` (default 1/52 years).
+Steps split at product dates, g/H knots and leverage time knots. Product dates
+remain whole calendar days; internal steps may be fractional days.
+
+Each internal step consumes n rate normals, one variance normal and one independent
+normal for the integrated-rate bridge, in time-major order. Factor-aware Brownian
+bridge sampling is supported. Discounting uses the simulated bank account rather
+than the Gaussian endpoint shortcut. With unit leverage and zero vol-of-vol, bond
+states match GSR; averaging over the integrated-rate bridge recovers the Gaussian
+conditional discount.
+
+In dal-public, call `NewGSRLeverageData` and `NewGSRSLVModelData`; Python and Excel
+expose `GSRLeverageData_New` and `GSRSLVModelData_New`. For an existing multi-factor
+Gaussian model:
+
+```python
+leverage = dal.GSRLeverageData_New(
+    "leverage", [-0.05, 0.05], [0.0], dal.DoubleMatrix_([[0.8], [1.2]]),
+)
+settings = dal.GSRSLVSettings_()
+settings.kappa = 1.0
+settings.vol_of_vol = 0.5
+settings.variance_correlations = [-0.2, 0.1]  # one per rate factor
+settings.max_step = 1.0 / 52.0
+smile = dal.GSRSLVModelData_New("smile", model, leverage, settings)
+```
+
+Excel's optional settings table uses `kappa`, `volOfVol` and `maxStep`; pass
+rate/variance correlations as a separate optional vector (default zero).
+Model and leverage data support archive round trips. Script Monte Carlo reports
+the Gaussian input risks plus `kappa`, `volOfVol` and `leverage:<row>:<column>`.
+Correlations and step size are passive. Square-root and truncation boundaries use zero
+subgradients; interpolation knots and payoff kinks need bump checks.
+
+The [solver](../../dal-cpp/dal/model/gsrslv.hpp) supplies model-input AAD.
+Smile/leverage calibration and calibrated quote sensitivity are separate work;
+the Gaussian analytic pricing and calibration APIs accept Gaussian models only.
+
 ## C++ and Python examples
 
 The C++ example in [`dal-cpp/examples/gsr_swap_swaption/`](../../dal-cpp/examples/gsr_swap_swaption/)
@@ -270,4 +341,5 @@ cmake --preset=Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --build build/Release-linux --target script_mc_perf
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr
 build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-european
+build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --gsr-slv
 ```

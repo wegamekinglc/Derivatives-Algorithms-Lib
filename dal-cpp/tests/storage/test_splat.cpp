@@ -12,6 +12,8 @@
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/model/gsrdata.hpp>
+#include <dal/storage/archive.hpp>
 #include <dal/storage/bag.hpp>
 #include <dal/storage/box.hpp>
 #include <dal/storage/splat.hpp>
@@ -35,6 +37,38 @@ namespace {
         for (const auto& line : lines)
             dst << line << '\n';
     }
+
+    struct MatrixArchive_ : Storable_ {
+        Matrix_<> numbers_;
+        Matrix_<String_> strings_;
+        Matrix_<Cell_> cells_;
+
+        MatrixArchive_() : Storable_("SplatMatricesTest", ""), numbers_(0, 0), strings_(0, 0), cells_(0, 0) {}
+        void Write(Archive::Store_& dst) const override {
+            dst.SetType("SplatMatricesTest");
+            dst.Child("numbers") = numbers_;
+            dst.Child("strings") = strings_;
+            dst.Child("cells") = cells_;
+        }
+    };
+
+    struct MatrixArchiveReader_ : Archive::Reader_ {
+        Storable_* Build() const override { return new MatrixArchive_; }
+        Storable_* Build(const Archive::View_& view, Archive::Built_&) const override {
+            auto result = std::make_unique<MatrixArchive_>();
+            result->numbers_ = view.Child("numbers").AsDoubleMatrix();
+            result->strings_ = view.Child("strings").AsStringMatrix();
+            result->cells_ = view.Child("cells").AsCellMatrix();
+            return result.release();
+        }
+    };
+
+    Handle_<MatrixArchive_> RoundTripMatrices(const MatrixArchive_& source) {
+        static const MatrixArchiveReader_ reader;
+        static const bool registered = (Archive::Register("SplatMatricesTest", &reader), true);
+        static_cast<void>(registered);
+        return handle_cast<MatrixArchive_>(UnSplat(Splat(source), true));
+    }
 } // namespace
 
 TEST(StorageTest, TestSplatAndUnSplat) {
@@ -48,6 +82,54 @@ TEST(StorageTest, TestSplatAndUnSplat) {
     Handle_<Interp1_> val(std::dynamic_pointer_cast<const Interp1_>(rtn));
     ASSERT_TRUE(val.get() != nullptr);
     ASSERT_DOUBLE_EQ((*src)(2.5), (*val)(2.5));
+}
+
+TEST(StorageTest, TestSplatEmptyRateProjectionFields) {
+    const Date_ today(2026, 10, 2);
+    const GSRCurveData_ curve("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0));
+    const auto restored = handle_cast<GSRCurveData_>(UnSplat(Splat(curve), true));
+    ASSERT_TRUE(restored);
+    ASSERT_TRUE(restored->projectionTenors_.empty());
+    ASSERT_EQ(restored->projectionLogDF_.Rows(), 0);
+    ASSERT_EQ(restored->projectionLogDF_.Cols(), 0);
+    ASSERT_EQ(restored->nodeDates_, curve.nodeDates_);
+    ASSERT_EQ(Splat(curve).Cols(), 4);
+}
+
+TEST(StorageTest, TestSplatEmptyMatrices) {
+    const auto restored = RoundTripMatrices(MatrixArchive_());
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->numbers_.Rows(), 0);
+    ASSERT_EQ(restored->numbers_.Cols(), 0);
+    ASSERT_EQ(restored->strings_.Rows(), 0);
+    ASSERT_EQ(restored->strings_.Cols(), 0);
+    ASSERT_EQ(restored->cells_.Rows(), 0);
+    ASSERT_EQ(restored->cells_.Cols(), 0);
+    const auto box = handle_cast<Box_>(UnSplat(Splat(Box_("empty", Matrix_<Cell_>(0, 0))), true));
+    ASSERT_TRUE(box);
+    ASSERT_EQ(box->contents_.Rows(), 0);
+    ASSERT_EQ(box->contents_.Cols(), 0);
+}
+
+TEST(StorageTest, TestSplatSingleColumnMatrices) {
+    MatrixArchive_ source;
+    source.numbers_ = Matrix_<>(2, 1, 1.5);
+    source.strings_ = Matrix_<String_>(2, 1, "text");
+    source.cells_ = Matrix_<Cell_>(2, 1);
+    source.cells_(0, 0) = 2.5;
+    source.cells_(1, 0) = String_("cell");
+    const auto restored = RoundTripMatrices(source);
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->numbers_.Rows(), 2);
+    ASSERT_EQ(restored->numbers_.Cols(), 1);
+    ASSERT_DOUBLE_EQ(restored->numbers_(1, 0), 1.5);
+    ASSERT_EQ(restored->strings_.Rows(), 2);
+    ASSERT_EQ(restored->strings_.Cols(), 1);
+    ASSERT_EQ(restored->strings_(1, 0), String_("text"));
+    ASSERT_EQ(restored->cells_.Rows(), 2);
+    ASSERT_EQ(restored->cells_.Cols(), 1);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(restored->cells_(0, 0)), 2.5);
+    ASSERT_EQ(Cell::ToString(restored->cells_(1, 0)), String_("cell"));
 }
 
 TEST(StorageTest, TestSplatFileAndUnSplatFile) {
