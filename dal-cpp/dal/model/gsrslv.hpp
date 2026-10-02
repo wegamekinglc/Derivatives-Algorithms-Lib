@@ -20,7 +20,7 @@ namespace Dal::AAD {
         Vector_<> rateShifts_, leverageTimes_;
         Matrix_<T_> leverage_;
         T_ kappa_, volOfVol_;
-        Matrix_<> driverLower_;
+        Matrix_<> driverLower_, standaloneCorrelations_;
         double maxStep_;
         Vector_<> timeline_, grid_;
         Vector_<size_t> sampleEnds_, observationCounts_;
@@ -52,8 +52,9 @@ namespace Dal::AAD {
                 }
         }
 
-        [[nodiscard]] Step_ PrepareStep(double from, double to) const {
+        [[nodiscard]] Step_ PrepareStep(double from, double to, const Matrix_<>& correlations) const {
             const int n = static_cast<int>(rates_->NumFactors());
+            REQUIRE(correlations.Rows() == n && correlations.Cols() == n, "InvalidGSRSLVHybrid: correlation block must match the rate factors");
             Step_ step;
             step.time_ = from;
             step.width_ = to - from;
@@ -65,18 +66,14 @@ namespace Dal::AAD {
             step.bridgeVariance_ = T_(0.0);
             for (int i = 0; i < n; ++i)
                 for (int j = 0; j < n; ++j) {
-                    double correlation = 0.0;
-                    for (int k = 0; k <= std::min(i, j); ++k)
-                        correlation += driverLower_(i, k) * driverLower_(j, k);
-                    step.covariance_(i, j) = step.g_[i] * step.g_[j] * correlation;
+                    step.covariance_(i, j) = step.g_[i] * step.g_[j] * T_(correlations(i, j));
                     step.covarianceH_[i] += step.covariance_(i, j) * step.h_[j];
                 }
-            for (int k = 0; k < n; ++k) {
-                T_ exposure(0.0);
-                for (int i = k; i < n; ++i)
-                    exposure += step.h_[i] * step.g_[i] * driverLower_(i, k);
-                step.bridgeVariance_ += exposure * exposure;
-            }
+            for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j) {
+                    const T_ exposure = step.h_[i] * step.g_[i] * T_(correlations(i, j));
+                    step.bridgeVariance_ += exposure * step.h_[j] * step.g_[j];
+                }
             step.bankBase_ = rates_->InitialLogDiscount(from) - rates_->InitialLogDiscount(to);
             step.bridgeStd_ =
                 Value(step.bridgeVariance_) > 0.0 ? T_(Dal::sqrt(step.bridgeVariance_ * (step.width_ * step.width_ * step.width_ / 12.0))) : T_(0.0);
@@ -126,61 +123,62 @@ namespace Dal::AAD {
                     (*correlated)[i] += driverLower_(i, j) * gaussian[j];
         }
 
-        [[nodiscard]] T_ Shift(const Step_& step, const State_& state) const {
+        [[nodiscard]] T_ Shift(const Step_& step, const T_* x) const {
             T_ shift(0.0);
-            for (size_t i = 0; i < state.x_.size(); ++i)
-                shift += step.h_[i] * state.x_[i];
+            for (size_t i = 0; i < rates_->NumFactors(); ++i)
+                shift += step.h_[i] * x[i];
             return shift;
         }
 
-        void AdvanceBank(const Step_& step,
-                         const Vector_<>& correlated,
+        // Shared evolution on a flat state layout: x[n], y[n*n] row-major, variance, latentVariance,
+        // logNumeraire. Drivers come either contiguously (standalone correlated vector) or through a
+        // hybrid factor-slot indirection; the flag is a compile-time constant in both callers.
+        template <bool Indirect>
+        void AdvanceCore(const Step_& step,
+                         const Vector_<>& drivers,
+                         const Vector_<size_t>* driverSlots,
                          double bridge,
-                         const T_& shift,
-                         const T_& varianceScale,
-                         const T_& diffusion,
-                         State_* state) const {
-            const size_t n = state->x_.size();
+                         T_* x,
+                         T_* y,
+                         T_* variance,
+                         T_* latentVariance,
+                         T_* logNumeraire) const {
+            const size_t n = rates_->NumFactors();
+            const auto driver = [&](size_t i) -> double { return Indirect ? drivers[(*driverSlots)[i]] : drivers[i]; };
+            const T_ shift = Shift(step, x);
+            const T_ leverage = LocalLeverage(step.time_, shift);
+            const T_ varianceScale = leverage * leverage * *variance;
+            const T_ sqrtVariance = Value(*variance) > 0.0 ? T_(Dal::sqrt(*variance)) : T_(0.0);
+            const T_ diffusion = leverage * sqrtVariance;
+            const double dt = step.width_;
             T_ yHH(0.0), noiseH(0.0);
             for (size_t i = 0; i < n; ++i) {
-                noiseH += step.h_[i] * step.g_[i] * correlated[i];
+                noiseH += step.h_[i] * step.g_[i] * driver(i);
                 for (size_t j = 0; j < n; ++j)
-                    yHH += step.h_[i] * state->y_(i, j) * step.h_[j];
+                    yHH += step.h_[i] * y[i * n + j] * step.h_[j];
             }
-            const double dt = step.width_;
-            state->logNumeraire_ += step.bankBase_ + dt * shift + 0.5 * dt * dt * yHH + varianceScale * step.bridgeVariance_ * (dt * dt * dt / 6.0) +
-                                    diffusion * (0.5 * dt * step.sqrtWidth_ * noiseH + step.bridgeStd_ * bridge);
-        }
-
-        void AdvanceRates(const Step_& step, const Vector_<>& correlated, const T_& varianceScale, const T_& diffusion, State_* state) const {
-            const size_t n = state->x_.size();
-            const double dt = step.width_;
+            *logNumeraire += step.bankBase_ + dt * shift + 0.5 * dt * dt * yHH + varianceScale * step.bridgeVariance_ * (dt * dt * dt / 6.0) +
+                             diffusion * (0.5 * dt * step.sqrtWidth_ * noiseH + step.bridgeStd_ * bridge);
             for (size_t i = 0; i < n; ++i) {
                 T_ drift(0.0);
                 for (size_t j = 0; j < n; ++j)
-                    drift += state->y_(i, j) * step.h_[j];
-                state->x_[i] +=
-                    dt * drift + 0.5 * dt * dt * varianceScale * step.covarianceH_[i] + diffusion * step.sqrtWidth_ * step.g_[i] * correlated[i];
+                    drift += y[i * n + j] * step.h_[j];
+                x[i] += dt * drift + 0.5 * dt * dt * varianceScale * step.covarianceH_[i] + diffusion * step.sqrtWidth_ * step.g_[i] * driver(i);
             }
             for (size_t i = 0; i < n; ++i)
                 for (size_t j = 0; j <= i; ++j) {
-                    state->y_(i, j) += dt * varianceScale * step.covariance_(i, j);
-                    state->y_(j, i) = state->y_(i, j);
+                    y[i * n + j] += dt * varianceScale * step.covariance_(i, j);
+                    y[j * n + i] = y[i * n + j];
                 }
+            *latentVariance += dt * kappa_ * (1.0 - *variance) + volOfVol_ * step.sqrtWidth_ * sqrtVariance * driver(n);
+            REQUIRE(std::isfinite(Value(*latentVariance)), "InvalidGSRSLVPath: nonfinite latent variance");
+            *variance = Value(*latentVariance) > 0.0 ? *latentVariance : T_(0.0);
         }
 
         void Advance(const Step_& step, const Vector_<>& correlated, double bridge, State_* state) const {
-            const T_ shift = Shift(step, *state);
-            const T_ leverage = LocalLeverage(step.time_, shift);
-            const T_ varianceScale = leverage * leverage * state->variance_;
-            const T_ sqrtVariance = Value(state->variance_) > 0.0 ? T_(Dal::sqrt(state->variance_)) : T_(0.0);
-            const T_ diffusion = leverage * sqrtVariance;
-            AdvanceBank(step, correlated, bridge, shift, varianceScale, diffusion, state);
-            AdvanceRates(step, correlated, varianceScale, diffusion, state);
-            state->latentVariance_ +=
-                step.width_ * kappa_ * (1.0 - state->variance_) + volOfVol_ * step.sqrtWidth_ * sqrtVariance * correlated[state->x_.size()];
-            REQUIRE(std::isfinite(Value(state->latentVariance_)), "InvalidGSRSLVPath: nonfinite latent variance");
-            state->variance_ = Value(state->latentVariance_) > 0.0 ? state->latentVariance_ : T_(0.0);
+            const size_t n = rates_->NumFactors();
+            AdvanceCore<false>(step, correlated, nullptr, bridge, &state->x_[0], &state->y_(0, 0), &state->variance_, &state->latentVariance_,
+                               &state->logNumeraire_);
         }
 
         void WriteSample(size_t sample, const State_& state, Scenario_<T_>* path) const {
@@ -244,6 +242,12 @@ namespace Dal::AAD {
             : rates_(std::make_unique<GSR_<T_>>(*data.gaussian_)), rateShifts_(data.leverage_->rateShifts_), leverageTimes_(data.leverage_->times_),
               leverage_(data.leverage_->values_.Rows(), data.leverage_->values_.Cols()), kappa_(data.kappa_), volOfVol_(data.volOfVol_),
               driverLower_(CovarianceFactor(data.DriverCorrelation())), maxStep_(data.maxStep_) {
+            const int n = static_cast<int>(rates_->NumFactors());
+            standaloneCorrelations_ = Matrix_<>(n, n, 0.0);
+            const auto& drivers = data.DriverCorrelation();
+            for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
+                    standaloneCorrelations_(i, j) = drivers(i, j);
             for (int row = 0; row < leverage_.Rows(); ++row)
                 for (int col = 0; col < leverage_.Cols(); ++col)
                     leverage_(row, col) = T_(data.leverage_->values_(row, col));
@@ -252,8 +256,8 @@ namespace Dal::AAD {
         GSRSLV_(const GSRSLV_& other)
             : rates_(other.rates_->CloneRateKernel()), rateShifts_(other.rateShifts_), leverageTimes_(other.leverageTimes_),
               leverage_(other.leverage_), kappa_(other.kappa_), volOfVol_(other.volOfVol_), driverLower_(other.driverLower_),
-              maxStep_(other.maxStep_), timeline_(other.timeline_), grid_(other.grid_), sampleEnds_(other.sampleEnds_),
-              observationCounts_(other.observationCounts_), steps_(other.steps_) {
+              standaloneCorrelations_(other.standaloneCorrelations_), maxStep_(other.maxStep_), timeline_(other.timeline_), grid_(other.grid_),
+              sampleEnds_(other.sampleEnds_), observationCounts_(other.observationCounts_), steps_(other.steps_) {
             SetParameterPointers();
         }
 
@@ -283,6 +287,47 @@ namespace Dal::AAD {
             return Model_<T_>::ValidParameterValue(parameter, value) && (parameter < rates_->NumParams() + 2 ? value >= 0.0 : value > 0.0);
         }
         [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return std::make_unique<GSRSLV_<T_>>(*this); }
+        [[nodiscard]] std::unique_ptr<GSRSLV_<T_>> CloneSLVKernel() const { return std::make_unique<GSRSLV_<T_>>(*this); }
+        [[nodiscard]] T_ InitialLogDiscount(double time) const { return rates_->InitialLogDiscount(time); }
+        [[nodiscard]] double MaxStep() const { return maxStep_; }
+        [[nodiscard]] size_t HybridStateDim() const {
+            const size_t n = rates_->NumFactors();
+            return n + n * n + 3;
+        }
+        void PrepareHybrid(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions, const Matrix_<>& rateCorrelations) {
+            this->ValidateTimeline(timeline, definitions);
+            timeline_ = timeline;
+            rates_->Allocate(timeline, definitions);
+            rates_->InitHJM(timeline, definitions);
+            steps_.clear();
+            sampleEnds_.clear();
+            grid_.clear();
+            for (size_t i = 1; i < timeline.size(); ++i)
+                steps_.push_back(PrepareStep(timeline[i - 1], timeline[i], rateCorrelations));
+        }
+        void ResetHybridState(Vector_<T_>* state, size_t offset) const {
+            const size_t n = rates_->NumFactors();
+            for (size_t i = 0; i < n + n * n + 3; ++i)
+                (*state)[offset + i] = i >= n + n * n && i < n + n * n + 2 ? T_(1.0) : T_(0.0);
+        }
+        void EvolveHybrid(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t offset) const {
+            REQUIRE(step < steps_.size(), "InvalidGSRSLVHybrid: step was not prepared");
+            REQUIRE(factorSlots.size() == NumFactors() && factors.size() >= NumFactors(),
+                    "InvalidGSRSLVHybrid: one named factor per rate, variance and bridge driver is required");
+            const size_t n = rates_->NumFactors();
+            // The bridge driver reuses no other Gaussian in standalone stepping; as a named hybrid
+            // factor it occupies its own independent correlation slot.
+            AdvanceCore<true>(steps_[step], factors, &factorSlots, factors[factorSlots[n + 1]], &(*state)[offset], &(*state)[offset + n],
+                              &(*state)[offset + n + n * n], &(*state)[offset + n + n * n + 1], &(*state)[offset + n + n * n + 2]);
+        }
+        [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const Vector_<T_>& state, size_t offset) const {
+            const size_t n = rates_->NumFactors();
+            return rates_->ObserveHJMFlat(sample, slot, &state[offset], &state[offset + n]);
+        }
+        [[nodiscard]] T_ HybridLogNumeraire(const Vector_<T_>& state, size_t offset) const {
+            const size_t n = rates_->NumFactors();
+            return state[offset + n + n * n + 2];
+        }
         void Allocate(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
             this->ValidateTimeline(timeline, definitions);
             timeline_ = timeline;
@@ -300,7 +345,7 @@ namespace Dal::AAD {
             steps_.clear();
             sampleEnds_.clear();
             for (size_t i = 1; i < grid_.size(); ++i)
-                steps_.push_back(PrepareStep(grid_[i - 1], grid_[i]));
+                steps_.push_back(PrepareStep(grid_[i - 1], grid_[i], standaloneCorrelations_));
             for (double time : timeline)
                 sampleEnds_.push_back(static_cast<size_t>(std::lower_bound(grid_.begin(), grid_.end(), time) - grid_.begin()));
         }

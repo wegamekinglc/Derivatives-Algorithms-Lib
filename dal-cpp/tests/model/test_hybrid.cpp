@@ -563,3 +563,188 @@ TEST(ModelTest, TestHybridClonesAreDeterministicAcrossThreads) {
     auto future = std::async(std::launch::async, run, clone.get());
     ASSERT_DOUBLE_EQ(run(original.get()), future.get());
 }
+
+namespace {
+    Handle_<GSRCurveData_> HybridRateCurve() {
+        const Date_ today(2026, 10, 2);
+        return Handle_<GSRCurveData_>(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365), today.AddDays(730), today.AddDays(1095)},
+                                                        {0.0, -0.03, -0.06, -0.09}, {}, Matrix_<>(0, 0)));
+    }
+
+    Handle_<MultiFactorGSRVolData_> HybridRateVol(double levelSlopeCorrelation) {
+        const Date_ today(2026, 10, 2);
+        Matrix_<> g(2, 1), h(2, 1), correlation(2, 2, levelSlopeCorrelation);
+        g(0, 0) = 0.02;
+        g(1, 0) = 0.01;
+        h(0, 0) = 1.0;
+        h(1, 0) = 0.4;
+        correlation(0, 0) = correlation(1, 1) = 1.0;
+        return Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", {"level", "slope"}, {today}, g, {today}, h, correlation));
+    }
+
+    HybridSettings_ MultiFactorRateSettings(double levelSlopeCorrelation) {
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(
+                                    new HybridGSRRateData_("rate", {"W_LEVEL", "W_SLOPE"}, HybridRateCurve(), HybridRateVol(levelSlopeCorrelation))),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[AAA]", "USD", "W_EQ", 100.0, 0.2, 0.01))};
+        Matrix_<> correlations(3, 3, 0.0);
+        correlations(0, 0) = correlations(1, 1) = correlations(2, 2) = 1.0;
+        correlations(1, 2) = correlations(2, 1) = levelSlopeCorrelation;
+        settings.correlation_ =
+            Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", {"W_EQ", "W_LEVEL", "W_SLOPE"}, correlations));
+        return settings;
+    }
+} // namespace
+
+TEST(ModelTest, TestHybridMultiFactorGSRRateMatchesStandalonePath) {
+    auto standalone = CreateModel<double>(Handle_<ModelData_>(new MultiFactorGSRModelData_("rates", HybridRateCurve(), HybridRateVol(0.3))));
+    auto hybrid = CreateModel<double>(HybridData(MultiFactorRateSettings(0.3)));
+    ASSERT_EQ(hybrid->NumFactors(), 3U);
+    const Date_ maturity(2028, 10, 2);
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> rateDefinitions(2), hybridDefinitions(2);
+    for (auto& definition : rateDefinitions)
+        definition.indexNames_ = {"IR[USD,DF," + Date::ToString(maturity) + "]"};
+    for (auto& definition : hybridDefinitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"IR[USD,DF," + Date::ToString(maturity) + "]"};
+    }
+    standalone->Allocate(timeline, rateDefinitions);
+    standalone->Init(timeline, rateDefinitions);
+    hybrid->Allocate(timeline, hybridDefinitions);
+    hybrid->Init(timeline, hybridDefinitions);
+    AAD::Scenario_<> ratePath, hybridPath;
+    AAD::AllocatePath(rateDefinitions, ratePath);
+    AAD::AllocatePath(hybridDefinitions, hybridPath);
+    // Hybrid steps consume [W_EQ, W_LEVEL, W_SLOPE] in registry order; with zero equity-rate
+    // correlation the correlated rate factors equal the standalone raw Gaussians pathwise.
+    const Vector_<> rateGaussian{0.4, -0.7, 0.2, 0.3};
+    const Vector_<> hybridGaussian{0.5, 0.4, -0.7, 0.5, 0.2, 0.3};
+    standalone->GeneratePath(rateGaussian, &ratePath);
+    hybrid->GeneratePath(hybridGaussian, &hybridPath);
+    for (size_t sample = 0; sample < timeline.size(); ++sample) {
+        ASSERT_NEAR(hybridPath[sample].numeraire_, ratePath[sample].numeraire_, 1e-12);
+        ASSERT_NEAR(hybridPath[sample].observations_[0], ratePath[sample].observations_[0], 1e-12);
+    }
+}
+
+TEST(ModelTest, TestHybridMultiFactorGSRRequiresMatchingFactorCorrelations) {
+    auto settings = MultiFactorRateSettings(0.3);
+    Matrix_<> correlations(3, 3, 0.0);
+    correlations(0, 0) = correlations(1, 1) = correlations(2, 2) = 1.0;
+    settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", {"W_EQ", "W_LEVEL", "W_SLOPE"}, correlations));
+    auto hybrid = CreateModel<double>(HybridData(settings));
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"EQ[AAA]"};
+    hybrid->Allocate(timeline, definitions);
+    ASSERT_THROW(hybrid->Init(timeline, definitions), Exception_);
+}
+
+TEST(ModelTest, TestHybridMultiFactorGSRArchiveRoundTrip) {
+    const auto settings = MultiFactorRateSettings(0.3);
+    const auto original = Handle_<HybridModelData_>(new HybridModelData_("hybrid", settings));
+    const auto restored = handle_cast<HybridModelData_>(JSON::ReadString(JSON::WriteString(*original), false));
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->parameterLabels_, original->parameterLabels_);
+    auto model = CreateModel<double>(Handle_<ModelData_>(restored));
+    ASSERT_EQ(model->NumFactors(), 3U);
+    ASSERT_EQ(model->ParameterLabels(), CreateModel<double>(Handle_<ModelData_>(original))->ParameterLabels());
+    const auto* rateData = dynamic_cast<const HybridGSRRateData_*>(restored->components_[0].get());
+    ASSERT_TRUE(rateData && rateData->multiVol_);
+    ASSERT_EQ(rateData->FactorNames(), (Vector_<String_>{"W_LEVEL", "W_SLOPE"}));
+    ASSERT_EQ(rateData->multiVol_->factorNames_, (Vector_<String_>{"level", "slope"}));
+}
+
+namespace {
+    Handle_<GSRSLVModelData_> HybridSLVData() {
+        const Date_ today(2026, 10, 2);
+        const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(3650)}, {0.0, -0.3}, {}, Matrix_<>(0, 0)));
+        MultiFactorGSRVolSettings_ vol;
+        vol.factorNames_ = {"B_RATE"};
+        vol.gKnotDates_ = vol.hKnotDates_ = {today};
+        vol.gValues_ = Matrix_<>(1, 1, 0.02);
+        vol.hValues_ = Matrix_<>(1, 1, 1.0);
+        vol.correlations_ = Matrix_<>(1, 1, 1.0);
+        const Handle_<MultiFactorGSRModelData_> gaussian(
+            new MultiFactorGSRModelData_("gaussian", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", vol))));
+        const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {0.0}, {0.0}, Matrix_<>(1, 1, 1.0)));
+        GSRSLVSettings_ settings;
+        settings.kappa_ = 1.0;
+        settings.volOfVol_ = 0.5;
+        settings.varianceCorrelations_ = {0.3};
+        settings.maxStep_ = 1.5;
+        return Handle_<GSRSLVModelData_>(new GSRSLVModelData_("smile", gaussian, leverage, settings));
+    }
+
+    HybridSettings_ SLVRateSettings(double rateVolCorrelation) {
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "C_VOL", "D_BRIDGE", HybridSLVData())),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[AAA]", "USD", "A_EQ", 100.0, 0.2, 0.01))};
+        const Vector_<String_> names{"A_EQ", "B_RATE", "C_VOL", "D_BRIDGE"};
+        Matrix_<> correlations(4, 4, 0.0);
+        for (int i = 0; i < 4; ++i)
+            correlations(i, i) = 1.0;
+        correlations(1, 2) = correlations(2, 1) = rateVolCorrelation;
+        settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", names, correlations));
+        return settings;
+    }
+} // namespace
+
+TEST(ModelTest, TestHybridGSRSLVRateMatchesStandalonePath) {
+    AAD::GSRSLV_<> standalone(*HybridSLVData());
+    auto hybrid = CreateModel<double>(HybridData(SLVRateSettings(0.3)));
+    ASSERT_EQ(hybrid->NumFactors(), 4U);
+    const Date_ maturity(2028, 10, 2);
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"IR[USD,DF," + Date::ToString(maturity) + "]"};
+    }
+    standalone.Allocate(timeline, definitions);
+    standalone.Init(timeline, definitions);
+    hybrid->Allocate(timeline, definitions);
+    hybrid->Init(timeline, definitions);
+    ASSERT_EQ(standalone.SimDim(), 6U);
+    ASSERT_EQ(hybrid->SimDim(), 8U);
+    AAD::Scenario_<> standalonePath, hybridPath;
+    AAD::AllocatePath(definitions, standalonePath);
+    AAD::AllocatePath(definitions, hybridPath);
+    // The SLV integration grid is {0, 1, 2} in both models: no interior knots and maxStep covers
+    // each span. With the equity factor uncorrelated, the hybrid named factors carry the same
+    // correlated rate and variance drivers as the standalone Cholesky, so paths agree exactly.
+    const Vector_<> standaloneGaussian{0.4, 0.2, 0.7, -0.3, 0.5, 0.1};
+    const Vector_<> hybridGaussian{0.6, 0.4, 0.2, 0.7, -0.2, -0.3, 0.5, 0.1};
+    standalone.GeneratePath(standaloneGaussian, &standalonePath);
+    hybrid->GeneratePath(hybridGaussian, &hybridPath);
+    for (size_t sample = 0; sample < timeline.size(); ++sample) {
+        ASSERT_NEAR(hybridPath[sample].numeraire_, standalonePath[sample].numeraire_, 1e-12);
+        ASSERT_NEAR(hybridPath[sample].observations_[0], standalonePath[sample].observations_[0], 1e-12);
+    }
+}
+
+TEST(ModelTest, TestHybridGSRSLVRateRequiresMatchingDriverCorrelations) {
+    auto hybrid = CreateModel<double>(HybridData(SLVRateSettings(0.0)));
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"EQ[AAA]"};
+    hybrid->Allocate(timeline, definitions);
+    ASSERT_THROW(hybrid->Init(timeline, definitions), Exception_);
+}
+
+TEST(ModelTest, TestHybridGSRSLVRateArchiveRoundTrip) {
+    const auto settings = SLVRateSettings(0.3);
+    const auto original = Handle_<HybridModelData_>(new HybridModelData_("hybrid", settings));
+    const auto restored = handle_cast<HybridModelData_>(JSON::ReadString(JSON::WriteString(*original), false));
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->parameterLabels_, original->parameterLabels_);
+    auto model = CreateModel<double>(Handle_<ModelData_>(restored));
+    ASSERT_EQ(model->NumFactors(), 4U);
+    ASSERT_EQ(model->ParameterLabels(), CreateModel<double>(Handle_<ModelData_>(original))->ParameterLabels());
+    ASSERT_NE(std::find(model->ParameterLabels().begin(), model->ParameterLabels().end(), String_("kappa")), model->ParameterLabels().end());
+}

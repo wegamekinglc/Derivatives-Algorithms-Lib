@@ -31,6 +31,8 @@ namespace Dal::AAD {
             Vector_<T_> discountNormals_;
             T_ a_ = T_(0.0);
             bool advances_ = false;
+            Matrix_<T_> hybridLower_;
+            Vector_<T_> hybridNormals_;
         };
 
         struct Bond_ {
@@ -71,6 +73,8 @@ namespace Dal::AAD {
         Vector_<> hTimes_;
         Vector_<String_> factorNames_;
         Matrix_<> correlations_;
+        Matrix_<> factorLower_;
+        Matrix_<> factorLowerInverse_;
         Vector_<Vector_<T_>> gValues_;
         Vector_<Vector_<T_>> hValues_;
         bool legacy_ = false;
@@ -133,6 +137,21 @@ namespace Dal::AAD {
                 for (int j = 0; j < matrix.Cols(); ++j)
                     result += vector[i] * matrix(i, j) * vector[j];
             return result;
+        }
+
+        [[nodiscard]] static Matrix_<> LowerInverse(const Matrix_<>& lower) {
+            const int n = lower.Rows();
+            Matrix_<> inverse(n, n, 0.0);
+            for (int col = 0; col < n; ++col) {
+                inverse(col, col) = 1.0 / lower(col, col);
+                for (int row = col + 1; row < n; ++row) {
+                    double value = 0.0;
+                    for (int k = col; k < row; ++k)
+                        value -= lower(row, k) * inverse(k, col);
+                    inverse(row, col) = value / lower(row, row);
+                }
+            }
+            return inverse;
         }
 
         [[nodiscard]] Vector_<> IntervalKnots(double from, double to) const {
@@ -312,6 +331,26 @@ namespace Dal::AAD {
             step->a_ -= 0.5 * Quadratic(step->loading_, StateVariance(0.0, previous));
             step->a_ -= 0.5 * Dot(step->discountNormals_, step->discountNormals_);
             step->advances_ = true;
+            if (NumFactors() > 1) {
+                // Hybrid stepping receives globally correlated factors, so the kernel applies R = L S
+                // (S inverts the factor Cholesky) and q = S^T d instead of its own Cholesky L and d.
+                const int n = static_cast<int>(NumFactors());
+                step->hybridLower_ = Matrix_<T_>(n, n, T_(0.0));
+                for (int i = 0; i < n; ++i)
+                    for (int j = 0; j < n; ++j) {
+                        T_ value(0.0);
+                        for (int k = j; k <= i; ++k)
+                            value += step->lower_(i, k) * T_(factorLowerInverse_(k, j));
+                        step->hybridLower_(i, j) = value;
+                    }
+                step->hybridNormals_.Resize(n);
+                for (int j = 0; j < n; ++j) {
+                    T_ value(0.0);
+                    for (int i = j; i < n; ++i)
+                        value += T_(factorLowerInverse_(i, j)) * step->discountNormals_[i];
+                    step->hybridNormals_[j] = value;
+                }
+            }
         }
 
         void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
@@ -372,6 +411,8 @@ namespace Dal::AAD {
              bool legacy)
             : evaluationDate_(curve.evaluationDate_), currency_(curve.currency_), nodeDates_(curve.nodeDates_),
               projectionTenors_(curve.projectionTenors_), factorNames_(factorNames), correlations_(correlations), legacy_(legacy) {
+            factorLower_ = CovarianceFactor(correlations_);
+            factorLowerInverse_ = LowerInverse(factorLower_);
             Vector_<> curveTimes;
             for (const auto& date : nodeDates_)
                 curveTimes.push_back((date - evaluationDate_) / DAYS_PER_YEAR);
@@ -440,8 +481,20 @@ namespace Dal::AAD {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size() && state.size() == NumFactors() &&
                         covariance.Rows() == static_cast<int>(NumFactors()) && covariance.Cols() == static_cast<int>(NumFactors()),
                     "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
+            return ObserveHJMFlat(sample, slot, &state[0], &covariance(0, 0));
+        }
+        [[nodiscard]] T_ ObserveHJMFlat(size_t sample, size_t slot, const T_* state, const T_* covariance) const {
+            REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
+                    "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
+            const size_t n = NumFactors();
             return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
-                return Dal::exp(bond.intercept_ - Dot(bond.loading_, state) - 0.5 * Quadratic(bond.loading_, covariance));
+                T_ exponent = bond.intercept_;
+                for (size_t i = 0; i < bond.loading_.size(); ++i)
+                    exponent -= bond.loading_[i] * state[i];
+                for (size_t i = 0; i < n; ++i)
+                    for (size_t j = 0; j < n; ++j)
+                        exponent -= 0.5 * covariance[i * n + j] * bond.loading_[i] * bond.loading_[j];
+                return Dal::exp(exponent);
             });
         }
         void ResetAnchorsForRecording() {
@@ -451,16 +504,27 @@ namespace Dal::AAD {
                     projection[0] = T_(0.0);
             }
         }
-        void AdvanceHybrid(size_t sample, double gaussian, T_* state, T_* logNumeraire) const {
-            REQUIRE(NumFactors() == 1, "InvalidGSRPath: scalar hybrid stepping requires one factor");
+        [[nodiscard]] const Matrix_<>& FactorCorrelations() const { return correlations_; }
+        void AdvanceHybrid(size_t sample, const Vector_<>& factors, const Vector_<size_t>& factorSlots, T_* state, T_* logNumeraire) const {
             REQUIRE(sample < steps_.size() && steps_[sample].advances_, "InvalidGSRPath: hybrid step was not prepared");
-            AdvancePath(steps_[sample], &gaussian, state, logNumeraire);
+            REQUIRE(factorSlots.size() == NumFactors() && factors.size() >= NumFactors(), "InvalidGSRPath: hybrid factor layout mismatch");
+            const Step_& step = steps_[sample];
+            if (NumFactors() == 1) {
+                AdvancePath(step, &factors[factorSlots[0]], state, logNumeraire);
+                return;
+            }
+            T_ logDiscount = step.a_;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                logDiscount -= step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+            *logNumeraire -= logDiscount;
+            for (size_t i = 0; i < NumFactors(); ++i)
+                for (size_t j = 0; j <= i; ++j)
+                    state[i] += step.hybridLower_(static_cast<int>(i), static_cast<int>(j)) * factors[factorSlots[j]];
         }
-        [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_& state) const {
+        [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_* state) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: hybrid observation was not prepared");
-            REQUIRE(NumFactors() == 1, "InvalidGSRPath: scalar hybrid observation requires one factor");
-            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return Bond(bond, &state); });
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return Bond(bond, state); });
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }

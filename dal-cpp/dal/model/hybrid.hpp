@@ -124,6 +124,9 @@ namespace Dal {
             [[nodiscard]] virtual std::optional<Date_> EvaluationDate() const { return std::nullopt; }
             [[nodiscard]] virtual bool SupportsIndex(const Index_&) const { return false; }
             [[nodiscard]] virtual double MaxStep() const { return std::numeric_limits<double>::infinity(); }
+            // Euler-type kernels need their piecewise breakpoints on the shared timeline; exact
+            // integration kernels (plain GSR) integrate interior breakpoints inside each step.
+            [[nodiscard]] virtual Vector_<> TimelineKnots() const { return {}; }
             virtual void BeginAllocate(const Vector_<>&) {}
             virtual size_t RegisterObservation(size_t, const String_&) { THROW("InvalidHybridObservation: component cannot register indices"); }
             [[nodiscard]] virtual T_ DomesticRate() const { THROW("InvalidHybridNumeraire: component does not provide a rate"); }
@@ -131,6 +134,7 @@ namespace Dal {
             [[nodiscard]] virtual T_ LogDiscount(double time) const { return -DomesticRate() * time; }
             [[nodiscard]] virtual T_ PathLogNumeraire(double time, const Vector_<T_>&, size_t) const { return -LogDiscount(time); }
             virtual void BeginInit() {}
+            virtual void PrepareCorrelation(const Matrix_<>& factorCorrelations) { static_cast<void>(factorCorrelations); }
             virtual void Prepare(const Vector_<>& timeline, const Vector_<T_>& integratedCarry) = 0;
             virtual void ResetState(Vector_<T_>* state, size_t offset) const = 0;
             virtual void Evolve(size_t step,
@@ -305,15 +309,18 @@ namespace Dal {
 
         public:
             explicit HybridGSRRate_(const HybridGSRRateData_& data)
-                : name_(data.Name()), currency_(data.currency_), factors_({data.factor_}),
-                  model_(std::make_unique<GSR_<T_>>(GSRModelData_(data.Name(), data.curve_, data.vol_))) {}
+                : name_(data.Name()), currency_(data.currency_), factors_(data.FactorNames()),
+                  model_(data.multiVol_ ? std::make_unique<GSR_<T_>>(MultiFactorGSRModelData_(data.Name(), data.curve_, data.multiVol_))
+                                        : std::make_unique<GSR_<T_>>(GSRModelData_(data.Name(), data.curve_, data.vol_))) {
+                REQUIRE(model_->NumFactors() == factors_.size(), "InvalidHybridFactor: factor labels must match the Gaussian kernel");
+            }
             HybridGSRRate_(const HybridGSRRate_& other)
                 : name_(other.name_), currency_(other.currency_), factors_(other.factors_), observables_(other.observables_),
                   definitions_(other.definitions_), model_(static_cast<GSR_<T_>*>(other.model_->Clone().release())) {}
             [[nodiscard]] const String_& Name() const override { return name_; }
             [[nodiscard]] const String_& Currency() const override { return currency_; }
-            [[nodiscard]] size_t StateDim() const override { return 2; }
-            [[nodiscard]] size_t FactorDim() const override { return 1; }
+            [[nodiscard]] size_t StateDim() const override { return model_->NumFactors() + 1; }
+            [[nodiscard]] size_t FactorDim() const override { return model_->NumFactors(); }
             [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
             [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return model_->Parameters(); }
@@ -326,7 +333,9 @@ namespace Dal {
             [[nodiscard]] std::optional<Date_> EvaluationDate() const override { return model_->EvaluationDate(); }
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return model_->SupportsIndex(index); }
             [[nodiscard]] T_ LogDiscount(double time) const override { return model_->InitialLogDiscount(time); }
-            [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override { return state[offset + 1]; }
+            [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override {
+                return state[offset + model_->NumFactors()];
+            }
             void BeginInit() override { model_->ResetAnchorsForRecording(); }
             void BeginAllocate(const Vector_<>& timeline) override {
                 definitions_.Resize(timeline.size());
@@ -341,22 +350,132 @@ namespace Dal {
                 names.push_back(name);
                 return names.size() - 1;
             }
+            void PrepareCorrelation(const Matrix_<>& factorCorrelations) override {
+                REQUIRE(factorCorrelations.Rows() == static_cast<int>(FactorDim()) && factorCorrelations.Cols() == static_cast<int>(FactorDim()),
+                        "InvalidHybridCorrelation: correlation block must match the Gaussian factors");
+                const auto& kernel = model_->FactorCorrelations();
+                for (int i = 0; i < factorCorrelations.Rows(); ++i)
+                    for (int j = 0; j < factorCorrelations.Cols(); ++j)
+                        REQUIRE(std::abs(factorCorrelations(i, j) - kernel(i, j)) <= 1e-10,
+                                "InvalidHybridCorrelation: hybrid factor correlations must match the Gaussian kernel");
+            }
             void Prepare(const Vector_<>& timeline, const Vector_<T_>&) override {
                 model_->Allocate(timeline, definitions_);
                 model_->Init(timeline, definitions_);
             }
             void ResetState(Vector_<T_>* state, size_t offset) const override {
-                (*state)[offset] = T_(0.0);
-                (*state)[offset + 1] = T_(0.0);
+                for (size_t i = 0; i <= model_->NumFactors(); ++i)
+                    (*state)[offset + i] = T_(0.0);
             }
             void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
                 const override {
-                model_->AdvanceHybrid(step + 1, factors[factorSlots[0]], &(*state)[stateOffset], &(*state)[stateOffset + 1]);
+                model_->AdvanceHybrid(step + 1, factors, factorSlots, &(*state)[stateOffset], &(*state)[stateOffset + model_->NumFactors()]);
             }
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
-                return model_->ObserveHybrid(sample, slot, state[stateOffset]);
+                return model_->ObserveHybrid(sample, slot, &state[stateOffset]);
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRRate_<T_>>(*this); }
+        };
+
+        template <class T_> class HybridGSRSLVRate_ final : public HybridComponent_<T_> {
+            String_ name_;
+            String_ currency_;
+            Vector_<String_> factors_;
+            Vector_<String_> observables_;
+            Vector_<SampleDef_> definitions_;
+            Vector_<> timelineKnots_;
+            Matrix_<> driverCorrelations_;
+            Matrix_<> rateCorrelations_;
+            std::unique_ptr<GSRSLV_<T_>> model_;
+
+            static Vector_<> Knots(const GSRSLVModelData_& data) {
+                const auto& curve = *data.gaussian_->curve_;
+                Vector_<> knots;
+                const auto dayRounded = [&](double time) {
+                    const double days = std::llround(time * DAYS_PER_YEAR);
+                    return days / DAYS_PER_YEAR;
+                };
+                for (const auto& date : data.gaussian_->vol_->gKnotDates_)
+                    knots.push_back(dayRounded((date - curve.evaluationDate_) / DAYS_PER_YEAR));
+                for (const auto& date : data.gaussian_->vol_->hKnotDates_)
+                    knots.push_back(dayRounded((date - curve.evaluationDate_) / DAYS_PER_YEAR));
+                for (const double time : data.leverage_->times_)
+                    knots.push_back(dayRounded(time));
+                std::sort(knots.begin(), knots.end());
+                knots.erase(std::unique(knots.begin(), knots.end()), knots.end());
+                return knots;
+            }
+
+        public:
+            explicit HybridGSRSLVRate_(const HybridGSRSLVRateData_& data)
+                : name_(data.Name()), currency_(data.currency_), factors_(data.FactorNames()), timelineKnots_(Knots(*data.model_)),
+                  driverCorrelations_(data.model_->DriverCorrelation()), model_(std::make_unique<GSRSLV_<T_>>(*data.model_)) {
+                REQUIRE(model_->NumFactors() == factors_.size(), "InvalidHybridFactor: factor labels must match the SLV kernel drivers");
+                rateCorrelations_ = Matrix_<>(model_->NumFactors() - 2, model_->NumFactors() - 2, 0.0);
+                for (int i = 0; i < rateCorrelations_.Rows(); ++i)
+                    for (int j = 0; j < rateCorrelations_.Cols(); ++j)
+                        rateCorrelations_(i, j) = driverCorrelations_(i, j);
+            }
+            HybridGSRSLVRate_(const HybridGSRSLVRate_& other)
+                : name_(other.name_), currency_(other.currency_), factors_(other.factors_), observables_(other.observables_),
+                  definitions_(other.definitions_), timelineKnots_(other.timelineKnots_), driverCorrelations_(other.driverCorrelations_),
+                  rateCorrelations_(other.rateCorrelations_), model_(other.model_->CloneSLVKernel()) {}
+            [[nodiscard]] const String_& Name() const override { return name_; }
+            [[nodiscard]] const String_& Currency() const override { return currency_; }
+            [[nodiscard]] size_t StateDim() const override { return model_->HybridStateDim(); }
+            [[nodiscard]] size_t FactorDim() const override { return factors_.size(); }
+            [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
+            [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
+            [[nodiscard]] const Vector_<T_*>& Parameters() const override { return model_->Parameters(); }
+            [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return model_->ParameterLabels(); }
+            [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
+                return model_->ValidParameterValue(parameter, value);
+            }
+            [[nodiscard]] bool ProvidesNumeraire() const override { return true; }
+            [[nodiscard]] bool NumeraireIsDeterministic() const override { return model_->NumeraireIsDeterministic(); }
+            [[nodiscard]] std::optional<Date_> EvaluationDate() const override { return model_->EvaluationDate(); }
+            [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return model_->SupportsIndex(index); }
+            [[nodiscard]] double MaxStep() const override { return model_->MaxStep(); }
+            [[nodiscard]] Vector_<> TimelineKnots() const override { return timelineKnots_; }
+            [[nodiscard]] T_ LogDiscount(double time) const override { return model_->InitialLogDiscount(time); }
+            [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override {
+                return model_->HybridLogNumeraire(state, offset);
+            }
+            void BeginAllocate(const Vector_<>& timeline) override {
+                definitions_.Resize(timeline.size());
+                for (auto& definition : definitions_) {
+                    definition.indexNames_.clear();
+                    definition.numeraire_ = true;
+                }
+            }
+            size_t RegisterObservation(size_t sample, const String_& name) override {
+                REQUIRE(sample < definitions_.size(), "InvalidHybridObservation: rate sample index is outside the timeline");
+                auto& names = definitions_[sample].indexNames_;
+                names.push_back(name);
+                return names.size() - 1;
+            }
+            void PrepareCorrelation(const Matrix_<>& factorCorrelations) override {
+                const int total = static_cast<int>(FactorDim());
+                REQUIRE(factorCorrelations.Rows() == total && factorCorrelations.Cols() == total,
+                        "InvalidHybridCorrelation: correlation block must match the SLV drivers");
+                const int drivers = driverCorrelations_.Rows();
+                for (int i = 0; i < total; ++i)
+                    for (int j = 0; j < total; ++j) {
+                        const double expected = i < drivers && j < drivers ? driverCorrelations_(i, j) : (i == j ? 1.0 : 0.0);
+                        REQUIRE(std::abs(factorCorrelations(i, j) - expected) <= 1e-10,
+                                "InvalidHybridCorrelation: hybrid factor correlations must match the SLV kernel");
+                    }
+            }
+            void Prepare(const Vector_<>& timeline, const Vector_<T_>&) override { model_->PrepareHybrid(timeline, definitions_, rateCorrelations_); }
+            void ResetState(Vector_<T_>* state, size_t offset) const override { model_->ResetHybridState(state, offset); }
+            void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
+                const override {
+                model_->EvolveHybrid(step, factors, factorSlots, state, stateOffset);
+            }
+            [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
+                return model_->ObserveHybrid(sample, slot, state, stateOffset);
+            }
+            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRSLVRate_<T_>>(*this); }
         };
 
         template <class T_> class HybridDeterministicRate_ final : public HybridComponent_<T_> {
@@ -567,6 +686,31 @@ namespace Dal {
                 }
             }
 
+            // Reconstruct each component's correlation block from the global Cholesky factor so
+            // multi-factor kernels can validate and consume their intra-factor correlations.
+            void DeliverFactorCorrelations() {
+                const auto& lower = correlation_->LowerAt(0);
+                const int total = static_cast<int>(factorNames_.size());
+                Matrix_<> full(total, total, 0.0);
+                for (int i = 0; i < total; ++i)
+                    for (int j = 0; j < total; ++j) {
+                        double value = 0.0;
+                        for (int k = 0; k <= std::min(i, j); ++k)
+                            value += lower(i, k) * lower(j, k);
+                        full(i, j) = value;
+                    }
+                for (size_t i = 0; i < components_.size(); ++i) {
+                    const auto& slots = factorSlots_[i];
+                    if (slots.empty())
+                        continue;
+                    Matrix_<> block(static_cast<int>(slots.size()), static_cast<int>(slots.size()), 0.0);
+                    for (size_t a = 0; a < slots.size(); ++a)
+                        for (size_t b = 0; b < slots.size(); ++b)
+                            block(static_cast<int>(a), static_cast<int>(b)) = full(static_cast<int>(slots[a]), static_cast<int>(slots[b]));
+                    components_[i]->PrepareCorrelation(block);
+                }
+            }
+
             [[nodiscard]] OutputSlot_ FindOutput(size_t gridIndex, const String_& name) {
                 const Handle_<Index_> index(Index::Parse(name));
                 REQUIRE(index, "UnsupportedModelObservation: " + name);
@@ -691,8 +835,16 @@ namespace Dal {
                 double maxStep = std::numeric_limits<double>::infinity();
                 for (const auto& component : components_)
                     maxStep = std::min(maxStep, component->MaxStep());
-                for (size_t sample = 0; sample < productTimeLine.size(); ++sample) {
-                    const double time = productTimeLine[sample];
+                Vector_<> anchors(productTimeLine_);
+                if (productTimeLine.size() > 1)
+                    for (const auto& component : components_)
+                        for (const double knot : component->TimelineKnots())
+                            if (std::isfinite(knot) && knot > 0.0 && knot < productTimeLine.back())
+                                anchors.push_back(knot);
+                std::sort(anchors.begin(), anchors.end());
+                anchors.erase(std::unique(anchors.begin(), anchors.end()), anchors.end());
+                size_t productSample = 0;
+                for (const double time : anchors) {
                     if (time > timeLine_.back()) {
                         const double from = timeLine_.back();
                         if (std::isfinite(maxStep)) {
@@ -715,8 +867,12 @@ namespace Dal {
                         }
                         timeLine_.push_back(time);
                     }
-                    productGridIndices_[sample] = timeLine_.size() - 1;
+                    while (productSample < productTimeLine.size() && productTimeLine[productSample] == time) {
+                        productGridIndices_[productSample] = timeLine_.size() - 1;
+                        ++productSample;
+                    }
                 }
+                REQUIRE(productSample == productTimeLine.size(), "InvalidHybridTimeline: not every product sample reached the grid");
                 todayOnTimeLine_ = productTimeLine[0] == 0.0;
                 for (auto& component : components_)
                     component->BeginAllocate(timeLine_);
@@ -732,6 +888,7 @@ namespace Dal {
                 REQUIRE(defLine_ == &defLine && productTimeLine == productTimeLine_, "InvalidHybridTimeline: call Allocate before Init");
                 for (auto& component : components_)
                     component->BeginInit();
+                DeliverFactorCorrelations();
                 Vector_<T_> logDiscounts(timeLine_.size());
                 for (size_t i = 0; i < timeLine_.size(); ++i) {
                     logDiscounts[i] = components_[rateSlot_]->LogDiscount(timeLine_[i]);
@@ -781,6 +938,8 @@ namespace Dal {
                 return std::make_unique<HybridLocalVolEquity_<T_>>(*equity);
             if (const auto* rate = dynamic_cast<const HybridGSRRateData_*>(&data))
                 return std::make_unique<HybridGSRRate_<T_>>(*rate);
+            if (const auto* slvRate = dynamic_cast<const HybridGSRSLVRateData_*>(&data))
+                return std::make_unique<HybridGSRSLVRate_<T_>>(*slvRate);
             if (const auto* rate = dynamic_cast<const HybridDeterministicRateData_*>(&data))
                 return std::make_unique<HybridDeterministicRate_<T_>>(*rate);
             if (const auto* curve = dynamic_cast<const HybridLogDfRateData_*>(&data))

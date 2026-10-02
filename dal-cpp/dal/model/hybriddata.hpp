@@ -10,6 +10,8 @@
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/gsrdata.hpp>
+#include <dal/model/gsrmultidata.hpp>
+#include <dal/model/gsrslvdata.hpp>
 #include <dal/model/surface/lvmodel.hpp>
 #include <dal/storage/archive.hpp>
 
@@ -48,9 +50,10 @@ storable HybridGSRRateData
 version 1
 &members
 name is ?string
-factor is string
+factors is string[]
 curve is handle GSRCurveData
-vol is handle GSRVolData
+vol is ?handle GSRVolData
+multiVol is ?handle MultiFactorGSRVolData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -73,6 +76,17 @@ currency is string
 times is number[]
 logDF is number[]
 scheme is string
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+storable HybridGSRSLVRateData
+    Stochastic local volatility domestic rate component of a hybrid model
+version 1
+&members
+name is ?string
+volFactor is string
+bridgeFactor is string
+model is handle GSRSLVModelData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -163,16 +177,40 @@ namespace Dal {
     };
 
     struct HybridGSRRateData_ : HybridComponentData_ {
-        String_ factor_;
+        Vector_<String_> factors_;
         Handle_<GSRCurveData_> curve_;
         Handle_<GSRVolData_> vol_;
+        Handle_<MultiFactorGSRVolData_> multiVol_;
 
-        HybridGSRRateData_(const String_& name, const String_& factor, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol)
-            : HybridComponentData_("HybridGSRRateData_", name, curve ? curve->currency_ : String_()), factor_(factor), curve_(curve), vol_(vol) {
-            REQUIRE(!name_.empty() && !factor_.empty() && curve_ && vol_,
-                    "InvalidHybridComponent: GSR rate name, factor, curve, and volatility are required");
-            static_cast<void>(GSRModelData_(name, curve_, vol_));
+        HybridGSRRateData_(const String_& name,
+                           const Vector_<String_>& factors,
+                           const Handle_<GSRCurveData_>& curve,
+                           const Handle_<GSRVolData_>& vol,
+                           const Handle_<MultiFactorGSRVolData_>& multiVol)
+            : HybridComponentData_("HybridGSRRateData_", name, curve ? curve->currency_ : String_()), factors_(factors), curve_(curve), vol_(vol),
+              multiVol_(multiVol) {
+            REQUIRE(!name_.empty() && curve_, "InvalidHybridComponent: GSR rate name and curve are required");
+            REQUIRE((vol_ != nullptr) != (multiVol_ != nullptr), "InvalidHybridComponent: exactly one of vol and multiVol is required");
+            if (multiVol_) {
+                if (factors_.empty())
+                    factors_ = multiVol_->factorNames_;
+                REQUIRE(factors_.size() == multiVol_->factorNames_.size() &&
+                            std::all_of(factors_.begin(), factors_.end(), [](const String_& factor) { return !factor.empty(); }),
+                        "InvalidHybridComponent: one nonempty hybrid factor name per Gaussian factor is required");
+                static_cast<void>(MultiFactorGSRModelData_(name, curve_, multiVol_));
+            } else {
+                REQUIRE(factors_.size() == 1 && !factors_.front().empty(), "InvalidHybridComponent: one nonempty hybrid factor name is required");
+                static_cast<void>(GSRModelData_(name, curve_, vol_));
+            }
         }
+        HybridGSRRateData_(const String_& name, const String_& factor, const Handle_<GSRCurveData_>& curve, const Handle_<GSRVolData_>& vol)
+            : HybridGSRRateData_(name, Vector_<String_>{factor}, curve, vol, Handle_<MultiFactorGSRVolData_>()) {}
+        HybridGSRRateData_(const String_& name,
+                           const Vector_<String_>& factors,
+                           const Handle_<GSRCurveData_>& curve,
+                           const Handle_<MultiFactorGSRVolData_>& multiVol)
+            : HybridGSRRateData_(name, factors, curve, Handle_<GSRVolData_>(), multiVol) {}
+        [[nodiscard]] size_t NumFactors() const { return multiVol_ ? multiVol_->factorNames_.size() : size_t(1); }
         [[nodiscard]] Vector_<String_> RiskLabels() const override {
             Vector_<String_> labels;
             for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
@@ -180,14 +218,42 @@ namespace Dal {
             for (size_t row = 0; row < curve_->projectionTenors_.size(); ++row)
                 for (size_t i = 1; i < curve_->nodeDates_.size(); ++i)
                     labels.push_back("logdf:" + curve_->projectionTenors_[row] + ":" + Date::ToString(curve_->nodeDates_[i]));
-            for (const auto& date : vol_->gKnotDates_)
-                labels.push_back("g:" + Date::ToString(date));
-            for (const auto& date : vol_->hKnotDates_)
-                labels.push_back("H:" + Date::ToString(date));
+            const auto prefix = [&](size_t factor) { return multiVol_ ? multiVol_->factorNames_[factor] + ":" : String_(); };
+            for (size_t factor = 0; factor < NumFactors(); ++factor)
+                for (const auto& date : multiVol_ ? multiVol_->gKnotDates_ : vol_->gKnotDates_)
+                    labels.push_back("g:" + prefix(factor) + Date::ToString(date));
+            for (size_t factor = 0; factor < NumFactors(); ++factor)
+                for (const auto& date : multiVol_ ? multiVol_->hKnotDates_ : vol_->hKnotDates_)
+                    labels.push_back("H:" + prefix(factor) + Date::ToString(date));
             return labels;
         }
-        [[nodiscard]] Vector_<String_> FactorNames() const override { return {factor_}; }
+        [[nodiscard]] Vector_<String_> FactorNames() const override { return factors_; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
+        void Write(Archive::Store_& dst) const override;
+    };
+
+    struct HybridGSRSLVRateData_ : HybridComponentData_ {
+        String_ volFactor_, bridgeFactor_;
+        Handle_<GSRSLVModelData_> model_;
+
+        HybridGSRSLVRateData_(const String_& name, const String_& volFactor, const String_& bridgeFactor, const Handle_<GSRSLVModelData_>& model)
+            : HybridComponentData_("HybridGSRSLVRateData_", name, model ? model->gaussian_->curve_->currency_ : String_()), volFactor_(volFactor),
+              bridgeFactor_(bridgeFactor), model_(model) {
+            REQUIRE(!name_.empty() && model_, "InvalidHybridComponent: SLV rate name and model are required");
+            REQUIRE(!volFactor_.empty() && !bridgeFactor_.empty(), "InvalidHybridComponent: SLV variance and bridge factor names are required");
+            const auto names = FactorNames();
+            for (size_t i = 0; i < names.size(); ++i)
+                for (size_t j = 0; j < i; ++j)
+                    REQUIRE(names[i] != names[j], "InvalidHybridComponent: SLV factor names must be unique");
+        }
+        [[nodiscard]] Vector_<String_> FactorNames() const override {
+            auto names = model_->gaussian_->vol_->factorNames_;
+            names.push_back(volFactor_);
+            names.push_back(bridgeFactor_);
+            return names;
+        }
+        [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
+        [[nodiscard]] Vector_<String_> RiskLabels() const override;
         void Write(Archive::Store_& dst) const override;
     };
 
