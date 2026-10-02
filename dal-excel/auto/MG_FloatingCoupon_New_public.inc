@@ -24,7 +24,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "tenor (input #7)";
         const String_ tenor = Excel::ToString(xl_tenor);
         argName = 0;
-		Handle_<StorableGSRFloatingCoupon_> coupon;
+		Handle_<StorableFloatingCoupon_> coupon;
         FloatingCoupon_New(fixing, start, end, payment, indexAccrual, couponAccrual, tenor, &coupon);
         Excel::Retval_ retval;
         retval.Load(_env, coupon);

@@ -21,7 +21,7 @@ strike is number
 type is string
     CALL or PUT
 &outputs
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Option handle
 -IF-------------------------------------------------------------------------*/
 
@@ -34,7 +34,7 @@ payment is date
 accrual is number
     Coupon accrual fraction
 &outputs
-coupon is handle StorableGSRFixedCoupon
+coupon is handle StorableFixedCoupon
     Coupon handle
 -IF-------------------------------------------------------------------------*/
 
@@ -57,7 +57,7 @@ couponAccrual is number
 tenor is string
     Projection tenor such as 3M
 &outputs
-coupon is handle StorableGSRFloatingCoupon
+coupon is handle StorableFloatingCoupon
     Coupon handle
 -IF-------------------------------------------------------------------------*/
 
@@ -67,14 +67,14 @@ public Caplet_New
 &inputs
 expiry is date
     Index fixing date, on or before accrual start
-coupon is handle StorableGSRFloatingCoupon
+coupon is handle StorableFloatingCoupon
     Underlying coupon
 strike is number
     Rate strike
 type is string
     CALL for caplet or PUT for floorlet
 &outputs
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Option handle
 -IF-------------------------------------------------------------------------*/
 
@@ -93,7 +93,7 @@ strike is number
 type is string
     CALL for payer or PUT for receiver
 &outputs
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Option handle
 -IF-------------------------------------------------------------------------*/
 
@@ -103,7 +103,7 @@ public GSR_EuropeanOptionPrice
 &inputs
 model is handle ModelData
     GSRModelData or MultiFactorGSRModelData
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Bond option, caplet or swaption
 &optional
 settings is cell[][]
@@ -119,14 +119,14 @@ public CalibrationQuote_New
 &inputs
 name is string
     Unique quote name
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Quoted option
 price is number
     Market price per unit notional
 priceScale is number
     Positive price error scale
 &outputs
-quote is handle StorableGSRCalibrationQuote
+quote is handle StorableCalibrationQuote
     Calibration quote
 -IF-------------------------------------------------------------------------*/
 

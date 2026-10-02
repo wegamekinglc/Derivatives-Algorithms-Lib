@@ -47,7 +47,7 @@ maxStep is number
 /*IF--------------------------------------------------------------------------
 storable HybridGSRRateData
     Stochastic domestic GSR rate component of a hybrid model
-version 1
+version 2
 &members
 name is ?string
 factors is string[]

@@ -313,6 +313,7 @@ namespace Dal {
                   model_(data.multiVol_ ? std::make_unique<GSR_<T_>>(MultiFactorGSRModelData_(data.Name(), data.curve_, data.multiVol_))
                                         : std::make_unique<GSR_<T_>>(GSRModelData_(data.Name(), data.curve_, data.vol_))) {
                 REQUIRE(model_->NumFactors() == factors_.size(), "InvalidHybridFactor: factor labels must match the Gaussian kernel");
+                REQUIRE(model_->HybridFactorsInvertible(), "InvalidGSRFactors: factor correlations must be positive definite");
             }
             HybridGSRRate_(const HybridGSRRate_& other)
                 : name_(other.name_), currency_(other.currency_), factors_(other.factors_), observables_(other.observables_),
@@ -392,7 +393,7 @@ namespace Dal {
                 const auto& curve = *data.gaussian_->curve_;
                 Vector_<> knots;
                 const auto dayRounded = [&](double time) {
-                    const double days = std::llround(time * DAYS_PER_YEAR);
+                    const double days = static_cast<double>(std::llround(time * DAYS_PER_YEAR));
                     return days / DAYS_PER_YEAR;
                 };
                 for (const auto& date : data.gaussian_->vol_->gKnotDates_)
@@ -826,6 +827,37 @@ namespace Dal {
                 copy->initialCarry_ = initialCarry_;
                 return copy;
             }
+            [[nodiscard]] Vector_<> GridAnchors(const Vector_<>& productTimeLine) const {
+                Vector_<> anchors(productTimeLine);
+                for (const auto& component : components_)
+                    for (const double knot : component->TimelineKnots())
+                        if (std::isfinite(knot) && knot > 0.0 && knot < productTimeLine.back())
+                            anchors.push_back(knot);
+                std::sort(anchors.begin(), anchors.end());
+                anchors.erase(std::unique(anchors.begin(), anchors.end()), anchors.end());
+                return anchors;
+            }
+
+            void AppendSubSteps(double from, double to, double maxStep) {
+                if (!std::isfinite(maxStep))
+                    return;
+                if (!EvaluationDate()) {
+                    const double steps = std::ceil((to - from) / maxStep);
+                    REQUIRE(steps <= 1000000.0, "InvalidHybridTimeline: local-vol step limit exceeded");
+                    const size_t count = static_cast<size_t>(steps);
+                    for (size_t i = 1; i < count; ++i)
+                        timeLine_.push_back(from + (to - from) * i / count);
+                    return;
+                }
+                const double startDays = from * 365.0;
+                const double endDays = to * 365.0;
+                REQUIRE(std::abs(startDays - std::round(startDays)) <= 1e-7 && std::abs(endDays - std::round(endDays)) <= 1e-7,
+                        "InvalidHybridTimeline: GSR samples require whole calendar days on ACT/365 axis");
+                const int stepDays = std::max(1, static_cast<int>(std::floor(std::min(maxStep, to - from) * 365.0)));
+                for (int day = static_cast<int>(std::round(startDays)) + stepDays; day < static_cast<int>(std::round(endDays)); day += stepDays)
+                    timeLine_.push_back(day / 365.0);
+            }
+
             void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
                 this->ValidateTimeline(productTimeLine, defLine);
                 defLine_ = &defLine;
@@ -835,36 +867,10 @@ namespace Dal {
                 double maxStep = std::numeric_limits<double>::infinity();
                 for (const auto& component : components_)
                     maxStep = std::min(maxStep, component->MaxStep());
-                Vector_<> anchors(productTimeLine_);
-                if (productTimeLine.size() > 1)
-                    for (const auto& component : components_)
-                        for (const double knot : component->TimelineKnots())
-                            if (std::isfinite(knot) && knot > 0.0 && knot < productTimeLine.back())
-                                anchors.push_back(knot);
-                std::sort(anchors.begin(), anchors.end());
-                anchors.erase(std::unique(anchors.begin(), anchors.end()), anchors.end());
                 size_t productSample = 0;
-                for (const double time : anchors) {
+                for (const double time : GridAnchors(productTimeLine)) {
                     if (time > timeLine_.back()) {
-                        const double from = timeLine_.back();
-                        if (std::isfinite(maxStep)) {
-                            if (EvaluationDate()) {
-                                const double startDays = from * 365.0;
-                                const double endDays = time * 365.0;
-                                REQUIRE(std::abs(startDays - std::round(startDays)) <= 1e-7 && std::abs(endDays - std::round(endDays)) <= 1e-7,
-                                        "InvalidHybridTimeline: GSR samples require whole calendar days on ACT/365 axis");
-                                const int stepDays = std::max(1, static_cast<int>(std::floor(std::min(maxStep, time - from) * 365.0)));
-                                for (int day = static_cast<int>(std::round(startDays)) + stepDays; day < static_cast<int>(std::round(endDays));
-                                     day += stepDays)
-                                    timeLine_.push_back(day / 365.0);
-                            } else {
-                                const double steps = std::ceil((time - from) / maxStep);
-                                REQUIRE(steps <= 1000000.0, "InvalidHybridTimeline: local-vol step limit exceeded");
-                                const size_t count = static_cast<size_t>(steps);
-                                for (size_t i = 1; i < count; ++i)
-                                    timeLine_.push_back(from + (time - from) * i / count);
-                            }
-                        }
+                        AppendSubSteps(timeLine_.back(), time, maxStep);
                         timeLine_.push_back(time);
                     }
                     while (productSample < productTimeLine.size() && productTimeLine[productSample] == time) {

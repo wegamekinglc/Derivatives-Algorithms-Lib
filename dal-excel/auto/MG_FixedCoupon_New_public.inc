@@ -14,7 +14,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "accrual (input #2)";
         const double accrual = Excel::ToDouble(xl_accrual);
         argName = 0;
-		Handle_<StorableGSRFixedCoupon_> coupon;
+		Handle_<StorableFixedCoupon_> coupon;
         FixedCoupon_New(payment, accrual, &coupon);
         Excel::Retval_ retval;
         retval.Load(_env, coupon);

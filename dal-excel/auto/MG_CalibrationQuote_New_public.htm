@@ -16,7 +16,7 @@ Create a price quote for Gaussian volatility calibration
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>Unique quote name</td></tr>
-<tr><td>option</td><td>handle of type StorableGSREuropeanOption</td><td></td><td>Quoted option</td></tr>
+<tr><td>option</td><td>handle of type StorableEuropeanRateOption</td><td></td><td>Quoted option</td></tr>
 <tr><td>price</td><td>number</td><td></td><td>Market price per unit notional</td></tr>
 <tr><td>priceScale</td><td>number</td><td></td><td>Positive price error scale</td></tr>
 
@@ -30,7 +30,7 @@ Create a price quote for Gaussian volatility calibration
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>quote</td><td>handle of type StorableGSRCalibrationQuote</td><td>Calibration quote</td></tr>
+<tr><td>quote</td><td>handle of type StorableCalibrationQuote</td><td>Calibration quote</td></tr>
 </table>
 
 

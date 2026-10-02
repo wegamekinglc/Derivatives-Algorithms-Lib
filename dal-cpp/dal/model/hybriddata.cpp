@@ -13,8 +13,8 @@ namespace Dal {
 #include <dal/auto/MG_HybridConstantCorrelationData_v1_Write.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Read.inc>
 #include <dal/auto/MG_HybridDeterministicRateData_v1_Write.inc>
-#include <dal/auto/MG_HybridGSRRateData_v1_Read.inc>
-#include <dal/auto/MG_HybridGSRRateData_v1_Write.inc>
+#include <dal/auto/MG_HybridGSRRateData_v2_Read.inc>
+#include <dal/auto/MG_HybridGSRRateData_v2_Write.inc>
 #include <dal/auto/MG_HybridGSRSLVRateData_v1_Read.inc>
 #include <dal/auto/MG_HybridGSRSLVRateData_v1_Write.inc>
 #include <dal/auto/MG_HybridLocalVolEquityData_v1_Read.inc>
@@ -32,7 +32,7 @@ namespace Dal {
         HybridLocalVolEquityData_v1::XWrite(dst, name_, index_, currency_, factor_, spot_, div_, surface_, maxStep_);
     }
 
-    void HybridGSRRateData_::Write(Archive::Store_& dst) const { HybridGSRRateData_v1::XWrite(dst, name_, factors_, curve_, vol_, multiVol_); }
+    void HybridGSRRateData_::Write(Archive::Store_& dst) const { HybridGSRRateData_v2::XWrite(dst, name_, factors_, curve_, vol_, multiVol_); }
 
     Vector_<String_> HybridGSRSLVRateData_::RiskLabels() const {
         const auto& curve = *model_->gaussian_->curve_;

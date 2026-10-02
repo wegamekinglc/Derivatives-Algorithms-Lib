@@ -12,7 +12,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
         argName = "option (input #2)";
-        const Handle_<StorableGSREuropeanOption_> option = Excel::ToHandle<StorableGSREuropeanOption_>(_env, xl_option);
+        const Handle_<StorableEuropeanRateOption_> option = Excel::ToHandle<StorableEuropeanRateOption_>(_env, xl_option);
         argName = "volatility (input #3)";
         const double volatility = Excel::ToDouble(xl_volatility);
         argName = "priceScale (input #4)";

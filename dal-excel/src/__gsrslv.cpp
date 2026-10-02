@@ -155,7 +155,7 @@ public VolQuote_New
 &inputs
 name is string
     Unique quote name
-option is handle StorableGSREuropeanOption
+option is handle StorableEuropeanRateOption
     Caplet or swaption
 volatility is number
     Annualized decimal volatility

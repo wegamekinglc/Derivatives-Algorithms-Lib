@@ -748,3 +748,14 @@ TEST(ModelTest, TestHybridGSRSLVRateArchiveRoundTrip) {
     ASSERT_EQ(model->ParameterLabels(), CreateModel<double>(Handle_<ModelData_>(original))->ParameterLabels());
     ASSERT_NE(std::find(model->ParameterLabels().begin(), model->ParameterLabels().end(), String_("kappa")), model->ParameterLabels().end());
 }
+
+TEST(ModelTest, TestHybridRejectsSingularMultiFactorGSRKernel) {
+    const Date_ today(2026, 10, 2);
+    const Handle_<GSRCurveData_> curve(
+        new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
+    Matrix_<> g(2, 1, 0.02), h(2, 1, 1.0), correlation(2, 2, 1.0);
+    const Handle_<MultiFactorGSRVolData_> vol(new MultiFactorGSRVolData_("vol", {"level", "slope"}, {today}, g, {today}, h, correlation));
+    auto settings = MultiFactorRateSettings(0.3);
+    settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {"W_LEVEL", "W_SLOPE"}, curve, vol));
+    EXPECT_THROW(static_cast<void>(CreateModel<double>(HybridData(settings))), Exception_);
+}

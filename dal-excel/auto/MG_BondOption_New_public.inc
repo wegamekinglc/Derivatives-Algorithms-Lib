@@ -18,7 +18,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "type (input #4)";
         const String_ type = Excel::ToString(xl_type);
         argName = 0;
-		Handle_<StorableGSREuropeanOption_> option;
+		Handle_<StorableEuropeanRateOption_> option;
         BondOption_New(expiry, maturity, strike, type, &option);
         Excel::Retval_ retval;
         retval.Load(_env, option);

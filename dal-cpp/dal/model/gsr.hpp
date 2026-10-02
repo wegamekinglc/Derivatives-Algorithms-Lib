@@ -331,7 +331,7 @@ namespace Dal::AAD {
             step->a_ -= 0.5 * Quadratic(step->loading_, StateVariance(0.0, previous));
             step->a_ -= 0.5 * Dot(step->discountNormals_, step->discountNormals_);
             step->advances_ = true;
-            if (NumFactors() > 1) {
+            if (NumFactors() > 1 && factorLowerInverse_.Rows() == static_cast<int>(NumFactors())) {
                 // Hybrid stepping receives globally correlated factors, so the kernel applies R = L S
                 // (S inverts the factor Cholesky) and q = S^T d instead of its own Cholesky L and d.
                 const int n = static_cast<int>(NumFactors());
@@ -412,7 +412,13 @@ namespace Dal::AAD {
             : evaluationDate_(curve.evaluationDate_), currency_(curve.currency_), nodeDates_(curve.nodeDates_),
               projectionTenors_(curve.projectionTenors_), factorNames_(factorNames), correlations_(correlations), legacy_(legacy) {
             factorLower_ = CovarianceFactor(correlations_);
-            factorLowerInverse_ = LowerInverse(factorLower_);
+            // The hybrid factor transform inverts this Cholesky. Singular kernels keep working
+            // standalone, so the inverse exists only when every pivot is strictly positive.
+            bool invertible = true;
+            for (int i = 0; i < factorLower_.Rows(); ++i)
+                invertible = invertible && factorLower_(i, i) > 1e-14;
+            if (invertible)
+                factorLowerInverse_ = LowerInverse(factorLower_);
             Vector_<> curveTimes;
             for (const auto& date : nodeDates_)
                 curveTimes.push_back((date - evaluationDate_) / DAYS_PER_YEAR);
@@ -505,6 +511,9 @@ namespace Dal::AAD {
             }
         }
         [[nodiscard]] const Matrix_<>& FactorCorrelations() const { return correlations_; }
+        [[nodiscard]] bool HybridFactorsInvertible() const {
+            return NumFactors() == 1 || factorLowerInverse_.Rows() == static_cast<int>(NumFactors());
+        }
         void AdvanceHybrid(size_t sample, const Vector_<>& factors, const Vector_<size_t>& factorSlots, T_* state, T_* logNumeraire) const {
             REQUIRE(sample < steps_.size() && steps_[sample].advances_, "InvalidGSRPath: hybrid step was not prepared");
             REQUIRE(factorSlots.size() == NumFactors() && factors.size() >= NumFactors(), "InvalidGSRPath: hybrid factor layout mismatch");
@@ -513,6 +522,8 @@ namespace Dal::AAD {
                 AdvancePath(step, &factors[factorSlots[0]], state, logNumeraire);
                 return;
             }
+            REQUIRE(factorLowerInverse_.Rows() == static_cast<int>(NumFactors()),
+                    "InvalidGSRFactors: factor correlations must be positive definite for hybrid stepping");
             T_ logDiscount = step.a_;
             for (size_t i = 0; i < NumFactors(); ++i)
                 logDiscount -= step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
