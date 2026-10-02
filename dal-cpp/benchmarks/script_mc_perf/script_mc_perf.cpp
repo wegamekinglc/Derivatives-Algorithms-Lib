@@ -32,6 +32,7 @@
 #include "correlatedbsperf.hpp"
 #include "gsreuropeanperf.hpp"
 #include "gsrperf.hpp"
+#include "gsrslvcalibrationperf.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -326,6 +327,11 @@ int main(int argc, char** argv) {
     RegisterAll_::Init();
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--gsr-slv-calibration") {
+            Bench::PrintHeader();
+            RunGSRSLVCalibrationCases();
+            return 0;
+        }
         if (std::string(argv[1]) == "--gsr-slv") {
             Bench::PrintHeader();
             RunGSRSLVPathCases();

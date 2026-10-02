@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRCurveQuoteRisk_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRCurveQuoteRisk_New (in Excel: GSRCURVEQUOTERISK.NEW)</h1>
+Connect a GSR curve snapshot to validated market quote provenance
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>snapshot</td><td>handle of type GSRCurveData</td><td></td><td>Curve snapshot matching the bound market</td></tr>
+<tr><td>market</td><td>handle of type StorableRatePricingMarket</td><td></td><td>Bound curve market</td></tr>
+<tr><td>provenance</td><td>handle of type StorableRateQuoteRiskProvenance</td><td></td><td>Available curve calibration provenance</td></tr>
+<tr><td>discountComponent</td><td>string</td><td></td><td>Discount component key</td></tr>
+<tr><td>projectionComponents</td><td>vector of strings</td><td>yes</td><td>One component key per snapshot projection tenor</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableGSRCurveQuoteRisk</td><td>Immutable curve quote bridge</td></tr>
+</table>
+
+
+
+
+
+

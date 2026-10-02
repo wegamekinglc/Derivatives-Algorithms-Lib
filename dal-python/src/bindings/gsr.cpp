@@ -6,12 +6,23 @@
 
 #include <pybind11/stl.h>
 
+#include <type_traits>
+
 #include <dal-public/src/gsr.hpp>
+#include <dal-public/src/curvepricing.hpp>
 
 using namespace Dal;
 
 namespace {
-    template <class T_> std::vector<T_> List(const Vector_<T_>& values) { return {values.begin(), values.end()}; }
+    template <class T_> py::list List(const Vector_<T_>& values) {
+        py::list result;
+        for (const T_& value : values)
+            if constexpr (std::is_same_v<T_, String_>)
+                result.append(std::string(value.c_str()));
+            else
+                result.append(value);
+        return result;
+    }
 
     Handle_<ModelData_> Model(const std::shared_ptr<ModelData_>& model) { return Handle_<ModelData_>(std::shared_ptr<const ModelData_>(model)); }
 } // namespace
@@ -105,4 +116,114 @@ void init_bindings_gsr(py::module_& m) {
             return CalibrateGSRVolatility(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()}, settings);
         },
         py::arg("initial"), py::arg("quotes"), py::arg("parameters"), py::arg("settings") = GSRCalibrationSettings_{});
+
+    py::class_<GSRMonteCarloSettings_>(m, "GSRMonteCarloSettings_")
+        .def(py::init<>())
+        .def_readwrite("paths", &GSRMonteCarloSettings_::paths_)
+        .def_readwrite("seed", &GSRMonteCarloSettings_::seed_);
+    py::class_<GSRMonteCarloPrice_>(m, "GSRMonteCarloPrice_")
+        .def_readonly("price", &GSRMonteCarloPrice_::price_)
+        .def_readonly("standard_error", &GSRMonteCarloPrice_::standardError_);
+    py::class_<GSRSLVCalibrationParameter_>(m, "GSRSLVCalibrationParameter_")
+        .def(py::init([](const std::string& label, double lower, double upper, double scale) {
+                 return GSRSLVCalibrationParameter_{String_(label), lower, upper, scale};
+             }),
+             py::arg("label"), py::arg("lower"), py::arg("upper"), py::arg("scale") = 1.0);
+    py::class_<GSRSLVCalibrationSettings_>(m, "GSRSLVCalibrationSettings_")
+        .def(py::init<>())
+        .def_readwrite("solver", &GSRSLVCalibrationSettings_::solver_)
+        .def_readwrite("pricing", &GSRSLVCalibrationSettings_::pricing_)
+        .def_readwrite("validation", &GSRSLVCalibrationSettings_::validation_)
+        .def_readwrite("validation_sigma", &GSRSLVCalibrationSettings_::validationSigma_)
+        .def_readwrite("staged", &GSRSLVCalibrationSettings_::staged_);
+    py::class_<GSRSLVCalibrationResult_>(m, "GSRSLVCalibrationResult_")
+        .def_property_readonly("model",
+                               [](const GSRSLVCalibrationResult_& result) {
+                                   return std::const_pointer_cast<ModelData_>(std::static_pointer_cast<const ModelData_>(result.model_));
+                               })
+        .def_property_readonly("model_prices", [](const GSRSLVCalibrationResult_& r) { return List(r.modelPrices_); })
+        .def_property_readonly("residuals", [](const GSRSLVCalibrationResult_& r) { return List(r.residuals_); })
+        .def_property_readonly("standard_errors", [](const GSRSLVCalibrationResult_& r) { return List(r.standardErrors_); })
+        .def_property_readonly("parameters", [](const GSRSLVCalibrationResult_& r) { return List(r.parameters_); })
+        .def_property_readonly("active_bounds", [](const GSRSLVCalibrationResult_& r) { return List(r.activeBounds_); })
+        .def_property_readonly("validation_prices", [](const GSRSLVCalibrationResult_& r) { return List(r.validationPrices_); })
+        .def_property_readonly("validation_standard_errors", [](const GSRSLVCalibrationResult_& r) { return List(r.validationStandardErrors_); })
+        .def_property_readonly("numerical_errors", [](const GSRSLVCalibrationResult_& r) { return List(r.numericalErrors_); })
+        .def_property_readonly("held_out_prices", [](const GSRSLVCalibrationResult_& r) { return List(r.heldOutPrices_); })
+        .def_property_readonly("held_out_residuals", [](const GSRSLVCalibrationResult_& r) { return List(r.heldOutResiduals_); })
+        .def_property_readonly("held_out_standard_errors", [](const GSRSLVCalibrationResult_& r) { return List(r.heldOutStandardErrors_); })
+        .def_readonly("quote_jacobian", &GSRSLVCalibrationResult_::quoteJacobian_)
+        .def_readonly("converged", &GSRSLVCalibrationResult_::converged_)
+        .def_readonly("fit_within_tolerance", &GSRSLVCalibrationResult_::fitWithinTolerance_)
+        .def_readonly("numerical_validation_passed", &GSRSLVCalibrationResult_::numericalValidationPassed_)
+        .def_readonly("held_out_within_tolerance", &GSRSLVCalibrationResult_::heldOutWithinTolerance_)
+        .def_readonly("iterations", &GSRSLVCalibrationResult_::iterations_)
+        .def_readonly("evaluations", &GSRSLVCalibrationResult_::evaluations_)
+        .def_readonly("jacobian_rank", &GSRSLVCalibrationResult_::jacobianRank_)
+        .def_readonly("jacobian_condition_estimate", &GSRSLVCalibrationResult_::jacobianConditionEstimate_)
+        .def_readonly("objective", &GSRSLVCalibrationResult_::objective_)
+        .def_property_readonly("termination_reason", [](const GSRSLVCalibrationResult_& r) { return std::string(r.terminationReason_.c_str()); });
+    py::class_<GSRSLVQuoteRiskSettings_>(m, "GSRSLVQuoteRiskSettings_")
+        .def(py::init<>())
+        .def_readwrite("relative_bump", &GSRSLVQuoteRiskSettings_::relativeBump_)
+        .def_readwrite("absolute_bump", &GSRSLVQuoteRiskSettings_::absoluteBump_)
+        .def_readwrite("stability_tolerance", &GSRSLVQuoteRiskSettings_::stabilityTolerance_);
+    py::class_<GSRSLVQuoteRiskResult_>(m, "GSRSLVQuoteRiskResult_")
+        .def_readonly("calibration", &GSRSLVQuoteRiskResult_::calibration_)
+        .def_property_readonly("quote_names", [](const GSRSLVQuoteRiskResult_& r) { return List(r.quoteNames_); })
+        .def_property_readonly("quote_units", [](const GSRSLVQuoteRiskResult_& r) { return List(r.quoteUnits_); })
+        .def_property_readonly("prices", [](const GSRSLVQuoteRiskResult_& r) { return List(r.prices_); })
+        .def_property_readonly("stable", [](const GSRSLVQuoteRiskResult_& r) { return List(r.stable_); })
+        .def_property_readonly("active_set_stable", [](const GSRSLVQuoteRiskResult_& r) { return List(r.activeSetStable_); })
+        .def_readonly("sensitivities", &GSRSLVQuoteRiskResult_::sensitivities_)
+        .def_readonly("refinement_errors", &GSRSLVQuoteRiskResult_::refinementErrors_)
+        .def_readonly("curve_risk_included", &GSRSLVQuoteRiskResult_::curveRiskIncluded_);
+    py::class_<GSRCurveQuoteRisk_>(m, "GSRCurveQuoteRisk_")
+        .def_property_readonly("quote_names", [](const GSRCurveQuoteRisk_& r) { return List(r.QuoteNames()); })
+        .def_property_readonly("quote_units", [](const GSRCurveQuoteRisk_& r) { return List(r.QuoteUnits()); })
+        .def_property_readonly("log_df_quote_jacobian", [](const GSRCurveQuoteRisk_& r) { return Matrix_<>(r.LogDFQuoteJacobian()); });
+    m.def(
+        "GSRSLV_EuropeanOptionPrices",
+        [](const std::shared_ptr<ModelData_>& model, const std::vector<GSREuropeanOption_>& options, GSRMonteCarloSettings_ settings) {
+            Vector_<GSRMonteCarloPrice_> result;
+            {
+                py::gil_scoped_release release;
+                result = PriceGSRSLVEuropeanOptions(Model(model), {options.begin(), options.end()}, settings);
+            }
+            return List(result);
+        },
+        py::arg("model"), py::arg("options"), py::arg("settings") = GSRMonteCarloSettings_{});
+    m.def(
+        "Calibrate_GSRSLV",
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRCalibrationQuote_>& quotes,
+           const std::vector<GSRSLVCalibrationParameter_>& parameters, GSRSLVCalibrationSettings_ settings,
+           const std::vector<GSRCalibrationQuote_>& heldOut) {
+            py::gil_scoped_release release;
+            return CalibrateGSRSLV(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()}, settings,
+                                   {heldOut.begin(), heldOut.end()});
+        },
+        py::arg("initial"), py::arg("quotes"), py::arg("parameters"), py::arg("settings") = GSRSLVCalibrationSettings_{},
+        py::arg("held_out") = std::vector<GSRCalibrationQuote_>{});
+    m.def(
+        "GSRSLV_QuoteRisk",
+        [](const std::shared_ptr<ModelData_>& initial, const std::vector<GSRCalibrationQuote_>& quotes,
+           const std::vector<GSRSLVCalibrationParameter_>& parameters, const std::vector<GSREuropeanOption_>& targets,
+           GSRSLVCalibrationSettings_ settings, GSRSLVQuoteRiskSettings_ riskSettings, const GSRCurveQuoteRisk_* curveRisk) {
+            py::gil_scoped_release release;
+            return GSRSLVQuoteRisk(Model(initial), {quotes.begin(), quotes.end()}, {parameters.begin(), parameters.end()},
+                                   {targets.begin(), targets.end()}, settings, riskSettings, curveRisk);
+        },
+        py::arg("initial"), py::arg("quotes"), py::arg("parameters"), py::arg("targets"), py::arg("settings") = GSRSLVCalibrationSettings_{},
+        py::arg("risk_settings") = GSRSLVQuoteRiskSettings_{}, py::arg("curve_risk") = nullptr);
+    m.def(
+        "GSRCurveQuoteRisk_New",
+        [](const std::shared_ptr<Storable_>& snapshot, const RatePricingMarket_& market, const RateQuoteRiskProvenance_& provenance,
+           const std::string& discountComponent, const py::iterable& projectionComponents) {
+            Vector_<String_> keys;
+            for (const auto& key : projectionComponents)
+                keys.push_back(String_(py::cast<std::string>(key)));
+            return BuildGSRCurveQuoteRisk(Handle_<Storable_>(std::shared_ptr<const Storable_>(snapshot)), market, provenance,
+                                          String_(discountComponent), keys);
+        },
+        py::arg("snapshot"), py::arg("market"), py::arg("provenance"), py::arg("discount_component"), py::arg("projection_components") = py::tuple{});
 }

@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>GSRSLV_QuoteRisk</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>GSRSLV_QuoteRisk (in Excel: GSRSLV.QUOTERISK)</h1>
+Bump price quotes and recalibrate the regularized SLV objective
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>initial</td><td>handle of type ModelData</td><td></td><td>Original GSRSLVModelData</td></tr>
+<tr><td>quotes</td><td>vector of handles</td><td></td><td>Price quote handles</td></tr>
+<tr><td>parameters</td><td>matrix of cells</td><td></td><td>Label, lower, upper, scale</td></tr>
+<tr><td>targets</td><td>vector of handles</td><td></td><td>European target option handles</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Calibration settings</td></tr>
+<tr><td>riskSettings</td><td>matrix of cells</td><td>yes</td><td>relativeBump (0.01), absoluteBump (1e-6), stabilityTolerance (0.05)</td></tr>
+<tr><td>curveRisk</td><td>handle of type StorableGSRCurveQuoteRisk</td><td>yes</td><td>Optional curve quote provenance bridge</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableGSRSLVQuoteRiskResult</td><td>Quote sensitivities and stability diagnostics</td></tr>
+</table>
+
+
+
+
+
+
