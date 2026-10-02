@@ -43,8 +43,8 @@ void RunGSRSLVCalibrationCases() {
     for (int factors : {1, 2, 3}) {
         const auto truth = Model(factors, 1.2), initial = Model(factors, 0.8);
         GSRSLVCalibrationSettings_ settings;
-        settings.pricing_ = {4096, 1729};
-        settings.validation_ = {8192, 81173};
+        settings.pricing_ = {8192, 1729};
+        settings.validation_ = {16384, 81173};
         const auto prices = PriceGSRSLVEuropeanOptions(*truth, options, settings.pricing_);
         Vector_<GSRCalibrationQuote_> quotes;
         for (size_t i = 0; i < prices.size(); ++i)
@@ -59,7 +59,7 @@ void RunGSRSLVCalibrationCases() {
             },
             1, 3));
         Bench::Print(Bench::Run(
-            prefix + "leverage fit (3 quotes, 4096 fit + 8192 validation paths)",
+            prefix + "leverage fit (3 quotes, 8192 fit + 16384 validation paths)",
             [&] {
                 const auto result = CalibrateGSRSLV(*initial, quotes, parameters, settings);
                 REQUIRE(result.converged_ && result.fitWithinTolerance_ && result.numericalValidationPassed_, "SLV benchmark calibration failed");
