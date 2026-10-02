@@ -321,19 +321,20 @@ namespace Dal {
             Vector_<Cell_> AsCellVector() const override { return TranslateRange(VectorRange(false), Identity_<Cell_>()); }
 
             int MatrixStop() const {
-                for (int ret_val = colStart_ + 1;;) {
-                    for (int ir = rowStart_;; ++ir) {
-                        if (ir == rowStop_)
-                            return ret_val; // found an empty column
-                        else if (!Cell::IsEmpty(data_(ir, ret_val)))
-                            break; // column is not empty
-                    }
-                    if (++ret_val == data_.Cols())
-                        return ret_val;
+                for (int stop = colStart_ + 1; stop < data_.Cols(); ++stop) {
+                    int row = rowStart_;
+                    while (row < rowStop_ && Cell::IsEmpty(data_(row, stop)))
+                        ++row;
+                    if (row == rowStop_)
+                        return stop;
                 }
+                return data_.Cols();
             }
             template <class F_> auto TranslateMatrix(int col_stop, F_ translate) const {
                 Matrix_<VALUE_TYPE_OF(translate(data_(0, 0)))> ret_val;
+                if (rowStop_ == rowStart_ + 1 && col_stop == colStart_ + 1 &&
+                    std::holds_alternative<std::monostate>(data_(rowStart_, colStart_).val_))
+                    return ret_val;
                 ret_val.Resize(rowStop_ - rowStart_, col_stop - colStart_);
                 for (int ir = rowStart_; ir < rowStop_; ++ir)
                     transform(data_.Row(ir).begin() + colStart_, data_.Row(ir).begin() + col_stop,
@@ -341,12 +342,7 @@ namespace Dal {
                 return ret_val;
             }
 
-            Matrix_<> AsDoubleMatrix() const override {
-                if (rowStop_ == rowStart_ + 1 && std::holds_alternative<std::monostate>(data_(rowStart_, colStart_).val_) &&
-                    (colStart_ + 1 == data_.Cols() || Cell::IsEmpty(data_(rowStart_, colStart_ + 1))))
-                    return Matrix_<>(0, 0);
-                return TranslateMatrix(MatrixStop(), ExtractDouble);
-            }
+            Matrix_<> AsDoubleMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractDouble); }
 
             Matrix_<String_> AsStringMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractString); }
 
