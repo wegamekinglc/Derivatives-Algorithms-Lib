@@ -1,6 +1,6 @@
 # GSR public surfaces
 
-Active API design for the implementation in `specs/gsr-smile.md`.
+Active API design for the [GSR implementation](../specs/gsr-smile.md).
 
 `MultiFactorGSRVolData_` stores factorNames, gKnotDates, gValues, hKnotDates,
 hValues and correlations. Matrices are factor rows by date columns; correlation

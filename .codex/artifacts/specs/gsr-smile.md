@@ -18,8 +18,8 @@ SABR-style volatility and equity/FX composition are subsequent extensions.
 
 ## Gaussian contract
 
-All factor g/H functions are dated, left-continuous-in-interval piecewise constants
-(the value at a knot is the new segment). Brownian factor names preserve input
+All factor g/H functions are dated piecewise constants; a knot starts its new
+segment. Brownian factor names preserve input
 order; correlation is finite, symmetric, unit-diagonal and positive semidefinite.
 Zero and singular covariance are supported. New factor H values may be signed;
 the legacy one-factor object's strictly positive H contract stays intact.
