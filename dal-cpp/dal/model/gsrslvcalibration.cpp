@@ -142,12 +142,17 @@ namespace Dal {
                     residuals->push_back(edge.weight_ * (Change(values, edge.first_) - Change(values, edge.second_)));
             }
 
-            void AddPenaltyJacobian(Matrix_<>* result) const {
+            size_t AddPriorJacobian(Matrix_<>* result) const {
                 size_t row = quotes_.size();
                 if (settings_.solver_.priorWeight_ > 0.0)
                     for (size_t col = 0; col < parameters_.size(); ++col, ++row)
                         if (row < static_cast<size_t>(result->Rows()))
                             (*result)(row, col) = std::sqrt(settings_.solver_.priorWeight_);
+                return row;
+            }
+
+            void AddPenaltyJacobian(Matrix_<>* result) const {
+                size_t row = AddPriorJacobian(result);
                 for (const auto& edge : smoothing_) {
                     if (row >= static_cast<size_t>(result->Rows()))
                         break;

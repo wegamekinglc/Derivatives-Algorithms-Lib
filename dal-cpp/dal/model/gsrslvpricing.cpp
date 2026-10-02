@@ -116,13 +116,17 @@ namespace Dal {
                 return scale;
             }
 
+            static bool NeedsContinuation(const GSRFloatingCoupon_& coupon, const Date_& exercise) {
+                return coupon.fixing_ > exercise && (coupon.fixing_ != coupon.start_ || coupon.payment_ != coupon.end_);
+            }
+
             void Floating(Payoff_* payoff, const GSRFloatingCoupon_& coupon, double sign) {
                 static_cast<void>(Time(coupon.fixing_));
                 const double scale = ProjectionScale(coupon);
                 const double accrual = sign * coupon.couponAccrual_ / coupon.indexAccrual_;
                 REQUIRE(std::isfinite(accrual), "InvalidGSRSLVPricing: coupon accrual ratio overflow");
                 const auto exercise = expiries_[payoff->sample_];
-                const bool conditional = coupon.fixing_ > exercise && (coupon.fixing_ != coupon.start_ || coupon.payment_ != coupon.end_);
+                const bool conditional = NeedsContinuation(coupon, exercise);
                 const size_t fixing = conditional || coupon.fixing_ < exercise ? Sample(coupon.fixing_) : payoff->sample_;
                 const size_t paySample = conditional ? fixing : payoff->sample_;
                 const auto start = Observation(fixing, coupon.start_), end = Observation(fixing, coupon.end_, -1),
@@ -165,8 +169,7 @@ namespace Dal {
                 for (const auto& option : options)
                     if (const auto* swaption = std::get_if<GSRSwaption_>(&option))
                         for (const auto& coupon : swaption->floating_)
-                            if (coupon.fixing_ < swaption->expiry_ ||
-                                (coupon.fixing_ > swaption->expiry_ && (coupon.fixing_ != coupon.start_ || coupon.payment_ != coupon.end_)))
+                            if (coupon.fixing_ < swaption->expiry_ || NeedsContinuation(coupon, swaption->expiry_))
                                 expiries_.push_back(coupon.fixing_);
                 std::sort(expiries_.begin(), expiries_.end());
                 expiries_.erase(std::unique(expiries_.begin(), expiries_.end()), expiries_.end());
@@ -197,6 +200,65 @@ namespace Dal {
             size_t OuterSamples() const { return Sample(lastExercise_) + 1; }
         };
 
+        void Negate(Vector_<>* normals) {
+            for (auto& value : *normals)
+                value = -value;
+        }
+
+        using SelectedParameters_ = Vector_<Vector_<AAD::Number_*>>;
+
+        void RegisterParameters(AAD::GSRSLV_<AAD::Number_>* outer,
+                                AAD::GSRSLV_<AAD::Number_>* inner,
+                                const Vector_<String_>& labels,
+                                SelectedParameters_* selected) {
+            for (auto* model : {outer, inner}) {
+                if (!model)
+                    continue;
+                const auto& names = model->ParameterLabels();
+                const size_t firstSLV = std::find(names.begin(), names.end(), String_("kappa")) - names.begin();
+                for (size_t col = 0; col < labels.size(); ++col) {
+                    const auto found = std::find(names.begin(), names.end(), labels[col]);
+                    REQUIRE(found != names.end(), "InvalidGSRSLVPricing: unknown Jacobian parameter " + labels[col]);
+                    REQUIRE(static_cast<size_t>(found - names.begin()) >= firstSLV,
+                            "InvalidGSRSLVPricing: Jacobian supports SLV calibration parameters only");
+                    auto* parameter = model->Parameters()[found - names.begin()];
+                    AAD::PutOnTape(*parameter);
+                    (*selected)[col].push_back(parameter);
+                }
+            }
+            AAD::NewRecording(*AAD::Tape());
+        }
+
+        void AccumulateJacobian(Vector_<AAD::Number_>* values, const SelectedParameters_& selected, int paths, Matrix_<>* result) {
+            for (size_t row = 0; row < values->size(); ++row) {
+#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
+                AAD::ZeroAdjoints(*AAD::Tape());
+#endif
+                AAD::Adjoint((*values)[row]) = 1.0;
+                AAD::PropagateToStart(*AAD::Tape());
+                for (size_t col = 0; col < selected.size(); ++col)
+                    for (auto* parameter : selected[col]) {
+                        (*result)(row, col) += AAD::AdjointValue(*parameter) / paths;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+                        AAD::Adjoint(*parameter) = 0.0;
+#endif
+                    }
+            }
+        }
+
+        template <class T_> struct PathBuffer_ {
+            AAD::Scenario_<T_> path_, continuation_;
+            Vector_<typename AAD::GSRSLV_<T_>::State_> states_;
+            Vector_<T_> values_;
+            Vector_<> errors_;
+
+            PathBuffer_(const Vector_<AAD::SampleDef_>& outer, const Vector_<AAD::SampleDef_>& all, size_t payoffs)
+                : values_(payoffs), errors_(payoffs) {
+                AAD::AllocatePath(outer, path_);
+                AAD::AllocatePath(all, continuation_);
+            }
+        };
+
         template <class T_>
         std::pair<T_, double> Value(const Payoff_& payoff,
                                     const AAD::Scenario_<T_>& outer,
@@ -217,8 +279,7 @@ namespace Dal {
                     inner->GeneratePathFrom(payoff.sample_, states[payoff.sample_], normal, path);
                     halves[pair < draws.size() / 2 ? 0 : 1] += payoff.Sum(payoff.conditional_, *path) / static_cast<double>(draws.size());
                     if (sign == 1)
-                        for (auto& value : normal)
-                            value = -value;
+                        Negate(&normal);
                 }
             }
             const T_ fine = payoff.Positive(T_(direct + 0.5 * (halves[0] + halves[1])), outer);
@@ -238,6 +299,61 @@ namespace Dal {
             size_t dimension_;
             GSRMonteCarloSettings_ settings_;
 
+            void FillNormals(PseudoRandom_* generator, int pair, Vector_<>* normals) const {
+                if (generator)
+                    generator->FillNormal(normals);
+                else
+                    *normals = normals_[pair];
+            }
+
+            template <class T_>
+            void Draw(const AAD::GSRSLV_<T_>& model,
+                      const AAD::GSRSLV_<T_>* inner,
+                      const Vector_<>& normals,
+                      const Vector_<Vector_<>>& draws,
+                      PathBuffer_<T_>* buffer) const {
+                if (inner)
+                    model.GeneratePathWithStates(normals, &buffer->path_, &buffer->states_);
+                else
+                    model.GeneratePath(normals, &buffer->path_);
+                for (size_t i = 0; i < payoffs_.size(); ++i) {
+                    const auto value = Value(payoffs_[i], buffer->path_, buffer->states_, inner, draws, &buffer->continuation_);
+                    buffer->values_[i] = value.first;
+                    buffer->errors_[i] = value.second;
+                }
+            }
+
+            template <class T_, class M_, class R_, class F_>
+            void Paths(const AAD::GSRSLV_<T_>& model,
+                       const AAD::GSRSLV_<T_>* inner,
+                       const Vector_<AAD::SampleDef_>& outerDefinitions,
+                       M_ mark,
+                       R_ reset,
+                       F_ consume) const {
+                auto generator = normals_.empty() ? New(RNGType_("MRG32"), settings_.seed_, dimension_, true) : nullptr;
+                auto innerGenerator = inner ? New(RNGType_("MRG32"), static_cast<int>((static_cast<uint64_t>(settings_.seed_) + 104729) % 2147483647),
+                                                  inner->SimDim(), true)
+                                            : nullptr;
+                Vector_<Vector_<>> draws;
+                if (inner)
+                    draws = Vector_<Vector_<>>(settings_.conditionalPaths_ / 2, Vector_<>(inner->SimDim()));
+                Vector_<> normals(dimension_);
+                PathBuffer_<T_> buffer(outerDefinitions, definitions_, payoffs_.size());
+                mark();
+                for (int pair = 0; pair < settings_.paths_ / 2; ++pair) {
+                    FillNormals(generator.get(), pair, &normals);
+                    for (auto& draw : draws)
+                        innerGenerator->FillNormal(&draw);
+                    for (int sign : {1, -1}) {
+                        reset();
+                        Draw(model, inner, normals, draws, &buffer);
+                        consume(&buffer.values_, buffer.errors_, pair, sign);
+                        if (sign == 1)
+                            Negate(&normals);
+                    }
+                }
+            }
+
             template <class T_, class I_, class M_, class R_, class F_>
             void Samples(const GSRSLVModelData_& data, I_ initialize, M_ mark, R_ reset, F_ consume) const {
                 AAD::GSRSLV_<T_> model(data);
@@ -254,44 +370,7 @@ namespace Dal {
                 if (inner)
                     inner->Init(timeline_, definitions_);
                 REQUIRE(model.SimDim() == dimension_, "InvalidGSRSLVPricing: prepared integration grid changed");
-                auto generator = normals_.empty() ? New(RNGType_("MRG32"), settings_.seed_, dimension_, true) : nullptr;
-                auto innerGenerator = inner ? New(RNGType_("MRG32"), static_cast<int>((static_cast<uint64_t>(settings_.seed_) + 104729) % 2147483647),
-                                                  inner->SimDim(), true)
-                                            : nullptr;
-                Vector_<Vector_<>> draws;
-                if (inner)
-                    draws = Vector_<Vector_<>>(settings_.conditionalPaths_ / 2, Vector_<>(inner->SimDim()));
-                Vector_<> normals(dimension_), errors(payoffs_.size());
-                Vector_<T_> values(payoffs_.size());
-                AAD::Scenario_<T_> path, continuation;
-                AAD::AllocatePath(outerDefinitions, path);
-                AAD::AllocatePath(definitions_, continuation);
-                Vector_<typename AAD::GSRSLV_<T_>::State_> states;
-                mark();
-                for (int pair = 0; pair < settings_.paths_ / 2; ++pair) {
-                    if (generator)
-                        generator->FillNormal(&normals);
-                    else
-                        normals = normals_[pair];
-                    for (auto& draw : draws)
-                        innerGenerator->FillNormal(&draw);
-                    for (int sign : {1, -1}) {
-                        reset();
-                        if (inner)
-                            model.GeneratePathWithStates(normals, &path, &states);
-                        else
-                            model.GeneratePath(normals, &path);
-                        for (size_t i = 0; i < payoffs_.size(); ++i) {
-                            const auto value = Value(payoffs_[i], path, states, inner.get(), draws, &continuation);
-                            values[i] = value.first;
-                            errors[i] = value.second;
-                        }
-                        consume(&values, errors, pair, sign);
-                        if (sign == 1)
-                            for (auto& value : normals)
-                                value = -value;
-                    }
-                }
+                Paths(model, inner.get(), outerDefinitions, mark, reset, consume);
             }
         };
 
@@ -356,45 +435,12 @@ namespace Dal {
             for (const auto& label : labels)
                 REQUIRE(unique.insert(label).second, "InvalidGSRSLVPricing: duplicate Jacobian parameter " + label);
             const TapeGuard_ guard(AAD::Tape());
-            Vector_<Vector_<AAD::Number_*>> selected(labels.size());
+            SelectedParameters_ selected(labels.size());
             Matrix_<> result(data_->payoffs_.size(), labels.size(), 0.0);
-            const auto initialize = [&](auto* outer, auto* inner) {
-                for (auto* model : {outer, inner}) {
-                    if (!model)
-                        continue;
-                    for (size_t col = 0; col < labels.size(); ++col) {
-                        const auto& names = model->ParameterLabels();
-                        const auto found = std::find(names.begin(), names.end(), labels[col]);
-                        REQUIRE(found != names.end(), "InvalidGSRSLVPricing: unknown Jacobian parameter " + labels[col]);
-                        const size_t firstSLV =
-                            model->Parameters().size() - 2 - static_cast<size_t>(data.leverage_->values_.Rows()) * data.leverage_->values_.Cols();
-                        REQUIRE(static_cast<size_t>(found - names.begin()) >= firstSLV,
-                                "InvalidGSRSLVPricing: Jacobian supports SLV calibration parameters only");
-                        auto* parameter = model->Parameters()[found - names.begin()];
-                        AAD::PutOnTape(*parameter);
-                        selected[col].push_back(parameter);
-                    }
-                }
-                AAD::NewRecording(*AAD::Tape());
-            };
+            const auto initialize = [&](auto* outer, auto* inner) { RegisterParameters(outer, inner, labels, &selected); };
             data_->Samples<AAD::Number_>(
                 data, initialize, [] { AAD::Mark(*AAD::Tape()); }, [] { AAD::RewindToMark(*AAD::Tape()); },
-                [&](auto* values, const auto&, int, int) {
-                    for (size_t row = 0; row < values->size(); ++row) {
-#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
-                        AAD::ZeroAdjoints(*AAD::Tape());
-#endif
-                        AAD::Adjoint((*values)[row]) = 1.0;
-                        AAD::PropagateToStart(*AAD::Tape());
-                        for (size_t col = 0; col < labels.size(); ++col)
-                            for (auto* parameter : selected[col]) {
-                                result(row, col) += AAD::AdjointValue(*parameter) / data_->settings_.paths_;
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-                                AAD::Adjoint(*parameter) = 0.0;
-#endif
-                            }
-                    }
-                });
+                [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); });
             return result;
         }
 

@@ -16,6 +16,40 @@ namespace Dal {
         double Density(double difference, double deviation, double offset = 0.0) {
             return deviation > 0.0 ? NPDF(difference / deviation + offset) : (difference == 0.0 ? NPDF(0.0) : 0.0);
         }
+        void ValidateQuote(const GSRMarketQuote_& quote) {
+            REQUIRE(std::isfinite(quote.volatility_) && quote.volatility_ >= 0.0, "InvalidGSRMarketQuote: volatility must be finite and nonnegative");
+            REQUIRE(std::isfinite(quote.priceScale_) && quote.priceScale_ > 0.0, "InvalidGSRMarketQuote: price scale must be finite and positive");
+            REQUIRE(quote.convention_ == "NORMAL" || quote.convention_ == "BLACK" || quote.convention_ == "SHIFTED_BLACK",
+                    "InvalidGSRMarketQuote: unknown convention");
+            REQUIRE(std::isfinite(quote.shift_), "InvalidGSRMarketQuote: shift must be finite");
+            REQUIRE(quote.convention_ == "SHIFTED_BLACK" || quote.shift_ == 0.0, "InvalidGSRMarketQuote: shift requires SHIFTED_BLACK");
+        }
+
+        std::pair<double, double> Shifted(double forward, double strike, double shift) {
+            const double shiftedForward = forward + shift, shiftedStrike = strike + shift;
+            REQUIRE(std::isfinite(shiftedForward) && std::isfinite(shiftedStrike) && shiftedForward > 0.0 && shiftedStrike > 0.0,
+                    "InvalidGSRMarketQuote: shifted forward and strike must be finite and positive");
+            return {shiftedForward, shiftedStrike};
+        }
+
+        GSRMarketQuoteValue_
+        QuoteValue(const GSRMarketQuote_& quote, double forward, double annuity, double rootTime, double strike, const OptionType_& type) {
+            const double stdDev = quote.volatility_ * rootTime;
+            REQUIRE(std::isfinite(forward) && std::isfinite(annuity) && annuity > 0.0 && std::isfinite(stdDev),
+                    "InvalidGSRMarketQuote: nonfinite forward, annuity or standard deviation");
+            GSRMarketQuoteValue_ result{forward, annuity};
+            if (quote.convention_ == "NORMAL") {
+                result.price_ = annuity * Distribution::BachelierOpt(forward, stdDev, strike, type);
+                result.vega_ = annuity * rootTime * Density(forward - strike, stdDev);
+            } else {
+                const auto [shiftedForward, shiftedStrike] = Shifted(forward, strike, quote.shift_);
+                result.price_ = annuity * Distribution::BlackOpt(shiftedForward, stdDev, shiftedStrike, type);
+                result.vega_ = annuity * rootTime * shiftedForward * Density(std::log(shiftedForward / shiftedStrike), stdDev, 0.5 * stdDev);
+            }
+            REQUIRE(std::isfinite(result.price_) && result.price_ >= 0.0 && std::isfinite(result.vega_),
+                    "InvalidGSRMarketQuote: price or vega overflow");
+            return result;
+        }
         Vector_<> Times(const GSRCurveData_& curve) {
             Vector_<> times;
             for (const auto& date : curve.nodeDates_)
@@ -83,35 +117,14 @@ namespace Dal {
             double Discount(const Date_& date) const { return std::exp(interpolation_.Evaluate(curve_.discountLogDF_, Time(date))); }
 
             GSRMarketQuoteValue_ Convert(const GSRMarketQuote_& quote) const {
-                REQUIRE(std::isfinite(quote.volatility_) && quote.volatility_ >= 0.0 && std::isfinite(quote.priceScale_) && quote.priceScale_ > 0.0,
-                        "InvalidGSRMarketQuote: volatility must be finite and nonnegative; price scale finite and positive");
-                REQUIRE(quote.convention_ == "NORMAL" || quote.convention_ == "BLACK" || quote.convention_ == "SHIFTED_BLACK",
-                        "InvalidGSRMarketQuote: unknown convention");
-                REQUIRE(std::isfinite(quote.shift_) && (quote.convention_ == "SHIFTED_BLACK" || quote.shift_ == 0.0),
-                        "InvalidGSRMarketQuote: shift requires SHIFTED_BLACK");
+                ValidateQuote(quote);
                 return std::visit(
                     [&](const auto& option) {
                         REQUIRE(std::isfinite(option.strike_) && (option.type_ == OptionType_("CALL") || option.type_ == OptionType_("PUT")),
                                 "InvalidGSRMarketQuote: invalid strike or option type");
-                        const double rootTime = std::sqrt(Time(option.expiry_)), stdDev = quote.volatility_ * rootTime;
+                        const double rootTime = std::sqrt(Time(option.expiry_));
                         const auto [forward, annuity] = ForwardAnnuity(option);
-                        REQUIRE(std::isfinite(forward) && std::isfinite(annuity) && annuity > 0.0 && std::isfinite(stdDev),
-                                "InvalidGSRMarketQuote: nonfinite forward, annuity or standard deviation");
-                        GSRMarketQuoteValue_ result{forward, annuity};
-                        if (quote.convention_ == "NORMAL") {
-                            result.price_ = annuity * Distribution::BachelierOpt(forward, stdDev, option.strike_, option.type_);
-                            result.vega_ = annuity * rootTime * Density(forward - option.strike_, stdDev);
-                        } else {
-                            const double shiftedForward = forward + quote.shift_, shiftedStrike = option.strike_ + quote.shift_;
-                            REQUIRE(std::isfinite(shiftedForward) && std::isfinite(shiftedStrike) && shiftedForward > 0.0 && shiftedStrike > 0.0,
-                                    "InvalidGSRMarketQuote: shifted forward and strike must be finite and positive");
-                            result.price_ = annuity * Distribution::BlackOpt(shiftedForward, stdDev, shiftedStrike, option.type_);
-                            result.vega_ =
-                                annuity * rootTime * shiftedForward * Density(std::log(shiftedForward / shiftedStrike), stdDev, 0.5 * stdDev);
-                        }
-                        REQUIRE(std::isfinite(result.price_) && result.price_ >= 0.0 && std::isfinite(result.vega_),
-                                "InvalidGSRMarketQuote: price or vega overflow");
-                        return result;
+                        return QuoteValue(quote, forward, annuity, rootTime, option.strike_, option.type_);
                     },
                     quote.option_);
             }

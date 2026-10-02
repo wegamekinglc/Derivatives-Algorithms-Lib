@@ -356,6 +356,8 @@ Set `use_aad_jacobian = True` to differentiate frozen-path prices and combine th
 with exact prior and smoothing derivatives. Finite differences remain the default
 and an independent check. AAD uses local subgradients at payoff, truncation and
 interpolation boundaries; compare bumps when the fit approaches these boundaries.
+These kinks can stall high-dimensional fits at coarse path budgets. Increase paths,
+simplify selected coordinates and inspect convergence before using the fitted model.
 
 ### Market volatility quotes
 
