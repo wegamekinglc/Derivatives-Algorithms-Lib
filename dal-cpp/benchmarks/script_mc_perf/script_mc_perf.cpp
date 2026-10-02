@@ -327,6 +327,7 @@ int main(int argc, char** argv) {
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
         if (std::string(argv[1]) == "--gsr-slv") {
+            Bench::PrintHeader();
             RunGSRSLVPathCases();
             return 0;
         }

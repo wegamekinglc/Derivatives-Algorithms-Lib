@@ -214,11 +214,16 @@ TEST(GSRSLVTest, TestBankAccountRejectsOverflowAndUnderflow) {
 
 TEST(GSRSLVTest, TestArchiveAndSingularCorrelation) {
     Dal::GSRSLVSettings_ settings;
+    settings.maxStep_ = 1.0;
     settings.varianceCorrelations_ = {1.0};
     const Dal::GSRSLVModelData_ data("smile", Gaussian(), Leverage(), settings);
     const auto restored = Dal::handle_cast<Dal::GSRSLVModelData_>(Dal::JSON::ReadString(Dal::JSON::WriteString(data), true));
     ASSERT_TRUE(restored);
     ASSERT_DOUBLE_EQ(restored->varianceCorrelations_[0], 1.0);
+    Dal::AAD::GSRSLV_<> model(*restored);
+    model.Allocate({1.0}, Definitions());
+    model.Init({1.0}, Definitions());
+    ASSERT_NEAR(model.StateAfter({0.7, 1000.0, 0.0}).variance_, 1.35, 1e-14);
     settings.varianceCorrelations_ = {1.01};
     ASSERT_THROW(Dal::GSRSLVModelData_("bad", Gaussian(), Leverage(), settings), Dal::Exception_);
     settings.varianceCorrelations_ = {0.0, 0.0};
@@ -226,6 +231,29 @@ TEST(GSRSLVTest, TestArchiveAndSingularCorrelation) {
     settings.varianceCorrelations_ = {};
     settings.maxStep_ = 0.0;
     ASSERT_THROW(Dal::GSRSLVModelData_("bad", Gaussian(), Leverage(), settings), Dal::Exception_);
+}
+
+TEST(GSRSLVTest, TestGaussianLimitPreservesLiborAndSwapObservations) {
+    Dal::GSRSLVSettings_ settings;
+    settings.volOfVol_ = 0.0;
+    settings.maxStep_ = 1.0;
+    const auto gaussian = Gaussian();
+    Dal::AAD::GSRSLV_<> model(Dal::GSRSLVModelData_("smile", gaussian, Leverage(), settings));
+    Dal::AAD::GSR_<> legacy(*gaussian);
+    auto definitions = Definitions();
+    definitions[0].indexNames_ = {"IR[USD,LIBOR_3M_LCH]", "IR[USD,SWAP,5Y]"};
+    const Vector_<> timeline{1.0};
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    legacy.Allocate(timeline, definitions);
+    legacy.Init(timeline, definitions);
+    Dal::AAD::Scenario_<> path, legacyPath;
+    Dal::AAD::AllocatePath(definitions, path);
+    Dal::AAD::AllocatePath(definitions, legacyPath);
+    model.GeneratePath({0.7, 0.2, 0.3}, &path);
+    legacy.GeneratePath({0.7}, &legacyPath);
+    for (size_t slot = 0; slot < 2; ++slot)
+        ASSERT_NEAR(path[0].observations_[slot], legacyPath[0].observations_[slot], 1e-12);
 }
 
 TEST(GSRSLVTest, TestJointCorrelationRejectsIndefiniteMatrix) {

@@ -18,15 +18,6 @@ void init_bindings_models(py::module_& m) {
     py::class_<GSRVolData_, Storable_, std::shared_ptr<GSRVolData_>>(m, "GSRVolData_");
     py::class_<MultiFactorGSRVolData_, Storable_, std::shared_ptr<MultiFactorGSRVolData_>>(m, "MultiFactorGSRVolData_");
     py::class_<GSRLeverageData_, Storable_, std::shared_ptr<GSRLeverageData_>>(m, "GSRLeverageData_");
-    py::class_<GSRSLVSettings_>(m, "GSRSLVSettings_")
-        .def(py::init<>())
-        .def_readwrite("kappa", &GSRSLVSettings_::kappa_)
-        .def_readwrite("vol_of_vol", &GSRSLVSettings_::volOfVol_)
-        .def_readwrite("max_step", &GSRSLVSettings_::maxStep_)
-        .def_property(
-            "variance_correlations",
-            [](const GSRSLVSettings_& s) { return std::vector<double>(s.varianceCorrelations_.begin(), s.varianceCorrelations_.end()); },
-            [](GSRSLVSettings_& s, const std::vector<double>& values) { s.varianceCorrelations_ = Vector_<>(values.begin(), values.end()); });
     py::class_<LocalVolSurfaceData_, Storable_, std::shared_ptr<LocalVolSurfaceData_>>(m, "LocalVolSurfaceData_");
 
     const auto dates = [](const py::iterable& input) {
@@ -47,6 +38,21 @@ void init_bindings_models(py::module_& m) {
             result.emplace_back(py::cast<std::string>(item));
         return result;
     };
+
+    py::class_<GSRSLVSettings_>(m, "GSRSLVSettings_")
+        .def(py::init<>())
+        .def_readwrite("kappa", &GSRSLVSettings_::kappa_)
+        .def_readwrite("vol_of_vol", &GSRSLVSettings_::volOfVol_)
+        .def_readwrite("max_step", &GSRSLVSettings_::maxStep_)
+        .def_property(
+            "variance_correlations",
+            [](const GSRSLVSettings_& s) {
+                py::list result;
+                for (double value : s.varianceCorrelations_)
+                    result.append(value);
+                return result;
+            },
+            [=](GSRSLVSettings_& s, const py::iterable& values) { s.varianceCorrelations_ = numbers(values); });
 
     m.def(
         "GSRLeverageData_New",

@@ -17,6 +17,7 @@ def test_zero_vol_bond_with_variance_bridge_and_aad(compiled, aad):
     dal.EvaluationDate_Set(today)
     settings = dal.GSRSLVSettings_()
     settings.variance_correlations = [0.4]
+    assert settings.variance_correlations == [0.4]
     settings.max_step = 0.25
     smile = dal.GSRSLVModelData_New("smile", model(0.0), leverage(), settings)
     product = dal.Product_New([dal.Date_(2027, 10, 2)], ["pay PAYS FIX(IR[USD,DF,2028-10-01])"])
