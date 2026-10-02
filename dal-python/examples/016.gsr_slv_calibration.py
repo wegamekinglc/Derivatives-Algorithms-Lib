@@ -6,22 +6,97 @@ from float_format import format_float
 
 
 TODAY = dal.Date_(2026, 10, 3)
-INPUT_RATE = 0.03
+GAUSSIAN_SCALE = 0.0001
 PRICE_SCALE = 0.0005
+VOL_EXPIRIES = [(365, "1Y"), (547, "18M"), (730, "2Y"), (912, "30M"), (1095, "3Y")]
+CAPLET_TENORS = [(91, "3M"), (182, "6M"), (365, "12M")]
+SMILE_VOLS = [
+    [0.01120, 0.01050, 0.01005],
+    [0.01155, 0.01105, 0.01075],
+    [0.01175, 0.01140, 0.01105],
+    [0.01215, 0.01175, 0.01140],
+    [0.01250, 0.01210, 0.01175],
+]
 
 
-def caplet(years, offset=0.0):
-    expiry = TODAY.AddDays(365 * years)
-    end = expiry.AddDays(182)
-    accrual = 182.0 / 365.0
-    forward = math.expm1(INPUT_RATE * accrual) / accrual
-    return dal.GSRCaplet_(expiry, expiry, end, end, accrual, accrual, "6M", forward + offset)
+def diagnostic_value(value):
+    return format_float(0.0 if abs(value) < 1e-12 else value)
+
+
+def print_table(title, headers, rows):
+    rows = [[str(value) for value in row] for row in rows]
+    widths = [max(len(header), *(len(row[i]) for row in rows)) + 2 for i, header in enumerate(headers)]
+    line = "-" * sum(widths)
+    heading = "=" * max(70, sum(widths), len(title))
+    print("\n" + heading)
+    print(title)
+    print(heading)
+    for row in [headers, *rows]:
+        print("".join(f"{value:<{width}}" if i == 0 else f"{value:>{width}}"
+                      for i, (value, width) in enumerate(zip(row, widths))))
+        if row is headers:
+            print(line)
+    print(line)
+
+
+def calibrate_curve():
+    days = [30, 90, 180, 365, 730, 1095, 1825, 2555, 3650]
+    rates = [0.0270, 0.0280, 0.0290, 0.0302, 0.0310, 0.0315, 0.0322, 0.0325, 0.0328]
+    knots = [TODAY.AddDays(day) for day in days]
+    fixed = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_365F"))
+    floating = dal.RateLegConvention_New(dal.PeriodLength_("12M"), dal.DayBasis_("ACT_360"))
+    index = dal.RateIndexConvention_New(dal.PeriodLength_("1M"), dal.DayBasis_("ACT_360"), dal.CollateralType_OIS())
+    instruments = [
+        dal.Deposit_New(TODAY, TODAY, date, rate, index) if i < 3
+        else dal.OISSwap_New(TODAY, TODAY, date, rate, fixed, index, floating)
+        for i, (date, rate) in enumerate(zip(knots, rates))
+    ]
+    builder = dal.CurveCalibrationSpecBuilder_()
+    builder.today_ = TODAY
+    builder.ccy_ = dal.String_("USD")
+    builder.curveName_ = dal.String_("calibrated_ois")
+    builder.instruments_ = instruments
+    builder.knotDates_ = knots
+    spec = builder.Build()
+    if not dal.ValidateSingleCurveAnalyticEligibility(spec).eligible:
+        raise RuntimeError("Yield curve instruments must support the AAD Jacobian")
+    fit = dal.CalibrateSingleCurve(spec, dal.CurveJacobianMode.ANALYTIC)
+    diagnostics = fit.diagnostics_
+    if diagnostics.maxAbsResidual_ > builder.fitTolerance_:
+        raise RuntimeError("Yield curve calibration exceeded the quote tolerance")
+    print_table("Yield curve calibration: deposits and OIS; AAD Jacobian",
+                ["Instrument", "Market(%)", "Model(%)", "Error(bp)", "Fitted DF"],
+                [[f"{'Deposit' if i < 3 else 'OIS'} {date}", format_float(market * 100), format_float(model * 100),
+                  format_float(error * 10000), format_float(fit.curve_(TODAY, date))]
+                 for i, (date, market, model, error) in enumerate(zip(knots, diagnostics.marketRates_,
+                                                                    diagnostics.modelRates_, diagnostics.residuals_))])
+    nodes = [TODAY, *knots]
+    for days, _ in VOL_EXPIRIES:
+        expiry = TODAY.AddDays(days)
+        nodes.extend([expiry, *(expiry.AddDays(day) for day, _ in CAPLET_TENORS)])
+    nodes = sorted({str(date): date for date in nodes}.values())
+    source = dal.CurveBlock_New(fit.curve_)
+    snapshot = dal.GSRCurveDataFromYieldCurve_New("gsr_curve", source, TODAY, nodes, [])
+    return fit.curve_, snapshot
+
+
+def forward(curve, expiry, days):
+    accrual = days / 365.0
+    return (curve(TODAY, expiry) / curve(TODAY, expiry.AddDays(days)) - 1.0) / accrual
+
+
+def caplet(curve, expiry_days, offset=0.0, days=182, tenor="6M"):
+    expiry = TODAY.AddDays(expiry_days)
+    end = expiry.AddDays(days)
+    accrual = days / 365.0
+    return dal.GSRCaplet_(expiry, expiry, end, end, accrual, accrual, tenor,
+                          forward(curve, expiry, days) + offset)
 
 
 def gaussian_model(curve):
     vol = dal.MultiFactorGSRVolData_New(
-        "gaussian_vol", ["level", "slope", "curvature"], [TODAY, TODAY.AddDays(365)],
-        dal.DoubleMatrix_([[0.009, 0.009], [0.003, 0.003], [0.002, 0.002]]),
+        "gaussian_vol", ["level", "slope", "curvature"], [TODAY.AddDays(365 * i) for i in range(3)],
+        dal.DoubleMatrix_([[0.009] * 3, [0.003] * 3, [0.002] * 3]),
         [TODAY, TODAY.AddDays(365), TODAY.AddDays(1095)],
         dal.DoubleMatrix_([[1.0, 1.0, 1.0], [0.4, 0.3, 0.2], [0.1, 0.2, 0.1]]),
         dal.DoubleMatrix_([[1.0, 0.25, 0.1], [0.25, 1.0, 0.15], [0.1, 0.15, 1.0]]),
@@ -29,47 +104,53 @@ def gaussian_model(curve):
     return dal.MultiFactorGSRModelData_New("gaussian", curve, vol)
 
 
-def calibrate_gaussian(curve):
-    market = [
-        dal.GSRMarketQuote_(f"{years}Y ATM", caplet(years), volatility, 0.000001)
-        for years, volatility in [(1, 0.0100), (2, 0.0110)]
-    ]
-    prices = dal.GSRMarketQuotes_Get_Prices(curve, market)
-    quotes = [
-        dal.GSRCalibrationQuote_(f"{years}Y ATM", caplet(years), price.price, 0.000001)
-        for years, price in zip([1, 2], prices)
-    ]
-    parameters = [dal.GSRCalibrationParameter_(0, knot, 0.001, 0.04) for knot in [0, 1]]
-    fit = dal.Calibrate_GSRVolatility(gaussian_model(curve), quotes, parameters)
-    print("\nThree-factor Gaussian fit: two level-factor g buckets; slope, curvature, H and correlations fixed")
-    print(f"Converged: {fit.converged}; fit: {fit.fit_within_tolerance}; numerical: {fit.numerical_validation_passed}")
-    print("Fitted g:", ", ".join(format_float(value) for value in fit.parameters))
+def report_diagnostics(title, fit, held_out=False):
+    rows = [["Converged", str(fit.converged).lower()],
+            ["Price fit passed", str(fit.fit_within_tolerance).lower()],
+            ["Numerical validation passed", str(fit.numerical_validation_passed).lower()],
+            ["Jacobian rank", fit.jacobian_rank], ["Iterations", fit.iterations]]
+    if held_out:
+        rows.append(["Held-out passed", str(fit.held_out_within_tolerance).lower()])
+    print_table(title, ["Diagnostic", "Result"], rows)
     if not (fit.converged and fit.fit_within_tolerance and fit.numerical_validation_passed):
-        raise RuntimeError(f"Gaussian calibration failed: {fit.termination_reason}")
+        raise RuntimeError(f"Calibration diagnostics failed: {fit.termination_reason}")
+    if held_out and not fit.held_out_within_tolerance:
+        raise RuntimeError("Held-out quote validation failed")
+
+
+def calibrate_gaussian(discount, snapshot):
+    inputs = [
+        (f"{label} {tenor} ATM", caplet(discount, expiry_days, days=days, tenor=tenor), smile[1])
+        for (expiry_days, label), smile in zip(VOL_EXPIRIES, SMILE_VOLS)
+        for days, tenor in CAPLET_TENORS
+    ]
+    market = [dal.GSRMarketQuote_(name, option, vol, GAUSSIAN_SCALE) for name, option, vol in inputs]
+    prices = dal.GSRMarketQuotes_Get_Prices(snapshot, market)
+    quotes = [dal.GSRCalibrationQuote_(name, option, price.price, GAUSSIAN_SCALE)
+              for (name, option, _), price in zip(inputs, prices)]
+    parameters = [dal.GSRCalibrationParameter_(0, knot, 0.001, 0.04) for knot in range(3)]
+    fit = dal.Calibrate_GSRVolatility(gaussian_model(snapshot), quotes, parameters)
+    print_table("Gaussian volatility calibration: 15 ATM caplets",
+                ["Instrument", "Normal(bp)", "Market PV", "Fitted PV", "Error/scale"],
+                [[name, format_float(vol * 10000), format_float(price.price), format_float(value),
+                  format_float(error / GAUSSIAN_SCALE)]
+                 for (name, _, vol), price, value, error in zip(inputs, prices, fit.model_prices, fit.residuals)])
+    print_table("Calibrated Gaussian parameters; slope, curvature, H and correlations fixed",
+                ["Parameter", "Initial", "Fitted"],
+                [[f"g:level:{TODAY.AddDays(365 * knot)}", format_float(0.009), format_float(value)]
+                 for knot, value in enumerate(fit.parameters)])
+    report_diagnostics("Gaussian calibration diagnostics", fit)
     return fit.model
 
 
-def smile_quotes():
-    inputs = [
-        (1, -0.005, 0.01120), (1, 0.0, 0.01050), (1, 0.005, 0.01005),
-        (2, -0.005, 0.01175), (2, 0.0, 0.01140), (2, 0.005, 0.01105),
-    ]
-    names = [f"{years}Y {offset:+.3f}" for years, offset, _ in inputs]
-    quotes = [
-        dal.GSRMarketQuote_(name, caplet(years, offset), volatility, PRICE_SCALE)
-        for name, (years, offset, volatility) in zip(names, inputs)
-    ]
-    return names, quotes
-
-
-def calibrate_slv(curve, gaussian):
+def calibrate_slv(discount, snapshot, gaussian):
     model_settings = dal.GSRSLVSettings_()
     model_settings.kappa = 1.0
     model_settings.vol_of_vol = 0.5
     model_settings.variance_correlations = [-0.2, 0.0, 0.0]
     model_settings.max_step = 1.0 / 12.0
     leverage = dal.GSRLeverageData_New(
-        "leverage", [-0.01, 0.0, 0.01], [0.0], dal.DoubleMatrix_([[1.0], [1.0], [1.0]]),
+        "leverage", [-0.02, 0.0, 0.02], [0.0], dal.DoubleMatrix_([[1.0], [1.0], [1.0]]),
     )
     initial = dal.GSRSLVModelData_New("initial_slv", gaussian, leverage, model_settings)
     settings = dal.GSRSLVCalibrationSettings_()
@@ -80,78 +161,97 @@ def calibrate_slv(curve, gaussian):
     settings.solver.prior_weight = 0.01
     settings.solver.smoothing_weight = 0.0001
     parameters = [dal.GSRSLVCalibrationParameter_(f"leverage:{row}:0", 0.2, 2.0) for row in range(3)]
-    names, quotes = smile_quotes()
-    held_out = [dal.GSRMarketQuote_("2Y +0.0025 held-out", caplet(2, 0.0025), 0.01120, PRICE_SCALE)]
+    inputs = [(f"{label} {offset:+.3f}", caplet(discount, expiry_days, offset), vol)
+              for (expiry_days, label), row in zip(VOL_EXPIRIES, SMILE_VOLS)
+              for offset, vol in zip([-0.005, 0.0, 0.005], row)]
+    quotes = [dal.GSRMarketQuote_(name, option, vol, PRICE_SCALE) for name, option, vol in inputs]
+    held_out = [dal.GSRMarketQuote_("2Y +0.0025 held-out", caplet(discount, 730, 0.0025), 0.01120, PRICE_SCALE)]
     fit = dal.Calibrate_GSRSLVMarket(initial, quotes, parameters, settings, held_out=held_out)
-    print("\nSLV fit: three leverage nodes; Gaussian, CIR and correlations fixed")
-    print(
-        f"Converged: {fit.converged}; fit: {fit.fit_within_tolerance}; "
-        f"numerical: {fit.numerical_validation_passed}; held-out: {fit.held_out_within_tolerance}"
-    )
-    print(f"Jacobian rank: {fit.jacobian_rank}/3; iterations: {fit.iterations}")
-    for row, value in enumerate(fit.parameters):
-        print(f"  leverage:{row}:0: {format_float(value)}")
-    market_prices = dal.GSRMarketQuotes_Get_Prices(curve, quotes)
-    print(f"{'Quote':<15}{'Market PV':>15}{'Fitted PV':>15}{'Residual/scale':>18}{'Pair SE':>15}")
-    for name, market, price, residual, error in zip(
-        names, market_prices, fit.model_prices, fit.residuals, fit.standard_errors,
-    ):
-        print(
-            f"{name:<15}{format_float(market.price):>15}{format_float(price):>15}"
-            f"{format_float(residual / PRICE_SCALE):>18}{format_float(error):>15}"
-        )
-    print(
-        f"Max validation error: {format_float(max(fit.numerical_errors))}; "
-        f"budget: {format_float(0.25 * PRICE_SCALE)}"
-    )
-    print(
-        f"Held-out 2Y +0.0025 PV: {format_float(fit.held_out_prices[0])}; "
-        f"PV error: {format_float(fit.held_out_residuals[0])}"
-    )
-    if not (fit.converged and fit.fit_within_tolerance and fit.numerical_validation_passed and fit.held_out_within_tolerance):
-        raise RuntimeError(f"SLV calibration diagnostics failed: {fit.termination_reason}")
+    prices = dal.GSRMarketQuotes_Get_Prices(snapshot, quotes)
+    print_table("SLV volatility calibration: 15 smile caplets",
+                ["Instrument", "Normal(bp)", "Market PV", "Fitted PV", "Error/scale", "Pair SE"],
+                [[name, format_float(vol * 10000), format_float(price.price), format_float(value),
+                  format_float(error / PRICE_SCALE), format_float(se)]
+                 for (name, _, vol), price, value, error, se
+                 in zip(inputs, prices, fit.model_prices, fit.residuals, fit.standard_errors)])
+    print_table("Calibrated SLV parameters; Gaussian, CIR and correlations fixed",
+                ["Parameter", "Initial", "Fitted"],
+                [[f"leverage:{row}:0", format_float(1.0), format_float(value)]
+                 for row, value in enumerate(fit.parameters)])
+    report_diagnostics("SLV calibration diagnostics", fit, held_out=True)
+    held_out_error = (abs(fit.held_out_residuals[0]) + settings.validation_sigma * fit.held_out_standard_errors[0]
+                      + fit.held_out_conditional_errors[0])
+    print_table("Independent validation",
+                ["Result", "PV", "Error estimate", "PV budget"],
+                [["Max numerical error", "N/A", format_float(max(fit.numerical_errors)),
+                  format_float(settings.solver.numerical_error_fraction * PRICE_SCALE)],
+                 ["Held-out 2Y +0.0025", format_float(fit.held_out_prices[0]),
+                  format_float(held_out_error), format_float(PRICE_SCALE)]])
     return fit.model
 
 
-def price_products(model):
+def price_products(discount, model):
     expiry = TODAY.AddDays(365)
-    start = expiry.AddDays(2)
-    second_fixing = expiry.AddDays(365)
-    second_start = second_fixing.AddDays(2)
-    end = second_start.AddDays(365)
-    first_payment = second_start.AddDays(2)
-    payment = end.AddDays(2)
-    option = dal.GSRSwaption_(
-        expiry, [dal.GSRFixedCoupon_(first_payment, 1.0), dal.GSRFixedCoupon_(payment, 1.0)],
-        [dal.GSRFloatingCoupon_(expiry, start, second_start, first_payment, 1.0, 1.0, "12M"),
-         dal.GSRFloatingCoupon_(second_fixing, second_start, end, payment, 1.0, 1.0, "12M")], 0.03,
+    first = expiry.AddDays(365)
+    end = first.AddDays(365)
+    strike = (discount(TODAY, expiry) - discount(TODAY, end)) / (discount(TODAY, first) + discount(TODAY, end))
+    swaption = dal.GSRSwaption_(
+        expiry, [dal.GSRFixedCoupon_(first, 1.0), dal.GSRFixedCoupon_(end, 1.0)],
+        [dal.GSRFloatingCoupon_(expiry, expiry, first, first, 1.0, 1.0, "12M"),
+         dal.GSRFloatingCoupon_(first, first, end, end, 1.0, 1.0, "12M")], strike,
     )
     settings = dal.GSRMonteCarloSettings_()
-    settings.paths = 8192
+    settings.paths = 16384
     settings.seed = 27183
-    settings.conditional_paths = 32
-    prices = dal.GSRSLV_EuropeanOptionPrices(model, [caplet(1), option], settings)
-    print(f"\n{'Product':<24}{'PV/notional':>15}{'Pair SE':>15}{'Conditional diff':>20}")
-    for name, result in zip(["1Y ATM caplet", "1Y payer swaption"], prices):
-        print(
-            f"{name:<24}{format_float(result.price):>15}{format_float(result.standard_error):>15}"
-            f"{format_float(result.conditional_error):>20}"
-        )
-        if not math.isfinite(result.price) or result.price <= 0.0:
-            raise RuntimeError(f"Invalid price for {name}")
+    prices = dal.GSRSLV_EuropeanOptionPrices(model, [caplet(discount, 365), swaption], settings)
+    caplet_strike = forward(discount, expiry, 182)
+    caplet_script = dal.Product_New(
+        ["STRIKE", expiry], [repr(caplet_strike),
+                            f"pay PAYS MAX(1 - (1 + {182 / 365.0!r} * STRIKE) * FIX(IR[USD,DF,{expiry.AddDays(182)}]), 0)"],
+    )
+    swaption_script = dal.Product_New(
+        ["STRIKE", expiry], [repr(strike),
+                            f"pay PAYS MAX(1 - FIX(IR[USD,DF,{end}]) - STRIKE * "
+                            f"(FIX(IR[USD,DF,{first}]) + FIX(IR[USD,DF,{end}])), 0)"],
+    )
+    rows, risks = [], []
+    for name, product, price in zip(["1Y ATM caplet", "1Y into 2Y ATM payer"], [caplet_script, swaption_script], prices):
+        values = []
+        for aad in [False, True]:
+            execution = dal.MonteCarloSettings_(method="sobol", compiled=True, enable_aad=aad, use_bb=True, smooth=1e-8)
+            values.append(dal.MonteCarlo_ValueWithSettings(
+                product, model, settings.paths,
+                valuation=dal.ScriptValuationSettings_(evaluation_date=TODAY), simulation=execution))
+        plain, adjoint = values
+        if not math.isclose(plain["PV"], adjoint["PV"], rel_tol=0.0, abs_tol=1e-10):
+            raise RuntimeError(f"AAD and plain PV differ for {name}")
+        if abs(adjoint["PV"] - price.price) > 5 * price.standard_error + 0.0001:
+            raise RuntimeError(f"Script and European pricer differ for {name}")
+        if not all(math.isfinite(value) for value in adjoint.values()):
+            raise RuntimeError(f"Non-finite AAD result for {name}")
+        rows.append([name, format_float(price.price), format_float(price.standard_error),
+                     format_float(plain["PV"]), format_float(adjoint["PV"]), diagnostic_value(adjoint["PV"] - plain["PV"])])
+        risks.append(adjoint)
+    print_table("Product values: unit notional; identical contracts",
+                ["Product", "MRG32 PV", "Pair SE", "Sobol PV", "AAD PV", "AAD-plain"], rows)
+    labels = sorted(key for key in risks[0] if key != "PV" and max(abs(risk[key]) for risk in risks) >= 1e-12)
+    required = [f"d_g:{factor}:{TODAY}" for factor in ["level", "slope", "curvature"]]
+    required.extend([f"d_logdf:OIS:{expiry}", "d_kappa", "d_volOfVol", "d_leverage:1:0", "d_STRIKE"])
+    if not labels or any(key not in risks[0] or abs(risks[0][key]) < 1e-12 for key in required):
+        raise RuntimeError("Expected model-input AAD risks are missing")
+    print_table("AAD input derivatives; calibration held fixed; active inputs",
+                ["Risk", "1Y ATM caplet", "1Y into 2Y payer"],
+                [[label, *(diagnostic_value(risk[label]) for risk in risks)]
+                 for label in labels])
 
 
 def main():
     dal.EvaluationDate_Set(TODAY)
-    curve = dal.GSRCurveData_New(
-        "flat_ois", TODAY, "USD", [TODAY, TODAY.AddDays(1825)],
-        [0.0, -INPUT_RATE * 5.0], [], dal.DoubleMatrix_(0, 0),
-    )
-    print("GSR + SLV calibration and pricing; illustrative Normal quotes, unit notional")
-    print("Flat 3% discount/forecast curve; quotes are annualized decimals.")
-    gaussian = calibrate_gaussian(curve)
-    smile = calibrate_slv(curve, gaussian)
-    price_products(smile)
+    print("Three-factor GSR + SLV: calibrated yield curve, illustrative Normal volatility quotes")
+    discount, snapshot = calibrate_curve()
+    gaussian = calibrate_gaussian(discount, snapshot)
+    smile = calibrate_slv(discount, snapshot, gaussian)
+    price_products(discount, smile)
     return 0
 
 

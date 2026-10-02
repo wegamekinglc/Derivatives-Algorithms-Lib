@@ -15,6 +15,7 @@
 - [Errors and common patterns](#error-handling)
 - [Public function naming](#public-function-naming-dal-excel-and-dal-python)
 - [Tests, comments, and documentation](#test-conventions-google-test)
+- [Example output](#example-output-c-and-python)
 
 ## Formatting (primarily enforced by `.clang-format`)
 
@@ -226,6 +227,23 @@ Reference files:
 - Scoped blocks `{ }` within a single `TEST` for sub-cases
 - Test suites: PascalCase (`AADTest`, `VectorTest`)
 - Test names: PascalCase with `Test` prefix (`TestNumberAdd`)
+
+## Example Output (C++ and Python)
+
+- Show calibration results and sample product values in aligned text tables,
+  with a section title, column headers, and horizontal separators. Match the
+  layouts in `dal-cpp/examples/curve_calibration/curve_calibration.cpp` and
+  `dal-cpp/examples/uoc/uoc.cpp`; Python examples follow the same layout.
+- Calibration tables identify instruments, market/fitted values, residuals,
+  fitted parameters and validation status. Product tables identify the product,
+  valuation method and price; include numerical or sampling errors when available.
+- Label units and scales explicitly. Use the shared `ExampleFloat` / `format_float`
+  helpers for fixed-point output that keeps small meaningful values visible.
+- When AAD is available, include the AAD price and named input derivatives.
+  State whether sensitivities hold calibrated inputs fixed or propagate through
+  calibration. Compare plain and AAD values on the same contract and random paths.
+- Keep explanation in the corresponding documentation; table headings and concise
+  labels supply the context needed to read the program's output.
 
 ## Comment Style
 
