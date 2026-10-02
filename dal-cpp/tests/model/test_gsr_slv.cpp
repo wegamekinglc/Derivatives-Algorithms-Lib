@@ -375,6 +375,9 @@ TEST(GSRSLVTest, TestAdjointsMatchReinitializedBumpsAndCloneOwnsParameters) {
     bumped->Allocate(timeline, definitions);
     Dal::AAD::Scenario_<> bumpedPath;
     Dal::AAD::AllocatePath(definitions, bumpedPath);
+    bumped->Init(timeline, definitions);
+    bumped->GeneratePath(normals, &bumpedPath);
+    ASSERT_NEAR(Dal::AAD::Value(payoff), bumpedPath[0].observations_[0] / bumpedPath[0].numeraire_, 1e-14);
     for (size_t i = 0; i < model->Parameters().size(); ++i) {
         const double original = *bumped->Parameters()[i];
         double prices[2];

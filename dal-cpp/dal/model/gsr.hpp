@@ -440,7 +440,7 @@ namespace Dal::AAD {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size() && state.size() == NumFactors() &&
                         covariance.Rows() == static_cast<int>(NumFactors()) && covariance.Cols() == static_cast<int>(NumFactors()),
                     "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
-            return Observe(observations_[sample][slot], [&](const Bond_& bond) {
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
                 return Dal::exp(bond.intercept_ - Dot(bond.loading_, state) - 0.5 * Quadratic(bond.loading_, covariance));
             });
         }
