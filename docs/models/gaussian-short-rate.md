@@ -1,41 +1,37 @@
-#Gaussian Short Rate(GSR) model
+# Gaussian Short Rate (GSR) model
 
-`GSRModelData_` supplies a one - factor Gaussian short - rate model;
-`MultiFactorGSRModelData_` supplies named factors in one currency.Both use the time -
-    dependent `g(t)` and `H(t)` parameterization from Thomas Hyer's *Derivatives Algorithms *,
-    Volume 1, sections 13.1–13.2. Functions are piecewise constant on dated knots;
-a knot starts its new segment.The model fits a supplied initial OIS discount curve exactly at its nodes;
-between nodes it interpolates log discount factors linearly on an ACT /
-    365 time axis.The first curve node and both first volatility knots must equal the valuation date.
+`GSRModelData_` supplies a one-factor Gaussian short-rate model;
+`MultiFactorGSRModelData_` supplies named factors in one currency. Both use the
+time-dependent `g(t)` and `H(t)` parameterization from Thomas Hyer's
+*Derivatives Algorithms*, Volume 1, sections 13.1–13.2. Functions are piecewise
+constant on dated knots; a knot starts its new segment.
+The model fits a supplied initial OIS discount curve exactly at its nodes;
+between nodes it interpolates log discount factors linearly on an ACT/365 time
+axis. The first curve node and both first volatility knots must equal the
+valuation date.
 
-    ##State,
-    bonds,
-    and discounting
+## State, bonds, and discounting
 
-        The vector state follows `dX(
-            t) = diag(g(t)) dW(t)`,
-        with `X(0) = 0` and Brownian correlation matrix `R`.Define
+The vector state follows `dX(t) = diag(g(t)) dW(t)`, with `X(0) = 0` and
+Brownian correlation matrix `R`. Define
 
-`C(t) = diag(g(t)) R diag(g(t))`, `B(t, T) = integral(t, T) H(u) du`,
-`V(t) = integral(0, t) C(u) du`,
-        and `m(t) = -integral(0, t) C(u) B(u, t) du`.
+`C(t) = diag(g(t)) R diag(g(t))`, `B(t,T) = integral(t,T) H(u) du`,
+`V(t) = integral(0,t) C(u) du`, and `m(t) = -integral(0,t) C(u) B(u,t) du`.
 
-                     For the supplied discount curve `P0`,
-        the conditional zero - coupon price is
+For the supplied discount curve `P0`, the conditional zero-coupon price is
 
-`P(t, T) = P0(T) / P0(t) *
-            exp(-B ' (X-m) - B' V B / 2)`.
+`P(t,T) = P0(T)/P0(t) * exp(-B' (X-m) - B' V B/2)`.
 
-            For one factor these are scalar quantities and `R = 1`.Singular correlations and
-                                                                zero - volatility factors are supported without adding a volatility floor.
+For one factor these are scalar quantities and `R = 1`. Singular correlations
+and zero-volatility factors are supported without adding a volatility floor.
 
-                                                                       This construction reprices `P0` and
-                                                                supports zero volatility.The model generates one Gaussian increment per factor
-                                                                and positive event interval,
-        in time - major order and then input factor order.Each interval's discount factor is the exact conditional expectation of the continuous -
-            time discount factor given its two endpoint states
-                .Consequently the script engine can discount payments and exercise values on its event grid with a
-            stochastic numeraire.LSM training and validation use the discount ratio of each path;
+This construction reprices `P0` and supports zero volatility. The model
+generates one Gaussian increment per factor and positive event interval, in
+time-major order and then input factor order. Each interval's
+discount factor is the exact conditional expectation of the continuous-time
+discount factor given its two endpoint states. Consequently the script engine
+can discount payments and exercise values on its event grid with a stochastic
+numeraire. LSM training and validation use the discount ratio of each path;
 the pricing pass discounts at that same path's event numeraire. No extra
 Gaussian bridge dimension is needed for payoffs determined by event states.
 This discount rule applies to the standalone rate model. A coupled asset model
@@ -45,8 +41,8 @@ The model reports AAD sensitivities to every non-anchor OIS log-discount node,
 every non-anchor projection log-discount node, and every `g` and `H` segment.
 The labels are `logdf:OIS:YYYY-MM-DD`, `logdf:<tenor>:YYYY-MM-DD`,
 `g:YYYY-MM-DD`, and `H:YYYY-MM-DD` for the one-factor factory. Multi-factor
-labels are `g:<factor>:YYYY-MM-DD` and `H:<factor>:YYYY-MM-DD`;
-correlations are passive inputs.These are** model input** derivatives;
+labels are `g:<factor>:YYYY-MM-DD` and `H:<factor>:YYYY-MM-DD`; correlations
+are passive inputs. These are **model input** derivatives;
 they are not calibrated quote DV01s. Curve snapshots detach the inputs from
 the source curve's calibration graph.
 At the degenerate `g = 0` boundary, AAD uses a zero subgradient for the
@@ -59,8 +55,8 @@ Create `GSRCurveData_` from dated OIS log discount factors and, optionally,
 one row of projection log discount factors per tenor. The C++ helper
 `NewGSRCurveDataFromYieldCurve` snapshots a `YieldCurve_` at requested dates;
 Python exposes `GSRCurveDataFromYieldCurve_New` and Excel exposes
-`GSRCurveDataFromCurveBlock_New`.The snapshot's date range must cover all exercise, fixing, accrual, and payment dates;
-intermediate dates are
+`GSRCurveDataFromCurveBlock_New`. The snapshot's date range must cover all
+exercise, fixing, accrual, and payment dates; intermediate dates are
 interpolated. Include dates as nodes when their exact source-curve discount
 factors must be preserved. The model rejects observations beyond the last
 curve node rather than extrapolating them.
@@ -73,94 +69,90 @@ For multiple factors, use `NewMultiFactorGSRVolData(name, settings)` and
 `NewMultiFactorGSRModelData(name, curve, vol)` in dal-public. The settings contain
 ordered factor names, separate g/H knot dates, matrices with factor rows and
 date columns, and a symmetric, unit-diagonal PSD correlation matrix. Every g
-value must be nonnegative;
-multi - factor H values may be signed.Factor names must be nonempty and unique ignoring case.The one - factor factory retains its positive -
-    H requirement and existing archive format
-        .
+value must be nonnegative; multi-factor H values may be signed. Factor names
+must be nonempty and unique ignoring case. The one-factor factory retains its
+positive-H requirement and existing archive format.
 
-    Python and Excel expose `MultiFactorGSRVolData_New` and
-`MultiFactorGSRModelData_New`.For example,
-    with an existing curve snapshot:
+Python and Excel expose `MultiFactorGSRVolData_New` and
+`MultiFactorGSRModelData_New`. For example, with an existing curve snapshot:
 
-```python vol = dal.MultiFactorGSRVolData_New(
-    "vol", [ "level", "slope" ], [today], dal.DoubleMatrix_([ [0.02], [0.01] ]), [today], dal.DoubleMatrix_([ [1.0], [-0.4] ]), dal.DoubleMatrix_([
-        [ 1.0, 0.3 ], [ 0.3, 1.0 ]
-    ]), ) model =
-    dal.MultiFactorGSRModelData_New("rates", curve, vol)
+```python
+vol = dal.MultiFactorGSRVolData_New(
+    "vol", ["level", "slope"], [today], dal.DoubleMatrix_([[0.02], [0.01]]),
+    [today], dal.DoubleMatrix_([[1.0], [-0.4]]),
+    dal.DoubleMatrix_([[1.0, 0.3], [0.3, 1.0]]),
+)
+model = dal.MultiFactorGSRModelData_New("rates", curve, vol)
 ```
 
-    Both factories share the[rate kernel](../../ dal - cpp / dal / model / gsr.hpp)
-        .Initialization prepares transition and
-    observation coefficients;
-path generation does not rebuild schedules or
-    integrate dated parameters.Brownian bridge sampling applies independently to each factor before the covariance transform.
+Both factories share the [rate kernel](../../dal-cpp/dal/model/gsr.hpp).
+Initialization prepares transition and observation coefficients; path generation
+does not rebuild schedules or integrate dated parameters. Brownian bridge
+sampling applies independently to each factor before the covariance transform.
 
-            Script `FIX` supports these single -
-            currency observations :
+Script `FIX` supports these single-currency observations:
 
-        | Script name | Value at the event date | | -- -- -- -- -- -- -- -- -- -- -- -- -|
-        -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -| | `IR[USD, DF, 2028 - 09 - 28]` |
-        OIS bond price to the dated maturity | | `IR[USD, LIBOR_3M_LCH]` | Forward Libor using the 3M projection row,
-    if supplied | | `IR[USD, SWAP, 5Y]` | Par swap rate using currency fixed and floating schedules |
+| Script name             | Value at the event date                                   |
+|-------------------------|-----------------------------------------------------------|
+| `IR[USD,DF,2028-09-28]` | OIS bond price to the dated maturity                      |
+| `IR[USD,LIBOR_3M_LCH]`  | Forward Libor using the 3M projection row, if supplied    |
+| `IR[USD,SWAP,5Y]`       | Par swap rate using currency fixed and floating schedules |
 
-        Libor and swap forwards fall back to the OIS curve when their projection tenor is absent.Projection curves enter through the deterministic
-            initial forward spread;
-the stochastic factors and OIS bond ratios drive future changes.The parser also accepts the canonical names `IR[DF] : USD, 2028 - 09 - 28`,
-`IR : USD,
-       LIBOR_3M_LCH`,
-       and `IR : USD,
-       5Y`.
+Libor and swap forwards fall back to the OIS curve when their projection tenor
+is absent. Projection curves enter through the deterministic initial forward
+spread; the stochastic factors and OIS bond ratios drive future changes.
+The parser also accepts the canonical names `IR[DF]:USD,2028-09-28`,
+`IR:USD,LIBOR_3M_LCH`, and `IR:USD,5Y`.
 
-       ##Bermudan products
+## Bermudan products
 
-           Use the script's existing `EXERCISE` statement on each permitted date and set
-`regressionFeatures_` to a rate observation.For a bond call,
-       an exercise event can be :
+Use the script's existing `EXERCISE` statement on each permitted date and set
+`regressionFeatures_` to a rate observation. For a bond call, an exercise
+event can be:
 
-```text EXERCISE MAX(FIX(IR[USD, DF, 2028 - 09 - 28]) - 0.94, 0)
+```text
+EXERCISE MAX(FIX(IR[USD,DF,2028-09-28]) - 0.94, 0)
 ```
 
-    For a** cash
-    -
-    settled** payer swaption,
-       the event payoff is
-`MAX((FIX(IR[USD, SWAP, 5Y]) - K) * A(t), 0)`,
-       where `A(t)` is the sum of fixed accrual fractions times `FIX(IR[USD, DF, <payment date>])`
-               .Build its fixed schedule with the currency's swap convention, and use
-`IR[USD, SWAP, 5Y]` as the regression feature.This representation pays the annuity value at exercise.It does not create a delivered swap
-           or future floating and fixed cashflows after exercise.
+For a **cash-settled** payer swaption, the event payoff is
+`MAX((FIX(IR[USD,SWAP,5Y]) - K) * A(t), 0)`, where `A(t)` is the sum of fixed
+accrual fractions times `FIX(IR[USD,DF,<payment date>])`. Build its fixed
+schedule with the currency's swap convention, and use
+`IR[USD,SWAP,5Y]` as the regression feature. This representation pays the
+annuity value at exercise. It does not create a delivered swap or future
+floating and fixed cashflows after exercise.
 
-                                  GSR accepts a valuation date matching the curve's evaluation date. Historical Libor fixings can be supplied through
-                                  the existing fixing snapshot path;
-future observations come from simulated model paths.For multiple factors, choose regression observations that capture the exercise decision;
-a single swap rate need not capture every relevant factor.Cross -
-    currency dynamics are separate features.The existing[equity - rate Hybrid](hybrid - model.md)
-        accepts the GSR rate component with any number of factors,
-    and the GSR stochastic - local -
-        volatility model plugs in as one component through the same interface.
+GSR accepts a valuation date matching the curve's evaluation date. Historical
+Libor fixings can be supplied through the existing fixing snapshot path;
+future observations come from simulated model paths. For multiple factors,
+choose regression observations that capture the exercise decision; a single
+swap rate need not capture every relevant factor. Cross-currency dynamics are
+separate features. The existing
+[equity-rate Hybrid](hybrid-model.md) accepts the GSR rate component with any
+number of factors, and the GSR stochastic-local-volatility model plugs in as one
+component through the same interface.
 
-        ##European option pricing
+## European option pricing
 
-`PriceGSREuropeanOption` in[dal - public](../../ dal - public / src / gsr.hpp) prices unit
-        - notional bond calls / puts,
-    caplets / floorlets and physically settled European swaptions.The instruments are model - agnostic protocol types(`BondOption_`, `Caplet_`,
-`Swaption_` in[dal - cpp](../../ dal - cpp / dal / protocol / rateoption.hpp)) and the
-        quotes(`CalibrationQuote_`, `VolQuote_` with the `VolConvention_` enum) live in[dal - cpp](../../ dal - cpp / dal / protocol / volquote.hpp);
-any rate model can price or calibrate to them.Python exposes `GSR_EuropeanOptionPrice`;
-Excel exposes
+`PriceGSREuropeanOption` in [dal-public](../../dal-public/src/gsr.hpp) prices
+unit-notional bond calls/puts, caplets/floorlets and physically settled European
+swaptions. The instruments are model-agnostic protocol types (`BondOption_`, `Caplet_`,
+`Swaption_` in [dal-cpp](../../dal-cpp/dal/protocol/rateoption.hpp)) and the
+quotes (`CalibrationQuote_`, `VolQuote_` with the `VolConvention_` enum) live in
+[dal-cpp](../../dal-cpp/dal/protocol/volquote.hpp); any rate model can price or
+calibrate to them. Python exposes `GSR_EuropeanOptionPrice`; Excel exposes
 `GSR.EUROPEANOPTIONPRICE`. `CALL` means bond call, caplet or payer swaption;
-`PUT` means bond put,
-    floorlet or receiver swaption
-                    .
+`PUT` means bond put, floorlet or receiver swaption.
 
-                Dates and accrual fractions are explicit.A floating coupon specifies fixing,
-    accrual start / end, payment, index accrual, coupon accrual and projection tenor.Require `expiry <= fixing <= start < end <= payment`;
-a caplet's expiry is its fixing date.Fixed coupons specify payment and accrual.Curves must cover every date.Negative rates and strikes,
-    zero volatility and singular correlations are supported.Already fixed coupons and cash -
-        settlement conventions are excluded
-            .
+Dates and accrual fractions are explicit. A floating coupon specifies fixing,
+accrual start/end, payment, index accrual, coupon accrual and projection tenor.
+Require `expiry <= fixing <= start < end <= payment`; a caplet's expiry is its
+fixing date. Fixed coupons specify payment and accrual. Curves must cover every
+date. Negative rates and strikes, zero volatility and singular correlations are
+supported. Already fixed coupons and cash-settlement conventions are excluded.
 
-        Bond options and caplets use analytic Black expectations of positive bond ratios.Payment lag changes the forward under the payment measure; the pricer includes
+Bond options and caplets use analytic Black expectations of positive bond ratios.
+Payment lag changes the forward under the payment measure; the pricer includes
 this adjustment, including future fixing dates in a swaption's floating leg.
 A swaption is the positive part of floating PV minus strike times fixed annuity,
 with the sign reversed for receivers. Under the expiry-forward measure this is
@@ -172,16 +164,15 @@ Analytic bond options and caplets have no factor-count restriction.
 `GSRPricingSettings_` selects the quadrature order (2–64, default 16) and refinement.
 With refinement enabled, the result uses twice the requested outer order and
 reports the price difference as `numericalError_`. This is an estimate, not a
-guaranteed error bound;
-check stability with a larger order when accuracy matters.The one - direction integration also reports its negligible Gaussian -
-    tail bound
-        .
+guaranteed error bound; check stability with a larger order when accuracy matters.
+The one-direction integration also reports its negligible Gaussian-tail bound.
 
-    ##Gaussian volatility calibration
+## Gaussian volatility calibration
 
-`CalibrateGSRVolatility` fits selected entries of a `MultiFactorGSRModelData_` g matrix.Curves,
-    H, correlations and other g entries remain fixed.Each quote contains an option, nonnegative price,
-    positive price error scale and unique name.Each selected parameter contains zero - based factor / knot indices and finite bounds
+`CalibrateGSRVolatility` fits selected entries of a `MultiFactorGSRModelData_`
+g matrix. Curves, H, correlations and other g entries remain fixed. Each quote
+contains an option, nonnegative price, positive price error scale and unique name.
+Each selected parameter contains zero-based factor/knot indices and finite bounds
 `0 <= lower < upper`; the initial value must lie inside them.
 
 The bounded damped Gauss–Newton solver minimizes
@@ -199,17 +190,15 @@ Calibration uses a fixed quadrature order (default 16, allowed 2–32) and check
 fitted model with finer integration. Results own a new model and report three
 separate checks: optimizer convergence, prices within quote scales, and numerical
 errors within `numericalErrorFraction * priceScale` (default fraction 0.25).
-Failure returns diagnostics and a fitted candidate;
-it does not imply a successful calibration.Inspect the termination reason, bounds,
-    residuals and all three checks.
+Failure returns diagnostics and a fitted candidate; it does not imply a successful
+calibration. Inspect the termination reason, bounds, residuals and all three checks.
 
-`quoteJacobian_` has quote rows and selected - parameter columns,
-    with derivatives of the fixed - order calibration price with respect to g.Rank and condition diagnostics use price -
-        scaled residuals and normalized parameters; the condition estimate is a pivoted QR
+`quoteJacobian_` has quote rows and selected-parameter columns, with derivatives
+of the fixed-order calibration price with respect to g. Rank and condition diagnostics use price-scaled
+residuals and normalized parameters; the condition estimate is a pivoted QR
 diagonal ratio, with infinity for deficient rank. It is an identifiability
 diagnostic, not a calibrated quote sensitivity. These pricing/calibration APIs
-use doubles;
-the script Monte Carlo API still supplies model-input AAD.
+use doubles; the script Monte Carlo API still supplies model-input AAD.
 
 For example, with an existing multi-factor model:
 
@@ -231,14 +220,15 @@ Use `GSRCALIBRATIONQUOTE.NEW`, `CALIBRATE.GSRVOLATILITY`, and
 `GSRCALIBRATIONRESULT.GET` to fit and inspect results; parameter tables have
 columns factor, knot, lower, upper. `GSRCALIBRATIONRESULT.GET.MODEL` returns a
 model usable for both option pricing and Monte Carlo. Worksheet value/result
-handles are process-local;
-fitted model data retains archive support.The optional pricing settings table accepts `quadratureOrder` and `estimateError`
-    .
+handles are process-local; fitted model data retains archive support.
+The optional pricing settings table accepts `quadratureOrder` and `estimateError`.
 
-    ##Stochastic local volatility
+## Stochastic local volatility
 
-`GSRSLVModelData_` extends a `MultiFactorGSRModelData_` with normalized CIR variance and a positive local leverage surface.It shares dated curves,
-    g / H inputs, projection spreads and rate observations with the Gaussian model.This is a single - currency rates model; equity/FX composition and SABR dynamics
+`GSRSLVModelData_` extends a `MultiFactorGSRModelData_` with normalized
+CIR variance and a positive local leverage surface. It shares dated curves,
+g/H inputs, projection spreads and rate observations with the Gaussian model.
+This is a single-currency rates model; equity/FX composition and SABR dynamics
 require separate models.
 
 Under the bank-account measure its state is
