@@ -810,6 +810,16 @@ TEST(ModelTest, TestAssembleHybridCorrelationRejectsInvalidLinks) {
                          "corr", settings.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", 0.1}, HybridFactorLink_{"W_LEVEL", "W_EQ", 0.2}})),
                      Exception_);
     }
+    { // a zero-valued intra-block pair still owns its entry; zero-valued duplicate links are still duplicates
+        auto uncorrelated = MultiFactorRateSettings(0.0);
+        ASSERT_THROW(static_cast<void>(AssembleHybridCorrelation("corr", uncorrelated.components_, {HybridFactorLink_{"W_LEVEL", "W_SLOPE", 0.0}})),
+                     Exception_);
+        ASSERT_THROW(static_cast<void>(AssembleHybridCorrelation(
+                         "corr", uncorrelated.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", 0.0}, HybridFactorLink_{"W_EQ", "W_LEVEL", 0.0}})),
+                     Exception_);
+        auto assembled = AssembleHybridCorrelation("corr", uncorrelated.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", 0.0}});
+        ASSERT_EQ(assembled->Correlations().Rows(), 3);
+    }
 }
 
 TEST(ModelTest, TestHybridSLVRejectsOffDayGridLeverageBreakpoints) {

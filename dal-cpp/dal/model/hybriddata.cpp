@@ -123,9 +123,12 @@ namespace Dal {
             return names;
         }
 
-        Matrix_<> FillCorrelationMatrix(const Vector_<String_>& names, const Vector_<ComponentFactors_>& blocks) {
+        // Zero is a legitimate correlation, so duplicate and intra-pair detection tracks
+        // ownership in a companion mask instead of reading values back from the matrix.
+        Matrix_<> FillCorrelationMatrix(const Vector_<String_>& names, const Vector_<ComponentFactors_>& blocks, Matrix_<char>* owned) {
             const int total = static_cast<int>(names.size());
             Matrix_<> correlations(total, total, 0.0);
+            *owned = Matrix_<char>(total, total, 0);
             for (int i = 0; i < total; ++i)
                 correlations(i, i) = 1.0;
             for (const auto& block : blocks) {
@@ -133,13 +136,15 @@ namespace Dal {
                     continue;
                 const int width = block.block_.Rows();
                 for (int i = 0; i < width; ++i)
-                    for (int j = 0; j < width; ++j)
+                    for (int j = 0; j < width; ++j) {
                         correlations(static_cast<int>(block.offset_) + i, static_cast<int>(block.offset_) + j) = block.block_(i, j);
+                        (*owned)(static_cast<int>(block.offset_) + i, static_cast<int>(block.offset_) + j) = 1;
+                    }
             }
             return correlations;
         }
 
-        void ApplyFactorLinks(const Vector_<String_>& names, const Vector_<HybridFactorLink_>& links, Matrix_<>* correlations) {
+        void ApplyFactorLinks(const Vector_<String_>& names, const Vector_<HybridFactorLink_>& links, Matrix_<char>* owned, Matrix_<>* correlations) {
             const auto slot = [&](const String_& factor) {
                 const auto found = std::find(names.begin(), names.end(), factor);
                 REQUIRE(found != names.end(), "InvalidHybridCorrelation: unknown factor " + factor);
@@ -150,8 +155,8 @@ namespace Dal {
                 REQUIRE(a != b, "InvalidHybridCorrelation: a link must join two distinct factors");
                 REQUIRE(std::isfinite(link.correlation_) && std::abs(link.correlation_) <= 1.0,
                         "InvalidHybridCorrelation: link correlations must be finite in [-1, 1]");
-                REQUIRE((*correlations)(a, b) == 0.0 && (*correlations)(b, a) == 0.0,
-                        "InvalidHybridCorrelation: duplicate correlation for " + link.factorA_ + " and " + link.factorB_);
+                REQUIRE((*owned)(a, b) == 0, "InvalidHybridCorrelation: duplicate correlation for " + link.factorA_ + " and " + link.factorB_);
+                (*owned)(a, b) = (*owned)(b, a) = 1;
                 (*correlations)(a, b) = (*correlations)(b, a) = link.correlation_;
             }
         }
@@ -162,8 +167,9 @@ namespace Dal {
                                                               const Vector_<HybridFactorLink_>& links) {
         Vector_<ComponentFactors_> blocks;
         const auto names = GatherComponentFactors(components, &blocks);
-        auto correlations = FillCorrelationMatrix(names, blocks);
-        ApplyFactorLinks(names, links, &correlations);
+        Matrix_<char> owned;
+        auto correlations = FillCorrelationMatrix(names, blocks, &owned);
+        ApplyFactorLinks(names, links, &owned, &correlations);
         return Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_(name, names, correlations));
     }
 
