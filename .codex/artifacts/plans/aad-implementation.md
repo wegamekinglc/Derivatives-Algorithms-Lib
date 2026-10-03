@@ -26,11 +26,11 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Stage A: trustworthy differentiation and measurement
 
-- [ ] C01: propagate every nonzero scalar adjoint; exact zero is the only default skip.
-- [ ] C02: vector channels have independent propagation semantics and match scalar requests.
-- [ ] C03: non-finite derivatives/seeds remain observable; public results diagnose invalid risk.
-- [ ] C04: preserve consumed intermediate clearing, leaf accumulation, repeated sweeps, and checkpoints.
-- [ ] C05: no implicit approximate gradient truncation.
+- [x] C01: propagate every nonzero scalar adjoint; exact zero is the only default skip.
+- [x] C02: vector channels have independent propagation semantics and match scalar requests.
+- [x] C03: non-finite derivatives/seeds remain observable; public results diagnose invalid risk.
+- [x] C04: preserve consumed intermediate clearing, leaf accumulation, repeated sweeps, and checkpoints.
+- [x] C05: no implicit approximate gradient truncation.
 - [ ] P01: correct production-oriented tape/Jacobian/MC benchmarks and explanatory resource metrics.
 - [ ] D01: explicit recording lifecycle, checkpoints, nested-use rejection, and exception recovery.
 - [ ] D02: optional owner/slot-lifetime diagnostics without release per-node overhead.
@@ -138,10 +138,18 @@ sample counts, and thresholds remain. Graph construction is separately factored,
 prefix widths are selected before timing rather than copied in each measured harvest.
 This also corrects Codacy's two new complexity findings without relaxing its limit.
 
+The fresh nine-target gate at `13b0964b870af232ff4bed745835ac076249ded8` passes every
+performance acceptance check. Raw evidence is in `p0-paired-verified/`, including immutable
+source SHAs, compiler/cache/dependency metadata, CPU affinity, and binary SHA-256 digests.
+Both small Jacobian rows improve in both rounds; tape costs remain within the unchanged policy.
+The [performance report](../perf/aad-native-stage-a.md) preserves every case and the coverage
+limits. C01-C05 are verified by their mathematical tests, the full core-repair CI audit, and
+this performance gate; new increments still require their own current-head checks.
+
 The [recording lifecycle contract](../specs/aad-recording-lifecycle.md) specifies D01 ownership,
 states, checkpoint validation, and cleanup/recovery acceptance. Its proposed API is not yet
 implemented. Continue with local TDD after the current performance/CI evidence is captured.
 
-Next: final nine-target paired gate and exact implementation-head CI audit, then remaining
-measurement/lifecycle work. Public validation remains outside per-path loops. Do not mark Stage A
+Next: exact implementation-head CI audit and remaining measurement/lifecycle work.
+Public validation remains outside per-path loops. Do not mark Stage A
 complete before these checks and its remaining requirements are verified.
