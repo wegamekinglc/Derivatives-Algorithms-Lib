@@ -18,10 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-04
 
-- **Independent AAD recording ownership** — scoped curve recordings reject
-  nested use before discarding the outer graph, report explicit cleanup failures,
-  and require successful tape recovery after failed cleanup. Scopes remain on
-  their creating thread. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
+- **Scoped AAD recordings and checkpoints** — recording phases, opaque checkpoint
+  handles, and owner/mode boundaries diagnose invalid use before tape mutation.
+  Independent curve, MC, and LSM replay recordings reject nesting and recover
+  after backend/cleanup failures. Native full clearing includes every vector
+  channel and leaf. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
 
 - **Native AAD propagation precision** — nonzero adjoints are no longer truncated
   by an absolute threshold, preserving derivatives under intermediate rescaling.

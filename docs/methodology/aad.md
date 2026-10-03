@@ -171,34 +171,58 @@ destruction belong to the creating thread. Separate threads can own separate
 recordings. A nested scope throws before changing the outer tape. The curve
 `TapeGuard_` delegates to this ownership boundary.
 
-Use the existing input registration, `NewRecording`, seeding, and propagation
-operations inside the scope. Extract passive results before calling `Close()`:
+Register inputs before `StartRecording()`, build the graph, and call
+`FinishRecording()` before a reverse operation. Repeated sweeps use explicit
+clearing and fresh seeds. Extract passive results before calling `Close()`:
 
 ```cpp
 AAD::RecordingScope_ recording;
 AAD::Number_ input;
-AAD::RegisterIndependent(input, 3.0);
-AAD::NewRecording(*AAD::Tape());
+recording.RegisterInput(input, 3.0);
+recording.StartRecording();
 AAD::Number_ output = input * input;
-AAD::ZeroAdjoints(*AAD::Tape());
+recording.FinishRecording();
+recording.ClearAdjoints();
 AAD::Adjoint(output) = 1.0;
-AAD::PropagateToStart(*AAD::Tape());
+recording.Reverse();
 const double derivative = AAD::AdjointValue(input);
 recording.Close();
 ```
 
 `Close()` reports cleanup errors and is idempotent. During exception unwinding,
 the destructor performs fallback cleanup without replacing the business
-exception. A cleanup failure remains available through
+exception. A backend or cleanup failure remains available through
 `AAD::LastRecordingCleanupFailure()` and makes the thread's scoped context
 unusable until the next entry successfully rebuilds the tape. A failed rebuild
-rejects that entry. Normal curve Jacobian and node-risk calls close explicitly
+rejects that entry. A failed reverse rejects further graph/reverse work in its
+scope; closing it still releases ownership and retains the recovery requirement.
+Curve Jacobian, node-risk, ordinary MC, and LSM replay callers close explicitly
 after extracting passive results.
+
+`MakeCheckpoint()` captures one prefix boundary during graph recording and
+returns a copyable opaque `Checkpoint_`. A replacement invalidates the previous
+token. `Restore(checkpoint)` discards the suffix, retains prefix adjoints, and
+returns to graph-recording state. Finish each suffix before
+`ReverseSuffix(checkpoint)`. Its contributions accumulate at the prefix; one
+`ReversePrefix(checkpoint)` propagates them to the registered inputs. The XAD
+prefix adapter rewinds the suffix before reverse, so extract suffix values as
+passive doubles before that call. Tokens from a previous recording, another
+thread, a replaced checkpoint, or another mode are rejected before position use.
+
+Select native scalar/vector mode with `SetNumResultsForAAD` before creating the
+scope, and keep the returned mode guard alive until the scope closes. Mode
+selection inside an owned scope is rejected. Native `ZeroAdjoints` and scoped
+`ClearAdjoints` clear both scalar fields and every vector channel, including
+leaves; suffix restoration preserves prefix adjoints instead. A raw mode change
+that violates the scoped width is diagnosed before scoped graph/reverse work.
 
 Active numbers and tape positions become invalid when their recording is
 discarded. Ownership checks protect nesting between scoped callers; raw tape
-operations still require the caller's existing lifetime discipline. The scope
-does not validate every expression or make raw iterators stable checkpoints.
+operations still require the caller's existing lifetime discipline. Existing
+raw registration/propagation operations remain available to compatibility
+callers, but must not replace marks or discard graphs managed by scoped
+checkpoint methods. The scope does not validate every expression or make raw
+iterators stable checkpoints.
 
 ### Native Tape Storage
 

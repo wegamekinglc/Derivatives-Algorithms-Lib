@@ -320,8 +320,9 @@ namespace Dal {
         auto* tape = AAD::Tape();
         TapeGuard_ guard(tape);
         Vector_<AAD::Number_> parameters = RegisterCurveParameters(x);
-        AAD::NewRecording(*tape);
+        guard.recording_.StartRecording();
         Vector_<AAD::Number_> residuals = computeResiduals(parameters);
+        guard.recording_.FinishRecording();
         auto result = std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
         guard.Close();
         return result;

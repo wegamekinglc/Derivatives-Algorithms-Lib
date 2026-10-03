@@ -11,12 +11,14 @@
  */
 
 #pragma once
-#include <memory>
 #include <dal/math/aad/expr.hpp>
+#include <memory>
 
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 
 namespace Dal::AAD {
+
+    void RequireRecordingModeChangeAllowed();
 
     struct NumResultsResetterForAAD_ {
         Tape_* tape_;
@@ -32,6 +34,7 @@ namespace Dal::AAD {
     // Contract: one mode per sweep — all nodes on a tape must be recorded under a single multi_ setting between Clear()s.
     FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t numResults = 1) {
         REQUIRE(numResults > 0 && numResults <= ADJ_SIZE, "SetNumResultsForAAD: numResults out of range");
+        RequireRecordingModeChangeAllowed();
         Tape_* tape = Tape();
         bool oldMulti = tape->multi_;
         size_t oldNumAdj = tape->numAdj_;
@@ -44,15 +47,27 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
+    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
-        for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
-            it->Adjoint() = 0.0;
+        const auto zeroNodes = [&tape](const auto& zero) {
+            size_t remaining = tape.nodes_.OccupiedSlots();
+            auto it = tape.nodes_.Begin();
+            while (remaining != 0) {
+                zero(*it);
+                if (--remaining != 0)
+                    ++it;
+            }
+        };
+        if (tape.multi_)
+            zeroNodes([width = tape.numAdj_](TapNode_& node) {
+                node.Adjoint() = 0.0;
+                std::fill_n(&node.Adjoint(0), width, 0.0);
+            });
+        else
+            zeroNodes([](TapNode_& node) { node.Adjoint() = 0.0; });
     }
 
 } // namespace Dal::AAD
@@ -66,9 +81,7 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
+    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
@@ -86,9 +99,7 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
+    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         auto* t = Tape();
@@ -110,9 +121,7 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
+    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         Tape()->tape_.registerInput(n);

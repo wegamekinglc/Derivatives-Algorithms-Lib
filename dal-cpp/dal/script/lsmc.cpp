@@ -662,7 +662,7 @@ namespace Dal::Script {
             LsmcRows_ pays_;
             LsmcRows_ xByDay_;
             LsmcRows_ hByDay_;
-            LsmcRows_ discountByEvent_; // stochastic numeraire: N(event)/N(next event), one row per interval
+            LsmcRows_ discountByEvent_;        // stochastic numeraire: N(event)/N(next event), one row per interval
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
             size_t nFeatures_ = 1;
 
@@ -1253,8 +1253,8 @@ namespace Dal::Script {
             auto eventNumeraire = ctx.model_->NumeraireIsDeterministic() ? SampleGridNumeraires(ctx) : Vector_<>();
             LsmcStorage_ validationStorage;
             if (counts.validation_) {
-                validationStorage = MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(),
-                                                !ctx.model_->NumeraireIsDeterministic());
+                validationStorage =
+                    MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(), !ctx.model_->NumeraireIsDeterministic());
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
                 validationCtx.constValues_ = ctx.constValues_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
@@ -1542,12 +1542,14 @@ namespace Dal::Script {
                               const Vector_<ExerciseRegression_>& regressions,
                               const PathBatch_& batch,
                               FuzzyReplayWorkspace_<AAD::Number_>& ws,
+                              AAD::RecordingScope_& recording,
                               E_& evaluator,
                               const F_& evaluate,
                               AadReplayOutcome_* outcome) {
-            InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, nullptr);
+            const auto checkpoint = InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, recording, nullptr);
+            recording.FinishRecording();
             for (size_t i = 0; i < batch.pathCount_; ++i) {
-                AAD::RewindToMark(*AAD::Tape());
+                recording.Restore(checkpoint);
                 for (auto& payment : ws.pays_)
                     payment = 0.0;
                 if (ws.random_)
@@ -1557,11 +1559,12 @@ namespace Dal::Script {
                 evaluate(ws, prepared, evaluator);
                 AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
+                recording.FinishRecording();
                 Adjoint(value) = 1.0;
-                AAD::PropagateToMark(*AAD::Tape());
+                recording.ReverseSuffix(checkpoint);
                 outcome->sum_ += Value(value);
             }
-            AAD::PropagateMarkToStart(*AAD::Tape());
+            recording.ReversePrefix(checkpoint);
             size_t j = 0;
             for (const auto* parameter : ws.model_->Parameters())
                 outcome->risks_[j++] += Adjoint(*parameter);
@@ -1577,8 +1580,7 @@ namespace Dal::Script {
                                  const PathBatch_& batch,
                                  std::optional<uint64_t> scrambleKey,
                                  AadReplayOutcome_* outcome) {
-            AAD::Activate(*AAD::Tape());
-            AAD::Rewind(*AAD::Tape());
+            AAD::RecordingScope_ recording;
             FuzzyReplayWorkspace_<AAD::Number_> ws = MakeFuzzyReplayWorkspace<AAD::Number_>(prepared, modelData, scan, batch, scrambleKey);
             //  Bind after the return-by-value, without relying on optional NRVO.
             ws.sinks_.pays_ = &ws.pays_;
@@ -1588,15 +1590,16 @@ namespace Dal::Script {
             if (fuzzyCompiled) {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
                 FuzzyReplayPaths(
-                    prepared, scan, regressions, batch, ws, state,
+                    prepared, scan, regressions, batch, ws, recording, state,
                     [fuzzyCompiled](FuzzyReplayWorkspace_<AAD::Number_>& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
                         CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
                     },
                     outcome);
             } else {
                 FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
-                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
+                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, recording, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
             }
+            recording.Close();
         }
 
         template <class E_, class F_>
@@ -1832,8 +1835,7 @@ namespace Dal::Script {
             for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
                 auto pricingCtx = ctx;
                 pricingCtx.scrambleKey_ = LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate);
-                const auto one =
-                    RunReplayPhase(pricingCtx, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
+                const auto one = RunReplayPhase(pricingCtx, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
                 replicateMeans.push_back(one.sum_ / static_cast<double>(nPaths));
                 reduction.sum_ += one.sum_;
                 reduction.sumSq_ += one.sumSq_;

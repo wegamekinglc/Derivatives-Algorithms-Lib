@@ -166,11 +166,24 @@ before the ownership increment. Its fresh nine-target paired gate passes at
 `080d16e0047798766116d1dba34b03ff8d860815`; supplemental end-to-end calibration also
 passes all 25 common cases under the same sampling/confirmation criterion. The
 [ownership acceptance report](../perf/aad-recording-ownership.md) records conditions,
-case movements, raw evidence, and coverage limits. Exact-head four-backend/CI
-acceptance still remains. D01 remains open: scoped recording states,
+case movements, raw evidence, and coverage limits. All 46 exact-head checks pass
+at `bf89c6b66cf0dd2f0253543cf5fc3fcbe02af5d7` for this ownership increment.
+D01 remains open: scoped recording states,
 validated checkpoint handles, vector clearing, mode boundaries, and MC/LSM migration
 are not implemented by this increment.
 
-Next: exact-head ownership CI acceptance and the remaining lifecycle requirements.
+The next local increment implements scoped states, unique validated checkpoint tokens,
+native scalar/vector clearing, mode-selection boundaries, reverse-failure recovery,
+and ordinary/LSM worker-batch ownership. Twenty native and fifteen CoDiPack focused
+recording cases pass. The new nested-MC-batch test first failed, then passed with
+ownership before reset; its existing simulation error/recovery test still passes.
+Fresh full native and CoDiPack CTest pass 2,336 and 2,255 cases respectively;
+twenty native ownership/state cases also pass ASan/UBSan with leak detection.
+Logs are `lifecycle-*-ctest.log` and `lifecycle-sanitized.log` under the evidence root.
+Four-backend/exact-head CI, nine-target performance, and supplemental short/long
+MC and LSM comparisons remain pending.
+Do not reuse the ownership snapshot's acceptance as proof for these new changes.
+
+Next: finish lifecycle verification and measure changed MC boundary costs.
 Public numeric-result validation remains outside per-path loops. Do not mark Stage A
 complete before its remaining requirements are verified.

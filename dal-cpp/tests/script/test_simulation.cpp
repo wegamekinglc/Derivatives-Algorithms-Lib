@@ -204,7 +204,6 @@ TEST(SimulationTest, TestParallelDoubleStateMatchesSerialAcrossRequests) {
 }
 
 TEST(SimulationTest, TestPseudoAadMatchesValueAndDeltaAcrossBatches) {
-    TapeGuard_ tapeGuard(AAD::Tape());
     const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
     const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));
@@ -301,7 +300,6 @@ TEST(SimulationTest, TestEmptyScriptPaysNothing) {
 }
 
 TEST(SimulationTest, TestHybridLocalVolAadCallerInitializationPreservesValueAndRisks) {
-    TapeGuard_ tapeGuard(AAD::Tape());
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     ScriptProduct_ product({Cell_(Date_(2027, 9, 12))}, {"payoff PAYS SPOT()"});
     const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));

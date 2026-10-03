@@ -1,8 +1,9 @@
 # AAD recording lifecycle: implementation contract
 
-Status: active design; independent ownership, explicit close, and cleanup recovery
-are implemented. The state/checkpoint interfaces below remain proposed until their
-executable acceptance criteria pass. This specifies D01 and the boundary needed by
+Status: active acceptance contract. Ownership, states, checkpoint handles, clearing,
+mode boundaries, and ordinary/LSM batch migration are implemented locally. Full
+four-backend, CI, and changed-workload performance acceptance remain pending.
+This specifies D01 and the boundary needed by
 D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/9dd9282bb2c517c838a6576a95c9b7a937e750af/.codex/artifacts/plans/aad-improvement-plan.md).
 
 ## Problem and compatibility constraints
@@ -95,14 +96,15 @@ each path. Tasks are drained before owners and active objects leave their lifeti
 | A12 | Two-round nine-target gate passes under the unchanged 4% policy; changed curve/MC workloads additionally compare equal results and memory/capacity. |
 
 Tests should establish externally observable contracts rather than duplicate private
-state transitions. Use a narrow backend fault-injection seam only for cleanup failures;
+state transitions. Use narrow internal operation seams for controlled cleanup and
+reverse failures, without adding runtime callback fields for reverse operations;
 the production default path must retain its ordinary backend dispatch and allocation
 behavior. Record four-backend capability differences instead of assuming that a
 backend consumes all intermediates or preserves repeated sweeps identically.
 
-## Next API increment and transition rules
+## Scoped API and transition rules
 
-These additions are proposed for the existing `RecordingScope_`; they are core C++
+These additions extend `RecordingScope_`; they are core C++
 operations, not new valuation settings or binding objects:
 
 ```cpp

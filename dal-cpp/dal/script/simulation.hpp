@@ -12,6 +12,7 @@
 
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/math/aad/recording.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
@@ -160,8 +161,12 @@ namespace Dal::Script {
     };
 
     template <class P_, class E_>
-    void
-    InitModel4ParallelAAD(const P_& prd, AAD::Model_<AAD::Number_>& model, Scenario_<AAD::Number_>& path, E_& evaluator, AAD::Number_* payoffZero = nullptr) {
+    AAD::Checkpoint_ InitModel4ParallelAAD(const P_& prd,
+                                           AAD::Model_<AAD::Number_>& model,
+                                           Scenario_<AAD::Number_>& path,
+                                           E_& evaluator,
+                                           AAD::RecordingScope_& recording,
+                                           AAD::Number_* payoffZero = nullptr) {
         AAD::Rewind(*AAD::Tape());
         for (AAD::Number_* param : model.Parameters())
             PutOnTape(*param);
@@ -172,7 +177,7 @@ namespace Dal::Script {
         if (payoffZero)
             PutOnTape(*payoffZero);
 
-        AAD::NewRecording(*AAD::Tape());
+        recording.StartRecording();
 
         model.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
@@ -180,7 +185,7 @@ namespace Dal::Script {
         if constexpr (std::is_base_of_v<PreparedScript_, P_>)
             prd.InitializeHistoricalState(&evaluator);
 
-        AAD::Mark(*AAD::Tape());
+        return recording.MakeCheckpoint();
     }
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt);
@@ -203,8 +208,8 @@ namespace Dal::Script {
                 for (const auto& observation : sample.observations_)
                     REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
                 for (const auto& discount : sample.discounts_)
-                    REQUIRE2(std::isfinite(Value(discount)) && Value(discount) > 0.0,
-                             "InvalidModelPath: non-finite or nonpositive discount factor", ScriptError_);
+                    REQUIRE2(std::isfinite(Value(discount)) && Value(discount) > 0.0, "InvalidModelPath: non-finite or nonpositive discount factor",
+                             ScriptError_);
             }
         }
 
@@ -419,8 +424,7 @@ namespace Dal::Script {
                               const std::optional<ScriptCompiled_>& compiledProduct,
                               const PathBatch_& batch,
                               SimResults_* results) {
-            AAD::Activate(*AAD::Tape());
-            AAD::Rewind(*AAD::Tape());
+            AAD::RecordingScope_ recording;
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
 
@@ -434,21 +438,24 @@ namespace Dal::Script {
                 random->SkipNormalTo(batch.firstPath_);
 
             double sumValue = 0.0;
+            AAD::Checkpoint_ checkpoint;
 
             auto runPaths = [&](auto& evaluator, auto evaluate) {
                 AAD::Number_ payoffZero = 0.0;
-                InitModel4ParallelAAD(product, *model, path, evaluator, &payoffZero);
+                checkpoint = InitModel4ParallelAAD(product, *model, path, evaluator, recording, &payoffZero);
+                recording.FinishRecording();
                 WithPathGenerator(*model, [&](const auto& generate) {
                     for (size_t i = 0; i < batch.pathCount_; i++) {
-                        AAD::RewindToMark(*AAD::Tape());
+                        recording.Restore(checkpoint);
                         if (random)
                             random->FillNormal(&gVec);
                         generate(gVec, &path);
                         evaluate(path, evaluator);
                         AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[settings.payoffIndex_], payoffZero);
                         REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
+                        recording.FinishRecording();
                         Adjoint(res) = 1.0;
-                        AAD::PropagateToMark(*AAD::Tape());
+                        recording.ReverseSuffix(checkpoint);
                         sumValue += Value(res);
                     }
                 });
@@ -463,12 +470,12 @@ namespace Dal::Script {
                 EvalState_<AAD::Number_> evalState =
                     product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
                 runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
-                AAD::PropagateMarkToStart(*AAD::Tape());
+                recording.ReversePrefix(checkpoint);
                 accumulateConstVarRisks(evalState.ConstVarVals());
             } else {
                 FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(settings.maxNestedIfs_, settings.eps_);
                 runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
-                AAD::PropagateMarkToStart(*AAD::Tape());
+                recording.ReversePrefix(checkpoint);
                 accumulateConstVarRisks(eval.ConstVarVals());
             }
 
@@ -476,6 +483,7 @@ namespace Dal::Script {
                 results->risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(settings.nPaths_);
 
             results->aggregated_ += sumValue;
+            recording.Close();
         }
 
         inline SimResults_ AggregateAADResults(const Vector_<String_>& names, const Vector_<SimResults_>& simResults) {

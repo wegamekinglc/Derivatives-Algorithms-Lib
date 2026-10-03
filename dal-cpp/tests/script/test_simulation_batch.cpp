@@ -202,7 +202,6 @@ TEST(ScriptTest, TestSimulationTaskGroupDrainsAllTasksBeforeRethrowingFirstFailu
 }
 
 TEST(ScriptTest, TestAadSimulationPropagatesTaskFailureAndRemainsUsable) {
-    TapeGuard_ tapeGuard(AAD::Tape());
     const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     const Date_ exerciseDate(2024, 6, 21);
     Vector_<Cell_> eventDates{Cell_(String_("STRIKE")), Cell_(exerciseDate)};
@@ -217,6 +216,30 @@ TEST(ScriptTest, TestAadSimulationPropagatesTaskFailureAndRemainsUsable) {
     ASSERT_TRUE(std::isfinite(recovered.aggregated_));
     for (const double risk : recovered.risks_)
         ASSERT_TRUE(std::isfinite(risk));
+}
+
+TEST(ScriptTest, TestAadBatchRejectsNestedIndependentRecordingBeforeDiscardingOuterGraph) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    Script::ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
+    const int depth = static_cast<int>(product.PreProcess(true, false));
+    const Handle_<ModelData_> model(new BSModelData_("bsmodel", 10.0, 0.20, 0.034, 0.021));
+    const auto metadata = CreateModel<double>(model);
+    const String_ method("sobol");
+    const Script::Detail::AADBatchSettings_ settings{
+        method, false, depth, 0.01, 4, metadata->Parameters().size(), product.ConstVarNames().size(), product.PayOffIdx()};
+    Script::SimResults_ result(Vector::Join(metadata->ParameterLabels(), product.ConstVarNames()));
+    AAD::RecordingScope_ outer;
+    AAD::Number_ input;
+    outer.RegisterInput(input, 3.0);
+    outer.StartRecording();
+    AAD::Number_ output = input * input;
+    outer.FinishRecording();
+    ASSERT_THROW(Script::Detail::EvaluateAADBatch(product, model, settings, std::nullopt, Script::PathBatch_{0, 4}, &result), Exception_);
+    outer.ClearAdjoints();
+    AAD::Adjoint(output) = 1.0;
+    outer.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::AdjointValue(input), 6.0);
+    outer.Close();
 }
 
 #if defined(DAL_USE_ADEPT_AAD)
