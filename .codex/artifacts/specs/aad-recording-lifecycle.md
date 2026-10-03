@@ -2,17 +2,18 @@
 
 Status: active acceptance contract. Ownership, states, checkpoint handles, clearing,
 mode boundaries, and ordinary/LSM batch migration are implemented locally. Full
-four-backend, CI, and changed-workload performance acceptance remain pending.
+native/CoDiPack correctness, sanitizers, and changed-workload paired performance
+pass at corrected C++ head `71f41a8`; publication-head four-backend CI remains pending.
 This specifies D01 and the boundary needed by
 D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/9dd9282bb2c517c838a6576a95c9b7a937e750af/.codex/artifacts/plans/aad-improvement-plan.md).
 
 ## Problem and compatibility constraints
 
-`curve/tapeguard.hpp` currently rewinds the default tape both on entry and on exit.
-An inner guard consequently destroys an outer graph without reporting the nested
-use. Its destructor catches cleanup failures without retaining any evidence that
-the tape is unusable. Simulation manages the same lifecycle through separate raw
-calls. Native `ZeroAdjoints` currently clears scalar slots even in vector mode.
+At the initial baseline, `curve/tapeguard.hpp` rewinds the default tape on entry
+and exit. An inner guard destroys an outer graph without reporting nested use.
+Its destructor catches cleanup failures without retaining evidence that the tape
+is unusable. Simulation manages lifecycle through separate raw calls, and native
+`ZeroAdjoints` clears scalar slots even in vector mode.
 
 Move ownership and lifecycle into the AAD layer. Keep the existing independent
 curve-Jacobian behavior, input registration order, path-prefix accumulation, public
@@ -182,8 +183,10 @@ Keep owner, state, mode, and token checks at every scoped operation. Inline the
 small checks and the per-path restore/finish/suffix operations, and construct
 exception messages in an out-of-line rejection function. This is an optimization
 of the existing checked API, with no unchecked alternative, callback lifecycle,
-or new accumulation contract. Compiler elimination of redundant work is a
-performance hypothesis until fresh paired production measurements confirm it.
+or new accumulation contract. Fresh paired production measurements at `71f41a8`
+pass the unchanged nine-target gate and supplemental ordinary MC, LSM, and
+calibration acceptance. Positive movements and the additional vanilla confirmation
+remain visible in the [complete acceptance report](../perf/aad-recording-lifecycle.md).
 
 Retain the initial failure evidence, repeat focused and full correctness checks,
 then freeze the corrected source and binaries for fresh supplemental MC/LSM and

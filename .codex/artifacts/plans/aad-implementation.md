@@ -93,11 +93,17 @@ Long weekly AAD and BS/local-vol LSM profiles pass; all supplemental LSM PV/risk
 entries agree with baseline at relative/absolute tolerance 1e-10. Raw evidence is
 retained in `lifecycle-paired/` and `lifecycle-mc-paired/`.
 
-Publication is held until these failures are corrected. The next correction
-inlines existing scoped boundary checks and per-path operations while retaining
-every validation and failure-recovery rule. It must pass fresh correctness,
-supplemental production pairing, the unchanged nine-target gate, and exact-head
-CI before acceptance. The prior ownership head's green CI does not validate it.
+Corrected C++ head `71f41a81e4d939b192a986199104019bbbe9230c` inlines existing
+checked operations and builds errors out of line. It passes 2,315 native functional/
+example cases, all 21 quiet serial benchmark smoke checks, 2,255 CoDiPack cases,
+and twenty native scope cases under ASan/UBSan. Its fresh nine-target gate, all
+35 ordinary MC cases, three LSM profiles, and 25 calibration cases pass. A second
+complete MC/LSM pairing confirms the short vanilla results; all four rounds remain.
+Matching four-thread RSS observations show no material increase. The
+[lifecycle acceptance report](../perf/aad-recording-lifecycle.md) contains full
+tables, conditions, initial failures, and remaining coverage limits. Publication-
+head four-backend/Windows/binding CI remains required; the prior ownership head's
+green CI does not validate this increment.
 
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
@@ -182,9 +188,8 @@ passes all 25 common cases under the same sampling/confirmation criterion. The
 [ownership acceptance report](../perf/aad-recording-ownership.md) records conditions,
 case movements, raw evidence, and coverage limits. All 46 exact-head checks pass
 at `bf89c6b66cf0dd2f0253543cf5fc3fcbe02af5d7` for this ownership increment.
-D01 remains open: scoped recording states,
-validated checkpoint handles, vector clearing, mode boundaries, and MC/LSM migration
-are not implemented by this increment.
+This ownership increment covers ownership only; scoped phases, tokens, clearing,
+mode boundaries, and MC/LSM migration belong to the following lifecycle increment.
 
 The next local increment implements scoped states, unique validated checkpoint tokens,
 native scalar/vector clearing, mode-selection boundaries, reverse-failure recovery,
@@ -194,10 +199,12 @@ ownership before reset; its existing simulation error/recovery test still passes
 Fresh full native and CoDiPack CTest pass 2,336 and 2,255 cases respectively;
 twenty native ownership/state cases also pass ASan/UBSan with leak detection.
 Logs are `lifecycle-*-ctest.log` and `lifecycle-sanitized.log` under the evidence root.
-Four-backend/exact-head CI, nine-target performance, and supplemental short/long
-MC and LSM comparisons remain pending.
+The first paired run then reveals the short-path failures recorded above. The
+corrected head passes fresh correctness and all changed-workload comparisons;
+four-backend/exact publication-head CI remains pending.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: finish lifecycle verification and measure changed MC boundary costs.
+Next: publish the corrected lifecycle increment, inspect exact-head CI, finish
+its requirement audit, and continue P01/D02/D03 under the full controlling scope.
 Public numeric-result validation remains outside per-path loops. Do not mark Stage A
 complete before its remaining requirements are verified.
