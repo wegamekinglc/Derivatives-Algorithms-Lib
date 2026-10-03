@@ -217,7 +217,7 @@ namespace Dal {
         [[nodiscard]] Vector_<String_> RiskLabels() const override;
         [[nodiscard]] Vector_<String_> FactorNames() const override { return factors_; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
-        [[nodiscard]] Matrix_<> FactorCorrelations() const override { return multiVol_ ? multiVol_->correlations_ : Matrix_<>(1, 1, 1.0); }
+        [[nodiscard]] Matrix_<> FactorCorrelations() const override { return multiVol_ ? multiVol_->FactorCorrelations() : Matrix_<>(1, 1, 1.0); }
         void Write(Archive::Store_& dst) const override;
     };
 

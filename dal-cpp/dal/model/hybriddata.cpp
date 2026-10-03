@@ -84,16 +84,7 @@ namespace Dal {
         return labels;
     }
 
-    Matrix_<> HybridGSRSLVRateData_::FactorCorrelations() const {
-        const auto drivers = model_->DriverCorrelation();
-        const int n = drivers.Rows();
-        Matrix_<> block(n + 1, n + 1, 0.0);
-        for (int i = 0; i < n; ++i)
-            for (int j = 0; j < n; ++j)
-                block(i, j) = drivers(i, j);
-        block(n, n) = 1.0;
-        return block;
-    }
+    Matrix_<> HybridGSRSLVRateData_::FactorCorrelations() const { return model_->FactorCorrelations(); }
 
     namespace {
         struct ComponentFactors_ {

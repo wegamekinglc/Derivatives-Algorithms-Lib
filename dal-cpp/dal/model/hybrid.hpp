@@ -385,46 +385,37 @@ namespace Dal {
             Vector_<String_> observables_;
             Vector_<SampleDef_> definitions_;
             Vector_<> timelineKnots_;
-            Matrix_<> driverCorrelations_;
+            Matrix_<> simulationCorrelations_;
             Matrix_<> rateCorrelations_;
             std::unique_ptr<GSRSLV_<T_>> model_;
 
             static Vector_<> Knots(const GSRSLVModelData_& data) {
-                const auto& curve = *data.gaussian_->curve_;
                 Vector_<> knots;
                 // Hybrid timelines subdivide in whole calendar days, so a breakpoint off the day
                 // grid would either shift the kernel's piecewise boundary or break path parity
                 // with the standalone model; reject it instead of snapping silently.
-                const auto dayRounded = [&](double time) {
+                for (const double time : data.BreakpointTimes()) {
                     const double days = time * DAYS_PER_YEAR;
                     const double rounded = static_cast<double>(std::llround(days));
                     REQUIRE(std::abs(days - rounded) <= 1e-9, "InvalidGSRSLVHybrid: breakpoints must fall on whole calendar days");
-                    return rounded / DAYS_PER_YEAR;
-                };
-                for (const auto& date : data.gaussian_->vol_->gKnotDates_)
-                    knots.push_back(dayRounded((date - curve.evaluationDate_) / DAYS_PER_YEAR));
-                for (const auto& date : data.gaussian_->vol_->hKnotDates_)
-                    knots.push_back(dayRounded((date - curve.evaluationDate_) / DAYS_PER_YEAR));
-                for (const double time : data.leverage_->times_)
-                    knots.push_back(dayRounded(time));
-                std::sort(knots.begin(), knots.end());
-                knots.erase(std::unique(knots.begin(), knots.end()), knots.end());
+                    knots.push_back(rounded / DAYS_PER_YEAR);
+                }
                 return knots;
             }
 
         public:
             explicit HybridGSRSLVRate_(const HybridGSRSLVRateData_& data)
                 : name_(data.Name()), currency_(data.currency_), factors_(data.FactorNames()), timelineKnots_(Knots(*data.model_)),
-                  driverCorrelations_(data.model_->DriverCorrelation()), model_(std::make_unique<GSRSLV_<T_>>(*data.model_)) {
+                  simulationCorrelations_(data.model_->FactorCorrelations()), model_(std::make_unique<GSRSLV_<T_>>(*data.model_)) {
                 REQUIRE(model_->NumFactors() == factors_.size(), "InvalidHybridFactor: factor labels must match the SLV kernel drivers");
                 rateCorrelations_ = Matrix_<>(model_->NumFactors() - 2, model_->NumFactors() - 2, 0.0);
                 for (int i = 0; i < rateCorrelations_.Rows(); ++i)
                     for (int j = 0; j < rateCorrelations_.Cols(); ++j)
-                        rateCorrelations_(i, j) = driverCorrelations_(i, j);
+                        rateCorrelations_(i, j) = simulationCorrelations_(i, j);
             }
             HybridGSRSLVRate_(const HybridGSRSLVRate_& other)
                 : name_(other.name_), currency_(other.currency_), factors_(other.factors_), observables_(other.observables_),
-                  definitions_(other.definitions_), timelineKnots_(other.timelineKnots_), driverCorrelations_(other.driverCorrelations_),
+                  definitions_(other.definitions_), timelineKnots_(other.timelineKnots_), simulationCorrelations_(other.simulationCorrelations_),
                   rateCorrelations_(other.rateCorrelations_), model_(other.model_->CloneSLVKernel()) {}
             [[nodiscard]] const String_& Name() const override { return name_; }
             [[nodiscard]] const String_& Currency() const override { return currency_; }
@@ -464,13 +455,10 @@ namespace Dal {
                 const int total = static_cast<int>(FactorDim());
                 REQUIRE(factorCorrelations.Rows() == total && factorCorrelations.Cols() == total,
                         "InvalidHybridCorrelation: correlation block must match the SLV drivers");
-                const int drivers = driverCorrelations_.Rows();
                 for (int i = 0; i < total; ++i)
-                    for (int j = 0; j < total; ++j) {
-                        const double expected = i < drivers && j < drivers ? driverCorrelations_(i, j) : (i == j ? 1.0 : 0.0);
-                        REQUIRE(std::abs(factorCorrelations(i, j) - expected) <= 1e-10,
+                    for (int j = 0; j < total; ++j)
+                        REQUIRE(std::abs(factorCorrelations(i, j) - simulationCorrelations_(i, j)) <= 1e-10,
                                 "InvalidHybridCorrelation: hybrid factor correlations must match the SLV kernel");
-                    }
             }
             void Prepare(const Vector_<>& timeline, const Vector_<T_>&) override { model_->PrepareHybrid(timeline, definitions_, rateCorrelations_); }
             void ResetState(Vector_<T_>* state, size_t offset) const override { model_->ResetHybridState(state, offset); }

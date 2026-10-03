@@ -84,6 +84,8 @@ namespace Dal {
                         "InvalidGSRCorrelation: diagonal must equal one");
             static_cast<void>(AAD::CovarianceFactor(correlations_));
         }
+        // Correlations among the named factors, in factorNames_ order.
+        [[nodiscard]] Matrix_<> FactorCorrelations() const { return correlations_; }
         void Write(Archive::Store_& dst) const override;
 
     private:

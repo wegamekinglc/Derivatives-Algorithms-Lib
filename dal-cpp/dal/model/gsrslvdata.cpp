@@ -2,9 +2,11 @@
 // Created by Codex on 2026/10/2.
 //
 
+#include <algorithm>
 #include <cmath>
-#include <dal/platform/platform.hpp>
+
 #include <dal/model/gsrslvdata.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
 namespace Dal {
@@ -64,6 +66,33 @@ namespace Dal {
         }
         correlation(n, n) = 1.0;
         return correlation;
+    }
+
+    Matrix_<> GSRSLVModelData_::FactorCorrelations() const {
+        const auto drivers = DriverCorrelation();
+        const int n = drivers.Rows();
+        Matrix_<> factors(n + 1, n + 1, 0.0);
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < n; ++j)
+                factors(i, j) = drivers(i, j);
+        factors(n, n) = 1.0;
+        return factors;
+    }
+
+    Vector_<> GSRSLVModelData_::BreakpointTimes() const {
+        const auto& curve = *gaussian_->curve_;
+        Vector_<> times;
+        const auto pushAll = [&](const Vector_<Date_>& dates) {
+            for (const auto& date : dates)
+                times.push_back((date - curve.evaluationDate_) / DAYS_PER_YEAR);
+        };
+        pushAll(gaussian_->vol_->gKnotDates_);
+        pushAll(gaussian_->vol_->hKnotDates_);
+        for (const double time : leverage_->times_)
+            times.push_back(time);
+        std::sort(times.begin(), times.end());
+        times.erase(std::unique(times.begin(), times.end()), times.end());
+        return times;
     }
 
     void GSRLeverageData_::Write(Archive::Store_& dst) const { GSRLeverageData_v1::XWrite(dst, name_, rateShifts_, times_, values_); }
