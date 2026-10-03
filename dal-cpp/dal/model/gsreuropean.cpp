@@ -145,7 +145,17 @@ namespace Dal {
             return result;
         }
 
-        Vector_<Cashflow_> ReduceDirections(Vector_<Cashflow_> cashflows) {
+        Vector_<> OrthogonalResidual(Vector_<> loading, const Vector_<Vector_<>>& basis) {
+            for (int pass = 0; pass < 2; ++pass)
+                for (const auto& direction : basis) {
+                    const double projection = std::inner_product(loading.begin(), loading.end(), direction.begin(), 0.0);
+                    for (size_t i = 0; i < loading.size(); ++i)
+                        loading[i] -= projection * direction[i];
+                }
+            return loading;
+        }
+
+        Vector_<Vector_<>> IndependentDirections(const Vector_<Cashflow_>& cashflows) {
             double scale = 0.0;
             for (const auto& cashflow : cashflows)
                 if (cashflow.coefficient_ != 0.0)
@@ -154,13 +164,7 @@ namespace Dal {
             for (const auto& cashflow : cashflows) {
                 if (cashflow.coefficient_ == 0.0)
                     continue;
-                auto residual = cashflow.loading_;
-                for (int pass = 0; pass < 2; ++pass)
-                    for (const auto& direction : basis) {
-                        const double projection = std::inner_product(residual.begin(), residual.end(), direction.begin(), 0.0);
-                        for (size_t i = 0; i < residual.size(); ++i)
-                            residual[i] -= projection * direction[i];
-                    }
+                auto residual = OrthogonalResidual(cashflow.loading_, basis);
                 const double norm = Norm(residual);
                 if (norm > 1e-12 * scale) {
                     for (double& value : residual)
@@ -168,6 +172,11 @@ namespace Dal {
                     basis.push_back(std::move(residual));
                 }
             }
+            return basis;
+        }
+
+        Vector_<Cashflow_> ReduceDirections(Vector_<Cashflow_> cashflows) {
+            const auto basis = IndependentDirections(cashflows);
             if (basis.size() == cashflows.front().loading_.size())
                 return cashflows;
             for (auto& cashflow : cashflows) {

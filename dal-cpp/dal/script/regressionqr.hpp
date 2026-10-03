@@ -22,18 +22,23 @@ namespace Dal::Script::RegressionQR {
         Vector_<double> targets_;
     };
 
+    inline bool NormalizeColumn(Vector_<double>* column, bool allowZeroColumn, double* scale) {
+        double norm = 0.0;
+        for (double value : *column)
+            norm = std::hypot(norm, value);
+        if (!std::isfinite(norm) || (norm == 0.0 && !allowZeroColumn))
+            return false;
+        *scale = norm == 0.0 ? 1.0 : norm;
+        if (norm != 0.0)
+            for (double& value : *column)
+                value /= norm;
+        return true;
+    }
+
     template <size_t N_> size_t Normalize(Workspace_<N_>* ws, bool allowZeroColumns) {
-        for (size_t term = 0; term < ws->basis_; ++term) {
-            double norm = 0.0;
-            for (double value : ws->columns_[term])
-                norm = std::hypot(norm, value);
-            if (!std::isfinite(norm) || (norm == 0.0 && !allowZeroColumns))
+        for (size_t term = 0; term < ws->basis_; ++term)
+            if (!NormalizeColumn(&ws->columns_[term], allowZeroColumns, &ws->scales_[term]))
                 return term;
-            ws->scales_[term] = norm == 0.0 ? 1.0 : norm;
-            if (norm != 0.0)
-                for (double& value : ws->columns_[term])
-                    value /= norm;
-        }
         return ws->basis_;
     }
 

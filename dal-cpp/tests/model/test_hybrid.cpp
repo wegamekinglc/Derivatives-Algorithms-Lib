@@ -80,6 +80,16 @@ namespace {
         const double forward = std::exp(logSpot + 0.5 * spotVariance - covariance);
         return discount * Distribution::BlackOpt(forward, std::sqrt(spotVariance), 100.0, OptionType_("CALL"));
     }
+
+    double OneYearGsrEquityVariance(const Date_& today, const Vector_<Date_>& knots, const Vector_<>& values, double rho) {
+        double variance = 0.04;
+        for (size_t i = 0; i < values.size(); ++i) {
+            const double a = 1.0 - (knots[i] - today) / 365.0;
+            const double b = i + 1 == values.size() ? 0.0 : 1.0 - (knots[i + 1] - today) / 365.0;
+            variance += values[i] * values[i] * (a * a * a - b * b * b) / 3.0 + 0.2 * rho * values[i] * (a * a - b * b);
+        }
+        return variance;
+    }
 } // namespace
 
 TEST(ModelTest, TestHybridGsrEquityPriceIsIndependentOfEventGrid) {
@@ -95,12 +105,7 @@ TEST(ModelTest, TestHybridGsrEquityPriceIsIndependentOfEventGrid) {
             settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol)),
                                     Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[A]", "USD", "EQ", 100.0, 0.2, 0.0))};
             settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "RATE", rho}});
-            double variance = 0.04;
-            for (size_t i = 0; i < values.size(); ++i) {
-                const double a = 1.0 - (knots[i] - today) / 365.0;
-                const double b = i + 1 == values.size() ? 0.0 : 1.0 - (knots[i + 1] - today) / 365.0;
-                variance += values[i] * values[i] * (a * a * a - b * b * b) / 3.0 + 0.2 * rho * values[i] * (a * a - b * b);
-            }
+            const double variance = OneYearGsrEquityVariance(today, knots, values, rho);
             const double expected = Distribution::BlackOpt(100.0, std::sqrt(variance), 100.0, OptionType_("CALL"));
             for (const int steps : {1, 2, 12}) {
                 auto model = CreateModel<double>(HybridData(settings));
