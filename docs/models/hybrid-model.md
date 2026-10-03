@@ -92,12 +92,18 @@ AAD parameters (`logdf`, `g`, `H`, and for SLV `kappa`, `volOfVol`,
 `leverage:i:j`), and keep their standalone pricing and calibration APIs
 unchanged; the hybrid adapter only adds the co-evolution path.
 
-Intra-component factor correlations must match the kernel's own correlation
-matrix (the GSR volatility correlations, and the SLV driver correlation extended
-with an independent bridge row); `Init` rejects a mismatched correlation block.
+Each component declares its own intra-block factor correlations through
+`HybridComponentData_::FactorCorrelations()` (the GSR volatility correlations, and
+the SLV driver correlation extended with an independent bridge row), and
+`AssembleHybridCorrelation(name, components, links)` builds the global constant
+correlation from those blocks plus explicit cross-component links (unlisted
+cross entries are independent). This removes the mismatch-by-handshake error
+class; a directly supplied correlation block is still validated against the
+kernel at `Init`.
 The SLV component also inserts its rate and leverage breakpoints into the shared
-timeline (snapped to whole ACT/365 days) and subdivides by its `maxStep`, because
-its Euler scheme evaluates piecewise kernels at step starts; the plain GSR kernel
+timeline; breakpoints must fall on whole ACT/365 days (the timeline subdivides
+in whole days), and the component subdivides by its `maxStep` because its Euler
+scheme evaluates piecewise kernels at step starts; the plain GSR kernel
 integrates interior breakpoints exactly inside each step and needs no knots.
 
 The model data, local-vol surface, and each typed component are serializable. `CreateModel` also

@@ -216,8 +216,9 @@ void init_bindings_models(py::module_& m) {
            const std::shared_ptr<ModelData_>& model) -> std::shared_ptr<HybridComponentData_> {
             const auto* slv = dynamic_cast<const GSRSLVModelData_*>(model.get());
             REQUIRE(slv, "InvalidHybridComponent: SLV model data is required");
-            return std::const_pointer_cast<HybridComponentData_>(NewHybridGSRSLVRateData(
-                String_(name), String_(volFactor), String_(bridgeFactor), Handle_<GSRSLVModelData_>(std::shared_ptr<const GSRSLVModelData_>(model, slv))));
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridGSRSLVRateData(String_(name), String_(volFactor), String_(bridgeFactor),
+                                        Handle_<GSRSLVModelData_>(std::shared_ptr<const GSRSLVModelData_>(model, slv))));
         },
         py::arg("name"), py::arg("vol_factor"), py::arg("bridge_factor"), py::arg("model"));
 
@@ -278,6 +279,28 @@ void init_bindings_models(py::module_& m) {
             return std::const_pointer_cast<HybridCorrelationData_>(NewHybridConstantCorrelationData(String_(name), names, correlations));
         },
         py::arg("name"), py::arg("factors"), py::arg("correlations"));
+
+    py::class_<HybridFactorLink_>(m, "HybridFactorLink_")
+        .def(py::init([](const std::string& factorA, const std::string& factorB, double correlation) {
+                 return HybridFactorLink_{String_(factorA), String_(factorB), correlation};
+             }),
+             py::arg("factor_a"), py::arg("factor_b"), py::arg("correlation") = 0.0);
+
+    m.def(
+        "HybridCorrelation_Assemble",
+        [](const std::string& name, const py::iterable& components, const py::iterable& links) -> std::shared_ptr<HybridCorrelationData_> {
+            Vector_<Handle_<HybridComponentData_>> componentHandles;
+            for (const auto item : components) {
+                const auto base = py::cast<std::shared_ptr<HybridComponentData_>>(item);
+                REQUIRE(base, "InvalidHybridCorrelation: null component");
+                componentHandles.emplace_back(std::shared_ptr<const HybridComponentData_>(base));
+            }
+            Vector_<HybridFactorLink_> linksParsed;
+            for (const auto item : links)
+                linksParsed.push_back(py::cast<HybridFactorLink_>(item));
+            return std::const_pointer_cast<HybridCorrelationData_>(AssembleHybridCorrelation(String_(name), componentHandles, linksParsed));
+        },
+        py::arg("name"), py::arg("components"), py::arg("links") = py::tuple{});
 
     m.def(
         "HybridModelData_New",

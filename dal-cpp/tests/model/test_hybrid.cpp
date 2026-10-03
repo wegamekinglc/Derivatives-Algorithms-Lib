@@ -751,11 +751,85 @@ TEST(ModelTest, TestHybridGSRSLVRateArchiveRoundTrip) {
 
 TEST(ModelTest, TestHybridRejectsSingularMultiFactorGSRKernel) {
     const Date_ today(2026, 10, 2);
-    const Handle_<GSRCurveData_> curve(
-        new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
     Matrix_<> g(2, 1, 0.02), h(2, 1, 1.0), correlation(2, 2, 1.0);
     const Handle_<MultiFactorGSRVolData_> vol(new MultiFactorGSRVolData_("vol", {"level", "slope"}, {today}, g, {today}, h, correlation));
     auto settings = MultiFactorRateSettings(0.3);
     settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {"W_LEVEL", "W_SLOPE"}, curve, vol));
     EXPECT_THROW(static_cast<void>(CreateModel<double>(HybridData(settings))), Exception_);
+}
+
+TEST(ModelTest, TestAssembleHybridCorrelationMatchesComponentBlocks) {
+    auto settings = MultiFactorRateSettings(0.3);
+    settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", -0.2}});
+    auto hybrid = CreateModel<double>(HybridData(settings));
+    ASSERT_EQ(hybrid->NumFactors(), 3U);
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "IR[USD,DF,2028-10-02]"};
+    }
+    hybrid->Allocate(timeline, definitions);
+    hybrid->Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    ASSERT_NO_THROW(hybrid->GeneratePath({0.4, -0.7, 0.2, 0.5, 0.2, 0.3}, &path));
+}
+
+TEST(ModelTest, TestAssembleHybridCorrelationAssemblesSLVDriverBlock) {
+    auto settings = SLVRateSettings(0.3);
+    settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_);
+    auto hybrid = CreateModel<double>(HybridData(settings));
+    ASSERT_EQ(hybrid->NumFactors(), 4U);
+    const Vector_<> timeline{1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "IR[USD,DF,2028-10-02]"};
+    }
+    hybrid->Allocate(timeline, definitions);
+    hybrid->Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    ASSERT_NO_THROW(hybrid->GeneratePath({0.6, 0.4, 0.2, 0.7, -0.2, -0.3, 0.5, 0.1}, &path));
+}
+
+TEST(ModelTest, TestAssembleHybridCorrelationRejectsInvalidLinks) {
+    const auto settings = MultiFactorRateSettings(0.3);
+    { // unknown factor
+        ASSERT_THROW(static_cast<void>(AssembleHybridCorrelation("corr", settings.components_, {HybridFactorLink_{"W_EQ", "NOPE", 0.1}})),
+                     Exception_);
+    }
+    { // link over an intra-block pair (already specified by the kernel)
+        ASSERT_THROW(static_cast<void>(AssembleHybridCorrelation("corr", settings.components_, {HybridFactorLink_{"W_LEVEL", "W_SLOPE", 0.0}})),
+                     Exception_);
+    }
+    { // duplicate link
+        ASSERT_THROW(static_cast<void>(AssembleHybridCorrelation(
+                         "corr", settings.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", 0.1}, HybridFactorLink_{"W_LEVEL", "W_EQ", 0.2}})),
+                     Exception_);
+    }
+}
+
+TEST(ModelTest, TestHybridSLVRejectsOffDayGridLeverageBreakpoints) {
+    const Date_ today(2026, 10, 2);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(3650)}, {0.0, -0.3}, {}, Matrix_<>(0, 0)));
+    MultiFactorGSRVolSettings_ vol;
+    vol.factorNames_ = {"B_RATE"};
+    vol.gKnotDates_ = vol.hKnotDates_ = {today};
+    vol.gValues_ = Matrix_<>(1, 1, 0.02);
+    vol.hValues_ = Matrix_<>(1, 1, 1.0);
+    vol.correlations_ = Matrix_<>(1, 1, 1.0);
+    const Handle_<MultiFactorGSRModelData_> gaussian(
+        new MultiFactorGSRModelData_("gaussian", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", vol))));
+    // 182.5 days falls between calendar days
+    const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {0.0}, {0.0, 182.5 / 365.0}, Matrix_<>(1, 2, 1.0)));
+    const Handle_<GSRSLVModelData_> slv(new GSRSLVModelData_("smile", gaussian, leverage, GSRSLVSettings_()));
+    HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "C_VOL", "D_BRIDGE", slv)),
+                            Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[AAA]", "USD", "A_EQ", 100.0, 0.2, 0.01))};
+    settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_);
+    ASSERT_THROW(static_cast<void>(CreateModel<double>(HybridData(settings))), Exception_);
 }

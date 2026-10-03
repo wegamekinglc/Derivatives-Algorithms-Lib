@@ -392,9 +392,14 @@ namespace Dal {
             static Vector_<> Knots(const GSRSLVModelData_& data) {
                 const auto& curve = *data.gaussian_->curve_;
                 Vector_<> knots;
+                // Hybrid timelines subdivide in whole calendar days, so a breakpoint off the day
+                // grid would either shift the kernel's piecewise boundary or break path parity
+                // with the standalone model; reject it instead of snapping silently.
                 const auto dayRounded = [&](double time) {
-                    const double days = static_cast<double>(std::llround(time * DAYS_PER_YEAR));
-                    return days / DAYS_PER_YEAR;
+                    const double days = time * DAYS_PER_YEAR;
+                    const double rounded = static_cast<double>(std::llround(days));
+                    REQUIRE(std::abs(days - rounded) <= 1e-9, "InvalidGSRSLVHybrid: breakpoints must fall on whole calendar days");
+                    return rounded / DAYS_PER_YEAR;
                 };
                 for (const auto& date : data.gaussian_->vol_->gKnotDates_)
                     knots.push_back(dayRounded((date - curve.evaluationDate_) / DAYS_PER_YEAR));

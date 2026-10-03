@@ -2,6 +2,9 @@
 // Created by Codex on 2026/9/27.
 //
 
+#include <algorithm>
+#include <cmath>
+
 #include <dal/model/hybriddata.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -79,6 +82,67 @@ namespace Dal {
         else
             AppendFactorLabels(Vector_<String_>(), vol_->gKnotDates_, vol_->hKnotDates_, &labels);
         return labels;
+    }
+
+    Matrix_<> HybridGSRSLVRateData_::FactorCorrelations() const {
+        const auto drivers = model_->DriverCorrelation();
+        const int n = drivers.Rows();
+        Matrix_<> block(n + 1, n + 1, 0.0);
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < n; ++j)
+                block(i, j) = drivers(i, j);
+        block(n, n) = 1.0;
+        return block;
+    }
+
+    Handle_<HybridCorrelationData_> AssembleHybridCorrelation(const String_& name,
+                                                              const Vector_<Handle_<HybridComponentData_>>& components,
+                                                              const Vector_<HybridFactorLink_>& links) {
+        Vector_<String_> names;
+        const auto slot = [&](const String_& factor) {
+            const auto found = std::find(names.begin(), names.end(), factor);
+            REQUIRE(found != names.end(), "InvalidHybridCorrelation: unknown factor " + factor);
+            return static_cast<int>(found - names.begin());
+        };
+        for (const auto& component : components) {
+            REQUIRE(component, "InvalidHybridCorrelation: null component");
+            const auto factorNames = component->FactorNames();
+            const auto block = component->FactorCorrelations();
+            REQUIRE(block.Empty() || (block.Rows() == static_cast<int>(factorNames.size()) && block.Cols() == static_cast<int>(factorNames.size())),
+                    "InvalidHybridCorrelation: correlation block must match the factors of " + component->Name());
+            for (const auto& factor : factorNames) {
+                REQUIRE(!factor.empty() && std::find(names.begin(), names.end(), factor) == names.end(),
+                        "InvalidHybridCorrelation: duplicate or empty factor " + factor);
+                names.push_back(factor);
+            }
+            static_cast<void>(block);
+        }
+        const int total = static_cast<int>(names.size());
+        REQUIRE(total > 0, "InvalidHybridCorrelation: at least one factor is required");
+        Matrix_<> correlations(total, total, 0.0);
+        for (int i = 0; i < total; ++i)
+            correlations(i, i) = 1.0;
+        size_t consumed = 0;
+        for (const auto& component : components) {
+            const auto factorNames = component->FactorNames();
+            const auto block = component->FactorCorrelations();
+            const int width = static_cast<int>(factorNames.size());
+            if (!block.Empty())
+                for (int i = 0; i < width; ++i)
+                    for (int j = 0; j < width; ++j)
+                        correlations(consumed + i, consumed + j) = block(i, j);
+            consumed += factorNames.size();
+        }
+        for (const auto& link : links) {
+            const int a = slot(link.factorA_), b = slot(link.factorB_);
+            REQUIRE(a != b, "InvalidHybridCorrelation: a link must join two distinct factors");
+            REQUIRE(std::isfinite(link.correlation_) && std::abs(link.correlation_) <= 1.0,
+                    "InvalidHybridCorrelation: link correlations must be finite in [-1, 1]");
+            REQUIRE(correlations(a, b) == 0.0 && correlations(b, a) == 0.0,
+                    "InvalidHybridCorrelation: duplicate correlation for " + link.factorA_ + " and " + link.factorB_);
+            correlations(a, b) = correlations(b, a) = link.correlation_;
+        }
+        return Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_(name, names, correlations));
     }
 
     void HybridGSRSLVRateData_::Write(Archive::Store_& dst) const { HybridGSRSLVRateData_v1::XWrite(dst, name_, volFactor_, bridgeFactor_, model_); }
