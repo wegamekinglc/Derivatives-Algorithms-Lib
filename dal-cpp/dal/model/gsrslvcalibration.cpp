@@ -307,10 +307,6 @@ namespace Dal {
                 result->residuals_.push_back(prices[i].price_ - quotes[i].price_);
                 result->fitWithinTolerance_ = result->fitWithinTolerance_ && std::abs(result->residuals_.back()) <= quotes[i].priceScale_;
             }
-            for (size_t i = 0; i < x.size(); ++i) {
-                result->parameters_.push_back(x[i] * parameters[i].scale_);
-                result->activeBounds_.push_back(x[i] == problem.Bound(i, false) || x[i] == problem.Bound(i, true));
-            }
             result->quoteJacobian_ = problem.Jacobian(x, quotes.size());
             result->evaluations_ += problem.JacobianEvaluations(x.size());
             RankDiagnostics(result->quoteJacobian_, result);
@@ -322,7 +318,8 @@ namespace Dal {
         GSRSLVCalibrationResult_ FitOnly(const GSRSLVModelData_& initial,
                                          const Vector_<CalibrationQuote_>& quotes,
                                          const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                         const GSRSLVCalibrationSettings_& settings) {
+                                         const GSRSLVCalibrationSettings_& settings,
+                                         bool diagnostics) {
             ValidateSettings(settings);
             ValidateQuotes(quotes);
             const Problem_ problem(initial, quotes, parameters, settings);
@@ -332,7 +329,12 @@ namespace Dal {
             Fit(problem, {settings.solver_.maxIterations_, settings.solver_.gradientTolerance_, settings.solver_.stepTolerance_}, &x, &result);
             result.iterations_ += warmIterations;
             result.model_ = problem.Model(x);
-            FitDiagnostics(problem, x, quotes, parameters, settings, &result);
+            for (size_t i = 0; i < x.size(); ++i) {
+                result.parameters_.push_back(x[i] * parameters[i].scale_);
+                result.activeBounds_.push_back(x[i] == problem.Bound(i, false) || x[i] == problem.Bound(i, true));
+            }
+            if (diagnostics)
+                FitDiagnostics(problem, x, quotes, parameters, settings, &result);
             return result;
         }
 
@@ -388,7 +390,7 @@ namespace Dal {
                                           const Vector_<CalibrationQuote_>& quotes,
                                           const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                           const GSRSLVCalibrationSettings_& settings) {
-            return FitOnly(initial, quotes, parameters, settings);
+            return FitOnly(initial, quotes, parameters, settings, false);
         }
     } // namespace GSRSLVCalibrationInternal
 
@@ -398,7 +400,7 @@ namespace Dal {
                                              const GSRSLVCalibrationSettings_& settings,
                                              const Vector_<CalibrationQuote_>& heldOut) {
         ValidateHeldOutQuotes(heldOut, quotes);
-        auto result = FitOnly(initial, quotes, parameters, settings);
+        auto result = FitOnly(initial, quotes, parameters, settings, true);
         GSRSLVSettings_ fine{result.model_->kappa_, result.model_->volOfVol_, result.model_->varianceCorrelations_, result.model_->maxStep_ / 2.0};
         const GSRSLVModelData_ validation("validation", result.model_->gaussian_, result.model_->leverage_, fine);
         auto refinedSettings = settings;
