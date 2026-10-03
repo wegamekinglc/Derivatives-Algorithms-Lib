@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include <dal/platform/host.hpp>
@@ -40,16 +41,18 @@ namespace Dal {
 
         void Resize(size_t new_size) { base_t::resize(new_size); }
 
+        // capture by value: the operand may alias one of our elements, and the write must not
+        // change the value seen by later elements (the snapshot std::bind used to take)
         template <class T_> void operator*=(const T_& scale) {
-            std::transform(begin(), end(), begin(), std::bind(std::multiplies<E_>(), std::placeholders::_1, scale));
+            std::transform(begin(), end(), begin(), [scale](const E_& val) { return val * scale; });
         }
 
         template <class T_> void operator+=(const T_& shift) {
-            std::transform(begin(), end(), begin(), std::bind(std::plus<E_>(), std::placeholders::_1, shift));
+            std::transform(begin(), end(), begin(), [shift](const E_& val) { return val + shift; });
         }
 
         template <class T_> void operator-=(const T_& shift) {
-            std::transform(begin(), end(), begin(), std::bind(std::minus<E_>(), std::placeholders::_1, shift));
+            std::transform(begin(), end(), begin(), [shift](const E_& val) { return val - shift; });
         }
 
         template <class T_> void operator+=(const Vector_<T_>& other) {
@@ -94,6 +97,10 @@ namespace Dal {
         using std::vector<E_>::pop_back;
         using std::vector<E_>::reserve;
         using std::vector<E_>::clear;
+
+        // std::vector<bool> has no data(); expose the raw storage for the other element types
+        template <class E2_ = E_, class = std::enable_if_t<!std::is_same_v<E2_, bool>>> E_* data() noexcept { return base_t::data(); }
+        template <class E2_ = E_, class = std::enable_if_t<!std::is_same_v<E2_, bool>>> const E_* data() const noexcept { return base_t::data(); }
 
         E_& operator()(size_t i) { return (*this)[i];}
         const E_& operator()(size_t i) const { return (*this)[i];}

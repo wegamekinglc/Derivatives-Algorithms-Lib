@@ -4,10 +4,15 @@
 
 #pragma once
 
+#include <numeric>
+#include <type_traits>
+
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/operators.hpp>
+#include <dal/math/simdkernels.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <numeric>
 
 namespace Dal {
 
@@ -25,9 +30,22 @@ namespace Dal {
         return Accumulate(src, [](const value_t& x, const value_t& y) { return x + y; });
     }
 
+    // double fast paths; preferred over the templates above for the contiguous storage we own
+    inline double Accumulate(const Vector_<double>& src) { return Math::Sum(Math::DoubleData(src), src.size()); }
+
+    namespace NumericsDetail {
+        template <class C_>
+        inline constexpr bool IS_CONTIGUOUS_DOUBLE =
+            std::is_same_v<C_, Vector_<double>> || std::is_same_v<C_, Matrix_<double>::Row_> || std::is_same_v<C_, Matrix_<double>::ConstRow_>;
+    } // namespace NumericsDetail
+
     template <class C1_, class C2_> auto InnerProduct(const C1_& src1, const C2_& src2) {
-        using value_type = typename C1_::value_type;
-        return std::inner_product(src1.begin(), src1.end(), src2.begin(), value_type());
+        if constexpr (NumericsDetail::IS_CONTIGUOUS_DOUBLE<C1_> && NumericsDetail::IS_CONTIGUOUS_DOUBLE<C2_>) {
+            return Math::Dot(Math::DoubleData(src1), Math::DoubleData(src2), src1.size());
+        } else {
+            using value_type = typename C1_::value_type;
+            return std::inner_product(src1.begin(), src1.end(), src2.begin(), value_type());
+        }
     }
 
     namespace Vector {

@@ -19,3 +19,6 @@
 [submodule "dal-cpp/externals/pybind11"]
 	path = dal-cpp/externals/pybind11
 	url = git@github.com:pybind/pybind11.git
+[submodule "dal-cpp/externals/eigen"]
+	path = dal-cpp/externals/eigen
+	url = https://gitlab.com/libeigen/eigen.git

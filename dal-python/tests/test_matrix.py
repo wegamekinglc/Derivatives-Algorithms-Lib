@@ -126,8 +126,8 @@ def test_matrix_dimensions_must_fit_native_sentinel_storage(rows, cols):
         dal.DoubleMatrix_(rows, cols)
 
 
-def test_matrix_exact_sentinel_boundary_preserves_memory_error():
-    """An arithmetic-valid boundary reaches allocation and maps bad_alloc correctly."""
+def test_matrix_huge_allocation_preserves_memory_error():
+    """A guard-valid huge allocation maps bad_alloc to MemoryError."""
     if sys.platform != "linux":
         pytest.skip("the RLIMIT_AS allocation guard is Linux-only")
     pytest.importorskip("resource")
@@ -146,7 +146,7 @@ def test_matrix_exact_sentinel_boundary_preserves_memory_error():
         resource.setrlimit(resource.RLIMIT_AS, (soft_limit, hard_limit))
 
         try:
-            dal.DoubleMatrix_(0, 2**31 - 1)
+            dal.DoubleMatrix_(1, 2**30 - 1)
         except MemoryError:
             raise SystemExit(0)
         except Exception as exc:

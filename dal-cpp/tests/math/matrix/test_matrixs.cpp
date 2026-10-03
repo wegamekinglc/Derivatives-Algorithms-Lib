@@ -296,3 +296,94 @@ TEST(MatrixTest, TestMatrixColBeginEnd) {
     ASSERT_EQ(col.end() - col.begin(), m1.Rows());
     ASSERT_EQ(col[2], 2.0);
 }
+
+TEST(MatrixTest, TestMatrixCopyAssignSameExtent) {
+    matrix_t m1(2, 2);
+    m1(0, 0) = 1.;
+    m1(0, 1) = 2.;
+    m1(1, 0) = 3.;
+    m1(1, 1) = 4.;
+
+    matrix_t m2(2, 2, 9.);
+    m2 = m1;
+    ASSERT_EQ(m2.Rows(), 2);
+    ASSERT_EQ(m2.Cols(), 2);
+    ASSERT_DOUBLE_EQ(m2(0, 0), 1.);
+    ASSERT_DOUBLE_EQ(m2(1, 1), 4.);
+
+    m2(0, 0) = 5.;
+    ASSERT_DOUBLE_EQ(m2(0, 0), 5.);
+    ASSERT_DOUBLE_EQ(m1(0, 0), 1.) << "same-extent assignment must not alias storage";
+}
+
+TEST(MatrixTest, TestMatrixResize) {
+    matrix_t m(2, 3);
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 3; ++j)
+            m(i, j) = 1. + 3 * i + j;
+
+    // growing rows with changed column count rebuilds the buffer and preserves the old block
+    m.Resize(3, 4);
+    ASSERT_EQ(m.Rows(), 3);
+    ASSERT_EQ(m.Cols(), 4);
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 3; ++j)
+            ASSERT_DOUBLE_EQ(m(i, j), 1. + 3 * i + j);
+    ASSERT_DOUBLE_EQ(m(2, 0), 0.);
+    ASSERT_DOUBLE_EQ(m(0, 3), 0.);
+
+    // same-column shrink keeps the leading values in place
+    m.Resize(2, 4);
+    ASSERT_EQ(m.Rows(), 2);
+    ASSERT_EQ(m.Cols(), 4);
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 3; ++j)
+            ASSERT_DOUBLE_EQ(m(i, j), 1. + 3 * i + j);
+}
+
+TEST(MatrixTest, TestMatrixData) {
+    matrix_t empty;
+    ASSERT_TRUE(empty.Empty());
+
+    matrix_t m(2, 3);
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 3; ++j)
+            m(i, j) = 10 * i + j;
+    ASSERT_EQ(m.Data() + 4, &m(1, 1));
+    ASSERT_DOUBLE_EQ(m.Data()[5], 12.);
+    m.Data()[0] = -1.;
+    ASSERT_DOUBLE_EQ(m(0, 0), -1.);
+}
+
+TEST(MatrixTest, TestMatrixResizeTallSameShape) {
+    // a tall shape whose row-count product would overflow int must resize in place
+    matrix_t m(50000, 2, 1.);
+    m.Resize(50000, 2);
+    ASSERT_EQ(m.Rows(), 50000);
+    ASSERT_EQ(m.Cols(), 2);
+    ASSERT_DOUBLE_EQ(m(49999, 1), 1.);
+}
+
+TEST(MatrixTest, TestMatrixLastColumnIteration) {
+    matrix_t m(3, 2);
+    for (int i = 0; i < 3; ++i) {
+        m(i, 0) = 10 * i;
+        m(i, 1) = 10 * i + 1;
+    }
+    auto col = m.Col(1);
+    auto iter = col.begin();
+    ASSERT_DOUBLE_EQ(*iter, 1.);
+    ++iter;
+    ASSERT_DOUBLE_EQ(*iter, 11.);
+    ++iter;
+    ASSERT_DOUBLE_EQ(*iter, 21.);
+    ++iter;
+    ASSERT_TRUE(iter == col.end());
+    ASSERT_EQ(col.end() - col.begin(), 3);
+
+    const matrix_t& cm = m;
+    ASSERT_DOUBLE_EQ(cm.Col(1)[2], 21.);
+    Dal::Vector_<> copied = cm.Col(1);
+    ASSERT_EQ(copied.size(), 3U);
+    ASSERT_DOUBLE_EQ(copied[2], 21.);
+}
