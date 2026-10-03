@@ -179,6 +179,34 @@ support storage reuse without promising allocation-free AAD evaluation.
 `dal-cpp/tests/math/aad/test_tape.cpp` covers independent stream rollover,
 reuse, aliased operands, multiple results, and caller-owned tapes.
 
+`AAD::MeasureTape(tape)` in `dal/math/aad/statistics.hpp` explicitly scans a
+native recording for its node and edge counts. It reports three storage measures:
+
+- `liveBytes_`: node objects, recorded edge derivatives/pointers, and logical
+  vector-adjoint slots for the current uniform recording mode.
+- `occupiedBytes_`: storage through each block-list cursor, including skipped
+  block tails and any retained cursor in an inactive storage stream.
+- `capacityBytes_`: all currently allocated block arrays, including capacity
+  retained after rewind. List bookkeeping and allocator overhead are excluded.
+
+`blocks_` counts current blocks, rather than cumulative allocations. In a window
+that only grows storage, the block-count increase measures new block allocations;
+it does not count allocations elsewhere in a valuation. Empty tapes retain one
+block per storage stream. A snapshot is neither a high-water counter nor process
+RSS. Capture it at the relevant graph boundary to observe a peak, and measure RSS
+separately. Call the scan on the owning thread while recording and reverse work
+are stopped. It maintains no per-node counters in normal execution.
+
+The native `tape_perf` and `jacobian_perf` executables accept `--diagnostics` to
+print these snapshots outside timed loops. Use their default invocation for
+throughput comparisons. Tape cases include active/passive constants and vector
+widths 1, 4, 10, 16, and 64, with analytic value/gradient checks. The historical
+`100K nodes` case labels remain for regression continuity; the diagnostic node
+count describes the actual fused graph, including active constants.
+Jacobian cases retain the synthetic full-clearing reference and additionally
+call `HarvestCurveJacobian` for 23-by-24 and 95-by-96 Jacobians. Proven-prefix
+harvesting uses a dependency range established by the fixture itself.
+
 ## Pathwise Adjoints in Monte Carlo
 
 A Monte Carlo price is an average over $P$ simulated paths,

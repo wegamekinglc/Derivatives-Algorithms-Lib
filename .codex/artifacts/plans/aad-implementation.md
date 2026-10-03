@@ -106,6 +106,32 @@ than a missing numeric-result check. Retain that boundary test for native, and v
 with a smooth positive-domain payoff whose derivative overflows while its primal remains finite;
 the new public test covers interpreted/compiled paths and subsequent recovery.
 
-Next: fresh full build/tests, applicable backend verification, final nine-target paired gate,
-and exact corrected-head CI. Public validation remains outside per-path loops. Do not mark Stage A
-complete before these checks and the remaining measurement/lifecycle work are verified.
+At `83399b5a31389563a26b7e69d82bfc2b5bd4b68e`, fresh full native and CoDiPack runs passed
+2,290 and 2,238 cases respectively. The corrected-head compiler/backend checks have passed;
+the complete CI rollup still requires an exact-head final audit.
+
+The first P01 measurement increment adds explicit native tape snapshots for logical storage,
+cursor storage including block padding, and retained block capacity. No recording/propagation
+counters or node fields are added. The snapshot's full-block boundary regression first crashed,
+then passed after bounding its scan by the known node count; ASan/UBSan passes all 11 focused
+statistics/block-list tests. A growth/rewind test distinguishes occupied storage from capacity.
+
+`tape_perf` now retains fresh handles after its Clear/Rewind timings, checks analytic values and
+gradients, and covers passive constants and vector widths 1/4/10/16/64. Historical case names
+and workloads remain. A vector fixture seeds multiple channels of one output; it does not claim
+to exercise distinct portfolio outputs. `jacobian_perf` additionally calls the actual
+`HarvestCurveJacobian` for 23-by-24 and 95-by-96 matrices and checks every entry analytically.
+Diagnostic scans are enabled explicitly with `--diagnostics`; default timing runs omit them.
+
+With the measurement increment, full native and CoDiPack runs pass 2,293 and 2,239 cases.
+Both changed benchmark executables pass their result checks. Native statistics are not an RSS
+budget, cumulative allocation counter, or automatically sampled high-water mark. MC phase
+attribution, worker scaling, and the production multi-output cases remain P01 work.
+
+The [recording lifecycle contract](../specs/aad-recording-lifecycle.md) specifies D01 ownership,
+states, checkpoint validation, and cleanup/recovery acceptance. Its proposed API is not yet
+implemented. Continue with local TDD after the current performance/CI evidence is captured.
+
+Next: final nine-target paired gate and exact implementation-head CI audit, then remaining
+measurement/lifecycle work. Public validation remains outside per-path loops. Do not mark Stage A
+complete before these checks and its remaining requirements are verified.

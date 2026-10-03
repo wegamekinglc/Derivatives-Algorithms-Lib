@@ -67,3 +67,28 @@ TEST(AADTest, TestBlockListClearResetsMark) {
     blocks.RewindToMark();
     ASSERT_EQ(blocks.Size(), 0);
 }
+
+TEST(AADTest, TestBlockListStorageIncludesPaddingAndRetainsCapacityAfterRewind) {
+    BlockList_<double, 4> blocks;
+    ASSERT_EQ(blocks.AllocatedBlocks(), 1);
+    ASSERT_EQ(blocks.OccupiedSlots(), 0);
+    blocks.EmplaceBackMulti(3);
+    blocks.SetMark();
+    blocks.EmplaceBackMulti(2);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    ASSERT_EQ(blocks.OccupiedSlots(), 6);
+    blocks.RewindToMark();
+    ASSERT_EQ(blocks.OccupiedSlots(), 3);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    blocks.Rewind();
+    ASSERT_EQ(blocks.OccupiedSlots(), 0);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    blocks.EmplaceBackMulti(4);
+    ASSERT_EQ(blocks.OccupiedSlots(), 4);
+    blocks.SetMark();
+    ASSERT_EQ(blocks.OccupiedSlots(), 4);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    blocks.Clear();
+    ASSERT_EQ(blocks.OccupiedSlots(), 0);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 1);
+}

@@ -74,6 +74,8 @@ namespace Dal::AAD {
     public:
         explicit TapNode_(size_t n = 0) : n_(n) {}
 
+        [[nodiscard]] size_t NumArguments() const { return n_; }
+
         double& Adjoint() { return adjoint_; }
 
         double& Adjoint(size_t n) { return pAdjoints_[n]; }
