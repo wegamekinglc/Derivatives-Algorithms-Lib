@@ -18,6 +18,18 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-03
 
+- **Delayed script payments (`PAYS expr ON date`)** — script payments may settle
+  on a later literal date. Preparation binds each live delayed payment to a
+  discount-factor slot on its event sample (`SampleDef_::discountMats_` /
+  `Sample_::discounts_`, previously unwired plumbing), the model provides
+  `P(t_event, t_payment)` (BS, correlated BS, GSR including hybrid rate
+  components; GSR-SLV rate components fail preparation with
+  `UnsupportedDelayedPayment`), and tree, compiled, fuzzy-AAD, and LSMC
+  recording evaluators discount the payment through that slot, keeping AAD
+  rate sensitivity through the discount factor. Same-date and settled payments
+  behave like plain `PAYS`; `ON` became a reserved script keyword. See
+  [Script engine](docs/methodology/script_engine.md).
+
 - **Standard rate instruments and quotes** — bond options, caplets/floorlets,
   physically settled swaptions and dated coupons are model-agnostic protocol
   types (`BondOption_`, `Caplet_`, `Swaption_`, `EuropeanRateOption_`), and

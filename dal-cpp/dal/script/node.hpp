@@ -191,7 +191,15 @@ namespace Dal::Script {
         int index_ = -1;
     };
 
-    struct NodePays_ : public Visitable_<ActNode_, NodePays_, VISITORS> {};
+    //  Optional delayed payment (`var PAYS expr ON date`): the amount settles on paymentDate_
+    //  instead of the event date, valued through the event sample's discount factor slot
+    //  discountId_. Preparation clears both for past events and same-date payments, so a set
+    //  paymentDate_ without discountId_ marks an unprepared delayed payment.
+    struct NodePays_ : public Visitable_<ActNode_, NodePays_, VISITORS> {
+        std::optional<Date_> paymentDate_;
+        std::optional<size_t> discountId_;
+        SourceLocation_ source_;
+    };
 
     //	Exercise: early exercise of the whole contract. arguments_[0] is the exercise value,
     //	the optional arguments_[1] is the condition restricting exercisable paths. The fuzzy

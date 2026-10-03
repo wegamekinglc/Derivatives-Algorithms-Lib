@@ -47,6 +47,9 @@ namespace Dal {
             Vector_<T_> stds_;
             Vector_<T_> drifts_;
             Vector_<T_> numeraires_;
+            //  Deterministic discount factors P(t, maturity) per product sample, requested by
+            //  SampleDef_::discountMats_ (delayed PAYS ... ON payments)
+            Vector_<Vector_<T_>> discounts_;
 
             Vector_<T_*> parameters_;
             Vector_<String_> parameterLabels_;
@@ -70,6 +73,8 @@ namespace Dal {
                     scenario.numeraire_ = numeraires_[idx];
                 scenario.spot_ = spot;
                 std::fill(scenario.observations_.begin(), scenario.observations_.end(), spot);
+                if (!scenario.discounts_.empty())
+                    scenario.discounts_ = discounts_[idx];
                 if constexpr (VALIDATE_)
                     return std::isfinite(Value(spot)) & std::isfinite(Value(scenario.numeraire_)) & (Value(scenario.numeraire_) > 0.0);
                 return true;
@@ -146,6 +151,7 @@ namespace Dal {
 
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return IsPlainEquity(index); }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
+            [[nodiscard]] bool SupportsDiscountFactors() const override { return true; }
             [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
                 return Model_<T_>::ValidParameterValue(parameter, value) && (parameter != 0 || value > 0.0) && (parameter != 1 || value >= 0.0);
             }
@@ -197,6 +203,9 @@ namespace Dal {
 
                 const size_t n = productTimeLine.size();
                 numeraires_.Resize(n);
+                discounts_.Resize(n);
+                for (size_t i = 0; i < n; ++i)
+                    discounts_[i].Resize(defLine[i].discountMats_.size());
             }
 
             void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
@@ -213,12 +222,18 @@ namespace Dal {
                 }
 
                 const size_t m = productTimeline.size();
-                for (size_t i = 0; i < m; ++i)
+                for (size_t i = 0; i < m; ++i) {
                     if (defLine[i].numeraire_) {
                         numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
                         REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
                                 "InvalidModelParameter: non-finite or zero BS numeraire");
                     }
+                    for (size_t k = 0; k < defLine[i].discountMats_.size(); ++k) {
+                        discounts_[i][k] = Dal::exp(-rate_ * (defLine[i].discountMats_[k] - productTimeline[i]));
+                        REQUIRE(std::isfinite(Value(discounts_[i][k])) && Value(discounts_[i][k]) > 0.0,
+                                "InvalidModelParameter: non-finite or zero BS discount factor");
+                    }
+                }
             }
 
             [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }

@@ -80,6 +80,10 @@ namespace Dal {
             [[nodiscard]] virtual size_t NumFactors() const { return 1; }
             [[nodiscard]] virtual bool SupportsBrownianBridge() const { return NumFactors() == 1; }
             [[nodiscard]] virtual bool NumeraireIsDeterministic() const { return false; }
+            //  Whether GeneratePath fills Sample_::discounts_ for requested discountMats_.
+            //  Gate for PAYS ... ON delayed payments; false fails preparation loudly
+            //  instead of silently reading the default unit discount factors.
+            [[nodiscard]] virtual bool SupportsDiscountFactors() const { return false; }
             [[nodiscard]] virtual std::optional<Date_> EvaluationDate() const { return std::nullopt; }
             [[nodiscard]] virtual bool ValidParameterValue(size_t parameter, double value) const {
                 return parameter < NumParams() && std::isfinite(value);
@@ -92,6 +96,9 @@ namespace Dal {
                 for (size_t i = 0; i < timeline.size(); ++i) {
                     REQUIRE(std::isfinite(timeline[i]) && timeline[i] >= 0.0 && (i == 0 || timeline[i] > timeline[i - 1]),
                             "InvalidModelTimeline: times must be nonnegative, finite and strictly increasing");
+                    for (const double maturity : definitions[i].discountMats_)
+                        REQUIRE(std::isfinite(maturity) && maturity >= timeline[i],
+                                "InvalidModelTimeline: discount maturities must be finite and not precede their sample");
                     ValidateSampleOutputs(definitions[i], &seenIndices, &validatedNames);
                 }
             }

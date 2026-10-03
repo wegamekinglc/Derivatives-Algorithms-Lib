@@ -217,6 +217,7 @@ namespace Dal::Script {
         //  them the raw payment lands in the driver's row while the payoff variable keeps
         //  the exact accumulated arithmetic of the base evaluator. Payments inside a
         //  fuzzy branch are blended by the branch degree via the sinks' snapshots.
+        //  Delayed payments record the discounted amount, mirroring the plain evaluator.
         FORCE_INLINE void Visit(const NodePays_& node) {
             if (!lsmcFuzzySinks_) {
                 Base::Visit(node);
@@ -224,10 +225,24 @@ namespace Dal::Script {
             }
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
-            const T payment = dStack_.TopAndPop();
-            if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
-                (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
-            variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
+            const auto& sample = (*scenario_)[curEvt_];
+            if (node.discountId_) {
+                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
+                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
+                const T payment = dStack_.TopAndPop() * sample.discounts_[*node.discountId_];
+                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
+                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+                variables_[varIdx] += payment / sample.numeraire_;
+            } else {
+                if (node.paymentDate_)
+                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
+                               " requires model-aware preparation; " + node.source_.Describe(),
+                           ScriptError_);
+                const T payment = dStack_.TopAndPop();
+                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
+                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+                variables_[varIdx] += payment / sample.numeraire_;
+            }
         }
 
         //  EXERCISE leaves the script state untouched; the driver's rows receive the live

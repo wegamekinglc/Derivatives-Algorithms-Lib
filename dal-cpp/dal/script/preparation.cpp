@@ -60,6 +60,13 @@ namespace Dal::Script {
             }
         }
 
+        //  A live PAYS ... ON use waiting for its event sample's discount slot
+        struct DelayedPaymentUse_ {
+            Date_ eventDate_;
+            Date_ paymentDate_;
+            NodePays_* node_;
+        };
+
         class Collector_ {
             const Date_ evaluationDate_;
             const ScriptValuationSettings_ settings_;
@@ -98,12 +105,27 @@ namespace Dal::Script {
                         unboundSpots_.push_back({spot->source_, eventId, statementId, nodeId, "SPOT()", {}, true});
                     }
                 }
+                if (auto* pays = dynamic_cast<NodePays_*>(&node)) {
+                    if (pays->paymentDate_) {
+                        const Date_ paymentDate = *pays->paymentDate_;
+                        REQUIRE2(paymentDate >= date,
+                                 "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) +
+                                     "; " + pays->source_.Describe(),
+                                 ScriptError_);
+                        // Same-date payments and settled history read like a plain PAYS
+                        if (paymentDate == date || date < evaluationDate_)
+                            pays->paymentDate_.reset();
+                        else
+                            delayed_.push_back({date, paymentDate, pays});
+                    }
+                }
                 for (const auto& child : node.arguments_)
                     Collect(*child, date, eventId, statementId);
             }
 
         public:
             Vector_<ObservationRequest_> requests_;
+            Vector_<DelayedPaymentUse_> delayed_;
             Collector_(const Date_& evaluationDate,
                        const ScriptValuationSettings_& settings,
                        const ScriptProductSettings_& contract,
@@ -431,6 +453,31 @@ namespace Dal::Script {
             return true;
         }
 
+        //  Bind every live delayed payment to its event sample's discount-factor slot: the
+        //  payment date itself adds no sample (the DF is observed on the paying event), and
+        //  maturity requests are deduplicated per sample in first-use order.
+        static void
+        BindDelayedPayments(ObservationPlan_* plan, const Vector_<DelayedPaymentUse_>& uses, const Date_& evaluationDate, const AAD::Model_<double>& model) {
+            if (uses.empty())
+                return;
+            REQUIRE2(model.SupportsDiscountFactors(),
+                     "UnsupportedDelayedPayment: the model does not provide discount factors for PAYS ... ON", ScriptError_);
+            const auto sampleId = [&](const Date_& date) {
+                return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
+            };
+            for (const auto& use : uses) {
+                const size_t sample = sampleId(use.eventDate_);
+                REQUIRE2(sample < plan->sampleDates_.size() && plan->sampleDates_[sample] == use.eventDate_,
+                         "InvalidPaymentDate: delayed payment event is missing from the timeline", ScriptError_);
+                auto& maturities = plan->defLine_[sample].discountMats_;
+                const double maturity = (use.paymentDate_ - evaluationDate) / DAYS_PER_YEAR;
+                const size_t slot = static_cast<size_t>(std::find(maturities.begin(), maturities.end(), maturity) - maturities.begin());
+                if (slot == maturities.size())
+                    maturities.push_back(maturity);
+                use.node_->discountId_ = slot;
+            }
+        }
+
     public:
         static PreparedScript_ Prepare(const ScriptProductData_& data,
                                        const ScriptValuationSettings_& valuation,
@@ -479,8 +526,10 @@ namespace Dal::Script {
             result.simulation_ = simulation;
             if (result.AllExpired())
                 return result;
+            REQUIRE2(model || collector.delayed_.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);
             if (model) {
                 ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model, contract);
+                BindDelayedPayments(result.plan_.get(), collector.delayed_, evaluationDate, *model);
                 REQUIRE2(result.plan_->RegressionFeatureCount() == 1 || simulation.lsmcBasisDegree_ <= 3,
                          "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
                 model->Allocate(result.TimeLine(), result.DefLine());

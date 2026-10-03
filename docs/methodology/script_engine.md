@@ -91,14 +91,15 @@ binds over `AND`, which binds over comparison elements — producing `NodeOr_`,
 ### Reserved Keywords and Variables
 
 A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `FOR`, `APPEND`, `SUM`,
-`AVERAGE`, `PAYS`, `AND`, `OR`, `SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`,
+`AVERAGE`, `PAYS`, `ON`, `AND`, `OR`, `SPOT`, `FIX`, `MAX`, `MIN`, `LOG`, `SQRT`,
 `EXP`, `DCF`, `EXERCISE`) cannot be used as variable names. A plain non-reserved
 alphabetic token becomes either a `NodeVar_` (looked up in the
 preprocessor's constant-variable map and promoted to `NodeConstVar_` if it
 resolves there), or a vector name in a vector operation. Statements include
 scalar assignments (`=`, `NodeAssign_`), vector-entry assignments
 (`NodeVectorAssign_`), `APPEND` (`NodeVectorAppend_`), pays clauses (`PAYS`,
-`NodePays_`), `FOR/END` blocks (expanded into `NodeCollect_`), and
+`NodePays_`; an optional `ON <YYYY-MM-DD>` suffix delays settlement to that
+date), `FOR/END` blocks (expanded into `NodeCollect_`), and
 `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
 `firstElse_` indexing the else-branch within `arguments_`), or early-exercise
 clauses (`EXERCISE <value> [IF <condition>]`, `NodeExercise_`, at most one per
@@ -650,8 +651,22 @@ same request use the same cell. Generating a full path first does not relax
 `PAYS` divides its right-hand side by the numeraire at the payment event, not
 at the fixing sample. A known fixing of 80 paid at time `T` under a constant
 rate `r` contributes `80 * exp(-r*T)`. Even with no future FIX, future events
-retain their timeline and numeraire requests. There is no separate payment
-calendar, settlement lag, or currency conversion.
+retain their timeline and numeraire requests.
+
+`PAYS expr ON <date>` delays settlement past the event: preparation requests
+the discount factor `P(t_event, t_payment)` as an extra maturity in the paying
+event's `SampleDef_::discountMats_`, the model fills `Sample_::discounts_`
+(BS and correlated BS from their flat rate, GSR and hybrid rate components
+from their bond machinery), and every evaluator — tree, compiled, fuzzy, and
+the LSMC recording rows — multiplies the payment by that slot before the
+numeraire division, so `E[amount * P(t,T)/N(t)] = E[amount/N(T)]`. The value
+depends only on the payment date: an amount paid on `T` is worth the same
+whichever event carries it. Same-date payments and settled history read like a
+plain `PAYS`; a payment date before its event fails with `InvalidPaymentDate`,
+and models without discount-factor support fail preparation with
+`UnsupportedDelayedPayment` (GSR-SLV rate components and legacy unprepared
+products). There is no payment-calendar adjustment, business-day rolling, or
+currency conversion on the payment date.
 
 Model-aware exact and fuzzy preparation retain future branches in the AST and
 compiled streams, skipping domain analysis and constant-condition pruning.

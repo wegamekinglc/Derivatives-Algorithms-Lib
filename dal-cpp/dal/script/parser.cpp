@@ -19,7 +19,8 @@
 
 namespace {
     const std::set<Dal::String_> RESERVED_KEY_WORDS = {"IF",  "END", "THEN", "ELSE", "DCF", "PAYS",     "AND", "OR",     "SPOT", "MAX",
-                                                       "MIN", "LOG", "SQRT", "EXP",  "FIX", "EXERCISE", "FOR", "APPEND", "SUM",  "AVERAGE"};
+                                                       "MIN", "LOG", "SQRT", "EXP",  "FIX", "EXERCISE", "FOR", "APPEND", "SUM",  "AVERAGE",
+                                                       "ON"};
 } // namespace
 
 namespace Dal::Script {
@@ -398,11 +399,20 @@ namespace Dal::Script {
     }
 
     Statement_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
+        const auto source = cur->source_;
         hasPays_ = true;
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return MakeBaseBinary<NodePays_>(lhs, rhs);
+        auto top = MakeBaseBinary<NodePays_>(lhs, rhs);
+        if (cur != end && cur->Text() == "ON") {
+            const auto onSource = cur->source_;
+            ++cur;
+            REQUIRE2(cur != end, "InvalidPaymentDate: PAYS expects a YYYY-MM-DD date literal after ON; " + onSource.Describe(), ScriptError_);
+            Downcast<NodePays_>(top)->paymentDate_ = ParsePaymentDate(cur, end, onSource);
+        }
+        Downcast<NodePays_>(top)->source_ = source;
+        return top;
     }
 
     Expression_ Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
@@ -563,6 +573,33 @@ namespace Dal::Script {
             return fixingDate;
         } catch (const Exception_& error) {
             THROW2("InvalidFixingDate: " + date + "; " + dateSource.Describe() + "; " + String_(error.what()), ScriptError_);
+        }
+    }
+
+    Date_ Parser_::ParsePaymentDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback) {
+        const auto dateSource = cur == end ? fallback : cur->source_;
+        String_ date;
+        size_t nextOffset = dateSource.offset_;
+        //  The date literal is a contiguous run of digit/dash tokens, so statements (ELSE,
+        //  END, another assignment...) may follow ON <date> within the same event text
+        const auto dateToken = [](const String_& text) {
+            return !text.empty() && text.find_first_not_of("0123456789-") == String_::npos;
+        };
+        while (cur != end && dateToken(cur->Text()) && cur->source_.offset_ == nextOffset) {
+            date += cur->Text();
+            nextOffset = cur->source_.offset_ + cur->Text().size();
+            ++cur;
+        }
+        static const std::regex ISO_DATE("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+        REQUIRE2(std::regex_match(date, ISO_DATE),
+                 "InvalidPaymentDate: PAYS expects a strict YYYY-MM-DD date literal after ON; input=" + date + "; " + dateSource.Describe(),
+                 ScriptError_);
+        try {
+            const auto paymentDate = Date::FromString(date);
+            REQUIRE(paymentDate.IsValid(), "date is outside the supported range");
+            return paymentDate;
+        } catch (const Exception_& error) {
+            THROW2("InvalidPaymentDate: " + date + "; " + dateSource.Describe() + "; " + String_(error.what()), ScriptError_);
         }
     }
 

@@ -208,7 +208,18 @@ namespace Dal::Script {
 
             VisitNode(*node.arguments_[1]);
 
-            variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
+            const auto& sample = (*scenario_)[curEvt_];
+            if (node.discountId_) {
+                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
+                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
+                variables_[varIdx] += dStack_.TopAndPop() * sample.discounts_[*node.discountId_] / sample.numeraire_;
+            } else {
+                if (node.paymentDate_)
+                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
+                               " requires model-aware preparation; " + node.source_.Describe(),
+                           ScriptError_);
+                variables_[varIdx] += dStack_.TopAndPop() / sample.numeraire_;
+            }
         }
 
         void Visit(const NodeExercise_& node) {
