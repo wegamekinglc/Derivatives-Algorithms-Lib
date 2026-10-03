@@ -95,53 +95,75 @@ namespace Dal {
         return block;
     }
 
+    namespace {
+        struct ComponentFactors_ {
+            size_t offset_;
+            Matrix_<> block_;
+        };
+
+        void RequireBlockDimensions(const Matrix_<>& block, size_t width, const String_& name) {
+            REQUIRE(block.Empty() || (block.Rows() == static_cast<int>(width) && block.Cols() == static_cast<int>(width)),
+                    "InvalidHybridCorrelation: correlation block must match the factors of " + name);
+        }
+
+        Vector_<String_> GatherComponentFactors(const Vector_<Handle_<HybridComponentData_>>& components, Vector_<ComponentFactors_>* blocks) {
+            Vector_<String_> names;
+            for (const auto& component : components) {
+                REQUIRE(component, "InvalidHybridCorrelation: null component");
+                const auto factorNames = component->FactorNames();
+                RequireBlockDimensions(component->FactorCorrelations(), factorNames.size(), component->Name());
+                for (const auto& factor : factorNames) {
+                    REQUIRE(!factor.empty() && std::find(names.begin(), names.end(), factor) == names.end(),
+                            "InvalidHybridCorrelation: duplicate or empty factor " + factor);
+                    names.push_back(factor);
+                }
+                blocks->push_back({names.size() - factorNames.size(), component->FactorCorrelations()});
+            }
+            REQUIRE(!names.empty(), "InvalidHybridCorrelation: at least one factor is required");
+            return names;
+        }
+
+        Matrix_<> FillCorrelationMatrix(const Vector_<String_>& names, const Vector_<ComponentFactors_>& blocks) {
+            const int total = static_cast<int>(names.size());
+            Matrix_<> correlations(total, total, 0.0);
+            for (int i = 0; i < total; ++i)
+                correlations(i, i) = 1.0;
+            for (const auto& block : blocks) {
+                if (block.block_.Empty())
+                    continue;
+                const int width = block.block_.Rows();
+                for (int i = 0; i < width; ++i)
+                    for (int j = 0; j < width; ++j)
+                        correlations(static_cast<int>(block.offset_) + i, static_cast<int>(block.offset_) + j) = block.block_(i, j);
+            }
+            return correlations;
+        }
+
+        void ApplyFactorLinks(const Vector_<String_>& names, const Vector_<HybridFactorLink_>& links, Matrix_<>* correlations) {
+            const auto slot = [&](const String_& factor) {
+                const auto found = std::find(names.begin(), names.end(), factor);
+                REQUIRE(found != names.end(), "InvalidHybridCorrelation: unknown factor " + factor);
+                return static_cast<int>(found - names.begin());
+            };
+            for (const auto& link : links) {
+                const int a = slot(link.factorA_), b = slot(link.factorB_);
+                REQUIRE(a != b, "InvalidHybridCorrelation: a link must join two distinct factors");
+                REQUIRE(std::isfinite(link.correlation_) && std::abs(link.correlation_) <= 1.0,
+                        "InvalidHybridCorrelation: link correlations must be finite in [-1, 1]");
+                REQUIRE((*correlations)(a, b) == 0.0 && (*correlations)(b, a) == 0.0,
+                        "InvalidHybridCorrelation: duplicate correlation for " + link.factorA_ + " and " + link.factorB_);
+                (*correlations)(a, b) = (*correlations)(b, a) = link.correlation_;
+            }
+        }
+    } // namespace
+
     Handle_<HybridCorrelationData_> AssembleHybridCorrelation(const String_& name,
                                                               const Vector_<Handle_<HybridComponentData_>>& components,
                                                               const Vector_<HybridFactorLink_>& links) {
-        Vector_<String_> names;
-        const auto slot = [&](const String_& factor) {
-            const auto found = std::find(names.begin(), names.end(), factor);
-            REQUIRE(found != names.end(), "InvalidHybridCorrelation: unknown factor " + factor);
-            return static_cast<int>(found - names.begin());
-        };
-        for (const auto& component : components) {
-            REQUIRE(component, "InvalidHybridCorrelation: null component");
-            const auto factorNames = component->FactorNames();
-            const auto block = component->FactorCorrelations();
-            REQUIRE(block.Empty() || (block.Rows() == static_cast<int>(factorNames.size()) && block.Cols() == static_cast<int>(factorNames.size())),
-                    "InvalidHybridCorrelation: correlation block must match the factors of " + component->Name());
-            for (const auto& factor : factorNames) {
-                REQUIRE(!factor.empty() && std::find(names.begin(), names.end(), factor) == names.end(),
-                        "InvalidHybridCorrelation: duplicate or empty factor " + factor);
-                names.push_back(factor);
-            }
-            static_cast<void>(block);
-        }
-        const int total = static_cast<int>(names.size());
-        REQUIRE(total > 0, "InvalidHybridCorrelation: at least one factor is required");
-        Matrix_<> correlations(total, total, 0.0);
-        for (int i = 0; i < total; ++i)
-            correlations(i, i) = 1.0;
-        size_t consumed = 0;
-        for (const auto& component : components) {
-            const auto factorNames = component->FactorNames();
-            const auto block = component->FactorCorrelations();
-            const int width = static_cast<int>(factorNames.size());
-            if (!block.Empty())
-                for (int i = 0; i < width; ++i)
-                    for (int j = 0; j < width; ++j)
-                        correlations(consumed + i, consumed + j) = block(i, j);
-            consumed += factorNames.size();
-        }
-        for (const auto& link : links) {
-            const int a = slot(link.factorA_), b = slot(link.factorB_);
-            REQUIRE(a != b, "InvalidHybridCorrelation: a link must join two distinct factors");
-            REQUIRE(std::isfinite(link.correlation_) && std::abs(link.correlation_) <= 1.0,
-                    "InvalidHybridCorrelation: link correlations must be finite in [-1, 1]");
-            REQUIRE(correlations(a, b) == 0.0 && correlations(b, a) == 0.0,
-                    "InvalidHybridCorrelation: duplicate correlation for " + link.factorA_ + " and " + link.factorB_);
-            correlations(a, b) = correlations(b, a) = link.correlation_;
-        }
+        Vector_<ComponentFactors_> blocks;
+        const auto names = GatherComponentFactors(components, &blocks);
+        auto correlations = FillCorrelationMatrix(names, blocks);
+        ApplyFactorLinks(names, links, &correlations);
         return Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_(name, names, correlations));
     }
 
