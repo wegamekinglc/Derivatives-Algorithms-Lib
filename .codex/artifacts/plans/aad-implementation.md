@@ -107,8 +107,8 @@ with a smooth positive-domain payoff whose derivative overflows while its primal
 the new public test covers interpreted/compiled paths and subsequent recovery.
 
 At `83399b5a31389563a26b7e69d82bfc2b5bd4b68e`, fresh full native and CoDiPack runs passed
-2,290 and 2,238 cases respectively. The corrected-head compiler/backend checks have passed;
-the complete CI rollup still requires an exact-head final audit.
+2,290 and 2,238 cases respectively. All 46 exact-head CI checks subsequently passed.
+Later increments still require their own exact-head CI audit.
 
 The first P01 measurement increment adds explicit native tape snapshots for logical storage,
 cursor storage including block padding, and retained block capacity. No recording/propagation
@@ -127,6 +127,16 @@ With the measurement increment, full native and CoDiPack runs pass 2,293 and 2,2
 Both changed benchmark executables pass their result checks. Native statistics are not an RSS
 budget, cumulative allocation counter, or automatically sampled high-water mark. MC phase
 attribution, worker scaling, and the production multi-output cases remain P01 work.
+
+The first full gate with P01 coverage (`e64a2690e7d4ee2ce6cc857aad5929325ea7a409`)
+passed every existing case except the small dense reference Jacobian (+6.52%/+6.80%).
+Raw evidence remains in `p0-paired-final/`. The same current core library with the original
+benchmark fixture passed both rows, localizing the difference to the expanded fixture.
+Separating the established timed fixture from command parsing/additional cases passed both
+Jacobian rows (-4.83%/-4.41% dense and -4.30%/-4.49% prefix). Result checks, work, case names,
+sample counts, and thresholds remain. Graph construction is separately factored, and production
+prefix widths are selected before timing rather than copied in each measured harvest.
+This also corrects Codacy's two new complexity findings without relaxing its limit.
 
 The [recording lifecycle contract](../specs/aad-recording-lifecycle.md) specifies D01 ownership,
 states, checkpoint validation, and cleanup/recovery acceptance. Its proposed API is not yet
