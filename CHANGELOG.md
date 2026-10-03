@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-04
 
+- **Independent AAD recording ownership** — scoped curve recordings reject
+  nested use before discarding the outer graph, report explicit cleanup failures,
+  and require successful tape recovery after failed cleanup. Scopes remain on
+  their creating thread. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
+
 - **Native AAD propagation precision** — nonzero adjoints are no longer truncated
   by an absolute threshold, preserving derivatives under intermediate rescaling.
   Multi-result zero seeds are isolated from non-finite local derivatives, and

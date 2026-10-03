@@ -147,9 +147,26 @@ limits. C01-C05 are verified by their mathematical tests, the full core-repair C
 this performance gate; new increments still require their own current-head checks.
 
 The [recording lifecycle contract](../specs/aad-recording-lifecycle.md) specifies D01 ownership,
-states, checkpoint validation, and cleanup/recovery acceptance. Its proposed API is not yet
-implemented. Continue with local TDD after the current performance/CI evidence is captured.
+states, checkpoint validation, and cleanup/recovery acceptance. The independent ownership
+increment implements thread-affine `RecordingScope_`, scoped nesting rejection, explicit
+close, noexcept fallback, cleanup-failure retention, and recovery before the next recording.
+`TapeGuard_` delegates ownership to it; curve Jacobian, node-risk, and GSR/SLV Jacobian callers
+close explicitly after passive extraction. Raw graph operations remain unchanged.
 
-Next: exact implementation-head CI audit and remaining measurement/lifecycle work.
-Public validation remains outside per-path loops. Do not mark Stage A
-complete before these checks and its remaining requirements are verified.
+Nine native and eight CoDiPack ownership tests pass, including nesting during entry/exit
+reset callbacks, exception recovery, foreign-thread rejection, idempotent closure, and
+native vector-capacity retention. The nested-guard and entry-reset tests first failed.
+ASan/UBSan passes all nine native cases. Fresh full native CTest passes 2,324 cases
+(core/public/portable Excel, 33 regular examples, one slow example, and 21 benchmark smoke
+tests); full CoDiPack CTest passes 2,247. Logs are retained under `recording-*-ctest.log`
+and `recording-owner-sanitized.log`. Benchmark smoke tests are not paired performance proof.
+
+All 46 exact-head CI checks passed at `aec6689ae6d029f9a7eb4f810e3e074fd4ed6030`,
+before the ownership increment. The latter still requires fresh paired performance and
+its own exact-head four-backend/CI audit. D01 remains open: scoped recording states,
+validated checkpoint handles, vector clearing, mode boundaries, and MC/LSM migration
+are not implemented by this increment.
+
+Next: fresh ownership performance/CI acceptance and the remaining lifecycle requirements.
+Public numeric-result validation remains outside per-path loops. Do not mark Stage A
+complete before its remaining requirements are verified.

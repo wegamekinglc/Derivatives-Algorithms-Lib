@@ -451,7 +451,7 @@ namespace Dal {
             std::set<String_> unique;
             for (const auto& label : labels)
                 REQUIRE(unique.insert(label).second, "InvalidGSRSLVPricing: duplicate Jacobian parameter " + label);
-            const TapeGuard_ guard(AAD::Tape());
+            TapeGuard_ guard(AAD::Tape());
             Matrix_<> result(data_->payoffs_.size(), labels.size(), 0.0);
             const int pairs = data_->settings_.paths_ / 2;
 #if defined(DAL_USE_XAD_AAD)
@@ -470,6 +470,7 @@ namespace Dal {
                     [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); }, first,
                     std::min(pairs, first + batchPairs));
             }
+            guard.Close();
             return result;
         }
 

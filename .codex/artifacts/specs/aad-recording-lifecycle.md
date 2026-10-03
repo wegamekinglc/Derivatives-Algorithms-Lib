@@ -1,7 +1,8 @@
 # AAD recording lifecycle: implementation contract
 
-Status: active design; the interfaces below are proposed until their executable
-acceptance criteria pass. This specifies D01 and the lifecycle boundary needed by
+Status: active design; independent ownership, explicit close, and cleanup recovery
+are implemented. The state/checkpoint interfaces below remain proposed until their
+executable acceptance criteria pass. This specifies D01 and the boundary needed by
 D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/9dd9282bb2c517c838a6576a95c9b7a937e750af/.codex/artifacts/plans/aad-improvement-plan.md).
 
 ## Problem and compatibility constraints

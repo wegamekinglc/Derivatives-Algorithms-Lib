@@ -161,6 +161,45 @@ and then rewind, so the tape size is bounded by the work of a *single* repetitio
 rather than the whole simulation. Propagation can therefore be partitioned into
 ranges: from the end to the mark, and from the mark to the start.
 
+### Independent Recording Ownership
+
+`AAD::RecordingScope_` in `dal/math/aad/recording.hpp` owns an independent
+recording on the calling thread's default tape. Entry activates and rewinds the
+tape; successful closure rewinds it while retaining reusable backend capacity.
+The scope is neither copyable nor movable, and its lifetime, operations, and
+destruction belong to the creating thread. Separate threads can own separate
+recordings. A nested scope throws before changing the outer tape. The curve
+`TapeGuard_` delegates to this ownership boundary.
+
+Use the existing input registration, `NewRecording`, seeding, and propagation
+operations inside the scope. Extract passive results before calling `Close()`:
+
+```cpp
+AAD::RecordingScope_ recording;
+AAD::Number_ input;
+AAD::RegisterIndependent(input, 3.0);
+AAD::NewRecording(*AAD::Tape());
+AAD::Number_ output = input * input;
+AAD::ZeroAdjoints(*AAD::Tape());
+AAD::Adjoint(output) = 1.0;
+AAD::PropagateToStart(*AAD::Tape());
+const double derivative = AAD::AdjointValue(input);
+recording.Close();
+```
+
+`Close()` reports cleanup errors and is idempotent. During exception unwinding,
+the destructor performs fallback cleanup without replacing the business
+exception. A cleanup failure remains available through
+`AAD::LastRecordingCleanupFailure()` and makes the thread's scoped context
+unusable until the next entry successfully rebuilds the tape. A failed rebuild
+rejects that entry. Normal curve Jacobian and node-risk calls close explicitly
+after extracting passive results.
+
+Active numbers and tape positions become invalid when their recording is
+discarded. Ownership checks protect nesting between scoped callers; raw tape
+operations still require the caller's existing lifetime discipline. The scope
+does not validate every expression or make raw iterators stable checkpoints.
+
 ### Native Tape Storage
 
 The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists
