@@ -35,6 +35,8 @@ namespace Dal {
                 valid &= Value(sample.numeraire_) > 0.0;
                 for (const auto& observation : sample.observations_)
                     valid &= std::isfinite(Value(observation));
+                for (const auto& discount : sample.discounts_)
+                    valid &= std::isfinite(Value(discount)) & (Value(discount) > 0.0);
             }
             return valid;
         }

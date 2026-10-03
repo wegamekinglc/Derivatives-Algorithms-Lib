@@ -27,8 +27,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   `UnsupportedDelayedPayment`), and tree, compiled, fuzzy-AAD, and LSMC
   recording evaluators discount the payment through that slot, keeping AAD
   rate sensitivity through the discount factor. Same-date and settled payments
-  behave like plain `PAYS`; `ON` became a reserved script keyword. See
-  [Script engine](docs/methodology/script_engine.md).
+  behave like plain `PAYS`; a past event with a payment still outstanding on
+  the evaluation date fails with `UnsettledDelayedPayment` (settlement follows
+  the payment date, never silently dropped). `ON` became a reserved script
+  keyword. See [Script engine](docs/methodology/script_engine.md).
 
 - **Standard rate instruments and quotes** — bond options, caplets/floorlets,
   physically settled swaptions and dated coupons are model-agnostic protocol

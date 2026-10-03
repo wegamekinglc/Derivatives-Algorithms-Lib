@@ -43,12 +43,15 @@ TEST(SimulationTest, TestInvalidPathDiagnosticsAcrossSamples) {
     for (auto& sample : path) {
         sample.Initialize();
         sample.observations_ = {-2.0, 0.0, 3.0};
+        sample.discounts_ = {0.5, 1.0};
     }
     for (size_t i = 0; i < path.size(); ++i) {
         auto& sample = path[i];
-        const Vector_<double*> fields{&sample.spot_, &sample.numeraire_, &sample.observations_[2]};
-        const Vector_<String_> messages{"InvalidModelPath: non-finite spot", "InvalidModelPath: non-finite or nonpositive numeraire",
-                                        "InvalidModelPath: non-finite observation"};
+        const Vector_<double*> fields{&sample.spot_, &sample.numeraire_, &sample.observations_[2], &sample.discounts_[0]};
+        const Vector_<String_> messages{"InvalidModelPath: non-finite spot",
+                                        "InvalidModelPath: non-finite or nonpositive numeraire",
+                                        "InvalidModelPath: non-finite observation",
+                                        "InvalidModelPath: non-finite or nonpositive discount factor"};
         for (size_t field = 0; field < fields.size(); ++field) {
             for (const double value :
                  {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
@@ -64,14 +67,30 @@ TEST(SimulationTest, TestInvalidPathDiagnosticsAcrossSamples) {
                 *fields[field] = original;
             }
         }
-        for (const double numeraire : {0.0, -1.0}) {
-            sample.numeraire_ = numeraire;
+        for (const double nonpositive : {0.0, -1.0}) {
+            sample.numeraire_ = nonpositive;
             ASSERT_THROW(ValidateSimulationPath(path), ScriptError_);
+            sample.numeraire_ = 1.0;
+            sample.discounts_[1] = nonpositive;
+            ASSERT_THROW(ValidateSimulationPath(path), ScriptError_);
+            sample.discounts_[1] = 1.0;
         }
         sample.numeraire_ = std::numeric_limits<double>::min();
         sample.spot_ = -1.0;
         ASSERT_NO_THROW(ValidateSimulationPath(path));
         sample.numeraire_ = 1.0;
+    }
+}
+
+TEST(SimulationTest, TestInvalidDiscountsFailModelPathValidation) {
+    AAD::Scenario_<double> path(1);
+    path[0].Initialize();
+    path[0].discounts_ = {1.0};
+    ASSERT_TRUE(AAD::IsValidModelPath(path));
+    for (const double value : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), 0.0, -0.5}) {
+        SCOPED_TRACE(value);
+        path[0].discounts_[0] = value;
+        ASSERT_FALSE(AAD::IsValidModelPath(path));
     }
 }
 

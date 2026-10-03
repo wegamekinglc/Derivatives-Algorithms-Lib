@@ -662,11 +662,14 @@ the LSMC recording rows — multiplies the payment by that slot before the
 numeraire division, so `E[amount * P(t,T)/N(t)] = E[amount/N(T)]`. The value
 depends only on the payment date: an amount paid on `T` is worth the same
 whichever event carries it. Same-date payments and settled history read like a
-plain `PAYS`; a payment date before its event fails with `InvalidPaymentDate`,
-and models without discount-factor support fail preparation with
-`UnsupportedDelayedPayment` (GSR-SLV rate components and legacy unprepared
-products). There is no payment-calendar adjustment, business-day rolling, or
-currency conversion on the payment date.
+plain `PAYS`; a payment date before its event fails with `InvalidPaymentDate`.
+Settlement is decided by the payment date: a past event whose payment is still
+outstanding on the evaluation date has no valuation path (its event is off the
+simulation timeline) and fails with `UnsettledDelayedPayment` instead of being
+dropped as settled cash. Models without discount-factor support fail
+preparation with `UnsupportedDelayedPayment` (GSR-SLV rate components and
+legacy unprepared products). There is no payment-calendar adjustment,
+business-day rolling, or currency conversion on the payment date.
 
 Model-aware exact and fuzzy preparation retain future branches in the AST and
 compiled streams, skipping domain analysis and constant-condition pruning.

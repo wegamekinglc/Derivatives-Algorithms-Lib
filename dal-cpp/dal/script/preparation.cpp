@@ -112,10 +112,20 @@ namespace Dal::Script {
                                  "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) +
                                      "; " + pays->source_.Describe(),
                                  ScriptError_);
-                        // Same-date payments and settled history read like a plain PAYS
-                        if (paymentDate == date || date < evaluationDate_)
+                        if (paymentDate == date) {
                             pays->paymentDate_.reset();
-                        else
+                        } else if (date < evaluationDate_) {
+                            //  Settlement is decided by the payment date, not the event date:
+                            //  a past event's payment still outstanding at the evaluation date has
+                            //  no valuation path (its event is off the simulation timeline), so
+                            //  reject it loudly instead of dropping the amount as settled history
+                            REQUIRE2(paymentDate < evaluationDate_,
+                                     "UnsettledDelayedPayment: event " + Date::ToString(date) + " precedes the evaluation date " +
+                                         Date::ToString(evaluationDate_) + "; its payment " + Date::ToString(paymentDate) +
+                                         " is not settled; expected a payment date before the evaluation date; " + pays->source_.Describe(),
+                                     ScriptError_);
+                            pays->paymentDate_.reset();
+                        } else
                             delayed_.push_back({date, paymentDate, pays});
                     }
                 }

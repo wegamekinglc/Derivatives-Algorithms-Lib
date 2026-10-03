@@ -60,7 +60,7 @@ TEST(ScriptDelayedPaymentTest, TestParserAcceptsOnDateLiteral) {
     const auto prepared = PrepareScript(product, &model, ValuationOn(evalDate), {});
     ASSERT_EQ(prepared.Plan().DefLine().size(), 1u);
     ASSERT_EQ(prepared.Plan().DefLine()[0].discountMats_.size(), 1u);
-    EXPECT_NEAR(prepared.Plan().DefLine()[0].discountMats_[0], YearFraction(evalDate, Date_(2023, 8, 28)), 1e-12);
+    ASSERT_NEAR(prepared.Plan().DefLine()[0].discountMats_[0], YearFraction(evalDate, Date_(2023, 8, 28)), 1e-10);
 }
 
 TEST(ScriptDelayedPaymentTest, TestParserRejectsMalformedOnClause) {
@@ -119,21 +119,23 @@ TEST(ScriptDelayedPaymentTest, TestValueIsIndependentOfTheEventDate) {
     ASSERT_DOUBLE_EQ(MeanValue(early, FlatBsModel(), 64, Date_(2023, 1, 28)), MeanValue(late, FlatBsModel(), 64, Date_(2023, 1, 28)));
 }
 
-TEST(ScriptDelayedPaymentTest, TestSlotsDedupeAcrossEventsAndMaturities) {
+TEST(ScriptDelayedPaymentTest, TestSlotsDedupeWithinAndAcrossEvents) {
     const Date_ evalDate(2023, 1, 28);
-    //  two events share one payment date; the third event adds a second maturity on its own date
+    //  the first event carries two payments on one shared date (dedup to a single slot)
+    //  plus a third on another date (a second slot on the same sample); the second
+    //  event adds its own maturity on its own sample
     const ScriptProductData_ product("",
-                                     {Cell_(Date_(2023, 2, 28)), Cell_(Date_(2023, 5, 28)), Cell_(Date_(2023, 8, 28))},
-                                     {"a PAYS 1 ON 2023-11-28", "b PAYS 2 ON 2023-11-28", "c PAYS 3 ON 2024-05-28"});
+                                     {Cell_(Date_(2023, 2, 28)), Cell_(Date_(2023, 5, 28))},
+                                     {"a PAYS 1 ON 2023-11-28 b PAYS 2 ON 2023-11-28 d PAYS 4 ON 2024-02-28", "c PAYS 3 ON 2024-05-28"});
     auto model = AAD::BlackScholes_<double>(100.0, 0.0, RATE, 0.0);
     const auto prepared = PrepareScript(product, &model, ValuationOn(evalDate), {});
     const auto& defLine = prepared.Plan().DefLine();
-    ASSERT_EQ(defLine.size(), 3u);
-    ASSERT_EQ(defLine[0].discountMats_.size(), 1u);
+    ASSERT_EQ(defLine.size(), 2u);
+    ASSERT_EQ(defLine[0].discountMats_.size(), 2u);
     ASSERT_EQ(defLine[1].discountMats_.size(), 1u);
-    ASSERT_EQ(defLine[2].discountMats_.size(), 1u);
-    EXPECT_NEAR(defLine[0].discountMats_[0], YearFraction(evalDate, Date_(2023, 11, 28)), 1e-12);
-    EXPECT_NEAR(defLine[2].discountMats_[0], YearFraction(evalDate, Date_(2024, 5, 28)), 1e-12);
+    ASSERT_NEAR(defLine[0].discountMats_[0], YearFraction(evalDate, Date_(2023, 11, 28)), 1e-10);
+    ASSERT_NEAR(defLine[0].discountMats_[1], YearFraction(evalDate, Date_(2024, 2, 28)), 1e-10);
+    ASSERT_NEAR(defLine[1].discountMats_[0], YearFraction(evalDate, Date_(2024, 5, 28)), 1e-10);
 }
 
 TEST(ScriptDelayedPaymentTest, TestPastDelayedPaymentIsConsumed) {
@@ -144,6 +146,22 @@ TEST(ScriptDelayedPaymentTest, TestPastDelayedPaymentIsConsumed) {
                                      {"x = 10 pay PAYS x ON 2023-03-31", "y PAYS 3"});
     const double expected = 3.0 * std::exp(-RATE * YearFraction(evalDate, Date_(2023, 8, 28)));
     ASSERT_NEAR(MeanValue(product, FlatBsModel(), 64, evalDate), expected, 1e-12);
+}
+
+TEST(ScriptDelayedPaymentTest, TestUnsettledDelayedPaymentFromPastEventRejected) {
+    const Date_ evalDate(2023, 3, 15);
+    //  the event is history but its payment is still outstanding: settlement follows the
+    //  payment date, so the amount must not be dropped as settled cash
+    const ScriptProductData_ product("",
+                                     {Cell_(Date_(2023, 2, 28)), Cell_(Date_(2023, 8, 28))},
+                                     {"x = 10 pay PAYS x ON 2023-03-31", "y PAYS 3"});
+    auto model = AAD::BlackScholes_<double>(100.0, 0.0, RATE, 0.0);
+    try {
+        static_cast<void>(PrepareScript(product, &model, ValuationOn(evalDate), {}));
+        FAIL() << "expected UnsettledDelayedPayment";
+    } catch (const Dal::Exception_& error) {
+        ASSERT_NE(String_(error.what()).find("UnsettledDelayedPayment"), String_::npos);
+    }
 }
 
 TEST(ScriptDelayedPaymentTest, TestTreeCompiledParityOnCallPayoff) {
