@@ -242,3 +242,21 @@ TEST(VectorTest, TestEmplaceBackMovesRvalue) {
     ASSERT_EQ(*v[0], 42);
     ASSERT_EQ(p, nullptr);
 }
+
+TEST(VectorTest, TestScalarCompoundAssignmentSnapshotsAliasedOperand) {
+    // v *= v[0] must see the original v[0] for every element, not the updated one
+    vector_t v{2., 3.};
+    v *= v[0];
+    ASSERT_DOUBLE_EQ(v[0], 4.);
+    ASSERT_DOUBLE_EQ(v[1], 6.);
+
+    vector_t w{2., 3.};
+    w += w[0];
+    ASSERT_DOUBLE_EQ(w[0], 4.);
+    ASSERT_DOUBLE_EQ(w[1], 5.);
+
+    vector_t u{2., 3.};
+    u -= u[0];
+    ASSERT_DOUBLE_EQ(u[0], 0.);
+    ASSERT_DOUBLE_EQ(u[1], 1.);
+}

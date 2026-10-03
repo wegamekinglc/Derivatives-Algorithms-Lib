@@ -354,3 +354,36 @@ TEST(MatrixTest, TestMatrixData) {
     m.Data()[0] = -1.;
     ASSERT_DOUBLE_EQ(m(0, 0), -1.);
 }
+
+TEST(MatrixTest, TestMatrixResizeTallSameShape) {
+    // a tall shape whose row-count product would overflow int must resize in place
+    matrix_t m(50000, 2, 1.);
+    m.Resize(50000, 2);
+    ASSERT_EQ(m.Rows(), 50000);
+    ASSERT_EQ(m.Cols(), 2);
+    ASSERT_DOUBLE_EQ(m(49999, 1), 1.);
+}
+
+TEST(MatrixTest, TestMatrixLastColumnIteration) {
+    matrix_t m(3, 2);
+    for (int i = 0; i < 3; ++i) {
+        m(i, 0) = 10 * i;
+        m(i, 1) = 10 * i + 1;
+    }
+    auto col = m.Col(1);
+    auto iter = col.begin();
+    ASSERT_DOUBLE_EQ(*iter, 1.);
+    ++iter;
+    ASSERT_DOUBLE_EQ(*iter, 11.);
+    ++iter;
+    ASSERT_DOUBLE_EQ(*iter, 21.);
+    ++iter;
+    ASSERT_TRUE(iter == col.end());
+    ASSERT_EQ(col.end() - col.begin(), 3);
+
+    const matrix_t& cm = m;
+    ASSERT_DOUBLE_EQ(cm.Col(1)[2], 21.);
+    Dal::Vector_<> copied = cm.Col(1);
+    ASSERT_EQ(copied.size(), 3U);
+    ASSERT_DOUBLE_EQ(copied[2], 21.);
+}

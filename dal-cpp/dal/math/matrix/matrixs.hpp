@@ -122,46 +122,49 @@ namespace Dal {
         // Iteration through columns is less efficient
         template <class It_> class ColView_ {
         public:
+            // tracks the logical row position and forms a storage address only when
+            // dereferenced, so the one-past-end iterator never points past the buffer
             template <typename RI_>
             struct Iterator_ // column iterator in terms of row iterator
             {
-                RI_ val_;
+                RI_ base_;
+                size_t offset_;
+                size_t row_;
                 size_t stride_;
-                Iterator_(RI_ val, size_t stride) : val_(val), stride_(stride) {}
+                Iterator_(RI_ base, size_t offset, size_t row, size_t stride) : base_(base), offset_(offset), row_(row), stride_(stride) {}
                 Iterator_& operator++() {
-                    val_ += stride_;
+                    ++row_;
                     return *this;
                 }
                 Iterator_ operator++(int) {
                     Iterator_ ret(*this);
-                    val_ += stride_;
+                    ++row_;
                     return ret;
                 }
                 Iterator_& operator--() {
-                    val_ -= stride_;
+                    --row_;
                     return *this;
                 }
                 Iterator_ operator--(int) {
                     Iterator_ ret(*this);
-                    val_ -= stride_;
+                    --row_;
                     return ret;
                 }
                 Iterator_ operator+(size_t inc) {
                     Iterator_ ret(*this);
-                    ret.val_ += inc * stride_;
+                    ret.row_ += inc;
                     return ret;
                 }
-                typename RI_::reference operator*() { return *val_; }
+                typename RI_::reference operator*() { return *(base_ + offset_ + row_ * stride_); }
                 bool operator==(const Iterator_& rhs) const {
                     REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
-                    return val_ == rhs.val_;
+                    return row_ == rhs.row_;
                 }
                 bool operator!=(const Iterator_& rhs) const { return !this->operator==(rhs); }
-                bool operator<(const Iterator_& rhs) const { return val_ < rhs.val_; }
+                bool operator<(const Iterator_& rhs) const { return row_ < rhs.row_; }
                 typename RI_::difference_type operator-(const Iterator_& rhs) const {
                     REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
-                    REQUIRE((val_ - rhs.val_) % stride_ == 0, "lhs and rhs should be in same column");
-                    return (val_ - rhs.val_) / stride_;
+                    return static_cast<typename RI_::difference_type>(row_) - static_cast<typename RI_::difference_type>(rhs.row_);
                 }
                 using iterator_category = typename std::vector<E_>::iterator::iterator_category;
                 using difference_type = typename std::vector<E_>::iterator::difference_type;
@@ -177,24 +180,27 @@ namespace Dal {
             using iterator = Iterator_<It_>;
             using const_iterator = Iterator_<CI_>;
 
-            ColView_(It_ begin, size_t size, size_t stride) : begin_(begin, stride), size_(size) {}
+            ColView_(It_ base, size_t offset, size_t size, size_t stride) : begin_(base, offset, 0, stride), size_(size) {}
             template <class OtherIt_, class = std::enable_if_t<std::is_convertible_v<OtherIt_, It_>>>
-            ColView_(const ColView_<OtherIt_>& src) : begin_(src.begin_.val_, src.begin_.stride_), size_(src.size_) {}
+            ColView_(const ColView_<OtherIt_>& src)
+                : begin_(src.begin_.base_, src.begin_.offset_, src.begin_.row_, src.begin_.stride_), size_(src.size_) {}
 
             Iterator_<It_> begin() const { return begin_; }
-            Iterator_<It_> end() const { return Iterator_<It_>(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
+            Iterator_<It_> end() const { return Iterator_<It_>(begin_.base_, begin_.offset_, size_, begin_.stride_); }
             [[nodiscard]] size_t size() const { return size_; }
-            const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
+            const E_& operator[](int row) const { return *(begin_.base_ + begin_.offset_ + static_cast<size_t>(row) * begin_.stride_); }
             template <class It2_ = It_, class = std::enable_if_t<std::is_same_v<It2_, I_>>> E_& operator[](int row) {
-                return *(begin_.val_ + row * begin_.stride_);
+                return *(begin_.base_ + begin_.offset_ + static_cast<size_t>(row) * begin_.stride_);
             }
             operator Vector_<E_>() const { return Vector_<E_>(begin(), end()); }
         };
         using ConstCol_ = ColView_<CI_>;
         using Col_ = ColView_<I_>;
 
-        ConstCol_ Col(int iCol) const { return ConstCol_(vals_.cbegin() + iCol, static_cast<size_t>(rows_), static_cast<size_t>(cols_)); }
-        Col_ Col(int iCol) { return Col_(vals_.begin() + iCol, static_cast<size_t>(rows_), static_cast<size_t>(cols_)); }
+        ConstCol_ Col(int iCol) const {
+            return ConstCol_(vals_.cbegin(), static_cast<size_t>(iCol), static_cast<size_t>(rows_), static_cast<size_t>(cols_));
+        }
+        Col_ Col(int iCol) { return Col_(vals_.begin(), static_cast<size_t>(iCol), static_cast<size_t>(rows_), static_cast<size_t>(cols_)); }
 
         void Swap(Matrix_<E_>* other) {
             REQUIRE(other != nullptr, "can't swap with null");
@@ -206,7 +212,8 @@ namespace Dal {
         template <class T_> void operator*=(const T_& scale) { vals_ *= scale; }
 
         void Resize(int rows, int cols) {
-            if (cols == cols_ && rows * rows_ > 0) {
+            // compare the row counts separately: their product can overflow int for tall shapes
+            if (cols == cols_ && rows > 0 && rows_ > 0) {
                 vals_.Resize(Extent(rows, cols));
                 rows_ = rows;
             } else {

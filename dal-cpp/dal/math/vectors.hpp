@@ -41,16 +41,18 @@ namespace Dal {
 
         void Resize(size_t new_size) { base_t::resize(new_size); }
 
+        // capture by value: the operand may alias one of our elements, and the write must not
+        // change the value seen by later elements (the snapshot std::bind used to take)
         template <class T_> void operator*=(const T_& scale) {
-            std::transform(begin(), end(), begin(), [&scale](const E_& val) { return val * scale; });
+            std::transform(begin(), end(), begin(), [scale](const E_& val) { return val * scale; });
         }
 
         template <class T_> void operator+=(const T_& shift) {
-            std::transform(begin(), end(), begin(), [&shift](const E_& val) { return val + shift; });
+            std::transform(begin(), end(), begin(), [shift](const E_& val) { return val + shift; });
         }
 
         template <class T_> void operator-=(const T_& shift) {
-            std::transform(begin(), end(), begin(), [&shift](const E_& val) { return val - shift; });
+            std::transform(begin(), end(), begin(), [shift](const E_& val) { return val - shift; });
         }
 
         template <class T_> void operator+=(const Vector_<T_>& other) {
