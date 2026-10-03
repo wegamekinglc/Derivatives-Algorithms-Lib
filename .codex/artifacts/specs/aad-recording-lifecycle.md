@@ -100,6 +100,75 @@ the production default path must retain its ordinary backend dispatch and alloca
 behavior. Record four-backend capability differences instead of assuming that a
 backend consumes all intermediates or preserves repeated sweeps identically.
 
+## Next API increment and transition rules
+
+These additions are proposed for the existing `RecordingScope_`; they are core C++
+operations, not new valuation settings or binding objects:
+
+```cpp
+class Checkpoint_; // Copyable opaque token; default construction is invalid.
+
+// RecordingScope_ additions:
+void RegisterInput(Number_& input, double value);
+void StartRecording();
+void FinishRecording();
+Checkpoint_ MakeCheckpoint();
+void Restore(const Checkpoint_& checkpoint);
+void ClearAdjoints();
+void Reverse();
+void ReverseSuffix(const Checkpoint_& checkpoint);
+void ReversePrefix(const Checkpoint_& checkpoint);
+```
+
+| Operation | Admitted state | Successful resulting state | Required boundary behavior |
+|---|---|---|---|
+| Construction | No independent scope on this thread | Registering inputs | Claim ownership before activate/reset; recover poisoned context first. |
+| `RegisterInput` | Registering inputs | Registering inputs | Register on the selected backend before its start position is established. |
+| `StartRecording` | Registering inputs | Recording graph | Call backend `NewRecording` once; reject another start. |
+| `MakeCheckpoint` | Recording graph | Recording graph | Capture the prefix boundary; replace and invalidate the previous token. |
+| `FinishRecording` | Recording graph | Ready for reverse | Caller finishes expression construction before seeding/reverse. |
+| `ClearAdjoints` | Recording graph or ready | Same state | Clear every live scalar field and, in native vector mode, every live channel. |
+| `Restore` | Recording graph or ready | Recording graph | Validate token first, retain prefix adjoints, discard suffix. |
+| Any reverse | Ready for reverse | Ready for reverse | Enter reversing state during backend work; preserve caller's seeding/accumulation. |
+| `Close` | Any owned state | Closed | Explicitly report cleanup failure; release ownership and retain poisoned status. |
+
+Precondition failures do not mutate tape positions, ownership, checkpoint validity,
+or a usable graph. A backend exception after a mutating operation starts makes the
+scope failed; subsequent graph/reverse operations reject it. Cleanup is still
+available. The failed context must be rebuilt before admitting a new recording,
+even if fallback rewinding happens to succeed. `Close` remains idempotent.
+
+A token carries a recording identity that remains unique across successive scopes
+and reused thread identifiers, plus a checkpoint generation and recorded mode/width.
+It contains no stable raw iterator and must not dereference a previous owner's TLS
+context. Owner and state checks precede token/position access. Default, replaced,
+previous-scope, foreign-thread, and changed-mode tokens must throw without altering
+the currently valid prefix. Mode selection occurs before scope entry. Mode guards
+outlive the scoped graph; closing after an unsupported raw mode change reports the
+violation and requires recovery, rather than interpreting stored adjoints at the
+wrong width.
+
+For the independent prefix oracle, register `x = 2`, record `p = x*x`, capture one
+checkpoint, then record and reverse the three suffixes `p`, `2*p`, and `3*p`, each
+with a path-local output and unit seed. Their checkpoint sensitivity is `6`; one
+prefix sweep must produce `dx = 24`. Prefix values and adjoints survive every
+restore. A separate full-clear/reseed test distinguishes fresh sweeps from suffix
+accumulation. Test direct-output aliases, empty windows, and default invalid tokens.
+
+The XAD prefix adapter rewinds to its mark before propagating the prefix. Extract
+suffix values as passive doubles before that operation. Adept can grow its gradient
+storage during later suffixes; keep its existing capacity-preserving behavior.
+Native scalar and vector fields must both be cleared, including leaf nodes and a
+full final block. These rules are derived from the pinned adapters, not assumptions
+about a generic AD backend.
+
+Migrate MC ownership once per worker batch, with one shared initialization prefix
+and repeated suffix windows. Measure boundary validation on short single-event
+paths as well as long paths before moving per-path operations to the new API.
+Use the ordinary and LSM task-drain tests to verify that exceptions do not outlive
+owners or active workspaces. LSM training/pricing remain separate business phases;
+this change must not alter Frozen versus RetrainedBump policy semantics.
+
 ## Open implementation decisions
 
 - Select the smallest common backend boundary for controlled cleanup-failure tests

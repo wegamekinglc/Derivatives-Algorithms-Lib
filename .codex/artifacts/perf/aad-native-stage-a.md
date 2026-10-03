@@ -1,7 +1,7 @@
 # Native AAD correctness and measurement increment
 
-Status: active acceptance evidence. The nine-target performance gate passes;
-the exact current implementation-head CI audit remains pending. This report does
+Status: active acceptance evidence. The nine-target performance gate and all 46
+CI checks at documentation head `aec6689` pass for this measurement increment. This report does
 not complete Stage A or the full AAD plan.
 
 ## Source and configuration
@@ -35,8 +35,10 @@ change after those full runs only refactored the benchmark fixture; its independ
 entry-by-entry Jacobian checks pass. No core or binding code changed in that refactor.
 
 All 46 exact-head CI checks passed for the preceding core repair at
-`83399b5a31389563a26b7e69d82bfc2b5bd4b68e`. The measurement head needs its own final
-compiler/backend, binding, sanitizer, and gate audit. Codacy's two complexity
+`83399b5a31389563a26b7e69d82bfc2b5bd4b68e` and the measurement increment's
+documentation head `aec6689ae6d029f9a7eb4f810e3e074fd4ed6030`. That audit covers
+compiler/backend, binding, sanitizer, and required gates. Subsequent ownership
+and other increments need their own exact-head audit. Codacy's two complexity
 findings in the expanded Jacobian benchmark were corrected by factoring recording
 and isolating the established timed fixture; the limits were not relaxed.
 

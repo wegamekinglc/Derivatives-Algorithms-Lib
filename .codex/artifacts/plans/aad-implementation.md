@@ -162,11 +162,15 @@ tests); full CoDiPack CTest passes 2,247. Logs are retained under `recording-*-c
 and `recording-owner-sanitized.log`. Benchmark smoke tests are not paired performance proof.
 
 All 46 exact-head CI checks passed at `aec6689ae6d029f9a7eb4f810e3e074fd4ed6030`,
-before the ownership increment. The latter still requires fresh paired performance and
-its own exact-head four-backend/CI audit. D01 remains open: scoped recording states,
+before the ownership increment. Its fresh nine-target paired gate passes at
+`080d16e0047798766116d1dba34b03ff8d860815`; supplemental end-to-end calibration also
+passes all 25 common cases under the same sampling/confirmation criterion. The
+[ownership acceptance report](../perf/aad-recording-ownership.md) records conditions,
+case movements, raw evidence, and coverage limits. Exact-head four-backend/CI
+acceptance still remains. D01 remains open: scoped recording states,
 validated checkpoint handles, vector clearing, mode boundaries, and MC/LSM migration
 are not implemented by this increment.
 
-Next: fresh ownership performance/CI acceptance and the remaining lifecycle requirements.
+Next: exact-head ownership CI acceptance and the remaining lifecycle requirements.
 Public numeric-result validation remains outside per-path loops. Do not mark Stage A
 complete before its remaining requirements are verified.
