@@ -11,11 +11,13 @@
 #include <limits>
 #include <string>
 
+#include <dal/platform/platform.hpp>
+
 #include <dal/curve/tapeguard.hpp>
+#include <dal/math/distribution/black.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/model/hybrid.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/storage/json.hpp>
 
@@ -52,7 +54,114 @@ namespace {
             ASSERT_NE(std::string(error.what()).find(message.c_str()), std::string::npos) << "Expected: " << message << "; actual: " << error.what();
         }
     }
+
+    double GaussianEquityCall(AAD::Model_<double>* model, const Vector_<>& times) {
+        Vector_<AAD::SampleDef_> definitions(times.size());
+        model->Allocate(times, definitions);
+        model->Init(times, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        Vector_<> normals(model->SimDim(), 0.0);
+        model->GeneratePath(normals, &path);
+        const double logSpot = std::log(path.back().spot_);
+        const double logNumeraire = std::log(path.back().numeraire_);
+        double spotVariance = 0.0, numeraireVariance = 0.0, covariance = 0.0;
+        for (size_t j = 0; j < normals.size(); ++j) {
+            normals[j] = 1.0;
+            model->GeneratePath(normals, &path);
+            const double ds = std::log(path.back().spot_) - logSpot;
+            const double dn = std::log(path.back().numeraire_) - logNumeraire;
+            spotVariance += ds * ds;
+            numeraireVariance += dn * dn;
+            covariance += ds * dn;
+            normals[j] = 0.0;
+        }
+        const double discount = std::exp(-logNumeraire + 0.5 * numeraireVariance);
+        const double forward = std::exp(logSpot + 0.5 * spotVariance - covariance);
+        return discount * Distribution::BlackOpt(forward, std::sqrt(spotVariance), 100.0, OptionType_("CALL"));
+    }
 } // namespace
+
+TEST(ModelTest, TestHybridGsrEquityPriceIsIndependentOfEventGrid) {
+    const Date_ today(2026, 10, 3);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
+    for (const bool piecewise : {false, true}) {
+        const Vector_<Date_> knots = piecewise ? Vector_<Date_>{today, today.AddDays(183)} : Vector_<Date_>{today};
+        const Vector_<> values = piecewise ? Vector_<>{0.4, 0.1} : Vector_<>{0.4};
+        const Handle_<GSRVolData_> vol(new GSRVolData_("vol", knots, values, {today}, {1.0}));
+        for (const double rho : {-0.3, 0.0, 0.3}) {
+            HybridSettings_ settings;
+            settings.domesticCurrency_ = "USD";
+            settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol)),
+                                    Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[A]", "USD", "EQ", 100.0, 0.2, 0.0))};
+            settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "RATE", rho}});
+            double variance = 0.04;
+            for (size_t i = 0; i < values.size(); ++i) {
+                const double a = 1.0 - (knots[i] - today) / 365.0;
+                const double b = i + 1 == values.size() ? 0.0 : 1.0 - (knots[i + 1] - today) / 365.0;
+                variance += values[i] * values[i] * (a * a * a - b * b * b) / 3.0 + 0.2 * rho * values[i] * (a * a - b * b);
+            }
+            const double expected = Distribution::BlackOpt(100.0, std::sqrt(variance), 100.0, OptionType_("CALL"));
+            for (const int steps : {1, 2, 12}) {
+                auto model = CreateModel<double>(HybridData(settings));
+                Vector_<> times;
+                for (int i = 1; i <= steps; ++i)
+                    times.push_back((365 * i / steps) / 365.0);
+                ASSERT_NEAR(GaussianEquityCall(model.get(), times), expected, 1e-10) << "steps=" << steps << " rho=" << rho;
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestHybridComponentCopiesOwnTheirParameters) {
+    const auto check = [](auto original) {
+        auto copied = original;
+        auto assigned = original;
+        assigned = original;
+        for (auto* copy : {&copied, &assigned})
+            for (size_t i = 0; i < original.Parameters().size(); ++i) {
+                ASSERT_NE(copy->Parameters()[i], original.Parameters()[i]);
+                const double previous = *original.Parameters()[i];
+                *copy->Parameters()[i] += 0.1;
+                ASSERT_DOUBLE_EQ(*original.Parameters()[i], previous);
+            }
+    };
+    ASSERT_NO_FATAL_FAILURE(check(AAD::HybridBSEquity_<double>(HybridBSEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.2, 0.0))));
+    ASSERT_NO_FATAL_FAILURE(check(AAD::HybridDeterministicRate_<double>(HybridDeterministicRateData_("rate", "USD", 0.03))));
+    ASSERT_NO_FATAL_FAILURE(check(AAD::HybridLogDfRate_<double>(HybridLogDfRateData_("curve", "USD", {0.0, 1.0}, {0.0, -0.03}))));
+    const Handle_<LocalVolSurfaceData_> surface(new LocalVolSurfaceData_("vol", {100.0}, {0.0}, Matrix_<>(1, 1, 0.2)));
+    ASSERT_NO_FATAL_FAILURE(check(AAD::HybridLocalVolEquity_<double>(HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.0, surface))));
+}
+
+TEST(ModelTest, TestHybridMultiFactorGsrEquityMatchesGaussianPrice) {
+    const Date_ today(2026, 10, 3);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
+    for (const double firstVol : {0.0, 0.3}) {
+        const Vector_<> g{firstVol, 0.1}, h{1.0, -0.4};
+        Matrix_<> gValues(2, 1), hValues(2, 1), correlations(2, 2, 0.25);
+        for (int i = 0; i < 2; ++i) {
+            gValues(i, 0) = g[i];
+            hValues(i, 0) = h[i];
+            correlations(i, i) = 1.0;
+        }
+        const Handle_<MultiFactorGSRVolData_> vol(
+            new MultiFactorGSRVolData_("vol", {"one", "two"}, {today}, gValues, {today}, hValues, correlations));
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {"RATE_ONE", "RATE_TWO"}, curve, vol)),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[A]", "USD", "EQ", 100.0, 0.2, 0.0))};
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "RATE_ONE", -0.2}, {"EQ", "RATE_TWO", 0.3}});
+        const double rateVariance = std::pow(g[0] * h[0], 2) + std::pow(g[1] * h[1], 2) + 0.5 * g[0] * h[0] * g[1] * h[1];
+        const double variance = 0.04 + rateVariance / 3.0 + 0.2 * (-0.2 * g[0] * h[0] + 0.3 * g[1] * h[1]);
+        const double expected = Distribution::BlackOpt(100.0, std::sqrt(variance), 100.0, OptionType_("CALL"));
+        for (const Vector_<>& times : {Vector_<>{1.0}, Vector_<>{183.0 / 365.0, 1.0}}) {
+            auto model = CreateModel<double>(HybridData(settings));
+            ASSERT_NEAR(GaussianEquityCall(model.get(), times), expected, 1e-10);
+            const auto clone = model->Clone();
+            ASSERT_NEAR(GaussianEquityCall(clone.get(), times), expected, 1e-10);
+        }
+    }
+}
 
 TEST(ModelTest, TestHybridTwoEquitiesMatchCorrelatedBSPath) {
     const auto settings = TwoEquitySettings();
@@ -597,10 +706,10 @@ namespace {
     }
 } // namespace
 
-TEST(ModelTest, TestHybridMultiFactorGSRRateMatchesStandalonePath) {
+TEST(ModelTest, TestHybridMultiFactorGSRRateMatchesStandaloneConditionalDiscount) {
     auto standalone = CreateModel<double>(Handle_<ModelData_>(new MultiFactorGSRModelData_("rates", HybridRateCurve(), HybridRateVol(0.3))));
     auto hybrid = CreateModel<double>(HybridData(MultiFactorRateSettings(0.3)));
-    ASSERT_EQ(hybrid->NumFactors(), 3U);
+    ASSERT_EQ(hybrid->NumFactors(), 4U);
     const Date_ maturity(2028, 10, 2);
     const Vector_<> timeline{1.0, 2.0};
     Vector_<AAD::SampleDef_> rateDefinitions(2), hybridDefinitions(2);
@@ -617,14 +726,15 @@ TEST(ModelTest, TestHybridMultiFactorGSRRateMatchesStandalonePath) {
     AAD::Scenario_<> ratePath, hybridPath;
     AAD::AllocatePath(rateDefinitions, ratePath);
     AAD::AllocatePath(hybridDefinitions, hybridPath);
-    // Hybrid steps consume [W_EQ, W_LEVEL, W_SLOPE] in registry order; with zero equity-rate
-    // correlation the correlated rate factors equal the standalone raw Gaussians pathwise.
+    // The internal bridge follows the three named factors; zero bridge normals leave
+    // its variance correction in the bank account, unlike standalone conditional discounting.
     const Vector_<> rateGaussian{0.4, -0.7, 0.2, 0.3};
-    const Vector_<> hybridGaussian{0.5, 0.4, -0.7, 0.5, 0.2, 0.3};
+    const Vector_<> hybridGaussian{0.5, 0.4, -0.7, 0.0, 0.5, 0.2, 0.3, 0.0};
     standalone->GeneratePath(rateGaussian, &ratePath);
     hybrid->GeneratePath(hybridGaussian, &hybridPath);
     for (size_t sample = 0; sample < timeline.size(); ++sample) {
-        ASSERT_NEAR(hybridPath[sample].numeraire_, ratePath[sample].numeraire_, 1e-12);
+        const double bridgeVariance = (sample + 1) * (0.02 * 0.02 + 0.004 * 0.004 + 2.0 * 0.3 * 0.02 * 0.004) / 12.0;
+        ASSERT_NEAR(hybridPath[sample].numeraire_ * std::exp(-0.5 * bridgeVariance), ratePath[sample].numeraire_, 1e-12);
         ASSERT_NEAR(hybridPath[sample].observations_[0], ratePath[sample].observations_[0], 1e-12);
     }
 }
@@ -650,7 +760,7 @@ TEST(ModelTest, TestHybridMultiFactorGSRArchiveRoundTrip) {
     ASSERT_TRUE(restored);
     ASSERT_EQ(restored->parameterLabels_, original->parameterLabels_);
     auto model = CreateModel<double>(Handle_<ModelData_>(restored));
-    ASSERT_EQ(model->NumFactors(), 3U);
+    ASSERT_EQ(model->NumFactors(), 4U);
     ASSERT_EQ(model->ParameterLabels(), CreateModel<double>(Handle_<ModelData_>(original))->ParameterLabels());
     const auto* rateData = dynamic_cast<const HybridGSRRateData_*>(restored->components_[0].get());
     ASSERT_TRUE(rateData && rateData->multiVol_);
@@ -693,6 +803,18 @@ namespace {
         return settings;
     }
 } // namespace
+
+TEST(ModelTest, TestHybridRejectsSubDayMaximumStep) {
+    auto settings = SLVRateSettings(0.3);
+    const auto initial = HybridSLVData();
+    const Handle_<GSRSLVModelData_> slv(new GSRSLVModelData_("half_day", initial->gaussian_, initial->leverage_, initial->kappa_, initial->volOfVol_,
+                                                             initial->varianceCorrelations_, 0.5 / 365.0));
+    settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "C_VOL", "D_BRIDGE", slv));
+    auto model = CreateModel<double>(HybridData(settings));
+    const Vector_<> times{2.0 / 365.0};
+    const Vector_<AAD::SampleDef_> definitions(1);
+    ASSERT_THROW(model->Allocate(times, definitions), Exception_);
+}
 
 TEST(ModelTest, TestHybridGSRSLVRateMatchesStandalonePath) {
     AAD::GSRSLV_<> standalone(*HybridSLVData());
@@ -763,7 +885,7 @@ TEST(ModelTest, TestAssembleHybridCorrelationMatchesComponentBlocks) {
     auto settings = MultiFactorRateSettings(0.3);
     settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {HybridFactorLink_{"W_EQ", "W_LEVEL", -0.2}});
     auto hybrid = CreateModel<double>(HybridData(settings));
-    ASSERT_EQ(hybrid->NumFactors(), 3U);
+    ASSERT_EQ(hybrid->NumFactors(), 4U);
     const Vector_<> timeline{1.0, 2.0};
     Vector_<AAD::SampleDef_> definitions(2);
     for (auto& definition : definitions) {
@@ -774,7 +896,7 @@ TEST(ModelTest, TestAssembleHybridCorrelationMatchesComponentBlocks) {
     hybrid->Init(timeline, definitions);
     AAD::Scenario_<> path;
     AAD::AllocatePath(definitions, path);
-    ASSERT_NO_THROW(hybrid->GeneratePath({0.4, -0.7, 0.2, 0.5, 0.2, 0.3}, &path));
+    ASSERT_NO_THROW(hybrid->GeneratePath({0.4, -0.7, 0.2, 0.0, 0.5, 0.2, 0.3, 0.0}, &path));
 }
 
 TEST(ModelTest, TestAssembleHybridCorrelationAssemblesSLVDriverBlock) {

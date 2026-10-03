@@ -18,6 +18,18 @@
 
 using namespace Dal;
 
+TEST(ModelTest, TestLocalVolSurfaceCopiesOwnTheirParameters) {
+    const LocalVolSurfaceData_ data("vol", {100.0}, {0.0}, Matrix_<>(1, 1, 0.2));
+    AAD::LocalVolSurface_<double> original(data), copied(original), assigned(data);
+    assigned = original;
+    for (auto* copy : {&copied, &assigned}) {
+        ASSERT_NE(copy->Parameters()[0], original.Parameters()[0]);
+        *copy->Parameters()[0] = 0.8;
+        ASSERT_NEAR(copy->Vol(0.0, 100.0), 0.8, 1e-12);
+        ASSERT_NEAR(original.Vol(0.0, 100.0), 0.2, 1e-12);
+    }
+}
+
 TEST(ModelTest, TestLocalVolSurfaceInterpolatesAndRoundTrips) {
     Matrix_<> vols(2, 2);
     vols(0, 0) = 0.20;
@@ -140,11 +152,11 @@ TEST(ModelTest, TestHybridGsrAndLocalVolShareNumeraireAndRateObservations) {
     AAD::Scenario_<> hybridPath, ratePath;
     AAD::AllocatePath(hybridDefs, hybridPath);
     AAD::AllocatePath(rateDefs, ratePath);
-    hybrid->GeneratePath({0.3, 0.4}, &hybridPath);
+    hybrid->GeneratePath({0.3, 0.4, 0.0}, &hybridPath);
     gsr->GeneratePath({0.5 * 0.3 + std::sqrt(0.75) * 0.4}, &ratePath);
     ASSERT_FALSE(hybrid->NumeraireIsDeterministic());
     ASSERT_EQ(hybrid->EvaluationDate(), today);
-    ASSERT_NEAR(hybridPath[1].numeraire_, ratePath[1].numeraire_, 1e-12);
+    ASSERT_NEAR(hybridPath[1].numeraire_ * std::exp(-0.5 * 0.02 * 0.02 / 12.0), ratePath[1].numeraire_, 1e-12);
     ASSERT_NEAR(hybridPath[1].observations_[1], ratePath[1].observations_[0], 1e-12);
     ASSERT_NEAR(hybridPath[1].observations_[0] / hybridPath[1].numeraire_, 100.0 * std::exp(-0.02 + 0.20 * 0.3), 1e-10);
 }
@@ -170,7 +182,7 @@ TEST(ModelTest, TestHybridGsrLocalVolAadRisksAndRealizedCarry) {
     const Vector_<> timeline{0.0, 1.0};
     Vector_<AAD::SampleDef_> definitions(2);
     definitions[1].indexNames_ = {"EQ[A]", "IR[USD,DF,2028-09-28]"};
-    const Vector_<> gaussian{0.3, 0.4};
+    const Vector_<> gaussian{0.3, 0.4, 0.5};
 
     const TapeGuard_ guard(AAD::Tape());
     auto model = CreateModel<AAD::Number_>(data);
