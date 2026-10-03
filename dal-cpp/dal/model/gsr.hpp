@@ -31,8 +31,10 @@ namespace Dal::AAD {
             Vector_<T_> discountNormals_;
             T_ a_ = T_(0.0);
             bool advances_ = false;
-            Matrix_<T_> hybridLower_;
+            Vector_<T_> hybridStateVol_;
             Vector_<T_> hybridNormals_;
+            T_ hybridDrift_ = T_(0.0);
+            T_ hybridBridgeVol_ = T_(0.0);
         };
 
         struct Bond_ {
@@ -342,30 +344,25 @@ namespace Dal::AAD {
             step->a_ -= 0.5 * Quadratic(step->loading_, StateVariance(0.0, previous));
             step->a_ -= 0.5 * Dot(step->discountNormals_, step->discountNormals_);
             step->advances_ = true;
-            FillHybridCoefficients(step);
         }
 
-        // Hybrid stepping receives globally correlated factors, so the kernel applies R = L S
-        // (S inverts the factor Cholesky) and q = S^T d instead of its own Cholesky L and d.
-        void FillHybridCoefficients(Step_* step) const {
-            const int n = static_cast<int>(NumFactors());
-            if (n == 1 || factorLowerInverse_.Rows() != n)
-                return;
-            step->hybridLower_ = Matrix_<T_>(n, n, T_(0.0));
-            for (int i = 0; i < n; ++i)
-                for (int j = 0; j < n; ++j) {
-                    T_ value(0.0);
-                    for (int k = j; k <= i; ++k)
-                        value += step->lower_(i, k) * T_(factorLowerInverse_(k, j));
-                    step->hybridLower_(i, j) = value;
-                }
-            step->hybridNormals_.Resize(n);
-            for (int j = 0; j < n; ++j) {
-                T_ value(0.0);
-                for (int i = j; i < n; ++i)
-                    value += T_(factorLowerInverse_(i, j)) * step->discountNormals_[i];
-                step->hybridNormals_[j] = value;
+        void PrepareHybridStep(double from, double to, Step_* step) const {
+            REQUIRE(IntervalKnots(from, to).size() == 2, "InvalidGSRTimeline: hybrid grid must include all rate knots");
+            const double dt = to - from;
+            step->hybridStateVol_.Resize(NumFactors());
+            step->hybridNormals_.Resize(NumFactors());
+            for (size_t i = 0; i < NumFactors(); ++i) {
+                step->hybridStateVol_[i] = G(i, from) * std::sqrt(dt);
+                step->hybridNormals_[i] = 0.5 * step->loading_[i] * step->hybridStateVol_[i];
             }
+            T_ variance(0.0);
+            for (size_t i = 0; i < NumFactors(); ++i)
+                for (size_t j = 0; j < NumFactors(); ++j)
+                    variance += step->hybridNormals_[i] * correlations_(static_cast<int>(i), static_cast<int>(j)) * step->hybridNormals_[j];
+            // The residual bridge variance is one third of the endpoint projection's variance.
+            step->hybridBridgeVol_ = Value(variance) > 0.0 ? Dal::sqrt(variance / 3.0) : T_(0.0);
+            step->hybridDrift_ = LogDF(from) - LogDF(to) - Dot(step->loading_, DiscountedStateMean(from)) +
+                                 0.5 * Quadratic(step->loading_, StateVariance(0.0, from)) + (2.0 / 3.0) * variance;
         }
 
         void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
@@ -458,6 +455,33 @@ namespace Dal::AAD {
         }
 
     public:
+        GSR_(const GSR_& other) { *this = other; }
+        GSR_& operator=(const GSR_& other) {
+            if (this != &other) {
+                evaluationDate_ = other.evaluationDate_;
+                currency_ = other.currency_;
+                nodeDates_ = other.nodeDates_;
+                projectionTenors_ = other.projectionTenors_;
+                interpolation_ = other.interpolation_;
+                discountLogDF_ = other.discountLogDF_;
+                projectionLogDF_ = other.projectionLogDF_;
+                gTimes_ = other.gTimes_;
+                hTimes_ = other.hTimes_;
+                factorNames_ = other.factorNames_;
+                correlations_ = other.correlations_;
+                factorLower_ = other.factorLower_;
+                factorLowerInverse_ = other.factorLowerInverse_;
+                gValues_ = other.gValues_;
+                hValues_ = other.hValues_;
+                legacy_ = other.legacy_;
+                productTimeLine_ = other.productTimeLine_;
+                steps_ = other.steps_;
+                observations_ = other.observations_;
+                discountBonds_ = other.discountBonds_;
+                SetParameterPointers();
+            }
+            return *this;
+        }
         explicit GSR_(const GSRModelData_& data)
             : GSR_(*data.curve_,
                    {""},
@@ -525,23 +549,26 @@ namespace Dal::AAD {
         [[nodiscard]] bool HybridFactorsInvertible() const {
             return NumFactors() == 1 || factorLowerInverse_.Rows() == static_cast<int>(NumFactors());
         }
+        void InitHybrid(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) {
+            InitObservations(timeline, definitions, true);
+            double previous = 0.0;
+            for (size_t i = 0; i < timeline.size(); ++i) {
+                if (timeline[i] > previous)
+                    PrepareHybridStep(previous, timeline[i], &steps_[i]);
+                previous = timeline[i];
+            }
+        }
         void AdvanceHybrid(size_t sample, const Vector_<>& factors, const Vector_<size_t>& factorSlots, T_* state, T_* logNumeraire) const {
             REQUIRE(sample < steps_.size() && steps_[sample].advances_, "InvalidGSRPath: hybrid step was not prepared");
-            REQUIRE(factorSlots.size() == NumFactors() && factors.size() >= NumFactors(), "InvalidGSRPath: hybrid factor layout mismatch");
+            REQUIRE(factorSlots.size() == NumFactors() + 1 && factors.size() >= NumFactors() + 1, "InvalidGSRPath: hybrid factor layout mismatch");
             const Step_& step = steps_[sample];
-            if (NumFactors() == 1) {
-                AdvancePath(step, &factors[factorSlots[0]], state, logNumeraire);
-                return;
-            }
-            REQUIRE(factorLowerInverse_.Rows() == static_cast<int>(NumFactors()),
-                    "InvalidGSRFactors: factor correlations must be positive definite for hybrid stepping");
-            T_ logDiscount = step.a_;
+            REQUIRE(step.hybridStateVol_.size() == NumFactors(), "InvalidGSRPath: call InitHybrid before hybrid stepping");
+            T_ increment = step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()];
             for (size_t i = 0; i < NumFactors(); ++i)
-                logDiscount -= step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
-            *logNumeraire -= logDiscount;
+                increment += step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+            *logNumeraire += increment;
             for (size_t i = 0; i < NumFactors(); ++i)
-                for (size_t j = 0; j <= i; ++j)
-                    state[i] += step.hybridLower_(static_cast<int>(i), static_cast<int>(j)) * factors[factorSlots[j]];
+                state[i] += step.hybridStateVol_[i] * factors[factorSlots[i]];
         }
         [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_* state) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
@@ -590,11 +617,7 @@ namespace Dal::AAD {
         [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
         [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
         [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return CloneRateKernel(); }
-        [[nodiscard]] std::unique_ptr<GSR_<T_>> CloneRateKernel() const {
-            auto clone = std::make_unique<GSR_<T_>>(*this);
-            clone->SetParameterPointers();
-            return clone;
-        }
+        [[nodiscard]] std::unique_ptr<GSR_<T_>> CloneRateKernel() const { return std::make_unique<GSR_<T_>>(*this); }
         void Allocate(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override {
             this->ValidateTimeline(timeline, definitions);
             productTimeLine_ = timeline;

@@ -138,6 +138,56 @@ namespace Dal {
             Vector_<> loading_;
         };
 
+        double Norm(const Vector_<>& values) {
+            double result = 0.0;
+            for (const double value : values)
+                result = std::hypot(result, value);
+            return result;
+        }
+
+        Vector_<> OrthogonalResidual(Vector_<> loading, const Vector_<Vector_<>>& basis) {
+            for (int pass = 0; pass < 2; ++pass)
+                for (const auto& direction : basis) {
+                    const double projection = std::inner_product(loading.begin(), loading.end(), direction.begin(), 0.0);
+                    for (size_t i = 0; i < loading.size(); ++i)
+                        loading[i] -= projection * direction[i];
+                }
+            return loading;
+        }
+
+        Vector_<Vector_<>> IndependentDirections(const Vector_<Cashflow_>& cashflows) {
+            double scale = 0.0;
+            for (const auto& cashflow : cashflows)
+                if (cashflow.coefficient_ != 0.0)
+                    scale = std::max(scale, Norm(cashflow.loading_));
+            Vector_<Vector_<>> basis;
+            for (const auto& cashflow : cashflows) {
+                if (cashflow.coefficient_ == 0.0)
+                    continue;
+                auto residual = OrthogonalResidual(cashflow.loading_, basis);
+                const double norm = Norm(residual);
+                if (norm > 1e-12 * scale) {
+                    for (double& value : residual)
+                        value /= norm;
+                    basis.push_back(std::move(residual));
+                }
+            }
+            return basis;
+        }
+
+        Vector_<Cashflow_> ReduceDirections(Vector_<Cashflow_> cashflows) {
+            const auto basis = IndependentDirections(cashflows);
+            if (basis.size() == cashflows.front().loading_.size())
+                return cashflows;
+            for (auto& cashflow : cashflows) {
+                Vector_<> projected;
+                for (const auto& direction : basis)
+                    projected.push_back(std::inner_product(cashflow.loading_.begin(), cashflow.loading_.end(), direction.begin(), 0.0));
+                cashflow.loading_ = std::move(projected);
+            }
+            return cashflows;
+        }
+
         void ValidateCoupon(const FloatingCoupon_& coupon) {
             REQUIRE(coupon.fixing_ <= coupon.start_ && coupon.start_ < coupon.end_ && coupon.payment_ >= coupon.end_,
                     "InvalidGSROption: fixing <= start < end <= payment is required");
@@ -278,9 +328,9 @@ namespace Dal {
             }
 
             [[nodiscard]] GSRPriceResult_ Price(const Swaption_& option, const GSRPricingSettings_& settings) const {
-                const auto cashflows = Cashflows(option);
+                const auto cashflows = ReduceDirections(Cashflows(option));
                 Vector_<size_t> axes;
-                Vector_<> importance(model_.NumFactors(), 0.0);
+                Vector_<> importance(cashflows.front().loading_.size(), 0.0);
                 for (size_t j = 0; j < importance.size(); ++j) {
                     for (const auto& cashflow : cashflows)
                         importance[j] += std::abs(cashflow.coefficient_ * cashflow.loading_[j]);
@@ -289,7 +339,7 @@ namespace Dal {
                 }
                 REQUIRE(axes.size() <= 3, "InvalidGSROption: swaption pricing supports at most three effective Gaussian directions");
                 std::sort(axes.begin(), axes.end(), [&](size_t a, size_t b) { return importance[a] < importance[b]; });
-                Vector_<> normals(model_.NumFactors(), 0.0);
+                Vector_<> normals(importance.size(), 0.0);
                 auto result = Integrate(cashflows, axes, NormalExpectation_<>(settings.quadratureOrder_), &normals, 0);
                 if (settings.estimateError_ && axes.size() > 1) {
                     const auto refined = Integrate(cashflows, axes, NormalExpectation_<>(2 * settings.quadratureOrder_), &normals, 0);

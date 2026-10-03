@@ -112,6 +112,7 @@ namespace Dal {
             [[nodiscard]] virtual const String_& Currency() const = 0;
             [[nodiscard]] virtual size_t StateDim() const = 0;
             [[nodiscard]] virtual size_t FactorDim() const = 0;
+            [[nodiscard]] virtual size_t AuxiliaryFactorDim() const { return 0; }
             [[nodiscard]] virtual const Vector_<String_>& FactorNames() const = 0;
             [[nodiscard]] virtual const Vector_<String_>& ObservableNames() const = 0;
             [[nodiscard]] virtual const Vector_<T_*>& Parameters() const = 0;
@@ -187,6 +188,23 @@ namespace Dal {
             }
 
         public:
+            HybridBSEquity_(const HybridBSEquity_& other) { *this = other; }
+            HybridBSEquity_& operator=(const HybridBSEquity_& other) {
+                if (this != &other) {
+                    name_ = other.name_;
+                    currency_ = other.currency_;
+                    factors_ = other.factors_;
+                    observables_ = other.observables_;
+                    spot_ = other.spot_;
+                    vol_ = other.vol_;
+                    div_ = other.div_;
+                    drifts_ = other.drifts_;
+                    stds_ = other.stds_;
+                    labels_ = other.labels_;
+                    SetParameterPointers();
+                }
+                return *this;
+            }
             explicit HybridBSEquity_(const HybridBSEquityData_& data)
                 : name_(data.Name()), currency_(data.currency_), factors_({data.factor_}), observables_({data.index_}), spot_(data.spot_),
                   vol_(data.vol_), div_(data.div_), labels_(data.RiskLabels()) {
@@ -233,11 +251,7 @@ namespace Dal {
                     return spot_;
                 return Dal::exp(state[stateOffset]);
             }
-            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
-                auto copy = std::make_unique<HybridBSEquity_<T_>>(*this);
-                copy->SetParameterPointers();
-                return copy;
-            }
+            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridBSEquity_<T_>>(*this); }
         };
 
         template <class T_> class HybridLocalVolEquity_ final : public HybridComponent_<T_> {
@@ -254,6 +268,20 @@ namespace Dal {
             Vector_<T_*> parameters_;
             Vector_<String_> labels_;
 
+            void CopyState(const HybridLocalVolEquity_& other) {
+                name_ = other.name_;
+                currency_ = other.currency_;
+                factors_ = other.factors_;
+                observables_ = other.observables_;
+                spot_ = other.spot_;
+                div_ = other.div_;
+                maxStep_ = other.maxStep_;
+                timeline_ = other.timeline_;
+                integratedCarry_ = other.integratedCarry_;
+                labels_ = other.labels_;
+                SetParameterPointers();
+            }
+
             void SetParameterPointers() {
                 parameters_ = {&spot_, &div_};
                 parameters_.Append(surface_.Parameters());
@@ -267,6 +295,14 @@ namespace Dal {
             }
 
         public:
+            HybridLocalVolEquity_(const HybridLocalVolEquity_& other) : surface_(other.surface_) { CopyState(other); }
+            HybridLocalVolEquity_& operator=(const HybridLocalVolEquity_& other) {
+                if (this != &other) {
+                    surface_ = other.surface_;
+                    CopyState(other);
+                }
+                return *this;
+            }
             explicit HybridLocalVolEquity_(const HybridLocalVolEquityData_& data)
                 : name_(data.Name()), currency_(data.currency_), factors_({data.factor_}), observables_({data.index_}), spot_(data.spot_),
                   div_(data.div_), surface_(*data.surface_), maxStep_(data.maxStep_), labels_(data.RiskLabels()) {
@@ -311,11 +347,7 @@ namespace Dal {
                     return spot_;
                 return Dal::exp(state[stateOffset]);
             }
-            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
-                auto copy = std::make_unique<HybridLocalVolEquity_<T_>>(*this);
-                copy->SetParameterPointers();
-                return copy;
-            }
+            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridLocalVolEquity_<T_>>(*this); }
         };
 
         template <class T_> class HybridGSRRate_ final : public HybridComponent_<T_> {
@@ -324,6 +356,7 @@ namespace Dal {
             Vector_<String_> factors_;
             Vector_<String_> observables_;
             Vector_<SampleDef_> definitions_;
+            Vector_<> timelineKnots_;
             std::unique_ptr<GSR_<T_>> model_;
 
         public:
@@ -333,14 +366,17 @@ namespace Dal {
                                         : std::make_unique<GSR_<T_>>(GSRModelData_(data.Name(), data.curve_, data.vol_))) {
                 REQUIRE(model_->NumFactors() == factors_.size(), "InvalidHybridFactor: factor labels must match the Gaussian kernel");
                 REQUIRE(model_->HybridFactorsInvertible(), "InvalidGSRFactors: factor correlations must be positive definite");
+                timelineKnots_ = model_->RateKnots((data.curve_->nodeDates_.back() - data.curve_->evaluationDate_) / DAYS_PER_YEAR);
             }
             HybridGSRRate_(const HybridGSRRate_& other)
                 : name_(other.name_), currency_(other.currency_), factors_(other.factors_), observables_(other.observables_),
-                  definitions_(other.definitions_), model_(static_cast<GSR_<T_>*>(other.model_->Clone().release())) {}
+                  definitions_(other.definitions_), timelineKnots_(other.timelineKnots_), model_(other.model_->CloneRateKernel()) {}
             [[nodiscard]] const String_& Name() const override { return name_; }
             [[nodiscard]] const String_& Currency() const override { return currency_; }
             [[nodiscard]] size_t StateDim() const override { return model_->NumFactors() + 1; }
             [[nodiscard]] size_t FactorDim() const override { return model_->NumFactors(); }
+            [[nodiscard]] size_t AuxiliaryFactorDim() const override { return 1; }
+            [[nodiscard]] Vector_<> TimelineKnots() const override { return timelineKnots_; }
             [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
             [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return model_->Parameters(); }
@@ -387,7 +423,7 @@ namespace Dal {
             }
             void Prepare(const Vector_<>& timeline, const Vector_<T_>&) override {
                 model_->Allocate(timeline, definitions_);
-                model_->Init(timeline, definitions_);
+                model_->InitHybrid(timeline, definitions_);
             }
             void ResetState(Vector_<T_>* state, size_t offset) const override {
                 for (size_t i = 0; i <= model_->NumFactors(); ++i)
@@ -519,6 +555,19 @@ namespace Dal {
             void ValidateRate() const { REQUIRE(std::isfinite(Value(rate_)), "InvalidHybridComponent: non-finite domestic rate for " + name_); }
 
         public:
+            HybridDeterministicRate_(const HybridDeterministicRate_& other) { *this = other; }
+            HybridDeterministicRate_& operator=(const HybridDeterministicRate_& other) {
+                if (this != &other) {
+                    name_ = other.name_;
+                    currency_ = other.currency_;
+                    factors_ = other.factors_;
+                    observables_ = other.observables_;
+                    rate_ = other.rate_;
+                    labels_ = other.labels_;
+                    SetParameterPointers();
+                }
+                return *this;
+            }
             explicit HybridDeterministicRate_(const HybridDeterministicRateData_& data)
                 : name_(data.Name()), currency_(data.currency_), rate_(data.rate_), labels_(data.RiskLabels()) {
                 SetParameterPointers();
@@ -556,9 +605,7 @@ namespace Dal {
                 THROW("InvalidHybridObservation: rate component has no spot output");
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
-                auto copy = std::make_unique<HybridDeterministicRate_<T_>>(*this);
-                copy->SetParameterPointers();
-                return copy;
+                return std::make_unique<HybridDeterministicRate_<T_>>(*this);
             }
         };
 
@@ -579,6 +626,20 @@ namespace Dal {
             }
 
         public:
+            HybridLogDfRate_(const HybridLogDfRate_& other) { *this = other; }
+            HybridLogDfRate_& operator=(const HybridLogDfRate_& other) {
+                if (this != &other) {
+                    name_ = other.name_;
+                    currency_ = other.currency_;
+                    factors_ = other.factors_;
+                    observables_ = other.observables_;
+                    interpolation_ = other.interpolation_;
+                    logDF_ = other.logDF_;
+                    labels_ = other.labels_;
+                    SetParameterPointers();
+                }
+                return *this;
+            }
             explicit HybridLogDfRate_(const HybridLogDfRateData_& data)
                 : name_(data.Name()), currency_(data.currency_),
                   interpolation_(std::make_shared<LogDfInterpolation_>(data.times_, LogDfScheme_(data.scheme_))), labels_(data.RiskLabels()) {
@@ -622,11 +683,7 @@ namespace Dal {
             [[nodiscard]] T_ Observe(size_t, size_t, const Vector_<T_>&, size_t, bool) const override {
                 THROW("InvalidHybridObservation: rate component has no spot output");
             }
-            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override {
-                auto copy = std::make_unique<HybridLogDfRate_<T_>>(*this);
-                copy->SetParameterPointers();
-                return copy;
-            }
+            [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridLogDfRate_<T_>>(*this); }
         };
 
         template <class T_ = double> class HybridModel_ final : public Model_<T_> {
@@ -648,6 +705,7 @@ namespace Dal {
             size_t rateSlot_ = 0;
             size_t spotSlot_ = 0;
             size_t totalState_ = 0;
+            size_t totalFactors_ = 0;
             Vector_<> timeLine_;
             Vector_<> productTimeLine_;
             Vector_<size_t> productGridIndices_;
@@ -717,6 +775,7 @@ namespace Dal {
             }
 
             void BuildSlotsAndParameters() {
+                totalFactors_ = factorNames_.size();
                 stateOffsets_.Resize(components_.size());
                 factorSlots_.Resize(components_.size());
                 for (size_t i = 0; i < components_.size(); ++i) {
@@ -729,6 +788,8 @@ namespace Dal {
                         const auto found = std::find(factorNames_.begin(), factorNames_.end(), name);
                         factorSlots_[i].push_back(static_cast<size_t>(found - factorNames_.begin()));
                     }
+                    for (size_t auxiliary = 0; auxiliary < component.AuxiliaryFactorDim(); ++auxiliary)
+                        factorSlots_[i].push_back(totalFactors_++);
                     parameters_.Append(component.Parameters());
                     parameterLabels_.Append(component.ParameterLabels());
                 }
@@ -751,9 +812,10 @@ namespace Dal {
                     const auto& slots = factorSlots_[i];
                     if (slots.empty())
                         continue;
-                    Matrix_<> block(static_cast<int>(slots.size()), static_cast<int>(slots.size()), 0.0);
-                    for (size_t a = 0; a < slots.size(); ++a)
-                        for (size_t b = 0; b < slots.size(); ++b)
+                    const size_t named = components_[i]->FactorDim();
+                    Matrix_<> block(static_cast<int>(named), static_cast<int>(named), 0.0);
+                    for (size_t a = 0; a < named; ++a)
+                        for (size_t b = 0; b < named; ++b)
                             block(static_cast<int>(a), static_cast<int>(b)) = full(static_cast<int>(slots[a]), static_cast<int>(slots[b]));
                     components_[i]->PrepareCorrelation(block);
                 }
@@ -802,9 +864,11 @@ namespace Dal {
                 for (size_t i = 0; i < n; ++i) {
                     double correlated = 0.0;
                     for (size_t j = 0; j <= i; ++j)
-                        correlated += lower(static_cast<int>(i), static_cast<int>(j)) * gaussian[step * n + j];
+                        correlated += lower(static_cast<int>(i), static_cast<int>(j)) * gaussian[step * totalFactors_ + j];
                     (*factors)[i] = correlated;
                 }
+                for (size_t i = n; i < totalFactors_; ++i)
+                    (*factors)[i] = gaussian[step * totalFactors_ + i];
                 T_ previousLogNumeraire(0.0);
                 if (!NumeraireIsDeterministic())
                     previousLogNumeraire = components_[rateSlot_]->PathLogNumeraire(timeLine_[step], *state, stateOffsets_[rateSlot_]);
@@ -843,7 +907,7 @@ namespace Dal {
             }
             [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
-            [[nodiscard]] size_t NumFactors() const override { return factorNames_.size(); }
+            [[nodiscard]] size_t NumFactors() const override { return totalFactors_; }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return components_[rateSlot_]->NumeraireIsDeterministic(); }
             [[nodiscard]] bool SupportsDiscountFactors() const override { return components_[rateSlot_]->ProvidesDiscountFactors(); }
@@ -918,6 +982,8 @@ namespace Dal {
                 double maxStep = std::numeric_limits<double>::infinity();
                 for (const auto& component : components_)
                     maxStep = std::min(maxStep, component->MaxStep());
+                REQUIRE(!EvaluationDate() || maxStep >= 1.0 / DAYS_PER_YEAR,
+                        "InvalidHybridTimeline: maximum step must be at least one calendar day for dated rate models");
                 size_t productSample = 0;
                 for (const double time : GridAnchors(productTimeLine)) {
                     if (time > timeLine_.back()) {
@@ -971,14 +1037,14 @@ namespace Dal {
                                 "InvalidHybridNumeraire: non-finite or zero domestic numeraire");
                     }
             }
-            [[nodiscard]] size_t SimDim() const override { return (timeLine_.size() - 1) * factorNames_.size(); }
+            [[nodiscard]] size_t SimDim() const override { return (timeLine_.size() - 1) * totalFactors_; }
             void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
                 REQUIRE(defLine_ && path && path->size() == defLine_->size() && gaussian.size() == SimDim(),
                         "InvalidHybridPath: path or Gaussian dimension mismatch");
                 auto* state = &(*path)[0].modelScratch_;
                 auto* factors = &(*path)[0].modelFactorScratch_;
                 state->Resize(totalState_);
-                factors->Resize(factorNames_.size());
+                factors->Resize(totalFactors_);
                 for (size_t i = 0; i < components_.size(); ++i)
                     components_[i]->ResetState(state, stateOffsets_[i]);
                 size_t sample = 0;

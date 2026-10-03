@@ -18,6 +18,19 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-03
 
+- **Gaussian hybrid bank-account integration** — plain GSR hybrid components
+  sample the full rate integral with an independent internal bridge driver and
+  insert rate-parameter knots into the shared grid. Constant-volatility equity
+  option prices now retain the continuous-model Gaussian variance across event
+  grids. `NumFactors()` and `SimDim()` include the internal driver; the named
+  correlation matrix retains only its registered factors. Dated rate hybrids
+  reject maximum steps below one day. See [Hybrid](docs/models/hybrid-model.md).
+
+- **Low-rank Gaussian swaption pricing** — the analytic pricer reduces cashflow
+  loadings to their independent Gaussian directions before applying its
+  three-direction integration limit, allowing higher-factor models with a
+  low-rank payoff. See [GSR](docs/models/gaussian-short-rate.md).
+
 - **Delayed script payments (`PAYS expr ON date`)** — script payments may settle
   on a later literal date. Preparation binds each live delayed payment to a
   discount-factor slot on its event sample (`SampleDef_::discountMats_` /

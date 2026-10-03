@@ -19,6 +19,22 @@
 
 using namespace Dal;
 
+TEST(ModelTest, TestCorrelatedBsCopiesOwnTheirParameters) {
+    const Matrix_<> correlation(1, 1, 1.0);
+    AAD::CorrelatedBlackScholes_<> original({"EQ[A]"}, {100.0}, {0.2}, {0.0}, 0.03, correlation);
+    auto copied = original;
+    auto assigned = original;
+    assigned = original;
+    for (auto* copy : {&copied, &assigned}) {
+        for (size_t i = 0; i < copy->Parameters().size(); ++i) {
+            ASSERT_NE(copy->Parameters()[i], original.Parameters()[i]);
+            const double previous = *original.Parameters()[i];
+            *copy->Parameters()[i] += 0.1;
+            ASSERT_DOUBLE_EQ(*original.Parameters()[i], previous);
+        }
+    }
+}
+
 namespace {
     CorrelatedBSSettings_ Settings(const Vector_<CorrelatedBSAsset_>& assets, const Matrix_<>& correlations) {
         CorrelatedBSSettings_ result;

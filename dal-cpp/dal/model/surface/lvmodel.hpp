@@ -73,6 +73,15 @@ namespace Dal {
             LocalVolSurface_(const LocalVolSurface_& other) : logSpots_(other.logSpots_), times_(other.times_), vols_(other.vols_) {
                 SetParameterPointers();
             }
+            LocalVolSurface_& operator=(const LocalVolSurface_& other) {
+                if (this != &other) {
+                    logSpots_ = other.logSpots_;
+                    times_ = other.times_;
+                    vols_ = other.vols_;
+                    SetParameterPointers();
+                }
+                return *this;
+            }
             [[nodiscard]] T_ Vol(double time, const T_& spot) const {
                 REQUIRE(std::isfinite(time) && std::isfinite(Value(spot)) && Value(spot) > 0.0,
                         "InvalidLocalVolSurface: query requires finite time and positive spot");

@@ -209,6 +209,28 @@ namespace Dal {
             }
 
         public:
+            CorrelatedBlackScholes_(const CorrelatedBlackScholes_& other) { *this = other; }
+            CorrelatedBlackScholes_& operator=(const CorrelatedBlackScholes_& other) {
+                if (this != &other) {
+                    assetNames_ = other.assetNames_;
+                    spots_ = other.spots_;
+                    vols_ = other.vols_;
+                    divs_ = other.divs_;
+                    rate_ = other.rate_;
+                    lower_ = other.lower_;
+                    timeLine_ = other.timeLine_;
+                    todayOnTimeLine_ = other.todayOnTimeLine_;
+                    defLine_ = other.defLine_;
+                    observationSlots_ = other.observationSlots_;
+                    drifts_ = other.drifts_;
+                    stds_ = other.stds_;
+                    initialLogSpots_ = other.initialLogSpots_;
+                    numeraires_ = other.numeraires_;
+                    discounts_ = other.discounts_;
+                    SetParamPointers();
+                }
+                return *this;
+            }
             CorrelatedBlackScholes_(
                 Vector_<String_> assetNames, Vector_<T_> spots, Vector_<T_> vols, Vector_<T_> divs, T_ rate, const Matrix_<>& correlations)
                 : assetNames_(std::move(assetNames)), spots_(std::move(spots)), vols_(std::move(vols)), divs_(std::move(divs)),
@@ -245,11 +267,7 @@ namespace Dal {
             [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
             [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
 
-            [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override {
-                auto copy = std::make_unique<CorrelatedBlackScholes_<T_>>(*this);
-                copy->SetParamPointers();
-                return copy;
-            }
+            [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return std::make_unique<CorrelatedBlackScholes_<T_>>(*this); }
 
             void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
                 this->ValidateTimeline(productTimeLine, defLine);

@@ -42,8 +42,8 @@ struct XlRegister_Swaption_New_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Exercise date");
-        argHelp.push_back("GSRFixedCoupon handles");
-        argHelp.push_back("GSRFloatingCoupon handles");
+        argHelp.push_back("FixedCoupon handles");
+        argHelp.push_back("FloatingCoupon handles");
         argHelp.push_back("Fixed rate strike");
         argHelp.push_back("CALL for payer or PUT for receiver");
         Excel::Register("Base", "xl_Swaption_New", "SWAPTION.NEW", "Create a physically settled European swaption", "QQQQQQ", "expiry,fixed,floating,strike,type", argHelp, false);

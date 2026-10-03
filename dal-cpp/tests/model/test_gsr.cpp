@@ -41,6 +41,21 @@ namespace {
 
 using namespace Dal;
 
+TEST(ModelTest, TestGsrCopiesOwnTheirParameters) {
+    const Date_ today(2026, 10, 3);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365)}, {0.0, -0.03}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.02}, {today}, {1.0}));
+    const GSRModelData_ data("model", curve, vol);
+    AAD::GSR_<> original(data), copied(original), assigned(data);
+    assigned = original;
+    for (auto* copy : {&copied, &assigned}) {
+        ASSERT_NE(copy->Parameters()[0], original.Parameters()[0]);
+        *copy->Parameters()[0] = -0.1;
+        ASSERT_NEAR(copy->InitialLogDiscount(1.0), -0.1, 1e-12);
+        ASSERT_NEAR(original.InitialLogDiscount(1.0), -0.03, 1e-12);
+    }
+}
+
 TEST(ModelTest, TestGsrZeroVolatilityRepricesInitialCurve) {
     const Date_ today(2026, 9, 28);
     const Date_ oneYear(2027, 9, 28);

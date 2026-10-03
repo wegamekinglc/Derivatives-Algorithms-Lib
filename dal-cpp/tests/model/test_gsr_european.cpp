@@ -51,6 +51,41 @@ TEST(GSREuropeanTest, TestBondOptionMatchesIndependentBlackPrice) {
     ASSERT_EQ(result.numericalError_, 0.0);
 }
 
+TEST(GSREuropeanTest, TestFourFactorRankOneSwaptionMatchesOneFactor) {
+    const auto one = EuropeanModel(0.04);
+    MultiFactorGSRVolSettings_ settings;
+    settings.factorNames_ = {"one", "two", "three", "four"};
+    settings.gKnotDates_ = settings.hKnotDates_ = {TODAY};
+    settings.gValues_ = Matrix_<>(4, 1, 0.02);
+    settings.hValues_ = Matrix_<>(4, 1, 1.0);
+    settings.correlations_ = Matrix_<>(4, 4, 0.0);
+    for (int i = 0; i < 4; ++i)
+        settings.correlations_(i, i) = 1.0;
+    const MultiFactorGSRModelData_ four("four", one.curve_, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings)));
+    const auto option = Swaption();
+    const auto actual = PriceGSREuropeanOption(four, option);
+    ASSERT_NEAR(actual.price_, PriceGSREuropeanOption(one, option).price_, 1e-10);
+    ASSERT_NEAR(actual.numericalError_, 0.0, 1e-10);
+}
+
+TEST(GSREuropeanTest, TestFourIndependentSwaptionDirectionsAreRejected) {
+    const auto original = EuropeanModel();
+    MultiFactorGSRVolSettings_ settings;
+    settings.factorNames_ = {"one", "two", "three", "four"};
+    settings.gKnotDates_ = {TODAY};
+    settings.hKnotDates_ = {TODAY, TODAY.AddDays(730), TODAY.AddDays(1095), TODAY.AddDays(1460)};
+    settings.gValues_ = Matrix_<>(4, 1, 0.02);
+    settings.hValues_ = Matrix_<>(4, 4, 0.0);
+    settings.correlations_ = Matrix_<>(4, 4, 0.0);
+    for (int i = 0; i < 4; ++i)
+        settings.hValues_(i, i) = settings.correlations_(i, i) = 1.0;
+    const MultiFactorGSRModelData_ model("four", original.curve_, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings)));
+    auto option = Swaption();
+    option.fixed_.push_back({TODAY.AddDays(1825), 1.0});
+    option.floating_.push_back({TODAY.AddDays(1460), TODAY.AddDays(1460), TODAY.AddDays(1825), TODAY.AddDays(1825), 1.0, 1.0, "12M"});
+    ASSERT_THROW(PriceGSREuropeanOption(model, option), Exception_);
+}
+
 TEST(GSREuropeanTest, TestCapletPaymentLagUsesPaymentMeasure) {
     const Caplet_ option{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), TODAY.AddDays(912), 1.0, 0.75, "12M", 0.03, OptionType_("CALL")};
     const double payTime = 912.0 / 365.0;

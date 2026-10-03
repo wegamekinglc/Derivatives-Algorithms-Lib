@@ -4,8 +4,9 @@
 spot, dividends, and rates. A `HybridLocalVolEquityData_` attaches it to an
 `EQ[...]` asset. The existing `HybridModelData_` combines that asset with one
 domestic rate component and a named factor correlation matrix. Use a
-deterministic rate for BS-style dynamics or `HybridGSRRateData_` for stochastic
-GSR rates. There is one domestic numeraire for all components.
+deterministic rate for BS-style dynamics, `HybridGSRRateData_` for Gaussian
+rates, or `HybridGSRSLVRateData_` for stochastic local volatility in rates.
+There is one domestic numeraire for all components.
 
 ## Surface data
 
@@ -48,7 +49,8 @@ The local-vol component's `maxStep` defaults to `1/12` year. `Allocate` inserts
 internal steps between product dates, then maps requested observations back to
 their original event dates. GSR compositions use whole ACT/365 calendar days
 for inserted dates. A requested GSR product date must itself be on that daily
-axis. A smaller `maxStep` generally reduces discretization error at greater
+axis, and `maxStep` must be at least one day for these compositions. A smaller
+supported `maxStep` generally reduces discretization error at greater
 simulation cost. `SimDim()` includes the internal steps times the number of
 Brownian factors.
 
@@ -84,8 +86,9 @@ spot, dividend yield, and flat rate. The Python equivalents are
 The AAD parameter list includes asset spot and dividend yield, every local
 volatility grid value (`lvol:EQ[A]:spot_row:time_column`), and the selected
 rate component's parameters. Correlation entries and grid axes are fixed
-inputs. The implementation supports one domestic currency and one GSR rate
-factor; foreign rates, FX quanto adjustments, and stochastic dividend yields
+inputs. The implementation supports one domestic currency with one- or
+multi-factor GSR rates, including a GSR SLV rate component; foreign rates,
+FX quanto adjustments, and stochastic dividend yields
 are outside this model.
 
 ## Design references

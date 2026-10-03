@@ -5,13 +5,15 @@
 #include <gtest/gtest.h>
 
 #include <dal/platform/platform.hpp>
-#include <dal/model/gsrslvpricing.hpp>
-#include <dal/model/gsrslvcalibration.hpp>
-#include <dal/model/gsrmarketcalibration.hpp>
-#include <dal/math/specialfunctions.hpp>
+
 #include <dal/math/distribution/black.hpp>
-#include <dal/model/gsrslvpricinginternal.hpp>
+#include <dal/math/specialfunctions.hpp>
+#include <dal/model/gsrmarketcalibration.hpp>
 #include <dal/model/gsrslv.hpp>
+#include <dal/model/gsrslvcalibration.hpp>
+#include <dal/model/gsrslvcalibrationinternal.hpp>
+#include <dal/model/gsrslvpricing.hpp>
+#include <dal/model/gsrslvpricinginternal.hpp>
 
 using namespace Dal;
 
@@ -40,6 +42,24 @@ namespace {
 
     EuropeanRateOption_ Bond(double strike = 0.97) { return BondOption_{TODAY.AddDays(365), TODAY.AddDays(730), strike, OptionType_("CALL")}; }
 } // namespace
+
+TEST(GSRSLVCalibrationTest, TestRiskFitPreservesSolutionWithoutFullDiagnostics) {
+    GSRSLVCalibrationSettings_ settings;
+    settings.pricing_ = {256, 1729};
+    settings.validation_ = {512, 81173};
+    const auto initial = Model(0.8);
+    const double price = PriceGSRSLVEuropeanOptions(Model(1.2), {Bond()}, settings.pricing_)[0].price_;
+    const Vector_<CalibrationQuote_> quotes{{"bond", Bond(), price, 0.003}};
+    const Vector_<GSRSLVCalibrationParameter_> parameters{{"leverage:0:0", 0.2, 2.0, 1.0}};
+    const auto full = CalibrateGSRSLV(initial, quotes, parameters, settings);
+    const auto lean = GSRSLVCalibrationInternal::FitModel(initial, quotes, parameters, settings);
+    ASSERT_TRUE(lean.converged_);
+    ASSERT_EQ(lean.activeBounds_, full.activeBounds_);
+    ASSERT_NEAR(lean.model_->leverage_->values_(0, 0), full.model_->leverage_->values_(0, 0), 1e-12);
+    ASSERT_EQ(lean.quoteJacobian_.Rows(), 0);
+    ASSERT_TRUE(lean.modelPrices_.empty());
+    ASSERT_LT(lean.evaluations_, full.evaluations_);
+}
 
 TEST(GSRSLVCalibrationTest, TestMonteCarloMatchesIndependentGaussianPrices) {
     for (int factors = 1; factors <= 3; ++factors) {

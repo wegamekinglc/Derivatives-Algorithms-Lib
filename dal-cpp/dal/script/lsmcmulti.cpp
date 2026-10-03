@@ -10,6 +10,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/lsmc.hpp>
+#include <dal/script/regressionqr.hpp>
 
 namespace Dal::Script {
     namespace {
@@ -43,16 +44,7 @@ namespace Dal::Script {
             fit->solver_ = "Constant";
         }
 
-        struct QrWorkspace_ {
-            size_t rows_ = 0;
-            size_t basis_ = 0;
-            std::array<Vector_<>, MAX_BASIS> columns_;
-            std::array<double, MAX_BASIS> scales_{};
-            std::array<size_t, MAX_BASIS> permutation_{};
-            std::array<std::array<double, MAX_BASIS>, MAX_BASIS> upper_{};
-            std::array<double, MAX_BASIS> projection_{};
-            Vector_<> targets_;
-        };
+        using QrWorkspace_ = RegressionQR::Workspace_<MAX_BASIS>;
 
         QrWorkspace_ MakeWorkspace(const MultivariateRegressionRows_& rows, const ExerciseRegression_& fit) {
             QrWorkspace_ ws;
@@ -85,90 +77,6 @@ namespace Dal::Script {
                 ++row;
             }
             return ws;
-        }
-
-        void Normalize(QrWorkspace_* ws) {
-            for (size_t term = 0; term < ws->basis_; ++term) {
-                double norm = 0.0;
-                for (double value : ws->columns_[term])
-                    norm = std::hypot(norm, value);
-                REQUIRE2(std::isfinite(norm), "InvalidRegressionInput: multivariate basis norm overflow", ScriptError_);
-                ws->scales_[term] = norm == 0.0 ? 1.0 : norm;
-                if (norm != 0.0)
-                    for (double& value : ws->columns_[term])
-                        value /= norm;
-            }
-        }
-
-        std::pair<size_t, double> SelectPivot(const QrWorkspace_& ws, size_t step) {
-            size_t pivot = step;
-            double best = 0.0;
-            for (size_t term = step; term < ws.basis_; ++term) {
-                double squared = 0.0;
-                for (double value : ws.columns_[term])
-                    squared += value * value;
-                if (squared > best) {
-                    best = squared;
-                    pivot = term;
-                }
-            }
-            return {pivot, best};
-        }
-
-        void SwapPivot(QrWorkspace_* ws, size_t step, size_t pivot) {
-            if (pivot == step)
-                return;
-            std::swap(ws->columns_[step], ws->columns_[pivot]);
-            std::swap(ws->scales_[step], ws->scales_[pivot]);
-            std::swap(ws->permutation_[step], ws->permutation_[pivot]);
-            for (size_t earlier = 0; earlier < step; ++earlier)
-                std::swap(ws->upper_[earlier][step], ws->upper_[earlier][pivot]);
-        }
-
-        void OrthogonalizeRemaining(QrWorkspace_* ws, size_t step) {
-            for (size_t term = step + 1; term < ws->basis_; ++term)
-                for (int pass = 0; pass < 2; ++pass) {
-                    double dot = 0.0;
-                    for (size_t row = 0; row < ws->rows_; ++row)
-                        dot += ws->columns_[step][row] * ws->columns_[term][row];
-                    ws->upper_[step][term] += dot;
-                    for (size_t row = 0; row < ws->rows_; ++row)
-                        ws->columns_[term][row] -= dot * ws->columns_[step][row];
-                }
-        }
-
-        size_t PivotedQr(QrWorkspace_* ws) {
-            size_t rank = 0;
-            for (size_t step = 0; step < ws->basis_; ++step) {
-                const auto [pivot, best] = SelectPivot(*ws, step);
-                if (!std::isfinite(best) || best < RANK_TOLERANCE * RANK_TOLERANCE)
-                    break;
-                SwapPivot(ws, step, pivot);
-                ws->upper_[step][step] = std::sqrt(best);
-                for (double& value : ws->columns_[step])
-                    value /= ws->upper_[step][step];
-                for (size_t row = 0; row < ws->rows_; ++row)
-                    ws->projection_[step] += ws->columns_[step][row] * ws->targets_[row];
-                OrthogonalizeRemaining(ws, step);
-                ++rank;
-            }
-            return rank;
-        }
-
-        Vector_<> Recover(const QrWorkspace_& ws, size_t rank) {
-            std::array<double, MAX_BASIS> pivoted{};
-            for (size_t step = rank; step-- > 0;) {
-                double residual = ws.projection_[step];
-                for (size_t term = step + 1; term < rank; ++term)
-                    residual -= ws.upper_[step][term] * pivoted[term];
-                pivoted[step] = residual / ws.upper_[step][step];
-            }
-            Vector_<> coefficients(ws.basis_, 0.0);
-            for (size_t step = 0; step < rank; ++step)
-                coefficients[ws.permutation_[step]] = pivoted[step] / ws.scales_[step];
-            for (double value : coefficients)
-                REQUIRE2(std::isfinite(value), "InvalidRegressionInput: non-finite multivariate coefficients", ScriptError_);
-            return coefficients;
         }
 
         void ValidateRows(const MultivariateRegressionRows_& rows, int degree) {
@@ -221,11 +129,13 @@ namespace Dal::Script {
                 fit->basisDegree_ = candidate;
                 fit->powers_ = powers;
                 auto ws = MakeWorkspace(rows, *fit);
-                Normalize(&ws);
-                const size_t rank = PivotedQr(&ws);
+                REQUIRE2(RegressionQR::Normalize(&ws, true) == ws.basis_, "InvalidRegressionInput: multivariate basis norm overflow", ScriptError_);
+                const size_t rank = RegressionQR::Factorize(&ws, RANK_TOLERANCE);
                 if (rank <= 1)
                     continue;
-                fit->coefficients_ = Recover(ws, rank);
+                fit->coefficients_ = RegressionQR::Recover(ws, rank);
+                for (double value : fit->coefficients_)
+                    REQUIRE2(std::isfinite(value), "InvalidRegressionInput: non-finite multivariate coefficients", ScriptError_);
                 fit->effectiveRank_ = rank;
                 fit->solver_ = "PivotedQR";
                 if (rank < powers.size())
