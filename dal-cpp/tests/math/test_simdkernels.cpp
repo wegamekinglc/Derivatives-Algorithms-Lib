@@ -62,10 +62,11 @@ TEST(SimdKernelsTest, TestInnerProductFastPaths) {
     const Vector_<> rhs = Patterned(23, 5);
     ExpectNearRelative(InnerProduct(lhs, rhs), ScalarDot(lhs, rhs));
 
-    Matrix_<> m(3, 23);
-    for (int ir = 0; ir < m.Rows(); ++ir)
-        for (int ic = 0; ic < m.Cols(); ++ic)
-            m(ir, ic) = Pattern(static_cast<size_t>(ic), static_cast<size_t>(ir + 10));
+    Matrix_<> writable(3, 23);
+    for (int ir = 0; ir < writable.Rows(); ++ir)
+        for (int ic = 0; ic < writable.Cols(); ++ic)
+            writable(ir, ic) = Pattern(static_cast<size_t>(ic), static_cast<size_t>(ir + 10));
+    const Matrix_<>& m = writable; // const rows resolve to the ConstRow_ fast-path overloads
     ExpectNearRelative(InnerProduct(m.Row(1), rhs), ScalarDot(Vector_<>(m.Row(1)), rhs));
     ExpectNearRelative(InnerProduct(lhs, m.Row(2)), ScalarDot(lhs, Vector_<>(m.Row(2))));
     ExpectNearRelative(InnerProduct(m.Row(0), m.Row(1)), ScalarDot(Vector_<>(m.Row(0)), Vector_<>(m.Row(1))));

@@ -312,6 +312,7 @@ TEST(MatrixTest, TestMatrixCopyAssignSameExtent) {
     ASSERT_DOUBLE_EQ(m2(1, 1), 4.);
 
     m2(0, 0) = 5.;
+    ASSERT_DOUBLE_EQ(m2(0, 0), 5.);
     ASSERT_DOUBLE_EQ(m1(0, 0), 1.) << "same-extent assignment must not alias storage";
 }
 

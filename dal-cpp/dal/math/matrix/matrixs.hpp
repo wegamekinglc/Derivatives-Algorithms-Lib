@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/algorithms.hpp>
 
@@ -83,54 +85,42 @@ namespace Dal {
         }
 
         // slices -- ephemeral containers of rows or columns
-        class ConstRow_ {
-        protected:
-            CI_ begin_;
-            CI_ end_;
+        // one template over the iterator type keeps the const/mutable views in step
+        // without derived-class shadowing
+        template <class It_> struct RowView_ {
+            It_ begin_;
+            It_ end_;
 
-        public:
             using value_type = E_;
-            using const_iterator = typename Vector_<E_>::const_iterator;
+            using iterator = It_;
+            using const_iterator = CI_;
 
-            ConstRow_(CI_ begin, CI_ end) : begin_(begin), end_(end) {}
-            ConstRow_(CI_ begin, int size) : begin_(begin), end_(begin + size) {}
+            RowView_(It_ begin, It_ end) : begin_(begin), end_(end) {}
+            RowView_(It_ begin, int size) : begin_(begin), end_(begin + size) {}
+            template <class OtherIt_, class = std::enable_if_t<std::is_convertible_v<OtherIt_, It_>>>
+            RowView_(const RowView_<OtherIt_>& src) : begin_(src.begin_), end_(src.end_) {}
 
-            const_iterator begin() const { return begin_; }
-            const_iterator end() const { return end_; }
+            It_ begin() { return begin_; }
+            CI_ begin() const { return begin_; }
+            It_ end() { return end_; }
+            CI_ end() const { return end_; }
             [[nodiscard]] int size() const { return static_cast<int>(end_ - begin_); }
             const E_& operator[](int col) const { return *(begin_ + col); }
+            template <class It2_ = It_, class = std::enable_if_t<std::is_same_v<It2_, I_>>> E_& operator[](int col) { return *(begin_ + col); }
             const E_& front() const { return *begin_; }
             const E_& back() const { return *(end_ - 1); }
             operator Vector_<E_>() const { return Vector_<E_>(begin_, end_); }
         };
+        using ConstRow_ = RowView_<CI_>;
+        using Row_ = RowView_<I_>;
 
         ConstRow_ Row(int iRow) const { return ConstRow_(vals_.cbegin() + Offset(iRow, 0), cols_); }
         ConstRow_ operator[](int iRow) const { return Row(iRow); }
-
-        struct Row_ : ConstRow_ {
-            using iterator = I_;
-            using const_iterator = typename ConstRow_::const_iterator;
-            // mutable aliases of the base range, kept in step by construction
-            I_ wrBegin_;
-            I_ wrEnd_;
-
-            Row_(I_ begin, I_ end) : ConstRow_(begin, end), wrBegin_(begin), wrEnd_(end) {}
-            Row_(I_ begin, int size) : ConstRow_(begin, size), wrBegin_(begin), wrEnd_(begin + size) {}
-
-            // have to double-implement begin/end, otherwise non-const implementations hide the inherited const
-            iterator begin() { return wrBegin_; }
-            const_iterator begin() const { return ConstRow_::begin(); }
-            iterator end() { return wrEnd_; }
-            const_iterator end() const { return ConstRow_::end(); }
-            E_& operator[](int col) { return *(wrBegin_ + col); }
-            const E_& operator[](int col) const { return *(wrBegin_ + col); }
-        };
-
         Row_ Row(int iRow) { return Row_(vals_.begin() + Offset(iRow, 0), cols_); }
         Row_ operator[](int iRow) { return Row(iRow); }
 
         // Iteration through columns is less efficient
-        class ConstCol_ {
+        template <class It_> class ColView_ {
         public:
             template <typename RI_>
             struct Iterator_ // column iterator in terms of row iterator
@@ -180,40 +170,30 @@ namespace Dal {
                 using pointer = const E_*;
             };
 
-            operator Vector_<E_>() const { return Vector_<E_>(begin(), end()); }
-
-        protected:
-            Iterator_<CI_> begin_; // const view; Col_ carries the mutable alias
+            Iterator_<It_> begin_;
             size_t size_;
 
-        public:
             using value_type = E_;
+            using iterator = Iterator_<It_>;
             using const_iterator = Iterator_<CI_>;
-            ConstCol_(CI_ begin, size_t size, size_t stride) : begin_(begin, stride), size_(size) {}
 
-            const_iterator begin() const { return begin_; }
-            const_iterator end() const { return const_iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
+            ColView_(It_ begin, size_t size, size_t stride) : begin_(begin, stride), size_(size) {}
+            template <class OtherIt_, class = std::enable_if_t<std::is_convertible_v<OtherIt_, It_>>>
+            ColView_(const ColView_<OtherIt_>& src) : begin_(src.begin_.val_, src.begin_.stride_), size_(src.size_) {}
+
+            Iterator_<It_> begin() const { return begin_; }
+            Iterator_<It_> end() const { return Iterator_<It_>(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
             [[nodiscard]] size_t size() const { return size_; }
             const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
+            template <class It2_ = It_, class = std::enable_if_t<std::is_same_v<It2_, I_>>> E_& operator[](int row) {
+                return *(begin_.val_ + row * begin_.stride_);
+            }
+            operator Vector_<E_>() const { return Vector_<E_>(begin(), end()); }
         };
+        using ConstCol_ = ColView_<CI_>;
+        using Col_ = ColView_<I_>;
+
         ConstCol_ Col(int iCol) const { return ConstCol_(vals_.cbegin() + iCol, static_cast<size_t>(rows_), static_cast<size_t>(cols_)); }
-
-        class Col_ : public ConstCol_ {
-            using ConstCol_::size_;
-
-        public:
-            using value_type = E_;
-            using iterator = typename ConstCol_::template Iterator_<I_>; // mutable column iterator
-            iterator wrBegin_;                                           // mutable alias of the base position
-
-            Col_(I_ begin, size_t size, size_t stride) : ConstCol_(begin, size, stride), wrBegin_(begin, stride) {}
-
-            iterator begin() const { return wrBegin_; }
-            iterator end() const { return iterator(wrBegin_.val_ + size_ * wrBegin_.stride_, wrBegin_.stride_); }
-            E_& operator[](int row) { return *(wrBegin_.val_ + row * wrBegin_.stride_); }
-
-            using ConstCol_::size;
-        };
         Col_ Col(int iCol) { return Col_(vals_.begin() + iCol, static_cast<size_t>(rows_), static_cast<size_t>(cols_)); }
 
         void Swap(Matrix_<E_>* other) {
