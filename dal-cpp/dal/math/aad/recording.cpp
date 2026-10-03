@@ -66,45 +66,22 @@ namespace Dal::AAD {
     const char* RecordingScope_::StateName(State_ state) {
         switch (state) {
         case State_::REGISTERING:
-            return "input registration";
+            return "requires input registration";
         case State_::RECORDING:
-            return "graph recording";
+            return "requires graph recording";
         case State_::READY:
-            return "ready for reverse";
+            return "requires ready for reverse";
         case State_::REVERSING:
-            return "reverse in progress";
+            return "requires reverse in progress";
         case State_::FAILED:
-            return "failed";
+            return "requires failed state";
         case State_::CLOSED:
-            return "closed";
+            return "requires closed state";
         }
         return "unknown";
     }
 
-    void RecordingScope_::RequireOwner(const char* operation) const {
-        REQUIRE(owner_ == std::this_thread::get_id(), String_(operation) + ": operation must run on the owning thread");
-    }
-
-    void RecordingScope_::RequireState(State_ expected, const char* operation) const {
-        RequireOwner(operation);
-        REQUIRE(state_ == expected, String_(operation) + ": requires " + StateName(expected));
-        RequireMode(operation);
-    }
-
-    void RecordingScope_::RequireMode(const char* operation) const {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-        REQUIRE(tape_->multi_ == multi_ && tape_->numAdj_ == width_, String_(operation) + ": recording mode or width changed");
-#else
-        static_cast<void>(operation);
-#endif
-    }
-
-    void RecordingScope_::RequireCheckpoint(const Checkpoint_& checkpoint, const char* operation) const {
-        REQUIRE(checkpoint.recording_ != 0 && checkpoint.recording_ == identity_ && checkpoint.owner_ == owner_,
-                String_(operation) + ": checkpoint belongs to another recording or is invalid");
-        REQUIRE(checkpoint.generation_ == checkpointGeneration_, String_(operation) + ": checkpoint has been replaced");
-        REQUIRE(checkpoint.multi_ == multi_ && checkpoint.width_ == width_, String_(operation) + ": checkpoint mode or width mismatch");
-    }
+    void RecordingScope_::Reject(const char* operation, const char* constraint) { THROW(String_(operation) + ": " + constraint); }
 
     void RecordingScope_::RetainFailure() {
         state_ = State_::FAILED;
@@ -122,26 +99,9 @@ namespace Dal::AAD {
         }
     }
 
-    void RecordingScope_::Apply(Reset_ operation, State_ next, bool reversing) {
-        if (reversing)
-            state_ = State_::REVERSING;
-        try {
-            operation(*tape_);
-            state_ = next;
-        } catch (...) {
-            RetainFailure();
-            throw;
-        }
-    }
-
     void RecordingScope_::StartRecording() {
         RequireState(State_::REGISTERING, "RecordingScope.StartRecording");
         Apply(NewRecording, State_::RECORDING);
-    }
-
-    void RecordingScope_::FinishRecording() {
-        RequireState(State_::RECORDING, "RecordingScope.FinishRecording");
-        state_ = State_::READY;
     }
 
     void RecordingScope_::ClearAdjoints() {
@@ -149,7 +109,7 @@ namespace Dal::AAD {
         REQUIRE(state_ == State_::RECORDING || state_ == State_::READY,
                 "RecordingScope.ClearAdjoints: requires graph recording or ready for reverse");
         RequireMode("RecordingScope.ClearAdjoints");
-        Apply(ZeroAdjoints, state_);
+        Apply([](Tape_& tape) { ZeroAdjoints(tape); }, state_);
     }
 
     Checkpoint_ RecordingScope_::MakeCheckpoint() {
@@ -167,26 +127,12 @@ namespace Dal::AAD {
         return result;
     }
 
-    void RecordingScope_::Restore(const Checkpoint_& checkpoint) {
-        RequireOwner("RecordingScope.Restore");
-        REQUIRE(state_ == State_::RECORDING || state_ == State_::READY, "RecordingScope.Restore: requires graph recording or ready for reverse");
-        RequireMode("RecordingScope.Restore");
-        RequireCheckpoint(checkpoint, "RecordingScope.Restore");
-        Apply(RewindToMark, State_::RECORDING);
-    }
-
     void RecordingScope_::ReverseUsing(Reset_ reverse) {
         RequireState(State_::READY, "RecordingScope.Reverse");
         Apply(reverse, State_::READY, true);
     }
 
     void RecordingScope_::Reverse() { ReverseUsing(PropagateToStart); }
-
-    void RecordingScope_::ReverseSuffix(const Checkpoint_& checkpoint) {
-        RequireState(State_::READY, "RecordingScope.ReverseSuffix");
-        RequireCheckpoint(checkpoint, "RecordingScope.ReverseSuffix");
-        Apply(PropagateToMark, State_::READY, true);
-    }
 
     void RecordingScope_::ReversePrefix(const Checkpoint_& checkpoint) {
         RequireState(State_::READY, "RecordingScope.ReversePrefix");

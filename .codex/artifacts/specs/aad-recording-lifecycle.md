@@ -171,6 +171,24 @@ Use the ordinary and LSM task-drain tests to verify that exceptions do not outli
 owners or active workspaces. LSM training/pricing remain separate business phases;
 this change must not alter Frozen versus RetrainedBump policy semantics.
 
+### Boundary validation and short-path performance
+
+The first fully checked migration at `8f4f09c` passes the existing nine-target gate,
+but supplemental one-event vanilla AAD slows by 10.74–15.08% in both rounds for
+interpreted and compiled execution. Long weekly paths and the three LSM replay
+profiles pass. The short-path failures block publication of that increment.
+
+Keep owner, state, mode, and token checks at every scoped operation. Inline the
+small checks and the per-path restore/finish/suffix operations, and construct
+exception messages in an out-of-line rejection function. This is an optimization
+of the existing checked API, with no unchecked alternative, callback lifecycle,
+or new accumulation contract. Compiler elimination of redundant work is a
+performance hypothesis until fresh paired production measurements confirm it.
+
+Retain the initial failure evidence, repeat focused and full correctness checks,
+then freeze the corrected source and binaries for fresh supplemental MC/LSM and
+nine-target pairing. Neither the existing workload nor its 4% policy changes.
+
 ## Open implementation decisions
 
 - Select the smallest common backend boundary for controlled cleanup-failure tests

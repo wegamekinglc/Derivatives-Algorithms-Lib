@@ -85,6 +85,20 @@ Isolated sources: `/tmp/dal-aad-baseline` and `/tmp/dal-aad-implementation`.
 Evidence/build root: `/tmp/dal-aad-evidence`; dependencies are checked out at baseline gitlink SHAs.
 Full native baseline/head Release builds use matching benchmark-enabled configuration.
 
+The locally committed lifecycle increment `8f4f09c` passes 2,336 native and 2,255
+CoDiPack CTest cases and all 20 native scoped-recording cases under ASan/UBSan.
+Its fresh nine-target pairing passes. Supplemental ordinary MC detects genuine
+short-path regressions: vanilla AAD tree +15.00%/+10.74%, compiled +11.25%/+15.08%.
+Long weekly AAD and BS/local-vol LSM profiles pass; all supplemental LSM PV/risk
+entries agree with baseline at relative/absolute tolerance 1e-10. Raw evidence is
+retained in `lifecycle-paired/` and `lifecycle-mc-paired/`.
+
+Publication is held until these failures are corrected. The next correction
+inlines existing scoped boundary checks and per-path operations while retaining
+every validation and failure-recovery rule. It must pass fresh correctness,
+supplemental production pairing, the unchanged nine-target gate, and exact-head
+CI before acceptance. The prior ownership head's green CI does not validate it.
+
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
 found approximately 50% regressions in vector propagation and the small Jacobian harvest;
