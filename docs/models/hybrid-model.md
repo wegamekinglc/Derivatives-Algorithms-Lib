@@ -6,9 +6,11 @@ See the [models index](README.md) for the other supported simulation models.
 supported equity components are ordinary Black-Scholes and
 [local-volatility equities](local-volatility.md). The domestic rate can be
 constant, a deterministic log-discount-factor term structure, or a stochastic
-[GSR](gaussian-short-rate.md) component. Each equity contributes one log-spot
-state, one Brownian factor, and one named `EQ[...]` observation. The GSR rate
-contributes one Brownian factor and supplies `IR[...]` observations. FX,
+[GSR](gaussian-short-rate.md) component with any number of factors; the GSR
+stochastic-local-volatility model plugs in as a single component through the
+same interface. Each equity contributes one log-spot state, one Brownian
+factor, and one named `EQ[...]` observation. A stochastic rate component
+contributes its Brownian drivers and supplies `IR[...]` observations. FX,
 credit, foreign currencies, quanto drift, and cross-currency discounting are
 not implemented.
 
@@ -69,6 +71,35 @@ curve-snapshot factories are available in Python as
 `HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`, and in Excel
 as `HybridLogDfRateData_New` and `HybridLogDfRateDataFromCurve_New`.
 
+### Stochastic rate components
+
+For stochastic rates, replace the deterministic component with a GSR rate
+component. The one-factor form pairs a `GSRVolData_` handle with one hybrid
+factor name; the multi-factor form pairs a `MultiFactorGSRVolData_` handle with
+one hybrid factor name per Gaussian factor:
+
+```cpp
+settings.components_[0] = Dal::Handle_<Dal::HybridComponentData_>(
+    new Dal::HybridGSRRateData_("usd_rate", {"W_LEVEL", "W_SLOPE"}, curve, multiVol));
+```
+
+The [GSR SLV model](gaussian-short-rate.md) enters the same slot as one
+component: `HybridGSRSLVRateData_(name, volFactor, bridgeFactor, slvModelData)`
+contributes one named factor per Gaussian rate driver, a variance driver, and an
+independent bridge driver that carries the bank-account integration noise. Both
+components are the sole numeraire provider of their model, expose the kernel's
+AAD parameters (`logdf`, `g`, `H`, and for SLV `kappa`, `volOfVol`,
+`leverage:i:j`), and keep their standalone pricing and calibration APIs
+unchanged; the hybrid adapter only adds the co-evolution path.
+
+Intra-component factor correlations must match the kernel's own correlation
+matrix (the GSR volatility correlations, and the SLV driver correlation extended
+with an independent bridge row); `Init` rejects a mismatched correlation block.
+The SLV component also inserts its rate and leverage breakpoints into the shared
+timeline (snapped to whole ACT/365 days) and subdivides by its `maxStep`, because
+its Euler scheme evaluates piecewise kernels at step starts; the plain GSR kernel
+integrates interior breakpoints exactly inside each step and needs no knots.
+
 The model data, local-vol surface, and each typed component are serializable. `CreateModel` also
 accepts the restored archive. Components are ordered by their stable names
 during setup, independent of declaration order. Factor labels are sorted
@@ -82,11 +113,12 @@ performed by the current provider.
 
 `Allocate` resolves requested observation names into integer component and
 output slots. A local-vol component inserts internal time steps up to its
-configured `maxStep`; GSR uses whole ACT/365 days on this internal grid. `Init`
+configured `maxStep`; rate components with an evaluation date use whole ACT/365
+days on this internal grid. `Init`
 samples initial logDF once per simulation time and precomputes each step's
 initial integrated carry. Deterministic-rate paths use
-`N(t)=exp(-logDF(t))`; GSR paths use their realized numeraire and conditional
-rate observations. The path loop does no name parsing or matrix factorization.
+`N(t)=exp(-logDF(t))`; stochastic rate paths use their realized numeraire and
+conditional rate observations. The path loop does no name parsing or matrix factorization.
 `SimDim()` is the number of internal positive time
 steps multiplied by the number of registered factors. Independent Gaussian
 inputs are time-major, with factors in sorted label order within each step.
@@ -114,16 +146,16 @@ their labels are `logdf:USD:1`, `logdf:USD:2`, and so on in input order.
 The anchor node is fixed at zero. These parameters are owned by their
 components; cloned workers receive independent
 AAD parameter addresses. Local-vol equity exposes `lvol:EQ[...]:i:j` grid
-risks and GSR contributes its curve and volatility risks. Correlations are
-passive inputs and have no AAD risk labels. `NumeraireIsDeterministic()`
+risks and stochastic rate components contribute their curve, volatility and SLV
+risks. Correlations are passive inputs and have no AAD risk labels. `NumeraireIsDeterministic()`
 reports the selected rate component's behavior.
 
 `ValueByMonteCarlo` and `ExplainScriptValuation` accept `HybridModelData_`.
 Each future `FIX(EQ[...])` binds independently to its named component; requests
 on one date may use either order. Historical fixings retain their own index and
 never fall back to simulated values. A multi-equity `SPOT()` requires
-`ScriptProductSettings_::defaultIndex_`. GSR supplies future `IR[...]`
-observations; FX remains unsupported. See [`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/)
+`ScriptProductSettings_::defaultIndex_`. Stochastic rate components supply
+future `IR[...]` observations; FX remains unsupported. See [`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/)
 for the runnable two-equity C++ example
 and [Python example](../../dal-python/examples/hybrid_script.py).
 

@@ -103,7 +103,7 @@ namespace Dal {
 
             Term_::Observation_ Observation(size_t sample, const Date_& date, int power = 1) { return {sample, Slot(sample, date), power}; }
 
-            double ProjectionScale(const GSRFloatingCoupon_& coupon) const {
+            double ProjectionScale(const FloatingCoupon_& coupon) const {
                 REQUIRE(coupon.fixing_.IsValid() && coupon.fixing_ <= coupon.start_ && coupon.start_ < coupon.end_ && coupon.end_ <= coupon.payment_,
                         "InvalidGSRSLVPricing: invalid floating coupon schedule");
                 REQUIRE(std::isfinite(coupon.indexAccrual_) && coupon.indexAccrual_ > 0.0 && std::isfinite(coupon.couponAccrual_) &&
@@ -116,11 +116,11 @@ namespace Dal {
                 return scale;
             }
 
-            static bool NeedsContinuation(const GSRFloatingCoupon_& coupon, const Date_& exercise) {
+            static bool NeedsContinuation(const FloatingCoupon_& coupon, const Date_& exercise) {
                 return coupon.fixing_ > exercise && (coupon.fixing_ != coupon.start_ || coupon.payment_ != coupon.end_);
             }
 
-            void Floating(Payoff_* payoff, const GSRFloatingCoupon_& coupon, double sign) {
+            void Floating(Payoff_* payoff, const FloatingCoupon_& coupon, double sign) {
                 static_cast<void>(Time(coupon.fixing_));
                 const double scale = ProjectionScale(coupon);
                 const double accrual = sign * coupon.couponAccrual_ / coupon.indexAccrual_;
@@ -137,19 +137,19 @@ namespace Dal {
                 terms.push_back({-accrual, {pay}, discount});
             }
 
-            void Build(Payoff_* payoff, const GSRBondOption_& option, double sign) {
+            void Build(Payoff_* payoff, const BondOption_& option, double sign) {
                 REQUIRE(option.strike_ >= 0.0, "InvalidGSRSLVPricing: bond strike must be nonnegative");
                 payoff->terms_ = {{sign, {Observation(payoff->sample_, option.maturity_)}}, {-sign * option.strike_, {}}};
             }
 
-            void Build(Payoff_* payoff, const GSRCaplet_& option, double sign) {
+            void Build(Payoff_* payoff, const Caplet_& option, double sign) {
                 Floating(payoff,
                          {option.expiry_, option.start_, option.end_, option.payment_, option.indexAccrual_, option.couponAccrual_, option.tenor_},
                          sign);
                 payoff->terms_.push_back({-sign * option.couponAccrual_ * option.strike_, {Observation(payoff->sample_, option.payment_)}});
             }
 
-            void Build(Payoff_* payoff, const GSRSwaption_& option, double sign) {
+            void Build(Payoff_* payoff, const Swaption_& option, double sign) {
                 REQUIRE(!option.fixed_.empty() && !option.floating_.empty(), "InvalidGSRSLVPricing: swap legs must be nonempty");
                 for (const auto& coupon : option.floating_)
                     Floating(payoff, coupon, sign);
@@ -161,13 +161,13 @@ namespace Dal {
             }
 
         public:
-            PayoffBuilder_(const GSRSLVModelData_& data, const Vector_<GSREuropeanOption_>& options) : data_(data), rates_(*data.gaussian_) {
+            PayoffBuilder_(const GSRSLVModelData_& data, const Vector_<EuropeanRateOption_>& options) : data_(data), rates_(*data.gaussian_) {
                 REQUIRE(!options.empty(), "InvalidGSRSLVPricing: options must be nonempty");
                 for (const auto& option : options)
                     std::visit([&](const auto& input) { expiries_.push_back(input.expiry_); }, option);
                 lastExercise_ = *std::max_element(expiries_.begin(), expiries_.end());
                 for (const auto& option : options)
-                    if (const auto* swaption = std::get_if<GSRSwaption_>(&option))
+                    if (const auto* swaption = std::get_if<Swaption_>(&option))
                         for (const auto& coupon : swaption->floating_)
                             if (coupon.fixing_ < swaption->expiry_ || NeedsContinuation(coupon, swaption->expiry_))
                                 expiries_.push_back(coupon.fixing_);
@@ -176,7 +176,7 @@ namespace Dal {
                 definitions_.Resize(expiries_.size());
             }
 
-            Payoff_ Build(const GSREuropeanOption_& option) {
+            Payoff_ Build(const EuropeanRateOption_& option) {
                 return std::visit(
                     [&](const auto& input) {
                         REQUIRE(std::isfinite(input.strike_), "InvalidGSRSLVPricing: strike must be finite");
@@ -391,7 +391,7 @@ namespace Dal {
         };
 
         PreparedPricer_::PreparedPricer_(const GSRSLVModelData_& data,
-                                         const Vector_<GSREuropeanOption_>& options,
+                                         const Vector_<EuropeanRateOption_>& options,
                                          const GSRMonteCarloSettings_& settings) {
             REQUIRE(settings.paths_ >= 4 && settings.paths_ % 2 == 0, "InvalidGSRSLVPricing: paths must be even and at least four");
             REQUIRE(settings.seed_ >= 0, "InvalidGSRSLVPricing: seed must be nonnegative");
@@ -476,7 +476,7 @@ namespace Dal {
     } // namespace GSRSLVPricingInternal
 
     Vector_<GSRMonteCarloPrice_>
-    PriceGSRSLVEuropeanOptions(const GSRSLVModelData_& data, const Vector_<GSREuropeanOption_>& options, const GSRMonteCarloSettings_& settings) {
+    PriceGSRSLVEuropeanOptions(const GSRSLVModelData_& data, const Vector_<EuropeanRateOption_>& options, const GSRMonteCarloSettings_& settings) {
         return GSRSLVPricingInternal::PreparedPricer_(data, options, settings).Price(data);
     }
 } // namespace Dal

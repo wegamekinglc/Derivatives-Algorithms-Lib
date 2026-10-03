@@ -8,22 +8,22 @@
 #include <cmath>
 #include <set>
 
-#include <dal/model/gsrcalibrationinternal.hpp>
+#include <dal/math/optimization/boundedgn.hpp>
 #include <dal/model/gsrslvcalibrationinternal.hpp>
 #include <dal/model/gsrslvpricinginternal.hpp>
 
 namespace Dal {
     namespace {
-        using namespace GSRCalibrationInternal;
+        using namespace BoundedGaussNewton;
 
-        Vector_<GSREuropeanOption_> Options(const Vector_<GSRCalibrationQuote_>& quotes) {
-            Vector_<GSREuropeanOption_> result;
+        Vector_<EuropeanRateOption_> Options(const Vector_<CalibrationQuote_>& quotes) {
+            Vector_<EuropeanRateOption_> result;
             for (const auto& quote : quotes)
                 result.push_back(quote.option_);
             return result;
         }
 
-        void ValidateQuotes(const Vector_<GSRCalibrationQuote_>& quotes, bool allowEmpty = false) {
+        void ValidateQuotes(const Vector_<CalibrationQuote_>& quotes, bool allowEmpty = false) {
             REQUIRE(allowEmpty || !quotes.empty(), "InvalidGSRSLVCalibration: quotes must be nonempty");
             std::set<String_> names;
             for (const auto& quote : quotes) {
@@ -86,7 +86,7 @@ namespace Dal {
 
         class Problem_ {
             const GSRSLVModelData_& initial_;
-            const Vector_<GSRCalibrationQuote_>& quotes_;
+            const Vector_<CalibrationQuote_>& quotes_;
             const Vector_<GSRSLVCalibrationParameter_>& parameters_;
             const GSRSLVCalibrationSettings_& settings_;
             GSRSLVPricingInternal::PreparedPricer_ pricer_;
@@ -165,7 +165,7 @@ namespace Dal {
 
         public:
             Problem_(const GSRSLVModelData_& initial,
-                     const Vector_<GSRCalibrationQuote_>& quotes,
+                     const Vector_<CalibrationQuote_>& quotes,
                      const Vector_<GSRSLVCalibrationParameter_>& parameters,
                      const GSRSLVCalibrationSettings_& settings)
                 : initial_(initial), quotes_(quotes), parameters_(parameters), settings_(settings),
@@ -282,7 +282,8 @@ namespace Dal {
                         for (size_t i : selected)
                             values.push_back((*x)[i]);
                         GSRSLVCalibrationResult_ warm;
-                        Fit(subset, settings.solver_, &values, &warm);
+                        Fit(subset, {settings.solver_.maxIterations_, settings.solver_.gradientTolerance_, settings.solver_.stepTolerance_}, &values,
+                            &warm);
                         *x = subset.Expand(values);
                         warmIterations += warm.iterations_;
                         result->evaluations_ += warm.evaluations_;
@@ -293,7 +294,7 @@ namespace Dal {
 
         void FitDiagnostics(const Problem_& problem,
                             const Vector_<>& x,
-                            const Vector_<GSRCalibrationQuote_>& quotes,
+                            const Vector_<CalibrationQuote_>& quotes,
                             const Vector_<GSRSLVCalibrationParameter_>& parameters,
                             const GSRSLVCalibrationSettings_& settings,
                             GSRSLVCalibrationResult_* result) {
@@ -319,7 +320,7 @@ namespace Dal {
         }
 
         GSRSLVCalibrationResult_ FitOnly(const GSRSLVModelData_& initial,
-                                         const Vector_<GSRCalibrationQuote_>& quotes,
+                                         const Vector_<CalibrationQuote_>& quotes,
                                          const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                          const GSRSLVCalibrationSettings_& settings) {
             ValidateSettings(settings);
@@ -328,14 +329,14 @@ namespace Dal {
             auto x = problem.Guess();
             GSRSLVCalibrationResult_ result;
             const int warmIterations = WarmStart(problem, settings, &x, &result);
-            Fit(problem, settings.solver_, &x, &result);
+            Fit(problem, {settings.solver_.maxIterations_, settings.solver_.gradientTolerance_, settings.solver_.stepTolerance_}, &x, &result);
             result.iterations_ += warmIterations;
             result.model_ = problem.Model(x);
             FitDiagnostics(problem, x, quotes, parameters, settings, &result);
             return result;
         }
 
-        void ValidateHeldOutQuotes(const Vector_<GSRCalibrationQuote_>& heldOut, const Vector_<GSRCalibrationQuote_>& quotes) {
+        void ValidateHeldOutQuotes(const Vector_<CalibrationQuote_>& heldOut, const Vector_<CalibrationQuote_>& quotes) {
             ValidateQuotes(heldOut, true);
             for (const auto& quote : heldOut)
                 for (const auto& fitted : quotes)
@@ -343,7 +344,7 @@ namespace Dal {
         }
 
         void NumericalValidation(const GSRSLVModelData_& validation,
-                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                 const Vector_<CalibrationQuote_>& quotes,
                                  const GSRSLVCalibrationSettings_& settings,
                                  GSRSLVCalibrationResult_* result) {
             const auto refined = PriceGSRSLVEuropeanOptions(validation, Options(quotes), settings.validation_);
@@ -362,7 +363,7 @@ namespace Dal {
         }
 
         void HeldOutValidation(const GSRSLVModelData_& validation,
-                               const Vector_<GSRCalibrationQuote_>& heldOut,
+                               const Vector_<CalibrationQuote_>& heldOut,
                                const GSRSLVCalibrationSettings_& settings,
                                GSRSLVCalibrationResult_* result) {
             result->heldOutWithinTolerance_ = true;
@@ -384,7 +385,7 @@ namespace Dal {
 
     namespace GSRSLVCalibrationInternal {
         GSRSLVCalibrationResult_ FitModel(const GSRSLVModelData_& initial,
-                                          const Vector_<GSRCalibrationQuote_>& quotes,
+                                          const Vector_<CalibrationQuote_>& quotes,
                                           const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                           const GSRSLVCalibrationSettings_& settings) {
             return FitOnly(initial, quotes, parameters, settings);
@@ -392,10 +393,10 @@ namespace Dal {
     } // namespace GSRSLVCalibrationInternal
 
     GSRSLVCalibrationResult_ CalibrateGSRSLV(const GSRSLVModelData_& initial,
-                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<CalibrationQuote_>& quotes,
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                              const GSRSLVCalibrationSettings_& settings,
-                                             const Vector_<GSRCalibrationQuote_>& heldOut) {
+                                             const Vector_<CalibrationQuote_>& heldOut) {
         ValidateHeldOutQuotes(heldOut, quotes);
         auto result = FitOnly(initial, quotes, parameters, settings);
         GSRSLVSettings_ fine{result.model_->kappa_, result.model_->volOfVol_, result.model_->varianceCorrelations_, result.model_->maxStep_ / 2.0};

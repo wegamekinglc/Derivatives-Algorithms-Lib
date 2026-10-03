@@ -27,7 +27,7 @@ def test_price_fit_and_regularized_quote_risk():
     target = dal.GSRSLV_EuropeanOptionPrices(slv(1.2), [option], settings.pricing)[0]
     assert target.price > 0
     assert target.standard_error > 0
-    quotes = [dal.GSRCalibrationQuote_("bond", option, target.price, 0.005)]
+    quotes = [dal.CalibrationQuote_("bond", option, target.price, 0.005)]
     parameters = [dal.GSRSLVCalibrationParameter_("leverage:0:0", 0.2, 2.0)]
     fit = dal.Calibrate_GSRSLV(slv(0.8), quotes, parameters, settings)
     assert fit.converged
@@ -53,7 +53,7 @@ def test_invalid_models_labels_and_validation_seeds():
         dal.GSRSLV_EuropeanOptionPrices(None, [option])
     with pytest.raises(RuntimeError, match="GSRSLVModelData"):
         dal.GSRSLV_EuropeanOptionPrices(model(), [option])
-    quote = dal.GSRCalibrationQuote_("bond", option, 0.01, 0.005)
+    quote = dal.CalibrationQuote_("bond", option, 0.01, 0.005)
     settings = calibration_settings()
     with pytest.raises(RuntimeError, match="unknown parameter"):
         dal.Calibrate_GSRSLV(slv(), [quote], [dal.GSRSLVCalibrationParameter_("missing", 0.1, 2.0)], settings)
@@ -76,11 +76,11 @@ def test_curve_quote_bridge_validates_snapshot_and_adds_curve_risk():
     vol = dal.MultiFactorGSRVolData_New("vol", ["level"], [today], dal.DoubleMatrix_([[0.02]]),
         [today], dal.DoubleMatrix_([[1.0]]), dal.DoubleMatrix_([[1.0]]))
     initial = slv(gaussian=dal.MultiFactorGSRModelData_New("rates", curve, vol))
-    option = dal.GSRBondOption_(nodes[1], nodes[2], 0.96)
+    option = dal.BondOption_(nodes[1], nodes[2], 0.96)
     settings = calibration_settings()
     settings.solver.prior_weight = 2.0
     price = dal.GSRSLV_EuropeanOptionPrices(initial, [option], settings.pricing)[0].price
-    quotes = [dal.GSRCalibrationQuote_("bond", option, price, 0.005)]
+    quotes = [dal.CalibrationQuote_("bond", option, price, 0.005)]
     parameters = [dal.GSRSLVCalibrationParameter_("leverage:0:0", 0.2, 2.0)]
     risk = dal.GSRSLV_QuoteRisk(initial, quotes, parameters, [option], settings, curve_risk=bridge)
     assert risk.curve_risk_included
@@ -99,9 +99,9 @@ def test_market_volatility_conversion_calibration_and_risk():
     vol = dal.MultiFactorGSRVolData_New("vol", ["level"], [today], dal.DoubleMatrix_([[0.02]]),
         [today], dal.DoubleMatrix_([[1.0]]), dal.DoubleMatrix_([[1.0]]))
     initial = slv(gaussian=dal.MultiFactorGSRModelData_New("rates", curve, vol))
-    option = dal.GSRCaplet_(exercise, exercise, end, end, 1.0, 1.0, "12M", math.expm1(0.03))
-    quote = dal.GSRMarketQuote_("normal", option, 0.02, 0.01)
-    converted = dal.GSRMarketQuotes_Get_Prices(curve, [quote])[0]
+    option = dal.Caplet_(exercise, exercise, end, end, 1.0, 1.0, "12M", math.expm1(0.03))
+    quote = dal.VolQuote_("normal", option, 0.02, 0.01)
+    converted = dal.VolQuotes_Get_Prices(curve, [quote])[0]
     assert converted.price == pytest.approx(math.exp(-0.06) * 0.02 / math.sqrt(2 * math.pi), abs=1e-14)
     settings = calibration_settings()
     settings.use_aad_jacobian = True
@@ -114,15 +114,15 @@ def test_market_volatility_conversion_calibration_and_risk():
     assert risk.quote_units == ["NORMAL_VOL"]
     assert risk.sensitivities[0, 0] > 0
     with pytest.raises(RuntimeError, match="bond options"):
-        dal.GSRMarketQuotes_Get_Prices(curve, [dal.GSRMarketQuote_("bad", bond_option(), 0.02, 0.01)])
+        dal.VolQuotes_Get_Prices(curve, [dal.VolQuote_("bad", bond_option(), 0.02, 0.01)])
 
 
 def test_conditional_lagged_swaption_diagnostics():
     today = dal.Date_(2026, 10, 2)
     exercise, fixing = today.AddDays(365), today.AddDays(540)
     start, end, pay = fixing.AddDays(2), fixing.AddDays(367), fixing.AddDays(369)
-    option = dal.GSRSwaption_(exercise, [dal.GSRFixedCoupon_(pay, 1.0)],
-        [dal.GSRFloatingCoupon_(fixing, start, end, pay, 1.0, 1.0, "12M")], 0.03)
+    option = dal.Swaption_(exercise, [dal.FixedCoupon_(pay, 1.0)],
+        [dal.FloatingCoupon_(fixing, start, end, pay, 1.0, 1.0, "12M")], 0.03)
     settings = dal.GSRMonteCarloSettings_()
     settings.paths = 256
     settings.conditional_paths = 16

@@ -7,6 +7,8 @@
 #include <dal/model/gsrcalibration.hpp>
 #include <dal/model/gsrcurverisk.hpp>
 #include <dal/model/gsrslvpricing.hpp>
+#include <dal/protocol/rateoption.hpp>
+#include <dal/protocol/volquote.hpp>
 
 namespace Dal {
     struct GSRSLVCalibrationParameter_ {
@@ -38,10 +40,10 @@ namespace Dal {
     };
 
     GSRSLVCalibrationResult_ CalibrateGSRSLV(const GSRSLVModelData_& initial,
-                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<CalibrationQuote_>& quotes,
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                              const GSRSLVCalibrationSettings_& settings = {},
-                                             const Vector_<GSRCalibrationQuote_>& heldOut = {});
+                                             const Vector_<CalibrationQuote_>& heldOut = {});
 
     struct GSRSLVQuoteRiskSettings_ {
         double relativeBump_ = 0.01;
@@ -59,9 +61,9 @@ namespace Dal {
     };
 
     GSRSLVQuoteRiskResult_ GSRSLVQuoteRisk(const GSRSLVModelData_& initial,
-                                           const Vector_<GSRCalibrationQuote_>& quotes,
+                                           const Vector_<CalibrationQuote_>& quotes,
                                            const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                           const Vector_<GSREuropeanOption_>& targets,
+                                           const Vector_<EuropeanRateOption_>& targets,
                                            const GSRSLVCalibrationSettings_& calibrationSettings = {},
                                            const GSRSLVQuoteRiskSettings_& riskSettings = {},
                                            const GSRCurveQuoteRisk_* curveRisk = nullptr);

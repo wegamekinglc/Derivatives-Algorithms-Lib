@@ -21,6 +21,6 @@ namespace Dal {
     };
 
     Vector_<GSRMonteCarloPrice_> PriceGSRSLVEuropeanOptions(const GSRSLVModelData_& model,
-                                                            const Vector_<GSREuropeanOption_>& options,
+                                                            const Vector_<EuropeanRateOption_>& options,
                                                             const GSRMonteCarloSettings_& settings = {});
 } // namespace Dal

@@ -15,30 +15,30 @@ namespace Dal {
             return *typed;
         }
     } // namespace
-    Vector_<GSRMarketQuoteValue_> ConvertGSRMarketQuotes(const Handle_<Storable_>& snapshot, const Vector_<GSRMarketQuote_>& quotes) {
+    Vector_<VolQuoteValue_> ConvertVolQuotes(const Handle_<Storable_>& snapshot, const Vector_<VolQuote_>& quotes) {
         const auto typed = handle_cast<GSRCurveData_>(snapshot);
-        REQUIRE(typed, "InvalidGSRMarketQuote: snapshot must be GSRCurveData");
-        return ConvertGSRMarketQuotes(*typed, quotes);
+        REQUIRE(typed, "InvalidVolQuote: snapshot must be GSRCurveData");
+        return ConvertVolQuotes(*typed, quotes);
     }
 
     GSRSLVCalibrationResult_ CalibrateGSRSLVMarket(const Handle_<ModelData_>& initial,
-                                                   const Vector_<GSRMarketQuote_>& quotes,
+                                                   const Vector_<VolQuote_>& quotes,
                                                    const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                                    const GSRSLVCalibrationSettings_& settings,
-                                                   const Vector_<GSRMarketQuote_>& heldOut) {
+                                                   const Vector_<VolQuote_>& heldOut) {
         return CalibrateGSRSLVMarket(SLV(initial), quotes, parameters, settings, heldOut);
     }
 
     GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const Handle_<ModelData_>& initial,
-                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<VolQuote_>& quotes,
                                                  const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const Vector_<EuropeanRateOption_>& targets,
                                                  const GSRSLVCalibrationSettings_& settings,
                                                  const GSRSLVQuoteRiskSettings_& riskSettings,
                                                  const GSRCurveQuoteRisk_* curveRisk) {
         return GSRSLVMarketQuoteRisk(SLV(initial), quotes, parameters, targets, settings, riskSettings, curveRisk);
     }
-    GSRPriceResult_ PriceGSREuropeanOption(const Handle_<ModelData_>& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
+    GSRPriceResult_ PriceGSREuropeanOption(const Handle_<ModelData_>& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings) {
         REQUIRE(model, "InvalidGSRPricing: model is required");
         if (const auto* data = dynamic_cast<const MultiFactorGSRModelData_*>(model.get()))
             return PriceGSREuropeanOption(*data, option, settings);
@@ -48,7 +48,7 @@ namespace Dal {
     }
 
     GSRCalibrationResult_ CalibrateGSRVolatility(const Handle_<ModelData_>& initial,
-                                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                                 const Vector_<CalibrationQuote_>& quotes,
                                                  const Vector_<GSRCalibrationParameter_>& parameters,
                                                  const GSRCalibrationSettings_& settings) {
         REQUIRE(initial, "InvalidGSRCalibration: initial model is required");
@@ -57,23 +57,24 @@ namespace Dal {
         return CalibrateGSRVolatility(*data, quotes, parameters, settings);
     }
 
-    Vector_<GSRMonteCarloPrice_>
-    PriceGSRSLVEuropeanOptions(const Handle_<ModelData_>& model, const Vector_<GSREuropeanOption_>& options, const GSRMonteCarloSettings_& settings) {
+    Vector_<GSRMonteCarloPrice_> PriceGSRSLVEuropeanOptions(const Handle_<ModelData_>& model,
+                                                            const Vector_<EuropeanRateOption_>& options,
+                                                            const GSRMonteCarloSettings_& settings) {
         return PriceGSRSLVEuropeanOptions(SLV(model), options, settings);
     }
 
     GSRSLVCalibrationResult_ CalibrateGSRSLV(const Handle_<ModelData_>& initial,
-                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<CalibrationQuote_>& quotes,
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                              const GSRSLVCalibrationSettings_& settings,
-                                             const Vector_<GSRCalibrationQuote_>& heldOut) {
+                                             const Vector_<CalibrationQuote_>& heldOut) {
         return CalibrateGSRSLV(SLV(initial), quotes, parameters, settings, heldOut);
     }
 
     GSRSLVQuoteRiskResult_ GSRSLVQuoteRisk(const Handle_<ModelData_>& initial,
-                                           const Vector_<GSRCalibrationQuote_>& quotes,
+                                           const Vector_<CalibrationQuote_>& quotes,
                                            const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                           const Vector_<GSREuropeanOption_>& targets,
+                                           const Vector_<EuropeanRateOption_>& targets,
                                            const GSRSLVCalibrationSettings_& calibrationSettings,
                                            const GSRSLVQuoteRiskSettings_& riskSettings,
                                            const GSRCurveQuoteRisk_* curveRisk) {

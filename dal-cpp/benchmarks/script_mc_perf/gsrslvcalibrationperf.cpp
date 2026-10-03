@@ -36,9 +36,9 @@ namespace {
 void RunGSRSLVCalibrationCases() {
     using namespace Dal;
     const Date_ today(2026, 10, 2), expiry = today.AddDays(365), maturity = today.AddDays(730);
-    const Vector_<GSREuropeanOption_> options{GSRBondOption_{expiry, maturity, 0.94, OptionType_("CALL")},
-                                              GSRBondOption_{expiry, maturity, 0.97, OptionType_("CALL")},
-                                              GSRBondOption_{expiry, maturity, 1.0, OptionType_("CALL")}};
+    const Vector_<EuropeanRateOption_> options{BondOption_{expiry, maturity, 0.94, OptionType_("CALL")},
+                                               BondOption_{expiry, maturity, 0.97, OptionType_("CALL")},
+                                               BondOption_{expiry, maturity, 1.0, OptionType_("CALL")}};
     double checksum = 0.0;
     for (int factors : {1, 2, 3}) {
         const auto truth = Model(factors, 1.2), initial = Model(factors, 0.8);
@@ -46,7 +46,7 @@ void RunGSRSLVCalibrationCases() {
         settings.pricing_ = {8192, 1729};
         settings.validation_ = {16384, 81173};
         const auto prices = PriceGSRSLVEuropeanOptions(*truth, options, settings.pricing_);
-        Vector_<GSRCalibrationQuote_> quotes;
+        Vector_<CalibrationQuote_> quotes;
         for (size_t i = 0; i < prices.size(); ++i)
             quotes.push_back({"bond" + String::FromInt(i), options[i], prices[i].price_, 0.003});
         const Vector_<GSRSLVCalibrationParameter_> parameters{{"leverage:0:0", 0.2, 2.0, 1.0}};

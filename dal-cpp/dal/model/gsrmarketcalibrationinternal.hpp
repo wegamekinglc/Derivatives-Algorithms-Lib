@@ -7,5 +7,5 @@
 #include <dal/model/gsrmarketcalibration.hpp>
 
 namespace Dal::GSRSLVCalibrationInternal {
-    Vector_<GSRCalibrationQuote_> PriceQuotes(const GSRCurveData_& curve, const Vector_<GSRMarketQuote_>& quotes);
+    Vector_<CalibrationQuote_> PriceQuotes(const GSRCurveData_& curve, const Vector_<VolQuote_>& quotes);
 }

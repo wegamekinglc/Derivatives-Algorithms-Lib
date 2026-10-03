@@ -18,8 +18,8 @@ TEST(ExcelGSREuropeanTest, TestPricingCalibrationAndResultViews) {
     settings.gValues_ = Matrix_<>(1, 1, 0.02);
     settings.hValues_ = settings.correlations_ = Matrix_<>(1, 1, 1.0);
     const auto model = NewMultiFactorGSRModelData("rates", curve, NewMultiFactorGSRVolData("vol", settings));
-    Handle_<StorableGSREuropeanOption_> option;
-    GSRBondOption_New(today.AddDays(365), today.AddDays(730), 0.97, "CALL", &option);
+    Handle_<StorableEuropeanRateOption_> option;
+    BondOption_New(today.AddDays(365), today.AddDays(730), 0.97, "CALL", &option);
     Matrix_<Cell_> price;
     GSR_EuropeanOptionPrice(model, option, Matrix_<Cell_>(0, 0), &price);
     ASSERT_EQ(price.Cols(), 2);
@@ -37,8 +37,8 @@ TEST(ExcelGSREuropeanTest, TestPricingCalibrationAndResultViews) {
     pricingSettings(0, 1) = Cell_(24.0);
     pricingSettings(1, 0) = Cell_("unknown");
     ASSERT_THROW(GSR_EuropeanOptionPrice(model, option, pricingSettings, &price), Exception_);
-    Handle_<StorableGSRCalibrationQuote_> quote;
-    GSRCalibrationQuote_New("bond", option, target, 1e-6, &quote);
+    Handle_<StorableCalibrationQuote_> quote;
+    CalibrationQuote_New("bond", option, target, 1e-6, &quote);
     Matrix_<> parameters(1, 4);
     parameters(0, 0) = parameters(0, 1) = parameters(0, 2) = 0.0;
     parameters(0, 3) = 0.1;

@@ -30,8 +30,8 @@ namespace {
         return MultiFactorGSRModelData_("model", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings)));
     }
 
-    GSRSwaption_ Swaption() {
-        GSRSwaption_ option;
+    Swaption_ Swaption() {
+        Swaption_ option;
         option.expiry_ = TODAY.AddDays(365);
         option.strike_ = 0.03;
         for (int year = 2; year <= 4; ++year) {
@@ -44,7 +44,7 @@ namespace {
 } // namespace
 
 TEST(GSREuropeanTest, TestBondOptionMatchesIndependentBlackPrice) {
-    const GSRBondOption_ option{TODAY.AddDays(365), TODAY.AddDays(1095), 0.94, OptionType_("CALL")};
+    const BondOption_ option{TODAY.AddDays(365), TODAY.AddDays(1095), 0.94, OptionType_("CALL")};
     const double expected = std::exp(-0.03) * Distribution::BlackOpt(std::exp(-0.06), 0.04, 0.94, OptionType_("CALL"));
     const auto result = PriceGSREuropeanOption(EuropeanModel(), option);
     ASSERT_NEAR(result.price_, expected, 1e-12);
@@ -52,8 +52,7 @@ TEST(GSREuropeanTest, TestBondOptionMatchesIndependentBlackPrice) {
 }
 
 TEST(GSREuropeanTest, TestCapletPaymentLagUsesPaymentMeasure) {
-    const GSRCaplet_ option{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), TODAY.AddDays(912), 1.0, 0.75, "12M", 0.03,
-                            OptionType_("CALL")};
+    const Caplet_ option{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), TODAY.AddDays(912), 1.0, 0.75, "12M", 0.03, OptionType_("CALL")};
     const double payTime = 912.0 / 365.0;
     const double forward = std::exp(0.03 - 0.0004 * (payTime - 2.0));
     const double expected = std::exp(-0.03 * payTime) * 0.75 * Distribution::BlackOpt(forward, 0.02, 1.03, OptionType_("CALL"));
@@ -62,9 +61,9 @@ TEST(GSREuropeanTest, TestCapletPaymentLagUsesPaymentMeasure) {
 
 TEST(GSRCalibrationTest, TestIndependentBondQuotesRecoverVolatility) {
     const auto initial = EuropeanModel(0.009);
-    Vector_<GSRCalibrationQuote_> quotes;
+    Vector_<CalibrationQuote_> quotes;
     for (int expiry = 1; expiry <= 3; ++expiry) {
-        const GSRBondOption_ option{TODAY.AddDays(365 * expiry), TODAY.AddDays(365 * (expiry + 1)), 0.97, OptionType_("CALL")};
+        const BondOption_ option{TODAY.AddDays(365 * expiry), TODAY.AddDays(365 * (expiry + 1)), 0.97, OptionType_("CALL")};
         const double target = std::exp(-0.03 * expiry) * Distribution::BlackOpt(std::exp(-0.03), 0.02 * std::sqrt(expiry), 0.97, OptionType_("CALL"));
         quotes.push_back({"bond" + String::FromInt(expiry), option, target, 1e-6});
     }
@@ -88,7 +87,7 @@ TEST(GSREuropeanTest, TestOnePeriodSwaptionMatchesBondPutAndCaplet) {
     const double expected = std::exp(-0.03) * 1.03 * Distribution::BlackOpt(std::exp(-0.03), 0.02, 1.0 / 1.03, OptionType_("PUT"));
     const auto result = PriceGSREuropeanOption(EuropeanModel(), option);
     ASSERT_NEAR(result.price_, expected, 1e-12);
-    const GSRCaplet_ caplet{option.expiry_, option.expiry_, TODAY.AddDays(730), TODAY.AddDays(730), 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
+    const Caplet_ caplet{option.expiry_, option.expiry_, TODAY.AddDays(730), TODAY.AddDays(730), 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
     ASSERT_NEAR(result.price_, PriceGSREuropeanOption(EuropeanModel(), caplet).price_, 1e-12);
 }
 
@@ -141,7 +140,7 @@ TEST(GSREuropeanTest, TestZeroVolatilityNegativeStrikeAndSingularFactors) {
         new MultiFactorGSRVolData_("vol", {"first", "second"}, {TODAY}, Matrix_<>(2, 1, 0.01), {TODAY}, Matrix_<>(2, 1, 1.0), Matrix_<>(2, 2, 1.0)));
     const MultiFactorGSRModelData_ singular("singular", original.curve_, vol);
     ASSERT_NEAR(PriceGSREuropeanOption(singular, option).price_, PriceGSREuropeanOption(original, option).price_, 1e-12);
-    const GSRBondOption_ negative{TODAY.AddDays(365), TODAY.AddDays(730), -0.2, OptionType_("CALL")};
+    const BondOption_ negative{TODAY.AddDays(365), TODAY.AddDays(730), -0.2, OptionType_("CALL")};
     ASSERT_NEAR(PriceGSREuropeanOption(original, negative).price_, std::exp(-0.06) + 0.2 * std::exp(-0.03), 1e-12);
 }
 
@@ -165,12 +164,12 @@ TEST(GSREuropeanTest, TestRejectsInvalidOptionInputs) {
 TEST(GSREuropeanTest, TestRejectsDatesBeyondCurveCoverage) {
     const auto model = EuropeanModel();
     const Date_ beyond = TODAY.AddDays(1826);
-    ASSERT_THROW(PriceGSREuropeanOption(model, GSRBondOption_({beyond, beyond.AddDays(365), 0.97, OptionType_("CALL")})), Exception_);
-    ASSERT_THROW(PriceGSREuropeanOption(model, GSRBondOption_({TODAY.AddDays(365), beyond, 0.97, OptionType_("CALL")})), Exception_);
+    ASSERT_THROW(PriceGSREuropeanOption(model, BondOption_({beyond, beyond.AddDays(365), 0.97, OptionType_("CALL")})), Exception_);
+    ASSERT_THROW(PriceGSREuropeanOption(model, BondOption_({TODAY.AddDays(365), beyond, 0.97, OptionType_("CALL")})), Exception_);
     auto swaption = Swaption();
     swaption.fixed_.back().payment_ = beyond;
     ASSERT_THROW(PriceGSREuropeanOption(model, swaption), Exception_);
-    const GSRCaplet_ caplet{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), beyond, 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
+    const Caplet_ caplet{TODAY.AddDays(365), TODAY.AddDays(365), TODAY.AddDays(730), beyond, 1.0, 1.0, "12M", 0.03, OptionType_("CALL")};
     ASSERT_THROW(PriceGSREuropeanOption(model, caplet), Exception_);
     swaption = Swaption();
     swaption.floating_.back().fixing_ = swaption.floating_.back().start_ = beyond;
@@ -186,7 +185,7 @@ TEST(GSREuropeanTest, TestSignedLoadingsRetainBothExerciseBoundaries) {
     const Handle_<MultiFactorGSRVolData_> vol(
         new MultiFactorGSRVolData_("vol", {"level"}, {TODAY}, Matrix_<>(1, 1, 0.02), {TODAY, TODAY.AddDays(730)}, h, Matrix_<>(1, 1, 1.0)));
     const MultiFactorGSRModelData_ model("model", curve, vol);
-    GSRSwaption_ option;
+    Swaption_ option;
     option.expiry_ = TODAY.AddDays(365);
     option.fixed_ = {{option.expiry_, 1.0}};
     option.floating_ = {{option.expiry_, option.expiry_, TODAY.AddDays(730), TODAY.AddDays(730), 1.0, 1.0, "12M"},
@@ -202,7 +201,7 @@ TEST(GSREuropeanTest, TestSignedLoadingsRetainBothExerciseBoundaries) {
 }
 
 TEST(GSREuropeanTest, TestFutureCouponFixingAndPaymentLagConvexity) {
-    GSRSwaption_ option;
+    Swaption_ option;
     option.expiry_ = TODAY;
     option.fixed_ = {{TODAY.AddDays(1278), 1.0}};
     option.floating_ = {{TODAY.AddDays(548), TODAY.AddDays(730), TODAY.AddDays(1095), TODAY.AddDays(1278), 1.0, 1.0, "12M"}};
@@ -240,12 +239,12 @@ TEST(GSRCalibrationTest, TestBucketRecoveryHeldOutPricingAndSmoothPrior) {
     const Handle_<MultiFactorGSRVolData_> vol(new MultiFactorGSRVolData_("vol", {"level"}, {TODAY, TODAY.AddDays(365), TODAY.AddDays(730)}, g,
                                                                          {TODAY}, Matrix_<>(1, 1, 1.0), Matrix_<>(1, 1, 1.0)));
     const MultiFactorGSRModelData_ initial("initial", original.curve_, vol);
-    Vector_<GSRCalibrationQuote_> quotes;
+    Vector_<CalibrationQuote_> quotes;
     double variance = 0.0;
     const Vector_<> target{0.012, 0.018, 0.015};
     for (int year = 1; year <= 3; ++year) {
         variance += target[year - 1] * target[year - 1];
-        const GSRBondOption_ option{TODAY.AddDays(365 * year), TODAY.AddDays(365 * (year + 1)), 0.97, OptionType_("CALL")};
+        const BondOption_ option{TODAY.AddDays(365 * year), TODAY.AddDays(365 * (year + 1)), 0.97, OptionType_("CALL")};
         quotes.push_back({"bond" + String::FromInt(year), option,
                           std::exp(-0.03 * year) * Distribution::BlackOpt(std::exp(-0.03), std::sqrt(variance), 0.97, OptionType_("CALL")), 1e-6});
     }
@@ -256,7 +255,7 @@ TEST(GSRCalibrationTest, TestBucketRecoveryHeldOutPricingAndSmoothPrior) {
     ASSERT_EQ(result.jacobianRank_, 3);
     for (int knot = 0; knot < 3; ++knot)
         ASSERT_NEAR(result.parameters_[knot], target[knot], 1e-9);
-    const GSRBondOption_ heldOut{TODAY.AddDays(548), TODAY.AddDays(1278), 0.94, OptionType_("PUT")};
+    const BondOption_ heldOut{TODAY.AddDays(548), TODAY.AddDays(1278), 0.94, OptionType_("PUT")};
     const double expectedVariance = target[0] * target[0] + (183.0 / 365.0) * target[1] * target[1];
     const double expected =
         std::exp(-0.03 * (548.0 / 365.0)) * Distribution::BlackOpt(std::exp(-0.06), 2.0 * std::sqrt(expectedVariance), 0.94, OptionType_("PUT"));
@@ -282,7 +281,7 @@ TEST(GSRCalibrationTest, TestUnderdeterminedFactorsReportRankDeficiency) {
     const Handle_<MultiFactorGSRVolData_> vol(
         new MultiFactorGSRVolData_("vol", {"first", "second"}, {TODAY}, Matrix_<>(2, 1, 0.01), {TODAY}, Matrix_<>(2, 1, 1.0), correlation));
     const MultiFactorGSRModelData_ initial("initial", original.curve_, vol);
-    const GSRBondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, OptionType_("CALL")};
+    const BondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, OptionType_("CALL")};
     const double target = std::exp(-0.03) * Distribution::BlackOpt(std::exp(-0.03), 0.02, 0.97, OptionType_("CALL"));
     GSRCalibrationSettings_ settings;
     settings.priorWeight_ = 1e-4;
@@ -303,11 +302,11 @@ TEST(GSRCalibrationTest, TestDifferentMaturitiesIdentifyTwoFactors) {
     const Handle_<MultiFactorGSRVolData_> vol(
         new MultiFactorGSRVolData_("vol", {"level", "slope"}, {TODAY}, g, {TODAY, TODAY.AddDays(1095)}, h, correlation));
     const MultiFactorGSRModelData_ initial("initial", original.curve_, vol);
-    Vector_<GSRCalibrationQuote_> quotes;
+    Vector_<CalibrationQuote_> quotes;
     for (int maturity : {2, 4}) {
         const double b0 = maturity - 1.0, b1 = maturity == 2 ? 0.8 : 1.3;
         const double variance = std::pow(b0 * 0.015, 2) + std::pow(b1 * 0.025, 2) + 2.0 * 0.2 * b0 * b1 * 0.015 * 0.025;
-        const GSRBondOption_ option{TODAY.AddDays(365), TODAY.AddDays(365 * maturity), 0.97, OptionType_("CALL")};
+        const BondOption_ option{TODAY.AddDays(365), TODAY.AddDays(365 * maturity), 0.97, OptionType_("CALL")};
         quotes.push_back({"bond" + String::FromInt(maturity), option,
                           std::exp(-0.03) * Distribution::BlackOpt(std::exp(-0.03 * (maturity - 1)), std::sqrt(variance), 0.97, OptionType_("CALL")),
                           1e-6});
@@ -322,9 +321,9 @@ TEST(GSRCalibrationTest, TestDifferentMaturitiesIdentifyTwoFactors) {
 
 TEST(GSRCalibrationTest, TestBoundsAndNonConvergenceAreExplicit) {
     const auto initial = EuropeanModel(0.009);
-    const GSRBondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, OptionType_("CALL")};
+    const BondOption_ option{TODAY.AddDays(365), TODAY.AddDays(730), 0.97, OptionType_("CALL")};
     const double target = std::exp(-0.03) * Distribution::BlackOpt(std::exp(-0.03), 0.04, 0.97, OptionType_("CALL"));
-    const Vector_<GSRCalibrationQuote_> quotes{{"bond", option, target, 1e-6}};
+    const Vector_<CalibrationQuote_> quotes{{"bond", option, target, 1e-6}};
     const auto bounded = CalibrateGSRVolatility(initial, quotes, {{0, 0, 0.0, 0.015}});
     ASSERT_TRUE(bounded.converged_);
     ASSERT_FALSE(bounded.fitWithinTolerance_);

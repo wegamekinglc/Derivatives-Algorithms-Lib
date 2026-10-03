@@ -197,6 +197,31 @@ void init_bindings_models(py::module_& m) {
         py::arg("name"), py::arg("factor"), py::arg("curve"), py::arg("vol"));
 
     m.def(
+        "HybridGSRRateDataMulti_New",
+        [](const std::string& name, const py::iterable& factors, const std::shared_ptr<GSRCurveData_>& curve,
+           const std::shared_ptr<MultiFactorGSRVolData_>& multiVol) -> std::shared_ptr<HybridComponentData_> {
+            Vector_<String_> names;
+            for (const auto& factor : factors)
+                names.push_back(String_(py::cast<std::string>(factor)));
+            REQUIRE(curve && multiVol, "InvalidHybridComponent: GSR curve and multi-factor volatility are required");
+            return std::const_pointer_cast<HybridComponentData_>(
+                NewHybridGSRRateData(String_(name), names, Handle_<GSRCurveData_>(std::shared_ptr<const GSRCurveData_>(curve)),
+                                     Handle_<MultiFactorGSRVolData_>(std::shared_ptr<const MultiFactorGSRVolData_>(multiVol))));
+        },
+        py::arg("name"), py::arg("factors"), py::arg("curve"), py::arg("multi_vol"));
+
+    m.def(
+        "HybridGSRSLVRateData_New",
+        [](const std::string& name, const std::string& volFactor, const std::string& bridgeFactor,
+           const std::shared_ptr<ModelData_>& model) -> std::shared_ptr<HybridComponentData_> {
+            const auto* slv = dynamic_cast<const GSRSLVModelData_*>(model.get());
+            REQUIRE(slv, "InvalidHybridComponent: SLV model data is required");
+            return std::const_pointer_cast<HybridComponentData_>(NewHybridGSRSLVRateData(
+                String_(name), String_(volFactor), String_(bridgeFactor), Handle_<GSRSLVModelData_>(std::shared_ptr<const GSRSLVModelData_>(model, slv))));
+        },
+        py::arg("name"), py::arg("vol_factor"), py::arg("bridge_factor"), py::arg("model"));
+
+    m.def(
         "BSLocalVolModelData_New",
         [](const std::string& name, const std::string& index, const std::string& currency, const std::string& factor,
            const std::shared_ptr<ModelData_>& bs, const std::shared_ptr<LocalVolSurfaceData_>& surface,

@@ -9,37 +9,37 @@
 #include <dal/model/gsrmarketcalibration.hpp>
 
 namespace Dal {
-    Vector_<GSRMarketQuoteValue_> ConvertGSRMarketQuotes(const Handle_<Storable_>& snapshot, const Vector_<GSRMarketQuote_>& quotes);
+    Vector_<VolQuoteValue_> ConvertVolQuotes(const Handle_<Storable_>& snapshot, const Vector_<VolQuote_>& quotes);
     GSRSLVCalibrationResult_ CalibrateGSRSLVMarket(const Handle_<ModelData_>& initial,
-                                                   const Vector_<GSRMarketQuote_>& quotes,
+                                                   const Vector_<VolQuote_>& quotes,
                                                    const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                                    const GSRSLVCalibrationSettings_& settings = {},
-                                                   const Vector_<GSRMarketQuote_>& heldOut = {});
+                                                   const Vector_<VolQuote_>& heldOut = {});
     GSRSLVQuoteRiskResult_ GSRSLVMarketQuoteRisk(const Handle_<ModelData_>& initial,
-                                                 const Vector_<GSRMarketQuote_>& quotes,
+                                                 const Vector_<VolQuote_>& quotes,
                                                  const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                                 const Vector_<GSREuropeanOption_>& targets,
+                                                 const Vector_<EuropeanRateOption_>& targets,
                                                  const GSRSLVCalibrationSettings_& calibrationSettings = {},
                                                  const GSRSLVQuoteRiskSettings_& riskSettings = {},
                                                  const GSRCurveQuoteRisk_* curveRisk = nullptr);
     GSRPriceResult_
-    PriceGSREuropeanOption(const Handle_<ModelData_>& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings = {});
+    PriceGSREuropeanOption(const Handle_<ModelData_>& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings = {});
     GSRCalibrationResult_ CalibrateGSRVolatility(const Handle_<ModelData_>& initial,
-                                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                                 const Vector_<CalibrationQuote_>& quotes,
                                                  const Vector_<GSRCalibrationParameter_>& parameters,
                                                  const GSRCalibrationSettings_& settings = {});
     Vector_<GSRMonteCarloPrice_> PriceGSRSLVEuropeanOptions(const Handle_<ModelData_>& model,
-                                                            const Vector_<GSREuropeanOption_>& options,
+                                                            const Vector_<EuropeanRateOption_>& options,
                                                             const GSRMonteCarloSettings_& settings = {});
     GSRSLVCalibrationResult_ CalibrateGSRSLV(const Handle_<ModelData_>& initial,
-                                             const Vector_<GSRCalibrationQuote_>& quotes,
+                                             const Vector_<CalibrationQuote_>& quotes,
                                              const Vector_<GSRSLVCalibrationParameter_>& parameters,
                                              const GSRSLVCalibrationSettings_& settings = {},
-                                             const Vector_<GSRCalibrationQuote_>& heldOut = {});
+                                             const Vector_<CalibrationQuote_>& heldOut = {});
     GSRSLVQuoteRiskResult_ GSRSLVQuoteRisk(const Handle_<ModelData_>& initial,
-                                           const Vector_<GSRCalibrationQuote_>& quotes,
+                                           const Vector_<CalibrationQuote_>& quotes,
                                            const Vector_<GSRSLVCalibrationParameter_>& parameters,
-                                           const Vector_<GSREuropeanOption_>& targets,
+                                           const Vector_<EuropeanRateOption_>& targets,
                                            const GSRSLVCalibrationSettings_& calibrationSettings = {},
                                            const GSRSLVQuoteRiskSettings_& riskSettings = {},
                                            const GSRCurveQuoteRisk_* curveRisk = nullptr);

@@ -14,7 +14,7 @@ namespace Dal::GSRSLVPricingInternal {
         std::shared_ptr<const Data_> data_;
 
     public:
-        PreparedPricer_(const GSRSLVModelData_& model, const Vector_<GSREuropeanOption_>& options, const GSRMonteCarloSettings_& settings);
+        PreparedPricer_(const GSRSLVModelData_& model, const Vector_<EuropeanRateOption_>& options, const GSRMonteCarloSettings_& settings);
         Vector_<GSRMonteCarloPrice_> Price(const GSRSLVModelData_& model) const;
         Matrix_<> Jacobian(const GSRSLVModelData_& model, const Vector_<String_>& labels) const;
     };

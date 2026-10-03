@@ -23,47 +23,47 @@ namespace Dal {
         GSRValueHandle_(const char* type, const T_& value) : Storable_(type, String_()), value_(value) {}
         void Write(Archive::Store_&) const override { THROW("GSR worksheet value handles do not support archives"); }
     };
-    using StorableGSRFixedCoupon_ = GSRValueHandle_<GSRFixedCoupon_>;
-    using StorableGSRFloatingCoupon_ = GSRValueHandle_<GSRFloatingCoupon_>;
-    using StorableGSRCalibrationQuote_ = GSRValueHandle_<GSRCalibrationQuote_>;
+    using StorableFixedCoupon_ = GSRValueHandle_<FixedCoupon_>;
+    using StorableFloatingCoupon_ = GSRValueHandle_<FloatingCoupon_>;
+    using StorableCalibrationQuote_ = GSRValueHandle_<CalibrationQuote_>;
     using StorableGSRCalibrationResult_ = GSRValueHandle_<GSRCalibrationResult_>;
-    struct StorableGSREuropeanOption_ : Storable_ {
-        GSREuropeanOption_ option_;
-        explicit StorableGSREuropeanOption_(const GSREuropeanOption_& option) : Storable_("GSREuropeanOption", String_()), option_(option) {}
+    struct StorableEuropeanRateOption_ : Storable_ {
+        EuropeanRateOption_ option_;
+        explicit StorableEuropeanRateOption_(const EuropeanRateOption_& option) : Storable_("EuropeanRateOption", String_()), option_(option) {}
         void Write(Archive::Store_&) const override { THROW("GSR worksheet option handles do not support archives"); }
     };
 
     DAL_EXCEL_GSR_API void
-    GSRBondOption_New(const Date_& expiry, const Date_& maturity, double strike, const String_& type, Handle_<StorableGSREuropeanOption_>* option);
-    DAL_EXCEL_GSR_API void GSRFixedCoupon_New(const Date_& payment, double accrual, Handle_<StorableGSRFixedCoupon_>* coupon);
-    DAL_EXCEL_GSR_API void GSRFloatingCoupon_New(const Date_& fixing,
-                                                 const Date_& start,
-                                                 const Date_& end,
-                                                 const Date_& payment,
-                                                 double indexAccrual,
-                                                 double couponAccrual,
-                                                 const String_& tenor,
-                                                 Handle_<StorableGSRFloatingCoupon_>* coupon);
-    DAL_EXCEL_GSR_API void GSRCaplet_New(const Date_& expiry,
-                                         const Handle_<StorableGSRFloatingCoupon_>& coupon,
-                                         double strike,
-                                         const String_& type,
-                                         Handle_<StorableGSREuropeanOption_>* option);
-    DAL_EXCEL_GSR_API void GSRSwaption_New(const Date_& expiry,
-                                           const Vector_<Handle_<Storable_>>& fixed,
-                                           const Vector_<Handle_<Storable_>>& floating,
-                                           double strike,
-                                           const String_& type,
-                                           Handle_<StorableGSREuropeanOption_>* option);
+    BondOption_New(const Date_& expiry, const Date_& maturity, double strike, const String_& type, Handle_<StorableEuropeanRateOption_>* option);
+    DAL_EXCEL_GSR_API void FixedCoupon_New(const Date_& payment, double accrual, Handle_<StorableFixedCoupon_>* coupon);
+    DAL_EXCEL_GSR_API void FloatingCoupon_New(const Date_& fixing,
+                                              const Date_& start,
+                                              const Date_& end,
+                                              const Date_& payment,
+                                              double indexAccrual,
+                                              double couponAccrual,
+                                              const String_& tenor,
+                                              Handle_<StorableFloatingCoupon_>* coupon);
+    DAL_EXCEL_GSR_API void Caplet_New(const Date_& expiry,
+                                      const Handle_<StorableFloatingCoupon_>& coupon,
+                                      double strike,
+                                      const String_& type,
+                                      Handle_<StorableEuropeanRateOption_>* option);
+    DAL_EXCEL_GSR_API void Swaption_New(const Date_& expiry,
+                                        const Vector_<Handle_<Storable_>>& fixed,
+                                        const Vector_<Handle_<Storable_>>& floating,
+                                        double strike,
+                                        const String_& type,
+                                        Handle_<StorableEuropeanRateOption_>* option);
     DAL_EXCEL_GSR_API void GSR_EuropeanOptionPrice(const Handle_<ModelData_>& model,
-                                                   const Handle_<StorableGSREuropeanOption_>& option,
+                                                   const Handle_<StorableEuropeanRateOption_>& option,
                                                    const Matrix_<Cell_>& settings,
                                                    Matrix_<Cell_>* result);
-    DAL_EXCEL_GSR_API void GSRCalibrationQuote_New(const String_& name,
-                                                   const Handle_<StorableGSREuropeanOption_>& option,
-                                                   double price,
-                                                   double priceScale,
-                                                   Handle_<StorableGSRCalibrationQuote_>* quote);
+    DAL_EXCEL_GSR_API void CalibrationQuote_New(const String_& name,
+                                                const Handle_<StorableEuropeanRateOption_>& option,
+                                                double price,
+                                                double priceScale,
+                                                Handle_<StorableCalibrationQuote_>* quote);
     DAL_EXCEL_GSR_API void Calibrate_GSRVolatility(const Handle_<ModelData_>& initial,
                                                    const Vector_<Handle_<Storable_>>& quotes,
                                                    const Matrix_<>& parameters,

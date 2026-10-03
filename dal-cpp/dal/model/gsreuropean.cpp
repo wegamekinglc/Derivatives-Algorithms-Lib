@@ -138,7 +138,7 @@ namespace Dal {
             Vector_<> loading_;
         };
 
-        void ValidateCoupon(const GSRFloatingCoupon_& coupon) {
+        void ValidateCoupon(const FloatingCoupon_& coupon) {
             REQUIRE(coupon.fixing_ <= coupon.start_ && coupon.start_ < coupon.end_ && coupon.payment_ >= coupon.end_,
                     "InvalidGSROption: fixing <= start < end <= payment is required");
             REQUIRE(std::isfinite(coupon.indexAccrual_) && coupon.indexAccrual_ > 0.0 && std::isfinite(coupon.couponAccrual_) &&
@@ -170,7 +170,7 @@ namespace Dal {
                 return {model_.InitialLogDiscount(time) - model_.InitialLogDiscount(expiry_) - 0.5 * norm, std::move(beta)};
             }
 
-            [[nodiscard]] double CouponConvexity(const GSRFloatingCoupon_& coupon) const {
+            [[nodiscard]] double CouponConvexity(const FloatingCoupon_& coupon) const {
                 const double start = Time(coupon.start_), end = Time(coupon.end_);
                 const double fixing = Time(coupon.fixing_);
                 REQUIRE(fixing >= expiry_, "InvalidGSROption: coupon fixing precedes expiry");
@@ -184,7 +184,7 @@ namespace Dal {
                 return convexity;
             }
 
-            [[nodiscard]] double ProjectionScale(const GSRFloatingCoupon_& coupon) const {
+            [[nodiscard]] double ProjectionScale(const FloatingCoupon_& coupon) const {
                 ValidateCoupon(coupon);
                 REQUIRE(!coupon.tenor_.empty() && PeriodLength_(coupon.tenor_).Months() > 0, "InvalidGSROption: floating tenor must be positive");
                 const double start = Time(coupon.start_), end = Time(coupon.end_);
@@ -192,7 +192,7 @@ namespace Dal {
                        model_.InitialLogDiscount(start) + model_.InitialLogDiscount(end) + CouponConvexity(coupon);
             }
 
-            [[nodiscard]] Vector_<Cashflow_> Cashflows(const GSRSwaption_& option) const {
+            [[nodiscard]] Vector_<Cashflow_> Cashflows(const Swaption_& option) const {
                 REQUIRE(!option.fixed_.empty() && !option.floating_.empty(), "InvalidGSROption: fixed and floating schedules must be nonempty");
                 const double sign = Direction(option.type_);
                 Vector_<Cashflow_> result;
@@ -250,7 +250,7 @@ namespace Dal {
                 discount_ = std::exp(model_.InitialLogDiscount(expiry_));
             }
 
-            [[nodiscard]] GSRPriceResult_ Price(const GSRBondOption_& option, const GSRPricingSettings_&) const {
+            [[nodiscard]] GSRPriceResult_ Price(const BondOption_& option, const GSRPricingSettings_&) const {
                 Direction(option.type_);
                 const auto bond = Bond(option.maturity_);
                 const double variance = std::inner_product(bond.loading_.begin(), bond.loading_.end(), bond.loading_.begin(), 0.0);
@@ -258,10 +258,10 @@ namespace Dal {
                 return {discount_ * Distribution::BlackOpt(forward, std::sqrt(variance), option.strike_, option.type_), 0.0};
             }
 
-            [[nodiscard]] GSRPriceResult_ Price(const GSRCaplet_& option, const GSRPricingSettings_&) const {
+            [[nodiscard]] GSRPriceResult_ Price(const Caplet_& option, const GSRPricingSettings_&) const {
                 Direction(option.type_);
-                const GSRFloatingCoupon_ coupon{option.expiry_,       option.start_,         option.end_,  option.payment_,
-                                                option.indexAccrual_, option.couponAccrual_, option.tenor_};
+                const FloatingCoupon_ coupon{option.expiry_,       option.start_,         option.end_,  option.payment_,
+                                             option.indexAccrual_, option.couponAccrual_, option.tenor_};
                 const double scale = ProjectionScale(coupon);
                 const auto start = Bond(coupon.start_), end = Bond(coupon.end_), pay = Bond(coupon.payment_);
                 double variance = 0.0, convexity = 0.0;
@@ -277,7 +277,7 @@ namespace Dal {
                         0.0};
             }
 
-            [[nodiscard]] GSRPriceResult_ Price(const GSRSwaption_& option, const GSRPricingSettings_& settings) const {
+            [[nodiscard]] GSRPriceResult_ Price(const Swaption_& option, const GSRPricingSettings_& settings) const {
                 const auto cashflows = Cashflows(option);
                 Vector_<size_t> axes;
                 Vector_<> importance(model_.NumFactors(), 0.0);
@@ -302,7 +302,7 @@ namespace Dal {
             }
         };
 
-        template <class D_> GSRPriceResult_ Price(const D_& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
+        template <class D_> GSRPriceResult_ Price(const D_& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings) {
             REQUIRE(settings.quadratureOrder_ >= 2 && settings.quadratureOrder_ <= 64,
                     "InvalidGSRPricing: quadrature order must be between 2 and 64");
             return std::visit(
@@ -317,11 +317,11 @@ namespace Dal {
     } // namespace
 
     GSRPriceResult_
-    PriceGSREuropeanOption(const MultiFactorGSRModelData_& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
+    PriceGSREuropeanOption(const MultiFactorGSRModelData_& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings) {
         return Price(model, option, settings);
     }
 
-    GSRPriceResult_ PriceGSREuropeanOption(const GSRModelData_& model, const GSREuropeanOption_& option, const GSRPricingSettings_& settings) {
+    GSRPriceResult_ PriceGSREuropeanOption(const GSRModelData_& model, const EuropeanRateOption_& option, const GSRPricingSettings_& settings) {
         return Price(model, option, settings);
     }
 } // namespace Dal

@@ -2,23 +2,21 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>GSRCaplet_New</title>
+<title>FixedCoupon_New</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>GSRCaplet_New (in Excel: GSRCAPLET.NEW)</h1>
-Create a caplet or floorlet
+<h1>FixedCoupon_New (in Excel: FIXEDCOUPON.NEW)</h1>
+Create one fixed swap coupon
 
 <h2>Inputs:</h2>
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
-<tr><td>expiry</td><td>date</td><td></td><td>Index fixing date, on or before accrual start</td></tr>
-<tr><td>coupon</td><td>handle of type StorableGSRFloatingCoupon</td><td></td><td>Underlying coupon</td></tr>
-<tr><td>strike</td><td>number</td><td></td><td>Rate strike</td></tr>
-<tr><td>type</td><td>string</td><td></td><td>CALL for caplet or PUT for floorlet</td></tr>
+<tr><td>payment</td><td>date</td><td></td><td>Payment date</td></tr>
+<tr><td>accrual</td><td>number</td><td></td><td>Coupon accrual fraction</td></tr>
 
 </table>
 
@@ -30,7 +28,7 @@ Create a caplet or floorlet
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>option</td><td>handle of type StorableGSREuropeanOption</td><td>Option handle</td></tr>
+<tr><td>coupon</td><td>handle of type StorableFixedCoupon</td><td>Coupon handle</td></tr>
 </table>
 
 

@@ -1,5 +1,5 @@
 //
-// Created by Codex on 2026/10/2.
+// Created by ZCode on 2026/10/3.
 //
 
 #pragma once
@@ -10,9 +10,14 @@
 #include <numeric>
 
 #include <dal/math/matrix/covariance.hpp>
-#include <dal/model/gsrcalibration.hpp>
 
-namespace Dal::GSRCalibrationInternal {
+namespace Dal::BoundedGaussNewton {
+    struct Settings_ {
+        int maxIterations_ = 100;
+        double gradientTolerance_ = 1e-6;
+        double stepTolerance_ = 1e-9;
+    };
+
     template <class Problem_> Matrix_<> DifferenceJacobian(const Problem_& problem, const Vector_<>& x, size_t rows, double relativeStep) {
         Matrix_<> result(rows, x.size(), 0.0);
         for (size_t col = 0; col < x.size(); ++col) {
@@ -20,16 +25,17 @@ namespace Dal::GSRCalibrationInternal {
             const double step = relativeStep * std::max(1.0, std::abs(x[col]));
             up[col] = std::min(problem.Bound(col, true), x[col] + step);
             down[col] = std::max(problem.Bound(col, false), x[col] - step);
-            REQUIRE(std::isfinite(step) && up[col] > down[col], "InvalidGSRCalibration: difference step is unresolved or nonfinite");
+            REQUIRE(std::isfinite(step) && up[col] > down[col], "InvalidBoundedGaussNewton: difference step is unresolved or nonfinite");
             const auto high = problem.Residuals(up), low = problem.Residuals(down);
             for (size_t row = 0; row < rows; ++row)
                 result(row, col) = (high[row] - low[row]) / (up[col] - down[col]);
         }
         return result;
     }
+
     inline double NormSquared(const Vector_<>& values) {
         const double norm = std::inner_product(values.begin(), values.end(), values.begin(), 0.0);
-        REQUIRE(std::isfinite(norm), "InvalidGSRCalibration: residual or derivative norm overflow");
+        REQUIRE(std::isfinite(norm), "InvalidBoundedGaussNewton: residual or derivative norm overflow");
         return norm;
     }
 
@@ -122,8 +128,7 @@ namespace Dal::GSRCalibrationInternal {
         result->jacobianConditionEstimate_ = result->jacobianRank_ == jacobian.Cols() ? largest / smallest : std::numeric_limits<double>::infinity();
     }
 
-    template <class Problem_, class Result_>
-    void Fit(const Problem_& problem, const GSRCalibrationSettings_& settings, Vector_<>* x, Result_* result) {
+    template <class Problem_, class Result_> void Fit(const Problem_& problem, const Settings_& settings, Vector_<>* x, Result_* result) {
         auto residuals = problem.Residuals(*x);
         ++result->evaluations_;
         double objective = NormSquared(residuals), damping = 1e-3;
@@ -173,4 +178,4 @@ namespace Dal::GSRCalibrationInternal {
         }
         result->objective_ = objective;
     }
-} // namespace Dal::GSRCalibrationInternal
+} // namespace Dal::BoundedGaussNewton

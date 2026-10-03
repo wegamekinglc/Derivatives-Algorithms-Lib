@@ -5,15 +5,9 @@
 #pragma once
 
 #include <dal/model/gsreuropean.hpp>
+#include <dal/protocol/volquote.hpp>
 
 namespace Dal {
-    struct GSRCalibrationQuote_ {
-        String_ name_;
-        GSREuropeanOption_ option_;
-        double price_ = 0.0;
-        double priceScale_ = 1.0;
-    };
-
     struct GSRCalibrationParameter_ {
         int factor_ = 0, knot_ = 0;
         double lower_ = 0.0, upper_ = 1.0;
@@ -43,7 +37,7 @@ namespace Dal {
     };
 
     GSRCalibrationResult_ CalibrateGSRVolatility(const MultiFactorGSRModelData_& initial,
-                                                 const Vector_<GSRCalibrationQuote_>& quotes,
+                                                 const Vector_<CalibrationQuote_>& quotes,
                                                  const Vector_<GSRCalibrationParameter_>& parameters,
                                                  const GSRCalibrationSettings_& settings = {});
 } // namespace Dal

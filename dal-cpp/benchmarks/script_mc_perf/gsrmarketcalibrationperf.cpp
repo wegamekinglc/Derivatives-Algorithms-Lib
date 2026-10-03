@@ -70,7 +70,7 @@ namespace {
     }
 
     void RunFits(const Dal::GSRCurveData_& snapshot,
-                 const Dal::Vector_<Dal::GSRMarketQuote_>& quotes,
+                 const Dal::Vector_<Dal::VolQuote_>& quotes,
                  Dal::GSRSLVCalibrationSettings_ settings,
                  int rows,
                  int cols,
@@ -117,7 +117,7 @@ namespace {
     }
 
     void RunJacobians(const Dal::GSRCurveData_& snapshot,
-                      const Dal::Vector_<Dal::GSREuropeanOption_>& targets,
+                      const Dal::Vector_<Dal::EuropeanRateOption_>& targets,
                       const Dal::GSRMonteCarloSettings_& settings,
                       double* checksum) {
         using namespace Dal;
@@ -152,8 +152,8 @@ void RunGSRMarketCalibrationCases() {
     settings.pricing_.paths_ = 1024;
     settings.validation_.paths_ = 2048;
     settings.solver_.priorWeight_ = 0.1;
-    Vector_<GSRMarketQuote_> quotes;
-    Vector_<GSREuropeanOption_> targets;
+    Vector_<VolQuote_> quotes;
+    Vector_<EuropeanRateOption_> targets;
     for (int expiry : {1, 2})
         for (int tenor : {1, 2})
             for (double offset : {-0.005, 0.0, 0.005}) {
@@ -161,8 +161,8 @@ void RunGSRMarketCalibrationCases() {
                 const double accrual = days / DAYS_PER_YEAR;
                 const auto exercise = today.AddDays(365 * expiry), end = exercise.AddDays(days);
                 const double forward = std::expm1(0.03 * accrual) / accrual;
-                const GSRCaplet_ option{exercise,         exercise,           end, end, accrual, accrual, String::FromInt(6 * tenor) + "M",
-                                        forward + offset, OptionType_("CALL")};
+                const Caplet_ option{exercise,         exercise,           end, end, accrual, accrual, String::FromInt(6 * tenor) + "M",
+                                     forward + offset, OptionType_("CALL")};
                 const double price = PriceGSRSLVEuropeanOptions(truth, {option}, settings.pricing_)[0].price_;
                 const double annuity = accrual * std::exp(-0.03 * (expiry + accrual));
                 quotes.push_back({"quote" + String::FromInt(quotes.size()), option,
@@ -175,7 +175,7 @@ void RunGSRMarketCalibrationCases() {
     RunJacobians(snapshot, targets, settings.pricing_, &checksum);
     const auto single = Model(snapshot, 1, 1);
     const auto exercise = today.AddDays(365), fixing = today.AddDays(540), start = fixing.AddDays(2), end = start.AddDays(365), pay = end.AddDays(2);
-    const GSRSwaption_ lagged{exercise, {{pay, 1.0}}, {{fixing, start, end, pay, 1.0, 1.0, "12M"}}, 0.03, OptionType_("CALL")};
+    const Swaption_ lagged{exercise, {{pay, 1.0}}, {{fixing, start, end, pay, 1.0, 1.0, "12M"}}, 0.03, OptionType_("CALL")};
     Bench::Print(Bench::Run(
         "GSR lagged swaption, 512 outer x 32 inner paths",
         [&] { checksum += PriceGSRSLVEuropeanOptions(single, {lagged}, {512, 1729, 32})[0].price_; }, 1, 3));

@@ -70,6 +70,20 @@ namespace Dal {
         return Handle_<HybridComponentData_>(new HybridGSRRateData_(name, factor, curve, vol));
     }
 
+    FORCE_INLINE Handle_<HybridComponentData_> NewHybridGSRRateData(const String_& name,
+                                                                    const Vector_<String_>& factors,
+                                                                    const Handle_<GSRCurveData_>& curve,
+                                                                    const Handle_<MultiFactorGSRVolData_>& multiVol) {
+        return Handle_<HybridComponentData_>(new HybridGSRRateData_(name, factors, curve, multiVol));
+    }
+
+    FORCE_INLINE Handle_<HybridComponentData_> NewHybridGSRSLVRateData(const String_& name,
+                                                                       const String_& volFactor,
+                                                                       const String_& bridgeFactor,
+                                                                       const Handle_<GSRSLVModelData_>& model) {
+        return Handle_<HybridComponentData_>(new HybridGSRSLVRateData_(name, volFactor, bridgeFactor, model));
+    }
+
     FORCE_INLINE Handle_<ModelData_> NewBSLocalVolModelData(const String_& name,
                                                             const String_& index,
                                                             const String_& currency,

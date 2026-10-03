@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>GSRMarketQuote_New</title>
+<title>VolQuote_New</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>GSRMarketQuote_New (in Excel: GSRMARKETQUOTE.NEW)</h1>
+<h1>VolQuote_New (in Excel: VOLQUOTE.NEW)</h1>
 Create a market volatility quote for a caplet or physical swaption
 
 <h2>Inputs:</h2>
@@ -16,7 +16,7 @@ Create a market volatility quote for a caplet or physical swaption
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>Unique quote name</td></tr>
-<tr><td>option</td><td>handle of type StorableGSREuropeanOption</td><td></td><td>Caplet or swaption</td></tr>
+<tr><td>option</td><td>handle of type StorableEuropeanRateOption</td><td></td><td>Caplet or swaption</td></tr>
 <tr><td>volatility</td><td>number</td><td></td><td>Annualized decimal volatility</td></tr>
 <tr><td>priceScale</td><td>number</td><td></td><td>Positive price residual scale</td></tr>
 <tr><td>convention</td><td>string</td><td>yes</td><td>NORMAL (default), BLACK or SHIFTED_BLACK</td></tr>
@@ -32,7 +32,7 @@ Create a market volatility quote for a caplet or physical swaption
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>quote</td><td>handle of type StorableGSRMarketQuote</td><td>Market quote handle</td></tr>
+<tr><td>quote</td><td>handle of type StorableVolQuote</td><td>Market quote handle</td></tr>
 </table>
 
 

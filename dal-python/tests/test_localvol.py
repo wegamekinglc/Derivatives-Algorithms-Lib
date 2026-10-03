@@ -63,3 +63,96 @@ def test_gsr_and_local_vol_price_equity_and_rate_on_same_path():
     )
     result = dal.MonteCarlo_ValueWithSettings(product, model, 64)
     assert result["PV"] == pytest.approx(100.0 + math.exp(-0.06), abs=0.01)
+
+
+def test_multi_factor_gsr_rate_component_prices_equity_and_rate():
+    today = dal.Date_(2026, 10, 2)
+    expiry = today.AddDays(365)
+    horizon = today.AddDays(1095)
+    dal.EvaluationDate_Set(today)
+    curve = dal.GSRCurveData_New(
+        "curve",
+        today,
+        "USD",
+        [today, today.AddDays(365), today.AddDays(730), horizon],
+        [0.0, -0.03, -0.06, -0.09],
+        [],
+        dal.DoubleMatrix_(0, 0),
+    )
+    multi_vol = dal.MultiFactorGSRVolData_New(
+        "multi_vol",
+        ["level", "slope"],
+        [today],
+        dal.DoubleMatrix_([[0.02], [0.01]]),
+        [today],
+        dal.DoubleMatrix_([[1.0], [0.4]]),
+        dal.DoubleMatrix_([[1.0, 0.3], [0.3, 1.0]]),
+    )
+    components = [
+        dal.HybridBSEquityData_New("equity", "EQ[A]", "USD", "A_EQ", 100.0, 0.0, 0.0),
+        dal.HybridGSRRateDataMulti_New("rate", ["B_LEVEL", "C_SLOPE"], curve, multi_vol),
+    ]
+    correlation = dal.HybridConstantCorrelationData_New(
+        "corr",
+        ["A_EQ", "B_LEVEL", "C_SLOPE"],
+        dal.DoubleMatrix_([[1.0, 0.0, 0.0], [0.0, 1.0, 0.3], [0.0, 0.3, 1.0]]),
+    )
+    model = dal.HybridModelData_New("multi_gsr", "USD", components, correlation)
+    product = dal.Product_New(
+        [expiry], ["pay PAYS FIX(EQ[A]) * FIX(IR[USD,DF,%s])" % str(horizon)]
+    )
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 512)
+    # EQ(t) is a discounted martingale, so the payoff reduces to the forward bond
+    # P(0, 3Y) / P(0, 1Y) on the flat curve.
+    expected = 100.0 * math.exp(-0.06)
+    assert result["PV"] == pytest.approx(expected, rel=5e-3)
+
+
+def test_gsr_slv_rate_component_prices_equity_and_rate():
+    today = dal.Date_(2026, 10, 2)
+    expiry = today.AddDays(365)
+    horizon = today.AddDays(1095)
+    dal.EvaluationDate_Set(today)
+    curve = dal.GSRCurveData_New(
+        "curve",
+        today,
+        "USD",
+        [today, today.AddDays(365), today.AddDays(730), horizon],
+        [0.0, -0.03, -0.06, -0.09],
+        [],
+        dal.DoubleMatrix_(0, 0),
+    )
+    multi_vol = dal.MultiFactorGSRVolData_New(
+        "multi_vol",
+        ["B_RATE"],
+        [today],
+        dal.DoubleMatrix_([[0.02]]),
+        [today],
+        dal.DoubleMatrix_([[1.0]]),
+        dal.DoubleMatrix_([[1.0]]),
+    )
+    gaussian = dal.MultiFactorGSRModelData_New("gaussian", curve, multi_vol)
+    leverage = dal.GSRLeverageData_New("leverage", [0.0], [0.0], dal.DoubleMatrix_([[1.0]]))
+    settings = dal.GSRSLVSettings_()
+    settings.kappa = 1.0
+    settings.vol_of_vol = 0.0
+    settings.variance_correlations = [0.3]
+    settings.max_step = 0.5
+    slv = dal.GSRSLVModelData_New("smile", gaussian, leverage, settings)
+    components = [
+        dal.HybridBSEquityData_New("equity", "EQ[A]", "USD", "A_EQ", 100.0, 0.0, 0.0),
+        dal.HybridGSRSLVRateData_New("rate", "C_VOL", "D_BRIDGE", slv),
+    ]
+    correlation = dal.HybridConstantCorrelationData_New(
+        "corr",
+        ["A_EQ", "B_RATE", "C_VOL", "D_BRIDGE"],
+        dal.DoubleMatrix_([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.3, 0.0], [0.0, 0.3, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]),
+    )
+    model = dal.HybridModelData_New("slv_hybrid", "USD", components, correlation)
+    product = dal.Product_New(
+        [expiry], ["pay PAYS FIX(EQ[A]) * FIX(IR[USD,DF,%s])" % str(horizon)]
+    )
+    result = dal.MonteCarlo_ValueWithSettings(product, model, 512)
+    # With zero vol-of-vol the SLV kernel reduces exactly to its Gaussian core.
+    expected = 100.0 * math.exp(-0.06)
+    assert result["PV"] == pytest.approx(expected, rel=1e-2)

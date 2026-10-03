@@ -38,8 +38,8 @@ namespace {
 void RunGSREuropeanCases() {
     using namespace Dal;
     const Date_ today(2026, 10, 2), expiry = today.AddDays(365);
-    const GSRBondOption_ bond{expiry, today.AddDays(1095), 0.94, OptionType_("CALL")};
-    GSRSwaption_ swaption;
+    const BondOption_ bond{expiry, today.AddDays(1095), 0.94, OptionType_("CALL")};
+    Swaption_ swaption;
     swaption.expiry_ = expiry;
     swaption.strike_ = 0.03;
     for (int year = 2; year <= 6; ++year) {
@@ -68,9 +68,9 @@ void RunGSREuropeanCases() {
             1, 3));
     }
     const auto target = Model(1, 1.0), initial = Model(1, 0.75);
-    Vector_<GSRCalibrationQuote_> quotes;
+    Vector_<CalibrationQuote_> quotes;
     for (int year = 1; year <= 3; ++year) {
-        const GSRBondOption_ option{today.AddDays(365 * year), today.AddDays(365 * (year + 1)), 0.97, OptionType_("CALL")};
+        const BondOption_ option{today.AddDays(365 * year), today.AddDays(365 * (year + 1)), 0.97, OptionType_("CALL")};
         quotes.push_back({"bond" + String::FromInt(year), option, PriceGSREuropeanOption(*target, option).price_, 1e-6});
     }
     const Vector_<GSRCalibrationParameter_> parameters{{0, 0, 0.0, 0.1}, {0, 1, 0.0, 0.1}, {0, 2, 0.0, 0.1}};

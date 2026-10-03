@@ -12,7 +12,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "model (input #1)";
         const Handle_<ModelData_> model = Excel::ToHandle<ModelData_>(_env, xl_model);
         argName = "option (input #2)";
-        const Handle_<StorableGSREuropeanOption_> option = Excel::ToHandle<StorableGSREuropeanOption_>(_env, xl_option);
+        const Handle_<StorableEuropeanRateOption_> option = Excel::ToHandle<StorableEuropeanRateOption_>(_env, xl_option);
         argName = "settings (input #3)";
         const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true);
         argName = 0;
