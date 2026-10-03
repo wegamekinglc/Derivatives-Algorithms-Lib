@@ -115,9 +115,11 @@ cmake --preset core-dev -DDAL_ENABLE_NATIVE_ARCH=ON
 
 Do not enable `DAL_ENABLE_NATIVE_ARCH` for artifacts that will run on machines
 with an unknown CPU baseline. Enabling it is worthwhile for local builds and
-benchmark runs: it turns on AVX2/FMA in the shared numeric kernels and in the
-Krylov solver's certified-dot kernels, which are compiled out of portable
-builds.
+benchmark runs: it allows instructions supported by the build CPU, including
+AVX2/FMA on capable x86 CPUs, in the library's numeric kernels. The shared
+reductions use SSE2 in portable x86-64 builds and a scalar fallback on other
+architectures. The Krylov solver's AVX2 certified-dot path requires AVX2 support
+in the build configuration.
 
 ### Common CMake options
 
@@ -134,7 +136,7 @@ builds.
 | `DAL_CPP_BUILD_BENCHMARKS`       | `OFF`        | Build benchmarks                                                                      |
 | `DAL_ENABLE_NATIVE_ARCH`         | `OFF`        | Tune Release code for the build machine                                               |
 | `DAL_ENABLE_SANITIZERS`          | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
-| `DAL_USE_EIGEN`                  | `ON`         | Use the Eigen submodule for the dense matrix product; falls back to the built-in kernel when `OFF` |
+| `DAL_USE_EIGEN`                  | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
 | `DAL_USE_XAD_AAD`                | `OFF`        | Use XAD                                                                               |
 | `DAL_USE_CODIPACK_AAD`           | `OFF`        | Use CoDiPack                                                                          |
 | `DAL_USE_ADEPT_AAD`              | `OFF`        | Use Adept                                                                             |

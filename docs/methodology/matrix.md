@@ -43,6 +43,30 @@ origin, and default-initialize new cells. Array dimensions must be nonnegative,
 their strides and extent must fit in `int`, and resize preserves the dimension
 count. A zero extent produces an empty array.
 
+## Dense Storage and Numeric Kernels
+
+`Matrix_` stores rows contiguously without padding. Row views are contiguous;
+column views are strided. Double-precision vector and row inner products use
+shared SIMD kernels, including mutable row views. Column views and other value
+types retain the generic iterator implementation.
+
+The SIMD implementation is compiled into the library. Its ISA selection and
+reduction order are shared by all callers, including callers compiled with
+different ISA flags. Portable x86-64 builds use SSE2; native builds can use AVX2
+when the build CPU supports it. Other architectures use the scalar fallback.
+No runtime CPU dispatch is performed.
+
+Parallel partial sums change the addition order. Cancellation can therefore
+change results beyond the low-order bits, even without fused multiply-add.
+Results need not be bit-identical to a serial reduction or to a library built
+for another ISA. Numerical checks use absolute error scaled by the sum of
+absolute terms for cancellation, and scaled residuals for ill-conditioned
+Cholesky systems; they do not impose a relative-error guarantee near zero.
+
+Dense matrix-matrix products use zero-copy Eigen views by default, with Eigen's
+internal parallelism disabled. `DAL_USE_EIGEN=OFF` selects the built-in SIMD
+kernel. Both paths preserve output aliasing and empty-shape behavior.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the

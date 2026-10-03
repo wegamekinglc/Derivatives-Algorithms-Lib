@@ -41,7 +41,7 @@ namespace Dal::Matrix {
             result->Resize(left.Rows(), right.Cols());
 #if defined(DAL_USE_EIGEN)
             // callers guarantee result aliases neither operand
-            Eigen::Map<EigenMatrix> c = EigenView(*result);
+            Eigen::Map<EigenMatrix_> c = EigenView(*result);
             c.noalias() = EigenView(left) * EigenView(right);
 #else
             // slab the right-hand rows so each slab stays in cache across the result rows;
@@ -125,10 +125,10 @@ namespace Dal::Matrix {
 
         for (int ii = 0; ii < n; ++ii) {
             for (int jOuter = ii; jOuter < n; jOuter += CACHE_SIZE) {
-                auto src = a.Row(ii).begin();
                 const int jStop = min(n, jOuter + CACHE_SIZE);        // last j in this segment
 
-                for (int kOuter = 0; kOuter < nf; kOuter += CACHE_SIZE, src += CACHE_SIZE) {
+                for (int kOuter = 0; kOuter < nf; kOuter += CACHE_SIZE) {
+                    const auto src = a.Row(ii).begin() + kOuter;
                     auto dst = h->Row(ii).begin() + jOuter;
                     const int nfHere = min(nf - kOuter, CACHE_SIZE);
 

@@ -2,6 +2,7 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
 #include <dal-public/src/storage.hpp>
+#include <dal/utilities/numerics.hpp>
 
 int main() {
     Dal::InitGlobalData(1);
@@ -11,6 +12,8 @@ int main() {
 
     const Dal::Vector_<> x{0.0, 1.0};
     const Dal::Vector_<> y{1.0, 3.0};
+    if (Dal::Accumulate(y) != 4.0 || Dal::InnerProduct(x, y) != 3.0)
+        return 5;
     const auto interp = Dal::Interp1NewLinear("installed-consumer", x, y);
     if (interp.IsEmpty() || Dal::Interp1Get(interp, {0.5})[0] != 2.0)
         return 2;

@@ -2,22 +2,17 @@
 // Created by dal-implementer on 2026-7-4.
 //
 // Production Dal::Matrix kernel micro-benchmark.
-// The previous incarnation of this target benchmarked a hand-rolled local Matrix_
-// class for self-comparison of five matmul variants -- it did NOT exercise any
-// Dal::Matrix::* kernel the calibration solver uses (G8 phantom). This version
-// times Dal::Matrix::Multiply, AddJSquaredToUpper, and WeightedInnerProduct at
-// 200x200 and 500x500 (matching cholesky_perf / krylov_perf sizes).
-// WeightedInnerProduct and AddJSquaredToUpper currently have no production
-// callers; Multiply feeds Underdetermined::Find and the curve-Jacobian assembly.
 
 #include <memory>
+
 #include <dal/platform/platform.hpp>
+
+#include <dal/benchmarks/bench.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <dal/benchmarks/bench.hpp>
 
 using namespace Dal;
 
@@ -37,10 +32,11 @@ namespace {
 } // namespace
 
 int main() {
-    constexpr int kRepeats = 10;
+    constexpr int REPEATS = 10;
     Bench::PrintHeader();
 
-    for (const int n : {200, 500}) {
+    for (const int n : {5, 10, 16, 200, 500}) {
+        const int innerLoops = n <= 16 ? 1000 : 1;
         Matrix_<> a = RandomMatrix(n, n, 1000);
         Matrix_<> b = RandomMatrix(n, n, 2000);
         Matrix_<> c(n, n, 0.0);
@@ -50,8 +46,9 @@ int main() {
 
         {
             double sink = 0.0;
-            auto r = Bench::Run("Dal::Matrix::Multiply (" + std::to_string(n) + "x" + std::to_string(n) + ")",
-                                [&]() { Dal::Matrix::Multiply(a, b, &c); }, 1, kRepeats);
+            auto r = Bench::Run(
+                "Dal::Matrix::Multiply (" + std::to_string(n) + "x" + std::to_string(n) + ")", [&]() { Dal::Matrix::Multiply(a, b, &c); }, 1, REPEATS,
+                innerLoops);
             sink += c(0, 0);
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
@@ -60,14 +57,15 @@ int main() {
         {
             double sink = 0.0;
             Matrix_<> h(n, n, 0.0);
-            auto r = Bench::Run("Dal::Matrix::AddJSquaredToUpper (" + std::to_string(n) + "x" + std::to_string(n) + ")",
-                                [&]() {
-                                    for (int i = 0; i < n; ++i)
-                                        for (int j = 0; j < n; ++j)
-                                            h(i, j) = 0.0;
-                                    Dal::Matrix::AddJSquaredToUpper(a, &h);
-                                },
-                                1, kRepeats);
+            auto r = Bench::Run(
+                "Dal::Matrix::AddJSquaredToUpper (" + std::to_string(n) + "x" + std::to_string(n) + ")",
+                [&]() {
+                    for (int i = 0; i < n; ++i)
+                        for (int j = 0; j < n; ++j)
+                            h(i, j) = 0.0;
+                    Dal::Matrix::AddJSquaredToUpper(a, &h);
+                },
+                1, REPEATS, innerLoops);
             sink += h(0, 0);
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
@@ -75,8 +73,9 @@ int main() {
 
         {
             double sink = 0.0;
-            auto r = Bench::Run("Dal::Matrix::WeightedInnerProduct (" + std::to_string(n) + ")",
-                                [&]() { sink += Dal::Matrix::WeightedInnerProduct(v, a, v); }, 2, kRepeats);
+            auto r = Bench::Run(
+                "Dal::Matrix::WeightedInnerProduct (" + std::to_string(n) + ")", [&]() { sink += Dal::Matrix::WeightedInnerProduct(v, a, v); }, 2,
+                REPEATS, innerLoops);
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
         }
@@ -85,7 +84,8 @@ int main() {
             double sink = 0.0;
             Vector_<> mv(n);
             auto r = Bench::Run(
-                "Dal::Matrix::Multiply vector x matrix (" + std::to_string(n) + ")", [&]() { Dal::Matrix::Multiply(v, a, &mv); }, 5, kRepeats);
+                "Dal::Matrix::Multiply vector x matrix (" + std::to_string(n) + ")", [&]() { Dal::Matrix::Multiply(v, a, &mv); }, 5, REPEATS,
+                innerLoops);
             sink += mv[0];
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
@@ -93,11 +93,29 @@ int main() {
 
         {
             double sink = 0.0;
-            auto r = Bench::Run(
-                "Dal::InnerProduct vector x vector (" + std::to_string(n) + ")", [&]() { sink += InnerProduct(v, v); }, 50, kRepeats);
+            auto r =
+                Bench::Run("Dal::InnerProduct vector x vector (" + std::to_string(n) + ")", [&]() { sink += InnerProduct(v, v); }, 2, REPEATS, 1000);
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
         }
+
+        {
+            double sink = 0.0;
+            auto r = Bench::Run(
+                "Dal::InnerProduct mutable row x vector (" + std::to_string(n) + ")", [&]() { sink += InnerProduct(a.Row(0), v); }, 2, REPEATS, 1000);
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
+    }
+
+    for (const int cols : {17, 33, 200}) {
+        Matrix_<> a = RandomMatrix(16, cols, 3000);
+        Matrix_<> b = RandomMatrix(cols, 10, 4000);
+        Matrix_<> c(16, 10, 0.0);
+        auto r =
+            Bench::Run("Dal::Matrix::Multiply (16x" + std::to_string(cols) + "x10)", [&]() { Dal::Matrix::Multiply(a, b, &c); }, 1, REPEATS, 100);
+        Bench::Print(r);
+        Bench::DoNotOptimize(c.Data());
     }
 
     return 0;

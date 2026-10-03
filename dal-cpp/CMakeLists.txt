@@ -232,7 +232,8 @@ if(MSVC)
 endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dal
-        FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
+        FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+        PATTERN "eigenbridge.hpp" EXCLUDE)
 
 install(TARGETS dal_cpp
         EXPORT DALCppTargets
@@ -298,6 +299,17 @@ if(DAL_CPP_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
 
     add_executable(dal_cpp_tests ${TEST_FILES})
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i.86)$")
+        # Consumers with different ISA flags must share the library's reduction order.
+        target_sources(dal_cpp_tests PRIVATE
+            "${PROJECT_SOURCE_DIR}/test-support/simdkernels_sse2.cpp"
+            "${PROJECT_SOURCE_DIR}/test-support/simdkernels_avx2.cpp")
+        set_source_files_properties("${PROJECT_SOURCE_DIR}/test-support/simdkernels_sse2.cpp"
+            PROPERTIES COMPILE_OPTIONS "-msse2;-mno-avx;-mno-avx2;-mno-fma")
+        set_source_files_properties("${PROJECT_SOURCE_DIR}/test-support/simdkernels_avx2.cpp"
+            PROPERTIES COMPILE_OPTIONS "-mavx2")
+        target_compile_definitions(dal_cpp_tests PRIVATE DAL_TEST_MIXED_SIMD)
+    endif()
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
     target_include_directories(dal_cpp_tests PRIVATE "${PROJECT_SOURCE_DIR}/test-support")
     dal_apply_platform_options(dal_cpp_tests)

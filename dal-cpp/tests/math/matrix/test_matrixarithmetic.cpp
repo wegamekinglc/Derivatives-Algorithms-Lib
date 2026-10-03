@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -32,32 +33,32 @@ namespace {
         b(2, 1) = 2.0;
         return b;
     }
-    void Expect2x2(const Matrix_<>& m, double m00, double m01, double m10, double m11) {
+    void Assert2x2(const Matrix_<>& m, double m00, double m01, double m10, double m11) {
         ASSERT_EQ(m.Rows(), 2);
         ASSERT_EQ(m.Cols(), 2);
-        EXPECT_DOUBLE_EQ(m(0, 0), m00);
-        EXPECT_DOUBLE_EQ(m(0, 1), m01);
-        EXPECT_DOUBLE_EQ(m(1, 0), m10);
-        EXPECT_DOUBLE_EQ(m(1, 1), m11);
+        ASSERT_DOUBLE_EQ(m(0, 0), m00);
+        ASSERT_DOUBLE_EQ(m(0, 1), m01);
+        ASSERT_DOUBLE_EQ(m(1, 0), m10);
+        ASSERT_DOUBLE_EQ(m(1, 1), m11);
     }
 } // namespace
 
 TEST(MatrixTest, TestMultiplyMatrixMatrix) {
     Matrix_<> c;
     Matrix::Multiply(DemoA(), DemoB(), &c);
-    Expect2x2(c, 4.0, 2.0, 1.0, 7.0);
+    Assert2x2(c, 4.0, 2.0, 1.0, 7.0);
 }
 
 TEST(MatrixTest, TestMultiplyMatrixMatrixAliasedLeft) {
     Matrix_<> a = DemoA();
     Matrix::Multiply(a, DemoB(), &a);
-    Expect2x2(a, 4.0, 2.0, 1.0, 7.0);
+    Assert2x2(a, 4.0, 2.0, 1.0, 7.0);
 }
 
 TEST(MatrixTest, TestMultiplyMatrixMatrixAliasedRight) {
     Matrix_<> b = DemoB();
     Matrix::Multiply(DemoA(), b, &b);
-    Expect2x2(b, 4.0, 2.0, 1.0, 7.0);
+    Assert2x2(b, 4.0, 2.0, 1.0, 7.0);
 }
 
 TEST(MatrixTest, TestMultiplyMatrixVector) {
@@ -68,8 +69,8 @@ TEST(MatrixTest, TestMultiplyMatrixVector) {
     Vector_<> y;
     Matrix::Multiply(DemoA(), x, &y);
     ASSERT_EQ(y.size(), 2U);
-    EXPECT_DOUBLE_EQ(y[0], 5.0);
-    EXPECT_DOUBLE_EQ(y[1], -1.0);
+    ASSERT_DOUBLE_EQ(y[0], 5.0);
+    ASSERT_DOUBLE_EQ(y[1], -1.0);
 }
 
 TEST(MatrixTest, TestMultiplyVectorMatrix) {
@@ -80,8 +81,8 @@ TEST(MatrixTest, TestMultiplyVectorMatrix) {
     Vector_<> y;
     Matrix::Multiply(v, DemoB(), &y);
     ASSERT_EQ(y.size(), 2U);
-    EXPECT_DOUBLE_EQ(y[0], 4.0);
-    EXPECT_DOUBLE_EQ(y[1], 2.0);
+    ASSERT_DOUBLE_EQ(y[0], 4.0);
+    ASSERT_DOUBLE_EQ(y[1], 2.0);
 }
 
 TEST(MatrixTest, TestMultiplyVectorMatrixAliased) {
@@ -91,8 +92,8 @@ TEST(MatrixTest, TestMultiplyVectorMatrixAliased) {
     v[2] = 0.0;
     Matrix::Multiply(v, DemoB(), &v);
     ASSERT_EQ(v.size(), 2U);
-    EXPECT_DOUBLE_EQ(v[0], 4.0);
-    EXPECT_DOUBLE_EQ(v[1], 2.0);
+    ASSERT_DOUBLE_EQ(v[0], 4.0);
+    ASSERT_DOUBLE_EQ(v[1], 2.0);
 }
 
 TEST(MatrixTest, TestMultiplySizeMismatch) {
@@ -114,7 +115,7 @@ TEST(MatrixTest, TestWeightedInnerProduct) {
     Vector_<> right(2);
     right[0] = 3.0;
     right[1] = 4.0;
-    EXPECT_DOUBLE_EQ(Matrix::WeightedInnerProduct(left, w, right), 20.0);
+    ASSERT_DOUBLE_EQ(Matrix::WeightedInnerProduct(left, w, right), 20.0);
 }
 
 TEST(MatrixTest, TestAddJSquaredToUpper) {
@@ -131,7 +132,30 @@ TEST(MatrixTest, TestAddJSquaredToUpper) {
     double expected[3][3] = {{0.0, -1.0, 0.0}, {-1.0, 0.0, 0.0}, {-1.0, -1.0, 1.0}};
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
-            EXPECT_DOUBLE_EQ(h(i, j), expected[i][j]) << "i=" << i << " j=" << j;
+            ASSERT_DOUBLE_EQ(h(i, j), expected[i][j]) << "i=" << i << " j=" << j;
+}
+
+TEST(MatrixTest, TestAddJSquaredToUpperPartialBlocks) {
+    for (const int rows : {1, 3, 17}) {
+        for (const int cols : {0, 1, 15, 16, 17, 31, 32, 33}) {
+            SCOPED_TRACE(::testing::Message() << "rows=" << rows << " cols=" << cols);
+            Matrix_<> a(rows, cols);
+            for (int row = 0; row < rows; ++row)
+                for (int col = 0; col < cols; ++col)
+                    a(row, col) = (row + 1) * (col % 5 - 2) * 0.25;
+            Matrix_<> h(rows, rows, -7.0);
+            Matrix::AddJSquaredToUpper(a, &h);
+            for (int row = 0; row < rows; ++row) {
+                for (int col = 0; col < rows; ++col) {
+                    double expected = -7.0;
+                    if (col >= row)
+                        for (int k = 0; k < cols; ++k)
+                            expected += a(row, k) * a(col, k);
+                    ASSERT_DOUBLE_EQ(h(row, col), expected);
+                }
+            }
+        }
+    }
 }
 
 #ifdef NDEBUG

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/decompositions.hpp>
 #include <dal/math/matrix/decompositionsmisc.hpp>
@@ -41,6 +43,42 @@ TEST(MatrixTest, TestCholeskySolveResizesOutput) {
         decomposition->Solve(b, &x);
         ASSERT_EQ(x.size(), 1);
         ASSERT_NEAR(x[0], 2.0, 1e-10);
+    }
+}
+
+TEST(MatrixTest, TestCholeskyNearSingularResidualAcrossScales) {
+    constexpr int N = 8;
+    for (const double scale : {1e-6, 1.0, 1e6}) {
+        SCOPED_TRACE(scale);
+        SquareMatrix_<> a(N);
+        Vector_<> expected(N), b(N, 0.0);
+        // A = scale * (u*u^T + 1e-6*I) has condition number about 8e6.
+        for (int row = 0; row < N; ++row) {
+            expected[row] = 0.25 * (row + 1);
+            for (int col = 0; col < N; ++col)
+                a(row, col) = scale * (((row + col) % 2 == 0 ? 1.0 : -1.0) + (row == col ? 1e-6 : 0.0));
+        }
+        for (int row = 0; row < N; ++row) {
+            long double value = 0.0;
+            for (int col = 0; col < N; ++col)
+                value += static_cast<long double>(a(row, col)) * expected[col];
+            b[row] = static_cast<double>(value);
+        }
+        auto decomposition = CholeskyDecomposition(a);
+        Vector_<> x;
+        decomposition->Solve(b, &x);
+        ASSERT_EQ(x.size(), N);
+        for (int row = 0; row < N; ++row) {
+            long double residual = -b[row];
+            long double norm = std::abs(b[row]);
+            for (int col = 0; col < N; ++col) {
+                const long double term = static_cast<long double>(a(row, col)) * x[col];
+                residual += term;
+                norm += std::abs(term);
+            }
+            ASSERT_TRUE(std::isfinite(x[row]));
+            ASSERT_NEAR(static_cast<double>(residual / norm), 0.0, 1e-10);
+        }
     }
 }
 
