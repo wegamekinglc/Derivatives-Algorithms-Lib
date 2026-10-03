@@ -69,6 +69,12 @@ else()
     message(STATUS "USE AAD framework: AADET (native)")
 endif()
 
+if(DAL_USE_EIGEN)
+    message(STATUS "USE dense matrix product: Eigen (externals/eigen)")
+else()
+    message(STATUS "USE dense matrix product: built-in SIMD kernel")
+endif()
+
 # ---------------------------------------------------------------------------
 # External dependencies
 # ---------------------------------------------------------------------------
