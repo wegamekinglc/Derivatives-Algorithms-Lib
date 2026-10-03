@@ -23,6 +23,7 @@
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/script/lsmc.hpp>
+#include <dal/script/regressionqr.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/compiler.hpp>
 #include <dal/script/visitor/fuzzy.hpp>
@@ -31,11 +32,11 @@
 
 namespace Dal::Script {
     namespace {
-        //  N3: sample-size guard needs ten paths per basis function
+        // Sample-size guard needs ten paths per basis function.
         constexpr size_t PATHS_PER_BASIS_FUNCTION = 10;
-        //  N3: sigma floor keeps the z-normalization finite on (legal) constant regressors
+        // Sigma floor keeps z-normalization finite on constant regressors.
         constexpr double SIGMA_FLOOR_SCALE = 1e-12;
-        //  N3: explicit relative ridge applied before CholeskySolve
+        // Relative ridge applied before CholeskySolve.
         constexpr double RIDGE_LAMBDA = 1e-12;
         //  Bound both the Gram diagonal spread and the scaled Cholesky pivots.
         constexpr double CONDITION_LIMIT = 1e12;
@@ -459,24 +460,15 @@ namespace Dal::Script {
             return minDiag <= 0.0 || maxDiag / minDiag > CONDITION_LIMIT ? "GramScale" : nullptr;
         }
 
-        struct QrWorkspace_ {
-            size_t nRows_ = 0;
-            size_t nBasis_ = 0;
-            std::array<Vector_<>, 9> columns_;
-            std::array<double, 9> scales_{};
-            std::array<size_t, 9> permutation_{};
-            std::array<std::array<double, 9>, 9> upper_{};
-            std::array<double, 9> projection_{};
-            Vector_<> response_;
-        };
+        using QrWorkspace_ = RegressionQR::Workspace_<9>;
 
         QrWorkspace_ MakeQrWorkspace(const RegressionRows_& rows, double mean, double sigma, int degree) {
             QrWorkspace_ ws;
-            ws.nBasis_ = static_cast<size_t>(degree + 1);
-            ws.nRows_ = static_cast<size_t>(std::count_if(rows.included_, rows.included_ + rows.n_, [](char value) { return value != 0; }));
-            ws.response_.Resize(ws.nRows_);
-            for (size_t j = 0; j < ws.nBasis_; ++j) {
-                ws.columns_[j].Resize(ws.nRows_);
+            ws.basis_ = static_cast<size_t>(degree + 1);
+            ws.rows_ = static_cast<size_t>(std::count_if(rows.included_, rows.included_ + rows.n_, [](char value) { return value != 0; }));
+            ws.targets_.Resize(ws.rows_);
+            for (size_t j = 0; j < ws.basis_; ++j) {
+                ws.columns_[j].Resize(ws.rows_);
                 ws.permutation_[j] = j;
             }
             size_t row = 0;
@@ -484,9 +476,9 @@ namespace Dal::Script {
                 if (!rows.included_[i])
                     continue;
                 const double z = (rows.x_[i] - mean) / sigma;
-                ws.response_[row] = rows.targets_[i];
+                ws.targets_[row] = rows.targets_[i];
                 double power = 1.0;
-                for (size_t j = 0; j < ws.nBasis_; ++j) {
+                for (size_t j = 0; j < ws.basis_; ++j) {
                     ws.columns_[j][row] = power;
                     power *= z;
                 }
@@ -495,93 +487,16 @@ namespace Dal::Script {
             return ws;
         }
 
-        size_t NormalizeQrColumns(QrWorkspace_* ws) {
-            for (size_t j = 0; j < ws->nBasis_; ++j) {
-                double norm = 0.0;
-                for (double value : ws->columns_[j])
-                    norm = std::hypot(norm, value);
-                if (!std::isfinite(norm) || norm == 0.0)
-                    return j;
-                ws->scales_[j] = norm;
-                for (double& value : ws->columns_[j])
-                    value /= norm;
-            }
-            return ws->nBasis_;
-        }
-
-        std::pair<size_t, double> BestQrPivot(const QrWorkspace_& ws, size_t step) {
-            size_t pivot = step;
-            double bestNorm = 0.0;
-            for (size_t j = step; j < ws.nBasis_; ++j) {
-                double normSq = 0.0;
-                for (double value : ws.columns_[j])
-                    normSq += value * value;
-                if (normSq > bestNorm) {
-                    bestNorm = normSq;
-                    pivot = j;
-                }
-            }
-            return {pivot, bestNorm};
-        }
-
-        void PivotQrColumns(QrWorkspace_* ws, size_t step, size_t pivot) {
-            if (pivot == step)
-                return;
-            std::swap(ws->columns_[step], ws->columns_[pivot]);
-            std::swap(ws->scales_[step], ws->scales_[pivot]);
-            std::swap(ws->permutation_[step], ws->permutation_[pivot]);
-            for (size_t i = 0; i < step; ++i)
-                std::swap(ws->upper_[i][step], ws->upper_[i][pivot]);
-        }
-
-        void OrthogonalizeQrStep(QrWorkspace_* ws, size_t step, double normSq) {
-            ws->upper_[step][step] = std::sqrt(normSq);
-            for (double& value : ws->columns_[step])
-                value /= ws->upper_[step][step];
-            for (size_t i = 0; i < ws->nRows_; ++i)
-                ws->projection_[step] += ws->columns_[step][i] * ws->response_[i];
-            for (size_t j = step + 1; j < ws->nBasis_; ++j)
-                for (int pass = 0; pass < 2; ++pass) {
-                    double dot = 0.0;
-                    for (size_t i = 0; i < ws->nRows_; ++i)
-                        dot += ws->columns_[step][i] * ws->columns_[j][i];
-                    ws->upper_[step][j] += dot;
-                    for (size_t i = 0; i < ws->nRows_; ++i)
-                        ws->columns_[j][i] -= dot * ws->columns_[step][i];
-                }
-        }
-
-        void RecoverQrCoefficients(const QrWorkspace_& ws, Vector_<>* coefficients) {
-            std::array<double, 9> pivoted{};
-            for (size_t k = ws.nBasis_; k-- > 0;) {
-                double residual = ws.projection_[k];
-                for (size_t j = k + 1; j < ws.nBasis_; ++j)
-                    residual -= ws.upper_[k][j] * pivoted[j];
-                pivoted[k] = residual / ws.upper_[k][k];
-            }
-            coefficients->Resize(ws.nBasis_);
-            for (size_t k = 0; k < ws.nBasis_; ++k)
-                (*coefficients)[ws.permutation_[k]] = pivoted[k] / ws.scales_[k];
-        }
-
         //  Column-pivoted, twice-reorthogonalized QR on actual design rows runs
         //  only after the O(Md) moment solve rejects a fit.
         size_t PivotedQrFit(const RegressionRows_& rows, double mean, double sigma, int degree, Vector_<>* coefficients) {
             auto ws = MakeQrWorkspace(rows, mean, sigma, degree);
-            const size_t normalized = NormalizeQrColumns(&ws);
-            if (normalized != ws.nBasis_)
+            const size_t normalized = RegressionQR::Normalize(&ws, false);
+            if (normalized != ws.basis_)
                 return normalized;
-            size_t rank = 0;
-            for (size_t step = 0; step < ws.nBasis_; ++step) {
-                const auto [pivot, normSq] = BestQrPivot(ws, step);
-                if (!std::isfinite(normSq) || normSq < QR_RANK_TOLERANCE * QR_RANK_TOLERANCE)
-                    break;
-                PivotQrColumns(&ws, step, pivot);
-                OrthogonalizeQrStep(&ws, step, normSq);
-                ++rank;
-            }
-            if (rank == ws.nBasis_)
-                RecoverQrCoefficients(ws, coefficients);
+            const size_t rank = RegressionQR::Factorize(&ws, QR_RANK_TOLERANCE);
+            if (rank == ws.basis_)
+                *coefficients = RegressionQR::Recover(ws, rank);
             return rank;
         }
 
@@ -695,7 +610,7 @@ namespace Dal::Script {
         struct ExerciseDayPlan_ {
             size_t eventId_;
             bool conditional_;
-            double eps_; //  S17: the node's :eps option resolved against the simulation smoothing width
+            double eps_; // The node's :eps option resolved against the simulation smoothing width.
         };
 
         bool EventHasPays(const Event_& event) {
@@ -869,7 +784,7 @@ namespace Dal::Script {
             }
         }
 
-        //  S4: exercise replaces same-day and later payments only, so the payoff
+        // Exercise replaces same-day and later payments only, so the payoff
         //  accumulated strictly before the exercise event survives (both engines)
         void SnapshotPreExercise(const LsmcContext_& ctx, const Vector_<>& variables, size_t event, ThreadState_* state) {
             const size_t slot = ctx.scan_.eventToExercise_[event];
@@ -1051,7 +966,7 @@ namespace Dal::Script {
         };
 
         //  One fused, branch-free sweep per event and path block:
-        //   1. S3/S4: exercise on strictly-better continuation estimates of the later day
+        //   1. Exercise on strictly-better continuation estimates of the later day
         //      replaces the future (W := h)
         //   2. holding value in date-i units, H = p + D * W, W := H in place
         //   3. Longstaff-Schwartz regression set of this day: the in-the-money
@@ -1349,7 +1264,7 @@ namespace Dal::Script {
             return {std::move(eventNumeraire), std::move(regressions)};
         }
 
-        //  First exercise wins (S3/S4): the earliest true decision replaces the payoff
+        // First exercise wins: the earliest true decision replaces the payoff.
         double PathPayoff(const LsmcContext_& ctx, const ThreadState_& state, Vector_<size_t>* exerciseCounts) {
             if (state.exercisedDay_ != NO_SLOT) {
                 //  The event loop already selected the first exercise. Reusing it
@@ -1418,7 +1333,7 @@ namespace Dal::Script {
             }
             tasks.Complete();
 
-            //  N9: reduce the batch blocks in batch-index order
+            // Fixed reduction order keeps results independent of worker scheduling.
             ReplayOutcome_ reduction{0.0, 0.0, Vector_<size_t>(ctx.scan_.days_.size(), 0)};
             for (const auto& outcome : outcomes) {
                 reduction.sum_ += outcome.sum_;
@@ -1496,12 +1411,12 @@ namespace Dal::Script {
             }
         }
 
-        //  S9 recursive blend, live on the worker's tape: walks the recorded per-path rows
+        // Recursive blend, live on the worker's tape: walks the recorded per-path rows
         //  backward, d_k = CSpr(h_k - C_k(z_k), eps) * CSpr(h_k, 0, eps) * condition degree
         //  — the fuzzy-AND of h_k > C_k with the h_k > 0 exercise gate (the one-sided ramp
         //  puts degree 0 on the h == 0 atom, matching the hard mode) — blending each fuzzy
         //  decision into the continuation; the explicit last step discounts to the
-        //  evaluation date through the first event's numeraire (N5)
+        //  evaluation date through the first event's numeraire
         template <class T_>
         T_ FuzzyPathValue(const LsmcPlan_& scan,
                           const Vector_<T_>& pays,
