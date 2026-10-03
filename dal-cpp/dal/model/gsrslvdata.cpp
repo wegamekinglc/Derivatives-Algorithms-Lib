@@ -95,6 +95,17 @@ namespace Dal {
         return times;
     }
 
+    Vector_<String_> GSRSLVModelData_::RiskLabels() const {
+        auto labels = gaussian_->curve_->RiskLabels();
+        labels.Append(gaussian_->vol_->RiskLabels());
+        labels.push_back("kappa");
+        labels.push_back("volOfVol");
+        for (int row = 0; row < leverage_->values_.Rows(); ++row)
+            for (int col = 0; col < leverage_->values_.Cols(); ++col)
+                labels.push_back("leverage:" + String::FromInt(row) + ":" + String::FromInt(col));
+        return labels;
+    }
+
     void GSRLeverageData_::Write(Archive::Store_& dst) const { GSRLeverageData_v1::XWrite(dst, name_, rateShifts_, times_, values_); }
     void GSRSLVModelData_::Write(Archive::Store_& dst) const {
         GSRSLVModelData_v1::XWrite(dst, name_, gaussian_, leverage_, kappa_, volOfVol_, varianceCorrelations_, maxStep_);

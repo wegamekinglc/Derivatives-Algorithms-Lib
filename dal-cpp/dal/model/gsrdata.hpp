@@ -72,6 +72,17 @@ namespace Dal {
             ValidateNodes();
             ValidateProjectionRows();
         }
+        // Labels of the logDF risk parameters, mirroring the kernel registration order; the
+        // t=0 anchors are fixed and carry no risk.
+        [[nodiscard]] Vector_<String_> RiskLabels() const {
+            Vector_<String_> labels;
+            for (size_t i = 1; i < nodeDates_.size(); ++i)
+                labels.push_back("logdf:OIS:" + Date::ToString(nodeDates_[i]));
+            for (size_t row = 0; row < projectionTenors_.size(); ++row)
+                for (size_t i = 1; i < nodeDates_.size(); ++i)
+                    labels.push_back("logdf:" + projectionTenors_[row] + ":" + Date::ToString(nodeDates_[i]));
+            return labels;
+        }
         void Write(Archive::Store_& dst) const override;
 
     private:
@@ -121,6 +132,16 @@ namespace Dal {
             ValidateSizes();
             ValidateGKnots();
             ValidateHKnots();
+        }
+        // Labels of the legacy one-factor g/H risk parameters; the unnamed factor carries an
+        // empty segment, exactly as the kernel registers it.
+        [[nodiscard]] Vector_<String_> RiskLabels() const {
+            Vector_<String_> labels;
+            for (const auto& date : gKnotDates_)
+                labels.push_back("g:" + Date::ToString(date));
+            for (const auto& date : hKnotDates_)
+                labels.push_back("H:" + Date::ToString(date));
+            return labels;
         }
         void Write(Archive::Store_& dst) const override;
 
