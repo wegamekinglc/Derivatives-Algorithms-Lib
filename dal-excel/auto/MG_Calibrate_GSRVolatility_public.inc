@@ -40,7 +40,7 @@ struct XlRegister_Calibrate_GSRVolatility_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Initial MultiFactorGSRModelData");
-        argHelp.push_back("GSRCalibrationQuote handles in residual order");
+        argHelp.push_back("CalibrationQuote handles in residual order");
         argHelp.push_back("Four columns: factor index, knot index, lower bound, upper bound");
         argHelp.push_back("Key/value rows: maxIterations, quadratureOrder, gradientTolerance, stepTolerance, finiteDifferenceStep, parameterScale, priorWeight, smoothingWeight, numericalErrorFraction");
         Excel::Register("Base", "xl_Calibrate_GSRVolatility", "CALIBRATE.GSRVOLATILITY", "Fit selected g buckets with curves, H and correlations fixed", "QQQQQ", "initial,quotes,parameters,[settings]", argHelp, false);

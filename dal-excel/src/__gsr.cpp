@@ -85,9 +85,9 @@ public Swaption_New
 expiry is date
     Exercise date
 fixed is handle[]
-    GSRFixedCoupon handles
+    FixedCoupon handles
 floating is handle[]
-    GSRFloatingCoupon handles
+    FloatingCoupon handles
 strike is number
     Fixed rate strike
 type is string
@@ -137,7 +137,7 @@ public Calibrate_GSRVolatility
 initial is handle ModelData
     Initial MultiFactorGSRModelData
 quotes is handle[]
-    GSRCalibrationQuote handles in residual order
+    CalibrationQuote handles in residual order
 parameters is number[][]
     Four columns: factor index, knot index, lower bound, upper bound
 &optional

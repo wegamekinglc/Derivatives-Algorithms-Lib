@@ -83,6 +83,11 @@ settings.components_[0] = Dal::Handle_<Dal::HybridComponentData_>(
     new Dal::HybridGSRRateData_("usd_rate", {"W_LEVEL", "W_SLOPE"}, curve, multiVol));
 ```
 
+Plain GSR also consumes one independent internal Gaussian per step for the
+bank-account integration bridge. This driver is outside the named correlation
+matrix and cannot have cross-component correlation links. Gaussian rate and
+asset endpoint increments use the supplied named correlations.
+
 The [GSR SLV model](gaussian-short-rate.md) enters the same slot as one
 component: `HybridGSRSLVRateData_(name, volFactor, bridgeFactor, slvModelData)`
 contributes one named factor per Gaussian rate driver, a variance driver, and an
@@ -100,11 +105,11 @@ correlation from those blocks plus explicit cross-component links (unlisted
 cross entries are independent). This removes the mismatch-by-handshake error
 class; a directly supplied correlation block is still validated against the
 kernel at `Init`.
-The SLV component also inserts its rate and leverage breakpoints into the shared
-timeline; breakpoints must fall on whole ACT/365 days (the timeline subdivides
-in whole days), and the component subdivides by its `maxStep` because its Euler
-scheme evaluates piecewise kernels at step starts; the plain GSR kernel
-integrates interior breakpoints exactly inside each step and needs no knots.
+Both rate components insert their rate breakpoints into the shared timeline;
+SLV also inserts leverage breakpoints. Breakpoints must fall on whole ACT/365
+days. Plain GSR integrates the bank account exactly on each constant-parameter
+interval, including its independent bridge noise. SLV subdivides by its
+`maxStep` because its Euler scheme evaluates piecewise kernels at step starts.
 
 The model data, local-vol surface, and each typed component are serializable. `CreateModel` also
 accepts the restored archive. Components are ordered by their stable names
@@ -120,14 +125,16 @@ performed by the current provider.
 `Allocate` resolves requested observation names into integer component and
 output slots. A local-vol component inserts internal time steps up to its
 configured `maxStep`; rate components with an evaluation date use whole ACT/365
-days on this internal grid. `Init`
+days on this internal grid and reject `maxStep` below one day. `Init`
 samples initial logDF once per simulation time and precomputes each step's
 initial integrated carry. Deterministic-rate paths use
 `N(t)=exp(-logDF(t))`; stochastic rate paths use their realized numeraire and
 conditional rate observations. The path loop does no name parsing or matrix factorization.
 `SimDim()` is the number of internal positive time
-steps multiplied by the number of registered factors. Independent Gaussian
-inputs are time-major, with factors in sorted label order within each step.
+steps multiplied by `NumFactors()`, which includes internal bridge drivers.
+Independent Gaussian inputs are time-major, with registered factors in sorted
+label order, followed by internal drivers within each step. `FactorNames()`
+lists only the registered factors used by the correlation matrix.
 The output `Sample_::observations_` follows the requested name order;
 `Sample_::spot_` remains the first equity's compatibility field.
 The `script_mc_perf --correlated-bs` benchmark compares the constant-rate and

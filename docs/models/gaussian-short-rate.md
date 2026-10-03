@@ -156,7 +156,9 @@ Payment lag changes the forward under the payment measure; the pricer includes
 this adjustment, including future fixing dates in a swaption's floating leg.
 A swaption is the positive part of floating PV minus strike times fixed annuity,
 with the sign reversed for receivers. Under the expiry-forward measure this is
-a sum of exponentials of normal variables. The pricer finds all exercise intervals
+a sum of exponentials of normal variables. The pricer projects cashflow loadings
+onto their independent Gaussian directions (relative rank tolerance `1e-12`),
+finds all exercise intervals
 and integrates one normal direction analytically. Gaussian quadrature handles the
 remaining directions, supporting at most three effective directions for swaptions.
 Analytic bond options and caplets have no factor-count restriction.
@@ -214,9 +216,9 @@ assert result.numerical_validation_passed
 price = dal.GSR_EuropeanOptionPrice(result.model, option).price
 ```
 
-Excel builds coupon/option handles with `GSRFIXEDCOUPON.NEW`,
-`GSRFLOATINGCOUPON.NEW`, `GSRBONDOPTION.NEW`, `GSRCAPLET.NEW` and `GSRSWAPTION.NEW`.
-Use `GSRCALIBRATIONQUOTE.NEW`, `CALIBRATE.GSRVOLATILITY`, and
+Excel builds coupon/option handles with `FIXEDCOUPON.NEW`,
+`FLOATINGCOUPON.NEW`, `BONDOPTION.NEW`, `CAPLET.NEW` and `SWAPTION.NEW`.
+Use `CALIBRATIONQUOTE.NEW`, `CALIBRATE.GSRVOLATILITY`, and
 `GSRCALIBRATIONRESULT.GET` to fit and inspect results; parameter tables have
 columns factor, knot, lower, upper. `GSRCALIBRATIONRESULT.GET.MODEL` returns a
 model usable for both option pricing and Monte Carlo. Worksheet value/result

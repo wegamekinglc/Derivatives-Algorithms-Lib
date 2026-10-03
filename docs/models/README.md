@@ -11,8 +11,8 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
    calibration grid for reusable local-volatility data.
 3. [Correlated equity Black-Scholes](correlated-bs.md) — named multi-asset
    observations, constant correlations, and AAD parameters.
-4. [Hybrid Monte Carlo](hybrid-model.md) — named equity, constant or term-structure
-   deterministic rates, factor correlation, and model risks.
+4. [Hybrid Monte Carlo](hybrid-model.md) — named equity, deterministic or
+   stochastic GSR/SLV rates, factor correlation, and model risks.
 5. [Gaussian Short Rate (GSR)](gaussian-short-rate.md) — named Gaussian factors
    and stochastic local volatility, dated curves, rate observations, European
    option calibration, and Bermudan exercise.
