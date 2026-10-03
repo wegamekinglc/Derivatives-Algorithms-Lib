@@ -16,6 +16,19 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-04
+
+- **Independent AAD recording ownership** — scoped curve recordings reject
+  nested use before discarding the outer graph, report explicit cleanup failures,
+  and require successful tape recovery after failed cleanup. Scopes remain on
+  their creating thread. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
+
+- **Native AAD propagation precision** — nonzero adjoints are no longer truncated
+  by an absolute threshold, preserving derivatives under intermediate rescaling.
+  Multi-result zero seeds are isolated from non-finite local derivatives, and
+  public Monte Carlo valuation diagnoses non-finite risk results. See
+  [AAD methodology](docs/methodology/aad.md).
+
 ## 2026-10-03
 
 - **perf: shared SIMD kernels and Eigen-backed dense product** —

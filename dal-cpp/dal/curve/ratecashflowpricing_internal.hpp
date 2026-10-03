@@ -194,6 +194,7 @@ namespace Dal::RateCashflowPricingInternal {
 #if DAL_RATE_RISK_NATIVE_AAD
             RecordNodeSensitivityTapeSize(AAD::Tape()->nodes_.Size());
 #endif
+            guard.Close();
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {
             return NodeSensitivityFailure("AAD_EVALUATION_FAILED");

@@ -161,6 +161,45 @@ and then rewind, so the tape size is bounded by the work of a *single* repetitio
 rather than the whole simulation. Propagation can therefore be partitioned into
 ranges: from the end to the mark, and from the mark to the start.
 
+### Independent Recording Ownership
+
+`AAD::RecordingScope_` in `dal/math/aad/recording.hpp` owns an independent
+recording on the calling thread's default tape. Entry activates and rewinds the
+tape; successful closure rewinds it while retaining reusable backend capacity.
+The scope is neither copyable nor movable, and its lifetime, operations, and
+destruction belong to the creating thread. Separate threads can own separate
+recordings. A nested scope throws before changing the outer tape. The curve
+`TapeGuard_` delegates to this ownership boundary.
+
+Use the existing input registration, `NewRecording`, seeding, and propagation
+operations inside the scope. Extract passive results before calling `Close()`:
+
+```cpp
+AAD::RecordingScope_ recording;
+AAD::Number_ input;
+AAD::RegisterIndependent(input, 3.0);
+AAD::NewRecording(*AAD::Tape());
+AAD::Number_ output = input * input;
+AAD::ZeroAdjoints(*AAD::Tape());
+AAD::Adjoint(output) = 1.0;
+AAD::PropagateToStart(*AAD::Tape());
+const double derivative = AAD::AdjointValue(input);
+recording.Close();
+```
+
+`Close()` reports cleanup errors and is idempotent. During exception unwinding,
+the destructor performs fallback cleanup without replacing the business
+exception. A cleanup failure remains available through
+`AAD::LastRecordingCleanupFailure()` and makes the thread's scoped context
+unusable until the next entry successfully rebuilds the tape. A failed rebuild
+rejects that entry. Normal curve Jacobian and node-risk calls close explicitly
+after extracting passive results.
+
+Active numbers and tape positions become invalid when their recording is
+discarded. Ownership checks protect nesting between scoped callers; raw tape
+operations still require the caller's existing lifetime discipline. The scope
+does not validate every expression or make raw iterators stable checkpoints.
+
 ### Native Tape Storage
 
 The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists
@@ -178,6 +217,34 @@ after rewind, and allocates a block when needed. Mark and rewind therefore
 support storage reuse without promising allocation-free AAD evaluation.
 `dal-cpp/tests/math/aad/test_tape.cpp` covers independent stream rollover,
 reuse, aliased operands, multiple results, and caller-owned tapes.
+
+`AAD::MeasureTape(tape)` in `dal/math/aad/statistics.hpp` explicitly scans a
+native recording for its node and edge counts. It reports three storage measures:
+
+- `liveBytes_`: node objects, recorded edge derivatives/pointers, and logical
+  vector-adjoint slots for the current uniform recording mode.
+- `occupiedBytes_`: storage through each block-list cursor, including skipped
+  block tails and any retained cursor in an inactive storage stream.
+- `capacityBytes_`: all currently allocated block arrays, including capacity
+  retained after rewind. List bookkeeping and allocator overhead are excluded.
+
+`blocks_` counts current blocks, rather than cumulative allocations. In a window
+that only grows storage, the block-count increase measures new block allocations;
+it does not count allocations elsewhere in a valuation. Empty tapes retain one
+block per storage stream. A snapshot is neither a high-water counter nor process
+RSS. Capture it at the relevant graph boundary to observe a peak, and measure RSS
+separately. Call the scan on the owning thread while recording and reverse work
+are stopped. It maintains no per-node counters in normal execution.
+
+The native `tape_perf` and `jacobian_perf` executables accept `--diagnostics` to
+print these snapshots outside timed loops. Use their default invocation for
+throughput comparisons. Tape cases include active/passive constants and vector
+widths 1, 4, 10, 16, and 64, with analytic value/gradient checks. The historical
+`100K nodes` case labels remain for regression continuity; the diagnostic node
+count describes the actual fused graph, including active constants.
+Jacobian cases retain the synthetic full-clearing reference and additionally
+call `HarvestCurveJacobian` for 23-by-24 and 95-by-96 Jacobians. Proven-prefix
+harvesting uses a dependency range established by the fixture itself.
 
 ## Pathwise Adjoints in Monte Carlo
 
@@ -425,6 +492,13 @@ Each step has a backend-specific reason to be in this position:
 
 ### Per-Backend Zeroing Semantics
 
+- **Native propagation precision.** Every nonzero adjoint propagates, including
+  very small values. Only exact zero seeds are skipped: a small intermediate
+  adjoint can be multiplied by a large local derivative later in the sweep.
+  Multi-result channels follow this rule independently, so a zero channel does
+  not evaluate `0 * Inf` when another channel is active. NaN and nonzero infinite
+  seeds remain observable rather than being discarded by a threshold comparison.
+
 - **Native.** `PropagateOne` (`dal-cpp/dal/math/aad/node.hpp`) zeroes each
   consumed node's adjoint inline after propagating it to its parents, so the
   intermediate graph starts clean for the next reverse sweep without a separate
@@ -468,6 +542,17 @@ Each step has a backend-specific reason to be in this position:
   tape; `ZeroAdjoints` calls the no-argument `clearAdjoints`, which zeroes up
   to the largest created index and leaves the statement graph intact. Both are
   safe between sweeps.
+
+### Public Result Validation
+
+Public Monte Carlo valuation requires both the reported mean and requested
+sensitivities to be finite. An invalid sensitivity raises `InvalidRisk` with the
+output and input names; a non-finite aggregate mean raises `InvalidPayoff`.
+This validation does not make an undefined local derivative mathematically valid.
+Endpoint conventions still belong to the selected backend. For example, the
+pinned CoDiPack backend assigns a zero local derivative to `sqrt(0)`, whereas
+the native backend produces an infinite derivative. A finite reported value is
+therefore insufficient evidence of differentiability at an endpoint.
 
 ### Passive vs Active Tape
 

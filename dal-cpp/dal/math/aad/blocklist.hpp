@@ -93,6 +93,14 @@ namespace Dal::AAD {
             return count;
         }
 
+        [[nodiscard]] size_t AllocatedBlocks() const { return data_.size(); }
+
+        // Includes unused tails skipped when a contiguous allocation moves to the next block.
+        [[nodiscard]] size_t OccupiedSlots() const {
+            const size_t precedingBlocks = static_cast<size_t>(std::distance(data_.cbegin(), const_iterator(currBlock_)));
+            return precedingBlocks * BLOCK_SIZE_ + static_cast<size_t>(std::distance(currBlock_->begin(), nextSpace_));
+        }
+
         void Memset(unsigned char val) {
             for (auto& arr : data_)
                 std::memset(&arr[0], val, BLOCK_SIZE_ * sizeof(T_));
