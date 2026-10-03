@@ -78,7 +78,7 @@ namespace Dal {
                     return;
                 for (int ii = 0; ii < nf; ++ii) {
                     auto row = j_.Row(ii);
-                    const double excess = df[ii] - InnerProduct(dx, row);
+                    const double excess = df[ii] - Math::Dot(Math::DoubleData(dx), &*row.begin(), row.size());
                     Transform(&row, dx, LinearIncrement(excess / x2));
                 }
             }

@@ -298,7 +298,7 @@ namespace Dal {
                 const int n = Size();
                 const int width = max(val_.nBelow_, val_.view_.Cols() - val_.nBelow_ - 1);
                 for (int ii = 0; ii < n; ++ii) {
-                    for (int jj = max(0, ii - width); jj <= max(n - 1, ii + width); ++jj)
+                    for (int jj = max(0, ii - width); jj <= min(n - 1, ii + width); ++jj)
                         if (!IsZero(val_(ii, jj) - val_(jj, ii)))
                             return false;
                 }

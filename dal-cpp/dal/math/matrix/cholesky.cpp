@@ -11,6 +11,7 @@
 #include <dal/math/matrix/decompositions.hpp>
 #include <dal/math/matrix/decompositionsmisc.hpp>
 #include <dal/math/operators.hpp>
+#include <dal/math/simdkernels.hpp>
 #include <dal/utilities/functionals.hpp>
 
 namespace Dal {
@@ -24,13 +25,12 @@ namespace Dal {
                 auto beginI = rowI.begin();
                 auto pa_ij = beginI;
                 for (int jj = 0; jj < ii; ++jj, ++pa_ij) {
-                    const double lockedIn = std::inner_product(beginI, pa_ij, out->Row(jj).begin(), 0.0);
+                    const double lockedIn = Math::Dot(&*beginI, &*out->Row(jj).begin(), static_cast<size_t>(pa_ij - beginI));
                     const double needMore = a(jj, ii) - lockedIn;
                     *pa_ij = needMore == 0.0 ? 0.0 : needMore * (*out)(jj, jj) /
                                                      (Square((*out)(jj, jj)) + Square(regularization * meanDiag));
                 }
-                const double lockedIn = std::inner_product(out->Row(ii).begin(), out->Row(ii).begin() + ii,
-                                                           out->Row(ii).begin(), 0.0);
+                const double lockedIn = Math::Dot(&*beginI, &*beginI, static_cast<size_t>(ii));
                 const double needMore = a(ii, ii) - lockedIn;
                 (*out)(ii, ii) = sqrt(max(0.0, needMore));
                 meanDiag += ((*out)(ii, ii) - meanDiag) / (1.0 + ii);
@@ -59,16 +59,16 @@ namespace Dal {
             void XMultiply_af(const Vector_<>& x, Vector_<>* b) const override {
                 const int n = Size();
                 Vector_<> temp(n, 0.0);
-                // multiply by L^T
-                for (int ii = 0; ii < n; ++ii) {
-                    temp[ii] = std::inner_product(x.begin() + ii + 1, x.end(), lower_->Col(ii).begin() + ii + 1, 0.0);
-                    temp[ii] += x[ii] / (*lower_)(ii, ii);
-                }
+                // multiply by L^T: row-wise scatter keeps the L reads contiguous and preserves
+                // per-element accumulation order (ascending jj, diagonal last) of the column form
+                for (int jj = 1; jj < n; ++jj)
+                    Math::Axpy(x[jj], &*lower_->Row(jj).begin(), &*temp.begin(), static_cast<size_t>(jj));
 
-                // multiply by L
+                // multiply by L, folding the L^T diagonal in as each row completes
                 b->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
-                    (*b)[ii] = std::inner_product(temp.begin(), temp.begin() + ii, lower_->Row(ii).begin(), 0.0);
+                    temp[ii] += x[ii] / (*lower_)(ii, ii);
+                    (*b)[ii] = Math::Dot(Math::DoubleData(temp), &*lower_->Row(ii).begin(), static_cast<size_t>(ii));
                     (*b)[ii] += temp[ii] / (*lower_)(ii, ii);
                 }
             }
@@ -77,7 +77,7 @@ namespace Dal {
                 const int n = Size();
                 x->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
-                    (*x)[ii] = b[ii] - std::inner_product(x->begin(), x->begin() + ii, lower_->Row(ii).begin(), 0.0);
+                    (*x)[ii] = b[ii] - Math::Dot(Math::DoubleData(*x), &*lower_->Row(ii).begin(), static_cast<size_t>(ii));
                     (*x)[ii] *= (*lower_)(ii, ii);
                 }
                 for (int ii = n - 1; ii >= 0; --ii) {
@@ -92,7 +92,7 @@ namespace Dal {
                 const int n = Size();
                 correlated->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
-                    (*correlated)[ii] = std::inner_product(iidBegin, iidBegin + ii, lower_->Row(ii).begin(), 0.0);
+                    (*correlated)[ii] = Math::Dot(&*iidBegin, &*lower_->Row(ii).begin(), static_cast<size_t>(ii));
                     (*correlated)[ii] += *(iidBegin + ii) / (*lower_)(ii, ii);
                 }
                 return iidBegin + n;

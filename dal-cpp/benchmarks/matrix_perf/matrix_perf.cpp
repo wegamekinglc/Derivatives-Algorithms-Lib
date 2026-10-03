@@ -6,15 +6,9 @@
 // class for self-comparison of five matmul variants -- it did NOT exercise any
 // Dal::Matrix::* kernel the calibration solver uses (G8 phantom). This version
 // times Dal::Matrix::Multiply, AddJSquaredToUpper, and WeightedInnerProduct at
-// 200x200 and 500x500 (matching cholesky_perf / krylov_perf sizes) -- the kernels
-// consumed by Underdetermined::Find and the curve-Jacobian assembly.
-//
-// Sparse::SymmetricDecomposition_::QForm (also named in G8) is not exercised here:
-// the dense Cholesky path's XSolve_af does not pre-size its output vector, so the
-// QForm wrapper's empty Vector_<> wij triggers an out-of-bounds write. That is a
-// pre-existing latent bug in dal-cpp/dal/math/matrix/sparse.cpp, outside the
-// benchmark-only scope of this change. Production calibration hits the banded
-// QForm override (which pre-sizes), not this path.
+// 200x200 and 500x500 (matching cholesky_perf / krylov_perf sizes).
+// WeightedInnerProduct and AddJSquaredToUpper currently have no production
+// callers; Multiply feeds Underdetermined::Find and the curve-Jacobian assembly.
 
 #include <memory>
 #include <dal/platform/platform.hpp>
@@ -22,6 +16,7 @@
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/numerics.hpp>
 #include <dal/benchmarks/bench.hpp>
 
 using namespace Dal;
@@ -82,6 +77,24 @@ int main() {
             double sink = 0.0;
             auto r = Bench::Run("Dal::Matrix::WeightedInnerProduct (" + std::to_string(n) + ")",
                                 [&]() { sink += Dal::Matrix::WeightedInnerProduct(v, a, v); }, 2, kRepeats);
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
+
+        {
+            double sink = 0.0;
+            Vector_<> mv(n);
+            auto r = Bench::Run(
+                "Dal::Matrix::Multiply vector x matrix (" + std::to_string(n) + ")", [&]() { Dal::Matrix::Multiply(v, a, &mv); }, 5, kRepeats);
+            sink += mv[0];
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
+
+        {
+            double sink = 0.0;
+            auto r = Bench::Run(
+                "Dal::InnerProduct vector x vector (" + std::to_string(n) + ")", [&]() { sink += InnerProduct(v, v); }, 50, kRepeats);
             Bench::Print(r);
             Bench::DoNotOptimize(&sink);
         }

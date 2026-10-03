@@ -23,6 +23,7 @@ option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
 option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
 option(DAL_USE_ADEPT_AAD "Use Adept AAD backend" OFF)
+option(DAL_USE_EIGEN "Use Eigen for the dense matrix-matrix kernel" ON)
 
 # ---------------------------------------------------------------------------
 # C++ standard, PIC, build settings
@@ -100,6 +101,11 @@ endif()
 # rapidjson headers are on the dal_cpp private include path.
 dal_require_submodule("externals/rapidjson/include/rapidjson/document.h")
 
+# Eigen headers back the dense GEMM dispatch; the hand-rolled slab kernel remains the fallback.
+if(DAL_USE_EIGEN)
+    dal_require_submodule("externals/eigen/Eigen/Dense")
+endif()
+
 # Machinist is an explicit source-generation tool. It is built only when
 # dal_generate/dal_check_generated is requested and is never part of DAL installs.
 dal_require_submodule("externals/machinist/CMakeLists.txt")
@@ -164,6 +170,11 @@ target_include_directories(dal_cpp
         ${PROJECT_SOURCE_DIR}/externals/rapidjson/include)
 
 dal_apply_platform_options(dal_cpp)
+
+if(DAL_USE_EIGEN)
+    target_include_directories(dal_cpp PRIVATE ${PROJECT_SOURCE_DIR}/externals/eigen)
+    target_compile_definitions(dal_cpp PRIVATE DAL_USE_EIGEN EIGEN_DONT_PARALLELIZE)
+endif()
 
 if(MSVC)
     target_compile_definitions(dal_cpp PRIVATE IS_BASE)

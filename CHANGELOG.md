@@ -18,6 +18,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-03
 
+- **perf: shared SIMD kernels and Eigen-backed dense product** —
+  double-precision reductions (dot/sum/axpy) now run through AVX2/SSE2 kernels
+  in `dal/math/simdkernels.hpp`, `Matrix::Multiply` dispatches to a pinned
+  Eigen 3.4.0 submodule behind `DAL_USE_EIGEN`, and `Matrix_` drops per-row
+  hook indirection for offset arithmetic. Kernel benchmarks: 3–5x on matrix
+  products and inner products, ~2x on Cholesky factorization. See
+  [Installation](docs/installation.md).
+
 - **Gaussian hybrid bank-account integration** — plain GSR hybrid components
   sample the full rate integral with an independent internal bridge driver and
   insert rate-parameter knots into the shared grid. Constant-volatility equity

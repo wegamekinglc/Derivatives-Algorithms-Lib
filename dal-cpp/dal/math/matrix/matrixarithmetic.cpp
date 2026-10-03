@@ -6,8 +6,12 @@
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/simdkernels.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/functionals.hpp>
+#if defined(DAL_USE_EIGEN)
+#include <dal/math/matrix/eigenbridge.hpp>
+#endif
 
 namespace Dal::Matrix {
     Vector_<> Vols(const Matrix_<> &cov, Matrix_<> *corr) {
@@ -35,12 +39,27 @@ namespace Dal::Matrix {
         void MultiplyAliasFree(const Matrix_<> &left, const Matrix_<> &right, Matrix_<> *result) {
             REQUIRE(result != &right, "result and right should not be same");
             result->Resize(left.Rows(), right.Cols());
+#if defined(DAL_USE_EIGEN)
+            // callers guarantee result aliases neither operand
+            Eigen::Map<EigenMatrix> c = EigenView(*result);
+            c.noalias() = EigenView(left) * EigenView(right);
+#else
+            // slab the right-hand rows so each slab stays in cache across the result rows;
+            // k order per element is unchanged, so accumulation matches the unblocked form
             result->Fill(0.0);
-            for (int ir = 0; ir < left.Rows(); ++ir) {
-                auto dst = result->Row(ir);
-                for (int jr = 0; jr < right.Rows(); ++jr)
-                    Transform(&dst, right.Row(jr), LinearIncrement(left(ir, jr)));
+            static const int SLAB_ROWS = 64;
+            const size_t width = static_cast<size_t>(right.Cols());
+            if (width > 0 && right.Rows() > 0) {
+                for (int k0 = 0; k0 < right.Rows(); k0 += SLAB_ROWS) {
+                    const int kStop = min(right.Rows(), k0 + SLAB_ROWS);
+                    for (int ir = 0; ir < left.Rows(); ++ir) {
+                        double* dst = &*result->Row(ir).begin();
+                        for (int jr = k0; jr < kStop; ++jr)
+                            Math::Axpy(left(ir, jr), &*right.Row(jr).begin(), dst, width);
+                    }
+                }
             }
+#endif
         }
 
         void MultiplyAliasFree(const Matrix_<> &left, const Vector_<> &right, Vector_<> *result) {
@@ -55,8 +74,10 @@ namespace Dal::Matrix {
             result->Resize(right.Cols());
             result->Fill(0.0);
             REQUIRE(left.size() == right.Rows(), "left and right size is not compatible");
-            for (int ir = 0; ir < right.Rows(); ++ir)
-                Transform(result, right.Row(ir), LinearIncrement(left[ir]));
+            const size_t n = static_cast<size_t>(right.Cols());
+            if (n > 0)
+                for (int ir = 0; ir < right.Rows(); ++ir)
+                    Math::Axpy(left[ir], &*right.Row(ir).begin(), &*result->begin(), n);
         }
     }    // leave local
 
@@ -110,10 +131,9 @@ namespace Dal::Matrix {
                 for (int kOuter = 0; kOuter < nf; kOuter += CACHE_SIZE, src += CACHE_SIZE) {
                     auto dst = h->Row(ii).begin() + jOuter;
                     const int nfHere = min(nf - kOuter, CACHE_SIZE);
-                    auto srcStop = src + nfHere;
 
                     for (int jInner = jOuter; jInner < jStop; ++jInner, ++dst) {
-                        *dst = inner_product(src, srcStop, a.Row(jInner).begin() + kOuter, *dst);
+                        *dst += Math::Dot(&*src, &*a.Row(jInner).begin() + kOuter, static_cast<size_t>(nfHere));
                     }
                 }
             }
