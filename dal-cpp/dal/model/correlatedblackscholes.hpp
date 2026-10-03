@@ -73,6 +73,8 @@ namespace Dal {
             Vector_<T_> stds_;
             Vector_<T_> initialLogSpots_;
             Vector_<T_> numeraires_;
+            //  Deterministic discount factors P(t, maturity) per product sample (delayed PAYS ... ON)
+            Vector_<Vector_<T_>> discounts_;
             Vector_<T_*> parameters_;
             Vector_<String_> parameterLabels_;
 
@@ -188,6 +190,8 @@ namespace Dal {
             void FillSample(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
                 if ((*defLine_)[sampleId].numeraire_)
                     sample->numeraire_ = numeraires_[sampleId];
+                if (!sample->discounts_.empty())
+                    sample->discounts_ = discounts_[sampleId];
                 if (isToday)
                     sample->spot_ = spots_[0];
                 else
@@ -230,6 +234,7 @@ namespace Dal {
             [[nodiscard]] size_t NumFactors() const override { return assetNames_.size(); }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return true; }
+            [[nodiscard]] bool SupportsDiscountFactors() const override { return true; }
             [[nodiscard]] bool ValidParameterValue(size_t parameter, double value) const override {
                 return Model_<T_>::ValidParameterValue(parameter, value) &&
                        (parameter >= 3 * assetNames_.size() || parameter % 3 != 0 || value > 0.0) &&
@@ -266,6 +271,9 @@ namespace Dal {
                 stds_.Resize(steps * assetNames_.size());
                 initialLogSpots_.Resize(assetNames_.size());
                 numeraires_.Resize(productTimeLine.size());
+                discounts_.Resize(productTimeLine.size());
+                for (size_t sample = 0; sample < productTimeLine.size(); ++sample)
+                    discounts_[sample].Resize(defLine[sample].discountMats_.size());
             }
 
             void Init(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
@@ -275,6 +283,12 @@ namespace Dal {
                     initialLogSpots_[asset] = Dal::log(spots_[asset]);
                 InitializeStepConstants();
                 InitializeNumeraires(productTimeLine, defLine);
+                for (size_t sample = 0; sample < productTimeLine.size(); ++sample)
+                    for (size_t k = 0; k < defLine[sample].discountMats_.size(); ++k) {
+                        discounts_[sample][k] = Dal::exp(-rate_ * (defLine[sample].discountMats_[k] - productTimeLine[sample]));
+                        REQUIRE(std::isfinite(Value(discounts_[sample][k])) && Value(discounts_[sample][k]) > 0.0,
+                                "InvalidModelParameter: non-finite or zero correlated BS discount factor");
+                    }
             }
 
             [[nodiscard]] size_t SimDim() const override { return (timeLine_.size() - 1) * assetNames_.size(); }

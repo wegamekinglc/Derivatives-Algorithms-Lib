@@ -83,6 +83,9 @@ namespace Dal::AAD {
         Vector_<> productTimeLine_;
         Vector_<Step_> steps_;
         Vector_<Vector_<Observation_>> observations_;
+        //  Discount bonds P(t, maturity) prepared per sample from SampleDef_::discountMats_
+        //  (delayed PAYS ... ON payments)
+        Vector_<Vector_<Bond_>> discountBonds_;
 
         [[nodiscard]] double Time(const Date_& date) const {
             REQUIRE(date >= evaluationDate_, "InvalidGSRDate: date precedes evaluation date");
@@ -410,6 +413,8 @@ namespace Dal::AAD {
                 sample.numeraire_ = Dal::exp(logNumeraire);
                 for (size_t j = 0; j < observations_[i].size(); ++j)
                     sample.observations_[j] = Observe(observations_[i][j], [&](const Bond_& bond) { return Bond(bond, state); });
+                for (size_t k = 0; k < discountBonds_[i].size(); ++k)
+                    sample.discounts_[k] = Bond(discountBonds_[i][k], state);
             }
         }
 
@@ -543,11 +548,19 @@ namespace Dal::AAD {
                     "InvalidGSRObservation: hybrid observation was not prepared");
             return Observe(observations_[sample][slot], [&](const Bond_& bond) { return Bond(bond, state); });
         }
+        //  Fill one hybrid sample's discount factors from its prepared bonds
+        void ObserveHybridDiscounts(size_t sample, const T_* state, Vector_<T_>* discounts) const {
+            REQUIRE(sample < discountBonds_.size() && discounts->size() == discountBonds_[sample].size(),
+                    "InvalidGSRObservation: discount sample or dimensions do not match");
+            for (size_t k = 0; k < discounts->size(); ++k)
+                (*discounts)[k] = Bond(discountBonds_[sample][k], state);
+        }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }
         [[nodiscard]] size_t NumFactors() const override { return factorNames_.size(); }
         [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
         [[nodiscard]] std::optional<Date_> EvaluationDate() const override { return evaluationDate_; }
+        [[nodiscard]] bool SupportsDiscountFactors() const override { return true; }
         [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
         [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
         [[nodiscard]] bool NumeraireIsDeterministic() const override {
@@ -587,6 +600,7 @@ namespace Dal::AAD {
             productTimeLine_ = timeline;
             steps_.Resize(timeline.size());
             observations_.Resize(timeline.size());
+            discountBonds_.Resize(timeline.size());
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override { InitObservations(timeline, definitions, true); }
         void InitHJM(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) { InitObservations(timeline, definitions, false); }
@@ -611,6 +625,11 @@ namespace Dal::AAD {
                 const auto mean = gaussian ? DiscountedStateMean(current) : Vector_<T_>(NumFactors(), T_(0.0));
                 for (const auto& name : definitions[i].indexNames_)
                     observations_[i].push_back(PrepareObservation(name, sampleDate, variance, mean));
+                discountBonds_[i].clear();
+                for (const double maturity : definitions[i].discountMats_) {
+                    REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
+                    discountBonds_[i].push_back(PrepareBond(current, DateAt(maturity), variance, mean));
+                }
                 previous = current;
             }
         }

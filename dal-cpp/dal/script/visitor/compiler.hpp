@@ -87,6 +87,8 @@ namespace Dal::Script {
     };
 
     //  Hand-written because opcodes are NTTPs and serialized stream integers.
+    //  Streams are in-memory only (never archived), so the numbering may be rearranged;
+    //  the dispatch tiers below rely on the tier blocks staying contiguous.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -112,50 +114,58 @@ namespace Dal::Script {
         AssignConst = 21,
         Pays = 22,
         PaysConst = 23,
-        If = 24,
-        IfElse = 25,
-        Equal = 26,
-        Sup = 27,
-        SupEqual = 28,
-        And = 29,
-        Or = 30,
-        //  31 is intentionally unused.
-        Sqrt = 32,
-        Log = 33,
-        Exp = 34,
-        Not = 35,
-        UMinus = 36,
-        True = 37,
-        False = 38,
-        ConstVar = 39,
+        //  Delayed payments: the extra leading slot operand indexes the event sample's
+        //  discount factors; layout PaysOn slot idx / PaysOnConst constIdx slot idx.
+        PaysOn = 24,
+        PaysOnConst = 25,
+        If = 26,
+        IfElse = 27,
+        Equal = 28,
+        Sup = 29,
+        SupEqual = 30,
+        And = 31,
+        Or = 32,
+        Sqrt = 33,
+        Log = 34,
+        Exp = 35,
+        Not = 36,
+        UMinus = 37,
+        True = 38,
+        False = 39,
+        ConstVar = 40,
         //  Fuzzy opcodes.
-        FuzzyEqual = 40,
-        FuzzyEqualDiscrete = 41,
-        FuzzyComp = 42,
-        FuzzyCompDiscrete = 43,
-        FuzzyAnd = 44,
-        FuzzyOr = 45,
-        FuzzyNot = 46,
-        FuzzyTrue = 47,
-        FuzzyFalse = 48,
-        FuzzyIf = 49, //  operands: lastTrue, lastFalse, nAff, aff..., nVec, vec...
-        LoadObservation = 50,
-        Discard = 51,
+        FuzzyEqual = 41,
+        FuzzyEqualDiscrete = 42,
+        FuzzyComp = 43,
+        FuzzyCompDiscrete = 44,
+        FuzzyAnd = 45,
+        FuzzyOr = 46,
+        FuzzyNot = 47,
+        FuzzyTrue = 48,
+        FuzzyFalse = 49,
+        FuzzyIf = 50, //  operands: lastTrue, lastFalse, nAff, aff..., nVec, vec...
+        LoadObservation = 51,
+        Discard = 52,
         //  LSMC recording opcodes (prepared streams only): the LSMC driver installs
-        //  LsmcSinks_ into EvalState_ before evaluating; operands mirror Pays/PaysConst,
-        //  LsmcExercise carries a single hasCond operand. The fuzzy variants record into
-        //  the driver's typed LsmcFuzzySinks_ instead: conditions land on the double
-        //  stack as degrees, so LsmcFuzzyExercise pops its condition from there.
-        LsmcPays = 52,
-        LsmcPaysConst = 53,
-        LsmcExercise = 54,
-        LsmcFuzzyPays = 55,
-        LsmcFuzzyPaysConst = 56,
-        LsmcFuzzyExercise = 57,
-        VectorRead = 58,
-        VectorAssign = 59,
-        VectorAppend = 60,
-        VectorReduce = 61
+        //  LsmcSinks_ into EvalState_ before evaluating; operands mirror Pays/PaysConst
+        //  (plus the PaysOn slot variants), LsmcExercise carries a single hasCond operand.
+        //  The fuzzy variants record into the driver's typed LsmcFuzzySinks_ instead:
+        //  conditions land on the double stack as degrees, so LsmcFuzzyExercise pops its
+        //  condition from there.
+        LsmcPays = 53,
+        LsmcPaysConst = 54,
+        LsmcPaysOn = 55,
+        LsmcPaysOnConst = 56,
+        LsmcExercise = 57,
+        LsmcFuzzyPays = 58,
+        LsmcFuzzyPaysConst = 59,
+        LsmcFuzzyPaysOn = 60,
+        LsmcFuzzyPaysOnConst = 61,
+        LsmcFuzzyExercise = 62,
+        VectorRead = 63,
+        VectorAssign = 64,
+        VectorAppend = 65,
+        VectorReduce = 66
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -306,17 +316,54 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAssign_& node) { VisitAssignLike<Assign, AssignConst>(node); }
+
+        //  Emit [rhs] op [constIdx] [slot] varIdx: the slot operand is present only on the
+        //  PaysOn variants and addresses the event sample's discount factors. The historical
+        //  stream discards the RHS without reading a discount (past payments are settled).
         void Visit(const NodePays_& node) {
             if (historical_) {
                 node.arguments_[1]->Accept(*this);
                 nodeStream_.emplace_back(Discard);
-            } else if (lsmc_) {
-                if (fuzzy_)
-                    VisitAssignLike<LsmcFuzzyPays, LsmcFuzzyPaysConst>(node);
-                else
-                    VisitAssignLike<LsmcPays, LsmcPaysConst>(node);
-            } else
-                VisitAssignLike<Pays, PaysConst>(node);
+                return;
+            }
+            const bool delayed = node.discountId_.has_value();
+            if (!delayed && node.paymentDate_)
+                THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
+                           " requires model-aware preparation; " + node.source_.Describe(),
+                       ScriptError_);
+            const int slot = delayed ? static_cast<int>(*node.discountId_) : -1;
+            const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
+            const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
+            NodeType_ plain, plainConst, on, onConst;
+            if (lsmc_) {
+                if (fuzzy_) {
+                    plain = LsmcFuzzyPays;
+                    plainConst = LsmcFuzzyPaysConst;
+                    on = LsmcFuzzyPaysOn;
+                    onConst = LsmcFuzzyPaysOnConst;
+                } else {
+                    plain = LsmcPays;
+                    plainConst = LsmcPaysConst;
+                    on = LsmcPaysOn;
+                    onConst = LsmcPaysOnConst;
+                }
+            } else {
+                plain = Pays;
+                plainConst = PaysConst;
+                on = PaysOn;
+                onConst = PaysOnConst;
+            }
+            if (rhs->isConst_) {
+                nodeStream_.emplace_back(delayed ? onConst : plainConst);
+                nodeStream_.emplace_back(int(constStream_.size()));
+                constStream_.emplace_back(rhs->constVal_);
+            } else {
+                node.arguments_[1]->Accept(*this);
+                nodeStream_.emplace_back(delayed ? on : plain);
+            }
+            if (delayed)
+                nodeStream_.emplace_back(slot);
+            nodeStream_.emplace_back(static_cast<int>(var->index_));
         }
 
         //  Evaluation order mirrors the tree-walk recorder: the exercise value lands on
@@ -717,6 +764,21 @@ namespace Dal::Script {
                 ++i;
                 return i;
             }
+            case PaysOn: {
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                state.variables_[idx] += dStack.TopAndPop() * scenario.discounts_[slot] / scenario.numeraire_;
+                ++i;
+                return i;
+            }
+            case PaysOnConst: {
+                const double val = constStream[nodeStream[++i]];
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                state.variables_[idx] += T_(val) * scenario.discounts_[slot] / scenario.numeraire_;
+                ++i;
+                return i;
+            }
             default:
                 ThrowUnknownCompiledOpcode(op);
             }
@@ -1106,6 +1168,23 @@ namespace Dal::Script {
                 state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
                 return i + 1;
             }
+            if (op == LsmcPaysOn) {
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
+                RecordLsmcPayment(statePtr, idx, Value(payment));
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcPaysOnConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
+                RecordLsmcPayment(statePtr, idx, Value(payment));
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
             if (op == LsmcExercise) {
                 const bool hasCond = nodeStream[++i] != 0;
                 const T_ value = dStack.TopAndPop();
@@ -1127,6 +1206,23 @@ namespace Dal::Script {
                 const size_t idx = nodeStream[++i];
                 RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
                 state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysOn) {
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysOnConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
                 return i + 1;
             }
             if (op == LsmcFuzzyExercise) {
@@ -1209,7 +1305,7 @@ namespace Dal::Script {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
-            if (op <= PaysConst)
+            if (op <= PaysOnConst)
                 return EvalCompiledData(event, i, statePtr);
             if (op <= Or)
                 return EvalCompiledControl<Prepared_, Lsmc_>(event, i, statePtr);

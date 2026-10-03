@@ -202,7 +202,6 @@ namespace Dal::Script {
             Dal::AAD::SampleDef_ sampleDef;
             sampleDef.numeraire_ = true;
             sampleDef.forwardMats_.push_back({ttm});
-            sampleDef.discountMats_.push_back(ttm);
             defLine_.emplace_back(sampleDef);
         }
 

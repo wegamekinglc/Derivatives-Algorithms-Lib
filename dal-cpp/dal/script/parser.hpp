@@ -100,6 +100,7 @@ namespace Dal::Script {
         double ParseDCF(TokIt_& cur, const TokIt_& end);
         Expression_ ParseFix(TokIt_& cur, const TokIt_& end);
         Date_ ParseFixingDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
+        Date_ ParsePaymentDate(TokIt_& cur, const TokIt_& end, const SourceLocation_& fallback);
 
         Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
         Statement_ ParseFor(TokIt_& cur, const TokIt_& end);
