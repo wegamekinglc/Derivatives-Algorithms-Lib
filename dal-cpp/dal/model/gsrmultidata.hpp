@@ -84,6 +84,19 @@ namespace Dal {
                         "InvalidGSRCorrelation: diagonal must equal one");
             static_cast<void>(AAD::CovarianceFactor(correlations_));
         }
+        // Correlations among the named factors, in factorNames_ order.
+        [[nodiscard]] Matrix_<> FactorCorrelations() const { return correlations_; }
+        // Labels of the named-factor g/H risk parameters, factor-major as the kernel registers them.
+        [[nodiscard]] Vector_<String_> RiskLabels() const {
+            Vector_<String_> labels;
+            for (size_t factor = 0; factor < factorNames_.size(); ++factor)
+                for (const auto& date : gKnotDates_)
+                    labels.push_back("g:" + factorNames_[factor] + ":" + Date::ToString(date));
+            for (size_t factor = 0; factor < factorNames_.size(); ++factor)
+                for (const auto& date : hKnotDates_)
+                    labels.push_back("H:" + factorNames_[factor] + ":" + Date::ToString(date));
+            return labels;
+        }
         void Write(Archive::Store_& dst) const override;
 
     private:

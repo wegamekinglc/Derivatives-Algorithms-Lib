@@ -202,6 +202,9 @@ namespace Dal::Script {
                          "InvalidModelPath: non-finite or nonpositive numeraire", ScriptError_);
                 for (const auto& observation : sample.observations_)
                     REQUIRE2(std::isfinite(Value(observation)), "InvalidModelPath: non-finite observation", ScriptError_);
+                for (const auto& discount : sample.discounts_)
+                    REQUIRE2(std::isfinite(Value(discount)) && Value(discount) > 0.0,
+                             "InvalidModelPath: non-finite or nonpositive discount factor", ScriptError_);
             }
         }
 

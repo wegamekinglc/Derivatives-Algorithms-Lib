@@ -65,7 +65,16 @@ namespace Dal {
                          double volOfVol,
                          const Vector_<>& varianceCorrelations,
                          double maxStep);
+        // Correlations among the rate and variance drivers, excluding the independent bridge.
         [[nodiscard]] Matrix_<> DriverCorrelation() const;
+        // Correlations among all simulation factors in kernel order: rate drivers, variance
+        // driver, then the independent bridge driver.
+        [[nodiscard]] Matrix_<> FactorCorrelations() const;
+        // Deduplicated ACT/365 times where the piecewise g/H or leverage kernels turn over.
+        [[nodiscard]] Vector_<> BreakpointTimes() const;
+        // Labels of all kernel risk parameters in registration order: curve, g/H, kappa,
+        // volOfVol, then the leverage grid.
+        [[nodiscard]] Vector_<String_> RiskLabels() const;
         void Write(Archive::Store_& dst) const override;
 
     private:

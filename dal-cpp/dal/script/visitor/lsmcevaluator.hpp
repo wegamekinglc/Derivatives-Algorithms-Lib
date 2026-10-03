@@ -52,10 +52,26 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodePays_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
             VisitNode(*node.arguments_[1]);
-            const T_ payment = dStack_.TopAndPop();
-            if (paysStorage_ && static_cast<size_t>(varIdx) == payoffIdx_)
-                (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
-            variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
+            const auto& sample = (*scenario_)[curEvt_];
+            if (node.discountId_) {
+                //  The raw row records the payment discounted to its event, matching how the
+                //  driver's backward sweep treats event-date cash-flows.
+                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
+                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
+                const T_ payment = dStack_.TopAndPop() * sample.discounts_[*node.discountId_];
+                if (paysStorage_ && static_cast<size_t>(varIdx) == payoffIdx_)
+                    (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
+                variables_[varIdx] += payment / sample.numeraire_;
+            } else {
+                if (node.paymentDate_)
+                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
+                               " requires model-aware preparation; " + node.source_.Describe(),
+                           ScriptError_);
+                const T_ payment = dStack_.TopAndPop();
+                if (paysStorage_ && static_cast<size_t>(varIdx) == payoffIdx_)
+                    (*paysStorage_)[(*eventToPays_)[eventOrdinal_]][pathSlot_] += payment;
+                variables_[varIdx] += payment / sample.numeraire_;
+            }
         }
 
         void Visit(const NodeExercise_& node) {

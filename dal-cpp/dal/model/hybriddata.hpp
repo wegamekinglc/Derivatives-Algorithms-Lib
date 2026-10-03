@@ -118,6 +118,9 @@ namespace Dal {
         [[nodiscard]] virtual Vector_<String_> RiskLabels() const = 0;
         [[nodiscard]] virtual Vector_<String_> FactorNames() const = 0;
         [[nodiscard]] virtual Vector_<String_> ObservableNames() const = 0;
+        // Intra-block correlations among this component's own factors, in FactorNames() order;
+        // empty means the block is unconstrained (an identity block is assembled).
+        [[nodiscard]] virtual Matrix_<> FactorCorrelations() const { return Matrix_<>(); }
     };
 
     struct HybridBSEquityData_ : HybridComponentData_ {
@@ -214,6 +217,7 @@ namespace Dal {
         [[nodiscard]] Vector_<String_> RiskLabels() const override;
         [[nodiscard]] Vector_<String_> FactorNames() const override { return factors_; }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
+        [[nodiscard]] Matrix_<> FactorCorrelations() const override { return multiVol_ ? multiVol_->FactorCorrelations() : Matrix_<>(1, 1, 1.0); }
         void Write(Archive::Store_& dst) const override;
     };
 
@@ -238,6 +242,7 @@ namespace Dal {
             return names;
         }
         [[nodiscard]] Vector_<String_> ObservableNames() const override { return {}; }
+        [[nodiscard]] Matrix_<> FactorCorrelations() const override;
         [[nodiscard]] Vector_<String_> RiskLabels() const override;
         void Write(Archive::Store_& dst) const override;
     };
@@ -302,6 +307,18 @@ namespace Dal {
         [[nodiscard]] const Matrix_<>& Correlations() const override { return correlations_; }
         void Write(Archive::Store_& dst) const override;
     };
+
+    // One cross-component correlation entry for AssembleHybridCorrelation; entries default to
+    // zero (independent) when absent, and every component's intra-block correlations come from
+    // HybridComponentData_::FactorCorrelations().
+    struct HybridFactorLink_ {
+        String_ factorA_, factorB_;
+        double correlation_ = 0.0;
+    };
+
+    Handle_<HybridCorrelationData_> AssembleHybridCorrelation(const String_& name,
+                                                              const Vector_<Handle_<HybridComponentData_>>& components,
+                                                              const Vector_<HybridFactorLink_>& links = {});
 
     struct HybridSettings_ {
         String_ domesticCurrency_;

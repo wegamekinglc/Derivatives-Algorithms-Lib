@@ -2,15 +2,15 @@
 // Created by Codex on 2026/10/2.
 //
 
-#include <gtest/gtest.h>
 #include <cmath>
-#include <random>
-#include <dal/platform/platform.hpp>
 #include <dal/curve/tapeguard.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/model/gsreuropean.hpp>
 #include <dal/model/gsrslv.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
+#include <gtest/gtest.h>
+#include <random>
 
 using Dal::Date_;
 using Dal::Handle_;
@@ -429,4 +429,24 @@ TEST(GSRSLVTest, TestContinuationReproducesFullPathAndRejectsMalformedState) {
     auto bad = states[0];
     bad.x_.clear();
     ASSERT_THROW(model.GeneratePathFrom(0, bad, suffix, &continued), Dal::Exception_);
+}
+
+TEST(GSRSLVTest, TestModelExportsFactorCorrelationsAndBreakpoints) {
+    Dal::GSRSLVSettings_ settings;
+    settings.varianceCorrelations_ = {0.3, -0.2};
+    const Dal::GSRSLVModelData_ data("smile", Gaussian(2), Leverage(1.5), settings);
+    const auto factors = data.FactorCorrelations();
+    ASSERT_EQ(factors.Rows(), 4);
+    ASSERT_EQ(factors.Cols(), 4);
+    const auto& drivers = data.DriverCorrelation();
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            ASSERT_DOUBLE_EQ(factors(i, j), drivers(i, j));
+    ASSERT_DOUBLE_EQ(factors(3, 3), 1.0);
+    ASSERT_DOUBLE_EQ(factors(0, 3), 0.0);
+    // The Gaussian helper carries g/H knots at the evaluation date only and the leverage turns over at 0.0.
+    const auto breakpoints = data.BreakpointTimes();
+    ASSERT_TRUE(std::is_sorted(breakpoints.begin(), breakpoints.end()));
+    ASSERT_EQ(breakpoints.size(), 1U);
+    ASSERT_DOUBLE_EQ(breakpoints.front(), 0.0);
 }

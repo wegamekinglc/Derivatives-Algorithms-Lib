@@ -156,3 +156,37 @@ def test_gsr_slv_rate_component_prices_equity_and_rate():
     # With zero vol-of-vol the SLV kernel reduces exactly to its Gaussian core.
     expected = 100.0 * math.exp(-0.06)
     assert result["PV"] == pytest.approx(expected, rel=1e-2)
+
+
+def test_assembled_correlation_matches_hand_built_matrix():
+    today = dal.Date_(2026, 10, 2)
+    expiry = today.AddDays(365)
+    horizon = today.AddDays(1095)
+    dal.EvaluationDate_Set(today)
+    curve = dal.GSRCurveData_New(
+        "curve", today, "USD",
+        [today, today.AddDays(365), today.AddDays(730), horizon],
+        [0.0, -0.03, -0.06, -0.09], [], dal.DoubleMatrix_(0, 0),
+    )
+    rate_vol = dal.GSRVolData_New("rate_vol", [today], [0.02], [today], [1.0])
+    product = dal.Product_New(
+        [expiry], ["pay PAYS FIX(EQ[A]) * FIX(IR[USD,DF,%s])" % str(horizon)]
+    )
+    components = [
+        dal.HybridBSEquityData_New("equity", "EQ[A]", "USD", "W_EQ", 100.0, 0.0, 0.0),
+        dal.HybridGSRRateData_New("rate", "W_RATE", curve, rate_vol),
+    ]
+    hand = dal.HybridConstantCorrelationData_New(
+        "corr", ["W_EQ", "W_RATE"], dal.DoubleMatrix_([[1.0, 0.25], [0.25, 1.0]])
+    )
+    assembled = dal.HybridCorrelation_Assemble(
+        "corr", components, [dal.HybridFactorLink_("W_EQ", "W_RATE", 0.25)]
+    )
+    no_links = dal.HybridCorrelation_Assemble("corr", components)
+    expected = 100.0 * math.exp(-0.06)
+    by_hand = dal.MonteCarlo_ValueWithSettings(product, dal.HybridModelData_New("m1", "USD", components, hand), 512)
+    by_link = dal.MonteCarlo_ValueWithSettings(product, dal.HybridModelData_New("m2", "USD", components, assembled), 512)
+    by_none = dal.MonteCarlo_ValueWithSettings(product, dal.HybridModelData_New("m3", "USD", components, no_links), 512)
+    assert by_link["PV"] == pytest.approx(by_hand["PV"], abs=1e-10)  # nosec B101
+    assert by_hand["PV"] == pytest.approx(expected, rel=5e-3)  # nosec B101
+    assert by_none["PV"] == pytest.approx(expected, rel=5e-3)  # nosec B101

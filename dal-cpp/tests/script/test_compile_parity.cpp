@@ -773,7 +773,8 @@ namespace {
     }
 
     bool IsTwoOperandOpcode(int op) {
-        static const std::set<int> ops = {AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, LsmcPaysConst, VectorAssign};
+        static const std::set<int> ops = {AssignConst,  PaysConst,    IfElse,           FuzzyEqualDiscrete, FuzzyCompDiscrete,
+                                          LsmcPaysConst, VectorAssign, PaysOn,          LsmcPaysOn,         LsmcFuzzyPaysOn};
         return ops.count(op) != 0;
     }
 
@@ -783,6 +784,8 @@ namespace {
             return 2;
         if (IsTwoOperandOpcode(op))
             return 3;
+        if (op == PaysOnConst || op == LsmcPaysOnConst || op == LsmcFuzzyPaysOnConst)
+            return 4;
         if (op == FuzzyIf) {
             const size_t nAff = static_cast<size_t>(stream[idx + 3]);
             return 5 + nAff + static_cast<size_t>(stream[idx + 4 + nAff]);
@@ -820,6 +823,22 @@ namespace {
         product.PreProcess(false, true);
         const ScriptCompiled_ compiled = product.Compile();
         for (const auto& stream : compiled.NodeStreams())
+            CollectOpcodes(stream, out);
+    }
+
+    //  Delayed payments exist only on the prepared path: the discount slot operand is bound
+    //  by model-aware preparation, so cover PaysOn/PaysOnConst from a prepared compiled plan.
+    //  The first RHS stays live (SPOT-dependent) so the non-const PaysOn opcode is emitted.
+    void MergeDelayedPaymentOpcodes(std::set<int>* out) {
+        const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 28));
+        const ScriptProductData_ product(
+            "", {Cell_(Date_(2023, 2, 28)), Cell_(Date_(2023, 5, 28))}, {"x = SPOT()", "pay PAYS x ON 2023-08-28 pay2 PAYS 5 ON 2023-11-28"});
+        auto model = AAD::BlackScholes_<double>(100.0, 0.2, 0.03, 0.01);
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = true;
+        const auto prepared = PrepareScript(product, &model, ScriptValuationSettings_(), simulation);
+        const auto& streams = prepared.CompiledProgram().NodeStreams();
+        for (const auto& stream : streams)
             CollectOpcodes(stream, out);
     }
 
@@ -1098,6 +1117,8 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
 
     MergeConstVarProductOpcodes(&seen);
 
+    MergeDelayedPaymentOpcodes(&seen);
+
     MergeFuzzyProductOpcodes(&seen);
 
     std::set<int> fuzzyVectorSeen;
@@ -1107,7 +1128,7 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
         ASSERT_EQ(fuzzyVectorSeen.count(op), 1u) << "missing vector opcode " << op;
     seen.insert(fuzzyVectorSeen.begin(), fuzzyVectorSeen.end());
 
-    const std::set<int> unreachable = {31};
+    const std::set<int> unreachable = {};
     for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)
