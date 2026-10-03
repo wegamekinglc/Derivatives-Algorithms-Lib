@@ -8,21 +8,24 @@
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace Dal::AAD {
 
+    void TapNode_::PropagateNonFiniteResults(double* destination, const double* source, double derivative, size_t numAdj) {
+        PropagateResults<true>(destination, source, derivative, numAdj);
+    }
+
     namespace {
-        auto Begin(Tape_& tape) -> Tape_::Iterator_ {
-            return tape.nodes_.Begin();
-        }
+        auto Begin(Tape_& tape) -> Tape_::Iterator_ { return tape.nodes_.Begin(); }
 
-        auto End(Tape_& tape) -> Tape_::Iterator_ {
-            return tape.nodes_.End();
-        }
+        auto End(Tape_& tape) -> Tape_::Iterator_ { return tape.nodes_.End(); }
 
-        auto MarkIt(Tape_& tape) -> Tape_::Iterator_ {
-            return tape.nodes_.Mark();
-        }
+        auto MarkIt(Tape_& tape) -> Tape_::Iterator_ { return tape.nodes_.Mark(); }
 
+        template <bool M_, size_t R_ = 0>
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
         void PropagateAdjoints(Tape_& tape, Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
-            // Select the loop once per call: a per-node multi_ branch measurably slowed the sweep.
             const auto sweep = [propagateFrom, propagateTo](const auto& propagateNode) {
                 auto it = propagateFrom;
                 while (it != propagateTo) {
@@ -31,18 +34,30 @@ namespace Dal::AAD {
                 }
                 propagateNode(*it);
             };
-            if (tape.multi_)
-                sweep([numAdj = tape.numAdj_](TapNode_& node) { node.PropagateAll(numAdj); });
+            if constexpr (M_)
+                sweep([numAdj = tape.numAdj_](TapNode_& node) { node.PropagateAll<R_>(numAdj); });
             else
                 sweep([](TapNode_& node) { node.PropagateOne(); });
         }
 
-        // Sweeps [propagateTo, propagateEnd) backwards. The empty-window guard stays outside the sweep, and
-        // is forced inline so PropagateAdjoints keeps its three call sites: folding either into one body
-        // measurably slowed propagation.
+        template <size_t R_, size_t... S_> void PropagateMulti(Tape_& tape, Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
+            if (tape.numAdj_ == R_)
+                PropagateAdjoints<true, R_>(tape, propagateFrom, propagateTo);
+            else if constexpr (sizeof...(S_) != 0)
+                PropagateMulti<S_...>(tape, propagateFrom, propagateTo);
+            else
+                PropagateAdjoints<true>(tape, propagateFrom, propagateTo);
+        }
+
+        // Select the mode and width once per sweep; keep the empty-window guard outside the hot loops.
         FORCE_INLINE void PropagateWindow(Tape_& tape, Tape_::Iterator_ propagateEnd, Tape_::Iterator_ propagateTo) {
-            if (propagateEnd != propagateTo)
-                PropagateAdjoints(tape, std::prev(propagateEnd), propagateTo);
+            if (propagateEnd != propagateTo) {
+                const auto propagateFrom = std::prev(propagateEnd);
+                if (tape.multi_)
+                    PropagateMulti<1, 2, 4, 8, 10, 16>(tape, propagateFrom, propagateTo);
+                else
+                    PropagateAdjoints<false>(tape, propagateFrom, propagateTo);
+            }
         }
 
         template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {

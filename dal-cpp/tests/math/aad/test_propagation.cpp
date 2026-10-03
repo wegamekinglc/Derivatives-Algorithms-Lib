@@ -2,13 +2,14 @@
 // Created by Codex on 2026/10/04.
 //
 
-#include <array>
-#include <cmath>
-#include <dal/math/aad/aad.hpp>
-#include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
+
+#include <cmath>
 #include <limits>
 #include <utility>
+
+#include <dal/math/aad/aad.hpp>
+#include <dal/platform/platform.hpp>
 
 using Dal::AAD::Number_;
 
@@ -88,7 +89,60 @@ TEST(AADPropagationTest, TestNonFiniteSeedsRemainObservable) {
     }
 }
 
+TEST(AADPropagationTest, TestSubnormalAndSignedZeroSeeds) {
+    const double subnormal = std::numeric_limits<double>::denorm_min();
+    for (double seed : {subnormal, -subnormal, 0.0, -0.0}) {
+        const auto result = ScaledIdentity(1.0, seed, true);
+        ASSERT_EQ(result.second, seed);
+    }
+}
+
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+TEST(AADPropagationTest, TestVectorWidthsConsumeIntermediatesAndAccumulateAliasedInputs) {
+    using namespace Dal::AAD;
+    for (size_t width : {1U, 2U, 3U, 4U, 5U, 7U, 8U, 10U, 15U, 16U, 17U, 33U}) {
+        SCOPED_TRACE(::testing::Message() << "width=" << width);
+        Clear(*Tape());
+        {
+            auto mode = SetNumResultsForAAD(true, width);
+            Number_ x = 2.0;
+            auto* inputNode = &*std::prev(Tape()->nodes_.End());
+            Number_ y = 3.0 * x * x + 5.0;
+            auto* outputNode = &*std::prev(Tape()->nodes_.End());
+            for (int sweep = 1; sweep <= 2; ++sweep) {
+                for (size_t j = 0; j < width; ++j)
+                    outputNode->Adjoint(j) = j % 4 == 0 ? 0.0 : static_cast<double>(j + 1);
+                PropagateToStart(*Tape());
+                for (size_t j = 0; j < width; ++j) {
+                    const double seed = j % 4 == 0 ? 0.0 : static_cast<double>(j + 1);
+                    ASSERT_DOUBLE_EQ(inputNode->Adjoint(j), 12.0 * seed * sweep);
+                    ASSERT_DOUBLE_EQ(outputNode->Adjoint(j), 0.0);
+                }
+            }
+        }
+        Clear(*Tape());
+    }
+}
+
+TEST(AADPropagationTest, TestVectorSubnormalSeedsRemainObservable) {
+    using namespace Dal::AAD;
+    Clear(*Tape());
+    {
+        auto mode = SetNumResultsForAAD(true, 2);
+        Number_ x = 3.0;
+        auto* inputNode = &*std::prev(Tape()->nodes_.End());
+        Number_ y = x * 1.0;
+        auto* outputNode = &*std::prev(Tape()->nodes_.End());
+        const double subnormal = std::numeric_limits<double>::denorm_min();
+        outputNode->Adjoint(0) = subnormal;
+        outputNode->Adjoint(1) = -subnormal;
+        PropagateToStart(*Tape());
+        ASSERT_EQ(inputNode->Adjoint(0), subnormal);
+        ASSERT_EQ(inputNode->Adjoint(1), -subnormal);
+    }
+    Clear(*Tape());
+}
+
 TEST(AADPropagationTest, TestVectorAdjointsDoNotDependOnOtherRequestedOutputs) {
     using namespace Dal::AAD;
     for (double secondSeed : {0.0, 1.0, 1e16}) {

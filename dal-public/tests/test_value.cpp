@@ -89,7 +89,26 @@ TEST(ValueTest, TestEuropeanCallMatchesBlackScholes) {
     ASSERT_NEAR(result.at(String_("PV")), call, 0.05);
 }
 
-TEST(ValueTest, TestAadRejectsNonFiniteRiskWithFinitePayoffAndRecovers) {
+TEST(ValueTest, TestAadRejectsOverflowingRiskWithFinitePayoffAndRecovers) {
+    const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
+    const Vector_<Cell_> dates = {Cell_("ROOT"), Cell_(Date_(2023, 9, 25))};
+    const Vector_<String_> events = {String_("1e-300"), String_("value pays 1e20 * LOG(ROOT)")};
+    const auto product = Dal::NewScriptProduct("overflowing_risk", dates, events);
+    const auto model = Dal::NewBSModelData("overflowing_risk_model", 100.0, 0.2, 0.0, 0.0);
+
+    for (bool compiled : {false, true}) {
+        const double pv = Dal::ValueByMonteCarlo(product, model, 32, "sobol", false, false, 0.01, compiled).at("PV");
+        ASSERT_NEAR(pv / (1e20 * std::log(1e-300)), 1.0, 1e-12);
+        ASSERT_NO_FATAL_FAILURE(AssertFields([&]() { Dal::ValueByMonteCarlo(product, model, 32, "sobol", false, true, 0.01, compiled); },
+                                             {"InvalidRisk", "output=PV", "input=ROOT", "non-finite"}));
+    }
+    const auto recovered = Dal::ValueByMonteCarlo(MakeEuropeanCall("after_overflowing_risk"), model, 32, "sobol", false, true);
+    ASSERT_TRUE(std::isfinite(recovered.at("PV")));
+    ASSERT_TRUE(std::isfinite(recovered.at("d_spot")));
+}
+
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+TEST(ValueTest, TestNativeAadRejectsSingularRiskWithFinitePayoffAndRecovers) {
     const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
     const Vector_<Cell_> dates = {Cell_("ROOT"), Cell_(Date_(2023, 9, 25))};
     const Vector_<String_> events = {String_("0.0"), String_("value pays SQRT(ROOT)")};
@@ -98,11 +117,12 @@ TEST(ValueTest, TestAadRejectsNonFiniteRiskWithFinitePayoffAndRecovers) {
 
     ASSERT_DOUBLE_EQ(Dal::ValueByMonteCarlo(product, model, 32).at(String_("PV")), 0.0);
     ASSERT_NO_FATAL_FAILURE(AssertFields([&]() { Dal::ValueByMonteCarlo(product, model, 32, "sobol", false, true); },
-                                       {"InvalidRisk", "output=PV", "input=ROOT", "non-finite"}));
+                                         {"InvalidRisk", "output=PV", "input=ROOT", "non-finite"}));
     const auto recovered = Dal::ValueByMonteCarlo(MakeEuropeanCall("after_singular_risk"), model, 32, "sobol", false, true);
     ASSERT_TRUE(std::isfinite(recovered.at(String_("PV"))));
     ASSERT_TRUE(std::isfinite(recovered.at(String_("d_spot"))));
 }
+#endif
 
 TEST(ValueTest, TestRejectsNonFiniteAggregateFromFinitePathPayoffs) {
     const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
@@ -111,8 +131,8 @@ TEST(ValueTest, TestRejectsNonFiniteAggregateFromFinitePathPayoffs) {
     const auto product = Dal::NewScriptProduct("aggregate_overflow", dates, events);
     const auto model = Dal::NewBSModelData("aggregate_overflow_model", 100.0, 0.2, 0.0, 0.0);
     for (bool aad : {false, true})
-        ASSERT_NO_FATAL_FAILURE(AssertFields([&]() { Dal::ValueByMonteCarlo(product, model, 32, "sobol", false, aad); },
-                                           {"InvalidPayoff", "output=PV", "non-finite"}));
+        ASSERT_NO_FATAL_FAILURE(
+            AssertFields([&]() { Dal::ValueByMonteCarlo(product, model, 32, "sobol", false, aad); }, {"InvalidPayoff", "output=PV", "non-finite"}));
 }
 
 TEST(ValueTest, TestDeterministicAcrossRuns) {

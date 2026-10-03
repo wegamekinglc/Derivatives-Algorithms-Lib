@@ -85,13 +85,27 @@ Isolated sources: `/tmp/dal-aad-baseline` and `/tmp/dal-aad-implementation`.
 Evidence/build root: `/tmp/dal-aad-evidence`; dependencies are checked out at baseline gitlink SHAs.
 Full native baseline/head Release builds use matching benchmark-enabled configuration.
 
-The first six native propagation regressions failed before the repair and pass afterward.
-The native AAD/tape selection passes 54 tests. A fresh full native/core/public/portable-Excel
-and non-slow example run passed 2,285 cases before adding the aggregate-overflow regression;
-the subsequent full run is pending. Both public finite-payoff/singular-risk recovery and
-aggregate-overflow cases pass. No four-backend, remote CI, or performance verdict is claimed yet.
+At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
+portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
+found approximately 50% regressions in vector propagation and the small Jacobian harvest;
+these failures are retained in `p0-paired-initial/` and are not waived.
 
-The repair retains the scalar hot loop and consumes intermediate adjoints as before. Public
-valuation validates the requested numeric results after simulation, outside per-path loops.
-Next: inspect the fresh full-suite result and paired performance gate, address any regression,
-then finish backend verification before proceeding to recording and request/result contracts.
+The corrective kernel uses exact IEEE magnitude-bit classification (portable comparison fallback),
+continuous vector arithmetic for finite derivatives, and an out-of-line non-finite path that skips
+zero channels. Mode and common widths are selected once per sweep; other widths use the same
+semantics through the dynamic loop. No per-node data members or approximate thresholds are added.
+
+Nine focused native propagation tests pass, including new scalar/vector subnormal regressions,
+signed-zero handling, alias accumulation, repeated sweeps, and specialized/fallback widths.
+The subnormal cases fail against the original baseline. The corrected kernel's isolated diagnostic
+pairing passed both rounds for tape and Jacobian targets; this is not the final nine-target verdict.
+Raw evidence is in `width-specialized-paired-diagnostic/` (same CPU affinity for both sides).
+
+The original CoDiPack CI failures exposed its explicit `sqrt(0)` zero-gradient convention rather
+than a missing numeric-result check. Retain that boundary test for native, and validate all backends
+with a smooth positive-domain payoff whose derivative overflows while its primal remains finite;
+the new public test covers interpreted/compiled paths and subsequent recovery.
+
+Next: fresh full build/tests, applicable backend verification, final nine-target paired gate,
+and exact corrected-head CI. Public validation remains outside per-path loops. Do not mark Stage A
+complete before these checks and the remaining measurement/lifecycle work are verified.

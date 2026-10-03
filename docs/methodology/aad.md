@@ -482,6 +482,10 @@ Public Monte Carlo valuation requires both the reported mean and requested
 sensitivities to be finite. An invalid sensitivity raises `InvalidRisk` with the
 output and input names; a non-finite aggregate mean raises `InvalidPayoff`.
 This validation does not make an undefined local derivative mathematically valid.
+Endpoint conventions still belong to the selected backend. For example, the
+pinned CoDiPack backend assigns a zero local derivative to `sqrt(0)`, whereas
+the native backend produces an infinite derivative. A finite reported value is
+therefore insufficient evidence of differentiability at an endpoint.
 
 ### Passive vs Active Tape
 
