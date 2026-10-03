@@ -12,6 +12,14 @@
 using namespace Dal;
 
 namespace {
+    Matrix_<> PartialBlockInput(int rows, int cols) {
+        Matrix_<> a(rows, cols);
+        for (int row = 0; row < rows; ++row)
+            for (int col = 0; col < cols; ++col)
+                a(row, col) = (row + 1) * (col % 5 - 2) * 0.25;
+        return a;
+    }
+
     // A = [1 2 0; 0 1 3] (2x3), B = [2 0; 1 1; 0 2] (3x2), so A*B = [4 2; 1 7]
     Matrix_<> DemoA() {
         Matrix_<> a(2, 3);
@@ -139,10 +147,7 @@ TEST(MatrixTest, TestAddJSquaredToUpperPartialBlocks) {
     for (const int rows : {1, 3, 17}) {
         for (const int cols : {0, 1, 15, 16, 17, 31, 32, 33}) {
             SCOPED_TRACE(::testing::Message() << "rows=" << rows << " cols=" << cols);
-            Matrix_<> a(rows, cols);
-            for (int row = 0; row < rows; ++row)
-                for (int col = 0; col < cols; ++col)
-                    a(row, col) = (row + 1) * (col % 5 - 2) * 0.25;
+            const auto a = PartialBlockInput(rows, cols);
             Matrix_<> h(rows, rows, -7.0);
             Matrix::AddJSquaredToUpper(a, &h);
             for (int row = 0; row < rows; ++row) {

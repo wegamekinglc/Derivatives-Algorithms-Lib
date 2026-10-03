@@ -18,6 +18,16 @@
 
 using namespace Dal;
 
+namespace {
+    SquareMatrix_<> NearSingularMatrix(int size, double scale) {
+        SquareMatrix_<> a(size);
+        for (int row = 0; row < size; ++row)
+            for (int col = 0; col < size; ++col)
+                a(row, col) = scale * (((row + col) % 2 == 0 ? 1.0 : -1.0) + (row == col ? 1e-6 : 0.0));
+        return a;
+    }
+} // namespace
+
 TEST(MatrixTest, TestLowerTriangularMultiplyIncludesDiagonal) {
     SquareMatrix_<> matrix(2);
     matrix(0, 0) = 2.0;
@@ -50,14 +60,11 @@ TEST(MatrixTest, TestCholeskyNearSingularResidualAcrossScales) {
     constexpr int N = 8;
     for (const double scale : {1e-6, 1.0, 1e6}) {
         SCOPED_TRACE(scale);
-        SquareMatrix_<> a(N);
+        const auto a = NearSingularMatrix(N, scale);
         Vector_<> expected(N), b(N, 0.0);
         // A = scale * (u*u^T + 1e-6*I) has condition number about 8e6.
-        for (int row = 0; row < N; ++row) {
+        for (int row = 0; row < N; ++row)
             expected[row] = 0.25 * (row + 1);
-            for (int col = 0; col < N; ++col)
-                a(row, col) = scale * (((row + col) % 2 == 0 ? 1.0 : -1.0) + (row == col ? 1e-6 : 0.0));
-        }
         for (int row = 0; row < N; ++row) {
             long double value = 0.0;
             for (int col = 0; col < N; ++col)
