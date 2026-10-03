@@ -42,7 +42,7 @@ namespace Dal::AAD {
         void PropagateOne() {
             if (!n_)
                 return;
-            if (std::abs(adjoint_) > Dal::EPSILON) {
+            if (adjoint_ != 0.0) {
                 for (size_t i = 0; i < n_; ++i)
                     *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
             }
@@ -56,12 +56,13 @@ namespace Dal::AAD {
         void PropagateAll(size_t numAdj) {
             if (!n_)
                 return;
-            if (std::any_of(pAdjoints_, pAdjoints_ + numAdj, [](double x) { return std::abs(x) > Dal::EPSILON; })) {
+            if (std::any_of(pAdjoints_, pAdjoints_ + numAdj, [](double x) { return x != 0.0; })) {
                 for (size_t i = 0; i < n_; ++i) {
                     double* adjPtr = pAdjPtrs_[i];
                     double ders = pDerivatives_[i];
                     for (size_t j = 0; j < numAdj; ++j)
-                        adjPtr[j] += ders * pAdjoints_[j];
+                        if (pAdjoints_[j] != 0.0)
+                            adjPtr[j] += ders * pAdjoints_[j];
                 }
             }
             // Same consumed-adjoint zeroing as PropagateOne: repeated sweeps must

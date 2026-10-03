@@ -2,6 +2,7 @@
 // Created by wegam on 2022/11/20.
 //
 
+#include <cmath>
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -94,11 +95,16 @@ namespace Dal {
         const size_t numPaths = static_cast<size_t>(nPaths);
         const auto results = execution.enableAad_ ? Script::MCSimulation<AAD::Number_>(*productCopy, modelCopy, numPaths, settings, execution)
                                                   : Script::MCSimulation<double>(*productCopy, modelCopy, numPaths, settings, execution);
+        const double pv = results.aggregated_ / static_cast<double>(numPaths);
+        REQUIRE2(std::isfinite(pv), "InvalidPayoff: non-finite Monte Carlo mean; output=PV", ScriptError_);
         std::map<String_, double> res;
-        res["PV"] = results.aggregated_ / static_cast<double>(numPaths);
+        res["PV"] = pv;
         if (execution.enableAad_)
-            for (const auto& n : results.names_)
-                res["d_" + n] = results[n];
+            for (const auto& n : results.names_) {
+                const double risk = results[n];
+                REQUIRE2(std::isfinite(risk), "InvalidRisk: non-finite Monte Carlo sensitivity; output=PV; input=" + n, ScriptError_);
+                res["d_" + n] = risk;
+            }
         return res;
     }
 } // namespace Dal

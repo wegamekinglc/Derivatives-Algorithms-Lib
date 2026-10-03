@@ -425,6 +425,13 @@ Each step has a backend-specific reason to be in this position:
 
 ### Per-Backend Zeroing Semantics
 
+- **Native propagation precision.** Every nonzero adjoint propagates, including
+  very small values. Only exact zero seeds are skipped: a small intermediate
+  adjoint can be multiplied by a large local derivative later in the sweep.
+  Multi-result channels follow this rule independently, so a zero channel does
+  not evaluate `0 * Inf` when another channel is active. NaN and nonzero infinite
+  seeds remain observable rather than being discarded by a threshold comparison.
+
 - **Native.** `PropagateOne` (`dal-cpp/dal/math/aad/node.hpp`) zeroes each
   consumed node's adjoint inline after propagating it to its parents, so the
   intermediate graph starts clean for the next reverse sweep without a separate
@@ -468,6 +475,13 @@ Each step has a backend-specific reason to be in this position:
   tape; `ZeroAdjoints` calls the no-argument `clearAdjoints`, which zeroes up
   to the largest created index and leaves the statement graph intact. Both are
   safe between sweeps.
+
+### Public Result Validation
+
+Public Monte Carlo valuation requires both the reported mean and requested
+sensitivities to be finite. An invalid sensitivity raises `InvalidRisk` with the
+output and input names; a non-finite aggregate mean raises `InvalidPayoff`.
+This validation does not make an undefined local derivative mathematically valid.
 
 ### Passive vs Active Tape
 
