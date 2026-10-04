@@ -135,8 +135,21 @@ analytic gradients and supported lifetime behavior. Default native CTest passes
 2,318 functional/example cases; CoDiPack passes 2,257. OFF number/node/tape size
 and alignment match the original baseline (16/40/368 bytes on this host), and
 diagnostic functions are absent from its tape object. All 21 quiet serial OFF
-benchmark smoke checks pass. Default OFF paired performance and current-head CI
-remain open; smoke timing is not paired acceptance.
+benchmark smoke checks pass. Final include-order rebuild passes 71 ON and 47 OFF
+focused cases. At immutable implementation head `c83bcc9`, the fresh nine-target
+gate passes all 65 comparable cases; 35 ordinary MC cases, three LSM profiles,
+and 25 calibration cases also pass. Every LSM paired PV/risk agrees at relative/
+absolute tolerance 1e-10. Three four-thread RSS pairs have overlapping ranges
+and no major faults. The [D02 acceptance report](../perf/aad-native-lifetime-diagnostics.md)
+records all rows and limits. Current publication-head CI and the final requirement
+audit remain open; smoke timing is not paired acceptance.
+Post-pairing review reproduces two independent-rebinding failures and one
+expression-assignment failure under counter exhaustion. Diagnostic assignment
+now commits primal/handle only after successful allocation/materialization;
+default OFF assignment bodies are unchanged. All 28 diagnostic cases now pass
+ASan/UBSan, including actual scoped-registration failure/recovery. Complete
+ON/OFF rebuild validation and fresh default OFF pairing remain required before
+publishing the corrected diagnostic increment; keep the earlier `c83bcc9` data.
 The independent full-final-block `BlockList::Size` repair has its
 bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
 final paired/CI acceptance; its full native/CoDiPack functional checks pass.

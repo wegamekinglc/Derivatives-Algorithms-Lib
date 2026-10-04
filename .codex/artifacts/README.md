@@ -10,3 +10,6 @@ after documenting the current-state outcome.
 
 - [DAL AAD implementation ledger](plans/aad-implementation.md): full-scope
   delivery and correctness, performance, compatibility, and CI evidence.
+- [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
+  and [acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
+  active-number checks, ABI propagation, failure recovery and default performance.
