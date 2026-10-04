@@ -1,7 +1,7 @@
 # F01 frozen Dupire core review
 
 Verdict: Comment Only. No unresolved correctness findings in the reviewed core
-increment; exact publication-head CI and the remaining F01 integration are open.
+increment; the remaining F01 integration is open.
 
 ## Findings
 
@@ -23,8 +23,9 @@ bucket/direction difference helpers reduces that test to eight; the complete cor
 and test file pass the original local threshold. OFF and combined focused suites
 each pass 15 cases, with every one of the 42 oracle rows bitwise identical to its
 pre-refactor trace. The rebuilt default production archive is also SHA-256 identical
-to the measured installed archive. The sanitizer refactor rerun is still running;
-its earlier complete-core acceptance remains distinct from this pending rerun.
+to the measured installed archive. The sanitizer refactor rerun passes 15 cases,
+with all 42 oracle rows identical. Exact corrective `e1ff0dd6` passes all 35 CI
+checks. That acceptance precedes the public Hybrid implementation.
 
 The passive snapshot owns fixed base stencil/ATM samples, carry, quote axes/values,
 inclusion/completed grids and surface values. It retains no caller IVS pointer,
@@ -36,13 +37,14 @@ Curvature and variance errors reject rather than clip or floor.
 
 ## Open questions and remaining scope
 
-- Exact new publication-head CI is required; `e3720f9f`'s 35 green checks certify
-  scalar D04 and precede this source increment.
-- Hybrid extraction must use typed component identity and runtime name ordering,
-  reconstruct/validate the full model axis and require all selected surface seeds.
-  Missing selected inputs cannot be treated as zero risk.
-- Full bump/recalibrate/common-path valuation oracles, C++ public/Python/Excel
-  surfaces, common curve pullback adaptation and complete-request cost remain open.
+- Exact `e1ff0dd6` CI accepts this core increment. Subsequent public source needs
+  its own local review and exact publication-head CI.
+- The subsequent Hybrid adapter has local full-chain/identity, diagnostic,
+  installed-consumer and request-cost evidence in its
+  [separate review](aad-dupire-hybrid-pullback.md). Its exact-head CI is independent
+  of this accepted core increment.
+- Python/Excel surfaces, common curve pullback adaptation and complete F01
+  acceptance remain open.
 - P01 production performance remains inconclusive. Core new-entry measurements
   and unchanged gate binaries cannot establish the missing production verdict.
 
@@ -80,7 +82,8 @@ Evidence root:
 
 ## Summary
 
-The core increment is published as a draft, with its test-only complexity correction
-locally verified OFF/combined and new exact-head CI still required. It is a required
-part of F01, not complete Hybrid quote
-risk, and does not close Stage A or the full Stage B/C/D objective.
+The core increment and its test-only complexity correction are published as a
+draft and accepted OFF/combined, under instrumented sanitizers and by all 35
+exact `e1ff0dd6` CI checks. It is a required part of F01 and does not close the
+remaining Hybrid/binding/curve requirements, Stage A or the full Stage B/C/D
+objective.

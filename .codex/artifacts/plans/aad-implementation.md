@@ -199,7 +199,60 @@ all cases, fixed steps, tolerances and independent old-calibrator references.
 Local complexity now passes without changing the limit; OFF/combined focused
 checks each pass 15, with all 42 oracle rows identical to their prior traces.
 The default core archive remains SHA-256 identical. The instrumented refactor
-rerun is live; its terminal result and exact corrective-head CI remain required.
+rerun passes 15 cases with all 42 oracle rows identical. Exact corrective
+`e1ff0dd6` passes all 35 CI checks. This accepts the published core increment;
+those checks do not cover the subsequent public Hybrid source.
+
+The public Hybrid adapter now derives surface seeds from typed component order
+and model ordinals, checks the retained model and complete axis, and adds a
+passive result wrapper without rerunning Monte Carlo. The initial OFF complete
+chain passes all 300 oracle rows: 216 independent surface-node rows and 84 full
+quote bucket/direction rows over flat/Merton bases and tree/compiled evaluation.
+The extended suite passes 18 public checks and 321 oracle rows, including
+21 distinct-trade full portfolio recalibration rows. All original 300 rows
+remain bitwise identical. The [aggregation oracle review](../critiques/aad-dupire-aggregation.md)
+retains the failed strict distinct-seed comparison and its bitwise reproduction
+against the unchanged published core; exact power-of-two controls and the
+predeclared independent portfolio oracle pass without changing production math.
+The direct input is a PV adjoint, including the analytic cashflow discount; an
+earlier test supplied an undiscounted payment adjoint and its failed trace is
+retained. Steps, tolerances, paths and the old-calibrator/valuation reference
+remain unchanged. Complete combined-diagnostic CTest passes 2,395 cases; fully
+instrumented ASan/UBSan passes 28 public cases, with all 321 oracle rows identical
+to OFF. Both installed consumers pass in OFF and combined. The complete OFF
+CTest passes all 2,382 cases, including its existing billion-path European MC
+example. The [public entry-cost report](../performance/aad-dupire-hybrid-entry-cost.md)
+retains 1,280 processes over 16 cases/four modes, with all 1,040 input hashes and
+numeric references unchanged. Public pullbacks cost about 40–42/270–275
+microseconds on 9×2/21×8 surfaces; these are additional-capability costs. All
+nine old gate binaries and the default core archive remain identical. The
+[public review](../reviews/aad-dupire-hybrid-pullback.md) has no unresolved local
+correctness findings. Binding, curve integration and exact new-publication CI
+acceptance remain separate requirements.
+
+### Whole-plan status and remaining effort
+
+This snapshot distinguishes accepted increments from locally implemented work.
+Estimates are remaining single-developer effort, not promises of calendar time;
+overlapping acceptance work is included once in the integration allowance.
+
+| Work item | Implementation and local evidence | Publication/CI | Remaining person-days |
+| --- | --- | --- | ---: |
+| C01–C05, D00–D03 | Accepted native correctness/lifecycle/removal | Accepted exact-head checks | 0 |
+| Scalar D04 | Accepted C++/Python/Excel | Accepted exact-head checks | 0 |
+| P01 | Measurement tooling complete; production MC acceptance inconclusive | Published tooling; performance verdict open | 2–5 |
+| F01 | Dupire core accepted; Hybrid has 18 checks/321 oracle rows, complete OFF/combined and instrumented passes, installed consumers and entry-cost evidence | Core `e1ff0dd6` 35/35; public increment ready for draft publication/new CI | 7–11 |
+| F02 | Required multi-output/portfolio work remains | Open | 7–11 |
+| P02/P03 | Worker reuse/block selection/extraction remain | Open | 4–7 |
+| F03 | Solve, implicit calibration and PDE operators remain | Open | 12–20 |
+| P04/P05 | Structural sparsity/checkpointing remain | Open | 9–15 |
+| F04 | Second-order implementation/estimator validation remain | Open | 12–20 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open | 7–11 |
+
+Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
+Allow approximately 15–25 weeks including cross-platform and performance
+investigation buffer. F01's first Hybrid oracle pass does not yet change that
+range. Re-estimate at milestones and when acceptance findings change the scope.
 
 ### Earlier snapshots retained for acceptance context
 

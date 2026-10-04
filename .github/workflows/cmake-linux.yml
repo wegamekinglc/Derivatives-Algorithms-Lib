@@ -404,7 +404,7 @@ jobs:
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             core-filter: AADNativeTest.*:ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:RateCashflowPricingTest.TestPrepared*:SchedulesTest.*:JointQuoteRiskTest.*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
-            public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms:CurvePricingPublicTest.TestGenericJoint*:RiskValueTest.*
+            public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms:CurvePricingPublicTest.TestGenericJoint*:RiskValueTest.*:DupireScriptRiskTest.*
           - label: TSan concurrency tests
             slug: tsan
             sanitizers: thread
@@ -417,14 +417,14 @@ jobs:
             flags: -O2 -g -fno-sanitize-recover=all
             lifetime_diagnostics: "ON"
             core-filter: AADNativeTest.*:AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
-            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
+            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*:DupireScriptRiskTest.*
           - label: ASan + UBSan AAD profiling
             slug: aad-profiling
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             profiling: "ON"
             core-filter: AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
-            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
+            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*:DupireScriptRiskTest.*
           - label: ASan + UBSan combined AAD diagnostics
             slug: aad-combined
             sanitizers: address;undefined
@@ -432,7 +432,7 @@ jobs:
             lifetime_diagnostics: "ON"
             profiling: "ON"
             core-filter: AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
-            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
+            public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*:DupireScriptRiskTest.*
           - label: TSan AAD profiling tasks
             slug: tsan-profiling
             sanitizers: thread

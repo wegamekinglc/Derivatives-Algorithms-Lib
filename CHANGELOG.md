@@ -21,7 +21,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - **Frozen Dupire calibration quote pullback** — C++ snapshots retain numeric
   base IVS samples and complete calibration identity; native scalar reverse maps
   local-volatility node adjoints to spread quotes, with additive boundary seeds,
-  separate direct contributions and explicit domain validation. See
+  separate direct contributions and explicit domain validation. The public
+  Hybrid adapter checks retained model coordinates and typed component layout,
+  requires every surface seed and returns quote risk alongside the passive
+  valuation without rerunning Monte Carlo. See
   [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
 
 - **Structured script risk across C++, Python and Excel** —

@@ -131,6 +131,19 @@ trade parameter seeds before one pullback; reject incompatible snapshots.
    smoothing and model time steps. Predeclare quote bump steps 2e-4/1e-4/5e-5
    and absolute 1e-3 plus relative 1e-3 on a small smooth payoff. Report sampling,
    grid and smoothing errors separately from derivative agreement.
+   The independent surface-node check uses centered steps 2e-5/1e-5/5e-6,
+   absolute 1e-4 plus relative 1e-4 and two adjacent passing steps. These node
+   steps are declared before the complete-chain test implementation. Retain every
+   row for both bases and evaluator modes. Use a smooth quadratic payoff so no
+   smoothing or exercise-policy estimator obscures the calibration chain.
+   Compatible portfolio seeds use the same predeclared full recalibration
+   protocol over every quote bucket and a direction. Also require an exact
+   power-of-two seed control. Separate double-precision reverses followed by
+   addition are a roundoff diagnostic, not an exact real-arithmetic reference:
+   the retained stencil's large intermediate derivatives can amplify different
+   floating summation orders. Preserve that diagnostic and verify the actual
+   portfolio derivative against independent prices without changing this
+   finite-difference protocol.
 8. Build OFF and combined diagnostics; run appropriate sanitizer, public,
    binding, generated-output and installed-consumer checks before publication.
    Measure calibration-only and complete-request cost after correctness. Keep

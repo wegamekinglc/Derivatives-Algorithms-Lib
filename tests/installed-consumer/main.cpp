@@ -2,6 +2,7 @@
 #include <numeric>
 
 #include <dal-public/src/calendar.hpp>
+#include <dal-public/src/dupirerisk.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
 #include <dal-public/src/models.hpp>
@@ -18,6 +19,27 @@ namespace {
         ConsumerIVS_() : IVS_(100.0) {}
         [[nodiscard]] double ImpliedVol(double, double) const override { return 0.2; }
     };
+
+    bool CheckHybridPullback(const Dal::DupireCalibrationSnapshot_& calibration) {
+        Dal::HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Dal::NewHybridLocalVolEquityData("equity", "EQ[INSTALLED]", "USD", "W_EQ", calibration.Spot(),
+                                                                 calibration.DividendYield(), calibration.Surface(), 0.25),
+                                Dal::NewHybridDeterministicRateData("rate", "USD", calibration.Rate())};
+        settings.correlation_ = Dal::NewHybridConstantCorrelationData("correlation", {"W_EQ"}, Dal::Matrix_<>(1, 1, 1.0));
+        const auto model = Dal::NewHybridModelData("installed-hybrid", settings);
+        const auto product = Dal::NewScriptProduct("installed-quotes", {Dal::Cell_(Dal::Date_(2027, 9, 12))},
+                                                   {"pay PAYS FIX(EQ[INSTALLED]) * FIX(EQ[INSTALLED]) / 100"});
+        Dal::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 9, 12);
+        const auto source = Dal::ValueByMonteCarloWithRisk(product, model, 257, {}, valuation);
+        const auto extracted = Dal::ExtractDupireParameterAdjoints(source, calibration, "equity");
+        const auto reference = Dal::PullbackDupireCalibration(calibration, extracted);
+        const auto result = Dal::PullbackDupireScriptRisk(source, calibration, "equity");
+        return extracted.adjoints_(0, 0) == source.Jacobian()(0, 2) && result.Valuation().Values()[0] == source.Values()[0] &&
+               result.Method() == "NativeAADThenNativeAADCalibrationVJP" &&
+               std::equal(reference.TotalAdjoints().begin(), reference.TotalAdjoints().end(), result.QuoteRisk().TotalAdjoints().begin());
+    }
 } // namespace
 
 int main() {
@@ -44,6 +66,8 @@ int main() {
     if (std::abs(parallelQuoteRisk - nodes) > 3e-5 * nodes || quoteRisk.Unit() != "decimal-vol" || quoteRisk.TotalAdjoints().Rows() != 2 ||
         quoteRisk.TotalAdjoints().Cols() != 2)
         return 7;
+    if (!CheckHybridPullback(calibration))
+        return 8;
     const Dal::Date_ start(2026, 1, 1);
     if (start.AddDays(1) - start != 1)
         return 1;

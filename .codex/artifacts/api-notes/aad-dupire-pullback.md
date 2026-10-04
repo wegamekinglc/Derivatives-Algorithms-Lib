@@ -1,7 +1,8 @@
 # F01 calibration boundary API decision
 
-Status: core snapshot and scalar pullback implemented under local verification;
-Hybrid, public bindings, curve integration and final acceptance remain open. The
+Status: core snapshot/scalar pullback accepted and public Hybrid adapter implemented
+under local verification; language bindings, curve integration and final acceptance
+remain open. The
 [specification](../specs/aad-dupire-pullback.md) defines the derivative and tests.
 
 Introduce `dal-cpp/dal/model/dupirerisk.hpp` with passive quote/calibration
@@ -45,6 +46,45 @@ that ordering and verify it against the complete reconstructed model axis, with
 an intentionally unsorted-component acceptance case.
 Additional quotes used directly by a product must be supplied explicitly with
 matching identity; the adapter cannot infer them from model labels.
+
+## Public Hybrid boundary
+
+Add `dal-public/src/dupirerisk.hpp` with these two operations:
+
+```cpp
+DupireParameterAdjoints_ ExtractDupireParameterAdjoints(
+    const Script::RiskResult_& valuation,
+    const DupireCalibrationSnapshot_& calibration,
+    const String_& component);
+DupireScriptQuoteRisk_ PullbackDupireScriptRisk(
+    const Script::RiskResult_& valuation,
+    const DupireCalibrationSnapshot_& calibration,
+    const String_& component,
+    const std::optional<DupireDirectQuoteAdjoints_>& direct = {});
+```
+
+The extraction helper is useful for portfolio seed accumulation before a single
+core pullback. The complete helper returns a passive immutable object exposing
+`Valuation()`, `QuoteRisk()`, `Component()` and `Method()`. Retain the complete
+source result and the core quote result so price, raw model gradients, execution,
+calibration identity and separate direct/calibration/total quote contributions
+remain auditable. Required arguments precede the optional direct contribution.
+
+Require scalar native mean-risk execution with a retained Hybrid JSON model
+snapshot. Decode that snapshot, construct the ordinary numeric runtime model,
+and verify every complete model coordinate's ordinal, label and numeric value.
+Sort typed data components by the runtime name ordering and sum actual typed
+component parameter counts. The selected component must be local-vol equity;
+its complete surface grids and values must match the calibration. Validate each
+selected model coordinate against the complete axis and require every surface
+ordinal. Request/report ordering and reporting factors do not affect raw seeds.
+No preparation, fixing read, worker submission or second valuation occurs here.
+
+The composite method concatenates the retained valuation method and calibration
+method. A source `NativeAADWithRetrainedPolicySecant` remains an explicitly
+mapped model-policy secant approximation; quote-level retraining oracles and
+the later full quote-bump estimator remain separate acceptance requirements.
+Unknown methods and price-only execution fail before calibration recording.
 
 Errors identify `InvalidDupireQuote`, `InvalidDupireCalibration`,
 `DupireSnapshotMismatch` or `InvalidDupirePullback` with coordinates/field where

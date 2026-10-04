@@ -797,6 +797,42 @@ separate contributions to `C_quote^T g_surface + g_direct`. No path averaging or
 reporting conversion is applied here. Results own ordinary numeric matrices,
 the calibration snapshot, method `NativeAADCalibrationVJP` and unit `decimal-vol`.
 
+### Hybrid Valuation to Dupire Quotes
+
+`dal-public/src/dupirerisk.hpp` connects an existing `ValueByMonteCarloWithRisk`
+result to its calibration snapshot. Select the local-volatility component by
+name and use the snapshot's surface when constructing the Hybrid model:
+
+```cpp
+#include <dal-public/src/dupirerisk.hpp>
+
+// valuation was produced with calibration.Surface() in component "equity".
+const auto quoteRisk = PullbackDupireScriptRisk(valuation, calibration, "equity");
+const auto& quoteGradient = quoteRisk.QuoteRisk().TotalAdjoints();
+const auto& retainedPrice = quoteRisk.Valuation().Values();
+```
+
+The adapter restores the result's retained numeric model snapshot, checks its
+complete model axis and the selected component's surface, and maps raw model
+ordinals to spot-major/time-minor seeds. Runtime component ordering determines
+the mapping; display labels and report factors cannot replace it. All surface
+inputs must be selected, including coordinates whose computed risk is zero.
+Missing inputs, changed grids/values, inconsistent model coordinates,
+price-only execution and unsupported valuation methods fail explicitly.
+
+The operation performs a separate calibration reverse after the existing
+valuation. It does not run Monte Carlo or reread history. Direct quote inputs
+are **PV adjoints**, with any cashflow discount already included; they are
+added once without another discount or path normalization. To combine compatible
+trades, extract each seed with `ExtractDupireParameterAdjoints`, sum their raw
+matrices after checking `calibration_.Matches`, and call the core pullback once.
+
+The wrapper retains the passive valuation and quote result. Its method joins
+the source method with `ThenNativeAADCalibrationVJP`. An expired source produces
+zero calibration risk. A `NativeAADWithRetrainedPolicySecant` source keeps that
+mixed-method label: multiplying its model-coordinate secant by the calibration
+Jacobian does not establish a full quote-bump/recalibrate/retrain estimator.
+
 ### Passive vs Active Tape
 
 Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run
