@@ -58,7 +58,7 @@ The main core namespaces live under `dal-cpp/dal/`:
 | `math/aad/`             | Native and adapter-backed reverse-mode AAD facade                                                            |
 | `curve/`                | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
 | `script/`               | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
-| `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire calibration, implied/local volatility        |
+| `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire calibration, implied/local volatility         |
 | `time/`                 | Dates, calendars, schedules, and day-count bases                                                             |
 | `protocol/`             | Market and contract conventions: accrual, payment, coupon, option types, collateral                          |
 | `currency/`             | Currency definitions and static data                                                                         |
@@ -177,15 +177,15 @@ mode with the same payoff/risk contract. AAD simulations use a separate recordin
 for each worker's path batch.
 
 Public C++ settings select the script default index, date/policy, and
-immutable fixing snapshot; model-sourced FIX observations bind the model's
-spot output to the script's own future FIX index by name rather than through
-a setting. Python projects these settings through
+immutable fixing snapshot; model-sourced FIX observations bind to the model's
+supported equity or rate outputs by index name. Python projects these settings through
 keyword-only native classes, and Excel through immutable settings handles;
 both bindings retain their legacy signatures with default native preparation.
 Each Value and Explain call prepares independently;
 Describe inspects contract syntax without date, model, or history access.
-Script archive v2 stores original contract text/default identity and retains the
-v1 reader; no runtime market or prepared state is persisted. See
+Script archive v3 stores original contract text, default identity, and selected
+regression features, while retaining the v1 and v2 readers. No runtime market
+or prepared state is persisted. See
 [script settings and diagnostics](methodology/script_engine.md#public-c-settings).
 
 ## Curve Calibration Flow
