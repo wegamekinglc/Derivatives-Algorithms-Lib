@@ -11,7 +11,9 @@ the next diagnostic increment in the
 [full AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
 The [native-only amendment](aad-native-only.md) supersedes external backend
 compatibility. The published diagnostic head `9b5febc` passed 49 checks before
-removal; fresh removal-head verification is still required.
+removal. Fresh local removal-head functionality and paired performance are in
+the [native-only report](../perf/aad-native-only.md); exact publication-head CI
+and the final requirement audit remain required.
 
 ## Problem and supported boundary
 

@@ -9,7 +9,8 @@ support and keeping only DAL's built-in native AAD. This replaces the earlier
 four-backend compatibility goal. D00 is now a Stage A requirement; D03 is limited
 to useful native operations and capability contracts. See the controlling
 [native-only specification](../specs/aad-native-only.md).
-Removal is implemented locally and undergoing fresh verification. Earlier external-backend results below remain
+Removal is implemented locally; fresh native functionality and paired performance pass.
+Publication-head CI and the final audit remain open. Earlier external-backend results below remain
 historical evidence, not continuing support obligations or removal acceptance.
 
 Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
@@ -111,8 +112,22 @@ each and all 34 examples. Both final prefixes pass the two installed consumers.
 Configuration/header migration checks, generation/drift and 60 focused ASan/UBSan
 tests pass. The AAD example matches an independent price/five-partial oracle;
 the corrected vanilla example matches price and six partials. Preserve its
-initial diagnostic failure and include-order build failure logs. Final paired
-performance, new-head CI and the requirement audit remain required.
+initial diagnostic failure and include-order build failure logs.
+
+Frozen native-only head `8816951662fc6788f3e9876c45ac72f7e48c65f7` passes
+the unchanged nine-target gate (65 comparable cases; ten new informational rows),
+25 curve cases and all 44 production cases in the predefined two-by-thirty
+confirmation. The initial two-by-ten production run fails GSR 1F swaption
+(+5.75%/+6.84%) and four-node AAD market fit (+4.46%/+5.13%); retain both.
+The published-head native control passes all 44 cases. Original-baseline fixed
+confirmation gives -1.30%/-3.63% and +3.52%/+5.24%, respectively. The latter
+remains a borderline positive cost; passing the two-round rule is not a claim
+of zero runtime overhead. Three resource pairs have overlapping RSS ranges,
+zero major faults and equal daily-LSM results. Source/configuration/five pins,
+all 22 binaries and helpers are unchanged through measurement.
+The [native-only report](../perf/aad-native-only.md) records every case, initial
+failures, control provenance/annotation correction, fixed confirmation and limits.
+New-head CI and the requirement audits remain required before D00/D03 check-off.
 
 Protected guidance sync item: `CLAUDE.md:35` still lists legacy AAD selection
 options. AGENTS.md forbids editing Claude originals without explicit user
@@ -228,7 +243,8 @@ smoke cases. These are terminal local results, not publication or paired
 performance acceptance. The compile/UBSan RED failures remain recorded.
 The amended [native operation contract](../specs/aad-backend-adapter.md) preserves
 useful seed/channel/lifecycle behavior while removing external adapters under
-D00. No D00/D03 fresh paired measurement or publication has been completed.
+D00. This pre-removal evidence did not establish native-only acceptance; the
+fresh removal pairing is now recorded above and publication CI remains open.
 
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
@@ -329,8 +345,8 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: freeze the verified native-only source/binaries and run isolated paired
-performance, local review and exact new-head CI. Complete D01/D02 audits
+Next: publish the reviewed native-only source and inspected local performance
+evidence, then verify exact new-head CI. Complete D00/D03 and D01/D02 audits
 and remaining P01 production measurement under the amended full scope.
 The earlier D02 paired acceptance and 49 green publication checks remain valid
 for their recorded head; they do not accept the pending removal changes.

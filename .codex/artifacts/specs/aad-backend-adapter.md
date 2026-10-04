@@ -2,7 +2,8 @@
 
 Status: active D03 specification, amended to native-only development.
 External-backend removal and native simplification are implemented locally;
-fresh complete verification, paired performance and publication remain pending.
+fresh complete local verification and paired performance pass; exact publication
+CI and the final requirement audit remain pending.
 
 Source: the user's full AAD implementation request, its no-performance-regression
 and no-CI-failure condition, and the subsequent requirement to remove XAD,
@@ -154,11 +155,11 @@ remain in the evidence root. The local generated enum preserves transitions
 and default-OFF scope size/alignment on the measured host.
 
 Published PR #480 at 9b5febc has 49 successful checks, but still includes external
-backends and does not validate these unpublished commits. No fresh D00/D03
-paired performance or publication CI has completed.
+backends and does not validate these unpublished commits. Fresh D00/D03 paired
+performance is now recorded below; publication CI remains open.
 
 Current local native-only source has no external dependency directories. Fresh
-OFF/ON complete builds pass; final incremental rebuilds and full tests are in progress.
+OFF/ON complete builds, final incremental rebuilds and full tests pass.
 All ten configuration/header migration cases, 60 focused native/lifecycle/lifetime
 ASan/UBSan cases, and both analytically checked AAD examples pass. These results
 do not establish full performance or publication acceptance.
@@ -173,5 +174,13 @@ tests each. Both final installed prefixes pass their two consumer tests; complet
 generation/drift verification passes. Default OFF layout probes confirm
 Number_/node/tape/scope sizes of 16/40/368/72 bytes on the measured host.
 
-Next: complete fresh OFF/ON functionality, consumers/bindings, isolated performance,
-review and publication. Do not check off D03 or Stage A before the remaining evidence.
+Frozen native-only head `8816951` passes all 65 formal comparable cases and
+25 curve cases. The initial production pair fails two GSR cases; the full
+published-head control and predefined original-baseline two-by-thirty confirmation
+pass all 44 cases. Four-node AAD fit remains borderline at +3.52%/+5.24%.
+All LSM numeric results agree and before/after source/configuration/pin/binary
+identities match. See the [native-only evidence](../perf/aad-native-only.md) for
+every result, retained failures and limits.
+
+Next: publish the reviewed increment, inspect exact-head CI and complete D00/D03
+audits. Do not check off D03 or Stage A before the remaining evidence.

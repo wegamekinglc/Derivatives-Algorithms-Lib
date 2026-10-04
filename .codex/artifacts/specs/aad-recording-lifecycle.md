@@ -9,7 +9,9 @@ This specifies D01 and the boundary needed by
 D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
 The [native-only amendment](aad-native-only.md) replaces the earlier external
 backend obligations. Results above describe earlier heads; the removal increment
-requires fresh native OFF/ON, performance and exact-head CI evidence.
+has fresh native OFF/ON and performance evidence in the
+[native-only report](../perf/aad-native-only.md); exact-head CI and the final
+D01 requirement audit remain open.
 
 ## Problem and compatibility constraints
 

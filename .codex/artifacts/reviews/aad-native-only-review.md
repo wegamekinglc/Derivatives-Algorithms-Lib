@@ -1,6 +1,8 @@
 # Native-only AAD local review
 
-Status: read-first local review before frozen D00/D03 performance and publication.
+Status: read-first local review of measured head `8816951` and its evidence-only
+publication update. Fresh local functionality and paired performance pass;
+exact publication-head CI and final audits remain open.
 The controlling [native-only specification](../specs/aad-native-only.md) replaces
 earlier external-backend compatibility requirements. The full AAD goal remains active.
 
@@ -30,8 +32,6 @@ Resolved during verification:
 
 ## Open acceptance work
 
-- Fresh unchanged nine-target and affected production pairing, with immutable
-  source, helper, configuration, dependency and binary identities.
 - Exact new-head CI, including complete diagnostic sanitizer libraries, Windows,
   wheels and all remaining protected gates. The 49 green checks at `9b5febc`
   do not validate these changes.
@@ -57,9 +57,19 @@ reporting this exact protected location fulfills D00 R10.
   it does not claim that every library translation unit is locally instrumented.
 - Full generation/drift check passes with zero generated files changed. CI helper
   suite passes 172 tests with six existing skips; YAML needs and matrix/gates pass.
-- Documentation integrity passes for 75 files. All 21 native benchmark smoke
+- Documentation integrity passes for 75 files at the measured head and 76
+  after the evidence-only update. All 21 native benchmark smoke
   cases pass serially; smoke is not paired performance acceptance. Staged patch
   verification remains packaging work.
+- Frozen performance: 65 formal comparable cases, 25 curve cases and the
+  predefined two-by-thirty production confirmation's 44 cases pass. Initial
+  pairing fails two GSR cases; both remain in the full
+  [report](../perf/aad-native-only.md). The four-node fit confirmation remains
+  +3.52%/+5.24%; its passing policy result is not an identical-runtime claim.
+  The full published-native-head control also passes. All LSM numeric results
+  agree, resources have zero major faults, and all source/configuration/pin/
+  helper/22 binary identities remain unchanged. The control metadata's built-at
+  annotation correction is explicit and its original record retained.
 
 Logs and original failures are retained under `/tmp/dal-aad-evidence/native-only-*`.
 
@@ -71,4 +81,4 @@ mathematical and lifecycle coverage is preserved; only external-specific tests
 and CI legs are removed. Remaining names identify explicit migration rejection or
 retained historical evidence.
 
-Verdict: Comment Only until performance and exact-head CI acceptance complete.
+Verdict: Comment Only until exact-head CI and final requirement audits complete.
