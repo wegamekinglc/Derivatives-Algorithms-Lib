@@ -215,7 +215,7 @@ jobs:
   # lean — native diagnostics are tested separately, so keeping them
   # outside the compiler matrix avoids duplicate jobs.
   build-extended:
-    name: Extended build (AAD diagnostics ${{ matrix.lifetime_diagnostics }})
+    name: Extended build (AAD lifetime ${{ matrix.lifetime_diagnostics }}, profiling ${{ matrix.profiling }})
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
@@ -223,6 +223,7 @@ jobs:
       fail-fast: false
       matrix:
         lifetime_diagnostics: ["OFF", "ON"]
+        profiling: ["OFF", "ON"]
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
@@ -234,7 +235,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
         with:
-          key: ${{ runner.os }}-extended-${{ matrix.lifetime_diagnostics }}
+          key: ${{ runner.os }}-extended-${{ matrix.lifetime_diagnostics }}-${{ matrix.profiling }}
 
       - name: Setup
         run: |
@@ -263,9 +264,22 @@ jobs:
           CC: gcc-14
           CXX: g++-14
           VERBOSE: 1
-          ADDITIONAL_CMAKE_FLAGS: -DDAL_BUILD_PYTHON=ON -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=${{ matrix.lifetime_diagnostics }}
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_BUILD_PYTHON=ON -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=${{ matrix.lifetime_diagnostics }} -DDAL_ENABLE_AAD_PROFILING=${{ matrix.profiling }}
         run: |
           bash -e ./build_linux.sh
+
+      - name: Test production profiling CLI
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          cmake -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+          cmake --build build/Release-linux --target script_mc_perf --parallel "$(nproc)"
+          profiling=off
+          if [ "${{ matrix.profiling }}" = ON ]; then
+            profiling=on
+          fi
+          python tests/aad-profiling/check_production_profile.py \
+            build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --profiling "$profiling"
 
       - name: Verify generated sources
         run: |
@@ -404,6 +418,28 @@ jobs:
             lifetime_diagnostics: "ON"
             core-filter: AADNativeTest.*:AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*
             public-filter: PublicApiTest.TestMonteCarlo*
+          - label: ASan + UBSan AAD profiling
+            slug: aad-profiling
+            sanitizers: address;undefined
+            flags: -O2 -g -fno-sanitize-recover=all
+            profiling: "ON"
+            core-filter: AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*
+            public-filter: PublicApiTest.TestMonteCarlo*
+          - label: ASan + UBSan combined AAD diagnostics
+            slug: aad-combined
+            sanitizers: address;undefined
+            flags: -O2 -g -fno-sanitize-recover=all
+            lifetime_diagnostics: "ON"
+            profiling: "ON"
+            core-filter: AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*
+            public-filter: PublicApiTest.TestMonteCarlo*
+          - label: TSan AAD profiling tasks
+            slug: tsan-profiling
+            sanitizers: thread
+            flags: -O2 -g
+            profiling: "ON"
+            core-filter: AADProfilingTest.TestWorkers*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*
+            public-filter: ""
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -431,6 +467,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DDAL_ENABLE_SANITIZERS='${{ matrix.sanitizers }}' \
             -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS='${{ matrix.lifetime_diagnostics || 'OFF' }}' \
+            -DDAL_ENABLE_AAD_PROFILING='${{ matrix.profiling || 'OFF' }}' \
             -DDAL_BUILD_PUBLIC=ON \
             -DDAL_CPP_BUILD_TESTS=ON \
             -DDAL_CPP_BUILD_EXAMPLES=OFF \

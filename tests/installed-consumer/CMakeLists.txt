@@ -18,7 +18,8 @@ endif()
 add_executable(dal_installed_consumer main.cpp)
 add_executable(dal_installed_aad_consumer native.cpp)
 target_compile_definitions(dal_installed_aad_consumer PRIVATE
-    EXPECT_DIAGNOSTICS=$<BOOL:${DAL_CPP_AAD_LIFETIME_DIAGNOSTICS}>)
+    EXPECT_DIAGNOSTICS=$<BOOL:${DAL_CPP_AAD_LIFETIME_DIAGNOSTICS}>
+    EXPECT_PROFILING=$<BOOL:${DAL_CPP_AAD_PROFILING}>)
 
 foreach(consumer IN ITEMS dal_installed_consumer dal_installed_aad_consumer)
     dal_cpp_apply_msvc_runtime(${consumer})

@@ -12,12 +12,14 @@
 
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/model/base.hpp>
 #include <dal/model/factory.hpp>
+#include <dal/script/detail/profiling.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/lsmc.hpp>
@@ -84,6 +86,9 @@ namespace Dal::Script {
         size_t taskCount_;
         Vector_<TaskHandle_> futures_;
         bool completed_ = false;
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        AAD::ProfilingTaskSet_ profiles_;
+#endif
 
         static void CaptureCurrentFailure(std::exception_ptr* firstFailure) noexcept {
             if (!*firstFailure)
@@ -116,6 +121,7 @@ namespace Dal::Script {
         }
 
         std::exception_ptr Drain() noexcept {
+            AAD::ProfilingSpan_ wait(AAD::AADProfilingPhase_::Value_::WAIT);
             std::exception_ptr firstFailure;
             for (auto& future : futures_)
                 WaitUntilReady(future, &firstFailure);
@@ -126,7 +132,13 @@ namespace Dal::Script {
         }
 
     public:
-        SimulationTaskGroup_(ThreadPool_* pool, size_t taskCount) : pool_(pool), taskCount_(taskCount) {
+        SimulationTaskGroup_(ThreadPool_* pool, size_t taskCount)
+            : pool_(pool), taskCount_(taskCount)
+#if defined(DAL_ENABLE_AAD_PROFILING)
+              ,
+              profiles_(taskCount)
+#endif
+        {
             static_assert(std::is_nothrow_move_constructible_v<TaskHandle_>, "task futures must move without throwing after submission");
             REQUIRE(pool_ != nullptr, "simulation task group requires a thread pool");
             futures_.reserve(taskCount_);
@@ -145,7 +157,15 @@ namespace Dal::Script {
         template <class C_> void Spawn(C_&& task) {
             REQUIRE(!completed_, "cannot submit to a completed simulation task group");
             REQUIRE(futures_.size() < taskCount_, "simulation task group submission count exceeds its reservation");
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            const size_t index = futures_.size();
+            TaskHandle_ future = pool_->SpawnTask([this, index, work = std::forward<C_>(task)]() mutable {
+                AAD::ProfilingTaskScope_ profile(profiles_, index);
+                return work();
+            });
+#else
             TaskHandle_ future = pool_->SpawnTask(std::forward<C_>(task));
+#endif
             futures_.push_back(std::move(future));
             if (auto* observer = Detail::SimulationObserver())
                 observer->AfterSubmission();
@@ -250,9 +270,23 @@ namespace Dal::Script {
             auto run = [&](const auto& generate) {
                 double sumValue = 0.0;
                 for (size_t i = 0; i < batch.pathCount_; ++i) {
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                    AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
+#endif
                     if (state->random_)
                         state->random_->FillNormal(&state->gauss_);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                    const auto& path = generate(state->gauss_);
+                    forward.Finish();
+                    AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
+                    evaluate(path, *evaluator);
+                    AAD::CaptureMemoryForProfiling([&] {
+                        return AAD::ProfilingMemoryStatistics_{
+                            ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(state->gauss_), ProfileEvaluatorArrays(*evaluator)), {}, {}};
+                    });
+#else
                     evaluate(generate(state->gauss_), *evaluator);
+#endif
                     REQUIRE2(std::isfinite(evaluator->VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
                     sumValue += evaluator->VarVals()[payoffIndex];
                 }
@@ -294,6 +328,7 @@ namespace Dal::Script {
                                    bool useBb,
                                    std::optional<bool> compiled,
                                    bool initialized = false) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
         const bool useCompiled = compiled.value_or(false);
@@ -319,6 +354,7 @@ namespace Dal::Script {
             if (product.Product().ContainsExercise()) {
                 ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
                        "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
+                prepare.Finish();
                 return MCLsmcSimulation(product, mdl, nPaths);
             }
         }
@@ -365,15 +401,18 @@ namespace Dal::Script {
         auto payoffIndex = product.PayOffIdx();
         // Keep this after every task-captured local so it drains first on unwind.
         SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
+        prepare.Finish();
 
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
             simResults.emplace_back(0.0);
             tasks.Spawn([&, batchIndex, batch]() {
+                AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 auto& state = threadStates[threadNum];
                 if (!state)
                     state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
+                initialize.Finish();
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
                     return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate);
                 };
@@ -387,6 +426,11 @@ namespace Dal::Script {
 
         tasks.Complete();
 
+        AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        AAD::CaptureMemoryForProfiling(
+            [&] { return AAD::ProfilingMemoryStatistics_{{}, {}, Detail::ProfileArrays(results.risks_, simResults), {}}; });
+#endif
         results.aggregated_ = Accumulate(simResults);
         return results;
     }
@@ -400,8 +444,10 @@ namespace Dal::Script {
                                             std::optional<bool> compiled,
                                             int maxNestedIfs,
                                             double eps) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         auto model = CreateModel<double>(modelData);
+        prepare.Finish();
         return MCDoubleSimulation(product, model.get(), nPaths, rsg, useBb, compiled);
     }
 
@@ -424,6 +470,7 @@ namespace Dal::Script {
                               const std::optional<ScriptCompiled_>& compiledProduct,
                               const PathBatch_& batch,
                               SimResults_* results) {
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             AAD::RecordingScope_ recording;
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
@@ -444,16 +491,36 @@ namespace Dal::Script {
                 AAD::Number_ payoffZero = 0.0;
                 checkpoint = InitModel4ParallelAAD(product, *model, path, evaluator, recording, &payoffZero);
                 recording.FinishRecording();
+                AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                AAD::CaptureMemoryForProfiling([&] {
+                    return AAD::ProfilingMemoryStatistics_{
+                        ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), {}, {}};
+                });
+#endif
+                initialize.Finish();
                 WithPathGenerator(*model, [&](const auto& generate) {
                     for (size_t i = 0; i < batch.pathCount_; i++) {
+                        AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
                         recording.Restore(checkpoint);
                         if (random)
                             random->FillNormal(&gVec);
                         generate(gVec, &path);
+                        forward.Finish();
+                        AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                         evaluate(path, evaluator);
                         AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[settings.payoffIndex_], payoffZero);
                         REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
                         recording.FinishRecording();
+                        payoff.Finish();
+                        AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                        AAD::CaptureMemoryForProfiling([&] {
+                            return AAD::ProfilingMemoryStatistics_{
+                                ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), {}, {}};
+                        });
+#endif
+                        AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
                         Adjoint(res) = 1.0;
                         recording.ReverseSuffix(checkpoint);
                         sumValue += Value(res);
@@ -466,16 +533,21 @@ namespace Dal::Script {
                     results->risks_[j + settings.nParams_] += Adjoint(constVarVals[j]) / static_cast<double>(settings.nPaths_);
             };
 
+            const auto reversePrefix = [&] {
+                AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX);
+                recording.ReversePrefix(checkpoint);
+            };
+
             if (compiledProduct) {
                 EvalState_<AAD::Number_> evalState =
                     product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
                 runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
-                recording.ReversePrefix(checkpoint);
+                reversePrefix();
                 accumulateConstVarRisks(evalState.ConstVarVals());
             } else {
                 FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(settings.maxNestedIfs_, settings.eps_);
                 runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
-                recording.ReversePrefix(checkpoint);
+                reversePrefix();
                 accumulateConstVarRisks(eval.ConstVarVals());
             }
 
@@ -506,6 +578,7 @@ namespace Dal::Script {
                                 std::optional<bool> compiled,
                                 int maxNestedIfs,
                                 double eps) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
         if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
@@ -524,8 +597,10 @@ namespace Dal::Script {
         //  Early-exercise products divert to the fuzzy LSMC driver (S9 recursive
         //  blending over the frozen policy, N6 adjoint of the replay pass)
         if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
-            if (product.Product().ContainsExercise())
+            if (product.Product().ContainsExercise()) {
+                prepare.Finish();
                 return MCLsmcAadSimulation(product, modelData, nPaths);
+            }
         }
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -549,6 +624,7 @@ namespace Dal::Script {
         const Detail::AADBatchSettings_ settings{rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex};
         // Keep this after every task-captured local so it drains first on unwind.
         SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
+        prepare.Finish();
 
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
@@ -561,6 +637,15 @@ namespace Dal::Script {
 
         tasks.Complete();
 
+        AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        AAD::CaptureMemoryForProfiling([&] {
+            auto resultArrays = Detail::ProfileArrays(values.risks_);
+            for (const auto& result : simResults)
+                resultArrays = Detail::JoinProfileArrays(resultArrays, Detail::ProfileArrays(result.risks_));
+            return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
+        });
+#endif
         return Detail::AggregateAADResults(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()), simResults);
     }
 
@@ -584,16 +669,20 @@ namespace Dal::Script {
                              std::optional<bool> compiled = std::nullopt,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         prepared.RequireExecutable();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of paths must be positive", ScriptError_);
         ValidateRNG(rsg);
         REQUIRE2((prepared.AllExpired() || prepared.Simulation().enableAad_ == !std::is_same_v<T_, double>),
                  "UnsupportedExecutionMode: evaluation mode differs from preparation", ScriptError_);
-        if constexpr (!std::is_same_v<T_, double>)
+        if constexpr (!std::is_same_v<T_, double>) {
+            prepare.Finish();
             return MCAADSimulation(prepared, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps);
+        }
         auto model = CreateModel<double>(modelData);
         if (prepared.AllExpired())
             return SimResults_(Vector::Join(model->ParameterLabels(), prepared.Product().ConstVarNames()));
+        prepare.Finish();
         return MCDoubleSimulation(prepared, model.get(), nPaths, rsg, useBb, compiled);
     }
 
@@ -605,6 +694,7 @@ namespace Dal::Script {
                              const MonteCarloSettings_& simulation = {},
                              const Handle_<MarketFixingSnapshot_>& snapshot = {},
                              const ScriptProductSettings_& contract = {}) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         auto execution = simulation;
         const auto valuation = ResolveValuationSettings(settings, snapshot);
         const auto& modelCopy = modelData;
@@ -614,6 +704,7 @@ namespace Dal::Script {
         REQUIRE2((!std::is_same_v<T_, double> || !execution.enableAad_), "UnsupportedExecutionMode: double simulation requested AAD", ScriptError_);
         auto model = CreateModel<double>(modelCopy);
         const auto prepared = PrepareScript(data, model.get(), valuation, execution, {}, contract);
+        prepare.Finish();
         if constexpr (!std::is_same_v<T_, double>)
             return MCAADSimulation(prepared, modelCopy, nPaths, execution.rsg_, execution.useBb_, execution.compiled_, -1, execution.smooth_);
         return MCDoubleSimulation(prepared, model.get(), nPaths, execution.rsg_, execution.useBb_, execution.compiled_, true);

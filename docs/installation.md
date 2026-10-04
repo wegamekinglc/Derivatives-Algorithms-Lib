@@ -137,6 +137,7 @@ in the build configuration.
 | `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
 | `DAL_USE_EIGEN`                       | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
 | `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
+| `DAL_ENABLE_AAD_PROFILING`            | `OFF`        | Enable explicit native request, task, phase and storage profiling                     |
 | `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
 ### Native AAD configuration
@@ -146,6 +147,24 @@ checks and changes diagnostic number/node layouts. Its compile definition is pro
 and installed consumers through the exported targets; do not combine headers
 or libraries built with different settings. See
 [AAD lifetime diagnostics](methodology/aad.md#native-active-number-lifetime-diagnostics).
+
+`DAL_ENABLE_AAD_PROFILING=ON` enables explicit request and task collectors, phase
+timing, tape snapshots, and selected array-memory measurements. It is independent
+of lifetime diagnostics and preserves the native number/node/tape layouts.
+Its compile definition also propagates through exported targets; headers and
+libraries must use matching settings. The installed core package exposes the
+setting as `DAL_CPP_AAD_PROFILING`. Measurement starts only inside an explicit
+`AAD::ProfilingScope_`; ordinary requests do not scan tape or array storage.
+See [native production profiling](methodology/aad.md#native-production-profiling)
+for timing relationships, memory coverage, and the benchmark CLI.
+
+For a separate profiling build with the production benchmark:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-aad-profiling \
+  -DDAL_ENABLE_AAD_PROFILING=ON -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --build build/Release-aad-profiling --parallel
+```
 
 XAD, CoDiPack and Adept are not supported. Old configurations that enable
 `DAL_USE_XAD_AAD`, `DAL_USE_CODIPACK_AAD` or `DAL_USE_ADEPT_AAD` fail with a

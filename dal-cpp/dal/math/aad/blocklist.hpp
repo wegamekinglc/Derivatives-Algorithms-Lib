@@ -14,11 +14,12 @@
 
 #include <array>
 #include <cstring>
+#include <dal/math/aad/profilinghooks.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <iterator>
 #include <limits>
 #include <list>
 #include <type_traits>
-#include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
 
@@ -41,6 +42,9 @@ namespace Dal::AAD {
 
         void NewBlock() {
             data_.emplace_back();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
             currBlock_ = lastBlock_ = std::prev(data_.end());
             nextSpace_ = currBlock_->begin();
             lastSpace_ = currBlock_->end();

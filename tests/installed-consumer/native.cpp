@@ -3,14 +3,21 @@
 //
 
 #include <array>
-#include <iostream>
 #include <dal/math/aad/native.hpp>
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
+#include <iostream>
 
 #if EXPECT_DIAGNOSTICS && !defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 #error Installed diagnostic definition was not propagated
 #elif !EXPECT_DIAGNOSTICS && defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 #error Installed default ABI incorrectly enables diagnostics
+#endif
+
+#if EXPECT_PROFILING && !defined(DAL_ENABLE_AAD_PROFILING)
+#error Installed profiling definition was not propagated
+#elif !EXPECT_PROFILING && defined(DAL_ENABLE_AAD_PROFILING)
+#error Installed default ABI incorrectly enables profiling
 #endif
 
 int main() {
@@ -20,7 +27,14 @@ int main() {
     static_assert(capabilities.vectorAdjoints_);
     static_assert(capabilities.maxAdjointWidth_ >= 3);
     static_assert(capabilities.numberLifetimeDiagnosticsEnabled_ == static_cast<bool>(EXPECT_DIAGNOSTICS));
+    static_assert(ProfilingAvailable() == static_cast<bool>(EXPECT_PROFILING));
+#if EXPECT_PROFILING
+    ProfilingData_ profiling;
+#endif
     {
+#if EXPECT_PROFILING
+        ProfilingScope_ profile(&profiling);
+#endif
         RecordingScope_ scope;
         Number_ x, y;
         scope.RegisterInput(x, 2.0);
@@ -30,6 +44,9 @@ int main() {
         Number_ u = x * y;
         Number_ v = square + y;
         scope.FinishRecording();
+#if EXPECT_PROFILING
+        profile.CaptureTape(*Tape());
+#endif
         scope.ClearAdjoints();
         NativeOperations_::SetSeed(u, 2.0);
         NativeOperations_::SetSeed(v, -1.0);
@@ -55,6 +72,10 @@ int main() {
             return 3;
 #endif
     }
+#if EXPECT_PROFILING
+    if (!profiling.complete_ || profiling.tapeSamples_ != 1 || profiling.highWater_.nodes_ != 5)
+        return 5;
+#endif
     Clear(*Tape());
     {
         auto mode = SetNumResultsForAAD(true, 3);
@@ -79,5 +100,5 @@ int main() {
         scope.Close();
         Clear(*Tape());
     }
-    std::cout << "Installed native scalar/vector gradients and diagnostic ABI: PASS\n";
+    std::cout << "Installed native scalar/vector gradients and diagnostic/profiling ABI: PASS\n";
 }

@@ -300,6 +300,105 @@ Jacobian cases retain the synthetic full-clearing reference and additionally
 call `HarvestCurveJacobian` for 23-by-24 and 95-by-96 Jacobians. Proven-prefix
 harvesting uses a dependency range established by the fixture itself.
 
+### Native Production Profiling
+
+`DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in
+`dal/math/aad/profiling.hpp`. The default is OFF. The definition propagates
+through exported CMake targets, and the installed package reports
+`DAL_CPP_AAD_PROFILING`. Use matching headers and libraries. This option changes
+profiling/task helper layouts; it leaves native number, node and tape layouts
+unchanged and is independent of lifetime diagnostics.
+
+An explicit, thread-affine scope collects one request:
+
+```cpp
+#include <dal/math/aad/profiling.hpp>
+
+AAD::ProfilingData_ data;
+const auto result = [&] {
+    AAD::ProfilingScope_ profile(&data);
+    return Script::MCSimulation<AAD::Number_>(prepared, modelData, paths);
+}();
+// Inspect data after the request and all its tasks have finished.
+```
+
+`ProfilingAvailable()` identifies the build setting. Creating a scope in an
+OFF build throws. An ON build without an explicit scope skips clocks, tape
+scans and array measurement callbacks. Default OFF production paths omit the
+diagnostic calls and task collectors. A scope borrows its report; keep the
+report alive until scope destruction and task draining. Nested scopes require
+separate reports. Read or copy completed reports after their scopes end.
+Unwinding and unfinished tasks leave `complete_` false. Measurement overflow
+sets `invalidMeasurement_`; missing CPU clocks remain explicitly unavailable.
+
+Ordinary MC and LSM record preparation, worker initialization, path
+forward/recording, payoff, suffix/prefix reverse, waiting and reduction.
+LSM also records training, regression and pricing replay. `taskGroups_` owns
+the individual task reports, including regression helper tasks.
+Scope wall time is an interval; worker interval sums are cumulative work,
+not request latency. `WAIT` includes tasks executed by `ActiveWait`.
+Phase self wall time excludes nested spans in the same report; it does not
+exclude task windows belonging to another report. Phase intervals overlap and
+must not be added as independent costs.
+
+CPU fields use actual thread CPU clocks on supported platforms. Scope
+`cpuNanoseconds_` includes its nested work. `selfCpuNanoseconds_` excludes
+same-request task scopes executed inside it on the same thread. Summing
+available self CPU values across a completed task tree avoids that duplicate
+counting and describes the observed scope intervals, including diagnostics.
+It excludes pool/framework work outside those intervals. Independent profiling
+requests are not subtracted from each other. CPU values and wall values have
+distinct availability and inclusion rules.
+
+Tape samples occur after AAD initialization and after each path payoff,
+before reverse/rewind. `highWater_` retains componentwise maxima of these
+observations; its fields need not come from one simultaneous snapshot.
+Sampling is not a per-instruction peak tracker. `blockAllocations_` counts
+successful native block-list array allocations during the scope; reuse does
+not increment it. `allocatedArrayBytes_` excludes allocator/list overhead.
+
+`memory_` separates observed path, selected workspace, result and LSM regression
+arrays. Live bytes use array sizes; capacity bytes use retained capacities.
+Path measurements include sample objects and their owned vectors. Workspace
+measurements include Gaussian buffers, exposed evaluator variables/vectors and
+fuzzy replay arrays. Regression measurements include coexisting training and
+validation rows and backward working arrays. These are selected array payloads:
+private evaluator seeds/stacks, model/RNG caches, solver temporaries and
+diagnostic storage are excluded. Their maxima are not a complete valuation
+memory total or process RSS. Memory metadata collection has no separate timed
+phase; its cost is included in the enclosing scope/window.
+
+The existing `script_mc_perf` executable adds an explicit JSON-lines mode:
+
+```bash
+script_mc_perf --production-profile short 8192 aad compiled cold 4 0 0 1
+script_mc_perf --production-profile local-vol 8192 aad compiled phases 1 16 0 1
+script_mc_perf --production-profile lsmc-bs 8192 aad tree warm 1 0 512 3
+```
+
+Arguments are scenario, pricing paths, `double|aad`, `tree|compiled`,
+`cold|warm|phases`, outputs, surface grid, training paths and repetitions.
+Scenarios are `short`, `long`, `local-vol`, `lsmc-bs` and `lsmc-local-vol`.
+Ordinary cases accept 1/4/16/64 different strike outputs; they execute
+sequential single-output requests with the same model inputs and Sobol paths.
+AAD channel width remains one. Passive requests report zero active parameters
+and no risks. LSM cases accept one output and keep the Frozen policy; the
+existing `--lsmc-replay` interface retains its policy options and workloads.
+
+Cold timing includes fresh model/product data and script preparation. Warm
+timing reuses prepared inputs after an untimed full request; it still includes
+worker/model initialization. Phases use the cold boundary and explicit scopes.
+All modes run validation before timing, so cold is not process-first startup.
+The short BS fixture validates each output's price and four risks against
+analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
+differences at two steps; LSM uses tree/compiled fixed-path comparisons.
+Independent checks use up to 256 pricing paths. Each timed result also matches
+an untimed request at the full path count, with every requested risk checked.
+Startup messages go to stderr; request/result/scope/phase records go to stdout.
+Use uninstrumented Release binaries for throughput comparisons and measure
+profiling overhead separately. External process resource tools include the
+untimed validation and warm-up when reporting lifetime peak RSS.
+
 ## Pathwise Adjoints in Monte Carlo
 
 A Monte Carlo price is an average over $P$ simulated paths,

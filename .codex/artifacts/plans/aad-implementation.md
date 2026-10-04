@@ -104,6 +104,55 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Current evidence and next action
 
+P01's controlling [production measurement contract](../specs/aad-production-measurement.md)
+now specifies actual phase/resource windows, default instrumentation exclusion,
+fixed-path thread scaling, long-path/surface/real-output coverage and complete
+numeric/no-regression acceptance. In local unpublished work, profiling package
+configuration first fails, then all three OFF/ON/combined settings pass. Native
+scoped timing, explicit tape high-water samples, actual successful block-allocation
+events and task-owned collectors are implemented. Focused tests first expose absent
+interfaces and an incorrectly complete unexecuted task, then pass after correction.
+Ordinary passive/AAD and LSM training/regression/replay call sites are instrumented;
+the earlier 15 focused tests pass, including passive/failure handling and strict
+LSM price/every-risk bit comparisons. Fresh full OFF/ON builds pass 2,332/2,346
+CTest cases, each with 793 passing Python tests, and both installed consumers pass
+in both configurations. Regeneration has zero drift after staging the three new
+generated outputs with their markup; the initial untracked-output rejection is
+retained. Default Release has no allocation/tape/span/clock/collector hook symbols
+or references. Number/node/tape/recording sizes remain 16/40/368/72 bytes; the
+task-group size remains 48 bytes OFF and is 56 bytes ON. This supports layout and
+instrumentation exclusion, not a throughput claim. The combined lifetime/profiling
+full build passes 2,375 CTest cases, including 793 Python tests, and both installed
+consumers pass. The 1,179 compiled/test input hashes still match the final build
+manifest for that earlier snapshot. The 28 published-head checks at `6161e5a` all pass and do not cover
+these unpublished changes. P01 remains open until workload/resource/scaling,
+diagnostic-cost, default-OFF performance, complete feature and new CI acceptance.
+
+The latest unpublished increment implements setup-prefix samples, selected
+array payload/capacity, same-request self thread CPU, and lazy memory callbacks
+that skip scans outside an explicit measurement scope. Missing interfaces and
+prefix samples first fail; the fully rebuilt ON library passes all 20 focused
+tests. The production CLI supports five scenarios, cold/warm/phases, expanded
+surfaces, and 1/4/16/64 distinct outputs with explicit scalar-output execution.
+Independent short-BS analytic price/four-risk checks preserve the 64-output
+kink failure evidence rather than weakening tolerance. The permanent CLI
+contract and 38 representative functional cases pass. Current ON passes all
+2,351 non-benchmark tests, including 793 Python tests; the command also ran
+21 benchmarks under simultaneous builds and returned failure for the existing
+rate-risk overhead timing assertion. Keep that failure and perform quiet serial
+revalidation followed by the formal paired gate. Latest OFF/combined rebuilds,
+consumers and erasure proofs have since passed: OFF 2,332 complete functionality
+checks, two installed consumers in each of all three configurations, refreshed
+Release symbols/layouts, and an O0 Debug call-erasure probe. Combined passes
+20 focused cases and all 2,380 full-suite projects, including 793 Python tests
+and the slow European MC example. Quiet serial ON benchmark smoke passes all
+21 targets, including the initial parallel timing failure; both logs remain.
+Sixteen focused profiler ASan/UBSan cases pass;
+the supporting Release archive is not fully instrumented, so full sanitizer
+coverage remains the new CI's responsibility. Resource/scaling/overhead,
+formal default-OFF performance and new-head CI are pending. Full details and
+raw log paths are in the production contract.
+
 The native-only development source is `/tmp/dal-aad-backend-adapter`. External
 implementations, three gitlinks, build/export paths and CI jobs are removed;
 native operation services use `native.hpp` without adapter inheritance or selection.

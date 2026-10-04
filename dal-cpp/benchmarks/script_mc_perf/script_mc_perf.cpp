@@ -33,6 +33,7 @@
 #include "gsreuropeanperf.hpp"
 #include "gsrperf.hpp"
 #include "gsrslvcalibrationperf.hpp"
+#include "productionprofile.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -324,9 +325,16 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    const bool productionProfile = argc > 1 && std::string(argv[1]) == "--production-profile";
+    auto* startupOutput = std::cout.rdbuf();
+    if (productionProfile)
+        std::cout.rdbuf(std::cerr.rdbuf());
     RegisterAll_::Init();
+    std::cout.rdbuf(startupOutput);
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--production-profile")
+            return RunProductionProfile(argc, argv, BuildBermudanExerciseProduct);
         if (std::string(argv[1]) == "--gsr-market-calibration") {
             Bench::PrintHeader();
             RunGSRMarketCalibrationCases();

@@ -21,6 +21,7 @@ option(DAL_CPP_BUILD_BENCHMARKS "Build dal-cpp benchmarks" ON)
 option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 
 option(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS "Check native AAD active-number ownership and lifetime" OFF)
+option(DAL_ENABLE_AAD_PROFILING "Enable explicit native AAD production profiling" OFF)
 option(DAL_USE_EIGEN "Use Eigen for the dense matrix-matrix kernel" ON)
 
 # ---------------------------------------------------------------------------
@@ -137,9 +138,11 @@ add_library(DAL::cpp ALIAS dal_cpp)
 # Propagate C++17 to consumers (dal-public, examples, tests).
 target_compile_features(dal_cpp PUBLIC cxx_std_17)
 
-if(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
-    target_compile_definitions(dal_cpp PUBLIC DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
-endif()
+foreach(diagnostic_option IN ITEMS DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS DAL_ENABLE_AAD_PROFILING)
+    if(${diagnostic_option})
+        target_compile_definitions(dal_cpp PUBLIC ${diagnostic_option})
+    endif()
+endforeach()
 
 # Make <dal/...> available to consumers (dal-public, etc.)
 target_include_directories(dal_cpp

@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-04
 
+- **Explicit native AAD production profiling** — opt-in request and task
+  collectors expose phase wall time, actual thread CPU time, sampled tape
+  storage, successful block allocations, and selected array payloads. The
+  default-OFF build removes hot-loop instrumentation. `script_mc_perf` adds
+  explicit cold, warm, and phase modes with fixed-path price/risk validation.
+  See [AAD methodology](docs/methodology/aad.md#native-production-profiling).
+
 - **Native AAD only** — remove XAD, CoDiPack and Adept implementations,
   submodule dependencies, build selections and installation exports. Enabled
   legacy backend options fail explicitly; rebuild libraries and consumers with
@@ -564,8 +571,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 These are documented today and represent the current documented surface; they are listed
 here as the baseline rather than dated releases:
 
-- **Automatic Adjoint Differentiation (AAD)** — reverse-mode AD for risk sensitivities, with
-  Adept/XAD/CoDiPack backends. See `docs/methodology/aad.md`.
+- **Automatic Adjoint Differentiation (AAD)** — built-in native reverse-mode AD
+  for risk sensitivities. See `docs/methodology/aad.md`.
 - **Yield Curve Construction** — discount-factor / forward-rate parameterised curves
   calibrated to market instruments. See `docs/yield-curves/construction.md`.
 - **Underdetermined Search** — constrained least-change solver for over-parameterised

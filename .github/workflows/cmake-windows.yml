@@ -55,6 +55,14 @@ jobs:
             aad-backend: aadet-diagnostics
             cc: cl
             cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-profiling
+            cc: cl
+            cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-all-diagnostics
+            cc: cl
+            cxx: cl
 
     steps:
 
@@ -113,6 +121,12 @@ jobs:
           FLAGS=""
           if [ "${{ matrix.aad-backend }}" = aadet-diagnostics ]; then
             FLAGS="-DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON"
+          fi
+          if [ "${{ matrix.aad-backend }}" = aadet-profiling ]; then
+            FLAGS="$FLAGS -DDAL_ENABLE_AAD_PROFILING=ON"
+          fi
+          if [ "${{ matrix.aad-backend }}" = aadet-all-diagnostics ]; then
+            FLAGS="$FLAGS -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON -DDAL_ENABLE_AAD_PROFILING=ON"
           fi
           # dal-python (pybind11 bindings) and dal-excel (Windows-only COM add-in)
           # are built on every matrix combination — the matrix is small
@@ -186,6 +200,20 @@ jobs:
         run: |
           # Examples are compile-checked here and run in the Linux coverage leg.
           ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release -LE "benchmark|examples|examples_slow"
+
+      - name: Test production profiling CLI
+        shell: bash
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          cmake -S . -B build/Release-windows -DDAL_CPP_BUILD_BENCHMARKS=ON
+          cmake --build build/Release-windows --target script_mc_perf --config Release --parallel
+          profiling=off
+          if [[ "${{ matrix.aad-backend }}" = aadet-profiling || "${{ matrix.aad-backend }}" = aadet-all-diagnostics ]]; then
+            profiling=on
+          fi
+          python tests/aad-profiling/check_production_profile.py \
+            build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --profiling "$profiling"
 
       - name: Test installed CMake consumer
         shell: pwsh

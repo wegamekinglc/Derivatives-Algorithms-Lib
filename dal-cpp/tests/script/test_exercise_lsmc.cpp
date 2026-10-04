@@ -18,6 +18,7 @@
 
 #include <dal/platform/platform.hpp>
 
+#include <dal/math/aad/profiling.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -1526,6 +1527,50 @@ TEST(ScriptExerciseLSMCTest, TestAadGate) {
         });
     }
 }
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+TEST(ScriptExerciseLSMCTest, TestExplicitAadProfilingSeparatesTrainingAndReplayWithoutChangingFrozenRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
+    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+    constexpr size_t N_PATHS = 64;
+    for (const bool compiled : {false, true}) {
+        auto settings = AadSettings(compiled, 2.0);
+        settings.lsmcTrainingPaths_ = 128;
+        const auto expected = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+        AAD::ProfilingData_ data;
+        const auto actual = [&] {
+            AAD::ProfilingScope_ profile(&data);
+            return MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+        }();
+        ASSERT_TRUE(data.complete_);
+        ASSERT_EQ(data.Phase(AAD::AADProfilingPhase_::Value_::PREPARE).calls_, 3);
+        ASSERT_GE(data.memory_.regressionArrays_.liveBytes_, 4 * 128 * sizeof(double));
+        ASSERT_GT(data.memory_.resultArrays_.liveBytes_, 0);
+        ASSERT_EQ(BitsOf(actual.aggregated_), BitsOf(expected.aggregated_));
+        ASSERT_EQ(actual.names_, expected.names_);
+        ASSERT_EQ(actual.risks_.size(), expected.risks_.size());
+        for (size_t i = 0; i < actual.risks_.size(); ++i)
+            ASSERT_EQ(BitsOf(actual.risks_[i]), BitsOf(expected.risks_[i]));
+        const auto& training = data.Phase(AAD::AADProfilingPhase_::Value_::LSM_TRAIN);
+        const auto& regression = data.Phase(AAD::AADProfilingPhase_::Value_::LSM_REGRESS);
+        ASSERT_EQ(training.calls_, 1);
+        ASSERT_EQ(regression.calls_, 1);
+        ASSERT_GE(training.wallNanoseconds_, regression.wallNanoseconds_);
+        ASSERT_EQ(data.Phase(AAD::AADProfilingPhase_::Value_::LSM_REPLAY).calls_, 1);
+        std::uint64_t suffix = 0, prefix = 0, samples = 0;
+        for (const auto& group : data.taskGroups_)
+            for (const auto& task : group) {
+                ASSERT_TRUE(task.complete_);
+                suffix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX).calls_;
+                prefix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX).calls_;
+                samples += task.tapeSamples_;
+            }
+        ASSERT_EQ(suffix, N_PATHS);
+        ASSERT_EQ(prefix, 1);
+        ASSERT_EQ(samples, N_PATHS + prefix);
+    }
+}
+#endif
 
 TEST(ScriptExerciseLSMCTest, TestRetrainedPolicyRiskMatchesFuzzyRepricing) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
