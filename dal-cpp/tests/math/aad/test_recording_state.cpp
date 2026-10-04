@@ -2,11 +2,12 @@
 // Created on 2026/10/04.
 //
 
+#include <gtest/gtest.h>
+
+#include <future>
 #include <dal/math/aad/recording.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <future>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -219,6 +220,45 @@ TEST(AADRecordingStateTest, TestFailedReverseRejectsFurtherWorkAndRequiresRecove
     Adjoint(output) = 1.0;
     next.Reverse();
     ASSERT_DOUBLE_EQ(AdjointValue(input), 6.0);
+    next.Close();
+}
+
+TEST(AADRecordingStateTest, TestResultExtractionExceptionReleasesScopeAndNextRecordingRecovers) {
+    bool extracted = false;
+    const auto fail = [&] {
+        RecordingScope_ recording;
+        Number_ input;
+        recording.RegisterInput(input, 3.0);
+        recording.StartRecording();
+        Number_ output = input * input;
+        recording.FinishRecording();
+        recording.ClearAdjoints();
+        Adjoint(output) = 1.0;
+        recording.Reverse();
+        ASSERT_DOUBLE_EQ(Value(output), 9.0);
+        ASSERT_DOUBLE_EQ(AdjointValue(input), 6.0);
+        extracted = true;
+        THROW("controlled result extraction failure");
+    };
+    try {
+        fail();
+        FAIL() << "result extraction exception was suppressed";
+    } catch (const Exception_& error) {
+        ASSERT_NE(std::string(error.what()).find("controlled result extraction failure"), std::string::npos);
+    }
+    ASSERT_TRUE(extracted);
+    ASSERT_FALSE(LastRecordingCleanupFailure());
+    RecordingScope_ next;
+    Number_ input;
+    next.RegisterInput(input, 4.0);
+    next.StartRecording();
+    Number_ output = input * input;
+    next.FinishRecording();
+    next.ClearAdjoints();
+    Adjoint(output) = 1.0;
+    next.Reverse();
+    ASSERT_DOUBLE_EQ(Value(output), 16.0);
+    ASSERT_DOUBLE_EQ(AdjointValue(input), 8.0);
     next.Close();
 }
 
