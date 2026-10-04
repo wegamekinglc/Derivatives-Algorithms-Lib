@@ -16,5 +16,7 @@ after documenting the current-state outcome.
 - [Corrected lifetime diagnostic evidence](perf/aad-native-lifetime-diagnostics-corrected.md):
   assignment safety, complete builds/consumers, fresh paired performance, calibration
   failure/confirmation and resource observations; the final requirement audit remains open.
-- [Backend adapter contract](specs/aad-backend-adapter.md): executable capabilities,
-  scalar/vector seed/read, recording integration and complete D03 acceptance.
+- [Native-only AAD removal contract](specs/aad-native-only.md): remove XAD,
+  CoDiPack and Adept implementation/dependencies; preserve native checks and performance.
+- [Native operation contract](specs/aad-backend-adapter.md): scalar/vector seed/read,
+  recording integration and D03 acceptance after external backend removal.

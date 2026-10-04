@@ -1,15 +1,25 @@
 # DAL AAD implementation ledger
 
-Status: active implementation. No stage is complete until its correctness, compatibility,
+Status: implementation paused; the active scope now requires native-only AAD.
+No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3c2d0bdbdf6532ae9edae507d073f765e7e31f8a/.codex/artifacts/plans/aad-improvement-plan.md).
+Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
+support and keeping only DAL's built-in native AAD. This replaces the earlier
+four-backend compatibility goal. D00 is now a Stage A requirement; D03 is limited
+to useful native operations and capability contracts. See the controlling
+[native-only specification](../specs/aad-native-only.md).
+Removal is not implemented yet. Earlier external-backend results below remain
+historical evidence, not continuing support obligations or removal acceptance.
+
+Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
 Its appendix expansions preserve the original scope and add worked examples,
 task cards, resource models, complete request execution, operator pullbacks,
 cache/failure boundaries and explicit no-regression acceptance.
 The further method expansion specifies solver precision, nonsmooth estimators,
 sparse reconstruction, segmented state seeds, backend effects and result failures;
-it preserves the existing full implementation scope.
+The native-only amendment adds external support removal and supersedes prior
+external-backend obligations while preserving the remaining feature scope.
 Initial implementation baseline: `b5e3caca85bb1a5b1aa3acf7898b387832d443c8`.
 
 The user authorized full implementation on 2026-10-04 and requires existing functionality
@@ -20,7 +30,8 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 - Work in isolated writable sources; preserve the original workspace and unrelated changes.
 - Establish a failing independent test before each behavioral change.
-- Validate native, XAD, CoDiPack, and Adept contracts according to actual adapter capabilities.
+- Remove external AAD implementation, dependency, export, example and CI paths;
+  validate native diagnostic OFF/ON and their actual operation contracts.
 - Preserve legacy single-output APIs, units, paths, normalization, and LSM policy semantics.
 - Compare isolated Release baseline/head binaries with matching dependency SHAs and configuration.
 - Use the existing paired regression policy: ten interleaved process samples per side in each
@@ -37,10 +48,13 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] C03: non-finite derivatives/seeds remain observable; public results diagnose invalid risk.
 - [x] C04: preserve consumed intermediate clearing, leaf accumulation, repeated sweeps, and checkpoints.
 - [x] C05: no implicit approximate gradient truncation.
+- [ ] D00: remove XAD, CoDiPack and Adept code, gitlinks, configuration, exports,
+  examples, scripts and CI; verify fresh native-only builds and migration errors.
 - [ ] P01: correct production-oriented tape/Jacobian/MC benchmarks and explanatory resource metrics.
 - [ ] D01: explicit recording lifecycle, checkpoints, nested-use rejection, and exception recovery.
 - [ ] D02: optional owner/slot-lifetime diagnostics without release per-node overhead.
-- [ ] D03: compile-time backend adapter/capability contracts and verified fallbacks.
+- [ ] D03: thin native operation/capability contracts; remove unpublished external
+  adapters and selection metadata rather than introducing a pluggable framework.
 
 ## Stage B: market and portfolio risk
 
@@ -51,7 +65,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F01: calibration-only and full bump/recalibrate/common-path oracles.
 - [ ] F01: common calibration pullback integration with existing curve quote-risk semantics.
 - [ ] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
-- [ ] F02: budgeted blocked Jacobian with explicit backend/rerecording behavior.
+- [ ] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [ ] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
@@ -71,14 +85,15 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: specified Gamma, cross-Gamma, and Hessian-vector requests using bump-over-AAD.
 - [ ] F04: quote-risk second order includes calibration curvature through full recalibration.
 - [ ] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
-- [ ] F04: mixed-mode prototype on smooth kernels and backend capability validation.
+- [ ] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 ## Completion evidence
 
 - [ ] Focused red/green evidence and independent mathematical references for each feature.
 - [ ] Fresh full native/core/public/portable-binding verification.
-- [ ] Applicable four-backend verification and exact implementation-head CI checks.
+- [ ] Fresh native-only OFF/ON, no external dependency/export/selection paths,
+  explicit old-config migration errors and exact implementation-head CI checks.
 - [ ] Python and Excel parity, generated-source integrity, and documentation integrity.
 - [ ] Existing nine-target performance gate plus changed production-workload coverage.
 - [ ] Current-state method docs, examples, and necessary changelog entries.
@@ -187,15 +202,16 @@ The independent full-final-block `BlockList::Size` repair has its
 bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
 final paired/CI acceptance; its full native/CoDiPack functional checks pass.
 
-D03 proceeds independently in `/tmp/dal-aad-backend-adapter`, based on the
-unchanged successful publication head. Stateless capabilities and native/indexed
-or upstream/scalar seed/read are integrated with scoped recording services.
-All four shared scalar contracts pass; native ON integration passes 32 cases
-and CoDiPack integration passes 22. The missing header and missing vector
-storage have retained compile/UBSan RED evidence. The new
-[backend contract](../specs/aad-backend-adapter.md) controls generated state,
-complete backend/consumer builds, new publication CI and fresh paired acceptance.
-Focused checks do not complete D03 or any stage.
+D03's pre-removal work is in `/tmp/dal-aad-backend-adapter`, based on the
+unchanged successful publication head, with local commits `2b4bf89` and `5689ff9`.
+Full native OFF/ON CTest passes 2,328/2,324 cases; XAD, CoDiPack and Adept each
+pass 2,264. All five installed consumers pass; diagnostic ON passes 60 focused
+ASan/UBSan cases with leak detection, and native OFF passes 21 serial benchmark
+smoke cases. These are terminal local results, not publication or paired
+performance acceptance. The compile/UBSan RED failures remain recorded.
+The amended [native operation contract](../specs/aad-backend-adapter.md) preserves
+useful seed/channel/lifecycle behavior while removing external adapters under
+D00. No D00/D03 fresh paired measurement or publication has been completed.
 
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
@@ -296,8 +312,11 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: freeze the D02 increment, finish default OFF paired acceptance and inspect
-its exact-head CI. Finish the D01 requirement audit and continue P01/D03 under
-the full controlling scope.
+Next after development resumes: implement D00 and simplify the unpublished D03
+source, then run fresh native OFF/ON builds, bindings and consumers, isolated
+paired performance, local review and exact new-head CI. Complete D01/D02 audits
+and remaining P01 production measurement under the amended full scope.
+The earlier D02 paired acceptance and 49 green publication checks remain valid
+for their recorded head; they do not accept the pending removal changes.
 Public numeric-result validation remains outside per-path loops. Do not mark Stage A
 complete before its remaining requirements are verified.
