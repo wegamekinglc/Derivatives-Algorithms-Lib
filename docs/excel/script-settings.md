@@ -45,6 +45,39 @@ keys instead of assuming PV is the first row. AAD adds model and script-constant
 risks; risks are already normalized, and there are no fixing-risk or diagnostic
 rows. With AAD disabled the result is a 1×2 PV table.
 
+## Structured script risk
+
+`RISKREQUEST.NEW(name, [settings])` creates an immutable request from a
+two-column key/value table. Supported keys are `inputs`, `outputs`,
+`report_factors` and `numeric_payload_budget_bytes`. IDs and factors are
+semicolon-separated text, such as `constant:0;model:1` and `0.5;0.01`.
+An omitted input row selects all native inputs; a present input row with a blank
+value selects none. Blank output selection is invalid. Budget is an exactly
+representable nonnegative integer no larger than `2^53-1`; zero cannot hold the
+mandatory payoff value. Unknown or repeated keys fail.
+
+`MONTECARLO.VALUEWITHRISK(product, modelData, n_paths, [request], [valuation],
+[simulation])` returns a completed result handle. Omitted simulation enables
+native AAD; an explicit simulation handle with `enable_aad=FALSE` requests price
+only and cannot select nonempty risk inputs. No getter performs valuation.
+
+Use `RISKRESULT.GET.VALUES`, `.GET.OUTPUTS`, `.GET.JACOBIAN(result, [reported])`
+and `.GET.SHAPE` for numeric values, ordered output IDs, raw/reported derivatives
+and exact matrix extent. A zero-column Jacobian spills one blank cell, while
+shape reports `1, 0`. `.GET.INPUTS(result, [complete])` returns a header and
+ordered coordinate rows containing ID, label, family, ordinal, native value/unit,
+optional physical unit and reporting scale. Unknown physical units are blank.
+
+`.GET.PROVENANCE`, `.GET.HISTORY`, `.GET.PRODUCT` and `.GET.MODELSNAPSHOT`
+extract actual method/settings, observation keys/frozen historical values,
+the original product table and model-data JSON chunks. Concatenate model chunks
+without separators. `.GET.LEGACYVALUES` returns raw `PV`/`d_...` and rejects
+colliding display labels. Results survive later valuation/failure; request/result
+handle serialization explicitly fails with `RiskArchiveUnsupported`.
+The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
+defines normalization, reporting factors and mixed LSM policy risk. Numeric
+payload budgets exclude metadata, worker/tape storage and subsequent getter copies.
+
 ## Settings Ranges
 
 Each `settings` range has exactly two columns, key then value, with no header.

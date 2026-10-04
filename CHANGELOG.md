@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-05
+
+- **Structured script risk across C++, Python and Excel** —
+  `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar
+  results with ordered model/script IDs, mean derivatives, report factors and
+  retained execution/model/history snapshots. Requests validate numeric payload
+  budgets before preparation; getters extract existing data and diagnose legacy
+  display collisions. See [AAD methodology](docs/methodology/aad.md#structured-scalar-risk-results).
+
 ## 2026-10-04
 
 - **Explicit native AAD production profiling** — opt-in request and task

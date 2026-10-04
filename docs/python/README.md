@@ -143,6 +143,38 @@ failures raise `RuntimeError` with field/constraint and source context.
 `Product_DebugJson` remains a JSON string with schema /1 and rejects FIX or
 nonempty defaults with `DebugSchemaUnsupported`.
 
+## Structured script risk
+
+`MonteCarlo_ValueWithRisk(product, modelData, num_path, *, request=None,
+valuation=None, simulation=None)` returns a read-only `RiskResult_`.
+The omitted simulation enables native AAD; an explicit
+`MonteCarloSettings_(enable_aad=False)` requests price only.
+
+```python
+request = dal.RiskRequest_(
+    inputs=["constant:0", "model:1"], report_factors=[0.5, 0.01],
+)
+risk = dal.MonteCarlo_ValueWithRisk(product, model, 2**16, request=request)
+raw = risk.jacobian.to_rows()        # [[strike derivative, volatility derivative]]
+reported = risk.reported_jacobian.to_rows()
+method = risk.provenance.method
+```
+
+Request fields are keyword-only `inputs`, `outputs`, `report_factors` and
+`numeric_payload_budget_bytes`. IDs/factors accept lists or tuples, with `None`
+meaning omission. Empty native inputs preserve the `(1, 0)` matrix and smoothed
+price; price-only cannot select nonempty inputs. Budget is a nonnegative integer
+excluding bool. It covers returned numeric values/Jacobian, excluding metadata,
+worker/tape storage and getter copies.
+
+`output_ids`, `values`, `input_axis`, `complete_input_axis`, `jacobian`,
+`reported_jacobian`, `provenance` and `legacy_values` expose detached data.
+Changing a returned matrix or copied simulation settings cannot change the result.
+Coordinate IDs identify model/script ordinals within the retained snapshot;
+physical units can be unknown. The raw legacy view rejects display collisions.
+The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
+describes the retained product/model/history settings and mixed LSM policy risk.
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

@@ -16,28 +16,6 @@ using namespace Dal;
 using namespace Dal::Python;
 
 namespace {
-    long long IntegerInput(const py::handle& value, const std::string& context, long long lowest, long long highest, const std::string& rangeError) {
-        if (PyBool_Check(value.ptr()) || IsEnum(value) || !PyIndex_Check(value.ptr()))
-            throw py::type_error(context);
-        const auto integer = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
-        if (!integer) {
-            PyErr_Clear();
-            throw py::type_error(context);
-        }
-        int overflow = 0;
-        const long long result = PyLong_AsLongLongAndOverflow(integer.ptr(), &overflow);
-        if (PyErr_Occurred())
-            throw py::error_already_set();
-        REQUIRE2(!overflow && result >= lowest && result <= highest, String_(context + rangeError), ScriptError_);
-        return result;
-    }
-
-    int PathCount(const py::handle& value, const char* function) {
-        const auto context = InputContext(value, std::string(function) + "; num_path / numPath",
-                                          "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()), "InvalidPathCount");
-        return static_cast<int>(IntegerInput(value, context, 1, std::numeric_limits<int>::max(), "; number of Monte Carlo paths must be positive"));
-    }
-
     std::optional<Date_> EvaluationDate(const py::handle& value) {
         if (value.is_none())
             return std::nullopt;
@@ -62,8 +40,9 @@ namespace {
         }
         if (!py::isinstance<py::str>(value) && !py::isinstance<String_>(value))
             throw py::type_error(context);
-        const auto name = SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
-                                             "InvalidSetting: InvalidTodayFixingPolicy");
+        const auto name =
+            SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
+                               "InvalidSetting: InvalidTodayFixingPolicy");
         TodayFixingPolicy_ policy;
         //  explicit branch, not a macro argument: keeps the parse call unconditional
         if (!Script::TryParseTodayFixingPolicy(name, &policy))
@@ -252,15 +231,14 @@ void init_bindings_value(py::module_& m) {
         .value("REQUIREHISTORICAL", TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
 
     WithCopies(py::class_<ScriptValuationSettings_>(m, "ScriptValuationSettings_"))
-        .def(
-            py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& fixings) {
-                ScriptValuationSettings_ settings;
-                settings.evaluationDate_ = EvaluationDate(evaluationDate);
-                settings.todayFixingPolicy_ = TodayPolicy(todayFixing);
-                settings.fixings_ = Fixings(fixings);
-                return settings;
-            }),
-            py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("fixings") = py::none())
+        .def(py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& fixings) {
+                 ScriptValuationSettings_ settings;
+                 settings.evaluationDate_ = EvaluationDate(evaluationDate);
+                 settings.todayFixingPolicy_ = TodayPolicy(todayFixing);
+                 settings.fixings_ = Fixings(fixings);
+                 return settings;
+             }),
+             py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("fixings") = py::none())
         .def_property(
             "evaluation_date", [](const ScriptValuationSettings_& settings) { return settings.evaluationDate_; },
             [](ScriptValuationSettings_* settings, const py::object& value) { settings->evaluationDate_ = EvaluationDate(value); })

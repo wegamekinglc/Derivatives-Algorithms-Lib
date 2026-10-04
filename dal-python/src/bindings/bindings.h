@@ -19,3 +19,4 @@ void init_bindings_gsr(py::module_& m);
 void init_bindings_random(py::module_& m);
 void init_bindings_script(py::module_& m);
 void init_bindings_value(py::module_& m);
+void init_bindings_risk(py::module_& m);

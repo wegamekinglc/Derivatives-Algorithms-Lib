@@ -694,6 +694,62 @@ This validation does not make an undefined local derivative mathematically valid
 For example, the native derivative of `sqrt(0)` is infinite. A finite reported value is
 therefore insufficient evidence of differentiability at an endpoint.
 
+### Structured Scalar Risk Results
+
+`ValueByMonteCarloWithRisk` in `dal-public/src/value.hpp` runs one valuation and
+returns a passive `Script::RiskResult_`. Its default simulation enables native
+AAD. Supplying `MonteCarloSettings_` with `enableAad_=false` selects price-only
+execution; omitted inputs then select no risk columns. The existing dictionary
+valuation entries retain their defaults and execution path.
+
+The output ID is `payoff`; its raw Jacobian always has shape `(1, n)`, including
+`(1, 0)` for an explicit empty input selection. Omitted native inputs select all columns;
+explicit IDs select and reorder them. Model IDs are `model:<ordinal>` and script
+constant IDs are `constant:<ordinal>`. These IDs are local to the stored complete
+axis definition and numeric snapshot. Display labels do not determine extraction.
+Coordinates retain native units and optional physical units. BS and correlated
+BS units follow their typed parameter layout; other model families and arbitrary
+script constants retain an unknown physical unit. No currency or financial
+scale is inferred from a display name. Explicit empty native inputs preserve the
+smoothed native estimator; they do not switch to passive hard decisions.
+
+`Jacobian()` returns raw derivatives. `ReportedJacobian()` returns a separate
+matrix with each requested positive finite reporting factor applied once.
+`LegacyValues()` returns raw `PV`/`d_...` values and rejects colliding display
+keys; equal model/script display names remain distinct in structured columns.
+Getters expose no active numbers and do not rerun calculation.
+
+`numericPayloadBudgetBytes_` bounds returned value and raw-Jacobian numeric
+storage. It excludes metadata, source storage, worker/tape memory and getter
+copies. Path count, selection, factors and budget are validated before date
+capture, history resolution, compilation or worker submission. Nonfinite
+requested values/derivatives or reported multiplication overflow fail before
+publishing a result.
+
+The result retains the resolved evaluation date, model-data JSON snapshot,
+complete numeric coordinate axis, product definition, simulation settings and
+the actual observation keys/frozen historical values from preparation. Native
+LSM `RetrainedBump` uses the method label `NativeAADWithRetrainedPolicySecant`;
+its policy secant is not represented as a wholly analytic derivative. Paths per
+replicate and actual pricing-replicate count are explicit. An expired result
+is labelled `Expired` and its stored path count is the requested count. No
+uncomputed standard error is supplied.
+
+The lower-level `Script::ProjectMonteCarloRiskResult` in
+`dal/script/riskresults.hpp` converts an existing `SimResults_` without valuation
+or a reverse sweep. It divides the payoff sum by the positive path count once;
+existing mean gradients are copied unchanged. Its provenance is caller-supplied
+conversion metadata and cannot certify execution. The public valuation entry
+constructs provenance from its own sealed preparation.
+
+Python exposes keyword-only `RiskRequest_` and `MonteCarlo_ValueWithRisk`.
+Result properties are read-only; matrix/container getters return detached
+copies. Excel uses immutable request/result handles and `RISKRESULT.GET.*`
+getters. A zero-column Jacobian spills one blank Excel cell; `GET.SHAPE` reports
+the exact `(1, 0)` extent. See the [C++ guide](../public-api.md#structured-script-risk),
+[Python guide](../python/README.md#structured-script-risk) and
+[Excel guide](../excel/script-settings.md#structured-script-risk).
+
 ### Passive vs Active Tape
 
 Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run

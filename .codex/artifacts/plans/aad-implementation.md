@@ -104,6 +104,62 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Current evidence and next action
 
+Current resumed state: exact `8886c083` passes all 35 CI checks, including the
+four MSVC native/profiling/lifetime combinations and sanitizer/TSan jobs.
+P01's 24-profile resource/scaling/diagnostic-cost sweep completes 2,496 processes;
+all prices and risks satisfy rel/abs 1e-10, and every LSM sample is bitwise equal.
+The [complete production report](../performance/aad-production-profiling.md)
+records all 65 formal, 44 MC, 25 curve and 44 matched-prefix cases, plus all
+scaling/resource/overhead rows. The nine-target gate passes unchanged. Curve
+confirmation passes 25/25, but full MC confirmation is 43/44 and matched-prefix
+confirmation is 42/44 with different failing cases. Same-binary control passes
+44/44; CPU-4 European isolation passes 7/7. Overall production performance remains
+inconclusive on the shared WSL2 host, so P01 and Stage A stay open.
+
+Evidence now persists under the home cache; exact source/baseline checkouts and
+the `/tmp` alias were restored after cleanup. All 1,681 frozen source/helper/binary
+hashes match. Measured executables were retained unchanged.
+
+Independent Stage B work proceeds under the [D04 specification](../specs/aad-risk-results.md),
+[API boundary](../api-notes/aad-risk-results.md) and [critique](../critiques/aad-risk-results.md).
+The scalar converter has RED missing-interface evidence followed by nine focused
+GREEN tests. Its first standard OFF build passes all 2,341 non-benchmark CTest
+cases. The public planner and actual execution/product/model/history provenance
+are implemented, with seven focused C++ tests, sixteen Python cases, three
+portable Excel cases and the independent date-capture consumer passing.
+Callback-mutation and malformed Excel factor tests first fail, then pass after
+fixing the actual snapshot/error-context defects. Native empty-column requests
+retain smoothing; LSM/RQMC results remain bitwise equal to legacy results and
+retrained policy risks carry a mixed-method label. Twelve Excel function stubs
+are regenerated with their markup.
+
+The complete OFF build passes 2,351 non-benchmark CTest cases (809 Python tests
+and all 34 examples); combined profiling/lifetime passes 2,364 cases. Final
+review fixes add snapshot geometry/history validation, correct generated optional
+boolean defaults and share Excel path-error context. Their actual failing tests
+and compile probe are retained; final OFF focused checks pass 25 cases, combined
+checks pass 89, and legacy Excel contracts pass 28 per configuration. The final
+fully instrumented ASan/UBSan shared libraries pass 77 core and 10 public cases.
+Both installed consumers and the independent date-capture consumer pass after
+the fixes. Production complexity passes the unchanged CCN-eight threshold;
+regeneration has no drift and changes only two optional-boolean inc/HTML pairs.
+
+The [new-entry cost report](../performance/aad-risk-entry-cost.md) retains 640
+alternating process samples over 16 cases, all with bitwise single-worker parity
+and unchanged source/helper/binary hashes. Structured metadata adds about four
+microseconds to short requests; longer native cases differ by -0.27% to +1.70%.
+These are additional-capability costs, not an old-entry performance verdict.
+All nine final OFF gate executables remain identical to the retained measured
+binaries. The simulation/LSM/tape hot loops are unchanged by D04.
+
+Exact new-publication-head CI remains pending. D04 acceptance remains open until
+that result is reconciled; P01 stays inconclusive and the complete Stage B/C/D
+scope remains required. F01 now has its [frozen-calibration specification](../specs/aad-dupire-pullback.md),
+[API decision](../api-notes/aad-dupire-pullback.md) and [critique](../critiques/aad-dupire-pullback.md)
+ready for core RED/GREEN implementation, followed by Hybrid and binding oracles.
+
+### Earlier snapshots retained for acceptance context
+
 P01's controlling [production measurement contract](../specs/aad-production-measurement.md)
 now specifies actual phase/resource windows, default instrumentation exclusion,
 fixed-path thread scaling, long-path/surface/real-output coverage and complete
@@ -460,10 +516,8 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the final native-only acceptance audit with exact-head validation.
-Complete remaining P01 phase/resource/scaling measurement
-and remaining P01 production measurement under the amended full scope.
-The earlier D02 paired acceptance and 49 green publication checks remain valid
-for their recorded head; they do not accept the pending removal changes.
-Public numeric-result validation remains outside per-path loops. Do not mark Stage A
-complete before its remaining requirements are verified.
+Next: finish D04 validation, complexity refactoring, new-entry cost evidence and
+draft publication. Then connect F01 calibrated quote pullbacks and F02 output
+seeds under their controlling designs. Reconcile P01's unresolved performance with controlled-environment evidence;
+retain every failure and do not replace the threshold or sample until a pass.
+Stage A and the full Stage B/C/D goal remain incomplete.

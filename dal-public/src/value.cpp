@@ -10,26 +10,17 @@
 #include <dal/storage/globals.hpp>
 
 #include <dal-public/src/value.hpp>
+#include <dal-public/src/valuevalidation.hpp>
 
 namespace Dal {
     using AAD::Model_;
     using Script::SimResults_;
 
     namespace {
-        const std::set<String_> MODEL_STORE = {"BSModelData_", "CorrelatedBSModelData_",  "HybridModelData_",
-                                               "GSRModelData", "MultiFactorGSRModelData", "GSRSLVModelData"};
-
         ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
                                                   const Handle_<ModelData_>& modelData,
                                                   const ScriptValuationSettings_& valuation) {
-            REQUIRE2(product, "InvalidSetting: product=null; expected a non-null product", ScriptError_);
-            REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
-            const auto modelType = modelData->Type();
-            REQUIRE2(
-                MODEL_STORE.find(modelType) != MODEL_STORE.end(),
-                "InvalidSetting: modelData.Type=" + modelType +
-                    "; expected BSModelData_, CorrelatedBSModelData_, HybridModelData_, GSRModelData, MultiFactorGSRModelData, or GSRSLVModelData",
-                ScriptError_);
+            Detail::CheckScriptValuationInputs(product, modelData);
             return Script::ResolveValuationSettings(valuation);
         }
     } // namespace

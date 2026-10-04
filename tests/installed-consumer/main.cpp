@@ -1,11 +1,27 @@
+#include <cmath>
+
 #include <dal-public/src/calendar.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
+#include <dal-public/src/models.hpp>
+#include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
+#include <dal-public/src/value.hpp>
 #include <dal/utilities/numerics.hpp>
 
 int main() {
     Dal::InitGlobalData(1);
+    const auto product = Dal::NewScriptProduct("installed-risk", {Dal::Cell_(Dal::Date_(2026, 9, 22))}, {"pay PAYS SPOT()"});
+    const auto model = Dal::NewBSModelData("installed-model", 100.0, 0.0, 0.0, 0.0);
+    Dal::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Dal::Date_(2026, 9, 12);
+    Dal::Script::RiskRequest_ request;
+    request.inputs_ = Dal::Vector_<Dal::String_>{"model:0"};
+    const auto risk = Dal::ValueByMonteCarloWithRisk(product, model, 1, request, valuation);
+    const auto reference = Dal::ValueByMonteCarlo(product, model, 1, valuation, Dal::DefaultRiskMonteCarloSettings());
+    if (risk.Values()[0] != reference.at("PV") || risk.Jacobian()(0, 0) != reference.at("d_spot") || std::abs(risk.Values()[0] - 100.0) > 1e-10 ||
+        std::abs(risk.Jacobian()(0, 0) - 1.0) > 1e-10 || risk.InputAxis()[0].id_ != "model:0")
+        return 6;
     const Dal::Date_ start(2026, 1, 1);
     if (start.AddDays(1) - start != 1)
         return 1;

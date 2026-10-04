@@ -21,6 +21,7 @@ namespace {
         size_t reads_ = 0;
         size_t writes_ = 0;
         MonteCarloSettings_* callerSimulation_ = nullptr;
+        Script::RiskRequest_* callerRequest_ = nullptr;
         void Set(const String_&, const Matrix_<Cell_>& value) override {
             ++writes_;
             date_ = value;
@@ -30,6 +31,10 @@ namespace {
             if (callerSimulation_) {
                 callerSimulation_->rsg_ = "changed_during_date_capture";
                 callerSimulation_ = nullptr;
+            }
+            if (callerRequest_) {
+                callerRequest_->inputs_ = Vector_<String_>{"changed_during_date_capture"};
+                callerRequest_ = nullptr;
             }
             return date_;
         }
@@ -71,5 +76,25 @@ int main() {
     dates->callerSimulation_ = &simulation;
     check(ValueByMonteCarlo(product, model, 1, ScriptValuationSettings_(), simulation));
     REQUIRE(simulation.rsg_ == "changed_during_date_capture", "date capture seam was not exercised");
+    Script::RiskRequest_ request;
+    request.inputs_ = Vector_<String_>{"model:0"};
+    request.numericPayloadBudgetBytes_ = 2 * sizeof(double);
+    dates->callerRequest_ = &request;
+    simulation.rsg_ = "sobol";
+    simulation.enableAad_ = true;
+    dates->callerSimulation_ = &simulation;
+    const auto risk = ValueByMonteCarloWithRisk(product, model, 1, request, {}, simulation);
+    REQUIRE(dates->reads_ == 1 && dates->writes_ == 0, "risk valuation must capture the date exactly once without writes");
+    REQUIRE(risk.Values()[0] == 100.0 && risk.Jacobian()(0, 0) == 1.0, "risk snapshot changed during date capture");
+    REQUIRE(risk.InputAxis()[0].id_ == "model:0" && risk.Provenance().execution_->simulation_.rsg_ == "sobol",
+            "risk request/execution was not copied before date capture");
+    dates->reads_ = 0;
+    request.inputs_ = Vector_<String_>{"bad"};
+    try {
+        static_cast<void>(ValueByMonteCarloWithRisk(product, model, 1, request));
+        return 1;
+    } catch (const ScriptError_&) {
+    }
+    REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "invalid risk request accessed the date store");
     std::cout << "Old 3-8 argument calls and typed settings pass; default date reads=1, explicit/Describe reads=0, writes=0\n";
 }
