@@ -13,4 +13,7 @@ after documenting the current-state outcome.
   includes worked examples, implementation tasks, resource models, delivery criteria,
   end-to-end execution traces, operator pullbacks, and cache/failure contracts;
   details numerical conditioning, nonsmooth estimators, sparse reconstruction,
-  segmented path reversal, backend operation contracts, and result publication.
+  segmented path reversal, native operation contracts, and result publication.
+- [原生 AAD 唯一实现规格](specs/aad-native-only.md) — remove XAD, CoDiPack and
+  Adept code, dependencies, exports, examples and CI; preserve native OFF/ON
+  correctness, bindings, migration diagnostics and unchanged performance gates.
