@@ -185,6 +185,27 @@ combined each pass 20 focused cases and default/profiling six CLI contracts each
 Exact corrected-head Windows CI remains open. Both CI and local RED logs are
 retained.
 
+The corrected Windows lifetime leg loads pybind11 successfully, then exposes a
+second CLI compile defect: MSVC tries to copy a noncopyable ScriptProductData_
+through the conditional expression. Use direct prvalue returns in a local
+lambda; keep product ownership and compiler flags unchanged. Preserve that RED
+job log and require fresh MSVC compilation.
+The corrected CLI rebuilds in OFF/ON, passes six contracts in each and all 38
+representative diagnostics again. Formatting and docs checks pass. No core
+algorithm changes require repeating otherwise-unaffected library tests locally;
+the new exact-head Windows compile/run coverage remains mandatory.
+
+The frozen 7ead7ecd default-OFF nine gated binaries, configuration rows and gate
+script match the passing 5a6382b inputs exactly. Its 44-case supplemental MC
+pairing passes all cases at two-by-ten; all paired LSM prices/risks agree. The
+GSR 1F bond's +5.5307%/+3.9994% movement remains visible. The curve supplement
+passes 24/25, with a 24-node PWL DF query failure at +6.58%/+4.29%. Preserve this
+initial failure. Before further sampling, freeze a complete 25-case prior-native
+8816951 control at two-by-ten and complete original-baseline confirmation at
+two-by-thirty, retaining the same 4%/min/interleaving rule. Persistent movement
+requires diagnosis; this increment is not accepted from a partial performance
+pass or an older green CI snapshot.
+
 The native-only development source is `/tmp/dal-aad-backend-adapter`. External
 implementations, three gitlinks, build/export paths and CI jobs are removed;
 native operation services use `native.hpp` without adapter inheritance or selection.

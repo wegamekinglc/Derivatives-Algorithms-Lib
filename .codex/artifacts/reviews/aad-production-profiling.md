@@ -24,6 +24,14 @@ native-module skip. Refreshed OFF/ON/combined core builds, ON/combined 20 focuse
 tests and OFF/ON six CLI contracts each pass. Corrected-head Windows validation
 remains open.
 
+The corrected MSVC lifetime job configures successfully, then the new CLI fails
+to compile a noncopyable product conditional expression. The local change uses
+direct prvalue branch returns in a lambda and keeps copyability/compiler flags
+unchanged. Successful fresh MSVC compilation remains required.
+OFF/ON CLI builds and six contracts each pass, as do all 38 representative
+diagnostic cases. Formatting and docs checks pass; library algorithms are
+unchanged by this benchmark-only portability correction.
+
 No additional blocking correctness finding remains in the inspected profiling collector,
 task ownership, native storage hooks, ordinary/LSM call-site changes, benchmark
 CLI, configuration/export, tests and documentation. Default-off instrumentation
@@ -62,9 +70,14 @@ RED/GREEN evidence, raw log paths, numerical-oracle corrections and limitations.
 
 The unchanged nine-target two-by-ten/4% gate passes for the frozen 5a6382b
 default-OFF binaries: 65 comparable cases and the Sobol ratio rule pass; ten
-new cases remain informational. Corrected-head source/binary identity must be
-reconciled before extending this result. Affected production comparisons,
-new CLI fixed-path thread scaling, process resources,
-enabled-but-unsampled overhead, explicit diagnostic overhead and current-head
-CI must be inspected before P01 closes. Prior 6161e5a CI success covers that
+new cases remain informational. Frozen 7ead7ecd gate binaries/configuration/code
+match exactly. Its 44 supplemental MC cases pass two-by-ten, including every
+paired LSM price/risk. Its curve supplement fails the 24-node PWL DF query at
++6.58%/+4.29% while the other 24 cases pass. Preserve this failure and perform
+the predefined complete 25-case prior-native control/two-by-thirty original-
+baseline confirmation before any acceptance. Corrected CLI executable identity
+must be frozen again before measuring its workloads. New CLI fixed-path thread
+scaling, process resources, enabled-but-unsampled overhead, explicit diagnostic
+overhead and current-head CI remain required before P01 closes.
+Prior 6161e5a CI success covers that
 published source only. No merge is requested or performed.

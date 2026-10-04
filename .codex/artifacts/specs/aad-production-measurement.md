@@ -48,6 +48,29 @@ Python 3.12／vendored copy 连续 configure 两次、重新构建和运行通�
 修正后的默认／profiling／combined 核心重新构建成功，ON／combined 各 20 项
 重点测试及 OFF／ON 各六项 CLI 契约通过。新 Windows CI 尚待验收。
 
+`7ead7ecd` 的 MSVC 生命周期 leg 已成功重新 configure，随后 CLI 编译失败：
+两个 noncopyable `ScriptProductData_` prvalue 的条件表达式触发 deleted copy。
+RED 保留于 `production-profiling-7ead-windows-lifetime-job.log`。
+改为局部 lambda 的直接分支返回，继续使用 C++17 prvalue 构造；不放开产品拷贝，
+不改变全局 MSVC flags、工作负载、模型或产品条件。新 Windows 编译仍待验证。
+OFF／ON 的 CLI 重新构建及各六项契约通过，全部 38 项代表性诊断案例再次通过；
+clang-format 和文档完整性检查通过。日志前缀为 `production-profiling-msvc-product-`，
+代表性案例原始输出保留于 `production-profile-representative-functional-07/`。
+
+`7ead7ecd` 冻结环境 `production-profiling-7ead7ecd-environment-02.json` 的
+九项默认 OFF 二进制、配置行及门禁脚本与通过的 `5a6382b` 完全匹配。
+其新增完整 MC 比较为 44/44 通过两轮各十次；三个 LSM 场景每个 PV／风险
+在全部配对样本中满足 rel/abs `1e-10`。GSR 1F bond 为 +5.5307%／+3.9994%，
+按两轮均超过 4% 才失败的规则通过，但接近阈值的移动不能省略。
+原始结果保留于 `production-profiling-mc-paired-01/`。
+
+同环境曲线补充初测为 24/25 通过；24-node PWL DF query 为 +6.58%／+4.29%，
+原始失败保留于 `production-profiling-curve-paired-01/`，不能宣称全项无回归。
+按仓库边界／噪声复核规则，先与保留的已验收 native-only `8816951` 二进制做
+全部 25 项两轮各十次控制比较，再对原始基线做全部 25 项两轮各三十次复核。
+保持 4% 阈值、同机、同配置、交错顺序及 min reduction，保存全部结果。
+在控制与复核前冻结该协议；若移动持续，定位后修正，不以 CI 成功替代性能验收。
+
 ## 问题与实现边界
 
 现有普通 MC 和 LSM 基准主要给出完整执行时间；过程内 RSS 不能解释准备、

@@ -124,7 +124,11 @@ namespace {
         if (options.Exercise())
             simulation.lsmcTrainingPaths_ = static_cast<int>(options.training_);
         for (size_t output = 0; output < options.outputs_; ++output) {
-            const auto product = options.Exercise() ? exerciseFactory(options.LocalVol() ? "1CD" : "1W", false) : OrdinaryProduct(options, output);
+            const auto product = [&]() -> ScriptProductData_ {
+                if (options.Exercise())
+                    return exerciseFactory(options.LocalVol() ? "1CD" : "1W", false);
+                return OrdinaryProduct(options, output);
+            }();
             auto model = CreateModel<double>(result.data_);
             result.prepared_.push_back(PrepareScript(product, model.get(), {}, simulation));
             const auto& prepared = result.prepared_.back();
