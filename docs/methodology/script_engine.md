@@ -247,11 +247,11 @@ is invalid. The forms differ in where an observation takes its identity and
 what each fixing-date relation requires. For `SPOT()`, the fixing date is
 always the event date:
 
-| Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                       |
-|------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|-----------------------------------------------|
-| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model, bound to the script's EQ index by name |
-| Unbound `SPOT()`       | Model spot at event date | `UnboundHistoricalSpot`                    | Model, or `UnboundHistoricalSpot` under `REQUIREHISTORICAL` | Legacy model path; no binding                 |
-| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; same script index as `FIX`             |
+| Form                   | Identity                 | `F < D`                                    | `F = D`                                                     | `F > D`                                    |
+|------------------------|--------------------------|--------------------------------------------|-------------------------------------------------------------|--------------------------------------------|
+| `FIX(index[, date])`   | Unquoted literal         | Midnight history; `MissingFixing` on a gap | Model, or history under `REQUIREHISTORICAL`                 | Model-supported output bound by index name |
+| Unbound `SPOT()`       | Model spot at event date | `UnboundHistoricalSpot`                    | Model, or `UnboundHistoricalSpot` under `REQUIREHISTORICAL` | Legacy model path; no binding              |
+| Default-bound `SPOT()` | Product `defaultIndex_`  | History shared with matching `FIX`         | As for `FIX`, shared with matching `FIX`                    | Model; same script index as `FIX`          |
 
 The compatibility rules are:
 
@@ -372,6 +372,7 @@ The supported call shapes are:
 | Settings `ValueByMonteCarlo` | `product, modelData, numPath, valuation, simulation=MonteCarloSettings_()`                                   |
 | `DescribeScriptProduct`      | `product`                                                                                                    |
 | `ExplainScriptValuation`     | `product, modelData, valuation=ScriptValuationSettings_()`                                                   |
+| `ExplainScriptSimulation`    | `product, modelData, numPath, valuation=ScriptValuationSettings_(), simulation=MonteCarloSettings_()`        |
 
 The product settings overload requires its fourth argument. Three-argument
 valuation selects the legacy overload, which maps its optional arguments to
@@ -385,6 +386,7 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 | Settings type              | Field                     | Default                             | Contract                                                                                                              |
 |----------------------------|---------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `ScriptProductSettings_`   | `defaultIndex_`           | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
+| `ScriptProductSettings_`   | `regressionFeatures_`     | Empty vector                        | Up to three distinct model-supported EQ/IR indices or scalar `VAR[name]` states for `EXERCISE`.                       |
 | `ScriptValuationSettings_` | `todayFixingPolicy_`      | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
 | `ScriptValuationSettings_` | `evaluationDate_`         | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
 | `ScriptValuationSettings_` | `fixings_`                | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
@@ -501,9 +503,10 @@ default-bound `SPOT()` on the same relations are tabulated under
 A model request has no historical value slot. The overload without a model
 leaves it unresolved; model-aware preparation binds it to a scenario output.
 Missing required history raises an error without model fallback.
-Historical requests accept the built-in `Index::Equity_` and `Index::Fx_`
-implementations only. EQ delivery identities remain distinct. IR, composite,
-third-party indices, and subclasses are not admitted as historical adapters.
+Historical requests accept the built-in `Index::Equity_`, `Index::Fx_`, and
+`Index::Libor_` implementations only. EQ delivery identities remain distinct.
+IR discount-factor and swap indices, composites, third-party indices, and
+subclasses are not admitted as historical adapters.
 
 Preparation requires at least one dated event and a syntactic `PAYS` or
 `EXERCISE` statement.
@@ -610,7 +613,7 @@ future ordinary EQ indices. BS still accepts only one distinct
 future EQ index (`MultipleModelIndices`). GSR and a Hybrid GSR rate component
 support compatible future IR requests. An unsupported model-observed index
 fails before history access or worker submission. Future FX, composite,
-and EQ delivery (`>` or `@`) outputs are unsupported. Historical EQ/FX observations need no model index;
+and EQ delivery (`>` or `@`) outputs are unsupported. Historical EQ, FX, and Libor observations need no model index;
 several historical equities, delivery identities, and FX directions can coexist
 with one future ordinary EQ. Historical inverse-FX lookup does not imply a
 future FX model or a reciprocal projection of model spot.
@@ -627,7 +630,8 @@ branches. SPOT takes no arguments, and `FIX()` is invalid.
 For a multi-asset model, unbound `SPOT()` always raises `MissingDefaultIndex`;
 the default identifies the intended asset. Multi-asset LSM exercise selects
 either this single default or an explicit `regressionFeatures_` list of up to
-three supported `EQ[...]` model outputs and scalar `VAR[...]` script variables.
+three supported EQ/IR model outputs and scalar `VAR[...]` script variables.
+Rate-only exercise requires an explicit list; see [LSM basis selection](monte-carlo/lsm.md#basis-and-regression-choice).
 The selected values feed training, frozen hard pricing, and fuzzy AAD replay.
 
 ### Retained Observations and Payment Dates
@@ -718,8 +722,8 @@ return does not imply support for an otherwise rejected execution mode. Raw
 unprepared FIX continues to raise `PreparationRequired`.
 
 The [public C++ settings overload](#public-c-settings) exposes this preparation
-for tree/compiled price and AAD valuation. Product archive v2 persists the
-default index, and [Describe and Explain](#product-archive-and-diagnostics)
+for tree/compiled price and AAD valuation. Product archive v3 persists the
+default index and selected regression features, and [Describe and Explain](#product-archive-and-diagnostics)
 provide separate contract and valuation JSON.
 
 Python exposes the same preparation through
@@ -769,12 +773,12 @@ partitioning, basis, regression, visitor pruning, diagnostics, and examples.
 ## Core AAD/Tree Fixing Valuation
 
 `MCSimulation<AAD::Number_>(data, modelData, nPaths, settings, simulation, snapshot, contract)`
-uses the same model-aware observation plan, date policies, the script's EQ model index,
+uses the same model-aware observation plan, date policies, named model outputs,
 and payment numeraires as the double entry. The data overload enables AAD
 automatically; `simulation.smooth_` selects the default future-condition width
 and `simulation.compiled_` selects tree or compiled execution. Each call
 prepares a fresh product and historical plan from the supplied inputs.
-Historical EQ/FX values remain passive, while model observations and script
+Historical EQ, FX, and Libor values remain passive, while model observations and script
 constant variables participate in differentiation.
 
 To simulate a retained `PreparedScript_`, prepare it with a double model and
@@ -1511,7 +1515,7 @@ canonical names. The archive contains no valuation date, fixing values or
 sources, model index, slots, sample/observation plan, prepared AST, bytecode,
 or AAD seed. Explaining or repricing a product does not change its archive.
 
-The v1 reader does not imply that an old binary can read v2 or execute FIX
+The v1 reader does not imply that an old binary can read newer archives or execute FIX
 text. Source-call compatibility also provides no ABI guarantee: rebuild
 consumers and bindings against matching core/public headers and libraries.
 
@@ -1614,7 +1618,7 @@ of exercise statistics, so a plain product's simulation would be discarded.
 The optional valuation and
 simulation settings default exactly as in
 [public C++ settings](#fields-and-defaults); `simulation.compiled_` selects the
-tree-walk or compiled engine for the run, while `simulation.enable_aad_` is
+tree-walk or compiled engine for the run, while `simulation.enableAad_ = true` is
 rejected with `UnsupportedExecutionMode` (the diagnostic runs the double
 valuation path only).
 

@@ -1,8 +1,7 @@
 # Code Style Guide for DAL C++
 
-<!-- Shared conventions also appear in `.claude/rules/code-style.md`.
-     Codex guidance follows `AGENTS.md`; synchronize Claude originals only
-     when the user authorizes it. -->
+<!-- This file is mirrored between `.claude/rules/code-style.md` and
+     `.codex/references/code-style.md`. Keep the two copies byte-identical. -->
 
 ## Contents
 

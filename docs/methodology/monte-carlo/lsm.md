@@ -226,8 +226,11 @@ coordinates, for example `{"EQ[A]", "EQ[B]"}` or
 `{"VAR[runningAverage]", "EQ[B]"}`. `VAR[...]` reads a scalar script variable
 at each exercise event, after the preceding statements have run. This lets a
 path-dependent payoff retain its running state in the continuation fit.
-Each named EQ coordinate requests a model output at exercise dates; neither
-form needs a default SPOT binding unless the script itself calls `SPOT()`.
+Named EQ coordinates and model-supported IR discount-factor, Libor, or swap
+indices request model outputs at exercise dates. For a rate-only GSR model,
+an explicit feature list is required, for example `{"IR[USD,SWAP,5Y]"}`;
+see [GSR Bermudan products](../../models/gaussian-short-rate.md#bermudan-products).
+Explicit features need no default SPOT binding unless the script itself calls `SPOT()`.
 With no explicit features, the original single-state behavior remains: a
 multi-asset exercise requires `defaultIndex_` and otherwise fails as ambiguous.
 Exercise dates must be strictly after the
