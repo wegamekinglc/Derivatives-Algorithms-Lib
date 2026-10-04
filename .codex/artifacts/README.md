@@ -5,3 +5,15 @@ critiques, reviews, plans, and performance reports.
 
 Add work under the appropriate subdirectory only while it controls ongoing work, then retire it
 after documenting the current-state outcome.
+
+## Active Plans
+
+- [DAL 自动微分改进方案](plans/aad-improvement-plan.md) — correctness, market-quote risk,
+  multiple-output differentiation, performance, and recording lifecycle improvements;
+  includes worked examples, implementation tasks, resource models, delivery criteria,
+  end-to-end execution traces, operator pullbacks, and cache/failure contracts;
+  details numerical conditioning, nonsmooth estimators, sparse reconstruction,
+  segmented path reversal, native operation contracts, and result publication.
+- [原生 AAD 唯一实现规格](specs/aad-native-only.md) — remove XAD, CoDiPack and
+  Adept code, dependencies, exports, examples and CI; preserve native OFF/ON
+  correctness, bindings, migration diagnostics and unchanged performance gates.
