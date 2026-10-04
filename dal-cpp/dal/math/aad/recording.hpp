@@ -9,7 +9,21 @@
 #include <thread>
 #include <dal/math/aad/backend.hpp>
 
+/*IF--------------------------------------------------------------------------
+enumeration AADRecordingState
+    Internal independent recording lifecycle state
+switchable
+alternative REGISTERING
+alternative RECORDING
+alternative READY
+alternative REVERSING
+alternative FAILED
+alternative CLOSED
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal::AAD {
+#include <dal/auto/MG_AADRecordingState_enum.hpp>
+
     class Checkpoint_ {
         std::uint64_t recording_ = 0;
         std::uint64_t generation_ = 0;
@@ -26,7 +40,7 @@ namespace Dal::AAD {
     class RecordingScope_ {
         struct Context_;
         using Reset_ = void (*)(Tape_&);
-        enum class State_ { REGISTERING, RECORDING, READY, REVERSING, FAILED, CLOSED };
+        using State_ = AADRecordingState_::Value_;
 
         Tape_* tape_;
         Context_* context_;

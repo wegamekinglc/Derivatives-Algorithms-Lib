@@ -7,9 +7,12 @@
 #include <atomic>
 #include <limits>
 #include <dal/math/aad/recording.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
+#include <dal/auto/MG_AADRecordingState_enum.inc>
+
     namespace {
         std::uint64_t NewRecordingIdentity() {
             static std::atomic<std::uint64_t> nextIdentity{1};
