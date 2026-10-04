@@ -237,9 +237,10 @@ and scalar/vector layout. Full clear or rewind invalidates the old recording;
 suffix restoration invalidates discarded suffixes while preserving the prefix
 and its accumulated adjoints. Reusing an address does not validate an old
 binding. Checks precede old node access and expression-result allocation;
-rejected stale expression assignment preserves the destination and valid graph.
+assignment precondition failures preserve the destination and valid graph.
 Mode mismatches and exhausted counters are reported before incompatible access
-or destructive reset. Partial allocation failures require a successful reset.
+or destructive reset. Rejected independent registration/rebinding preserves the
+old cached primal and binding. Partial allocation failures require a successful reset.
 
 `Value` only reads the cached primal. Explicit double assignment,
 `RegisterIndependent` or `PutOnTape` can bind that value as a new independent;

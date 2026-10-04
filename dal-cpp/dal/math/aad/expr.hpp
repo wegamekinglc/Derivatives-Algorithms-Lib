@@ -519,8 +519,13 @@ namespace Dal::AAD {
         Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
 
         FORCE_INLINE Number_& operator=(double val) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            node_ = CreateMultiNode<0>();
+            value_ = val;
+#else
             value_ = val;
             node_ = CreateMultiNode<0>();
+#endif
             return *this;
         }
 
@@ -533,9 +538,12 @@ namespace Dal::AAD {
         FORCE_INLINE Number_& operator=(const Expression_<E_>& e) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
             static_cast<const E_&>(e).ValidateOperands(Tape(), "Number.Assign");
-#endif
+            Number_ replacement(e);
+            *this = replacement;
+#else
             value_ = Value(e);
             FromExpr<E_>(static_cast<const E_&>(e));
+#endif
             return *this;
         }
 

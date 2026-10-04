@@ -76,8 +76,10 @@ changes into supported graph conversions.
 R09. Identity, epoch, count and generation counters must not silently wrap.
 Exhaustion is an explicit error before destructive mutation or binding reuse.
 Use narrow internal test access for exhaustion; do not add production callbacks
-or public counter setters. Partial backend/allocation failures still require
-discard/reset; diagnostics must not advertise a partially recorded graph as valid.
+or public counter setters. Rejected independent registration or rebinding must
+preserve the previous cached primal and handle. Partial backend/allocation
+failures still require discard/reset; diagnostics must not advertise a partially
+recorded graph as valid.
 
 ## Checked operations and passive values
 
@@ -85,7 +87,9 @@ R10. Validate operands when an expression is materialized or assigned to a
 native active number, and validate a number before reading or setting its
 adjoint. Validate all operands before allocating the result node or changing an
 existing destination's primal/handle. A rejected stale assignment leaves the
-destination and a previously valid graph usable.
+destination and a previously valid graph usable. Commit expression assignments
+only after successful diagnostic allocation/materialization; counter exhaustion
+must not replace a cached primal while leaving its previous node bound.
 
 R11. Expression validation follows the existing compile-time operand tree.
 It must cover both sides of binary operations and nested unary operations,

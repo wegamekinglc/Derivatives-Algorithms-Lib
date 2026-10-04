@@ -1,5 +1,5 @@
 //
-// Created on 2026/10/04.
+// Created by Codex on 2026/10/04.
 //
 
 #include <gtest/gtest.h>
@@ -14,6 +14,7 @@
 
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 
+#include <dal/math/aad/recording.hpp>
 #include <dal/model/surface/lvmodel.hpp>
 
 using namespace Dal::AAD;
@@ -359,6 +360,85 @@ TEST(AADLifetimeTest, TestNodeCountExhaustionRejectsBeforeNodeAllocation) {
     ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), 1);
     ASSERT_DOUBLE_EQ(Adjoint(input), 0.0);
     Clear(*Tape());
+}
+
+TEST(AADLifetimeTest, TestGenerationExhaustionRebindPreservesExistingValueAndGraph) {
+    Clear(*Tape());
+    Number_ input(2.0);
+    Number_ output = input * 3.0;
+    const auto previous = NativeLifetimeTestAccess_::Generation(*Tape());
+    NativeLifetimeTestAccess_::SetGeneration(Tape(), std::numeric_limits<std::uint64_t>::max());
+    const auto message = LifetimeError([&] { output = 99.0; });
+    NativeLifetimeTestAccess_::SetGeneration(Tape(), previous);
+    ASSERT_NE(message.find("generation exhausted"), std::string::npos);
+    ASSERT_DOUBLE_EQ(Value(output), 6.0);
+    ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), 2);
+    Adjoint(output) = 1.0;
+    PropagateToStart(*Tape());
+    ASSERT_DOUBLE_EQ(Adjoint(input), 3.0);
+    Clear(*Tape());
+}
+
+TEST(AADLifetimeTest, TestNodeCountExhaustionRegistrationPreservesExistingValueAndGraph) {
+    Clear(*Tape());
+    Number_ input(2.0);
+    Number_ output = input * 3.0;
+    NativeLifetimeTestAccess_::SetLiveNodes(Tape(), std::numeric_limits<std::uint64_t>::max());
+    const auto message = LifetimeError([&] { RegisterIndependent(output, 99.0); });
+    NativeLifetimeTestAccess_::SetLiveNodes(Tape(), 2);
+    ASSERT_NE(message.find("node count exhausted"), std::string::npos);
+    ASSERT_DOUBLE_EQ(Value(output), 6.0);
+    ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), 2);
+    Adjoint(output) = 1.0;
+    PropagateToStart(*Tape());
+    ASSERT_DOUBLE_EQ(Adjoint(input), 3.0);
+    Clear(*Tape());
+}
+
+TEST(AADLifetimeTest, TestGenerationExhaustionExpressionAssignmentPreservesExistingGraph) {
+    Clear(*Tape());
+    Number_ input(2.0);
+    Number_ output = input * 3.0;
+    const auto previous = NativeLifetimeTestAccess_::Generation(*Tape());
+    NativeLifetimeTestAccess_::SetGeneration(Tape(), std::numeric_limits<std::uint64_t>::max());
+    const auto message = LifetimeError([&] { output = input * 5.0; });
+    NativeLifetimeTestAccess_::SetGeneration(Tape(), previous);
+    ASSERT_NE(message.find("generation exhausted"), std::string::npos);
+    ASSERT_DOUBLE_EQ(Value(output), 6.0);
+    ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), 2);
+    Adjoint(output) = 1.0;
+    PropagateToStart(*Tape());
+    ASSERT_DOUBLE_EQ(Adjoint(input), 3.0);
+    Clear(*Tape());
+}
+
+TEST(AADLifetimeTest, TestFailedScopedRegistrationRejectsWorkAndNextRecordingRecovers) {
+    Clear(*Tape());
+    {
+        RecordingScope_ recording;
+        Number_ input;
+        recording.RegisterInput(input, 2.0);
+        const auto previous = NativeLifetimeTestAccess_::Generation(*Tape());
+        NativeLifetimeTestAccess_::SetGeneration(Tape(), std::numeric_limits<std::uint64_t>::max());
+        const auto message = LifetimeError([&] { recording.RegisterInput(input, 99.0); });
+        NativeLifetimeTestAccess_::SetGeneration(Tape(), previous);
+        ASSERT_NE(message.find("generation exhausted"), std::string::npos);
+        ASSERT_DOUBLE_EQ(Value(input), 2.0);
+        ASSERT_TRUE(LastRecordingCleanupFailure());
+        ASSERT_THROW(recording.StartRecording(), Dal::Exception_);
+        recording.Close();
+    }
+    RecordingScope_ recovered;
+    ASSERT_FALSE(LastRecordingCleanupFailure());
+    Number_ input;
+    recovered.RegisterInput(input, 3.0);
+    recovered.StartRecording();
+    Number_ output = input * input;
+    recovered.FinishRecording();
+    Adjoint(output) = 1.0;
+    recovered.Reverse();
+    ASSERT_DOUBLE_EQ(Adjoint(input), 6.0);
+    recovered.Close();
 }
 
 TEST(AADLifetimeTest, TestEpochExhaustionRejectsBeforeStorageRelease) {
