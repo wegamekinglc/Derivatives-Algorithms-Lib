@@ -46,10 +46,13 @@ R01. Preserve the existing calibration and MC APIs and their default execution
 cost. The new operation is opt-in and uses an independent calibration recording
 after numeric MC gradient reduction. It never inserts calibration into workers.
 
-R02. Copy quote axes/values and calibration settings before sampling an IVS.
+R02. Copy quote axes/values, calibration settings and display name before sampling an IVS.
 Require finite strictly increasing positive strikes/maturities and inclusion
 grids, finite positive grid spacings, and matrix extents matching quote axes.
 Reject nonfinite spread/base volatility and a nonpositive bumped implied vol.
+Base volatility must be nonnegative. Grid fill extents must fit the existing
+integer algorithm, and spacing below the coordinate's representable increment
+must fail before sampling; otherwise a supplementary grid loop can stop advancing.
 
 R03. Retain an immutable passive snapshot of the complete mathematical input:
 base stencil samples, spot/rate/dividend, ordered quote axes/values, inclusion
@@ -79,6 +82,10 @@ variance, nonfinite calls/derivatives and invalid replay separately. Do not clip
 negative variance or introduce an unrequested curvature floor. Domain checks
 are confined to the new checked calibration boundary, preserving the old API.
 An invalid surface never yields a successful snapshot or quote-risk result.
+The checked boundary rejects a centered strike-call difference at or below
+`8 * epsilon * (abs(C_minus) + abs(C_plus) + 2 * abs(C_center))`; this detects
+unresolved subtraction and does not replace or floor the curvature. It also
+rejects zero local variance, whose square-root pullback is singular.
 
 R08. The result identifies its raw decimal-volatility quote unit, fixed-input
 boundary, discrete algorithm version, calibration snapshot and native method.

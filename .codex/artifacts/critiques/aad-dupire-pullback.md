@@ -20,6 +20,9 @@ Do not claim full F01 completion before Hybrid, language and curve integration.
 - Same-length matrices and matching labels are insufficient identities. Include
   complete axes, quotes, base samples, settings and surface values. Reject
   missing selected Hybrid surface risks rather than substituting zero.
+- Hybrid data preserves input component order, but runtime components sort by
+  name before parameter construction. Derive offsets from that typed ordering,
+  validate the reconstructed complete axis, and test unsorted input explicitly.
 - Domain checks must identify invalid discrete curvature/local variance without
   silently regularizing. Keep those checks off the existing unrequested path.
 - Public price/risk means require no additional path normalization at this

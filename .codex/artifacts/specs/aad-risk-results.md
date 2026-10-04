@@ -1,6 +1,7 @@
 # Structured Monte Carlo risk requests and results
 
-Status: active D04 specification. P01 resource/scaling evidence is complete; its
+Status: scalar D04 accepted at exact `e3720f9f`; this contract controls active
+Stage B extensions. P01 resource/scaling evidence is complete; its
 original-baseline production acceptance is being reconciled separately. This
 increment does not close F01/F02/P02/P03 or the complete development goal.
 
@@ -145,6 +146,6 @@ outputs only with their markup. No result archive format is promised in this inc
 ## Remaining scope
 
 Public factory/getter names and passive snapshot representation are resolved in
-the API note and implemented. Exact publication-head CI is the remaining D04
-acceptance gate. Future market axes, multi-output strategies, tape budgets and
+the API note and implemented. Exact `e3720f9f` passes all 35 CI checks and accepts
+the scalar D04 boundary. Future market axes, multi-output strategies, tape budgets and
 second-order methods require their own controlling designs and mathematical tests.

@@ -42,6 +42,10 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - Performance failures require investigation and correction. Noisy evidence is inconclusive.
 - Keep each change reviewable. Publish current-state documentation only after behavior exists.
 - Do not mark the overall goal complete until every applicable requirement below is verified.
+- Report the whole-plan status as a table and update remaining development-time
+  estimates at the end of every active development turn, at milestones, and when
+  findings change the estimate. Distinguish implementation, local verification,
+  exact-head CI acceptance and publication rather than combining them into one status.
 
 ## Stage A: trustworthy differentiation and measurement
 
@@ -60,8 +64,9 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Stage B: market and portfolio risk
 
-- [ ] D04: structured requests/results with stable axes, methods, units, provenance, and budgets.
-- [ ] D04: compatibility projections for existing `PV` and `d_...` outputs.
+- [x] D04: scalar model/script requests/results with stable axes, methods, units,
+  provenance and numeric payload budgets; future quote/output methods remain with F01/F02.
+- [x] D04: compatibility projections for existing `PV` and `d_...` outputs.
 - [ ] F01: deterministic-rate Dupire spread-quote pullback connected to Hybrid valuation gradients.
 - [ ] F01: direct quote dependencies and snapshot/axis mismatch validation.
 - [ ] F01: calibration-only and full bump/recalibrate/common-path oracles.
@@ -71,7 +76,8 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
-- [ ] Bindings: C++ public API, Python keyword/result interfaces, and Excel immutable handles/getters.
+- [ ] Bindings: scalar D04 C++/Python/Excel is accepted; extend all three surfaces
+  for the remaining market, multi-output and second-order requests.
 
 ## Stage C: structured reverse operators
 
@@ -104,7 +110,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Current evidence and next action
 
-Current resumed state: exact `8886c083` passes all 35 CI checks, including the
+Prior profiling state: exact `8886c083` passes all 35 CI checks, including the
 four MSVC native/profiling/lifetime combinations and sanitizer/TSan jobs.
 P01's 24-profile resource/scaling/diagnostic-cost sweep completes 2,496 processes;
 all prices and risks satisfy rel/abs 1e-10, and every LSM sample is bitwise equal.
@@ -161,11 +167,31 @@ and all 257 paths in an isolated one-worker process, then separately check four
 parallel tree/compiled 257/2057-path cases at the already specified rel/abs 1e-10.
 Focused GREEN passes 20 cases and the complete four-worker Python suite passes
 813. Production code and the nine gate binaries are unchanged by this correction.
-Exact corrected-publication-head CI remains required. D04 acceptance remains open until
-that result is reconciled; P01 stays inconclusive and the complete Stage B/C/D
-scope remains required. F01 now has its [frozen-calibration specification](../specs/aad-dupire-pullback.md),
+Exact corrective `e3720f9f` passes all 35 checks, including both previously failing
+MSVC combinations and the Windows/ARM-macOS wheels. The scalar D04 boundary is
+accepted; those results do not cover the later unpublished Dupire source.
+P01 stays inconclusive and the complete Stage B/C/D scope remains required.
+F01 has its [frozen-calibration specification](../specs/aad-dupire-pullback.md),
 [API decision](../api-notes/aad-dupire-pullback.md) and [critique](../critiques/aad-dupire-pullback.md)
-ready for core RED/GREEN implementation, followed by Hybrid and binding oracles.
+controlling active core implementation, followed by Hybrid and binding oracles.
+The core frozen snapshot and native scalar VJP are now implemented locally.
+Ten new Dupire tests plus five interpolation contracts pass OFF: every flat and
+Merton quote bucket/direction passes all three predeclared difference steps,
+with all 42 rows retained. They cover alias-additive/negative/zero seeds, separate
+direct terms, content identity, callback mutation, original-IVS destruction,
+domain failures, nested rejection and success/failure/success recovery. An
+unrepresentable grid first times out, then rejects before sampling after the
+checked-entry precision guard. Final OFF/combined non-benchmark CTest passes
+2,364/2,377 cases, fully instrumented ASan/UBSan passes 75 core and 10 public
+cases, and two installed consumers pass each configuration. All nine old gate
+executables remain SHA-256 identical. The [core cost report](../performance/aad-dupire-entry-cost.md)
+retains 240 processes, complete hashes and numeric identity: warm frozen-snapshot
+costs are about 18–1,020 microseconds and independent VJPs about 18–180 microseconds
+over its four informational cases. These are extra capability costs, not a
+production no-regression verdict. The [core review](../reviews/aad-dupire-pullback.md)
+has no unresolved local correctness findings; exact-head CI and full
+Hybrid/binding/curve acceptance remain required. None of the F01 completion
+boxes is closed by this core increment.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -525,8 +551,9 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: finish D04 validation, complexity refactoring, new-entry cost evidence and
-draft publication. Then connect F01 calibrated quote pullbacks and F02 output
-seeds under their controlling designs. Reconcile P01's unresolved performance with controlled-environment evidence;
+Next: publish the reviewed F01 core and verify its exact-head CI, then connect
+typed Hybrid parameter seeds, full-chain oracles and C++/Python/Excel boundaries.
+Continue F01 curve integration and F02 output seeds under their controlling
+designs. Reconcile P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.
 Stage A and the full Stage B/C/D goal remain incomplete.

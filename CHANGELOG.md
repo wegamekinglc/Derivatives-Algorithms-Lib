@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
+- **Frozen Dupire calibration quote pullback** — C++ snapshots retain numeric
+  base IVS samples and complete calibration identity; native scalar reverse maps
+  local-volatility node adjoints to spread quotes, with additive boundary seeds,
+  separate direct contributions and explicit domain validation. See
+  [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
+
 - **Structured script risk across C++, Python and Excel** —
   `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar
   results with ordered model/script IDs, mean derivatives, report factors and

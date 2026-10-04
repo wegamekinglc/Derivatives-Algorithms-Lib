@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+
 #include <dal/math/analytics/vanilla.hpp>
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -38,9 +40,9 @@ namespace Dal::AAD {
         using I_ = typename Matrix_<T_>::I_;
         using CI_ = typename Matrix_<T_>::CI_;
 
-        I_ begin() { return spreads_.begin(); }
+        I_ begin() { return spreads_.Empty() ? I_() : spreads_.Row(0).begin(); }
         CI_ begin() const { return spreads_.begin(); }
-        I_ end() { return spreads_.end(); }
+        I_ end() { return spreads_.Empty() ? I_() : spreads_.Row(spreads_.Rows() - 1).end(); }
         CI_ end() const { return spreads_.end(); }
 
         void Bump(int i, int j, double bumpBy) { spreads_(i, j) += bumpBy; }
@@ -55,6 +57,8 @@ namespace Dal::AAD {
     public:
         explicit IVS_(double spot, double r = 0.0, double q = 0.0) : spot_(spot), r_(r), q_(q) {}
         [[nodiscard]] double Spot() const { return spot_; }
+        [[nodiscard]] double Rate() const { return r_; }
+        [[nodiscard]] double DividendYield() const { return q_; }
         [[nodiscard]] virtual double ImpliedVol(double strike, double mat) const = 0;
 
         template <class T_ = double>

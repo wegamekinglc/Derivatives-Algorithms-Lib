@@ -750,6 +750,53 @@ the exact `(1, 0)` extent. See the [C++ guide](../public-api.md#structured-scrip
 [Python guide](../python/README.md#structured-script-risk) and
 [Excel guide](../excel/script-settings.md#structured-script-risk).
 
+### Discrete Dupire Calibration Pullback
+
+The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility
+node adjoints to additive implied-volatility spread quotes. Quote rows are
+strikes and columns are maturities. Spreads use absolute decimal volatility;
+`0.01` is one volatility point. Surface rows are spots and columns are model
+times, matching `LocalVolSurfaceData_`.
+
+```cpp
+#include <dal/model/dupirerisk.hpp>
+#include <dal/model/ivs.hpp>
+
+AAD::MertonIVS_ base(100.0, 0.2, 0.08, -0.1, 0.15);
+DupireRiskInputs_ inputs{{75.0, 105.0, 135.0}, {0.4, 1.2},
+                         Matrix_<>(3, 2, 0.0), {60.0, 100.0, 140.0}, 10.0,
+                         {0.5, 1.0}, 0.5};
+const auto calibration = CalibrateDupireWithRisk(base, inputs);
+const auto& surface = *calibration.Surface();
+DupireParameterAdjoints_ seeds{
+    calibration, Matrix_<>(surface.vols_.Rows(), surface.vols_.Cols(), 1.0)};
+const auto risk = PullbackDupireCalibration(calibration, seeds);
+// TotalAdjoints() differentiates the sum of surface nodes in this example.
+```
+
+`CalibrateDupireWithRisk` copies configuration and the display name before
+sampling. Its immutable snapshot owns the base IVS samples needed by the
+existing central-difference stencil and ATM band selection, deterministic
+carry, complete quote/grid definition and numeric calibrated surface.
+Subsequent pullbacks use those samples after the original IVS changes or is
+destroyed. The derivative holds these inputs fixed and follows the discrete
+`1e-4` relative strike/time stencil with the original base-band boundary copies.
+
+The caller supplies numeric surface adjoints. A separate native recording
+replays calibration, validates its primal surface and adds each output seed,
+including copied boundary aliases. The seed's complete calibration identity
+must match; dimensions and display names alone cannot establish compatibility.
+Zero and negative seeds are supported. Nonfinite quotes/seeds, invalid grid
+spacing, unresolved or nonpositive call curvature and nonpositive local
+variance fail explicitly. Independent nested recordings remain unsupported.
+
+An optional `DupireDirectQuoteAdjoints_` carries the quote definition and an
+additional numeric contribution. Its ordered quote axes and values must match.
+`CalibrationAdjoints()`, `DirectAdjoints()` and `TotalAdjoints()` preserve the
+separate contributions to `C_quote^T g_surface + g_direct`. No path averaging or
+reporting conversion is applied here. Results own ordinary numeric matrices,
+the calibration snapshot, method `NativeAADCalibrationVJP` and unit `decimal-vol`.
+
 ### Passive vs Active Tape
 
 Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run

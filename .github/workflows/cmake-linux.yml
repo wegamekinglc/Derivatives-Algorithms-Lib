@@ -403,7 +403,7 @@ jobs:
             slug: asan-ubsan
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
-            core-filter: AADNativeTest.*:ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:RateCashflowPricingTest.TestPrepared*:SchedulesTest.*:JointQuoteRiskTest.*:RiskResultTest.*
+            core-filter: AADNativeTest.*:ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:RateCashflowPricingTest.TestPrepared*:SchedulesTest.*:JointQuoteRiskTest.*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
             public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms:CurvePricingPublicTest.TestGenericJoint*:RiskValueTest.*
           - label: TSan concurrency tests
             slug: tsan
@@ -416,14 +416,14 @@ jobs:
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             lifetime_diagnostics: "ON"
-            core-filter: AADNativeTest.*:AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*:RiskResultTest.*
+            core-filter: AADNativeTest.*:AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
             public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
           - label: ASan + UBSan AAD profiling
             slug: aad-profiling
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             profiling: "ON"
-            core-filter: AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*
+            core-filter: AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
             public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
           - label: ASan + UBSan combined AAD diagnostics
             slug: aad-combined
@@ -431,7 +431,7 @@ jobs:
             flags: -O2 -g -fno-sanitize-recover=all
             lifetime_diagnostics: "ON"
             profiling: "ON"
-            core-filter: AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*
+            core-filter: AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout
             public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*
           - label: TSan AAD profiling tasks
             slug: tsan-profiling

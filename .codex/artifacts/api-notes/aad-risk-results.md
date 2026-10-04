@@ -1,7 +1,7 @@
 # D04 scalar risk-result boundary
 
-Status: active D04 API decision, implemented across the converter, public entry
-and Python/Excel surfaces; exact publication-head CI remains an acceptance gate.
+Status: scalar D04 accepted at exact `e3720f9f` across converter, public entry
+and Python/Excel surfaces; this decision constrains active Stage B extensions.
 Controlling [requirements](../specs/aad-risk-results.md) remain authoritative.
 
 ## Current and first proposed surface

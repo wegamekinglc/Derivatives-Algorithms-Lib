@@ -1,6 +1,6 @@
 # Structured scalar risk-result review
 
-Verdict: Comment Only pending exact corrected-head CI checks.
+Verdict: Approve the scalar D04 boundary at exact `e3720f9f`.
 The complete core/public/Python/Excel surface is implemented; this review does
 not treat a passive converter alone as completed D04.
 
@@ -19,8 +19,8 @@ No unresolved correctness finding after the following review fixes.
   one-worker process, and add four parallel tree/compiled 257/2057-path cases
   with that numeric contract and exact within-result getter checks. No production
   arithmetic, scheduler or tolerance contract changes. The focused suite passes
-  20 cases; the complete four-worker Python suite passes 813. Corrected-head
-  Windows/macOS CI remains required; local success cannot certify those platforms.
+  20 cases; the complete four-worker Python suite passes 813. All 35 exact
+  corrective `e3720f9f` checks pass, including Windows/macOS verification.
 
 - Caller-provided execution snapshots now validate product date/event extents,
   path count consistency, positive replicate counts and finite supplied history.
@@ -84,8 +84,9 @@ The [new-entry cost](../performance/aad-risk-entry-cost.md) records 640 successf
 process samples and strict single-worker bitwise parity. The new structured
 entry's short-request metadata cost is about four microseconds; existing APIs
 do not construct that metadata. All nine final OFF gate binaries are unchanged.
-P01 production performance remains inconclusive. Exact new-head Linux/MSVC CI
-is pending; earlier 8886c083's 35 passing checks cannot certify D04 code.
+P01 production performance remains inconclusive. Exact corrective `e3720f9f`
+passes all 35 Linux/MSVC/wheel checks. This accepts the scalar D04 implementation,
+not the unpublished Dupire implementation or the complete development goal.
 
 ## Open questions and scope
 

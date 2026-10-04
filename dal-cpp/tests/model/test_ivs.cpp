@@ -6,8 +6,8 @@
 
 #include <cmath>
 
-#include <dal/platform/platform.hpp>
 #include <dal/model/ivs.hpp>
+#include <dal/platform/platform.hpp>
 
 #include "../math/aad/models/flat_ivs.hpp"
 
@@ -58,6 +58,21 @@ TEST(ModelTest, TestRiskViewBumpAccumulatesIntoSpreads) {
     risk_view.Bump(1, 1, 0.01);
     ASSERT_NEAR(risk_view.Risks()(1, 1), 0.03, 1e-10);
     ASSERT_NEAR(risk_view.Spread(100.0, 2.0), 0.03, 1e-10);
+}
+
+TEST(ModelTest, TestRiskViewMutableIterationPreservesStrikeMajorLayout) {
+    AAD::RiskView_<double> empty;
+    ASSERT_TRUE(empty.begin() == empty.end());
+    AAD::RiskView_<double> view({90.0, 110.0}, {0.5, 1.0, 1.5});
+    const Vector_<> spreads{0.01, 0.02, 0.03, 0.04, 0.05, 0.06};
+    std::copy(spreads.begin(), spreads.end(), view.begin());
+    ASSERT_EQ(std::distance(view.begin(), view.end()), 6);
+    ASSERT_EQ(view.Spread(90.0, 1.5), 0.03);
+    ASSERT_EQ(view.Spread(110.0, 0.5), 0.04);
+    ASSERT_NEAR(view.Spread(100.0, 0.75), 0.03, 1e-15);
+    ASSERT_EQ(view.Spread(50.0, 0.1), 0.01);
+    const auto& constant = view;
+    ASSERT_TRUE(std::equal(spreads.begin(), spreads.end(), constant.begin()));
 }
 
 TEST(ModelTest, TestRiskViewSpreadInterpolatesBilinearly) {

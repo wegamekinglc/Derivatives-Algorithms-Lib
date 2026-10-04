@@ -1,4 +1,5 @@
 #include <cmath>
+#include <numeric>
 
 #include <dal-public/src/calendar.hpp>
 #include <dal-public/src/global.hpp>
@@ -7,7 +8,17 @@
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
 #include <dal-public/src/value.hpp>
+#include <dal/model/dupirerisk.hpp>
+#include <dal/model/ivs.hpp>
 #include <dal/utilities/numerics.hpp>
+
+namespace {
+    class ConsumerIVS_ final : public Dal::AAD::IVS_ {
+    public:
+        ConsumerIVS_() : IVS_(100.0) {}
+        [[nodiscard]] double ImpliedVol(double, double) const override { return 0.2; }
+    };
+} // namespace
 
 int main() {
     Dal::InitGlobalData(1);
@@ -22,6 +33,17 @@ int main() {
     if (risk.Values()[0] != reference.at("PV") || risk.Jacobian()(0, 0) != reference.at("d_spot") || std::abs(risk.Values()[0] - 100.0) > 1e-10 ||
         std::abs(risk.Jacobian()(0, 0) - 1.0) > 1e-10 || risk.InputAxis()[0].id_ != "model:0")
         return 6;
+    const ConsumerIVS_ ivs;
+    const Dal::DupireRiskInputs_ inputs{{90.0, 110.0}, {0.5, 1.0}, Dal::Matrix_<>(2, 2, 0.0), {80.0, 100.0, 120.0}, 10.0, {0.5, 1.0}, 0.5};
+    const auto calibration = Dal::CalibrateDupireWithRisk(ivs, inputs);
+    const auto& vols = calibration.Surface()->vols_;
+    const auto quoteRisk =
+        Dal::PullbackDupireCalibration(calibration, Dal::DupireParameterAdjoints_{calibration, Dal::Matrix_<>(vols.Rows(), vols.Cols(), 1.0)});
+    const double nodes = static_cast<double>(vols.Rows() * vols.Cols());
+    const double parallelQuoteRisk = std::accumulate(quoteRisk.TotalAdjoints().begin(), quoteRisk.TotalAdjoints().end(), 0.0);
+    if (std::abs(parallelQuoteRisk - nodes) > 3e-5 * nodes || quoteRisk.Unit() != "decimal-vol" || quoteRisk.TotalAdjoints().Rows() != 2 ||
+        quoteRisk.TotalAdjoints().Cols() != 2)
+        return 7;
     const Dal::Date_ start(2026, 1, 1);
     if (start.AddDays(1) - start != 1)
         return 1;
