@@ -158,7 +158,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         }
         for event, compilers in expected.items():
             with self.subTest(event=event):
-                result = subprocess.run([sys.executable, "-", event], input=script,
+                result = subprocess.run(["python", "-", event], executable=sys.executable, input=script,
                                         capture_output=True, text=True, check=True)
                 legs = json.loads(result.stdout.strip().removeprefix("matrix="))["include"]
                 self.assertEqual({leg["compiler"] for leg in legs}, compilers)
