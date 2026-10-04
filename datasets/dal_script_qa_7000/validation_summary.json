@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "record_count": 7000,
+  "passed": 7000,
+  "failed": 0,
+  "family_count": 70,
+  "n_paths_per_stochastic_mode": 4096,
+  "stochastic_tree_and_compiled_runs": 14000,
+  "zero_volatility_oracle_runs": 21000,
+  "aad_tree_and_compiled_runs": 420,
+  "uniqueness_checks": {
+    "id": "passed",
+    "question": "passed",
+    "answer": "passed",
+    "contract_terms": "passed",
+    "normalized_AST": "passed"
+  },
+  "sha256_qa_jsonl": "48ebbfaf4a1abdaed0f0aaf2530cac0b69114ae2829b0a1b2ea781c5922014e8",
+  "source_revision": "3fe44ecd0969a159bd9172be3f8813ef30f00a04",
+  "elapsed_seconds": 12.619500300032087,
+  "failures": [],
+  "scope": "Executable product/schema correctness and deterministic payoff checks; stochastic PVs are smoke estimates, not accuracy-certified market prices. American products use a finite daily exercise grid."
+}
