@@ -153,6 +153,23 @@ coverage remains the new CI's responsibility. Resource/scaling/overhead,
 formal default-OFF performance and new-head CI are pending. Full details and
 raw log paths are in the production contract.
 
+Published profiling source `5a6382b` passes the frozen original-baseline formal
+nine-target gate: all 65 comparable cases pass the unchanged two-by-ten/4%
+policy, ten head-only cases remain informational, and Sobol precise/fast is
+9.38x below 10x. Raw results are `production-profiling-paired-01/` under the
+evidence root. This does not complete affected production, scaling, resources
+or diagnostic-cost acceptance. Its first Codacy check reports 26 new checker/
+consumer issues. A local test-tool refactor keeps every numeric case/tolerance,
+uses always-on unittest checks and validated shell-free build-tree execution,
+passes ON/OFF-optimized contracts and all installed consumers, and measures
+maximum complexity 8/4. No library/benchmark source changes in this corrective
+increment. New-head CI remains open; GitHub reports a non-mergeable PR and no
+Actions runs for 5a6382b. Refetch repairs missing local ancestry and identifies
+master's new 3fe44ecd documentation commit; only the Copilot CI description
+conflicts. Integrate that documented source/docs-only distinction while keeping
+the native-only AAD matrix. Production/build/benchmark sources are unchanged
+by that incoming documentation commit.
+
 The native-only development source is `/tmp/dal-aad-backend-adapter`. External
 implementations, three gitlinks, build/export paths and CI jobs are removed;
 native operation services use `native.hpp` without adapter inheritance or selection.

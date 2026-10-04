@@ -8,6 +8,28 @@
 已有 tape/真实曲线 Jacobian、九项目性能门禁、25 个曲线与 44 个生产案例证据继续保留。
 不会将新增测量列入正式九项门禁或替代其失败判定。
 
+生产测量实现已发布于 `5a6382b1222a84db725b6e86a6d09bc4d1089345`，
+其源码／配置／五项依赖／33 个二进制已冻结，身份保留于
+`production-profiling-5a6382b-environment-01.json`。与原始 `b5e3caca` 的
+九项两轮各十次配对全部通过，65 个可比案例及 Sobol 比率规则通过；
+10 项新增案例仅作信息。原始日志、所有样本、结果和表格位于
+`/tmp/dal-aad-evidence/production-profiling-paired-01/`。
+这只关闭正式九项门禁，不验收生产补充、线程扩展、资源或诊断开销。
+
+首个发布头 Codacy 报告 26 项新问题，主要为 CLI checker 的 assert、
+复杂度和显式进程调用，以及消费者 main 的复杂度。保留完整 annotations。
+checker 现使用 unittest 常开断言与更小的检查函数；执行前验证 DAL build-tree
+位置和固定 executable 名，保持 shell=False；局部进程检查注释采用既有 gate 的
+明确、受限测试执行约定，不改变全局检查配置。
+旧 checker 在 Python -O 下错误接受失败进程的 RED 已保留；新 checker
+在 -O 下拒绝同一失败，并在进程执行前拒绝非 DAL 路径。
+ON 六项契约与 OFF 优化模式六项契约通过，消费者三配置各 2/2 再次通过。
+Lizard 实测 Python/C++ 最大复杂度 8/4（阈值 8）。生产及 benchmark 源码未因
+这次修正改变；新 exact-head CI 仍待验证。GitHub 当前报告 PR mergeable=false，
+没有为 `5a6382b` 创建 Actions runs。补齐隔离 checkout 的祖先对象后，
+确认 master 新增 `3fe44ecd` 文档提交，唯一冲突位于 Copilot 的 CI 说明；
+将保留其 source/docs-only 区分并落实本任务的原生 AAD 范围。
+
 ## 问题与实现边界
 
 现有普通 MC 和 LSM 基准主要给出完整执行时间；过程内 RSS 不能解释准备、
