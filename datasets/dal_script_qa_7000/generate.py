@@ -198,8 +198,6 @@ class ContractBuilder:
             family_index < 58 or self.family == "hybrid_equity_rate"
         ) and variant % 5 == 4:
             self.obs = "SPOT()"
-            self.settings["default_index"] = "EQ[ABC]"
-            self.features.add("default_index_binding")
 
     def definition(self, name, value):
         self.rows.append(
@@ -1872,6 +1870,9 @@ class ContractBuilder:
                 self.features.discard(keyword)
         if self.settings.get("regression_features"):
             self.features.add("regression_features")
+        if "SPOT" in self.features:
+            self.settings["default_index"] = "EQ[ABC]"
+            self.features.add("default_index_binding")
         for comparator in ("!=", ">=", "<=", ">", "<", "="):
             if comparator not in script_text:
                 self.features.discard(comparator)

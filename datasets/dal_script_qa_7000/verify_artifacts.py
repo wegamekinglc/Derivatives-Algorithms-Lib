@@ -21,6 +21,8 @@ FILE_NAMES = [
     "verify_artifacts.py",
 ]
 
+EXPECTED_TEST_COUNTS = {"qa_dataset_tests.log": 24, "qa_existing_tests.log": 101}
+
 
 def read_jsonl(path):
     content = path.read_bytes()
@@ -156,9 +158,12 @@ def file_metadata(name):
 
 def pytest_result(log_name):
     log = (ROOT.parents[1] / "build" / log_name).read_text()
-    match = re.search(r"(?m)^(\d+) passed in ([\d.]+)s\s*$", log)
+    last_line = log.rstrip().split("\n")[-1]
+    match = re.fullmatch(r"(\d+) passed in ([\d.]+)s", last_line)
     if not match:
         raise ValueError(f"No passing pytest result in {log_name}")
+    if int(match.group(1)) != EXPECTED_TEST_COUNTS[log_name]:
+        raise ValueError(f"Incomplete pytest run in {log_name}")
     return {"passed": int(match.group(1)), "seconds": float(match.group(2))}
 
 

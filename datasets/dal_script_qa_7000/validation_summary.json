@@ -15,9 +15,9 @@
     "contract_terms": "passed",
     "normalized_AST": "passed"
   },
-  "sha256_qa_jsonl": "48ebbfaf4a1abdaed0f0aaf2530cac0b69114ae2829b0a1b2ea781c5922014e8",
+  "sha256_qa_jsonl": "3a96e6e186531b463eca6b3601e7b455936a31f595eea520361adeaf1b86930e",
   "source_revision": "3fe44ecd0969a159bd9172be3f8813ef30f00a04",
-  "elapsed_seconds": 12.851854431966785,
+  "elapsed_seconds": 11.325161101005506,
   "failures": [],
   "scope": "Executable product/schema correctness and deterministic payoff checks; stochastic PVs are smoke estimates, not accuracy-certified market prices. American products use a finite daily exercise grid."
 }

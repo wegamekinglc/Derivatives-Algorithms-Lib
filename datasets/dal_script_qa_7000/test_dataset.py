@@ -47,6 +47,61 @@ def test_every_contract_can_be_regenerated_without_changing_the_dataset():
             check.assertEqual(build_record(index // 100, index % 100), json.loads(line))
 
 
+@pytest.mark.parametrize("family_index", [50, 51])
+def test_named_observation_and_fixed_coupon_contracts_do_not_advertise_a_spot_binding(
+    family_index,
+):
+    for variant in range(4, 100, 5):
+        record = build_record(family_index, variant)
+        check.assertNotIn("default_index", record["product_settings"])
+        check.assertNotIn("default_index_binding", record["features"])
+
+
+@pytest.mark.parametrize("corruption", ["skewed", "unknown_family"])
+def test_validator_requires_100_contracts_for_each_declared_family(
+    tmp_path, monkeypatch, corruption
+):
+    import validate
+
+    records = [
+        json.loads(line) for line in (ROOT / "qa.jsonl").read_text().splitlines()
+    ]
+    if corruption == "skewed":
+        records[0]["family"] = records[100]["family"]
+    else:
+        for record in records[:100]:
+            record["family"] = "unknown_family"
+    (tmp_path / "qa.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n"
+    )
+    monkeypatch.setattr(validate, "ROOT", tmp_path)
+    with pytest.raises(ValueError, match="record/family count"):
+        validate.load_records()
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "1 passed in 0.1s\n",
+        "1 failed, 101 passed in 0.1s\n",
+        "101 passed in 0.1s\nInterrupted\n",
+    ],
+)
+def test_manifest_requires_a_clean_complete_final_pytest_summary(
+    tmp_path, monkeypatch, summary
+):
+    import verify_artifacts
+
+    root = tmp_path / "datasets" / "qa"
+    root.mkdir(parents=True)
+    logs = tmp_path / "build"
+    logs.mkdir()
+    (logs / "qa_existing_tests.log").write_text(summary)
+    monkeypatch.setattr(verify_artifacts, "ROOT", root)
+    with pytest.raises(ValueError, match="pytest"):
+        verify_artifacts.pytest_result("qa_existing_tests.log")
+
+
 @pytest.mark.parametrize("separator", ["invalid", "| --- |", "| --- | --- | --- |"])
 def test_malformed_markdown_separator_is_rejected(separator):
     record = build_record(0, 0)
