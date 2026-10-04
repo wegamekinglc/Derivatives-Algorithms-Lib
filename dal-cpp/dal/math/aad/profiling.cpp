@@ -13,6 +13,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// Windows' VOID macro conflicts with the generated StackInfoType_ enum.
+#undef VOID
 #else
 #include <time.h>
 #endif

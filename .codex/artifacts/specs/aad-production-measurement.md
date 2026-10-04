@@ -25,10 +25,28 @@ checker 现使用 unittest 常开断言与更小的检查函数；执行前验�
 在 -O 下拒绝同一失败，并在进程执行前拒绝非 DAL 路径。
 ON 六项契约与 OFF 优化模式六项契约通过，消费者三配置各 2/2 再次通过。
 Lizard 实测 Python/C++ 最大复杂度 8/4（阈值 8）。生产及 benchmark 源码未因
-这次修正改变；新 exact-head CI 仍待验证。GitHub 当前报告 PR mergeable=false，
-没有为 `5a6382b` 创建 Actions runs。补齐隔离 checkout 的祖先对象后，
-确认 master 新增 `3fe44ecd` 文档提交，唯一冲突位于 Copilot 的 CI 说明；
-将保留其 source/docs-only 区分并落实本任务的原生 AAD 范围。
+这次修正改变。`b37b49f` 已合并 master 的 `3fe44ecd` 文档提交，保留 Copilot
+说明中的 source/docs-only 区分及原生 AAD 矩阵；PR 的合并冲突已解决。
+该头 Codacy 成功，Actions 已实际执行。两个 MSVC profiling ON leg 编译失败：
+`windows.h` 的 `VOID` 宏替换了生成枚举 `StackInfoType_::Value_::VOID`。
+RED 原始日志为 `production-profiling-b37-windows-profiling-job.log` 和
+`production-profiling-b37-windows-combined-job.log`。修正仅在 profiling.cpp 的
+Windows 私有 include 后清除这个宏；Linux/OFF 分支和算法不变。
+此修正的新头 Windows 编译、运行及完整适用 CI 成功前，R15 仍未验收。
+
+同一发布头的 Windows 默认配置先通过 2,311 项功能测试，随后 CLI 步骤的
+再次 configure 失败：vendored pybind11 缓存了 FOUND，但新 configure 进程
+未加载 `pybind11_add_module`。保留 `production-profiling-b37-windows-default-job.log`。
+安装包消费者的独立 Python configure 首次成功、第二次出现相同错误，
+RED 为 `production-profiling-python-reconfigure-red-01.log`／`-02.log`。
+加载守卫现检查实际 CMake 命令是否存在，继续保留解释器优先、系统包和
+vendored fallback 的既有顺序；修复后的两次 configure 通过（`-green-01.log`／`-02.log`）。
+原 Windows CLI 步骤继续实际执行第二次 configure，作为持续回归覆盖，不跳过检查。
+Python 3.12／vendored copy 连续 configure 两次、重新构建和运行通过；
+独立安装绑定测试为 792 passed／1 skipped（该 standalone 模式没有 monorepo
+专用原生测试模块）。日志为 `production-profiling-python312-reconfigure-*`。
+修正后的默认／profiling／combined 核心重新构建成功，ON／combined 各 20 项
+重点测试及 OFF／ON 各六项 CLI 契约通过。新 Windows CI 尚待验收。
 
 ## 问题与实现边界
 

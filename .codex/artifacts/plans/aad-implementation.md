@@ -163,12 +163,27 @@ consumer issues. A local test-tool refactor keeps every numeric case/tolerance,
 uses always-on unittest checks and validated shell-free build-tree execution,
 passes ON/OFF-optimized contracts and all installed consumers, and measures
 maximum complexity 8/4. No library/benchmark source changes in this corrective
-increment. New-head CI remains open; GitHub reports a non-mergeable PR and no
-Actions runs for 5a6382b. Refetch repairs missing local ancestry and identifies
-master's new 3fe44ecd documentation commit; only the Copilot CI description
-conflicts. Integrate that documented source/docs-only distinction while keeping
-the native-only AAD matrix. Production/build/benchmark sources are unchanged
-by that incoming documentation commit.
+increment. Merge b37b49f integrates master's 3fe44ecd documentation and resolves
+the Copilot conflict while retaining source/docs-only classification and the
+native-only matrix. Production/build/benchmark inputs are unchanged by that
+documentation merge. Its Codacy check succeeds and Actions actually run; two
+MSVC profiling-ON legs fail because windows.h's VOID macro replaces the generated
+StackInfoType_ enum value. Clear the macro locally after the private Windows
+include. Preserve both failing job logs; exact corrected-head MSVC compilation,
+runtime and all applicable CI checks remain required.
+
+The same head's default Windows configuration passes 2,311 functional tests,
+then fails the CLI step's second CMake configure: vendored pybind11 caches FOUND
+without reloading its commands. An independent installed-Python consumer
+reproduces first-configure success and second-configure failure. Change the
+three discovery guards to actual command availability; two corrected configure
+passes succeed without changing lookup order or skipping the existing Windows
+CLI reconfiguration. Python 3.12 vendored standalone binding configures twice,
+builds and passes 792 tests with one skip for its absent monorepo-only native
+test module. Refreshed default/profiling/combined core builds pass; profiling/
+combined each pass 20 focused cases and default/profiling six CLI contracts each.
+Exact corrected-head Windows CI remains open. Both CI and local RED logs are
+retained.
 
 The native-only development source is `/tmp/dal-aad-backend-adapter`. External
 implementations, three gitlinks, build/export paths and CI jobs are removed;
