@@ -148,16 +148,6 @@ namespace Dal::AAD {
         return AllocateNode<3>();
     }
 
-    void Clear(Tape_& tape);
-    void Mark(Tape_& tape);
-    void RewindToMark(Tape_& tape);
-    void Rewind(Tape_& tape);
-    void PropagateMarkToStart(Tape_& tape);
-    void PropagateToStart(Tape_& tape);
-    void PropagateToMark(Tape_& tape);
-    void NewRecording(Tape_& tape);
-    void Activate(Tape_& tape);
-    void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
 #elif defined(DAL_USE_ADEPT_AAD)
 #include <adept.h>
@@ -233,16 +223,6 @@ namespace Dal::AAD {
         void ZeroGradientArray() { initialize_gradients(); }
     };
 
-    void Clear(Tape_& tape);
-    void Mark(Tape_& tape);
-    void RewindToMark(Tape_& tape);
-    void Rewind(Tape_& tape);
-    void PropagateMarkToStart(Tape_& tape);
-    void PropagateToStart(Tape_& tape);
-    void PropagateToMark(Tape_& tape);
-    void NewRecording(Tape_& tape);
-    void Activate(Tape_& tape);
-    void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
 #include <XAD/XAD.hpp>
@@ -259,16 +239,6 @@ namespace Dal::AAD {
         explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.getPosition()), mark_(start_) { }
     };
 
-    void Clear(Tape_& tape);
-    void Mark(Tape_& tape);
-    void RewindToMark(Tape_& tape);
-    void Rewind(Tape_& tape);
-    void PropagateMarkToStart(Tape_& tape);
-    void PropagateToStart(Tape_& tape);
-    void PropagateToMark(Tape_& tape);
-    void NewRecording(Tape_& tape);
-    void Activate(Tape_& tape);
-    void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
 #elif defined(DAL_USE_CODIPACK_AAD)
 #include <codi.hpp>
@@ -291,6 +261,11 @@ namespace Dal::AAD {
         }
     };
 
+} // namespace Dal::AAD
+
+#endif
+
+namespace Dal::AAD {
     void Clear(Tape_& tape);
     void Mark(Tape_& tape);
     void RewindToMark(Tape_& tape);
@@ -302,5 +277,3 @@ namespace Dal::AAD {
     void Activate(Tape_& tape);
     void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
-
-#endif

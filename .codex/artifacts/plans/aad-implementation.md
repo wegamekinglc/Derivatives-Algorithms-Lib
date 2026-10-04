@@ -176,11 +176,26 @@ Direct D01 result-extraction failure coverage now completes a scoped reverse,
 reads its analytic price/gradient, throws during extraction, preserves that
 exception and proves the next independent scoped graph gives its analytic
 result. Native ON/OFF focused runs pass 76/48 cases. The new test and include
-ordering change no production or benchmark source; CoDiPack and current CI
-verification remain to be recorded.
+ordering change no production or benchmark source. The complete CoDiPack
+rebuild/CTest passes 2,258 cases, including this recovery test.
+Publication head `9b5febcca79643e817999e76e8f5dda44922d618` now passes all
+49 exact-head CI checks, including the new complete native diagnostics ON/OFF,
+diagnostic sanitizer and Windows/consumer legs. Checked PR head and every
+paginated check are retained in `lifetime-9b5febc-{pr-state,ci}` evidence.
+The final D01/D02 requirement audit remains open.
 The independent full-final-block `BlockList::Size` repair has its
 bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
 final paired/CI acceptance; its full native/CoDiPack functional checks pass.
+
+D03 proceeds independently in `/tmp/dal-aad-backend-adapter`, based on the
+unchanged successful publication head. Stateless capabilities and native/indexed
+or upstream/scalar seed/read are integrated with scoped recording services.
+All four shared scalar contracts pass; native ON integration passes 32 cases
+and CoDiPack integration passes 22. The missing header and missing vector
+storage have retained compile/UBSan RED evidence. The new
+[backend contract](../specs/aad-backend-adapter.md) controls generated state,
+complete backend/consumer builds, new publication CI and fresh paired acceptance.
+Focused checks do not complete D03 or any stage.
 
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate

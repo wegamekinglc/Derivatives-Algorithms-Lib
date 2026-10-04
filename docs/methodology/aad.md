@@ -513,6 +513,81 @@ All four expose the same `Number_` / `Tape_` surface through facade functions in
 differences that matter at the call site are the recording contract and the
 gradient-zeroing semantics between single-result reverse sweeps.
 
+### Compiled Backend Adapter
+
+`AAD::BackendAdapter_` in `dal/math/aad/backend.hpp` selects a stateless
+implementation at compile time. `Capabilities()` describes DAL's compiled
+number/tape integration. Its flags are separate: scoped lifecycle validation,
+number diagnostics, vector storage, prefix reversal and suffix disposal have
+different contracts. An upstream library's other active types or optional
+features do not imply that DAL's selected first-order alias exposes them.
+
+| Contract                               | Native           | XAD | CoDiPack | Adept |
+|----------------------------------------|------------------|-----|----------|-------|
+| Scalar and repeated fixed-graph reverse | Yes              | Yes | Yes      | Yes   |
+| Interval reverse/prefix accumulation   | Yes              | Yes | Yes      | Yes   |
+| Scoped lifecycle validation            | Yes              | Yes | Yes      | Yes   |
+| Vector adjoint channels                 | Up to `ADJ_SIZE` | No  | No       | No    |
+| Native-number lifetime diagnostics      | Optional         | No  | No       | No    |
+| Prefix reverse discards suffix          | No               | Yes | No       | No    |
+| Independent nesting/reverse events      | No               | No  | No       | No    |
+| Higher-order active mode                | No               | No  | No       | No    |
+
+Repeated reversal applies while the graph still exists. XAD's prefix reversal
+discards its suffix, so extract passive suffix values beforehand. The scoped
+lifecycle remains the ownership boundary; directly invoking adapter tape
+operations requires the same discipline as the legacy free functions.
+
+`SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
+including multiple weights for the same output reference. `ReadAdjoint`
+returns a passive double. The optional channel defaults to zero. In native
+vector mode these operations access the vector array, including channel zero;
+the legacy `Adjoint` scalar field is separate. Upstream scalar adapters accept
+channel zero only.
+
+For example, $u=xy$, $v=x^2+y$ at $(x,y)=(2,3)$ has Jacobian rows $(3,2)$
+and $(4,1)$. Seeds $(2,-1)$ compute the weighted gradient $(2,3)$:
+
+```cpp
+#include <dal/math/aad/backend.hpp>
+#include <dal/math/aad/recording.hpp>
+
+AAD::RecordingScope_ recording;
+AAD::Number_ x, y;
+recording.RegisterInput(x, 2.0);
+recording.RegisterInput(y, 3.0);
+recording.StartRecording();
+AAD::Number_ u = x * y;
+AAD::Number_ v = x * x + y;
+recording.FinishRecording();
+recording.ClearAdjoints();
+AAD::BackendAdapter_::SetSeed(u, 2.0);
+AAD::BackendAdapter_::SetSeed(v, -1.0);
+recording.Reverse();
+const double dx = AAD::BackendAdapter_::ReadAdjoint(x); // 2
+const double dy = AAD::BackendAdapter_::ReadAdjoint(y); // 3
+recording.Close();
+```
+
+Clear gradients before an independent seed vector. `ActiveRoot(payoff,
+activeZero)` applies the existing payoff-root convention when an output is a
+constant, direct input or prefix alias; its second argument must be an active
+zero on the same recording. It does not silently register a new parameter.
+
+`ValidateAdjointMode(multi, width)` checks a proposed mode without changing
+the tape. Scalar width must be one; native vector width must be positive and
+at most `ADJ_SIZE`. Upstream scalar adapters reject vector mode, including
+width one. Select actual native mode with `SetNumResultsForAAD` before entering
+the scope. Unsupported channels/modes fail before seed mutation. Native
+diagnostic builds also validate number ownership and lifetime before node
+access. With diagnostics disabled, the gateway rejects missing nodes/vector
+storage but cannot generally detect a stale or wrongly rebound number.
+
+Recording services use compile-time references to the established tape
+functions. Legacy free APIs, default active-number layouts and arithmetic
+remain available; the adapter introduces no virtual dispatch or per-node
+capability lookup.
+
 ### Load-Bearing Recording Contract
 
 A correct Jacobian on all four backends requires this exact ordering:

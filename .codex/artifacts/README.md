@@ -15,4 +15,6 @@ after documenting the current-state outcome.
   active-number checks, ABI propagation, failure recovery and default performance.
 - [Corrected lifetime diagnostic evidence](perf/aad-native-lifetime-diagnostics-corrected.md):
   assignment safety, complete builds/consumers, fresh paired performance, calibration
-  failure/confirmation and resource observations; current CI acceptance remains open.
+  failure/confirmation and resource observations; the final requirement audit remains open.
+- [Backend adapter contract](specs/aad-backend-adapter.md): executable capabilities,
+  scalar/vector seed/read, recording integration and complete D03 acceptance.

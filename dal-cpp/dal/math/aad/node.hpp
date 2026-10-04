@@ -42,6 +42,7 @@ namespace Dal::AAD {
 
         friend class Tape_;
         friend class Number_;
+        friend struct NativeBackendAdapter_;
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
 

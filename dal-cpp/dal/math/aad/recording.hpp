@@ -5,9 +5,9 @@
 #pragma once
 
 #include <cstdint>
-#include <dal/math/aad/aad.hpp>
 #include <exception>
 #include <thread>
+#include <dal/math/aad/backend.hpp>
 
 namespace Dal::AAD {
     class Checkpoint_ {
@@ -108,14 +108,14 @@ namespace Dal::AAD {
                 Reject("RecordingScope.Restore", "requires graph recording or ready for reverse");
             RequireMode("RecordingScope.Restore");
             RequireCheckpoint(checkpoint, "RecordingScope.Restore");
-            Apply(RewindToMark, State_::RECORDING);
+            Apply(BackendAdapter_::RESTORE_SUFFIX, State_::RECORDING);
         }
         void ClearAdjoints();
         void Reverse();
         FORCE_INLINE void ReverseSuffix(const Checkpoint_& checkpoint) {
             RequireState(State_::READY, "RecordingScope.ReverseSuffix");
             RequireCheckpoint(checkpoint, "RecordingScope.ReverseSuffix");
-            Apply(PropagateToMark, State_::READY, true);
+            Apply(BackendAdapter_::REVERSE_SUFFIX, State_::READY, true);
         }
         void ReversePrefix(const Checkpoint_& checkpoint);
         void Close();

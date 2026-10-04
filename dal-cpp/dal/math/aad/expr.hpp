@@ -551,6 +551,7 @@ namespace Dal::AAD {
 
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
+        friend struct NativeBackendAdapter_;
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {
