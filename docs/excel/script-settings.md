@@ -49,28 +49,28 @@ rows. With AAD disabled the result is a 1×2 PV table.
 
 Each `settings` range has exactly two columns, key then value, with no header.
 Model-sourced FIX observations are bound by index name, so the valuation
-constructor takes no binding range: the engine binds the model's spot output
-to the script's future FIX index.
+constructor takes no binding range: the engine binds each requested index to
+a supported equity or rate model output.
 
-| Settings handle | Key                         | Default                                         | Accepted value                                                  |
-|-----------------|-----------------------------|-------------------------------------------------|-----------------------------------------------------------------|
-| Product         | `default_index`             | No default                                      | Nonempty index-name text                                        |
-| Product         | `regression_features`       | No explicit states                              | Semicolon-separated EQ indices or `VAR[name]`, up to three      |
-| Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                |
-| Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                       |
-| Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                 |
-| Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
-| Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
-| Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                   |
-| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                    |
-| Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                               |
-| Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                      |
-| Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                      |
-| Simulation      | `lsmc_rqmc_replicates`      | Omitted (deterministic Sobol)                   | Integral number 2..2147483647; not boolean                      |
-| Simulation      | `lsmc_training_seed`        | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
-| Simulation      | `lsmc_pricing_seed`         | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
-| Simulation      | `lsmc_policy_risk_mode`     | `Frozen`                                        | Exact text `Frozen` or `RetrainedBump`; the latter requires AAD |
-| Simulation      | `lsmc_policy_bump_relative` | `0.001`                                         | Finite number in (0, 0.1]; not boolean                          |
+| Settings handle | Key                         | Default                                         | Accepted value                                                               |
+|-----------------|-----------------------------|-------------------------------------------------|------------------------------------------------------------------------------|
+| Product         | `default_index`             | No default                                      | Nonempty index-name text                                                     |
+| Product         | `regression_features`       | No explicit states                              | Up to three semicolon-separated model-supported EQ/IR indices or `VAR[name]` |
+| Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                             |
+| Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                                    |
+| Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                              |
+| Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                                |
+| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                                            |
+| Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                                   |
+| Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                                   |
+| Simulation      | `lsmc_rqmc_replicates`      | Omitted (deterministic Sobol)                   | Integral number 2..2147483647; not boolean                                   |
+| Simulation      | `lsmc_training_seed`        | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                                   |
+| Simulation      | `lsmc_pricing_seed`         | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                                   |
+| Simulation      | `lsmc_policy_risk_mode`     | `Frozen`                                        | Exact text `Frozen` or `RetrainedBump`; the latter requires AAD              |
+| Simulation      | `lsmc_policy_bump_relative` | `0.001`                                         | Finite number in (0, 0.1]; not boolean                                       |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
@@ -168,8 +168,9 @@ or diagnostic formulas after such a change. Reusing a default valuation handle
 then captures the current global date/history; an explicit date/snapshot keeps
 those inputs fixed. No prepared plan is cached between calls. Settings handles
 are local calculation objects, not persistent settings archives. The separate
-[product v2 archive](../methodology/script_engine.md#contract-archive) preserves
-contract text/default identity and excludes runtime plans and market data.
+[product v3 archive](../methodology/script_engine.md#contract-archive) preserves
+contract text, default identity, and selected regression features, and excludes
+runtime plans and market data.
 
 ## FIX Source and Model Rules
 
@@ -193,15 +194,17 @@ EQ binds to its own model output. `CORRELATEDBSMODELDATA.NEW` and
 `HYBRIDMODELDATA.NEW` accept multiple named equities; BS accepts one
 distinct future EQ index. GSR and a Hybrid GSR rate component support
 compatible future IR observations. Future FX, composite, and delivery indices are
-unsupported. Historical EQ/FX observations need no model index and may contain
+unsupported. Historical EQ, FX, and Libor observations need no model index and may contain
 multiple identities. A product default does not supply market data: the model
-inputs must describe the intended equity. In a multi-asset model, `SPOT()` and
-`SPOT()` requires an explicit `default_index`. LSM exercise requires either
+inputs must describe the intended market. In a multi-asset model, `SPOT()`
+requires an explicit `default_index`. Multi-asset LSM exercise requires either
 that single-state default or a `regression_features` row, for example
 `EQ[A];EQ[B]` or `EQ[A];VAR[runningAverage]`. The named model outputs or scalar
 script variables are recorded at every exercise date for continuation
 regression. A `VAR[...]` name must refer to a scalar script variable; the
 product may still need `default_index` if its script calls `SPOT()`.
+Rate-only exercise requires explicit features, such as `IR[USD,SWAP,5Y]` for
+a supported GSR model; see [GSR Bermudan products](../models/gaussian-short-rate.md#bermudan-products).
 
 A two-equity hybrid worksheet can create two components with
 `HYBRIDBSEQUITYDATA.NEW`, a domestic `HYBRIDDETERMINISTICRATEDATA.NEW`, and a

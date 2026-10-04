@@ -89,6 +89,10 @@ For multi-asset `EXERCISE`, pass a list of at most three state names, such as
 scalar script variable at that event. The list is stored with the product and
 is available in `Product_Describe`. With no list, `default_index` remains the
 single regression state for a multi-asset exercise product.
+Model-supported IR discount-factor, Libor, and swap names can also be selected.
+Rate-only GSR exercise requires an explicit list, such as
+`ScriptProductSettings_(regression_features=["IR[USD,SWAP,5Y]"])`; see
+[GSR Bermudan products](../models/gaussian-short-rate.md#bermudan-products).
 
 `today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
 case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,

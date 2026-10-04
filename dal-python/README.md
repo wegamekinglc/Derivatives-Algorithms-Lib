@@ -157,12 +157,12 @@ uv pip install dist/dal_python-2026.9.25.tar.gz \
 
 Release tags build and test this wheel matrix:
 
-| Operating system | Architecture | Wheel platform tag      | CPython versions |
-|------------------|--------------|-------------------------|------------------|
-| Linux            | x86-64       | `manylinux_2_28_x86_64` | 3.9-3.14         |
-| Windows          | x86-64       | `win_amd64`             | 3.9-3.14         |
-| macOS 14+        | x86-64       | `macosx_*_x86_64`      | 3.9-3.14         |
-| macOS 14+        | Apple Silicon | `macosx_*_arm64`      | 3.9-3.14         |
+| Operating system | Architecture  | Wheel platform tag      | CPython versions |
+|------------------|---------------|-------------------------|------------------|
+| Linux            | x86-64        | `manylinux_2_28_x86_64` | 3.9-3.14         |
+| Windows          | x86-64        | `win_amd64`             | 3.9-3.14         |
+| macOS 14+        | x86-64        | `macosx_*_x86_64`       | 3.9-3.14         |
+| macOS 14+        | Apple Silicon | `macosx_*_arm64`        | 3.9-3.14         |
 
 Every release artifact is a CPython-specific native wheel. Python/ABI tags run
 from `cp39-cp39` through `cp314-cp314`; DAL does not publish `abi3` or universal
@@ -312,9 +312,10 @@ fixing date `F`:
 - `F > E` raises `LookAheadObservation`, including in an unused branch.
 
 Wholly expired products still validate syntax, dates and settings, but skip
-history reads and return zero. Empty or no-PAYS products fail valuation.
+history reads and return zero. Empty products and products containing neither
+`PAYS` nor `EXERCISE` fail valuation.
 
-Historical EQ/FX observations can coexist. A model-sourced FIX, including today
+Historical EQ, FX, and Libor observations can coexist. A model-sourced FIX, including today
 under `Model`, is always bound to the script's own future FIX index by name; the
 `model_bindings` settings argument was removed. Correlated BS and hybrid models
 accept several named future EQ indices; BS accepts one distinct index.
@@ -324,7 +325,8 @@ unsupported.
 `default_index` gives legacy `SPOT()` an identity; it does not affect `FIX`
 literals. Unbound future-only `SPOT()` remains supported for one-asset models.
 Multi-asset `SPOT()` always requires a default, which also selects the one LSM
-regressor for early exercise. Historical SPOT requires a default, and mixing
+regressor for early exercise when no explicit `regression_features` are selected.
+Historical SPOT requires a default, and mixing
 SPOT with FIX requires one too. `SPOT(index)` and `FIX()` are invalid. See
 [`examples/hybrid_script.py`](examples/hybrid_script.py) for two-equity valuation.
 The [GSR swap and swaption example](examples/014.gsr_swap_swaption.py) snapshots
@@ -464,7 +466,7 @@ Default construction followed by assignment to the same snake_case properties
 is also supported.
 
 ```text
-ScriptProductSettings_(*, default_index="")
+ScriptProductSettings_(*, default_index="", regression_features=None)
 ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
                          fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
@@ -478,6 +480,7 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | Field                                     | Accepted input / default                                                                                        | Property result                     |
 |-------------------------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|
 | `default_index`                           | `str` or `String_`; empty means unbound                                                                         | `str`, preserving spelling          |
+| `regression_features`                     | List/tuple of `str` or `String_`, or `None` for no explicit states                                              | Detached `list[str]`                |
 | `evaluation_date`                         | Valid DAL `Date_`, or `None` to capture global date at each call                                                | A date copy or `None`               |
 | `today_fixing`                            | Policy enum or exact `Model` / `RequireHistorical` string; default `Model`                                      | `TodayFixingPolicy_` member         |
 | `fixings`                                 | `MarketFixingSnapshot_`, or `None` for global capture                                                           | Immutable snapshot handle or `None` |
@@ -492,6 +495,16 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode             | `int` or `None`                     |
 | `lsmc_policy_risk_mode`                   | Exact `Frozen` (default) or `RetrainedBump`; the latter requires AAD                                            | `str`                               |
 | `lsmc_policy_bump_relative`               | Finite Python `int` / `float` in `(0, 0.1]`, excluding bool and enums; default `0.001`                          | `float`                             |
+
+For `EXERCISE`, `regression_features` selects up to three distinct
+model-supported EQ/IR observations or scalar `VAR[name]` states. For example,
+`ScriptProductSettings_(regression_features=["EQ[A]", "VAR[runningAverage]"])`
+retains equity and accumulated script state for each exercise fit. Rate-only
+GSR exercise requires explicit features, such as `["IR[USD,SWAP,5Y]"]`.
+The getter returns a new list; assign the property to replace the selection.
+Product construction copies it, and `Product_Describe` reports the selection.
+Model support and feature names are checked during preparation; see
+[LSM basis selection](../docs/methodology/monte-carlo/lsm.md#basis-and-regression-choice).
 
 For exercise products, training and pricing counts can be set independently:
 
@@ -607,8 +620,9 @@ identifiers such as `InvalidPathCount`, `InvalidSetting`, `InvalidSmoothing`,
 and constraint context. Script errors retain source row/position and index/date
 details. Validation may occur at construction/assignment (types, policy, date,
 smoothing), description (syntax/default index), or preparation (history).
-Empty or no-PAYS products can be described but Value/Explain reject them with
-`InvalidScriptStructure`. Valid wholly expired products return zero only after
+Empty products and products without either `PAYS` or `EXERCISE` can be described,
+but Value/Explain reject them with `InvalidScriptStructure`.
+Valid wholly expired products return zero only after
 validation; errors never become successful `PV=0` results.
 
 ### Script Diagnostics

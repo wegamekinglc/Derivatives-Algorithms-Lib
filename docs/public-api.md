@@ -141,12 +141,12 @@ Write an explicit `ScriptValuationSettings_`, since a bare fourth-argument
 uses `SPOT()`, the retained zero-argument compatibility form for model spot at
 the event date; unbound future-only scripts need no change. The named form for
 new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
-Historical EQ/FX
-requests resolve at exact midnight, and a missing required fixing is an error,
-never a model or placeholder fallback. Model-sourced requests bind the model's
-`spot` output to one ordinary EQ, taken from the script's own future FIX index
-by name; no settings are involved. A product
-default does not supply that model index or model market data. The
+Historical EQ, FX, and Libor requests resolve at exact midnight, and a missing
+required fixing is an error, never a model or placeholder fallback.
+Model-sourced requests bind by index name: BS accepts one ordinary EQ,
+correlated BS and hybrid models accept multiple configured equities, and GSR
+rate components support compatible IR discount-factor, Libor, and swap indices.
+A product default names legacy `SPOT()`; it does not supply model market data. The
 per-form, per-date rules are in the
 [SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
 
@@ -193,14 +193,15 @@ paths on exercise products, so its cost is path generation plus worker
 parallelism plus the exercise regressions; products without `EXERCISE` skip the
 run, since the LSMC driver is the only source of exercise statistics. It
 supports the double tree-walk and compiled modes and rejects
-`enable_aad` settings. Products without `EXERCISE` return an empty
+`simulation.enableAad_ = true`. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
 degree, regressor index, in-the-money condition-true path count, coefficients,
 degenerate flag with PascalCase reason, and exercise rate.
 
-Product archives write v2 with optional `default_index` and retain the v1
-reader. They preserve contract text/identity and exclude runtime market data.
-There is no public v1 export or promise that old binaries can read v2; build
+Product archives write v3 with `default_index` and `regression_features`, and
+retain the v1 and v2 readers. They preserve contract text/identity and exclude
+runtime market data. There is no public v1 export or promise that old binaries
+can read newer archives; build
 consumers and bindings against matching headers/libraries.
 
 The legacy text and width-aware tree dumps remain available.
