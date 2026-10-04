@@ -54,6 +54,35 @@ namespace {
 
     constexpr std::array<double, 3> QUOTE_STEPS{2e-4, 1e-4, 5e-5};
 
+    std::array<double, 3>
+    QuoteBucketDifferences(const Dal::AAD::IVS_& ivs, const DupireRiskInputs_& inputs, const Matrix_<>& seeds, int row, int column) {
+        std::array<double, 3> differences;
+        for (size_t step = 0; step < QUOTE_STEPS.size(); ++step) {
+            auto plus = inputs;
+            auto minus = inputs;
+            plus.quoteSpreads_(row, column) += QUOTE_STEPS[step];
+            minus.quoteSpreads_(row, column) -= QUOTE_STEPS[step];
+            differences[step] = (LegacyQuoteObjective(ivs, plus, seeds) - LegacyQuoteObjective(ivs, minus, seeds)) / (2.0 * QUOTE_STEPS[step]);
+        }
+        return differences;
+    }
+
+    std::array<double, 3> QuoteDirectionDifferences(const Dal::AAD::IVS_& ivs, const DupireRiskInputs_& inputs, const Matrix_<>& seeds) {
+        std::array<double, 3> differences;
+        for (size_t step = 0; step < QUOTE_STEPS.size(); ++step) {
+            auto plus = inputs;
+            auto minus = inputs;
+            for (int row = 0; row < inputs.quoteSpreads_.Rows(); ++row)
+                for (int column = 0; column < inputs.quoteSpreads_.Cols(); ++column) {
+                    const double delta = QUOTE_STEPS[step] * std::cos(0.7 * row + 0.4 * column);
+                    plus.quoteSpreads_(row, column) += delta;
+                    minus.quoteSpreads_(row, column) -= delta;
+                }
+            differences[step] = (LegacyQuoteObjective(ivs, plus, seeds) - LegacyQuoteObjective(ivs, minus, seeds)) / (2.0 * QUOTE_STEPS[step]);
+        }
+        return differences;
+    }
+
     bool AdjacentQuoteStepsAgree(double adjoint, const std::array<double, 3>& differences, const std::string& coordinate) {
         bool previous = false;
         bool adjacent = false;
@@ -161,32 +190,12 @@ TEST(DupireRiskTest, TestEveryQuoteBucketAndDirectionMatchIndependentCalibration
         double directionalAdjoint = 0.0;
         for (int row = 0; row < inputs.quoteSpreads_.Rows(); ++row)
             for (int column = 0; column < inputs.quoteSpreads_.Cols(); ++column) {
-                std::array<double, 3> differences;
-                for (size_t step = 0; step < QUOTE_STEPS.size(); ++step) {
-                    auto plus = inputs;
-                    auto minus = inputs;
-                    plus.quoteSpreads_(row, column) += QUOTE_STEPS[step];
-                    minus.quoteSpreads_(row, column) -= QUOTE_STEPS[step];
-                    differences[step] = (LegacyQuoteObjective(*bases[base], plus, seeds) - LegacyQuoteObjective(*bases[base], minus, seeds)) /
-                                        (2.0 * QUOTE_STEPS[step]);
-                }
+                const auto differences = QuoteBucketDifferences(*bases[base], inputs, seeds, row, column);
                 const std::string coordinate = std::to_string(base) + ":" + std::to_string(row) + ":" + std::to_string(column);
                 ASSERT_TRUE(AdjacentQuoteStepsAgree(risk.TotalAdjoints()(row, column), differences, coordinate));
                 directionalAdjoint += risk.TotalAdjoints()(row, column) * std::cos(0.7 * row + 0.4 * column);
             }
-        std::array<double, 3> differences;
-        for (size_t step = 0; step < QUOTE_STEPS.size(); ++step) {
-            auto plus = inputs;
-            auto minus = inputs;
-            for (int row = 0; row < inputs.quoteSpreads_.Rows(); ++row)
-                for (int column = 0; column < inputs.quoteSpreads_.Cols(); ++column) {
-                    const double delta = QUOTE_STEPS[step] * std::cos(0.7 * row + 0.4 * column);
-                    plus.quoteSpreads_(row, column) += delta;
-                    minus.quoteSpreads_(row, column) -= delta;
-                }
-            differences[step] =
-                (LegacyQuoteObjective(*bases[base], plus, seeds) - LegacyQuoteObjective(*bases[base], minus, seeds)) / (2.0 * QUOTE_STEPS[step]);
-        }
+        const auto differences = QuoteDirectionDifferences(*bases[base], inputs, seeds);
         ASSERT_TRUE(AdjacentQuoteStepsAgree(directionalAdjoint, differences, std::to_string(base) + ":direction"));
     }
 }

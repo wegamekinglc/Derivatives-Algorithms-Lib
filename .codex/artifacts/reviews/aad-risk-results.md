@@ -86,7 +86,7 @@ entry's short-request metadata cost is about four microseconds; existing APIs
 do not construct that metadata. All nine final OFF gate binaries are unchanged.
 P01 production performance remains inconclusive. Exact corrective `e3720f9f`
 passes all 35 Linux/MSVC/wheel checks. This accepts the scalar D04 implementation,
-not the unpublished Dupire implementation or the complete development goal.
+not the subsequent Dupire implementation or the complete development goal.
 
 ## Open questions and scope
 

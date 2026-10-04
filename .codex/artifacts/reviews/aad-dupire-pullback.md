@@ -17,6 +17,15 @@ Earlier RED/GREEN evidence also covers unrepresentable supplementary-grid spacin
 header self-containment. Fixes are confined to the checked entry and its required
 header/iterator contracts; existing calibration and simulation kernels are unchanged.
 
+First publication `d740a4c6` receives a Codacy complexity finding in the comprehensive
+quote-oracle test: CCN 12 against the unchanged limit of eight. Extracting the
+bucket/direction difference helpers reduces that test to eight; the complete core
+and test file pass the original local threshold. OFF and combined focused suites
+each pass 15 cases, with every one of the 42 oracle rows bitwise identical to its
+pre-refactor trace. The rebuilt default production archive is also SHA-256 identical
+to the measured installed archive. The sanitizer refactor rerun is still running;
+its earlier complete-core acceptance remains distinct from this pending rerun.
+
 The passive snapshot owns fixed base stencil/ATM samples, carry, quote axes/values,
 inclusion/completed grids and surface values. It retains no caller IVS pointer,
 callback, active number or tape. Full content establishes parameter identity;
@@ -58,6 +67,9 @@ Evidence root:
   calibrator. Tests include negative/zero/boundary-alias seeds, direct addition,
   callback mutation/destruction, mismatches and success/failure/success recovery.
 - CCN-eight threshold passes unchanged; `aad-dupire-complexity-02.log`.
+- Test complexity RED/GREEN is retained in
+  `aad-dupire-test-complexity-{red,green}-01.log`; focused OFF/combined reruns and
+  exact oracle-row identities are in `aad-dupire-test-refactor-*` evidence.
 - Final documentation integrity passes 92 Markdown files and generated-source
   verification has zero drift; `aad-dupire-docs-final-01.log` and
   `aad-dupire-generated-final-01.log`. New core and consumer formatting passes.
@@ -68,6 +80,7 @@ Evidence root:
 
 ## Summary
 
-The core increment is ready for draft publication with final documentation and
-generated-output checks passing. It is a required part of F01, not complete Hybrid quote
+The core increment is published as a draft, with its test-only complexity correction
+locally verified OFF/combined and new exact-head CI still required. It is a required
+part of F01, not complete Hybrid quote
 risk, and does not close Stage A or the full Stage B/C/D objective.

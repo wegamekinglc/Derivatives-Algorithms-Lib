@@ -193,6 +193,14 @@ has no unresolved local correctness findings; exact-head CI and full
 Hybrid/binding/curve acceptance remain required. None of the F01 completion
 boxes is closed by this core increment.
 
+Core publication `d740a4c6` receives one Codacy warning: a test's CCN is 12 rather
+than the existing maximum eight. The corrective bucket/direction helpers retain
+all cases, fixed steps, tolerances and independent old-calibrator references.
+Local complexity now passes without changing the limit; OFF/combined focused
+checks each pass 15, with all 42 oracle rows identical to their prior traces.
+The default core archive remains SHA-256 identical. The instrumented refactor
+rerun is live; its terminal result and exact corrective-head CI remain required.
+
 ### Earlier snapshots retained for acceptance context
 
 P01's controlling [production measurement contract](../specs/aad-production-measurement.md)
@@ -551,7 +559,7 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the reviewed F01 core and verify its exact-head CI, then connect
+Next: verify the corrected F01 core's exact-head CI, then connect
 typed Hybrid parameter seeds, full-chain oracles and C++/Python/Excel boundaries.
 Continue F01 curve integration and F02 output seeds under their controlling
 designs. Reconcile P01's unresolved performance with controlled-environment evidence;
