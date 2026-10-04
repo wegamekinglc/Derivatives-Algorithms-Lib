@@ -152,7 +152,16 @@ These are additional-capability costs, not an old-entry performance verdict.
 All nine final OFF gate executables remain identical to the retained measured
 binaries. The simulation/LSM/tape hot loops are unchanged by D04.
 
-Exact new-publication-head CI remains pending. D04 acceptance remains open until
+Exact `d2916e9c` finishes 35 checks with 29 successes, five failures and one skipped
+wheel-matrix verification. Two MSVC configurations and Windows/ARM-macOS wheels
+fail a new Python exact-PV assertion; the Windows gate fails consequently.
+The four-worker local RED reproduces it, and legacy/self controls show the same
+ordinary parallel reduction rounding. Preserve every original exact assertion
+and all 257 paths in an isolated one-worker process, then separately check four
+parallel tree/compiled 257/2057-path cases at the already specified rel/abs 1e-10.
+Focused GREEN passes 20 cases and the complete four-worker Python suite passes
+813. Production code and the nine gate binaries are unchanged by this correction.
+Exact corrected-publication-head CI remains required. D04 acceptance remains open until
 that result is reconciled; P01 stays inconclusive and the complete Stage B/C/D
 scope remains required. F01 now has its [frozen-calibration specification](../specs/aad-dupire-pullback.md),
 [API decision](../api-notes/aad-dupire-pullback.md) and [critique](../critiques/aad-dupire-pullback.md)

@@ -1,12 +1,26 @@
 # Structured scalar risk-result review
 
-Verdict: Comment Only pending exact new-head CI checks.
+Verdict: Comment Only pending exact corrected-head CI checks.
 The complete core/public/Python/Excel surface is implemented; this review does
 not treat a passive converter alone as completed D04.
 
 ## Findings
 
 No unresolved correctness finding after the following review fixes.
+
+- Exact `d2916e9c` CI exposes an overstrong Python parallel equality fixture:
+  two MSVC configurations and the Windows/ARM-macOS wheels fail the same new
+  PV assertion, with the Windows gate consequently failing. A local four-worker
+  run reproduces the failure. The shared simulation sums by worker, so ordinary
+  scheduling changes rounding even between two legacy requests. A 64-pair
+  control per evaluator sees legacy/self and legacy/structured discrepancies
+  of at most 7.11e-15, all within the predeclared rel/abs 1e-10 contract.
+  Preserve every original exact assertion and all 257 paths in an isolated
+  one-worker process, and add four parallel tree/compiled 257/2057-path cases
+  with that numeric contract and exact within-result getter checks. No production
+  arithmetic, scheduler or tolerance contract changes. The focused suite passes
+  20 cases; the complete four-worker Python suite passes 813. Corrected-head
+  Windows/macOS CI remains required; local success cannot certify those platforms.
 
 - Caller-provided execution snapshots now validate product date/event extents,
   path count consistency, positive replicate counts and finite supplied history.

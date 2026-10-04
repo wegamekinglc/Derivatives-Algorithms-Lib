@@ -1,6 +1,10 @@
 """Structured scalar native risk, projection and immutable result contracts."""
 
 import json
+import os
+from pathlib import Path
+import subprocess
+import sys
 
 import dal
 import pytest
@@ -15,8 +19,7 @@ def product_model():
     return product, model
 
 
-@pytest.mark.parametrize("compiled", [False, True])
-def test_selected_risk_matches_legacy_and_getters_do_not_mutate(compiled):
+def _check_selected_risk_matches_legacy_and_getters_do_not_mutate(compiled):
     product, model = product_model()
     simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=compiled)
     request = dal.RiskRequest_(
@@ -44,6 +47,57 @@ def test_selected_risk_matches_legacy_and_getters_do_not_mutate(compiled):
     assert result.provenance.method == "NativeAAD"
     assert result.provenance.execution.paths_per_replicate == 257
     assert json.loads(result.provenance.execution.model_snapshot_json)
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+def test_selected_risk_matches_legacy_and_getters_do_not_mutate(compiled):
+    # Thread count is captured before Python can set it after importing DAL.
+    probe = (
+        "import json, runpy, sys; "
+        "sys.path[:] = json.loads(sys.argv[1]); "
+        "scope = runpy.run_path(sys.argv[2]); "
+        "scope['dal'].EvaluationDate_Set(scope['dal'].Date_(2022, 9, 25)); "
+        "scope['_check_selected_risk_matches_legacy_and_getters_do_not_mutate']"
+        "(sys.argv[3] == 'True')"
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            "-c",
+            probe,
+            json.dumps(sys.path),
+            str(Path(__file__).resolve()),
+            str(compiled),
+        ],
+        env={**os.environ, "DAL_NUM_THREADS": "1"},
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("paths", [257, 2057])
+def test_parallel_selected_risk_preserves_numeric_legacy_contract(compiled, paths):
+    product, model = product_model()
+    simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=compiled)
+    old = dal.MonteCarlo_ValueWithSettings(product, model, paths, simulation=simulation)
+    result = dal.MonteCarlo_ValueWithRisk(
+        product,
+        model,
+        paths,
+        request=dal.RiskRequest_(inputs=["constant:0", "model:1"]),
+        simulation=simulation,
+    )
+    assert result.values == pytest.approx([old["PV"]], rel=1e-10, abs=1e-10)
+    assert result.jacobian[0, 0] == pytest.approx(old["d_STRIKE"], rel=1e-10, abs=1e-10)
+    assert result.jacobian[0, 1] == pytest.approx(old["d_vol"], rel=1e-10, abs=1e-10)
+    assert result.legacy_values["PV"] == result.values[0]
+    assert result.legacy_values["d_STRIKE"] == result.jacobian[0, 0]
+    assert result.legacy_values["d_vol"] == result.jacobian[0, 1]
 
 
 def test_native_empty_and_passive_omitted_inputs_preserve_zero_column_shape():
