@@ -62,7 +62,8 @@
 
 ```bash
 .venv/bin/python datasets/dal_script_qa_7000/generate.py
-PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=2 .venv/bin/python datasets/dal_script_qa_7000/validate.py --paths 4096 --workers 4 > build/qa_validation.log 2>&1
+PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=2 .venv/bin/python datasets/dal_script_qa_7000/validate.py \
+    --paths 4096 --workers 4 --source-revision 3fe44ecd0969a159bd9172be3f8813ef30f00a04 > build/qa_validation.log 2>&1
 PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=2 .venv/bin/python -m pytest datasets/dal_script_qa_7000/test_dataset.py -q > build/qa_dataset_tests.log 2>&1
 PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=2 .venv/bin/python -m pytest \
     dal-python/tests/test_script.py dal-python/tests/test_fix_valuation.py \
@@ -80,6 +81,8 @@ PYTHONPATH=build/Release-linux/dal-python DAL_NUM_THREADS=2 .venv/bin/python dat
 
 Python 接口按仓库的 CMake 方式编译，环境为 CPython 3.13、pybind11 3.1.0、GCC 15.2、C++17、Release、原生 AAD。已在独立 worktree 中执行以下配置与构建。
 
+`--source-revision` 必须填写编译所加载原生扩展时使用的引擎源码提交。上面的值是本数据报告的实际引擎版本；使用其他版本重建扩展后，请填写对应的完整 Git 提交 ID。验证器不启动 Git 子进程，也不把当前数据文件提交自动视为扩展的源码版本。
+
 ```bash
 cmake --preset=Release-linux -S . -B build/Release-linux \
     -DDAL_BUILD_PYTHON=ON -DDAL_CPP_BUILD_BENCHMARKS=OFF \
@@ -91,4 +94,4 @@ cmake --build build/Release-linux --target _dal -j 12
 
 另外执行了仓库现有脚本、FIX 定价、提前行权和模型测试，101 个测试通过。构建与日志均在 worktree 的 `build/` 中。
 
-[verify_artifacts.py](verify_artifacts.py) 检查数据、逐条验证结果、索引链接及上述测试日志，并生成 [manifest.json](manifest.json) 中的文件大小和 SHA-256。修改数据或重新验证后，应按顺序运行测试和此检查，以更新清单。
+[verify_artifacts.py](verify_artifacts.py) 检查数据、逐条验证结果、索引分类和链接及上述测试日志，并重新计算三个确定性场景的参考支付及记录中的误差，拒绝非有限值、不一致的结果或不完整的验证统计，生成 [manifest.json](manifest.json) 中的文件大小和 SHA-256。修改数据或重新验证后，应按顺序运行测试和此检查，以更新清单。17 个数据测试涵盖全量重生成一致性、重复问题、答案损坏、错误表格分隔行、源码版本格式、参考结果篡改、合同归一化和计息日历。

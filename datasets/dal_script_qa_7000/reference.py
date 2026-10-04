@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import itertools
 import math
 from datetime import date, timedelta
 
@@ -45,7 +46,12 @@ def libor_zero_vol(fixing, rate):
 def basis_30_360(start, end):
     start_day = min(start.day, 30)
     end_day = min(end.day, 30) if start_day == 30 else end.day
-    return ((end.year - start.year) * 360 + (end.month - start.month) * 30 + end_day - start_day) / 360
+    return (
+        (end.year - start.year) * 360
+        + (end.month - start.month) * 30
+        + end_day
+        - start_day
+    ) / 360
 
 
 def swap_zero_vol(start, rate):
@@ -56,225 +62,655 @@ def swap_zero_vol(start, rate):
     if unadjusted[-1] != maturity:
         unadjusted.append(maturity)
     endpoints = [modified_following(d) for d in unadjusted]
-    annuity = sum(basis_30_360(a, b) * math.exp(-rate * (b - start).days / 365) for a, b in zip(endpoints, endpoints[1:]))
-    floating_pv = math.exp(-rate * (endpoints[0] - start).days / 365) - math.exp(-rate * (endpoints[-1] - start).days / 365)
+    annuity = sum(
+        (
+            basis_30_360(a, b) * math.exp(-rate * (b - start).days / 365)
+            for a, b in itertools.pairwise(endpoints)
+        )
+    )
+    floating_pv = math.exp(-rate * (endpoints[0] - start).days / 365) - math.exp(
+        -rate * (endpoints[-1] - start).days / 365
+    )
     return floating_pv / annuity
 
 
-def reference_pv(record, scenario):
-    family = record["family"]
-    terms = record["contract_terms"]
-    market = record["pricing_context"]["model"]
-    today = date.fromisoformat(record["pricing_context"]["evaluation_date"])
-    maturity = date.fromisoformat(terms["maturity"])
-    rate = scenario["rate"]
-    multiplier = scenario["spot_multiplier"]
-    quantity, strike = terms["quantity"], terms["strike"]
-    initial = terms["initial_price"]
-    dividend = market.get("div", 0.01)
+class DeterministicPayoff:
+    def __init__(self, record, scenario):
+        self.family = record["family"]
+        self.terms = record["contract_terms"]
+        self.market = record["pricing_context"]["model"]
+        self.today = date.fromisoformat(record["pricing_context"]["evaluation_date"])
+        self.maturity = date.fromisoformat(self.terms["maturity"])
+        self.rate = scenario["rate"]
+        self.multiplier = scenario["spot_multiplier"]
+        self.quantity, self.strike = (self.terms["quantity"], self.terms["strike"])
+        self.initial = self.terms["initial_price"]
+        self.dividend = self.market.get("div", 0.01)
+        self.terminal = self.spot(self.maturity)
+        self.call = self.positive(self.terminal - self.strike)
+        self.put = self.positive(self.strike - self.terminal)
+        self.observation_dates = self.terms.get("observation_dates", [])
+        self.prices = [self.spot(d) for d in self.observation_dates]
+        self.average = sum(self.prices) / len(self.prices) if self.prices else 0
+        self.notional = self.terms.get("notional")
+        self.fixed_rate = self.terms.get("fixed_rate")
 
-    def time(value):
+    def time(self, value):
         value = date.fromisoformat(value) if isinstance(value, str) else value
-        return (value - today).days / 365
+        return (value - self.today).days / 365
 
-    def discount(value):
-        return math.exp(-rate * time(value))
+    def discount(self, value):
+        return math.exp(-self.rate * self.time(value))
 
-    def spot(value):
-        return initial * multiplier * math.exp((rate - dividend) * time(value))
+    def spot(self, value):
+        return (
+            self.initial
+            * self.multiplier
+            * math.exp((self.rate - self.dividend) * self.time(value))
+        )
 
-    def positive(value):
+    def positive(self, value):
         return max(value, 0.0)
 
-    terminal = spot(maturity)
-    call, put = positive(terminal - strike), positive(strike - terminal)
-    payout = None
-    if family == "european_call":
-        payout = call
-    elif family == "european_put":
-        payout = put
-    elif family.startswith("cash_digital") or family.startswith("asset_digital"):
-        triggered = terminal > strike if family.endswith("call") else terminal < strike
-        payout = (terms["digital_cash"] if family.startswith("cash") else terminal) if triggered else 0
-    elif family == "forward_long":
-        payout = terminal - strike
-    elif family == "forward_short":
-        payout = strike - terminal
-    elif family == "bull_call_spread":
-        payout = call - positive(terminal - strike - terms["width"])
-    elif family == "bear_put_spread":
-        payout = positive(strike + terms["width"] - terminal) - put
-    elif family == "straddle":
-        payout = call + put
-    elif family == "strangle":
-        payout = put + positive(terminal - strike - terms["width"])
-    elif family == "butterfly":
-        width = terms["width"]
-        payout = call - 2 * positive(terminal - strike - width) + positive(terminal - strike - 2 * width)
-    elif family == "call_ratio_spread":
-        payout = call - 2 * positive(terminal - strike - terms["width"])
-    elif family == "capped_call":
-        payout = min(call, terms["cap"])
-    elif family == "interval_cash":
-        payout = terms["digital_cash"] if terms["lower"] <= terminal <= terms["upper"] else 0
-    elif family == "tiered_cash":
-        if terminal == strike:
-            payout = terms["digital_cash"]
-        elif strike < terminal < strike + terms["width"]:
-            payout = 2 * terms["digital_cash"]
-        elif terminal >= strike + terms["width"]:
-            payout = 3 * terms["digital_cash"]
+    def pv_european_call(self):
+        payout = self.call
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_european_put(self):
+        payout = self.put
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_cash_digital_call(self):
+        triggered = self.terminal > self.strike
+        payout = self.terms["digital_cash"] if triggered else 0
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_cash_digital_put(self):
+        triggered = self.terminal < self.strike
+        payout = self.terms["digital_cash"] if triggered else 0
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_asset_digital_call(self):
+        triggered = self.terminal > self.strike
+        payout = self.terminal if triggered else 0
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_asset_digital_put(self):
+        triggered = self.terminal < self.strike
+        payout = self.terminal if triggered else 0
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_forward_long(self):
+        payout = self.terminal - self.strike
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_forward_short(self):
+        payout = self.strike - self.terminal
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_bull_call_spread(self):
+        payout = self.call - self.positive(
+            self.terminal - self.strike - self.terms["width"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_bear_put_spread(self):
+        payout = (
+            self.positive(self.strike + self.terms["width"] - self.terminal) - self.put
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_straddle(self):
+        payout = self.call + self.put
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_strangle(self):
+        payout = self.put + self.positive(
+            self.terminal - self.strike - self.terms["width"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_butterfly(self):
+        width = self.terms["width"]
+        payout = (
+            self.call
+            - 2 * self.positive(self.terminal - self.strike - width)
+            + self.positive(self.terminal - self.strike - 2 * width)
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_call_ratio_spread(self):
+        payout = self.call - 2 * self.positive(
+            self.terminal - self.strike - self.terms["width"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_capped_call(self):
+        payout = min(self.call, self.terms["cap"])
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_interval_cash(self):
+        payout = (
+            self.terms["digital_cash"]
+            if self.terms["lower"] <= self.terminal <= self.terms["upper"]
+            else 0
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_tiered_cash(self):
+        if self.terminal == self.strike:
+            payout = self.terms["digital_cash"]
+        elif self.strike < self.terminal < self.strike + self.terms["width"]:
+            payout = 2 * self.terms["digital_cash"]
+        elif self.terminal >= self.strike + self.terms["width"]:
+            payout = 3 * self.terms["digital_cash"]
         else:
             payout = 0
-    elif family == "power_call":
-        payout = positive(terminal * terminal - strike * strike)
-    elif family == "log_contract":
-        payout = math.log(terminal / initial)
-    elif family == "geometric_return_call":
-        payout = positive(terminal / initial - 1 - terms["return_strike"])
-    elif family == "delayed_settlement_call":
-        return quantity * call * discount(terms["payment_date"])
-    elif family == "historical_fix_call":
-        payout = positive(terminal - terms["historical_price"] * terms["reset_multiplier"])
-    elif family == "weighted_option_strip":
-        payout = sum(weight * positive(terminal - k) for k, weight in zip(terms["strikes"], terms["weights"]))
-    elif family == "nested_loop_portfolio":
-        payout = sum(weight * positive(terminal - k - shift) for k, weight in zip(terms["strikes"], terms["weights"]) for shift in terms["shifts"])
-    elif family == "forward_start_call":
-        payout = positive(terminal - terms["moneyness"] * spot(terms["reset_date"]))
-    elif family == "equity_linked_note":
-        principal = terms["principal"] if terminal >= terms["trigger"] else terms["principal"] * terminal / terms["trigger"]
-        return (principal + terms["coupon"]) * discount(maturity)
-    elif family == "multi_asset_basket":
-        first = market["spots"][0] * multiplier * math.exp((rate - market["divs"][0]) * time(maturity))
-        second = market["spots"][1] * multiplier * math.exp((rate - market["divs"][1]) * time(maturity))
-        payout = positive(terms["basket_weight"] * first + (1 - terms["basket_weight"]) * second - strike)
-    elif family == "hybrid_equity_rate":
-        return quantity * call * discount(terms["bond_maturity"])
-    if payout is not None:
-        return quantity * payout * discount(maturity)
+        return self.quantity * payout * self.discount(self.maturity)
 
-    observation_dates = terms.get("observation_dates", [])
-    prices = [spot(d) for d in observation_dates]
-    average = sum(prices) / len(prices) if prices else 0
-    if family in ("arithmetic_asian_call", "schedule_asian"):
-        payout = positive(average - strike)
-    elif family == "arithmetic_asian_put":
-        payout = positive(strike - average)
-    elif family == "geometric_asian_call":
-        geometric_average = math.prod(prices) ** (1 / len(prices))
-        payout = positive(geometric_average - strike)
-    elif family == "weighted_asian":
-        payout = positive(sum(s * w for s, w in zip(prices, terms["weights"])) / sum(terms["weights"]) - strike)
-    elif family == "floating_asian_call":
-        payout = positive(terminal - average)
-    elif family == "lookback_fixed_call":
-        payout = positive(max(prices) - strike)
-    elif family == "lookback_fixed_put":
-        payout = positive(strike - min(prices))
-    elif family == "lookback_float_call":
-        payout = terminal - min(prices)
-    elif family == "range_option":
-        payout = max(prices) - min(prices)
-    elif family in ("cliquet", "capped_cliquet", "realized_variance", "realized_volatility"):
-        # The contractual initial reference stays fixed when the valuation spot is changed.
-        consecutive = [initial, *prices]
-        returns = [b / a - 1 for a, b in zip(consecutive, consecutive[1:])]
-        if family == "cliquet":
-            payout = sum(returns)
-        elif family == "capped_cliquet":
-            payout = positive(sum(min(max(r, terms["local_floor"]), terms["local_cap"]) for r in returns))
-        else:
-            payout = sum(math.log(b / a) ** 2 for a, b in zip(consecutive, consecutive[1:])) * terms["annualization"]
-            if family == "realized_volatility":
-                payout = math.sqrt(payout)
-    elif family in ("up_out_call", "down_out_put", "up_in_call", "down_in_put", "double_out_call", "double_in_put"):
-        if family.startswith("double"):
-            hit = any(price <= terms["lower"] or price >= terms["upper"] for price in prices)
-        elif family.startswith("up"):
-            hit = any(price >= terms["upper"] for price in prices)
-        else:
-            hit = any(price <= terms["lower"] for price in prices)
-        payout = call if family.endswith("call") else put
-        payout *= (not hit) if "out" in family else hit
-    elif family == "autocall":
-        for d, price in zip(observation_dates, prices):
-            if price >= terms["trigger"]:
-                return (terms["principal"] + terms["coupon"]) * discount(d)
-        return terms["principal"] * discount(maturity)
-    elif family == "memory_coupon":
-        memory, pv = 0, 0
-        for d, price in zip(observation_dates, prices):
-            memory += terms["coupon"]
-            if price >= terms["trigger"]:
-                pv += memory * discount(d)
+    def pv_power_call(self):
+        payout = self.positive(
+            self.terminal * self.terminal - self.strike * self.strike
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_log_contract(self):
+        payout = math.log(self.terminal / self.initial)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_geometric_return_call(self):
+        payout = self.positive(
+            self.terminal / self.initial - 1 - self.terms["return_strike"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_arithmetic_asian_call(self):
+        payout = self.positive(self.average - self.strike)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_arithmetic_asian_put(self):
+        payout = self.positive(self.strike - self.average)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_geometric_asian_call(self):
+        geometric_average = math.prod(self.prices) ** (1 / len(self.prices))
+        payout = self.positive(geometric_average - self.strike)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_weighted_asian(self):
+        payout = self.positive(
+            sum((s * w for s, w in zip(self.prices, self.terms["weights"])))
+            / sum(self.terms["weights"])
+            - self.strike
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_floating_asian_call(self):
+        payout = self.positive(self.terminal - self.average)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_lookback_fixed_call(self):
+        payout = self.positive(max(self.prices) - self.strike)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_lookback_fixed_put(self):
+        payout = self.positive(self.strike - min(self.prices))
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_lookback_float_call(self):
+        payout = self.terminal - min(self.prices)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_range_option(self):
+        payout = max(self.prices) - min(self.prices)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_cliquet(self):
+        consecutive = [self.initial, *self.prices]
+        returns = [b / a - 1 for a, b in itertools.pairwise(consecutive)]
+        payout = sum(returns)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_capped_cliquet(self):
+        consecutive = [self.initial, *self.prices]
+        returns = [b / a - 1 for a, b in itertools.pairwise(consecutive)]
+        payout = self.positive(
+            sum(
+                min(max(r, self.terms["local_floor"]), self.terms["local_cap"])
+                for r in returns
+            )
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_realized_variance(self):
+        consecutive = [self.initial, *self.prices]
+        [b / a - 1 for a, b in itertools.pairwise(consecutive)]
+        payout = (
+            sum((math.log(b / a) ** 2 for a, b in itertools.pairwise(consecutive)))
+            * self.terms["annualization"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_realized_volatility(self):
+        consecutive = [self.initial, *self.prices]
+        [b / a - 1 for a, b in itertools.pairwise(consecutive)]
+        payout = (
+            sum((math.log(b / a) ** 2 for a, b in itertools.pairwise(consecutive)))
+            * self.terms["annualization"]
+        )
+        payout = math.sqrt(payout)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_up_out_call(self):
+        hit = any(price >= self.terms["upper"] for price in self.prices)
+        payout = self.call
+        payout *= not hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_down_out_put(self):
+        hit = any(price <= self.terms["lower"] for price in self.prices)
+        payout = self.put
+        payout *= not hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_up_in_call(self):
+        hit = any(price >= self.terms["upper"] for price in self.prices)
+        payout = self.call
+        payout *= hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_down_in_put(self):
+        hit = any(price <= self.terms["lower"] for price in self.prices)
+        payout = self.put
+        payout *= hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_double_out_call(self):
+        hit = any(
+            price <= self.terms["lower"] or price >= self.terms["upper"]
+            for price in self.prices
+        )
+        payout = self.call
+        payout *= not hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_double_in_put(self):
+        hit = any(
+            price <= self.terms["lower"] or price >= self.terms["upper"]
+            for price in self.prices
+        )
+        payout = self.put
+        payout *= hit
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_autocall(self):
+        for d, price in zip(self.observation_dates, self.prices):
+            if price >= self.terms["trigger"]:
+                return (self.terms["principal"] + self.terms["coupon"]) * self.discount(
+                    d
+                )
+        return self.terms["principal"] * self.discount(self.maturity)
+
+    def pv_memory_coupon(self):
+        memory, pv = (0, 0)
+        for d, price in zip(self.observation_dates, self.prices):
+            memory += self.terms["coupon"]
+            if price >= self.terms["trigger"]:
+                pv += memory * self.discount(d)
                 memory = 0
-        return pv + terms["principal"] * discount(maturity)
-    elif family == "corridor_coupon":
-        return quantity * terms["coupon"] * sum(discount(d) for d, price in zip(observation_dates, prices) if terms["lower"] <= price <= terms["upper"])
-    elif family == "sparse_vector_basket":
-        selected = [prices[i] for i in terms["selected_observations"]]
-        payout = positive((selected[0] + 2 * selected[1] + 3 * selected[2]) / 6 - strike)
-    elif family == "conditional_vector":
-        conditional_average = sum(price if price > strike else 0 for price in prices) / len(prices)
-        payout = positive(conditional_average - terms["average_strike"])
-    elif family == "schedule_fixed_coupon":
-        previous = date.fromisoformat(terms["schedule_start"])
+        return pv + self.terms["principal"] * self.discount(self.maturity)
+
+    def pv_corridor_coupon(self):
+        return (
+            self.quantity
+            * self.terms["coupon"]
+            * sum(
+                (
+                    self.discount(d)
+                    for d, price in zip(self.observation_dates, self.prices)
+                    if self.terms["lower"] <= price <= self.terms["upper"]
+                )
+            )
+        )
+
+    def pv_equity_linked_note(self):
+        principal = (
+            self.terms["principal"]
+            if self.terminal >= self.terms["trigger"]
+            else self.terms["principal"] * self.terminal / self.terms["trigger"]
+        )
+        return (principal + self.terms["coupon"]) * self.discount(self.maturity)
+
+    def pv_forward_start_call(self):
+        payout = self.positive(
+            self.terminal
+            - self.terms["moneyness"] * self.spot(self.terms["reset_date"])
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_delayed_settlement_call(self):
+        return self.quantity * self.call * self.discount(self.terms["payment_date"])
+
+    def pv_historical_fix_call(self):
+        payout = self.positive(
+            self.terminal
+            - self.terms["historical_price"] * self.terms["reset_multiplier"]
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_weighted_option_strip(self):
+        payout = sum(
+            (
+                weight * self.positive(self.terminal - k)
+                for k, weight in zip(self.terms["strikes"], self.terms["weights"])
+            )
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_nested_loop_portfolio(self):
+        payout = sum(
+            (
+                weight * self.positive(self.terminal - k - shift)
+                for k, weight in zip(self.terms["strikes"], self.terms["weights"])
+                for shift in self.terms["shifts"]
+            )
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_sparse_vector_basket(self):
+        selected = [self.prices[i] for i in self.terms["selected_observations"]]
+        payout = self.positive(
+            (selected[0] + 2 * selected[1] + 3 * selected[2]) / 6 - self.strike
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_conditional_vector(self):
+        conditional_average = sum(
+            price if price > self.strike else 0 for price in self.prices
+        ) / len(self.prices)
+        payout = self.positive(conditional_average - self.terms["average_strike"])
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_schedule_asian(self):
+        payout = self.positive(self.average - self.strike)
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_schedule_fixed_coupon(self):
+        previous = date.fromisoformat(self.terms["schedule_start"])
         pv = 0
-        for d in observation_dates:
+        for d in self.observation_dates:
             current = date.fromisoformat(d)
-            pv += terms["notional"] * terms["fixed_rate"] * (current - previous).days / 365 * discount(current)
+            pv += (
+                self.terms["notional"]
+                * self.terms["fixed_rate"]
+                * (current - previous).days
+                / 365
+                * self.discount(current)
+            )
             previous = current
         return pv
-    if payout is not None:
-        return quantity * payout * discount(maturity)
 
-    if family in ("bermudan_put", "bermudan_call", "bermudan_asian_put", "conditional_bermudan_put", "american_put_daily", "american_call_daily"):
-        exercise_dates = terms["exercise_dates"]
-        exercise_prices = [spot(d) for d in exercise_dates]
+    def pv_bermudan_put(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
         candidates = [0]
         for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
-            if family == "bermudan_asian_put":
-                amount = positive(strike - sum(exercise_prices[:i + 1]) / (i + 1))
-            else:
-                amount = positive(strike - price) if "put" in family else positive(price - strike)
-            if family == "conditional_bermudan_put" and not price < terms["exercise_limit"]:
-                amount = 0
-            candidates.append(quantity * amount * discount(d))
+            amount = self.positive(self.strike - price)
+            candidates.append(self.quantity * amount * self.discount(d))
         return max(candidates)
 
-    notional, fixed_rate = terms["notional"], terms["fixed_rate"]
-    if family == "rate_fixed_bond":
-        previous = date.fromisoformat(terms["start_date"])
+    def pv_bermudan_call(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
+        candidates = [0]
+        for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
+            amount = self.positive(price - self.strike)
+            candidates.append(self.quantity * amount * self.discount(d))
+        return max(candidates)
+
+    def pv_bermudan_asian_put(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
+        candidates = [0]
+        for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
+            amount = self.positive(
+                self.strike - sum(exercise_prices[: i + 1]) / (i + 1)
+            )
+            candidates.append(self.quantity * amount * self.discount(d))
+        return max(candidates)
+
+    def pv_conditional_bermudan_put(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
+        candidates = [0]
+        for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
+            amount = self.positive(self.strike - price)
+            if self.family == "conditional_bermudan_put" and (
+                not price < self.terms["exercise_limit"]
+            ):
+                amount = 0
+            candidates.append(self.quantity * amount * self.discount(d))
+        return max(candidates)
+
+    def pv_american_put_daily(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
+        candidates = [0]
+        for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
+            amount = self.positive(self.strike - price)
+            candidates.append(self.quantity * amount * self.discount(d))
+        return max(candidates)
+
+    def pv_american_call_daily(self):
+        exercise_dates = self.terms["exercise_dates"]
+        exercise_prices = [self.spot(d) for d in exercise_dates]
+        candidates = [0]
+        for i, (d, price) in enumerate(zip(exercise_dates, exercise_prices)):
+            amount = self.positive(price - self.strike)
+            candidates.append(self.quantity * amount * self.discount(d))
+        return max(candidates)
+
+    def pv_rate_fixed_bond(self):
+        previous = date.fromisoformat(self.terms["start_date"])
         pv = 0
-        for d in terms["payment_dates"]:
+        for d in self.terms["payment_dates"]:
             current = date.fromisoformat(d)
-            pv += notional * fixed_rate * (current - previous).days / 365 * discount(current)
+            pv += (
+                self.notional
+                * self.fixed_rate
+                * (current - previous).days
+                / 365
+                * self.discount(current)
+            )
             previous = current
-        return pv + notional * discount(maturity)
-    if family in ("floating_note", "caplet", "floorlet", "cap", "payer_swap"):
+        return pv + self.notional * self.discount(self.maturity)
+
+    def pv_floating_note(self):
         pv = 0
-        for fixing, payment in zip(terms["fixing_dates"], terms["payment_dates"]):
-            fixing_dt, payment_dt = date.fromisoformat(fixing), date.fromisoformat(payment)
-            libor = libor_zero_vol(fixing_dt, rate)
+        for fixing, payment in zip(
+            self.terms["fixing_dates"], self.terms["payment_dates"]
+        ):
+            fixing_dt, payment_dt = (
+                date.fromisoformat(fixing),
+                date.fromisoformat(payment),
+            )
+            libor = libor_zero_vol(fixing_dt, self.rate)
             amount = libor
-            if family in ("cap", "caplet"):
-                amount = positive(libor - fixed_rate)
-            elif family == "floorlet":
-                amount = positive(fixed_rate - libor)
-            elif family == "payer_swap":
-                amount = libor - fixed_rate
-            pv += notional * (payment_dt - fixing_dt).days / 360 * amount * discount(payment)
-        return pv + (notional * discount(maturity) if family == "floating_note" else 0)
-    if family == "rate_corridor":
-        return terms["coupon"] * sum(discount(d) for d in observation_dates if terms["rate_lower"] <= libor_zero_vol(date.fromisoformat(d), rate) <= terms["rate_upper"])
-    if family == "european_payer_swaption":
-        annuity = sum(w * math.exp(-rate * (time(d) - time(maturity))) for w, d in zip(terms["annuity_weights"], terms["annuity_dates"]))
-        return notional * positive(swap_zero_vol(maturity, rate) - fixed_rate) * annuity * discount(maturity)
-    if family == "bermudan_bond_call":
-        bond_time = time(terms["bond_maturity"])
-        return max([0, *(notional * positive(math.exp(-rate * (bond_time - time(d))) - terms["bond_strike"]) * discount(d) for d in terms["exercise_dates"])])
-    if family == "rate_vector_average":
-        average_rate = sum(libor_zero_vol(date.fromisoformat(d), rate) for d in observation_dates) / len(observation_dates)
-        return notional * positive(average_rate - fixed_rate) * discount(maturity)
-    raise ValueError(f"No independent reference for {family}")
+            pv += (
+                self.notional
+                * (payment_dt - fixing_dt).days
+                / 360
+                * amount
+                * self.discount(payment)
+            )
+        return pv + self.notional * self.discount(self.maturity)
+
+    def pv_caplet(self):
+        pv = 0
+        for fixing, payment in zip(
+            self.terms["fixing_dates"], self.terms["payment_dates"]
+        ):
+            fixing_dt, payment_dt = (
+                date.fromisoformat(fixing),
+                date.fromisoformat(payment),
+            )
+            libor = libor_zero_vol(fixing_dt, self.rate)
+            amount = libor
+            amount = self.positive(libor - self.fixed_rate)
+            pv += (
+                self.notional
+                * (payment_dt - fixing_dt).days
+                / 360
+                * amount
+                * self.discount(payment)
+            )
+        return pv + 0
+
+    def pv_floorlet(self):
+        pv = 0
+        for fixing, payment in zip(
+            self.terms["fixing_dates"], self.terms["payment_dates"]
+        ):
+            fixing_dt, payment_dt = (
+                date.fromisoformat(fixing),
+                date.fromisoformat(payment),
+            )
+            libor = libor_zero_vol(fixing_dt, self.rate)
+            amount = libor
+            amount = self.positive(self.fixed_rate - libor)
+            pv += (
+                self.notional
+                * (payment_dt - fixing_dt).days
+                / 360
+                * amount
+                * self.discount(payment)
+            )
+        return pv + 0
+
+    def pv_cap(self):
+        pv = 0
+        for fixing, payment in zip(
+            self.terms["fixing_dates"], self.terms["payment_dates"]
+        ):
+            fixing_dt, payment_dt = (
+                date.fromisoformat(fixing),
+                date.fromisoformat(payment),
+            )
+            libor = libor_zero_vol(fixing_dt, self.rate)
+            amount = libor
+            amount = self.positive(libor - self.fixed_rate)
+            pv += (
+                self.notional
+                * (payment_dt - fixing_dt).days
+                / 360
+                * amount
+                * self.discount(payment)
+            )
+        return pv + 0
+
+    def pv_rate_corridor(self):
+        return self.terms["coupon"] * sum(
+            self.discount(d)
+            for d in self.observation_dates
+            if self.terms["rate_lower"]
+            <= libor_zero_vol(date.fromisoformat(d), self.rate)
+            <= self.terms["rate_upper"]
+        )
+
+    def pv_payer_swap(self):
+        pv = 0
+        for fixing, payment in zip(
+            self.terms["fixing_dates"], self.terms["payment_dates"]
+        ):
+            fixing_dt, payment_dt = (
+                date.fromisoformat(fixing),
+                date.fromisoformat(payment),
+            )
+            libor = libor_zero_vol(fixing_dt, self.rate)
+            amount = libor
+            amount = libor - self.fixed_rate
+            pv += (
+                self.notional
+                * (payment_dt - fixing_dt).days
+                / 360
+                * amount
+                * self.discount(payment)
+            )
+        return pv + 0
+
+    def pv_european_payer_swaption(self):
+        annuity = sum(
+            (
+                w * math.exp(-self.rate * (self.time(d) - self.time(self.maturity)))
+                for w, d in zip(
+                    self.terms["annuity_weights"], self.terms["annuity_dates"]
+                )
+            )
+        )
+        return (
+            self.notional
+            * self.positive(swap_zero_vol(self.maturity, self.rate) - self.fixed_rate)
+            * annuity
+            * self.discount(self.maturity)
+        )
+
+    def pv_bermudan_bond_call(self):
+        bond_time = self.time(self.terms["bond_maturity"])
+        return max(
+            [
+                0,
+                *(
+                    self.notional
+                    * self.positive(
+                        math.exp(-self.rate * (bond_time - self.time(d)))
+                        - self.terms["bond_strike"]
+                    )
+                    * self.discount(d)
+                    for d in self.terms["exercise_dates"]
+                ),
+            ]
+        )
+
+    def pv_rate_vector_average(self):
+        average_rate = sum(
+            libor_zero_vol(date.fromisoformat(d), self.rate)
+            for d in self.observation_dates
+        ) / len(self.observation_dates)
+        return (
+            self.notional
+            * self.positive(average_rate - self.fixed_rate)
+            * self.discount(self.maturity)
+        )
+
+    def pv_multi_asset_basket(self):
+        first = (
+            self.market["spots"][0]
+            * self.multiplier
+            * math.exp((self.rate - self.market["divs"][0]) * self.time(self.maturity))
+        )
+        second = (
+            self.market["spots"][1]
+            * self.multiplier
+            * math.exp((self.rate - self.market["divs"][1]) * self.time(self.maturity))
+        )
+        payout = self.positive(
+            self.terms["basket_weight"] * first
+            + (1 - self.terms["basket_weight"]) * second
+            - self.strike
+        )
+        return self.quantity * payout * self.discount(self.maturity)
+
+    def pv_hybrid_equity_rate(self):
+        return self.quantity * self.call * self.discount(self.terms["bond_maturity"])
+
+
+REFERENCE_PAYOFFS = {
+    name.removeprefix("pv_"): method
+    for name, method in vars(DeterministicPayoff).items()
+    if name.startswith("pv_")
+}
+
+
+def reference_pv(record, scenario):
+    payoff = DeterministicPayoff(record, scenario)
+    return REFERENCE_PAYOFFS[record["family"]](payoff)
