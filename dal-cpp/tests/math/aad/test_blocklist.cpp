@@ -25,6 +25,25 @@ TEST(AADTest, TestBlockListEmplaceBackMulti) {
     ASSERT_EQ(blocks.Size(), 5);
 }
 
+TEST(AADTest, TestBlockListSizeAtFullFinalBlockDoesNotAllocateOrTraversePastEnd) {
+    BlockList_<double, 4> blocks;
+    blocks.EmplaceBackMulti(4);
+    ASSERT_EQ(blocks.Size(), 4);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 1);
+}
+
+TEST(AADTest, TestBlockListSizeAtFullReusedBlockExcludesRetainedCapacity) {
+    BlockList_<double, 4> blocks;
+    blocks.EmplaceBackMulti(3);
+    blocks.EmplaceBackMulti(2);
+    ASSERT_EQ(blocks.Size(), 6);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    blocks.Rewind();
+    blocks.EmplaceBackMulti(4);
+    ASSERT_EQ(blocks.Size(), 4);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+}
+
 TEST(AADTest, TestBlockListRewind) {
     BlockList_<double, 10> blocks;
     blocks.EmplaceBackMulti(5);

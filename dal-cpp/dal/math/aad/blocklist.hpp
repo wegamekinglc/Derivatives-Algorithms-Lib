@@ -15,6 +15,7 @@
 #include <array>
 #include <cstring>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <type_traits>
 #include <dal/utilities/exceptions.hpp>
@@ -87,10 +88,9 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] int Size() const {
-            int count = 0;
-            for(ConstIterator_ it = this->Begin(); it != this->End(); ++it)
-                count += 1;
-            return count;
+            const size_t count = OccupiedSlots();
+            REQUIRE(count <= static_cast<size_t>(std::numeric_limits<int>::max()), "BlockList.Size: occupied count exceeds int range");
+            return static_cast<int>(count);
         }
 
         [[nodiscard]] size_t AllocatedBlocks() const { return data_.size(); }
