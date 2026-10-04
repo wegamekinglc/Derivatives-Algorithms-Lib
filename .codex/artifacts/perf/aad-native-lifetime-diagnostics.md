@@ -3,8 +3,10 @@
 Status: active D02 acceptance. The initial `c83bcc9` mathematical, lifetime, build,
 installed ABI and default-OFF performance checks pass. A subsequent assignment
 failure audit adds three RED cases and a diagnostic-only correction. Corrected
-full ON/OFF builds and CTest pass; fresh default-OFF pairing and publication CI
-remain pending.
+full ON/OFF builds, CTest and fresh default-OFF pairing pass. The
+[corrected-source acceptance report](aad-native-lifetime-diagnostics-corrected.md)
+retains its final tables and a later calibration failure/confirmation trail.
+Publication CI and the final requirement audit remain pending.
 This increment and the bounded `BlockList_::Size` repair do not complete Stage A
 or the full AAD implementation goal.
 
@@ -28,7 +30,7 @@ outside the diagnostic contract.
   retained detached and unchanged.
 - Measured implementation: `c83bcc979ac294c0684c021f1191a2bb144e8fd0`.
 - Assignment-corrected implementation: `4c2f0d57f61d788e1ec717fb11c5e1fa0b0bd005`;
-  its full build checks pass; fresh pairing remains pending.
+  its full build checks pass; fresh pairing is recorded in the corrected report.
 - Separate bounded-size repair: `5e6d0ae`, preceding the diagnostic commit.
 - Sources: `/tmp/dal-aad-baseline` and `/tmp/dal-aad-implementation`.
 - Default native builds: `/tmp/dal-aad-evidence/base-build` and `head-build`.
@@ -99,7 +101,8 @@ next independent scope. All 28 diagnostic cases now pass focused ASan/UBSan
 with leak detection. Corrected full ON CTest passes all 2,313 cases, including
 Python; default OFF passes all 2,318 functional/example cases. Both complete
 rebuilds succeed. Retain `lifetime-assignment-{on,off}-{build,ctest}.log`.
-Default performance and publication CI still require corrected-head verification.
+Corrected default performance is verified in the linked report; publication CI
+still requires exact-head verification.
 Fresh corrected ON/OFF installs and external consumers also pass. Retain
 `lifetime-assignment-install-{on,off}.log` and
 `lifetime-assignment-consumer-{on,off}{,-configure,-build}.log`; these consumers
@@ -332,7 +335,8 @@ Under `/tmp/dal-aad-evidence/`:
   conditions and `results.json`.
 
 Initial `c83bcc9` performance verdict: **no regression under the unchanged policy**.
-Final corrected-head local/performance acceptance, publication CI, a D02 requirement audit and backend capability
-reporting remain. Passing the original D01 head's 46 checks is not evidence for
+Corrected local/performance acceptance is retained in the linked report.
+Publication CI, a D02 requirement audit and backend capability reporting remain.
+Passing the original D01 head's 46 checks is not evidence for
 these new C++, CMake or workflow changes. Stage A still contains P01/D01/D03 work;
 market/portfolio risk, structured operators and second-order scope remain active.

@@ -2,8 +2,9 @@
 
 Status: active D02 implementation contract. The option and native owner/epoch/
 slot-generation checks are implemented locally. Diagnostic core/public/portable
-Excel, Python and installed ON/OFF consumer checks pass. Default OFF paired
-performance and publication CI remain acceptance work.
+Excel, Python and installed ON/OFF consumer checks pass. Corrected default OFF
+paired performance passes with retained calibration failure/confirmation evidence.
+Publication CI and the final requirement audit remain acceptance work.
 The checked recording head `0ee84e1` passes all 46 exact-head CI checks.
 This contract controls
 the next diagnostic increment in the

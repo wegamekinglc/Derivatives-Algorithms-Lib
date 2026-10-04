@@ -153,9 +153,31 @@ default OFF assignment bodies are unchanged. All 28 diagnostic cases now pass
 ASan/UBSan, including actual scoped-registration failure/recovery. Corrected
 complete ON/OFF builds now pass: ON CTest has 2,313 cases including Python,
 and OFF has 2,318 functional/example cases. Evidence is retained in
-`lifetime-assignment-{on,off}-{build,ctest}.log`. Fresh default OFF pairing and
-current publication CI remain required before accepting the corrected increment;
-keep the earlier `c83bcc9` data.
+`lifetime-assignment-{on,off}-{build,ctest}.log`. Fresh default OFF pairing is
+recorded below; current publication CI remains required before accepting the
+corrected increment. Keep the earlier `c83bcc9` data.
+
+At frozen corrected head `8e1ef0941a949059858aa78cab46af4cb50b41e6`, fresh
+nine-target pairing passes all 65 comparable cases; ten new rows remain
+informational. All 35 ordinary MC cases and three LSM profiles pass, and all
+LSM PV/risk entries match. Initial supplemental calibration fails its 8-node
+query (+8.73%/+5.61%); retain the failure. With unchanged sources and binaries,
+independent two-by-ten confirmation and fixed two-by-thirty stability checks
+pass all 25 cases. The query becomes -0.75%/-2.39% and +1.54%/-1.32%,
+respectively. A same-binary control is retained. This supports measurement
+variation rather than a sustained regression, without establishing a specific
+hardware cause. RSS ranges overlap and major faults are zero. Every measured
+source/configuration/dependency/helper/binary identity is unchanged afterward.
+The [corrected D02 report](../perf/aad-native-lifetime-diagnostics-corrected.md)
+records every row, initial failure, confirmation and limitation. Exact-head CI,
+the D02 requirement audit and D03 capability reporting remain required.
+
+Direct D01 result-extraction failure coverage now completes a scoped reverse,
+reads its analytic price/gradient, throws during extraction, preserves that
+exception and proves the next independent scoped graph gives its analytic
+result. Native ON/OFF focused runs pass 76/48 cases. The new test and include
+ordering change no production or benchmark source; CoDiPack and current CI
+verification remain to be recorded.
 The independent full-final-block `BlockList::Size` repair has its
 bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
 final paired/CI acceptance; its full native/CoDiPack functional checks pass.
