@@ -5,6 +5,7 @@
 #include <limits>
 
 #include <dal/model/factory.hpp>
+#include <dal/model/ivs.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 
@@ -12,6 +13,14 @@
 
 namespace Dal {
     namespace {
+        class ConstantVolIVS_ final : public AAD::IVS_ {
+            double volatility_;
+
+        public:
+            explicit ConstantVolIVS_(const BSModelData_& model) : IVS_(model.spot_, model.rate_, model.div_), volatility_(model.vol_) {}
+            [[nodiscard]] double ImpliedVol(double, double) const override { return volatility_; }
+        };
+
         const Script::RiskExecutionSnapshot_& CheckedExecution(const Script::RiskResult_& source) {
             const auto& provenance = source.Provenance();
             REQUIRE(provenance.engine_ == "native" && provenance.normalization_ == "mean" && provenance.calibration_ == "fixed",
@@ -122,6 +131,10 @@ namespace Dal {
             return seeds;
         }
     } // namespace
+
+    DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const BSModelData_& baseModel, const DupireRiskInputs_& inputs, const String_& name) {
+        return CalibrateDupireWithRisk(ConstantVolIVS_(baseModel), inputs, name);
+    }
 
     DupireParameterAdjoints_
     ExtractDupireParameterAdjoints(const Script::RiskResult_& valuation, const DupireCalibrationSnapshot_& calibration, const String_& component) {

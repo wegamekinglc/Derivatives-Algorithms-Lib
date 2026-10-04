@@ -230,29 +230,59 @@ nine old gate binaries and the default core archive remain identical. The
 correctness findings. Binding, curve integration and exact new-publication CI
 acceptance remain separate requirements.
 
+Exact public Hybrid publication `c5c922eff4ddffb52aacf841cf7ca2e351422f58`
+passes all 35 CI checks. This accepts that increment, including its retained
+321 oracle rows, without closing F01's binding or common-curve requirements.
+The [binding API decision](../api-notes/aad-dupire-bindings.md) controls active
+Python implementation. Its initial C++ missing-overload compile and 31 Python
+missing-interface failures are retained before production implementation.
+
+The Python projection and flat-BS convenience now pass complete local
+verification: 42 new language checks, 84 fixed-step quote rows, OFF CTest
+2,383 (including 855 Python checks and 33 regular examples), combined CTest
+2,397 and fully instrumented ASan/UBSan 30 public checks. Both installed C++
+consumers pass OFF/combined; standalone Python against the installed public
+package passes 62 checks. An independent consumer linked to the unchanged
+accepted `c5c922ef` native libraries matches all 248 Python surface/price/model/
+quote numeric cells bitwise. The existing 321 native and initial 84 Python
+oracle rows remain identical. Nine old gate binaries and the default native
+archive remain identical; CCN-eight, format, documentation and generation pass.
+All 497 generated files have zero content drift.
+
+The [Python review](../reviews/aad-dupire-python-bindings.md) retains all failed
+evidence, including the initial architecture-guard include failure, an incorrect
+new shape-error regex and an existing exact parallel risk assertion. The latter
+is reproduced as ordinary legacy-self/legacy-to-structured roundoff against
+the unchanged accepted package. Keep its exact 257-path assertion under an
+explicit scoped single worker and add eight four-worker Hybrid/GSR cases at
+the existing rel/abs 1e-10 protocol. No production math or CI limit changes.
+New binding publication/CI, Excel and common curve adaptation remain required.
+
 ### Whole-plan status and remaining effort
 
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item | Implementation and local evidence | Publication/CI | Remaining person-days |
-| --- | --- | --- | ---: |
-| C01–C05, D00–D03 | Accepted native correctness/lifecycle/removal | Accepted exact-head checks | 0 |
-| Scalar D04 | Accepted C++/Python/Excel | Accepted exact-head checks | 0 |
-| P01 | Measurement tooling complete; production MC acceptance inconclusive | Published tooling; performance verdict open | 2–5 |
-| F01 | Dupire core accepted; Hybrid has 18 checks/321 oracle rows, complete OFF/combined and instrumented passes, installed consumers and entry-cost evidence | Core `e1ff0dd6` 35/35; public increment ready for draft publication/new CI | 7–11 |
-| F02 | Required multi-output/portfolio work remains | Open | 7–11 |
-| P02/P03 | Worker reuse/block selection/extraction remain | Open | 4–7 |
-| F03 | Solve, implicit calibration and PDE operators remain | Open | 12–20 |
-| P04/P05 | Structural sparsity/checkpointing remain | Open | 9–15 |
-| F04 | Second-order implementation/estimator validation remain | Open | 12–20 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open | 7–11 |
+| Work item               | Implementation/local verification                               | Publication/CI                                  | Remaining person-days |
+|-------------------------|-----------------------------------------------------------------|-------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                   | Accepted exact-head checks                      | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                       | Accepted exact-head checks                      | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive         | Published tooling; performance verdict open     | 2–5                   |
+| F01                     | Core/Hybrid accepted; Python locally verified; Excel/curve open | Core/Hybrid 35/35 each; Python new-head CI open | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain               | Open                                            | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                  | Open                                            | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain            | Open                                            | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                        | Open                                            | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain         | Open                                            | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains      | Open                                            | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
 investigation buffer. F01's first Hybrid oracle pass does not yet change that
-range. Re-estimate at milestones and when acceptance findings change the scope.
+range materially. F01 now has approximately 6–10 person-days remaining after
+Python's local verification. Re-estimate at milestones and when acceptance
+findings change the scope.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -612,9 +642,9 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: verify the corrected F01 core's exact-head CI, then connect
-typed Hybrid parameter seeds, full-chain oracles and C++/Python/Excel boundaries.
-Continue F01 curve integration and F02 output seeds under their controlling
-designs. Reconcile P01's unresolved performance with controlled-environment evidence;
+Next: publish and inspect the exact-head Python binding CI, then implement
+Excel boundaries and common curve adaptation after the accepted core and
+Hybrid increments. Continue F02 output seeds under their controlling design.
+Reconcile P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.
 Stage A and the full Stage B/C/D goal remain incomplete.

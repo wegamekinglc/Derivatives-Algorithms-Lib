@@ -26,6 +26,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   requires every surface seed and returns quote risk alongside the passive
   valuation without rerunning Monte Carlo. See
   [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
+  Python exposes the full chain with keyword configuration, custom/Merton IVS,
+  detached surfaces and readonly passive results; the public C++ flat-BS
+  convenience preserves deterministic carry.
 
 - **Structured script risk across C++, Python and Excel** —
   `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar

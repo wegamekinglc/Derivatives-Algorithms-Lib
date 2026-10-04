@@ -1,8 +1,8 @@
 # F01 calibration boundary API decision
 
-Status: core snapshot/scalar pullback accepted and public Hybrid adapter implemented
-under local verification; language bindings, curve integration and final acceptance
-remain open. The
+Status: core snapshot/scalar pullback and public Hybrid adapter accepted;
+Python bindings have complete local verification, while Excel, curve integration
+and final acceptance remain open. The
 [specification](../specs/aad-dupire-pullback.md) defines the derivative and tests.
 
 Introduce `dal-cpp/dal/model/dupirerisk.hpp` with passive quote/calibration
@@ -91,7 +91,8 @@ Errors identify `InvalidDupireQuote`, `InvalidDupireCalibration`,
 known. Unsupported nesting uses the existing recording diagnostic. Publish no
 partial risk handle and retain prior successful handles on failure.
 
-Python constructors use keyword configuration and copies/read-only getters.
+The [binding decision](aad-dupire-bindings.md) defines the implemented Python
+keyword configuration and copies/read-only getters.
 Excel follows `_New`, `MonteCarlo_...` and `_Get_...` naming with immutable
 wrappers and no getter valuation. Detailed binding names are finalized only
 after the core/Hybrid mathematical tests pass. No archive schema or general

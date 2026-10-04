@@ -758,6 +758,11 @@ strikes and columns are maturities. Spreads use absolute decimal volatility;
 `0.01` is one volatility point. Surface rows are spots and columns are model
 times, matching `LocalVolSurfaceData_`.
 
+The public header `dal-public/src/dupirerisk.hpp` also accepts `BSModelData_`
+as a flat base IVS, preserving its spot, rate and dividend yield. Python exposes
+the same frozen boundary with built-in and custom IVS inputs; see the
+[Python quote-risk interface](../python/README.md#dupire-quote-risk).
+
 ```cpp
 #include <dal/model/dupirerisk.hpp>
 #include <dal/model/ivs.hpp>

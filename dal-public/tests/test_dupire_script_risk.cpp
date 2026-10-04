@@ -335,6 +335,21 @@ namespace {
     }
 } // namespace
 
+TEST(DupireScriptRiskTest, TestFlatBSConveniencePreservesFrozenCarry) {
+    const auto expected = Dal::CalibrateDupireWithRisk(FlatIVS_(), Inputs(), "reference");
+    const Dal::BSModelData_ base("base", 100.0, 0.2, 0.05, 0.02);
+    const auto actual = Dal::CalibrateDupireWithRisk(base, Inputs(), "convenience");
+    ASSERT_TRUE(actual.Matches(expected));
+    ASSERT_DOUBLE_EQ(actual.Spot(), base.spot_);
+    ASSERT_DOUBLE_EQ(actual.Rate(), base.rate_);
+    ASSERT_DOUBLE_EQ(actual.DividendYield(), base.div_);
+    ASSERT_EQ(actual.Surface()->Name(), "convenience");
+    const Dal::DupireParameterAdjoints_ seeds{actual, Dal::Matrix_<>(actual.Surface()->vols_.Rows(), actual.Surface()->vols_.Cols(), 1.0)};
+    const auto result = Dal::PullbackDupireCalibration(actual, seeds);
+    const auto reference = Dal::PullbackDupireCalibration(expected, {expected, seeds.adjoints_});
+    ASSERT_TRUE(std::equal(result.TotalAdjoints().begin(), result.TotalAdjoints().end(), reference.TotalAdjoints().begin()));
+}
+
 TEST(DupireScriptRiskTest, TestUnsortedComponentsAndReorderedSelectionsUseRawModelOrdinals) {
     const SingleWorker_ worker;
     const FlatIVS_ ivs;

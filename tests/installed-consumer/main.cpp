@@ -16,7 +16,7 @@
 namespace {
     class ConsumerIVS_ final : public Dal::AAD::IVS_ {
     public:
-        ConsumerIVS_() : IVS_(100.0) {}
+        explicit ConsumerIVS_(double rate = 0.0, double dividend = 0.0) : IVS_(100.0, rate, dividend) {}
         [[nodiscard]] double ImpliedVol(double, double) const override { return 0.2; }
     };
 
@@ -39,6 +39,13 @@ namespace {
         return extracted.adjoints_(0, 0) == source.Jacobian()(0, 2) && result.Valuation().Values()[0] == source.Values()[0] &&
                result.Method() == "NativeAADThenNativeAADCalibrationVJP" &&
                std::equal(reference.TotalAdjoints().begin(), reference.TotalAdjoints().end(), result.QuoteRisk().TotalAdjoints().begin());
+    }
+
+    bool CheckFlatConvenience(const Dal::DupireRiskInputs_& inputs) {
+        const Dal::BSModelData_ model("flat", 100.0, 0.2, 0.05, 0.02);
+        const auto actual = Dal::CalibrateDupireWithRisk(model, inputs);
+        const auto expected = Dal::CalibrateDupireWithRisk(ConsumerIVS_(model.rate_, model.div_), inputs);
+        return actual.Matches(expected) && actual.Rate() == 0.05 && actual.DividendYield() == 0.02;
     }
 } // namespace
 
@@ -68,6 +75,8 @@ int main() {
         return 7;
     if (!CheckHybridPullback(calibration))
         return 8;
+    if (!CheckFlatConvenience(inputs))
+        return 9;
     const Dal::Date_ start(2026, 1, 1);
     if (start.AddDays(1) - start != 1)
         return 1;

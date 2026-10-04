@@ -1,7 +1,9 @@
 # F01 public Hybrid pullback review
 
-Verdict: Comment Only. No unresolved local API correctness findings; exact
-publication-head CI and full F01 integration remain open.
+Verdict: Approve for the published Hybrid increment. No unresolved local API
+correctness findings; exact `c5c922ef` passes all 35 CI checks. Full F01
+integration and the later [Python increment](aad-dupire-python-bindings.md)
+remain independently open.
 
 ## Findings
 
@@ -42,8 +44,8 @@ production gradient fix or proof of exact commutation for general floating seeds
   independent processes after all builds/tests finish, with unchanged numeric
   references and 1,040 input hashes. Existing default gate identities and P01's
   inconclusive production verdict remain separate from this capability cost.
-- New public source needs its own exact publication-head CI. `e1ff0dd6`'s
-  35 green checks certify the preceding core increment.
+- Public `c5c922ef` passes its own 35 exact-head checks. This accepts the public
+  increment separately from the preceding core and subsequent bindings.
 - Python/Excel factory/getters, common curve pullback adaptation and complete
   F01 acceptance remain required. No full F01 checkbox closes here.
 - The mixed policy-secant source remains explicitly labeled. Mapping that

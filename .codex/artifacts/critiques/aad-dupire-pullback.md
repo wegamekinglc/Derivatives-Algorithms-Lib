@@ -37,6 +37,13 @@ for display; full content and typed coordinates establish compatibility.
 
 ## Required review evidence
 
+Language projection must not cast away const ownership of the frozen surface.
+Return detached geometry/matrices/surface, and retain the GIL during custom-IVS
+sampling. The IVS override must validate its numeric return rather than accept
+bool/enum conversion to volatility. The public BS convenience must delegate to
+the existing core and preserve spot/rate/dividend exactly. An exception in a
+Python callback must not enter a recording or poison later requests.
+
 Retain the predeclared multi-step calibration and complete-chain oracles, raw
 failed steps, flat parallel-vol reference, rectangular/reordered grids, direct
 terms, lifetime/alias tests and success/failure/success recovery. Reconcile

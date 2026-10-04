@@ -151,6 +151,14 @@ trade parameter seeds before one pullback; reject incompatible snapshots.
 
 ## Subsequent required integration
 
+The [language boundary](../api-notes/aad-dupire-bindings.md) controls the active
+Python projection and public flat-BS convenience overload. Python supports both
+the existing Merton IVS and user overrides, keeps the GIL while sampling them,
+and releases it only for callback-free passive/native pullbacks. Every returned
+mutable numeric value and surface is detached from snapshot storage. Required
+handles and numeric configuration reject implicit bool/enum coercions. Retain
+the current fixed quote-oracle protocol for language-level complete chains.
+
 C++ public factory/pullback, Python keyword interfaces and Excel immutable
 factory/getters follow the validated core boundary. A common passive calibration
 pullback must also adapt the existing curve quote-risk axis/state/provenance

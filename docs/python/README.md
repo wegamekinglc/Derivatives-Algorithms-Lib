@@ -175,6 +175,54 @@ physical units can be unknown. The raw legacy view rejects display collisions.
 The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
 describes the retained product/model/history settings and mixed LSM policy risk.
 
+## Dupire quote risk
+
+`DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration
+from an existing BS model, `MertonIVS_`, or a Python subclass of `IVS_`.
+Configuration is keyword-only; quote rows are strikes and columns are maturities.
+
+```python
+inputs = dal.DupireRiskInputs_(
+    quote_strikes=[75.0, 105.0, 135.0], quote_maturities=[0.4, 1.2],
+    quote_spreads=dal.DoubleMatrix_(3, 2),
+    inclusion_spots=[60.0, 100.0, 140.0], max_spot_spacing=10.0,
+    inclusion_times=[0.5, 1.0], max_time_spacing=0.5,
+)
+base = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
+calibration = dal.DupireCalibration_New(base, inputs, name="local_vol")
+seeds = dal.DupireParameterAdjoints_(
+    calibration, dal.DoubleMatrix_(len(calibration.spots), len(calibration.times), 1.0),
+)
+quotes = dal.DupireQuoteRisk_New(calibration, seeds)
+raw = quotes.total_adjoints.to_rows()
+```
+
+This example differentiates the sum of calibrated surface nodes. For trade risk,
+use `calibration.surface` in a Hybrid local-vol component and obtain a
+`MonteCarlo_ValueWithRisk` result with every surface input selected. Then call
+`DupireScriptQuoteRisk_New(valuation, calibration, component, *, direct=None)`.
+Its `valuation`, `quote_risk`, `component` and `method` retain the source and
+quote results. `DupireParameterAdjoints_FromRisk` extracts the surface seed
+separately for compatible portfolio accumulation.
+
+`DupireDirectQuoteAdjoints_(calibration, matrix)` supplies an optional raw PV
+quote contribution. Results separate `calibration_adjoints`, `direct_adjoints`
+and `total_adjoints`; their `unit` is `decimal-vol`. Reporting factors and path
+averaging are not applied again. Snapshot getters expose copied `inputs`,
+`spots`, `times`, `vols` and a detached `surface`, plus `spot`, `rate`,
+`dividend_yield`, `algorithm` and full-content `matches(other)`.
+Numeric properties and copy/deepcopy cannot change retained calibration data.
+
+Custom IVS subclasses call `super().__init__(spot=..., rate=...,
+dividend_yield=...)` and implement `implied_vol(strike, maturity)` returning a
+finite numeric volatility. `MertonIVS_` takes keyword-only `spot`, `vol`,
+`intensity`, `average_jump`, `jump_std` and retains zero carry. Sampling holds
+the GIL; the snapshot retains no Python callback, and native pullbacks release
+the GIL. Later changes or destruction of the IVS do not affect prior results.
+Numeric configuration excludes bool and enums; invalid domains, missing surface
+columns and incompatible identities fail explicitly. See the
+[discrete derivative and estimator boundaries](../methodology/aad.md#discrete-dupire-calibration-pullback).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

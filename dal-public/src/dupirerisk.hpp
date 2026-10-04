@@ -5,9 +5,14 @@
 #pragma once
 
 #include <dal/model/dupirerisk.hpp>
+#include <dal/model/ivs.hpp>
 #include <dal/script/riskresults.hpp>
 
 namespace Dal {
+    struct BSModelData_;
+
+    DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const BSModelData_& baseModel, const DupireRiskInputs_& inputs, const String_& name = {});
+
     DupireParameterAdjoints_
     ExtractDupireParameterAdjoints(const Script::RiskResult_& valuation, const DupireCalibrationSnapshot_& calibration, const String_& component);
 
