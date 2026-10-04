@@ -22,6 +22,31 @@ namespace Dal::AAD {
     };
 } // namespace Dal::AAD
 
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+namespace {
+    struct FullBlockGraph_ {
+        Number_ input_;
+        Number_ output_;
+        Vector_<TapNode_*> nodes_;
+    };
+
+    FullBlockGraph_ RecordFullBlock(RecordingScope_& recording) {
+        FullBlockGraph_ graph;
+        recording.RegisterInput(graph.input_, 1.0);
+        recording.StartRecording();
+        graph.nodes_.reserve(BLOCK_SIZE);
+        graph.nodes_.push_back(&*Tape()->nodes_.Begin());
+        graph.output_ = graph.input_;
+        for (size_t i = 1; i < BLOCK_SIZE; ++i) {
+            graph.output_ = graph.output_ * 1.00001;
+            graph.nodes_.push_back(&*std::prev(Tape()->nodes_.End()));
+        }
+        recording.FinishRecording();
+        return graph;
+    }
+} // namespace
+#endif
+
 TEST(AADRecordingStateTest, TestScopedScalarGraphSupportsFreshWeightedSweeps) {
     RecordingScope_ recording;
     Number_ input;
@@ -257,53 +282,51 @@ TEST(AADRecordingStateTest, TestRawModeMutationRejectsBeforeUsingCheckpointPosit
     next.Close();
 }
 
-TEST(AADRecordingStateTest, TestClearingAFullFinalBlockRetainsCapacityAndSupportsNewSeeds) {
-    for (const bool multi : {false, true}) {
-        Clear(*Tape());
-        auto mode = SetNumResultsForAAD(multi, 3);
-        RecordingScope_ recording;
-        Number_ input;
-        recording.RegisterInput(input, 1.0);
-        recording.StartRecording();
-        Vector_<TapNode_*> nodes;
-        nodes.reserve(BLOCK_SIZE);
-        nodes.push_back(&*Tape()->nodes_.Begin());
-        Number_ state = input;
-        for (size_t i = 1; i < BLOCK_SIZE; ++i) {
-            state = state * 1.00001;
-            nodes.push_back(&*std::prev(Tape()->nodes_.End()));
-        }
-        recording.FinishRecording();
-        ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), BLOCK_SIZE);
-        const auto blocks = Tape()->nodes_.AllocatedBlocks();
-        for (auto* node : nodes) {
-            node->Adjoint() = 42.0;
-            if (multi)
-                for (size_t channel = 0; channel < 3; ++channel)
-                    node->Adjoint(channel) = 42.0;
-        }
-        recording.ClearAdjoints();
-        ASSERT_EQ(Tape()->nodes_.AllocatedBlocks(), blocks);
-        for (auto* node : nodes) {
-            ASSERT_DOUBLE_EQ(node->Adjoint(), 0.0);
-            if (multi)
-                for (size_t channel = 0; channel < 3; ++channel)
-                    ASSERT_DOUBLE_EQ(node->Adjoint(channel), 0.0);
-        }
-        const double expected = std::pow(1.00001, BLOCK_SIZE - 1);
-        if (multi) {
-            nodes.back()->Adjoint(0) = 2.0;
-            recording.Reverse();
-            ASSERT_NEAR(nodes.front()->Adjoint(0), 2.0 * expected, 1.0e-10);
-            ASSERT_DOUBLE_EQ(nodes.front()->Adjoint(1), 0.0);
-            ASSERT_DOUBLE_EQ(nodes.front()->Adjoint(2), 0.0);
-        } else {
-            Adjoint(state) = 2.0;
-            recording.Reverse();
-            ASSERT_NEAR(AdjointValue(input), 2.0 * expected, 1.0e-10);
-        }
-        recording.Close();
+TEST(AADRecordingStateTest, TestClearingAFullScalarFinalBlockRetainsCapacityAndSupportsNewSeeds) {
+    Clear(*Tape());
+    auto mode = SetNumResultsForAAD(false, 3);
+    RecordingScope_ recording;
+    auto graph = RecordFullBlock(recording);
+    ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), BLOCK_SIZE);
+    const auto blocks = Tape()->nodes_.AllocatedBlocks();
+    for (auto* node : graph.nodes_)
+        node->Adjoint() = 42.0;
+    recording.ClearAdjoints();
+    ASSERT_EQ(Tape()->nodes_.AllocatedBlocks(), blocks);
+    for (auto* node : graph.nodes_)
+        ASSERT_DOUBLE_EQ(node->Adjoint(), 0.0);
+    Adjoint(graph.output_) = 2.0;
+    recording.Reverse();
+    ASSERT_NEAR(AdjointValue(graph.input_), 2.0 * std::pow(1.00001, BLOCK_SIZE - 1), 1.0e-10);
+    recording.Close();
+    Clear(*Tape());
+}
+
+TEST(AADRecordingStateTest, TestClearingAFullVectorFinalBlockRetainsCapacityAndSupportsNewSeeds) {
+    Clear(*Tape());
+    auto mode = SetNumResultsForAAD(true, 3);
+    RecordingScope_ recording;
+    auto graph = RecordFullBlock(recording);
+    ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), BLOCK_SIZE);
+    const auto blocks = Tape()->nodes_.AllocatedBlocks();
+    for (auto* node : graph.nodes_) {
+        node->Adjoint() = 42.0;
+        for (size_t channel = 0; channel < 3; ++channel)
+            node->Adjoint(channel) = 42.0;
     }
+    recording.ClearAdjoints();
+    ASSERT_EQ(Tape()->nodes_.AllocatedBlocks(), blocks);
+    for (auto* node : graph.nodes_) {
+        ASSERT_DOUBLE_EQ(node->Adjoint(), 0.0);
+        for (size_t channel = 0; channel < 3; ++channel)
+            ASSERT_DOUBLE_EQ(node->Adjoint(channel), 0.0);
+    }
+    graph.nodes_.back()->Adjoint(0) = 2.0;
+    recording.Reverse();
+    ASSERT_NEAR(graph.nodes_.front()->Adjoint(0), 2.0 * std::pow(1.00001, BLOCK_SIZE - 1), 1.0e-10);
+    ASSERT_DOUBLE_EQ(graph.nodes_.front()->Adjoint(1), 0.0);
+    ASSERT_DOUBLE_EQ(graph.nodes_.front()->Adjoint(2), 0.0);
+    recording.Close();
     Clear(*Tape());
 }
 

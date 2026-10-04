@@ -116,6 +116,14 @@ timings, cumulative storage measurements, workspace reuse, more output axes,
 path-internal recomputation, and later plan features still require their own evidence.
 Four-backend and binding CI for this increment is pending.
 
+The first publication head `ca977e2` receives one Codacy issue: the combined
+scalar/vector full-block test has cyclomatic complexity 10 (limit 8). Split it
+into separate scalar and vector tests with shared graph setup, retaining all
+node/channel/capacity/seed assertions. The revised suite passes 21 native and
+15 CoDiPack cases; all 21 native cases pass ASan/UBSan. Production source and
+all nine measured benchmark binaries remain identical. Exact-head CI must
+verify the test-only correction before D01 acceptance closes.
+
 ## Retained evidence and reproduction
 
 Evidence root: `/tmp/dal-aad-evidence`.

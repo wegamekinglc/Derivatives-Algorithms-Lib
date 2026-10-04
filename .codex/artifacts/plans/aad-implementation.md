@@ -105,6 +105,14 @@ tables, conditions, initial failures, and remaining coverage limits. Publication
 head four-backend/Windows/binding CI remains required; the prior ownership head's
 green CI does not validate this increment.
 
+At first publication head `ca977e2`, Codacy reports complexity 10 (limit 8) in
+the combined scalar/vector full-block test. Split the two cases with shared
+graph setup and preserve every assertion. All 21 native/fifteen CoDiPack cases
+and all 21 native ASan/UBSan cases pass locally after this test-only correction;
+production source and all measured nine-target binaries remain unchanged.
+Await the original head's running jobs before publishing its corrected successor,
+then inspect that successor's exact-head static and backend/CI checks.
+
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
 found approximately 50% regressions in vector propagation and the small Jacobian harvest;
