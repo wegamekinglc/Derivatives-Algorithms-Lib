@@ -2,7 +2,7 @@
 
 Status: read-first local review of measured head `8816951` and its evidence-only
 publication update. Fresh local functionality and paired performance pass;
-exact publication-head CI and final audits remain open.
+all 28 exact `b42f9eb` CI checks and final D00/D01/D02/D03 audits pass.
 The controlling [native-only specification](../specs/aad-native-only.md) replaces
 earlier external-backend compatibility requirements. The full AAD goal remains active.
 
@@ -32,11 +32,8 @@ Resolved during verification:
 
 ## Open acceptance work
 
-- Exact new-head CI, including complete diagnostic sanitizer libraries, Windows,
-  wheels and all remaining protected gates. The 49 green checks at `9b5febc`
-  do not validate these changes.
-- Final requirement audit before checking D00/D03 off. D01/D02 and the remaining
-  production measurement scope also require their own final audits.
+- Remaining P01 production phase/resource/scaling measurement and subsequent
+  full-goal stages. No overall completion follows from this accepted increment.
 
 Protected documentation follow-up: `CLAUDE.md:35` still lists legacy AAD selection
 options. AGENTS.md explicitly forbids changing Claude originals without separate
@@ -57,8 +54,8 @@ reporting this exact protected location fulfills D00 R10.
   it does not claim that every library translation unit is locally instrumented.
 - Full generation/drift check passes with zero generated files changed. CI helper
   suite passes 172 tests with six existing skips; YAML needs and matrix/gates pass.
-- Documentation integrity passes for 75 files at the measured head and 76
-  after the evidence-only update. All 21 native benchmark smoke
+- Documentation integrity passes for 75 files at the measured head and 78
+  after the final audit/numeric evidence update. All 21 native benchmark smoke
   cases pass serially; smoke is not paired performance acceptance. Staged patch
   verification remains packaging work.
 - Frozen performance: 65 formal comparable cases, 25 curve cases and the
@@ -81,4 +78,15 @@ mathematical and lifecycle coverage is preserved; only external-specific tests
 and CI legs are removed. Remaining names identify explicit migration rejection or
 retained historical evidence.
 
-Verdict: Comment Only until exact-head CI and final requirement audits complete.
+All 28 exact `b42f9eb` checks succeed. Complete diagnostic sanitizer libraries,
+Windows/consumers, all native compilers and wheel platforms, static analysis and
+both gates are included. Its matrix helper correction preserves every assertion
+and current interpreter. Library/build/benchmark source equivalence to `8816951`
+and all 22 measured binary digests are rechecked. The final contract audit accepts
+D00/D01/D02/D03 with the report's limits. The supplementary numeric comparison
+passes ten ordinary MC plus 25 curve cases and 34,028 finite numeric cells,
+including all required risk vectors/residual/Jacobian/inverse values. It closes
+D01's A12 evidence gap without changing production code or timed workloads.
+P01 remains open.
+
+Verdict: Comment Only for the full unfinished Stage A and draft development PR.

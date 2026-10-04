@@ -4,7 +4,8 @@ Status: fresh local functional and installed-consumer verification passes.
 The unchanged nine-target performance gate passes. Supplemental production
 acceptance passes after a predefined two-by-thirty confirmation of all five
 profiles; the initial two-by-ten experiment contains two failures, retained below.
-Exact publication-head CI and final D00/D03 requirement audits remain open.
+All 28 exact publication-head checks at `b42f9eb` and D00/D01/D02/D03 requirement
+audits subsequently pass; their source equivalence is recorded below.
 This report does not complete Stage A or the full AAD development goal.
 
 ## Immutable scope and environment
@@ -336,9 +337,18 @@ policy**, with the retained initial failures and borderline GSR confirmation
 described above. This statement is limited to the measured cases/configuration;
 it is not proof of identical runtime or a universal no-regression guarantee.
 
-Next: publish the reviewed native-only increment, inspect exact new-head CI
-(including complete sanitizer libraries, Windows and wheels), and finish the
-D00/D03 audits. Verify that any subsequent evidence-only publication commit has
-an empty production/benchmark diff from the measured head and unchanged binary
-digests before extending this evidence to it. D01/D02 final audits and remaining
-P01 work still precede full Stage A completion; Stages B/C/D remain active scope.
+Publication `59d81b0` changes only active evidence/contracts. At `b42f9eb`, the
+only further change is the CI matrix helper's literal command with an explicit
+current-interpreter override. Its initial Codacy finding and corrected 20/172
+helper tests remain recorded. All 28 exact-head checks succeed, including both
+stable gates, complete diagnostic sanitizer libraries, Windows/consumers and
+wheels. Production/build/benchmark diff from measured `8816951` is empty and all
+22 binary digests are rechecked. Terminal captures are
+`native-only-b42f9eb-{ci-final.jsonl,pr-final.json}`. The
+[contract audit](../reviews/aad-native-contract-audit.md) verifies D00/D01/D02/D03.
+The [additional numeric comparison](aad-recording-numeric-validation.md) closes
+D01's broader affected-workload coverage gap with ten MC and all 25 curve cases.
+
+Any subsequent source change requires its own scoped correctness/performance
+and exact-head CI proof. Remaining P01 work still precedes Stage A completion;
+Stages B/C/D remain active scope.

@@ -10,7 +10,8 @@ four-backend compatibility goal. D00 is now a Stage A requirement; D03 is limite
 to useful native operations and capability contracts. See the controlling
 [native-only specification](../specs/aad-native-only.md).
 Removal is implemented locally; fresh native functionality and paired performance pass.
-Publication-head CI and the final audit remain open. Earlier external-backend results below remain
+All 28 exact `b42f9eb` CI checks and the D00/D01/D02/D03 audit pass.
+Earlier external-backend results below remain
 historical evidence, not continuing support obligations or removal acceptance.
 
 Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
@@ -49,12 +50,12 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] C03: non-finite derivatives/seeds remain observable; public results diagnose invalid risk.
 - [x] C04: preserve consumed intermediate clearing, leaf accumulation, repeated sweeps, and checkpoints.
 - [x] C05: no implicit approximate gradient truncation.
-- [ ] D00: remove XAD, CoDiPack and Adept code, gitlinks, configuration, exports,
+- [x] D00: remove XAD, CoDiPack and Adept code, gitlinks, configuration, exports,
   examples, scripts and CI; verify fresh native-only builds and migration errors.
 - [ ] P01: correct production-oriented tape/Jacobian/MC benchmarks and explanatory resource metrics.
-- [ ] D01: explicit recording lifecycle, checkpoints, nested-use rejection, and exception recovery.
-- [ ] D02: optional owner/slot-lifetime diagnostics without release per-node overhead.
-- [ ] D03: thin native operation/capability contracts; remove unpublished external
+- [x] D01: explicit recording lifecycle, checkpoints, nested-use rejection, and exception recovery.
+- [x] D02: optional owner/slot-lifetime diagnostics without release per-node overhead.
+- [x] D03: thin native operation/capability contracts; remove unpublished external
   adapters and selection metadata rather than introducing a pluggable framework.
 
 ## Stage B: market and portfolio risk
@@ -127,7 +128,19 @@ zero major faults and equal daily-LSM results. Source/configuration/five pins,
 all 22 binaries and helpers are unchanged through measurement.
 The [native-only report](../perf/aad-native-only.md) records every case, initial
 failures, control provenance/annotation correction, fixed confirmation and limits.
-New-head CI and the requirement audits remain required before D00/D03 check-off.
+At publication `b42f9eb9c12a5987e8a81a869f59b38d8096a1de`, all 28 exact-head
+checks pass, including complete diagnostic sanitizers, native compilers, both
+stable gates, MSVC/consumers and all wheel platforms. The
+[native contract audit](../reviews/aad-native-contract-audit.md) verifies D00,
+D01, D02 and D03 requirements. The library/build/benchmark diff from measured
+`8816951` is empty and all 22 binary digests still match.
+D01's initial numeric-coverage gap is filled by the
+[production comparison](../perf/aad-recording-numeric-validation.md): all ten
+ordinary MC and 25 curve cases, 34,028 numeric cells, pass rel/abs 1e-10, including
+complete risk vectors, residuals and Jacobian/inverse matrices. The existing
+three LSM profiles also agree in every paired sample. Remaining P01
+phase/resource/scaling measurement and all later
+stages remain required.
 
 Protected guidance sync item: `CLAUDE.md:35` still lists legacy AAD selection
 options. AGENTS.md forbids editing Claude originals without explicit user
@@ -345,8 +358,8 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the reviewed native-only source and inspected local performance
-evidence, then verify exact new-head CI. Complete D00/D03 and D01/D02 audits
+Next: publish the final native-only acceptance audit with exact-head validation.
+Complete remaining P01 phase/resource/scaling measurement
 and remaining P01 production measurement under the amended full scope.
 The earlier D02 paired acceptance and 49 green publication checks remain valid
 for their recorded head; they do not accept the pending removal changes.

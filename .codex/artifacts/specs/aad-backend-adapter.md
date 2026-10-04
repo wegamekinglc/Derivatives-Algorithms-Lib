@@ -1,9 +1,10 @@
 # DAL native AAD operation contract
 
-Status: active D03 specification, amended to native-only development.
+Status: D03 accepted at native-only publication `b42f9eb`; this contract still
+controls the remaining full-goal request/operation work.
 External-backend removal and native simplification are implemented locally;
-fresh complete local verification and paired performance pass; exact publication
-CI and the final requirement audit remain pending.
+fresh complete local verification, paired performance, all 28 exact publication
+CI checks and the final requirement audit pass.
 
 Source: the user's full AAD implementation request, its no-performance-regression
 and no-CI-failure condition, and the subsequent requirement to remove XAD,
@@ -154,9 +155,9 @@ rejects absent vector storage before access. Both failures and corrected runs
 remain in the evidence root. The local generated enum preserves transitions
 and default-OFF scope size/alignment on the measured host.
 
-Published PR #480 at 9b5febc has 49 successful checks, but still includes external
-backends and does not validate these unpublished commits. Fresh D00/D03 paired
-performance is now recorded below; publication CI remains open.
+Earlier PR #480 publication 9b5febc passed 49 checks while containing external
+backends; it did not validate the then-unpublished removal. Fresh D00/D03
+performance and exact native-only publication CI are recorded below.
 
 Current local native-only source has no external dependency directories. Fresh
 OFF/ON complete builds, final incremental rebuilds and full tests pass.
@@ -182,5 +183,10 @@ All LSM numeric results agree and before/after source/configuration/pin/binary
 identities match. See the [native-only evidence](../perf/aad-native-only.md) for
 every result, retained failures and limits.
 
-Next: publish the reviewed increment, inspect exact-head CI and complete D00/D03
-audits. Do not check off D03 or Stage A before the remaining evidence.
+All 28 checks at `b42f9eb9c12a5987e8a81a869f59b38d8096a1de` succeed, including
+complete diagnostic sanitizer libraries, Windows/consumers, wheels and both
+stable gates. Source equivalence to measured `8816951` and all 22 binary digests
+are rechecked. The [contract audit](../reviews/aad-native-contract-audit.md)
+verifies every D03 requirement/acceptance item within its stated evidence limits.
+D00/D01/D02/D03 can be checked off after the additional D01 numeric comparison;
+P01 remains open, and no Stage A or full-goal completion is claimed.

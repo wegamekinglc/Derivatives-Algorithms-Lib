@@ -1,10 +1,11 @@
 # Native AAD active-number lifetime diagnostics
 
-Status: active D02 implementation contract. The option and native owner/epoch/
+Status: D02 accepted at native-only publication `b42f9eb`; this contract remains
+active for the full-goal implementation. The option and native owner/epoch/
 slot-generation checks are implemented locally. Diagnostic core/public/portable
 Excel, Python and installed ON/OFF consumer checks pass. Corrected default OFF
 paired performance passes with retained calibration failure/confirmation evidence.
-Publication CI and the final requirement audit remain acceptance work.
+All 28 exact native-only publication CI checks and the final requirement audit pass.
 The checked recording head `0ee84e1` passes all 46 exact-head CI checks.
 This contract controls
 the next diagnostic increment in the
@@ -12,8 +13,10 @@ the next diagnostic increment in the
 The [native-only amendment](aad-native-only.md) supersedes external backend
 compatibility. The published diagnostic head `9b5febc` passed 49 checks before
 removal. Fresh local removal-head functionality and paired performance are in
-the [native-only report](../perf/aad-native-only.md); exact publication-head CI
-and the final requirement audit remain required.
+the [native-only report](../perf/aad-native-only.md). The
+[contract audit](../reviews/aad-native-contract-audit.md) maps every D02
+requirement and acceptance item to the final source, tests, packages, OFF cost
+proof and successful exact-head complete sanitizer/Windows/binding CI.
 
 ## Problem and supported boundary
 

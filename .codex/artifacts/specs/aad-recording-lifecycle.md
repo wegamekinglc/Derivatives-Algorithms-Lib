@@ -1,6 +1,7 @@
 # AAD recording lifecycle: implementation contract
 
-Status: active acceptance contract. Ownership, states, checkpoint handles, clearing,
+Status: D01 accepted at native-only publication `b42f9eb`; this contract remains
+active for the full-goal implementation. Ownership, states, checkpoint handles, clearing,
 mode boundaries, and ordinary/LSM batch migration are implemented locally. Full
 native/CoDiPack correctness, sanitizers, and changed-workload paired performance
 pass at corrected C++ head `71f41a8`; publication head `0ee84e1` passes all 46
@@ -10,8 +11,12 @@ D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Al
 The [native-only amendment](aad-native-only.md) replaces the earlier external
 backend obligations. Results above describe earlier heads; the removal increment
 has fresh native OFF/ON and performance evidence in the
-[native-only report](../perf/aad-native-only.md); exact-head CI and the final
-D01 requirement audit remain open.
+[native-only report](../perf/aad-native-only.md); all 28 exact `b42f9eb` CI checks
+pass. The [contract audit](../reviews/aad-native-contract-audit.md) verifies D01,
+including the additional [production numeric evidence](../perf/aad-recording-numeric-validation.md)
+for A12: ten ordinary MC cases and all 25 curve cases compare 34,028 finite numeric
+cells at rel/abs 1e-10, alongside every paired LSM price/risk. Initial limited
+numeric extraction and its later correction remain explicit in the audit.
 
 ## Problem and compatibility constraints
 
