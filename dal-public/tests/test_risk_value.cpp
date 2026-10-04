@@ -4,12 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
 
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
+#include <dal/concurrency/threadpool.hpp>
 #include <dal/storage/globals.hpp>
 
 #include <script_test_observers.hpp>
@@ -20,6 +24,18 @@ using Dal::String_;
 using Dal::Vector_;
 
 namespace {
+    struct ScopedThreads_ {
+        Dal::ThreadPool_* pool_ = Dal::ThreadPool_::GetInstance();
+        size_t threads_ = pool_->NumThreads();
+        bool active_ = pool_->IsActive();
+        explicit ScopedThreads_(size_t threads) { pool_->Start(threads, true); }
+        ~ScopedThreads_() {
+            pool_->Start(threads_, true);
+            if (!active_)
+                pool_->Stop();
+        }
+    };
+
     Dal::ScriptValuationSettings_ Valuation() {
         Dal::ScriptValuationSettings_ settings;
         settings.evaluationDate_ = Date_(2026, 9, 12);
@@ -27,6 +43,23 @@ namespace {
     }
 
     auto Model(double spot = 100.0) { return Dal::NewBSModelData("risk_model", spot, 0.0, 0.0, 0.0); }
+
+    auto HybridAndGsrSamples() {
+        Dal::HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("A", "EQ[A]", "USD", "FA", 100.0, 0.2, 0.0)),
+                                Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridDeterministicRateData_("RATE", "USD", 0.05))};
+        settings.correlation_ =
+            Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("correlation", {"FA"}, Dal::Matrix_<>(1, 1, 1.0)));
+        const auto hybrid = Dal::NewHybridModelData("hybrid", settings);
+        const auto equity = Dal::NewScriptProduct("call", {Cell_(Date_(2027, 9, 12))}, {"pay PAYS MAX(FIX(EQ[A]) - 100, 0)"});
+        const Date_ today(2026, 9, 12);
+        const auto curve = Dal::NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Dal::Matrix_<>(0, 0));
+        const auto gsr = Dal::NewGSRModelData("rates", curve, Dal::NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
+        const auto bond = Dal::NewScriptProduct("bond", {Cell_(Date_(2027, 9, 12))}, {"pay PAYS FIX(IR[USD,DF,2028-09-12])"});
+        return std::array<std::pair<Dal::Handle_<Dal::ScriptProductData_>, Dal::Handle_<Dal::ModelData_>>, 2>{std::make_pair(equity, hybrid),
+                                                                                                              std::make_pair(bond, gsr)};
+    }
 
     template <class F_> void AssertError(F_ action, const char* field) {
         try {
@@ -197,27 +230,42 @@ TEST(RiskValueTest, TestLsmRqmcMatchesLegacyAndLabelsMixedPolicyDerivative) {
 
 TEST(RiskValueTest, TestHybridAndGsrAxesAndLegacyValuesAgree) {
     Dal::InitGlobalData(1);
-    Dal::HybridSettings_ settings;
-    settings.domesticCurrency_ = "USD";
-    settings.components_ = {Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridBSEquityData_("A", "EQ[A]", "USD", "FA", 100.0, 0.2, 0.0)),
-                            Dal::Handle_<Dal::HybridComponentData_>(new Dal::HybridDeterministicRateData_("RATE", "USD", 0.05))};
-    settings.correlation_ =
-        Dal::Handle_<Dal::HybridCorrelationData_>(new Dal::HybridConstantCorrelationData_("correlation", {"FA"}, Dal::Matrix_<>(1, 1, 1.0)));
-    const auto hybrid = Dal::NewHybridModelData("hybrid", settings);
-    const auto equity = Dal::NewScriptProduct("call", {Cell_(Date_(2027, 9, 12))}, {"pay PAYS MAX(FIX(EQ[A]) - 100, 0)"});
-    const Date_ today(2026, 9, 12);
-    const auto curve = Dal::NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Dal::Matrix_<>(0, 0));
-    const auto gsr = Dal::NewGSRModelData("rates", curve, Dal::NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
-    const auto bond = Dal::NewScriptProduct("bond", {Cell_(Date_(2027, 9, 12))}, {"pay PAYS FIX(IR[USD,DF,2028-09-12])"});
+    const ScopedThreads_ threads(1);
+    const auto samples = HybridAndGsrSamples();
     for (const bool compiled : {false, true}) {
         auto simulation = Dal::DefaultRiskMonteCarloSettings();
         simulation.compiled_ = compiled;
-        for (const auto& sample : {std::make_pair(equity, hybrid), std::make_pair(bond, gsr)}) {
+        for (const auto& sample : samples) {
             const auto legacy = Dal::ValueByMonteCarlo(sample.first, sample.second, 257, Valuation(), simulation);
             const auto result = Dal::ValueByMonteCarloWithRisk(sample.first, sample.second, 257, {}, Valuation(), simulation);
             ASSERT_EQ(result.LegacyValues(), legacy);
             ASSERT_EQ(result.Provenance().modelType_, sample.second->Type());
             ASSERT_FALSE(result.Provenance().execution_->modelSnapshotJson_.empty());
+        }
+    }
+}
+
+TEST(RiskValueTest, TestFourWorkerHybridAndGsrLegacyProjectionPreservesNumericContract) {
+    Dal::InitGlobalData(1);
+    const ScopedThreads_ threads(4);
+    const auto samples = HybridAndGsrSamples();
+    for (const bool compiled : {false, true}) {
+        auto simulation = Dal::DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        for (const int paths : {257, 2057}) {
+            for (const auto& sample : samples) {
+                const auto legacy = Dal::ValueByMonteCarlo(sample.first, sample.second, paths, Valuation(), simulation);
+                const auto result = Dal::ValueByMonteCarloWithRisk(sample.first, sample.second, paths, {}, Valuation(), simulation);
+                const auto projected = result.LegacyValues();
+                ASSERT_EQ(projected.size(), legacy.size());
+                for (const auto& item : legacy) {
+                    const double actual = projected.at(item.first);
+                    const double tolerance = 1e-10 * std::max(1.0, std::max(std::abs(actual), std::abs(item.second)));
+                    ASSERT_NEAR(actual, item.second, tolerance) << item.first;
+                }
+                ASSERT_EQ(result.Provenance().modelType_, sample.second->Type());
+                ASSERT_FALSE(result.Provenance().execution_->modelSnapshotJson_.empty());
+            }
         }
     }
 }
