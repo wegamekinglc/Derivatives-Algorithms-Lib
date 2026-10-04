@@ -4,7 +4,7 @@
 // Curve-calibration Jacobian micro-benchmark.
 //
 // Legacy cases isolate a ZeroAdjoints/seed/propagate/harvest reference. Additional cases call
-// HarvestCurveJacobian directly, including its backend-specific consumed-adjoint behavior.
+// HarvestCurveJacobian directly, including native consumed-adjoint behavior.
 //
 // The Jacobian is lower-triangular by maturity: each residual touches only a leading window of
 // parameters, so columns at or beyond that window are structural zeros. The "dense harvest" case

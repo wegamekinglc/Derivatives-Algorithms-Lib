@@ -166,7 +166,6 @@ TEST(AADRecordingTest, TestOwnershipIsClaimedBeforeResetOperations) {
     ASSERT_DOUBLE_EQ(IndependentSquareGradient(11.0), 22.0);
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADRecordingTest, TestNormalCloseRetainsNativeVectorCapacity) {
     Clear(*Tape());
     auto mode = SetNumResultsForAAD(true, 5);
@@ -185,4 +184,3 @@ TEST(AADRecordingTest, TestNormalCloseRetainsNativeVectorCapacity) {
     ASSERT_EQ(closed.capacityBytes_, recorded.capacityBytes_);
     Clear(*Tape());
 }
-#endif

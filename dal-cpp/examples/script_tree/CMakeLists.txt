@@ -3,13 +3,6 @@ add_executable(script_tree ${SCRIPT_TREE_FILES})
 
 target_link_libraries(script_tree dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(script_tree XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(script_tree CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(script_tree adept)
-endif ()
 
 if(MSVC)
 else()

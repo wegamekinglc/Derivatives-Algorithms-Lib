@@ -1,6 +1,7 @@
 """Tests for the CI change classifier and workflow fast-path contract."""
 
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -147,6 +148,31 @@ class CiWorkflowFastPathTest(unittest.TestCase):
             encoding="utf-8"
         )
 
+    def test_native_only_matrix_retains_required_compilers_and_coverage(self):
+        matrix = self.job(self.workflow("cmake-linux.yml"), "define-matrix")
+        script = textwrap.dedent(matrix.split('          event = sys.argv[1]', 1)[1].split('          PYEOF', 1)[0])
+        script = "import json\nimport sys\nevent = sys.argv[1]\n" + script.lstrip("\n")
+        expected = {
+            "pull_request": {"gcc-13", "gcc-14", "gcc-15", "clang-18", "clang-19", "clang-20"},
+            "push": {"gcc-14", "clang-20"},
+        }
+        for event, compilers in expected.items():
+            with self.subTest(event=event):
+                result = subprocess.run([sys.executable, "-", event], input=script,
+                                        capture_output=True, text=True, check=True)
+                legs = json.loads(result.stdout.strip().removeprefix("matrix="))["include"]
+                self.assertEqual({leg["compiler"] for leg in legs}, compilers)
+                self.assertEqual(len(legs), len(compilers))
+                self.assertTrue(all(leg["aad-backend"] == "aadet" for leg in legs))
+                self.assertEqual([leg["compiler"] for leg in legs if leg["coverage"]], ["gcc-14"])
+
+    def test_external_backend_jobs_and_gate_references_are_removed(self):
+        for name in ("cmake-linux.yml", "cmake-windows.yml"):
+            workflow = self.workflow(name)
+            for backend in ("xad", "codipack", "adept"):
+                with self.subTest(workflow=name, backend=backend):
+                    self.assertNotIn(backend, workflow.lower())
+
     def test_benchmarks_are_not_part_of_pull_request_or_push_ci(self):
         for name, gate_id in (
             ("cmake-linux.yml", "linux-gate"),
@@ -227,7 +253,6 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         heavy_jobs = (
             "define-matrix",
             "build",
-            "codipack-thread-isolation",
             "build-extended",
             "warning-clean",
             "sanitizers",
@@ -310,7 +335,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     def test_gate_shell_requires_success_for_every_required_job(self):
         required_jobs = {
             "linux": ("changes", "documentation", "define-matrix", "build",
-                      "codipack-thread-isolation", "build-extended", "warning-clean", "sanitizers"),
+                      "build-extended", "warning-clean", "sanitizers"),
             "windows": ("changes", "build", "build-script"),
         }
         for platform, jobs in required_jobs.items():
@@ -325,7 +350,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32" or not shutil.which("bash"), "CI gates execute on Linux with bash")
     def test_gate_shell_docs_only_accepts_skipped_builds_and_checks_documentation(self):
         for platform in ("linux", "windows"):
-            results = dict.fromkeys(("define-matrix", "build", "codipack-thread-isolation",
+            results = dict.fromkeys(("define-matrix", "build",
                                      "build-extended", "warning-clean", "sanitizers",
                                      "build-script"), "skipped")
             required = ("changes", "documentation") if platform == "linux" else ("changes",)

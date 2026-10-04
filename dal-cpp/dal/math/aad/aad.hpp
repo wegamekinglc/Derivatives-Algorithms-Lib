@@ -11,10 +11,8 @@
  */
 
 #pragma once
-#include <dal/math/aad/expr.hpp>
 #include <memory>
-
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+#include <dal/math/aad/expr.hpp>
 
 namespace Dal::AAD {
 
@@ -74,70 +72,8 @@ namespace Dal::AAD {
     }
 
 } // namespace Dal::AAD
-#elif defined(DAL_USE_ADEPT_AAD)
-
-#include <algorithm>
 
 namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.ZeroGradientArray(); }
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_XAD_AAD)
-
-#include <algorithm>
-#include <dal/utilities/exceptions.hpp>
-
-namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
-        auto* t = Tape();
-        REQUIRE(t->tape_.isActive(), "Dal::AAD::RegisterIndependent: XAD tape is not active");
-        t->tape_.registerInput(n);
-        xad::value(n) = v;
-    }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.tape_.clearDerivatives(); }
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_CODIPACK_AAD)
-
-#include <algorithm>
-
-namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
-        Tape()->tape_.registerInput(n);
-        n.setValue(v);
-    }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.tape_.clearAdjoints(); }
-
-} // namespace Dal::AAD
-#endif
-
-namespace Dal::AAD {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     inline Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
         auto end = Tape()->nodes_.End();
         // Only a terminal node recorded after the mark is already a path-local root.
@@ -145,7 +81,4 @@ namespace Dal::AAD {
             return payoff;
         return payoff + activeZero;
     }
-#else
-    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) { return payoff + activeZero; }
-#endif
 } // namespace Dal::AAD

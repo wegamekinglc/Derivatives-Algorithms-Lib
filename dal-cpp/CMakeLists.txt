@@ -20,9 +20,6 @@ option(DAL_CPP_BUILD_EXAMPLES "Build dal-cpp examples" ON)
 option(DAL_CPP_BUILD_BENCHMARKS "Build dal-cpp benchmarks" ON)
 option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 
-option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
-option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
-option(DAL_USE_ADEPT_AAD "Use Adept AAD backend" OFF)
 option(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS "Check native AAD active-number ownership and lifetime" OFF)
 option(DAL_USE_EIGEN "Use Eigen for the dense matrix-matrix kernel" ON)
 
@@ -52,27 +49,14 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 include(Platform)
 
 # ---------------------------------------------------------------------------
-# AAD backend selection
+# Native AAD and removed configuration migration
 # ---------------------------------------------------------------------------
-if((DAL_USE_XAD_AAD AND DAL_USE_CODIPACK_AAD) OR
-   (DAL_USE_XAD_AAD AND DAL_USE_ADEPT_AAD) OR
-   (DAL_USE_CODIPACK_AAD AND DAL_USE_ADEPT_AAD))
-    message(FATAL_ERROR "Only one external AAD backend can be enabled")
-endif()
-
-if(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS AND (DAL_USE_XAD_AAD OR DAL_USE_CODIPACK_AAD OR DAL_USE_ADEPT_AAD))
-    message(FATAL_ERROR "DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS requires the native AAD backend")
-endif()
-
-if(DAL_USE_XAD_AAD)
-    message(STATUS "USE AAD framework: XAD")
-elseif(DAL_USE_CODIPACK_AAD)
-    message(STATUS "USE AAD framework: CoDiPack")
-elseif(DAL_USE_ADEPT_AAD)
-    message(STATUS "USE AAD framework: Adept")
-else()
-    message(STATUS "USE AAD framework: AADET (native)")
-endif()
+foreach(removed_backend IN ITEMS DAL_USE_XAD_AAD DAL_USE_CODIPACK_AAD DAL_USE_ADEPT_AAD)
+    if(${removed_backend})
+        message(FATAL_ERROR "${removed_backend} is no longer supported. Reconfigure and rebuild with native AAD; remove this option or set it to OFF.")
+    endif()
+endforeach()
+message(STATUS "USE AAD framework: AADET (native)")
 
 if(DAL_USE_EIGEN)
     message(STATUS "USE dense matrix product: Eigen (externals/eigen)")
@@ -88,25 +72,6 @@ if(DAL_CPP_BUILD_TESTS)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     set(INSTALL_GMOCK OFF CACHE BOOL "" FORCE)
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/googletest)
-endif()
-
-if(DAL_USE_XAD_AAD OR DAL_CPP_BUILD_EXAMPLES)
-    dal_require_submodule("externals/xad/CMakeLists.txt")
-endif()
-if(DAL_USE_XAD_AAD)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad)
-elseif(DAL_CPP_BUILD_EXAMPLES)
-    # The AAD comparison example exercises XAD explicitly even when DAL itself
-    # uses another backend. Keep it buildable without exporting or installing XAD.
-    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad EXCLUDE_FROM_ALL)
-endif()
-
-if(DAL_USE_CODIPACK_AAD)
-    dal_require_submodule("externals/CodiPack/CMakeLists.txt")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/CodiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    dal_require_submodule("externals/adept/CMakeLists.txt")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/adept)
 endif()
 
 # rapidjson headers are on the dal_cpp private include path.
@@ -195,35 +160,7 @@ if(MSVC)
     target_compile_definitions(dal_cpp PRIVATE IS_BASE)
 endif()
 
-if(DAL_USE_XAD_AAD)
-    set(DAL_CPP_AAD_BACKEND "XAD")
-    target_link_libraries(dal_cpp PUBLIC
-        "$<BUILD_INTERFACE:XAD::xad>"
-        "$<INSTALL_INTERFACE:XAD::xad>")
-    target_compile_definitions(dal_cpp PUBLIC DAL_USE_XAD_AAD)
-elseif(DAL_USE_CODIPACK_AAD)
-    set(DAL_CPP_AAD_BACKEND "CoDiPack")
-    target_link_libraries(dal_cpp PUBLIC
-        "$<BUILD_INTERFACE:CoDiPack>"
-        "$<INSTALL_INTERFACE:DAL::CoDiPack>")
-    target_compile_definitions(dal_cpp PUBLIC DAL_USE_CODIPACK_AAD CODI_ForcedInlines)
-elseif(DAL_USE_ADEPT_AAD)
-    set(DAL_CPP_AAD_BACKEND "Adept")
-    target_link_libraries(dal_cpp PUBLIC
-        "$<BUILD_INTERFACE:adept>"
-        "$<INSTALL_INTERFACE:DAL::adept>")
-    target_compile_definitions(dal_cpp PUBLIC
-        DAL_USE_ADEPT_AAD
-        ADEPT_FAST_EXPONENTIAL
-        ADEPT_NO_DIMENSION_CHECKING
-        ADEPT_NO_ALIAS_CHECKING
-        ADEPT_INITIAL_STACK_LENGTH=10485760)
-    target_include_directories(dal_cpp PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/externals/adept/include>"
-        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-else()
-    set(DAL_CPP_AAD_BACKEND "Native")
-endif()
+set(DAL_CPP_AAD_BACKEND "Native")
 
 set_target_properties(dal_cpp PROPERTIES
     EXPORT_NAME cpp
@@ -252,24 +189,6 @@ install(TARGETS dal_cpp
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 set(DAL_CPP_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/dal-cpp")
-
-if(DAL_USE_CODIPACK_AAD)
-    install(TARGETS CoDiPack EXPORT DALCoDiPackTargets)
-    install(EXPORT DALCoDiPackTargets
-            FILE DALCoDiPackTargets.cmake
-            NAMESPACE DAL::
-            DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
-elseif(DAL_USE_ADEPT_AAD)
-    install(TARGETS adept
-            EXPORT DALAdeptTargets
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    install(EXPORT DALAdeptTargets
-            FILE DALAdeptTargets.cmake
-            NAMESPACE DAL::
-            DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
-endif()
 
 configure_package_config_file(
     ${PROJECT_SOURCE_DIR}/cmake/dal-cppConfig.cmake.in

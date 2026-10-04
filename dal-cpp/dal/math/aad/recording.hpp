@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <exception>
 #include <thread>
-#include <dal/math/aad/backend.hpp>
+#include <dal/math/aad/aad.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration AADRecordingState
@@ -66,12 +66,8 @@ namespace Dal::AAD {
             RequireMode(operation);
         }
         FORCE_INLINE void RequireMode(const char* operation) const {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
             if (tape_->multi_ != multi_ || tape_->numAdj_ != width_)
                 Reject(operation, "recording mode or width changed");
-#else
-            static_cast<void>(operation);
-#endif
         }
         FORCE_INLINE void RequireCheckpoint(const Checkpoint_& checkpoint, const char* operation) const {
             if (checkpoint.recording_ == 0 || checkpoint.recording_ != identity_ || checkpoint.owner_ != owner_)
@@ -122,14 +118,14 @@ namespace Dal::AAD {
                 Reject("RecordingScope.Restore", "requires graph recording or ready for reverse");
             RequireMode("RecordingScope.Restore");
             RequireCheckpoint(checkpoint, "RecordingScope.Restore");
-            Apply(BackendAdapter_::RESTORE_SUFFIX, State_::RECORDING);
+            Apply(AAD::RewindToMark, State_::RECORDING);
         }
         void ClearAdjoints();
         void Reverse();
         FORCE_INLINE void ReverseSuffix(const Checkpoint_& checkpoint) {
             RequireState(State_::READY, "RecordingScope.ReverseSuffix");
             RequireCheckpoint(checkpoint, "RecordingScope.ReverseSuffix");
-            Apply(BackendAdapter_::REVERSE_SUFFIX, State_::READY, true);
+            Apply(AAD::PropagateToMark, State_::READY, true);
         }
         void ReversePrefix(const Checkpoint_& checkpoint);
         void Close();

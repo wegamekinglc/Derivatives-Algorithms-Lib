@@ -295,7 +295,7 @@ cursor so the next recording reuses the already-allocated node blocks, avoiding
 the free/re-allocate cycle of `Clear` on every iteration; the reused storage is
 overwritten in place by the next forward pass. The guard does **not** open a
 recording — the recording is opened explicitly by `AnalyticJacobian` after
-`RegisterIndependent` (the canonical order across all four AAD backends).
+`RegisterIndependent` (the native registration order).
 
 **Eligibility predicate.** `EligibleForAnalyticJacobian()` is a pure query over
 member state: every implemented curve representation is admitted at the curve-method
@@ -328,12 +328,12 @@ per residual row:
 3. Forward pass: build the selected `Tape::Discount*_<Number_>` through
    `BuildDiscountCurveT`, construct each `Tape::Rate_<Number_>` via
    `PrecomputeT<Number_>()`, and evaluate residuals.
-4. For each row $i$: zero all adjoints, seed $\bar r_i = 1$, propagate to start,
+4. For each row $i$: seed $\bar r_i = 1$, propagate to start,
    and harvest every applicable flat parameter adjoint as
-   $\partial r_i / \partial x_j$. `HarvestCurveJacobian` centralizes the backend-specific
-   zeroing and row loop.
+   $\partial r_i / \partial x_j$. `HarvestCurveJacobian` clears independent leaf
+   adjoints after extraction; propagation consumes intermediate adjoints.
 
-The single-result path runs identically on all four backends. Every representation is
+The native single-result path supports every eligible representation and is
 harvested at full width. Maturity-based truncation is intentionally avoided because
 payment lags and business-day adjustments can move a curve read beyond an instrument's
 nominal maturity.
@@ -384,8 +384,7 @@ with a backend-neutral reverse-sweep Jacobian. On an eligible spec the solver
 receives an exact analytic Jacobian $J_{ij} = \partial r_i / \partial x_j$
 rather than running $P+1$ dense-bump evaluations.
 
-**Recording contract.** The contract that works identically on all four AAD
-backends (native, XAD, CoDiPack, Adept) is:
+**Recording contract.** The native AAD contract is:
 
 $$
 \text{Rewind} \rightarrow \text{RegisterIndependent}(x_k) \;\forall k \;
@@ -477,8 +476,7 @@ inverse availability, mapping, actual Jacobian mode, and the declaration ranges.
 See [Generic joint quote DV01](joint-quote-risk.md) for the scaling and
 recalibration contract.
 
-**Backend coverage.** The analytic path compiles and produces a correct
-Jacobian under all four AAD backends (native, Adept, XAD, CoDiPack), verified
+**Native AAD coverage.** The analytic path produces a correct Jacobian, verified
 by element-wise agreement against a central finite-difference bump of the
 joint residual function. The oracle tests live at
 `dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.

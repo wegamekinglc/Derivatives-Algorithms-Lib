@@ -11,14 +11,12 @@
 #include <iostream>
 
 namespace Dal::Bench {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     inline void PrintTapeStatistics(const char* name, const AAD::Tape_& tape, size_t parameters, size_t outputs) {
         const auto usage = AAD::MeasureTape(tape);
         std::cout << "AAD_TAPE case=\"" << name << "\" nodes=" << usage.nodes_ << " edges=" << usage.edges_ << " blocks=" << usage.blocks_
                   << " live_bytes=" << usage.liveBytes_ << " occupied_bytes=" << usage.occupiedBytes_ << " capacity_bytes=" << usage.capacityBytes_
                   << " parameters=" << parameters << " outputs=" << outputs << " width=" << (tape.multi_ ? tape.numAdj_ : 1) << '\n';
     }
-#endif
 
     inline void VerifyAadResult(double actual, double expected) {
         REQUIRE(std::isfinite(actual) && std::fabs(actual - expected) <= 1e-10 * std::max(1.0, std::fabs(expected)),

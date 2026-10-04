@@ -24,15 +24,7 @@ namespace Dal {
             if (n_threads > 0)
                 ThreadPool_::GetInstance()->Start(n_threads, true);
             std::cout << "starting DAL with: " << ThreadPool_::GetInstance()->NumThreads() << " threads." << std::endl;
-#if defined(DAL_USE_XAD_AAD)
-            std::cout << "use AAD framework: " << "XAD" << std::endl;
-#elif defined(DAL_USE_CODIPACK_AAD)
-            std::cout << "use AAD framework: " << "CoDiPack" << std::endl;
-#elif defined(DAL_USE_ADEPT_AAD)
-            std::cout << "use AAD framework: " << "Adept" << std::endl;
-#else
             std::cout << "use AAD framework: " << "AADET" << std::endl;
-#endif
 
             std::cout << "starting initialization global data ..." << std::endl;
             Calendars_::Init();

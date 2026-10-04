@@ -37,14 +37,10 @@ jobs:
 
   # The matrix is generated rather than declared inline for two reasons:
   #
-  # 1. Push events (master merges or direct master pushes) run a lean subset --
-  #    gcc-14 and clang-20 across all four AAD backends (8 legs) -- because
-  #    pull requests already ran the full 6 x 4 matrix before merge. Pull
-  #    requests still get every compiler x backend combination.
+  # 1. Push events use gcc-14 and clang-20; pull requests retain all six
+  #    compilers. Every leg uses native AAD.
   # 2. Coverage is consolidated onto the single gcc-14/aadet leg, the only
-  #    one Coveralls consumes. Every backend is still fully compiled and
-  #    tested; the dropped legs only repeated gcov-instrumented builds whose
-  #    lcov output nobody read.
+  #    one Coveralls consumes. All compiler legs still build and test.
   define-matrix:
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
@@ -76,21 +72,18 @@ jobs:
               {"compiler": "gcc-15", "cc": "gcc-15", "cxx": "g++-15",
                "packages": "gcc-15 g++-15"},
           ]
-          backends = ["aadet", "xad", "codipack", "adept"]
           push_compilers = {"gcc-14", "clang-20"}
 
           include = []
           for entry in compilers:
               if event == "push" and entry["compiler"] not in push_compilers:
                   continue
-              for backend in backends:
-                  leg = dict(entry)
-                  leg["aad-backend"] = backend
-                  leg["coverage"] = (
-                      entry["compiler"] == "gcc-14" and backend == "aadet")
-                  if leg["coverage"]:
-                      leg["gcov"] = "gcov-14"
-                  include.append(leg)
+              leg = dict(entry)
+              leg["aad-backend"] = "aadet"
+              leg["coverage"] = entry["compiler"] == "gcc-14"
+              if leg["coverage"]:
+                  leg["gcov"] = "gcov-14"
+              include.append(leg)
 
           print(f"matrix={json.dumps({'include': include})}")
           PYEOF
@@ -159,22 +152,9 @@ jobs:
         run: |
           sudo ln -sf /usr/bin/${{ matrix.gcov }} /usr/bin/gcov
 
-      - name: Configure AAD backend
+      - name: Configure native AAD
         run: |
-          case "${{ matrix.aad-backend }}" in
-            aadet)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            xad)
-              FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            codipack)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=on -DDAL_USE_ADEPT_AAD=off" ;;
-            adept)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
-          esac
-          # Python bindings are backend-agnostic — tested separately in
-          # the build-extended job so the matrix stays lean.
-          FLAGS="$FLAGS -DDAL_BUILD_PYTHON=OFF"
-          echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
+          echo "ADDITIONAL_CMAKE_FLAGS=-DDAL_BUILD_PYTHON=OFF" >> $GITHUB_ENV
 
       - name: Compile and test
         env:
@@ -230,52 +210,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  codipack-thread-isolation:
-    name: CoDiPack thread isolation
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ubuntu-latest
-    env:
-      CC: gcc-14
-      CXX: g++-14
-      CXXFLAGS: -O2
-      DAL_NUM_THREADS: 8
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
-
-      - name: Setup
-        run: |
-          sudo apt install -y gcc-14 g++-14 make cmake
-
-      - name: Configure CoDiPack
-        run: |
-          cmake --preset=Release-linux -S . -B build/Release-codipack \
-            -DDAL_USE_XAD_AAD=OFF \
-            -DDAL_USE_CODIPACK_AAD=ON \
-            -DDAL_USE_ADEPT_AAD=OFF \
-            -DDAL_BUILD_PYTHON=OFF \
-            -DDAL_CPP_BUILD_EXAMPLES=OFF \
-            -DDAL_CPP_BUILD_BENCHMARKS=OFF
-
-      - name: Build CoDiPack
-        run: |
-          cmake --build build/Release-codipack --parallel "$(nproc)"
-
-      - name: Test CoDiPack thread isolation
-        run: |
-          ./build/Release-codipack/dal-cpp/dal_cpp_tests \
-            --gtest_filter='AADTest.TestCoDiPackTapeIsPerThreadAcrossThreadLifetimes:AADTest.TestWithCheckpointWithMultiThreading:AADTest.TestAADMutiThread'
-
-      - name: Test CoDiPack suite
-        run: |
-          ctest --test-dir build/Release-codipack --output-on-failure --parallel "$(nproc)" -LE benchmark
-
   # Extended build: dal-cpp + dal-public + dal-python.
-  # Lives in a separate job so the main compiler×backend matrix stays
-  # lean — the Python bindings are backend-agnostic, so testing them
-  # against one representative configuration is sufficient.
+  # Lives in a separate job so the main compiler matrix stays
+  # lean — native diagnostics are tested separately, so keeping them
+  # outside the compiler matrix avoids duplicate jobs.
   build-extended:
     name: Extended build (AAD diagnostics ${{ matrix.lifetime_diagnostics }})
     needs: changes
@@ -325,7 +263,7 @@ jobs:
           CC: gcc-14
           CXX: g++-14
           VERBOSE: 1
-          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=${{ matrix.lifetime_diagnostics }}
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_BUILD_PYTHON=ON -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=${{ matrix.lifetime_diagnostics }}
         run: |
           bash -e ./build_linux.sh
 
@@ -432,10 +370,7 @@ jobs:
             -DDAL_CPP_BUILD_EXAMPLES=OFF \
             -DDAL_CPP_BUILD_BENCHMARKS=OFF \
             -DDAL_PUBLIC_BUILD_TESTS=OFF \
-            -DDAL_BUILD_PYTHON=OFF \
-            -DDAL_USE_XAD_AAD=OFF \
-            -DDAL_USE_CODIPACK_AAD=OFF \
-            -DDAL_USE_ADEPT_AAD=OFF
+            -DDAL_BUILD_PYTHON=OFF
           cmake --build "$build_dir" --target dal_cpp dal_public --parallel "$(nproc)"
 
   sanitizers:
@@ -454,7 +389,7 @@ jobs:
             slug: asan-ubsan
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
-            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:RateCashflowPricingTest.TestPrepared*:SchedulesTest.*:JointQuoteRiskTest.*
+            core-filter: AADNativeTest.*:ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:ModelTest.TestBlackScholesModelCloneHasDefinedPreAllocationState:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:ScriptTest.TestParse*:StorageTest.TestEvaluationDate*:RateCashflowPricingTest.TestRegistryAndDepositCashflows:RateCashflowPricingTest.TestPrepared*:SchedulesTest.*:JointQuoteRiskTest.*
             public-filter: PublicApiTest.TestMonteCarlo*:CurvePricingPublicTest.TestClosedRegistryAndStructuredTerms:CurvePricingPublicTest.TestGenericJoint*
           - label: TSan concurrency tests
             slug: tsan
@@ -467,7 +402,7 @@ jobs:
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             lifetime_diagnostics: "ON"
-            core-filter: AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*
+            core-filter: AADNativeTest.*:AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*
             public-filter: PublicApiTest.TestMonteCarlo*
 
     steps:
@@ -501,10 +436,7 @@ jobs:
             -DDAL_CPP_BUILD_EXAMPLES=OFF \
             -DDAL_CPP_BUILD_BENCHMARKS=OFF \
             -DDAL_PUBLIC_BUILD_TESTS=ON \
-            -DDAL_BUILD_PYTHON=OFF \
-            -DDAL_USE_XAD_AAD=OFF \
-            -DDAL_USE_CODIPACK_AAD=OFF \
-            -DDAL_USE_ADEPT_AAD=OFF
+            -DDAL_BUILD_PYTHON=OFF
           targets=(dal_cpp_tests dal_cpp_schedule_allocation_tests)
           if [ -n '${{ matrix.public-filter }}' ]; then
             targets+=(dal_public_tests)
@@ -543,7 +475,6 @@ jobs:
       - documentation
       - define-matrix
       - build
-      - codipack-thread-isolation
       - build-extended
       - warning-clean
       - sanitizers
@@ -554,7 +485,6 @@ jobs:
       DOCS_RESULT: ${{ needs.documentation.result }}
       MATRIX_RESULT: ${{ needs.define-matrix.result }}
       BUILD_RESULT: ${{ needs.build.result }}
-      CODIPACK_RESULT: ${{ needs.codipack-thread-isolation.result }}
       EXTENDED_RESULT: ${{ needs.build-extended.result }}
       WARNING_RESULT: ${{ needs.warning-clean.result }}
       SANITIZER_RESULT: ${{ needs.sanitizers.result }}
@@ -569,7 +499,6 @@ jobs:
           for result in \
             "$MATRIX_RESULT" \
             "$BUILD_RESULT" \
-            "$CODIPACK_RESULT" \
             "$EXTENDED_RESULT" \
             "$WARNING_RESULT" \
             "$SANITIZER_RESULT"; do

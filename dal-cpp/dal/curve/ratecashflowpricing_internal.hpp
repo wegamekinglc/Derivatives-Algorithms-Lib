@@ -17,14 +17,7 @@
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-#define DAL_RATE_RISK_NATIVE_AAD 1
-#else
-#define DAL_RATE_RISK_NATIVE_AAD 0
-#endif
-
 namespace Dal::RateCashflowPricingInternal {
-#if DAL_RATE_RISK_NATIVE_AAD
     // Test-only observation seam: registration is serial, but observed sweeps may be concurrent.
     // The pointed-to atomic retains the largest live node count measured after propagation and
     // before the TapeGuard_ rewind. An unregistered-constant AAD::Number_ passive curve still
@@ -59,7 +52,6 @@ namespace Dal::RateCashflowPricingInternal {
     private:
         std::atomic<int>* sink_;
     };
-#endif
 
     // Test instrumentation for the sweep engine shared by the single-trade and batch entry points:
     // the hoisted per-trade passive prices and per-curve preparations actually performed. Atomic
@@ -191,9 +183,7 @@ namespace Dal::RateCashflowPricingInternal {
         try {
             TapeGuard_ guard(AAD::Tape());
             NodeSensitivityCandidate_ candidate = std::forward<Runner_>(runner)();
-#if DAL_RATE_RISK_NATIVE_AAD
             RecordNodeSensitivityTapeSize(AAD::Tape()->nodes_.Size());
-#endif
             guard.Close();
             return FinalizeNodeSensitivityCandidate(std::move(candidate), expectedParameterCount);
         } catch (const std::exception&) {

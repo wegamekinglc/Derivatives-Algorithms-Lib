@@ -7,7 +7,6 @@
 #include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 using namespace Dal::AAD;
 
 TEST(AADTapeStatisticsTest, TestLogicalStorageAndReusedCapacityAreDistinct) {
@@ -57,4 +56,3 @@ TEST(AADTapeStatisticsTest, TestFullNodeBlockWithoutAllocatingAnotherBlock) {
     ASSERT_EQ(rolled.blocks_, 5);
     ASSERT_EQ(rolled.liveBytes_, (BLOCK_SIZE + 1) * sizeof(TapNode_));
 }
-#endif

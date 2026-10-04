@@ -20,7 +20,6 @@
 #include <iostream>
 #include <limits>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 #if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
 #define DAL_AAD_RESTRICT_ __restrict
 #else
@@ -42,7 +41,7 @@ namespace Dal::AAD {
 
         friend class Tape_;
         friend class Number_;
-        friend struct NativeBackendAdapter_;
+        friend struct NativeOperations_;
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
 
@@ -124,5 +123,3 @@ namespace Dal::AAD {
     };
 } // namespace Dal::AAD
 #undef DAL_AAD_RESTRICT_
-#else
-#endif

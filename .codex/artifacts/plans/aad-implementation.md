@@ -1,6 +1,6 @@
 # DAL AAD implementation ledger
 
-Status: implementation paused; the active scope now requires native-only AAD.
+Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
@@ -9,7 +9,7 @@ support and keeping only DAL's built-in native AAD. This replaces the earlier
 four-backend compatibility goal. D00 is now a Stage A requirement; D03 is limited
 to useful native operations and capability contracts. See the controlling
 [native-only specification](../specs/aad-native-only.md).
-Removal is not implemented yet. Earlier external-backend results below remain
+Removal is implemented locally and undergoing fresh verification. Earlier external-backend results below remain
 historical evidence, not continuing support obligations or removal acceptance.
 
 Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
@@ -101,6 +101,23 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] Requirement-by-requirement audit of the actual final state.
 
 ## Current evidence and next action
+
+The native-only development source is `/tmp/dal-aad-backend-adapter`. External
+implementations, three gitlinks, build/export paths and CI jobs are removed;
+native operation services use `native.hpp` without adapter inheritance or selection.
+Fresh OFF/ON full builds succeed with external dependency directories absent.
+Final full CTest passes 2,330 OFF and 2,359 ON cases, including 793 Python tests
+each and all 34 examples. Both final prefixes pass the two installed consumers.
+Configuration/header migration checks, generation/drift and 60 focused ASan/UBSan
+tests pass. The AAD example matches an independent price/five-partial oracle;
+the corrected vanilla example matches price and six partials. Preserve its
+initial diagnostic failure and include-order build failure logs. Final paired
+performance, new-head CI and the requirement audit remain required.
+
+Protected guidance sync item: `CLAUDE.md:35` still lists legacy AAD selection
+options. AGENTS.md forbids editing Claude originals without explicit user
+authorization. Editable current-state docs and Codex contracts are updated;
+this protected line remains an identified follow-up.
 
 Isolated sources: `/tmp/dal-aad-baseline` and `/tmp/dal-aad-implementation`.
 Evidence/build root: `/tmp/dal-aad-evidence`; dependencies are checked out at baseline gitlink SHAs.
@@ -312,9 +329,8 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next after development resumes: implement D00 and simplify the unpublished D03
-source, then run fresh native OFF/ON builds, bindings and consumers, isolated
-paired performance, local review and exact new-head CI. Complete D01/D02 audits
+Next: freeze the verified native-only source/binaries and run isolated paired
+performance, local review and exact new-head CI. Complete D01/D02 audits
 and remaining P01 production measurement under the amended full scope.
 The earlier D02 paired acceptance and 49 green publication checks remain valid
 for their recorded head; they do not accept the pending removal changes.

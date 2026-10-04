@@ -152,9 +152,7 @@ if(MSVC)
     target_compile_options(dal_excel PRIVATE /utf-8)
     target_compile_definitions(dal_excel PRIVATE
         IS_BASE
-        # Windows.h defines min/max as macros, which breaks AAD headers
-        # (XAD, Adept) that use std::numeric_limits<...>::max() and
-        # std::min/max. NOMINMAX suppresses those macros.
+        # Keep Windows min/max macros out of standard and AAD headers.
         NOMINMAX
     )
 endif()

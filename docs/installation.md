@@ -75,14 +75,13 @@ Useful environment overrides are:
 | `ADDITIONAL_CMAKE_FLAGS` | Append simple `-D...` cache overrides                            |
 | `VERBOSE=1`              | Run CTest verbosely                                              |
 
-For example, select the XAD backend explicitly:
+For example, enable native AAD lifetime diagnostics:
 
 ```bash
-ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON" bash ./build_linux.sh
+ADDITIONAL_CMAKE_FLAGS="-DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON" bash ./build_linux.sh
 ```
 
-Use only one external AAD backend at a time. With XAD, CoDiPack, and Adept all
-disabled, DAL uses its native AAD implementation.
+DAL uses its built-in native AAD implementation exclusively.
 
 ## CMake Profiles
 
@@ -137,37 +136,34 @@ in the build configuration.
 | `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
 | `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
 | `DAL_USE_EIGEN`                       | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
-| `DAL_USE_XAD_AAD`                     | `OFF`        | Use XAD                                                                               |
-| `DAL_USE_CODIPACK_AAD`                | `OFF`        | Use CoDiPack                                                                          |
-| `DAL_USE_ADEPT_AAD`                   | `OFF`        | Use Adept                                                                             |
 | `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
 | `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
-### Selecting an AAD backend
+### Native AAD configuration
 
 `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` enables native active-number lifetime
-checks and changes diagnostic number/node layouts. It requires all external
-backend options to be `OFF`. Its compile definition is propagated to linked
+checks and changes diagnostic number/node layouts. Its compile definition is propagated to linked
 and installed consumers through the exported targets; do not combine headers
 or libraries built with different settings. See
 [AAD lifetime diagnostics](methodology/aad.md#native-active-number-lifetime-diagnostics).
 
-The native AADET backend is selected when all three external-backend options
-are `OFF`. XAD, CoDiPack, and Adept are mutually exclusive; configuration
-fails if more than one is enabled. For example, configure, build, and test a
-separate CoDiPack tree with:
+XAD, CoDiPack and Adept are not supported. Old configurations that enable
+`DAL_USE_XAD_AAD`, `DAL_USE_CODIPACK_AAD` or `DAL_USE_ADEPT_AAD` fail with a
+migration error; old `OFF` values remain harmless. Remove those settings and
+configure a fresh native build tree. Rebuild both DAL and its consumers instead
+of combining previous external-backend binaries with native headers.
+
+For a separate native diagnostic build:
 
 ```bash
-cmake --preset=Release-linux -S . -B build/Release-codipack \
-  -DDAL_USE_XAD_AAD=OFF \
-  -DDAL_USE_CODIPACK_AAD=ON \
-  -DDAL_USE_ADEPT_AAD=OFF
-cmake --build build/Release-codipack --parallel
-ctest --test-dir build/Release-codipack --output-on-failure
+cmake --preset=Release-linux -S . -B build/Release-aad-diagnostics \
+  -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON
+cmake --build build/Release-aad-diagnostics --parallel
+ctest --test-dir build/Release-aad-diagnostics --output-on-failure
 ```
 
-CoDiPack recording is isolated by native thread-local storage: each operating
-system thread owns its underlying CoDiPack tape and DAL wrapper, and that
+Native recording uses thread-local storage: each operating
+system thread owns its tape, and that
 storage is destroyed when the thread exits. This lifecycle does not depend on
 the Python GIL. A `Number_`, `Tape_`, or tape position remains thread-affine;
 create, record, propagate, and clear it on the same thread instead of moving it

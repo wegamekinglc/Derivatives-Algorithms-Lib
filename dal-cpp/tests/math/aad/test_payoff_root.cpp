@@ -10,7 +10,6 @@
 using namespace Dal;
 using namespace Dal::AAD;
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADTest, TestPayoffRootReusesTerminalPathNode) {
     Activate(*Tape());
     TapeGuard_ guard(Tape());
@@ -34,4 +33,3 @@ TEST(AADTest, TestPayoffRootReusesTerminalPathNode) {
     PropagateMarkToStart(*Tape());
     ASSERT_NEAR(AdjointValue(scale) / 257, 240.0, 1.0e-10);
 }
-#endif

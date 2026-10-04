@@ -106,7 +106,6 @@ TEST(AADTapeTest, TestGradientCapacityGrowsAfterSeeding) {
     Clear(*tape);
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace {
     void ExhaustAllocationStream(Tape_* tape, int stream) {
         if (stream == 0) {
@@ -384,4 +383,3 @@ TEST(AADTapeTest, TestSetNumResultsForAADRejectsOutOfRange) {
     ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, 0), Dal::Exception_);
     ASSERT_THROW(Dal::AAD::SetNumResultsForAAD(true, Dal::AAD::ADJ_SIZE + 1), Dal::Exception_);
 }
-#endif

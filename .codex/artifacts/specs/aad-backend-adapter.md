@@ -1,7 +1,8 @@
 # DAL native AAD operation contract
 
 Status: active D03 specification, amended to native-only development.
-External-backend removal is not implemented yet.
+External-backend removal and native simplification are implemented locally;
+fresh complete verification, paired performance and publication remain pending.
 
 Source: the user's full AAD implementation request, its no-performance-regression
 and no-CI-failure condition, and the subsequent requirement to remove XAD,
@@ -10,10 +11,10 @@ controls D00 and replaces earlier four-backend obligations in this specification
 
 ## Problem and goals
 
-The unpublished D03 implementation supplies compiled capabilities, weighted
-seed/read gateways and scoped recording integration, but still contains external
-scalar adapters and selection branches. With native AAD as the sole implementation,
-these branches no longer serve the goal and must be removed.
+The pre-removal D03 implementation supplied compiled capabilities, weighted
+seed/read gateways and scoped recording integration alongside external adapters.
+Native AAD is now the sole local implementation. Keep useful operation contracts
+while eliminating external adapters and selection branches.
 
 Retain the operation boundaries that clarify native scalar/vector storage,
 seed replacement versus addition, gradient clearing, prefix accumulation and
@@ -30,7 +31,7 @@ and acceptance.
 ## Requirements
 
 R01. D00 removes external AAD implementation, dependencies, export paths and
-selection first. Revise `backend.hpp` and its callers to use native operations
+selection first. Replace `backend.hpp` with `native.hpp` and make callers use native operations
 directly; remove `ScalarBackendAdapter_`, external specializations and external
 capability branches. Preserve useful existing native service symbols where doing
 so keeps callers simple, but do not keep empty selection scaffolding.
@@ -156,6 +157,21 @@ Published PR #480 at 9b5febc has 49 successful checks, but still includes extern
 backends and does not validate these unpublished commits. No fresh D00/D03
 paired performance or publication CI has completed.
 
-Next after development resumes: implement D00, simplify these native operations,
-then complete fresh OFF/ON functionality, consumers/bindings, isolated performance,
-review and publication. Do not check off D03 or Stage A based on this scope update.
+Current local native-only source has no external dependency directories. Fresh
+OFF/ON complete builds pass; final incremental rebuilds and full tests are in progress.
+All ten configuration/header migration cases, 60 focused native/lifecycle/lifetime
+ASan/UBSan cases, and both analytically checked AAD examples pass. These results
+do not establish full performance or publication acceptance.
+
+OFF full CTest passes 2,330 cases. The first ON full pass exposes a pre-existing
+`vanilla` example lifetime error: registered inputs are discarded by full rewind.
+The narrow CTest reproduction fails with the same epoch diagnostic. The local
+repair uses scoped registration/reverse and verifies price and all six partials
+against independent analytic formulas. Its narrow OFF/ON reruns pass; the
+corrected complete suites pass 2,330 OFF and 2,359 ON cases, including 793 Python
+tests each. Both final installed prefixes pass their two consumer tests; complete
+generation/drift verification passes. Default OFF layout probes confirm
+Number_/node/tape/scope sizes of 16/40/368/72 bytes on the measured host.
+
+Next: complete fresh OFF/ON functionality, consumers/bindings, isolated performance,
+review and publication. Do not check off D03 or Stage A before the remaining evidence.

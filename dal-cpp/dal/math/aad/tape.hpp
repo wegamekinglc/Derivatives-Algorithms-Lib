@@ -12,11 +12,9 @@
 
 #pragma once
 
-#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS) && (defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD))
-#error DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS requires the native AAD backend
+#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
+#error External AAD backend macros are no longer supported; rebuild DAL and consumers with native AAD
 #endif
-
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 #include <atomic>
@@ -149,121 +147,6 @@ namespace Dal::AAD {
     }
 
 } // namespace Dal::AAD
-#elif defined(DAL_USE_ADEPT_AAD)
-#include <adept.h>
-#include <algorithm>
-#include <dal/utilities/exceptions.hpp>
-
-namespace Dal::AAD {
-
-    struct Position_ {
-        adept::uIndex statements_;
-        adept::uIndex operations_;
-    };
-
-    class Tape_ : public adept::Stack {
-    public:
-        using adept::Stack::compute_adjoint;
-
-        Position_ start_;
-        Position_ mark_;
-
-        explicit Tape_(bool activate = true) : adept::Stack(activate), start_(Position()), mark_(start_) {}
-
-        [[nodiscard]] Position_ Position() const {
-            return {n_statements(), n_operations()};
-        }
-
-        void reset_to(adept::uIndex nStatements, adept::uIndex nOperations) {
-            n_statements_ = nStatements;
-            n_operations_ = nOperations;
-        }
-
-        // Later recording windows can outgrow Adept's gradient storage while old adjoints must survive.
-        // Reaches into adept::Stack protected internals; pinned to the fork wegamekinglc/Adept-2 (submodule, 1e29edc).
-        void EnsureGradientCapacity() {
-            if (!gradients_are_initialized()) {
-                initialize_gradients();
-                return;
-            }
-#ifdef ADEPT_STACK_STORAGE_STL
-            if (gradient_.size() < max_gradient_)
-                gradient_.resize(max_gradient_ + 10, 0.0);
-#else
-            if (max_gradient_ <= n_allocated_gradients_)
-                return;
-            auto* grown = new adept::Real[max_gradient_];
-            if (n_allocated_gradients_ > 0)
-                std::copy(gradient_, gradient_ + n_allocated_gradients_, grown);
-            std::fill(grown + n_allocated_gradients_, grown + max_gradient_, 0.0);
-            delete[] gradient_;
-            gradient_ = grown;
-            n_allocated_gradients_ = max_gradient_;
-#endif
-        }
-
-        void compute_adjoint(adept::uIndex fromStatement, adept::uIndex toStatement) {
-            if (!gradients_are_initialized())
-                THROW("Adept gradients are not initialized");
-
-            EnsureGradientCapacity();
-
-            for (adept::uIndex ist = fromStatement; ist > toStatement && ist > 1; --ist) {
-                const adept::uIndex statementIndex = ist - 1;
-                const auto& statement = statement_[statementIndex];
-                adept::Real adjoint = gradient_[statement.index];
-                gradient_[statement.index] = 0.0;
-                if (adjoint != 0.0) {
-                    for (adept::uIndex i = statement_[statementIndex - 1].end_plus_one; i < statement.end_plus_one; ++i)
-                        gradient_[index_[i]] += multiplier_[i] * adjoint;
-                }
-            }
-        }
-
-        void ZeroGradientArray() { initialize_gradients(); }
-    };
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_XAD_AAD)
-#include <XAD/XAD.hpp>
-
-namespace Dal::AAD {
-
-    class Tape_ {
-    public:
-        using tape_type = xad::adj<double>::tape_type;
-        tape_type tape_;
-        tape_type::position_type start_;
-        tape_type::position_type mark_;
-
-        explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.getPosition()), mark_(start_) { }
-    };
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_CODIPACK_AAD)
-#include <codi.hpp>
-
-namespace Dal::AAD {
-
-    class Tape_ {
-    public:
-        using active_type = codi::RealReverseUnchecked;
-        using tape_type = typename active_type::Tape;
-        using position_type = typename tape_type::Position;
-
-        tape_type& tape_;
-        position_type start_;
-        position_type mark_;
-
-        explicit Tape_(bool activate = true) : tape_(active_type::getTape()), start_(tape_.getPosition()), mark_(start_) {
-            if (activate)
-                tape_.setActive();
-        }
-    };
-
-} // namespace Dal::AAD
-
-#endif
 
 namespace Dal::AAD {
     void Clear(Tape_& tape);

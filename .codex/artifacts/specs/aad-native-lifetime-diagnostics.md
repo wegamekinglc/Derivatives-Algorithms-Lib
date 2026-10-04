@@ -8,7 +8,10 @@ Publication CI and the final requirement audit remain acceptance work.
 The checked recording head `0ee84e1` passes all 46 exact-head CI checks.
 This contract controls
 the next diagnostic increment in the
-[full AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3c2d0bdbdf6532ae9edae507d073f765e7e31f8a/.codex/artifacts/plans/aad-improvement-plan.md).
+[full AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
+The [native-only amendment](aad-native-only.md) supersedes external backend
+compatibility. The published diagnostic head `9b5febc` passed 49 checks before
+removal; fresh removal-head verification is still required.
 
 ## Problem and supported boundary
 
@@ -23,12 +26,11 @@ builds retain their existing number/node layouts and expression/recording hot
 paths. Scoped owner/state/mode/token checks remain enabled in default builds.
 Do not treat diagnostic availability as general nested-differentiation support.
 
-The first implementation is native-only: DAL owns these number and node types.
-XAD, CoDiPack and Adept retain scoped ownership checks. Their aliased upstream
-active types do not yet expose the required DAL handle metadata. Selecting this
-option with an upstream backend must fail at configuration with an explicit
-unsupported-backend message, rather than silently omitting checks. D03 must
-report native-number diagnostics and scoped lifecycle checks as separate capabilities.
+DAL owns the sole supported active number and tape implementation. Diagnostic
+OFF and ON are distinct ABI configurations of that native implementation.
+D00 rejects legacy external-backend selection explicitly, independently of this
+option. D03 reports number diagnostics and scoped lifecycle checks as separate
+capabilities; scoped checks remain enabled with diagnostics OFF.
 
 ## Build and ABI contract
 
@@ -133,7 +135,7 @@ increment first establishes a failing case, then the implementation and refactor
 | A10 | Counter exhaustion rejects before mutation and never revalidates old handles.                                                                     |
 | A11 | Empty graphs, full final blocks, retained capacity and prefix/slot boundaries are tested without unsafe iterator traversal.                       |
 | A12 | Default OFF layouts/instrumentation match the existing build contract; required scoped checks remain active.                                      |
-| A13 | ON native core/public/portable bindings and installed-consumer configuration pass; incompatible backend selection reports unsupported capability. |
+| A13 | Native OFF/ON core/public/portable bindings and installed consumers pass with matching exported ABI; legacy selection fails explicitly under D00. |
 | A14 | Fresh unchanged nine-target and affected production pairing pass for default OFF builds; exact-head CI is inspected.                              |
 
 Keep active diagnostic tests conditional on the native diagnostic build and
@@ -154,7 +156,7 @@ through the tape functions only. The allocation-boundary test now uses `RecordNo
 in ON builds. Direct mutation of exposed internal block lists is unsupported;
 it must not be used to discard or allocate a diagnostic graph. The option cannot
 protect arbitrary bypasses of these storage APIs. Do not claim that this
-first option detects arbitrary dangling C++ references, every upstream active-type
-misuse, or unsupported independently activated/nested tapes. The unsafe full-final-
+first option detects arbitrary dangling C++ references or unsupported independently
+activated/nested tapes. The unsafe full-final-
 block traversal in `BlockList_::Size` is a separate bounded-count repair to verify
 before using size information in new diagnostic or production measurement code.

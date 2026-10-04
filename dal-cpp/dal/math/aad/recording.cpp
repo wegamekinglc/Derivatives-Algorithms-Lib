@@ -37,7 +37,7 @@ namespace Dal::AAD {
         return context;
     }
 
-    RecordingScope_::RecordingScope_(Tape_* tape) : RecordingScope_(tape, BackendAdapter_::RESET, BackendAdapter_::CLEAR_GRAPH) {}
+    RecordingScope_::RecordingScope_(Tape_* tape) : RecordingScope_(tape, &AAD::Rewind, &AAD::Clear) {}
 
     RecordingScope_::RecordingScope_(Tape_* tape, Reset_ rewind, Reset_ clear)
         : tape_(tape), context_(nullptr), owner_(std::this_thread::get_id()), rewind_(rewind) {
@@ -52,12 +52,10 @@ namespace Dal::AAD {
                 context_->poisoned_ = false;
                 context_->failure_ = nullptr;
             }
-            BackendAdapter_::ACTIVATE(*tape_);
+            AAD::Activate(*tape_);
             rewind_(*tape_);
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
             multi_ = tape_->multi_;
             width_ = tape_->numAdj_;
-#endif
         } catch (...) {
             context_->active_ = false;
             context_->poisoned_ = true;
@@ -95,7 +93,7 @@ namespace Dal::AAD {
     void RecordingScope_::RegisterInput(Number_& input, double value) {
         RequireState(State_::REGISTERING, "RecordingScope.RegisterInput");
         try {
-            BackendAdapter_::REGISTER_INPUT(input, value);
+            AAD::RegisterIndependent(input, value);
         } catch (...) {
             RetainFailure();
             throw;
@@ -104,7 +102,7 @@ namespace Dal::AAD {
 
     void RecordingScope_::StartRecording() {
         RequireState(State_::REGISTERING, "RecordingScope.StartRecording");
-        Apply(BackendAdapter_::START_RECORDING, State_::RECORDING);
+        Apply(AAD::NewRecording, State_::RECORDING);
     }
 
     void RecordingScope_::ClearAdjoints() {
@@ -112,7 +110,7 @@ namespace Dal::AAD {
         REQUIRE(state_ == State_::RECORDING || state_ == State_::READY,
                 "RecordingScope.ClearAdjoints: requires graph recording or ready for reverse");
         RequireMode("RecordingScope.ClearAdjoints");
-        Apply(BackendAdapter_::CLEAR_ADJOINTS, state_);
+        Apply(AAD::ZeroAdjoints, state_);
     }
 
     Checkpoint_ RecordingScope_::MakeCheckpoint() {
@@ -120,7 +118,7 @@ namespace Dal::AAD {
         REQUIRE(checkpointGeneration_ != std::numeric_limits<std::uint64_t>::max(), "RecordingScope.MakeCheckpoint: generation exhausted");
         if (identity_ == 0)
             identity_ = NewRecordingIdentity();
-        Apply(BackendAdapter_::MAKE_MARK, State_::RECORDING);
+        Apply(AAD::Mark, State_::RECORDING);
         Checkpoint_ result;
         result.recording_ = identity_;
         result.generation_ = ++checkpointGeneration_;
@@ -135,12 +133,12 @@ namespace Dal::AAD {
         Apply(reverse, State_::READY, true);
     }
 
-    void RecordingScope_::Reverse() { ReverseUsing(BackendAdapter_::REVERSE); }
+    void RecordingScope_::Reverse() { ReverseUsing(AAD::PropagateToStart); }
 
     void RecordingScope_::ReversePrefix(const Checkpoint_& checkpoint) {
         RequireState(State_::READY, "RecordingScope.ReversePrefix");
         RequireCheckpoint(checkpoint, "RecordingScope.ReversePrefix");
-        Apply(BackendAdapter_::REVERSE_PREFIX, State_::READY, true);
+        Apply(AAD::PropagateMarkToStart, State_::READY, true);
     }
 
     void RecordingScope_::Close() {

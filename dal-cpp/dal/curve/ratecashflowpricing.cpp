@@ -201,8 +201,6 @@ namespace Dal {
             const CurveRef_<T_>& forecast, const Date_& start, const Date_& maturity, const DayBasis_& basis, const DayBasis::Context_* context) {
             const double accrual = basis(start, maturity, context);
             const T_ df = forecast(start, maturity);
-            // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
-            // only work on native and CoDiPack (XAD/Adept have no conversion operator).
             const double dfValue = AAD::Value(df);
             REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(dfValue) && dfValue > 0.0,
                     "Floating rate pricing requires positive finite accrual and forecast discount factor");

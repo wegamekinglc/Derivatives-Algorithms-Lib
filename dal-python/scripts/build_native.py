@@ -85,9 +85,6 @@ def build_native(build_dir: Path, install_dir: Path) -> None:
         "-DDAL_CPP_BUILD_BENCHMARKS=OFF",
         "-DDAL_PUBLIC_BUILD_TESTS=OFF",
         "-DDAL_ENABLE_NATIVE_ARCH=OFF",
-        "-DDAL_USE_XAD_AAD=OFF",
-        "-DDAL_USE_CODIPACK_AAD=OFF",
-        "-DDAL_USE_ADEPT_AAD=OFF",
     ]
     generator, build_config = generator_configuration(os.name == "nt")
     configure.extend(generator)

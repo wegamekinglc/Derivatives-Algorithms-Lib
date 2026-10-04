@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [msvc]
-        aad-backend: [aadet, xad, adept]
+        aad-backend: [aadet]
         include:
           - compiler: msvc
             cc: cl
@@ -107,21 +107,13 @@ jobs:
             }
           }
 
-      - name: Configure AAD backend
+      - name: Configure native AAD
         shell: bash
         run: |
-          case "${{ matrix.aad-backend }}" in
-            aadet)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            aadet-diagnostics)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON" ;;
-            xad)
-              FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            codipack)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=on -DDAL_USE_ADEPT_AAD=off" ;;
-            adept)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
-          esac
+          FLAGS=""
+          if [ "${{ matrix.aad-backend }}" = aadet-diagnostics ]; then
+            FLAGS="-DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON"
+          fi
           # dal-python (pybind11 bindings) and dal-excel (Windows-only COM add-in)
           # are built on every matrix combination — the matrix is small
           # and includes the native diagnostic ABI configuration.
@@ -192,9 +184,7 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          # Examples are compile-checked here but only run in the Linux coverage
-          # leg: the AAD-backed Monte Carlo examples (e.g. european_mc) are
-          # pathologically slow under the MSVC xad backend (hours, not minutes).
+          # Examples are compile-checked here and run in the Linux coverage leg.
           ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release -LE "benchmark|examples|examples_slow"
 
       - name: Test installed CMake consumer

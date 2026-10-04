@@ -321,9 +321,7 @@ namespace {
     void FailWithLiveTape(const DiscountCurve_* target) {
         if (target != liveFaultTarget)
             return;
-#if DAL_RATE_RISK_NATIVE_AAD
         liveFaultNodes = AAD::Tape()->nodes_.Size();
-#endif
         THROW("Joint test failure with recorded nodes still live");
     }
 
@@ -355,11 +353,9 @@ TEST(JointQuoteRiskTest, TestPostRecordingFailuresDiscardEarlierSlicesAndRestore
             FaultScope_() { RateCashflowPricingInternal::g_quoteRiskRecordedSweepHook = FailRecordedSweep; }
             ~FaultScope_() { RateCashflowPricingInternal::g_quoteRiskRecordedSweepHook = nullptr; }
         } fault;
-#if DAL_RATE_RISK_NATIVE_AAD
         const auto initialSize = AAD::Tape()->nodes_.Size();
         std::atomic<int> recordedSize{0};
         RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ observation(recordedSize);
-#endif
         const auto failed = Risk(spec, calibrated, market, {trade});
         AssertIncomplete(failed, trade, market, "AAD_EVALUATION_FAILED", "curve:1");
         ASSERT_EQ(completedSweeps, 2);
@@ -368,10 +364,8 @@ TEST(JointQuoteRiskTest, TestPostRecordingFailuresDiscardEarlierSlicesAndRestore
         for (int i = 0; i < static_cast<int>(mixed.buckets_.size()); ++i)
             ASSERT_DOUBLE_EQ(mixed.buckets_[i].dPvDDecimalQuote_, expected.buckets_[i].dPvDDecimalQuote_);
         ASSERT_DOUBLE_EQ(mixed.pvByActualPvCcy_.at("USD"), PriceRateTrade(trade, market).pv_ + PriceRateTrade(healthy, market).pv_);
-#if DAL_RATE_RISK_NATIVE_AAD
         ASSERT_GT(recordedSize.load(), initialSize + 5);
         ASSERT_EQ(AAD::Tape()->nodes_.Size(), initialSize);
-#endif
     }
     const auto expectedHealthy = Risk(spec, calibrated, market, {trade});
     auto first = std::async(std::launch::async, [&]() { return Risk(spec, calibrated, market, {trade}); });
@@ -389,9 +383,7 @@ TEST(JointQuoteRiskTest, TestLiveRecordingExceptionRewindsBeforeUnregisteredXccy
     const auto market = Market(spec, calibrated);
     const auto provenance = BuildJointMultiCurveQuoteRiskProvenance(spec, calibrated, Options(), market, JointQuoteRiskFixtures::Config(2));
     const auto expected = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
-#if DAL_RATE_RISK_NATIVE_AAD
     const auto initialSize = AAD::Tape()->nodes_.Size();
-#endif
     {
         liveFaultTarget = market.curveComponents_.at("curve:1").get();
         liveFaultNodes = 0;
@@ -402,10 +394,8 @@ TEST(JointQuoteRiskTest, TestLiveRecordingExceptionRewindsBeforeUnregisteredXccy
         const auto trade = JointQuoteRiskFixtures::Irs(spec);
         const auto failed = AggregateRatePortfolioQuoteRisk({trade}, market, {provenance});
         AssertIncomplete(failed, trade, market, "AAD_EVALUATION_FAILED", "curve:1");
-#if DAL_RATE_RISK_NATIVE_AAD
         ASSERT_GT(liveFaultNodes, initialSize + 5);
         ASSERT_EQ(AAD::Tape()->nodes_.Size(), initialSize);
-#endif
     }
     const auto recovered = AggregateRatePortfolioQuoteRisk({Trade(spec)}, market, {provenance});
     ASSERT_TRUE(recovered.meta_[0].eligible_);

@@ -392,14 +392,11 @@ measurements (milliseconds and peak RSS in KiB):
 | AAD backend | Frozen ms | Retrained ms | Time ratio | Frozen RSS | Retrained RSS |
 |-------------|-----------|--------------|------------|------------|---------------|
 | Native      | 282       | 741          | 2.62       | 16,424     | 18,576        |
-| XAD         | 288       | 742          | 2.58       | 46,892     | 46,752        |
-| Adept       | 479       | 945          | 1.97       | 16,752     | 16,932        |
-| CoDiPack    | 358       | 828          | 2.32       | 36,740     | 41,392        |
 
 Both modes record the same 2,048 AAD pricing paths. This profile has five
 live inputs (four model parameters and one script constant), so the retrained
 mode adds ten hard-policy fits and ten value-only pricing passes, with no
 additional AAD tape recordings. The peak RSS comparison includes tape and
-ordinary process allocations; it is not a backend-specific tape-byte count.
+ordinary process allocations; it is not a tape-byte count.
 Tree and compiled runs returned matching PV and all five risks to the printed
-precision on every backend.
+precision on native AAD.

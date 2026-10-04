@@ -171,7 +171,7 @@ variables. A current curve-calibration `Gradient` evaluation follows this sequen
    without allowing a recording to escape the gradient call.
 2. Convert every component $x_j$ to an `AAD::Number_` and register it as an independent
    variable in the curve parameter layout. Registration occurs before `NewRecording`,
-   which is required by the supported backends.
+   following the native recording contract.
 3. Start the recording, construct the scalar-templated curve or curve block from the
    active parameters, and reprice all instruments with active arithmetic. This records
    the graph from $x$ through discount factors, forecast/discount routing, and instrument
@@ -192,9 +192,8 @@ variables. A current curve-calibration `Gradient` evaluation follows this sequen
    No live `AAD::Number_` crosses this boundary; the solver receives ordinary doubles.
 
 The recording sequence is implemented by the curve calibration adapters and
-`HarvestCurveJacobian` under `dal-cpp/dal/curve/`. Backend-specific recording and
-adjoint-zeroing details for the native, Adept, XAD, and CoDiPack implementations are
-covered in [AAD methodology](aad.md#backends).
+`HarvestCurveJacobian` under `dal-cpp/dal/curve/`. Native recording and
+adjoint-zeroing details are covered in [AAD methodology](aad.md#native-aad).
 
 ### From the AAD Matrix to a Solver Step
 

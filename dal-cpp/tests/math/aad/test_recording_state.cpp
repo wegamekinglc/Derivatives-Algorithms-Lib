@@ -23,7 +23,6 @@ namespace Dal::AAD {
     };
 } // namespace Dal::AAD
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace {
     struct FullBlockGraph_ {
         Number_ input_;
@@ -46,7 +45,6 @@ namespace {
         return graph;
     }
 } // namespace
-#endif
 
 TEST(AADRecordingStateTest, TestScopedScalarGraphSupportsFreshWeightedSweeps) {
     RecordingScope_ recording;
@@ -283,7 +281,6 @@ TEST(AADRecordingStateTest, TestPrefixPayoffAliasesGetIndependentSuffixRoots) {
     recording.Close();
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADRecordingStateTest, TestRawModeMutationRejectsBeforeUsingCheckpointPositionsAndRecovers) {
     {
         RecordingScope_ recording;
@@ -421,4 +418,3 @@ TEST(AADRecordingStateTest, TestFullClearingCoversVectorLeavesAndEveryChannel) {
     }
     Clear(*Tape());
 }
-#endif

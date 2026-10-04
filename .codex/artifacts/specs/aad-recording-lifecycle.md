@@ -6,7 +6,10 @@ native/CoDiPack correctness, sanitizers, and changed-workload paired performance
 pass at corrected C++ head `71f41a8`; publication head `0ee84e1` passes all 46
 exact-head CI checks. Later increments require their own evidence.
 This specifies D01 and the boundary needed by
-D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3c2d0bdbdf6532ae9edae507d073f765e7e31f8a/.codex/artifacts/plans/aad-improvement-plan.md).
+D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md).
+The [native-only amendment](aad-native-only.md) replaces the earlier external
+backend obligations. Results above describe earlier heads; the removal increment
+requires fresh native OFF/ON, performance and exact-head CI evidence.
 
 ## Problem and compatibility constraints
 
@@ -18,7 +21,7 @@ is unusable. Simulation manages lifecycle through separate raw calls, and native
 
 Move ownership and lifecycle into the AAD layer. Keep the existing independent
 curve-Jacobian behavior, input registration order, path-prefix accumulation, public
-valuation results, backend-specific numerical conventions, and capacity reuse.
+valuation results, native accumulation conventions, and capacity reuse.
 The release configuration must not add fields to every node or checks to expression
 evaluation, registration, or propagation inner loops for this feature.
 
@@ -32,11 +35,11 @@ recordings. Unsupported nesting is an error before any tape mutation.
 R01. A non-copyable, non-movable `AAD::RecordingScope_` owns an independent recording
 on the calling thread's default tape. Construction validates the tape and checks
 for an existing scope before rewinding. Inputs are registered before
-`StartRecording()`, preserving current XAD/Adept/CoDiPack setup conventions.
+`StartRecording()`, preserving the explicit input/graph phase boundary.
 
 R02. States distinguish input registration, graph recording, ready for reverse,
-reversing, failed, and closed. `StartRecording()` establishes the backend's start
-position. `FinishRecording()` makes the current graph available to reverse.
+reversing, failed, and closed. `StartRecording()` enters graph recording;
+native `NewRecording` remains a no-op. `FinishRecording()` makes the current graph available to reverse.
 Operations reject incompatible states and identify the operation and constraint.
 Expressions continue using the existing active type; callers must finish graph
 construction before a sweep. Optional D02 diagnostics will enforce expression
@@ -52,8 +55,8 @@ owner thread/context, and scalar/vector width information. Creating a replacemen
 checkpoint invalidates the previous handle. Restore retains the prefix and its
 accumulated adjoints, discards the suffix, and returns to graph-recording state.
 Wrong-owner, replaced, closed-recording, and wrong-mode handles are rejected before
-backend position access. The first implementation stores one backend mark, as the
-current adapters do; it does not expose raw iterators as stable checkpoints.
+native position access. The first implementation stores one native tape mark;
+it does not expose raw iterators as stable checkpoints.
 
 R05. Full adjoint clearing covers every live scalar or vector slot. A distinct suffix
 restore keeps prefix adjoints. These operations cannot substitute for each other.
@@ -82,27 +85,27 @@ each path. Tasks are drained before owners and active objects leave their lifeti
 
 ## Acceptance criteria
 
-| ID | Executable evidence |
-|---|---|
-| A01 | A smooth scalar graph has the same value and derivatives under raw and scoped execution on native, XAD, CoDiPack, and Adept. |
-| A02 | Attempted nested `RecordingScope_` and nested legacy `TapeGuard_` throw before rewind; the outer graph still produces its expected gradient. |
-| A03 | Exceptions during registration, graph construction, reverse, and result extraction release ownership; a subsequent independent valuation succeeds. |
-| A04 | Explicit close and normal destruction reset the recording while retaining reusable capacity where the backend supports it. |
-| A05 | Three independently rebuilt suffixes accumulate at the checkpoint, then one prefix sweep gives the independently calculated total derivative. |
-| A06 | Replaced, foreign, wrong-mode, and previous-recording checkpoint handles are rejected; valid prefix values survive suffix restoration. |
-| A07 | Reverse before finish, registration/start after finish, and reverse after close are diagnosed without changing a valid outer recording. |
-| A08 | Multi-mode clearing is verified with nonzero scalar fields and every vector channel, including non-specialized widths and leaf slots. |
-| A09 | Owner-thread method misuse is rejected without accessing the other thread's backend; concurrent independent scopes on different workers succeed. |
+| ID  | Executable evidence                                                                                                                                    |
+|-----|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A01 | Smooth scalar/vector graphs have the same values and derivatives under raw and scoped native execution with diagnostics OFF and ON.                    |
+| A02 | Attempted nested `RecordingScope_` and nested legacy `TapeGuard_` throw before rewind; the outer graph still produces its expected gradient.           |
+| A03 | Exceptions during registration, graph construction, reverse, and result extraction release ownership; a subsequent independent valuation succeeds.     |
+| A04 | Explicit close and normal destruction reset the native recording while retaining reusable tape capacity.                                               |
+| A05 | Three independently rebuilt suffixes accumulate at the checkpoint, then one prefix sweep gives the independently calculated total derivative.          |
+| A06 | Replaced, foreign, wrong-mode, and previous-recording checkpoint handles are rejected; valid prefix values survive suffix restoration.                 |
+| A07 | Reverse before finish, registration/start after finish, and reverse after close are diagnosed without changing a valid outer recording.                |
+| A08 | Multi-mode clearing is verified with nonzero scalar fields and every vector channel, including non-specialized widths and leaf slots.                  |
+| A09 | Owner-thread method misuse is rejected without accessing the other thread's backend; concurrent independent scopes on different workers succeed.       |
 | A10 | A controlled cleanup-failure test proves explicit error reporting, noexcept fallback, unusable-context retention, and successful or rejected recovery. |
-| A11 | Existing curve-calibration, ordinary MC, LSM, task-drain, and portable binding tests pass after each migration. |
-| A12 | Two-round nine-target gate passes under the unchanged 4% policy; changed curve/MC workloads additionally compare equal results and memory/capacity. |
+| A11 | Existing curve-calibration, ordinary MC, LSM, task-drain, and portable binding tests pass after each migration.                                        |
+| A12 | Two-round nine-target gate passes under the unchanged 4% policy; changed curve/MC workloads additionally compare equal results and memory/capacity.    |
 
 Tests should establish externally observable contracts rather than duplicate private
 state transitions. Use narrow internal operation seams for controlled cleanup and
 reverse failures, without adding runtime callback fields for reverse operations;
-the production default path must retain its ordinary backend dispatch and allocation
-behavior. Record four-backend capability differences instead of assuming that a
-backend consumes all intermediates or preserves repeated sweeps identically.
+the production default path must retain direct native calls and allocation
+behavior. Verify actual scalar/vector storage, consumed-intermediate clearing,
+leaf accumulation and repeated sweeps rather than inferring them from capability metadata.
 
 ## Scoped API and transition rules
 
@@ -124,17 +127,17 @@ void ReverseSuffix(const Checkpoint_& checkpoint);
 void ReversePrefix(const Checkpoint_& checkpoint);
 ```
 
-| Operation | Admitted state | Successful resulting state | Required boundary behavior |
-|---|---|---|---|
-| Construction | No independent scope on this thread | Registering inputs | Claim ownership before activate/reset; recover poisoned context first. |
-| `RegisterInput` | Registering inputs | Registering inputs | Register on the selected backend before its start position is established. |
-| `StartRecording` | Registering inputs | Recording graph | Call backend `NewRecording` once; reject another start. |
-| `MakeCheckpoint` | Recording graph | Recording graph | Capture the prefix boundary; replace and invalidate the previous token. |
-| `FinishRecording` | Recording graph | Ready for reverse | Caller finishes expression construction before seeding/reverse. |
-| `ClearAdjoints` | Recording graph or ready | Same state | Clear every live scalar field and, in native vector mode, every live channel. |
-| `Restore` | Recording graph or ready | Recording graph | Validate token first, retain prefix adjoints, discard suffix. |
-| Any reverse | Ready for reverse | Ready for reverse | Enter reversing state during backend work; preserve caller's seeding/accumulation. |
-| `Close` | Any owned state | Closed | Explicitly report cleanup failure; release ownership and retain poisoned status. |
+| Operation         | Admitted state                      | Successful resulting state | Required boundary behavior                                                         |
+|-------------------|-------------------------------------|----------------------------|------------------------------------------------------------------------------------|
+| Construction      | No independent scope on this thread | Registering inputs         | Claim ownership before activate/reset; recover poisoned context first.             |
+| `RegisterInput`   | Registering inputs                  | Registering inputs         | Register on the native tape before entering graph recording.                       |
+| `StartRecording`  | Registering inputs                  | Recording graph            | Call native `NewRecording` once; reject another start.                             |
+| `MakeCheckpoint`  | Recording graph                     | Recording graph            | Capture the prefix boundary; replace and invalidate the previous token.            |
+| `FinishRecording` | Recording graph                     | Ready for reverse          | Caller finishes expression construction before seeding/reverse.                    |
+| `ClearAdjoints`   | Recording graph or ready            | Same state                 | Clear every live scalar field and, in native vector mode, every live channel.      |
+| `Restore`         | Recording graph or ready            | Recording graph            | Validate token first, retain prefix adjoints, discard suffix.                      |
+| Any reverse       | Ready for reverse                   | Ready for reverse          | Enter reversing state during backend work; preserve caller's seeding/accumulation. |
+| `Close`           | Any owned state                     | Closed                     | Explicitly report cleanup failure; release ownership and retain poisoned status.   |
 
 Precondition failures do not mutate tape positions, ownership, checkpoint validity,
 or a usable graph. A backend exception after a mutating operation starts makes the
@@ -159,12 +162,10 @@ prefix sweep must produce `dx = 24`. Prefix values and adjoints survive every
 restore. A separate full-clear/reseed test distinguishes fresh sweeps from suffix
 accumulation. Test direct-output aliases, empty windows, and default invalid tokens.
 
-The XAD prefix adapter rewinds to its mark before propagating the prefix. Extract
-suffix values as passive doubles before that operation. Adept can grow its gradient
-storage during later suffixes; keep its existing capacity-preserving behavior.
-Native scalar and vector fields must both be cleared, including leaf nodes and a
-full final block. These rules are derived from the pinned adapters, not assumptions
-about a generic AD backend.
+Extract suffix values as passive doubles before restoration discards their nodes.
+Native prefix propagation consumes intermediate seeds and accumulates leaf
+adjoints. Full clearing covers scalar fields and every vector channel, including
+leaf nodes and a full final block; suffix restoration preserves prefix adjoints.
 
 Migrate MC ownership once per worker batch, with one shared initialization prefix
 and repeated suffix windows. Measure boundary validation on short single-event
@@ -195,7 +196,7 @@ nine-target pairing. Neither the existing workload nor its 4% policy changes.
 
 ## Open implementation decisions
 
-- Select the smallest common backend boundary for controlled cleanup-failure tests
+- Retain the smallest native operation seam for controlled cleanup-failure tests
   without exposing a user-facing callback or allocating a type-erased adapter in
   normal requests.
 - Audit raw guard users in GSR/SLV calibration before enforcing ownership there;

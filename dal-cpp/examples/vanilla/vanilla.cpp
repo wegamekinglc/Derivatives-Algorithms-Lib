@@ -2,16 +2,21 @@
 // Created by wegam on 2020/12/21.
 //
 
+#include <array>
+#include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <string>
-#include <dal/time/dateincrement.hpp>
-#include <dal/script/event.hpp>
-#include <dal/model/blackscholes.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/utilities/timer.hpp>
-#include <dal/script/simulation.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/math/aad/native.hpp>
+#include <dal/math/aad/recording.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <iomanip>
+#include <dal/model/blackscholes.hpp>
+#include <dal/script/event.hpp>
+#include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/utilities/timer.hpp>
 
 
 using namespace std;
@@ -33,6 +38,26 @@ T_ BlackTest(const T_& spot, const T_& vol, const T_& rate, const T_& div, const
     y = numeraire * omega * (0.5 * spot * exp((rate - div) * expiry) * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
     return y;
 }
+
+namespace {
+    std::array<double, 7> AnalyticCall(double spot, double vol, double rate, double div, double strike, double expiry) {
+        const double sqrtTime = std::sqrt(expiry);
+        const double dPlus = (std::log(spot / strike) + (rate - div + 0.5 * vol * vol) * expiry) / (vol * sqrtTime);
+        const double dMinus = dPlus - vol * sqrtTime;
+        const double cdfPlus = 0.5 * std::erfc(-dPlus / std::sqrt(2.0));
+        const double cdfMinus = 0.5 * std::erfc(-dMinus / std::sqrt(2.0));
+        const double pdfPlus = std::exp(-0.5 * dPlus * dPlus) / std::sqrt(2.0 * std::acos(-1.0));
+        const double discountedSpot = spot * std::exp(-div * expiry);
+        const double discountedStrike = strike * std::exp(-rate * expiry);
+        return {discountedSpot * cdfPlus - discountedStrike * cdfMinus,
+                std::exp(-div * expiry) * cdfPlus,
+                discountedSpot * pdfPlus * sqrtTime,
+                expiry * discountedStrike * cdfMinus,
+                -expiry * discountedSpot * cdfPlus,
+                -std::exp(-rate * expiry) * cdfMinus,
+                discountedSpot * pdfPlus * vol / (2.0 * sqrtTime) + rate * discountedStrike * cdfMinus - div * discountedSpot * cdfPlus};
+    }
+} // namespace
 
 
 int main() {
@@ -66,38 +91,37 @@ int main() {
               << std::setw(widths[2]) << std::right << "# of obs"
               << std::setw(widths[3]) << std::right << "PV"
               << std::setw(widths[4]) << std::right << "dP/dS"
-              << std::setw(widths[5]) << std::right << "dP/dR"
-              << std::setw(widths[6]) << std::right << "dP/dDiv"
-              << std::setw(widths[7]) << std::right << "dP/dV"
+              << std::setw(widths[5]) << std::right << "dP/dV"
+              << std::setw(widths[6]) << std::right << "dP/dR"
+              << std::setw(widths[7]) << std::right << "dP/dDiv"
               << std::setw(widths[8]) << std::right << "dP/dK"
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
     std::cout << std::string(140, '-') << '\n';
 
     {
-        // aadet
         AAD::Clear(*AAD::Tape());
 
         timer.Reset();
-        Number_ spotAad(spot);
-        Number_ volAad(vol);
-        Number_ rateAad(rate);
-        Number_ divAad(div);
-        Number_ strikeAad(strike);
-        Number_ expiryAad(expiry);
-
-        PutOnTape(spotAad);
-        PutOnTape(volAad);
-        PutOnTape(rateAad);
-        PutOnTape(divAad);
-        PutOnTape(strikeAad);
-        PutOnTape(expiryAad);
-        AAD::NewRecording(*AAD::Tape());
-
-        AAD::Rewind(*AAD::Tape());
+        AAD::RecordingScope_ scope;
+        Number_ spotAad, volAad, rateAad, divAad, strikeAad, expiryAad;
+        scope.RegisterInput(spotAad, spot);
+        scope.RegisterInput(volAad, vol);
+        scope.RegisterInput(rateAad, rate);
+        scope.RegisterInput(divAad, div);
+        scope.RegisterInput(strikeAad, strike);
+        scope.RegisterInput(expiryAad, expiry);
+        scope.StartRecording();
         Number_ priceAad = BlackTest(spotAad, volAad, rateAad, divAad, strikeAad, expiryAad, true);
-        Adjoint(priceAad) = 1.0;
-        AAD::PropagateToStart(*AAD::Tape());
+        scope.FinishRecording();
+        AAD::NativeOperations_::SetSeed(priceAad, 1.0);
+        scope.Reverse();
+        const std::array<double, 7> values{Value(priceAad), Adjoint(spotAad), Adjoint(volAad), Adjoint(rateAad),
+                                          Adjoint(divAad), Adjoint(strikeAad), Adjoint(expiryAad)};
+        const auto reference = AnalyticCall(spot, vol, rate, div, strike, expiry);
+        for (size_t i = 0; i < values.size(); ++i)
+            REQUIRE(std::isfinite(values[i]) && std::abs(values[i] - reference[i]) <= 1e-9 * std::max(1.0, std::abs(reference[i])),
+                    "Native AAD vanilla price or derivative differs from its analytic reference");
 
         std::cout << std::setw(widths[0]) << std::left << "Analytical"
                   << std::setw(widths[1]) << std::right << "-"
@@ -111,6 +135,7 @@ int main() {
                   << std::setw(widths[7]) << std::right << Adjoint(divAad)
                   << std::setw(widths[8]) << std::right << Adjoint(strikeAad)
                   << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+        scope.Close();
     }
 
     {

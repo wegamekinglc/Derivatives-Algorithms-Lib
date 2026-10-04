@@ -6,7 +6,6 @@
 
 #include <dal/math/aad/tape.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace Dal::AAD {
     struct TapeStatistics_ {
         size_t nodes_ = 0;
@@ -41,4 +40,3 @@ namespace Dal::AAD {
         return result;
     }
 } // namespace Dal::AAD
-#endif

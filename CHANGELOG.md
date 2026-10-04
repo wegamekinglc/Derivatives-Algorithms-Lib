@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-04
 
+- **Native AAD only** — remove XAD, CoDiPack and Adept implementations,
+  submodule dependencies, build selections and installation exports. Enabled
+  legacy backend options fail explicitly; rebuild libraries and consumers with
+  native AAD. See [installation](docs/installation.md#native-aad-configuration).
+
 - **Optional native AAD lifetime diagnostics** — the default-OFF
   `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` build checks active operands and adjoints
   for foreign tapes, discarded recordings/suffixes and reused slots before node

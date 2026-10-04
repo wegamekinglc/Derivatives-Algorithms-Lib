@@ -204,9 +204,9 @@ returns a copyable opaque `Checkpoint_`. A replacement invalidates the previous
 token. `Restore(checkpoint)` discards the suffix, retains prefix adjoints, and
 returns to graph-recording state. Finish each suffix before
 `ReverseSuffix(checkpoint)`. Its contributions accumulate at the prefix; one
-`ReversePrefix(checkpoint)` propagates them to the registered inputs. The XAD
-prefix adapter rewinds the suffix before reverse, so extract suffix values as
-passive doubles before that call. Tokens from a previous recording, another
+`ReversePrefix(checkpoint)` propagates them to the registered inputs. Extract
+still-needed suffix values as passive doubles before restoring or closing their
+recording. Tokens from a previous recording, another
 thread, a replaced checkpoint, or another mode are rejected before position use.
 
 Select native scalar/vector mode with `SetNumResultsForAAD` before creating the
@@ -230,7 +230,7 @@ Configure with `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` to check native
 `Number_` operands and adjoint access. The default is `OFF`; default builds
 retain the number/node layouts and omit these per-number checks and counters.
 Scoped ownership, state and checkpoint checks remain enabled independently.
-The option requires native AAD; configuration rejects XAD, CoDiPack or Adept.
+DAL's only AAD implementation is native; the diagnostic setting changes its ABI.
 
 Each binding captures a tape-lifetime identity, recording epoch, slot generation
 and scalar/vector layout. Full clear or rewind invalidates the old recording;
@@ -334,7 +334,7 @@ depend on active parameters. Each recording replays those expressions locally
 before the mark and each path restores the resulting typed seed. The native
 backend reuses the payoff as the path-local root only when the post-mark range
 is nonempty and the payoff is its current terminal node. Otherwise it adds a
-registered zero to the payoff; alternative backends always use this addition.
+registered zero to the payoff.
 The fallback creates a path-local root even for a pre-mark seed or a passive
 constant, preserving accumulated seed adjoints and providing a valid reverse
 range when the post-mark recording would otherwise be empty. Historical
@@ -474,7 +474,7 @@ inherited `Swap_::PrecomputeT<T_>`.
 
 ### Recording Contract for the Joint Path
 
-The recording contract that produces a correct Jacobian on all four backends is
+The native recording contract for a correct Jacobian is
 the same as the single-curve path:
 
 $$\text{Rewind}(\textit{tape}) \rightarrow
@@ -488,68 +488,47 @@ $$\text{Rewind}(\textit{tape}) \rightarrow
 Independent registration follows `CurveParameterLayout_`: PWC contributes one value per
 knot, PWL contributes interleaved left/right values, and log-DF contributes future-node
 ordinates while its pinned storage anchor is excluded. `HarvestCurveJacobian` performs
-the backend-neutral per-row zero/seed/propagate/harvest loop. The harvested adjoints form a dense
+the per-row seed/propagate/harvest/leaf-clear loop. Consumed intermediate seeds
+clear during native reverse. The harvested adjoints form a dense
 `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) with exact structural
 zeros where an instrument has no parametric dependence on a given knot.
 
-## Backends
+## Native AAD
 
-The library compiles with one of four AAD backends selected at build time:
+DAL uses its built-in scalar/vector tape exclusively. `Number_` and `Tape_`
+in `dal-cpp/dal/math/aad/` have no external-backend aliases or selection paths.
+Each operating system thread owns its default tape, which is destroyed at thread
+exit. Active values and tape positions remain thread-affine, independently of
+the Python GIL. See [configuration and migration](../installation.md#native-aad-configuration).
 
-- **native** — the in-tree reference tape (`dal-cpp/dal/math/aad/tape.hpp`,
-  `dal-cpp/dal/math/aad/node.hpp`), always available.
-- **Adept** (`DAL_USE_ADEPT_AAD`) — `adept::Stack`-based tape.
-- **XAD** (`DAL_USE_XAD_AAD`) — `xad::adj<double>` tape.
-- **CoDiPack** (`DAL_USE_CODIPACK_AAD`) — `codi::RealReverseUnchecked` tape.
+### Native Operations
 
-CoDiPack gives each operating system thread its own underlying tape and DAL
-wrapper through native thread-local storage. Recording and reverse propagation
-therefore run independently of the Python GIL, and the tape is destroyed when
-its owning thread exits. Active values and tape positions are thread-affine and
-must not be transferred between threads.
+`AAD::NativeOperations_` in `dal-cpp/dal/math/aad/native.hpp` provides checked
+seed/channel access and a passive capability description. Recording services
+call the established native tape functions directly; there is no backend
+inheritance, selector, virtual dispatch or per-node capability lookup.
 
-All four expose the same `Number_` / `Tape_` surface through facade functions in
-`dal-cpp/dal/math/aad/aad.hpp`, so caller code is backend-neutral. The
-differences that matter at the call site are the recording contract and the
-gradient-zeroing semantics between single-result reverse sweeps.
-
-### Compiled Backend Adapter
-
-`AAD::BackendAdapter_` in `dal/math/aad/backend.hpp` selects a stateless
-implementation at compile time. `Capabilities()` describes DAL's compiled
-number/tape integration. Its flags are separate: scoped lifecycle validation,
-number diagnostics, vector storage, prefix reversal and suffix disposal have
-different contracts. An upstream library's other active types or optional
-features do not imply that DAL's selected first-order alias exposes them.
-
-| Contract                               | Native           | XAD | CoDiPack | Adept |
-|----------------------------------------|------------------|-----|----------|-------|
-| Scalar and repeated fixed-graph reverse | Yes              | Yes | Yes      | Yes   |
-| Interval reverse/prefix accumulation   | Yes              | Yes | Yes      | Yes   |
-| Scoped lifecycle validation            | Yes              | Yes | Yes      | Yes   |
-| Vector adjoint channels                 | Up to `ADJ_SIZE` | No  | No       | No    |
-| Native-number lifetime diagnostics      | Optional         | No  | No       | No    |
-| Prefix reverse discards suffix          | No               | Yes | No       | No    |
-| Independent nesting/reverse events      | No               | No  | No       | No    |
-| Higher-order active mode                | No               | No  | No       | No    |
-
-Repeated reversal applies while the graph still exists. XAD's prefix reversal
-discards its suffix, so extract passive suffix values beforehand. The scoped
-lifecycle remains the ownership boundary; directly invoking adapter tape
-operations requires the same discipline as the legacy free functions.
+| Contract                                | Native support                     |
+|-----------------------------------------|------------------------------------|
+| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid |
+| Interval reverse/prefix accumulation    | Yes                                |
+| Scoped lifecycle validation             | Yes                                |
+| Vector adjoint channels                 | Up to `ADJ_SIZE`                   |
+| Active-number lifetime diagnostics      | Available; default OFF             |
+| Independent nesting/reverse events      | Not implemented                    |
+| Higher-order active mode                | Not implemented                    |
 
 `SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
 including multiple weights for the same output reference. `ReadAdjoint`
-returns a passive double. The optional channel defaults to zero. In native
-vector mode these operations access the vector array, including channel zero;
-the legacy `Adjoint` scalar field is separate. Upstream scalar adapters accept
-channel zero only.
+returns a passive double. The optional channel defaults to zero. In vector
+mode these operations access the vector array, including channel zero;
+the legacy `Adjoint` scalar field is separate.
 
 For example, $u=xy$, $v=x^2+y$ at $(x,y)=(2,3)$ has Jacobian rows $(3,2)$
 and $(4,1)$. Seeds $(2,-1)$ compute the weighted gradient $(2,3)$:
 
 ```cpp
-#include <dal/math/aad/backend.hpp>
+#include <dal/math/aad/native.hpp>
 #include <dal/math/aad/recording.hpp>
 
 AAD::RecordingScope_ recording;
@@ -561,11 +540,11 @@ AAD::Number_ u = x * y;
 AAD::Number_ v = x * x + y;
 recording.FinishRecording();
 recording.ClearAdjoints();
-AAD::BackendAdapter_::SetSeed(u, 2.0);
-AAD::BackendAdapter_::SetSeed(v, -1.0);
+AAD::NativeOperations_::SetSeed(u, 2.0);
+AAD::NativeOperations_::SetSeed(v, -1.0);
 recording.Reverse();
-const double dx = AAD::BackendAdapter_::ReadAdjoint(x); // 2
-const double dy = AAD::BackendAdapter_::ReadAdjoint(y); // 3
+const double dx = AAD::NativeOperations_::ReadAdjoint(x); // 2
+const double dy = AAD::NativeOperations_::ReadAdjoint(y); // 3
 recording.Close();
 ```
 
@@ -575,102 +554,37 @@ constant, direct input or prefix alias; its second argument must be an active
 zero on the same recording. It does not silently register a new parameter.
 
 `ValidateAdjointMode(multi, width)` checks a proposed mode without changing
-the tape. Scalar width must be one; native vector width must be positive and
-at most `ADJ_SIZE`. Upstream scalar adapters reject vector mode, including
-width one. Select actual native mode with `SetNumResultsForAAD` before entering
-the scope. Unsupported channels/modes fail before seed mutation. Native
-diagnostic builds also validate number ownership and lifetime before node
-access. With diagnostics disabled, the gateway rejects missing nodes/vector
-storage but cannot generally detect a stale or wrongly rebound number.
+the tape. Scalar width must be one; vector width must be positive and at most
+`ADJ_SIZE`. Select actual mode with `SetNumResultsForAAD` before scope entry.
+Invalid modes/channels fail before seed mutation. Diagnostic ON also validates
+ownership and lifetime before node access. OFF rejects missing nodes/vector
+storage, but cannot generally detect stale or wrongly rebound numbers.
 
-Recording services use compile-time references to the established tape
-functions. Legacy free APIs, default active-number layouts and arithmetic
-remain available; the adapter introduces no virtual dispatch or per-node
-capability lookup.
+### Recording and Gradient Clearing
 
-### Load-Bearing Recording Contract
+For a fresh independent Jacobian, rewind, register inputs, start recording,
+perform the forward pass, then seed/reverse/harvest each output row.
+`NewRecording` is a native no-op; the scoped API still uses it as an explicit
+phase boundary. Rewind discards activity while retaining reusable capacity;
+re-register numeric inputs before the next independent graph.
 
-A correct Jacobian on all four backends requires this exact ordering:
+Every nonzero adjoint propagates, including subnormal values; only exact zero
+seeds are skipped. Vector channels follow this rule independently, so a zero
+channel does not evaluate `0 * Inf` when another channel is active. NaN and
+nonzero infinite seeds remain observable.
 
-$$
-\text{Rewind}(\textit{tape}) \;\rightarrow\;
-\text{RegisterIndependent}(x_k)\;\forall k \;\rightarrow\;
-\text{NewRecording}(\textit{tape}) \;\rightarrow\;
-\text{forward pass} \;\rightarrow\;
-\text{per output row } \bigl\{\,\bar{y}_i = 1,\;\text{PropagateToStart},\;\text{harvest},\;\text{zero each leaf}\,\bigr\}.
-$$
+`PropagateOne` consumes each intermediate adjoint after propagating it to its
+parents. Leaf parameter nodes retain accumulated contributions. The curve
+Jacobian harvester clears each independent leaf after extraction, costing
+O(nParams) per row. General independent repeated VJPs use `ZeroAdjoints` or
+the scoped `ClearAdjoints`, which clear the actual scalar/vector storage.
+A suffix restore preserves the valid prefix and its accumulated adjoints;
+a whole-graph gradient clear must not replace that operation.
 
-Each step has a backend-specific reason to be in this position:
-
-- **Rewind** resets the tape's write cursor to the start so the next recording
-  reuses the already-allocated node blocks, avoiding the free/re-allocate cycle
-  of `Clear` on every iteration. The reused storage is overwritten in place by
-  the next forward pass, so no stale data leaks into the new sweep.
-- **RegisterIndependent** stamps each input as a tape leaf that subsequent
-  operations differentiate. It must run *before* `NewRecording` opens the
-  recording window on XAD (see below); running it after silently drops the input
-  and yields an all-zero Jacobian column.
-- **NewRecording** marks the start of the live recording so the reverse sweep
-  terminates at the right point.
-- **Zeroing between rows** is **not** uniform across backends. On native the
-  inline-zeroing `PropagateOne` clears each consumed intermediate adjoint, so
-  only the parameter leaves must be zeroed by the caller after harvest; on the
-  other backends a full `ZeroAdjoints` pass before each row is still required.
-  Skipping the between-row zero is the single most common source of corrupted
-  multi-row Jacobians.
-
-### Per-Backend Zeroing Semantics
-
-- **Native propagation precision.** Every nonzero adjoint propagates, including
-  very small values. Only exact zero seeds are skipped: a small intermediate
-  adjoint can be multiplied by a large local derivative later in the sweep.
-  Multi-result channels follow this rule independently, so a zero channel does
-  not evaluate `0 * Inf` when another channel is active. NaN and nonzero infinite
-  seeds remain observable rather than being discarded by a threshold comparison.
-
-- **Native.** `PropagateOne` (`dal-cpp/dal/math/aad/node.hpp`) zeroes each
-  consumed node's adjoint inline after propagating it to its parents, so the
-  intermediate graph starts clean for the next reverse sweep without a separate
-  pass. Leaf parameter nodes (`n_ == 0`) are *not* consumed by `PropagateOne`
-  and would accumulate across rows; the shared harvester
-  (`dal-cpp/dal/curve/aadjacobian.cpp`) zeroes each harvested leaf adjoint in
-  place immediately after reading it, which
-  is O(nParams) per row instead of the O(all nodes) `ZeroAdjoints` sweep. The
-  `ZeroAdjoints` facade is still defined for callers that need a full sweep
-  outside this pattern.
-
-- **Adept.** Adept's `compute_adjoint` zeroes only the LHS adjoint of each
-  consumed statement and then accumulates into the operands; operands whose
-  gradients are never cleared keep residual values across sweeps. In a
-  single-result reverse-sweep loop, row 2's seed would land on row 1's operand
-  residue and corrupt the Jacobian. The `ZeroGradientArray` helper
-  (`tape.hpp`) clears the live gradient array while keeping
-  `gradients_initialized_` true, which satisfies the `compute_adjoint` `THROW`
-  guard ("Adept gradients are not initialized"). `Dal::AAD::ZeroAdjoints`
-  routes to `ZeroGradientArray` on this backend, so callers that use the facade
-  are safe; callers that bypass it must replicate the semantics.
-
-  Gradient capacity can also grow after seeding: later recording windows may
-  register more simultaneously live variables than the initialized array holds.
-  `Tape_::EnsureGradientCapacity` in `dal-cpp/dal/math/aad/tape.hpp` ensures
-  sufficient storage before DAL adjoint reads, writes, and reverse sweeps.
-  Growth preserves accumulated adjoints and zeroes only the added storage;
-  reinitializing the whole array would erase contributions from earlier paths.
-  The explicit `ZeroAdjoints` call between independent output rows remains
-  necessary.
-
-- **XAD.** `registerInput` must run *before* `NewRecording` opens the recording
-  window: registering an input after `NewRecording` silently drops it and
-  yields an all-zero Jacobian column. The `RegisterIndependent` facade asserts
-  the tape is active (`clearAll` does not deactivate a tape constructed with
-  `activate=true`), so a passive tape fails loudly at registration time rather
-  than producing a silent zero column. `ZeroAdjoints` maps to
-  `xad::Tape::clearDerivatives`.
-
-- **CoDiPack.** `RegisterIndependent` calls `tape.registerInput` on the active
-  tape; `ZeroAdjoints` calls the no-argument `clearAdjoints`, which zeroes up
-  to the largest created index and leaves the statement graph intact. Both are
-  safe between sweeps.
+Before closing or restoring a suffix, extract still-needed prices and gradients
+as passive values. Discarded activity cannot be used in a later reverse.
+Failure recovery and checkpoint validation follow the scoped lifecycle rules
+above.
 
 ### Public Result Validation
 
@@ -678,81 +592,49 @@ Public Monte Carlo valuation requires both the reported mean and requested
 sensitivities to be finite. An invalid sensitivity raises `InvalidRisk` with the
 output and input names; a non-finite aggregate mean raises `InvalidPayoff`.
 This validation does not make an undefined local derivative mathematically valid.
-Endpoint conventions still belong to the selected backend. For example, the
-pinned CoDiPack backend assigns a zero local derivative to `sqrt(0)`, whereas
-the native backend produces an infinite derivative. A finite reported value is
+For example, the native derivative of `sqrt(0)` is infinite. A finite reported value is
 therefore insufficient evidence of differentiability at an endpoint.
 
 ### Passive vs Active Tape
 
-XAD and CoDiPack distinguish an *active* tape (records statements) from a
-*passive* tape (does not). The native backend has no notion of a passive tape —
-recording is unconditional — and Adept's activity is governed by its
-`Stack` base. Code that needs a value-only pass (e.g. a baseline pricing run
+Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run
 without differentiation) should use a plain `double` evaluation rather than
-relying on tape passivity, which is backend-dependent.
+relying on tape passivity.
 
 ## Examples
 
-The recording contract of the previous section is exercised end to end by the
-AAD benchmark program, which prices a Black payoff and reads back every Greek
-from a single reverse sweep. See
-[`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad) for a runnable version;
-its core backend-neutral sweep is:
+The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
+pricing, native AAD and analytic price/gradient references. It treats forward,
+volatility, numeraire, strike and expiry as independent coordinates, so the
+expiry derivative holds forward and numeraire fixed.
+
+After registering those five inputs on a `RecordingScope_`, its repeated
+evaluation uses a checkpoint to retain the inputs and their accumulated seeds:
 
 ```cpp
-// from dal-cpp/examples/aad/aad.cpp
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/aad.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/math/vectors.hpp>
-
-using namespace Dal;
-using Dal::AAD::Number_;
-
-Dal::RegisterAll_::Init();
-AAD::Clear(*AAD::Tape());
-
-Number_ fwdAad(fwd), volAad(vol), numeraireAad(numeraire), strikeAad(strike), expiryAad(expiry);
-PutOnTape(fwdAad);
-PutOnTape(volAad);
-PutOnTape(numeraireAad);
-PutOnTape(strikeAad);
-PutOnTape(expiryAad);
-AAD::NewRecording(*AAD::Tape());
-
-Number_ priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
-Adjoint(priceAad) = 1.0;
-AAD::PropagateToStart(*AAD::Tape());
-
-const double pv    = Value(priceAad);   // price
-const double delta = Adjoint(fwdAad);   // dP/dFwd
-const double vega  = Adjoint(volAad);   // dP/dVol
-// numeraire, strike, and expiry adjoints are read the same way
-```
-
-The same program benchmarks repeated evaluation of this deterministic Black
-formula. Its timing loop reuses the tape and divides accumulated adjoints by
-the repetition count:
-
-```cpp
-// from dal-cpp/examples/aad/aad.cpp
-Number_ priceAad{0.0};
-for (int i = 0; i < nRounds; ++i) {
-    AAD::Rewind(*AAD::Tape());
-    priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
-    Adjoint(priceAad) = 1.0;
-    AAD::PropagateToStart(*AAD::Tape());
+scope.StartRecording();
+const auto checkpoint = scope.MakeCheckpoint();
+for (int i = 0; i < rounds; ++i) {
+    scope.Restore(checkpoint);
+    AAD::Number_ price = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
+    const double pv = AAD::Value(price);
+    scope.FinishRecording();
+    AAD::NativeOperations_::SetSeed(price, 1.0);
+    scope.ReverseSuffix(checkpoint);
+    // Use pv before the next restore discards this suffix.
 }
-const double delta = Adjoint(fwdAad) / nRounds;   // benchmark repetition average
+scope.ReversePrefix(checkpoint);
+const double delta = AAD::NativeOperations_::ReadAdjoint(fwdAad) / rounds;
+const double vega = AAD::NativeOperations_::ReadAdjoint(volAad) / rounds;
+scope.Close();
 ```
 
-This loop does not simulate Monte Carlo paths. The production pathwise estimator
-uses the mark/rewind discipline described above in `dal-cpp/dal/script/simulation.hpp`.
+`BlackTest` is local to the example. The executable checks its price and all
+five derivatives against independent analytic formulas. Repetition timing is
+illustrative and is not a paired performance acceptance result.
 
-The example also benchmarks the same payoff with the XAD, CoDiPack, and Adept
-backends side by side; only the recording and zeroing calls differ, as described
-under *Backends* above.
+This loop evaluates a deterministic formula; the production pathwise estimator
+uses the same prefix/suffix discipline in `dal-cpp/dal/script/simulation.hpp`.
 
 ## Summary
 

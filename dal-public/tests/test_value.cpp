@@ -107,7 +107,6 @@ TEST(ValueTest, TestAadRejectsOverflowingRiskWithFinitePayoffAndRecovers) {
     ASSERT_TRUE(std::isfinite(recovered.at("d_spot")));
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(ValueTest, TestNativeAadRejectsSingularRiskWithFinitePayoffAndRecovers) {
     const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));
     const Vector_<Cell_> dates = {Cell_("ROOT"), Cell_(Date_(2023, 9, 25))};
@@ -122,7 +121,6 @@ TEST(ValueTest, TestNativeAadRejectsSingularRiskWithFinitePayoffAndRecovers) {
     ASSERT_TRUE(std::isfinite(recovered.at(String_("PV"))));
     ASSERT_TRUE(std::isfinite(recovered.at(String_("d_spot"))));
 }
-#endif
 
 TEST(ValueTest, TestRejectsNonFiniteAggregateFromFinitePathPayoffs) {
     const ScopedEvaluationDate_ evalDate(Date_(2022, 9, 25));

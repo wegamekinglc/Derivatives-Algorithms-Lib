@@ -3,13 +3,6 @@ add_executable(joint_multi_curve_calibration ${JOINT_MULTI_CURVE_CALIBRATION_FIL
 
 target_link_libraries(joint_multi_curve_calibration dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(joint_multi_curve_calibration XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(joint_multi_curve_calibration CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(joint_multi_curve_calibration adept)
-endif()
 
 if(MSVC)
 else()

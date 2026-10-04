@@ -4,13 +4,6 @@ add_executable(specialfunctions_perf ${SPECIALFUNCTIONS_PERF_FILES})
 
 target_link_libraries(specialfunctions_perf dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(specialfunctions_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(specialfunctions_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(specialfunctions_perf adept)
-endif ()
 
 if(MSVC)
 else()
@@ -24,4 +17,3 @@ install(TARGETS specialfunctions_perf
 
 add_test(NAME specialfunctions_perf COMMAND specialfunctions_perf)
 set_tests_properties(specialfunctions_perf PROPERTIES LABELS "benchmark")
-

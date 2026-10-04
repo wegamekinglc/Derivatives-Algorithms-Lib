@@ -97,7 +97,6 @@ TEST(AADPropagationTest, TestSubnormalAndSignedZeroSeeds) {
     }
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADPropagationTest, TestVectorWidthsConsumeIntermediatesAndAccumulateAliasedInputs) {
     using namespace Dal::AAD;
     for (size_t width : {1U, 2U, 3U, 4U, 5U, 7U, 8U, 10U, 15U, 16U, 17U, 33U}) {
@@ -205,4 +204,3 @@ TEST(AADPropagationTest, TestVectorNaNSeedIsNotDiscarded) {
     }
     Clear(*Tape());
 }
-#endif

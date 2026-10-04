@@ -4,13 +4,6 @@ add_executable(matrix_perf ${MATRIX_PERF_FILES})
 
 target_link_libraries(matrix_perf dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(matrix_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(matrix_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(matrix_perf adept)
-endif ()
 
 if(MSVC)
 else()
@@ -24,4 +17,3 @@ install(TARGETS matrix_perf
 
 add_test(NAME matrix_perf COMMAND matrix_perf)
 set_tests_properties(matrix_perf PROPERTIES LABELS "benchmark")
-

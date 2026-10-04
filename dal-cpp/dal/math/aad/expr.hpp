@@ -5,12 +5,10 @@
 #pragma once
 
 #include <cmath>
-#include <mutex>
 #include <type_traits>
-#include <dal/platform/host.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/platform/host.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
@@ -551,7 +549,7 @@ namespace Dal::AAD {
 
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
-        friend struct NativeBackendAdapter_;
+        friend struct NativeOperations_;
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {
@@ -620,196 +618,7 @@ namespace Dal::AAD {
 
     FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
 } // namespace Dal::AAD
-#elif defined(DAL_USE_ADEPT_AAD)
-#include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
-    using Number_ = adept::adouble;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using adept::operator*;
-    using adept::operator+;
-    using adept::operator-;
-    using adept::operator/;
-    using adept::operator==;
-    using adept::operator!=;
-    using adept::operator<;
-    using adept::operator<=;
-    using adept::operator>;
-    using adept::operator>=;
-
-    using adept::abs;
-    using adept::erfc;
-    using adept::exp;
-    using adept::log;
-    using adept::max;
-    using adept::min;
-    using adept::pow;
-    using adept::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return adept::value(num);
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    class Adjoint_ {
-        Number_& num_;
-
-    public:
-        explicit Adjoint_(Number_& num) : num_(num) {}
-
-        FORCE_INLINE Adjoint_& operator=(double adjoint) {
-            Tape()->EnsureGradientCapacity();
-            num_.set_gradient(adjoint);
-            return *this;
-        }
-
-        FORCE_INLINE operator double() const {
-            Tape()->EnsureGradientCapacity();
-            return num_.get_gradient();
-        }
-    };
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        Tape()->EnsureGradientCapacity();
-        return num.get_gradient();
-    }
-
-    FORCE_INLINE Adjoint_ Adjoint(Number_& num) {
-        return Adjoint_(num);
-    }
-
-    FORCE_INLINE void PutOnTape(Number_&) {}
-} // namespace Dal::AAD
-#elif defined(DAL_USE_XAD_AAD)
-#include <dal/math/aad/tape.hpp>
-
-namespace Dal::AAD {
-    using Number_ = xad::adj<double>::active_type;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using xad::operator*;
-    using xad::operator+;
-    using xad::operator-;
-    using xad::operator/;
-    using xad::operator==;
-    using xad::operator!=;
-    using xad::operator<;
-    using xad::operator<=;
-    using xad::operator>;
-    using xad::operator>=;
-
-    using xad::abs;
-    using xad::erfc;
-    using xad::exp;
-    using xad::log;
-    using xad::max;
-    using xad::min;
-    using xad::pow;
-    using xad::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return xad::value(num);
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        return xad::derivative(num);
-    }
-
-    FORCE_INLINE Number_::derivative_type& Adjoint(Number_& num) {
-        return xad::derivative(num);
-    }
-
-    FORCE_INLINE void PutOnTape(Number_& n) {
-        Tape()->tape_.registerInput(n);
-    }
-} // namespace Dal::AAD
-#elif defined(DAL_USE_CODIPACK_AAD)
-#include <dal/math/aad/tape.hpp>
-
-namespace Dal::AAD {
-    using Number_ = Tape_::active_type;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using codi::operator*;
-    using codi::operator+;
-    using codi::operator-;
-    using codi::operator/;
-    using codi::operator==;
-    using codi::operator!=;
-    using codi::operator<;
-    using codi::operator<=;
-    using codi::operator>;
-    using codi::operator>=;
-
-    using codi::abs;
-    using codi::erfc;
-    using codi::exp;
-    using codi::log;
-    using codi::max;
-    using codi::min;
-    using codi::pow;
-    using codi::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return num.getValue();
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        return num.getGradient();
-    }
-
-    FORCE_INLINE Number_::Gradient& Adjoint(Number_& num) {
-        return num.gradient();
-    }
-
-    FORCE_INLINE void PutOnTape(Number_& n) {
-        Tape()->tape_.registerInput(n);
-    }
-} // namespace Dal::AAD
-#endif
-
-namespace Dal::AAD {
-    // Read an adjoint as a passive scalar without selecting a backend's mutable-adjoint
-    // proxy overload. In particular, Adept's proxy is assignable and convertible, so
-    // passing it through Value(...) would be ambiguous between Number_ and double.
     FORCE_INLINE double AdjointValue(const Number_& num) { return Adjoint(num); }
 } // namespace Dal::AAD
-
-#if defined(DAL_USE_ADEPT_AAD) || defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD)
-namespace Dal::AAD {
-    constexpr double INV_SQRT_2PI = 1.0 / M_SQRT_2_PI;
-    constexpr double SQRT_2 = M_SQRT_2;
-
-    FORCE_INLINE Number_ NPDF(const Number_& z) {
-        return INV_SQRT_2PI * exp(-0.5 * z * z);
-    }
-
-    FORCE_INLINE Number_ NCDF(const Number_& z) {
-        return 0.5 * erfc(-z / SQRT_2);
-    }
-} // namespace Dal::AAD
-#endif

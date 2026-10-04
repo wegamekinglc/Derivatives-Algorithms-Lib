@@ -34,10 +34,10 @@ ctest --test-dir build/Release-linux --output-on-failure
 Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column limit,
 `T*` not `T *`, attach braces).
 
-CMake cache variables (AAD backends, sub-project/test/example/benchmark toggles, sanitizers)
+CMake cache variables (native AAD diagnostics, sub-project/test/example/benchmark toggles, sanitizers)
 are listed in [CLAUDE.md](../CLAUDE.md#build-commands) and the
 [installation guide options table](../docs/installation.md#common-cmake-options). Pull requests
-run the full matrix: native/xad/codipack/adept × gcc-13, gcc-14, gcc-15, clang-18,
+run native AAD on gcc-13, gcc-14, gcc-15, clang-18,
 clang-19, clang-20, plus MSVC; pushes run a lean gcc-14/clang-20 subset.
 
 ## Architecture

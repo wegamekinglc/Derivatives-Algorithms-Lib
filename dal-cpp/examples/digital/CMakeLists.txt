@@ -3,13 +3,6 @@ add_executable(digital ${DIGITAL_FILES})
 
 target_link_libraries(digital dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(digital XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(digital CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(digital adept)
-endif ()
 
 if(MSVC)
 else()
