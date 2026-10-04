@@ -7,7 +7,7 @@ performance and publication CI remain acceptance work.
 The checked recording head `0ee84e1` passes all 46 exact-head CI checks.
 This contract controls
 the next diagnostic increment in the
-[full AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/1741a0ce41ca7daa0ccaa846a49473136b6af8a4/.codex/artifacts/plans/aad-improvement-plan.md).
+[full AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3c2d0bdbdf6532ae9edae507d073f765e7e31f8a/.codex/artifacts/plans/aad-improvement-plan.md).
 
 ## Problem and supported boundary
 

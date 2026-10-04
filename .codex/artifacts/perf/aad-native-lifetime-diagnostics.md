@@ -2,8 +2,9 @@
 
 Status: active D02 acceptance. The initial `c83bcc9` mathematical, lifetime, build,
 installed ABI and default-OFF performance checks pass. A subsequent assignment
-failure audit adds three RED cases and a diagnostic-only correction; its final
-validation, fresh default-OFF pairing and publication CI remain pending.
+failure audit adds three RED cases and a diagnostic-only correction. Corrected
+full ON/OFF builds and CTest pass; fresh default-OFF pairing and publication CI
+remain pending.
 This increment and the bounded `BlockList_::Size` repair do not complete Stage A
 or the full AAD implementation goal.
 
@@ -27,7 +28,7 @@ outside the diagnostic contract.
   retained detached and unchanged.
 - Measured implementation: `c83bcc979ac294c0684c021f1191a2bb144e8fd0`.
 - Assignment-corrected implementation: `4c2f0d57f61d788e1ec717fb11c5e1fa0b0bd005`;
-  its new pairing and complete build evidence are still pending.
+  its full build checks pass; fresh pairing remains pending.
 - Separate bounded-size repair: `5e6d0ae`, preceding the diagnostic commit.
 - Sources: `/tmp/dal-aad-baseline` and `/tmp/dal-aad-implementation`.
 - Default native builds: `/tmp/dal-aad-evidence/base-build` and `head-build`.
@@ -95,8 +96,15 @@ before changing its cached primal; diagnostic expression assignment materializes
 a replacement before committing it. The default OFF assignment bodies are retained.
 An added scoped-registration case verifies failure retention and recovery by the
 next independent scope. All 28 diagnostic cases now pass focused ASan/UBSan
-with leak detection. Complete ON/OFF rebuilds, default performance and CI still
-require corrected-head verification.
+with leak detection. Corrected full ON CTest passes all 2,313 cases, including
+Python; default OFF passes all 2,318 functional/example cases. Both complete
+rebuilds succeed. Retain `lifetime-assignment-{on,off}-{build,ctest}.log`.
+Default performance and publication CI still require corrected-head verification.
+Fresh corrected ON/OFF installs and external consumers also pass. Retain
+`lifetime-assignment-install-{on,off}.log` and
+`lifetime-assignment-consumer-{on,off}{,-configure,-build}.log`; these consumers
+verify the exported setting, inherited definition, analytic derivative and ON
+closed-recording rejection against the newly installed libraries.
 
 ## Layout and resource observations
 

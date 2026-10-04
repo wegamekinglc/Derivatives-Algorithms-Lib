@@ -3,10 +3,13 @@
 Status: active implementation. No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/1741a0ce41ca7daa0ccaa846a49473136b6af8a4/.codex/artifacts/plans/aad-improvement-plan.md).
+Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3c2d0bdbdf6532ae9edae507d073f765e7e31f8a/.codex/artifacts/plans/aad-improvement-plan.md).
 Its appendix expansions preserve the original scope and add worked examples,
 task cards, resource models, complete request execution, operator pullbacks,
 cache/failure boundaries and explicit no-regression acceptance.
+The further method expansion specifies solver precision, nonsmooth estimators,
+sparse reconstruction, segmented state seeds, backend effects and result failures;
+it preserves the existing full implementation scope.
 Initial implementation baseline: `b5e3caca85bb1a5b1aa3acf7898b387832d443c8`.
 
 The user authorized full implementation on 2026-10-04 and requires existing functionality
@@ -147,9 +150,12 @@ Post-pairing review reproduces two independent-rebinding failures and one
 expression-assignment failure under counter exhaustion. Diagnostic assignment
 now commits primal/handle only after successful allocation/materialization;
 default OFF assignment bodies are unchanged. All 28 diagnostic cases now pass
-ASan/UBSan, including actual scoped-registration failure/recovery. Complete
-ON/OFF rebuild validation and fresh default OFF pairing remain required before
-publishing the corrected diagnostic increment; keep the earlier `c83bcc9` data.
+ASan/UBSan, including actual scoped-registration failure/recovery. Corrected
+complete ON/OFF builds now pass: ON CTest has 2,313 cases including Python,
+and OFF has 2,318 functional/example cases. Evidence is retained in
+`lifetime-assignment-{on,off}-{build,ctest}.log`. Fresh default OFF pairing and
+current publication CI remain required before accepting the corrected increment;
+keep the earlier `c83bcc9` data.
 The independent full-final-block `BlockList::Size` repair has its
 bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
 final paired/CI acceptance; its full native/CoDiPack functional checks pass.
