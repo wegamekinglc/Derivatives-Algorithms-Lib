@@ -791,6 +791,11 @@ The caller supplies numeric surface adjoints. A separate native recording
 replays calibration, validates its primal surface and adds each output seed,
 including copied boundary aliases. The seed's complete calibration identity
 must match; dimensions and display names alone cannot establish compatibility.
+When ordinary active replay fails the primal check, a checked replay uses scalar
+call prices with the original active-expression derivatives after checking
+call-level rounding disagreement. This prevents contracted floating arithmetic
+from amplifying call rounding through the second-difference stencil; the final
+surface check remains relative/absolute `1e-12`.
 Zero and negative seeds are supported. Nonfinite quotes/seeds, invalid grid
 spacing, unresolved or nonpositive call curvature and nonpositive local
 variance fail explicitly. Independent nested recordings remain unsupported.

@@ -258,24 +258,49 @@ explicit scoped single worker and add eight four-worker Hybrid/GSR cases at
 the existing rel/abs 1e-10 protocol. No production math or CI limit changes.
 New binding publication/CI, Excel and common curve adaptation remain required.
 
+Exact Python `12dcd09a` completes 35 checks with 33 successes, one macOS ARM
+wheel failure and one dependent wheel-matrix skip. Seven Dupire cases fail the
+strict primal replay check. A local contracted-arithmetic RED reproduces
+call-level rounding amplified by the strike second difference. The
+[replay correction](../api-notes/aad-dupire-replay-rounding.md) retains the old
+agreeing graph and uses bounded scalar-call primals with the original expression
+derivatives only on mismatch. The final relative/absolute 1e-12 surface check,
+all fixed quote steps/tolerances, boundary aliases and recording lifecycle remain.
+
+The first unconditional replay passes correctness but regresses four VJP costs
+by 72–98%; retain and reject that implementation. The final conditional version
+passes all twelve paired entry combinations over 480 processes under the
+unchanged two-by-ten/4% comparison. Original nine gate binaries remain identical;
+the native archive changes. Final OFF/combined CTest passes 2,384/2,398, relevant
+GCC ASan/UBSan passes 95 and Clang FMA passes 11. Both installed consumers pass
+in each configuration. Rebuilt standalone Python passes 62; joint/standalone
+installed modules each match all 248 accepted native cells bitwise. Previous
+42 core, 321 Hybrid and 84 Python oracle traces remain identical. Generation
+has zero drift in 497 files. Fully instrumented Clang FMA with lifetime/profiling
+also passes all 11 cases. Corrective exact-head CI remains before acceptance; see the
+[review](../reviews/aad-dupire-replay-rounding.md) and
+[cost report](../performance/aad-dupire-replay-rounding.md). Excel and common
+curve integration are the next F01 implementation tasks; every full F01 box
+and the Stage B/C/D requirements remain open.
+
 ### Whole-plan status and remaining effort
 
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                               | Publication/CI                                  | Remaining person-days |
-|-------------------------|-----------------------------------------------------------------|-------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                   | Accepted exact-head checks                      | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                       | Accepted exact-head checks                      | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive         | Published tooling; performance verdict open     | 2–5                   |
-| F01                     | Core/Hybrid accepted; Python locally verified; Excel/curve open | Core/Hybrid 35/35 each; Python new-head CI open | 6–10                  |
-| F02                     | Multiple outputs and portfolio integration remain               | Open                                            | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                  | Open                                            | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain            | Open                                            | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                        | Open                                            | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain         | Open                                            | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains      | Open                                            | 7–11                  |
+| Work item               | Implementation/local verification                                  | Publication/CI                                  | Remaining person-days |
+|-------------------------|--------------------------------------------------------------------|-------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                      | Accepted exact-head checks                      | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                          | Accepted exact-head checks                      | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive            | Published tooling; performance verdict open     | 2–5                   |
+| F01                     | Core/Hybrid accepted; Python replay repair local; Excel/curve open | Core/Hybrid accepted; corrective Python CI open | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain                  | Open                                            | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                     | Open                                            | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain               | Open                                            | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                           | Open                                            | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain            | Open                                            | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                            | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance

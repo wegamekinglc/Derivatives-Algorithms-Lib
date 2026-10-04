@@ -37,6 +37,13 @@ for display; full content and typed coordinates establish compatibility.
 
 ## Required review evidence
 
+The ARM wheel failure and local contracted-arithmetic RED control the
+[replay correction](../api-notes/aad-dupire-replay-rounding.md). A scalar call
+primal must be independently recomputed from frozen inputs, bounded against its
+active expression, and retain the existing derivative. The original 1e-12
+surface check and every oracle tolerance remain. Inspect shared formula and
+boundary copies carefully; do not introduce a final-output value override.
+
 Language projection must not cast away const ownership of the frozen surface.
 Return detached geometry/matrices/surface, and retain the GIL during custom-IVS
 sampling. The IVS override must validate its numeric return rather than accept

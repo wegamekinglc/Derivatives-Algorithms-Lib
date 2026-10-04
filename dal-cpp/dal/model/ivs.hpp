@@ -12,23 +12,20 @@
 #include <dal/math/vectors.hpp>
 
 namespace Dal::AAD {
-    template <class T_>
-    class RiskView_ {
+    template <class T_> class RiskView_ {
         bool isEmpty_;
         Vector_<> strikes_;
         Vector_<> mats_;
         Matrix_<T_> spreads_;
 
     public:
-        RiskView_() : isEmpty_(true){};
+        RiskView_() : isEmpty_(true) {};
         RiskView_(const Vector_<>& strikes, const Vector_<>& mats)
             : isEmpty_(false), strikes_(strikes), mats_(mats), spreads_(strikes.size(), mats.size(), T_(0.0)) {
             Interp::ValidateLinear2Axes(strikes_, mats_);
         }
 
-        T_ Spread(double strike, double mat) const {
-            return isEmpty_ ? T_(0.0) : Interp2DLinearImplX(strikes_, mats_, spreads_, strike, mat);
-        }
+        T_ Spread(double strike, double mat) const { return isEmpty_ ? T_(0.0) : Interp2DLinearImplX(strikes_, mats_, spreads_, strike, mat); }
 
         [[nodiscard]] bool IsEmpty() const { return isEmpty_; }
         [[nodiscard]] size_t Rows() const { return strikes_.size(); }
@@ -48,6 +45,24 @@ namespace Dal::AAD {
         void Bump(int i, int j, double bumpBy) { spreads_(i, j) += bumpBy; }
     };
 
+    namespace Detail {
+        template <class C_>
+        auto DupireLocalVolFromCalls(double strike, double mat, double rate, double dividend, const C_& call) -> decltype(call(strike, mat)) {
+            using T_ = decltype(call(strike, mat));
+            const T_ c00 = call(strike, mat);
+            const auto dt = 1.e-4 * mat;
+            const T_ c01 = call(strike, mat - dt);
+            const T_ c02 = call(strike, mat + dt);
+            const T_ ct = (c02 - c01) * 0.5 / dt;
+
+            const auto ds = 1.0e-04 * strike;
+            const T_ c10 = call(strike - ds, mat);
+            const T_ c20 = call(strike + ds, mat);
+            const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
+            const T_ ck = (c20 - c10) * 0.5 / ds;
+            return Dal::sqrt(2.0 * (ct + dividend * c00 + (rate - dividend) * strike * ck) / ckk) / strike;
+        }
+    } // namespace Detail
 
     class IVS_ {
         double spot_;
@@ -61,34 +76,19 @@ namespace Dal::AAD {
         [[nodiscard]] double DividendYield() const { return q_; }
         [[nodiscard]] virtual double ImpliedVol(double strike, double mat) const = 0;
 
-        template <class T_ = double>
-        T_ Call(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
+        template <class T_ = double> T_ Call(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
             const double forward = spot_ * Dal::exp((r_ - q_) * mat);
             const double discount = Dal::exp(-r_ * mat);
-            return discount * BlackScholes<T_>(forward, strike,
-                                                ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
+            return discount * BlackScholes<T_>(forward, strike, ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
         }
 
         // Dupire local vol via central differences.
-        template <class T_ = double>
-        T_ LocalVol(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
-            const T_ c00 = Call(strike, mat, risk);
-            const auto dt = 1.e-4 * mat;
-            const T_ c01 = Call(strike, mat - dt, risk);
-            const T_ c02 = Call(strike, mat + dt, risk);
-            const T_ ct = (c02 - c01) * 0.5 / dt;
-
-            const auto ds = 1.0e-04 * strike;
-            const T_ c10 = Call(strike - ds, mat, risk);
-            const T_ c20 = Call(strike + ds, mat, risk);
-            const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
-            const T_ ck = (c20 - c10) * 0.5 / ds;
-            return Dal::sqrt(2.0 * (ct + q_ * c00 + (r_ - q_) * strike * ck) / ckk) / strike;
+        template <class T_ = double> T_ LocalVol(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
+            return Detail::DupireLocalVolFromCalls(strike, mat, r_, q_, [this, risk](double k, double t) { return Call(k, t, risk); });
         }
 
         virtual ~IVS_() = default;
     };
-
 
     class MertonIVS_ : public IVS_ {
         double vol_;

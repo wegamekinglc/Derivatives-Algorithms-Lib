@@ -71,6 +71,11 @@ Require its primal surface to agree with the retained numeric surface at
 relative/absolute 1e-12 before reverse. Seed each surface node additively so
 copied boundary nodes accumulate all contributions. Zero and negative seeds
 are valid. Extract ordinary numeric quote adjoints, then close the recording.
+Contracted arithmetic must not turn call-level ULP differences into a failed
+second-difference replay. The [rounding decision](../api-notes/aad-dupire-replay-rounding.md)
+requires a freshly evaluated scalar call primal, its existing active-expression
+derivative and a bounded call-level disagreement before the unchanged strict
+surface check. Never copy expected surface values into the recording.
 
 R06. An optional direct quote contribution must carry the same quote axes and
 values. Add it once, without scaling or re-normalizing either contribution.

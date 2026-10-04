@@ -196,16 +196,73 @@ namespace Dal {
             return quotes;
         }
 
-        template <class C_> void ValidateReplay(const C_& calibrated, const LocalVolSurfaceData_& expected) {
-            REQUIRE(calibrated.spots_ == expected.spots_ && calibrated.times_ == expected.times_,
-                    "InvalidDupirePullback: replay changed the surface axes");
+        struct OPScalarCallPrimal_ {
+            static double Eval(double, double scalarPrice) { return scalarPrice; }
+            static double Derivative(double, double, double) { return 1.0; }
+        };
+
+        AAD::Number_ ReplayCall(const FrozenIVS_& ivs,
+                                const AAD::RiskView_<AAD::Number_>& activeQuotes,
+                                const AAD::RiskView_<double>& scalarQuotes,
+                                double strike,
+                                double maturity) {
+            const double scalarPrice = ivs.Call(strike, maturity, &scalarQuotes);
+            const AAD::Number_ activePrice = ivs.Call(strike, maturity, &activeQuotes);
+            const double scale = ivs.Spot() * std::exp(-ivs.DividendYield() * maturity) + strike * std::exp(-ivs.Rate() * maturity);
+            REQUIRE(std::isfinite(scalarPrice) && std::isfinite(Value(activePrice)) && std::isfinite(scale) &&
+                        std::abs(Value(activePrice) - scalarPrice) <= 8.0 * std::numeric_limits<double>::epsilon() * scale,
+                    "InvalidDupirePullback: stencil call replay disagrees with its scalar price");
+            if (Value(activePrice) == scalarPrice)
+                return activePrice;
+            return AAD::UnaryExpression_<AAD::Number_, OPScalarCallPrimal_>(activePrice, scalarPrice);
+        }
+
+        struct ReplayedSurface_ {
+            Vector_<> spots_;
+            Vector_<> times_;
+            Matrix_<AAD::Number_> lVols_;
+        };
+
+        ReplayedSurface_
+        ReplayCalibration(const FrozenBase_& base, const DupireRiskInputs_& inputs, const AAD::RiskView_<AAD::Number_>& activeQuotes) {
+            const FrozenIVS_ ivs(base);
+            const auto scalarQuotes = NumericQuotes(inputs);
+            auto scalar =
+                AAD::DupireCalib(ivs, inputs.inclusionSpots_, inputs.maxSpotSpacing_, inputs.inclusionTimes_, inputs.maxTimeSpacing_, scalarQuotes);
+            ReplayedSurface_ result{std::move(scalar.spots_), std::move(scalar.times_), {}};
+            result.lVols_.Resize(static_cast<int>(result.spots_.size()), static_cast<int>(result.times_.size()));
+            const auto call = [&](double strike, double maturity) { return ReplayCall(ivs, activeQuotes, scalarQuotes, strike, maturity); };
+            for (int column = 0; column < result.lVols_.Cols(); ++column) {
+                const auto band = base.bands_[static_cast<size_t>(column)];
+                for (size_t row = band.first; row < band.second; ++row)
+                    result.lVols_(static_cast<int>(row), column) = AAD::Detail::DupireLocalVolFromCalls(
+                        result.spots_[row], result.times_[static_cast<size_t>(column)], ivs.Rate(), ivs.DividendYield(), call);
+                for (size_t row = 0; row < result.spots_.size(); ++row) {
+                    const auto source = std::clamp(row, band.first, band.second - 1);
+                    if (source != row)
+                        result.lVols_(static_cast<int>(row), column) = result.lVols_(static_cast<int>(source), column);
+                }
+            }
+            return result;
+        }
+
+        template <class C_> bool ReplayAgrees(const C_& calibrated, const LocalVolSurfaceData_& expected) {
+            if (calibrated.spots_ != expected.spots_ || calibrated.times_ != expected.times_)
+                return false;
             for (int row = 0; row < expected.vols_.Rows(); ++row)
                 for (int column = 0; column < expected.vols_.Cols(); ++column) {
                     const double value = Value(calibrated.lVols_(row, column));
                     const double reference = expected.vols_(row, column);
-                    REQUIRE(std::isfinite(value) && std::abs(value - reference) <= 1e-12 + 1e-12 * std::abs(reference),
-                            "InvalidDupirePullback: active replay disagrees with the retained numeric surface");
+                    if (!std::isfinite(value) || std::abs(value - reference) > 1e-12 + 1e-12 * std::abs(reference))
+                        return false;
                 }
+            return true;
+        }
+
+        template <class C_> void ValidateReplay(const C_& calibrated, const LocalVolSurfaceData_& expected) {
+            REQUIRE(calibrated.spots_ == expected.spots_ && calibrated.times_ == expected.times_,
+                    "InvalidDupirePullback: replay changed the surface axes");
+            REQUIRE(ReplayAgrees(calibrated, expected), "InvalidDupirePullback: active replay disagrees with the retained numeric surface");
         }
 
         Matrix_<> ExtractQuoteAdjoints(const AAD::RiskView_<AAD::Number_>& quotes) {
@@ -294,6 +351,12 @@ namespace Dal {
         const FrozenIVS_ frozen(snapshot.data_->base_);
         auto calibrated =
             AAD::DupireCalib(frozen, inputs.inclusionSpots_, inputs.maxSpotSpacing_, inputs.inclusionTimes_, inputs.maxTimeSpacing_, quotes);
+        if (!ReplayAgrees(calibrated, *snapshot.Surface())) {
+            auto corrected = ReplayCalibration(snapshot.data_->base_, inputs, quotes);
+            calibrated.spots_ = std::move(corrected.spots_);
+            calibrated.times_ = std::move(corrected.times_);
+            calibrated.lVols_ = std::move(corrected.lVols_);
+        }
         recording.FinishRecording();
         ValidateReplay(calibrated, *snapshot.Surface());
         for (int row = 0; row < calibrated.lVols_.Rows(); ++row)

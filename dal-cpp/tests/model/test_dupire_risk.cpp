@@ -124,6 +124,21 @@ TEST(DupireRiskTest, TestCheckedNumericSnapshotPreservesDiscreteCalibration) {
     ASSERT_EQ(snapshot.Inputs().quoteSpreads_.Cols(), 2);
 }
 
+TEST(DupireRiskTest, TestReplayWithNonalignedQuoteAxesKeepsScalarCalibration) {
+    const Dal::AAD::FlatIVS_ ivs(100.0, 0.05, 0.02, 0.2);
+    auto inputs = SmallRiskInputs();
+    inputs.quoteStrikes_ = {75.0, 105.0, 135.0};
+    inputs.quoteMaturities_ = {0.4, 1.2};
+    const auto snapshot = CalibrateDupireWithRisk(ivs, inputs);
+    const Dal::DupireParameterAdjoints_ seeds{snapshot, Matrix_<>(9, 2, 0.5)};
+    const auto result = Dal::PullbackDupireCalibration(snapshot, seeds);
+    double direction = 0.0;
+    for (int row = 0; row < result.TotalAdjoints().Rows(); ++row)
+        for (int column = 0; column < result.TotalAdjoints().Cols(); ++column)
+            direction += std::cos(0.7 * row + 0.4 * column) * result.TotalAdjoints()(row, column);
+    ASSERT_TRUE(AdjacentQuoteStepsAgree(direction, QuoteDirectionDifferences(ivs, inputs, seeds.adjoints_), "nonaligned-direction"));
+}
+
 TEST(DupireRiskTest, TestRejectsUnrepresentableGridSpacingBeforeSampling) {
     int samples = 0;
     const CallbackIVS_ ivs([&samples](double, double) {

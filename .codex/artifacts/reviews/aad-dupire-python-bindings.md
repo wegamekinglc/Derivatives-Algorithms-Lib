@@ -89,6 +89,11 @@ Python timing result or production no-regression verdict is inferred from
 numeric equality. P01 remains inconclusive on the shared WSL2 host.
 
 The public Hybrid `c5c922ef` passes all 35 exact-head checks, which cannot certify
-this later binding increment. Final new-head cross-platform/wheel CI remains
-required. Excel handles/getters, common curve pullback adaptation and the
-remaining Stage B/C/D requirements remain active; no full F01 checkbox closes.
+this later binding increment. Exact Python `12dcd09a` finishes with 33 successes,
+one macOS ARM wheel failure and one dependent wheel-matrix skip. Seven new
+Dupire cases fail the strict primal replay check on contracted arithmetic. The
+[replay correction](aad-dupire-replay-rounding.md) retains its failing FMA
+control, unchanged numerical limits and failed first cost implementation.
+Final corrective cross-platform/wheel CI remains required. Excel handles/getters,
+common curve adaptation and the remaining Stage B/C/D requirements remain active;
+no full F01 checkbox closes.
