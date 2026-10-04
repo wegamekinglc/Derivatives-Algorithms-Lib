@@ -3,9 +3,10 @@
 Status: active acceptance contract. Ownership, states, checkpoint handles, clearing,
 mode boundaries, and ordinary/LSM batch migration are implemented locally. Full
 native/CoDiPack correctness, sanitizers, and changed-workload paired performance
-pass at corrected C++ head `71f41a8`; publication-head four-backend CI remains pending.
+pass at corrected C++ head `71f41a8`; publication head `0ee84e1` passes all 46
+exact-head CI checks. Later increments require their own evidence.
 This specifies D01 and the boundary needed by
-D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/9dd9282bb2c517c838a6576a95c9b7a937e750af/.codex/artifacts/plans/aad-improvement-plan.md).
+D02/D03 in the [controlling plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/1741a0ce41ca7daa0ccaa846a49473136b6af8a4/.codex/artifacts/plans/aad-improvement-plan.md).
 
 ## Problem and compatibility constraints
 

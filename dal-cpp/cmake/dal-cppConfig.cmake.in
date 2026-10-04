@@ -3,6 +3,7 @@
 include(CMakeFindDependencyMacro)
 
 set(DAL_CPP_AAD_BACKEND "@DAL_CPP_AAD_BACKEND@")
+set(DAL_CPP_AAD_LIFETIME_DIAGNOSTICS "@DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS@")
 set(DAL_CPP_MSVC_RUNTIME_LIBRARY "@DAL_CPP_MSVC_RUNTIME_LIBRARY@")
 
 function(dal_cpp_apply_msvc_runtime target)

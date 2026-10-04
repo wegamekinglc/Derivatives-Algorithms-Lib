@@ -23,6 +23,7 @@ option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
 option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
 option(DAL_USE_ADEPT_AAD "Use Adept AAD backend" OFF)
+option(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS "Check native AAD active-number ownership and lifetime" OFF)
 option(DAL_USE_EIGEN "Use Eigen for the dense matrix-matrix kernel" ON)
 
 # ---------------------------------------------------------------------------
@@ -57,6 +58,10 @@ if((DAL_USE_XAD_AAD AND DAL_USE_CODIPACK_AAD) OR
    (DAL_USE_XAD_AAD AND DAL_USE_ADEPT_AAD) OR
    (DAL_USE_CODIPACK_AAD AND DAL_USE_ADEPT_AAD))
     message(FATAL_ERROR "Only one external AAD backend can be enabled")
+endif()
+
+if(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS AND (DAL_USE_XAD_AAD OR DAL_USE_CODIPACK_AAD OR DAL_USE_ADEPT_AAD))
+    message(FATAL_ERROR "DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS requires the native AAD backend")
 endif()
 
 if(DAL_USE_XAD_AAD)
@@ -166,6 +171,10 @@ add_library(DAL::cpp ALIAS dal_cpp)
 
 # Propagate C++17 to consumers (dal-public, examples, tests).
 target_compile_features(dal_cpp PUBLIC cxx_std_17)
+
+if(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+    target_compile_definitions(dal_cpp PUBLIC DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+endif()
 
 # Make <dal/...> available to consumers (dal-public, etc.)
 target_include_directories(dal_cpp

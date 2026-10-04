@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-04
 
+- **Optional native AAD lifetime diagnostics** — the default-OFF
+  `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` build checks active operands and adjoints
+  for foreign tapes, discarded recordings/suffixes and reused slots before node
+  access. Its ABI definition propagates to installed consumers and bindings.
+  See [AAD methodology](docs/methodology/aad.md#native-active-number-lifetime-diagnostics).
+
 - **Scoped AAD recordings and checkpoints** — recording phases, opaque checkpoint
   handles, and owner/mode boundaries diagnose invalid use before tape mutation.
   Independent curve, MC, and LSM replay recordings reject nesting and recover

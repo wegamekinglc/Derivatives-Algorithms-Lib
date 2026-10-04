@@ -3,7 +3,10 @@
 Status: active implementation. No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/9dd9282bb2c517c838a6576a95c9b7a937e750af/.codex/artifacts/plans/aad-improvement-plan.md).
+Controlling design: [detailed AAD plan](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/1741a0ce41ca7daa0ccaa846a49473136b6af8a4/.codex/artifacts/plans/aad-improvement-plan.md).
+Its appendix expansions preserve the original scope and add worked examples,
+task cards, resource models, complete request execution, operator pullbacks,
+cache/failure boundaries and explicit no-regression acceptance.
 Initial implementation baseline: `b5e3caca85bb1a5b1aa3acf7898b387832d443c8`.
 
 The user authorized full implementation on 2026-10-04 and requires existing functionality
@@ -110,8 +113,33 @@ the combined scalar/vector full-block test. Split the two cases with shared
 graph setup and preserve every assertion. All 21 native/fifteen CoDiPack cases
 and all 21 native ASan/UBSan cases pass locally after this test-only correction;
 production source and all measured nine-target binaries remain unchanged.
-Await the original head's running jobs before publishing its corrected successor,
-then inspect that successor's exact-head static and backend/CI checks.
+Corrected publication head `0ee84e1d06aed29e93c21639953dd8ff65314828` now passes
+all 46 exact-head CI checks, including static analysis, sanitizers, the four-
+backend compiler matrix and Windows/Python/Excel jobs. The audit is retained in
+`recording-lifecycle-0ee84e1-ci.jsonl`. This validates the published D01 increment,
+not subsequent local changes; the final D01 requirement audit still precedes its
+ledger check-off.
+
+Current D02 work adds the default-OFF native lifetime option, PUBLIC/exported
+ABI definition and incompatible-backend rejection. An ignored-option oracle
+first fails; the native export and all three external-backend rejection checks
+now pass. Three native stale-handle/assignment regressions first fail; all 23
+initial diagnostic cases pass ASan/UBSan, including full reset, suffix/generation ABA,
+foreign/exited threads, saved expressions, scalar/vector modes, count/epoch/
+identity exhaustion and recovery after partial allocation. The added model-copy
+case also passes: 24 diagnostic cases now pass ASan/UBSan, and 45 lifetime/
+scoped cases pass the full ON library. Native ON core/public/portable Excel CTest
+passes 2,307 cases, followed by the additional model-copy check; Python ON passes
+792 tests with one skip. ON and OFF installed consumers verify ABI propagation,
+analytic gradients and supported lifetime behavior. Default native CTest passes
+2,318 functional/example cases; CoDiPack passes 2,257. OFF number/node/tape size
+and alignment match the original baseline (16/40/368 bytes on this host), and
+diagnostic functions are absent from its tape object. All 21 quiet serial OFF
+benchmark smoke checks pass. Default OFF paired performance and current-head CI
+remain open; smoke timing is not paired acceptance.
+The independent full-final-block `BlockList::Size` repair has its
+bounded timeout RED and eleven-case ASan/UBSan GREEN evidence; it also awaits
+final paired/CI acceptance; its full native/CoDiPack functional checks pass.
 
 At implementation commit `247c7aefab0f54af788b8a44f9dd71e606562c8a`, the fresh full native/core/public/
 portable-Excel and non-slow example run passed 2,286 cases. The initial nine-target paired gate
@@ -209,10 +237,11 @@ twenty native ownership/state cases also pass ASan/UBSan with leak detection.
 Logs are `lifecycle-*-ctest.log` and `lifecycle-sanitized.log` under the evidence root.
 The first paired run then reveals the short-path failures recorded above. The
 corrected head passes fresh correctness and all changed-workload comparisons;
-four-backend/exact publication-head CI remains pending.
+all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the corrected lifecycle increment, inspect exact-head CI, finish
-its requirement audit, and continue P01/D02/D03 under the full controlling scope.
+Next: freeze the D02 increment, finish default OFF paired acceptance and inspect
+its exact-head CI. Finish the D01 requirement audit and continue P01/D03 under
+the full controlling scope.
 Public numeric-result validation remains outside per-path loops. Do not mark Stage A
 complete before its remaining requirements are verified.

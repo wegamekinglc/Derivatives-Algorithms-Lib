@@ -277,9 +277,14 @@ jobs:
   # lean — the Python bindings are backend-agnostic, so testing them
   # against one representative configuration is sufficient.
   build-extended:
+    name: Extended build (AAD diagnostics ${{ matrix.lifetime_diagnostics }})
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lifetime_diagnostics: ["OFF", "ON"]
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
@@ -291,7 +296,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
         with:
-          key: ${{ runner.os }}-extended
+          key: ${{ runner.os }}-extended-${{ matrix.lifetime_diagnostics }}
 
       - name: Setup
         run: |
@@ -320,7 +325,7 @@ jobs:
           CC: gcc-14
           CXX: g++-14
           VERBOSE: 1
-          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=${{ matrix.lifetime_diagnostics }}
         run: |
           bash -e ./build_linux.sh
 
@@ -457,6 +462,13 @@ jobs:
             flags: -O2 -g
             core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable:SimulationTest.TestParallelDoubleStateMatchesSerialAcrossRequests:RateCashflowPricingTest.TestNodeSensitivityTapeObservationIsScopedAndConcurrent:RateCashflowPricingTest.TestCashflowLegObservationIsScopedAndConcurrent:RateCashflowPricingTest.TestPreparedTradesConcurrentMarketsUseIndependentTapes:JointQuoteRiskTest.TestSharedPassiveProvenanceUsesIndependentCallerTapes
             public-filter: ""
+          - label: ASan + UBSan AAD lifetime diagnostics
+            slug: aad-lifetime
+            sanitizers: address;undefined
+            flags: -O2 -g -fno-sanitize-recover=all
+            lifetime_diagnostics: "ON"
+            core-filter: AADLifetimeTest.*:AADRecordingStateTest.*:AADRecordingTest.*:AADTapeTest.*:AADTapeStatisticsTest.*:AADTest.TestBlockList*
+            public-filter: PublicApiTest.TestMonteCarlo*
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -483,6 +495,7 @@ jobs:
           cmake -S . -B "$build_dir" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DDAL_ENABLE_SANITIZERS='${{ matrix.sanitizers }}' \
+            -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS='${{ matrix.lifetime_diagnostics || 'OFF' }}' \
             -DDAL_BUILD_PUBLIC=ON \
             -DDAL_CPP_BUILD_TESTS=ON \
             -DDAL_CPP_BUILD_EXAMPLES=OFF \

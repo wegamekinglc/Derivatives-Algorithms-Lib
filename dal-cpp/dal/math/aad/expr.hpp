@@ -43,6 +43,13 @@ namespace Dal::AAD {
 
         static constexpr int numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_);
 
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const {
+            lhs_.ValidateOperands(tape, operation);
+            rhs_.ValidateOperands(tape, operation);
+        }
+#endif
+
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
             if constexpr (LHS_::numNumbers_ > 0)
                 lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(Value(lhs_), Value(rhs_), Value(*this)), tape);
@@ -160,6 +167,10 @@ namespace Dal::AAD {
         friend double Value(const UnaryExpression_<A_, O_>&);
 
         static constexpr int numNumbers_ = ARG_::numNumbers_;
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const { arg_.ValidateOperands(tape, operation); }
+#endif
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
@@ -453,21 +464,52 @@ namespace Dal::AAD {
         double value_;
         TapNode_* node_;
 
-        template <size_t N_>
-        FORCE_INLINE TapNode_* CreateMultiNode() { return Tape()->RecordNode<N_>(); }
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        Tape_::NodeBinding_ binding_;
+        friend struct NativeLifetimeTestAccess_;
+#endif
+
+        template <size_t N_> FORCE_INLINE TapNode_* CreateMultiNode() {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            auto* tape = Tape();
+            auto* node = tape->RecordNode<N_>();
+            binding_ = tape->CaptureBinding(node);
+            return node;
+#else
+            return Tape()->RecordNode<N_>();
+#endif
+        }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             Tape_* tape = Tape();
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            static_cast<const E_&>(e).ValidateOperands(tape, "Number.Materialize");
+#endif
             auto* node = tape->RecordNode<E_::numNumbers_>();
             static_cast<const E_&>(e).template PushAdjoint<E_::numNumbers_, 0>(*node, 1.0, tape);
             node_ = node;
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            binding_ = tape->CaptureBinding(node);
+#endif
         }
 
     public:
         static constexpr int numNumbers_ = 1;
 
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const {
+            auto* live = Tape();
+            if (tape != live)
+                live->RejectLifetime(operation, "requires the calling thread's default tape", &binding_);
+            live->ValidateBinding(binding_, node_, operation);
+        }
+#endif
+
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            ValidateOperands(tape, "Number.PushAdjoint");
+#endif
             exprNode.pAdjPtrs_[n_] = tape->multi_ ? node_->pAdjoints_ : &node_->adjoint_;
             exprNode.pDerivatives_[n_] = adjoint;
         }
@@ -489,6 +531,9 @@ namespace Dal::AAD {
 
         template <class E_>
         FORCE_INLINE Number_& operator=(const Expression_<E_>& e) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            static_cast<const E_&>(e).ValidateOperands(Tape(), "Number.Assign");
+#endif
             value_ = Value(e);
             FromExpr<E_>(static_cast<const E_&>(e));
             return *this;
@@ -557,6 +602,9 @@ namespace Dal::AAD {
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
     FORCE_INLINE double& Adjoint(const Number_& num) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        num.ValidateOperands(Tape(), "Number.Adjoint");
+#endif
         REQUIRE(num.node_ != nullptr, "Adjoint: Number_ has no tape node");
         return num.node_->Adjoint();
     }

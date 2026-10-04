@@ -52,6 +52,9 @@ namespace Dal::AAD {
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        tape.RequireLiveGraph("Tape.ZeroAdjoints");
+#endif
         const auto zeroNodes = [&tape](const auto& zero) {
             size_t remaining = tape.nodes_.OccupiedSlots();
             auto it = tape.nodes_.Begin();

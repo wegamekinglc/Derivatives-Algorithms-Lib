@@ -111,7 +111,11 @@ namespace {
     void ExhaustAllocationStream(Tape_* tape, int stream) {
         if (stream == 0) {
             for (size_t i = 0; i < Dal::AAD::BLOCK_SIZE; ++i)
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+                tape->RecordNode<0>();
+#else
                 tape->nodes_.EmplaceBack(0);
+#endif
         } else if (stream == 1) {
             tape->ders_.EmplaceBackMulti<Dal::AAD::DATA_SIZE - 2>();
         } else if (stream == 2) {

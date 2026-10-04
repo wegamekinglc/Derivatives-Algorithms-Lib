@@ -224,6 +224,35 @@ callers, but must not replace marks or discard graphs managed by scoped
 checkpoint methods. The scope does not validate every expression or make raw
 iterators stable checkpoints.
 
+### Native Active-Number Lifetime Diagnostics
+
+Configure with `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` to check native
+`Number_` operands and adjoint access. The default is `OFF`; default builds
+retain the number/node layouts and omit these per-number checks and counters.
+Scoped ownership, state and checkpoint checks remain enabled independently.
+The option requires native AAD; configuration rejects XAD, CoDiPack or Adept.
+
+Each binding captures a tape-lifetime identity, recording epoch, slot generation
+and scalar/vector layout. Full clear or rewind invalidates the old recording;
+suffix restoration invalidates discarded suffixes while preserving the prefix
+and its accumulated adjoints. Reusing an address does not validate an old
+binding. Checks precede old node access and expression-result allocation;
+rejected stale expression assignment preserves the destination and valid graph.
+Mode mismatches and exhausted counters are reported before incompatible access
+or destructive reset. Partial allocation failures require a successful reset.
+
+`Value` only reads the cached primal. Explicit double assignment,
+`RegisterIndependent` or `PutOnTape` can bind that value as a new independent;
+copying alone preserves the old binding. The checks reject numbers from a
+foreign or exited thread without reading its expired tape. They do not protect
+arbitrary dangling C++ references or direct mutation of internal block lists.
+Use the tape recording/reset APIs and applicable sanitizers.
+
+The option changes diagnostic layouts. Its definition propagates through
+`DAL::cpp`, `DAL::public`, bindings and installed exports; consumers must use
+the exported targets and matching headers/libraries. The installed package
+reports the setting as `DAL_CPP_AAD_LIFETIME_DIAGNOSTICS`.
+
 ### Native Tape Storage
 
 The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists

@@ -123,26 +123,34 @@ in the build configuration.
 
 ### Common CMake options
 
-| Option                           | Base default | Description                                                                           |
-|----------------------------------|--------------|---------------------------------------------------------------------------------------|
-| `DAL_BUILD_PUBLIC`               | `ON`         | Build the public convenience facade                                                   |
-| `DAL_BUILD_PYTHON`               | `OFF`        | Build the pybind11 module                                                             |
-| `DAL_BUILD_EXCEL`                | `OFF`        | Build the Windows Excel add-in                                                        |
-| `DAL_BUILD_EXCEL_PORTABLE_TESTS` | `ON`         | Include portable Excel binding tests on non-Windows hosts                             |
-| `DAL_EXCEL_BUILD_TESTS`          | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
-| `DAL_CPP_BUILD_TESTS`            | `ON`         | Build core tests                                                                      |
-| `DAL_PUBLIC_BUILD_TESTS`         | `ON`         | Build public-facade tests                                                             |
-| `DAL_CPP_BUILD_EXAMPLES`         | `ON`         | Build C++ examples                                                                    |
-| `DAL_CPP_BUILD_BENCHMARKS`       | `OFF`        | Build benchmarks                                                                      |
-| `DAL_ENABLE_NATIVE_ARCH`         | `OFF`        | Tune Release code for the build machine                                               |
-| `DAL_ENABLE_SANITIZERS`          | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
-| `DAL_USE_EIGEN`                  | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
-| `DAL_USE_XAD_AAD`                | `OFF`        | Use XAD                                                                               |
-| `DAL_USE_CODIPACK_AAD`           | `OFF`        | Use CoDiPack                                                                          |
-| `DAL_USE_ADEPT_AAD`              | `OFF`        | Use Adept                                                                             |
-| `MSVC_RUNTIME`                   | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
+| Option                                | Base default | Description                                                                           |
+|---------------------------------------|--------------|---------------------------------------------------------------------------------------|
+| `DAL_BUILD_PUBLIC`                    | `ON`         | Build the public convenience facade                                                   |
+| `DAL_BUILD_PYTHON`                    | `OFF`        | Build the pybind11 module                                                             |
+| `DAL_BUILD_EXCEL`                     | `OFF`        | Build the Windows Excel add-in                                                        |
+| `DAL_BUILD_EXCEL_PORTABLE_TESTS`      | `ON`         | Include portable Excel binding tests on non-Windows hosts                             |
+| `DAL_EXCEL_BUILD_TESTS`               | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
+| `DAL_CPP_BUILD_TESTS`                 | `ON`         | Build core tests                                                                      |
+| `DAL_PUBLIC_BUILD_TESTS`              | `ON`         | Build public-facade tests                                                             |
+| `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build C++ examples                                                                    |
+| `DAL_CPP_BUILD_BENCHMARKS`            | `OFF`        | Build benchmarks                                                                      |
+| `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
+| `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
+| `DAL_USE_EIGEN`                       | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
+| `DAL_USE_XAD_AAD`                     | `OFF`        | Use XAD                                                                               |
+| `DAL_USE_CODIPACK_AAD`                | `OFF`        | Use CoDiPack                                                                          |
+| `DAL_USE_ADEPT_AAD`                   | `OFF`        | Use Adept                                                                             |
+| `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
+| `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
 ### Selecting an AAD backend
+
+`DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` enables native active-number lifetime
+checks and changes diagnostic number/node layouts. It requires all external
+backend options to be `OFF`. Its compile definition is propagated to linked
+and installed consumers through the exported targets; do not combine headers
+or libraries built with different settings. See
+[AAD lifetime diagnostics](methodology/aad.md#native-active-number-lifetime-diagnostics).
 
 The native AADET backend is selected when all three external-backend options
 are `OFF`. XAD, CoDiPack, and Adept are mutually exclusive; configuration

@@ -12,11 +12,19 @@
 
 #pragma once
 
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS) && (defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD))
+#error DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS requires the native AAD backend
+#endif
+
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+#include <atomic>
+#include <limits>
+#endif
 
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
-
 
 namespace Dal::AAD {
     class Number_;
@@ -27,6 +35,13 @@ namespace Dal::AAD {
     class Tape_ {
     public:
         explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{} {}
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        Tape_(const Tape_&) = delete;
+        Tape_& operator=(const Tape_&) = delete;
+        Tape_(Tape_&&) = delete;
+        Tape_& operator=(Tape_&&) = delete;
+#endif
 
         using Iterator_ = BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
@@ -48,22 +63,74 @@ namespace Dal::AAD {
         friend void PropagateMarkToStart(Tape_& tape);
         friend void PropagateToStart(Tape_& tape);
         friend void PropagateToMark(Tape_& tape);
+        friend void ZeroAdjoints(Tape_& tape);
 
         template <size_t N_> TapNode_* RecordNode() { return AllocateNode<N_>(); }
 
     private:
-        template <size_t N_> FORCE_INLINE TapNode_* AllocateNode() {
-            TapNode_* node = nodes_.EmplaceBack(N_);
-            if (multi_) {
-                node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(numAdj_);
-                std::fill_n(node->pAdjoints_, numAdj_, 0.0);
-            }
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        struct NodeBinding_ {
+            std::uint64_t owner_ = 0;
+            std::uint64_t epoch_ = 0;
+            std::uint64_t ordinal_ = 0;
+            std::uint64_t generation_ = 0;
+            bool multi_ = false;
+            size_t width_ = 0;
+        };
 
-            if constexpr (static_cast<bool>(N_)) {
-                node->pDerivatives_ = ders_.EmplaceBackMulti<N_>();
-                node->pAdjPtrs_ = argPtrs_.EmplaceBackMulti<N_>();
+        friend struct NativeLifetimeTestAccess_;
+        static std::uint64_t ClaimLifetimeIdentity(std::atomic<std::uint64_t>* next);
+        static std::uint64_t NewLifetimeIdentity();
+        const std::uint64_t lifetimeIdentity_ = NewLifetimeIdentity();
+        std::uint64_t lifetimeEpoch_ = 1;
+        std::uint64_t lifetimeGeneration_ = 0;
+        std::uint64_t liveNodes_ = 0;
+        std::uint64_t markedNodes_ = 0;
+        bool lifetimeFailed_ = false;
+        bool graphMulti_ = false;
+        size_t graphWidth_ = 1;
+
+        [[noreturn]] void RejectLifetime(const char* operation, const char* constraint, const NodeBinding_* binding = nullptr) const;
+        void RequireLiveGraph(const char* operation) const;
+        void CheckNodeAllocation() const;
+        void BeginLifetimeReset();
+        void ValidateBinding(const NodeBinding_& binding, const TapNode_* node, const char* operation) const;
+        void ValidateLiveSlot(const NodeBinding_& binding, const TapNode_* node, const char* operation) const;
+        [[nodiscard]] NodeBinding_ CaptureBinding(const TapNode_* node) const {
+            return {lifetimeIdentity_, lifetimeEpoch_, node->lifetimeOrdinal_, node->lifetimeGeneration_, multi_, numAdj_};
+        }
+#endif
+
+        template <size_t N_> FORCE_INLINE TapNode_* AllocateNode() {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            CheckNodeAllocation();
+            try {
+#endif
+                TapNode_* node = nodes_.EmplaceBack(N_);
+                if (multi_) {
+                    node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(numAdj_);
+                    std::fill_n(node->pAdjoints_, numAdj_, 0.0);
+                }
+
+                if constexpr (static_cast<bool>(N_)) {
+                    node->pDerivatives_ = ders_.EmplaceBackMulti<N_>();
+                    node->pAdjPtrs_ = argPtrs_.EmplaceBackMulti<N_>();
+                }
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+                if (liveNodes_ == 0) {
+                    graphMulti_ = multi_;
+                    graphWidth_ = numAdj_;
+                }
+                node->lifetimeOrdinal_ = liveNodes_++;
+                node->lifetimeGeneration_ = ++lifetimeGeneration_;
+#endif
+                return node;
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            } catch (...) {
+                lifetimeFailed_ = true;
+                throw;
             }
-            return node;
+#endif
         }
 
     };

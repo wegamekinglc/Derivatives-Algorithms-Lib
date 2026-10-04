@@ -35,6 +35,11 @@ namespace Dal::AAD {
         double* pAdjoints_ = nullptr;
         double** pAdjPtrs_ = nullptr;
 
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        std::uint64_t lifetimeOrdinal_ = 0;
+        std::uint64_t lifetimeGeneration_ = 0;
+#endif
+
         friend class Tape_;
         friend class Number_;
         friend auto SetNumResultsForAAD(bool, size_t);

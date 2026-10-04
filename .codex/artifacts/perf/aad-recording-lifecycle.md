@@ -2,7 +2,8 @@
 
 Status: active D01 acceptance. Corrected local correctness, unchanged nine-target
 performance, supplemental MC/LSM and curve calibration, and memory observations
-pass. Exact publication-head four-backend/Windows/binding CI remains pending.
+pass. Corrected publication head `0ee84e1` passes all 46 exact-head CI checks,
+including four-backend, Windows, binding and sanitizer jobs.
 No stage or the full AAD goal is declared complete.
 
 ## Scope and immutable sources
@@ -33,7 +34,8 @@ lifetime diagnostics and the backend capability layer remain separate work.
 
 Source/configuration/hardware metadata and SHA-256 binary digests accompany each
 evidence directory. Subsequent documentation packaging does not change measured
-C++. Acceptance must still inspect CI for its actual publication head.
+C++. Publication CI is inspected at `0ee84e1d06aed29e93c21639953dd8ff65314828`;
+later C++ increments require fresh correctness, performance and exact-head CI.
 
 ## Failure, correction, and confirmation
 
@@ -114,15 +116,17 @@ AAD, two LSM engines, local-vol replay, and calibration workloads. New head-only
 tape/harvest cases are informational. Large local-vol scaling, production phase
 timings, cumulative storage measurements, workspace reuse, more output axes,
 path-internal recomputation, and later plan features still require their own evidence.
-Four-backend and binding CI for this increment is pending.
+Four-backend and binding CI for this published increment passes at `0ee84e1`.
 
 The first publication head `ca977e2` receives one Codacy issue: the combined
 scalar/vector full-block test has cyclomatic complexity 10 (limit 8). Split it
 into separate scalar and vector tests with shared graph setup, retaining all
 node/channel/capacity/seed assertions. The revised suite passes 21 native and
 15 CoDiPack cases; all 21 native cases pass ASan/UBSan. Production source and
-all nine measured benchmark binaries remain identical. Exact-head CI must
-verify the test-only correction before D01 acceptance closes.
+all nine measured benchmark binaries remain identical. All 46 exact-head checks
+for `0ee84e1` succeed; the captured audit is
+`recording-lifecycle-0ee84e1-ci.jsonl`. The D01 requirement audit remains distinct
+from the ongoing D02 implementation and the full plan's completion criteria.
 
 ## Retained evidence and reproduction
 

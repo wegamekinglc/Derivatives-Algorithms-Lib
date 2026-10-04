@@ -51,6 +51,10 @@ jobs:
           - compiler: msvc
             cc: cl
             cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-diagnostics
+            cc: cl
+            cxx: cl
 
     steps:
 
@@ -109,6 +113,8 @@ jobs:
           case "${{ matrix.aad-backend }}" in
             aadet)
               FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
+            aadet-diagnostics)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON" ;;
             xad)
               FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
             codipack)
@@ -118,7 +124,7 @@ jobs:
           esac
           # dal-python (pybind11 bindings) and dal-excel (Windows-only COM add-in)
           # are built on every matrix combination — the matrix is small
-          # (3 jobs) and the bindings are backend-agnostic.
+          # and includes the native diagnostic ABI configuration.
           FLAGS="$FLAGS -DDAL_BUILD_PYTHON=ON -DDAL_BUILD_EXCEL=ON"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
@@ -215,7 +221,7 @@ jobs:
           cmake --build $pythonBuild --target _dal --parallel
 
       - name: Test standalone Excel against installed DAL
-        if: matrix.aad-backend == 'aadet'
+        if: startsWith(matrix.aad-backend, 'aadet')
         shell: pwsh
         run: |
           $stage = (Resolve-Path .\build\stage\Release-windows).Path
