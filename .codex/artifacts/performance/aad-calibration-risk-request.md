@@ -1,7 +1,8 @@
 # F01 common calibration request performance
 
 Status: local default-entry compatibility evidence and new request costs pass
-their stated checks. Own publication CI remains pending. This is neither full
+their stated checks. Exact publication head `ea8973b1174d10814cee9bd510016258e3d8e824`
+passes all 35 checks in `aad-calibration-request-ci-06.jsonl`. This is neither full
 F01 closure nor resolution of P01's whole-PR production MC acceptance.
 
 ## Old paths

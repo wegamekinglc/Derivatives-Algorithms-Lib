@@ -1,7 +1,7 @@
 # F01 calibration-coordinate request contract
 
-Status: active; the common passive request is locally implemented, with
-publication acceptance pending. The contract was specified before implementation. The
+Status: active; the common passive request is implemented and its exact publication
+head passes all 35 CI checks. The contract was specified before implementation. The
 [market-request audit](../plans/aad-market-request-integration.md) and
 [implementation ledger](../plans/aad-implementation.md) retain full F01 scope
 and the current-PR merge boundary. This first increment implements the common

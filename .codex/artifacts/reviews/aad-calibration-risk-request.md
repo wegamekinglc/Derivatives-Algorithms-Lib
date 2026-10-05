@@ -1,6 +1,6 @@
 # F01 common calibration request review
 
-Verdict: Comment Only pending this increment's own publication-head CI.
+Verdict: Approve for this common request increment; full F01/PR merge remain open.
 
 ## Findings
 
@@ -72,7 +72,7 @@ All names below have prefix `aad-calibration-request-`.
   passes all 50 related cases in `sanitized-related-01.log`.
 - Actual MSVC production/test syntax passes 4/4 OFF/combined in
   `msvc-syntax-01.json`, without an extra NOMINMAX override. This supplements,
-  rather than replaces, the pending own Windows runtime CI.
+  rather than replaces, the own Windows runtime CI.
 - Isolated installed public consumers pass 18 native cells plus six independent
   zero-calibration/direct/report oracle cells in both OFF/combined configurations.
   CCN-eight scan passes all 33 implementation/test functions. The three new C++
@@ -88,4 +88,7 @@ All names below have prefix `aad-calibration-request-`.
 
 The local common request increment supplies quote-coordinate planning, honest
 numeric-result budgets and report projections over the accepted native provider.
-Own publication CI and remaining full F01 execution/binding acceptance are open.
+Exact publication `ea8973b1174d10814cee9bd510016258e3d8e824` passes all 35 own-head
+checks in `aad-calibration-request-ci-06.jsonl`, including actual Windows runtime,
+ARM and sanitizer checks. `ci-04.jsonl` is an empty failed TLS capture, not a check
+inventory; keep its failure evidence. Full F01 execution/binding acceptance is open.

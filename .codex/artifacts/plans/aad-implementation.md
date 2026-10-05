@@ -519,8 +519,10 @@ ASan/UBSan passes 50 related cases. Both installed public consumers pass all
 syntax passes 4/4 without an extra NOMINMAX override. Keep the initial fixture
 API/iterator failures, shell-wildcard zero-test run and the two incorrect native
 contract expectations, corrected without modifying native behavior or thresholds.
-The [request review](../reviews/aad-calibration-risk-request.md) remains Comment
-Only pending own publication CI. The [cost report](../performance/aad-calibration-risk-request.md)
+The [request review](../reviews/aad-calibration-risk-request.md) approves this
+bounded increment: exact `ea8973b1174d10814cee9bd510016258e3d8e824` passes all 35
+checks in `aad-calibration-request-ci-06.jsonl`. Keep the empty failed TLS capture
+`ci-04.jsonl`; it is not a valid zero-check inventory. The [cost report](../performance/aad-calibration-risk-request.md)
 records all six new rows across 20 processes, 480 numeric cells and 1,061
 unchanged inputs. Nine old gate executables, the core archive and all 18 old
 public object members remain byte-identical to accepted common C++ after rebuild;
@@ -538,7 +540,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                                      | Accepted exact-head checks                                  | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                                                          | Accepted exact-head checks                                  | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive                                            | Published tooling; performance verdict open                 | 2–5                   |
-| F01                     | Common C++/Python/Excel accepted; quote request locally verified; automatic script/bindings remain | Each common surface own 35 accepted; new request CI pending | 6–10                  |
+| F01                     | Common C++/Python/Excel and quote request accepted; automatic script/bindings remain               | Each common surface and quote request own 35 accepted        | 6–10                  |
 | F02                     | Multiple outputs and portfolio integration remain                                                  | Open                                                        | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                                                     | Open                                                        | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                                               | Open                                                        | 12–20                 |

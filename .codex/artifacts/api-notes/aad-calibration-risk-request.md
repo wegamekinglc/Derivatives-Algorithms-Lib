@@ -1,6 +1,7 @@
 # Calibration-coordinate request API
 
-Status: active, locally implemented public API for the first request increment of F01.
+Status: active, implemented public API for the first request increment of F01;
+its exact publication head passes all 35 CI checks.
 See the [contract](../specs/aad-calibration-risk-request.md) for budget scope,
 ownership, native methods and remaining automatic valuation work.
 
