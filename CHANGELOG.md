@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
+- **C++ calibration-coordinate requests** — passive owning plans select source-scoped
+  quote coordinates, expose native axes and preflight the complete retained
+  contribution payload. Immutable results preserve raw native derivatives and
+  provide detached report projections with finite scaling checks. See
+  [quote-coordinate requests](docs/yield-curves/jacobian-risk.md#c-quote-coordinate-requests).
 - **Common C++, Python and Excel calibration pullback** — an owning boundary maps passive
   parameter adjoints from frozen Dupire or captured native curve provenance
   into one immutable result with separate calibration, direct and total quote

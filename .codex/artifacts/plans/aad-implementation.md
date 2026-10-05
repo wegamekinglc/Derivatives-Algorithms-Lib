@@ -467,8 +467,8 @@ Read-first review identifies distinct XLL/test-executable tape state, confirmed
 by an actual two-module MSVC probe. The repaired lifecycle tests create the
 recording inside the XLL utility and retain node-count, nested-use, output
 preservation and derivative-recovery checks. Keep the failing missing-helper
-build and first probe/fixture/SDK failures. Windows runtime still requires the
-increment's own CI; syntax and portable tests cannot replace it.
+build and first probe/fixture/SDK failures. At that local stage Windows runtime
+still required the increment's own CI; syntax and portable tests did not replace it.
 
 Initial Excel publication `a522b16b` fails Windows test compilation on three
 `numeric_limits::max()` calls colliding with the SDK macro. Keep the first
@@ -491,8 +491,41 @@ separately. Both measured production objects are identical after the final
 Windows/test-only fix; both native archives and all nine accepted C++ gate
 executables remain identical. The [Excel review](../reviews/aad-calibration-excel.md)
 and [performance report](../performance/aad-calibration-excel.md) retain all
-evidence and bounded conclusions. Excel publication-head CI remains pending.
+evidence and bounded conclusions. Excel publication
+`a0801deceff9e89ac2aa8a121d985f2b2146c223` passes all 35 exact-head checks in
+`aad-calibration-excel-registration-ci-10.jsonl`, including four actual Windows
+runtime configurations. Its first GCC-13 job fails only at Eigen checkout with
+an early EOF, before compilation. Retain the raw failure and initial rerun
+rejection while the parent workflow is active; same-head failed-job rerun after
+completion succeeds without changing any input, CI flag or threshold.
 Full F01 request/budget/market-coordinate integration remains required.
+
+The first request increment follows the [concrete contract](../specs/aad-calibration-risk-request.md)
+and [API decision](../api-notes/aad-calibration-risk-request.md), locally critiqued
+before implementation. A passive common quote plan owns canonical source-scoped
+IDs and complete/selected native axes, preserves caller ordering, and checks a
+budget of all three full retained quote matrices before mapping. Raw calibration,
+direct and total derivatives stay in their native shapes; detached scalar-row
+projections apply report factors once and reject finite scaling overflow before
+publication. No PV currency/value is inferred from external parameter seeds.
+Native Dupire parameter identity and its quote-only direct identity are preserved.
+Automatic Hybrid script planning, direct constant bindings and request bindings
+remain required; this increment does not close F01.
+
+Ten new request cases pass, and both OFF/combined public suites pass 229.
+Regular CTest passes 2,438/2,452; leak-enabled fully instrumented combined
+ASan/UBSan passes 50 related cases. Both installed public consumers pass all
+24 native/direct/report oracle cells. Actual MSVC OFF/combined production/test
+syntax passes 4/4 without an extra NOMINMAX override. Keep the initial fixture
+API/iterator failures, shell-wildcard zero-test run and the two incorrect native
+contract expectations, corrected without modifying native behavior or thresholds.
+The [request review](../reviews/aad-calibration-risk-request.md) remains Comment
+Only pending own publication CI. The [cost report](../performance/aad-calibration-risk-request.md)
+records all six new rows across 20 processes, 480 numeric cells and 1,061
+unchanged inputs. Nine old gate executables, the core archive and all 18 old
+public object members remain byte-identical to accepted common C++ after rebuild;
+the public archive adds only the new request object. This is bounded identity
+evidence, not a fresh whole-PR/master timing gate.
 
 ### Whole-plan status and remaining effort
 
@@ -500,24 +533,25 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                          | Publication/CI                              | Remaining person-days |
-|-------------------------|------------------------------------------------------------|---------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                  | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                  | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open | 2–5                   |
-| F01                     | C++/Python accepted; Excel local correctness/performance pass; request integration remains | C++/Python own 35 accepted; Excel CI pending | 6–10              |
-| F02                     | Multiple outputs and portfolio integration remain          | Open                                        | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                        | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain       | Open                                        | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                   | Open                                        | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain    | Open                                        | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open                                        | 7–11                  |
+| Work item               | Implementation/local verification                                                                  | Publication/CI                                              | Remaining person-days |
+|-------------------------|----------------------------------------------------------------------------------------------------|-------------------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                                      | Accepted exact-head checks                                  | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                                                          | Accepted exact-head checks                                  | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive                                            | Published tooling; performance verdict open                 | 2–5                   |
+| F01                     | Common C++/Python/Excel accepted; quote request locally verified; automatic script/bindings remain | Each common surface own 35 accepted; new request CI pending | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain                                                  | Open                                                        | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                                                     | Open                                                        | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain                                               | Open                                                        | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                                                           | Open                                                        | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                                            | Open                                                        | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                                         | Open                                                        | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
 investigation buffer. The common Python acceptance does not yet change that
-range materially. F01 has approximately 6–10 person-days remaining for
-Excel bindings, their publication/CI and complete request integration. Re-estimate at
+range materially. F01 has approximately 6–10 person-days remaining for automatic
+request planning, direct-input integration, Python/Excel request exposure and
+final F01 acceptance. Re-estimate at
 milestones and when acceptance findings change the scope.
 
 The current PR-to-merge boundary has approximately 10–19 person-days remaining:
@@ -883,10 +917,10 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the verified Excel capture/shared-boundary increment and inspect
-its own exact-head checks.
-Retain the full request, payload-budget and market-coordinate integration audit
-before closing F01.
+Next: publish the locally verified common quote-request increment and inspect
+its own exact-head checks. Implement the sealed automatic Hybrid plan, complete
+required parameter/direct inputs and combined budget, then extend the request
+across Python/Excel under the full integration contract before closing F01.
 After full F01 acceptance, review/fix the entire current PR and reconcile
 P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.

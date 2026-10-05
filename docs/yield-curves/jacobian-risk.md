@@ -587,6 +587,49 @@ method and units remain; direct seeds may use another fixed base with identical
 ordered quote axes and values. Dupire retains its independent native recording
 and nested-use rejection. All getters return stored passive data.
 
+#### C++ quote-coordinate requests
+
+`dal-public/src/calibrationriskrequest.hpp` adds an opt-in passive request plan
+over the common boundary. Input IDs are `quote:<globalOrdinal>` within that
+owned source; display names do not identify quotes. Dupire ordinals follow
+strike rows and maturity columns. Curve ordinals follow the native quote axis
+and retain block keys/ordinals. The plan exposes complete and selected axes,
+including native units, report factors and Dupire strike/maturity/spread values.
+Curve quote values are absent because native provenance has no typed value array.
+
+```cpp
+#include <dal-public/src/calibrationriskrequest.hpp>
+
+CalibrationRiskRequest_ request;
+request.inputs_ = Vector_<String_>{"quote:3", "quote:0"};
+request.reportFactors_ = Vector_<>{1e-4, 1e-4};
+const auto plan = PlanCalibrationRiskRequest(boundary, request);
+const auto result = PullbackCalibrationWithRisk(plan, parameters);
+const auto raw = result.Jacobian();
+const auto dv01 = result.ReportedJacobian();
+```
+
+The example assumes curve decimal-quote coordinates. For Dupire decimal-vol
+spread coordinates, `0.01` reports one vol point. Omitted inputs select all
+quotes; explicit empty inputs select none. Supplied order is preserved.
+Omitted factors are one. Factors must be finite and positive; unknown/repeated
+IDs, malformed factors and nonfinite reported contributions reject explicitly.
+
+`QuoteRisk()` retains all three native contribution matrices. `Jacobian()`,
+`CalibrationJacobian()`, `DirectJacobian()` and `ReportedJacobian()` return
+detached one-row selected projections. Reporting scales a raw copy once.
+Empty selection still performs the native VJP and retains complete raw results.
+Getters never record or repeat a calibration/valuation. Typed seeds preserve
+the native identity checks, including Dupire's quote-only direct seed contract.
+
+`NumericPayloadBytes()` is exactly three full native quote matrices, irrespective
+of selection. An optional `numericPayloadBudgetBytes_` is checked during planning;
+equality succeeds and one byte less rejects. Arithmetic overflow rejects before
+axis allocation. This retained-result budget excludes source calibration data,
+axis/metadata fields, request inputs, getter copies, temporary matrices, tape and
+worker allocations. It is not an RSS or total-request memory limit. No PV value
+or currency is inferred from an externally supplied parameter gradient.
+
 #### Python common pullback
 
 Python exposes the same boundary through `CalibrationPullback_New`,
