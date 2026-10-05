@@ -651,6 +651,18 @@ root increment does not close weighted valuation, blocked Jacobians or portfolio
 integration. Evidence: `aad-pr-480-completion-head38-{initial,final}-01/validated.json`,
 `aad-pr-480-after-merge-01.json` and `aad-pr-480-merged-tree-01.json`.
 
+F02's additive native preflight now owns selected/full scalar output identities,
+normalized passive weights, input choices, date/method and the exact
+`sizeof(double) * (1+n+2*k)` payload. It reuses scalar input/report checks and
+rechecks prepared axes without changing scalar implementation or tape layout.
+Twenty focused tests (ten new plan and ten existing scalar-result cases) pass
+OFF and combined diagnostic/profiling + ASan/UBSan. The CI's existing GCC 14
+warning policy passes; all four ASan/UBSan filters now select the seventeen new
+weighted/plan tests and the related old scalar-root test. See the
+[preflight review](../reviews/aad-weighted-preflight.md). Prepared execution,
+passive results/provenance, bindings and cost acceptance remain open in draft
+PR #483; no full F02 completion is inferred from metadata preflight.
+
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.

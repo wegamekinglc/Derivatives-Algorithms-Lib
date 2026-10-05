@@ -37,6 +37,32 @@ selection/budget errors later use `ScriptError_` with stable output IDs.
 
 ## Planned owning boundary
 
+The preflight increment fixes these native names in
+`dal/script/weightedrisk.hpp`:
+
+- `RiskOutputCoordinate_` stores canonical `id_`, actual scalar label and slot.
+  `ScriptRiskOutputAxis(indexedProduct)` lists scalar slots; the receiver is
+  `payoff`, other slots are `output:<ordinal>`. Vector storage is not an output.
+- `WeightedRiskRequest_` composes `RiskRequest_ selection_` with optional passive
+  `weights_`. Composition avoids implicit conversion to a scalar request that
+  would silently drop weights; Python/Excel options can remain flat.
+- `PlanWeightedRiskRequest(indexedProduct, completeInputAxis, evaluationDate,
+  request, enableAad)` returns an owning read-only `WeightedRiskPlan_` with ordered
+  selected/complete output axes, normalized weights, complete input axis,
+  canonical input request, date, method flag and exact numeric payload bytes.
+  Date/method are required planning inputs; this is preflight, not an owning
+  prepared product/model execution boundary.
+- `WeightedRiskResultPayloadBytes(components, inputs)` checks
+  `sizeof(double) * (1+inputs+2*components)` before allocation. Reuse
+  `PlanScalarRiskRequest` for input/report validation with output/budget controls
+  temporarily cleared, then enforce the larger weighted payload.
+- `ValidateWeightedRiskPreparedAxes` rechecks selected/full slot identity and
+  input values/order after preparation, with no caller-owned mutable buffers.
+
+Reject missing receiver, unindexed products, exercise, invalid valuation dates
+and fully expired event calendars before preparation. A product may use vector
+operations internally; only indexed scalar slots enter the output axis.
+
 Keep additive `WeightedRiskRequest_`, `WeightedRiskResult_` and
 `ValueByMonteCarloWithWeightedRisk` surfaces. One request structure groups ordered
 output IDs, optional weights, input IDs, report factors and payload budget.

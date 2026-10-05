@@ -1,9 +1,9 @@
 # Weighted prepared-script risk: F02 first delivery
 
 Status: active contract for the new F02 PR, based on merged #480 (`079c9d52`).
-The initial native weighted-root increment passes focused OFF and combined
-sanitizer checks; its publication CI remains pending. Public weighted valuation
-and three-language delivery are not yet implemented. This specification covers
+The native weighted root and output/input preflight pass focused OFF and combined
+sanitizer checks; publication CI remains pending. Public weighted valuation and
+three-language delivery are not yet implemented. This specification covers
 the fixed-weight part of F02; blocked Jacobians, portfolio preparation and the
 complete plan remain separate.
 

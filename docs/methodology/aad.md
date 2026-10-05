@@ -664,6 +664,17 @@ rejected even at weight zero, and a nonfinite weighted sum raises an error.
 This is a native recording helper; structured scalar valuation requests still
 select the single default payoff.
 
+Native output preflight is available in `<dal/script/weightedrisk.hpp>`.
+`ScriptRiskOutputAxis` reads an indexed product's scalar slots. The receiver's
+ID is `payoff`; other scalar slots use `output:<ordinal>`, with the actual
+variable label stored separately. Vector storage is excluded.
+`PlanWeightedRiskRequest` resolves ordered choices and finite passive weights,
+reuses input/report checks and enforces the exact retained numeric payload
+`sizeof(double) * (1 + inputs + 2 * components)`. Its owning read-only plan
+captures the valuation date and native/price-only choice. Prepared-axis validation
+checks identity again after preparation. This preflight does not run a valuation
+or resolve historical fixings.
+
 `ValidateAdjointMode(multi, width)` checks a proposed mode without changing
 the tape. Scalar width must be one; vector width must be positive and at most
 `ADJ_SIZE`. Select actual mode with `SetNumResultsForAAD` before scope entry.
