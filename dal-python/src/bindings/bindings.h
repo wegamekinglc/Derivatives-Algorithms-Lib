@@ -23,3 +23,4 @@ void init_bindings_risk(py::module_& m);
 void init_bindings_dupirerisk(py::module_& m);
 void init_bindings_calibrationrisk(py::module_& m);
 void init_bindings_calibrationriskrequest(py::module_& m);
+void init_bindings_dupireriskrequest(py::module_& m);

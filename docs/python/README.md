@@ -273,6 +273,56 @@ GIL after owning all Python inputs. See the
 [native request contract](../yield-curves/jacobian-risk.md#c-quote-coordinate-requests)
 for retained payload and source-identity rules.
 
+## Automatic Dupire script risk requests
+
+`DupireScriptRiskPlan_New(product, modelData, calibration, component, request)`
+plans the complete surface inputs needed by the native Dupire pullback over a
+flat-rate Hybrid. `DupireScriptRiskResult_New(plan)` runs the sealed valuation
+and quote pullback. No manual node-risk extraction is needed.
+
+```python
+request = dal.DupireScriptRiskRequest_(
+    num_paths=257,
+    quotes=dal.CalibrationRiskRequest_(
+        inputs=["quote:3", "quote:0"], report_factors=[0.01, 0.5],
+    ),
+    valuation=dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 9, 12)),
+)
+plan = dal.DupireScriptRiskPlan_New(product, hybrid, calibration, "Z_LOCAL", request)
+result = dal.DupireScriptRiskResult_New(plan)
+price = result.valuation.values[0]
+spread_risk = result.quote_risk.reported_jacobian.to_rows()
+```
+
+Request fields are keyword-only. `num_paths` is required and accepts integers in
+`1..INT_MAX`, excluding bool and enums. Optional `quotes`, `valuation` and
+`simulation` accept their native bound types or `None`; omitted simulation
+enables AAD. Explicit price-only settings reject during planning.
+
+Use `direct_bindings=[dal.DupireQuoteBinding_(constant_ordinal=0,
+quote_id="quote:3")]` for an explicit script constant dependency. The ordinal
+identifies the prepared script constant, and its value must equal the selected
+source quote. Bindings require a copied list/tuple of typed values. Alternatively,
+`direct` accepts a common `CalibrationDirectQuoteAdjoints_` containing raw PV
+partials with the local-vol surface fixed. These two forms are mutually exclusive;
+the native planner validates source identity and adds direct risk once.
+
+Plans expose `component`, `quote_plan`, `complete_input_axis`,
+`required_input_axis`, `direct_bindings`, `num_paths`, `valuation_settings`,
+`simulation_settings` and `numeric_payload_bytes`. They seal native product/model
+content and capture the evaluation date. Explicit fixing snapshots remain owned;
+global history is resolved at execution. Quote subset/empty selection retains all
+mandatory surface/direct gradients and the native smoothed estimator.
+
+The common quote request's budget now covers the retained valuation value and
+required gradients plus all three complete quote contribution matrices. It
+excludes source/metadata, getter copies and temporary worker/tape storage.
+Results expose `valuation`, `quote_risk`, `component`, `method` and
+`numeric_payload_bytes`; `quote_risk` is a `CalibrationRiskResult_`. All properties
+are read-only and detached. Copy/deepcopy retain owning passive values. Planning
+and execution release the GIL after copying typed inputs. See the
+[native automatic request boundaries](../methodology/aad.md#automatic-c-dupire-risk-requests).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

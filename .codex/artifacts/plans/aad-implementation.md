@@ -38,6 +38,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
   the full implementation goal remains active across these delivery boundaries.
 - Work in isolated writable sources; preserve the original workspace and unrelated changes.
 - Establish a failing independent test before each behavioral change.
+- Validation amendment (2026-10-05): select tests from the changed behavior and
+  dependency paths. A binding-only increment runs its focused tests and affected
+  legacy contracts; reuse accepted native mathematical/configuration evidence
+  when those sources and contracts are unchanged. Do not repeat complete Python
+  or C++ suites after small parser/documentation fixes. Consolidate full applicable
+  configuration/platform acceptance at the stable F01/merge boundary; rerun
+  broader checks earlier only for a new failure or an identified coverage gap.
+  Keep the existing mathematical assertions, paired performance policy and
+  required final-head CI gates. Inspect CI asynchronously during independent
+  work; avoid publishing small follow-up commits that cancel an active matrix.
 - Remove external AAD implementation, dependency, export, example and CI paths;
   validate native diagnostic OFF/ON and their actual operation contracts.
 - Preserve legacy single-output APIs, units, paths, normalization, and LSM policy semantics.
@@ -590,7 +600,24 @@ failing row is -0.42%/-1.19%; thresholds, samples, work and assertions stay.
 The [review](../reviews/aad-risk-request-python.md) and
 [performance report](../performance/aad-risk-request-python.md) retain evidence.
 Own-head publication checks remain pending.
-Automatic Python and Excel request bindings remain required for full F01.
+Automatic Python requests are now implemented and locally verified. They expose
+owned strict typed configuration, required axes and detached native plans/results;
+planning/execution releases the GIL after input copies. The new suite passes 69
+workspace tests, and affected old scalar/common suites pass 72. Installed
+OFF/combined modules cover all new cases through focused plus corrected-case
+runs; all three modules match 24 independent installed C++ cases exactly,
+including every coordinate and seven matrices. Preserve the initial fixture
+errors and concurrent quote failures: the pre-binding module reproduces quote
+roundoff up to 8.38e-9 from surface-seed differences of 1.78e-15. Strict quote
+parity stays at rel/abs 1e-10 with two calling threads and one native worker;
+four-worker PV/surface parity also stays at rel/abs 1e-10. Native mathematics,
+normalization and original independent oracle steps/tolerances do not change.
+All nine affected existing constructor costs pass the unchanged paired policy
+with 704 unchanged input hashes and eight separate new cost rows. See the linked
+review/performance report for complete evidence. The next publication is
+consolidated with Excel request parity; no incremental full suites are repeated.
+Common `d51df72` CI has 33 successful/one running captured checks, with final
+conditional gates pending. Excel requests and full F01 acceptance remain open.
 
 ### Whole-plan status and remaining effort
 
@@ -598,31 +625,40 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                                           | Publication/CI                                             | Remaining person-days |
-|-------------------------|---------------------------------------------------------------------------------------------|------------------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                               | Accepted exact-head checks                                 | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                                                   | Accepted exact-head checks                                 | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive                                     | Published tooling; performance verdict open                | 2–5                   |
-| F01                     | C++ request accepted; common Python request locally verified; automatic Python/Excel remain | C++/common own 35 accepted; new Python own CI remains open | 6–10                  |
-| F02                     | Multiple outputs and portfolio integration remain                                           | Open                                                       | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                                              | Open                                                       | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                                        | Open                                                       | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                                                    | Open                                                       | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                                     | Open                                                       | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                                  | Open                                                       | 7–11                  |
+| Work item               | Implementation/local verification                                             | Publication/CI                                          | Remaining person-days |
+|-------------------------|-------------------------------------------------------------------------------|---------------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                 | Accepted exact-head checks                              | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                                     | Accepted exact-head checks                              | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive                       | Published tooling; performance verdict open             | 2–5                   |
+| F01                     | C++ accepted; common/automatic Python locally verified; Excel requests remain | C++/common own 35 accepted; Python CI/final parity open | 0.5–1                 |
+| F02                     | Multiple outputs and portfolio integration remain                             | Open                                                    | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                                | Open                                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain                          | Open                                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                                      | Open                                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                       | Open                                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                    | Open                                                    | 7–11                  |
 
-Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
-Allow approximately 15–25 weeks including cross-platform and performance
-investigation buffer. The common Python acceptance does not yet change that
-range materially. F01 has approximately 6–10 person-days remaining for automatic
-request Python/Excel exposure and
-final F01 acceptance. Re-estimate at
-milestones and when acceptance findings change the scope.
+Remaining total: approximately 54–90 person-days, or 11–18 working weeks,
+excluding CI queue time. After automatic Python implementation, F01 is roughly
+0.5–1 person-day of net development for Excel requests and focused integration.
+Native algorithms and independent mathematical acceptance already exist;
+the earlier 6–10 estimate overstated repeated verification work. This is a rough
+effort estimate, not a guaranteed completion date. Re-estimate when review
+findings change the scope.
 
-The current PR-to-merge boundary has approximately 10–19 person-days remaining:
-F01 6–10, production performance 2–5 and whole-PR fixes/merge validation 2–4.
-These tasks are already included in the overall 60–100 estimate; do not add
+The current PR-to-merge boundary has approximately 4.5–10 person-days remaining:
+F01 0.5–1, production performance 2–5 and whole-PR fixes/merge validation 2–4.
+These tasks are already included in the overall estimate; do not add
 the first delivery estimate again. Subsequent stages require new PRs.
+
+PR #480 review intake has started while the remaining interfaces are developed;
+the concentrated whole-PR repair/merge phase still follows complete F01 as the
+user requested. The paginated thread audit has no unresolved threads at
+`d51df72d4ac4a82c14a612a03088c9bd521725b9`. The initial own-head CI capture has
+18 successful and 14 running checks, with no completed failure; later conditional
+checks are still required. This is preparation, not a completed whole-PR code
+review or merge acceptance. Evidence: `aad-pr-fix-review-threads-02.jsonl` and
+`aad-pr-fix-checks-02.jsonl`; initial TLS capture failures are retained separately.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -982,10 +1018,12 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the locally accepted common Python quote request, inspect its
-own exact-head checks, then complete automatic
-Python and Excel request parity under the full integration contract before
+Next: inspect the published common Python quote request's
+own exact-head checks asynchronously, then complete
+Excel request parity under the full integration contract before
 closing F01. The common and automatic C++ requests have accepted own-head CI.
+Use the focused validation amendment above and continue independent PR issue
+intake during interface development.
 After full F01 acceptance, review/fix the entire current PR and reconcile
 P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.

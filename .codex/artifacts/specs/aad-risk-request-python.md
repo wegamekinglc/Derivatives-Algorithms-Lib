@@ -1,8 +1,8 @@
 # Python calibration and automatic Dupire requests
 
 Status: active binding contract, specified before implementation. Common quote
-bindings are locally implemented; automatic bindings and publication acceptance
-remain open. The accepted
+and automatic bindings are locally implemented; automatic acceptance and final
+publication gates remain open. The accepted
 [common request](aad-calibration-risk-request.md) and locally verified
 [automatic C++ request](aad-dupire-risk-request.md) define native behavior.
 The [ledger](../plans/aad-implementation.md) keeps full F01/merge gates open.
@@ -95,9 +95,12 @@ failed runs and all original mathematical oracle steps/tolerances.
   failure/recovery and no second mean normalization.
 - Concurrent native calls, real GIL heartbeat, passive unrelated-tape getters
   and valid execution after errors. No fabricated observer or shape result.
-- Workspace and fresh standalone OFF/combined modules, Python 3.9-compatible
-  tests, proportional installed/Windows/own-head CI acceptance, full original
-  performance protocol and updated current-state guides/changelog.
+- Workspace and standalone OFF/combined modules, Python 3.9-compatible tests,
+  proportional installed/Windows/own-head CI acceptance, unchanged paired
+  performance protocol for affected existing bindings and updated current-state
+  guides/changelog. Consolidate complete suites at the stable F01/merge boundary
+  under the user's proportional verification amendment; unchanged native
+  mathematical acceptance remains valid.
 
 ## Open questions
 

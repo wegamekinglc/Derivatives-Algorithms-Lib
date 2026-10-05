@@ -157,3 +157,55 @@ Overall verdict: no regression for these changed existing Python entries.
 Native nine-target identity and accepted C++ numerical/oracle evidence remain
 bounded and unchanged. This does not resolve production P01's separate noisy
 MC measurements or close full F01/whole-PR/master acceptance.
+
+## Automatic Python affected-binding acceptance
+
+The automatic wrapper adds a translation unit and exposes accepted native
+plans; core/public algorithms and old valuation/binding bodies are unchanged.
+The only shared-parser change permits a mandatory unsigned-field error label,
+keeping its old default literal. Under the user's proportional verification
+amendment, measure the six affected existing scalar constructors and three
+existing common constructors. Reuse their exact original configurations,
+iteration counts, digest and measurement functions from the retained worker.
+Unchanged native/MC/oracle gates are not rerun for this wrapper increment.
+
+Baseline is the frozen common module in `aad-risk-request-python-measured-head-02`
+(published as `d51df72`); the automatic module is frozen in
+`aad-dupire-request-python-measured-head-01`. Both are matching workspace Release
+OFF modules. CPU affinity four, one native worker, two rounds of ten alternating
+processes per side, per-round minima and the original strict 4% policy remain.
+All nine old rows pass; every work descriptor/numeric digest and all 704 input
+hashes stay unchanged. Sixty measured processes include twenty separate
+new-entry processes; three preflights are additional untimed checks.
+
+| Existing case              | R1 delta | R2 delta | Gate |
+|----------------------------|----------|----------|------|
+| scalar_request_default     | +1.93%   | +1.74%   | PASS |
+| scalar_request_empty       | -3.09%   | +1.57%   | PASS |
+| scalar_request_selected    | -2.45%   | +3.27%   | PASS |
+| scalar_request_tuple       | -0.18%   | -0.19%   | PASS |
+| scalar_request_dal_strings | +0.43%   | +1.45%   | PASS |
+| scalar_request_wide_128    | -7.84%   | -1.04%   | PASS |
+| common_request_default     | +3.45%   | +0.63%   | PASS |
+| common_request_selected    | -0.79%   | +1.72%   | PASS |
+| common_request_empty       | -6.16%   | +2.60%   | PASS |
+
+New costs include ordinary Python conversion and owning copies. They are
+informational additional capabilities, excluding initial calibration:
+
+| New case                   | R1 minimum ns | R2 minimum ns |
+|----------------------------|---------------|---------------|
+| automatic_binding          | 2181.11       | 2243.69       |
+| automatic_request_default  | 1892.96       | 1928.57       |
+| automatic_request_selected | 2317.02       | 2377.13       |
+| automatic_plan             | 68379.09      | 70325.95      |
+| automatic_execution_257    | 643732.12     | 653654.78     |
+| automatic_valuation_getter | 3757.40       | 3696.99       |
+| automatic_quote_getter     | 495.71        | 495.92        |
+| automatic_report_getter    | 763.49        | 754.16        |
+
+Raw workers, all process outputs, minima/verdicts, protocol and before/after
+hashes are in `aad-dupire-request-python-cost-{worker,run}-01.py` and
+`aad-dupire-request-python-cost-paired-01/`. No source/Git/PR/build/test activity
+overlaps formal measurement. This bounded pass does not close P01, Excel request
+parity or final F01 publication/whole-PR acceptance.

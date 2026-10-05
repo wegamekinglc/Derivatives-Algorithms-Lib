@@ -1,7 +1,7 @@
 # Python request API decision
 
-Status: active; common quote bindings implemented locally, automatic bindings
-remain specified. The
+Status: active; common quote and automatic bindings are implemented locally;
+final publication acceptance remains open. The
 [spec](../specs/aad-risk-request-python.md) controls ownership, parsing, native
 semantics, GIL and compatibility acceptance.
 
@@ -64,7 +64,7 @@ type/field assembly caused the first old-entry performance failure; fixed labels
 preserve stable diagnostic content/timing and pass the unchanged full gate.
 The source file/line trace follows the private helper's location. Common local
 functionality, installed parity and performance are verified; own-head CI and
-automatic bindings remain open.
+automatic binding acceptance remains open.
 
 Release the GIL only after all typed input conversions, around callback-free
 native work. Projection getters stay passive and ordinary Python-owned data
@@ -72,5 +72,7 @@ copies. Rejected alternatives: calling Python constructors for validation;
 passing dictionaries through implicit casts; borrowing request lists; allocating
 cached selected matrices; guessing PV/currency; or accepting untyped binding pairs.
 
-No user clarification is needed. Deliver common requests first, then automatic
-requests, with native/install parity and old-entry performance evidence per increment.
+No user clarification is needed. Common requests are published; complete the
+automatic Python/Excel interfaces before the next publication to consolidate CI.
+Use focused native/install parity and affected old-entry performance evidence,
+with complete applicable acceptance at the stable F01/merge boundary.

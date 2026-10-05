@@ -62,8 +62,10 @@ namespace Dal::Python {
         return factors;
     }
 
-    inline size_t RequestUnsigned(const py::handle& value, const RiskRequestContext_& context) {
-        const auto error = InputContext(value, context.field_, "nonnegative size_t integer or None, excluding bool", context.identifier_);
+    inline size_t RequestUnsigned(const py::handle& value,
+                                  const RiskRequestContext_& context,
+                                  const char* expected = "nonnegative size_t integer or None, excluding bool") {
+        const auto error = InputContext(value, context.field_, expected, context.identifier_);
         if (PyBool_Check(value.ptr()) || IsEnum(value) || !PyIndex_Check(value.ptr()))
             throw py::type_error(error);
         const auto integer = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));

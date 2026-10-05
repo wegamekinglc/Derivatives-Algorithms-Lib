@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
+- **Python automatic Dupire script requests** — owning read-only requests and
+  sealed plans expose mandatory surface/direct inputs, complete payload budgets
+  and native Monte Carlo quote results. Typed direct bindings and callback-free
+  GIL release reuse the accepted C++ planner and execution. See
+  [automatic Python requests](docs/python/README.md#automatic-dupire-script-risk-requests).
 - **Python calibration-coordinate requests** — owning read-only requests,
   plans and results expose native quote metadata, full/subset/empty selections,
   complete retained payload budgets and detached raw/report projections. Strict
