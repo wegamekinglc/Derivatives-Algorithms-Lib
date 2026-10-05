@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal-public/src/calibrationrisk.hpp>
+#include <dal-public/src/dupireriskrequest.hpp>
 
 #include "__curve_storable.hpp"
 #include "__dupirerisk.hpp"
@@ -19,10 +19,23 @@
 
 namespace Dal {
     namespace Excel {
+        struct DupireScriptRiskSettings_ {
+            int numPaths_ = 0;
+            ScriptValuationSettings_ valuation_;
+            MonteCarloSettings_ simulation_ = DefaultRiskMonteCarloSettings();
+        };
+
         inline const char* CalibrationValueType(const CalibrationPullback_&) { return "CalibrationPullback"; }
         inline const char* CalibrationValueType(const CalibrationParameterAdjoints_&) { return "CalibrationParameterAdjoints"; }
         inline const char* CalibrationValueType(const CalibrationDirectQuoteAdjoints_&) { return "CalibrationDirectQuoteAdjoints"; }
         inline const char* CalibrationValueType(const CalibrationQuoteRisk_&) { return "CalibrationQuoteRisk"; }
+        inline const char* CalibrationValueType(const CalibrationRiskRequest_&) { return "CalibrationRiskRequest"; }
+        inline const char* CalibrationValueType(const CalibrationRiskPlan_&) { return "CalibrationRiskPlan"; }
+        inline const char* CalibrationValueType(const CalibrationRiskResult_&) { return "CalibrationRiskResult"; }
+        inline const char* CalibrationValueType(const DupireScriptRiskSettings_&) { return "DupireScriptRiskSettings"; }
+        inline const char* CalibrationValueType(const DupireScriptRiskRequest_&) { return "DupireScriptRiskRequest"; }
+        inline const char* CalibrationValueType(const DupireScriptRiskPlan_&) { return "DupireScriptRiskPlan"; }
+        inline const char* CalibrationValueType(const DupireScriptRiskResult_&) { return "DupireScriptRiskResult"; }
 
         template <class T_> struct StorableCalibrationValue_ : Storable_ {
             const T_ val_;

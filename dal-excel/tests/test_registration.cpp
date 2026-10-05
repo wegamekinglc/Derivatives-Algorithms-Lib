@@ -134,6 +134,49 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
     ASSERT_EQ(staged->argNames_, prefix + ",[retainCalibrationRecord]");
 }
 
+TEST(ExcelRegistrationTest, TestCalibrationAndAutomaticRequestContracts) {
+    struct Contract_ {
+        const char* name_;
+        const char* arguments_;
+        const char* types_;
+    };
+    const Contract_ contracts[] = {{"CalibrationRiskRequest_New", "name,[settings]", "QQQ"},
+                                   {"CalibrationRiskRequest_Get_Settings", "request", "QQ"},
+                                   {"CalibrationRiskPlan_New", "name,calibration,[request]", "QQQQ"},
+                                   {"CalibrationRiskPlan_Get_Calibration", "plan", "QQ"},
+                                   {"CalibrationRiskPlan_Get_Inputs", "plan,[complete]", "QQQ"},
+                                   {"CalibrationRiskPlan_Get_Shape", "plan", "QQ"},
+                                   {"CalibrationRiskResult_New", "name,plan,parameters,[direct]", "QQQQQ"},
+                                   {"CalibrationRiskResult_Get_Plan", "result", "QQ"},
+                                   {"CalibrationRiskResult_Get_QuoteRisk", "result", "QQ"},
+                                   {"CalibrationRiskResult_Get_Jacobian", "result,[projection]", "QQQ"},
+                                   {"DupireScriptRiskSettings_New", "name,n_paths,[valuation],[simulation]", "QQQQQ"},
+                                   {"DupireScriptRiskSettings_Get_Configuration", "settings,format", "QQQ"},
+                                   {"DupireScriptRiskRequest_New", "name,settings,[quotes],[bindings],[direct]", "QQQQQQ"},
+                                   {"DupireScriptRiskRequest_Get_Configuration", "request,format", "QQQ"},
+                                   {"DupireScriptRiskRequest_Get_Direct", "request", "QQ"},
+                                   {"DupireScriptRiskPlan_New", "name,product,modelData,calibration,component,request", "QQQQQQQ"},
+                                   {"DupireScriptRiskPlan_Get_QuotePlan", "plan", "QQ"},
+                                   {"DupireScriptRiskPlan_Get_Inputs", "plan,[complete]", "QQQ"},
+                                   {"DupireScriptRiskPlan_Get_Configuration", "plan,format", "QQQ"},
+                                   {"DupireScriptRiskPlan_Get_Provenance", "plan", "QQ"},
+                                   {"DupireScriptRiskResult_New", "name,plan", "QQQ"},
+                                   {"DupireScriptRiskResult_Get_Valuation", "result", "QQ"},
+                                   {"DupireScriptRiskResult_Get_QuoteRisk", "result", "QQ"},
+                                   {"DupireScriptRiskResult_Get_Provenance", "result", "QQ"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.name_;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.name_;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.name_));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.arguments_);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), contract.types_);
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestEveryRegisteredFunctionResolvesToAnEntryPoint) {
     const HMODULE dll = ::GetModuleHandleA("dal_excel.xll");
     ASSERT_TRUE(dll != nullptr);

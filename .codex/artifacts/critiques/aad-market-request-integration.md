@@ -69,3 +69,21 @@ The audit's acceptance matrix is appropriate, provided new tests distinguish
 planning failure before history/workers from post-run extraction failure.
 Retain the existing fixed-path, bump-step and tolerance protocols; source parity
 and wrapper-copy checks do not replace an independent derivative oracle.
+
+## Excel request API review
+
+Verdict: Proceed with caveats. The focused
+[worksheet API](../api-notes/aad-risk-request-excel.md) reuses the accepted native
+common and automatic plans and keeps required arguments before optional controls.
+No numerical-method blocker remains. Execution settings are a private passive
+Excel value, not another planner or persistent worker state.
+
+Before GREEN acceptance, prove raw errors/bools/text and embedded NUL reject
+before coercion, and preserve absent versus explicitly empty settings. Inspect
+optional direct-handle output behavior in the existing repository formatter.
+Reuse actual native immutable handles for result projections; do not manufacture
+results for plan-axis getters. Shared old parsers/formatting must retain diagnostics,
+values and paired performance. Empty spills need separate exact shape metadata.
+Generate all stubs from markup and verify real Windows XLL boundary behavior.
+The user's proportional test amendment applies; do not repeat unchanged native
+mathematical/full configuration suites during wrapper implementation.

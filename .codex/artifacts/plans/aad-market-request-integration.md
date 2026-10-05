@@ -2,8 +2,8 @@
 
 Status: active implementation audit. Common C++/Python/Excel boundaries, common
 C++ quote requests and automatic C++ requests have accepted own-head checks.
-Common and automatic Python request bindings are locally verified; Excel
-request parity and final publication acceptance remain required. This records
+Common and automatic Python/Excel request bindings are locally verified;
+final publication acceptance remains required. This records
 remaining work; it is not implementation acceptance or a replacement for F01.
 The full [ledger](aad-implementation.md) controls scope, performance policy and
 the user-authorized F01-first merge of PR #480. Later stages require new PRs.
@@ -26,8 +26,11 @@ fresh OFF/combined installed tests and independent C++ projection parity pass;
 the unchanged paired policy passes all 63 old Python workloads after fixing
 parser context assembly. Automatic Python planning/execution also matches 24
 independent installed C++ cases and passes focused tests/affected binding costs.
-Own-head publication checks remain pending. Common quote and automatic Excel
-requests are the next interface gap. Full F01, P01, whole-PR
+Common Python publication `d51df72` now has all 35 checks accepted. Common quote
+and automatic Excel requests pass focused OFF/combined tests, Windows syntax
+and all ten affected legacy cost rows; see the
+[Excel review](../reviews/aad-risk-request-excel.md). Automatic Python and Excel
+are consolidated for publication. Full F01, P01, whole-PR
 problem fixes, final master reconciliation and guarded merging remain open.
 
 ## Source and initial findings
@@ -134,10 +137,11 @@ multi-configuration suite without a specific failure or coverage gap. Preserve
 all assertions, performance thresholds and required final-head CI checks.
 
 PR issue intake is now active alongside the remaining Excel interface. The
-initial paginated audit finds no unresolved review threads at `d51df72`; its
-own-head CI remains running. Whole-PR source review and issue repair remain open.
-F01 interface development is roughly 0.5–1 remaining person-day; CI queue time
-and unresolved P01 investigation are separate uncertainties.
+initial paginated audit finds no unresolved review threads at `d51df72`; all 35
+own-head checks now pass. Whole-PR source review and issue repair remain open.
+F01 interface implementation and local affected-entry validation are complete;
+final publication checks and requirement audit remain, roughly 0.25–0.5
+person-day excluding CI queue time. Unresolved P01 investigation is separate.
 
 Complete the above acceptance before closing F01. Then perform the requested
 whole-PR problem review/fixes, resolve P01 production performance, update against

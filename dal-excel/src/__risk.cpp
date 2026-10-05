@@ -2,13 +2,14 @@
 // Created by Codex on 2026/10/5.
 //
 
+#include <array>
 #include <cmath>
 #include <limits>
 
 #include "__platform.hpp"
 #include "__risk.hpp"
+#include "__riskrequestrows.hpp"
 #include "__script_test_api.hpp"
-#include "__scriptsettingsrows.hpp"
 #include "__settingskeys.hpp"
 #include "__value.hpp"
 
@@ -183,61 +184,12 @@ namespace Dal {
             return *provenance.execution_;
         }
 
-        Vector_<String_> ListValue(const Cell_& cell, const String_& context) {
-            if (Cell::IsEmpty(cell))
-                return {};
-            const auto text = Excel::TextValue(cell, context);
-            const auto items = String::Split(text, ';', true);
-            for (const auto& item : items)
-                REQUIRE(!item.empty() && item.find('\0') == String_::npos, context + "expected semicolon-separated nonempty entries without NUL");
-            return items;
-        }
-
-        Vector_<> FactorList(const Cell_& cell, const String_& context) {
-            Vector_<> factors;
-            for (const auto& item : ListValue(cell, context)) {
-                double factor;
-                try {
-                    factor = String::ToDouble(item);
-                } catch (const std::exception& error) {
-                    THROW(context + "expected numeric report factor; value=" + item + "; " + String_(error.what()));
-                }
-                REQUIRE(std::isfinite(factor) && factor > 0.0, context + "report factor must be finite and positive");
-                factors.push_back(factor);
-            }
-            return factors;
-        }
-
-        size_t PayloadBudget(const Cell_& cell, const String_& context) {
-            const auto* number = std::get_if<double>(&cell.val_);
-            REQUIRE(number && std::isfinite(*number) && std::trunc(*number) == *number && *number >= 0.0 && *number <= 9007199254740991.0 &&
-                        static_cast<long double>(*number) <= static_cast<long double>(std::numeric_limits<size_t>::max()),
-                    context + "numeric_payload_budget_bytes must be an exactly representable nonnegative size_t integer at most 2^53-1");
-            return static_cast<size_t>(*number);
-        }
-
-        Matrix_<Cell_> NumericCells(const Matrix_<>& source) {
-            if (source.Cols() == 0)
-                return Matrix_<Cell_>(1, 1);
-            Matrix_<Cell_> cells(source.Rows(), source.Cols());
-            for (int row = 0; row < source.Rows(); ++row)
-                for (int column = 0; column < source.Cols(); ++column)
-                    cells(row, column) = source(row, column);
-            return cells;
-        }
-
-        template <class T_> Cell_ OptionalCell(const std::optional<T_>& value) {
-            Cell_ cell;
-            if (value)
-                cell = *value;
-            return cell;
-        }
-
-        template <class T_> std::pair<String_, Cell_> Field(const String_& key, const T_& value) {
-            Cell_ cell;
-            cell = value;
-            return {key, cell};
-        }
+        using Excel::FactorList;
+        using Excel::Field;
+        using Excel::ListValue;
+        using Excel::NumericCells;
+        using Excel::OptionalCell;
+        using Excel::PayloadBudget;
     } // namespace
 
     void RiskRequest_New(const String_& name, const Matrix_<Cell_>& settings, Handle_<StorableRiskRequest_>* request) {
@@ -298,23 +250,7 @@ namespace Dal {
     void RiskResult_Get_Inputs(const Handle_<StorableRiskResult_>& result, bool complete, Matrix_<Cell_>* inputs) {
         const auto& value = CheckedResult(result);
         const auto& axis = complete ? value.CompleteInputAxis() : value.InputAxis();
-        const Vector_<String_> headers{"id", "label", "family", "ordinal", "value", "native_unit", "physical_unit", "report_scale"};
-        Matrix_<Cell_> cells(static_cast<int>(axis.size()) + 1, static_cast<int>(headers.size()));
-        for (int column = 0; column < cells.Cols(); ++column)
-            cells(0, column) = headers[static_cast<size_t>(column)];
-        for (size_t index = 0; index < axis.size(); ++index) {
-            const auto& coordinate = axis[index];
-            const int row = static_cast<int>(index) + 1;
-            cells(row, 0) = coordinate.id_;
-            cells(row, 1) = coordinate.label_;
-            cells(row, 2) = coordinate.family_;
-            cells(row, 3) = double(coordinate.ordinal_);
-            cells(row, 4) = coordinate.value_;
-            cells(row, 5) = coordinate.nativeUnit_;
-            cells(row, 6) = OptionalCell(coordinate.physicalUnit_);
-            cells(row, 7) = coordinate.reportScale_;
-        }
-        *inputs = std::move(cells);
+        *inputs = Excel::RiskCoordinateCells(axis);
     }
 
     void RiskResult_Get_Outputs(const Handle_<StorableRiskResult_>& result, Vector_<String_>* outputs) {
@@ -363,10 +299,9 @@ namespace Dal {
     void RiskResult_Get_History(const Handle_<StorableRiskResult_>& result, Matrix_<Cell_>* history) {
         const auto& observations = Execution(result).observations_;
         Matrix_<Cell_> cells(static_cast<int>(observations.size()) + 1, 4);
-        cells(0, 0) = "index";
-        cells(0, 1) = "fixing_time";
-        cells(0, 2) = "historical";
-        cells(0, 3) = "value";
+        constexpr std::array<const char*, 4> HEADERS{"index", "fixing_time", "historical", "value"};
+        for (int column = 0; column < 4; ++column)
+            cells(0, column).val_.emplace<String_>(HEADERS[column]);
         for (size_t index = 0; index < observations.size(); ++index) {
             const auto& observation = observations[index];
             const int row = static_cast<int>(index) + 1;

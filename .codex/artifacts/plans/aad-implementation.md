@@ -616,8 +616,19 @@ All nine affected existing constructor costs pass the unchanged paired policy
 with 704 unchanged input hashes and eight separate new cost rows. See the linked
 review/performance report for complete evidence. The next publication is
 consolidated with Excel request parity; no incremental full suites are repeated.
-Common `d51df72` CI has 33 successful/one running captured checks, with final
-conditional gates pending. Excel requests and full F01 acceptance remain open.
+Common `d51df72` now passes all 35 own-head checks, captured in
+`aad-risk-request-excel-pr-state-02.json`. Excel adds 24 request/plan/result
+functions reusing native plans, immutable storage and passive projections.
+The final affected OFF/combined suites each pass 15 tests, including a 24-case
+flat/Merton/tree/compiled/selection/direct parity matrix and all four captured
+curve providers. Twelve initial MSVC units and six final affected production
+units pass syntax checks; real Windows runtime remains a publication gate.
+All ten changed existing Excel cost rows pass the original paired policy after
+correcting inlined numeric formatting and temporary history-header strings.
+The [Excel review](../reviews/aad-risk-request-excel.md) and
+[complete cost report](../performance/aad-risk-request-excel.md) retain failures,
+scope and final evidence. Python and Excel publish together; full F01 remains
+open until own-head CI and the requirement audit pass.
 
 ### Whole-plan status and remaining effort
 
@@ -630,7 +641,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                 | Accepted exact-head checks                              | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                                     | Accepted exact-head checks                              | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive                       | Published tooling; performance verdict open             | 2–5                   |
-| F01                     | C++ accepted; common/automatic Python locally verified; Excel requests remain | C++/common own 35 accepted; Python CI/final parity open | 0.5–1                 |
+| F01                     | C++ accepted; Python/Excel interfaces and focused parity verified             | Common own 35 accepted; consolidated final CI/audit open | 0.25–0.5              |
 | F02                     | Multiple outputs and portfolio integration remain                             | Open                                                    | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                                | Open                                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                          | Open                                                    | 12–20                 |
@@ -638,25 +649,24 @@ overlapping acceptance work is included once in the integration allowance.
 | F04                     | Second-order implementation/estimator validation remain                       | Open                                                    | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                    | Open                                                    | 7–11                  |
 
-Remaining total: approximately 54–90 person-days, or 11–18 working weeks,
-excluding CI queue time. After automatic Python implementation, F01 is roughly
-0.5–1 person-day of net development for Excel requests and focused integration.
-Native algorithms and independent mathematical acceptance already exist;
-the earlier 6–10 estimate overstated repeated verification work. This is a rough
+Remaining total: approximately 53–90 person-days, or 11–18 working weeks,
+excluding CI queue time. F01 interfaces are implemented and locally verified;
+publication/audit needs roughly 0.25–0.5 person-day. Native algorithms and
+independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
 
-The current PR-to-merge boundary has approximately 4.5–10 person-days remaining:
-F01 0.5–1, production performance 2–5 and whole-PR fixes/merge validation 2–4.
+The current PR-to-merge boundary has approximately 4.25–9.5 person-days remaining:
+F01 0.25–0.5, production performance 2–5 and whole-PR fixes/merge validation 2–4.
 These tasks are already included in the overall estimate; do not add
 the first delivery estimate again. Subsequent stages require new PRs.
 
 PR #480 review intake has started while the remaining interfaces are developed;
 the concentrated whole-PR repair/merge phase still follows complete F01 as the
 user requested. The paginated thread audit has no unresolved threads at
-`d51df72d4ac4a82c14a612a03088c9bd521725b9`. The initial own-head CI capture has
-18 successful and 14 running checks, with no completed failure; later conditional
-checks are still required. This is preparation, not a completed whole-PR code
+`d51df72d4ac4a82c14a612a03088c9bd521725b9`. Its final own-head capture has all
+35 checks successful. The consolidated Python/Excel head needs its own checks.
+This is preparation, not a completed whole-PR code
 review or merge acceptance. Evidence: `aad-pr-fix-review-threads-02.jsonl` and
 `aad-pr-fix-checks-02.jsonl`; initial TLS capture failures are retained separately.
 
@@ -1018,10 +1028,10 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: inspect the published common Python quote request's
-own exact-head checks asynchronously, then complete
-Excel request parity under the full integration contract before
-closing F01. The common and automatic C++ requests have accepted own-head CI.
+Next: publish the locally verified automatic Python and common/automatic Excel
+requests together, inspect their exact-head checks asynchronously and complete
+the F01 requirement audit. Common Python and both C++ requests have accepted
+own-head CI. The Excel review retains focused checks and affected legacy costs.
 Use the focused validation amendment above and continue independent PR issue
 intake during interface development.
 After full F01 acceptance, review/fix the entire current PR and reconcile

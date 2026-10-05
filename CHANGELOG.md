@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-06
+
+- **Excel calibration and automatic Dupire requests** — immutable worksheet
+  requests and sealed plans expose quote selections, exact retained payload
+  budgets, explicit constant/direct dependencies and native AAD results. Passive
+  getters retain native source metadata and raw/report projections. See
+  [worksheet quote requests](docs/excel/script-settings.md#calibration-quote-requests).
+
 ## 2026-10-05
 
 - **Python automatic Dupire script requests** — owning read-only requests and

@@ -26,7 +26,7 @@ namespace Dal {
         inline int CheckedPathCount(double nPaths, int minimum) {
             REQUIRE(std::isfinite(nPaths), "number of paths must be finite");
             REQUIRE(std::trunc(nPaths) == nPaths, "number of paths must be exactly integral");
-            REQUIRE(nPaths >= minimum && nPaths <= static_cast<double>(std::numeric_limits<int>::max()),
+            REQUIRE(nPaths >= minimum && nPaths <= static_cast<double>((std::numeric_limits<int>::max)()),
                     "number of paths is outside the supported integer range");
             return static_cast<int>(nPaths);
         }
