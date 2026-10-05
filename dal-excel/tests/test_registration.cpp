@@ -98,7 +98,21 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
         "xl_StagedXccyBasisQuoteRiskProvenance_New",
         "xl_RateQuoteRiskProvenance_New",
         "xl_RatePortfolioQuoteRisk_Spill",
+        "xl_CalibrationPullback_New",
+        "xl_CalibrationParameterAdjoints_New",
+        "xl_CalibrationDirectQuoteAdjoints_New",
+        "xl_CalibrationQuoteRisk_New",
+        "xl_CalibrationPullback_Get_Source",
+        "xl_CalibrationPullback_Get_Provenance",
+        "xl_CalibrationParameterAdjoints_Get_Calibration",
+        "xl_CalibrationParameterAdjoints_Get_Adjoints",
+        "xl_CalibrationDirectQuoteAdjoints_Get_Calibration",
+        "xl_CalibrationDirectQuoteAdjoints_Get_Adjoints",
+        "xl_CalibrationQuoteRisk_Get_Calibration",
+        "xl_CalibrationQuoteRisk_Get_Adjoints",
+        "xl_CalibrationQuoteRisk_Get_Provenance",
     };
+    const String_ prefix("result,calibrationId,parameterBlockKeys,componentKeys,market");
     for (const auto& cName : cNames) {
         const auto found =
             std::find_if(registrations.begin(), registrations.end(), [&](const auto& registration) { return registration.cName_ == cName; });
@@ -107,11 +121,17 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
         ASSERT_FALSE(found->help_.empty());
         ASSERT_EQ(DeclaredArgCount(*found), found->argHelpCount_);
         ASSERT_LE(found->maxArgHelpLength_, 255);
+        if (cName.find("QuoteRiskProvenance_New") != String_::npos) {
+            ASSERT_EQ(found->argNames_.substr(0, prefix.size()), prefix);
+            ASSERT_EQ(found->argNames_, prefix + ",[retainCalibrationRecord]");
+            ASSERT_EQ(CaseSensitive(found->argTypes_), "QQQQQQQ");
+        }
     }
     const auto staged = std::find_if(registrations.begin(), registrations.end(),
                                      [](const auto& registration) { return registration.cName_ == "xl_StagedXccyBasisQuoteRiskProvenance_New"; });
     ASSERT_NE(staged, registrations.end());
-    ASSERT_EQ(staged->argNames_, String_("result,calibrationId,parameterBlockKeys,componentKeys,market"));
+    ASSERT_EQ(staged->argNames_.substr(0, prefix.size()), prefix);
+    ASSERT_EQ(staged->argNames_, prefix + ",[retainCalibrationRecord]");
 }
 
 TEST(ExcelRegistrationTest, TestEveryRegisteredFunctionResolvesToAnEntryPoint) {

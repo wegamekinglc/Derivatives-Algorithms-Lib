@@ -477,6 +477,13 @@ calls preserve all extreme-value assertions; all 12 syntax units then pass
 without the extra local define. Production objects and the paired measurement
 remain unchanged. The repaired publication must pass its own complete CI.
 
+Correction `39b2802a` compiles and runs the new common/XLL lifecycle tests on
+Windows. Inspected diagnostic runs fail only an existing registration assertion
+that still expects five arguments. Update it to verify all original prefixes,
+the appended optional capture marker and complete type metadata, and add all
+13 common registration entries to the help/long-name checks. Preserve every
+failed job log; the next head still requires complete own CI acceptance.
+
 The unchanged two-round/ten-process/4% Excel wrapper protocol passes all 48
 old/default comparisons. Forty processes preserve 640 numeric checks and
 1,477 frozen inputs. All 32 new capture/prepared-common costs are retained

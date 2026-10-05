@@ -30,6 +30,16 @@ parentheses. All six units in both modes then compile without NOMINMAX in
 `aad-calibration-excel-msvc-ci-failure-01.log`. Assertions, extreme values,
 production code and CI flags remain unchanged; the repaired head needs own CI.
 
+At correction `39b2802a`, actual Windows runtime passes the new common bindings,
+XLL-local recording checks and all existing functional cases. Three inspected
+diagnostic jobs each fail only the registration test's old five-argument metadata
+expectation. Preserve their full logs `correction-failure-111698{763092,762880,762709}-01.log`.
+Update that expectation to the complete six-argument list with the optional
+`[retainCalibrationRecord]` marker, assert its original five-argument prefix
+for all five capture factories, and include all 13 common entries in the long-name/
+help/count checks. Existing resolution, uniqueness and help assertions remain.
+No production input changes. Final registration GREEN requires the next exact CI head.
+
 Read the capture overloads, dispatcher, common header/implementation, raw-cell
 validators, generated inc/HTML pairs, tests, source native APIs, controlling
 spec/API/critique and numerical acceptance. Four const-value handle types use
