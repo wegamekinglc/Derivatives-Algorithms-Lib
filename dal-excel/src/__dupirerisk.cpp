@@ -4,13 +4,14 @@
 
 #include <cmath>
 
-#include "__dupireinput.hpp"
 #include "__dupirerisk.hpp"
+#include <dal-public/src/models.hpp>
+
+// Load native AAD declarations before the Windows SDK's REGISTERING macro.
+#include "__dupireinput.hpp"
 #include "__platform.hpp"
 #include "__scriptsettingsrows.hpp"
 #include "__settingskeys.hpp"
-
-#include <dal-public/src/models.hpp>
 
 /*IF--------------------------------------------------------------------------
 public MertonIVS_New

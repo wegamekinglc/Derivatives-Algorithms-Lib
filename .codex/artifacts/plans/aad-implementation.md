@@ -312,8 +312,20 @@ the complete file's CCN check (29 functions, no warnings), all nine Excel cases
 in OFF and combined, and 71 fully instrumented ASan/UBSan cases. All 84 oracle
 rows in each configuration remain bitwise equal to the published trace; no
 step, tolerance, assertion, path count or CI policy changes. Preserve the
-original annotation and local RED. Corrective publication/new-head CI remains
-required; the earlier head is not accepted.
+original annotation and local RED. Exact test correction `50d286af` passes
+Codacy, but both published Excel heads fail all four MSVC jobs.
+
+The Windows SDK's `REGISTERING` macro collides with the native recording enum
+when the new Excel input helper precedes native declarations. Actual local
+MSVC 14.51.36231/SDK 10.0.26100.0 reproduces the production and test compile
+failures. Loading native declarations first fixes both; OFF and combined
+each pass both syntax checks, including the generated worksheet entries and
+Windows-only input test. Full DLL linking/runtime validation remains a CI
+requirement. Rebuilt OFF/combined each pass nine Excel cases with all 84
+published oracle rows bitwise unchanged; rebuilt ASan/UBSan passes 71 relevant
+cases. No enum, SDK macro, generated content, runtime math, tolerance or policy
+changes. Preserve all failed CI/local evidence. New corrective publication
+and exact-head CI remain required before accepting Excel.
 
 ### Whole-plan status and remaining effort
 
@@ -326,7 +338,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                                | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                                | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open               | 2–5                   |
-| F01                     | Core/Hybrid/Python accepted; Excel verified; curve open    | Excel CI correction verified locally; new-head CI pending | 6–10                  |
+| F01                     | Core/Hybrid/Python accepted; Excel verified; curve open    | Windows correction verified locally; new-head CI pending  | 6–10                  |
 | F02                     | Multiple outputs and portfolio integration remain          | Open                                                      | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                                      | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain       | Open                                                      | 12–20                 |
@@ -699,7 +711,7 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the Excel test-complexity correction and inspect its exact-head CI, then implement common
+Next: publish the Excel Windows include-order correction and inspect its exact-head CI, then implement common
 curve adaptation after the accepted core, Hybrid and Python increments.
 Continue F02 output seeds under their controlling design.
 Reconcile P01's unresolved performance with controlled-environment evidence;

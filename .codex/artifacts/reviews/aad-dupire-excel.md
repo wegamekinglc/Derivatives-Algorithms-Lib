@@ -96,8 +96,33 @@ Excel cases; both retain every one of the 84 published numeric oracle rows
 bitwise (`aad-dupire-excel-codacy-oracle-identity-01.json`). Fully instrumented
 ASan/UBSan passes all 71 relevant cases again, with leak detection disabled.
 Production sources, generated registration, performance inputs and installed
-packages do not change. The corrective publication still requires its own
-exact-head CI acceptance.
+packages do not change in this test correction. Exact `50d286af` Codacy succeeds;
+the complete increment remains unaccepted because its four MSVC jobs fail.
+
+## Windows SDK compilation correction
+
+Both `ad9681d2` and `50d286af` fail Windows compilation before tests. The new
+production and test translation units include the Excel input helper before
+native Dupire declarations. Its Windows SDK includes define `REGISTERING` as
+`0x00` in `nb30.h`, colliding with the native recording-state enumerator.
+Retain the actual OFF/combined CI logs and the local MSVC 14.51.36231,
+SDK 10.0.26100.0 syntax RED for both affected translation units. Both local
+compiles fail at the same generated enum line as CI.
+
+Load native declarations before the Excel input helper in these two files.
+A brief local comment preserves the ordering constraint under formatting.
+The public enum, SDK macros, generated files, runtime operations and compiler
+options remain unchanged. The same local MSVC now passes production and test
+syntax checks in OFF and combined lifetime/profiling configurations, including
+all 23 generated worksheet entry points and the Windows-only input test.
+These four syntax checks do not replace DLL linking or Windows runtime tests.
+
+Rebuilt OFF/combined each pass all nine Excel cases and preserve all 84 numeric
+oracle rows bitwise. Rebuilt fully instrumented ASan/UBSan passes 71 relevant
+cases again. Formatting, complete affected-file CCN-eight and documentation
+checks pass. Existing performance binaries, native archive, installed packages
+and measured helpers remain unchanged. The Windows corrective publication
+requires fresh exact-head CI acceptance.
 
 ## Performance and limits
 

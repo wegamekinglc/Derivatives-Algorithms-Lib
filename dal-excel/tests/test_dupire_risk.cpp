@@ -10,7 +10,6 @@
 #include <limits>
 #include <sstream>
 
-#include <dal-excel/src/__dupireinput.hpp>
 #include <dal-excel/src/__dupirerisk.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-public/src/models.hpp>
@@ -20,6 +19,9 @@
 #include <dal/storage/json.hpp>
 
 #include <script_test_observers.hpp>
+
+// Load native AAD declarations before the Windows SDK's REGISTERING macro.
+#include <dal-excel/src/__dupireinput.hpp>
 
 using namespace Dal;
 
