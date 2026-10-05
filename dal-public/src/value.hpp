@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include <dal/script/riskresults.hpp>
 #include <dal/script/simulation.hpp>
 
 namespace Dal {
@@ -14,6 +15,14 @@ namespace Dal {
     using Script::MonteCarloSettings_;
     using Script::ScriptProductData_;
     using Script::ScriptValuationSettings_;
+
+    [[nodiscard]] MonteCarloSettings_ DefaultRiskMonteCarloSettings();
+    [[nodiscard]] Script::RiskResult_ ValueByMonteCarloWithRisk(const Handle_<ScriptProductData_>& product,
+                                                                const Handle_<ModelData_>& modelData,
+                                                                int numPath,
+                                                                const Script::RiskRequest_& request = {},
+                                                                const ScriptValuationSettings_& valuation = {},
+                                                                const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
     String_ ExplainScriptValuation(const Handle_<ScriptProductData_>& product,
                                    const Handle_<ModelData_>& modelData,

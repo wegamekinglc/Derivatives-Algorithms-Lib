@@ -107,7 +107,8 @@ if(Python3_VERSION VERSION_GREATER_EQUAL 3.14)
 else()
     set(_DAL_PYBIND11_MIN_VERSION 2.11.1)
 endif()
-if(NOT pybind11_FOUND)
+# Vendored pybind11 caches FOUND, but its commands must load on every configure.
+if(NOT COMMAND pybind11_add_module)
     execute_process(
         COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
         RESULT_VARIABLE DAL_PYBIND11_CMAKEDIR_RESULT
@@ -118,10 +119,10 @@ if(NOT pybind11_FOUND)
         find_package(pybind11 ${_DAL_PYBIND11_MIN_VERSION} CONFIG QUIET PATHS "${DAL_PYBIND11_CMAKEDIR}" NO_DEFAULT_PATH)
     endif()
 endif()
-if(NOT pybind11_FOUND)
+if(NOT COMMAND pybind11_add_module)
     find_package(pybind11 ${_DAL_PYBIND11_MIN_VERSION} CONFIG QUIET)
 endif()
-if(NOT pybind11_FOUND)
+if(NOT COMMAND pybind11_add_module)
     if(Python3_VERSION VERSION_GREATER_EQUAL 3.14)
         message(FATAL_ERROR "dal-python: CPython 3.14 requires pybind11 3.0 or newer in the selected Python environment")
     endif()
@@ -223,7 +224,12 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/risk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupirerisk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationrisk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationriskrequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupireriskrequest.cpp)
 
 if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)

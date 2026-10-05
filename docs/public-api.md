@@ -211,6 +211,35 @@ and a Describe /2 hint. See the
 [archive and diagnostic contracts](methodology/script_engine.md#product-archive-and-diagnostics)
 and [legacy dumps](methodology/script_engine.md#product-debug-outputs).
 
+### Structured script risk
+
+`ValueByMonteCarloWithRisk(product, modelData, paths, request = {}, valuation = {},
+simulation = DefaultRiskMonteCarloSettings())` returns a passive structured result.
+The new default enables native AAD. An explicit simulation with AAD disabled
+returns price only and rejects nonempty risk selection.
+
+```cpp
+Dal::Script::RiskRequest_ request;
+request.inputs_ = Dal::Vector_<Dal::String_>{"constant:0", "model:1"};
+request.reportFactors_ = Dal::Vector_<>{0.5, 0.01};
+const auto risk = Dal::ValueByMonteCarloWithRisk(product, model, 1 << 16, request);
+const auto& raw = risk.Jacobian();       // one row, strike then volatility
+const auto reported = risk.ReportedJacobian();
+```
+
+IDs select positions on the retained complete model/script axis; labels remain
+display data. Omitted native inputs select all, explicit empty inputs preserve
+a `(1, 0)` matrix and native smoothing, and unknown/repeated IDs fail before
+preparation. The output ID is `payoff`. `LegacyValues()` projects raw `PV` and
+`d_...` keys and rejects display collisions. Raw gradients are means and reporting
+factors apply only in the separate reported getter.
+
+`numericPayloadBudgetBytes_` bounds numeric values/raw-Jacobian storage;
+metadata, worker/tape storage and getter copies are outside that budget.
+Results retain actual execution/product/history snapshots and expose no tape
+state. The [AAD methodology](methodology/aad.md#structured-scalar-risk-results)
+defines units, normalization and estimator provenance.
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

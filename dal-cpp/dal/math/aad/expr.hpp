@@ -5,12 +5,10 @@
 #pragma once
 
 #include <cmath>
-#include <mutex>
 #include <type_traits>
-#include <dal/platform/host.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/platform/host.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
@@ -42,6 +40,13 @@ namespace Dal::AAD {
         friend double Value(const BinaryExpression_<L_, R_, O_>&);
 
         static constexpr int numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_);
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const {
+            lhs_.ValidateOperands(tape, operation);
+            rhs_.ValidateOperands(tape, operation);
+        }
+#endif
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
             if constexpr (LHS_::numNumbers_ > 0)
@@ -160,6 +165,10 @@ namespace Dal::AAD {
         friend double Value(const UnaryExpression_<A_, O_>&);
 
         static constexpr int numNumbers_ = ARG_::numNumbers_;
+
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const { arg_.ValidateOperands(tape, operation); }
+#endif
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
@@ -453,21 +462,52 @@ namespace Dal::AAD {
         double value_;
         TapNode_* node_;
 
-        template <size_t N_>
-        FORCE_INLINE TapNode_* CreateMultiNode() { return Tape()->RecordNode<N_>(); }
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        Tape_::NodeBinding_ binding_;
+        friend struct NativeLifetimeTestAccess_;
+#endif
+
+        template <size_t N_> FORCE_INLINE TapNode_* CreateMultiNode() {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            auto* tape = Tape();
+            auto* node = tape->RecordNode<N_>();
+            binding_ = tape->CaptureBinding(node);
+            return node;
+#else
+            return Tape()->RecordNode<N_>();
+#endif
+        }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             Tape_* tape = Tape();
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            static_cast<const E_&>(e).ValidateOperands(tape, "Number.Materialize");
+#endif
             auto* node = tape->RecordNode<E_::numNumbers_>();
             static_cast<const E_&>(e).template PushAdjoint<E_::numNumbers_, 0>(*node, 1.0, tape);
             node_ = node;
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            binding_ = tape->CaptureBinding(node);
+#endif
         }
 
     public:
         static constexpr int numNumbers_ = 1;
 
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        void ValidateOperands(Tape_* tape, const char* operation) const {
+            auto* live = Tape();
+            if (tape != live)
+                live->RejectLifetime(operation, "requires the calling thread's default tape", &binding_);
+            live->ValidateBinding(binding_, node_, operation);
+        }
+#endif
+
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            ValidateOperands(tape, "Number.PushAdjoint");
+#endif
             exprNode.pAdjPtrs_[n_] = tape->multi_ ? node_->pAdjoints_ : &node_->adjoint_;
             exprNode.pDerivatives_[n_] = adjoint;
         }
@@ -477,8 +517,13 @@ namespace Dal::AAD {
         Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
 
         FORCE_INLINE Number_& operator=(double val) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            node_ = CreateMultiNode<0>();
+            value_ = val;
+#else
             value_ = val;
             node_ = CreateMultiNode<0>();
+#endif
             return *this;
         }
 
@@ -489,8 +534,14 @@ namespace Dal::AAD {
 
         template <class E_>
         FORCE_INLINE Number_& operator=(const Expression_<E_>& e) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+            static_cast<const E_&>(e).ValidateOperands(Tape(), "Number.Assign");
+            Number_ replacement(e);
+            *this = replacement;
+#else
             value_ = Value(e);
             FromExpr<E_>(static_cast<const E_&>(e));
+#endif
             return *this;
         }
 
@@ -498,6 +549,7 @@ namespace Dal::AAD {
 
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
+        friend struct NativeOperations_;
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {
@@ -557,202 +609,16 @@ namespace Dal::AAD {
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
     FORCE_INLINE double& Adjoint(const Number_& num) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        num.ValidateOperands(Tape(), "Number.Adjoint");
+#endif
         REQUIRE(num.node_ != nullptr, "Adjoint: Number_ has no tape node");
         return num.node_->Adjoint();
     }
 
     FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
 } // namespace Dal::AAD
-#elif defined(DAL_USE_ADEPT_AAD)
-#include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
-    using Number_ = adept::adouble;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using adept::operator*;
-    using adept::operator+;
-    using adept::operator-;
-    using adept::operator/;
-    using adept::operator==;
-    using adept::operator!=;
-    using adept::operator<;
-    using adept::operator<=;
-    using adept::operator>;
-    using adept::operator>=;
-
-    using adept::abs;
-    using adept::erfc;
-    using adept::exp;
-    using adept::log;
-    using adept::max;
-    using adept::min;
-    using adept::pow;
-    using adept::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return adept::value(num);
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    class Adjoint_ {
-        Number_& num_;
-
-    public:
-        explicit Adjoint_(Number_& num) : num_(num) {}
-
-        FORCE_INLINE Adjoint_& operator=(double adjoint) {
-            Tape()->EnsureGradientCapacity();
-            num_.set_gradient(adjoint);
-            return *this;
-        }
-
-        FORCE_INLINE operator double() const {
-            Tape()->EnsureGradientCapacity();
-            return num_.get_gradient();
-        }
-    };
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        Tape()->EnsureGradientCapacity();
-        return num.get_gradient();
-    }
-
-    FORCE_INLINE Adjoint_ Adjoint(Number_& num) {
-        return Adjoint_(num);
-    }
-
-    FORCE_INLINE void PutOnTape(Number_&) {}
-} // namespace Dal::AAD
-#elif defined(DAL_USE_XAD_AAD)
-#include <dal/math/aad/tape.hpp>
-
-namespace Dal::AAD {
-    using Number_ = xad::adj<double>::active_type;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using xad::operator*;
-    using xad::operator+;
-    using xad::operator-;
-    using xad::operator/;
-    using xad::operator==;
-    using xad::operator!=;
-    using xad::operator<;
-    using xad::operator<=;
-    using xad::operator>;
-    using xad::operator>=;
-
-    using xad::abs;
-    using xad::erfc;
-    using xad::exp;
-    using xad::log;
-    using xad::max;
-    using xad::min;
-    using xad::pow;
-    using xad::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return xad::value(num);
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        return xad::derivative(num);
-    }
-
-    FORCE_INLINE Number_::derivative_type& Adjoint(Number_& num) {
-        return xad::derivative(num);
-    }
-
-    FORCE_INLINE void PutOnTape(Number_& n) {
-        Tape()->tape_.registerInput(n);
-    }
-} // namespace Dal::AAD
-#elif defined(DAL_USE_CODIPACK_AAD)
-#include <dal/math/aad/tape.hpp>
-
-namespace Dal::AAD {
-    using Number_ = Tape_::active_type;
-
-    FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
-        return &tape;
-    }
-
-    using codi::operator*;
-    using codi::operator+;
-    using codi::operator-;
-    using codi::operator/;
-    using codi::operator==;
-    using codi::operator!=;
-    using codi::operator<;
-    using codi::operator<=;
-    using codi::operator>;
-    using codi::operator>=;
-
-    using codi::abs;
-    using codi::erfc;
-    using codi::exp;
-    using codi::log;
-    using codi::max;
-    using codi::min;
-    using codi::pow;
-    using codi::sqrt;
-
-    FORCE_INLINE double Value(const Number_& num) {
-        return num.getValue();
-    }
-
-    FORCE_INLINE double Value(double num) {
-        return num;
-    }
-
-    FORCE_INLINE double Adjoint(const Number_& num) {
-        return num.getGradient();
-    }
-
-    FORCE_INLINE Number_::Gradient& Adjoint(Number_& num) {
-        return num.gradient();
-    }
-
-    FORCE_INLINE void PutOnTape(Number_& n) {
-        Tape()->tape_.registerInput(n);
-    }
-} // namespace Dal::AAD
-#endif
-
-namespace Dal::AAD {
-    // Read an adjoint as a passive scalar without selecting a backend's mutable-adjoint
-    // proxy overload. In particular, Adept's proxy is assignable and convertible, so
-    // passing it through Value(...) would be ambiguous between Number_ and double.
     FORCE_INLINE double AdjointValue(const Number_& num) { return Adjoint(num); }
 } // namespace Dal::AAD
-
-#if defined(DAL_USE_ADEPT_AAD) || defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD)
-namespace Dal::AAD {
-    constexpr double INV_SQRT_2PI = 1.0 / M_SQRT_2_PI;
-    constexpr double SQRT_2 = M_SQRT_2;
-
-    FORCE_INLINE Number_ NPDF(const Number_& z) {
-        return INV_SQRT_2PI * exp(-0.5 * z * z);
-    }
-
-    FORCE_INLINE Number_ NCDF(const Number_& z) {
-        return 0.5 * erfc(-z / SQRT_2);
-    }
-} // namespace Dal::AAD
-#endif

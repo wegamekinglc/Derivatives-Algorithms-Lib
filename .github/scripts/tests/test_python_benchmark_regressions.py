@@ -353,8 +353,8 @@ python3() {
                 GATE.build_configuration(root, root)
 
     def test_configuration_drift_compares_only_shared_keys(self):
-        base = {"DAL_USE_XAD_AAD": "OFF", "CMAKE_CXX_FLAGS": "-O2"}
-        added = {**base, "DAL_USE_NEW_BACKEND": "ON"}
+        base = {"DAL_USE_EIGEN": "OFF", "CMAKE_CXX_FLAGS": "-O2"}
+        added = {**base, "DAL_USE_NEW_KERNEL": "ON"}
         self.assertEqual(GATE.configuration_drift(base, added), {})
         self.assertEqual(GATE.configuration_drift(added, base), {})
         changed = GATE.configuration_drift(base, {**added, "CMAKE_CXX_FLAGS": "-O3"})

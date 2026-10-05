@@ -12,6 +12,9 @@
 #include <dal-public/src/types.hpp>
 #include <set>
 
+// Native declarations must precede the Windows SDK's enum-name macros.
+#include "__calibrationinput.hpp"
+
 // clang-format off
 /*IF--------------------------------------------------------------------------
 public RateTradeHeader_New
@@ -287,6 +290,11 @@ componentKeys is string[]
     Pricing-market component keys parallel to parameterBlockKeys
 market is handle StorableRatePricingMarket
     The exact pricing market bound to the calibrated curve
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical state record; FALSE or blank disables capture
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable single-curve provenance; unavailable states retain their stable reason token
@@ -306,6 +314,11 @@ componentKeys is string[]
     Pricing-market component keys parallel to parameterBlockKeys
 market is handle StorableRatePricingMarket
     The pricing market bound to all calibrated blocks, valuation time and fixings
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical state record; FALSE or blank disables capture
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable generic joint provenance. The legacy RATEQUOTERISKPROVENANCE.NEW dispatcher retains its v1 exclusion.
@@ -325,6 +338,11 @@ componentKeys is string[]
     Pricing-market component keys parallel to parameterBlockKeys
 market is handle StorableRatePricingMarket
     The exact pricing market bound to all calibrated blocks
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical state record; FALSE or blank disables capture
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable joint-XCCY provenance; unavailable states retain their stable reason token
@@ -344,6 +362,11 @@ componentKeys is string[]
     Pricing-market basis component key parallel to parameterBlockKeys
 market is handle StorableRatePricingMarket
     The exact pricing market bound to the calibrated basis curve
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical state record; FALSE or blank disables capture
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable staged-XCCY-basis provenance; unavailable states retain their stable reason token
@@ -365,6 +388,11 @@ componentKeys is string[]
     Pricing-market component keys parallel to parameterBlockKeys
 market is handle StorableRatePricingMarket
     The exact pricing market bound to the calibration result
++argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord);
++Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+&optional
+retainCalibrationRecord is cell
+    TRUE retains the canonical state record; FALSE or blank disables capture
 &outputs
 provenance is handle StorableRateQuoteRiskProvenance
     Immutable provenance; excluded domains return frozen unavailable reason tokens
@@ -465,6 +493,78 @@ namespace Dal {
                 REQUIRE(inserted.second, "Quote-risk parameter block keys must be unique");
             }
             return result;
+        }
+
+        template <class R_, class F_>
+        void CapturedQuoteRiskProvenance(const Handle_<R_>& result,
+                                         const String_& calibrationId,
+                                         const Vector_<String_>& parameterBlockKeys,
+                                         const Vector_<String_>& componentKeys,
+                                         const Handle_<StorableRatePricingMarket_>& market,
+                                         const Cell_& retainCalibrationRecord,
+                                         const char* resultError,
+                                         F_ build,
+                                         Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+            const bool retain = Excel::CalibrationRecordCapture(retainCalibrationRecord);
+            REQUIRE(result, resultError);
+            REQUIRE(market, "Invalid rate pricing market handle");
+            auto config = QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys);
+            config.retainCalibrationRecord_ = retain;
+            provenance->reset(new StorableRateQuoteRiskProvenance_(build(result->spec_, result->val_, result->options_, market->val_, config)));
+        }
+
+        template <class R_>
+        bool TryQuoteRiskFactory(const Handle_<Storable_>& result,
+                                 const String_& calibrationId,
+                                 const Vector_<String_>& parameterBlockKeys,
+                                 const Vector_<String_>& componentKeys,
+                                 const Handle_<StorableRatePricingMarket_>& market,
+                                 const Cell_& retainCalibrationRecord,
+                                 void (*factory)(const Handle_<R_>&,
+                                                 const String_&,
+                                                 const Vector_<String_>&,
+                                                 const Vector_<String_>&,
+                                                 const Handle_<StorableRatePricingMarket_>&,
+                                                 const Cell_&,
+                                                 Handle_<StorableRateQuoteRiskProvenance_>*),
+                                 Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+            const auto typed = handle_cast<R_>(result);
+            if (!typed)
+                return false;
+            factory(typed, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord, provenance);
+            return true;
+        }
+
+        void DispatchQuoteRiskProvenance(const Handle_<Storable_>& result,
+                                         const String_& calibrationId,
+                                         const Vector_<String_>& parameterBlockKeys,
+                                         const Vector_<String_>& componentKeys,
+                                         const Handle_<StorableRatePricingMarket_>& market,
+                                         const Cell_& retainCalibrationRecord,
+                                         Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+            Excel::CalibrationRecordCapture(retainCalibrationRecord);
+            REQUIRE(result, "Invalid calibration result handle");
+            REQUIRE(market, "Invalid rate pricing market handle");
+            if (TryQuoteRiskFactory<StorableCurveCalibrationResult_>(result, calibrationId, parameterBlockKeys, componentKeys, market,
+                                                                     retainCalibrationRecord, SingleCurveQuoteRiskProvenance_New, provenance) ||
+                TryQuoteRiskFactory<StorableJointXccyCalibrationResult_>(result, calibrationId, parameterBlockKeys, componentKeys, market,
+                                                                         retainCalibrationRecord, JointXccyQuoteRiskProvenance_New, provenance) ||
+                TryQuoteRiskFactory<StorableCrossCurrencyCalibrationResult_>(result, calibrationId, parameterBlockKeys, componentKeys, market,
+                                                                             retainCalibrationRecord, StagedXccyBasisQuoteRiskProvenance_New,
+                                                                             provenance))
+                return;
+            REQUIRE(!calibrationId.empty(), "QUOTE_RISK_CALIBRATION_ID_EMPTY");
+            if (handle_cast<StorableMultiCurveCalibrationResult_>(result)) {
+                provenance->reset(
+                    new StorableRateQuoteRiskProvenance_(calibrationId, "STAGED_MULTI_CURVE", "QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE"));
+                return;
+            }
+            if (handle_cast<StorableJointMultiCurveCalibrationResult_>(result)) {
+                provenance->reset(
+                    new StorableRateQuoteRiskProvenance_(calibrationId, "JOINT_MULTI_CURVE", "QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE"));
+                return;
+            }
+            THROW("Unsupported quote-risk calibration result handle");
         }
 
         // Registers the parallel key/curve arrays into the market's component map.
@@ -942,6 +1042,22 @@ namespace Dal {
             result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
     }
 
+    void SingleCurveQuoteRiskProvenance_New(const Handle_<StorableCurveCalibrationResult_>& result,
+                                            const String_& calibrationId,
+                                            const Vector_<String_>& parameterBlockKeys,
+                                            const Vector_<String_>& componentKeys,
+                                            const Handle_<StorableRatePricingMarket_>& market,
+                                            const Cell_& retainCalibrationRecord,
+                                            Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        CapturedQuoteRiskProvenance(
+            result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord,
+            "Invalid single-curve calibration result handle",
+            [](const auto& spec, const auto& value, const auto& options, const auto& boundMarket, const auto& config) {
+                return BuildSingleCurveQuoteRiskProvenance(spec, value, options, boundMarket, config);
+            },
+            provenance);
+    }
+
     void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
                                                 const String_& calibrationId,
                                                 const Vector_<String_>& parameterBlockKeys,
@@ -954,37 +1070,34 @@ namespace Dal {
             result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
     }
 
+    void JointMultiCurveQuoteRiskProvenance_New(const Handle_<StorableJointMultiCurveCalibrationResult_>& result,
+                                                const String_& calibrationId,
+                                                const Vector_<String_>& parameterBlockKeys,
+                                                const Vector_<String_>& componentKeys,
+                                                const Handle_<StorableRatePricingMarket_>& market,
+                                                const Cell_& retainCalibrationRecord,
+                                                Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        CapturedQuoteRiskProvenance(result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord,
+                                    "Invalid generic joint calibration result handle", BuildJointMultiCurveQuoteRiskProvenance, provenance);
+    }
+
     void RateQuoteRiskProvenance_New(const Handle_<Storable_>& result,
                                      const String_& calibrationId,
                                      const Vector_<String_>& parameterBlockKeys,
                                      const Vector_<String_>& componentKeys,
                                      const Handle_<StorableRatePricingMarket_>& market,
                                      Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
-        REQUIRE(result, "Invalid calibration result handle");
-        REQUIRE(market, "Invalid rate pricing market handle");
-        if (const auto single = handle_cast<StorableCurveCalibrationResult_>(result)) {
-            SingleCurveQuoteRiskProvenance_New(single, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
-            return;
-        }
-        if (const auto jointXccy = handle_cast<StorableJointXccyCalibrationResult_>(result)) {
-            JointXccyQuoteRiskProvenance_New(jointXccy, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
-            return;
-        }
-        if (const auto stagedXccy = handle_cast<StorableCrossCurrencyCalibrationResult_>(result)) {
-            StagedXccyBasisQuoteRiskProvenance_New(stagedXccy, calibrationId, parameterBlockKeys, componentKeys, market, provenance);
-            return;
-        }
-        REQUIRE(!calibrationId.empty(), "QUOTE_RISK_CALIBRATION_ID_EMPTY");
-        if (handle_cast<StorableMultiCurveCalibrationResult_>(result)) {
-            provenance->reset(
-                new StorableRateQuoteRiskProvenance_(calibrationId, "STAGED_MULTI_CURVE", "QUOTE_RISK_NOT_AVAILABLE_FOR_STAGED_CHAIN_RULE"));
-            return;
-        }
-        if (handle_cast<StorableJointMultiCurveCalibrationResult_>(result)) {
-            provenance->reset(new StorableRateQuoteRiskProvenance_(calibrationId, "JOINT_MULTI_CURVE", "QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE"));
-            return;
-        }
-        THROW("Unsupported quote-risk calibration result handle");
+        DispatchQuoteRiskProvenance(result, calibrationId, parameterBlockKeys, componentKeys, market, {}, provenance);
+    }
+
+    void RateQuoteRiskProvenance_New(const Handle_<Storable_>& result,
+                                     const String_& calibrationId,
+                                     const Vector_<String_>& parameterBlockKeys,
+                                     const Vector_<String_>& componentKeys,
+                                     const Handle_<StorableRatePricingMarket_>& market,
+                                     const Cell_& retainCalibrationRecord,
+                                     Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        DispatchQuoteRiskProvenance(result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord, provenance);
     }
 
     void JointXccyQuoteRiskProvenance_New(const Handle_<StorableJointXccyCalibrationResult_>& result,
@@ -999,6 +1112,17 @@ namespace Dal {
             result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
     }
 
+    void JointXccyQuoteRiskProvenance_New(const Handle_<StorableJointXccyCalibrationResult_>& result,
+                                          const String_& calibrationId,
+                                          const Vector_<String_>& parameterBlockKeys,
+                                          const Vector_<String_>& componentKeys,
+                                          const Handle_<StorableRatePricingMarket_>& market,
+                                          const Cell_& retainCalibrationRecord,
+                                          Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        CapturedQuoteRiskProvenance(result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord,
+                                    "Invalid joint XCCY calibration result handle", BuildJointXccyQuoteRiskProvenance, provenance);
+    }
+
     void StagedXccyBasisQuoteRiskProvenance_New(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
                                                 const String_& calibrationId,
                                                 const Vector_<String_>& parameterBlockKeys,
@@ -1009,6 +1133,17 @@ namespace Dal {
         REQUIRE(market, "Invalid rate pricing market handle");
         provenance->reset(new StorableRateQuoteRiskProvenance_(BuildStagedXccyBasisQuoteRiskProvenance(
             result->spec_, result->val_, result->options_, market->val_, QuoteRiskConfig(calibrationId, parameterBlockKeys, componentKeys))));
+    }
+
+    void StagedXccyBasisQuoteRiskProvenance_New(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                                const String_& calibrationId,
+                                                const Vector_<String_>& parameterBlockKeys,
+                                                const Vector_<String_>& componentKeys,
+                                                const Handle_<StorableRatePricingMarket_>& market,
+                                                const Cell_& retainCalibrationRecord,
+                                                Handle_<StorableRateQuoteRiskProvenance_>* provenance) {
+        CapturedQuoteRiskProvenance(result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord,
+                                    "Invalid staged XCCY calibration result handle", BuildStagedXccyBasisQuoteRiskProvenance, provenance);
     }
 
     // clang-format off

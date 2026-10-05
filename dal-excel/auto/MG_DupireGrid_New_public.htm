@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireGrid_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireGrid_New (in Excel: DUPIREGRID.NEW)</h1>
+Create immutable Dupire calibration grid settings
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>inclusionSpots</td><td>vector of numbers</td><td></td><td>Positive increasing spot grid</td></tr>
+<tr><td>maxSpotSpacing</td><td>number</td><td></td><td>Maximum positive spot spacing</td></tr>
+<tr><td>inclusionTimes</td><td>vector of numbers</td><td></td><td>Positive increasing time grid</td></tr>
+<tr><td>maxTimeSpacing</td><td>number</td><td></td><td>Maximum positive time spacing</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>grid</td><td>handle of type StorableDupireGrid</td><td>Copied grid settings</td></tr>
+</table>
+
+
+
+
+
+

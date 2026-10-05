@@ -55,7 +55,7 @@ The main core namespaces live under `dal-cpp/dal/`:
 | Area                    | Contents                                                                                                     |
 |-------------------------|--------------------------------------------------------------------------------------------------------------|
 | `math/`                 | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives |
-| `math/aad/`             | Native and adapter-backed reverse-mode AAD facade                                                            |
+| `math/aad/`             | Built-in native reverse-mode AAD with scalar/vector adjoints                                                 |
 | `curve/`                | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
 | `script/`               | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
 | `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire calibration, implied/local volatility         |

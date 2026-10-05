@@ -16,6 +16,100 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-06
+
+- **Excel calibration and automatic Dupire requests** — immutable worksheet
+  requests and sealed plans expose quote selections, exact retained payload
+  budgets, explicit constant/direct dependencies and native AAD results. Passive
+  getters retain native source metadata and raw/report projections. See
+  [worksheet quote requests](docs/excel/script-settings.md#calibration-quote-requests).
+
+## 2026-10-05
+
+- **Python automatic Dupire script requests** — owning read-only requests and
+  sealed plans expose mandatory surface/direct inputs, complete payload budgets
+  and native Monte Carlo quote results. Typed direct bindings and callback-free
+  GIL release reuse the accepted C++ planner and execution. See
+  [automatic Python requests](docs/python/README.md#automatic-dupire-script-risk-requests).
+- **Python calibration-coordinate requests** — owning read-only requests,
+  plans and results expose native quote metadata, full/subset/empty selections,
+  complete retained payload budgets and detached raw/report projections. Strict
+  input parsing and callback-free GIL release reuse the native planner and VJP.
+  See [Python quote requests](docs/python/README.md#common-calibration-quote-requests).
+- **Automatic C++ Dupire script risk** — an owning request plan seals a native
+  flat-rate Hybrid, exposes mandatory surface/direct input coordinates and checks
+  the combined valuation/quote payload before execution. Explicit constant
+  dependencies add fixed-surface quote partials once; immutable results preserve
+  native estimator, provenance and report projections. See
+  [automatic requests](docs/methodology/aad.md#automatic-c-dupire-risk-requests).
+- **C++ calibration-coordinate requests** — passive owning plans select source-scoped
+  quote coordinates, expose native axes and preflight the complete retained
+  contribution payload. Immutable results preserve raw native derivatives and
+  provide detached report projections with finite scaling checks. See
+  [quote-coordinate requests](docs/yield-curves/jacobian-risk.md#c-quote-coordinate-requests).
+- **Common C++, Python and Excel calibration pullback** — an owning boundary maps passive
+  parameter adjoints from frozen Dupire or captured native curve provenance
+  into one immutable result with separate calibration, direct and total quote
+  contributions. Complete source checks preserve canonical coordinates and
+  existing inverse scaling. Python adds strict optional curve-record capture,
+  owning readonly values, detached matrices and callback-free GIL release.
+  Excel adds optional native record capture, immutable common handles and
+  detached contribution/source getters. See the
+  [common calibration interface](docs/yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback).
+
+- **Frozen Dupire calibration quote pullback** — C++ snapshots retain numeric
+  base IVS samples and complete calibration identity; native scalar reverse maps
+  local-volatility node adjoints to spread quotes, with additive boundary seeds,
+  separate direct contributions and explicit domain validation. The public
+  Hybrid adapter checks retained model coordinates and typed component layout,
+  requires every surface seed and returns quote risk alongside the passive
+  valuation without rerunning Monte Carlo. See
+  [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
+  Python exposes the full chain with keyword configuration, custom/Merton IVS,
+  detached surfaces and readonly passive results; the public C++ flat-BS
+  convenience preserves deterministic carry. Excel exposes immutable calibration,
+  seed and result handles with detached getters and complete model/valuation
+  quote pullback; a shared model factory preserves frozen carry in both bindings.
+
+- **Structured script risk across C++, Python and Excel** —
+  `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar
+  results with ordered model/script IDs, mean derivatives, report factors and
+  retained execution/model/history snapshots. Requests validate numeric payload
+  budgets before preparation; getters extract existing data and diagnose legacy
+  display collisions. See [AAD methodology](docs/methodology/aad.md#structured-scalar-risk-results).
+
+## 2026-10-04
+
+- **Explicit native AAD production profiling** — opt-in request and task
+  collectors expose phase wall time, actual thread CPU time, sampled tape
+  storage, successful block allocations, and selected array payloads. The
+  default-OFF build removes hot-loop instrumentation. `script_mc_perf` adds
+  explicit cold, warm, and phase modes with fixed-path price/risk validation.
+  See [AAD methodology](docs/methodology/aad.md#native-production-profiling).
+
+- **Native AAD only** — remove XAD, CoDiPack and Adept implementations,
+  submodule dependencies, build selections and installation exports. Enabled
+  legacy backend options fail explicitly; rebuild libraries and consumers with
+  native AAD. See [installation](docs/installation.md#native-aad-configuration).
+
+- **Optional native AAD lifetime diagnostics** — the default-OFF
+  `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` build checks active operands and adjoints
+  for foreign tapes, discarded recordings/suffixes and reused slots before node
+  access. Its ABI definition propagates to installed consumers and bindings.
+  See [AAD methodology](docs/methodology/aad.md#native-active-number-lifetime-diagnostics).
+
+- **Scoped AAD recordings and checkpoints** — recording phases, opaque checkpoint
+  handles, and owner/mode boundaries diagnose invalid use before tape mutation.
+  Independent curve, MC, and LSM replay recordings reject nesting and recover
+  after backend/cleanup failures. Native full clearing includes every vector
+  channel and leaf. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
+
+- **Native AAD propagation precision** — nonzero adjoints are no longer truncated
+  by an absolute threshold, preserving derivatives under intermediate rescaling.
+  Multi-result zero seeds are isolated from non-finite local derivatives, and
+  public Monte Carlo valuation diagnoses non-finite risk results. See
+  [AAD methodology](docs/methodology/aad.md).
+
 ## 2026-10-03
 
 - **perf: shared SIMD kernels and Eigen-backed dense product** —
@@ -539,8 +633,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 These are documented today and represent the current documented surface; they are listed
 here as the baseline rather than dated releases:
 
-- **Automatic Adjoint Differentiation (AAD)** — reverse-mode AD for risk sensitivities, with
-  Adept/XAD/CoDiPack backends. See `docs/methodology/aad.md`.
+- **Automatic Adjoint Differentiation (AAD)** — built-in native reverse-mode AD
+  for risk sensitivities. See `docs/methodology/aad.md`.
 - **Yield Curve Construction** — discount-factor / forward-rate parameterised curves
   calibrated to market instruments. See `docs/yield-curves/construction.md`.
 - **Underdetermined Search** — constrained least-change solver for over-parameterised

@@ -3,11 +3,8 @@
 //
 // Curve-calibration Jacobian micro-benchmark.
 //
-// The production Jacobian (AnalyticJacobian in YieldCurveCalibrationFunc_) is a private member
-// reachable only via a full calibration solve. To isolate the row-by-row AAD sweep that builds it,
-// this benchmark records N parameters on the tape, computes M residuals from them, then builds the
-// dense M x N Jacobian via, for each residual row: ZeroAdjoints -> seed -> PropagateToStart ->
-// harvest N adjoints.
+// Legacy cases isolate a ZeroAdjoints/seed/propagate/harvest reference. Additional cases call
+// HarvestCurveJacobian directly, including native consumed-adjoint behavior.
 //
 // The Jacobian is lower-triangular by maturity: each residual touches only a leading window of
 // parameters, so columns at or beyond that window are structural zeros. The "dense harvest" case
@@ -18,12 +15,14 @@
 //
 // N = 24 (curve free nodes), M = 23 (calibration instruments).
 
-#include <vector>
-#include <dal/platform/platform.hpp>
+#include <dal/benchmarks/aad.hpp>
+#include <dal/benchmarks/bench.hpp>
+#include <dal/curve/aadjacobian.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/benchmarks/bench.hpp>
+#include <dal/platform/platform.hpp>
+#include <vector>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -48,60 +47,144 @@ namespace {
     // Row width = the last parameter this synthetic residual touches + 1. The benchmark can prove
     // this prefix from Residual() itself; production curve residuals do not make that assumption.
     int RowWidth(int rowIdx) { return std::min(kN, rowIdx + 3); }
+
+    void VerifyJacobian(const Matrix_<>& jacobian, int parameters, int rows) {
+        for (int row = 0; row < rows; ++row) {
+            const int first = std::max(0, row - 1);
+            const int end = std::min(parameters, row + 3);
+            for (int column = 0; column < parameters; ++column) {
+                const double expected = column >= first && column < end ? 0.01 + 0.001 * row : 0.0;
+                Bench::VerifyAadResult(jacobian(row, column), expected);
+            }
+        }
+    }
+
+    struct ProductionGraph_ {
+        Vector_<Number_> inputs_;
+        Vector_<Number_> outputs_;
+        Vector_<int> widths_;
+    };
+
+    ProductionGraph_ RecordProductionGraph(int parameters, int rows) {
+        Clear(*Tape());
+        ProductionGraph_ graph;
+        graph.inputs_.Resize(static_cast<size_t>(parameters));
+        for (int i = 0; i < parameters; ++i)
+            RegisterIndependent(graph.inputs_[i], -0.001 * i);
+        NewRecording(*Tape());
+        graph.outputs_.Resize(static_cast<size_t>(rows));
+        graph.widths_.Resize(static_cast<size_t>(rows));
+        for (int row = 0; row < rows; ++row) {
+            Number_ residual(0.0);
+            const double weight = 0.01 + 0.001 * row;
+            const int end = std::min(parameters, row + 3);
+            for (int i = std::max(0, row - 1); i < end; ++i)
+                residual += weight * graph.inputs_[i];
+            graph.outputs_[row] = residual;
+            graph.widths_[row] = end;
+        }
+        return graph;
+    }
+
+    void RunProductionCase(int parameters, int rows, int repeats, bool diagnostics) {
+        auto graph = RecordProductionGraph(parameters, rows);
+        if (diagnostics)
+            Bench::PrintTapeStatistics("HarvestCurveJacobian", *Tape(), static_cast<size_t>(parameters), static_cast<size_t>(rows));
+        const std::string size = " (" + std::to_string(rows) + " outputs x " + std::to_string(parameters) + " parameters)";
+        const Vector_<int> fullWidths;
+        const int innerLoops = parameters <= 24 ? 100 : 20;
+        Matrix_<> result;
+        for (bool prefix : {false, true}) {
+            const std::string name = "HarvestCurveJacobian " + std::string(prefix ? "proven prefix" : "dense") + size;
+            const auto& widths = prefix ? graph.widths_ : fullWidths;
+            Bench::Print(Bench::Run(
+                name,
+                [&]() {
+                    result = HarvestCurveJacobian(*Tape(), graph.inputs_, graph.outputs_, widths);
+                    Bench::DoNotOptimize(&result);
+                },
+                3, repeats, innerLoops));
+            VerifyJacobian(result, parameters, rows);
+        }
+        Clear(*Tape());
+    }
+
+    // Isolate the established timed fixture from command parsing and additional coverage.
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((noinline))
+#elif defined(_MSC_VER)
+    __declspec(noinline)
+#endif
+    void RunReferenceCases(int repeats) {
+        // Each harvest body runs all 24 rows (~7-9us): time ~100 bodies per rep so one timed rep
+        // clears the ~600us stability floor -- single-iteration timing left these cases in the
+        // transient-dominated regime and tripped the paired gate as min-statistic noise.
+        constexpr int kHarvestInnerLoops = 100;
+
+        // Tape-record the parameters and residuals once.
+        Clear(*Tape());
+        std::vector<Number_> params(static_cast<size_t>(kN));
+        for (int i = 0; i < kN; ++i) {
+            params[static_cast<size_t>(i)] = Number_(-0.001 * static_cast<double>(i));
+            PutOnTape(params[static_cast<size_t>(i)]);
+        }
+        std::vector<Number_> residuals(static_cast<size_t>(kM));
+        for (int j = 0; j < kM; ++j)
+            residuals[static_cast<size_t>(j)] = Residual(params, j);
+
+        // Dense harvest: read all N adjoints per row (the pre-optimization pattern).
+        Matrix_<double> jacobianDense(kM, kN, 0.0);
+        {
+            auto r = Bench::Run(
+                "AnalyticJacobian dense harvest (24 x 23)",
+                [&]() {
+                    for (int j = 0; j < kM; ++j) {
+                        ZeroAdjoints(*Tape());
+                        Adjoint(residuals[static_cast<size_t>(j)]) = 1.0;
+                        PropagateToStart(*Tape());
+                        for (int i = 0; i < kN; ++i)
+                            jacobianDense(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
+                    }
+                },
+                3, repeats, kHarvestInnerLoops);
+            Bench::Print(r);
+        }
+
+        // Row-width harvest: read only the provably active leading prefix for this synthetic graph.
+        Matrix_<double> jacobianSparse(kM, kN, 0.0);
+        {
+            auto r = Bench::Run(
+                "AnalyticJacobian row-width harvest (24 x 23)",
+                [&]() {
+                    for (int j = 0; j < kM; ++j) {
+                        const int width = RowWidth(j);
+                        ZeroAdjoints(*Tape());
+                        Adjoint(residuals[static_cast<size_t>(j)]) = 1.0;
+                        PropagateToStart(*Tape());
+                        for (int i = 0; i < width; ++i)
+                            jacobianSparse(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
+                    }
+                },
+                3, repeats, kHarvestInnerLoops);
+            Bench::Print(r);
+        }
+
+        double sink = jacobianDense(0, 0) + jacobianSparse(0, 0);
+        Bench::DoNotOptimize(&sink);
+        VerifyJacobian(jacobianDense, kN, kM);
+        VerifyJacobian(jacobianSparse, kN, kM);
+    }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    const bool diagnostics = argc == 2 && std::string(argv[1]) == "--diagnostics";
+    if (argc > 1 && !diagnostics)
+        return 2;
     constexpr int kRepeats = 100;
-    // Each harvest body runs all 24 rows (~7-9us): time ~100 bodies per rep so one timed rep
-    // clears the ~600us stability floor -- single-iteration timing left these cases in the
-    // transient-dominated regime and tripped the paired gate as min-statistic noise.
-    constexpr int kHarvestInnerLoops = 100;
     Bench::PrintHeader();
-
-    // Tape-record the parameters and residuals once.
-    Clear(*Tape());
-    std::vector<Number_> params(static_cast<size_t>(kN));
-    for (int i = 0; i < kN; ++i) {
-        params[static_cast<size_t>(i)] = Number_(-0.001 * static_cast<double>(i));
-        PutOnTape(params[static_cast<size_t>(i)]);
-    }
-    std::vector<Number_> residuals(static_cast<size_t>(kM));
-    for (int j = 0; j < kM; ++j)
-        residuals[static_cast<size_t>(j)] = Residual(params, j);
-
-    // Dense harvest: read all N adjoints per row (the pre-optimization pattern).
-    Matrix_<double> jacobianDense(kM, kN, 0.0);
-    {
-        auto r = Bench::Run("AnalyticJacobian dense harvest (24 x 23)", [&]() {
-            for (int j = 0; j < kM; ++j) {
-                ZeroAdjoints(*Tape());
-                Adjoint(residuals[static_cast<size_t>(j)]) = 1.0;
-                PropagateToStart(*Tape());
-                for (int i = 0; i < kN; ++i)
-                    jacobianDense(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
-            }
-        }, 3, kRepeats, kHarvestInnerLoops);
-        Bench::Print(r);
-    }
-
-    // Row-width harvest: read only the provably active leading prefix for this synthetic graph.
-    Matrix_<double> jacobianSparse(kM, kN, 0.0);
-    {
-        auto r = Bench::Run("AnalyticJacobian row-width harvest (24 x 23)", [&]() {
-            for (int j = 0; j < kM; ++j) {
-                const int width = RowWidth(j);
-                ZeroAdjoints(*Tape());
-                Adjoint(residuals[static_cast<size_t>(j)]) = 1.0;
-                PropagateToStart(*Tape());
-                for (int i = 0; i < width; ++i)
-                    jacobianSparse(static_cast<size_t>(j), i) = Adjoint(params[static_cast<size_t>(i)]);
-            }
-        }, 3, kRepeats, kHarvestInnerLoops);
-        Bench::Print(r);
-    }
-
-    double sink = jacobianDense(0, 0) + jacobianSparse(0, 0);
-    Bench::DoNotOptimize(&sink);
+    RunReferenceCases(kRepeats);
+    RunProductionCase(24, 23, kRepeats, diagnostics);
+    RunProductionCase(96, 95, kRepeats, diagnostics);
 
     return 0;
 }

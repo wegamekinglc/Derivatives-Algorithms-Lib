@@ -503,6 +503,15 @@ The calibration-time provenance freezes:
 - `dal.quote-risk-axis/1+jcs+sha256` and
   `dal.quote-risk-state/1+jcs+sha256` fingerprints.
 
+Native C++ callers can set
+`RateQuoteRiskProvenanceConfig_::retainCalibrationRecord_ = true` to retain
+the complete canonical state bytes through the const `CalibrationRecord()`
+getter. The default is false and the getter then returns an empty string.
+Capture preserves the existing v1/v2 fingerprints, axes, inverse and scaling;
+the record owns its bytes after the calibration inputs are destroyed. It adds
+storage proportional to the canonical record only when requested. The getter
+returns `std::string` so comparison preserves case-sensitive byte identity.
+
 The supported transform domains are exact single-curve calibration, simultaneous
 domestic/foreign/basis XCCY calibration, staged XCCY basis calibration, and
 [generic joint multi-curve calibration](joint-quote-risk.md) with an
@@ -531,6 +540,139 @@ $$
 D_i = \left(\sum_t g_t\right)^{\mathsf T} E_{:,i}/\tau,
 \qquad \mathrm{DV01}_i = 10^{-4} D_i.
 $$
+
+### Common Passive C++ Calibration Pullback
+
+`dal-public/src/calibrationrisk.hpp` provides an owning calibration boundary
+for captured curve provenance and frozen Dupire snapshots. Both return the
+same `CalibrationQuoteRisk_` type with separate `CalibrationAdjoints()`,
+`DirectAdjoints()` and `TotalAdjoints()` matrices.
+
+For a curve, enable record capture before building provenance. Parameter seeds
+are an `M × 1` column in `Axis().parameters_` global ordinal order; results and
+optional direct quote seeds are `N × 1` columns in `Axis().quotes_` order:
+
+```cpp
+#include <dal-public/src/calibrationrisk.hpp>
+
+const auto boundary = NewCalibrationPullback(provenance);
+const auto parameters = NewCalibrationParameterAdjoints(boundary, parameterAdjoints);
+const auto risk = PullbackCalibration(boundary, parameters);
+const Matrix_<>& decimalQuoteRisk = risk.TotalAdjoints();
+```
+
+Here `parameterAdjoints` contains independently computed PV derivatives in the
+captured curve coordinates. Supply each actual PV currency group separately;
+this operation performs no pricing, FX conversion, path averaging or report
+scaling. Multiply raw decimal-quote sensitivities by `1e-4` to obtain DV01.
+An optional `NewCalibrationDirectQuoteAdjoints(boundary, directAdjoints)` adds
+an already computed direct PV derivative once, after the inverse transform.
+
+Sources, seeds and results own passive data. Curve mapping reuses the existing
+effective inverse and its tolerance scaling, without recording, recalibration
+or live-market lookup. Its method is `RetainedCurveEffectiveInverse`, unit is
+`DECIMAL_QUOTE`, and boundary is `FrozenCalibrationEffectiveInverse`; these
+labels preserve the selected calibration map without claiming a particular
+requested Jacobian mode. `Source()` retains typed access to complete provenance.
+
+Parameter seeds must match the complete captured source, including ID, axes,
+bindings and case-sensitive canonical bytes. Curve direct seeds require the
+same source. Wrong dimensions, nonfinite seeds or outputs, unavailable mappings
+and source mismatches fail explicitly. Missing captured content reports
+`QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED`.
+
+For [Dupire](../methodology/aad.md#discrete-dupire-calibration-pullback), pass
+the frozen snapshot to the same boundary factory. Its native matrix layouts,
+method and units remain; direct seeds may use another fixed base with identical
+ordered quote axes and values. Dupire retains its independent native recording
+and nested-use rejection. All getters return stored passive data.
+
+#### C++ quote-coordinate requests
+
+`dal-public/src/calibrationriskrequest.hpp` adds an opt-in passive request plan
+over the common boundary. Input IDs are `quote:<globalOrdinal>` within that
+owned source; display names do not identify quotes. Dupire ordinals follow
+strike rows and maturity columns. Curve ordinals follow the native quote axis
+and retain block keys/ordinals. The plan exposes complete and selected axes,
+including native units, report factors and Dupire strike/maturity/spread values.
+Curve quote values are absent because native provenance has no typed value array.
+
+```cpp
+#include <dal-public/src/calibrationriskrequest.hpp>
+
+CalibrationRiskRequest_ request;
+request.inputs_ = Vector_<String_>{"quote:3", "quote:0"};
+request.reportFactors_ = Vector_<>{1e-4, 1e-4};
+const auto plan = PlanCalibrationRiskRequest(boundary, request);
+const auto result = PullbackCalibrationWithRisk(plan, parameters);
+const auto raw = result.Jacobian();
+const auto dv01 = result.ReportedJacobian();
+```
+
+The example assumes curve decimal-quote coordinates. For Dupire decimal-vol
+spread coordinates, `0.01` reports one vol point. Omitted inputs select all
+quotes; explicit empty inputs select none. Supplied order is preserved.
+Omitted factors are one. Factors must be finite and positive; unknown/repeated
+IDs, malformed factors and nonfinite reported contributions reject explicitly.
+
+`QuoteRisk()` retains all three native contribution matrices. `Jacobian()`,
+`CalibrationJacobian()`, `DirectJacobian()` and `ReportedJacobian()` return
+detached one-row selected projections. Reporting scales a raw copy once.
+Empty selection still performs the native VJP and retains complete raw results.
+Getters never record or repeat a calibration/valuation. Typed seeds preserve
+the native identity checks, including Dupire's quote-only direct seed contract.
+
+`NumericPayloadBytes()` is exactly three full native quote matrices, irrespective
+of selection. An optional `numericPayloadBudgetBytes_` is checked during planning;
+equality succeeds and one byte less rejects. Arithmetic overflow rejects before
+axis allocation. This retained-result budget excludes source calibration data,
+axis/metadata fields, request inputs, getter copies, temporary matrices, tape and
+worker allocations. It is not an RSS or total-request memory limit. No PV value
+or currency is inferred from an externally supplied parameter gradient.
+
+#### Python common pullback
+
+Python exposes the same boundary through `CalibrationPullback_New`,
+`CalibrationParameterAdjoints_New`, `CalibrationDirectQuoteAdjoints_New` and
+`PullbackCalibration`. To capture a curve record, pass
+`retain_calibration_record=True` to `RateQuoteRiskProvenanceConfig_` before
+calling the existing provenance builder. The omitted option remains false;
+`provenance.calibration_record` returns the exact canonical record. A provenance
+can be rebuilt from an already retained calibration result without another solve.
+
+```python
+boundary = dal.CalibrationPullback_New(provenance)
+parameters = dal.CalibrationParameterAdjoints_New(
+    boundary, [[value] for value in node_gradient],
+)
+risk = dal.PullbackCalibration(boundary, parameters)
+decimal_quote_risk = risk.total_adjoints.to_rows()
+dv01 = [[value * 1e-4 for value in row] for row in decimal_quote_risk]
+```
+
+`node_gradient` must use the captured global parameter coordinates, including
+joint base dependencies where applicable. For Dupire, use the frozen calibration
+snapshot instead of curve provenance and keep its spot/time matrix orientation.
+Seed factories accept `DoubleMatrix_` or rectangular two-dimensional lists/tuples;
+raw cells must be finite integers/floats, excluding booleans and enums. One-dimensional
+vectors, ragged rows, wrong dimensions and mismatched sources fail explicitly.
+
+The optional `direct=` argument takes a common direct-quote seed; its contribution
+is added once. `calibration_adjoints`, `direct_adjoints` and `total_adjoints`
+return detached matrices. `calibration`, `source`, dimensions and method/unit/boundary
+properties retain owning, readonly projections. Common values support copying,
+but are not pickle/archive objects. Native mapping releases the GIL after copying
+checked inputs; it uses the frozen IVS samples and never calls Python during mapping.
+
+#### Excel common pullback
+
+Excel exposes the same four owning boundary, parameter-seed, direct-seed and
+result factories as immutable handles. Curve provenance constructors accept a
+strict optional Boolean capture flag last; blank preserves the old default.
+Seed matrices retain the native coordinates, and getters copy the three
+contributions and project their typed source. See the
+[worksheet sequence](../excel/README.md#common-calibration-pullback) for function
+names, shape rules, units and source metadata.
 
 ### Why divide by `tolerance_`
 

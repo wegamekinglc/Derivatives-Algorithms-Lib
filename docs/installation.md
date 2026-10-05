@@ -75,14 +75,13 @@ Useful environment overrides are:
 | `ADDITIONAL_CMAKE_FLAGS` | Append simple `-D...` cache overrides                            |
 | `VERBOSE=1`              | Run CTest verbosely                                              |
 
-For example, select the XAD backend explicitly:
+For example, enable native AAD lifetime diagnostics:
 
 ```bash
-ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON" bash ./build_linux.sh
+ADDITIONAL_CMAKE_FLAGS="-DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON" bash ./build_linux.sh
 ```
 
-Use only one external AAD backend at a time. With XAD, CoDiPack, and Adept all
-disabled, DAL uses its native AAD implementation.
+DAL uses its built-in native AAD implementation exclusively.
 
 ## CMake Profiles
 
@@ -123,43 +122,67 @@ in the build configuration.
 
 ### Common CMake options
 
-| Option                           | Base default | Description                                                                           |
-|----------------------------------|--------------|---------------------------------------------------------------------------------------|
-| `DAL_BUILD_PUBLIC`               | `ON`         | Build the public convenience facade                                                   |
-| `DAL_BUILD_PYTHON`               | `OFF`        | Build the pybind11 module                                                             |
-| `DAL_BUILD_EXCEL`                | `OFF`        | Build the Windows Excel add-in                                                        |
-| `DAL_BUILD_EXCEL_PORTABLE_TESTS` | `ON`         | Include portable Excel binding tests on non-Windows hosts                             |
-| `DAL_EXCEL_BUILD_TESTS`          | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
-| `DAL_CPP_BUILD_TESTS`            | `ON`         | Build core tests                                                                      |
-| `DAL_PUBLIC_BUILD_TESTS`         | `ON`         | Build public-facade tests                                                             |
-| `DAL_CPP_BUILD_EXAMPLES`         | `ON`         | Build C++ examples                                                                    |
-| `DAL_CPP_BUILD_BENCHMARKS`       | `OFF`        | Build benchmarks                                                                      |
-| `DAL_ENABLE_NATIVE_ARCH`         | `OFF`        | Tune Release code for the build machine                                               |
-| `DAL_ENABLE_SANITIZERS`          | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
-| `DAL_USE_EIGEN`                  | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
-| `DAL_USE_XAD_AAD`                | `OFF`        | Use XAD                                                                               |
-| `DAL_USE_CODIPACK_AAD`           | `OFF`        | Use CoDiPack                                                                          |
-| `DAL_USE_ADEPT_AAD`              | `OFF`        | Use Adept                                                                             |
-| `MSVC_RUNTIME`                   | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
+| Option                                | Base default | Description                                                                           |
+|---------------------------------------|--------------|---------------------------------------------------------------------------------------|
+| `DAL_BUILD_PUBLIC`                    | `ON`         | Build the public convenience facade                                                   |
+| `DAL_BUILD_PYTHON`                    | `OFF`        | Build the pybind11 module                                                             |
+| `DAL_BUILD_EXCEL`                     | `OFF`        | Build the Windows Excel add-in                                                        |
+| `DAL_BUILD_EXCEL_PORTABLE_TESTS`      | `ON`         | Include portable Excel binding tests on non-Windows hosts                             |
+| `DAL_EXCEL_BUILD_TESTS`               | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
+| `DAL_CPP_BUILD_TESTS`                 | `ON`         | Build core tests                                                                      |
+| `DAL_PUBLIC_BUILD_TESTS`              | `ON`         | Build public-facade tests                                                             |
+| `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build C++ examples                                                                    |
+| `DAL_CPP_BUILD_BENCHMARKS`            | `OFF`        | Build benchmarks                                                                      |
+| `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
+| `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
+| `DAL_USE_EIGEN`                       | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
+| `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
+| `DAL_ENABLE_AAD_PROFILING`            | `OFF`        | Enable explicit native request, task, phase and storage profiling                     |
+| `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
-### Selecting an AAD backend
+### Native AAD configuration
 
-The native AADET backend is selected when all three external-backend options
-are `OFF`. XAD, CoDiPack, and Adept are mutually exclusive; configuration
-fails if more than one is enabled. For example, configure, build, and test a
-separate CoDiPack tree with:
+`DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` enables native active-number lifetime
+checks and changes diagnostic number/node layouts. Its compile definition is propagated to linked
+and installed consumers through the exported targets; do not combine headers
+or libraries built with different settings. See
+[AAD lifetime diagnostics](methodology/aad.md#native-active-number-lifetime-diagnostics).
+
+`DAL_ENABLE_AAD_PROFILING=ON` enables explicit request and task collectors, phase
+timing, tape snapshots, and selected array-memory measurements. It is independent
+of lifetime diagnostics and preserves the native number/node/tape layouts.
+Its compile definition also propagates through exported targets; headers and
+libraries must use matching settings. The installed core package exposes the
+setting as `DAL_CPP_AAD_PROFILING`. Measurement starts only inside an explicit
+`AAD::ProfilingScope_`; ordinary requests do not scan tape or array storage.
+See [native production profiling](methodology/aad.md#native-production-profiling)
+for timing relationships, memory coverage, and the benchmark CLI.
+
+For a separate profiling build with the production benchmark:
 
 ```bash
-cmake --preset=Release-linux -S . -B build/Release-codipack \
-  -DDAL_USE_XAD_AAD=OFF \
-  -DDAL_USE_CODIPACK_AAD=ON \
-  -DDAL_USE_ADEPT_AAD=OFF
-cmake --build build/Release-codipack --parallel
-ctest --test-dir build/Release-codipack --output-on-failure
+cmake --preset=Release-linux -S . -B build/Release-aad-profiling \
+  -DDAL_ENABLE_AAD_PROFILING=ON -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --build build/Release-aad-profiling --parallel
 ```
 
-CoDiPack recording is isolated by native thread-local storage: each operating
-system thread owns its underlying CoDiPack tape and DAL wrapper, and that
+XAD, CoDiPack and Adept are not supported. Old configurations that enable
+`DAL_USE_XAD_AAD`, `DAL_USE_CODIPACK_AAD` or `DAL_USE_ADEPT_AAD` fail with a
+migration error; old `OFF` values remain harmless. Remove those settings and
+configure a fresh native build tree. Rebuild both DAL and its consumers instead
+of combining previous external-backend binaries with native headers.
+
+For a separate native diagnostic build:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-aad-diagnostics \
+  -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON
+cmake --build build/Release-aad-diagnostics --parallel
+ctest --test-dir build/Release-aad-diagnostics --output-on-failure
+```
+
+Native recording uses thread-local storage: each operating
+system thread owns its tape, and that
 storage is destroyed when the thread exits. This lifecycle does not depend on
 the Python GIL. A `Number_`, `Tape_`, or tape position remains thread-affine;
 create, record, propagate, and clear it on the same thread instead of moving it

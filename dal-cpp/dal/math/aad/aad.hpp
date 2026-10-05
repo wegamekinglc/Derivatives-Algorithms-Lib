@@ -14,9 +14,9 @@
 #include <memory>
 #include <dal/math/aad/expr.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-
 namespace Dal::AAD {
+
+    void RequireRecordingModeChangeAllowed();
 
     struct NumResultsResetterForAAD_ {
         Tape_* tape_;
@@ -32,6 +32,7 @@ namespace Dal::AAD {
     // Contract: one mode per sweep — all nodes on a tape must be recorded under a single multi_ setting between Clear()s.
     FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t numResults = 1) {
         REQUIRE(numResults > 0 && numResults <= ADJ_SIZE, "SetNumResultsForAAD: numResults out of range");
+        RequireRecordingModeChangeAllowed();
         Tape_* tape = Tape();
         bool oldMulti = tape->multi_;
         size_t oldNumAdj = tape->numAdj_;
@@ -44,88 +45,35 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
+    FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
-        for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
-            it->Adjoint() = 0.0;
-    }
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_ADEPT_AAD)
-
-#include <algorithm>
-
-namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.ZeroGradientArray(); }
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_XAD_AAD)
-
-#include <algorithm>
-#include <dal/utilities/exceptions.hpp>
-
-namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
-        auto* t = Tape();
-        REQUIRE(t->tape_.isActive(), "Dal::AAD::RegisterIndependent: XAD tape is not active");
-        t->tape_.registerInput(n);
-        xad::value(n) = v;
-    }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.tape_.clearDerivatives(); }
-
-} // namespace Dal::AAD
-#elif defined(DAL_USE_CODIPACK_AAD)
-
-#include <algorithm>
-
-namespace Dal::AAD {
-
-    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
-    }
-
-    FORCE_INLINE void Clear(Tape_* tape) {
-        return Clear(*tape);
-    }
-
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
-        Tape()->tape_.registerInput(n);
-        n.setValue(v);
-    }
-
-    FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.tape_.clearAdjoints(); }
-
-} // namespace Dal::AAD
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        tape.RequireLiveGraph("Tape.ZeroAdjoints");
 #endif
+        const auto zeroNodes = [&tape](const auto& zero) {
+            size_t remaining = tape.nodes_.OccupiedSlots();
+            auto it = tape.nodes_.Begin();
+            while (remaining != 0) {
+                zero(*it);
+                if (--remaining != 0)
+                    ++it;
+            }
+        };
+        if (tape.multi_)
+            zeroNodes([width = tape.numAdj_](TapNode_& node) {
+                node.Adjoint() = 0.0;
+                std::fill_n(&node.Adjoint(0), width, 0.0);
+            });
+        else
+            zeroNodes([](TapNode_& node) { node.Adjoint() = 0.0; });
+    }
+
+} // namespace Dal::AAD
 
 namespace Dal::AAD {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     inline Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
         auto end = Tape()->nodes_.End();
         // Only a terminal node recorded after the mark is already a path-local root.
@@ -133,7 +81,4 @@ namespace Dal::AAD {
             return payoff;
         return payoff + activeZero;
     }
-#else
-    FORCE_INLINE Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) { return payoff + activeZero; }
-#endif
 } // namespace Dal::AAD

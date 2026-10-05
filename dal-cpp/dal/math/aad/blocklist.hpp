@@ -15,8 +15,11 @@
 #include <array>
 #include <cstring>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <type_traits>
+
+#include <dal/math/aad/profilinghooks.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
@@ -40,6 +43,9 @@ namespace Dal::AAD {
 
         void NewBlock() {
             data_.emplace_back();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
             currBlock_ = lastBlock_ = std::prev(data_.end());
             nextSpace_ = currBlock_->begin();
             lastSpace_ = currBlock_->end();
@@ -87,10 +93,17 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] int Size() const {
-            int count = 0;
-            for(ConstIterator_ it = this->Begin(); it != this->End(); ++it)
-                count += 1;
-            return count;
+            const size_t count = OccupiedSlots();
+            REQUIRE(count <= static_cast<size_t>(std::numeric_limits<int>::max()), "BlockList.Size: occupied count exceeds int range");
+            return static_cast<int>(count);
+        }
+
+        [[nodiscard]] size_t AllocatedBlocks() const { return data_.size(); }
+
+        // Includes unused tails skipped when a contiguous allocation moves to the next block.
+        [[nodiscard]] size_t OccupiedSlots() const {
+            const size_t precedingBlocks = static_cast<size_t>(std::distance(data_.cbegin(), const_iterator(currBlock_)));
+            return precedingBlocks * BLOCK_SIZE_ + static_cast<size_t>(std::distance(currBlock_->begin(), nextSpace_));
         }
 
         void Memset(unsigned char val) {

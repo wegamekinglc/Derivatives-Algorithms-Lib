@@ -4,13 +4,6 @@ add_executable(iv_brent_perf ${IV_BRENT_PERF_FILES})
 
 target_link_libraries(iv_brent_perf dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(iv_brent_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(iv_brent_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(iv_brent_perf adept)
-endif ()
 
 if(MSVC)
 else()
@@ -24,4 +17,3 @@ install(TARGETS iv_brent_perf
 
 add_test(NAME iv_brent_perf COMMAND iv_brent_perf)
 set_tests_properties(iv_brent_perf PROPERTIES LABELS "benchmark")
-

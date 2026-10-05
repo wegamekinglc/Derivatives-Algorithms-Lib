@@ -143,6 +143,186 @@ failures raise `RuntimeError` with field/constraint and source context.
 `Product_DebugJson` remains a JSON string with schema /1 and rejects FIX or
 nonempty defaults with `DebugSchemaUnsupported`.
 
+## Structured script risk
+
+`MonteCarlo_ValueWithRisk(product, modelData, num_path, *, request=None,
+valuation=None, simulation=None)` returns a read-only `RiskResult_`.
+The omitted simulation enables native AAD; an explicit
+`MonteCarloSettings_(enable_aad=False)` requests price only.
+
+```python
+request = dal.RiskRequest_(
+    inputs=["constant:0", "model:1"], report_factors=[0.5, 0.01],
+)
+risk = dal.MonteCarlo_ValueWithRisk(product, model, 2**16, request=request)
+raw = risk.jacobian.to_rows()        # [[strike derivative, volatility derivative]]
+reported = risk.reported_jacobian.to_rows()
+method = risk.provenance.method
+```
+
+Request fields are keyword-only `inputs`, `outputs`, `report_factors` and
+`numeric_payload_budget_bytes`. IDs/factors accept lists or tuples, with `None`
+meaning omission. Empty native inputs preserve the `(1, 0)` matrix and smoothed
+price; price-only cannot select nonempty inputs. Budget is a nonnegative integer
+excluding bool. It covers returned numeric values/Jacobian, excluding metadata,
+worker/tape storage and getter copies.
+
+`output_ids`, `values`, `input_axis`, `complete_input_axis`, `jacobian`,
+`reported_jacobian`, `provenance` and `legacy_values` expose detached data.
+Changing a returned matrix or copied simulation settings cannot change the result.
+Coordinate IDs identify model/script ordinals within the retained snapshot;
+physical units can be unknown. The raw legacy view rejects display collisions.
+The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
+describes the retained product/model/history settings and mixed LSM policy risk.
+
+## Dupire quote risk
+
+`DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration
+from an existing BS model, `MertonIVS_`, or a Python subclass of `IVS_`.
+Configuration is keyword-only; quote rows are strikes and columns are maturities.
+
+```python
+inputs = dal.DupireRiskInputs_(
+    quote_strikes=[75.0, 105.0, 135.0], quote_maturities=[0.4, 1.2],
+    quote_spreads=dal.DoubleMatrix_(3, 2),
+    inclusion_spots=[60.0, 100.0, 140.0], max_spot_spacing=10.0,
+    inclusion_times=[0.5, 1.0], max_time_spacing=0.5,
+)
+base = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
+calibration = dal.DupireCalibration_New(base, inputs, name="local_vol")
+seeds = dal.DupireParameterAdjoints_(
+    calibration, dal.DoubleMatrix_(len(calibration.spots), len(calibration.times), 1.0),
+)
+quotes = dal.DupireQuoteRisk_New(calibration, seeds)
+raw = quotes.total_adjoints.to_rows()
+```
+
+This example differentiates the sum of calibrated surface nodes. For trade risk,
+create `DupireModelData_New(calibration, index, currency, factor, *, name="",
+max_step=1/12)` or use `calibration.surface` in a Hybrid local-vol component, then obtain a
+`MonteCarlo_ValueWithRisk` result with every surface input selected. Then call
+`DupireScriptQuoteRisk_New(valuation, calibration, component, *, direct=None)`.
+Its `valuation`, `quote_risk`, `component` and `method` retain the source and
+quote results. `DupireParameterAdjoints_FromRisk` extracts the surface seed
+separately for compatible portfolio accumulation.
+The convenience model copies the surface, preserves frozen spot/rate/dividend,
+and names its local-vol component `equity` and deterministic-rate component `rate`.
+
+`DupireDirectQuoteAdjoints_(calibration, matrix)` supplies an optional raw PV
+quote contribution. Results separate `calibration_adjoints`, `direct_adjoints`
+and `total_adjoints`; their `unit` is `decimal-vol`. Reporting factors and path
+averaging are not applied again. Snapshot getters expose copied `inputs`,
+`spots`, `times`, `vols` and a detached `surface`, plus `spot`, `rate`,
+`dividend_yield`, `algorithm` and full-content `matches(other)`.
+Numeric properties and copy/deepcopy cannot change retained calibration data.
+
+Custom IVS subclasses call `super().__init__(spot=..., rate=...,
+dividend_yield=...)` and implement `implied_vol(strike, maturity)` returning a
+finite numeric volatility. `MertonIVS_` takes keyword-only `spot`, `vol`,
+`intensity`, `average_jump`, `jump_std` and retains zero carry. Sampling holds
+the GIL; the snapshot retains no Python callback, and native pullbacks release
+the GIL. Later changes or destruction of the IVS do not affect prior results.
+Numeric configuration excludes bool and enums; invalid domains, missing surface
+columns and incompatible identities fail explicitly. See the
+[discrete derivative and estimator boundaries](../methodology/aad.md#discrete-dupire-calibration-pullback).
+
+## Common calibration quote requests
+
+`CalibrationRiskPlan_New(calibration, *, request=None)` plans an immutable
+quote selection over an owning `CalibrationPullback_`. It accepts frozen Dupire
+or any supported curve provenance captured with `retain_calibration_record=True`.
+`CalibrationRiskResult_New(plan, parameter_adjoints, *, direct=None)` performs
+the native pullback using the existing typed parameter/direct seeds.
+
+```python
+boundary = dal.CalibrationPullback_New(calibration)
+parameters = dal.CalibrationParameterAdjoints_New(
+    boundary, dal.DoubleMatrix_(boundary.parameter_rows, boundary.parameter_cols, 1.0),
+)
+request = dal.CalibrationRiskRequest_(
+    inputs=["quote:3", "quote:0"], report_factors=[0.01, 0.01],
+    numeric_payload_budget_bytes=144,
+)
+plan = dal.CalibrationRiskPlan_New(boundary, request=request)
+result = dal.CalibrationRiskResult_New(plan, parameters)
+raw = result.jacobian.to_rows()
+per_vol_point = result.reported_jacobian.to_rows()
+```
+
+Request fields are keyword-only and read-only. Lists/tuples are copied; `inputs=None`
+selects every source quote, while `inputs=[]` retains an empty `(1, 0)` projection
+and still performs the native pullback. Unknown/repeated IDs and nonpositive or
+nonfinite factors fail during planning. IDs identify source ordinals; labels
+cannot establish source compatibility. Factors apply once to reported copies:
+use `0.01` for a decimal-vol point or `1e-4` for a decimal-rate basis point.
+
+The plan exposes `calibration`, `complete_input_axis`, `input_axis`,
+`selected_ordinals` and `numeric_payload_bytes`. Coordinates retain native
+row/column, units and quote metadata: curve value/strike/maturity are `None`,
+and Dupire block fields are `None`. The budget counts all three complete native
+quote matrices even for subset/empty selections. It excludes source/metadata,
+input seeds, getter copies and temporary recording storage.
+
+Results expose `plan`, `quote_risk`, `jacobian`, `calibration_jacobian`,
+`direct_jacobian` and `reported_jacobian`. All matrices, lists and nested values
+are detached copies. The common result retains native method/unit/boundary
+metadata without deriving a generic PV or currency from external seeds.
+Constructors exclude bool/enums and implicit dictionary/container coercions.
+Plans/results support copy/deepcopy; native planning and pullback release the
+GIL after owning all Python inputs. See the
+[native request contract](../yield-curves/jacobian-risk.md#c-quote-coordinate-requests)
+for retained payload and source-identity rules.
+
+## Automatic Dupire script risk requests
+
+`DupireScriptRiskPlan_New(product, modelData, calibration, component, request)`
+plans the complete surface inputs needed by the native Dupire pullback over a
+flat-rate Hybrid. `DupireScriptRiskResult_New(plan)` runs the sealed valuation
+and quote pullback. No manual node-risk extraction is needed.
+
+```python
+request = dal.DupireScriptRiskRequest_(
+    num_paths=257,
+    quotes=dal.CalibrationRiskRequest_(
+        inputs=["quote:3", "quote:0"], report_factors=[0.01, 0.5],
+    ),
+    valuation=dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 9, 12)),
+)
+plan = dal.DupireScriptRiskPlan_New(product, hybrid, calibration, "Z_LOCAL", request)
+result = dal.DupireScriptRiskResult_New(plan)
+price = result.valuation.values[0]
+spread_risk = result.quote_risk.reported_jacobian.to_rows()
+```
+
+Request fields are keyword-only. `num_paths` is required and accepts integers in
+`1..INT_MAX`, excluding bool and enums. Optional `quotes`, `valuation` and
+`simulation` accept their native bound types or `None`; omitted simulation
+enables AAD. Explicit price-only settings reject during planning.
+
+Use `direct_bindings=[dal.DupireQuoteBinding_(constant_ordinal=0,
+quote_id="quote:3")]` for an explicit script constant dependency. The ordinal
+identifies the prepared script constant, and its value must equal the selected
+source quote. Bindings require a copied list/tuple of typed values. Alternatively,
+`direct` accepts a common `CalibrationDirectQuoteAdjoints_` containing raw PV
+partials with the local-vol surface fixed. These two forms are mutually exclusive;
+the native planner validates source identity and adds direct risk once.
+
+Plans expose `component`, `quote_plan`, `complete_input_axis`,
+`required_input_axis`, `direct_bindings`, `num_paths`, `valuation_settings`,
+`simulation_settings` and `numeric_payload_bytes`. They seal native product/model
+content and capture the evaluation date. Explicit fixing snapshots remain owned;
+global history is resolved at execution. Quote subset/empty selection retains all
+mandatory surface/direct gradients and the native smoothed estimator.
+
+The common quote request's budget now covers the retained valuation value and
+required gradients plus all three complete quote contribution matrices. It
+excludes source/metadata, getter copies and temporary worker/tape storage.
+Results expose `valuation`, `quote_risk`, `component`, `method` and
+`numeric_payload_bytes`; `quote_risk` is a `CalibrationRiskResult_`. All properties
+are read-only and detached. Copy/deepcopy retain owning passive values. Planning
+and execution release the GIL after copying typed inputs. See the
+[native automatic request boundaries](../methodology/aad.md#automatic-c-dupire-risk-requests).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

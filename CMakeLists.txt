@@ -108,6 +108,24 @@ if(DAL_BUILD_EXCEL OR (NOT WIN32 AND DAL_BUILD_EXCEL_PORTABLE_TESTS))
 endif()
 
 if(DAL_CPP_BUILD_TESTS OR (DAL_BUILD_PUBLIC AND DAL_PUBLIC_BUILD_TESTS))
+    add_test(NAME dal_native_aad_configuration
+        COMMAND ${CMAKE_COMMAND}
+            "-DDAL_NATIVE_AAD_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            "-DDAL_NATIVE_AAD_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/native-aad-configuration"
+            "-DDAL_GENERATOR=${CMAKE_GENERATOR}"
+            "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+            "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/native-aad/run.cmake")
+    set_tests_properties(dal_native_aad_configuration PROPERTIES TIMEOUT 300)
+    add_test(NAME dal_aad_profiling_configuration
+        COMMAND ${CMAKE_COMMAND}
+            "-DDAL_AAD_PROFILING_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            "-DDAL_AAD_PROFILING_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/aad-profiling-configuration"
+            "-DDAL_GENERATOR=${CMAKE_GENERATOR}"
+            "-DDAL_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+            "-DDAL_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/aad-profiling/run.cmake")
+    set_tests_properties(dal_aad_profiling_configuration PROPERTIES TIMEOUT 300)
     add_test(NAME dal_optional_excel_configuration
         COMMAND ${CMAKE_COMMAND}
             "-DDAL_OPTIONAL_EXCEL_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"

@@ -340,26 +340,6 @@ TEST(GSRSLVCalibrationTest, TestAADCalibrationCountsDerivativeBatches) {
     ASSERT_LT(aad.evaluations_, fd.evaluations_);
 }
 
-#if defined(DAL_USE_XAD_AAD)
-TEST(GSRSLVCalibrationTest, TestAADStorageStaysBoundedAcrossPathBudgets) {
-    const auto data = Model(1.1, 0.6);
-    const Vector_<EuropeanRateOption_> options{Bond(0.94), Bond(0.97), Bond(1.0)};
-    AAD::Clear(*AAD::Tape());
-    const GSRSLVPricingInternal::PreparedPricer_ small(data, options, {128, 1729});
-    const auto shortJacobian = small.Jacobian(data, {"leverage:0:0"});
-    const size_t shortMemory = AAD::Tape()->tape_.getMemory();
-    AAD::Clear(*AAD::Tape());
-    const GSRSLVPricingInternal::PreparedPricer_ large(data, options, {512, 1729});
-    const auto longJacobian = large.Jacobian(data, {"leverage:0:0"});
-    const size_t longMemory = AAD::Tape()->tape_.getMemory();
-    ASSERT_LE(longMemory, 2 * shortMemory) << "short=" << shortMemory << " long=" << longMemory;
-    ASSERT_EQ(shortJacobian.Rows(), longJacobian.Rows());
-    const auto high = large.Price(Model(1.10001, 0.6)), low = large.Price(Model(1.09999, 0.6));
-    for (int row = 0; row < longJacobian.Rows(); ++row)
-        ASSERT_NEAR(longJacobian(row, 0), (high[row].price_ - low[row].price_) / 2e-5, 2e-7);
-    AAD::Clear(*AAD::Tape());
-}
-#endif
 
 TEST(GSRSLVCalibrationTest, TestConditionalAADIncludesContinuationAndClearsTape) {
     const auto data = Model(1.1, 0.6);

@@ -161,6 +161,99 @@ and then rewind, so the tape size is bounded by the work of a *single* repetitio
 rather than the whole simulation. Propagation can therefore be partitioned into
 ranges: from the end to the mark, and from the mark to the start.
 
+### Independent Recording Ownership
+
+`AAD::RecordingScope_` in `dal/math/aad/recording.hpp` owns an independent
+recording on the calling thread's default tape. Entry activates and rewinds the
+tape; successful closure rewinds it while retaining reusable backend capacity.
+The scope is neither copyable nor movable, and its lifetime, operations, and
+destruction belong to the creating thread. Separate threads can own separate
+recordings. A nested scope throws before changing the outer tape. The curve
+`TapeGuard_` delegates to this ownership boundary.
+
+Register inputs before `StartRecording()`, build the graph, and call
+`FinishRecording()` before a reverse operation. Repeated sweeps use explicit
+clearing and fresh seeds. Extract passive results before calling `Close()`:
+
+```cpp
+AAD::RecordingScope_ recording;
+AAD::Number_ input;
+recording.RegisterInput(input, 3.0);
+recording.StartRecording();
+AAD::Number_ output = input * input;
+recording.FinishRecording();
+recording.ClearAdjoints();
+AAD::Adjoint(output) = 1.0;
+recording.Reverse();
+const double derivative = AAD::AdjointValue(input);
+recording.Close();
+```
+
+`Close()` reports cleanup errors and is idempotent. During exception unwinding,
+the destructor performs fallback cleanup without replacing the business
+exception. A backend or cleanup failure remains available through
+`AAD::LastRecordingCleanupFailure()` and makes the thread's scoped context
+unusable until the next entry successfully rebuilds the tape. A failed rebuild
+rejects that entry. A failed reverse rejects further graph/reverse work in its
+scope; closing it still releases ownership and retains the recovery requirement.
+Curve Jacobian, node-risk, ordinary MC, and LSM replay callers close explicitly
+after extracting passive results.
+
+`MakeCheckpoint()` captures one prefix boundary during graph recording and
+returns a copyable opaque `Checkpoint_`. A replacement invalidates the previous
+token. `Restore(checkpoint)` discards the suffix, retains prefix adjoints, and
+returns to graph-recording state. Finish each suffix before
+`ReverseSuffix(checkpoint)`. Its contributions accumulate at the prefix; one
+`ReversePrefix(checkpoint)` propagates them to the registered inputs. Extract
+still-needed suffix values as passive doubles before restoring or closing their
+recording. Tokens from a previous recording, another
+thread, a replaced checkpoint, or another mode are rejected before position use.
+
+Select native scalar/vector mode with `SetNumResultsForAAD` before creating the
+scope, and keep the returned mode guard alive until the scope closes. Mode
+selection inside an owned scope is rejected. Native `ZeroAdjoints` and scoped
+`ClearAdjoints` clear both scalar fields and every vector channel, including
+leaves; suffix restoration preserves prefix adjoints instead. A raw mode change
+that violates the scoped width is diagnosed before scoped graph/reverse work.
+
+Active numbers and tape positions become invalid when their recording is
+discarded. Ownership checks protect nesting between scoped callers; raw tape
+operations still require the caller's existing lifetime discipline. Existing
+raw registration/propagation operations remain available to compatibility
+callers, but must not replace marks or discard graphs managed by scoped
+checkpoint methods. The scope does not validate every expression or make raw
+iterators stable checkpoints.
+
+### Native Active-Number Lifetime Diagnostics
+
+Configure with `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` to check native
+`Number_` operands and adjoint access. The default is `OFF`; default builds
+retain the number/node layouts and omit these per-number checks and counters.
+Scoped ownership, state and checkpoint checks remain enabled independently.
+DAL's only AAD implementation is native; the diagnostic setting changes its ABI.
+
+Each binding captures a tape-lifetime identity, recording epoch, slot generation
+and scalar/vector layout. Full clear or rewind invalidates the old recording;
+suffix restoration invalidates discarded suffixes while preserving the prefix
+and its accumulated adjoints. Reusing an address does not validate an old
+binding. Checks precede old node access and expression-result allocation;
+assignment precondition failures preserve the destination and valid graph.
+Mode mismatches and exhausted counters are reported before incompatible access
+or destructive reset. Rejected independent registration/rebinding preserves the
+old cached primal and binding. Partial allocation failures require a successful reset.
+
+`Value` only reads the cached primal. Explicit double assignment,
+`RegisterIndependent` or `PutOnTape` can bind that value as a new independent;
+copying alone preserves the old binding. The checks reject numbers from a
+foreign or exited thread without reading its expired tape. They do not protect
+arbitrary dangling C++ references or direct mutation of internal block lists.
+Use the tape recording/reset APIs and applicable sanitizers.
+
+The option changes diagnostic layouts. Its definition propagates through
+`DAL::cpp`, `DAL::public`, bindings and installed exports; consumers must use
+the exported targets and matching headers/libraries. The installed package
+reports the setting as `DAL_CPP_AAD_LIFETIME_DIAGNOSTICS`.
+
 ### Native Tape Storage
 
 The native `Tape_` in `dal-cpp/dal/math/aad/tape.hpp` owns separate block lists
@@ -178,6 +271,133 @@ after rewind, and allocates a block when needed. Mark and rewind therefore
 support storage reuse without promising allocation-free AAD evaluation.
 `dal-cpp/tests/math/aad/test_tape.cpp` covers independent stream rollover,
 reuse, aliased operands, multiple results, and caller-owned tapes.
+
+`AAD::MeasureTape(tape)` in `dal/math/aad/statistics.hpp` explicitly scans a
+native recording for its node and edge counts. It reports three storage measures:
+
+- `liveBytes_`: node objects, recorded edge derivatives/pointers, and logical
+  vector-adjoint slots for the current uniform recording mode.
+- `occupiedBytes_`: storage through each block-list cursor, including skipped
+  block tails and any retained cursor in an inactive storage stream.
+- `capacityBytes_`: all currently allocated block arrays, including capacity
+  retained after rewind. List bookkeeping and allocator overhead are excluded.
+
+`blocks_` counts current blocks, rather than cumulative allocations. In a window
+that only grows storage, the block-count increase measures new block allocations;
+it does not count allocations elsewhere in a valuation. Empty tapes retain one
+block per storage stream. A snapshot is neither a high-water counter nor process
+RSS. Capture it at the relevant graph boundary to observe a peak, and measure RSS
+separately. Call the scan on the owning thread while recording and reverse work
+are stopped. It maintains no per-node counters in normal execution.
+
+The native `tape_perf` and `jacobian_perf` executables accept `--diagnostics` to
+print these snapshots outside timed loops. Use their default invocation for
+throughput comparisons. Tape cases include active/passive constants and vector
+widths 1, 4, 10, 16, and 64, with analytic value/gradient checks. The historical
+`100K nodes` case labels remain for regression continuity; the diagnostic node
+count describes the actual fused graph, including active constants.
+Jacobian cases retain the synthetic full-clearing reference and additionally
+call `HarvestCurveJacobian` for 23-by-24 and 95-by-96 Jacobians. Proven-prefix
+harvesting uses a dependency range established by the fixture itself.
+
+### Native Production Profiling
+
+`DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in
+`dal/math/aad/profiling.hpp`. The default is OFF. The definition propagates
+through exported CMake targets, and the installed package reports
+`DAL_CPP_AAD_PROFILING`. Use matching headers and libraries. This option changes
+profiling/task helper layouts; it leaves native number, node and tape layouts
+unchanged and is independent of lifetime diagnostics.
+
+An explicit, thread-affine scope collects one request:
+
+```cpp
+#include <dal/math/aad/profiling.hpp>
+
+AAD::ProfilingData_ data;
+const auto result = [&] {
+    AAD::ProfilingScope_ profile(&data);
+    return Script::MCSimulation<AAD::Number_>(prepared, modelData, paths);
+}();
+// Inspect data after the request and all its tasks have finished.
+```
+
+`ProfilingAvailable()` identifies the build setting. Creating a scope in an
+OFF build throws. An ON build without an explicit scope skips clocks, tape
+scans and array measurement callbacks. Default OFF production paths omit the
+diagnostic calls and task collectors. A scope borrows its report; keep the
+report alive until scope destruction and task draining. Nested scopes require
+separate reports. Read or copy completed reports after their scopes end.
+Unwinding and unfinished tasks leave `complete_` false. Measurement overflow
+sets `invalidMeasurement_`; missing CPU clocks remain explicitly unavailable.
+
+Ordinary MC and LSM record preparation, worker initialization, path
+forward/recording, payoff, suffix/prefix reverse, waiting and reduction.
+LSM also records training, regression and pricing replay. `taskGroups_` owns
+the individual task reports, including regression helper tasks.
+Scope wall time is an interval; worker interval sums are cumulative work,
+not request latency. `WAIT` includes tasks executed by `ActiveWait`.
+Phase self wall time excludes nested spans in the same report; it does not
+exclude task windows belonging to another report. Phase intervals overlap and
+must not be added as independent costs.
+
+CPU fields use actual thread CPU clocks on supported platforms. Scope
+`cpuNanoseconds_` includes its nested work. `selfCpuNanoseconds_` excludes
+same-request task scopes executed inside it on the same thread. Summing
+available self CPU values across a completed task tree avoids that duplicate
+counting and describes the observed scope intervals, including diagnostics.
+It excludes pool/framework work outside those intervals. Independent profiling
+requests are not subtracted from each other. CPU values and wall values have
+distinct availability and inclusion rules.
+
+Tape samples occur after AAD initialization and after each path payoff,
+before reverse/rewind. `highWater_` retains componentwise maxima of these
+observations; its fields need not come from one simultaneous snapshot.
+Sampling is not a per-instruction peak tracker. `blockAllocations_` counts
+successful native block-list array allocations during the scope; reuse does
+not increment it. `allocatedArrayBytes_` excludes allocator/list overhead.
+
+`memory_` separates observed path, selected workspace, result and LSM regression
+arrays. Live bytes use array sizes; capacity bytes use retained capacities.
+Path measurements include sample objects and their owned vectors. Workspace
+measurements include Gaussian buffers, exposed evaluator variables/vectors and
+fuzzy replay arrays. Regression measurements include coexisting training and
+validation rows and backward working arrays. These are selected array payloads:
+private evaluator seeds/stacks, model/RNG caches, solver temporaries and
+diagnostic storage are excluded. Their maxima are not a complete valuation
+memory total or process RSS. Memory metadata collection has no separate timed
+phase; its cost is included in the enclosing scope/window.
+
+The existing `script_mc_perf` executable adds an explicit JSON-lines mode:
+
+```bash
+script_mc_perf --production-profile short 8192 aad compiled cold 4 0 0 1
+script_mc_perf --production-profile local-vol 8192 aad compiled phases 1 16 0 1
+script_mc_perf --production-profile lsmc-bs 8192 aad tree warm 1 0 512 3
+```
+
+Arguments are scenario, pricing paths, `double|aad`, `tree|compiled`,
+`cold|warm|phases`, outputs, surface grid, training paths and repetitions.
+Scenarios are `short`, `long`, `local-vol`, `lsmc-bs` and `lsmc-local-vol`.
+Ordinary cases accept 1/4/16/64 different strike outputs; they execute
+sequential single-output requests with the same model inputs and Sobol paths.
+AAD channel width remains one. Passive requests report zero active parameters
+and no risks. LSM cases accept one output and keep the Frozen policy; the
+existing `--lsmc-replay` interface retains its policy options and workloads.
+
+Cold timing includes fresh model/product data and script preparation. Warm
+timing reuses prepared inputs after an untimed full request; it still includes
+worker/model initialization. Phases use the cold boundary and explicit scopes.
+All modes run validation before timing, so cold is not process-first startup.
+The short BS fixture validates each output's price and four risks against
+analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
+differences at two steps; LSM uses tree/compiled fixed-path comparisons.
+Independent checks use up to 256 pricing paths. Each timed result also matches
+an untimed request at the full path count, with every requested risk checked.
+Startup messages go to stderr; request/result/scope/phase records go to stdout.
+Use uninstrumented Release binaries for throughput comparisons and measure
+profiling overhead separately. External process resource tools include the
+untimed validation and warm-up when reporting lifetime peak RSS.
 
 ## Pathwise Adjoints in Monte Carlo
 
@@ -213,7 +433,7 @@ depend on active parameters. Each recording replays those expressions locally
 before the mark and each path restores the resulting typed seed. The native
 backend reuses the payoff as the path-local root only when the post-mark range
 is nonempty and the payoff is its current terminal node. Otherwise it adds a
-registered zero to the payoff; alternative backends always use this addition.
+registered zero to the payoff.
 The fallback creates a path-local root even for a pre-mark seed or a passive
 constant, preserving accumulated seed adjoints and providing a valid reverse
 range when the post-mark recording would otherwise be empty. Historical
@@ -353,7 +573,7 @@ inherited `Swap_::PrecomputeT<T_>`.
 
 ### Recording Contract for the Joint Path
 
-The recording contract that produces a correct Jacobian on all four backends is
+The native recording contract for a correct Jacobian is
 the same as the single-curve path:
 
 $$\text{Rewind}(\textit{tape}) \rightarrow
@@ -367,178 +587,363 @@ $$\text{Rewind}(\textit{tape}) \rightarrow
 Independent registration follows `CurveParameterLayout_`: PWC contributes one value per
 knot, PWL contributes interleaved left/right values, and log-DF contributes future-node
 ordinates while its pinned storage anchor is excluded. `HarvestCurveJacobian` performs
-the backend-neutral per-row zero/seed/propagate/harvest loop. The harvested adjoints form a dense
+the per-row seed/propagate/harvest/leaf-clear loop. Consumed intermediate seeds
+clear during native reverse. The harvested adjoints form a dense
 `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) with exact structural
 zeros where an instrument has no parametric dependence on a given knot.
 
-## Backends
+## Native AAD
 
-The library compiles with one of four AAD backends selected at build time:
+DAL uses its built-in scalar/vector tape exclusively. `Number_` and `Tape_`
+in `dal-cpp/dal/math/aad/` have no external-backend aliases or selection paths.
+Each operating system thread owns its default tape, which is destroyed at thread
+exit. Active values and tape positions remain thread-affine, independently of
+the Python GIL. See [configuration and migration](../installation.md#native-aad-configuration).
 
-- **native** — the in-tree reference tape (`dal-cpp/dal/math/aad/tape.hpp`,
-  `dal-cpp/dal/math/aad/node.hpp`), always available.
-- **Adept** (`DAL_USE_ADEPT_AAD`) — `adept::Stack`-based tape.
-- **XAD** (`DAL_USE_XAD_AAD`) — `xad::adj<double>` tape.
-- **CoDiPack** (`DAL_USE_CODIPACK_AAD`) — `codi::RealReverseUnchecked` tape.
+### Native Operations
 
-CoDiPack gives each operating system thread its own underlying tape and DAL
-wrapper through native thread-local storage. Recording and reverse propagation
-therefore run independently of the Python GIL, and the tape is destroyed when
-its owning thread exits. Active values and tape positions are thread-affine and
-must not be transferred between threads.
+`AAD::NativeOperations_` in `dal-cpp/dal/math/aad/native.hpp` provides checked
+seed/channel access and a passive capability description. Recording services
+call the established native tape functions directly; there is no backend
+inheritance, selector, virtual dispatch or per-node capability lookup.
 
-All four expose the same `Number_` / `Tape_` surface through facade functions in
-`dal-cpp/dal/math/aad/aad.hpp`, so caller code is backend-neutral. The
-differences that matter at the call site are the recording contract and the
-gradient-zeroing semantics between single-result reverse sweeps.
+| Contract                                | Native support                     |
+|-----------------------------------------|------------------------------------|
+| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid |
+| Interval reverse/prefix accumulation    | Yes                                |
+| Scoped lifecycle validation             | Yes                                |
+| Vector adjoint channels                 | Up to `ADJ_SIZE`                   |
+| Active-number lifetime diagnostics      | Available; default OFF             |
+| Independent nesting/reverse events      | Not implemented                    |
+| Higher-order active mode                | Not implemented                    |
 
-### Load-Bearing Recording Contract
+`SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
+including multiple weights for the same output reference. `ReadAdjoint`
+returns a passive double. The optional channel defaults to zero. In vector
+mode these operations access the vector array, including channel zero;
+the legacy `Adjoint` scalar field is separate.
 
-A correct Jacobian on all four backends requires this exact ordering:
+For example, $u=xy$, $v=x^2+y$ at $(x,y)=(2,3)$ has Jacobian rows $(3,2)$
+and $(4,1)$. Seeds $(2,-1)$ compute the weighted gradient $(2,3)$:
 
-$$
-\text{Rewind}(\textit{tape}) \;\rightarrow\;
-\text{RegisterIndependent}(x_k)\;\forall k \;\rightarrow\;
-\text{NewRecording}(\textit{tape}) \;\rightarrow\;
-\text{forward pass} \;\rightarrow\;
-\text{per output row } \bigl\{\,\bar{y}_i = 1,\;\text{PropagateToStart},\;\text{harvest},\;\text{zero each leaf}\,\bigr\}.
-$$
+```cpp
+#include <dal/math/aad/native.hpp>
+#include <dal/math/aad/recording.hpp>
 
-Each step has a backend-specific reason to be in this position:
+AAD::RecordingScope_ recording;
+AAD::Number_ x, y;
+recording.RegisterInput(x, 2.0);
+recording.RegisterInput(y, 3.0);
+recording.StartRecording();
+AAD::Number_ u = x * y;
+AAD::Number_ v = x * x + y;
+recording.FinishRecording();
+recording.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(u, 2.0);
+AAD::NativeOperations_::SetSeed(v, -1.0);
+recording.Reverse();
+const double dx = AAD::NativeOperations_::ReadAdjoint(x); // 2
+const double dy = AAD::NativeOperations_::ReadAdjoint(y); // 3
+recording.Close();
+```
 
-- **Rewind** resets the tape's write cursor to the start so the next recording
-  reuses the already-allocated node blocks, avoiding the free/re-allocate cycle
-  of `Clear` on every iteration. The reused storage is overwritten in place by
-  the next forward pass, so no stale data leaks into the new sweep.
-- **RegisterIndependent** stamps each input as a tape leaf that subsequent
-  operations differentiate. It must run *before* `NewRecording` opens the
-  recording window on XAD (see below); running it after silently drops the input
-  and yields an all-zero Jacobian column.
-- **NewRecording** marks the start of the live recording so the reverse sweep
-  terminates at the right point.
-- **Zeroing between rows** is **not** uniform across backends. On native the
-  inline-zeroing `PropagateOne` clears each consumed intermediate adjoint, so
-  only the parameter leaves must be zeroed by the caller after harvest; on the
-  other backends a full `ZeroAdjoints` pass before each row is still required.
-  Skipping the between-row zero is the single most common source of corrupted
-  multi-row Jacobians.
+Clear gradients before an independent seed vector. `ActiveRoot(payoff,
+activeZero)` applies the existing payoff-root convention when an output is a
+constant, direct input or prefix alias; its second argument must be an active
+zero on the same recording. It does not silently register a new parameter.
 
-### Per-Backend Zeroing Semantics
+`ValidateAdjointMode(multi, width)` checks a proposed mode without changing
+the tape. Scalar width must be one; vector width must be positive and at most
+`ADJ_SIZE`. Select actual mode with `SetNumResultsForAAD` before scope entry.
+Invalid modes/channels fail before seed mutation. Diagnostic ON also validates
+ownership and lifetime before node access. OFF rejects missing nodes/vector
+storage, but cannot generally detect stale or wrongly rebound numbers.
 
-- **Native.** `PropagateOne` (`dal-cpp/dal/math/aad/node.hpp`) zeroes each
-  consumed node's adjoint inline after propagating it to its parents, so the
-  intermediate graph starts clean for the next reverse sweep without a separate
-  pass. Leaf parameter nodes (`n_ == 0`) are *not* consumed by `PropagateOne`
-  and would accumulate across rows; the shared harvester
-  (`dal-cpp/dal/curve/aadjacobian.cpp`) zeroes each harvested leaf adjoint in
-  place immediately after reading it, which
-  is O(nParams) per row instead of the O(all nodes) `ZeroAdjoints` sweep. The
-  `ZeroAdjoints` facade is still defined for callers that need a full sweep
-  outside this pattern.
+### Recording and Gradient Clearing
 
-- **Adept.** Adept's `compute_adjoint` zeroes only the LHS adjoint of each
-  consumed statement and then accumulates into the operands; operands whose
-  gradients are never cleared keep residual values across sweeps. In a
-  single-result reverse-sweep loop, row 2's seed would land on row 1's operand
-  residue and corrupt the Jacobian. The `ZeroGradientArray` helper
-  (`tape.hpp`) clears the live gradient array while keeping
-  `gradients_initialized_` true, which satisfies the `compute_adjoint` `THROW`
-  guard ("Adept gradients are not initialized"). `Dal::AAD::ZeroAdjoints`
-  routes to `ZeroGradientArray` on this backend, so callers that use the facade
-  are safe; callers that bypass it must replicate the semantics.
+For a fresh independent Jacobian, rewind, register inputs, start recording,
+perform the forward pass, then seed/reverse/harvest each output row.
+`NewRecording` is a native no-op; the scoped API still uses it as an explicit
+phase boundary. Rewind discards activity while retaining reusable capacity;
+re-register numeric inputs before the next independent graph.
 
-  Gradient capacity can also grow after seeding: later recording windows may
-  register more simultaneously live variables than the initialized array holds.
-  `Tape_::EnsureGradientCapacity` in `dal-cpp/dal/math/aad/tape.hpp` ensures
-  sufficient storage before DAL adjoint reads, writes, and reverse sweeps.
-  Growth preserves accumulated adjoints and zeroes only the added storage;
-  reinitializing the whole array would erase contributions from earlier paths.
-  The explicit `ZeroAdjoints` call between independent output rows remains
-  necessary.
+Every nonzero adjoint propagates, including subnormal values; only exact zero
+seeds are skipped. Vector channels follow this rule independently, so a zero
+channel does not evaluate `0 * Inf` when another channel is active. NaN and
+nonzero infinite seeds remain observable.
 
-- **XAD.** `registerInput` must run *before* `NewRecording` opens the recording
-  window: registering an input after `NewRecording` silently drops it and
-  yields an all-zero Jacobian column. The `RegisterIndependent` facade asserts
-  the tape is active (`clearAll` does not deactivate a tape constructed with
-  `activate=true`), so a passive tape fails loudly at registration time rather
-  than producing a silent zero column. `ZeroAdjoints` maps to
-  `xad::Tape::clearDerivatives`.
+`PropagateOne` consumes each intermediate adjoint after propagating it to its
+parents. Leaf parameter nodes retain accumulated contributions. The curve
+Jacobian harvester clears each independent leaf after extraction, costing
+O(nParams) per row. General independent repeated VJPs use `ZeroAdjoints` or
+the scoped `ClearAdjoints`, which clear the actual scalar/vector storage.
+A suffix restore preserves the valid prefix and its accumulated adjoints;
+a whole-graph gradient clear must not replace that operation.
 
-- **CoDiPack.** `RegisterIndependent` calls `tape.registerInput` on the active
-  tape; `ZeroAdjoints` calls the no-argument `clearAdjoints`, which zeroes up
-  to the largest created index and leaves the statement graph intact. Both are
-  safe between sweeps.
+Before closing or restoring a suffix, extract still-needed prices and gradients
+as passive values. Discarded activity cannot be used in a later reverse.
+Failure recovery and checkpoint validation follow the scoped lifecycle rules
+above.
+
+### Public Result Validation
+
+Public Monte Carlo valuation requires both the reported mean and requested
+sensitivities to be finite. An invalid sensitivity raises `InvalidRisk` with the
+output and input names; a non-finite aggregate mean raises `InvalidPayoff`.
+This validation does not make an undefined local derivative mathematically valid.
+For example, the native derivative of `sqrt(0)` is infinite. A finite reported value is
+therefore insufficient evidence of differentiability at an endpoint.
+
+### Structured Scalar Risk Results
+
+`ValueByMonteCarloWithRisk` in `dal-public/src/value.hpp` runs one valuation and
+returns a passive `Script::RiskResult_`. Its default simulation enables native
+AAD. Supplying `MonteCarloSettings_` with `enableAad_=false` selects price-only
+execution; omitted inputs then select no risk columns. The existing dictionary
+valuation entries retain their defaults and execution path.
+
+The output ID is `payoff`; its raw Jacobian always has shape `(1, n)`, including
+`(1, 0)` for an explicit empty input selection. Omitted native inputs select all columns;
+explicit IDs select and reorder them. Model IDs are `model:<ordinal>` and script
+constant IDs are `constant:<ordinal>`. These IDs are local to the stored complete
+axis definition and numeric snapshot. Display labels do not determine extraction.
+Coordinates retain native units and optional physical units. BS and correlated
+BS units follow their typed parameter layout; other model families and arbitrary
+script constants retain an unknown physical unit. No currency or financial
+scale is inferred from a display name. Explicit empty native inputs preserve the
+smoothed native estimator; they do not switch to passive hard decisions.
+
+`Jacobian()` returns raw derivatives. `ReportedJacobian()` returns a separate
+matrix with each requested positive finite reporting factor applied once.
+`LegacyValues()` returns raw `PV`/`d_...` values and rejects colliding display
+keys; equal model/script display names remain distinct in structured columns.
+Getters expose no active numbers and do not rerun calculation.
+
+`numericPayloadBudgetBytes_` bounds returned value and raw-Jacobian numeric
+storage. It excludes metadata, source storage, worker/tape memory and getter
+copies. Path count, selection, factors and budget are validated before date
+capture, history resolution, compilation or worker submission. Nonfinite
+requested values/derivatives or reported multiplication overflow fail before
+publishing a result.
+
+The result retains the resolved evaluation date, model-data JSON snapshot,
+complete numeric coordinate axis, product definition, simulation settings and
+the actual observation keys/frozen historical values from preparation. Native
+LSM `RetrainedBump` uses the method label `NativeAADWithRetrainedPolicySecant`;
+its policy secant is not represented as a wholly analytic derivative. Paths per
+replicate and actual pricing-replicate count are explicit. An expired result
+is labelled `Expired` and its stored path count is the requested count. No
+uncomputed standard error is supplied.
+
+The lower-level `Script::ProjectMonteCarloRiskResult` in
+`dal/script/riskresults.hpp` converts an existing `SimResults_` without valuation
+or a reverse sweep. It divides the payoff sum by the positive path count once;
+existing mean gradients are copied unchanged. Its provenance is caller-supplied
+conversion metadata and cannot certify execution. The public valuation entry
+constructs provenance from its own sealed preparation.
+
+Python exposes keyword-only `RiskRequest_` and `MonteCarlo_ValueWithRisk`.
+Result properties are read-only; matrix/container getters return detached
+copies. Excel uses immutable request/result handles and `RISKRESULT.GET.*`
+getters. A zero-column Jacobian spills one blank Excel cell; `GET.SHAPE` reports
+the exact `(1, 0)` extent. See the [C++ guide](../public-api.md#structured-script-risk),
+[Python guide](../python/README.md#structured-script-risk) and
+[Excel guide](../excel/script-settings.md#structured-script-risk).
+
+### Discrete Dupire Calibration Pullback
+
+The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility
+node adjoints to additive implied-volatility spread quotes. Quote rows are
+strikes and columns are maturities. Spreads use absolute decimal volatility;
+`0.01` is one volatility point. Surface rows are spots and columns are model
+times, matching `LocalVolSurfaceData_`.
+
+The public header `dal-public/src/dupirerisk.hpp` also accepts `BSModelData_`
+as a flat base IVS, preserving its spot, rate and dividend yield. Python exposes
+the same frozen boundary with built-in and custom IVS inputs; see the
+[Python quote-risk interface](../python/README.md#dupire-quote-risk).
+
+```cpp
+#include <dal/model/dupirerisk.hpp>
+#include <dal/model/ivs.hpp>
+
+AAD::MertonIVS_ base(100.0, 0.2, 0.08, -0.1, 0.15);
+DupireRiskInputs_ inputs{{75.0, 105.0, 135.0}, {0.4, 1.2},
+                         Matrix_<>(3, 2, 0.0), {60.0, 100.0, 140.0}, 10.0,
+                         {0.5, 1.0}, 0.5};
+const auto calibration = CalibrateDupireWithRisk(base, inputs);
+const auto& surface = *calibration.Surface();
+DupireParameterAdjoints_ seeds{
+    calibration, Matrix_<>(surface.vols_.Rows(), surface.vols_.Cols(), 1.0)};
+const auto risk = PullbackDupireCalibration(calibration, seeds);
+// TotalAdjoints() differentiates the sum of surface nodes in this example.
+```
+
+`CalibrateDupireWithRisk` copies configuration and the display name before
+sampling. Its immutable snapshot owns the base IVS samples needed by the
+existing central-difference stencil and ATM band selection, deterministic
+carry, complete quote/grid definition and numeric calibrated surface.
+Subsequent pullbacks use those samples after the original IVS changes or is
+destroyed. The derivative holds these inputs fixed and follows the discrete
+`1e-4` relative strike/time stencil with the original base-band boundary copies.
+
+The caller supplies numeric surface adjoints. A separate native recording
+replays calibration, validates its primal surface and adds each output seed,
+including copied boundary aliases. The seed's complete calibration identity
+must match; dimensions and display names alone cannot establish compatibility.
+When ordinary active replay fails the primal check, a checked replay uses scalar
+call prices with the original active-expression derivatives after checking
+call-level rounding disagreement. This prevents contracted floating arithmetic
+from amplifying call rounding through the second-difference stencil; the final
+surface check remains relative/absolute `1e-12`.
+Zero and negative seeds are supported. Nonfinite quotes/seeds, invalid grid
+spacing, unresolved or nonpositive call curvature and nonpositive local
+variance fail explicitly. Independent nested recordings remain unsupported.
+
+An optional `DupireDirectQuoteAdjoints_` carries the quote definition and an
+additional numeric contribution. Its ordered quote axes and values must match.
+`CalibrationAdjoints()`, `DirectAdjoints()` and `TotalAdjoints()` preserve the
+separate contributions to `C_quote^T g_surface + g_direct`. No path averaging or
+reporting conversion is applied here. Results own ordinary numeric matrices,
+the calibration snapshot, method `NativeAADCalibrationVJP` and unit `decimal-vol`.
+
+The owning common C++ boundary in `dal-public/src/calibrationrisk.hpp` and its
+Python factories also
+accept this snapshot and preserve these layouts, direct-quote identity,
+method and units. It returns the same passive result type as captured curve
+provenance; see the [common calibration interface](../yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback).
+
+### Hybrid Valuation to Dupire Quotes
+
+`dal-public/src/dupirerisk.hpp` connects an existing `ValueByMonteCarloWithRisk`
+result to its calibration snapshot. Select the local-volatility component by
+name and use the snapshot's surface when constructing the Hybrid model:
+`NewDupireModelData(name, calibration, index, currency, factor, maxStep=1/12)`
+provides a detached one-factor model with `equity` and `rate` components,
+preserving the frozen spot and deterministic carry. Python and
+[Excel](../excel/README.md#dupire-quote-risk) expose the same convenience.
+
+```cpp
+#include <dal-public/src/dupirerisk.hpp>
+
+// valuation was produced with calibration.Surface() in component "equity".
+const auto quoteRisk = PullbackDupireScriptRisk(valuation, calibration, "equity");
+const auto& quoteGradient = quoteRisk.QuoteRisk().TotalAdjoints();
+const auto& retainedPrice = quoteRisk.Valuation().Values();
+```
+
+The adapter restores the result's retained numeric model snapshot, checks its
+complete model axis and the selected component's surface, and maps raw model
+ordinals to spot-major/time-minor seeds. Runtime component ordering determines
+the mapping; display labels and report factors cannot replace it. All surface
+inputs must be selected, including coordinates whose computed risk is zero.
+Missing inputs, changed grids/values, inconsistent model coordinates,
+price-only execution and unsupported valuation methods fail explicitly.
+
+The operation performs a separate calibration reverse after the existing
+valuation. It does not run Monte Carlo or reread history. Direct quote inputs
+are **PV adjoints**, with any cashflow discount already included; they are
+added once without another discount or path normalization. To combine compatible
+trades, extract each seed with `ExtractDupireParameterAdjoints`, sum their raw
+matrices after checking `calibration_.Matches`, and call the core pullback once.
+
+The wrapper retains the passive valuation and quote result. Its method joins
+the source method with `ThenNativeAADCalibrationVJP`. An expired source produces
+zero calibration risk. A `NativeAADWithRetrainedPolicySecant` source keeps that
+mixed-method label: multiplying its model-coordinate secant by the calibration
+Jacobian does not establish a full quote-bump/recalibrate/retrain estimator.
+
+### Automatic C++ Dupire Risk Requests
+
+`dal-public/src/dupireriskrequest.hpp` plans and executes one scalar Hybrid
+valuation followed by the frozen Dupire quote pullback:
+
+```cpp
+#include <dal-public/src/dupireriskrequest.hpp>
+
+DupireScriptRiskRequest_ request;
+request.numPaths_ = 257;
+request.quotes_.inputs_ = Vector_<String_>{"quote:3", "quote:0"};
+request.quotes_.reportFactors_ = Vector_<>{0.01, 0.01};
+request.valuation_.evaluationDate_ = Date_(2026, 9, 12);
+const auto plan = PlanDupireScriptRisk(product, model, calibration, "equity", request);
+const auto result = ValueByMonteCarloWithDupireRisk(plan);
+const auto perVolPoint = result.QuoteRisk().ReportedJacobian();
+```
+
+The passive owning plan exposes the complete input axis, every required surface
+coordinate in native order, quote selection and numeric payload before history
+resolution or worker submission. It seals product/model/settings data, including
+nested surfaces and correlations. Mutating or destroying caller data does not
+change later execution. This entry accepts exact native Hybrid graphs with BS
+or local-vol equities, constant correlation and one flat domestic rate provider.
+Target spot, dividend, rate, surface grids and surface values must match the
+calibration. Custom archive types are rejected before serialization.
+
+An explicit `DupireQuoteBinding_` associates a script constant ordinal with a
+source-scoped quote ID. Both must be unique, and their native values must agree.
+The caller declares that dependency; matching display names cannot infer it.
+Required constant columns follow all mandatory surface columns in binding order.
+Their fixed-surface partials are added once after calibration mapping. Checked
+external `CalibrationDirectQuoteAdjoints_` are an alternative; supplying both
+forms rejects. External Dupire direct identity compares quote axes and values,
+independently of the fixed base IVS.
+
+`request.quotes_.numericPayloadBudgetBytes_` bounds the combined retained numeric
+result: one scalar value, S surface derivatives, B bound-constant derivatives
+and three full Q-quote contribution matrices, or `8 * (1 + S + B + 3 * Q)` bytes.
+Subset and empty quote selections retain the same payload for fixed bindings.
+The budget excludes source/archive/metadata, plan/input storage, getter copies
+and temporary worker/tape/VJP arrays; it is not a process-memory limit.
+
+An omitted evaluation date is captured during planning. Explicit immutable
+fixing snapshots are shared; omitted global history is resolved and frozen at
+execution after successful preflight. Empty quote selection preserves the
+native smoothed estimator and all mandatory valuation derivatives. The scalar
+valuation retains fixed-calibration provenance; the combined method preserves
+expired and mixed-policy labels. Result getters expose passive values and
+detached report projections without history lookup, valuation or another reverse.
 
 ### Passive vs Active Tape
 
-XAD and CoDiPack distinguish an *active* tape (records statements) from a
-*passive* tape (does not). The native backend has no notion of a passive tape —
-recording is unconditional — and Adept's activity is governed by its
-`Stack` base. Code that needs a value-only pass (e.g. a baseline pricing run
+Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run
 without differentiation) should use a plain `double` evaluation rather than
-relying on tape passivity, which is backend-dependent.
+relying on tape passivity.
 
 ## Examples
 
-The recording contract of the previous section is exercised end to end by the
-AAD benchmark program, which prices a Black payoff and reads back every Greek
-from a single reverse sweep. See
-[`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad) for a runnable version;
-its core backend-neutral sweep is:
+The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
+pricing, native AAD and analytic price/gradient references. It treats forward,
+volatility, numeraire, strike and expiry as independent coordinates, so the
+expiry derivative holds forward and numeraire fixed.
+
+After registering those five inputs on a `RecordingScope_`, its repeated
+evaluation uses a checkpoint to retain the inputs and their accumulated seeds:
 
 ```cpp
-// from dal-cpp/examples/aad/aad.cpp
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/aad.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/math/vectors.hpp>
-
-using namespace Dal;
-using Dal::AAD::Number_;
-
-Dal::RegisterAll_::Init();
-AAD::Clear(*AAD::Tape());
-
-Number_ fwdAad(fwd), volAad(vol), numeraireAad(numeraire), strikeAad(strike), expiryAad(expiry);
-PutOnTape(fwdAad);
-PutOnTape(volAad);
-PutOnTape(numeraireAad);
-PutOnTape(strikeAad);
-PutOnTape(expiryAad);
-AAD::NewRecording(*AAD::Tape());
-
-Number_ priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
-Adjoint(priceAad) = 1.0;
-AAD::PropagateToStart(*AAD::Tape());
-
-const double pv    = Value(priceAad);   // price
-const double delta = Adjoint(fwdAad);   // dP/dFwd
-const double vega  = Adjoint(volAad);   // dP/dVol
-// numeraire, strike, and expiry adjoints are read the same way
-```
-
-The same program benchmarks repeated evaluation of this deterministic Black
-formula. Its timing loop reuses the tape and divides accumulated adjoints by
-the repetition count:
-
-```cpp
-// from dal-cpp/examples/aad/aad.cpp
-Number_ priceAad{0.0};
-for (int i = 0; i < nRounds; ++i) {
-    AAD::Rewind(*AAD::Tape());
-    priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
-    Adjoint(priceAad) = 1.0;
-    AAD::PropagateToStart(*AAD::Tape());
+scope.StartRecording();
+const auto checkpoint = scope.MakeCheckpoint();
+for (int i = 0; i < rounds; ++i) {
+    scope.Restore(checkpoint);
+    AAD::Number_ price = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
+    const double pv = AAD::Value(price);
+    scope.FinishRecording();
+    AAD::NativeOperations_::SetSeed(price, 1.0);
+    scope.ReverseSuffix(checkpoint);
+    // Use pv before the next restore discards this suffix.
 }
-const double delta = Adjoint(fwdAad) / nRounds;   // benchmark repetition average
+scope.ReversePrefix(checkpoint);
+const double delta = AAD::NativeOperations_::ReadAdjoint(fwdAad) / rounds;
+const double vega = AAD::NativeOperations_::ReadAdjoint(volAad) / rounds;
+scope.Close();
 ```
 
-This loop does not simulate Monte Carlo paths. The production pathwise estimator
-uses the mark/rewind discipline described above in `dal-cpp/dal/script/simulation.hpp`.
+`BlackTest` is local to the example. The executable checks its price and all
+five derivatives against independent analytic formulas. Repetition timing is
+illustrative and is not a paired performance acceptance result.
 
-The example also benchmarks the same payoff with the XAD, CoDiPack, and Adept
-backends side by side; only the recording and zeroing calls differ, as described
-under *Backends* above.
+This loop evaluates a deterministic formula; the production pathwise estimator
+uses the same prefix/suffix discipline in `dal-cpp/dal/script/simulation.hpp`.
 
 ## Summary
 

@@ -45,6 +45,121 @@ keys instead of assuming PV is the first row. AAD adds model and script-constant
 risks; risks are already normalized, and there are no fixing-risk or diagnostic
 rows. With AAD disabled the result is a 1×2 PV table.
 
+## Structured script risk
+
+`RISKREQUEST.NEW(name, [settings])` creates an immutable request from a
+two-column key/value table. Supported keys are `inputs`, `outputs`,
+`report_factors` and `numeric_payload_budget_bytes`. IDs and factors are
+semicolon-separated text, such as `constant:0;model:1` and `0.5;0.01`.
+An omitted input row selects all native inputs; a present input row with a blank
+value selects none. Blank output selection is invalid. Budget is an exactly
+representable nonnegative integer no larger than `2^53-1`; zero cannot hold the
+mandatory payoff value. Unknown or repeated keys fail.
+
+`MONTECARLO.VALUEWITHRISK(product, modelData, n_paths, [request], [valuation],
+[simulation])` returns a completed result handle. Omitted simulation enables
+native AAD; an explicit simulation handle with `enable_aad=FALSE` requests price
+only and cannot select nonempty risk inputs. No getter performs valuation.
+
+Use `RISKRESULT.GET.VALUES`, `.GET.OUTPUTS`, `.GET.JACOBIAN(result, [reported])`
+and `.GET.SHAPE` for numeric values, ordered output IDs, raw/reported derivatives
+and exact matrix extent. A zero-column Jacobian spills one blank cell, while
+shape reports `1, 0`. `.GET.INPUTS(result, [complete])` returns a header and
+ordered coordinate rows containing ID, label, family, ordinal, native value/unit,
+optional physical unit and reporting scale. Unknown physical units are blank.
+
+`.GET.PROVENANCE`, `.GET.HISTORY`, `.GET.PRODUCT` and `.GET.MODELSNAPSHOT`
+extract actual method/settings, observation keys/frozen historical values,
+the original product table and model-data JSON chunks. Concatenate model chunks
+without separators. `.GET.LEGACYVALUES` returns raw `PV`/`d_...` and rejects
+colliding display labels. Results survive later valuation/failure; request/result
+handle serialization explicitly fails with `RiskArchiveUnsupported`.
+The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
+defines normalization, reporting factors and mixed LSM policy risk. Numeric
+payload budgets exclude metadata, worker/tape storage and subsequent getter copies.
+
+## Calibration quote requests
+
+`CALIBRATIONRISKREQUEST.NEW(name, [settings])` accepts two-column rows for
+`inputs`, `report_factors` and `numeric_payload_budget_bytes`. Quote IDs are
+source-scoped `quote:<ordinal>` values. Omitted inputs select every quote;
+an explicit blank inputs row selects none. IDs and factors use the same
+semicolon syntax as scalar requests. Unknown/repeated keys, invalid factors
+and numeric budgets reject. `.GET.SETTINGS` returns configured rows only,
+preserving omitted versus explicitly empty selections on round trips.
+
+Create a common boundary with `CALIBRATIONPULLBACK.NEW`, then call
+`CALIBRATIONRISKPLAN.NEW(name, calibration, [request])`. `.GET.CALIBRATION`
+returns the owning boundary; `.GET.INPUTS(plan, [complete])` returns selected
+or complete quote metadata. Dupire includes actual spread, strike and maturity;
+curves retain native block ordinals/units and leave unavailable quote values
+blank. `.GET.SHAPE` reports the exact selected extent, native quote dimensions
+and retained numeric payload. It attaches no PV or currency to external seeds.
+
+`CALIBRATIONRISKRESULT.NEW(name, plan, parameters, [direct])` executes the
+native common pullback with typed seeds. `.GET.JACOBIAN(result, [projection])`
+accepts `Total` (default), `Calibration`, `Direct` or `Reported`.
+Reporting scales selected derivatives once and preserves all raw matrices.
+`.GET.PLAN` returns the owning plan; `.GET.QUOTERISK` returns the existing
+common result handle for full contributions and source provenance. An empty
+selected Jacobian spills one blank cell; shape still reports zero selected
+columns. Empty selection continues to execute the native pullback.
+
+The common numeric budget always counts three complete native quote matrices,
+even for subset/empty selections. It excludes source storage, metadata, temporary
+work, tape/workers and getter copies. See the
+[native request contract](../yield-curves/jacobian-risk.md#c-quote-coordinate-requests).
+
+## Automatic Dupire script requests
+
+Use one execution settings handle with the existing typed valuation/simulation
+controls. These formulas refer to previously created product, model and frozen
+calibration handles; `quoteSettings` and `bindings` are optional ranges.
+
+```text
+execution = DUPIRESCRIPTRISKSETTINGS.NEW("execution", 257, valuation, simulation)
+quotes = CALIBRATIONRISKREQUEST.NEW("quotes", quoteSettings)
+request = DUPIRESCRIPTRISKREQUEST.NEW("request", execution, quotes, bindings)
+plan = DUPIRESCRIPTRISKPLAN.NEW("plan", product, modelData, calibration, "equity", request)
+result = DUPIRESCRIPTRISKRESULT.NEW("result", plan)
+valuationResult = DUPIRESCRIPTRISKRESULT.GET.VALUATION(result)
+quoteResult = DUPIRESCRIPTRISKRESULT.GET.QUOTERISK(result)
+reported = CALIBRATIONRISKRESULT.GET.JACOBIAN(quoteResult, "Reported")
+```
+
+`component` is the exact local-vol component name. The `DUPIREMODELDATA.NEW`
+factory names its component `equity`; its observation index, such as
+`EQ[LOCAL]`, is a different field. A custom native Hybrid supplies its own
+component name. The automatic path supports a scalar payoff and one calibrated
+local-vol component in a native single-currency Hybrid with a matching flat
+deterministic domestic rate. Omitted simulation enables native AAD; an explicit
+`enable_aad=FALSE` rejects during planning.
+
+`bindings` contains two data columns without a header: exact nonnegative script
+constant ordinal and source quote ID. For example, ordinal `0` and `quote:0`
+declare a direct dependency whose native values must agree. Bool/text ordinals,
+fractions, overflow and embedded NUL reject. A fifth optional request argument
+accepts an owning common external direct seed instead; planning rejects its
+combination with bindings. The fixed-surface direct partial is added once.
+
+The plan seals caller product/model data before execution, exposes complete or
+required model/constant axes through `.GET.INPUTS`, and exposes the common
+quote plan through `.GET.QUOTEPLAN`. Quote selection never removes mandatory
+surface/direct valuation inputs. Its combined budget counts the scalar value,
+required valuation Jacobian and three complete quote matrices; exact equality
+succeeds and a short budget rejects before history/worker activity.
+
+Settings/request/plan `.GET.CONFIGURATION` functions copy passive controls.
+Request configuration includes `has_direct`; `.GET.DIRECT` explicitly rejects
+when no external seed exists. Multi-output configuration functions accept the
+usual trailing `format` argument. Plan settings capture an omitted evaluation
+date; global history is resolved at execution. `.GET.PROVENANCE` exposes
+component/payload and the result's actual combined method. Valuation provenance
+remains `calibration=fixed`; the quote result records the subsequent mapping.
+Getters read retained passive data. Immutable calibration/request handles reject
+serialization with `CalibrationArchiveUnsupported`. See
+[automatic native requests](../methodology/aad.md#automatic-c-dupire-risk-requests).
+
 ## Settings Ranges
 
 Each `settings` range has exactly two columns, key then value, with no header.

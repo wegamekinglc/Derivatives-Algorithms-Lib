@@ -29,11 +29,7 @@
 
 using namespace Dal;
 
-// The analytic Jacobian is backend-neutral: it runs the single-result reverse-sweep loop under
-// every AAD backend (native, XAD, CoDiPack, Adept) via the Dal::AAD facade (RegisterIndependent,
-// ZeroAdjoints, Adjoint, PropagateToStart). Every test below runs on every backend; there is no
-// skip machinery. The eligibility/fallback tests still assert an empty diagnostics_.jacobian_
-// for ineligible calibrations -- that is the fallback behavior, not a backend skip.
+// Ineligible calibrations retain an empty diagnostics_.jacobian_ as their fallback result.
 //
 // The forward analytic Jacobian is obtained ONLY as a byproduct of calibration: every test
 // calibrates with CurveJacobianMode_::ANALYTIC and reads result.diagnostics_.jacobian_ (the
@@ -839,9 +835,7 @@ TEST(AnalyticJacobianTest, TestEveryRowHasNonTrivialJacobian) {
 }
 
 // Category 11: B1 sentinel -- later rows stay clean of earlier rows' residue
-// On Adept the compute_adjoint override zeroes only each consumed statement's LHS and accumulates
-// into operands whose gradients are never cleared between single-result sweeps. If ZeroAdjoints
-// were a no-op (the B1 bug), row 1's seed would leave operand residue that row 2's sweep inherits,
+// Without leaf clearing, row 1's seed would leave operand residue that row 2's sweep inherits,
 // and row 2's harvested Jacobian would be wrong -- specifically its structural zeros would no
 // longer be exactly zero, and its non-zero entries would disagree with a finite difference. This
 // test runs the full 5-row ladder (each row's cashflow support is a strict prefix of the columns)
@@ -891,7 +885,7 @@ TEST(AnalyticJacobianTest, TestLaterRowsCleanOfEarlierResidue) {
 }
 
 // Category 12: Structural asymmetry guard (defense against a future Jacobian-layout transpose)
-// A multi-result fast path (e.g. Adept stack.jacobian(), deferred) could transpose the Jacobian
+// A future multi-result fast path could transpose the Jacobian
 // layout if its dep/indep offset bookkeeping is wrong. The LOG_DISCOUNT swap ladder is provably
 // non-symmetric: swap i (maturing at knot i+1) has cashflow support over columns 0..i, so
 // J(i, j>i) == 0 structurally while J(j, i) for j>i can be non-zero. This test names an explicit

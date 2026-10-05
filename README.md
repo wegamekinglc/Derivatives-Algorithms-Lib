@@ -11,10 +11,10 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 ## CI
 
 Pull requests with source, configuration, or build changes build and test the
-full compiler × AAD-backend matrix below. Documentation-only changes run the
+native AAD compiler matrix below. Documentation-only changes run the
 documentation integrity check and stable Linux/Windows gates without starting
 the compile or sanitizer jobs. Pushes to `master` (merges and direct
-master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
+master pushes) run a lean GCC 14 + Clang 20 subset,
 because the pull request already covered every combination. GitHub publishes
 one status badge per workflow; open a workflow run for per-job results.
 Path-matched pull requests run [Python wheel CI](.github/workflows/dal-python-ci.yml)
@@ -29,19 +29,19 @@ Python and native regression checks; Windows runs benchmark executables on
 MSVC/AADet. Results remain in the workflow summaries and 30-day artifacts.
 Benchmark failures do not block pull-request or push CI.
 
-| Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
-|----------------------------|----------|-------|-----|----------|-------|
-| Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓     | ✓   | ✓        | ✓     |
-| Windows (`windows-latest`) | MSVC     | ✓     | ✓   | —        | ✓     |
+| Platform                   | Compiler | Native AAD |
+|----------------------------|----------|------------|
+| Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓          |
+| Windows (`windows-latest`) | MSVC     | ✓          |
 
 - The GCC 14 + AADet leg additionally runs gcov coverage, tracked by Coveralls.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
-- Separate Linux jobs cover CoDiPack thread isolation, Python bindings with
+- Separate Linux jobs cover native diagnostic OFF/ON and Python bindings with
   generated-source verification, documentation integrity, a warning-clean
   build, and ASan/UBSan/TSan spot tests.
 
@@ -81,7 +81,7 @@ not an ABI-isolated compatibility boundary.
 Core domains in `dal-cpp/dal/`:
 
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
-- **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
+- **math/aad/** — Built-in Automatic Adjoint Differentiation with scalar/vector adjoints
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
 - **script/** — Expression scripting engine for exotic payoffs, with tree-walk and compiled evaluation modes
 - **model/** — Financial models (Black-Scholes, GSR, Hybrid), local-volatility surfaces, and Dupire calibration

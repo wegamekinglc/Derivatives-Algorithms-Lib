@@ -11,12 +11,14 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <type_traits>
 
 #include "jointquoteriskopaque.hpp"
 #include "jointxccyquoteriskfixtures.hpp"
+#include "quoteriskrecordchecks.hpp"
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -117,11 +119,9 @@ namespace {
     // knot leaves that forward unconstrained and the residual Jacobian rank-deficient (covered
     // by TestSingleCurveRankDeficientQuotesFailClosed below). Anchoring knot 0 at today keeps
     // every quoted forward instrument-constrained.
-    Dal::Vector_<Dal::Date_> SingleMaturities(const Dal::Date_& today) {
-        return {Dal::Date::AddMonths(today, 6), Dal::Date::AddMonths(today, 12)};
-    }
+    Dal::Vector_<Dal::Date_> SingleMaturities(const Dal::Date_& today) { return {Dal::Date::AddMonths(today, 6), Dal::Date::AddMonths(today, 12)}; }
 
-    SingleProvenanceInput_ MakeSingleInput(Dal::CurveJacobianMode_ mode) {
+    SingleProvenanceInput_ MakeSingleInput(Dal::CurveJacobianMode_ mode, bool computeInverse = true) {
         SingleProvenanceInput_ result;
         result.spec_.today_ = Dal::Date_(2025, 1, 2);
         result.spec_.ccy_ = "USD";
@@ -135,8 +135,8 @@ namespace {
         result.spec_.initialGuess_ = 0.01;
         result.spec_.knotDates_ = {result.spec_.today_, Dal::Date::AddMonths(result.spec_.today_, 6), Dal::Date::AddMonths(result.spec_.today_, 12)};
 
-        const Dal::Handle_<Dal::DiscountCurve_> known(
-            Dal::NewDiscountPWC("single_quote_risk_known", "USD", Dal::PiecewiseConstant_(result.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025, 0.03})));
+        const Dal::Handle_<Dal::DiscountCurve_> known(Dal::NewDiscountPWC(
+            "single_quote_risk_known", "USD", Dal::PiecewiseConstant_(result.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025, 0.03})));
         const Dal::CurveBlock_ knownBlock(known, result.spec_.liborBasis_);
         const Dal::RateIndexConvention_ index = SingleIndex();
         for (const auto& maturity : SingleMaturities(result.spec_.today_)) {
@@ -147,6 +147,7 @@ namespace {
         }
 
         result.options_.jacobianMode_ = mode;
+        result.options_.computeEffJacobianInverse_ = computeInverse;
         result.result_ = Dal::CalibrateYieldCurve(result.spec_, result.options_);
         const auto alias = std::shared_ptr<const Dal::DiscountCurve_>(std::shared_ptr<void>(), result.result_.curve_.get());
         result.market_.valuationTime_ = Dal::DateTime_(result.spec_.today_, 9, 0);
@@ -1079,6 +1080,133 @@ TEST(QuoteRiskProvenanceTest, TestCoreHeaderFactorySignatures) {
     ASSERT_EQ(config.calibrationId_, "header-isolation");
 }
 
+TEST(QuoteRiskProvenanceTest, TestOptInRecordPreservesTheExistingSingleCurveState) {
+    for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+        const auto input = MakeSingleInput(mode);
+        Dal::RateQuoteRiskProvenanceConfig_ config{input.config_.calibrationId_, input.config_.componentKeyByParameterBlock_};
+        ASSERT_FALSE(config.retainCalibrationRecord_);
+        const auto original = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, config);
+        ASSERT_TRUE(original.CalibrationRecord().empty());
+        config.retainCalibrationRecord_ = true;
+        const auto captured = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, config);
+        QuoteRiskRecordChecks::AssertMappingUnchanged(original, captured);
+        rapidjson::Document record;
+        QuoteRiskRecordChecks::ReadCapturedRecord(captured, &record);
+        ASSERT_FALSE(HasFatalFailure());
+        ASSERT_TRUE(record["result"].HasMember("curve"));
+        ASSERT_TRUE(record["result"].HasMember("diagnostics"));
+        ASSERT_TRUE(record["result"]["diagnostics"].HasMember("marketRates"));
+        const auto& quotes = record["result"]["diagnostics"]["marketRates"];
+        ASSERT_TRUE(quotes.IsArray());
+        ASSERT_EQ(quotes.Size(), input.result_.diagnostics_.marketRates_.size());
+        for (rapidjson::SizeType i = 0; i < quotes.Size(); ++i)
+            ASSERT_EQ(quotes[i].GetDouble(), input.result_.diagnostics_.marketRates_[i]);
+        QuoteRiskRecordChecks::AssertPortfolioUnchanged({SingleDepositTrade(input)}, input.market_, original, captured);
+    }
+}
+
+TEST(QuoteRiskProvenanceTest, TestJointXccyRecordRetainsTheFullSource) {
+    for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+        const auto input = MakeJointInput(mode);
+        auto config = input.config_;
+        const auto original = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, config);
+        config.retainCalibrationRecord_ = true;
+        const auto captured = Dal::BuildJointXccyQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, config);
+        QuoteRiskRecordChecks::AssertMappingUnchanged(original, captured);
+        rapidjson::Document record;
+        QuoteRiskRecordChecks::ReadCapturedRecord(captured, &record);
+        ASSERT_FALSE(HasFatalFailure());
+        ASSERT_TRUE(record["result"].HasMember("domesticBlock"));
+        ASSERT_TRUE(record["result"].HasMember("foreignBlock"));
+        ASSERT_TRUE(record["result"].HasMember("basisCurve"));
+        ASSERT_TRUE(record["result"].HasMember("marketRates"));
+        const auto& quotes = record["result"]["marketRates"];
+        ASSERT_TRUE(quotes.IsArray());
+        ASSERT_EQ(quotes.Size(), input.result_.marketRates_.size());
+        for (rapidjson::SizeType i = 0; i < quotes.Size(); ++i)
+            ASSERT_EQ(quotes[i].GetDouble(), input.result_.marketRates_[i]);
+        ASSERT_TRUE(record["market"].HasMember("xccy"));
+        ASSERT_TRUE(record["market"]["xccy"].IsObject());
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            XccyRiskTrade(input.spec_.valuationTime_.Date(), input.spec_.basis_.knotDates_.back(), input.spec_.pair_, "record-joint"),
+            JointDepositRiskTrade(input, 2, input.spec_.pair_.foreign_, "record-joint-foreign")};
+        QuoteRiskRecordChecks::AssertPortfolioUnchanged(trades, input.market_, original, captured);
+    }
+}
+
+TEST(QuoteRiskProvenanceTest, TestStagedXccyRecordRetainsFixedUpstreamCurves) {
+    for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+        const auto input = MakeStagedInput(mode);
+        auto config = input.config_;
+        const auto original = Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, config);
+        config.retainCalibrationRecord_ = true;
+        const auto captured = Dal::BuildStagedXccyBasisQuoteRiskProvenance(input.spec_, *input.result_, input.options_, input.market_, config);
+        QuoteRiskRecordChecks::AssertMappingUnchanged(original, captured);
+        rapidjson::Document record;
+        QuoteRiskRecordChecks::ReadCapturedRecord(captured, &record);
+        ASSERT_FALSE(HasFatalFailure());
+        ASSERT_TRUE(record["spec"].HasMember("domesticBlock"));
+        ASSERT_TRUE(record["spec"].HasMember("foreignBlock"));
+        ASSERT_TRUE(record["spec"].HasMember("instruments"));
+        const auto& instruments = record["spec"]["instruments"];
+        ASSERT_TRUE(instruments.IsArray());
+        ASSERT_EQ(instruments.Size(), input.spec_.instruments_.size());
+        for (rapidjson::SizeType i = 0; i < instruments.Size(); ++i) {
+            ASSERT_TRUE(instruments[i].HasMember("marketRate"));
+            ASSERT_EQ(instruments[i]["marketRate"].GetDouble(), input.spec_.instruments_[i]->MarketRate());
+        }
+        const auto maturity = input.spec_.instruments_.back()->TimeSpan().second;
+        const Dal::Vector_<Dal::RateTradeDefinition_> trades{
+            XccyRiskTrade(input.spec_.today_, maturity, input.spec_.basisPair_, "record-staged"),
+            DepositRiskTrade(input.spec_.today_, maturity, input.spec_.basisPair_.foreign_, "staged-foreign-discount", "record-staged-foreign")};
+        QuoteRiskRecordChecks::AssertPortfolioUnchanged(trades, input.market_, original, captured);
+    }
+}
+
+TEST(QuoteRiskProvenanceTest, TestCapturedRecordOwnsBytesAfterSourceDestruction) {
+    std::optional<Dal::RateQuoteRiskProvenance_> captured;
+    std::string original;
+    {
+        auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
+        input.config_.retainCalibrationRecord_ = true;
+        captured = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+        original = captured->CalibrationRecord();
+        input.spec_.curveName_ = "SINGLE_QUOTE_RISK";
+        const auto changed = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+        ASSERT_NE(changed.CalibrationRecord(), original);
+        rapidjson::Document record;
+        QuoteRiskRecordChecks::ReadCapturedRecord(changed, &record);
+        ASSERT_FALSE(HasFatalFailure());
+        ASSERT_TRUE(record["spec"].HasMember("curveName"));
+        ASSERT_EQ(std::string(record["spec"]["curveName"].GetString()), "SINGLE_QUOTE_RISK");
+        input.result_.diagnostics_.effJacobianInverse_.Resize(1, 1);
+        input.result_.diagnostics_.effJacobianInverse_(0, 0) = 123.0;
+    }
+    ASSERT_TRUE(captured.has_value());
+    ASSERT_EQ(captured->CalibrationRecord(), original);
+    rapidjson::Document record;
+    QuoteRiskRecordChecks::ReadCapturedRecord(*captured, &record);
+    ASSERT_FALSE(HasFatalFailure());
+    ASSERT_EQ(std::string(record["spec"]["curveName"].GetString()), "single_quote_risk");
+    ASSERT_EQ(captured->EffectiveInverse().Rows(), 3);
+    ASSERT_EQ(captured->EffectiveInverse().Cols(), 2);
+}
+
+TEST(QuoteRiskProvenanceTest, TestUnavailableMappingStillCapturesItsReason) {
+    auto input = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC, false);
+    const auto original = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    input.config_.retainCalibrationRecord_ = true;
+    const auto captured = Dal::BuildSingleCurveQuoteRiskProvenance(input.spec_, input.result_, input.options_, input.market_, input.config_);
+    QuoteRiskRecordChecks::AssertMappingUnchanged(original, captured);
+    ASSERT_FALSE(captured.Available());
+    ASSERT_EQ(captured.Reason(), "QUOTE_RISK_INVERSE_NOT_REQUESTED");
+    rapidjson::Document record;
+    QuoteRiskRecordChecks::ReadCapturedRecord(captured, &record);
+    ASSERT_FALSE(HasFatalFailure());
+    ASSERT_TRUE(record.HasMember("reason"));
+    ASSERT_EQ(std::string(record["reason"].GetString()), "QUOTE_RISK_INVERSE_NOT_REQUESTED");
+}
+
 TEST(QuoteRiskProvenanceTest, TestSingleCurveAnalyticAndBumpedConstruction) {
     Dal::String_ analyticAxis;
     for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
@@ -1881,8 +2009,8 @@ TEST(QuoteRiskProvenanceTest, TestSolvedCurveAndBaseChangesAffectStateNotAxis) {
     const auto curveChanged = BuildSingle(curveInput);
 
     auto baseInput = MakeSingleInput(Dal::CurveJacobianMode_::Value_::ANALYTIC);
-    baseInput.spec_.baseCurve_ = Dal::Handle_<Dal::DiscountCurve_>(
-        Dal::NewDiscountPWC("single_quote_risk_base", "USD", Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.001, 0.001, 0.001})));
+    baseInput.spec_.baseCurve_ = Dal::Handle_<Dal::DiscountCurve_>(Dal::NewDiscountPWC(
+        "single_quote_risk_base", "USD", Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.001, 0.001, 0.001})));
     const Dal::Handle_<Dal::DiscountCurve_> knownWithBase(
         Dal::NewDiscountPWC("single_quote_risk_known_with_base", "USD",
                             Dal::PiecewiseConstant_(baseInput.spec_.knotDates_, Dal::Vector_<>{0.02, 0.025, 0.03}), baseInput.spec_.baseCurve_));

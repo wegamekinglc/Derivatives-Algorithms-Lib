@@ -2,13 +2,6 @@ add_executable(quote_risk_perf quote_risk_perf.cpp ../rate_risk_perf/quoteriskbe
 
 target_link_libraries(quote_risk_perf dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(quote_risk_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(quote_risk_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(quote_risk_perf adept)
-endif ()
 
 if(MSVC)
 else()

@@ -18,6 +18,7 @@
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointrate.hpp>
 #include <dal/curve/quoteriskaggregation.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
@@ -201,8 +202,6 @@ namespace Dal {
             const CurveRef_<T_>& forecast, const Date_& start, const Date_& maturity, const DayBasis_& basis, const DayBasis::Context_* context) {
             const double accrual = basis(start, maturity, context);
             const T_ df = forecast(start, maturity);
-            // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
-            // only work on native and CoDiPack (XAD/Adept have no conversion operator).
             const double dfValue = AAD::Value(df);
             REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(dfValue) && dfValue > 0.0,
                     "Floating rate pricing requires positive finite accrual and forecast discount factor");
@@ -1123,8 +1122,7 @@ namespace Dal {
                 const auto preparations = JointPreparations(closure, target, hoist != nullptr);
                 if (!preparations.count(target))
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist,
-                                                    hoist ? nullptr : CashflowsFor(trade));
+                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist, hoist ? nullptr : CashflowsFor(trade));
             }
 
             RateTradeNodeSensitivityResult_
@@ -1699,14 +1697,8 @@ namespace Dal {
                                     const Vector_<>& gradient,
                                     RatePortfolioQuoteRisk_* result) {
             const auto& provenance = *prepared.provenance_;
-            Vector_<> sensitivities;
-            Matrix::Multiply(gradient, provenance.EffectiveInverse(), &sensitivities);
-            REQUIRE(sensitivities.size() == provenance.Axis().quotes_.size(), "QUOTE_RISK_TRANSFORM_WIDTH_MISMATCH");
-            for (int i = 0; i < static_cast<int>(sensitivities.size()); ++i) {
+            RateQuoteRiskInternal::ForEachQuoteAdjoint(provenance, gradient, [&](int i, double sensitivity, double dv01) {
                 const auto& quote = provenance.Axis().quotes_[i];
-                const double sensitivity = sensitivities[i] / provenance.Tolerance();
-                const double dv01 = sensitivity * 1.0e-4;
-                REQUIRE(std::isfinite(sensitivity) && std::isfinite(dv01), "QUOTE_RISK_NON_FINITE_OUTPUT");
                 RateQuoteRiskBucket_ bucket;
                 bucket.calibrationId_ = provenance.CalibrationId();
                 bucket.axisFingerprint_ = provenance.Axis().fingerprint_;
@@ -1718,7 +1710,7 @@ namespace Dal {
                 bucket.dPvDDecimalQuote_ = sensitivity;
                 bucket.dv01_ = dv01;
                 result->buckets_.push_back(std::move(bucket));
-            }
+            });
         }
 
         bool UsablePassivePrice(const RatePricingTradeResult_& passive) { return passive.succeeded_ && std::isfinite(passive.pv_); }
@@ -1782,7 +1774,8 @@ namespace Dal {
             if (failedGradientSums->count(sumKey) || !AddQuoteRiskGradient(item.index_, actualPvCcy.String(), gradient, gradientSums)) {
                 if (failedGradientSums->insert(sumKey).second)
                     AppendProvenanceFailure(*item.provenance_, "QUOTE_RISK_NON_FINITE_GRADIENT", String_(), String_(), String_(), result);
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, structuralZero, String_(), "QUOTE_RISK_NON_FINITE_GRADIENT", result);
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, structuralZero, String_(), "QUOTE_RISK_NON_FINITE_GRADIENT",
+                                    result);
                 return;
             }
             AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, structuralZero, String_(), String_(), result);

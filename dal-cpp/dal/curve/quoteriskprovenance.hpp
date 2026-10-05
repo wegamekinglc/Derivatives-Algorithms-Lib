@@ -6,6 +6,7 @@
 
 #include <map>
 #include <memory>
+#include <string>
 
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
@@ -19,6 +20,7 @@ namespace Dal {
     struct RateQuoteRiskProvenanceConfig_ {
         String_ calibrationId_;
         std::map<String_, String_> componentKeyByParameterBlock_;
+        bool retainCalibrationRecord_ = false;
     };
 
     struct RateQuoteRiskRange_ {
@@ -103,6 +105,7 @@ namespace Dal {
         [[nodiscard]] const RateQuoteRiskState_& State() const;
         [[nodiscard]] const Matrix_<>& EffectiveInverse() const;
         [[nodiscard]] double Tolerance() const;
+        [[nodiscard]] const std::string& CalibrationRecord() const;
     };
 
     [[nodiscard]] const String_& RateQuoteRiskAxisFingerprintScheme();

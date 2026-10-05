@@ -232,10 +232,8 @@ namespace {
         const int passivePriceCount = RateCashflowPricingInternal::g_nodeSensitivityPassivePriceCount.load(std::memory_order_relaxed);
         const int preparationCount = RateCashflowPricingInternal::g_nodeSensitivityPreparationCount.load(std::memory_order_relaxed);
         const int sweepCount = RateCashflowPricingInternal::g_nodeSensitivitySweepCount.load(std::memory_order_relaxed);
-#if DAL_RATE_RISK_NATIVE_AAD
         std::atomic<int> tapeHighWater{0};
         RateCashflowPricingInternal::NodeSensitivityTapeSizeObservation_ tapeObservation(tapeHighWater);
-#endif
         double sink = 0.0;
         const auto result = Bench::Run(
             name,
@@ -256,13 +254,8 @@ namespace {
         const int observedPreparations = preparationDelta / kInvocationCount;
         const int observedSweeps = sweepDelta / kInvocationCount;
         Bench::Print(result);
-#if DAL_RATE_RISK_NATIVE_AAD
         std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d tape_high_water=%d\n", name, observedPassivePrices,
                      observedPreparations, observedSweeps, tapeHighWater.load(std::memory_order_relaxed));
-#else
-        std::fprintf(stderr, "%s observations: passive=%d preparations=%d sweeps=%d\n", name, observedPassivePrices, observedPreparations,
-                     observedSweeps);
-#endif
         REQUIRE(CurveCalibrationInvocationCount() == calibrationCount, "Quote-risk benchmark aggregate recalibrated inside the timed region");
         REQUIRE(passivePriceDelta == kInvocationCount * input.expectedPassivePriceCount_, "Quote-risk benchmark passive-price count drifted");
         REQUIRE(preparationDelta == kInvocationCount * input.expectedPreparationCount_, "Quote-risk benchmark preparation count drifted");
@@ -338,7 +331,6 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
-#if DAL_RATE_RISK_NATIVE_AAD
     {
         // Informational (stderr, not a gated row): the native tape node count of one OIS
         // daily-compounding sweep — the per-sweep high-water the latency cases above stand in for.
@@ -351,7 +343,6 @@ int main() {
         std::fprintf(stderr, "OIS daily sweep native tape nodes: %d (eligible=%d)\n", tapeNodes.load(std::memory_order_relaxed),
                      static_cast<int>(eligible));
     }
-#endif
 
     {
         // The XCCY shape of frozen P0 contract 8: every consumed curve is rebuilt active-typed on

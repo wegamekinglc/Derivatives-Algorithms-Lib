@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RiskRequest_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RiskRequest_New (in Excel: RISKREQUEST.NEW)</h1>
+Create an immutable scalar risk request
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Request name</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Two columns: inputs/outputs (semicolon IDs), report_factors (semicolon numbers), numeric_payload_budget_bytes. Missing key uses defaults; blank inputs selects none.</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>request</td><td>handle of type StorableRiskRequest</td><td>Immutable request; no date capture or valuation</td></tr>
+</table>
+
+
+
+
+
+

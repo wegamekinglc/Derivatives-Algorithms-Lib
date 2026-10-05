@@ -3,13 +3,6 @@ add_executable(underdetermined ${UNDERDETERMINED_FILES})
 
 target_link_libraries(underdetermined dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(underdetermined XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(underdetermined CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(underdetermined adept)
-endif ()
 
 if(MSVC)
 else()

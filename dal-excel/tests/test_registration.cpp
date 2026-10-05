@@ -8,6 +8,7 @@
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
 #include <dal-excel/src/__excel_test_api.hpp>
+#include <dal-excel/src/__registrationhelp.hpp>
 
 namespace {
     std::string CaseSensitive(const Dal::String_& value) { return std::string(value.c_str()); }
@@ -15,6 +16,22 @@ namespace {
 
 TEST(ExcelRegistrationPortableTest, TestCaseSensitiveComparisonRejectsLowercaseExcelName) {
     ASSERT_NE(CaseSensitive(Dal::String_("rateportfolioquoterisk.spill")), "RATEPORTFOLIOQUOTERISK.SPILL");
+}
+
+TEST(ExcelRegistrationPortableTest, TestGeneratedFormatHelpPreservesExplicitMetadata) {
+    const Dal::Vector_<Dal::String_> source{"Source handle"};
+    for (const auto* names : {"settings,format", "request,format", "plan,format"}) {
+        const auto help = Dal::Excel::RegistrationHelp(names, source);
+        ASSERT_EQ(help.size(), 2);
+        ASSERT_EQ(help.front(), source.front());
+        ASSERT_EQ(help.back(), "Desired screen layout of outputs; blank uses the default layout");
+    }
+    ASSERT_EQ(source.size(), 1);
+    const Dal::Vector_<Dal::String_> complete{"Source handle", "Custom format help"};
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("settings,format", complete), complete);
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("settings", source), source);
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("first,second,format", source), source);
+    ASSERT_TRUE(Dal::Excel::RegistrationHelp("", {}).empty());
 }
 
 #ifdef _WIN32
@@ -98,7 +115,21 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
         "xl_StagedXccyBasisQuoteRiskProvenance_New",
         "xl_RateQuoteRiskProvenance_New",
         "xl_RatePortfolioQuoteRisk_Spill",
+        "xl_CalibrationPullback_New",
+        "xl_CalibrationParameterAdjoints_New",
+        "xl_CalibrationDirectQuoteAdjoints_New",
+        "xl_CalibrationQuoteRisk_New",
+        "xl_CalibrationPullback_Get_Source",
+        "xl_CalibrationPullback_Get_Provenance",
+        "xl_CalibrationParameterAdjoints_Get_Calibration",
+        "xl_CalibrationParameterAdjoints_Get_Adjoints",
+        "xl_CalibrationDirectQuoteAdjoints_Get_Calibration",
+        "xl_CalibrationDirectQuoteAdjoints_Get_Adjoints",
+        "xl_CalibrationQuoteRisk_Get_Calibration",
+        "xl_CalibrationQuoteRisk_Get_Adjoints",
+        "xl_CalibrationQuoteRisk_Get_Provenance",
     };
+    const String_ prefix("result,calibrationId,parameterBlockKeys,componentKeys,market");
     for (const auto& cName : cNames) {
         const auto found =
             std::find_if(registrations.begin(), registrations.end(), [&](const auto& registration) { return registration.cName_ == cName; });
@@ -107,11 +138,60 @@ TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata
         ASSERT_FALSE(found->help_.empty());
         ASSERT_EQ(DeclaredArgCount(*found), found->argHelpCount_);
         ASSERT_LE(found->maxArgHelpLength_, 255);
+        if (cName.find("QuoteRiskProvenance_New") != String_::npos) {
+            ASSERT_EQ(found->argNames_.substr(0, prefix.size()), prefix);
+            ASSERT_EQ(found->argNames_, prefix + ",[retainCalibrationRecord]");
+            ASSERT_EQ(CaseSensitive(found->argTypes_), "QQQQQQQ");
+        }
     }
     const auto staged = std::find_if(registrations.begin(), registrations.end(),
                                      [](const auto& registration) { return registration.cName_ == "xl_StagedXccyBasisQuoteRiskProvenance_New"; });
     ASSERT_NE(staged, registrations.end());
-    ASSERT_EQ(staged->argNames_, String_("result,calibrationId,parameterBlockKeys,componentKeys,market"));
+    ASSERT_EQ(staged->argNames_.substr(0, prefix.size()), prefix);
+    ASSERT_EQ(staged->argNames_, prefix + ",[retainCalibrationRecord]");
+}
+
+TEST(ExcelRegistrationTest, TestCalibrationAndAutomaticRequestContracts) {
+    struct Contract_ {
+        const char* name_;
+        const char* arguments_;
+        const char* types_;
+    };
+    const Contract_ contracts[] = {{"CalibrationRiskRequest_New", "name,[settings]", "QQQ"},
+                                   {"CalibrationRiskRequest_Get_Settings", "request", "QQ"},
+                                   {"CalibrationRiskPlan_New", "name,calibration,[request]", "QQQQ"},
+                                   {"CalibrationRiskPlan_Get_Calibration", "plan", "QQ"},
+                                   {"CalibrationRiskPlan_Get_Inputs", "plan,[complete]", "QQQ"},
+                                   {"CalibrationRiskPlan_Get_Shape", "plan", "QQ"},
+                                   {"CalibrationRiskResult_New", "name,plan,parameters,[direct]", "QQQQQ"},
+                                   {"CalibrationRiskResult_Get_Plan", "result", "QQ"},
+                                   {"CalibrationRiskResult_Get_QuoteRisk", "result", "QQ"},
+                                   {"CalibrationRiskResult_Get_Jacobian", "result,[projection]", "QQQ"},
+                                   {"DupireScriptRiskSettings_New", "name,n_paths,[valuation],[simulation]", "QQQQQ"},
+                                   {"DupireScriptRiskSettings_Get_Configuration", "settings,format", "QQQ"},
+                                   {"DupireScriptRiskRequest_New", "name,settings,[quotes],[bindings],[direct]", "QQQQQQ"},
+                                   {"DupireScriptRiskRequest_Get_Configuration", "request,format", "QQQ"},
+                                   {"DupireScriptRiskRequest_Get_Direct", "request", "QQ"},
+                                   {"DupireScriptRiskPlan_New", "name,product,modelData,calibration,component,request", "QQQQQQQ"},
+                                   {"DupireScriptRiskPlan_Get_QuotePlan", "plan", "QQ"},
+                                   {"DupireScriptRiskPlan_Get_Inputs", "plan,[complete]", "QQQ"},
+                                   {"DupireScriptRiskPlan_Get_Configuration", "plan,format", "QQQ"},
+                                   {"DupireScriptRiskPlan_Get_Provenance", "plan", "QQ"},
+                                   {"DupireScriptRiskResult_New", "name,plan", "QQQ"},
+                                   {"DupireScriptRiskResult_Get_Valuation", "result", "QQ"},
+                                   {"DupireScriptRiskResult_Get_QuoteRisk", "result", "QQ"},
+                                   {"DupireScriptRiskResult_Get_Provenance", "result", "QQ"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.name_;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.name_;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.name_));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.arguments_);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), contract.types_);
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
 }
 
 TEST(ExcelRegistrationTest, TestEveryRegisteredFunctionResolvesToAnEntryPoint) {

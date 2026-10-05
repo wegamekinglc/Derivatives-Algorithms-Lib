@@ -77,12 +77,34 @@ namespace Dal {
         return Handle_<HybridComponentData_>(new HybridGSRRateData_(name, factors, curve, multiVol));
     }
 
-    FORCE_INLINE Handle_<HybridComponentData_> NewHybridGSRSLVRateData(const String_& name,
-                                                                       const String_& volFactor,
-                                                                       const String_& bridgeFactor,
-                                                                       const Handle_<GSRSLVModelData_>& model) {
+    FORCE_INLINE Handle_<HybridComponentData_>
+    NewHybridGSRSLVRateData(const String_& name, const String_& volFactor, const String_& bridgeFactor, const Handle_<GSRSLVModelData_>& model) {
         return Handle_<HybridComponentData_>(new HybridGSRSLVRateData_(name, volFactor, bridgeFactor, model));
     }
+
+    namespace Detail {
+        struct LocalVolModelInputs_ {
+            const String_& index_;
+            const String_& currency_;
+            const String_& factor_;
+            double spot_;
+            double rate_;
+            double dividend_;
+            double maxStep_;
+        };
+
+        FORCE_INLINE Handle_<ModelData_>
+        NewLocalVolModelData(const String_& name, const LocalVolModelInputs_& inputs, const Handle_<LocalVolSurfaceData_>& surface) {
+            Matrix_<> identity(1, 1, 1.0);
+            HybridSettings_ settings;
+            settings.domesticCurrency_ = inputs.currency_;
+            settings.components_ = {NewHybridLocalVolEquityData("equity", inputs.index_, inputs.currency_, inputs.factor_, inputs.spot_,
+                                                                inputs.dividend_, surface, inputs.maxStep_),
+                                    Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", inputs.currency_, inputs.rate_))};
+            settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("correlation", {inputs.factor_}, identity));
+            return NewHybridModelData(name, settings);
+        }
+    } // namespace Detail
 
     FORCE_INLINE Handle_<ModelData_> NewBSLocalVolModelData(const String_& name,
                                                             const String_& index,
@@ -91,13 +113,7 @@ namespace Dal {
                                                             const BSModelData_& bs,
                                                             const Handle_<LocalVolSurfaceData_>& surface,
                                                             double maxStep = 1.0 / 12.0) {
-        Matrix_<> identity(1, 1, 1.0);
-        HybridSettings_ settings;
-        settings.domesticCurrency_ = currency;
-        settings.components_ = {NewHybridLocalVolEquityData("equity", index, currency, factor, bs.spot_, bs.div_, surface, maxStep),
-                                Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", currency, bs.rate_))};
-        settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("correlation", {factor}, identity));
-        return NewHybridModelData(name, settings);
+        return Detail::NewLocalVolModelData(name, {index, currency, factor, bs.spot_, bs.rate_, bs.div_, maxStep}, surface);
     }
 
     FORCE_INLINE Handle_<GSRCurveData_> NewGSRCurveData(const String_& name,

@@ -3,13 +3,6 @@ add_executable(snowball ${SNOWBALL_FILES})
 
 target_link_libraries(snowball dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(snowball XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(snowball CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(snowball adept)
-endif ()
 
 if(MSVC)
 else()

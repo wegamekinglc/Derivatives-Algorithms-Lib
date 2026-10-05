@@ -834,7 +834,7 @@ After future evaluation, `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp`
 reuses the native payoff node only when the post-mark range is nonempty and
 the payoff is its current terminal node. Otherwise it records
 `payoff + activeZero`, using the registered zero input to create a path-local
-root. Adept, XAD, and CoDiPack always use this addition. Seeding the resulting
+root. Seeding the resulting
 root and propagating to the mark accumulates contributions without overwriting
 a historical seed's adjoint. The fallback also handles a pre-mark payoff,
 a passive constant, or an otherwise empty post-mark recording, ensuring a

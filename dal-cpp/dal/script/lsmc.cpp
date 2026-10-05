@@ -662,7 +662,7 @@ namespace Dal::Script {
             LsmcRows_ pays_;
             LsmcRows_ xByDay_;
             LsmcRows_ hByDay_;
-            LsmcRows_ discountByEvent_; // stochastic numeraire: N(event)/N(next event), one row per interval
+            LsmcRows_ discountByEvent_;        // stochastic numeraire: N(event)/N(next event), one row per interval
             Vector_<Vector_<char>> condByDay_; //  empty row = unconditional day
             size_t nFeatures_ = 1;
 
@@ -675,6 +675,22 @@ namespace Dal::Script {
                 discountByEvent_.ZeroPaths(firstPath, pathCount);
             }
         };
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        AAD::ProfilingArrayStatistics_ ProfileRows(const LsmcRows_& rows) {
+            if (rows.Paths() != 0 && rows.Rows() > std::numeric_limits<size_t>::max() / rows.Paths())
+                return {0, 0, false};
+            const size_t count = rows.Rows() * rows.Paths();
+            return Detail::ProfileElements(count, count, sizeof(double));
+        }
+
+        AAD::ProfilingArrayStatistics_ ProfileStorage(const LsmcStorage_& storage) {
+            auto result = Detail::ProfileNestedArrays(storage.condByDay_);
+            for (const auto* rows : {&storage.pays_, &storage.xByDay_, &storage.hByDay_, &storage.discountByEvent_})
+                result = Detail::JoinProfileArrays(result, ProfileRows(*rows));
+            return result;
+        }
+#endif
 
         LsmcStorage_ MakeStorage(const LsmcPlan_& scan, size_t nPaths, size_t nFeatures, bool stochasticNumeraire) {
             LsmcStorage_ storage;
@@ -690,6 +706,9 @@ namespace Dal::Script {
                     if (scan.days_[k].conditional_)
                         storage.condByDay_[k] = Vector_<char>(nPaths, 1);
             }
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            AAD::CaptureMemoryForProfiling([&] { return AAD::ProfilingMemoryStatistics_{{}, {}, {}, ProfileStorage(storage)}; });
+#endif
             return storage;
         }
 
@@ -854,6 +873,7 @@ namespace Dal::Script {
         //  One forward evaluation: training records regression inputs, while hard
         //  pricing retains only the current decision and stops at first exercise.
         void EvaluateRecordedPath(ThreadState_& state, LsmcContext_& ctx, size_t pathSlot) {
+            AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
             state.exercisedDay_ = NO_SLOT;
             state.preExercise_ = 0.0;
             state.exerciseValue_ = 0.0;
@@ -872,10 +892,20 @@ namespace Dal::Script {
                     ctx.storage_.discountByEvent_[event][pathSlot] =
                         path[eventToSample[event]].numeraire_ / path[eventToSample[event + 1]].numeraire_;
             }
+            forward.Finish();
+            AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
             if (state.compiledState_)
                 CompiledEvaluateRecordedPath(state, ctx, pathSlot);
             else
                 TreeEvaluateRecordedPath(state, ctx, pathSlot);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            AAD::CaptureMemoryForProfiling([&] {
+                auto workspace = Detail::JoinProfileArrays(Detail::ProfileArrays(state.gauss_), Detail::ProfileEvaluatorArrays(state.evaluator_));
+                if (state.compiledState_)
+                    workspace = Detail::JoinProfileArrays(workspace, Detail::ProfileEvaluatorArrays(*state.compiledState_));
+                return AAD::ProfilingMemoryStatistics_{Detail::ProfilePathArrays(state.Path()), workspace, {}, {}};
+            });
+#endif
         }
 
         //  Phase A: forward storage over disjoint per-batch path slots
@@ -886,12 +916,14 @@ namespace Dal::Script {
             for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
                 const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
                 tasks.Spawn([&, batch]() {
+                    AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
                     auto& local = threadStates[ThreadPool_::ThreadNum()];
                     if (!local)
                         local = std::make_unique<ThreadState_>(ctx);
                     ThreadState_& state = *local;
                     ctx.storage_.ZeroPaths(batch.firstPath_, batch.pathCount_);
                     state.random_->SkipTo(pathOffset + batch.firstPath_);
+                    initialize.Finish();
                     for (size_t i = 0; i < batch.pathCount_; ++i)
                         EvaluateRecordedPath(state, ctx, batch.firstPath_ + i);
                     return true;
@@ -1217,6 +1249,7 @@ namespace Dal::Script {
                                                       int degree,
                                                       const LsmcStorage_* validationStorage = nullptr,
                                                       size_t nValidation = 0) {
+            AAD::ProfilingSpan_ regression(AAD::AADProfilingPhase_::Value_::LSM_REGRESS);
             const auto& scan = ctx.scan_;
             const auto& events = ctx.Product().Events();
             Vector_<ExerciseRegression_> regressions(scan.days_.size());
@@ -1226,6 +1259,16 @@ namespace Dal::Script {
             Vector_<BackwardRows_*> blocks(1, &training);
             if (validationStorage)
                 blocks.push_back(&validation.emplace(*validationStorage, nValidation, team.Team()));
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            AAD::CaptureMemoryForProfiling([&] {
+                auto regressionArrays = Detail::ProfileArrays(eventNumeraire);
+                for (const auto* rows : blocks) {
+                    regressionArrays = Detail::JoinProfileArrays(regressionArrays, ProfileStorage(rows->storage_));
+                    regressionArrays = Detail::JoinProfileArrays(regressionArrays, Detail::ProfileArrays(rows->w_, rows->included_));
+                }
+                return AAD::ProfilingMemoryStatistics_{{}, {}, {}, regressionArrays};
+            });
+#endif
             for (size_t ei = events.size(); ei-- > 0;) {
                 const bool hasNext = ei + 1 < events.size();
                 const double dNext = hasNext && !eventNumeraire.empty() ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
@@ -1249,12 +1292,13 @@ namespace Dal::Script {
         };
 
         TrainingOutcome_ TrainFrozenPolicy(LsmcContext_& ctx, const PathCounts_& counts) {
+            AAD::ProfilingSpan_ training(AAD::AADProfilingPhase_::Value_::LSM_TRAIN);
             RunForwardPhase(ctx, BatchPlan_(counts.training_, 1));
             auto eventNumeraire = ctx.model_->NumeraireIsDeterministic() ? SampleGridNumeraires(ctx) : Vector_<>();
             LsmcStorage_ validationStorage;
             if (counts.validation_) {
-                validationStorage = MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(),
-                                                !ctx.model_->NumeraireIsDeterministic());
+                validationStorage =
+                    MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(), !ctx.model_->NumeraireIsDeterministic());
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
                 validationCtx.constValues_ = ctx.constValues_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
@@ -1305,6 +1349,7 @@ namespace Dal::Script {
                                       const BatchPlan_& batchPlan,
                                       size_t pricingPathOffset,
                                       const Vector_<ExerciseRegression_>& regressions) {
+            AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
             Vector_<ReplayOutcome_> outcomes(batchPlan.BatchCount());
             for (auto& outcome : outcomes)
                 outcome.exerciseCounts_ = Vector_<size_t>(ctx.scan_.days_.size(), 0);
@@ -1315,6 +1360,7 @@ namespace Dal::Script {
             for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
                 const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
                 tasks.Spawn([&, batch, batchIndex]() {
+                    AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
                     ReplayOutcome_& outcome = outcomes[batchIndex];
                     auto& local = workspaces[ThreadPool_::ThreadNum()];
                     if (!local)
@@ -1322,6 +1368,7 @@ namespace Dal::Script {
                     auto& pricing = local->pricing_;
                     auto& state = local->state_;
                     state.random_->SkipTo(pricingPathOffset + batch.firstPath_);
+                    initialize.Finish();
                     for (size_t i = 0; i < batch.pathCount_; ++i) {
                         EvaluateRecordedPath(state, pricing, 0);
                         const double payoff = PathPayoff(pricing, state, &outcome.exerciseCounts_);
@@ -1334,6 +1381,7 @@ namespace Dal::Script {
             tasks.Complete();
 
             // Fixed reduction order keeps results independent of worker scheduling.
+            AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
             ReplayOutcome_ reduction{0.0, 0.0, Vector_<size_t>(ctx.scan_.days_.size(), 0)};
             for (const auto& outcome : outcomes) {
                 reduction.sum_ += outcome.sum_;
@@ -1471,6 +1519,20 @@ namespace Dal::Script {
             Vector_<T_> features_;
         };
 
+#if defined(DAL_ENABLE_AAD_PROFILING)
+        template <class T_, class E_> void CaptureReplayArrays(const FuzzyReplayWorkspace_<T_>& ws, const E_& evaluator) {
+            AAD::CaptureMemoryForProfiling([&] {
+                return AAD::ProfilingMemoryStatistics_{
+                    Detail::ProfilePathArrays(ws.path_),
+                    Detail::JoinProfileArrays(Detail::ProfileArrays(ws.gauss_, ws.pays_, ws.h_, ws.cond_, ws.features_, ws.sinks_.branchPaySnapshot_,
+                                                                    ws.sinks_.branchPayTrue_),
+                                              Detail::ProfileEvaluatorArrays(evaluator)),
+                    {},
+                    {}};
+            });
+        }
+#endif
+
         template <class T_>
         FuzzyReplayWorkspace_<T_> MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
                                                            const Handle_<ModelData_>& modelData,
@@ -1542,26 +1604,47 @@ namespace Dal::Script {
                               const Vector_<ExerciseRegression_>& regressions,
                               const PathBatch_& batch,
                               FuzzyReplayWorkspace_<AAD::Number_>& ws,
+                              AAD::RecordingScope_& recording,
                               E_& evaluator,
                               const F_& evaluate,
                               AadReplayOutcome_* outcome) {
-            InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, nullptr);
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
+            const auto checkpoint = InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, recording, nullptr);
+            recording.FinishRecording();
+            AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            CaptureReplayArrays(ws, evaluator);
+#endif
+            initialize.Finish();
             for (size_t i = 0; i < batch.pathCount_; ++i) {
-                AAD::RewindToMark(*AAD::Tape());
+                AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
+                recording.Restore(checkpoint);
                 for (auto& payment : ws.pays_)
                     payment = 0.0;
                 if (ws.random_)
                     ws.random_->FillNormal(&ws.gauss_);
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
+                forward.Finish();
+                AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                 evaluate(ws, prepared, evaluator);
                 AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
+                recording.FinishRecording();
+                payoff.Finish();
+                AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                CaptureReplayArrays(ws, evaluator);
+#endif
+                AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
                 Adjoint(value) = 1.0;
-                AAD::PropagateToMark(*AAD::Tape());
+                recording.ReverseSuffix(checkpoint);
                 outcome->sum_ += Value(value);
             }
-            AAD::PropagateMarkToStart(*AAD::Tape());
+            {
+                AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX);
+                recording.ReversePrefix(checkpoint);
+            }
             size_t j = 0;
             for (const auto* parameter : ws.model_->Parameters())
                 outcome->risks_[j++] += Adjoint(*parameter);
@@ -1577,8 +1660,8 @@ namespace Dal::Script {
                                  const PathBatch_& batch,
                                  std::optional<uint64_t> scrambleKey,
                                  AadReplayOutcome_* outcome) {
-            AAD::Activate(*AAD::Tape());
-            AAD::Rewind(*AAD::Tape());
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
+            AAD::RecordingScope_ recording;
             FuzzyReplayWorkspace_<AAD::Number_> ws = MakeFuzzyReplayWorkspace<AAD::Number_>(prepared, modelData, scan, batch, scrambleKey);
             //  Bind after the return-by-value, without relying on optional NRVO.
             ws.sinks_.pays_ = &ws.pays_;
@@ -1587,16 +1670,19 @@ namespace Dal::Script {
             ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
+                initialize.Finish();
                 FuzzyReplayPaths(
-                    prepared, scan, regressions, batch, ws, state,
+                    prepared, scan, regressions, batch, ws, recording, state,
                     [fuzzyCompiled](FuzzyReplayWorkspace_<AAD::Number_>& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
                         CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
                     },
                     outcome);
             } else {
                 FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
-                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
+                initialize.Finish();
+                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, recording, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
             }
+            recording.Close();
         }
 
         template <class E_, class F_>
@@ -1609,13 +1695,19 @@ namespace Dal::Script {
                                      const F_& evaluate) {
             double sum = 0.0;
             for (size_t i = 0; i < batch.pathCount_; ++i) {
+                AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
                 std::fill(ws.pays_.begin(), ws.pays_.end(), 0.0);
                 ws.random_->FillNormal(&ws.gauss_);
                 ws.model_->GeneratePath(ws.gauss_, &ws.path_);
                 ValidateSimulationPath(ws.path_);
+                forward.Finish();
+                AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                 evaluate(ws, prepared, evaluator);
                 const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
                 REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                CaptureReplayArrays(ws, evaluator);
+#endif
                 sum += value;
             }
             return sum;
@@ -1628,6 +1720,7 @@ namespace Dal::Script {
                                         const ScriptCompiled_* fuzzyCompiled,
                                         const PathBatch_& batch,
                                         std::optional<uint64_t> scrambleKey) {
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             auto ws = MakeFuzzyReplayWorkspace<double>(prepared, modelData, scan, batch, scrambleKey);
             ws.sinks_.pays_ = &ws.pays_;
             ws.sinks_.h_ = &ws.h_;
@@ -1635,12 +1728,14 @@ namespace Dal::Script {
             ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 auto state = prepared.BuildEvalState<double>(0, prepared.Simulation().smooth_);
+                initialize.Finish();
                 return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, state,
                                              [fuzzyCompiled](FuzzyReplayWorkspace_<double>& w, const PreparedScript_& p, EvalState_<double>& s) {
                                                  CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
                                              });
             }
             auto evaluator = prepared.BuildFuzzyEvaluator<double>(0, prepared.Simulation().smooth_);
+            initialize.Finish();
             return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<double>);
         }
 
@@ -1652,6 +1747,7 @@ namespace Dal::Script {
                                 const BatchPlan_& batchPlan,
                                 const PathCounts_& counts,
                                 size_t nPaths) {
+            AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
             double sum = 0.0;
             for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
                 const std::optional<uint64_t> pricingKey =
@@ -1773,6 +1869,7 @@ namespace Dal::Script {
                                       std::optional<uint64_t> pricingKey,
                                       SimResults_* results,
                                       Vector_<>* riskTotals) {
+            AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
             Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
             for (auto& outcome : outcomes)
                 outcome.risks_ = Vector_<>(results->risks_.size(), 0.0);
@@ -1788,6 +1885,15 @@ namespace Dal::Script {
             }
             tasks.Complete();
 
+            AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            AAD::CaptureMemoryForProfiling([&] {
+                auto resultArrays = Detail::ProfileArrays(results->risks_, *riskTotals, outcomes);
+                for (const auto& outcome : outcomes)
+                    resultArrays = Detail::JoinProfileArrays(resultArrays, Detail::ProfileArrays(outcome.risks_));
+                return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
+            });
+#endif
             for (const auto& outcome : outcomes)
                 results->aggregated_ += outcome.sum_;
             for (size_t j = 0; j < results->risks_.size(); ++j)
@@ -1807,6 +1913,7 @@ namespace Dal::Script {
     }
 
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         const auto& product = prepared.Product();
         const auto& simulation = prepared.Simulation();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
@@ -1821,6 +1928,7 @@ namespace Dal::Script {
         const std::optional<uint64_t> trainingKey =
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
         LsmcContext_ ctx{prepared, mdl, scan, storage, compiled, nullptr, trainingKey};
+        prepare.Finish();
         const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
         ReplayOutcome_ reduction;
@@ -1832,8 +1940,7 @@ namespace Dal::Script {
             for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
                 auto pricingCtx = ctx;
                 pricingCtx.scrambleKey_ = LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate);
-                const auto one =
-                    RunReplayPhase(pricingCtx, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
+                const auto one = RunReplayPhase(pricingCtx, batchPlan, counts.pricingOffset_ + replicate * nPaths, trained.regressions_);
                 replicateMeans.push_back(one.sum_ / static_cast<double>(nPaths));
                 reduction.sum_ += one.sum_;
                 reduction.sumSq_ += one.sumSq_;
@@ -1850,6 +1957,7 @@ namespace Dal::Script {
     }
 
     SimResults_ MCLsmcAadSimulation(const PreparedScript_& prepared, const Handle_<ModelData_>& modelData, size_t nPaths) {
+        AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         const auto& product = prepared.Product();
         const auto& simulation = prepared.Simulation();
         REQUIRE2(nPaths > 0, "InvalidPathCount: number of Monte Carlo paths must be positive", ScriptError_);
@@ -1872,6 +1980,7 @@ namespace Dal::Script {
         const std::optional<uint64_t> trainingKey =
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
         LsmcContext_ ctx{prepared, doubleModel.get(), scan, storage, hardCompiled ? &*hardCompiled : nullptr, nullptr, trainingKey};
+        prepare.Finish();
         const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
 
