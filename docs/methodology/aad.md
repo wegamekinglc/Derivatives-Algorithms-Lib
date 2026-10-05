@@ -652,6 +652,18 @@ activeZero)` applies the existing payoff-root convention when an output is a
 constant, direct input or prefix alias; its second argument must be an active
 zero on the same recording. It does not silently register a new parameter.
 
+For several outputs on one live recording, include
+`<dal/math/aad/weightedroot.hpp>` and call
+`WeightedPayoffRoot(outputs, weights)`. This materializes one scalar weighted
+objective; seed its root once, then reverse the suffix and prefix normally.
+Ordinary expression edges accumulate distinct slots that alias the same node.
+The root remains path-local when components are constants, direct inputs or
+prefix outputs. Weights are passive, finite and ordered like the components.
+Both sequences must be nonempty and equally sized. Nonfinite components are
+rejected even at weight zero, and a nonfinite weighted sum raises an error.
+This is a native recording helper; structured scalar valuation requests still
+select the single default payoff.
+
 `ValidateAdjointMode(multi, width)` checks a proposed mode without changing
 the tape. Scalar width must be one; vector width must be positive and at most
 `ADJ_SIZE`. Select actual mode with `SetNumResultsForAAD` before scope entry.

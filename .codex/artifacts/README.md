@@ -10,6 +10,10 @@ after documenting the current-state outcome.
 
 - [DAL AAD implementation ledger](plans/aad-implementation.md): full-scope
   delivery and correctness, performance, compatibility, and CI evidence.
+- [Weighted script risk specification](specs/aad-weighted-script-risk.md),
+  [API decisions](api-notes/aad-weighted-script-risk.md) and
+  [critique](critiques/aad-weighted-script-risk.md): active F02 weighted-root,
+  output preflight, batch integration and owning three-language delivery.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.
