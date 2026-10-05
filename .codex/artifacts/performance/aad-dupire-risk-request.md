@@ -1,7 +1,7 @@
 # Automatic Dupire request C++ performance
 
-Status: bounded legacy-entry acceptance passes. Full F01 bindings, own-head CI
-and whole-PR P01 production acceptance remain open.
+Status: bounded legacy-entry acceptance passes; all 35 exact `e42c4835` CI
+checks pass. Full F01 bindings and whole-PR P01 production acceptance remain open.
 
 ## Frozen inputs and scope
 

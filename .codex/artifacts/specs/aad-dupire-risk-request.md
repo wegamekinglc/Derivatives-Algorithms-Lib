@@ -1,7 +1,8 @@
 # F01 automatic Dupire script request
 
-Status: active C++ increment, locally implemented and under verification;
-own publication CI, performance and binding acceptance remain open. This extends
+Status: C++ increment locally verified, with bounded legacy-entry performance
+and all 35 exact `e42c483551cd252fc95a7574b83b562ee6abb3ee` CI checks accepted.
+Full F01 binding and whole-PR/P01 acceptance remain open. This extends
 the [common quote request](aad-calibration-risk-request.md) and preserves the
 [accepted Hybrid extraction](aad-dupire-pullback.md). The
 [integration audit](../plans/aad-market-request-integration.md) and

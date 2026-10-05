@@ -1,12 +1,34 @@
 # F01 market-request integration audit
 
-Status: active implementation audit after common C++/Python acceptance and
-Excel publication `a522b16bc0b6473dbe23ed45c7305faaeaa0f072`. This records
+Status: active implementation audit. Common C++/Python/Excel boundaries, common
+C++ quote requests and automatic C++ requests have accepted own-head checks.
+Common Python request bindings are locally verified; automatic Python and Excel
+request parity remain required. This records
 remaining work; it is not implementation acceptance or a replacement for F01.
 The full [ledger](aad-implementation.md) controls scope, performance policy and
 the user-authorized F01-first merge of PR #480. Later stages require new PRs.
 
-## Source and findings
+## Current closure map
+
+The remaining-gap table below records the pre-request audit that established
+the controlling requirements. The accepted C++ common and automatic request
+increments now close its native planning, required surface/direct inputs,
+source identity, quote projection and combined payload gaps. They preserve
+original oracles and bounded old-entry performance. The automatic C++ head
+`e42c483551cd252fc95a7574b83b562ee6abb3ee` has all 35 checks accepted, including
+Windows runtime. Common Excel/capture head `a0801deceff9e89ac2aa8a121d985f2b2146c223`
+also has all 35 checks accepted, superseding the earlier pending registration
+snapshot. Source/content and mathematical acceptance remain in the linked
+specifications/reviews rather than being duplicated here.
+
+Common Python request bindings now reuse those native plans. Workspace and
+fresh OFF/combined installed tests and independent C++ projection parity pass;
+the unchanged paired policy passes all 63 old Python workloads after fixing
+parser context assembly. Own-head publication checks remain pending. Automatic
+Python and Excel requests are the next interface gaps. Full F01, P01, whole-PR
+problem fixes, final master reconciliation and guarded merging remain open.
+
+## Source and initial findings
 
 The original detailed plan section 4.1 requires deterministic-carry Dupire
 spread risk followed by a common calibration boundary. Appendix G combines

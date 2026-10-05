@@ -1,6 +1,6 @@
 # Automatic Dupire request review
 
-Verdict: Comment Only pending the C++ increment's own publication-head CI.
+Verdict: Approve for the bounded C++ increment; full F01 and PR merge gates remain open.
 
 ## Findings
 
@@ -66,8 +66,11 @@ Names below have prefix `aad-dupire-request-`.
   instrumented combined Debug ASan/UBSan pass with leak detection and
   halt-on-error passes all 69 related cases in `sanitized-related-01.log`.
   Actual MSVC syntax passes all 12 production/test OFF/combined units without
-  an additional NOMINMAX override in `msvc-syntax-01.json`. Own Windows runtime
-  CI is still required. `functional-01/results.json` passes 128 isolated installed
+  an additional NOMINMAX override in `msvc-syntax-01.json`. All 35 exact-head
+  checks, including Windows runtime, pass in `ci-07.jsonl` at
+  `e42c483551cd252fc95a7574b83b562ee6abb3ee`. Preserve failed empty TLS
+  captures `ci-01.jsonl` and `ci-05.jsonl` with their errors; neither is a
+  zero-check acceptance. `functional-01/results.json` passes 128 isolated installed
   consumer processes with native/all-selected/contribution/report parity.
 - The [performance report](../performance/aad-dupire-risk-request.md) records
   64/64 changed old installed-entry rows passing the unchanged paired gate and
@@ -81,5 +84,5 @@ Names below have prefix `aad-dupire-request-`.
 
 Local C++ request functionality, original-protocol oracles, configurations,
 sanitizers, installed consumers, MSVC syntax and bounded old-entry performance
-pass. Publication-head CI remains pending; full F01 bindings and whole-PR/P01
-acceptance remain open.
+pass. All 35 publication-head checks pass. Full F01 bindings and whole-PR/P01
+acceptance remain open. This bounded approval does not authorize premature merging.

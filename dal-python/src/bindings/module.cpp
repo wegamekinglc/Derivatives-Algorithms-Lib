@@ -40,4 +40,5 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_risk(m);
     init_bindings_dupirerisk(m);
     init_bindings_calibrationrisk(m);
+    init_bindings_calibrationriskrequest(m);
 }

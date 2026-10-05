@@ -1,7 +1,7 @@
 # Automatic Dupire request API decision
 
-Status: active C++ API, locally implemented and under acceptance; request bindings
-remain an independent required increment. The
+Status: C++ API accepted locally and at exact publication head `e42c4835`;
+all 35 checks pass. Request bindings remain an independent required increment. The
 [spec](../specs/aad-dupire-risk-request.md) controls sealing, native methods,
 required inputs, direct dependencies, budgets and acceptance.
 

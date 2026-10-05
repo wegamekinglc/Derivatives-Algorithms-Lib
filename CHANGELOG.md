@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
+- **Python calibration-coordinate requests** — owning read-only requests,
+  plans and results expose native quote metadata, full/subset/empty selections,
+  complete retained payload budgets and detached raw/report projections. Strict
+  input parsing and callback-free GIL release reuse the native planner and VJP.
+  See [Python quote requests](docs/python/README.md#common-calibration-quote-requests).
 - **Automatic C++ Dupire script risk** — an owning request plan seals a native
   flat-rate Hybrid, exposes mandatory surface/direct input coordinates and checks
   the combined valuation/quote payload before execution. Explicit constant

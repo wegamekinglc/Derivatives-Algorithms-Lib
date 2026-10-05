@@ -226,6 +226,53 @@ Numeric configuration excludes bool and enums; invalid domains, missing surface
 columns and incompatible identities fail explicitly. See the
 [discrete derivative and estimator boundaries](../methodology/aad.md#discrete-dupire-calibration-pullback).
 
+## Common calibration quote requests
+
+`CalibrationRiskPlan_New(calibration, *, request=None)` plans an immutable
+quote selection over an owning `CalibrationPullback_`. It accepts frozen Dupire
+or any supported curve provenance captured with `retain_calibration_record=True`.
+`CalibrationRiskResult_New(plan, parameter_adjoints, *, direct=None)` performs
+the native pullback using the existing typed parameter/direct seeds.
+
+```python
+boundary = dal.CalibrationPullback_New(calibration)
+parameters = dal.CalibrationParameterAdjoints_New(
+    boundary, dal.DoubleMatrix_(boundary.parameter_rows, boundary.parameter_cols, 1.0),
+)
+request = dal.CalibrationRiskRequest_(
+    inputs=["quote:3", "quote:0"], report_factors=[0.01, 0.01],
+    numeric_payload_budget_bytes=144,
+)
+plan = dal.CalibrationRiskPlan_New(boundary, request=request)
+result = dal.CalibrationRiskResult_New(plan, parameters)
+raw = result.jacobian.to_rows()
+per_vol_point = result.reported_jacobian.to_rows()
+```
+
+Request fields are keyword-only and read-only. Lists/tuples are copied; `inputs=None`
+selects every source quote, while `inputs=[]` retains an empty `(1, 0)` projection
+and still performs the native pullback. Unknown/repeated IDs and nonpositive or
+nonfinite factors fail during planning. IDs identify source ordinals; labels
+cannot establish source compatibility. Factors apply once to reported copies:
+use `0.01` for a decimal-vol point or `1e-4` for a decimal-rate basis point.
+
+The plan exposes `calibration`, `complete_input_axis`, `input_axis`,
+`selected_ordinals` and `numeric_payload_bytes`. Coordinates retain native
+row/column, units and quote metadata: curve value/strike/maturity are `None`,
+and Dupire block fields are `None`. The budget counts all three complete native
+quote matrices even for subset/empty selections. It excludes source/metadata,
+input seeds, getter copies and temporary recording storage.
+
+Results expose `plan`, `quote_risk`, `jacobian`, `calibration_jacobian`,
+`direct_jacobian` and `reported_jacobian`. All matrices, lists and nested values
+are detached copies. The common result retains native method/unit/boundary
+metadata without deriving a generic PV or currency from external seeds.
+Constructors exclude bool/enums and implicit dictionary/container coercions.
+Plans/results support copy/deepcopy; native planning and pullback release the
+GIL after owning all Python inputs. See the
+[native request contract](../yield-curves/jacobian-risk.md#c-quote-coordinate-requests)
+for retained payload and source-identity rules.
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:
