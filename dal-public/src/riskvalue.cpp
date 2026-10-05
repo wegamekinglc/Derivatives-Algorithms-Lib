@@ -8,6 +8,7 @@
 #include <dal/storage/globals.hpp>
 #include <dal/storage/json.hpp>
 
+#include <dal-public/src/riskvalueinternal.hpp>
 #include <dal-public/src/value.hpp>
 #include <dal-public/src/valuevalidation.hpp>
 
@@ -85,6 +86,12 @@ namespace Dal {
             return provenance;
         }
     } // namespace
+
+    namespace Detail {
+        Vector_<Script::RiskCoordinate_> ScriptRiskInputAxis(const AAD::Model_<double>& model, const Script::ScriptProduct_& product) {
+            return InputAxis(model, product);
+        }
+    } // namespace Detail
 
     MonteCarloSettings_ DefaultRiskMonteCarloSettings() {
         MonteCarloSettings_ simulation;

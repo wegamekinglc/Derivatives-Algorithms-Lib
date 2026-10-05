@@ -312,6 +312,10 @@ namespace Dal {
                data_->surface_->times_ == other.data_->surface_->times_ && SameMatrix(data_->surface_->vols_, other.data_->surface_->vols_);
     }
 
+    bool DupireCalibrationSnapshot_::MatchesQuotes(const DupireCalibrationSnapshot_& other) const {
+        return data_ == other.data_ || SameQuotes(data_->inputs_, other.data_->inputs_);
+    }
+
     DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const AAD::IVS_& baseIvs, const DupireRiskInputs_& inputs, const String_& name) {
         const auto copied = inputs;
         const auto copiedName = name;

@@ -10,6 +10,7 @@
 #include <dal/storage/json.hpp>
 
 #include <dal-public/src/dupirerisk.hpp>
+#include <dal-public/src/dupireriskinternal.hpp>
 #include <dal-public/src/models.hpp>
 
 namespace Dal {
@@ -132,6 +133,15 @@ namespace Dal {
             return seeds;
         }
     } // namespace
+
+    namespace Detail {
+        DupireSurfaceLayout_
+        DupireSurfaceLayout(const HybridModelData_& model, const DupireCalibrationSnapshot_& calibration, const String_& component) {
+            const auto offset = SurfaceOffset(model, calibration, component);
+            const auto& surface = calibration.Surface()->vols_;
+            return {offset, surface.Rows(), surface.Cols()};
+        }
+    } // namespace Detail
 
     AAD::MertonIVS_ NewMertonIVS(double spot, double vol, double intensity, double averageJump, double jumpStd) {
         REQUIRE(std::isfinite(spot) && spot > 0.0, "InvalidDupireCalibration: MertonIVS_; spot must be finite and positive");

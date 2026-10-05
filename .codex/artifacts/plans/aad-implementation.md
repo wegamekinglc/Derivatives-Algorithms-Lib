@@ -529,6 +529,40 @@ public object members remain byte-identical to accepted common C++ after rebuild
 the public archive adds only the new request object. This is bounded identity
 evidence, not a fresh whole-PR/master timing gate.
 
+The [automatic Dupire request contract](../specs/aad-dupire-risk-request.md),
+[API](../api-notes/aad-dupire-risk-request.md) and
+[critique](../critiques/aad-dupire-risk-request.md) control the next C++ increment.
+Its owning plan seals exact native flat-rate Hybrid/product/settings data,
+including nested surface/correlation values, and shares actual native axis/layout
+checks. All required surface inputs precede explicit direct constant bindings;
+quote selection changes only quote projections. External direct inputs retain
+native quote-only identity and exclude bindings. Preflight counts one scalar
+value, all mandatory valuation derivatives and three full quote matrices.
+Execution preserves native mean normalization, estimator and fixed-calibration
+provenance, with explicit expired/mixed method labels. Results do not retain
+the execution plan's extra direct seed arrays; getters remain detached/passive.
+
+Seventeen new request cases and two automatic flat/Merton oracle cases pass
+with the original 50 related cases. The new oracle contributes 84 independent
+full bump/recalibration/common-path price rows with unchanged original steps,
+tolerances and adjacent-step rules. Fresh regular CTest passes 2,457 OFF /
+2,471 combined; leak-enabled fully instrumented ASan/UBSan passes 69 related
+cases; actual MSVC syntax passes 12 OFF/combined units without an extra
+NOMINMAX override. Installed public consumers pass 128 processes across both
+configurations. Preserve wrong-path/fixture/custom-archive/reduction failures
+and corrections in the [review](../reviews/aad-dupire-risk-request.md).
+
+All 64 changed legacy installed-entry rows pass the unchanged paired 4% policy:
+two rounds/ten alternating samples, with 64 additional new-cost rows, 3,840
+processes and 1,578 unchanged source/install/build inputs. Nine accepted gate
+binaries and 17 unaffected public objects remain byte-identical. The core
+archive and two existing public objects change because passive helpers are
+added; their affected entries are measured rather than accepted by analogy.
+The [performance report](../performance/aad-dupire-risk-request.md) retains every
+row and the corrected member inventory. This does not close whole-PR P01.
+Own C++ publication CI and strict Python/Excel request/plan/result parity remain
+required. Full F01 boxes and the authorized PR-to-merge gates remain open.
+
 ### Whole-plan status and remaining effort
 
 This snapshot distinguishes accepted increments from locally implemented work.
@@ -540,7 +574,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                                      | Accepted exact-head checks                                  | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                                                          | Accepted exact-head checks                                  | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive                                            | Published tooling; performance verdict open                 | 2–5                   |
-| F01                     | Common C++/Python/Excel and quote request accepted; automatic script/bindings remain               | Each common surface and quote request own 35 accepted        | 6–10                  |
+| F01                     | Common interfaces/quote request accepted; automatic C++ locally verified; request bindings remain | Common/request own 35 accepted; automatic C++ own CI pending  | 6–10                  |
 | F02                     | Multiple outputs and portfolio integration remain                                                  | Open                                                        | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                                                     | Open                                                        | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                                               | Open                                                        | 12–20                 |

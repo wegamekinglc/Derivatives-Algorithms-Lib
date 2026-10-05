@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
+- **Automatic C++ Dupire script risk** — an owning request plan seals a native
+  flat-rate Hybrid, exposes mandatory surface/direct input coordinates and checks
+  the combined valuation/quote payload before execution. Explicit constant
+  dependencies add fixed-surface quote partials once; immutable results preserve
+  native estimator, provenance and report projections. See
+  [automatic requests](docs/methodology/aad.md#automatic-c-dupire-risk-requests).
 - **C++ calibration-coordinate requests** — passive owning plans select source-scoped
   quote coordinates, expose native axes and preflight the complete retained
   contribution payload. Immutable results preserve raw native derivatives and

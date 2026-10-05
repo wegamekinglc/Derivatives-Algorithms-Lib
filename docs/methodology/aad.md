@@ -853,6 +853,57 @@ zero calibration risk. A `NativeAADWithRetrainedPolicySecant` source keeps that
 mixed-method label: multiplying its model-coordinate secant by the calibration
 Jacobian does not establish a full quote-bump/recalibrate/retrain estimator.
 
+### Automatic C++ Dupire Risk Requests
+
+`dal-public/src/dupireriskrequest.hpp` plans and executes one scalar Hybrid
+valuation followed by the frozen Dupire quote pullback:
+
+```cpp
+#include <dal-public/src/dupireriskrequest.hpp>
+
+DupireScriptRiskRequest_ request;
+request.numPaths_ = 257;
+request.quotes_.inputs_ = Vector_<String_>{"quote:3", "quote:0"};
+request.quotes_.reportFactors_ = Vector_<>{0.01, 0.01};
+request.valuation_.evaluationDate_ = Date_(2026, 9, 12);
+const auto plan = PlanDupireScriptRisk(product, model, calibration, "equity", request);
+const auto result = ValueByMonteCarloWithDupireRisk(plan);
+const auto perVolPoint = result.QuoteRisk().ReportedJacobian();
+```
+
+The passive owning plan exposes the complete input axis, every required surface
+coordinate in native order, quote selection and numeric payload before history
+resolution or worker submission. It seals product/model/settings data, including
+nested surfaces and correlations. Mutating or destroying caller data does not
+change later execution. This entry accepts exact native Hybrid graphs with BS
+or local-vol equities, constant correlation and one flat domestic rate provider.
+Target spot, dividend, rate, surface grids and surface values must match the
+calibration. Custom archive types are rejected before serialization.
+
+An explicit `DupireQuoteBinding_` associates a script constant ordinal with a
+source-scoped quote ID. Both must be unique, and their native values must agree.
+The caller declares that dependency; matching display names cannot infer it.
+Required constant columns follow all mandatory surface columns in binding order.
+Their fixed-surface partials are added once after calibration mapping. Checked
+external `CalibrationDirectQuoteAdjoints_` are an alternative; supplying both
+forms rejects. External Dupire direct identity compares quote axes and values,
+independently of the fixed base IVS.
+
+`request.quotes_.numericPayloadBudgetBytes_` bounds the combined retained numeric
+result: one scalar value, S surface derivatives, B bound-constant derivatives
+and three full Q-quote contribution matrices, or `8 * (1 + S + B + 3 * Q)` bytes.
+Subset and empty quote selections retain the same payload for fixed bindings.
+The budget excludes source/archive/metadata, plan/input storage, getter copies
+and temporary worker/tape/VJP arrays; it is not a process-memory limit.
+
+An omitted evaluation date is captured during planning. Explicit immutable
+fixing snapshots are shared; omitted global history is resolved and frozen at
+execution after successful preflight. Empty quote selection preserves the
+native smoothed estimator and all mandatory valuation derivatives. The scalar
+valuation retains fixed-calibration provenance; the combined method preserves
+expired and mixed-policy labels. Result getters expose passive values and
+detached report projections without history lookup, valuation or another reverse.
+
 ### Passive vs Active Tape
 
 Native recording is unconditional. Code that needs a value-only pass (e.g. a baseline pricing run

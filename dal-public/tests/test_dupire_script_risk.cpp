@@ -19,6 +19,7 @@
 #include <dal/storage/json.hpp>
 
 #include <dal-public/src/dupirerisk.hpp>
+#include <dal-public/src/dupireriskrequest.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/script.hpp>
@@ -260,9 +261,10 @@ namespace {
             }
     }
 
+    template <class T_>
     void CheckQuoteBuckets(const Dal::AAD::IVS_& ivs,
                            const Dal::DupireRiskInputs_& inputs,
-                           const Dal::DupireQuoteRisk_& risk,
+                           const T_& risk,
                            const Dal::MonteCarloSettings_& simulation,
                            const std::string& label) {
         for (int row = 0; row < inputs.quoteSpreads_.Rows(); ++row)
@@ -275,9 +277,10 @@ namespace {
             }
     }
 
+    template <class T_>
     void CheckQuoteDirection(const Dal::AAD::IVS_& ivs,
                              const Dal::DupireRiskInputs_& inputs,
-                             const Dal::DupireQuoteRisk_& risk,
+                             const T_& risk,
                              const Dal::MonteCarloSettings_& simulation,
                              const std::string& label) {
         Dal::Matrix_<> direction(inputs.quoteSpreads_.Rows(), inputs.quoteSpreads_.Cols());
@@ -291,11 +294,16 @@ namespace {
         ASSERT_TRUE(AdjacentStepsAgree(QUOTE_PROTOCOL, adjoint, differences, label + ":direction"));
     }
 
-    void CheckCompleteChain(const Dal::AAD::IVS_& ivs, const std::string& base) {
+    Dal::DupireRiskInputs_ NonzeroInputs() {
         auto inputs = Inputs();
         for (int row = 0; row < inputs.quoteSpreads_.Rows(); ++row)
             for (int column = 0; column < inputs.quoteSpreads_.Cols(); ++column)
                 inputs.quoteSpreads_(row, column) = 0.001 + 0.00003 * row + 0.00004 * column;
+        return inputs;
+    }
+
+    void CheckCompleteChain(const Dal::AAD::IVS_& ivs, const std::string& base) {
+        const auto inputs = NonzeroInputs();
         const auto calibration = Dal::CalibrateDupireWithRisk(ivs, inputs);
         Dal::Matrix_<> direct(inputs.quoteSpreads_.Rows(), inputs.quoteSpreads_.Cols(), 0.0);
         const double directPvRisk = 3.0 * std::exp(-ivs.Rate());
@@ -315,6 +323,31 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(CheckSurfaceNodes(calibration, valuation, simulation, label));
             ASSERT_NO_FATAL_FAILURE(CheckQuoteBuckets(ivs, inputs, risk.QuoteRisk(), simulation, label));
             ASSERT_NO_FATAL_FAILURE(CheckQuoteDirection(ivs, inputs, risk.QuoteRisk(), simulation, label));
+        }
+    }
+
+    void CheckAutomaticChain(const Dal::AAD::IVS_& ivs, const std::string& base) {
+        const auto inputs = NonzeroInputs();
+        const auto calibration = Dal::CalibrateDupireWithRisk(ivs, inputs);
+        const auto product = Product(inputs.quoteSpreads_(0, 0));
+        const auto model = Model(calibration.Surface(), calibration.Rate(), calibration.DividendYield());
+        for (const bool compiled : {false, true}) {
+            Dal::DupireScriptRiskRequest_ request;
+            request.numPaths_ = PATHS;
+            request.directBindings_ = {{0, "quote:0"}};
+            request.quotes_.inputs_ = Dal::Vector_<Dal::String_>{"quote:3", "quote:0"};
+            request.quotes_.reportFactors_ = Dal::Vector_<>{0.01, 0.5};
+            request.valuation_ = Valuation();
+            request.simulation_.compiled_ = compiled;
+            const auto plan = Dal::PlanDupireScriptRisk(product, model, calibration, "Z_LOCAL", request);
+            const auto result = Dal::ValueByMonteCarloWithDupireRisk(plan);
+            const auto& risk = result.QuoteRisk().QuoteRisk();
+            ASSERT_EQ(result.Valuation().Values()[0],
+                      LegacyValue(LegacySurface(ivs, inputs), ivs.Rate(), ivs.DividendYield(), inputs.quoteSpreads_(0, 0), request.simulation_));
+            ASSERT_NEAR(risk.DirectAdjoints()(0, 0), 3.0 * std::exp(-ivs.Rate()), 1e-10);
+            const std::string label = base + ":automatic:compiled=" + std::to_string(compiled);
+            ASSERT_NO_FATAL_FAILURE(CheckQuoteBuckets(ivs, inputs, risk, request.simulation_, label));
+            ASSERT_NO_FATAL_FAILURE(CheckQuoteDirection(ivs, inputs, risk, request.simulation_, label));
         }
     }
 
@@ -394,6 +427,16 @@ TEST(DupireScriptRiskTest, TestMertonCompleteQuoteChainMatchesIndependentNodeAnd
     const SingleWorker_ worker;
     const Dal::AAD::MertonIVS_ ivs(100.0, 0.2, 0.08, -0.1, 0.15);
     ASSERT_NO_FATAL_FAILURE(CheckCompleteChain(ivs, "merton"));
+}
+
+TEST(DupireScriptRiskTest, TestAutomaticFlatQuoteChainMatchesIndependentRecalibrationBumps) {
+    const SingleWorker_ worker;
+    ASSERT_NO_FATAL_FAILURE(CheckAutomaticChain(FlatIVS_(), "flat"));
+}
+
+TEST(DupireScriptRiskTest, TestAutomaticMertonQuoteChainMatchesIndependentRecalibrationBumps) {
+    const SingleWorker_ worker;
+    ASSERT_NO_FATAL_FAILURE(CheckAutomaticChain(Dal::AAD::MertonIVS_(100.0, 0.2, 0.08, -0.1, 0.15), "merton"));
 }
 
 TEST(DupireScriptRiskTest, TestMalformedModelSnapshotHasFieldContextAndRecovers) {

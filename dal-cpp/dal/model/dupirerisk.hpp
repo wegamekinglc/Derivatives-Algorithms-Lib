@@ -46,6 +46,7 @@ namespace Dal {
         [[nodiscard]] double DividendYield() const;
         [[nodiscard]] const String_& Algorithm() const;
         [[nodiscard]] bool Matches(const DupireCalibrationSnapshot_& other) const;
+        [[nodiscard]] bool MatchesQuotes(const DupireCalibrationSnapshot_& other) const;
     };
 
     DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const AAD::IVS_& baseIvs, const DupireRiskInputs_& inputs, const String_& name = {});
