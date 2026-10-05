@@ -226,7 +226,8 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/risk.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupirerisk.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupirerisk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationrisk.cpp)
 
 if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)

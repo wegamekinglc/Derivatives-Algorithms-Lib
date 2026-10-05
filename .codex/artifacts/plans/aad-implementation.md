@@ -407,9 +407,39 @@ These new-entry costs exclude calibration, record capture and seed construction.
 The [shared C++ review](../reviews/aad-calibration-pullback.md) and
 [performance report](../performance/aad-calibration-pullback.md) retain full
 case rows, independent references, original failures and bounded conclusions.
-The C++ increment awaits exact publication-head CI and is not yet accepted.
-Python/Excel record capture/common bindings and request/budget/market integration
-remain required. P01 production MC acceptance remains inconclusive.
+Exact common C++ publication `12b3d7d1a9e43ac008c257c24b6365e424b458e5`
+passes all 35 CI checks in `aad-calibration-pullback-ci-05.jsonl`, including
+Windows runtime and ARM wheels. Its review now approves that increment.
+
+The Python capture/common increment passes complete local verification. Retain
+the missing-common, missing-capture and raw-matrix RED logs before their GREEN
+runs. Sixty-two new cases cover all four curve providers in both inverse modes,
+plain/layered generic coordinates, canonical record bytes, strict Boolean capture,
+owning/detached values, source identity, numeric coercion/shape/domain errors,
+zero/direct/overflow recovery, callback collection and concurrent native mappings.
+Actual single/plain-generic trade gradients match old quote risk exactly. A real
+larger Dupire operation proves GIL release without enabling a test barrier.
+Workspace OFF Python passes 919; fresh standalone OFF/combined each pass 918,
+with one existing workspace-only opaque fixture skipped. All three modules
+match 48 numeric cells and three metadata rows from the independent installed
+C++ consumer exactly. The Python 3.9 syntax floor, CCN-eight, formats and
+documentation checks pass. Native archives and all nine old C++ gate executables
+remain byte-identical to accepted common C++.
+
+The unchanged two-round/ten-process/4% protocol passes all 35 changed-binding
+old-entry workloads: config construction, all four provenance kinds at N=8/16
+and ANALYTIC/BUMPED, ten-trade aggregation and typed Dupire. All forty legacy
+and twenty separate new-cost processes preserve their numeric digests; all
+640 measured input hashes remain unchanged. Prepared common Python calls cost
+approximately 0.61–0.66 microseconds for these small curve sources and 26
+microseconds for the 9-by-2 Dupire source. This excludes calibration/capture,
+seed construction and numeric getters. Keep the first measurement script's
+path-alias hash-lookup failure; the correction changes only canonical lookup.
+The [Python review](../reviews/aad-calibration-python.md) and
+[performance report](../performance/aad-calibration-python.md) retain every
+old-entry row and the bounded conclusion. Python publication-head CI, Excel
+capture/common wrappers and request/budget/market integration remain required.
+P01 production MC acceptance remains inconclusive.
 
 ### Whole-plan status and remaining effort
 
@@ -422,7 +452,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                  | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                  | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open | 2–5                   |
-| F01                     | Dupire/capture accepted; shared C++ full local checks pass | Capture 35 checks accepted; shared CI open  | 6–10                  |
+| F01                     | Dupire/capture/common C++ accepted; common Python full local checks pass | Common C++ 35 checks accepted; Python CI open | 6–10             |
 | F02                     | Multiple outputs and portfolio integration remain          | Open                                        | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                        | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain       | Open                                        | 12–20                 |
@@ -432,9 +462,9 @@ overlapping acceptance work is included once in the integration allowance.
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
-investigation buffer. The shared C++ local milestone does not yet change that
-range materially. F01 has approximately 6–10 person-days remaining for shared
-publication, language bindings and complete request integration. Re-estimate at
+investigation buffer. The common Python local milestone does not yet change that
+range materially. F01 has approximately 6–10 person-days remaining for
+Python publication/CI, Excel bindings and complete request integration. Re-estimate at
 milestones and when acceptance findings change the scope.
 
 ### Earlier snapshots retained for acceptance context

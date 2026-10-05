@@ -823,6 +823,17 @@ curve-construction and calibration workflows:
 
 The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in the [yield-curve guide](../docs/yield-curves/construction.md) and [Jacobian guide](../docs/yield-curves/jacobian-risk.md).
 
+`CalibrationPullback_New(calibration)` creates an owning common boundary from
+a frozen Dupire snapshot or captured native curve provenance.
+`CalibrationParameterAdjoints_New(boundary, adjoints)` takes a two-dimensional
+node-adjoint matrix; `PullbackCalibration(boundary, parameters, *, direct=None)`
+returns separate calibration/direct/total quote matrices and the original source.
+For curves, enable `retain_calibration_record=True` in
+`RateQuoteRiskProvenanceConfig_` before provenance construction and supply an
+M-by-one seed in global parameter order. Matrices may be `DoubleMatrix_` or
+rectangular numeric lists/tuples. See the
+[common pullback example and ownership rules](../docs/yield-curves/jacobian-risk.md#python-common-pullback).
+
 ### Continuously Compounded Zero-Rate Curves
 
 Build a persistent zero-rate curve directly with future-only nodes:

@@ -1,9 +1,10 @@
 # F01 common passive calibration pullback
 
-Status: active contract. Native opt-in record capture is accepted. Shared C++
-operation/result passes full local correctness, installed-consumer and incremental
-performance verification. Exact publication-head CI, language capture and
-complete F01 acceptance remain open.
+Status: active contract. Native opt-in record capture and the shared C++
+operation/result are accepted, including all 35 exact `12b3d7d` CI checks.
+Python capture/common projections pass full local and incremental performance
+verification; their own publication-head CI remains required. Excel and complete
+F01 request/budget integration remain open.
 This contract completes the common curve-adaptation portion of F01 without
 closing the remaining binding, request-integration or performance requirements.
 

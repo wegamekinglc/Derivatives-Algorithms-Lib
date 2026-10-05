@@ -1,8 +1,9 @@
 # F01 common C++ calibration pullback review
 
-Verdict: Comment Only. No unresolved local findings. Full local correctness,
-installed-package and incremental performance checks pass; exact publication-head
-CI remains required. Python/Excel and complete F01 integration remain unfinished.
+Verdict: Approve the common C++ increment `12b3d7d1a9e43ac008c257c24b6365e424b458e5`.
+Full local correctness, installed-package and incremental performance checks pass;
+all 35 exact-head CI checks succeed in `aad-calibration-pullback-ci-05.jsonl`.
+The separate Python review and unfinished Excel/request integration do not close F01.
 
 ## Findings
 
@@ -10,9 +11,10 @@ No unresolved correctness, methodology, compatibility or style findings in this
 increment. Read the complete new public implementation/header and tests, shared
 mapping helper, legacy rate-pricing file, public CMake, changed current-state
 guides/changelog, controlling spec/API/critique and measured performance report.
-The reviewed local source is the uncommitted increment on accepted native capture
-`a3833be93e64a2e427debbcf787fd99a7ff37c22`; that parent's 35 successful CI checks
-accept capture only and do not accept these new common entry points.
+The reviewed source was published as the exact accepted head above. Its publication
+identity manifest preserves all sixteen staged file hashes and the staged tree.
+Earlier native-capture CI accepts only that prerequisite; new common C++ acceptance
+uses this increment's own complete CI capture.
 
 The boundary owns a closed variant of existing immutable typed sources. Tagged
 seed aliases share one checked implementation and copy numeric inputs. Results
@@ -52,10 +54,9 @@ effective inverse and conservative method/boundary labels; it does not claim a
 new implicit solver, actual requested ANALYTIC mode, nonlinear selected-solution
 derivative or complete market Greek. Those limits are stated in the guide.
 
-Residual risk is exact new-head Linux/MSVC/shared-DLL/ARM wheel/sanitizer CI.
-Actual local MSVC syntax checks and earlier accepted heads are insufficient for
-that acceptance. Keep this review at Comment Only until the new head passes.
-Python strict Boolean capture, common immutable/copy projections, Excel capture
+Exact new-head Linux/MSVC/shared-DLL/ARM wheel/sanitizer CI has passed.
+The separate Python increment supplies strict Boolean capture and common
+immutable/copy projections, but needs its own publication-head acceptance. Excel capture
 options/handles/registrations, serialization errors, numeric budgets and market
 request integration remain required. None of the full F01 boxes is closed here.
 
@@ -112,6 +113,6 @@ Twenty separate informational processes retain all twelve numeric checks and
 408 input hashes. These prepared-entry costs and bounded incremental acceptance
 do not resolve P01's inconclusive production MC verdict.
 
-The common C++ operation is ready for publication and exact-head CI review.
+The published common C++ operation is accepted with its exact-head CI.
 The overall AAD goal remains active; complete language/request/budget integration
 and the remaining Stage B/C/D work still require implementation and acceptance.

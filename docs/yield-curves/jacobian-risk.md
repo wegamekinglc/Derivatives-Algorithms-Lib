@@ -587,6 +587,40 @@ method and units remain; direct seeds may use another fixed base with identical
 ordered quote axes and values. Dupire retains its independent native recording
 and nested-use rejection. All getters return stored passive data.
 
+#### Python common pullback
+
+Python exposes the same boundary through `CalibrationPullback_New`,
+`CalibrationParameterAdjoints_New`, `CalibrationDirectQuoteAdjoints_New` and
+`PullbackCalibration`. To capture a curve record, pass
+`retain_calibration_record=True` to `RateQuoteRiskProvenanceConfig_` before
+calling the existing provenance builder. The omitted option remains false;
+`provenance.calibration_record` returns the exact canonical record. A provenance
+can be rebuilt from an already retained calibration result without another solve.
+
+```python
+boundary = dal.CalibrationPullback_New(provenance)
+parameters = dal.CalibrationParameterAdjoints_New(
+    boundary, [[value] for value in node_gradient],
+)
+risk = dal.PullbackCalibration(boundary, parameters)
+decimal_quote_risk = risk.total_adjoints.to_rows()
+dv01 = [[value * 1e-4 for value in row] for row in decimal_quote_risk]
+```
+
+`node_gradient` must use the captured global parameter coordinates, including
+joint base dependencies where applicable. For Dupire, use the frozen calibration
+snapshot instead of curve provenance and keep its spot/time matrix orientation.
+Seed factories accept `DoubleMatrix_` or rectangular two-dimensional lists/tuples;
+raw cells must be finite integers/floats, excluding booleans and enums. One-dimensional
+vectors, ragged rows, wrong dimensions and mismatched sources fail explicitly.
+
+The optional `direct=` argument takes a common direct-quote seed; its contribution
+is added once. `calibration_adjoints`, `direct_adjoints` and `total_adjoints`
+return detached matrices. `calibration`, `source`, dimensions and method/unit/boundary
+properties retain owning, readonly projections. Common values support copying,
+but are not pickle/archive objects. Native mapping releases the GIL after copying
+checked inputs; it uses the frozen IVS samples and never calls Python during mapping.
+
 ### Why divide by `tolerance_`
 
 The underdetermined solver does not operate on the raw residuals. It scales every

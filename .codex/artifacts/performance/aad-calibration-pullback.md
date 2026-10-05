@@ -1,6 +1,7 @@
 # F01 common C++ calibration performance acceptance
 
-Status: local incremental performance accepted; exact publication-head CI open.
+Status: incremental performance and all 35 exact `12b3d7d` CI checks accepted
+(`aad-calibration-pullback-ci-05.jsonl`).
 Full F01 and P01 production MC acceptance remain open.
 
 ## Inputs and protocol

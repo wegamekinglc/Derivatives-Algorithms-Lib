@@ -1,9 +1,9 @@
 # F01 common calibration API decision
 
 Status: active decision. Native opt-in curve record capture is accepted.
-The shared C++ API passes full local correctness, installed-consumer and
-incremental performance verification; exact publication-head CI is required.
-Python/Excel extensions remain unimplemented.
+The shared C++ API is accepted with all 35 exact `12b3d7d` CI checks.
+Python capture/common factories pass full local and incremental performance
+verification; their own publication-head CI is required. Excel remains unimplemented.
 The [specification](../specs/aad-calibration-pullback.md) controls correctness,
 identity, failure, resources and acceptance.
 
@@ -108,12 +108,17 @@ Expose `CalibrationPullback_New(calibration)`,
 Return read-only source/seed/result objects. Source projection returns the
 owning registered Dupire snapshot or curve provenance, not a serialized label.
 Matrices are explicitly two-dimensional; curve inputs are M-by-one columns.
-Keep existing strict numeric matrix checks and reject bool/enums/non-finite
-cells, ragged shapes and wrong domain objects. Required source cannot be None.
+Accept owning `DoubleMatrix_` values or rectangular lists/tuples. Raw sequence
+cells reject bool/enums, coercion and non-finite values; both routes reject
+wrong shapes, non-finite stored doubles and wrong domain objects. The old generic
+matrix constructor's prior normalization remains unchanged. Required source cannot be None.
 
 Projection retains the GIL. Callback-free native mapping may release it with
 owning arguments retained; it never invokes a Python IVS callback because
-Dupire has already frozen that input. Return detached numeric matrices.
+Dupire has already frozen that input. Return detached numeric matrices. Common
+values are readonly and support copy/deepcopy, but reject pickle/native archives.
+Keep the original two-argument config overload first; a separate keyword-only
+capture overload accepts actual Python bool only.
 
 ## Excel
 
