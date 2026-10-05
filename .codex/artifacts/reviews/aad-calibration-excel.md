@@ -8,7 +8,7 @@ the full F01 request integration nor the entire PR's merge readiness.
 ## Findings
 
 No remaining source finding in the reviewed capture/common binding increment.
-The review corrected two Windows-specific issues before publication:
+The review corrected two Windows-specific issues before the first publication:
 
 - `dal-excel/tests/test_calibration_risk.cpp`: the XLL and test executable have
   separate thread-local native tape and recording state. Move test graph ownership
@@ -19,6 +19,16 @@ The review corrected two Windows-specific issues before publication:
 - `dal-excel/src/__dupireinput.hpp`: use a literal identifier argument in the shared
   NUL validator and construct its string only on the error path, avoiding a new
   allocation for successful old Dupire text inputs. Existing error tokens remain.
+
+The first Excel head `a522b16b` then fails Windows CI compilation because the SDK
+`max` macro expands three new test calls to `numeric_limits::max()`. Earlier
+local syntax calls used an extra NOMINMAX define and cannot prove the actual
+macro environment. Remove that local define, reproduce the failure in
+`aad-calibration-excel-msvc-macros-red-01.log`, and protect the three calls with
+parentheses. All six units in both modes then compile without NOMINMAX in
+`aad-calibration-excel-msvc-macros-green-01.json`. Keep the actual first CI log
+`aad-calibration-excel-msvc-ci-failure-01.log`. Assertions, extreme values,
+production code and CI flags remain unchanged; the repaired head needs own CI.
 
 Read the capture overloads, dispatcher, common header/implementation, raw-cell
 validators, generated inc/HTML pairs, tests, source native APIs, controlling

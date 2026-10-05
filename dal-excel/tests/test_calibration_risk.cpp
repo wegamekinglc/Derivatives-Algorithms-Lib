@@ -234,7 +234,7 @@ TEST(ExcelCalibrationRiskTest, TestSeedShapeAndFiniteChecksPreserveOutputs) {
     CalibrationDirectQuoteAdjoints_New("good", boundary, Matrix_<>(3, 2, 0.125), &direct);
     const auto savedParameters = parameters;
     const auto savedDirect = direct;
-    for (const auto& wrong : {Matrix_<>(), Matrix_<>(0, std::numeric_limits<int>::max()), Matrix_<>(9, 1)}) {
+    for (const auto& wrong : {Matrix_<>(), Matrix_<>(0, (std::numeric_limits<int>::max)()), Matrix_<>(9, 1)}) {
         ASSERT_THROW(CalibrationParameterAdjoints_New("bad", boundary, wrong, &parameters), Exception_);
         ASSERT_EQ(parameters, savedParameters);
         ASSERT_THROW(CalibrationDirectQuoteAdjoints_New("bad", boundary, wrong, &direct), Exception_);
@@ -332,7 +332,7 @@ TEST(ExcelCalibrationRiskTest, TestDirectOnlyAndOverflowFailureRecoverWithoutPar
     const auto finite = PullbackCalibration(boundary->val_, extreme->val_);
     Matrix_<> overflow(boundary->val_.QuoteRows(), 1);
     for (int row = 0; row < overflow.Rows(); ++row)
-        overflow(row, 0) = std::copysign(std::numeric_limits<double>::max(), finite.TotalAdjoints()(row, 0));
+        overflow(row, 0) = std::copysign((std::numeric_limits<double>::max)(), finite.TotalAdjoints()(row, 0));
     CalibrationDirectQuoteAdjoints_New("finite-direct", boundary, overflow, &direct);
     ASSERT_THROW(CalibrationQuoteRisk_New("overflow", boundary, extreme, direct, &result), Exception_);
     ASSERT_EQ(result, saved);
@@ -514,7 +514,7 @@ TEST(ExcelCalibrationRiskTest, TestWorksheetCellsRetainLocationsAndRejectShapeBe
         cells[3].val.num = value;
         ASSERT_NO_FATAL_FAILURE(AssertError([&] { Excel::ValidateCalibrationAdjointsInput(&range, "seed; adjoints", 2, 2); }, "row=2; column=2"));
     }
-    range.val.array = {nullptr, std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
+    range.val.array = {nullptr, (std::numeric_limits<int>::max)(), (std::numeric_limits<int>::max)()};
     ASSERT_NO_FATAL_FAILURE(AssertError([&] { Excel::ValidateCalibrationAdjointsInput(&range, "seed; adjoints", 2, 2); }, "dimensions"));
 }
 

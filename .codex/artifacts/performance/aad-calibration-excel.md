@@ -50,6 +50,10 @@ After sampling, the Windows module-state review fixes test utilities and removes
 an unnecessary valid-text identifier allocation in a Windows-only validator.
 Both measured Linux production objects remain byte-identical after rebuilding,
 in `module-object-identity-01.json`. No measured production math changes.
+The initial Excel head's SDK max-macro CI failure and reproduced RED remain.
+Protecting the three affected test calls changes no production object or
+performance input; compile corrected tests without the extra local NOMINMAX
+define before inspecting the repaired head's own CI.
 Retain original capture/common RED logs, fixture compile errors, the wrong native
 coordinate-error expectation and first MSVC SDK include-order failures. The
 first two functionality consumer runs overlapped a build and are not timing

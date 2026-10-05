@@ -470,6 +470,13 @@ preservation and derivative-recovery checks. Keep the failing missing-helper
 build and first probe/fixture/SDK failures. Windows runtime still requires the
 increment's own CI; syntax and portable tests cannot replace it.
 
+Initial Excel publication `a522b16b` fails Windows test compilation on three
+`numeric_limits::max()` calls colliding with the SDK macro. Keep the first
+actual CI log and the reproduced MSVC failure without NOMINMAX. Parenthesized
+calls preserve all extreme-value assertions; all 12 syntax units then pass
+without the extra local define. Production objects and the paired measurement
+remain unchanged. The repaired publication must pass its own complete CI.
+
 The unchanged two-round/ten-process/4% Excel wrapper protocol passes all 48
 old/default comparisons. Forty processes preserve 640 numeric checks and
 1,477 frozen inputs. All 32 new capture/prepared-common costs are retained
