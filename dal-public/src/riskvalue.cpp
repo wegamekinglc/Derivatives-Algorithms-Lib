@@ -85,6 +85,67 @@ namespace Dal {
             provenance.execution_ = std::move(execution);
             return provenance;
         }
+
+        Script::RiskRequest_ PlanRiskValuation(const Script::ScriptProduct_&,
+                                               const Vector_<Script::RiskCoordinate_>& axis,
+                                               ScriptValuationSettings_*,
+                                               const Script::RiskRequest_& request,
+                                               bool enableAad) {
+            return Script::PlanScalarRiskRequest(axis, request, enableAad);
+        }
+
+        Script::WeightedRiskPlan_ PlanRiskValuation(const Script::ScriptProduct_& product,
+                                                    const Vector_<Script::RiskCoordinate_>& axis,
+                                                    ScriptValuationSettings_* valuation,
+                                                    const Script::WeightedRiskRequest_& request,
+                                                    bool enableAad) {
+            const auto date = valuation->evaluationDate_ ? *valuation->evaluationDate_ : Script::CaptureScriptEvaluationDate();
+            valuation->evaluationDate_ = date;
+            return Script::PlanWeightedRiskRequest(product, axis, date, request, enableAad);
+        }
+
+        void ValidatePreparedRiskPlan(const Script::RiskRequest_&,
+                                      const Vector_<Script::RiskCoordinate_>& axis,
+                                      const Script::PreparedScript_& prepared,
+                                      const AAD::Model_<double>& model) {
+            CheckPreparedAxis(axis, InputAxis(model, prepared.Product()));
+        }
+
+        void ValidatePreparedRiskPlan(const Script::WeightedRiskPlan_& plan,
+                                      const Vector_<Script::RiskCoordinate_>&,
+                                      const Script::PreparedScript_& prepared,
+                                      const AAD::Model_<double>& model) {
+            Script::ValidateWeightedRiskPreparedAxes(plan, prepared.Product(), InputAxis(model, prepared.Product()));
+        }
+
+        template <class R_, class F_>
+        auto EvaluateScriptRisk(const Handle_<ScriptProductData_>& product,
+                                const Handle_<ModelData_>& modelData,
+                                int numPath,
+                                const R_& request,
+                                const ScriptValuationSettings_& valuation,
+                                const MonteCarloSettings_& simulation,
+                                const F_& evaluate) {
+            XGLOBAL::ValuationMutationGuard_ valuationGuard;
+            REQUIRE2(numPath > 0, "InvalidPathCount: numPath must be a positive integer; numPath=" + String_(std::to_string(numPath)), ScriptError_);
+            const auto execution = simulation;
+            const auto requested = request;
+            auto valuationCopy = valuation;
+            const auto productCopy = product;
+            const auto modelCopy = modelData;
+            Detail::CheckScriptValuationInputs(productCopy, modelCopy);
+            Script::ValidateSimulationSettings(execution);
+            auto model = CreateModel<double>(modelCopy);
+            auto parsed = productCopy->Product();
+            parsed.IndexVariables();
+            const auto axis = InputAxis(*model, parsed);
+            const auto planned = PlanRiskValuation(parsed, axis, &valuationCopy, requested, execution.enableAad_);
+            const auto settings = Script::ResolveValuationSettings(valuationCopy);
+            const auto prepared = Script::PrepareScript(*productCopy, model.get(), settings, execution);
+            ValidatePreparedRiskPlan(planned, axis, prepared, *model);
+            const auto provenance = Provenance(prepared, *productCopy, *modelCopy, numPath);
+            return evaluate(prepared, model.get(), modelCopy, execution, axis, planned, provenance);
+        }
     } // namespace
 
     namespace Detail {
@@ -105,29 +166,38 @@ namespace Dal {
                                                   const Script::RiskRequest_& request,
                                                   const ScriptValuationSettings_& valuation,
                                                   const MonteCarloSettings_& simulation) {
-        XGLOBAL::ValuationMutationGuard_ valuationGuard;
-        REQUIRE2(numPath > 0, "InvalidPathCount: numPath must be a positive integer; numPath=" + String_(std::to_string(numPath)), ScriptError_);
-        const auto execution = simulation;
-        const auto requested = request;
-        const auto valuationCopy = valuation;
-        const auto productCopy = product;
-        const auto modelCopy = modelData;
-        Detail::CheckScriptValuationInputs(productCopy, modelCopy);
-        Script::ValidateSimulationSettings(execution);
-        auto model = CreateModel<double>(modelCopy);
-        auto parsed = productCopy->Product();
-        parsed.IndexVariables();
-        const auto axis = InputAxis(*model, parsed);
-        const auto planned = Script::PlanScalarRiskRequest(axis, requested, execution.enableAad_);
-        const auto settings = Script::ResolveValuationSettings(valuationCopy);
-        const auto prepared = Script::PrepareScript(*productCopy, model.get(), settings, execution);
-        CheckPreparedAxis(axis, InputAxis(*model, prepared.Product()));
-        const auto provenance = Provenance(prepared, *productCopy, *modelCopy, numPath);
-        const size_t paths = static_cast<size_t>(numPath);
-        const auto source = execution.enableAad_ ? Script::MCSimulation<AAD::Number_>(prepared, modelCopy, paths, execution.rsg_, execution.useBb_,
-                                                                                      execution.compiled_, -1, execution.smooth_)
-                                                 : Script::MCDoubleSimulation(prepared, model.get(), paths, execution.rsg_, execution.useBb_,
-                                                                              execution.compiled_, true);
-        return Script::ProjectMonteCarloRiskResult(source, numPath, axis, planned, provenance);
+        return EvaluateScriptRisk(product, modelData, numPath, request, valuation, simulation,
+                                  [&](const auto& prepared, auto* model, const auto& modelCopy, const auto& execution, const auto& axis,
+                                      const auto& planned, const auto& provenance) {
+                                      const size_t paths = static_cast<size_t>(numPath);
+                                      const auto source =
+                                          execution.enableAad_
+                                              ? Script::MCSimulation<AAD::Number_>(prepared, modelCopy, paths, execution.rsg_, execution.useBb_,
+                                                                                   execution.compiled_, -1, execution.smooth_)
+                                              : Script::MCDoubleSimulation(prepared, model, paths, execution.rsg_, execution.useBb_,
+                                                                           execution.compiled_, true);
+                                      return Script::ProjectMonteCarloRiskResult(source, numPath, axis, planned, provenance);
+                                  });
+    }
+
+    Script::WeightedRiskResult_ ValueByMonteCarloWithWeightedRisk(const Handle_<ScriptProductData_>& product,
+                                                                  const Handle_<ModelData_>& modelData,
+                                                                  int numPath,
+                                                                  const Script::WeightedRiskRequest_& request,
+                                                                  const ScriptValuationSettings_& valuation,
+                                                                  const MonteCarloSettings_& simulation) {
+        return EvaluateScriptRisk(product, modelData, numPath, request, valuation, simulation,
+                                  [&](const auto& prepared, auto* model, const auto& modelCopy, const auto& execution, const auto&,
+                                      const auto& planned, const auto& provenance) {
+                                      const size_t paths = static_cast<size_t>(numPath);
+                                      const Script::Detail::WeightedSimulationObjective_ objective(planned);
+                                      const auto source =
+                                          execution.enableAad_
+                                              ? Script::MCAADSimulationWithObjective(prepared, modelCopy, paths, execution.rsg_, execution.useBb_,
+                                                                                     execution.compiled_, -1, execution.smooth_, objective)
+                                              : Script::MCDoubleSimulationWithObjective(prepared, model, paths, execution.rsg_, execution.useBb_,
+                                                                                        execution.compiled_, true, objective);
+                                      return Script::ProjectWeightedMonteCarloRiskResult(source, source.componentSums_, numPath, planned, provenance);
+                                  });
     }
 } // namespace Dal

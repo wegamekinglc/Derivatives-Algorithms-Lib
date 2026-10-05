@@ -14,6 +14,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
+#include <dal/math/aad/weightedroot.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
@@ -24,6 +25,7 @@
 #include <dal/script/event.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/preparation.hpp>
+#include <dal/script/weightedrisk.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
 
@@ -45,6 +47,109 @@ namespace Dal::Script {
             return risks_[it->second];
         }
     };
+
+    namespace Detail {
+        struct WeightedSimResults_ : SimResults_ {
+            Vector_<double> componentSums_;
+            WeightedSimResults_(const Vector_<String_>& names, size_t components) : SimResults_(names), componentSums_(components, 0.0) {}
+        };
+
+        // Passive batches omit model risk and axis storage.
+        struct WeightedBatchValues_ {
+            double aggregated_ = 0.0;
+            Vector_<double> componentSums_;
+            explicit WeightedBatchValues_(size_t components) : componentSums_(components, 0.0) {}
+        };
+
+        struct ScalarPayoffCollector_ {
+            template <class T_> T_ operator()(const Vector_<T_>& values, size_t payoffIndex, const T_& zero) const {
+                if constexpr (std::is_same_v<T_, AAD::Number_>)
+                    return AAD::PayoffRoot(values[payoffIndex], zero);
+                else
+                    return values[payoffIndex];
+            }
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const { return {}; }
+        };
+
+        template <class T_> class WeightedPayoffCollector_ {
+            const WeightedRiskPlan_& plan_;
+            Vector_<double>* componentSums_;
+            Vector_<T_> outputs_;
+
+        public:
+            WeightedPayoffCollector_(const WeightedRiskPlan_& plan, Vector_<double>* componentSums)
+                : plan_(plan), componentSums_(componentSums), outputs_(plan.OutputAxis().size()) {}
+
+            T_ operator()(const Vector_<T_>& values, size_t, const T_&) {
+                for (size_t component = 0; component < outputs_.size(); ++component) {
+                    outputs_[component] = values[plan_.OutputAxis()[component].slot_];
+                    REQUIRE2(std::isfinite(Value(outputs_[component])),
+                             "InvalidWeightedPayoff: non-finite component; output=" + plan_.OutputAxis()[component].id_, ScriptError_);
+                }
+                T_ root = [&] {
+                    if constexpr (std::is_same_v<T_, AAD::Number_>)
+                        return AAD::WeightedPayoffRoot(outputs_, plan_.Weights());
+                    else {
+                        double value = outputs_[0] * plan_.Weights()[0];
+                        for (size_t component = 1; component < outputs_.size(); ++component)
+                            value += outputs_[component] * plan_.Weights()[component];
+                        return value;
+                    }
+                }();
+                REQUIRE2(std::isfinite(Value(root)), "InvalidWeightedPayoff: non-finite weighted path value", ScriptError_);
+                for (size_t component = 0; component < outputs_.size(); ++component)
+                    (*componentSums_)[component] += Value(outputs_[component]);
+                return root;
+            }
+
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const { return ProfileArrays(outputs_); }
+        };
+
+        struct ScalarSimulationObjective_ {
+            using Result_ = SimResults_;
+            using DoubleBatch_ = double;
+            [[nodiscard]] Result_ MakeResult(const Vector_<String_>& names) const { return Result_(names); }
+            [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const { return 0.0; }
+            [[nodiscard]] ScalarPayoffCollector_ AADCollector(Result_*) const { return {}; }
+            [[nodiscard]] ScalarPayoffCollector_ DoubleCollector(DoubleBatch_*) const { return {}; }
+            void SetDoubleValue(DoubleBatch_* batch, double value) const { *batch = value; }
+            void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const { result->aggregated_ = Accumulate(batches); }
+            void AccumulateComponents(Result_*, const Result_&) const {}
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const Result_& result) const { return ProfileArrays(result.risks_); }
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ DoubleArrays(const Vector_<DoubleBatch_>& batches) const { return ProfileArrays(batches); }
+        };
+
+        struct WeightedSimulationObjective_ {
+            using Result_ = WeightedSimResults_;
+            using DoubleBatch_ = WeightedBatchValues_;
+            const WeightedRiskPlan_& plan_;
+            explicit WeightedSimulationObjective_(const WeightedRiskPlan_& plan) : plan_(plan) {}
+            [[nodiscard]] Result_ MakeResult(const Vector_<String_>& names) const { return Result_(names, plan_.OutputAxis().size()); }
+            [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const { return DoubleBatch_(plan_.OutputAxis().size()); }
+            [[nodiscard]] WeightedPayoffCollector_<AAD::Number_> AADCollector(Result_* result) const { return {plan_, &result->componentSums_}; }
+            [[nodiscard]] WeightedPayoffCollector_<double> DoubleCollector(DoubleBatch_* result) const { return {plan_, &result->componentSums_}; }
+            void SetDoubleValue(DoubleBatch_* batch, double value) const { batch->aggregated_ = value; }
+            void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const {
+                for (const auto& batch : batches) {
+                    result->aggregated_ += batch.aggregated_;
+                    AccumulateComponents(result, batch);
+                }
+            }
+            template <class B_> void AccumulateComponents(Result_* result, const B_& batch) const {
+                for (size_t component = 0; component < result->componentSums_.size(); ++component)
+                    result->componentSums_[component] += batch.componentSums_[component];
+            }
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const Result_& result) const {
+                return ProfileArrays(result.risks_, result.componentSums_);
+            }
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ DoubleArrays(const Vector_<DoubleBatch_>& batches) const {
+                auto arrays = ProfileArrays(batches);
+                for (const auto& batch : batches)
+                    arrays = JoinProfileArrays(arrays, ProfileArrays(batch.componentSums_));
+                return arrays;
+            }
+        };
+    } // namespace Detail
 
     constexpr size_t BATCH_SIZE = 8192;
 
@@ -262,9 +367,14 @@ namespace Dal::Script {
             });
         }
 
-        template <class S_, class E_, class F_>
-        double EvaluateDoubleBatch(
-            const AAD::Model_<double>& model, S_* state, E_* evaluator, const PathBatch_& batch, size_t payoffIndex, const F_& evaluate) {
+        template <class S_, class E_, class F_, class O_ = ScalarPayoffCollector_>
+        double EvaluateDoubleBatch(const AAD::Model_<double>& model,
+                                   S_* state,
+                                   E_* evaluator,
+                                   const PathBatch_& batch,
+                                   size_t payoffIndex,
+                                   const F_& evaluate,
+                                   O_&& objective = {}) {
             if (state->random_)
                 state->random_->SkipNormalTo(batch.firstPath_);
             auto run = [&](const auto& generate) {
@@ -282,13 +392,18 @@ namespace Dal::Script {
                     evaluate(path, *evaluator);
                     AAD::CaptureMemoryForProfiling([&] {
                         return AAD::ProfilingMemoryStatistics_{
-                            ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(state->gauss_), ProfileEvaluatorArrays(*evaluator)), {}, {}};
+                            ProfilePathArrays(path),
+                            JoinProfileArrays(JoinProfileArrays(ProfileArrays(state->gauss_), ProfileEvaluatorArrays(*evaluator)),
+                                              objective.WorkspaceArrays()),
+                            {},
+                            {}};
                     });
 #else
                     evaluate(generate(state->gauss_), *evaluator);
 #endif
-                    REQUIRE2(std::isfinite(evaluator->VarVals()[payoffIndex]), "InvalidPayoff: non-finite path value", ScriptError_);
-                    sumValue += evaluator->VarVals()[payoffIndex];
+                    const double value = objective(evaluator->VarVals(), payoffIndex, 0.0);
+                    REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
+                    sumValue += value;
                 }
                 return sumValue;
             };
@@ -320,21 +435,22 @@ namespace Dal::Script {
         THROW("not implemented");
     }
 
-    template <class P_>
-    SimResults_ MCDoubleSimulation(const P_& product,
-                                   AAD::Model_<double>* mdl,
-                                   size_t nPaths,
-                                   const String_& rsg,
-                                   bool useBb,
-                                   std::optional<bool> compiled,
-                                   bool initialized = false) {
+    template <class P_, class O_ = Detail::ScalarSimulationObjective_>
+    typename O_::Result_ MCDoubleSimulationWithObjective(const P_& product,
+                                                         AAD::Model_<double>* mdl,
+                                                         size_t nPaths,
+                                                         const String_& rsg,
+                                                         bool useBb,
+                                                         std::optional<bool> compiled,
+                                                         bool initialized = false,
+                                                         const O_& objective = {}) {
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
         const bool useCompiled = compiled.value_or(false);
 
         if (product.EventDates().empty())
-            return SimResults_(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
+            return objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         if constexpr (std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(!product.Simulation().enableAad_ && useCompiled == product.Simulation().compiled_.value_or(false),
@@ -355,7 +471,10 @@ namespace Dal::Script {
                 ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
                        "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
                 prepare.Finish();
-                return MCLsmcSimulation(product, mdl, nPaths);
+                if constexpr (std::is_same_v<O_, Detail::ScalarSimulationObjective_>)
+                    return MCLsmcSimulation(product, mdl, nPaths);
+                else
+                    THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
             }
         }
 
@@ -392,10 +511,10 @@ namespace Dal::Script {
         // Preserve caller-side input validation, including the zero-path case.
         threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
 
-        SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
+        auto results = objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         const BatchPlan_ batchPlan(nPaths, nThreads);
-        Vector_<> simResults;
+        Vector_<typename O_::DoubleBatch_> simResults;
         simResults.reserve(batchPlan.BatchCount());
 
         auto payoffIndex = product.PayOffIdx();
@@ -405,7 +524,7 @@ namespace Dal::Script {
 
         for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            simResults.emplace_back(0.0);
+            simResults.emplace_back(objective.MakeDoubleBatch());
             tasks.Spawn([&, batchIndex, batch]() {
                 AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
                 const size_t threadNum = ThreadPool_::ThreadNum();
@@ -413,13 +532,16 @@ namespace Dal::Script {
                 if (!state)
                     state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
                 initialize.Finish();
+                auto collector = objective.DoubleCollector(&simResults[batchIndex]);
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
-                    return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate);
+                    return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate, collector);
                 };
                 if (useCompiled)
-                    simResults[batchIndex] = runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); });
+                    objective.SetDoubleValue(&simResults[batchIndex],
+                                             runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); }));
                 else
-                    simResults[batchIndex] = runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); });
+                    objective.SetDoubleValue(&simResults[batchIndex],
+                                             runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); }));
                 return true;
             });
         }
@@ -428,11 +550,24 @@ namespace Dal::Script {
 
         AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
 #if defined(DAL_ENABLE_AAD_PROFILING)
-        AAD::CaptureMemoryForProfiling(
-            [&] { return AAD::ProfilingMemoryStatistics_{{}, {}, Detail::ProfileArrays(results.risks_, simResults), {}}; });
+        AAD::CaptureMemoryForProfiling([&] {
+            return AAD::ProfilingMemoryStatistics_{
+                {}, {}, Detail::JoinProfileArrays(objective.ResultArrays(results), objective.DoubleArrays(simResults)), {}};
+        });
 #endif
-        results.aggregated_ = Accumulate(simResults);
+        objective.AggregateDouble(&results, simResults);
         return results;
+    }
+
+    template <class P_>
+    SimResults_ MCDoubleSimulation(const P_& product,
+                                   AAD::Model_<double>* model,
+                                   size_t nPaths,
+                                   const String_& rsg,
+                                   bool useBb,
+                                   std::optional<bool> compiled,
+                                   bool initialized = false) {
+        return MCDoubleSimulationWithObjective(product, model, nPaths, rsg, useBb, compiled, initialized);
     }
 
     template <>
@@ -463,13 +598,14 @@ namespace Dal::Script {
             size_t payoffIndex_;
         };
 
-        template <class P_>
+        template <class P_, class O_ = ScalarPayoffCollector_>
         void EvaluateAADBatch(const P_& product,
                               const Handle_<ModelData_>& modelData,
                               const AADBatchSettings_& settings,
                               const std::optional<ScriptCompiled_>& compiledProduct,
                               const PathBatch_& batch,
-                              SimResults_* results) {
+                              SimResults_* results,
+                              O_ objective = {}) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             AAD::RecordingScope_ recording;
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
@@ -495,7 +631,10 @@ namespace Dal::Script {
 #if defined(DAL_ENABLE_AAD_PROFILING)
                 AAD::CaptureMemoryForProfiling([&] {
                     return AAD::ProfilingMemoryStatistics_{
-                        ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), {}, {}};
+                        ProfilePathArrays(path),
+                        JoinProfileArrays(JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), objective.WorkspaceArrays()),
+                        {},
+                        {}};
                 });
 #endif
                 initialize.Finish();
@@ -509,7 +648,7 @@ namespace Dal::Script {
                         forward.Finish();
                         AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                         evaluate(path, evaluator);
-                        AAD::Number_ res = AAD::PayoffRoot(evaluator.VarVals()[settings.payoffIndex_], payoffZero);
+                        AAD::Number_ res = objective(evaluator.VarVals(), settings.payoffIndex_, payoffZero);
                         REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
                         recording.FinishRecording();
                         payoff.Finish();
@@ -517,7 +656,11 @@ namespace Dal::Script {
 #if defined(DAL_ENABLE_AAD_PROFILING)
                         AAD::CaptureMemoryForProfiling([&] {
                             return AAD::ProfilingMemoryStatistics_{
-                                ProfilePathArrays(path), JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), {}, {}};
+                                ProfilePathArrays(path),
+                                JoinProfileArrays(JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)),
+                                                  objective.WorkspaceArrays()),
+                                {},
+                                {}};
                         });
 #endif
                         AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
@@ -558,26 +701,30 @@ namespace Dal::Script {
             recording.Close();
         }
 
-        inline SimResults_ AggregateAADResults(const Vector_<String_>& names, const Vector_<SimResults_>& simResults) {
-            SimResults_ rtn(names);
+        template <class O_ = ScalarSimulationObjective_>
+        typename O_::Result_
+        AggregateAADResults(const Vector_<String_>& names, const Vector_<typename O_::Result_>& simResults, const O_& objective = {}) {
+            auto rtn = objective.MakeResult(names);
             for (const auto& res : simResults) {
                 rtn.aggregated_ += res.aggregated_;
                 for (size_t j = 0; j < rtn.risks_.size(); ++j)
                     rtn.risks_[j] += res.risks_[j];
+                objective.AccumulateComponents(&rtn, res);
             }
             return rtn;
         }
     } // namespace Detail
 
-    template <class P_>
-    SimResults_ MCAADSimulation(const P_& product,
-                                const Handle_<ModelData_>& modelData,
-                                size_t nPaths,
-                                const String_& rsg,
-                                bool useBb,
-                                std::optional<bool> compiled,
-                                int maxNestedIfs,
-                                double eps) {
+    template <class P_, class O_ = Detail::ScalarSimulationObjective_>
+    typename O_::Result_ MCAADSimulationWithObjective(const P_& product,
+                                                      const Handle_<ModelData_>& modelData,
+                                                      size_t nPaths,
+                                                      const String_& rsg,
+                                                      bool useBb,
+                                                      std::optional<bool> compiled,
+                                                      int maxNestedIfs,
+                                                      double eps,
+                                                      const O_& objective = {}) {
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
@@ -588,7 +735,7 @@ namespace Dal::Script {
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
         if (product.EventDates().empty())
-            return SimResults_(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
+            return objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         if constexpr (std::is_base_of_v<PreparedScript_, P_>)
             REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
                          useCompiled == product.Simulation().compiled_.value_or(false),
@@ -599,7 +746,10 @@ namespace Dal::Script {
         if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
             if (product.Product().ContainsExercise()) {
                 prepare.Finish();
-                return MCLsmcAadSimulation(product, modelData, nPaths);
+                if constexpr (std::is_same_v<O_, Detail::ScalarSimulationObjective_>)
+                    return MCLsmcAadSimulation(product, modelData, nPaths);
+                else
+                    THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
             }
         }
 
@@ -619,8 +769,8 @@ namespace Dal::Script {
 
         auto payoffIndex = product.PayOffIdx();
 
-        SimResults_ values(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
-        Vector_<SimResults_> simResults(nThreads, values);
+        auto values = objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
+        Vector_<typename O_::Result_> simResults(nThreads, values);
         const Detail::AADBatchSettings_ settings{rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex};
         // Keep this after every task-captured local so it drains first on unwind.
         SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
@@ -630,7 +780,8 @@ namespace Dal::Script {
             const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
             tasks.Spawn([&, batch]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
-                Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum));
+                Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum),
+                                         objective.AADCollector(&simResults(threadNum)));
                 return true;
             });
         }
@@ -640,13 +791,25 @@ namespace Dal::Script {
         AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
 #if defined(DAL_ENABLE_AAD_PROFILING)
         AAD::CaptureMemoryForProfiling([&] {
-            auto resultArrays = Detail::ProfileArrays(values.risks_);
+            auto resultArrays = objective.ResultArrays(values);
             for (const auto& result : simResults)
-                resultArrays = Detail::JoinProfileArrays(resultArrays, Detail::ProfileArrays(result.risks_));
+                resultArrays = Detail::JoinProfileArrays(resultArrays, objective.ResultArrays(result));
             return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
         });
 #endif
-        return Detail::AggregateAADResults(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()), simResults);
+        return Detail::AggregateAADResults(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()), simResults, objective);
+    }
+
+    template <class P_>
+    SimResults_ MCAADSimulation(const P_& product,
+                                const Handle_<ModelData_>& modelData,
+                                size_t nPaths,
+                                const String_& rsg,
+                                bool useBb,
+                                std::optional<bool> compiled,
+                                int maxNestedIfs,
+                                double eps) {
+        return MCAADSimulationWithObjective(product, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, eps);
     }
 
     template <>

@@ -130,4 +130,26 @@ namespace Dal::Script {
         ValidateOutputAxis(plan.CompleteOutputAxis(), ScriptRiskOutputAxis(preparedProduct));
         ValidateInputAxis(plan.CompleteInputAxis(), preparedInputAxis);
     }
+
+    WeightedRiskResult_::WeightedRiskResult_(RiskResult_&& objective, const WeightedRiskPlan_& plan, Vector_<double>&& componentMeans)
+        : objective_(std::move(objective)), outputAxis_(plan.OutputAxis()), weights_(plan.Weights()), componentMeans_(std::move(componentMeans)) {}
+
+    WeightedRiskResult_ ProjectWeightedMonteCarloRiskResult(const SimResults_& source,
+                                                            const Vector_<double>& componentSums,
+                                                            int paths,
+                                                            const WeightedRiskPlan_& plan,
+                                                            const RiskResultProvenance_& provenance) {
+        REQUIRE2(paths > 0 && componentSums.size() == plan.OutputAxis().size(), "InvalidWeightedRiskResult: component or path extent changed",
+                 ScriptError_);
+        REQUIRE2(provenance.method_ == (plan.EnableAad() ? "NativeAAD" : "PriceOnly"),
+                 "InvalidWeightedRiskResult: execution method differs from plan", ScriptError_);
+        auto objective = ProjectMonteCarloRiskResult(source, paths, plan.CompleteInputAxis(), plan.InputRequest(), provenance);
+        Vector_<double> means(componentSums.size());
+        for (size_t component = 0; component < componentSums.size(); ++component) {
+            means[component] = componentSums[component] / static_cast<double>(paths);
+            REQUIRE2(std::isfinite(componentSums[component]) && std::isfinite(means[component]),
+                     "InvalidWeightedRiskResult: non-finite component sum or mean; output=" + plan.OutputAxis()[component].id_, ScriptError_);
+        }
+        return WeightedRiskResult_(std::move(objective), plan, std::move(means));
+    }
 } // namespace Dal::Script

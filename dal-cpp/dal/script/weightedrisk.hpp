@@ -46,6 +46,28 @@ namespace Dal::Script {
         [[nodiscard]] size_t NumericPayloadBytes() const { return numericPayloadBytes_; }
     };
 
+    class WeightedRiskResult_ {
+        RiskResult_ objective_;
+        Vector_<RiskOutputCoordinate_> outputAxis_;
+        Vector_<double> weights_;
+        Vector_<double> componentMeans_;
+
+        WeightedRiskResult_(RiskResult_&& objective, const WeightedRiskPlan_& plan, Vector_<double>&& componentMeans);
+        friend WeightedRiskResult_
+        ProjectWeightedMonteCarloRiskResult(const SimResults_&, const Vector_<double>&, int, const WeightedRiskPlan_&, const RiskResultProvenance_&);
+
+    public:
+        [[nodiscard]] double WeightedValue() const { return objective_.Values()[0]; }
+        [[nodiscard]] const Vector_<double>& ComponentMeans() const { return componentMeans_; }
+        [[nodiscard]] const Vector_<double>& Weights() const { return weights_; }
+        [[nodiscard]] const Vector_<RiskOutputCoordinate_>& OutputAxis() const { return outputAxis_; }
+        [[nodiscard]] const Matrix_<>& Jacobian() const { return objective_.Jacobian(); }
+        [[nodiscard]] Matrix_<> ReportedJacobian() const { return objective_.ReportedJacobian(); }
+        [[nodiscard]] const Vector_<RiskCoordinate_>& InputAxis() const { return objective_.InputAxis(); }
+        [[nodiscard]] const Vector_<RiskCoordinate_>& CompleteInputAxis() const { return objective_.CompleteInputAxis(); }
+        [[nodiscard]] const RiskResultProvenance_& Provenance() const { return objective_.Provenance(); }
+    };
+
     [[nodiscard]] Vector_<RiskOutputCoordinate_> ScriptRiskOutputAxis(const ScriptProduct_& indexedProduct);
     [[nodiscard]] size_t WeightedRiskResultPayloadBytes(size_t components, size_t inputs);
     [[nodiscard]] WeightedRiskPlan_ PlanWeightedRiskRequest(const ScriptProduct_& indexedProduct,
@@ -56,4 +78,9 @@ namespace Dal::Script {
     void ValidateWeightedRiskPreparedAxes(const WeightedRiskPlan_& plan,
                                           const ScriptProduct_& preparedProduct,
                                           const Vector_<RiskCoordinate_>& preparedInputAxis);
+    [[nodiscard]] WeightedRiskResult_ ProjectWeightedMonteCarloRiskResult(const SimResults_& source,
+                                                                          const Vector_<double>& componentSums,
+                                                                          int paths,
+                                                                          const WeightedRiskPlan_& plan,
+                                                                          const RiskResultProvenance_& provenance);
 } // namespace Dal::Script

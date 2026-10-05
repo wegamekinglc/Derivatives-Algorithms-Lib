@@ -16,7 +16,9 @@ root, including when all components are prefix nodes or registered inputs.
 Use ordinary expression edges to accumulate aliases; never assign component
 adjoints individually. Seed only the returned root and use the existing suffix
 and prefix reverse lifecycle. No global adjoint mode, allocator or tape layout
-changes are needed. The existing `PayoffRoot` and scalar driver remain unchanged.
+changes are needed. The existing `PayoffRoot` stays unchanged. Shared drivers
+select scalar or weighted collectors at compile time; scalar calls retain their
+signatures and have no weighted storage.
 The helper is synchronous and does not retain caller containers. Its active
 return value must stay inside the live recording; it is not a passive result.
 
@@ -63,11 +65,11 @@ Reject missing receiver, unindexed products, exercise, invalid valuation dates
 and fully expired event calendars before preparation. A product may use vector
 operations internally; only indexed scalar slots enter the output axis.
 
-Keep additive `WeightedRiskRequest_`, `WeightedRiskResult_` and
+Use additive `WeightedRiskRequest_`, `WeightedRiskResult_` and
 `ValueByMonteCarloWithWeightedRisk` surfaces. One request structure groups ordered
 output IDs, optional weights, input IDs, report factors and payload budget.
 An output-axis query returns owning passive IDs/labels/slots from the indexed
-product. These names are proposed and not yet implemented by the root increment.
+product. These C++ surfaces are implemented by the prepared execution increment.
 
 The final result separates the weighted value/gradient from component means and
 passive weights. Its gradient is always `(1,n)`. Reuse scalar input selection and
@@ -79,12 +81,33 @@ Python uses keyword options, strict parsing, copies before releasing the GIL and
 detached arrays. Excel uses immutable handles, raw cell guards and generated
 Machinist functions. Neither binding exposes the active root helper.
 
+## Prepared execution and owning C++ result
+
+`ValueByMonteCarloWithWeightedRisk` accepts the same immutable product/model,
+valuation and simulation settings as the scalar risk entry, plus
+`WeightedRiskRequest_`. Copy every caller input before resolving history. Plan
+against the indexed product and captured date, then recheck axes after preparation.
+
+Use compile-time objective policies in the existing double/AAD drivers. The scalar
+policy has no component storage. The weighted policy allocates component buffers
+once per batch, gathers selected slots after each evaluation and forms one native
+root. Keep the existing checkpoint, task-drain, prefix reversal and gradient mean
+normalization. Double execution uses the same selection and component collector.
+
+`WeightedRiskResult_` owns ordered `OutputAxis()`, `Weights()`, `ComponentMeans()`
+and `WeightedValue()`. Its `Jacobian()`, `ReportedJacobian()`, input axes and
+`Provenance()` reuse a private owning scalar projection. The scalar projection's
+legacy/output-ID interfaces are not exposed on the weighted result. Component
+means and objective value divide accumulated sums by paths exactly once; native
+gradients are copied without another division. No active numbers or checkpoints
+cross this boundary.
+
 ## Alternatives and remaining work
 
 Repeated scalar valuations duplicate forward work. Assigning each selected
 output's seed overwrites aliases and mishandles prefix accumulation. A new vector
 tape layout adds complexity unnecessary for one fixed weighted objective.
 
-Next implement output identity/preflight and prepared batch integration; then
-owning projection/provenance, common-path oracles, bindings and affected scalar
-cost checks. Blocked Jacobians and portfolio timelines remain separate F02 work.
+Remaining work includes the fixed finite-difference oracle, three-language
+boundaries and affected scalar cost checks. Blocked Jacobians and portfolio
+timelines remain separate F02 work.

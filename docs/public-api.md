@@ -240,6 +240,33 @@ Results retain actual execution/product/history snapshots and expose no tape
 state. The [AAD methodology](methodology/aad.md#structured-scalar-risk-results)
 defines units, normalization and estimator provenance.
 
+### Weighted script risk
+
+`ValueByMonteCarloWithWeightedRisk` accepts the same product/model, valuation and
+simulation settings as structured scalar risk, plus a `WeightedRiskRequest_`.
+Native AAD is the default. Output IDs address indexed scalar slots: `payoff`
+for the default receiver, `output:<ordinal>` for other slots. Query them with
+`ScriptRiskOutputAxis` on an indexed product; labels are display data.
+
+```cpp
+Dal::Script::WeightedRiskRequest_ request;
+request.selection_.outputs_ = Dal::Vector_<Dal::String_>{"output:0", "payoff"};
+request.weights_ = Dal::Vector_<>{2.0, -1.0};
+request.selection_.inputs_ = Dal::Vector_<Dal::String_>{"model:0"};
+const auto risk = Dal::ValueByMonteCarloWithWeightedRisk(product, model, 1 << 16, request);
+const double objectiveMean = risk.WeightedValue();
+const auto& components = risk.ComponentMeans();
+const auto& objectiveGradient = risk.Jacobian(); // one row, spot column
+```
+
+Weights are copied passive constants. Results own component means, ordered axes,
+weights, the objective mean/gradient and actual execution provenance. Selecting
+several outputs uses one forward evaluation and one suffix reverse per path.
+The retained numeric payload is `sizeof(double) * (1 + inputs + 2 * outputs)`.
+Vectors, exercise and fully expired products are not supported as weighted
+outputs. See [weighted AAD methodology](methodology/aad.md#weighted-script-risk-results)
+for validation, normalization and the native-empty/price-only distinction.
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

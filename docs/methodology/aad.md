@@ -773,6 +773,37 @@ the exact `(1, 0)` extent. See the [C++ guide](../public-api.md#structured-scrip
 [Python guide](../python/README.md#structured-script-risk) and
 [Excel guide](../excel/script-settings.md#structured-script-risk).
 
+### Weighted Script Risk Results
+
+`ValueByMonteCarloWithWeightedRisk` in `dal-public/src/value.hpp` returns an
+owning passive `Script::WeightedRiskResult_` for one fixed weighted objective.
+Select scalar slots using `request.selection_.outputs_`; omitted outputs select
+`payoff`. Omitted weights are ones. Signed and zero weights are allowed, while
+every selected component must remain finite even at weight zero. Empty, repeated
+or unknown outputs, incompatible weights, exercise and fully expired products
+fail before historical resolution or worker submission.
+
+The driver evaluates the script once per path, gathers the requested slots and
+constructs one weighted native root. Each path reverses its suffix once; each
+batch reverses its prefix once. Constants, direct inputs, historical values and
+aliases use the same recording lifecycle. The scalar objective specialization
+has no weighted buffers or per-path selection branch.
+
+`OutputAxis()`, `Weights()` and `ComponentMeans()` preserve requested order.
+`WeightedValue()` is the objective mean; `Jacobian()` has shape `(1, n)` and
+contains its mean gradient. Native gradients are not divided again during
+projection. `ReportedJacobian()` applies selected input factors to a detached
+copy. The complete input axis and actual preparation provenance are retained.
+The result owns all these passive values and exposes no recording state.
+
+The exact retained numeric budget is
+`sizeof(double) * (1 + n + 2 * components)`: objective value, raw gradient,
+component means and weights. Metadata, source snapshots, temporary worker/tape
+storage and detached getter copies are outside this budget. Explicit empty
+native inputs preserve AAD smoothing and the `(1, 0)` shape; disabling AAD
+explicitly selects price-only execution and rejects nonempty risk selection.
+See the [C++ example](../public-api.md#weighted-script-risk).
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility

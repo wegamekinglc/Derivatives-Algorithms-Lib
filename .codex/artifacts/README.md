@@ -16,6 +16,8 @@ after documenting the current-state outcome.
   output preflight, batch integration and owning three-language delivery.
   [Preflight review](reviews/aad-weighted-preflight.md) records the implemented
   metadata/budget boundary and its remaining execution requirements.
+  [C++ execution review](reviews/aad-weighted-execution.md) records shared
+  prepared batches, owning results, independent references and open acceptance.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

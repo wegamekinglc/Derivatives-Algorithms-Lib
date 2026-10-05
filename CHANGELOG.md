@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-06
 
+- **C++ weighted script risk** — ordered scalar output choices and passive
+  weights produce one native AAD objective, with owning component means,
+  weighted mean/gradient, reporting and preparation provenance. Exact numeric
+  payload preflight precedes history and workers; price-only execution is
+  explicit. See [weighted script risk](docs/public-api.md#weighted-script-risk).
 - **Excel calibration and automatic Dupire requests** — immutable worksheet
   requests and sealed plans expose quote selections, exact retained payload
   budgets, explicit constant/direct dependencies and native AAD results. Passive

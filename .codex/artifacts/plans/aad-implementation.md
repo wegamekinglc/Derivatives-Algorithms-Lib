@@ -659,28 +659,38 @@ Twenty focused tests (ten new plan and ten existing scalar-result cases) pass
 OFF and combined diagnostic/profiling + ASan/UBSan. The CI's existing GCC 14
 warning policy passes; all four ASan/UBSan filters now select the seventeen new
 weighted/plan tests and the related old scalar-root test. See the
-[preflight review](../reviews/aad-weighted-preflight.md). Prepared execution,
-passive results/provenance, bindings and cost acceptance remain open in draft
-PR #483; no full F02 completion is inferred from metadata preflight.
+[preflight review](../reviews/aad-weighted-preflight.md).
+
+Prepared weighted C++ execution and owning results are now implemented in draft
+PR #483. Compile-time objective policies share double/AAD drivers while keeping
+scalar entries free of weighted buffers; one suffix reverse runs per path and
+one prefix reverse per batch. Eight weighted and eight existing risk tests pass
+OFF; seventeen pass with diagnostics/profiling plus ASan/UBSan, including an
+independent sweep-count fixture. Historical aliases, passive result ownership,
+callback mutation, task-drain recovery and common-path component references are
+covered. See the [execution review](../reviews/aad-weighted-execution.md).
+Fixed finite differences, Python/Excel, own-head CI/review and affected paired
+cost acceptance remain open. No full F02 completion is inferred from this C++
+increment; blocked Jacobians, recording budgets and portfolios also remain.
 
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                   | Publication/CI                        | Remaining person-days |
-|-------------------------|---------------------------------------------------------------------|---------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                       | Accepted exact-head checks            | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                           | Accepted exact-head checks            | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass      | Merged; final 35/35 checks accepted   | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted            | Merged; final 35/35 checks accepted   | 0                     |
-| F02                     | Native weighted root started; requests, blocks and portfolio remain | New draft PR; own-head checks pending | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                      | Open                                  | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                | Open                                  | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                            | Open                                  | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain             | Open                                  | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains          | Open                                  | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                       | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|--------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks           | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks           | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted  | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted  | 0                     |
+| F02                     | Weighted C++ root/preflight/batches/results locally verified   | Draft #483; bindings/cost/CI pending | 6–10                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                 | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                 | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                 | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                 | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                 | 7–11                  |
 
-Remaining total: approximately 52–85 person-days, or 10–17 working weeks,
+Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
