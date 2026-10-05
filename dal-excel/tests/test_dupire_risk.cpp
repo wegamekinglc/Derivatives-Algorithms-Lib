@@ -138,7 +138,7 @@ namespace {
         return ValueByMonteCarlo(Product(spreads(0, 0)), model, 257, Valuation(), simulation).at("PV");
     }
 
-    void CheckDirection(const AAD::IVS_& base, bool merton, bool compiled, int coordinate, const Matrix_<>& adjoints) {
+    Matrix_<> QuoteDirection(int coordinate) {
         Matrix_<> direction(3, 2, 0.0);
         if (coordinate < 6)
             direction(coordinate / 2, coordinate % 2) = 1.0;
@@ -146,18 +146,32 @@ namespace {
             for (int row = 0; row < 3; ++row)
                 for (int column = 0; column < 2; ++column)
                     direction(row, column) = std::cos(double(2 * row + column + 1));
-        double aad = 0.0;
+        return direction;
+    }
+
+    double DirectionalAdjoint(const Matrix_<>& adjoints, const Matrix_<>& direction) {
+        double result = 0.0;
         for (int row = 0; row < 3; ++row)
             for (int column = 0; column < 2; ++column)
-                aad += adjoints(row, column) * direction(row, column);
+                result += adjoints(row, column) * direction(row, column);
+        return result;
+    }
+
+    Matrix_<> ScaledDirection(const Matrix_<>& direction, double scale) {
+        auto result = direction;
+        for (int row = 0; row < 3; ++row)
+            for (int column = 0; column < 2; ++column)
+                result(row, column) *= scale;
+        return result;
+    }
+
+    void CheckDirection(const AAD::IVS_& base, bool merton, bool compiled, int coordinate, const Matrix_<>& adjoints) {
+        const auto direction = QuoteDirection(coordinate);
+        const double aad = DirectionalAdjoint(adjoints, direction);
         bool previous = false, adjacent = false;
         for (const double step : {2e-4, 1e-4, 5e-5}) {
-            auto positive = direction, negative = direction;
-            for (int row = 0; row < 3; ++row)
-                for (int column = 0; column < 2; ++column) {
-                    positive(row, column) *= step;
-                    negative(row, column) *= -step;
-                }
+            const auto positive = ScaledDirection(direction, step);
+            const auto negative = ScaledDirection(direction, -step);
             const double fd = (LegacyPrice(base, positive, compiled) - LegacyPrice(base, negative, compiled)) / (2.0 * step);
             const double tolerance = 1e-3 + 1e-3 * std::abs(fd);
             const bool pass = std::isfinite(fd) && std::abs(aad - fd) <= tolerance;

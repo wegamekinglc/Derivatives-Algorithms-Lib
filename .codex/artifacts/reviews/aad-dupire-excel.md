@@ -75,9 +75,29 @@ Raw evidence persists under
   exports. Installed joint and freshly built standalone Python each pass 64
   quote/scalar-risk cases. Preserve the first installed-Python probe's wrong
   package-root failure, then use the actual installed root.
-- Formatting, CCN-eight and documentation checks pass; 82 checked functions,
-  no complexity warnings. All 23 new registration/HTML pairs are generated
+- Formatting, production CCN-eight and documentation checks pass; 82 production
+  functions have no complexity warnings. All 23 new registration/HTML pairs are generated
   with their markup; final generation/drift checks pass.
+
+## Publication correction
+
+Exact Excel publication `ad9681d20bcdf4c6cdb4efc015437ec52be3c230`
+receives a Codacy `action_required`: test helper `CheckDirection` has CCN 12,
+above the unchanged limit of eight. The earlier local complexity scan covers
+production functions and misses this test helper. Retain the exact check and
+annotation in `aad-dupire-excel-codacy-{01,annotations-01}.json` and its local
+RED reproduction, `aad-dupire-excel-test-complexity-red-01.log`.
+
+Separate quote-direction construction, row-major directional accumulation and
+direction scaling into small test helpers. Every original step, tolerance,
+path count, assertion and CSV field remains. The complete corrected test file
+passes CCN-eight: 29 functions, no warnings. OFF and combined each pass all nine
+Excel cases; both retain every one of the 84 published numeric oracle rows
+bitwise (`aad-dupire-excel-codacy-oracle-identity-01.json`). Fully instrumented
+ASan/UBSan passes all 71 relevant cases again, with leak detection disabled.
+Production sources, generated registration, performance inputs and installed
+packages do not change. The corrective publication still requires its own
+exact-head CI acceptance.
 
 ## Performance and limits
 
